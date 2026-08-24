@@ -28,20 +28,31 @@
  * I-54's two bodies, plus F.1's two — a row seeder and a form validator, both in
  * `fileMapping.ts` because they are one flow's and belong together.
  *
- * Still **no `actions` entry**, and after F.1 that is a measurement rather than a
- * wait: `mapFileUF` was expected to need one and its two save buttons became
- * grammar instead. The remaining action escapes belong to flows track F has not
- * migrated (`homeFiltersUF` carries one), and registering a name whose body has
- * not been ported would be the failure `escapes.ts` was written to prevent: a
- * document that loads and does nothing.
+ * **And `homeFilters.ts`'s six, as of F.5, which fills the last empty namespace.**
+ * `actions` was `{}` through four migrated flows and this comment used to explain
+ * why: *the remaining action escapes belong to flows track F has not migrated
+ * (`homeFiltersUF` carries one)*. That flow is migrated, so the entry is here —
+ * `updateHomeFilters`, which compiles the flow's answers into `WhereClause`
+ * objects, and `clearHomeFilters`, which `actionDispatch` names for every
+ * `clearHomeFilters` button. `seedFromHomeFilters` fills `initializers`, which
+ * was likewise empty and is the only `formStateInitializer` in the corpus.
  *
- * `seedFromHomeFilters` is likewise absent. It is `homeFiltersUF`'s
- * `formStateInitializer` and that flow is F.5; the flow will not load until it
- * is registered, which is the intended direction of the error.
+ * **The `predicates` namespace gained two and one of them corrects an assumption.**
+ * `hasDataRegistryFilters` was the *only* predicate because `tableTranslate.ts`
+ * sent every closure to it — true of the 37 flow tables and false of all three on
+ * `pipelineExecStatusTable`. See that file's header for the mapping.
  */
 
 import type { FormState } from "../datatable/formState";
 import { mappingFormValidator, seedMappingRow } from "./fileMapping";
+import {
+  alwaysEnabled,
+  clearHomeFilters,
+  hasHomeFilters,
+  homeFiltersFormValidator,
+  seedFromHomeFilters,
+  updateHomeFilters,
+} from "./homeFilters";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -119,18 +130,23 @@ export const hasDataRegistryFilters = (_formState: FormState, _group: number): b
 /**
  * The registry the application runs with.
  *
- * **`actions` is still empty after F.1, and that is the finding rather than a
- * gap.** `mapFileUF` was expected to need a `saveProcessMapping` action escape —
- * the coverage document named one — and the grammar turned out to express both of
- * its save buttons given `rows: "everyGroup"` and a `require` step. What it could
- * not express is a row seeder and a cross-field validator, which is what the two
- * `fileMapping` entries are.
+ * **Every namespace has an entry as of F.5**, and the last two to fill were the
+ * two `escapes.ts` was designed around: `actions`, which stayed empty through four
+ * migrated flows because the grammar kept swallowing what the coverage pass had
+ * transcribed as escapes (I-74), and `initializers`, which has exactly one member
+ * in the whole corpus.
+ *
+ * **`actions` filling is not evidence the grammar fell short.** F.1's finding was
+ * that a transcription says what the grammar could express when it was written;
+ * this one survived the same question — a step that builds `LIKE` patterns and
+ * `now() - interval '…'` bounds for another screen's `WHERE` is not a missing
+ * primitive. See `homeFilters.ts`.
  */
 export const productionRegistry: EscapeRegistry = {
-  actions: {},
-  initializers: {},
+  actions: { updateHomeFilters, clearHomeFilters },
+  initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },
-  validators: { mappingFormValidator },
+  validators: { mappingFormValidator, homeFiltersFormValidator },
   cellFilters: { fileKeyLabel },
-  predicates: { hasDataRegistryFilters },
+  predicates: { hasDataRegistryFilters, hasHomeFilters, alwaysEnabled },
 };

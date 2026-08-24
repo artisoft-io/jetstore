@@ -100,8 +100,10 @@ func TestShippingTablesPassTheSaveCheck(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 37 {
-		t.Errorf("expected the flows' 37 table configurations, checked %d", checked)
+	// 38 as of F.5: the flows' 37 plus `pipelineExecStatusTable`, which is
+	// registered on the non-flow side and rendered by `homeFiltersUF`.
+	if checked != 38 {
+		t.Errorf("expected the flows' 37 table configurations plus pipelineExecStatusTable, checked %d", checked)
 	}
 }
 

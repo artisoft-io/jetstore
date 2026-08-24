@@ -26,10 +26,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import fileMapping from "./coverage/fileMappingUF.ua.json";
-import homeFilters from "./coverage/homeFiltersUF.ua.json";
 import pipelineConfig from "./coverage/pipelineConfigUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import clientRegistry from "./flows/clientRegistryUF.ua.json";
+import homeFilters from "./flows/homeFiltersUF.ua.json";
 import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
@@ -40,7 +40,6 @@ import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const coverage: Record<string, unknown> = {
   fileMappingUF: fileMapping,
-  homeFiltersUF: homeFilters,
   pipelineConfigUF: pipelineConfig,
   sourceConfigUF: sourceConfig,
 };
@@ -74,6 +73,14 @@ const proof: Record<string, unknown> = {
   // and the coverage document had `fromKeyList` alone, which is `unpackToList(x)`
   // and a different function on the value the table publishes (I-97).
   startPipelineUF: startPipeline,
+  // F.5's re-partition. One delegate file, one flow, nothing to split — and the
+  // first whose arms are not all state actions: `resubmitPipeline` and
+  // `dialogCancel` are reached from the *table*, the second row of it, and from
+  // the dialog that row opens. What changed inside an arm is a step the coverage
+  // document did not have at all: `resubmitPipeline` begins
+  // `state[session_id] = unpack(state[session_id])`, which reads as a no-op
+  // assignment and is a conversion the server type-asserts on (I-100).
+  homeFiltersUF: homeFilters,
 };
 const all = { ...coverage, ...proof };
 
@@ -118,6 +125,24 @@ describe("the coverage fixture", () => {
     // `coverage/` and the same three arrived in `flows/`. Nothing was dropped
     // and nothing duplicated — which is the F.1 shape rather than the F.2 or
     // F.3 one, and is why the count alone would not have told you.
+    //
+    // **Still 54 after F.5's, and its `dialogCancel` is the interesting one.**
+    // Six names left `coverage/` and the same six arrived in `flows/`. Four are
+    // state actions and two are not: `resubmitPipeline` is a table button and
+    // `dialogCancel` is the only button of the dialog that table opens.
+    //
+    // **`dialogCancel` was the arm F.2 dropped from two flows and it is kept
+    // here, which is not an inconsistency.** The test is *what can press it*,
+    // and the answer changed because the port changed the question. In the Dart
+    // this arm is unreachable through `homeFiltersFormActionsUF`: the dialog is
+    // built by `showFormDialog` with `showFailureDetailsDialog`'s own
+    // `formActionsDelegate`, which is `homeFormActions`
+    // (`modules/form_config_impl.dart`), and only the *current state's* form
+    // config has its delegate overridden with the flow's
+    // (`screens/user_flow_screen.dart`). The port has **one action document per
+    // flow rather than one per delegate**, so the dialog's Close button resolves
+    // here — and `validateTableActions` requires exactly that. An arm dead in
+    // the file it was transcribed from, live in the document it becomes (I-101).
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
@@ -142,6 +167,50 @@ describe("the coverage fixture", () => {
       "deleteOrgAction",
       "dialogCancel",
     ]);
+  });
+
+  it("holds homeFiltersUF's four state actions plus the two its table reaches", () => {
+    // F.5. `home_filters/form_action_delegates.dart` declares six `case` labels
+    // in one switch — four `hf*` state actions falling through to one body,
+    // `resubmitPipeline` and `dialogCancel`. All six are reachable and all six
+    // are here, which is the first migrated flow where a *table* contributes
+    // both an action and a form: `pipelineExecStatusTable`'s second row carries
+    // `resubmitPipeline` and opens `showFailureDetailsDialog`, whose only button
+    // is `dialogCancel`.
+    expect(Object.keys((homeFilters as ActionDocument).actions).sort()).toEqual([
+      "dialogCancel",
+      "hfSelectFileKeyFilterUF",
+      "hfSelectProcessUF",
+      "hfSelectStatusUF",
+      "hfSelectTimeWindowUF",
+      "resubmitPipeline",
+    ]);
+    // The plan's *Actions* column reads 4 and counts `stateAction` declarations,
+    // which F.4 established is the wrong count for arms. Six `case` labels, four
+    // of them one body.
+    const bodies = new Set(
+      ["hfSelectProcessUF", "hfSelectStatusUF", "hfSelectFileKeyFilterUF", "hfSelectTimeWindowUF"].map(
+        (k) => JSON.stringify((homeFilters as ActionDocument).actions[k]!.steps),
+      ),
+    );
+    expect(bodies.size).toBe(1);
+  });
+
+  it("normalises session_id before posting it, which the coverage document did not", () => {
+    // **I-100, and it is a 400 rather than a subtlety.** `resubmitPipeline` opens
+    // `state[FSK.sessionId] = unpack(state[FSK.sessionId])`
+    // (`modules/actions/config_delegates.dart`, `resubmitPipeline`) — a
+    // self-assignment, which is why a transcription reads it as a no-op and drops
+    // it. `session_id` is column 10 of `pipelineExecStatusTable`'s
+    // `formStateBinding`, so a selection publishes it as a one-element list
+    // (`components/data_table_source.dart`, `resetSecondaryKeys`), and the server
+    // does `dataTableAction.Data[0]["session_id"].(string)`
+    // (`jets/apiserver/api_tables.go`, `resubmit_pipeline`). Without the step the
+    // payload carries `["s1"]` and every Resubmit answers
+    // `session_id must be string in resubmit_pipeline`.
+    const steps = (homeFilters as ActionDocument).actions["resubmitPipeline"]!.steps;
+    expect(steps[0]).toEqual({ do: "set", key: "session_id", value: { fromKey: "session_id" } });
+    expect(steps[1]!.do).toBe("post");
   });
 
   it("holds every startPipelineUF arm a state names, and the flow has no others", () => {

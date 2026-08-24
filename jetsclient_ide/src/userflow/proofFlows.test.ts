@@ -20,10 +20,21 @@
 
 import { describe, expect, it } from "vitest";
 
-import { emptyRegistry } from "../actions/escapes";
+import { emptyRegistry, type EscapeRegistry } from "../actions/escapes";
+import {
+  currentDataRegistryFilters,
+  currentHomeFilters,
+  homeFiltersFormValidator,
+  resetHomeFilters,
+  savedHomeFilterState,
+  seedFromHomeFilters,
+  setIdFilter,
+  updateHomeFilters,
+} from "../actions/homeFilters";
 import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
+import homeFiltersActionsDoc from "../actions/flows/homeFiltersUF.ua.json";
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
@@ -32,6 +43,7 @@ import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
 import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
+import homeFiltersFormsDoc from "./forms/homeFiltersUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
@@ -39,6 +51,7 @@ import startPipelineFormsDoc from "./forms/startPipelineUF.form.json";
 import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
 import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
+import homeFiltersFlowDoc from "./flows/homeFiltersUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
@@ -54,6 +67,12 @@ function harness(
   flowDoc: unknown,
   actionsDoc: unknown,
   formsDoc: unknown,
+  /**
+   * The escapes this run resolves. Defaulted to `emptyRegistry`, which is what
+   * every flow before F.5 needed — `homeFiltersUF` is the first whose behaviour
+   * is partly in an escape body, so it is the first that has to supply one.
+   */
+  registry: EscapeRegistry = emptyRegistry,
 ) {
   const flow = UserFlowSchema.parse(flowDoc) as UserFlow;
   const actions = ActionDocumentSchema.parse(actionsDoc) as ActionDocument;
@@ -89,7 +108,7 @@ function harness(
         host,
         formState,
         field,
-        registry: emptyRegistry,
+        registry,
         flowKey: "test",
       });
     }
@@ -104,7 +123,7 @@ function harness(
           host,
           formState,
           field,
-          registry: emptyRegistry,
+          registry,
           flowKey: "test",
         }),
       validate: () => isFormValid(formFor(position.stateKey), formState, 0),
@@ -141,6 +160,7 @@ describe("the documents are complete and consistent", () => {
     ["workspacePullUF", workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc],
     ["clientRegistryUF", clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc],
     ["startPipelineUF", startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc],
+    ["homeFiltersUF", homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -918,6 +938,161 @@ describe("start_pipeline, end to end", () => {
       "ufCancel",
       "ufCompleted",
     ]);
+  });
+});
+
+/**
+ * `homeFiltersUF`, end to end. Task F.5.
+ *
+ * **The first flow whose behaviour is partly an escape**, so the harness runs with
+ * a registry rather than with `emptyRegistry` — which is the point of driving it
+ * here rather than only asserting the document. What the escape produces is two
+ * lists of `WhereClause` objects that a *different* screen's query builder reads,
+ * and nothing about the flow says whether they are right.
+ */
+describe("home_filters, end to end", () => {
+  const registry: EscapeRegistry = {
+    actions: { updateHomeFilters },
+    initializers: { seedFromHomeFilters },
+    rowInitializers: {},
+    validators: { homeFiltersFormValidator },
+    cellFilters: {},
+    predicates: {},
+  };
+  const setup = () => {
+    resetHomeFilters();
+    return harness(homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc, registry);
+  };
+
+  it("walks its five states and ends where the table is", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_process");
+    for (const next of ["select_status", "select_file_key_filter", "select_time_window", "view_status_table"]) {
+      // The file-key state requires a filter type, so it is chosen on the way
+      // through — the same value a user would pick to reach the next screen.
+      if (h.at() === "select_file_key_filter") {
+        h.formState.setValue(0, "hfFileKeyFilterTypeTableUF", ["None"]);
+      }
+      expect(await h.press("ufNext")).toBeNull();
+      expect(h.at()).toBe(next);
+    }
+    expect(h.flow.states["view_status_table"]!.isEnd).toBe(true);
+    expect(h.formFor("view_status_table").actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCancel",
+      "ufCompleted",
+    ]);
+  });
+
+  it("compiles the answers into the two filter lists, in the Dart's order", async () => {
+    const h = setup();
+    h.formState.setValue(0, "process_name", ["loadFile", "runRules"]);
+    h.formState.setValue(0, "status", ["failed"]);
+    h.formState.setValue(0, "hfFileKeyMatchType", ["starts_with"]);
+    h.formState.setValue(0, "hfFileKeySubstring", ["client1/"]);
+    h.formState.setValue(0, "hfStartOffset", ["3 days"]);
+    h.formState.setValue(0, "hfEndTime", ["2026-08-24T12:00:00Z"]);
+    expect(await h.press("hfSelectTimeWindowUF")).toBeNull();
+
+    // **Order is asserted, not just membership.** The list is sent as an array and
+    // becomes `WHERE` clauses in that order, so a reordering is a different query
+    // text against a live table (I-90's shape, on a different document).
+    expect(currentHomeFilters()).toEqual([
+      { table: "pipeline_execution_status", column: "process_name", defaultValue: ["loadFile", "runRules"], lookupColumnInFormState: false },
+      { table: "pipeline_execution_status", column: "status", defaultValue: ["failed"], lookupColumnInFormState: false },
+      { table: "pipeline_execution_status", column: "main_input_file_key", like: "client1/%", defaultValue: [], lookupColumnInFormState: false },
+      { table: "pipeline_execution_status", column: "start_time", ge: "now()-interval '3 days'", defaultValue: [], lookupColumnInFormState: false },
+      { table: "pipeline_execution_status", column: "start_time", le: "timestamp '2026-08-24T12:00:00Z'", defaultValue: [], lookupColumnInFormState: false },
+    ]);
+    expect(currentDataRegistryFilters()!.map((w) => [w.column, w.like ?? w.ge ?? w.le])).toEqual([
+      ["file_key", "client1/%"],
+      ["last_update", "now()-interval '3 days'"],
+      ["last_update", "timestamp '2026-08-24T12:00:00Z'"],
+    ]);
+  });
+
+  it("treats the None filter type as no file-key clause at all", async () => {
+    const h = setup();
+    // `None`'s value column is the empty string, so `fkMatchType` is `""` and the
+    // Dart's switch falls to `default:` — no clause on either list.
+    h.formState.setValue(0, "hfFileKeyMatchType", [""]);
+    h.formState.setValue(0, "hfFileKeySubstring", ["ignored"]);
+    await h.press("hfSelectFileKeyFilterUF");
+    expect(currentHomeFilters()).toEqual([]);
+    expect(currentDataRegistryFilters()).toEqual([]);
+  });
+
+  it("requires a file-key fragment only once a filter type other than None is chosen", () => {
+    const h = setup();
+    const form = h.formFor("select_file_key_filter");
+    const context = { formState: h.formState, group: 0, flowKey: "homeFiltersUF" };
+
+    // Nothing chosen: the table's own `required` rule fires and the substring's
+    // cross-field rule does not.
+    expect(validateForm(form, h.formState, 0).map((e) => e.key)).toEqual(["hfFileKeyFilterTypeTableUF"]);
+    expect(homeFiltersFormValidator(context, "hfFileKeySubstring", null)).toBeNull();
+
+    h.formState.setValue(0, "hfFileKeyFilterTypeTableUF", ["None"]);
+    expect(homeFiltersFormValidator(context, "hfFileKeySubstring", null)).toBeNull();
+
+    h.formState.setValue(0, "hfFileKeyFilterTypeTableUF", ["Contains"]);
+    expect(homeFiltersFormValidator(context, "hfFileKeySubstring", null)).toBe(
+      "Enter a file key fragment",
+    );
+    expect(homeFiltersFormValidator(context, "hfFileKeySubstring", ["abc"])).toBeNull();
+  });
+
+  it("saves the answers and seeds the next run from them", async () => {
+    const first = setup();
+    first.formState.setValue(0, "hfProcessTableUF", ["loadFile"]);
+    first.formState.setValue(0, "process_name", ["loadFile"]);
+    first.formState.setValue(0, "hfStartOffset", ["12 hours"]);
+    await first.press("hfSelectProcessUF");
+    expect(savedHomeFilterState()).toEqual({
+      hfProcessTableUF: ["loadFile"],
+      process_name: ["loadFile"],
+      hfStartOffset: ["12 hours"],
+    });
+
+    // A second run of the flow, with a fresh form state — the router outlives the
+    // screen and the form state does not, which is the whole reason
+    // `formStateInitializer` exists and why `homeFiltersUF` is its only user.
+    const second = harness(homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc, registry);
+    seedFromHomeFilters({ formState: second.formState, group: 0, flowKey: "homeFiltersUF" });
+    expect(second.formState.getValue(0, "hfProcessTableUF")).toEqual(["loadFile"]);
+    expect(second.formState.getValue(0, "hfStartOffset")).toEqual(["12 hours"]);
+  });
+
+  it("unpacks session_id before posting the resubmit, or the server answers 400", async () => {
+    const h = setup();
+    // What the table publishes: `session_id` is column 10 of the
+    // `formStateBinding`, so a selection is a one-element list.
+    h.formState.setValue(0, "session_id", ["sess-1"]);
+    expect(await h.press("resubmitPipeline")).toBeNull();
+    expect(h.posts).toHaveLength(1);
+    expect(h.posts[0]!.body).toEqual({
+      action: "resubmit_pipeline",
+      data: [{ session_id: "sess-1" }],
+    });
+  });
+
+  it("replaces the filters wholesale when a session id list is entered", () => {
+    resetHomeFilters();
+    setIdFilter("session_id", "s1, s2 ,s3");
+    expect(currentHomeFilters()).toEqual([
+      { table: "pipeline_execution_status", column: "session_id", defaultValue: ["s1", "s2", "s3"], lookupColumnInFormState: false },
+    ]);
+    // The data-registry half joins rather than filtering, and the join column
+    // differs between the two prompts — `input_session_id` here.
+    expect(currentDataRegistryFilters()!.map((w) => w.joinWith ?? w.defaultValue)).toEqual([
+      "pipeline_execution_status.input_session_id",
+      ["s1", "s2", "s3"],
+    ]);
+
+    setIdFilter("request_id", "r1");
+    expect(currentDataRegistryFilters()![0]!.joinWith).toBe(
+      "pipeline_execution_status.input_request_id",
+    );
   });
 });
 

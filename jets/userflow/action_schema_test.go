@@ -55,8 +55,8 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// 3 as of F.1 (mapFileUF, 2026-08-23); 5 as of F.2 (loadConfigUF and
 	// workspacePullUF, 2026-08-23 — one task, because they are one delegate file);
 	// 6 as of F.3 (clientRegistryUF, 2026-08-23); 7 as of F.4 (startPipelineUF,
-	// 2026-08-24).
-	const migratedFlows = 7
+	// 2026-08-24); 8 as of F.5 (homeFiltersUF, 2026-08-24).
+	const migratedFlows = 8
 	if len(names) != migratedFlows {
 		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
 	}
@@ -87,12 +87,14 @@ func TestProofFlowActionsValidate(t *testing.T) {
 // **The count falls as track F lands flows, and it falling is the point.** Seven
 // until F.2 re-partitioned workspacePullUF.ua.json into two runtime documents
 // and deleted it; six then, five since F.3 did the same for clientRegistryUF,
-// and four since F.4 did it for startPipelineUF. F.9 retires whatever is left.
+// four since F.4 did it for startPipelineUF, and three since F.5 did it for
+// homeFiltersUF. F.9 retires whatever is left — `fileMappingUF`,
+// `pipelineConfigUF` and `sourceConfigUF`, which are F.8, F.6 and F.7.
 func TestCoverageActionsValidate(t *testing.T) {
 	schema := compileActionSchema(t)
 	names, err := filepath.Glob(filepath.Join(coverageDir, "*.ua.json"))
-	if err != nil || len(names) != 4 {
-		t.Fatalf("expected four coverage documents at %s, found %d (err %v)",
+	if err != nil || len(names) != 3 {
+		t.Fatalf("expected three coverage documents at %s, found %d (err %v)",
 			coverageDir, len(names), err)
 	}
 	for _, path := range names {

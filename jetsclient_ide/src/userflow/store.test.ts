@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { emptyRegistry, type EscapeRegistry } from "../actions/escapes";
 import { productionRegistry } from "../actions/registry";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
-import homeFiltersActions from "../actions/coverage/homeFiltersUF.ua.json";
+import homeFiltersActions from "../actions/flows/homeFiltersUF.ua.json";
 import type { WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
@@ -21,6 +21,11 @@ import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 import { tablePath } from "../datatable/table";
+import homeFiltersForms from "./forms/homeFiltersUF.form.json";
+import hfProcessTable from "../datatable/tables/hfProcessTableUF.tc.json";
+import hfStatusTable from "../datatable/tables/hfStatusTableUF.tc.json";
+import hfFileKeyFilterTypeTable from "../datatable/tables/hfFileKeyFilterTypeTableUF.tc.json";
+import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
 import loadFilesForms from "./forms/loadFilesUF.form.json";
 import {
   FLOW_DIR,
@@ -225,6 +230,64 @@ const loadFilesWorkspace = () => ({
   ...workspace("loadFilesUF", loadFilesFlow, loadFilesActions, loadFilesForms),
   [tablePath("lfSourceConfigTable")]: serialise(lfSourceConfigTable),
   [tablePath("lfFileKeyStagingTable")]: serialise(lfFileKeyStagingTable),
+});
+
+/**
+ * `homeFiltersUF`'s whole set, against the registry the app ships. Task F.5.
+ *
+ * **This is the assertion the task exists to make**, and it is stronger than any
+ * of the per-document ones: four documents, four table configurations and six
+ * escape names across three namespaces, checked by the same six passes
+ * `FlowStore.load` runs in the browser. Every earlier flow could load with
+ * `emptyRegistry`; this one cannot, which is why `productionRegistry` is not
+ * incidental here.
+ */
+const homeFiltersWorkspace = () => ({
+  ...workspace("homeFiltersUF", homeFiltersFlow, homeFiltersActions, homeFiltersForms),
+  [tablePath("hfProcessTableUF")]: serialise(hfProcessTable),
+  [tablePath("hfStatusTableUF")]: serialise(hfStatusTable),
+  [tablePath("hfFileKeyFilterTypeTableUF")]: serialise(hfFileKeyFilterTypeTable),
+  [tablePath("pipelineExecStatusTable")]: serialise(execStatusTable),
+});
+
+describe("homeFiltersUF against the shipping registry", () => {
+  it("loads, with every escape name in this build", async () => {
+    const { store } = storeFor(homeFiltersWorkspace(), productionRegistry);
+    const loaded = await store.load("homeFiltersUF");
+    expect(Object.keys(loaded.forms.forms).sort()).toEqual([
+      "hfSelectFileKeyFilterUF",
+      "hfSelectProcessUF",
+      "hfSelectStatusUF",
+      "hfSelectTimeWindowUF",
+      "hfViewStatusTableUF",
+      "showFailureDetailsDialog",
+    ]);
+    // Four tables, and the fourth is the one registered on the non-flow side
+    // (F18). `showFailureDetailsDialog` names no table, so the count is the five
+    // states' four distinct ones.
+    expect(Object.keys(loaded.tables).sort()).toEqual([
+      "hfFileKeyFilterTypeTableUF",
+      "hfProcessTableUF",
+      "hfStatusTableUF",
+      "pipelineExecStatusTable",
+    ]);
+  });
+
+  it("refuses the set when the dialog form is missing, through the second row", async () => {
+    // `showFailureDetailsDialog` is named by no *state* — it is
+    // `pipelineExecStatusTable`'s `viewFailureDetails` `configForm`, on the second
+    // action row. I-89 and F.5's widening of `validateTableActions` together.
+    const files = homeFiltersWorkspace();
+    const forms = structuredClone(homeFiltersForms) as { forms: Record<string, unknown> };
+    delete forms.forms["showFailureDetailsDialog"];
+    files[formPath("homeFiltersUF")] = serialise(forms);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("homeFiltersUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings[0]!.message).toContain("showFailureDetailsDialog");
+  });
 });
 
 describe("the form and table documents", () => {

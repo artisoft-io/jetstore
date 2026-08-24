@@ -6,6 +6,10 @@
         {
           "additionalProperties": false,
           "properties": {
+            "calculatedAs": {
+              "minLength": 1,
+              "type": "string"
+            },
             "cellFilter": {
               "description": "A key naming a state, form, action or form-state entry",
               "minLength": 1,
@@ -48,6 +52,10 @@
         {
           "additionalProperties": false,
           "properties": {
+            "calculatedAs": {
+              "minLength": 1,
+              "type": "string"
+            },
             "cellFilter": {
               "description": "A key naming a state, form, action or form-state entry",
               "minLength": 1,
@@ -279,7 +287,9 @@
         "showScreen",
         "refreshTable",
         "toggleCheckboxVisible",
-        "clearHomeFilters"
+        "clearHomeFilters",
+        "setSessionIdFilter",
+        "setRequestIdFilter"
       ],
       "type": "string"
     },
@@ -391,6 +401,13 @@
         "schemaVersion": {
           "const": 1,
           "type": "number"
+        },
+        "secondRowActions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "minItems": 1,
+          "type": "array"
         },
         "showSelectedOnly": {
           "type": "boolean"

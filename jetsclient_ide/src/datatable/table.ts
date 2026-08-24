@@ -140,6 +140,27 @@ const columnCommon = {
    * can, which is what S.2a built the registry for.
    */
   cellFilter: Identifier.optional(),
+  /**
+   * A SQL expression the server selects in place of the column. Task F.5.
+   *
+   * **Never set by a flow's 37 tables and set by exactly one column of the first
+   * non-flow table this project authored** — `run_duration` on
+   * `pipelineExecStatusTable`, which is `AGE(last_update, start_time)` and has no
+   * column behind it (`modules/data_table_config_impl.dart`, `run_duration`). The
+   * query builder has always emitted it (`datatable/query.ts`, `makeQuery` sends
+   * `calculatedAs` per selected column); what was missing was a way to author it,
+   * which is the same one-sided gap I-62 described for `isReadOnly`.
+   *
+   * **It is a string the server splices into the select list, and that is worth
+   * naming rather than leaving to the reader.** `apiAction` was dropped from this
+   * document because an authored value reaches a switch in the apiserver (S.7's
+   * confused deputy); this one reaches SQL. The two differ in that a table
+   * configuration is workspace content edited by a user who already holds
+   * `workspace_ide`, and that `calculatedAs` cannot name an action — but it is
+   * the widest field in the document and the next person to widen this schema
+   * should know it is here. Recorded as **I-104**.
+   */
+  calculatedAs: z.string().min(1).optional(),
 } as const;
 
 export const ColumnSchema = z
@@ -213,7 +234,13 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
  * `refreshTable` (1), `toggleCheckboxVisible` (3), `clearHomeFilters` (3),
  * `showScreen` (3), `showDialog` (2), `doActionShowDialog` (3), `doAction` (10).
  *
- * Track C's 28 add `setSessionIdFilter` and `setRequestIdFilter`, one each.
+ * **Nine as of F.5, and the two extra arrived from track F rather than track C.**
+ * This comment said *track C's 28 add `setSessionIdFilter` and `setRequestIdFilter`,
+ * one each* — true about where they are counted and wrong about who meets them
+ * first. Both are on `pipelineExecStatusTable`, the one configuration registered
+ * on the non-flow side and rendered by a flow (**F18**), so `homeFiltersUF` could
+ * not be authored without them. The prediction was right about the number and
+ * wrong about the schedule, which is what F18 is for.
  */
 export const ActionTypeSchema = z
   .enum([
@@ -224,6 +251,8 @@ export const ActionTypeSchema = z
     "refreshTable",
     "toggleCheckboxVisible",
     "clearHomeFilters",
+    "setSessionIdFilter",
+    "setRequestIdFilter",
   ])
   .meta({ id: "TableActionType" });
 
@@ -343,6 +372,27 @@ export const TableConfigDocumentSchema = z
       from: z.array(FromClauseSchema).min(1),
       where: z.array(WhereClauseSchema).optional(),
       actions: z.array(TableActionSchema).optional(),
+      /**
+       * A second row of buttons, enabled by a selected row. Task F.5.
+       *
+       * **Empty on all 37 flow tables and five entries long on the first non-flow
+       * one**, which is why it was cut and why it is back: `pipelineExecStatusTable`
+       * puts *View Execution Details*, *View Process Errors*, *View Failure
+       * Details*, *View Execution Stats* and *Resubmit* here
+       * (`modules/data_table_config_impl.dart`, `secondRowActions`).
+       *
+       * **Same element type as `actions`, deliberately.** The Dart's two lists hold
+       * the same class and differ only in where the widget draws them
+       * (`components/data_table.dart`, `_actionsRow`), so a second schema would be
+       * a distinction the configuration does not make. What differs is convention:
+       * four of the five set `isEnabledWhenHavingSelectedRows`, because a row
+       * action without a row has nothing to act on.
+       *
+       * **`validateTableActions` reads both** (`userflow/documentSet.ts`) — I-88's
+       * check would otherwise have been blind to the two entries here that name a
+       * form and an action, which is every cross-document reference this table has.
+       */
+      secondRowActions: z.array(TableActionSchema).min(1).optional(),
       /** Re-query when one of these form-state keys changes. Two tables use it. */
       refreshOnKeyUpdateEvent: z.array(Identifier).min(1).optional(),
     }),
@@ -394,7 +444,10 @@ export function escapeNamesOf(table: TableConfigDocument): string[] {
   const names = new Set<string>();
   for (const column of table.columns) if (column.cellFilter) names.add(column.cellFilter);
   if (table.source === "query")
-    for (const action of table.actions ?? []) if (action.isEnabled) names.add(action.isEnabled);
+    // Both rows, since F.5 — an `isEnabled` on a second-row button resolves out of
+    // the same registry and an unresolved one must fail the load the same way.
+    for (const action of [...(table.actions ?? []), ...(table.secondRowActions ?? [])])
+      if (action.isEnabled) names.add(action.isEnabled);
   return [...names].sort();
 }
 
@@ -441,6 +494,10 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
 export function actionNamesOf(table: TableConfigDocument): string[] {
   if (table.source !== "query") return [];
   const names = new Set<string>();
-  for (const action of table.actions ?? []) if (action.actionName) names.add(action.actionName);
+  // Both rows since F.5: `resubmitPipeline` is `pipelineExecStatusTable`'s only
+  // `doAction` and it is a second-row button, so a first-row-only walk would have
+  // reported this table as naming no action at all.
+  for (const action of [...(table.actions ?? []), ...(table.secondRowActions ?? [])])
+    if (action.actionName) names.add(action.actionName);
   return [...names].sort();
 }

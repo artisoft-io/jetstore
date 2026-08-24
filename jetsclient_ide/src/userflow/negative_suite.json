@@ -4340,7 +4340,7 @@
           {
             "name": "client",
             "label": "Client",
-            "calculatedAs": "1"
+            "columnWidth": 400
           }
         ],
         "sortColumn": "client",

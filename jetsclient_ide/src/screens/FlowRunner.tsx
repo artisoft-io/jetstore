@@ -45,6 +45,11 @@ import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
 import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
+import {
+  currentDataRegistryFilters,
+  currentHomeFilters,
+  setIdFilter,
+} from "../actions/homeFilters";
 import type { ActionRequest } from "../datatable/actionDispatch";
 import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
@@ -420,6 +425,20 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           );
           return;
         }
+        case "promptFilter": {
+          // **`window.prompt` rather than a dialog, and that is faithful rather
+          // than a shortcut.** The Dart's `showGetInputDialog` is one `TextField`
+          // with CANCEL and OK (`jetsclient/lib/components/dialogs.dart`,
+          // `showGetInputDialog`), which is what a prompt is; `host.confirm`
+          // already maps the same way. Cancel yields null and the Dart's
+          // `if (sessionIds != null)` guard is the same check.
+          const answer = window.prompt(request.prompt);
+          if (answer === null) return;
+          setIdFilter(request.column, answer);
+          formState.notifyListeners();
+          formState.requestRefresh();
+          return;
+        }
         case "openDialog":
         case "runActionThenDialog":
           setError(
@@ -432,6 +451,21 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   );
 
   const onFormAction = useCallback((action: FormAction) => void press(action.action), [press]);
+
+  /**
+   * The filters every table on the form is queried with. Task F.5.
+   *
+   * **Rebuilt whenever the form state notifies**, which is what makes the escape
+   * visible: `updateHomeFilters` writes a module-level store and calls
+   * `notifyListeners`, `stateVersion` bumps, this memo recomputes, and
+   * `useTableBinding` sees a new context object and therefore a new query
+   * payload. Keying a table refresh off `requestRefresh` alone would refetch with
+   * the *old* payload, which is the failure this is shaped to avoid.
+   */
+  const tableContext = useMemo(
+    () => ({ homeFilters: currentHomeFilters(), dataRegistryFilters: currentDataRegistryFilters() }),
+    [stateVersion],
+  );
 
   if (key === undefined) return null;
 
@@ -503,6 +537,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
               : Math.min(repeatRows?.length ?? 0, formState.groupCount),
           tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
           fetcher,
+          tableContext,
           predicates: productionRegistry.predicates,
           cellFilters: (tableKey) => cellFiltersFor(loaded.flow, tableKey),
           onTableAction,

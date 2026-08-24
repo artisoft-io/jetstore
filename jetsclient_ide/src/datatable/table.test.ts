@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import corpus from "./fixtures/table_configs.json";
+import screenCorpus from "../screens/fixtures/screen_configs.json";
 import {
   TableConfigDocumentSchema,
   actionNamesOf,
@@ -29,14 +30,43 @@ import {
   tablePath,
   type TableConfigDocument,
 } from "./table";
-import { fromDocument, toDocuments } from "./tableTranslate";
+import { fromDocument, toDocument, toDocuments } from "./tableTranslate";
 import type { TableConfig } from "./types";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
 
 const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<string, TableConfig>;
-const documents = toDocuments(tables);
+
+/**
+ * The one non-flow configuration this directory carries, and why it is here.
+ *
+ * **F18, arriving as a file.** `pipelineExecStatusTable` is registered on the
+ * non-flow side and *rendered* by `homeFiltersUF`'s last state, so F.5 cannot
+ * author that flow without it — `FlowStore.load` reads a document for every table
+ * a form names (`userflow/store.ts`, `loadTables`) and refuses the set when one is
+ * missing. It is translated out of `screens/fixtures/screen_configs.json` rather
+ * than hand-written, for the same reason the 37 are: a document written by hand is
+ * a reading of the Dart and a document translated from the corpus is a
+ * measurement of it.
+ *
+ * **The other 27 non-flow tables stay out of this directory until a screen needs
+ * them**, which is C.6's decision to make and not this task's. What F.5 owes track
+ * C is the *shape* — the schema fields this one needed and the escape names it
+ * introduced — and that is what the assertions below pin down.
+ */
+const screenTables = (screenCorpus as { tables: Record<string, unknown> }).tables as Record<
+  string,
+  TableConfig
+>;
+const NON_FLOW_KEYS = ["pipelineExecStatusTable"] as const;
+
+const flowDocuments = toDocuments(tables);
+const documents: Record<string, TableConfigDocument> = {
+  ...flowDocuments,
+  ...Object.fromEntries(NON_FLOW_KEYS.map((key) => [key, toDocument(screenTables[key]!)])),
+};
+const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 const documentOf = (key: string) => `${JSON.stringify(documents[key], null, 2)}\n`;
 
 describe("the emitted JSON Schema", () => {
@@ -46,7 +76,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 37 translated configurations committed beside it, for the Go check", () => {
+  it("has the 38 translated configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -92,8 +122,9 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate", () => {
-    expect(Object.keys(documents).length).toBe(37);
+  it("all translate, and the one non-flow table F.5 needed makes 38", () => {
+    expect(Object.keys(flowDocuments).length).toBe(37);
+    expect(Object.keys(documents).length).toBe(38);
   });
 
   it("all validate against the schema", () => {
@@ -109,8 +140,8 @@ describe("the 37 shipping configurations", () => {
     // The check the schema's cuts have to survive. Each cut in `table.ts` was
     // made because no configuration sets the field; if one does, this fails
     // rather than the document quietly meaning less than the Dart.
-    for (const [key, config] of Object.entries(tables)) {
-      expect({ [key]: fromDocument(key, documents[key]!) }).toEqual({ [key]: config });
+    for (const key of Object.keys(documents)) {
+      expect({ [key]: fromDocument(key, documents[key]!) }).toEqual({ [key]: configOf(key) });
     }
   });
 
@@ -118,7 +149,7 @@ describe("the 37 shipping configurations", () => {
     // Derived from the documents; checked against a count taken from the corpus
     // a different way — `apiPath` being empty is how the Dart says "static", and
     // the discriminant is this schema's invention.
-    const byKind = Object.values(documents).reduce<Record<string, number>>(
+    const byKind = Object.values(flowDocuments).reduce<Record<string, number>>(
       (acc, d) => ({ ...acc, [d.source]: (acc[d.source] ?? 0) + 1 }),
       {},
     );
@@ -129,7 +160,7 @@ describe("the 37 shipping configurations", () => {
 
   it("carry the corpus's 275 columns, 25 actions and 49 where clauses", () => {
     const count = (f: (d: TableConfigDocument) => number) =>
-      Object.values(documents).reduce((n, d) => n + f(d), 0);
+      Object.values(flowDocuments).reduce((n, d) => n + f(d), 0);
     expect({
       columns: count((d) => d.columns.length),
       actions: count((d) => (d.source === "query" ? (d.actions ?? []).length : 0)),
@@ -142,17 +173,106 @@ describe("the 37 shipping configurations", () => {
     // and reading them showed two bodies written three times each. Naming them
     // is what collapses the duplication; this asserts the collapse rather than
     // leaving it in a comment.
-    const names = new Set(Object.values(documents).flatMap((d) => escapeNamesOf(d)));
+    const names = new Set(Object.values(flowDocuments).flatMap((d) => escapeNamesOf(d)));
     expect([...names].sort()).toEqual(["fileKeyLabel", "hasDataRegistryFilters"]);
   });
 
   it("name eleven action-document entries", () => {
-    const names = new Set(Object.values(documents).flatMap((d) => actionNamesOf(d)));
+    const names = new Set(Object.values(flowDocuments).flatMap((d) => actionNamesOf(d)));
     expect(names.size).toBe(11);
   });
 
   it("put every table configuration under table_configs/", () => {
     expect(tablePath("lfSourceConfigTable")).toBe("table_configs/lfSourceConfigTable.tc.json");
+  });
+});
+
+/**
+ * The decisions C.6 inherits. Task F.5.
+ *
+ * **F.5 and C.6 both want `pipelineExecStatusTable` and F.5 ran first**, so these
+ * are set here rather than read from track C (plan §3, F18). They are asserted
+ * rather than described because a decision recorded only in prose is a decision
+ * the next task can contradict without anything failing.
+ */
+describe("pipelineExecStatusTable, the table track C and track F share", () => {
+  const doc = documents["pipelineExecStatusTable"]!;
+
+  it("is a query table with two from clauses and the source_period join", () => {
+    expect(doc.source).toBe("query");
+    if (doc.source !== "query") return;
+    expect(doc.from).toEqual([
+      { schema: "jetsapi", table: "pipeline_execution_status" },
+      { schema: "jetsapi", table: "source_period" },
+    ]);
+    expect(doc.where).toEqual([{ column: "source_period_key", joinWith: "source_period.key" }]);
+  });
+
+  it("keeps the six action-bar buttons in order and the five row buttons apart", () => {
+    if (doc.source !== "query") return;
+    expect((doc.actions ?? []).map((a) => [a.key, a.action])).toEqual([
+      ["startPipeline", "showScreen"],
+      ["refreshTable", "refreshTable"],
+      ["setHomeFilters", "showScreen"],
+      ["setSessionIdFilters", "setSessionIdFilter"],
+      ["setRequestIdFilters", "setRequestIdFilter"],
+      ["clearHomeFilters", "clearHomeFilters"],
+    ]);
+    expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
+      "viewStatusDetails",
+      "viewProcessErrors",
+      "viewFailureDetails",
+      "viewExecStatsDetails",
+      "resubmitPipeline",
+    ]);
+  });
+
+  it("names the three closures apart, which the blanket mapping did not", () => {
+    // The F.5 correction. `translateAction` sent every `hasIsEnabledFnc` to
+    // `hasDataRegistryFilters`, which is true of the 37 and false of all three
+    // here — `clearHomeFilters` reads `homeFilters` and the two prompt buttons
+    // are `(state) => true`.
+    if (doc.source !== "query") return;
+    expect((doc.actions ?? []).filter((a) => a.isEnabled).map((a) => [a.key, a.isEnabled])).toEqual([
+      ["setSessionIdFilters", "alwaysEnabled"],
+      ["setRequestIdFilters", "alwaysEnabled"],
+      ["clearHomeFilters", "hasHomeFilters"],
+    ]);
+    expect(escapeNamesOf(doc)).toEqual(["alwaysEnabled", "fileKeyLabel", "hasHomeFilters"]);
+  });
+
+  it("carries the second row's cross-document references, so I-88's check sees them", () => {
+    // `resubmitPipeline` is the flow's only table-run action and
+    // `showFailureDetailsDialog` its only table-opened form, and **both are on the
+    // second row**. Before F.5 `actionNamesOf` and `validateTableActions` walked
+    // the first row alone, so this table would have reported no references at all.
+    expect(actionNamesOf(doc)).toEqual(["resubmitPipeline"]);
+    if (doc.source !== "query") return;
+    expect((doc.secondRowActions ?? []).find((a) => a.action === "showDialog")?.configForm).toBe(
+      "showFailureDetailsDialog",
+    );
+  });
+
+  it("authors the one calculated column and drops nothing else", () => {
+    const calculated = doc.columns.filter((c) => c.calculatedAs);
+    expect(calculated.map((c) => [c.name, c.calculatedAs])).toEqual([
+      ["run_duration", "AGE(last_update, start_time)"],
+    ]);
+    expect(doc.columns.filter((c) => c.cellFilter).map((c) => c.name)).toEqual([
+      "main_input_file_key",
+    ]);
+  });
+
+  it("has no fromConfigRowActions, and that is a decision rather than an omission", () => {
+    // `AppConfig.getConfigurableActionConfig()` builds them from `BUTTON_CFG_JSON`,
+    // a `String.fromEnvironment` constant (`jetsclient/lib/button_config.dart`,
+    // `buttonsConfigJson`). They are per-deployment buttons, not table
+    // configuration, so they must not become authorable content — a workspace file
+    // naming one would be a second way to configure a deployment. The corpus
+    // records the list empty because the corpus was generated without the variable
+    // set, which is the same reason it cannot be measured from here (**I-102**).
+    expect(configOf("pipelineExecStatusTable").fromConfigRowActions).toEqual([]);
+    expect(Object.keys(doc)).not.toContain("fromConfigRowActions");
   });
 });
 

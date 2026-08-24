@@ -77,6 +77,13 @@
             "$ref": "#/$defs/TableAction"
           }
         },
+        "secondRowActions": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          }
+        },
         "refreshOnKeyUpdateEvent": {
           "minItems": 1,
           "type": "array",
@@ -217,6 +224,10 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
             },
+            "calculatedAs": {
+              "type": "string",
+              "minLength": 1
+            },
             "label": {
               "type": "string",
               "minLength": 1
@@ -258,6 +269,10 @@
               "minLength": 1,
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
+            },
+            "calculatedAs": {
+              "type": "string",
+              "minLength": 1
             },
             "label": {
               "type": "string",
@@ -507,7 +522,9 @@
         "showScreen",
         "refreshTable",
         "toggleCheckboxVisible",
-        "clearHomeFilters"
+        "clearHomeFilters",
+        "setSessionIdFilter",
+        "setRequestIdFilter"
       ]
     }
   }
