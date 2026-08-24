@@ -1,6 +1,6 @@
 module github.com/artisoft-io/jetstore
 
-go 1.26.0
+go 1.26.7
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.7
@@ -73,7 +73,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/grpc v1.83.1 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	modernc.org/libc v1.75.4 // indirect
+	modernc.org/libc v1.75.5 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
