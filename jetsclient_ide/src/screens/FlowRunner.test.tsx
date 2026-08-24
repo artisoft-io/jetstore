@@ -25,15 +25,23 @@ import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
 import wpClientList from "../datatable/tables/wpClientList.tc.json";
 import wpClientListRO from "../datatable/tables/wpClientListRO.tc.json";
+import hfProcessTable from "../datatable/tables/hfProcessTableUF.tc.json";
+import hfStatusTable from "../datatable/tables/hfStatusTableUF.tc.json";
+import hfFileKeyFilterTypeTable from "../datatable/tables/hfFileKeyFilterTypeTableUF.tc.json";
+import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
+import { resetHomeFilters } from "../actions/homeFilters";
+import homeFiltersActions from "../actions/flows/homeFiltersUF.ua.json";
 import loadConfigActions from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import mapFileActions from "../actions/flows/mapFileUF.ua.json";
+import homeFiltersFlow from "../userflow/flows/homeFiltersUF.uf.json";
 import loadConfigFlow from "../userflow/flows/loadConfigUF.uf.json";
 import loadFilesFlow from "../userflow/flows/loadFilesUF.uf.json";
 import mapFileFlow from "../userflow/flows/mapFileUF.uf.json";
+import homeFiltersForms from "../userflow/forms/homeFiltersUF.form.json";
 import loadConfigForms from "../userflow/forms/loadConfigUF.form.json";
 import loadFilesForms from "../userflow/forms/loadFilesUF.form.json";
 import mapFileForms from "../userflow/forms/mapFileUF.form.json";
@@ -65,6 +73,17 @@ const files: Record<string, string> = {
   "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
   "table_configs/wpClientList.tc.json": serialise(wpClientList),
   "table_configs/wpClientListRO.tc.json": serialise(wpClientListRO),
+
+  // F.5. Four table documents for five states, and the fourth is the one
+  // registered on the *non-flow* side (plan F18) — the first document in this
+  // workspace that no flow corpus produced.
+  "user_flows/homeFiltersUF.uf.json": serialise(homeFiltersFlow),
+  "user_flows/homeFiltersUF.ua.json": serialise(homeFiltersActions),
+  "user_flows/homeFiltersUF.form.json": serialise(homeFiltersForms),
+  "table_configs/hfProcessTableUF.tc.json": serialise(hfProcessTable),
+  "table_configs/hfStatusTableUF.tc.json": serialise(hfStatusTable),
+  "table_configs/hfFileKeyFilterTypeTableUF.tc.json": serialise(hfFileKeyFilterTypeTable),
+  "table_configs/pipelineExecStatusTable.tc.json": serialise(execStatusTable),
 
   // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
   // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
@@ -134,6 +153,14 @@ const stagingColumns: JetsRow[] = [["claim_id"], ["dob"], ["member_id"]];
 const clientRows: JetsRow[] = [
   ["ACME", "Acme Health"],
   ["USI", "USI Insurance"],
+];
+/** `hfProcessTableUF`'s two columns. */
+const processRows: JetsRow[] = [["loadFile", "Load a file"], ["runRules", "Run the rules"]];
+/** `pipelineExecStatusTable`'s nineteen, only the ones a test reads being real. */
+const execRows: JetsRow[] = [
+  ["1", "2", "acme", "loadFile", "claims", "2026", "8", "1", "failed",
+    "s3://bucket/in/f10.csv", "sess-1", "in-1", "req-1", "boom", "3", "{}",
+    "michel@artisoft.io", "00:00:10", "2026-08-24"],
 ];
 const mappingFunctions: JetsRow[] = [
   ["to_date", "1"],
@@ -209,6 +236,18 @@ function stubServer(overrides: { missing?: string[] } = {}) {
         if (from === "source_config") {
           return new Response(
             JSON.stringify({ rows: sourceRows, totalRowCount: sourceRows.length }),
+            { status: 200 },
+          );
+        }
+        if (from === "process_config") {
+          return new Response(
+            JSON.stringify({ rows: processRows, totalRowCount: processRows.length }),
+            { status: 200 },
+          );
+        }
+        if (from === "pipeline_execution_status") {
+          return new Response(
+            JSON.stringify({ rows: execRows, totalRowCount: execRows.length }),
             { status: 200 },
           );
         }
@@ -762,5 +801,98 @@ describe("loadConfigUF — loading client configuration", () => {
       expect(screen.getByText("Select Client to load their configuration")).toBeTruthy(),
     );
     expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(0);
+  });
+});
+
+/**
+ * `homeFiltersUF` in the app. Task F.5.
+ *
+ * **The first flow whose behaviour reaches the screen through an escape**, and
+ * the first whose table document is not the flow corpus's. What is worth driving
+ * here rather than in `proofFlows.test.ts` is the two seams that test cannot
+ * reach: the filters the escape writes have to arrive in the *query* of a table
+ * on a later state, and the buttons that table carries have to be drawn — both of
+ * which were missing until this task and neither of which would have failed a
+ * document check.
+ */
+describe("home_filters in the app", () => {
+  // **The filter store is module-level, so it outlives the tree.** That is what
+  // makes it the Flutter router's equivalent and it is also what makes it test
+  // state: without this, the filters one case sets are still set when the next
+  // mounts. Reset both ways round rather than only at the top, so a case added
+  // after these cannot inherit them either.
+  afterEach(resetHomeFilters);
+
+  const walkToTheTable = async () => {
+    resetHomeFilters();
+    const mounted = await mount("homeFiltersUF");
+    // select_process — the filter is optional, so Next needs no selection.
+    expect(await screen.findByText("loadFile")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_status — a static table, so no request; the filter is optional.
+    expect(await screen.findByText("Timed Out")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_file_key_filter — the filter type is required, and `None` is a row.
+    // **Wait for a row rather than for the label**: a static table's rows arrive
+    // from an effect one tick after the heading, so a checkbox query keyed on the
+    // label is a race — which is what this line was, twice in eight runs.
+    expect(await screen.findByText("Starts With")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_time_window — four optional text fields.
+    const startOffset = await screen.findByLabelText("Start Offset Duration");
+    fireEvent.change(startOffset, { target: { value: "3 days" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // Twice: the state's description and the table's own label, which is the
+    // same string in the Dart and is worth seeing rather than disambiguating.
+    expect(await screen.findAllByText("Pipeline Execution Status")).toHaveLength(2);
+    return mounted;
+  };
+
+  it("carries the escape's filters into the last state's query", async () => {
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+
+    // **The seam `proofFlows.test.ts` cannot see.** `updateHomeFilters` writes a
+    // module-level store; the query builder has taken `homeFilters` since A.4a
+    // and nothing supplied it, so before F.5 this clause would simply have been
+    // absent and the screen would have looked correct.
+    const read = posts.filter(
+      (p) =>
+        p.body["action"] === "read" &&
+        (p.body["fromClauses"] as { table: string }[])[0]!.table === "pipeline_execution_status",
+    );
+    const clauses = (read.at(-1)!.body["whereClauses"] ?? []) as Record<string, unknown>[];
+    expect(clauses).toContainEqual({
+      table: "pipeline_execution_status",
+      column: "start_time",
+      ge: "now()-interval '3 days'",
+    });
+  });
+
+  it("draws the second action row, where this table's only two references are", async () => {
+    await walkToTheTable();
+    await screen.findByText("sess-1");
+    // First row.
+    expect(screen.getByRole("button", { name: "Set Filters" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeTruthy();
+    // Second row — `Resubmit` is the flow's only table-run action and
+    // `View Failure Details` its only table-opened form.
+    expect(screen.getByRole("button", { name: "Resubmit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Failure Details" })).toBeTruthy();
+  });
+
+  it("unpacks session_id before the resubmit, or the server answers 400", async () => {
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Resubmit" }));
+
+    await waitFor(() => expect(actions(posts)).toContain("resubmit_pipeline"));
+    const post = posts.find((p) => p.body["action"] === "resubmit_pipeline")!;
+    const rows = post.body["data"] as Record<string, unknown>[];
+    // A string, not `["sess-1"]`. `jets/apiserver/api_tables.go`'s
+    // `resubmit_pipeline` type-asserts it and answers 400 for a list.
+    expect(rows[0]!["session_id"]).toBe("sess-1");
   });
 });
