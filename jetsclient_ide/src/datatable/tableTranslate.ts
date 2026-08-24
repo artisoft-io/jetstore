@@ -18,6 +18,29 @@
  * | `fileKeyLabel` | shortens a file key for display — `WORKSPACE_FILE_KEY_LABEL_RE` if it matches, otherwise the segment after the last `/` (`start_pipeline/data_table_config.dart:86`) | 3 columns, all `file_key` |
  * | `hasDataRegistryFilters` | `JetsRouterDelegate().dataRegistryFilters` is non-empty (`:371`, `:428`, `:561`) | 3 `clearFilters` actions |
  *
+ * **Two more names as of F.5, and the reason is a correction rather than a
+ * widening.** `translateAction` mapped *any* `hasIsEnabledFnc` to
+ * `hasDataRegistryFilters`, which is true of the 37 flow tables and false of the
+ * first non-flow one. `pipelineExecStatusTable` has three closures and none of
+ * them is that predicate: `clearHomeFilters` gates on
+ * `JetsRouterDelegate().homeFilters` — a different list, and the one this flow
+ * writes (`modules/data_table_config_impl.dart`, `clearHomeFilters`) — while
+ * `setSessionIdFilters` and `setRequestIdFilters` are written `(state) => true`,
+ * which is what `ActionConfig.isEnabled` returns when no closure is set at all
+ * (`models/data_table_config.dart`, `isEnabled`).
+ *
+ * | Name | What the Dart does | Sites |
+ * |---|---|---|
+ * | `hasHomeFilters` | `JetsRouterDelegate().homeFilters` is non-empty | 1 `clearHomeFilters` action |
+ * | `alwaysEnabled` | `(state) => true` | 2 filter-prompt actions |
+ *
+ * **`alwaysEnabled` is a name for a closure that does nothing, and it is here so
+ * the round-trip stays total.** Dropping it would be unobservable — absent and
+ * always-true are the same button — but `hasIsEnabledFnc` would then come back
+ * `false` and the "translation loses nothing" test would have to make an
+ * exception for the one table it most wants to check. A name that says *this
+ * closure was read and it was trivial* costs one registry entry.
+ *
  * That the six collapse to two is the argument for naming them rather than
  * porting them: three identical copies of a predicate are three places to fix it.
  * **Registering the two is I.3b's**, and until it happens a document naming them
@@ -39,6 +62,26 @@ import type {
 export const FILE_KEY_LABEL_ESCAPE = "fileKeyLabel";
 /** The registry name for the `clearFilters` enablement predicate. */
 export const DATA_REGISTRY_FILTERS_ESCAPE = "hasDataRegistryFilters";
+/** The registry name for the home-filter enablement predicate. Task F.5. */
+export const HOME_FILTERS_ESCAPE = "hasHomeFilters";
+/** The registry name for a `(state) => true` closure. Task F.5. */
+export const ALWAYS_ENABLED_ESCAPE = "alwaysEnabled";
+
+/**
+ * Which predicate a closure-bearing action names.
+ *
+ * **Keyed by table and action rather than assumed**, which is the whole of the
+ * F.5 correction: the corpus records only *that* a closure exists, so the
+ * mapping is knowledge about the Dart and has to be written down somewhere. It
+ * was written as a constant, which read as a fact about closures and was a fact
+ * about the 37.
+ */
+function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
+  if (tableKey === "pipelineExecStatusTable") {
+    return actionKey === "clearHomeFilters" ? HOME_FILTERS_ESCAPE : ALWAYS_ENABLED_ESCAPE;
+  }
+  return DATA_REGISTRY_FILTERS_ESCAPE;
+}
 
 /** Drops a key whose value is the type's own default, so documents stay readable. */
 function omitFalse(value: boolean | undefined): true | undefined {
@@ -51,6 +94,7 @@ function translateColumn(column: ColumnConfig): Column {
     ...(column.tooltips ? { tooltip: column.tooltips } : {}),
     ...(omitFalse(column.isNumeric) ? { isNumeric: true as const } : {}),
     ...(column.hasCellFilter ? { cellFilter: FILE_KEY_LABEL_ESCAPE } : {}),
+    ...(column.calculatedAs ? { calculatedAs: column.calculatedAs } : {}),
   };
   if (column.label) {
     return {
@@ -91,7 +135,7 @@ function translateWhere(where: WhereClause): WhereClauseDocument {
   };
 }
 
-function translateAction(action: ActionConfig): TableAction {
+function translateAction(tableKey: string, action: ActionConfig): TableAction {
   return {
     key: action.key,
     label: action.label,
@@ -111,7 +155,7 @@ function translateAction(action: ActionConfig): TableAction {
     ...(action.stateFormNavigationParams && Object.keys(action.stateFormNavigationParams).length > 0
       ? { stateFormNavigationParams: action.stateFormNavigationParams }
       : {}),
-    ...(action.hasIsEnabledFnc ? { isEnabled: DATA_REGISTRY_FILTERS_ESCAPE } : {}),
+    ...(action.hasIsEnabledFnc ? { isEnabled: isEnabledEscapeFor(tableKey, action.key) } : {}),
   };
 }
 
@@ -145,7 +189,11 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   if (config.hasModelStateHandler) refuse("modelStateHandler");
   if (config.withClauses.length > 0) refuse("withClauses");
   if (config.distinctOnClauses.length > 0) refuse("distinctOnClauses");
-  if (config.secondRowActions.length > 0) refuse("secondRowActions");
+  // `secondRowActions` is in the schema as of F.5; `fromConfigRowActions` is not
+  // and should not be — it is built from `BUTTON_CFG_JSON`, a compile-time
+  // environment variable (`jetsclient/lib/button_config.dart`,
+  // `getConfigurableActionConfig`), so it is deployment configuration rather than
+  // table configuration and the corpus records it empty for that reason.
   if (config.fromConfigRowActions.length > 0) refuse("fromConfigRowActions");
   if (config.defaultToAllRows) refuse("defaultToAllRows");
   if (config.requestColumnDef) refuse("requestColumnDef");
@@ -153,7 +201,6 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   if (config.dataRowMinHeight !== undefined) refuse("dataRowMinHeight");
   if (config.dataRowMaxHeight !== undefined) refuse("dataRowMaxHeight");
   for (const column of config.columns) {
-    if (column.calculatedAs) refuse(`column ${column.name}: calculatedAs`);
     if (column.maxLines) refuse(`column ${column.name}: maxLines`);
     if (column.columnWidth) refuse(`column ${column.name}: columnWidth`);
   }
@@ -165,7 +212,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (where.orWith) walkWhere(where.orWith);
   };
   for (const where of config.whereClauses) walkWhere(where);
-  for (const action of config.actions) {
+  for (const action of [...config.actions, ...config.secondRowActions]) {
     if (action.stateGroup !== 0) refuse(`action ${action.key}: stateGroup`);
     if (action.hasActionDelegate) refuse(`action ${action.key}: actionDelegate`);
     if (action.actionEnableCriterias?.length) refuse(`action ${action.key}: actionEnableCriterias`);
@@ -191,6 +238,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (config.fromClauses.length > 0) refuse("a static table with fromClauses");
     if (config.whereClauses.length > 0) refuse("a static table with whereClauses");
     if (config.actions.length > 0) refuse("a static table with actions");
+    if (config.secondRowActions.length > 0) refuse("a static table with secondRowActions");
     if (config.refreshOnKeyUpdateEvent.length > 0) refuse("a static table with refreshOnKeyUpdateEvent");
     return { ...common, source: "static", rows: config.staticTableModel };
   }
@@ -201,7 +249,12 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     source: "query",
     from: config.fromClauses.map(translateFrom),
     ...(config.whereClauses.length > 0 ? { where: config.whereClauses.map(translateWhere) } : {}),
-    ...(config.actions.length > 0 ? { actions: config.actions.map(translateAction) } : {}),
+    ...(config.actions.length > 0
+      ? { actions: config.actions.map((a) => translateAction(config.key, a)) }
+      : {}),
+    ...(config.secondRowActions.length > 0
+      ? { secondRowActions: config.secondRowActions.map((a) => translateAction(config.key, a)) }
+      : {}),
     ...(config.refreshOnKeyUpdateEvent.length > 0
       ? { refreshOnKeyUpdateEvent: config.refreshOnKeyUpdateEvent }
       : {}),
@@ -219,7 +272,7 @@ export function toDocuments(tables: Record<string, TableConfig>): Record<string,
  * The document, back as the configuration the query builder consumes.
  *
  * **This exists to prove the translation loses nothing**, and the test that uses
- * it round-trips all 37: `fromDocument(key, toDocument(c))` must equal `c`. A
+ * it round-trips all 38: `fromDocument(key, toDocument(c))` must equal `c`. A
  * schema that drops a field it should have kept is invisible to a forward-only
  * translation — every document validates and the behaviour is quietly gone. This
  * is the "check it against something you did not generate the same way" rule
@@ -237,33 +290,36 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     tooltips: column.tooltip ?? "",
     isNumeric: column.isNumeric ?? false,
     isHidden: column.isHidden ?? false,
+    calculatedAs: column.calculatedAs,
     maxLines: 0,
     columnWidth: 0,
     hasCellFilter: column.cellFilter !== undefined,
   }));
 
+  const restoreAction = (action: TableAction): ActionConfig => ({
+    actionType: action.action,
+    key: action.key,
+    label: action.label,
+    style: action.style,
+    isVisibleWhenCheckboxVisible: action.isVisibleWhenCheckboxVisible,
+    isEnabledWhenHavingSelectedRows: action.isEnabledWhenHavingSelectedRows,
+    isEnabledWhenWhereClauseSatisfied: action.isEnabledWhenWhereClauseSatisfied,
+    isEnabledWhenStateHasKeys: action.isEnabledWhenStateHasKeys,
+    navigationParams: action.navigationParams,
+    stateFormNavigationParams: action.stateFormNavigationParams,
+    configForm: action.configForm,
+    configScreenPath: action.configScreenPath,
+    actionName: action.actionName,
+    capability: action.capability,
+    stateGroup: 0,
+    hasIsEnabledFnc: action.isEnabled !== undefined,
+    hasActionDelegate: false,
+  });
+
   const actions: ActionConfig[] =
-    doc.source === "query"
-      ? (doc.actions ?? []).map((action) => ({
-          actionType: action.action,
-          key: action.key,
-          label: action.label,
-          style: action.style,
-          isVisibleWhenCheckboxVisible: action.isVisibleWhenCheckboxVisible,
-          isEnabledWhenHavingSelectedRows: action.isEnabledWhenHavingSelectedRows,
-          isEnabledWhenWhereClauseSatisfied: action.isEnabledWhenWhereClauseSatisfied,
-          isEnabledWhenStateHasKeys: action.isEnabledWhenStateHasKeys,
-          navigationParams: action.navigationParams,
-          stateFormNavigationParams: action.stateFormNavigationParams,
-          configForm: action.configForm,
-          configScreenPath: action.configScreenPath,
-          actionName: action.actionName,
-          capability: action.capability,
-          stateGroup: 0,
-          hasIsEnabledFnc: action.isEnabled !== undefined,
-          hasActionDelegate: false,
-        }))
-      : [];
+    doc.source === "query" ? (doc.actions ?? []).map(restoreAction) : [];
+  const secondRowActions: ActionConfig[] =
+    doc.source === "query" ? (doc.secondRowActions ?? []).map(restoreAction) : [];
 
   const restoreWhere = (where: WhereClauseDocument): WhereClause => ({
     table: where.table,
@@ -287,7 +343,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     isReadOnly: doc.isReadOnly ?? false,
     showSelectedOnly: doc.showSelectedOnly ?? false,
     actions,
-    secondRowActions: [],
+    secondRowActions,
     fromConfigRowActions: [],
     columns,
     defaultToAllRows: false,

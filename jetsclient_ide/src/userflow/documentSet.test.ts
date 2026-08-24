@@ -22,6 +22,7 @@ import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.jso
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientTable from "../datatable/tables/client.tc.json";
 import orgTable from "../datatable/tables/org.tc.json";
+import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
 import { TableConfigDocumentSchema, type TableConfigDocument } from "../datatable/table";
 import corpus from "./fixtures/user_flows.json";
 import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
@@ -286,5 +287,52 @@ describe("a table action naming something the set does not define", () => {
     org.actions![1]!.actionName = "notAnAction";
     org.actions![1]!.configForm = "notAForm";
     expect(validateTableActions(set.actions, set.forms, { org })).toEqual([]);
+  });
+
+  /**
+   * The second action row, task F.5.
+   *
+   * **The 37 flow tables have no second row, so this check could not have been
+   * written before `pipelineExecStatusTable` was authored** — the same shape as
+   * the paragraph above, one revision later. Both of that table's cross-document
+   * references are on the second row, so a first-row-only walk would have passed
+   * it silently while `resubmitPipeline` and `showFailureDetailsDialog` went
+   * unchecked.
+   */
+  it("reads secondRowActions, where this table's only two references are", () => {
+    const execStatus = TableConfigDocumentSchema.parse(
+      structuredClone(execStatusTable),
+    ) as TableConfigDocument;
+    if (execStatus.source !== "query") throw new Error("pipelineExecStatusTable is a query table");
+    // Nothing on the first row names either document.
+    expect(execStatus.actions!.filter((a) => a.actionName ?? a.configForm)).toEqual([]);
+
+    const actions = ActionDocumentSchema.parse({
+      schemaVersion: 1,
+      actions: { resubmitPipeline: { description: "d", steps: [{ do: "close" }] } },
+    }) as ActionDocument;
+    const forms = FormDocumentSchema.parse({
+      schemaVersion: 1,
+      forms: {
+        showFailureDetailsDialog: {
+          rows: [[{ field: "label", text: "x" }]],
+          actions: [{ action: "ufCancel", label: "Close" }],
+        },
+      },
+    }) as FormDocument;
+    expect(validateTableActions(actions, forms, { pipelineExecStatusTable: execStatus })).toEqual([]);
+
+    // And it reports, with a pointer naming the row rather than an index into a
+    // list the author cannot see.
+    expect(
+      validateTableActions(
+        ActionDocumentSchema.parse({ schemaVersion: 1, actions: {} }) as ActionDocument,
+        FormDocumentSchema.parse({ schemaVersion: 1, forms: {} }) as FormDocument,
+        { pipelineExecStatusTable: execStatus },
+      ).map((f) => [f.code, f.path]),
+    ).toEqual([
+      ["missingForm", "/pipelineExecStatusTable/secondRowActions/2/configForm"],
+      ["missingAction", "/pipelineExecStatusTable/secondRowActions/4/actionName"],
+    ]);
   });
 });

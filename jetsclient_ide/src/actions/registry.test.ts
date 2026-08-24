@@ -83,12 +83,39 @@ describe("the production registry", () => {
     expect(resolveEscapes(references, emptyRegistry)).toHaveLength(2);
   });
 
-  it("registers no action escape yet, and that is the point", () => {
-    // Six action escapes exist in the Dart and every one belongs to a flow track
-    // F has not migrated. Registering a name whose body is not ported would give
-    // a document that loads and does nothing — the failure `escapes.ts` exists to
-    // prevent. The flow refuses to load instead.
-    expect(Object.keys(productionRegistry.actions)).toEqual([]);
-    expect(Object.keys(productionRegistry.initializers)).toEqual([]);
+  it("registers exactly the escapes whose flows are migrated, and no others", () => {
+    // **This test used to assert `actions` and `initializers` were empty**, and
+    // the reason it gave was the right one: registering a name whose body is not
+    // ported gives a document that loads and does nothing, which is the failure
+    // `escapes.ts` exists to prevent. F.5 ported `homeFiltersUF`, so its two
+    // action escapes and the corpus's one initializer are here — and the rule the
+    // old assertion stood for is now stated as what it always was, a *bound*
+    // rather than a zero.
+    expect(Object.keys(productionRegistry.actions).sort()).toEqual([
+      "clearHomeFilters",
+      "updateHomeFilters",
+    ]);
+    expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
+    // The four still absent belong to `fileMappingUF` and `sourceConfigUF`, which
+    // are F.8 and F.7 (`actions/coverage.test.ts`, the escape-name assertion).
+    for (const name of [
+      "downloadMapping",
+      "loadRawRows",
+      "loadSourceConfigWithFileTypeInference",
+      "saveSourceConfigForFileType",
+    ]) {
+      expect(productionRegistry.actions[name]).toBeUndefined();
+    }
+  });
+
+  it("resolves all three of pipelineExecStatusTable's predicates", () => {
+    // F.5, and the correction it carries: the table has three `isEnabledFnc`
+    // closures and none of them is `hasDataRegistryFilters`, which the translation
+    // used to assume was the only one.
+    const references = [
+      { kind: "predicates" as const, name: "hasHomeFilters", at: "/actions/5/isEnabled" },
+      { kind: "predicates" as const, name: "alwaysEnabled", at: "/actions/3/isEnabled" },
+    ];
+    expect(resolveEscapes(references, productionRegistry)).toEqual([]);
   });
 });

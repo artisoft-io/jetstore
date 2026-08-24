@@ -7,10 +7,15 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 37 shipping table configurations, translated out of the
+// tablesDir holds the 38 shipping table configurations, translated out of the
 // Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
 // so this side can validate the *real* configuration rather than a sample. See
 // that file for why the translation is round-tripped rather than only emitted.
+//
+// **37 of them are the flows' and the 38th is not.** `pipelineExecStatusTable` is
+// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
+// F.5 could not author that flow without it; it is translated out of
+// `screens/fixtures/screen_configs.json` by the same code path.
 const tablesDir = "../../jetsclient_ide/src/datatable/tables"
 
 func tableFiles(t *testing.T) []string {
@@ -37,8 +42,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 37 {
-		t.Fatalf("expected the flows' 37 table configurations, found %d", len(files))
+	if len(files) != 38 {
+		t.Fatalf("expected the flows' 37 table configurations plus pipelineExecStatusTable, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {

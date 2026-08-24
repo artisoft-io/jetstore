@@ -60,6 +60,29 @@ describe("the corpus this task owns", () => {
     }
   });
 
+  it("dispatches the two filter prompts pipelineExecStatusTable adds", () => {
+    // F.5, and the only non-flow table in `tables/` — so the corpus above cannot
+    // see these two and they are written out. Both resolve to a `promptFilter`
+    // request rather than being handled here, on the same terms as every other
+    // row: what a button asks for is data.
+    const prompt = (actionType: string) =>
+      requestFor(
+        { actionType, key: "k", label: "L", style: "primary", stateGroup: 0 } as ActionConfig,
+        new FormState(),
+        undefined,
+      );
+    expect(prompt("setSessionIdFilter")).toEqual({
+      kind: "promptFilter",
+      column: "session_id",
+      prompt: "Enter session IDs comma separated to filter",
+    });
+    expect(prompt("setRequestIdFilter")).toEqual({
+      kind: "promptFilter",
+      column: "request_id",
+      prompt: "Enter request IDs comma separated to filter",
+    });
+  });
+
   it("refuses the two the widget owns, rather than half-handling them", () => {
     for (const action of allActions.filter((a) => widgetOwned.has(a.actionType))) {
       expect(() => requestFor(action, new FormState(), undefined)).toThrow(UnsupportedActionType);

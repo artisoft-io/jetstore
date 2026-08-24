@@ -236,6 +236,15 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
  * means *named by no state*, which is what the corpus measures; it does not mean
  * unreachable, and F23 read it as though it did (I-89).
  *
+ * **Both action rows, since F.5, and that widening found the only two references
+ * `pipelineExecStatusTable` has.** A second row is presentation — the Dart draws
+ * `secondRowActions` under `actions` and the two lists hold the same class
+ * (`components/data_table.dart`) — so a check that read the first row alone would
+ * have reported that table as naming nothing, while its `resubmitPipeline`
+ * `doAction` and its `showFailureDetailsDialog` `showDialog` are both below the
+ * fold. The 37 flow tables have no second row at all, which is why F.3 could not
+ * have seen this.
+ *
  * **This runs where the tables are, not inside `validateDocumentSet`.** That
  * function takes three parsed documents and nothing else, which is what lets a
  * generator run it without a browser and without fetching a `table_configs/`
@@ -258,41 +267,50 @@ export function validateTableActions(
     // guard `actionNamesOf` opens with and is exact rather than a narrowing
     // convenience.
     if (table.source !== "query") continue;
-    (table.actions ?? []).forEach((action: TableAction, index: number) => {
-      const name = action.actionName;
-      if (
-        name !== undefined &&
-        (action.action === "doAction" || action.action === "doActionShowDialog") &&
-        !isStandardAction(name) &&
-        !knownActions.has(name)
-      ) {
-        findings.push({
-          severity: "error",
-          code: "missingAction",
-          message:
-            `table "${tableKey}" action "${action.key}" runs "${name}", which the action ` +
-            `document does not define`,
-          path: `/${tableKey}/actions/${index}/actionName`,
-          document: "tables",
-        });
-      }
-      const form = action.configForm;
-      if (
-        form !== undefined &&
-        (action.action === "showDialog" || action.action === "doActionShowDialog") &&
-        !knownForms.has(form)
-      ) {
-        findings.push({
-          severity: "error",
-          code: "missingForm",
-          message:
-            `table "${tableKey}" action "${action.key}" opens form "${form}", which the form ` +
-            `document does not define`,
-          path: `/${tableKey}/actions/${index}/configForm`,
-          document: "tables",
-        });
-      }
-    });
+    // The pointer keeps the two rows apart — `/actions/3` and
+    // `/secondRowActions/3` are different buttons — so the finding names the
+    // property an author would edit rather than an index into a flattened list.
+    const rows: [string, TableAction[]][] = [
+      ["actions", table.actions ?? []],
+      ["secondRowActions", table.secondRowActions ?? []],
+    ];
+    for (const [row, list] of rows) {
+      list.forEach((action: TableAction, index: number) => {
+        const name = action.actionName;
+        if (
+          name !== undefined &&
+          (action.action === "doAction" || action.action === "doActionShowDialog") &&
+          !isStandardAction(name) &&
+          !knownActions.has(name)
+        ) {
+          findings.push({
+            severity: "error",
+            code: "missingAction",
+            message:
+              `table "${tableKey}" action "${action.key}" runs "${name}", which the action ` +
+              `document does not define`,
+            path: `/${tableKey}/${row}/${index}/actionName`,
+            document: "tables",
+          });
+        }
+        const form = action.configForm;
+        if (
+          form !== undefined &&
+          (action.action === "showDialog" || action.action === "doActionShowDialog") &&
+          !knownForms.has(form)
+        ) {
+          findings.push({
+            severity: "error",
+            code: "missingForm",
+            message:
+              `table "${tableKey}" action "${action.key}" opens form "${form}", which the form ` +
+              `document does not define`,
+            path: `/${tableKey}/${row}/${index}/configForm`,
+            document: "tables",
+          });
+        }
+      });
+    }
   }
   return findings;
 }

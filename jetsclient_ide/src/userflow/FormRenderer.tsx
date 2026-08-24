@@ -48,7 +48,7 @@ import { ActionBar } from "../datatable/ActionBar";
 import { DataTable } from "../datatable/DataTable";
 import type { FormState } from "../datatable/formState";
 import type { ActionRequest } from "../datatable/actionDispatch";
-import { useTableBinding } from "../datatable/useTableBinding";
+import { useTableBinding, type UseTableBindingOptions } from "../datatable/useTableBinding";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { ActionButton } from "../shell/capabilities";
@@ -73,6 +73,22 @@ export interface FormHost {
   /** Resolves a `dataTable` field's `table` to the configuration it names. */
   tableConfig(key: string): TableConfig;
   fetcher: DataTableFetcher;
+  /**
+   * The query context every table on this form is built with. Task F.5.
+   *
+   * **Nothing supplied one until now and one table needed it.** A.4a's
+   * `QueryContext` has carried `homeFilters` and `dataRegistryFilters` since it
+   * was written — `makeQuery` splices them in by table key
+   * (`datatable/query.ts`, `makeQuery`) — and `FormDataTable` called
+   * `useTableBinding` with no `context` at all, so they were always absent.
+   * `homeFiltersUF`'s last state renders `pipelineExecStatusTable`, whose whole
+   * purpose is to show the filters the four states before it just set; without
+   * this the flow would end by showing an unfiltered table and looking correct.
+   *
+   * Optional, because every other form's tables need nothing here and a required
+   * field would make five callers name a value they do not have.
+   */
+  tableContext?: UseTableBindingOptions["context"];
   /** Named predicates for a table action's `isEnabled` — `actions/registry.ts`. */
   predicates: Readonly<Record<string, (formState: FormState, group: number) => boolean>>;
   /** Per-column display filters, by column name, for the table this field names. */
@@ -334,6 +350,7 @@ function FormDataTable({
     field: { group: host.group, key: fieldKey },
     formState: host.formState,
     fetcher: host.fetcher,
+    ...(host.tableContext ? { context: host.tableContext } : {}),
   });
 
   const selectedIndex = binding.selection.findIndex(Boolean);

@@ -17,10 +17,20 @@
  * | `showDialog` | 2 | open `configForm` with params |
  * | `toggleCheckboxVisible` | 3 | **A.5's** — the table's own presentation |
  * | `refreshTable` | 1 | **A.5's** — the table's own state |
+ * | `setSessionIdFilter` | 1 | ask for a list, replace the home filters, refresh |
+ * | `setRequestIdFilter` | 1 | the same, on `request_id` |
  *
- * The last two are not handled here and that is I-19's finding: they change the
- * widget rather than the flow, so they belong to the table and were returned to
- * track A. Reaching them here is a programming error and says so.
+ * `toggleCheckboxVisible` and `refreshTable` are not handled here and that is
+ * I-19's finding: they change the widget rather than the flow, so they belong to
+ * the table and were returned to track A. Reaching them here is a programming
+ * error and says so.
+ *
+ * **The last two rows are F.5's, and both sites are on the same table.**
+ * `pipelineExecStatusTable` is the one configuration registered on the non-flow
+ * side and rendered by a flow (F18), so `homeFiltersUF` meets them even though
+ * they were counted as track C's. They resolve to a request rather than being
+ * handled here for the reason every other row is: what a button asks for is data,
+ * and who can satisfy it is the host's problem.
  *
  * ## Two kinds of navigation parameter, and they are not interchangeable
  *
@@ -44,7 +54,20 @@ export type ActionRequest =
   | { kind: "navigate"; path: string; params: Record<string, string> }
   | { kind: "openDialog"; form: string; params: Record<string, string> }
   | { kind: "runActionThenDialog"; name: string; form: string; params: Record<string, string> }
-  | { kind: "escape"; name: string; thenRefresh: true };
+  | { kind: "escape"; name: string; thenRefresh: true }
+  /**
+   * Ask the user for a comma-separated list and filter on it. Task F.5.
+   *
+   * **A prompt rather than a form**, because the Dart's is one: `showGetInputDialog`
+   * (`jetsclient/lib/components/dialogs.dart`, `showGetInputDialog`) is a single
+   * `TextField` with CANCEL and OK. That is what makes this a request kind of its
+   * own rather than an `openDialog` — an `openDialog` names a `configForm` and
+   * this names none, and the host that has no dialog host (I-68) can still serve
+   * it.
+   *
+   * The two sites differ only in the column, so the column is the payload.
+   */
+  | { kind: "promptFilter"; column: "session_id" | "request_id"; prompt: string };
 
 export class UnsupportedActionType extends Error {}
 
@@ -146,6 +169,18 @@ export function requestFor(
       };
     case "clearHomeFilters":
       return { kind: "escape", name: "clearHomeFilters", thenRefresh: true };
+    case "setSessionIdFilter":
+      return {
+        kind: "promptFilter",
+        column: "session_id",
+        prompt: "Enter session IDs comma separated to filter",
+      };
+    case "setRequestIdFilter":
+      return {
+        kind: "promptFilter",
+        column: "request_id",
+        prompt: "Enter request IDs comma separated to filter",
+      };
     case "toggleCheckboxVisible":
     case "refreshTable":
       throw new UnsupportedActionType(

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "hfSelectProcessUF": {
+      "rows": [[{ "field": "dataTable", "key": "hfProcessTableUF", "table": "hfProcessTableUF" }]],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectStatusUF": {
+      "rows": [[{ "field": "dataTable", "key": "hfStatusTableUF", "table": "hfStatusTableUF" }]],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectFileKeyFilterUF": {
+      "validator": "homeFiltersFormValidator",
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "hfFileKeyFilterTypeTableUF",
+            "table": "hfFileKeyFilterTypeTableUF",
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "hfFileKeySubstring",
+            "label": "File Key Extract",
+            "hint": "Enter portion of File Key to retain",
+            "autofocus": true,
+            "maxLength": 80
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectTimeWindowUF": {
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "hfStartTime",
+            "label": "Start Time",
+            "hint": "Start time (format 2025-07-03T15:00:00Z), leave blank for current time",
+            "autofocus": true,
+            "maxLength": 25
+          },
+          {
+            "field": "text",
+            "key": "hfStartOffset",
+            "label": "Start Offset Duration",
+            "hint": "Offset as duration (example: 12 hours, 3 days), or leave blank",
+            "autofocus": true,
+            "maxLength": 25
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "hfEndTime",
+            "label": "End Time",
+            "hint": "End time (format 2025-07-03T15:00:00Z), leave blank for current time",
+            "autofocus": true,
+            "maxLength": 25
+          },
+          {
+            "field": "text",
+            "key": "hfEndOffset",
+            "label": "End Offset Duration",
+            "hint": "Offset as duration (example: 12 hours, 3 days), or leave blank",
+            "autofocus": true,
+            "maxLength": 25
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfViewStatusTableUF": {
+      "rows": [
+        [{ "field": "dataTable", "key": "pipelineExecStatusTable", "table": "pipelineExecStatusTable" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+      ]
+    },
+    "showFailureDetailsDialog": {
+      "title": "Pipeline Failure Details",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "failure_details",
+            "label": "Failure Details",
+            "hint": "This is read only",
+            "maxLines": 20,
+            "maxLength": 4000000
+          }
+        ]
+      ],
+      "actions": [{ "action": "dialogCancel", "label": "Close", "style": "primary" }]
+    }
+  }
+}
