@@ -365,20 +365,42 @@ function FormDataTable({
         modes={binding.modes}
         cellFilters={host.cellFilters(tableKey)}
         actions={
-          <ActionBar
-            actions={config.actions}
-            context={{
-              selectedRowCount,
-              checkboxVisible: binding.modes.checkboxVisible,
-              // `blocked` is `hasBlockingFilter`, which is this predicate
-              // inverted — A.4c's answer reused rather than recomputed.
-              whereClauseSatisfied: !binding.blocked,
-              formState: host.formState,
-              predicates: host.predicates,
-            }}
-            {...(selectedRow !== undefined ? { selectedRow } : {})}
-            onAction={host.onTableAction}
-          />
+          <>
+            <ActionBar
+              actions={config.actions}
+              context={{
+                selectedRowCount,
+                checkboxVisible: binding.modes.checkboxVisible,
+                // `blocked` is `hasBlockingFilter`, which is this predicate
+                // inverted — A.4c's answer reused rather than recomputed.
+                whereClauseSatisfied: !binding.blocked,
+                formState: host.formState,
+                predicates: host.predicates,
+              }}
+              {...(selectedRow !== undefined ? { selectedRow } : {})}
+              onAction={host.onTableAction}
+            />
+            {/* **The second row, F.5.** `ActionBar` renders nothing for an empty
+                list, so this costs one element on the 37 flow tables and draws
+                five buttons on `pipelineExecStatusTable` — including the only
+                two cross-document references that table has. Two bars rather
+                than one concatenated list because the Dart draws two
+                (`components/data_table.dart`), and because concatenating would
+                make a `secondRowActions` index unreachable from a finding
+                pointer that names the row. */}
+            <ActionBar
+              actions={config.secondRowActions}
+              context={{
+                selectedRowCount,
+                checkboxVisible: binding.modes.checkboxVisible,
+                whereClauseSatisfied: !binding.blocked,
+                formState: host.formState,
+                predicates: host.predicates,
+              }}
+              {...(selectedRow !== undefined ? { selectedRow } : {})}
+              onAction={host.onTableAction}
+            />
+          </>
         }
       />
       {error !== undefined && (
