@@ -35,11 +35,21 @@ import { clearPublishedSelection } from "../datatable/binding";
 import type { FormField } from "../datatable/binding";
 import type { FormState } from "../datatable/formState";
 import { evaluateCondition } from "../userflow/engine";
-import type { EscapeRegistry } from "./escapes";
+import type { EndpointRequest, EndpointResult, EscapeHost, EscapeRegistry } from "./escapes";
 import type { Action, Rows, Step, Value } from "./schema";
 
-/** Everything an action can reach outside form state. */
-export interface ActionHost {
+/**
+ * Everything an action can reach outside form state.
+ *
+ * **The I/O half moved to `EscapeHost` at F.8 and this interface extends it.**
+ * An action escape needs `post`, `read`, `notify`, `setBusy`, `close`,
+ * `userEmail` and `download`; it has no business with `validate`, `confirm`,
+ * `goToState` or `now`, which are how a *step* decides what happens next. The
+ * split is what lets `escapes.ts` name the narrower thing without importing this
+ * module — see its header for why an escape gets a second parameter rather than
+ * a wider context.
+ */
+export interface ActionHost extends EscapeHost {
   /**
    * Runs a registered query and returns its first row, or null.
    *
@@ -52,28 +62,21 @@ export interface ActionHost {
   validate(): boolean;
   /** A modal question. False stops the action without failing it. */
   confirm(message: string): Promise<boolean>;
-  post(request: PostRequest): Promise<PostResult>;
-  /** Spinner, snackbar and alert, which the Dart keeps as three mechanisms. */
-  notify(level: "info" | "error", message: string): void;
-  setBusy(busy: boolean): void;
   /** Jumps the flow. Declared on the state as `goToStates` — see I-18. */
   goToState(state: string): void;
-  /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
-  close(): void;
-  userEmail(): string;
   /** Injected so a fan-out's session ids are deterministic under test. */
   now(): number;
 }
 
-export interface PostRequest {
-  endpoint: string;
-  body: Record<string, unknown>;
-}
-
-export interface PostResult {
-  statusCode: number;
-  error?: string;
-}
+/**
+ * `post`'s request and result, which are `EscapeHost`'s.
+ *
+ * Kept as names here because every caller in the app and in the tests imports
+ * them from this module, and moving a declaration is not a reason to move a
+ * dozen import lines.
+ */
+export type PostRequest = EndpointRequest;
+export type PostResult = EndpointResult;
 
 export interface ActionRun {
   action: Action;
@@ -383,7 +386,7 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
       if (escape === undefined) {
         throw new Error(`unresolved action escape "${step.name}" — resolveEscapes was not run`);
       }
-      const outcome = await escape({ formState, group, flowKey: run.flowKey });
+      const outcome = await escape({ formState, group, flowKey: run.flowKey }, host);
       return outcome === null ? carryOn : { done: true, outcome };
     }
   }

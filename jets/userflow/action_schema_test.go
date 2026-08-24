@@ -56,8 +56,8 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// workspacePullUF, 2026-08-23 — one task, because they are one delegate file);
 	// 6 as of F.3 (clientRegistryUF, 2026-08-23); 7 as of F.4 (startPipelineUF,
 	// 2026-08-24); 8 as of F.5 (homeFiltersUF, 2026-08-24); 9 as of F.6
-	// (pipelineConfigUF, 2026-08-24).
-	const migratedFlows = 9
+	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24).
+	const migratedFlows = 10
 	if len(names) != migratedFlows {
 		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
 	}
@@ -89,14 +89,15 @@ func TestProofFlowActionsValidate(t *testing.T) {
 // until F.2 re-partitioned workspacePullUF.ua.json into two runtime documents
 // and deleted it; six then, five since F.3 did the same for clientRegistryUF,
 // four since F.4 did it for startPipelineUF, three since F.5 did it for
-// homeFiltersUF, and two since F.6 did it for pipelineConfigUF. F.9 retires
-// whatever is left — `fileMappingUF` and `sourceConfigUF`, which are F.8 and
-// F.7.
+// homeFiltersUF, two since F.6 did it for pipelineConfigUF, and one since F.8
+// did it for fileMappingUF. **The last is `sourceConfigUF`, which is F.7** — so
+// F.9's retirement of what remains is now a retirement of the directory rather
+// than of a corpus.
 func TestCoverageActionsValidate(t *testing.T) {
 	schema := compileActionSchema(t)
 	names, err := filepath.Glob(filepath.Join(coverageDir, "*.ua.json"))
-	if err != nil || len(names) != 2 {
-		t.Fatalf("expected two coverage documents at %s, found %d (err %v)",
+	if err != nil || len(names) != 1 {
+		t.Fatalf("expected one coverage document at %s, found %d (err %v)",
 			coverageDir, len(names), err)
 	}
 	for _, path := range names {

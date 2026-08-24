@@ -37,6 +37,11 @@ function makeHost(overrides: Partial<ActionHost> = {}) {
       events.push(`query:${name}`);
       return { process_config_key: "pck-1", entity_rdf_type: "hc:Claim" };
     },
+    read: async () => {
+      events.push("read");
+      return [];
+    },
+    download: (fileName) => events.push(`download:${fileName}`),
     notify: (level, message) => notices.push([level, message]),
     setBusy: (busy) => events.push(busy ? "busy" : "idle"),
     goToState: (state) => events.push(`goToState:${state}`),

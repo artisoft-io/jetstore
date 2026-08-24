@@ -25,9 +25,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import fileMapping from "./coverage/fileMappingUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import clientRegistry from "./flows/clientRegistryUF.ua.json";
+import fileMapping from "./flows/fileMappingUF.ua.json";
 import homeFilters from "./flows/homeFiltersUF.ua.json";
 import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
@@ -39,7 +39,6 @@ import workspacePull from "./flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const coverage: Record<string, unknown> = {
-  fileMappingUF: fileMapping,
   sourceConfigUF: sourceConfig,
 };
 const proof: Record<string, unknown> = {
@@ -91,6 +90,15 @@ const proof: Record<string, unknown> = {
   // as I-101: dead in the delegate it was transcribed from, live in the document
   // it becomes.
   pipelineConfigUF: pipelineConfig,
+  // F.7's re-partition. One delegate file holding two flows — the shape F.1 and
+  // F.2 met — and **the arm that has to be duplicated rather than moved is the
+  // one F.1 moved**: `dialogCancel` is a `case` label of *both* switches in
+  // `file_mapping/form_action_delegates.dart`, and both flows have a form that
+  // offers it. `mapFileUF`'s worksheet is a dialog and so is
+  // `loadRawRowsDialog`, which `fmFileMappingTableUF` opens. F.1 took the name
+  // with the other two and left three behind, so the coverage document this task
+  // promoted was short an arm no step-level re-reading would have found (I-120).
+  fileMappingUF: fileMapping,
 };
 const all = { ...coverage, ...proof };
 
@@ -163,10 +171,20 @@ describe("the coverage fixture", () => {
     // directory**, so the corpus of arms a migrated flow needs is not a subset of
     // the corpus this count is drawn from (I-114). 54 was as much an invariant as
     // 55 was.
+    //
+    // **56 after F.8's, and it adds for a different reason than F.6's did.**
+    // Three names left `coverage/fileMappingUF.ua.json` and four arrived in
+    // `flows/`. The extra is `dialogCancel`, which is not a new arm at all: it is
+    // **already in `flows/mapFileUF.ua.json`**, because `file_mapping/` is one
+    // directory holding two flows and F.1 *moved* the name rather than
+    // duplicating it. This is F.2's `wpLoadConfigConfirmUF` exactly — one arm two
+    // flows need — and the difference is that F.2 saw it at the split and F.1
+    // could not, because the rule that a table-opened dialog's buttons resolve in
+    // the flow's own document was not written until I-101, four tasks later.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(55);
+    expect(names).toHaveLength(56);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -322,6 +340,51 @@ describe("the coverage fixture", () => {
     expect(steps[1]!.do).toBe("post");
   });
 
+  it("holds fileMappingUF's one state action plus the three its table and dialog reach", () => {
+    // F.8. `file_mapping/form_action_delegates.dart` declares **seven** `case`
+    // labels across two switches, and neither switch belongs to one flow:
+    // `fileMappingFormActionsUF` is `fileMappingUF`'s (`downloadMapping`,
+    // `fmSelectSourceConfigUF`, `dialogCancel`) and `fileMappingFormActions`
+    // serves *both* `mapFileUF`'s worksheet and this flow's intake dialog
+    // (`loadRawRowsOk`, `mapperOk`, `mapperDraft`, `dialogCancel`).
+    //
+    // **The partition is by what can press the arm, not by which switch declares
+    // it** (I-101). One state action; `downloadMapping` and the dialog are
+    // `fmFileMappingTableUF`'s (`file_mapping/data_table_config.dart`), and the
+    // dialog's two buttons are `loadRawRows.Ok` and `dialogCancel`
+    // (`FormKeys.loadRawRows`, `file_mapping/form_config.dart`).
+    //
+    // **`configureMappingPage` names no action.** It is the table's third button
+    // and it is a `showScreen`, which navigates to `mapFileUF`'s route and carries
+    // a `configForm` that lives in *that* flow's form document — which is why
+    // `validateTableActions` checks `configForm` for the two dialog kinds and not
+    // for this one (I-122).
+    expect(Object.keys((fileMapping as ActionDocument).actions).sort()).toEqual([
+      "dialogCancel",
+      "downloadMapping",
+      "fmSelectSourceConfigUF",
+      "loadRawRows.Ok",
+    ]);
+  });
+
+  it("unpacks all four of the selected source config's columns", () => {
+    // The state action is `state[k] = unpack(state[k])` four times over
+    // (`file_mapping/form_action_delegates.dart`, `fileMappingFormActionsUF`),
+    // and `{"fromKey": k}` *is* `unpack` — so this is the one arm of the seven
+    // re-partitions where I-100's mechanism was already spelled correctly.
+    // Asserted because it reads like the no-op I-100 describes and a later tidy-up
+    // would delete it: `fmInputSourceMappingUF` publishes all four through its
+    // `formStateBinding`, so each arrives as a one-element list and the flow's
+    // second table filters `process_mapping` on `table_name`.
+    const steps = (fileMapping as ActionDocument).actions["fmSelectSourceConfigUF"]!.steps;
+    expect(steps.map((s) => (s.do === "set" ? [s.key, Object.keys(s.value)[0]] : s.do))).toEqual([
+      ["client", "fromKey"],
+      ["org", "fromKey"],
+      ["table_name", "fromKey"],
+      ["object_type", "fromKey"],
+    ]);
+  });
+
   it("holds every startPipelineUF arm a state names, and the flow has no others", () => {
     // F.4. `start_pipeline/form_action_delegates.dart` declares three `case`
     // labels in one switch and the four states name them —
@@ -389,6 +452,18 @@ describe("the coverage fixture", () => {
     // "everyGroup"` and `require`, each justified beyond this flow — so
     // `mapperOk` and `mapperDraft` are steps. **A transcription says what the
     // grammar could express when it was written, not what the arm needs.**
+    //
+    // **F.8 asked the same question of its two and got two different answers,
+    // which narrows the rule rather than repeating it (I-121).**
+    // `downloadMapping` stays because no step can express a two-table joined read
+    // whose rows become a file the browser saves. `loadRawRows` stays although the
+    // grammar *can* express it — a `set` and a `post` with `transport:
+    // "insertRows"` — because S.7's allowlist refuses the target: `insert_raw_rows`
+    // runs `DELETE FROM jetsapi.process_mapping` in a pre-processing hook before
+    // `InsertRows` reaches `VerifyUserPermission`
+    // (`jets/datatable/data_table_action.go`, `InsertRawRows`). **So "can the
+    // grammar say it" is necessary and not sufficient**, and the escape count is
+    // an upper bound on the first question alone.
     expect([...new Set(escapes)].sort()).toEqual([
       "downloadMapping",
       "loadRawRows",

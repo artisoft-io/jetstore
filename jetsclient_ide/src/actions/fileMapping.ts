@@ -1,5 +1,12 @@
 /**
- * `mapFileUF`'s two escapes. Task F.1.
+ * The `file_mapping/` directory's escapes — two of `mapFileUF`'s and two of
+ * `fileMappingUF`'s. Tasks F.1 and F.8.
+ *
+ * **The header said "`mapFileUF`'s two escapes" for seven tasks, and the module
+ * is named for the *directory*.** `file_mapping/` defines two flows (I-61), and
+ * both put a body here: F.1's pair are the worksheet's, F.8's pair belong to the
+ * flow above it. They share a directory, a table and nothing else — which is
+ * exactly the split I-61 was written about, arriving in this file.
  *
  * The file mapping worksheet is the corpus's hardest form and the one Phase 2
  * deliberately kept out of the proof flows: one state, zero declared fields, a
@@ -58,7 +65,12 @@
  */
 
 import type { JetsRow } from "../datatable/types";
-import type { EscapeContext, RowInitializerEscape, ValidatorEscape } from "./escapes";
+import type {
+  ActionEscape,
+  EscapeContext,
+  RowInitializerEscape,
+  ValidatorEscape,
+} from "./escapes";
 
 /**
  * The query names this pair reads out of form state.
@@ -230,4 +242,153 @@ export const mappingFormValidator: ValidatorEscape = (context, key, value) => {
       // reach here without `validateDocumentSet` having been bypassed.
       return null;
   }
+};
+
+/**
+ * The nine columns `downloadMapping` selects, in the Dart's order.
+ *
+ * They are the CSV's header row *and* the request's `columns` list, which is why
+ * they are one array rather than two — the Dart writes the header as a literal
+ * string and builds the column list beside it
+ * (`file_mapping/form_action_helpers.dart`, `downloadMapping`), and the two
+ * agreeing is what makes the file readable by the intake dialog that reads it
+ * back.
+ */
+const MAPPING_COLUMNS = [
+  "client",
+  "org",
+  "object_type",
+  "data_property",
+  "input_column",
+  "function_name",
+  "argument",
+  "default_value",
+  "error_message",
+] as const;
+
+/**
+ * Every cell quoted, except a null, which is written as nothing at all.
+ *
+ * The Dart writes `'"$column"'` per non-null cell and nothing for a null, with
+ * commas between (`downloadMapping`). It does **not** escape an embedded quote,
+ * and neither does this: a mapping value containing `"` produces the same
+ * malformed row in both apps, which is a divergence not worth introducing — see
+ * I-123.
+ */
+function csvRow(cells: readonly (string | null)[]): string {
+  return cells.map((cell) => (cell === null ? "" : `"${cell}"`)).join(",");
+}
+
+/**
+ * `downloadMapping` — the flow's table button. Task F.8.
+ *
+ * **The one escape of the corpus that is an escape for the reason the mechanism
+ * was designed for.** It issues a `read` whose shape no `post` step can express —
+ * two from clauses joined on `table_name`, three value filters and nine named
+ * columns — turns up to a thousand rows into a CSV, and hands the browser a file.
+ * The grammar has a `query` step and it is the wrong one: that resolves a
+ * *registered* statement and returns the first row by column name.
+ *
+ * **The three `unpack`s are the Dart's and they matter.** `client`, `org` and
+ * `object_type` are published by `fmInputSourceMappingUF`'s `formStateBinding`,
+ * so a selected row puts each in a one-element list; the request's `values`
+ * arrays would then hold a list inside a list and match nothing.
+ *
+ * **Every failure path returns null, which is the Dart's and reads wrong until
+ * you check it.** A 401 returns null silently — the api client has already
+ * logged the user out — and any other failure shows a message and returns null
+ * rather than the message. Returning it would put an error banner on a screen
+ * that already has a snackbar, and `runAction` would stop an action that has
+ * nothing left to do.
+ */
+export const downloadMapping: ActionEscape = async (context, host) => {
+  const { formState, group } = context;
+  const read = (key: string): string | null => scalar(formState.getValue(group, key));
+  const client = read("client");
+  const org = read("org");
+  const objectType = read("object_type");
+
+  const rows = await host.read({
+    endpoint: "/dataTable",
+    body: {
+      action: "read",
+      fromClauses: [
+        { schema: "jetsapi", table: "source_config" },
+        { schema: "jetsapi", table: "process_mapping" },
+      ],
+      whereClauses: [
+        { table: "source_config", column: "client", values: [client] },
+        { table: "source_config", column: "org", values: [org] },
+        { table: "source_config", column: "object_type", values: [objectType] },
+        { table: "source_config", column: "table_name", joinWith: "process_mapping.table_name" },
+      ],
+      offset: 0,
+      limit: 1000,
+      columns: MAPPING_COLUMNS.map((column) => ({ column })),
+      sortColumn: "data_property",
+      sortAscending: true,
+    },
+  });
+
+  if (rows === null) {
+    host.notify("error", "Unknown Error reading data from table");
+    return null;
+  }
+
+  const lines = [csvRow(MAPPING_COLUMNS), ...rows.map(csvRow), ""];
+  host.download("mapping.csv", lines.join("\n"));
+  return null;
+};
+
+/**
+ * `loadRawRows` — the Save button of `loadRawRowsDialog`. Task F.8.
+ *
+ * **This one is an escape on a security ground rather than an expressive one,
+ * and the distinction is the whole of I-121.** The arm is four lines: write
+ * `user_email` into form state and post the state as one row
+ * (`file_mapping/form_action_helpers.dart`, `loadRawRows`). A `set` step and a
+ * `post` with `transport: "insertRows"` say exactly that — I-74's question, asked
+ * and answered *yes*. What refuses it is S.7's allowlist: `insert_raw_rows`
+ * parses the pasted text and runs `DELETE FROM jetsapi.process_mapping` in a
+ * pre-processing hook **before** `InsertRows` calls `VerifyUserPermission`
+ * (`jets/datatable/data_table_action.go`, `InsertRawRows`). Adding it to
+ * `ServerActionSchema` would let an authored document delete a client's mappings
+ * on behalf of a user holding no `client_config` — the confused-deputy shape
+ * `schema.ts` names as the reason the allowlist exists.
+ *
+ * **The body reproduces `postInsertRows`** (`modules/actions/delegate_helpers.dart`,
+ * `postInsertRows`), which is what the `insertRows` transport already does in the
+ * interpreter: 401 is silent, 200 closes and refreshes, 409 is a duplicate, and
+ * anything else records the server's message under `serverError` and closes
+ * anyway. That duplication is the price of the paragraph above and is stated
+ * rather than hidden.
+ */
+export const loadRawRows: ActionEscape = async (context, host) => {
+  const { formState, group } = context;
+  formState.setValue(group, "user_email", host.userEmail() as never);
+
+  const result = await host.post({
+    endpoint: "/dataTable",
+    body: {
+      action: "insert_raw_rows",
+      fromClauses: [{ table: "raw_rows/process_mapping" }],
+      data: [formState.snapshot(group)],
+    },
+  });
+
+  if (result.statusCode === 200) {
+    host.close();
+    formState.requestRefresh();
+    return null;
+  }
+  // The api client turns a 401 into a sign-out and this never sees one; the Dart
+  // returns null there and so does the branch that would.
+  const message =
+    result.statusCode === 409
+      ? "Duplicate record. Please verify."
+      : (result.error ?? "Something went wrong. Please try again.");
+  formState.setValue(group, "serverError", message as never);
+  host.notify("error", message);
+  host.close();
+  return message;
 };

@@ -91,19 +91,21 @@ describe("the production registry", () => {
     // action escapes and the corpus's one initializer are here — and the rule the
     // old assertion stood for is now stated as what it always was, a *bound*
     // rather than a zero.
+    //
+    // **F.8 added `fileMappingUF`'s two, and they are the first bodies here that
+    // talk to the server.** That is what `EscapeHost` is for — an escape gets the
+    // host as a second parameter, which is additive for the five bodies that
+    // preceded it and for the one in another project's directory (`escapes.ts`).
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
+      "downloadMapping",
+      "loadRawRows",
       "updateHomeFilters",
     ]);
     expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
-    // The four still absent belong to `fileMappingUF` and `sourceConfigUF`, which
-    // are F.8 and F.7 (`actions/coverage.test.ts`, the escape-name assertion).
-    for (const name of [
-      "downloadMapping",
-      "loadRawRows",
-      "loadSourceConfigWithFileTypeInference",
-      "saveSourceConfigForFileType",
-    ]) {
+    // The two still absent belong to `sourceConfigUF`, which is F.7
+    // (`actions/coverage.test.ts`, the escape-name assertion).
+    for (const name of ["loadSourceConfigWithFileTypeInference", "saveSourceConfigForFileType"]) {
       expect(productionRegistry.actions[name]).toBeUndefined();
     }
   });

@@ -49,7 +49,12 @@
  */
 
 import type { FormState } from "../datatable/formState";
-import { mappingFormValidator, seedMappingRow } from "./fileMapping";
+import {
+  downloadMapping,
+  loadRawRows,
+  mappingFormValidator,
+  seedMappingRow,
+} from "./fileMapping";
 import {
   alwaysEnabled,
   clearHomeFilters,
@@ -147,9 +152,18 @@ export const hasDataRegistryFilters = (_formState: FormState, _group: number): b
  * this one survived the same question — a step that builds `LIKE` patterns and
  * `now() - interval '…'` bounds for another screen's `WHERE` is not a missing
  * primitive. See `homeFilters.ts`.
+ *
+ * **`actions` has four as of F.8, and the two it gained answer that question two
+ * different ways.** `downloadMapping` is an escape because no step can express a
+ * two-table joined read whose thousand rows become a file the browser saves.
+ * `loadRawRows` is an escape although the grammar *can* express it — a `set` and
+ * a `post` — because S.7's allowlist refuses the target: `insert_raw_rows`
+ * deletes before it authorises (I-121). **So the escape count is an upper bound
+ * on what the grammar cannot say and not on what stays a body**, which is a
+ * narrowing of I-74 rather than an instance of it.
  */
 export const productionRegistry: EscapeRegistry = {
-  actions: { updateHomeFilters, clearHomeFilters },
+  actions: { updateHomeFilters, clearHomeFilters, downloadMapping, loadRawRows },
   initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },
   validators: { mappingFormValidator, homeFiltersFormValidator },

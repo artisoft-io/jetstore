@@ -15,16 +15,19 @@ import { productionRegistry } from "../actions/registry";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import homeFiltersActions from "../actions/flows/homeFiltersUF.ua.json";
 import pipelineConfigActions from "../actions/flows/pipelineConfigUF.ua.json";
+import fileMappingActions from "../actions/flows/fileMappingUF.ua.json";
 import type { WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
 import pipelineConfigFlow from "./flows/pipelineConfigUF.uf.json";
+import fileMappingFlow from "./flows/fileMappingUF.uf.json";
 import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 import { tablePath } from "../datatable/table";
 import homeFiltersForms from "./forms/homeFiltersUF.form.json";
 import pipelineConfigForms from "./forms/pipelineConfigUF.form.json";
+import fileMappingForms from "./forms/fileMappingUF.form.json";
 import pcAddOrEditOption from "../datatable/tables/pcAddOrEditPipelineConfigOption.tc.json";
 import pcPipelineConfigTable from "../datatable/tables/pcPipelineConfigTable.tc.json";
 import pcMainProcessInputKey from "../datatable/tables/pcMainProcessInputKey.tc.json";
@@ -35,6 +38,8 @@ import pcMerged from "../datatable/tables/pcMergedProcessInputKeys.tc.json";
 import pcInjected from "../datatable/tables/pcInjectedProcessInputKeys.tc.json";
 import pcProcessInputRegistry from "../datatable/tables/pcProcessInputRegistry.tc.json";
 import pcProcessInputRegistry4MI from "../datatable/tables/pcProcessInputRegistry4MI.tc.json";
+import fmInputSourceMapping from "../datatable/tables/fmInputSourceMappingUF.tc.json";
+import fmFileMappingTable from "../datatable/tables/fmFileMappingTableUF.tc.json";
 import hfProcessTable from "../datatable/tables/hfProcessTableUF.tc.json";
 import hfStatusTable from "../datatable/tables/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../datatable/tables/hfFileKeyFilterTypeTableUF.tc.json";
@@ -566,6 +571,92 @@ describe("saving", () => {
     await store.save(await store.load("loadFilesUF"));
     expect(saved[flowPath("loadFilesUF")]).toBe(serialise(loadFilesFlow));
     expect(saved[actionPath("loadFilesUF")]).toBe(serialise(loadFilesActions));
+  });
+});
+
+/**
+ * `fileMappingUF` against the registry this build ships. Task F.8.
+ *
+ * **The first set whose escapes are the reason the flow needs a server at all.**
+ * `homeFiltersUF`'s escapes compile filters and `pipelineConfigUF`'s registered
+ * query reads one row; these two are a joined read and a raw-rows post, and both
+ * resolve here or the flow does not load.
+ */
+const fileMappingWorkspace = () => ({
+  ...workspace("fileMappingUF", fileMappingFlow, fileMappingActions, fileMappingForms),
+  [tablePath("fmInputSourceMappingUF")]: serialise(fmInputSourceMapping),
+  [tablePath("fmFileMappingTableUF")]: serialise(fmFileMappingTable),
+});
+
+describe("fileMappingUF against the shipping registry", () => {
+  it("loads three forms for two states, and both of its tables", async () => {
+    const { store } = storeFor(fileMappingWorkspace(), productionRegistry);
+    const loaded = await store.load("fileMappingUF");
+    expect(Object.keys(loaded.flow.states)).toHaveLength(2);
+    // Three: the two states' forms and `loadRawRowsDialog`, which
+    // `fmFileMappingTableUF` opens (I-89). The last of the four the flow corpus
+    // calls *unreferenced*.
+    expect(Object.keys(loaded.forms.forms).sort()).toEqual([
+      "fmFileMappingUF",
+      "fmSelectSourceConfigUF",
+      "loadRawRowsDialog",
+    ]);
+    expect(Object.keys(loaded.tables).sort()).toEqual([
+      "fmFileMappingTableUF",
+      "fmInputSourceMappingUF",
+    ]);
+    // Both action escapes resolve against `productionRegistry`, which is what
+    // makes the two the flow depends on real rather than declared.
+    expect(
+      escapeReferences(loaded.flow, loaded.actions)
+        .filter((r) => r.kind === "actions")
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(["downloadMapping", "loadRawRows"]);
+  });
+
+  it("refuses the set when the table's doAction names an action nothing defines", async () => {
+    // I-88's first half, on the flow F.3 endorsed for it. `downloadMappingRows`
+    // is a `doAction` naming `downloadMapping`, and no state and no form button
+    // names it — so before `validateTableActions` this was the one reference a
+    // per-document check could not see.
+    const files = fileMappingWorkspace();
+    const actions = structuredClone(fileMappingActions) as { actions: Record<string, unknown> };
+    delete actions.actions["downloadMapping"];
+    files[actionPath("fileMappingUF")] = serialise(actions);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("fileMappingUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => f.message).join("\n")).toContain('runs "downloadMapping"');
+  });
+
+  it("refuses the set when the dialog the table opens is not in the form document", async () => {
+    const files = fileMappingWorkspace();
+    const forms = structuredClone(fileMappingForms) as { forms: Record<string, unknown> };
+    delete forms.forms["loadRawRowsDialog"];
+    files[formPath("fileMappingUF")] = serialise(forms);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("fileMappingUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => f.message).join("\n")).toContain(
+      'opens form "loadRawRowsDialog"',
+    );
+  });
+
+  it("does not ask for the form a showScreen names, because it is another flow's", async () => {
+    // **`configureMappingPage` carries `configForm: "fmMappingFormUF"` and that
+    // form is in `mapFileUF.form.json`.** A `showScreen` navigates to another
+    // route and the form is rendered by whatever serves it, so checking it
+    // against *this* flow's document would demand a copy of a form that already
+    // has a home. `validateTableActions` checks `configForm` for `showDialog` and
+    // `doActionShowDialog` only (I-122), and this loads with it absent.
+    const { store } = storeFor(fileMappingWorkspace(), productionRegistry);
+    const loaded = await store.load("fileMappingUF");
+    expect(Object.keys(loaded.forms.forms)).not.toContain("fmMappingFormUF");
   });
 });
 

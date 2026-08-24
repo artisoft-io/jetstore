@@ -4,15 +4,14 @@ One document per flow, named for the flow it serves and sitting beside the
 `.uf.json` in `../../userflow/flows/`. Validated against `../action.schema.json`,
 which `../schema.ts` emits.
 
-**Nine flows as of F.6, and this paragraph said *two* until then.** It described
+**Ten flows as of F.8, and this paragraph said *two* until F.6.** It described
 the two proof flows the plan nominates (`plan/phase2_plan.md` §2 item 6) —
 `register_file_key`, 2 arms and no data table at all, and `load_files`, 3 arms
 including the corpus's only fan-out — and every sentence under *What is not here*
-was true of those two and of nothing since. Track F has landed seven more:
+was true of those two and of nothing since. Track F has landed eight more:
 `mapFileUF`, `loadConfigUF`, `workspacePullUF`, `clientRegistryUF`,
-`startPipelineUF`, `homeFiltersUF` and `pipelineConfigUF`. Two coverage documents
-remain in `../coverage/`, which is `fileMappingUF` (F.8) and `sourceConfigUF`
-(F.7).
+`startPipelineUF`, `homeFiltersUF`, `pipelineConfigUF` and `fileMappingUF`. **One**
+coverage document remains in `../coverage/`, which is `sourceConfigUF` (F.7).
 
 **Nobody re-read this file for five tasks**, which is the shape the repository
 `CLAUDE.md` describes: a standing claim with no owner between consumers, corrected
@@ -36,10 +35,18 @@ That is the right trade and it is why this file exists.
 
 ~~**No action body that needs an `escape`.**~~ True of the two proof flows and
 false since F.5. `homeFiltersUF` names `updateHomeFilters` and `clearHomeFilters`,
-and `mapFileUF` names `downloadMapping`; the bodies are in `../homeFilters.ts` and
-`../fileMapping.ts` and the registry is `../registry.ts`. The count is still an
-upper bound rather than a target (I-74): two of the sizing's four turned into
-grammar rather than into escapes.
+and **`fileMappingUF`** names `downloadMapping` and `loadRawRows`; the bodies are
+in `../homeFilters.ts` and `../fileMapping.ts` and the registry is
+`../registry.ts`. **This sentence said `mapFileUF` named `downloadMapping` and it
+never did** — the two flows share the `file_mapping/` directory and nothing else
+(I-61), and `mapFileUF`'s two bodies are a row seeder and a validator. Corrected
+by F.8, whose flow it is.
+
+The count is still an upper bound rather than a target (I-74): two of the sizing's
+four turned into grammar rather than into escapes. **What F.8 adds is that it is
+an upper bound on a narrower question than the one I-74 asked** — `loadRawRows`
+is four lines the grammar can say exactly, and it is a body because S.7's
+allowlist refuses its target rather than because the vocabulary is short (I-121).
 
 ~~**No `formStateInitializer`.**~~ `homeFiltersUF` sets one — `seedFromHomeFilters`
 — and it is the only one in the corpus.

@@ -77,6 +77,8 @@ const host: ActionHost = {
   validate: () => true,
   confirm: async () => true,
   post: async () => ({ statusCode: 200 }),
+  read: async () => [],
+  download: () => {},
   query: async () => null,
   notify: () => {},
   setBusy: () => {},
@@ -204,7 +206,7 @@ describe("criterion 32 — a template configured step at a time", () => {
     // Nothing collected at all: every chooser is unanswered and every binding absent.
     const ws = workspace(plan);
     const escape = createCpipesTemplateApply({ workspaceName: WORKSPACE, api: ws.api as never });
-    const outcome = await escape({ formState: new FormState(), group: 0, flowKey: TEMPLATE });
+    const outcome = await escape({ formState: new FormState(), group: 0, flowKey: TEMPLATE }, host);
 
     expect(outcome).toContain("not complete");
     expect(outcome).toContain("no type was chosen");

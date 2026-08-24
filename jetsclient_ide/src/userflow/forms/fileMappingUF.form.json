@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "fmSelectSourceConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "fmInputSourceMappingUF",
+            "table": "fmInputSourceMappingUF",
+            "rules": [
+              { "rule": "required", "message": "A file configuration must be selected." }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "fmFileMappingUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "fmFileMappingTableUF",
+            "table": "fmFileMappingTableUF"
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCompleted", "label": "Done", "style": "secondary" }
+      ]
+    },
+    "loadRawRowsDialog": {
+      "title": "File Mapping Intake",
+      "rows": [
+        [
+          {
+            "field": "label",
+            "text": "Enter the File Mapping Definition as csv/tsv-encoded text."
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "raw_rows",
+            "label": "File Mapping (csv/tsv)",
+            "hint": "Paste from spreadsheet using JetStore template",
+            "maxLines": 20,
+            "maxLength": 51200,
+            "rules": [{ "rule": "required", "message": "Raw rows must be provided." }]
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "loadRawRows.Ok",
+          "label": "Save",
+          "style": "primary",
+          "capability": "client_config"
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}
