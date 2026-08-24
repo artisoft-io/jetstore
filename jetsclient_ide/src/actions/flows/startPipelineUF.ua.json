@@ -4,7 +4,9 @@
     "spPipelineSelected": {
       "description": "Unwrap the selected pipeline's process input key lists",
       "steps": [
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKey": "merged_process_input_keys" } },
         { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKey": "injected_process_input_keys" } },
         { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } }
       ]
     },

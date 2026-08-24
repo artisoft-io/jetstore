@@ -29,12 +29,12 @@ import fileMapping from "./coverage/fileMappingUF.ua.json";
 import homeFilters from "./coverage/homeFiltersUF.ua.json";
 import pipelineConfig from "./coverage/pipelineConfigUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
-import startPipeline from "./coverage/startPipelineUF.ua.json";
 import clientRegistry from "./flows/clientRegistryUF.ua.json";
 import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
 import registerFileKey from "./flows/registerFileKeyUF.ua.json";
+import startPipeline from "./flows/startPipelineUF.ua.json";
 import workspacePull from "./flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
@@ -43,7 +43,6 @@ const coverage: Record<string, unknown> = {
   homeFiltersUF: homeFilters,
   pipelineConfigUF: pipelineConfig,
   sourceConfigUF: sourceConfig,
-  startPipelineUF: startPipeline,
 };
 const proof: Record<string, unknown> = {
   loadFilesUF: loadFiles,
@@ -69,6 +68,12 @@ const proof: Record<string, unknown> = {
   // them, which is the third place an action name can appear and the first time
   // a migrated set has used it.
   clientRegistryUF: clientRegistry,
+  // F.4's re-partition. One delegate file, one flow, and nothing to split — the
+  // same shape as F.3's. What it changed is inside two arms rather than in the
+  // partition: `spPipelineSelected` reads `unpackToList(unpack(x))` in the Dart
+  // and the coverage document had `fromKeyList` alone, which is `unpackToList(x)`
+  // and a different function on the value the table publishes (I-97).
+  startPipelineUF: startPipeline,
 };
 const all = { ...coverage, ...proof };
 
@@ -106,6 +111,13 @@ describe("the coverage fixture", () => {
     // question asked of an arm that *does* something (I-91). **55 was never an
     // invariant**: it is a count of `case` labels minus the ones declared twice,
     // and a migrated corpus needs fewer of them than the delegates declare.
+    //
+    // **Still 54 after F.4's, and here the conservation is by construction
+    // again.** `startPipelineUF` is one delegate file holding one flow, all
+    // three of whose arms a state action names, so three names left
+    // `coverage/` and the same three arrived in `flows/`. Nothing was dropped
+    // and nothing duplicated — which is the F.1 shape rather than the F.2 or
+    // F.3 one, and is why the count alone would not have told you.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
@@ -129,6 +141,38 @@ describe("the coverage fixture", () => {
       "deleteClientAction",
       "deleteOrgAction",
       "dialogCancel",
+    ]);
+  });
+
+  it("holds every startPipelineUF arm a state names, and the flow has no others", () => {
+    // F.4. `start_pipeline/form_action_delegates.dart` declares three `case`
+    // labels in one switch and the four states name them —
+    // `spPrepareStartPipeline` twice, which is why the plan's *Actions* column
+    // says 4 and the document has 3. **No form and no table adds a fourth**: the
+    // three selection forms take `standardActions`, `spSummaryUF` takes
+    // Previous / Cancel / Completed (`start_pipeline/form_config.dart`), and the
+    // six tables the forms name carry only `clearHomeFilters`
+    // (`start_pipeline/data_table_config.dart`) — so this flow owes no dialog
+    // form and no table arm.
+    expect(Object.keys((startPipeline as ActionDocument).actions).sort()).toEqual([
+      "spPipelineSelected",
+      "spPrepareStartPipeline",
+      "spStartPipelineUF",
+    ]);
+  });
+
+  it("unpacks a selection before decoding the array literal inside it", () => {
+    // I-97, and the reason it is asserted on the *document* as well as on the
+    // behaviour (`proofFlows.test.ts`): the coverage document expressed
+    // `unpackToList(unpack(x))` as `fromKeyList` alone, and the two `set` steps
+    // per key are what make the composition explicit. A future edit collapsing
+    // them back would read as a tidy-up.
+    const steps = (startPipeline as ActionDocument).actions["spPipelineSelected"]!.steps;
+    expect(steps.map((s) => (s.do === "set" ? [s.key, Object.keys(s.value)[0]] : s.do))).toEqual([
+      ["merged_process_input_keys", "fromKey"],
+      ["merged_process_input_keys", "fromKeyList"],
+      ["injected_process_input_keys", "fromKey"],
+      ["injected_process_input_keys", "fromKeyList"],
     ]);
   });
 

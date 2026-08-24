@@ -27,6 +27,7 @@ import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json"
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
+import startPipelineActionsDoc from "../actions/flows/startPipelineUF.ua.json";
 import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
@@ -34,12 +35,14 @@ import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
+import startPipelineFormsDoc from "./forms/startPipelineUF.form.json";
 import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
 import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
+import startPipelineFlowDoc from "./flows/startPipelineUF.uf.json";
 import workspacePullFlowDoc from "./flows/workspacePullUF.uf.json";
 import { validateDocumentSet } from "./documentSet";
 import { UserFlowSchema, type UserFlow } from "./schema";
@@ -137,6 +140,7 @@ describe("the documents are complete and consistent", () => {
     ["loadConfigUF", loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc],
     ["workspacePullUF", workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc],
     ["clientRegistryUF", clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc],
+    ["startPipelineUF", startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -678,6 +682,242 @@ describe("client_registry, end to end", () => {
     const stateForms = new Set(Object.values(setup().flow.states).map((s) => s.formConfig));
     expect(stateForms.has("ufVendor")).toBe(false);
     expect(Object.keys(setup().forms.forms)).toContain("ufVendor");
+  });
+});
+
+/**
+ * F.4's flow, and the one whose arms convert a value twice.
+ *
+ * **`unpackToList(unpack(x))` is a composition and the coverage document had it
+ * as one call.** `spPipelineSelected` reads two `pipeline_config` columns that
+ * hold Postgres `text[]` literals (`start_pipeline/form_action_delegates.dart`,
+ * `startPipelineFormActionsUF`). A data table publishes a secondary column as a
+ * *one-element list* — `resetSecondaryKeys` appends one string per selected row
+ * (`components/data_table_source.dart`, `resetSecondaryKeys`) — so the state
+ * holds `["{5,6}"]`, and `unpack` has to strip the selection before
+ * `unpackToList` can decode the literal. `fromKeyList` alone is `unpackToList`
+ * alone, which sees an array and returns it unchanged (I-97).
+ */
+describe("start_pipeline, end to end", () => {
+  const setup = () => harness(startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc);
+
+  /** What selecting a row of `pipeline_config_key` writes into form state. */
+  const selectPipelineConfig = (
+    h: ReturnType<typeof setup>,
+    mergedProcessInputKeys: string,
+  ) => {
+    h.formState.setValue(0, "pipeline_config_key", ["12"]);
+    h.formState.setValue(0, "client", ["ACME"]);
+    h.formState.setValue(0, "process_name", ["claimsProcess"]);
+    h.formState.setValue(0, "main_process_input_key", ["3"]);
+    h.formState.setValue(0, "merged_process_input_keys", [mergedProcessInputKeys]);
+    h.formState.setValue(0, "injected_process_input_keys", ["{9}"]);
+    h.formState.setValue(0, "main_object_type", ["hc:Claim"]);
+    h.formState.setValue(0, "main_source_type", ["file"]);
+    h.formState.setValue(0, "description", ["Nightly claims run"]);
+    h.formState.setValue(0, "main_process_input.table_name", ["ACME_D1_hcClaim"]);
+  };
+
+  const selectMainDataSource = (h: ReturnType<typeof setup>) => {
+    h.formState.setValue(0, "main_input_registry_key", ["12"]);
+    h.formState.setValue(0, "main_input_file_key", ["s3://in/claims.csv"]);
+    h.formState.setValue(0, "source_period_key", ["101"]);
+  };
+
+  it("will not advance until a pipeline configuration is selected", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_pipeline_config");
+  });
+
+  it("decodes the array literal inside the selection, not the selection", async () => {
+    const h = setup();
+    selectPipelineConfig(h, "{5,6}");
+    await h.press("ufNext");
+    // Two keys the flow's own tables filter on: `mergeProcessInputTable` and
+    // `spInjectedProcessInput` each read one as `key IN (…)`.
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual(["5", "6"]);
+    expect(h.formState.getValue(0, "injected_process_input_keys")).toEqual(["9"]);
+  });
+
+  it("takes the merged branch only when the pipeline has merged process inputs", async () => {
+    const withMerged = setup();
+    selectPipelineConfig(withMerged, "{5,6}");
+    await withMerged.press("ufNext");
+    selectMainDataSource(withMerged);
+    await withMerged.press("ufNext");
+    expect(withMerged.at()).toBe("select_merged_data_sources");
+
+    const without = setup();
+    selectPipelineConfig(without, "{}");
+    await without.press("ufNext");
+    expect(without.formState.getValue(0, "merged_process_input_keys")).toEqual([]);
+    selectMainDataSource(without);
+    await without.press("ufNext");
+    expect(without.at()).toBe("summaryUF");
+  });
+
+  it("would have taken the merged branch on every pipeline without the unpack", async () => {
+    // **Measured rather than argued**, the way I-90 was. This is the coverage
+    // document's `spPipelineSelected` — `fromKeyList` alone — run on the empty
+    // case: the literal survives as a one-element list, the flow reads it as a
+    // non-empty selection, and every pipeline is sent through a step for merged
+    // sources it does not have.
+    const flow = UserFlowSchema.parse(startPipelineFlowDoc) as UserFlow;
+    const formState = new FormState();
+    formState.setValue(0, "merged_process_input_keys", ["{}"]);
+    const collapsed = ActionDocumentSchema.parse({
+      schemaVersion: 1,
+      actions: {
+        spPipelineSelected: {
+          description: "as the coverage document had it",
+          steps: [
+            { do: "set", key: "merged_process_input_keys", value: { fromKeyList: "merged_process_input_keys" } },
+          ],
+        },
+      },
+    }) as ActionDocument;
+    await runAction({
+      action: collapsed.actions["spPipelineSelected"]!,
+      host: {
+        validate: () => true,
+        confirm: async () => true,
+        post: async () => ({ statusCode: 200 }),
+        query: async () => null,
+        notify: () => undefined,
+        setBusy: () => undefined,
+        goToState: () => undefined,
+        close: () => undefined,
+        userEmail: () => "michel@artisoft.io",
+        now: () => 0,
+      },
+      formState,
+      field,
+      registry: emptyRegistry,
+      flowKey: "test",
+    });
+    expect(formState.getValue(0, "merged_process_input_keys")).toEqual(["{}"]);
+    const state = flow.states["select_main_data_source"]!;
+    const choices = "choices" in state ? state.choices : undefined;
+    expect(choices).toHaveLength(1);
+    expect(evaluateCondition(choices![0]!.when, formState, 0)).toBe(true);
+  });
+
+  it("collects the merged sources before the main one", async () => {
+    const h = setup();
+    selectPipelineConfig(h, "{5,6}");
+    await h.press("ufNext");
+    selectMainDataSource(h);
+    await h.press("ufNext");
+    h.formState.setValue(0, "merged_input_registry_keys", ["31", "32"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("summaryUF");
+    // `[merged, main].expand(...)` — the order `spSummaryDataSources` displays.
+    expect(h.formState.getValue(0, "spAllDataSourceKeys")).toEqual(["31", "32", "12"]);
+    // Unpacked so the read-only summary field shows a string.
+    expect(h.formState.getValue(0, "description")).toBe("Nightly claims run");
+  });
+
+  it("submits the pipeline execution as the whole state, normalised", async () => {
+    const h = setup();
+    selectPipelineConfig(h, "{5,6}");
+    await h.press("ufNext");
+    selectMainDataSource(h);
+    await h.press("ufNext");
+    h.formState.setValue(0, "merged_input_registry_keys", ["31", "32"]);
+    await h.press("ufNext");
+    await h.press("ufCompleted");
+
+    expect(h.posts).toHaveLength(1);
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["action"]).toBe("insert_rows");
+    expect(body["fromClauses"]).toEqual([{ table: "pipeline_execution_status" }]);
+    // **`state[FSK.wsName] ?? ''` becomes null here and the server cannot tell.**
+    // `DataTableAction.WorkspaceName` is a Go `string`
+    // (`jets/datatable/data_table_action.go`, `DataTableAction`), and
+    // `encoding/json` unmarshals a JSON null into a string as the zero value —
+    // so the two spellings arrive identically. Stated because the divergence is
+    // real and the reason it does not matter is not obvious (I-98).
+    expect(body["workspaceName"]).toBeNull();
+
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    // `makePgArray`, outward: the one key the Dart brace-wraps by hand.
+    expect(row["merged_input_registry_keys"]).toBe("{31,32}");
+    expect(row["pipeline_config_key"]).toBe("12");
+    expect(row["main_input_registry_key"]).toBe("12");
+    expect(row["client"]).toBe("ACME");
+    expect(row["process_name"]).toBe("claimsProcess");
+    expect(row["source_period_key"]).toBe("101");
+    expect(row["status"]).toBe("submitted");
+    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["session_id"]).toBe("1700000000000");
+    // The four keys the Dart copies rather than reads: `object_type` and
+    // `file_key` are the main input's, written beside the originals.
+    expect(row["main_object_type"]).toBe("hc:Claim");
+    expect(row["object_type"]).toBe("hc:Claim");
+    expect(row["main_input_file_key"]).toBe("s3://in/claims.csv");
+    expect(row["file_key"]).toBe("s3://in/claims.csv");
+    // `wholeState` carries the working keys too, exactly as `data: [state]` does.
+    expect(row["spAllDataSourceKeys"]).toEqual(["31", "32", "12"]);
+    expect(h.events).toContain("busy");
+    expect(h.events).toContain("idle");
+    expect(h.events).toContain("exit");
+  });
+
+  it("posts nothing when the summary form does not validate", async () => {
+    // The harness answers `host.validate` with yes, so the `validate` step is
+    // driven directly — the Dart returns null from a failed
+    // `formKey.currentState!.validate()`, which is an abort and not an error.
+    const posts: unknown[] = [];
+    const actions = ActionDocumentSchema.parse(startPipelineActionsDoc) as ActionDocument;
+    const outcome = await runAction({
+      action: actions.actions["spStartPipelineUF"]!,
+      host: {
+        validate: () => false,
+        confirm: async () => true,
+        post: async (r) => {
+          posts.push(r);
+          return { statusCode: 200 };
+        },
+        query: async () => null,
+        notify: () => undefined,
+        setBusy: () => undefined,
+        goToState: () => undefined,
+        close: () => undefined,
+        userEmail: () => "michel@artisoft.io",
+        now: () => 0,
+      },
+      formState: new FormState(),
+      field,
+      registry: emptyRegistry,
+      flowKey: "test",
+    });
+    expect(outcome).toBeNull();
+    expect(posts).toEqual([]);
+  });
+
+  it("requires the summary's two read-only identity fields", () => {
+    // `startPipelineFormValidator` answers "Select an option" for `client` and
+    // `process_name` and nothing for `description`
+    // (`start_pipeline/form_action_delegates.dart`, `startPipelineFormValidator`).
+    // Both are read-only and both are filled by the pipeline selection, so the
+    // rule fires only when that selection never happened.
+    const h = setup();
+    expect(validateForm(h.formFor("summaryUF"), h.formState, 0).map((e) => e.key)).toEqual([
+      "client",
+      "process_name",
+    ]);
+  });
+
+  it("ends on summaryUF, which offers no advancing button", () => {
+    const h = setup();
+    expect(h.flow.states["summaryUF"]!.isEnd).toBe(true);
+    expect(h.formFor("summaryUF").actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCancel",
+      "ufCompleted",
+    ]);
   });
 });
 
