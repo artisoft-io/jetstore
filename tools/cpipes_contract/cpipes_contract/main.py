@@ -227,8 +227,11 @@ def main(argv: list[str] | None = None) -> int:
         "--project",
         type=Path,
         metavar="DIR",
-        help="project each template and its bindings into a UserFlow document pair, "
-        "one state per fill, and write them to DIR - gap 20 (M.4)",
+        help="project each template and its bindings into a UserFlow document set, "
+        "one state per fill, and write them to DIR - gap 20 (M.4). The destination "
+        "the build reads is jets/workspace_assets/user_flows, the third asset group "
+        "(U.2); DIR is a parameter so a check can project into a temporary directory "
+        "and compare",
     )
 
     bundles_cmd = sub.add_parser(

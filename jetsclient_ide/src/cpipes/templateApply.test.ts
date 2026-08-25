@@ -47,10 +47,35 @@ import { escapeReferences } from "../userflow/store";
 import { resolveEscapes } from "../actions/escapes";
 import { strictPolicy, validateFlow } from "../userflow/validate";
 import { isFormValid } from "../userflow/validateForm";
+import { queryEscape } from "../api/workspace";
 import { createCpipesTemplateApply, configPath, applyPlanPath, type ApplyPlan } from "./templateApply";
 
-/** The generator's committed output, read rather than imported so tsc keeps its size out. */
-const PROJECTIONS = fileURLToPath(new URL("../../../tools/cpipes_contract/projections/", import.meta.url));
+/**
+ * The generator's committed output, read rather than imported so tsc keeps its size out.
+ *
+ * **It moved on 2026-08-25 (task U.2)** from `tools/cpipes_contract/projections/` to
+ * `jets/workspace_assets/user_flows/`, where `//go:embed` can reach it and the installer
+ * writes it into every workspace. Reading it from the asset directory rather than from a
+ * copy is what makes this file a check on the bytes a workspace receives.
+ */
+const PROJECTIONS = fileURLToPath(
+  new URL("../../../jets/workspace_assets/user_flows/", import.meta.url),
+);
+
+/**
+ * Where the *config* the walk produces is kept — deliberately not beside the
+ * documents.
+ *
+ * The two paths were one until U.2 moved the documents into the asset directory,
+ * and keeping them one would have written a `.pc.json` into a directory whose
+ * whole contents install into every workspace. The embed glob names four document
+ * suffixes and would not have taken it, so nothing would have broken; a pipeline
+ * config sitting among the wizards it came out of is confusing rather than wrong,
+ * and `tests_project.py` reads it from here.
+ */
+const DEMONSTRATED = fileURLToPath(
+  new URL("../../../tools/cpipes_contract/projections/", import.meta.url),
+);
 const read = (name: string): unknown => JSON.parse(readFileSync(`${PROJECTIONS}${name}`, "utf8"));
 
 const TEMPLATE = "qc_metrics";
@@ -62,9 +87,14 @@ function workspace(plan: unknown) {
   return {
     saved,
     api: {
-      readFile: async (_ws: string, node: { label: string }) => {
-        if (node.label !== applyPlanPath(TEMPLATE)) throw new Error(`no such file: ${node.label}`);
-        return { fileName: node.label, label: node.label, content: JSON.stringify(plan) };
+      // **`readWorkspaceFile`, since I-147.** This stub used to answer `readFile`
+      // and to key off the synthetic node's `label`, which is what let the escape
+      // ship for two days with a call the real `WorkspaceApi` would have refused.
+      // A stub shaped like the caller rather than like the callee is the whole
+      // mechanism of that defect, in both the places it occurred.
+      readWorkspaceFile: async (_ws: string, path: string) => {
+        if (path !== applyPlanPath(TEMPLATE)) throw new Error(`no such file: ${path}`);
+        return { fileName: path, label: path, content: JSON.stringify(plan) };
       },
       saveFile: async (_ws: string, fileName: string, content: string) => {
         saved.push({ fileName, content });
@@ -191,10 +221,13 @@ describe("criterion 32 — a template configured step at a time", () => {
     expect(new Set(visited).size).toBe(visited.length);
 
     // 4. What came out.
-    expect(ws.saved.map((s) => s.fileName)).toEqual([configPath(TEMPLATE)]);
+    // The *escaped* path, since I-147: `saveFile` takes what the server
+    // url-unescapes, and the editor hands it a node's already-escaped
+    // `file_name`. `queryEscape` writes `%2F` where Go's `url.QueryEscape` does.
+    expect(ws.saved.map((s) => s.fileName)).toEqual([queryEscape(configPath(TEMPLATE))]);
     const config = JSON.parse(ws.saved[0]!.content) as Record<string, unknown>;
     await expect(JSON.stringify(config, null, 2) + "\n").toMatchFileSnapshot(
-      `${PROJECTIONS}${TEMPLATE}.demonstrated.pc.json`,
+      `${DEMONSTRATED}${TEMPLATE}.demonstrated.pc.json`,
     );
   });
 

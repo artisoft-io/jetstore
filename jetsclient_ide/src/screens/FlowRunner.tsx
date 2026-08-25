@@ -45,6 +45,7 @@ import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
 import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
+import { setCpipesWorkspace } from "../cpipes/templateApply";
 import {
   currentDataRegistryFilters,
   currentHomeFilters,
@@ -166,6 +167,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       try {
         const active = await workspaceApi.activeWorkspace();
         setFileKeyLabelPattern(active.fileKeyLabelRe === "" ? null : active.fileKeyLabelRe);
+        // agentic_ai's `cpipesTemplateApply` writes a `.pc.json` into the workspace
+        // it was configured against, and `EscapeContext` deliberately does not carry
+        // one. Set beside the line above because it is the same fact arriving from
+        // the same response, and before the load because `FlowStore` resolves escape
+        // names against the registry (their U.3).
+        setCpipesWorkspace({ workspaceName: active.name, api: workspaceApi });
         const store = new FlowStore(workspaceApi, {
           workspaceName: active.name,
           registry: productionRegistry,

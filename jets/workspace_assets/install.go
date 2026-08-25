@@ -76,7 +76,14 @@ import (
 // what is installed into a workspace are not the same set, and each README is
 // JetStore's own documentation of the convention (A21.4).
 //
+// user_flows names its four suffixes rather than taking *.json, and that is the
+// same rule one step further on: the directory is where a generator writes, so
+// the glob has to say what a document is instead of trusting whatever lands
+// there. A .pc.json dropped beside a projection would otherwise install as a
+// user flow.
+//
 //go:embed data_model/*.jr data_model/*.json pipes_config/*.json
+//go:embed user_flows/*.uf.json user_flows/*.ua.json user_flows/*.form.json user_flows/*.apply.json
 var assetFS embed.FS
 
 // AssetGroup is one directory of JetStore-owned assets. Dir is both where the
@@ -92,12 +99,25 @@ type AssetGroup struct {
 	// workspace IDE, and a token planted in it would be one more field for a
 	// config author — or a config-generating model — to reproduce or lose.
 	// Where it is false the manifest carries the whole of the evidence.
+	//
+	// It is false for user_flows too, and for a harder reason than
+	// pipes_config's (task U.2, 2026-08-25). A .uf.json has nowhere to put a
+	// token: userflow.schema.json, form.schema.json and action.schema.json all
+	// set additionalProperties false at their root, so a field JetStore adds
+	// for its own bookkeeping is refused by the save-path validator. The
+	// browser is no help either, in the direction that reads as help — the Zod
+	// objects are not strict, so a token would be stripped there rather than
+	// reported, and a round trip through the editor would quietly remove the
+	// evidence. The untokened case is therefore two cases wearing one flag —
+	// one where a token would be unwelcome and one where it is not expressible
+	// — and the manifest carries both.
 	TokenedAssets bool
 
 	// Doc is the remedy printed when this group has a conflict. The advice is
 	// group-specific because the extension mechanisms are: a data model is
 	// extended by importing it, a pipeline configuration by copying it under a
-	// name of your own and registering that name.
+	// name of your own and registering that name, and a projected user flow by
+	// copying the whole four-document set under a key of your own.
 	Doc string
 }
 
@@ -105,6 +125,14 @@ type AssetGroup struct {
 // adding a row here plus a line to the embed glob above — and, if its assets
 // carry no header, a note in the group's README saying the manifest is the only
 // evidence the guard has.
+//
+// Three as of 2026-08-25, and the third is the first whose assets are written
+// by a generator rather than by a person (task U.2). That is the condition I-61
+// named as the moment its second asymmetry would matter: `jets-agentic generate
+// --check` accounts for data_model alone, and there is now a second generator
+// writing into a second asset directory with nothing checking that what is
+// committed is what the generator would emit. The check is owed to
+// cpipes-contract rather than to this file, and is not written here.
 var AssetGroups = []AssetGroup{
 	{
 		Dir:           "data_model",
@@ -125,6 +153,21 @@ var AssetGroups = []AssetGroup{
 			"    cp pipes_config/jets_loader.pc.json pipes_config/<your_workspace>_loader.pc.json\n\n" +
 			"and register that file in your workspace's own process_config row. A copy\n" +
 			"is not kept in step with the JetStore original; that is the trade.",
+	},
+	{
+		Dir:           "user_flows",
+		TokenedAssets: false,
+		Doc: "The wizard for a JetStore template is generated from the template, by\n" +
+			"`cpipes-contract templates --project jets/workspace_assets/user_flows`, and\n" +
+			"is replaced on every build. Editing one here is editing the output of a\n" +
+			"generator, so the change is lost at the next regeneration and the config the\n" +
+			"wizard writes stops matching what the template expands to.\n\n" +
+			"To run a variant, author your own flow beside it:\n\n" +
+			"    cp user_flows/qc_metrics.uf.json user_flows/<your_workspace>_qc.uf.json\n\n" +
+			"and its .ua.json, .form.json and .apply.json under the same key — the four\n" +
+			"are read together and a set with three of them does not load. Your key is\n" +
+			"yours; the escape name in the .ua.json is the build's and must stay\n" +
+			"cpipesTemplateApply.",
 	},
 }
 
