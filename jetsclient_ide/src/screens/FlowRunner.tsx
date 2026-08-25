@@ -53,7 +53,7 @@ import {
 import type { ActionRequest } from "../datatable/actionDispatch";
 import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
-import type { ActionConfig } from "../datatable/types";
+import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
@@ -370,6 +370,44 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return { statusCode: 500, error: error instanceof Error ? error.message : String(error) };
         }
       },
+      /**
+       * Reads rows from an endpoint, for an action escape. Task F.8.
+       *
+       * **`rows` rather than `result_map`, which is the other read shape this
+       * screen already speaks.** `query` above posts `raw_query_map` and reads
+       * `result_map[name]`; a `read` action answers `{rows: [[…]]}`
+       * (`jets/datatable/data_table_action.go`, `ReadDataTableAction`), and
+       * `downloadMapping` is the only caller of either that wants more than one
+       * row.
+       *
+       * Null on any failure, including the 401 the api client turns into a
+       * sign-out — the caller decides what to say, because the Dart's two
+       * failure branches say different things.
+       */
+      read: async (request) => {
+        try {
+          const body = await api.endpoint<{ rows?: unknown }>(request.endpoint, request.body);
+          return Array.isArray(body.rows) ? (body.rows as JetsRow[]) : [];
+        } catch {
+          return null;
+        }
+      },
+      /**
+       * Hands the browser a file to save. Task F.8.
+       *
+       * The Dart's `download()` (`jetsclient/lib/utils/download.dart`) builds a
+       * blob url, clicks an anchor and revokes it. **The revoke is not optional
+       * housekeeping**: the object url pins the blob for the document's lifetime,
+       * and a mapping export is a megabyte of held memory per press.
+       */
+      download: (fileName, content) => {
+        const url = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      },
       notify: (level, message) => (level === "error" ? setError(message) : setStatus(message)),
       setBusy,
       goToState: (state: string) => {
@@ -459,7 +497,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
             setError(`"${action.label}" needs the ${request.name} escape, which is not in this build`);
             return;
           }
-          void escape({ formState, group: GROUP, flowKey: loaded?.flow.key ?? "" }).then(() =>
+          void escape({ formState, group: GROUP, flowKey: loaded?.flow.key ?? "" }, host).then(() =>
             formState.requestRefresh(),
           );
           return;
@@ -486,7 +524,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
       }
     },
-    [press, formState, loaded, setError],
+    [press, formState, loaded, setError, host],
   );
 
   const onFormAction = useCallback((action: FormAction) => void press(action.action), [press]);

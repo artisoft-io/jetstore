@@ -31,9 +31,11 @@ import {
   setIdFilter,
   updateHomeFilters,
 } from "../actions/homeFilters";
+import { downloadMapping, loadRawRows } from "../actions/fileMapping";
 import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
+import fileMappingActionsDoc from "../actions/flows/fileMappingUF.ua.json";
 import homeFiltersActionsDoc from "../actions/flows/homeFiltersUF.ua.json";
 import pipelineConfigActionsDoc from "../actions/flows/pipelineConfigUF.ua.json";
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
@@ -44,6 +46,7 @@ import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
 import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
+import fileMappingFormsDoc from "./forms/fileMappingUF.form.json";
 import homeFiltersFormsDoc from "./forms/homeFiltersUF.form.json";
 import pipelineConfigFormsDoc from "./forms/pipelineConfigUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
@@ -53,6 +56,7 @@ import startPipelineFormsDoc from "./forms/startPipelineUF.form.json";
 import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
 import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
+import fileMappingFlowDoc from "./flows/fileMappingUF.uf.json";
 import homeFiltersFlowDoc from "./flows/homeFiltersUF.uf.json";
 import pipelineConfigFlowDoc from "./flows/pipelineConfigUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
@@ -82,6 +86,12 @@ function harness(
    * all (I-23), so it is the only caller that has to supply one.
    */
   query: ActionHost["query"] = async () => null,
+  /**
+   * What a `read` answers. Defaulted to *no rows*, which is what every flow
+   * before F.8 needed — `fileMappingUF`'s `downloadMapping` is the first escape
+   * of the corpus that reads rows rather than writing them.
+   */
+  read: ActionHost["read"] = async () => [],
 ) {
   const flow = UserFlowSchema.parse(flowDoc) as UserFlow;
   const actions = ActionDocumentSchema.parse(actionsDoc) as ActionDocument;
@@ -89,6 +99,7 @@ function harness(
   const formState = new FormState();
   const posts: { endpoint: string; body: Record<string, unknown> }[] = [];
   const events: string[] = [];
+  const downloads: { fileName: string; content: string }[] = [];
 
   const host: ActionHost = {
     validate: () => true,
@@ -98,6 +109,8 @@ function harness(
       return { statusCode: 200 };
     },
     query,
+    read,
+    download: (fileName, content) => downloads.push({ fileName, content }),
     notify: (level, message) => events.push(`notify:${level}:${message}`),
     setBusy: (b) => events.push(b ? "busy" : "idle"),
     goToState: (s) => events.push(`goToState:${s}`),
@@ -148,6 +161,7 @@ function harness(
     formState,
     posts,
     events,
+    downloads,
     press,
     formFor,
     at: () => position.stateKey,
@@ -171,6 +185,7 @@ describe("the documents are complete and consistent", () => {
     ["startPipelineUF", startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc],
     ["homeFiltersUF", homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc],
     ["pipelineConfigUF", pipelineConfigFlowDoc, pipelineConfigActionsDoc, pipelineConfigFormsDoc],
+    ["fileMappingUF", fileMappingFlowDoc, fileMappingActionsDoc, fileMappingFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -670,6 +685,8 @@ describe("client_registry, end to end", () => {
           return { statusCode: 200 };
         },
         query: async () => null,
+        read: async () => [],
+        download: () => undefined,
         notify: () => undefined,
         setBusy: () => undefined,
         goToState: () => undefined,
@@ -815,6 +832,8 @@ describe("start_pipeline, end to end", () => {
         confirm: async () => true,
         post: async () => ({ statusCode: 200 }),
         query: async () => null,
+        read: async () => [],
+        download: () => undefined,
         notify: () => undefined,
         setBusy: () => undefined,
         goToState: () => undefined,
@@ -911,6 +930,8 @@ describe("start_pipeline, end to end", () => {
           return { statusCode: 200 };
         },
         query: async () => null,
+        read: async () => [],
+        download: () => undefined,
         notify: () => undefined,
         setBusy: () => undefined,
         goToState: () => undefined,
@@ -1403,6 +1424,202 @@ describe("pipeline_config, end to end", () => {
       .flat()
       .find((f) => "key" in f && f.key === "lookback_periods");
     expect(lookback).toMatchObject({ defaultValue: "0", textRestriction: "digitsOnly" });
+  });
+});
+
+/**
+ * `fileMappingUF`, the flow above the worksheet. Task F.8.
+ *
+ * **Two states and four arms, and three of the four are reached from the table
+ * rather than from a state** — which is the shape I-89 and I-101 predicted and
+ * this is the seventh flow to meet. `fmFileMappingTableUF` carries all three
+ * kinds the dispatcher reads: a `showScreen` into `mapFileUF`, a `showDialog`
+ * that opens `loadRawRowsDialog`, and a `doAction` naming `downloadMapping`.
+ *
+ * **The two escapes are driven here rather than only resolved**, for the reason
+ * F.5's block gives: what they produce — a CSV the browser saves, and a payload
+ * the server parses — is not visible from the document, and the document is the
+ * only thing the set checks look at.
+ */
+describe("file_mapping, end to end", () => {
+  const registry: EscapeRegistry = {
+    ...emptyRegistry,
+    actions: { downloadMapping, loadRawRows },
+  };
+  const setup = (read?: ActionHost["read"]) =>
+    harness(
+      fileMappingFlowDoc,
+      fileMappingActionsDoc,
+      fileMappingFormsDoc,
+      registry,
+      undefined,
+      read,
+    );
+
+  /** What a selected row of `fmInputSourceMappingUF` publishes. */
+  const selectSource = (h: ReturnType<typeof setup>) => {
+    h.formState.setValue(0, "fmInputSourceMappingUF", ["17"]);
+    h.formState.setValue(0, "client", ["ACME"]);
+    h.formState.setValue(0, "org", ["EAST"]);
+    h.formState.setValue(0, "object_type", ["claim"]);
+    h.formState.setValue(0, "table_name", ["acme_east_claim"]);
+  };
+
+  it("will not advance until a file configuration is selected", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_source_config");
+    expect(validateForm(h.formFor("select_source_config"), h.formState, 0).map((e) => e.message)).toEqual([
+      "A file configuration must be selected.",
+    ]);
+    // `stay()` with no message, as `load_config` above: the engine leaves the
+    // errors to the caller's list rather than putting a banner over them.
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
+  });
+
+  it("unpacks all four of the selection's columns on the way through", async () => {
+    const h = setup();
+    selectSource(h);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("file_mapping");
+    // Each arrived as a one-element list from the table's `formStateBinding` and
+    // is a scalar now. `table_name` is the one that matters most: the second
+    // state's table filters `process_mapping` on it, and a `["x"]` there would
+    // match nothing (`fmFileMappingTableUF.tc.json`, its `where`).
+    for (const [key, value] of [
+      ["client", "ACME"],
+      ["org", "EAST"],
+      ["object_type", "claim"],
+      ["table_name", "acme_east_claim"],
+    ]) {
+      expect(h.formState.getValue(0, key!)).toBe(value);
+    }
+  });
+
+  it("ends on file_mapping, which offers no advancing button", () => {
+    const h = setup();
+    expect(h.flow.states["file_mapping"]!.isEnd).toBe(true);
+    expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCompleted",
+    ]);
+  });
+
+  it("downloads the mapping as a csv, quoting every cell and skipping nulls", async () => {
+    const rows = [
+      ["ACME", "EAST", "claim", "hc:dob", "DOB", "to_date", null, null, null],
+      ["ACME", "EAST", "claim", "hc:id", "MEMBER_ID", null, null, "0", "id required"],
+    ];
+    const reads: unknown[] = [];
+    const h = setup(async (request) => {
+      reads.push(request);
+      return rows;
+    });
+    selectSource(h);
+
+    expect(await h.press("downloadMapping")).toBeNull();
+
+    // **The three `unpack`s are what this asserts.** The where clauses carry
+    // scalars; a selection published as `["ACME"]` would send `values: [["ACME"]]`
+    // and match no row, with a 200 and an empty file.
+    const body = (reads[0] as { body: Record<string, unknown> }).body;
+    expect(body["whereClauses"]).toEqual([
+      { table: "source_config", column: "client", values: ["ACME"] },
+      { table: "source_config", column: "org", values: ["EAST"] },
+      { table: "source_config", column: "object_type", values: ["claim"] },
+      { table: "source_config", column: "table_name", joinWith: "process_mapping.table_name" },
+    ]);
+
+    expect(h.downloads).toHaveLength(1);
+    expect(h.downloads[0]!.fileName).toBe("mapping.csv");
+    expect(h.downloads[0]!.content.split("\n")).toEqual([
+      '"client","org","object_type","data_property","input_column","function_name","argument","default_value","error_message"',
+      '"ACME","EAST","claim","hc:dob","DOB","to_date",,,',
+      '"ACME","EAST","claim","hc:id","MEMBER_ID",,,"0","id required"',
+      "",
+    ]);
+  });
+
+  it("says the read failed rather than saving an empty file", async () => {
+    const h = setup(async () => null);
+    selectSource(h);
+    // Null rather than the message, which is the Dart's: `downloadMapping`
+    // returns null from every branch and shows a snackbar
+    // (`file_mapping/form_action_helpers.dart`, `downloadMapping`).
+    expect(await h.press("downloadMapping")).toBeNull();
+    expect(h.events).toContain("notify:error:Unknown Error reading data from table");
+    expect(h.downloads).toEqual([]);
+  });
+
+  it("posts the pasted text as one row and closes the dialog", async () => {
+    const h = setup();
+    h.formState.setValue(0, "raw_rows", "client,org\nACME,EAST\n");
+    h.formState.setValue(0, "table_name", "acme_east_claim");
+
+    expect(await h.press("loadRawRows.Ok")).toBeNull();
+    expect(h.posts).toHaveLength(1);
+    expect(h.posts[0]!.body["action"]).toBe("insert_raw_rows");
+    expect(h.posts[0]!.body["fromClauses"]).toEqual([{ table: "raw_rows/process_mapping" }]);
+    // The whole of form state as one row, `user_email` written in first — which
+    // is what `InsertRawRows` reads before it parses anything
+    // (`jets/datatable/data_table_action.go`, `InsertRawRows`).
+    const data = h.posts[0]!.body["data"] as Record<string, unknown>[];
+    expect(data).toHaveLength(1);
+    expect(data[0]!["user_email"]).toBe("michel@artisoft.io");
+    expect(data[0]!["raw_rows"]).toBe("client,org\nACME,EAST\n");
+    expect(h.events).toContain("close");
+  });
+
+  it("records the server's message under serverError and closes anyway", async () => {
+    const h = setup();
+    // `postInsertRows` pops on every branch, which is why the dialog goes away
+    // and the message is left in form state for the screen behind it
+    // (`modules/actions/delegate_helpers.dart`, `postInsertRows`).
+    const actions = ActionDocumentSchema.parse(fileMappingActionsDoc) as ActionDocument;
+    const outcome = await runAction({
+      action: actions.actions["loadRawRows.Ok"]!,
+      host: {
+        validate: () => true,
+        confirm: async () => true,
+        post: async () => ({ statusCode: 409 }),
+        read: async () => [],
+        download: () => undefined,
+        query: async () => null,
+        notify: () => undefined,
+        setBusy: () => undefined,
+        goToState: () => undefined,
+        close: () => undefined,
+        userEmail: () => "michel@artisoft.io",
+        now: () => 0,
+      },
+      formState: h.formState,
+      field,
+      registry,
+      flowKey: "fileMappingUF",
+    });
+    expect(outcome).toBe("Duplicate record. Please verify.");
+    expect(h.formState.getValue(0, "serverError")).toBe("Duplicate record. Please verify.");
+  });
+
+  it("its dialog form is named by a table, not by a state", () => {
+    const h = setup();
+    // I-89's rule, and the last of the four forms the flow corpus calls
+    // *unreferenced*. Two states, three forms; `loadRawRowsDialog` is
+    // `fmFileMappingTableUF`'s `loadRawRows` `configForm`.
+    const named = Object.values(h.flow.states).map((state) => state.formConfig);
+    expect(named.sort()).toEqual(["fmFileMappingUF", "fmSelectSourceConfigUF"]);
+    expect(Object.keys(h.forms.forms)).toHaveLength(3);
+    expect(h.forms.forms["loadRawRowsDialog"]!.actions.map((a) => a.action)).toEqual([
+      "loadRawRows.Ok",
+      "dialogCancel",
+    ]);
+  });
+
+  it("closes on cancel and posts nothing", async () => {
+    const h = setup();
+    expect(await h.press("dialogCancel")).toBeNull();
+    expect(h.posts).toEqual([]);
+    expect(h.events).toEqual(["close"]);
   });
 });
 

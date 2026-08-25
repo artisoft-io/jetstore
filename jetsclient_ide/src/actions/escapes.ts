@@ -46,14 +46,109 @@ export interface EscapeContext {
 }
 
 /**
+ * A request to one of the endpoints an authored document may name.
+ *
+ * Declared here rather than in `interpret.ts` so that `EscapeHost` below can be
+ * written without importing the interpreter — which would import this file back.
+ * `PostRequest` and `PostResult` there are aliases of these two, so every
+ * existing caller keeps the names it had.
+ */
+export interface EndpointRequest {
+  endpoint: string;
+  body: Record<string, unknown>;
+}
+
+export interface EndpointResult {
+  statusCode: number;
+  error?: string;
+}
+
+/**
+ * What an **action** escape may reach outside form state. Task F.8.
+ *
+ * **Why this exists at all, stated plainly: two of the corpus's escapes talk to
+ * the server and the mechanism had no way to let them.** `EscapeContext` is
+ * `{formState, group, flowKey}` and `escapes.ts` has said since S.2a that the
+ * narrowness is the point — which was true while the only bodies registered were
+ * `updateHomeFilters` (compiles `WhereClause` objects), `clearHomeFilters`,
+ * `seedFromHomeFilters` and two validators. **None of the five needs a network.**
+ * `fileMappingUF` is the first migrated flow whose escapes do, and neither of its
+ * two can be written without one.
+ *
+ * **It is a second parameter rather than a wider `EscapeContext`, and that is
+ * what makes it additive.** Every existing body is declared `(context:
+ * EscapeContext) => …` and stays assignable, including the one in another
+ * project's directory (`src/cpipes/templateApply.ts`, `createCpipesTemplateApply`)
+ * — a function that ignores a parameter is a subtype of one that takes it. A
+ * widened `EscapeContext` would instead have broken every *producer* of one, and
+ * there are three: `validateForm.ts`, `fileMapping.test.ts` and the runner.
+ *
+ * **And it is narrower than `ActionHost`, deliberately.** `validate`, `confirm`,
+ * `goToState` and `now` are the interpreter's business — a step decides whether
+ * the form is valid or where the flow goes, and an escape that did so would be
+ * making a flow-control decision the document cannot see. What is here is I/O
+ * and the two ways a body reports: `notify` and the form-state `serverError` the
+ * caller writes itself.
+ *
+ * `templateApply.ts`'s factory pattern — an escape closed over what it needs —
+ * remains the answer for a dependency that is *not* the endpoint pair, such as
+ * the workspace API. This covers the pair, which is what the corpus asks for.
+ */
+export interface EscapeHost {
+  post(request: EndpointRequest): Promise<EndpointResult>;
+  /**
+   * Reads rows from an endpoint. Null when the request failed.
+   *
+   * **The one capability `ActionHost` did not already have.** A `post` step
+   * answers `{statusCode}` because no step reads a result; `downloadMapping`
+   * issues a `read` and turns up to a thousand rows into a CSV, so the rows are
+   * the whole point. It is not `query`: that resolves a *registered* statement
+   * and returns one row by column name.
+   */
+  read(request: EndpointRequest): Promise<JetsRow[] | null>;
+  /** Spinner, snackbar and alert, which the Dart keeps as three mechanisms. */
+  notify(level: "info" | "error", message: string): void;
+  setBusy(busy: boolean): void;
+  /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
+  close(): void;
+  userEmail(): string;
+  /**
+   * Hands the browser a file to save. `download()` in the Dart
+   * (`jetsclient/lib/utils/download.dart`).
+   *
+   * **No step uses this and it is on the host anyway.** The alternative is a DOM
+   * call inside `actions/`, which would make the one escape that saves a file
+   * untestable outside a browser and would put `document` in a module whose other
+   * members are pure. Everything an action reaches outside form state is on the
+   * host; a body is part of an action.
+   */
+  download(fileName: string, content: string): void;
+}
+
+/**
  * An action body that could not be expressed as steps. **Six of these exist**,
  * not the four the sizing found — `downloadMapping` and `loadRawRows` came out
- * of the coverage pass (I-23). Both build a query, act on its rows and then do
- * something the grammar has no business describing: one turns them into a CSV
- * the browser saves, the other posts them back as `insert_raw_rows`. Neither is
- * a missing primitive; both are exactly what an escape is for.
+ * of the coverage pass (I-23).
+ *
+ * **The sentence that stood here described both of them wrongly, and F.8 read
+ * the Dart rather than this comment.** It said *"both build a query, act on its
+ * rows and then do something the grammar has no business describing"*. That is
+ * `downloadMapping` and only `downloadMapping`: `loadRawRows`
+ * (`file_mapping/form_action_helpers.dart`, `loadRawRows`) writes `user_email`
+ * into form state and posts it, four lines, no query and no rows. **The grammar
+ * can express it** — a `set` and a `post` with `transport: "insertRows"` — and it
+ * is an escape anyway, because the *target* is what S.7's allowlist refuses:
+ * `insert_raw_rows` runs `DELETE FROM jetsapi.process_mapping` in a
+ * pre-processing hook **before** `InsertRows` reaches `VerifyUserPermission`
+ * (`jets/datatable/data_table_action.go`, `InsertRawRows`), so allowing it would
+ * let an authored document delete a client's mappings on behalf of a user with
+ * no `client_config`. Every other entry in `InsertTargetSchema` is gated before
+ * it acts. See I-121.
  */
-export type ActionEscape = (context: EscapeContext) => Promise<string | null>;
+export type ActionEscape = (
+  context: EscapeContext,
+  host: EscapeHost,
+) => Promise<string | null>;
 
 /** Seeds form state from somewhere outside the form. One of these exists. */
 export type InitializerEscape = (context: EscapeContext) => void;

@@ -16,10 +16,11 @@
     },
     "loadRawRows.Ok": {
       "description": "Load raw rows into the staging table",
-      "steps": [
-        { "do": "validate" },
-        { "do": "escape", "name": "loadRawRows" }
-      ]
+      "steps": [{ "do": "validate" }, { "do": "escape", "name": "loadRawRows" }]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
     }
   }
 }
