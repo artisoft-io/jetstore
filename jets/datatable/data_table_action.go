@@ -974,6 +974,13 @@ const (
 	// CapabilityQueryTool gates the free-SQL query tool, per the seed file's own
 	// description of workspace_ide.
 	CapabilityQueryTool = "workspace_ide"
+	// CapabilityRunPipelines gates the actions that load files and run pipelines,
+	// and the destruction of what a load produced. It is what
+	// sqlInsertStmts["pipeline_execution_status"] and
+	// sqlInsertStmts["input_loader_status"] already require, named here for the two
+	// paths that reach the same authority without resolving a statement: DropTable
+	// below, and the inline resubmit_pipeline arm in jets/apiserver. I-125.
+	CapabilityRunPipelines = "run_pipelines"
 )
 
 // requireCapability is the read-side counterpart of VerifyUserPermission's use
@@ -985,6 +992,19 @@ func (ctx *DataTableContext) requireCapability(capability, token string) (int, e
 			errors.New("error: unauthorized, cannot get user info or does not have permission")
 	}
 	return http.StatusOK, nil
+}
+
+// RequireCapability is requireCapability's exported form, for the arms of the
+// /dataTable dispatch that jets/apiserver handles inline rather than through a
+// method on this type. There are two — resubmit_pipeline and
+// fetch_file_from_stage — and both were reachable by any authenticated caller
+// because a watched list of method names could not see them (I-125's sweep).
+//
+// It is a wrapper rather than a rename so that the refusal is byte-identical to
+// the one every gated method in this package returns, and so that the read-side
+// test's grep for the unexported name keeps working.
+func (ctx *DataTableContext) RequireCapability(capability, token string) (int, error) {
+	return ctx.requireCapability(capability, token)
 }
 
 // DoReadAction ------------------------------------------------------
@@ -1156,23 +1176,57 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 }
 
 // DropTable ------------------------------------------------------
-// These are queries to load reference data for widget, e.g. dropdown list of items
+// Drop the staging table named in the request. Reached from the Drop Staging
+// Table button of two flows: configureFilesUF
+// (jetsclient/lib/modules/user_flows/configure_files/form_action_delegates.dart,
+// the ActionKeys.dropTable arm) and loadFilesUF (.../load_files/, ActionKeys.lfDropTable).
+//
+// **It took a token and never read it, so every authenticated caller of any role
+// could drop any table.** ui_refresh I-125, fixed 2026-08-25.
+//
+// **On the capability, because it was a choice rather than a lookup.** The two
+// call sites sit beside arms requiring different things -- configure_files writes
+// source_config and delete/source_config, both client_config; load_files writes
+// input_loader_status, which is run_pipelines. run_pipelines is taken, on two
+// grounds. What a staging table holds is *loaded data* rather than client
+// configuration, and run_pipelines is the seed file's own name for the authority
+// that loads it. And every role that reaches either screen already holds it
+// (jets/jets_init_db.sql grants it to all four seeded roles), whereas
+// client_config would take the button away from ops_user, whose role description
+// is "load files and execute pipelines" -- a policy narrowing this change has no
+// mandate for.
+//
+// **What that does and does not buy, stated plainly.** All four seeded roles hold
+// run_pipelines, so the gate refuses none of them today; what it refuses is a role
+// that holds none, and roles are data. The gate closes "any authenticated caller
+// of any role" and it does not make this function safe for a caller who holds
+// run_pipelines, because nothing bounds *which* table may be named -- see the TODO
+// below.
 func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityRunPipelines, token); err2 != nil {
+		return nil, code, err2
+	}
 	//* TODO NEED TO APPLY FILTER ON TABLE NAME
+	// Still open, and now with an owner: the identifiers below are sanitised and
+	// the caller is authorised, so what is left is the policy question of which
+	// tables this action may name at all -- jetsapi.users is as reachable as a
+	// staging table. Recorded as ui_refresh I-137.
 	for ipos := range dataTableAction.Data {
-		tableName := dataTableAction.Data[ipos]["tableName"]
-		schemaName := dataTableAction.Data[ipos]["schemaName"]
-		if tableName == nil {
+		tableName, ok := dataTableAction.Data[ipos]["tableName"].(string)
+		if !ok {
 			httpStatus = http.StatusBadRequest
-			err = fmt.Errorf("error: tableName argument is not provided")
+			err = fmt.Errorf("error: tableName argument is not provided, or is not a string")
 			return
 		}
-		var stmt string
-		if schemaName != nil {
-			stmt = fmt.Sprintf(`DROP TABLE "%s"."%s"`, schemaName.(string), tableName.(string))
-		} else {
-			stmt = fmt.Sprintf(`DROP TABLE public."%s"`, tableName.(string))
+		schemaName, ok := dataTableAction.Data[ipos]["schemaName"].(string)
+		if !ok {
+			// Both call sites send "public" explicitly; the default is kept for a
+			// request that omits it, as the unchecked assertion this replaces did.
+			schemaName = "public"
 		}
+		// Sanitised rather than interpolated, which is what ResetDomainTables
+		// (jets/apiserver/api_purgedata.go) has always done for the same statement.
+		stmt := fmt.Sprintf("DROP TABLE %s", pgx.Identifier{schemaName, tableName}.Sanitize())
 		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
 		if err != nil && !strings.Contains(err.Error(), "does not exist") {
 			httpStatus = http.StatusBadRequest

@@ -58,6 +58,16 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		// fetch file from stage
 	case "fetch_file_from_stage":
+		// **This arm asked for nothing until 2026-08-25** (ui_refresh I-137's sweep).
+		// It is handled here rather than by a method on DataTableContext, so the
+		// per-statement Capability in sql_stmts.go never applied to it and no test
+		// over that type's methods could see it. It reads an object out of the S3
+		// stage at a path the request chooses; jetstore_read is what
+		// DoPreviewFileAction requires for the nearest equivalent.
+		if code, err = ctx.RequireCapability(datatable.CapabilityReadData, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
 		results = &map[string]any{}
 		code = 200
 		filePath, ok := dataTableAction.Data[0]["stage_file_path"].(string)
@@ -79,6 +89,20 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		// resubmit pipeline
 	case "resubmit_pipeline":
+		// **A second route to a gated table, and it was the ungated one** (ui_refresh
+		// I-137's sweep, 2026-08-25). insert_rows on jetsapi.pipeline_execution_status
+		// resolves sqlInsertStmts and is refused without run_pipelines; this arm
+		// hand-writes the same INSERT, resolves no statement, and inherited no
+		// capability -- then calls StartPendingTasks, so it does not merely record a
+		// run, it starts one. It stamps the token's user onto the row, which is the
+		// same pairing I-124 named: careful about attribution, silent about
+		// authorisation. datatable.TestResubmitPipelineUsesTheSameCapabilityAsItsInsert
+		// ties the constant below to the statement's own Capability so the two routes
+		// to this table cannot drift apart.
+		if code, err = ctx.RequireCapability(datatable.CapabilityRunPipelines, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
 		results = &map[string]any{}
 		code = 200
 		sid, ok := dataTableAction.Data[0]["session_id"].(string)

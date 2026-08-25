@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,29 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
+
+// PurgeDataCapability is required by every action on this endpoint. Seeded in
+// jets/jets_init_db.sql; TestPurgeDataCapabilityIsSeeded pins that.
+//
+// **Chosen rather than invented, and the alternatives are worth stating.**
+// workspace_ide is the seed file's own name for administering the JetStore
+// workspace, it is held by knowledge_engineer alone among the four seeded roles,
+// and it already gates exec_ddl -- arbitrary DDL through the IDE's query tool,
+// which is the nearest neighbour this endpoint has in destructive reach. A new
+// capability was the alternative and was declined: jets/jets_init_db.sql is a
+// cross-project collision surface, and nothing here needs an authority the seed
+// file does not already describe.
+//
+// **AdminOnly was the stricter alternative and was also declined**, with the
+// reasoning recorded because it is a live question rather than a closed one. The
+// Flutter app offers both of these actions only from adminMenuEntries
+// (jetsclient/lib/modules/screen_config_impl.dart, the dataPurge and runInitDb
+// entries), which base_screen.dart selects on user.isAdmin, and IsAdmin is a
+// single configured account. So admin-only would be faithful to the one UI that
+// reaches the endpoint. It would also be a policy narrowing beyond closing the
+// defect, against callers this repository cannot enumerate, and this change has
+// no mandate for one. ui_refresh Q-6 asks the project to settle it.
+const PurgeDataCapability = "workspace_ide"
 
 type PurgeDataAction struct {
 	Action            string                   `json:"action"`
@@ -41,8 +65,44 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	token := user.ExtractToken(r)
-	user, _ := user.ExtractTokenID(token)
-	server.AuditLogger.Info(string(body), zap.String("user", user), zap.String("time", time.Now().Format(time.RFC3339)))
+	userEmail, _ := user.ExtractTokenID(token)
+	server.AuditLogger.Info(string(body), zap.String("user", userEmail), zap.String("time", time.Now().Format(time.RFC3339)))
+
+	// RBAC check, following DoInferServerAction and DoAgenticAction.
+	//
+	// **This endpoint asked for nothing until 2026-08-25** (ui_refresh I-126). It
+	// was registered behind authh (server.go, the /purgeData POST route), which
+	// validates the token and nothing else, and it used the token only for the
+	// audit line above -- careful about attribution, silent about authorisation,
+	// on the widest blast radius in this package. reset_domain_tables drops every
+	// table named in input_loader_status, runs update_db -drop -migrateDb, and
+	// truncates input_registry and session_registry.
+	//
+	// **The gate is here rather than in the two actions, and that is forced rather
+	// than preferred.** ResetDomainTables has two callers in this package that are
+	// not requests at all -- checkJetStoreSchema and checkDomainTablesVersion, both
+	// at server start, before any user exists and with no token to check. A gate
+	// pushed down would have to be bypassed by both, and a gate its own package
+	// routinely bypasses is the next finding rather than a fix. RunWorkspaceBaseDbInit
+	// takes no token either. Gating at the entry point leaves the startup path
+	// untouched, needs no signature change, and covers every arm this switch grows.
+	//
+	// The two refusals are byte-identical to the ones DoInferServerAction returns,
+	// so this gate is not an oracle for anything the other two do not already tell.
+	jetsUser, err := user.GetUserByToken(server.dbpool, token)
+	if err != nil {
+		log.Printf("while GetUserByToken: %v", err)
+		ERROR(w, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info"))
+		return
+	}
+	if !jetsUser.HasCapability(PurgeDataCapability) {
+		log.Printf("user %s attempted a purge data action without the %s capability",
+			userEmail, PurgeDataCapability)
+		ERROR(w, http.StatusUnauthorized,
+			errors.New("error: unauthorized, user do not have required capability"))
+		return
+	}
+
 	action := PurgeDataAction{}
 	err = json.Unmarshal(body, &action)
 	if err != nil {
