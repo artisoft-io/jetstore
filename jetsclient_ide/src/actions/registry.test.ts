@@ -103,8 +103,18 @@ describe("the production registry", () => {
     // transcribed — `loadSourceConfigWithFileTypeInference` was that arm read whole
     // and F.2's `when` guard expresses all but one step of it, so what is
     // registered is `readXlsxSheetOption` (`sourceConfig.ts`).
+    //
+    // **`cpipesTemplateApply` is the seventh and it is not this project's** —
+    // agentic_ai's U.3, 2026-08-25, registering the body that has lived in
+    // `src/cpipes/` since their M.5. The list above is *this* project's bound and
+    // is still tight; the seventh entry says the bound was never the whole rule.
+    // It is here rather than absent because their U.2 put projected document sets
+    // in `jets/workspace_assets/user_flows/`, so a document naming it now exists
+    // in every workspace — which is the same test the six above pass, applied to
+    // a flow nobody hand-wrote.
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
+      "cpipesTemplateApply",
       "downloadMapping",
       "loadRawRows",
       "readXlsxSheetOption",

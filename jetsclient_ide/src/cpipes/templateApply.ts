@@ -50,7 +50,7 @@
  */
 
 import type { ActionEscape, EscapeContext } from "../actions/escapes";
-import type { WorkspaceApi } from "../api/workspace";
+import { queryEscape, type WorkspaceApi } from "../api/workspace";
 
 /** Where a workspace keeps the projected documents. Beside the flows they belong to. */
 export const APPLY_DIR = "user_flows";
@@ -80,7 +80,7 @@ export interface ApplyPlan {
 
 export interface TemplateApplyDeps {
   workspaceName: string;
-  api: Pick<WorkspaceApi, "readFile" | "saveFile">;
+  api: Pick<WorkspaceApi, "readWorkspaceFile" | "saveFile">;
 }
 
 /** What form state a key holds, as a plain string. */
@@ -233,10 +233,21 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
   return async ({ formState, group, flowKey }: EscapeContext): Promise<string | null> => {
     let plan: ApplyPlan;
     try {
-      const file = await deps.api.readFile(deps.workspaceName, {
-        label: applyPlanPath(flowKey),
-        key: applyPlanPath(flowKey),
-      } as never);
+      // **`readWorkspaceFile` rather than `readFile`, and the difference is not
+      // cosmetic** (I-147, 2026-08-25). `readFile` takes a tree node and asks
+      // `fileNameOf` for the path, which returns null unless `node.type` is
+      // `"file"`; this line used to synthesise `{label, key} as never` — a shape
+      // with no `type` — so the escape would have thrown *"…is not a file"*
+      // against the real `WorkspaceApi` every time. Nothing said so because the
+      // test beside this file stubs `readFile` and its stub matches on `label`.
+      //
+      // **The same defect, in the same shape, had already been found and fixed
+      // one directory over**: `FlowStore.readText` carried it, `ui_refresh` found
+      // it as their I-65 and added `readWorkspaceFile` for exactly this caller.
+      // The fix did not reach here because it was made in the caller rather than
+      // by removing the shape, and a second copy of a defect is invisible to the
+      // party who fixed the first.
+      const file = await deps.api.readWorkspaceFile(deps.workspaceName, applyPlanPath(flowKey));
       plan = JSON.parse(file.content) as ApplyPlan;
     } catch (error) {
       return `Cannot read ${applyPlanPath(flowKey)}: ${(error as Error).message}`;
@@ -259,10 +270,64 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
     }
 
     try {
-      await deps.api.saveFile(deps.workspaceName, configPath(plan.template), serialise(config));
+      // `saveFile` takes the *escaped* path — the editor hands it a node's
+      // `file_name`, which the server emitted escaped — and the server
+      // url-unescapes it again (`SaveWorkspaceFileContent`,
+      // `jets/datatable/workspace_data_table_action.go:963`). A raw path
+      // survives that round trip today because no character in a template name
+      // is touched by it; escaping is what keeps that a fact about the code
+      // rather than about the three template names currently shipped.
+      await deps.api.saveFile(
+        deps.workspaceName,
+        queryEscape(configPath(plan.template)),
+        serialise(config),
+      );
     } catch (error) {
       return `Cannot save ${configPath(plan.template)}: ${(error as Error).message}`;
     }
     return null;
   };
 }
+
+/**
+ * The deps the registered escape closes over, and why they are a module variable.
+ *
+ * **Task U.3, 2026-08-25.** `productionRegistry` is a constant — one build, one registry,
+ * for the reason `registry.ts` gives: the *documents* are checked against it at load, so a
+ * registry assembled per screen would make "does this flow load?" depend on which screen
+ * asked. That rules out registering `createCpipesTemplateApply({workspaceName, api})`
+ * directly, because neither dep exists at module scope: the workspace comes from
+ * `get_workspace_uri` and the api client is `App.tsx`'s.
+ *
+ * So the value is stable and its dependencies arrive later, which is exactly the shape
+ * `registry.ts` already uses for `fileKeyLabelRe` and `setFileKeyLabelPattern` — set from
+ * `FlowRunner` in the same `await` that reads the active workspace. **Copying the file's
+ * own idiom rather than inventing a second one** is what keeps the cross-project surface
+ * to one import and one line.
+ *
+ * The alternative considered and rejected was widening `EscapeContext`, which is
+ * `{formState, group, flowKey}` and narrow on purpose. An escape that needs the workspace
+ * is not evidence that every escape does.
+ */
+let currentDeps: TemplateApplyDeps | null = null;
+
+/** Supplies the workspace the escape writes into. `null` clears it. */
+export function setCpipesWorkspace(deps: TemplateApplyDeps | null): void {
+  currentDeps = deps;
+}
+
+/**
+ * The escape as `productionRegistry.actions` holds it.
+ *
+ * **Unset deps are a message rather than a throw**, on this file's rule: an escape that
+ * ran before the workspace was known would be a bug in the host, and the author reading
+ * the message is the one person who can report it. It is not reachable from `FlowRunner`,
+ * which sets the deps before `FlowStore.load` and therefore before any button exists to
+ * press — but "not reachable today" is a property of one caller.
+ */
+export const cpipesTemplateApply: ActionEscape = async (context, host) => {
+  if (currentDeps === null) {
+    return "The active workspace is not known yet, so there is nowhere to write the configuration.";
+  }
+  return createCpipesTemplateApply(currentDeps)(context, host);
+};

@@ -48,8 +48,10 @@ against `../datatable/fixtures/load_files_flutter_audit.log`.
 
 ## If you are generating these documents rather than writing them
 
-`tools/cpipes_contract/projections/` emits a `.uf.json`, `.form.json` and `.ua.json`
-from a cpipes template, plus an `.apply.json` that is not a UserFlow document. Those
+`cpipes-contract templates --project` emits a `.uf.json`, `.form.json` and `.ua.json`
+from a cpipes template, plus an `.apply.json` that is not a UserFlow document. It wrote
+them to `tools/cpipes_contract/projections/` until 2026-08-25 and writes them to
+`jets/workspace_assets/user_flows/` since, where the installer takes them (U.2). Those
 documents are transcriptions in the same sense: the schema says they are well
 formed and says nothing about whether they say what the template means.
 

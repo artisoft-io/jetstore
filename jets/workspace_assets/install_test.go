@@ -9,12 +9,13 @@ import (
 	"testing"
 )
 
-// The two groups are named here rather than indexed out of AssetGroups, so a
+// The three groups are named here rather than indexed out of AssetGroups, so a
 // test that stops covering a group fails to compile instead of silently
 // testing nothing.
 const (
 	dataModel   = "data_model"
 	pipesConfig = "pipes_config"
+	userFlows   = "user_flows"
 )
 
 func newWorkspace(t *testing.T) string {
@@ -420,5 +421,62 @@ func rewriteManifest(t *testing.T, dir, group, name, hash string) {
 	}
 	if err := os.WriteFile(path, out, 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A projected flow is four documents and three of them do not run: FlowStore
+// reads the .uf.json, .ua.json and .form.json together and the escape reads the
+// .apply.json at the end of the walk. The embed glob names four suffixes, so a
+// set that lost one would install as three files and fail at load in the
+// browser — which is the layer this repository has least visibility into. Check
+// it here instead (task U.2).
+func TestEveryProjectedFlowInstallsAsAWholeSet(t *testing.T) {
+	names, err := Names(userFlows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suffixes := []string{".uf.json", ".ua.json", ".form.json", ".apply.json"}
+	keys := map[string]map[string]bool{}
+	for _, name := range names {
+		matched := false
+		for _, suffix := range suffixes {
+			if strings.HasSuffix(name, suffix) {
+				key := strings.TrimSuffix(name, suffix)
+				if keys[key] == nil {
+					keys[key] = map[string]bool{}
+				}
+				keys[key][suffix] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			t.Errorf("%s/%s is installed and is none of the four document kinds", userFlows, name)
+		}
+	}
+	if len(keys) == 0 {
+		t.Fatalf("%s installs nothing; the embed glob matched no file", userFlows)
+	}
+	for key, got := range keys {
+		for _, suffix := range suffixes {
+			if !got[suffix] {
+				t.Errorf("%s: no %s — a flow key installs all four or none", key, suffix)
+			}
+		}
+	}
+}
+
+// The generator's evidence is a .pc.json and must not reach a workspace's
+// pipes_config by being installed as a user flow. It lives outside this package
+// for that reason; this asserts the glob agrees.
+func TestNoConfigIsInstalledAsAUserFlow(t *testing.T) {
+	names, err := Names(userFlows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		if strings.HasSuffix(name, ".pc.json") {
+			t.Errorf("%s/%s: a pipeline config is installed as a user flow", userFlows, name)
+		}
 	}
 }

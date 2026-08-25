@@ -19,9 +19,19 @@
  * The repository `CLAUDE.md` records the arrangement agreed on 2026-08-23: the
  * agentic_ai project owns `src/cpipes/`, and this file owns the slot its escape
  * is registered into. Their domain logic should not need a pull request here, and
- * this wiring should not need one there. Nothing of theirs is registered yet —
- * `templateApply.ts` is reached by a projected flow, and no projected flow is in
- * a workspace this app reads.
+ * this wiring should not need one there.
+ *
+ * **`cpipesTemplateApply` is registered as of 2026-08-25 — agentic_ai's task U.3,
+ * and the first exercise of that arrangement in this direction.** This paragraph
+ * used to end *"Nothing of theirs is registered yet — `templateApply.ts` is reached
+ * by a projected flow, and no projected flow is in a workspace this app reads"*.
+ * Their U.2 made the second clause false: `cpipes-contract` now writes its
+ * projected document sets into `jets/workspace_assets/user_flows/`, a third
+ * `AssetGroup`, so `install_workspace_assets` puts them in every workspace.
+ *
+ * The escape is a stable value whose workspace arrives later, set from
+ * `FlowRunner` beside `setFileKeyLabelPattern` — the same shape `fileKeyLabelRe`
+ * below uses, and chosen because this registry is a constant on purpose.
  *
  * ## What is here, and what is deliberately not
  *
@@ -63,6 +73,7 @@ import {
   seedFromHomeFilters,
   updateHomeFilters,
 } from "./homeFilters";
+import { cpipesTemplateApply } from "../cpipes/templateApply";
 import { productionQueries } from "./queries";
 import {
   readXlsxSheetOption,
@@ -183,6 +194,9 @@ export const productionRegistry: EscapeRegistry = {
     loadRawRows,
     readXlsxSheetOption,
     saveSourceConfigForFileType,
+    // agentic_ai's, per the arrangement in this file's header. The body is in
+    // `src/cpipes/`; this line is the whole of the wiring (their U.3).
+    cpipesTemplateApply,
   },
   initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },

@@ -1,41 +1,23 @@
-# Projections — generated, and committed as evidence
+# Projections — what the generator emits, and where it now lands
 
-`cpipes-contract templates --project <dir>` writes these. They are the output of M.4 and
-M.5, not an input to anything: the generator reads `templates/*.template.json` and its
-bindings, and the IDE reads the documents.
+**The projected documents moved out of this directory on 2026-08-25, at task U.2.** They are
+at `jets/workspace_assets/user_flows/`, and they are installed into every workspace by
+`install_workspace_assets` as the third asset group. That directory's README carries the
+argument for why a generated wizard is JetStore's asset rather than a workspace's content.
 
-**Committed rather than generated on demand**, for the reason the fixtures beside them
-are: they are what `ui_refresh` runs through their validation layers, and a review of a
-generator is much harder than a review of what it emits. Regenerate after any change to
-`project.py` and commit the diff with it — a change in the generator that does not move
-these files is a change with no observable effect.
+The generator is unchanged; only its destination is:
 
-## Four files per template, and the fourth is ours alone
+    python -m cpipes_contract templates --project ../../jets/workspace_assets/user_flows
 
-**It was two until M.5, and two did not load** (I-84). `FlowStore.load` reads
-`<key>.uf.json` *and* `<key>.ua.json` in one `Promise.all` and throws before it reaches
-the escape registry, so a pair fails at *read* rather than at the missing registration
-M.4 predicted.
+**Why they could not stay here.** `//go:embed` cannot reach outside its own package
+directory, so an asset group's files have to live under `jets/workspace_assets/`. Keeping a
+second copy here would have made the generator's output ambiguous — two directories, one
+source of truth, and nothing saying which one the installer read.
 
-| File | Whose | What it is |
-|---|---|---|
-| `<t>.uf.json` | UserFlow | The state graph. One state per **fill**, not per hole. |
-| `<t>.form.json` | UserFlow | One form per state. |
-| `<t>.ua.json` | UserFlow | One action of one step: the `cpipesTemplateApply` escape. |
-| `<t>.apply.json` | **ours** | The skeleton and what the escape needs to substitute into it. |
+## What each template projects to
 
-**The fourth is deliberately not a UserFlow document.** No schema of theirs describes it
-and nothing in `jetsclient_ide/src/userflow` reads it — only
-`src/cpipes/templateApply.ts`, which this project owns. That is what keeps the
-interpreter ignorant of templates, as the 2026-08-20 gate settled.
-
-**The apply substitutes; it does not expand.** The generator emits the expanded config
-with a marker wherever a collected value belongs, so the wizard's output is the
-expander's output by construction. There is no expander in Go and none in TypeScript, and
-writing a second one is the drift M.4 refused when it made the projection a consumer of
-`expand`'s traversal rather than a second traversal beside it.
-
-## What each projects to
+Unchanged by the move, and repeated here because it is the size of the thing rather than
+its address:
 
 | Template | States | Longest walk | What the walk is |
 |---|---:|---:|---|
@@ -48,12 +30,7 @@ enumerates what an author *could* pick; the walk counts what they *must*. `Colum
 has eight variants, so nine fills of it produce nine choosers and seventy-two branch
 states, of which an author visits nine.
 
-**`qc_report` projects to one state and that is correct.** Its configuration lives in a
-466-line bindings file, and eight of those bindings are contract-typed objects that were
-never declared as holes (I-78). The projection reports them and renders none of them —
-they are a template defect rather than a case to accommodate.
-
-## `qc_metrics.demonstrated.pc.json` — M.5's evidence
+## What stayed: `qc_metrics.demonstrated.pc.json`
 
 **Not a projection: the config one came out of.** It is what
 `jetsclient_ide/src/cpipes/templateApply.test.ts` produced by walking the `qc_metrics`
@@ -61,6 +38,10 @@ projection with the shipped engine, the shipped action interpreter and the shipp
 `validateForm` — 24 steps, `select` chosen for all nine column mappings, every required
 field filled and no optional one. `tests_project.py` validates it against the full cpipes
 contract, which is the one layer no UserFlow schema can reach.
+
+It stayed because it is a `.pc.json`, and installing one into a workspace's `pipes_config`
+would offer a demonstration artefact as a runnable pipeline. The asset group's embed glob
+names four document suffixes for the same reason.
 
 **Every value is the form key that produced it**, so the artefact reads as a map from
 wizard step to config site. That is deliberate: it is committed to be read.
