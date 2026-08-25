@@ -631,6 +631,31 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 		// Pre-Processing hook
 		switch requestTable {
 		case "raw_rows/process_mapping":
+			// Authorize before the destructive step, not after it.
+			//
+			// The DELETE below commits, and until 2026-08-24 the only capability
+			// check on this path was the one inside InsertRows, which runs after it.
+			// A caller who failed that check therefore got the mapping deleted and
+			// nothing inserted to replace it -- on a target chosen by the pasted
+			// document, since table_name is derived from its own columns. Ask the
+			// same question first.
+			//
+			// Deliberately the same *SqlInsertDefinition that InsertRows looks up
+			// for the table this arm sets below, so the two cannot drift into
+			// requiring different capabilities. InsertRows keeps its own check;
+			// this is a second gate, not a move.
+			sqlStmt, ok := sqlInsertStmts["process_mapping"]
+			if !ok {
+				httpStatus = http.StatusBadRequest
+				err = errors.New("error: unknown table")
+				return
+			}
+			if _, err2 := ctx.VerifyUserPermission(sqlStmt, token); err2 != nil {
+				httpStatus = http.StatusUnauthorized
+				log.Printf("while VerifyUserPermission: %v", err2)
+				err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+				return
+			}
 			// Put the table name in each row
 			var tableName string
 			client := dataTableAction.Data[irow]["client"]
