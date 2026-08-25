@@ -110,12 +110,52 @@ Future<int> openWorkspaceIdeApp(
 /// unusable screen; it can only go up once the editor itself virtualises.
 const workspaceFileEditorSizeLimit = 250000;
 
+/// The form this client renders for each compiled view the apiserver declares.
+///
+/// **The apiserver decides whether a section *has* a compiled view; this map
+/// decides whether *this client* renders one.** Those are different questions
+/// and conflating them is what C.1 fixed. A section's heading is a view of
+/// `workspace.db` — the compiled artifact — while the nodes below it are the
+/// source files that go into the compiler; the server knows which sections have
+/// a second side, because it knows what the compiler reads, and the client
+/// cannot work it out from a directory name.
+///
+/// Until 2026-08-25 the client composed `"workspace.$pageMatchKey.form"` and
+/// handed it to `getFormConfig`, **which throws for an unknown key**
+/// (`getFormConfig`, `lib/modules/form_config_impl.dart:649`) — inside an async
+/// menu delegate, so the symptom was a heading that did nothing. Six of the
+/// eight sections took that path, and "no view was built", "no view can exist"
+/// and "the registry lookup failed" were one event.
+///
+/// **`lookups` is deliberately absent, and its absence is now a stated fact
+/// rather than a gap.** Its files do compile into `workspace.db`, so the server
+/// declares `compiled_view: lookups`; the view is scheduled as ui_refresh's
+/// **C.3a in React**, because track X deletes this app and a view built here is
+/// discarded by construction (I-45, decided 2026-08-23 by the user). The state
+/// that has no name today — *declared, and not built in this client* — is
+/// asserted by `test/workspace_section_contract_test.dart`, which fails if a
+/// section is added to either side without somebody deciding which case it is.
+const compiledViewForms = <String, String>{
+  'data_model': FormKeys.wsDataModelForm,
+  'jet_rules': FormKeys.wsJetRulesForm,
+};
+
+/// The form key for a section, or null when this client renders its sources.
+///
+/// **It is total, and that is the point.** Every key it can return is a key
+/// `compiledViewForms` holds, so the composition that could miss is gone rather
+/// than guarded; a section this client has no view for returns null and the menu
+/// entry behaves as the group heading it is, with the source files beneath it.
+String? compiledViewFormKey(Object? compiledView) =>
+    compiledView is String ? compiledViewForms[compiledView] : null;
+
 // Utility function to create MenuEntry recursively
 // Note: files at or above [workspaceFileEditorSizeLimit] are listed but not
 // openable — see that constant for why.
-// Note: MenuEntry.formConfigKey is constructed from e['type'] and e['key']
-// (file, data_model, jet_rules, lookups)
-// It is used in initializeWorkspaceFileEditor to get the formConfig to use.
+// Note: MenuEntry.formConfigKey is the file editor for a file node and, for a
+// section node, the form named by [compiledViewForms] for the compiled view the
+// server declared — null when there is none. It is used in
+// initializeWorkspaceFileEditor to get the formConfig to use.
 List<MenuEntry> mapMenuEntry(List<dynamic> data) {
   final v = data.map((e) {
     final etype = e!['type'] as String;
@@ -134,7 +174,7 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
         otherPageStyle = ActionStyle.menuAlternate;
         break;
       case 'section':
-        formConfigKey = "workspace.$pageMatchKey.form";
+        formConfigKey = compiledViewFormKey(e!['compiled_view']);
         onPageStyle = ActionStyle.menuSelected;
         otherPageStyle = ActionStyle.menuAlternate;
         break;

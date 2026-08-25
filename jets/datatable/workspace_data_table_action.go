@@ -598,162 +598,24 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 
 	// Prepare the return object
 	httpStatus = http.StatusOK
-	resultData := make([]*wsfile.WorkspaceNode, 0)
+	var resultData []*wsfile.WorkspaceNode
 	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
-	var workspaceNode *wsfile.WorkspaceNode
 
 	switch requestType {
 	case "workspace_file_structure":
-		// Data Model (.jr)
-		// log.Println("** Visiting data_model:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
+		// The section list, the file-suffix filters and — the part C.1 added —
+		// which sections have a compiled view of `workspace.db` all live in one
+		// table now, wsfile.WorkspaceSections. This used to be eight
+		// near-identical blocks with copy-pasted error handling, and the client
+		// worked out what a heading showed by composing a form key from the
+		// directory name and looking it up in its own registry.
+		resultData, err = wsfile.BuildWorkspaceFileStructure(root, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
 			return
 		}
-		resultData = append(resultData, workspaceNode)
-
-		// Jets Rules (.jr, .jr.sql)
-		// log.Println("** Visiting jet_rules:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr", ".jr.sql"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Lookups (.jr)
-		// log.Println("** Visiting lookups:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// cpipes config (.pc.json)
-		log.Println("** Visiting pipes_config:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "pipes_config", "Pipes Config", &[]string{".pc.json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// User Flows (.uf.json, .ua.json)
-		//
-		// **This entry is the whole of making a new file type visible**, which is
-		// worth saying because the list is hard-coded: a workspace directory that
-		// no VisitDirWrapper call names does not appear in the IDE at all, however
-		// many files it holds. S.3 created `user_flows/` and would have shipped it
-		// invisible without this. Both suffixes are listed because a flow and its
-		// actions are edited together.
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "user_flows", "User Flows", &[]string{".uf.json", ".ua.json", ".form.json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Table Configurations (.tc.json)
-		//
-		// The fifth authored document type, and the one a `dataTable` form field
-		// names (task I.3, 2026-08-23). It sits in its own directory rather than
-		// beside the flows because a table configuration is *shared*: two flows
-		// may name the same table, so it is keyed by table rather than by flow —
-		// which is also why the client resolves it separately (FlowStore.load,
-		// jetsclient_ide/src/userflow/store.ts).
-		//
-		// Adding this section only became safe once visitDir stopped failing the
-		// whole request on a missing directory: no workspace has `table_configs/`
-		// yet, and before that change this call would have emptied the tree the
-		// way `user_flows/` already was.
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "table_configs", "Table Configurations", &[]string{".tc.json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Process Configurations (workspace_init_db.sql)
-		// log.Println("** Visiting process_config:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Process Sequences: removed 2026-08-23.
-		//
-		// A rule sequence is a list of main rule sets the engine runs over one RDF
-		// session, and its definition now lives in `workspace_control.json`, read at
-		// run time by NewReteMetaStoreFactory (jets/jetrules/rete/rete_meta_store_factory.go:79).
-		// The `process_sequence/` directory held the older `.jr` declaration form,
-		// which nothing has read since: it is named by no workspace's `rule_sets`,
-		// imported by no rule file, and before this change the only reference to it
-		// anywhere in the Go, C++ and Python trees was this call.
-		//
-		// **This entry had to go before the directories could.** A missing directory
-		// makes visitDir's WalkDir callback return an error, which fails the whole
-		// workspace_file_structure request rather than one section of it — so a
-		// workspace that dropped the folder while this call remained would show an
-		// empty IDE tree, not a tree missing one heading. The `touch` placeholder
-		// files in cedargate_ws and jets_ws are what that hazard looks like from the
-		// other side.
-
-		// Reports (.sql, .json)
-		// log.Println("** Visiting reports:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// compile_workspace.sh
-		resultData = append(resultData, &wsfile.WorkspaceNode{
-			Key:          "compile_workspace",
-			Type:         "file",
-			PageMatchKey: "compile_workspace.sh",
-			Label:        "Compile Workspace Script",
-			RoutePath:    "/workspace/:workspace_name/home",
-			RouteParams: map[string]string{
-				"workspace_name": workspaceName,
-				"file_name":      url.QueryEscape("compile_workspace.sh"),
-				"label":          "compile_workspace.sh",
-			},
-		})
-
-		// workspace_control.json
-		resultData = append(resultData, &wsfile.WorkspaceNode{
-			Key:          "workspace_control",
-			Type:         "file",
-			PageMatchKey: "workspace_control.json",
-			Label:        "Workspace Control",
-			RoutePath:    "/workspace/:workspace_name/home",
-			RouteParams: map[string]string{
-				"workspace_name": workspaceName,
-				"file_name":      url.QueryEscape("workspace_control.json"),
-				"label":          "workspace_control.json",
-			},
-		})
 	default:
 		httpStatus = http.StatusBadRequest
 		err = errors.New("invalid workspace request type")

@@ -198,12 +198,17 @@ class FormKeys {
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
   static const addWorkspaceFile = "addWorkspaceFileDialog";
-  // Forms for each section of the workspace, incl file editor
-  // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
+  // Forms for each section of the workspace, incl file editor.
+  //
+  // Note: a section's form is no longer constructed from its name. The apiserver
+  // declares which sections have a compiled view of `workspace.db`, and
+  // `compiledViewForms` in modules/workspace_ide/screen_delegates_helpers.dart
+  // maps a declared view to the key below that renders it. `wsLookupsForm` was
+  // here, declared and registered nowhere: `lookups` does compile, and its view
+  // is C.3a's, in React (I-45). Removed with `DTKeys.wsLookupsTable`, 2026-08-25.
   static const workspaceFileEditor = "workspace.file.form";
   static const wsDataModelForm = "workspace.data_model.form";
   static const wsJetRulesForm = "workspace.jet_rules.form";
-  static const wsLookupsForm = "workspace.lookups.form";
 
   // User Flow Forms
   // Client Registry UF
@@ -836,7 +841,8 @@ class DTKeys {
   static const wsMainSupportFilesTable = "wsMainSupportFilesTable";
   static const wsJetRulesFilesTable = "wsJetRulesFilesTable";
 
-  static const wsLookupsTable = "wsLookupsTable";
+  // `wsLookupsTable` was here, declared and held by no registry — the other half
+  // of the abandoned `lookups` view. See FormKeys above; removed 2026-08-25.
 
   // User Flow Tables
   // Client Registry User Flow Tables
