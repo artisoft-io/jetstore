@@ -1948,9 +1948,10 @@ describe("configure_files, end to end", () => {
   });
 
   it("clears every key the delete removes, after the request has been built", async () => {
-    // **I-131's other half**: the Dart encodes the body and *then* empties the
-    // map, so the payload is the whole record and the state is empty afterwards.
-    // Thirteen keys, not the six the coverage document listed.
+    // **I-84's original mechanism, on the corpus's longest list.** The Dart
+    // encodes the body and *then* empties the map, so the payload is the whole
+    // record and the state is empty afterwards — thirteen keys, not the six the
+    // coverage document listed.
     const h = setup();
     h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
     await h.press("ufNext");
