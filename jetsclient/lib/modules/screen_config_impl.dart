@@ -143,28 +143,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // Source Config Screen
-  ScreenKeys.sourceConfig: ScreenConfig(
-      key: ScreenKeys.sourceConfig,
-      appBarLabel: 'JetStore Workspace',
-      title: 'File Configurations',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
-  // Domain Table Viewer Screen
-  ScreenKeys.domainTableViewer: ScreenConfig(
-      key: ScreenKeys.domainTableViewer,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Input File Staging Table',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
   // Query Tool Screen
   ScreenKeys.queryToolScreen: ScreenConfig(
       key: ScreenKeys.queryToolScreen,
@@ -177,44 +155,11 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       toolbarMenuEntries: toolbarMenuEntries,
       type: ScreenType.other),
 
-  // Input Source Mapping Screen
-  ScreenKeys.inputSourceMapping: ScreenConfig(
-      key: ScreenKeys.inputSourceMapping,
-      appBarLabel: 'JetStore Workspace',
-      // title: 'Input Source Mapping',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
-  // Rules Config Screen
-  ScreenKeys.processConfig: ScreenConfig(
-      key: ScreenKeys.processConfig,
-      appBarLabel: 'JetStore Workspace',
-      // title: 'Rules Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
   // Rule Configv2 Screen
   ScreenKeys.ruleConfigv2: ScreenConfig(
       key: ScreenKeys.ruleConfigv2,
       appBarLabel: 'JetStore Workspace',
       // title: 'Rules Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
-  // Pipeline Config Edit Screen
-  ScreenKeys.pipelineConfigEdit: ScreenConfig(
-      key: ScreenKeys.pipelineConfigEdit,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Edit Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,

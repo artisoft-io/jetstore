@@ -113,14 +113,9 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
 /// standard keys to identify screen config key
 class ScreenKeys {
   static const home = "homeScreen";
-  static const sourceConfig = "sourceConfigScreen";
-  static const domainTableViewer = "domainTableViewerScreen";
-  static const inputSourceMapping = "inputSourceMappingScreen";
   // static const processInput = "processInputScreen";
-  static const processConfig = "processConfigScreen";
   static const ruleConfigv2 = "ruleConfigv2Screen";
   // static const pipelineConfig = "pipelineConfigScreen";
-  static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
   // Query Tool
   static const queryToolScreen = "queryToolScreen";
@@ -171,18 +166,14 @@ class FormKeys {
   // static const processInput = "processInputForm";
   // static const addProcessInput = "addProcessInputDialog";
   // Rule Process Config Forms
-  static const processConfig = "processConfigForm";
-  static const rulesConfig = "rulesConfigDialog";
   static const rulesConfigv2 = "rulesConfigv2SelectForm";
   static const rulesConfigv2Dialog = "rulesConfigv2Dialog";
   // Pipeline Config & Exec Forms
   // static const pipelineConfigForm = "pipelineConfigForm";
-  // static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const showFailureDetails = "showFailureDetailsDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
-  static const viewReteTriples = "viewReteTriplesDialog";
   static const viewReteTriplesV2 = "viewReteTriplesDialogV2";
   // Query Tool Forms
   static const queryToolInputForm = "queryToolInputForm";
@@ -201,7 +192,6 @@ class FormKeys {
   static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
   static const commitWorkspace = "commitWorkspaceDialog";
-  static const pullWorkspace = "pullWorkspaceDialog";
   static const pushOnlyWorkspace = "pushOnlyWorkspaceDialog";
   static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
   static const doGitStatusWorkspace = "doGitStatusWorkspaceDialog";
@@ -794,7 +784,6 @@ class DTKeys {
   static const cpipesExecDetailsTable = "cpipesExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
   // View rete session triples v1
-  static const reteSessionTriplesTable = "reteSessionTriplesTable";
   // View rete session v2 - rete session explorer
   static const reteSessionRdfTypeTable = "reteSessionRdfTypeTable";
   static const reteSessionEntityKeyTable = "reteSessionEntityKeyTable";
@@ -819,9 +808,7 @@ class DTKeys {
   // static const processInputTable = "processInputTable";
 
   // Rules Config DT
-  static const ruleConfigTable = "ruleConfigTable";
   static const ruleConfigv2Table = "ruleConfigv2Table";
-  static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
   // static const pipelineConfigTable = "pipelineConfigTable";
