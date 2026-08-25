@@ -83,7 +83,7 @@
     },
     "Anomaly": {
       "additionalProperties": false,
-      "description": "A deterministic detector's observation (\u00a7A.2.6). Skeleton: identity and\ndetection time; the signal fields arrive with the Observer agent.",
+      "description": "A deterministic detector's observation (\u00a7A.2.6), widened at N.2 from the\nskeleton to what phase-3 plan \u00a712.2 says the execution record can actually\npopulate, and made a table.\n\n**The field list is derived from \u00a712.2's six derivable rows, not from\nreadability.** Every property below is populated by at least one of them;\ntwo of \u00a7A.2.6's optional properties are left out because none of the six can\npopulate them, which is \u00a712's own test applied honestly:\n\n- `confidence` \u2014 \u00a7A.2.6 has it optional. All six rows are predicates or\n  windowed aggregates over a relational table (\u00a712.3), so a detector emits a\n  fact and has no calibrated confidence to report. Adding it would invite a\n  constant. **Its consumer is the Observer agent, not a detector.**\n- `correlation_group_id` \u2014 \u00a7A.2.6 says *\"Assigned by Observer Agent\"*, so by\n  construction no deterministic detector writes it. Clustering anomalies\n  into an Incident is `Incident.hypotheses`' side of the model.\n\nBoth are recorded as I-126 rather than silently dropped.\n\n**Three of \u00a7A.2.6's required properties are optional here**, because \u00a712.2\nfixes which rows carry a number: `expected_min`, `expected_max` and\n`deviation_magnitude` exist for rows 1 and 3, which compare against a\nhistory window, and do not exist for rows 2, 4, 5 and 10, which are\nwithin-run predicates with no range and no magnitude. Requiring them would\nforce a detector to invent one. Recorded as I-126.\n\n**Names are class-scoped per F7 and the plan's instruction to name against\nthe namespace rather than for readability.** `subject_ref` is a hard\ncollision \u2014 it is ApprovalEvent's, declared there first \u2014 and `signal_type`,\n`observed_value`, `detector_ref` and `session_id` are exactly the generic\nnames a client workspace would want for something else. Each carries its\n\u00a7A.2.6 name in its description, per the model's documented-against rule.",
       "properties": {
         "anomaly_id": {
           "description": "The anomaly identity (\u00a7A.2.6: ^anom_[a-z0-9]+$).",
@@ -93,13 +93,102 @@
           "description": "When the detector emitted it.",
           "format": "date-time",
           "type": "string"
+        },
+        "anomaly_session_id": {
+          "description": "The pipeline run the observation is drawn from - `session_id` on every table of the execution record, and the key `purge_database` deletes by (\u00a712.1). Scoped per F7, and deliberately not named run_ref: that is ApprovalEvent's and means an AgentRun, which this is not.",
+          "type": "string"
+        },
+        "anomaly_subject_type": {
+          "$ref": "#/$defs/AnomalySubject",
+          "description": "What the observation is about (\u00a7A.2.6 names it subject_ref.entity_type). \u00a712.2's grain column: worker for rows 1-4, edge for rows 2, 5 and 10."
+        },
+        "anomaly_subject_ref": {
+          "description": "The subject's identity (\u00a7A.2.6 names it subject_ref.entity_id; scoped per F7 against ApprovalEvent's subject_ref, which is a Remediation or ChangeProposal). For a worker, the step label, shard and jets_partition that key the row; for an edge, those plus the input and output channel.",
+          "type": "string"
+        },
+        "anomaly_signal_type": {
+          "$ref": "#/$defs/SignalType",
+          "description": "Which failure mode was observed (\u00a7A.2.6 names it signal_type). Maps to a \u00a712.2 row: rejection_rate is row 1, volume is rows 2 and 5, step_regression row 3, worker_stall row 4, arrival row 10."
+        },
+        "anomaly_observed_value": {
+          "description": "What was measured (\u00a7A.2.6 names it observed_value). **Text because \u00a7A.2.6 types it [number, string] and JetRules has no union**, and because \u00a712.2's rows genuinely differ: a ratio for row 1, a count for rows 2 and 5, a status for rows 3 and 4, a destination URI for row 10. The trigger property on ChangeProposal is carried as text for the same reason.",
+          "type": "string"
+        },
+        "anomaly_expected_min": {
+          "type": "string",
+          "description": "The low end of what was expected (\u00a7A.2.6 names it expected_range.min; text on the same reasoning as observed_value). Optional rather than required as \u00a7A.2.6 has it: only rows 1 and 3 compare against a range at all."
+        },
+        "anomaly_expected_max": {
+          "type": "string",
+          "description": "The high end of what was expected (\u00a7A.2.6 names it expected_range.max). Optional, same reasoning as expected_min."
+        },
+        "anomaly_expected_basis": {
+          "description": "**What the observation was compared against** (\u00a7A.2.6 names it expected_range.basis) - the history window and grouping for rows 1 and 3, the within-run invariant for rows 2, 4 and 5, the claim being checked for row 10. Required, and it is half of what \u00a712.3 says an actionable anomaly must be able to say.",
+          "type": "string"
+        },
+        "anomaly_deviation_magnitude": {
+          "type": "number",
+          "description": "How far out, in standard deviations or as a ratio per signal type (\u00a7A.2.6 names it deviation_magnitude). Optional rather than required as \u00a7A.2.6 has it: rows 4, 5 and 10 are boolean predicates with no magnitude to report."
+        },
+        "anomaly_confounders": {
+          "description": "**What the detector could not rule out** - the other half of \u00a712.3's test, and the per-observation form of \u00a712.2's *cannot see* column. Required; an empty list asserts that none of the fourteen applies, which is the contradicting_evidence discipline on Hypothesis reused. Has no \u00a7A.2.6 counterpart, because \u00a7A.2.6 was written against a warehouse rather than against this execution record.",
+          "items": {
+            "$ref": "#/$defs/AnomalyConfounder"
+          },
+          "type": "array"
+        },
+        "anomaly_detector_ref": {
+          "description": "The deterministic detector that emitted this (\u00a7A.2.6 names it detector_ref, optional; required here because \u00a712.2's rows differ in what they can see and an anomaly whose detector is unknown cannot be read against the right row).",
+          "type": "string"
         }
       },
       "required": [
         "anomaly_id",
-        "detected_at"
+        "detected_at",
+        "anomaly_session_id",
+        "anomaly_subject_type",
+        "anomaly_subject_ref",
+        "anomaly_signal_type",
+        "anomaly_observed_value",
+        "anomaly_expected_basis",
+        "anomaly_confounders",
+        "anomaly_detector_ref"
       ],
       "type": "object"
+    },
+    "AnomalyConfounder": {
+      "description": "**Ours entirely, and it is the vocabulary form of \u00a712.2's *cannot see*\ncolumn** (14 values). Not in the proposal at any level.\n\nPhase-3 plan \u00a712.3 is the reason it exists: *\"every derivable row needs at\nleast one qualifier carried with the anomaly, or it is not actionable \u2026 an\n`Anomaly` that cannot say what it compared against and what it could not\nrule out reproduces the signal an operator learns to ignore\"*. `basis`\ncarries the first half; this carries the second.\n\n**A member is an alternative explanation the detector could not exclude, or\na bound on the comparison it made** \u2014 not a defect, and not a reason to\nsuppress the anomaly. Each is traceable to one cell of \u00a712.2 or to \u00a712.7,\nnamed in the comment beside it; **the list is appended to, never\nrenumbered**, on this repository's convention for numbered series.\n\nIt is deliberately *not* free text. A named `text` literal makes a mistyped\nvalue a compile error rather than a comparison that silently never matches\n(the .jr emitter's own argument), and free text would make two detectors'\nqualifiers incomparable, which defeats the purpose.",
+      "enum": [
+        "parse_errors_only",
+        "parquet_input",
+        "on_error_drop",
+        "max_input_count",
+        "sampling_cap",
+        "device_writer_output",
+        "merge_row_count_unknown",
+        "step_label_ambiguous",
+        "stall_cause_unknown",
+        "cross_step_join_unavailable",
+        "history_truncated",
+        "no_physical_location",
+        "stage_prefix_reused",
+        "location_aimed_not_reached"
+      ],
+      "type": "string"
+    },
+    "AnomalySubject": {
+      "description": "\u00a7A.2.6's `subject_ref.entity_type` \u2014 what an anomaly is *about*.\n\n**The first six are \u00a7A.2.6's; the last two are \u00a712.2's two grains.** The\nexecution record's rows are per *worker* (run \u00d7 step label \u00d7 shard \u00d7\n`jets_partition`) and per *edge* (worker \u00d7 input channel \u00d7 output channel),\nand neither is one of the six. `stage` is the near miss and is not the same\nthing: F52 reads `cpipes_step_id` as a stage location, but a worker is finer\nthan a stage by shard and partition, and an edge is finer again.\n\nAdded at N.2 with the SignalType additions above, on the same terms (I-127).",
+      "enum": [
+        "feed",
+        "pipeline",
+        "stage",
+        "run",
+        "table",
+        "column",
+        "worker",
+        "edge"
+      ],
+      "type": "string"
     },
     "ApprovalEvent": {
       "additionalProperties": false,
@@ -521,6 +610,25 @@
         "medium",
         "high",
         "critical"
+      ],
+      "type": "string"
+    },
+    "SignalType": {
+      "description": "\u00a7A.2.6's `$defs` \u2014 scoped to Anomaly, like EvidenceSource not in \u00a7A.4.\n\n**The first ten are \u00a7A.2.6's, verbatim and in its order. The last three are\nours**, added at N.2 because the ten do not name three of the six failure\nmodes phase-3 plan \u00a712.2 found derivable from JetStore's execution record,\nand `signal_type` is required by \u00a7A.2.6 \u2014 so without them an anomaly for\nthose rows is unrepresentable rather than merely unlabelled.\n\nThe ten were written for a warehouse's data-quality signals (volume,\nfreshness, distribution, cardinality); \u00a712.2's rows are *execution* signals,\nwhich is a different substrate rather than a gap in the proposal. Of the\nten, \u00a712.2 populates exactly two today: `rejection_rate` is row 1 and\n`volume` is rows 2 and 5.\n\n**N.4 is the party that confirms or overturns the three additions** \u2014 it\nbuilds the first two detectors and is the first caller that has to choose a\nvalue. Raised as I-127.",
+      "enum": [
+        "volume",
+        "freshness",
+        "schema",
+        "distribution",
+        "rule_breach",
+        "cost",
+        "duration",
+        "rejection_rate",
+        "cardinality",
+        "referential",
+        "step_regression",
+        "worker_stall",
+        "arrival"
       ],
       "type": "string"
     }
