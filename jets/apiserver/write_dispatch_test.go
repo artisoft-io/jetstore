@@ -88,6 +88,19 @@ var ungatedActions = map[string]string{
 		"them to render, for every authenticated user",
 }
 
+// dataTableActionCount is how many actions the /dataTable dispatch has, measured
+// rather than remembered:
+//
+//	python3 -c 'import re,sys; src=open("jets/apiserver/api_tables.go").read();
+//	  start=src.index("switch dataTableAction.Action {");
+//	  end=src.index("\n\tdefault:", start);
+//	  print(len(re.findall(r"^\tcase \"[a-z_]+\":", src[start:end], re.M)))'
+//
+// It is pinned here because a document wanted to cite it and cited 21, from
+// counting a grep output by eye. A number a test can hold should not be a number
+// prose asserts.
+const dataTableActionCount = 23
+
 // apiserverEffectMarkers are the tells that an inline arm has reached the
 // database or S3. Deliberately short and deliberately a lower bound; see the
 // same note in jets/datatable/write_capability_test.go.
@@ -173,6 +186,11 @@ func TestEveryDataTableActionIsClassified(t *testing.T) {
 				t.Errorf("%q is no longer an action of the /dataTable dispatch; this list is stale", action)
 			}
 		}
+	}
+
+	if len(arms) != dataTableActionCount {
+		t.Errorf("the /dataTable dispatch has %d actions and dataTableActionCount says %d; "+
+			"correct the constant, and any document citing it", len(arms), dataTableActionCount)
 	}
 }
 
