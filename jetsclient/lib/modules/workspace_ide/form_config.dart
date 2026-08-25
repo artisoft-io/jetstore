@@ -364,54 +364,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
-  // Pull Workspace Changes Dialog
-  FormKeys.pullWorkspace: FormConfig(
-    key: FormKeys.pullWorkspace,
-    title: "Pull Workspace Changes from Repository",
-    useListView: true,
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.pullWorkspaceOk,
-          capability: "workspace_ide",
-          label: "Pull Changes",
-          buttonStyle: ActionStyle.dialogOk,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.dialogCancel,
-          label: "Cancel",
-          buttonStyle: ActionStyle.dialogCancel,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
-    ],
-    inputFields: [
-      [
-        FormInputFieldConfig(
-            key: FSK.wsName,
-            label: "Workspace Name",
-            hint: "Workspace name is used as the workspace key",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            isReadOnly: true,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.wsURI,
-            label: "Worksapce URI",
-            hint: "Repository where the workspace is versioned",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            isReadOnly: true,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
-    ],
-    formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate: workspaceIDEFormActions,
-  ),
-
   // View Last Git Log Workspace Dialog
   FormKeys.viewGitLogWorkspace: FormConfig(
     key: FormKeys.viewGitLogWorkspace,

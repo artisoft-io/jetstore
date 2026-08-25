@@ -93,7 +93,7 @@ const endMarker = '===END SCREEN REACHABILITY CORPUS===';
 /// **Update it only together with the React fixture.** A failure here means a
 /// route, a menu or a navigate action changed; the fix is to regenerate both,
 /// never to edit this number so the test goes green.
-const expectedChecksum = 'fnv1a32:308ad556';
+const expectedChecksum = 'fnv1a32:c7221ae6';
 
 /// Every screen configuration every registry holds, by registry.
 ///

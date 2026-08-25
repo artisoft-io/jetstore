@@ -30,7 +30,6 @@ const executionStatsDetailsPath = '/executionStatsDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
 
 // Old Rule Config with triples
-const processConfigPath = '/processConfig';
 // Rule Configv2
 const ruleConfigPath = '/ruleConfig';
 
@@ -75,14 +74,6 @@ final Map<String, Widget> jetsRoutesMap = {
   //   screenConfig: getScreenConfig(ScreenKeys.processInput),
   //   formConfig: getFormConfig(FormKeys.processInput),
   // ),
-
-  // Rule Config
-  processConfigPath: ScreenWithForm(
-    key: const Key(ScreenKeys.processConfig),
-    screenPath: const JetsRouteData(processConfigPath),
-    screenConfig: getScreenConfig(ScreenKeys.processConfig),
-    formConfig: getFormConfig(FormKeys.processConfig),
-  ),
 
   // Rule Configv2
   ruleConfigPath: ScreenWithForm(

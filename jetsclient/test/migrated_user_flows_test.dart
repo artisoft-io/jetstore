@@ -290,7 +290,10 @@ void main() {
           userFlowRoutes.values.map((r) => r.flowKey).toSet();
       final nonFlowRoutes =
           jetsRoutesMap.keys.where((k) => !userFlowRoutes.containsKey(k));
-      expect(nonFlowRoutes, hasLength(17));
+      // 17 before C.0, which deleted the unreachable /processConfig route
+      // (sizing_screen_migration.md §5). The count is the app's screen routes,
+      // so it moves whenever track C deletes or ports one.
+      expect(nonFlowRoutes, hasLength(16));
       for (final template in nonFlowRoutes) {
         expect(
             handoffUrlFor(

@@ -51,7 +51,7 @@ const endMarker = '===END SCREEN CONFIG CORPUS===';
 /// **Update it only together with the React fixture.** A failure here means a
 /// screen's configuration changed; the fix is to regenerate both, never to edit
 /// this number so the test goes green.
-const expectedChecksum = 'fnv1a32:b1b005ea';
+const expectedChecksum = 'fnv1a32:6d100a40';
 
 /// Every table configuration the non-flow registries hold, sorted for a stable
 /// diff.
