@@ -90,9 +90,11 @@ hand-transcribed arm.
 names a future *condition* goes silent when the condition passes; this repository
 has that written up at length in its root `CLAUDE.md`.
 
-**And it is not addressed only to them.** Track C authors table and form documents
-for the non-flow screens from the same Dart, so failures 2 through 5 are as live
-there as they were in track F.
+**And it is not addressed only to them.** Track C ports fifteen non-flow screens
+from the same Dart, and `screen_delegates.dart` and `user_delegates.dart` are
+function bodies on the same terms the flow delegates were — so failures 2 through 5
+are as live there as they were in track F, and **the first consumer of this list is
+as likely to be in this project as in the next one.**
 
 *F.9, 2026-08-24. The list is I-84 and its eight successors in
 `projects/ui_refresh/plan/tracking/phase3_tasks_issues_risks.md`; the decision to
