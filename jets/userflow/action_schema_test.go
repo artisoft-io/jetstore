@@ -13,7 +13,6 @@ import (
 const (
 	actionSchemaPath = "../../jetsclient_ide/src/actions/action.schema.json"
 	actionsDir       = "../../jetsclient_ide/src/actions/flows"
-	coverageDir      = "../../jetsclient_ide/src/actions/coverage"
 )
 
 // The action grammar's Go half, on the same argument as the flow schema's: the
@@ -56,8 +55,10 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// workspacePullUF, 2026-08-23 — one task, because they are one delegate file);
 	// 6 as of F.3 (clientRegistryUF, 2026-08-23); 7 as of F.4 (startPipelineUF,
 	// 2026-08-24); 8 as of F.5 (homeFiltersUF, 2026-08-24); 9 as of F.6
-	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24).
-	const migratedFlows = 10
+	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24);
+	// 11 as of F.7 (sourceConfigUF, 2026-08-24), which is all eleven flows and
+	// the end of track F's migration.
+	const migratedFlows = 11
 	if len(names) != migratedFlows {
 		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
 	}
@@ -79,44 +80,14 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	}
 }
 
-// TestCoverageActionsValidate is the other half of S.2a's exit condition: not
-// "the grammar can express the five arms we built" but "the grammar can express
-// all of them". The documents here carry the arms of the flows track F has not
-// reached, wired to no flow and no screen — see coverage.test.ts for what that
-// does and does not prove.
-//
-// **The count falls as track F lands flows, and it falling is the point.** Seven
-// until F.2 re-partitioned workspacePullUF.ua.json into two runtime documents
-// and deleted it; six then, five since F.3 did the same for clientRegistryUF,
-// four since F.4 did it for startPipelineUF, three since F.5 did it for
-// homeFiltersUF, two since F.6 did it for pipelineConfigUF, and one since F.8
-// did it for fileMappingUF. **The last is `sourceConfigUF`, which is F.7** — so
-// F.9's retirement of what remains is now a retirement of the directory rather
-// than of a corpus.
-func TestCoverageActionsValidate(t *testing.T) {
-	schema := compileActionSchema(t)
-	names, err := filepath.Glob(filepath.Join(coverageDir, "*.ua.json"))
-	if err != nil || len(names) != 1 {
-		t.Fatalf("expected one coverage document at %s, found %d (err %v)",
-			coverageDir, len(names), err)
-	}
-	for _, path := range names {
-		t.Run(strings.TrimSuffix(filepath.Base(path), ".ua.json"), func(t *testing.T) {
-			fh, err := os.Open(path)
-			if err != nil {
-				t.Fatalf("opening: %v", err)
-			}
-			defer fh.Close()
-			inst, err := jsonschema.UnmarshalJSON(fh)
-			if err != nil {
-				t.Fatalf("parsing: %v", err)
-			}
-			if err := schema.Validate(inst); err != nil {
-				t.Errorf("%s does not validate:\n%v", path, err)
-			}
-		})
-	}
-}
+// **There is no coverage-document test any more, and its absence is the record
+// of what F.7 finished.** `TestCoverageActionsValidate` stood here and globbed
+// `../../jetsclient_ide/src/actions/coverage`, asserting a count that fell as
+// track F promoted each transcription into a runtime document: seven, then six,
+// five, four, three, two, one. F.7 promoted the last of them and the directory is
+// gone, so the glob would match nothing and the test would be a check on an empty
+// set. Every `.ua.json` in this repository is now a document some flow runs, which
+// is what `TestProofFlowActionsValidate` above covers.
 
 // TestActionSchemaRejects probes the grammar from the other side. The negative
 // suite proper is S.6's; these five are the minimum that makes the positive test

@@ -32,6 +32,11 @@ import {
   updateHomeFilters,
 } from "../actions/homeFilters";
 import { downloadMapping, loadRawRows } from "../actions/fileMapping";
+import {
+  readXlsxSheetOption,
+  saveSourceConfigForFileType,
+  sourceConfigFormValidator,
+} from "../actions/sourceConfig";
 import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
@@ -41,6 +46,7 @@ import pipelineConfigActionsDoc from "../actions/flows/pipelineConfigUF.ua.json"
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
+import sourceConfigActionsDoc from "../actions/flows/sourceConfigUF.ua.json";
 import startPipelineActionsDoc from "../actions/flows/startPipelineUF.ua.json";
 import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
@@ -52,6 +58,7 @@ import pipelineConfigFormsDoc from "./forms/pipelineConfigUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
+import sourceConfigFormsDoc from "./forms/sourceConfigUF.form.json";
 import startPipelineFormsDoc from "./forms/startPipelineUF.form.json";
 import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
@@ -62,6 +69,7 @@ import pipelineConfigFlowDoc from "./flows/pipelineConfigUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
+import sourceConfigFlowDoc from "./flows/sourceConfigUF.uf.json";
 import startPipelineFlowDoc from "./flows/startPipelineUF.uf.json";
 import workspacePullFlowDoc from "./flows/workspacePullUF.uf.json";
 import { validateDocumentSet } from "./documentSet";
@@ -186,6 +194,7 @@ describe("the documents are complete and consistent", () => {
     ["homeFiltersUF", homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc],
     ["pipelineConfigUF", pipelineConfigFlowDoc, pipelineConfigActionsDoc, pipelineConfigFormsDoc],
     ["fileMappingUF", fileMappingFlowDoc, fileMappingActionsDoc, fileMappingFormsDoc],
+    ["sourceConfigUF", sourceConfigFlowDoc, sourceConfigActionsDoc, sourceConfigFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -1620,6 +1629,404 @@ describe("file_mapping, end to end", () => {
     expect(await h.press("dialogCancel")).toBeNull();
     expect(h.posts).toEqual([]);
     expect(h.events).toEqual(["close"]);
+  });
+});
+
+
+/**
+ * `sourceConfigUF`, the last of the nine. Task F.7.
+ *
+ * **Twelve states, twelve forms, four tables and six arms** — the largest state
+ * graph in the corpus and the only flow that reaches every corner of the
+ * conditional vocabulary. What is driven here rather than only asserted on the
+ * document is the arithmetic no reader would check by eye: which of the nine file
+ * types nulls which columns, and which of the two save targets a run picks.
+ */
+describe("configure_files, end to end", () => {
+  const registry: EscapeRegistry = {
+    ...emptyRegistry,
+    actions: { readXlsxSheetOption, saveSourceConfigForFileType },
+    validators: { sourceConfigFormValidator },
+  };
+  const setup = () =>
+    harness(sourceConfigFlowDoc, sourceConfigActionsDoc, sourceConfigFormsDoc, registry);
+
+  /** One row of `scSourceConfigKey`, as its `formStateBinding` publishes it. */
+  const selectExisting = (
+    h: ReturnType<typeof setup>,
+    overrides: Record<string, string | null> = {},
+  ) => {
+    const row: Record<string, string | null> = {
+      scSourceConfigKey: "42",
+      key: "42",
+      client: "ACME",
+      org: "EAST",
+      object_type: "claim",
+      automated: "1",
+      table_name: "acme_east_claim",
+      domain_keys_json: null,
+      code_values_mapping_json: null,
+      input_columns_json: null,
+      input_columns_positions_csv: null,
+      input_format: "csv",
+      is_part_files: "0",
+      input_format_data_json: null,
+      schema_provider_json: null,
+      ...overrides,
+    };
+    for (const [key, value] of Object.entries(row)) {
+      // Every secondary key arrives as a one-element list — `resetSecondaryKeys`
+      // (`components/data_table_source.dart`) — which is what the twelve `fromKey`
+      // steps of `scSelectSourceConfigUF` exist to undo.
+      h.formState.setValue(0, key, value === null ? null : [value]);
+    }
+  };
+
+  it("branches to add or to edit on the first state's option", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_add_or_edit");
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("add_source_config");
+
+    const g = setup();
+    g.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    expect(await g.press("ufNext")).toBeNull();
+    expect(g.at()).toBe("select_source_config");
+  });
+
+  it("routes each of the nine file types to the page it needs", async () => {
+    for (const [fileType, next] of [
+      ["csv", "select_single_or_multi_part_file"],
+      ["headerless_csv", "edit_csv_headers"],
+      ["headerless_csv_with_schema_provider", "select_single_or_multi_part_file"],
+      ["xlsx", "edit_xlsx_options"],
+      ["headerless_xlsx", "edit_xlsx_options"],
+      ["fixed_width", "edit_fixed_width_layout"],
+      ["fixed_width_with_schema_provider", "select_single_or_multi_part_file"],
+      ["parquet", "select_single_or_multi_part_file"],
+      ["parquet_select", "edit_csv_headers"],
+    ] as const) {
+      const h = setup();
+      h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+      h.formState.setValue(0, "client", "ACME");
+      h.formState.setValue(0, "org", "EAST");
+      h.formState.setValue(0, "object_type", "claim");
+      await h.press("ufNext");
+      expect(h.at()).toBe("add_source_config");
+      await h.press("ufNext");
+      expect(h.at()).toBe("select_file_type_option");
+      h.formState.setValue(0, "input_format", [fileType]);
+      await h.press("ufNext");
+      expect([fileType, h.at()]).toEqual([fileType, next]);
+    }
+  });
+
+  it("leaves the organization out of the table name when there is none", async () => {
+    // **I-130.** `makeTableNameFromState` forwards to `makeTableName`
+    // (`modules/actions/delegate_helpers.dart`, `makeTableName`), which branches on
+    // `org.isNotEmpty`; the coverage document had the three-part template alone,
+    // so a *No Organization* data source would have been staged into
+    // `acme__claim`.
+    const withOrg = setup();
+    withOrg.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    withOrg.formState.setValue(0, "client", "ACME");
+    withOrg.formState.setValue(0, "org", "EAST");
+    withOrg.formState.setValue(0, "object_type", "claim");
+    await withOrg.press("ufNext");
+    await withOrg.press("ufNext");
+    expect(withOrg.formState.getValue(0, "table_name")).toBe("ACME_EAST_claim");
+
+    const without = setup();
+    without.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    without.formState.setValue(0, "client", "ACME");
+    without.formState.setValue(0, "org", "");
+    without.formState.setValue(0, "object_type", "claim");
+    await without.press("ufNext");
+    await without.press("ufNext");
+    expect(without.formState.getValue(0, "table_name")).toBe("ACME_claim");
+  });
+
+  it("unpacks the selected record and maps its part-file flag", async () => {
+    const h = setup();
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_source_config");
+    selectExisting(h, { is_part_files: "1" });
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_file_type_option");
+
+    for (const [key, value] of [
+      ["key", "42"],
+      ["client", "ACME"],
+      ["org", "EAST"],
+      ["object_type", "claim"],
+      ["table_name", "acme_east_claim"],
+      ["input_format", "csv"],
+    ] as const) {
+      expect([key, h.formState.getValue(0, key)]).toEqual([key, value]);
+    }
+    // Not the table's `automated`: the arm overwrites it with a literal `'0'`.
+    expect(h.formState.getValue(0, "automated")).toBe("0");
+    expect(h.formState.getValue(0, "scSingleOrMultiPartFileOption")).toBe("scMultiPartFileOption");
+  });
+
+  it.each([
+    // `input_format`, `input_columns_json`, `input_columns_positions_csv` → result
+    ["", "[\"a\"]", null, "headerless_csv"],
+    ["", null, "a,0,3", "fixed_width"],
+    ["", null, null, "csv"],
+    ["headerless_csv", null, null, "headerless_csv_with_schema_provider"],
+    ["headerless_csv", "[\"a\"]", null, "headerless_csv"],
+    ["fixed_width", null, null, "fixed_width_with_schema_provider"],
+    ["fixed_width", null, "a,0,3", "fixed_width"],
+    ["parquet", null, null, "parquet"],
+  ])(
+    "infers %s + %s + %s as %s",
+    async (format, columns, positions, expected) => {
+      // The five-way backward-compatibility branch, as five guarded `set` steps
+      // rather than an escape. Sequential guards are equivalent to the Dart's
+      // if/else-if chain because each branch writes a value the later guards do
+      // not match — which is the property this table exists to hold.
+      const h = setup();
+      h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+      await h.press("ufNext");
+      selectExisting(h, {
+        input_format: format,
+        input_columns_json: columns,
+        input_columns_positions_csv: positions,
+      });
+      await h.press("ufNext");
+      expect(h.formState.getValue(0, "input_format")).toBe(expected);
+    },
+  );
+
+  it("lifts currentSheet out of the record's format options, for xlsx only", async () => {
+    const h = setup();
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    await h.press("ufNext");
+    selectExisting(h, {
+      input_format: "headerless_xlsx",
+      input_format_data_json: '{"currentSheet": "Sheet2"}',
+    });
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "input_format_data_json")).toBe('{"currentSheet": "Sheet2"}');
+    expect(h.formState.getValue(0, "currentSheet")).toBe("Sheet2");
+
+    // The same blob on a csv record is carried through and not decoded — the
+    // `when` guard on the escape step, which is the Dart's `if`.
+    const csv = setup();
+    csv.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    await csv.press("ufNext");
+    selectExisting(csv, { input_format_data_json: '{"currentSheet": "Sheet2"}' });
+    await csv.press("ufNext");
+    expect(csv.formState.getValue(0, "currentSheet")).toBeUndefined();
+  });
+
+  it("says the options blob is not json rather than throwing", async () => {
+    const h = setup();
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    await h.press("ufNext");
+    selectExisting(h, { input_format: "xlsx", input_format_data_json: "{not json" });
+    const outcome = await h.press("ufNext");
+    // The Dart's message, mislabelled at source and reproduced (I-133).
+    expect(String(outcome)).toContain("Input column names is not a valid json");
+    // **And the flow moves on anyway, in both apps.** `ufNext` runs the state
+    // action, `print`s the error and advances
+    // (`modules/actions/user_flow_actions.dart`, `ActionKeys.ufNext`); `step`
+    // returns the outcome beside the new position (`engine.ts`, `step`). So the
+    // message reaches the screen and the user is on the next page — asserted
+    // rather than left implicit, because this arm is the corpus's only state
+    // action that can fail on data rather than on a server.
+    expect(h.at()).toBe("select_file_type_option");
+  });
+
+  it("writes the sheet back as the record's format options", async () => {
+    const h = setup();
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    h.formState.setValue(0, "client", "ACME");
+    h.formState.setValue(0, "org", "EAST");
+    h.formState.setValue(0, "object_type", "claim");
+    await h.press("ufNext");
+    await h.press("ufNext");
+    h.formState.setValue(0, "input_format", ["xlsx"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("edit_xlsx_options");
+    h.formState.setValue(0, "currentSheet", "2");
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "input_format_data_json")).toBe('{"currentSheet": "2"}');
+  });
+
+  it("ends on the summary, which offers no advancing button", () => {
+    const h = setup();
+    expect(h.flow.states["confirm_state"]!.isEnd).toBe(true);
+    expect(h.formFor("confirm_state").actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCancel",
+      "ufCompleted",
+    ]);
+  });
+
+  it.each([
+    ["xlsx", { input_columns_json: null, input_columns_positions_csv: null }],
+    ["headerless_xlsx", { input_columns_positions_csv: null }],
+    ["csv", { input_columns_json: null, input_columns_positions_csv: null, input_format_data_json: "" }],
+    ["parquet", { input_columns_json: null, input_columns_positions_csv: null, input_format_data_json: "" }],
+    ["headerless_csv", { input_columns_positions_csv: null, input_format_data_json: "" }],
+    ["parquet_select", { input_columns_positions_csv: null, input_format_data_json: "" }],
+    [
+      "headerless_csv_with_schema_provider",
+      {
+        input_format: "headerless_csv",
+        input_columns_json: null,
+        input_columns_positions_csv: null,
+        input_format_data_json: "",
+      },
+    ],
+    ["fixed_width", { input_columns_json: null, input_format_data_json: "" }],
+    [
+      "fixed_width_with_schema_provider",
+      {
+        input_format: "fixed_width",
+        input_columns_json: null,
+        input_columns_positions_csv: null,
+        input_format_data_json: "",
+      },
+    ],
+  ])("posts %s with the columns its file type does not use nulled", async (format, expected) => {
+    const h = setup();
+    h.formState.setValue(0, "input_format", format);
+    h.formState.setValue(0, "input_columns_json", '["a"]');
+    h.formState.setValue(0, "input_columns_positions_csv", "a,0,3");
+    h.formState.setValue(0, "input_format_data_json", '{"currentSheet": "0"}');
+    h.formState.setValue(0, "scSingleOrMultiPartFileOption", "scSingleFileOption");
+
+    expect(await h.press("addSourceConfig.ok")).toBeNull();
+    const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row).toMatchObject({ input_format: format, ...expected });
+  });
+
+  it("chooses insert or update by whether a record was selected", async () => {
+    const add = setup();
+    add.formState.setValue(0, "input_format", "csv");
+    add.formState.setValue(0, "scSingleOrMultiPartFileOption", "scSingleFileOption");
+    await add.press("addSourceConfig.ok");
+    expect(add.posts[0]!.body["fromClauses"]).toEqual([{ table: "source_config" }]);
+
+    const edit = setup();
+    edit.formState.setValue(0, "input_format", "csv");
+    edit.formState.setValue(0, "scSingleOrMultiPartFileOption", "scSingleFileOption");
+    edit.formState.setValue(0, "key", "42");
+    await edit.press("addSourceConfig.ok");
+    expect(edit.posts[0]!.body["fromClauses"]).toEqual([{ table: "update/source_config" }]);
+  });
+
+  it("sends is_part_files as the number the column holds", async () => {
+    for (const [option, value] of [
+      ["scSingleFileOption", 0],
+      ["scMultiPartFileOption", 1],
+    ] as const) {
+      const h = setup();
+      h.formState.setValue(0, "input_format", "csv");
+      h.formState.setValue(0, "scSingleOrMultiPartFileOption", option);
+      await h.press("addSourceConfig.ok");
+      const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+      expect([option, row["is_part_files"]]).toEqual([option, value]);
+    }
+  });
+
+  it("refuses to save a file type or a part-file option it does not know", async () => {
+    const h = setup();
+    h.formState.setValue(0, "input_format", "avro");
+    h.formState.setValue(0, "scSingleOrMultiPartFileOption", "scSingleFileOption");
+    expect(await h.press("addSourceConfig.ok")).toBe("error");
+
+    const g = setup();
+    g.formState.setValue(0, "input_format", "csv");
+    expect(await g.press("addSourceConfig.ok")).toBe("error");
+    expect(g.posts).toEqual([]);
+  });
+
+  it("clears every key the delete removes, after the request has been built", async () => {
+    // **I-131's other half**: the Dart encodes the body and *then* empties the
+    // map, so the payload is the whole record and the state is empty afterwards.
+    // Thirteen keys, not the six the coverage document listed.
+    const h = setup();
+    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    await h.press("ufNext");
+    selectExisting(h, { domain_keys_json: '{"member":["id"]}', schema_provider_json: "{}" });
+
+    expect(await h.press("deleteSourceConfig")).toBeNull();
+    const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(h.posts[0]!.body["fromClauses"]).toEqual([{ table: "delete/source_config" }]);
+    expect(row["key"]).toBe("42");
+    expect(row["domain_keys_json"]).toEqual(['{"member":["id"]}']);
+    for (const key of [
+      "scSourceConfigKey",
+      "key",
+      "client",
+      "org",
+      "object_type",
+      "input_format",
+      "scSingleOrMultiPartFileOption",
+      "is_part_files",
+      "input_columns_json",
+      "input_columns_positions_csv",
+      "domain_keys_json",
+      "code_values_mapping_json",
+      "schema_provider_json",
+    ]) {
+      expect([key, h.formState.getValue(0, key)]).toEqual([key, undefined]);
+    }
+  });
+
+  it("drops the staging table by name, unpacked", async () => {
+    const h = setup();
+    h.formState.setValue(0, "table_name", ["acme_east_claim"]);
+    expect(await h.press("dropTable")).toBeNull();
+    expect(h.posts[0]!.body["action"]).toBe("drop_table");
+    expect(h.posts[0]!.body["data"]).toEqual([
+      { schemaName: "public", tableName: "acme_east_claim" },
+    ]);
+  });
+
+  it("requires the input columns only for the file types that have no header", () => {
+    const h = setup();
+    const form = h.forms.forms["scEditFileHeadersUF"]!;
+    const escape = { validate: sourceConfigFormValidator, flowKey: "sourceConfigUF" };
+
+    h.formState.setValue(0, "input_format", "csv");
+    expect(validateForm(form, h.formState, 0, escape)).toEqual([]);
+
+    h.formState.setValue(0, "input_format", "headerless_csv");
+    expect(validateForm(form, h.formState, 0, escape).map((e) => e.message)).toEqual([
+      "Input column names must be provided",
+    ]);
+
+    h.formState.setValue(0, "input_columns_json", "not json");
+    expect(validateForm(form, h.formState, 0, escape)[0]!.message).toContain(
+      "Input column names is not a valid json",
+    );
+
+    h.formState.setValue(0, "input_columns_json", '["a"]');
+    expect(validateForm(form, h.formState, 0, escape)).toEqual([]);
+  });
+
+  it("refuses a client name of one character, as the Dart does", () => {
+    const h = setup();
+    const form = h.forms.forms["scAddSourceConfigUF"]!;
+    const escape = { validate: sourceConfigFormValidator, flowKey: "sourceConfigUF" };
+    h.formState.setValue(0, "object_type", "claim");
+
+    h.formState.setValue(0, "client", "A");
+    expect(validateForm(form, h.formState, 0, escape).map((e) => e.message)).toEqual([
+      "Client name must be selected.",
+    ]);
+    h.formState.setValue(0, "client", "ACME");
+    // The org dropdown accepts its own empty value, which is the divergence I-131
+    // records: the Dart tells a valueless prompt from an explicit *No
+    // Organization* and `DropdownItemSchema.value` cannot.
+    expect(validateForm(form, h.formState, 0, escape)).toEqual([]);
   });
 });
 

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "scSelectSourceConfigUF": {
+      "description": "Load the selected file configuration, inferring the file type for records written before the schema-provider options existed",
+      "steps": [
+        { "do": "set", "key": "key", "value": { "fromKey": "key" } },
+        { "do": "set", "key": "client", "value": { "fromKey": "client" } },
+        { "do": "set", "key": "org", "value": { "fromKey": "org" } },
+        { "do": "set", "key": "table_name", "value": { "fromKey": "table_name" } },
+        { "do": "set", "key": "object_type", "value": { "fromKey": "object_type" } },
+        { "do": "set", "key": "input_columns_json", "value": { "fromKey": "input_columns_json" } },
+        { "do": "set", "key": "input_columns_positions_csv", "value": { "fromKey": "input_columns_positions_csv" } },
+        { "do": "set", "key": "domain_keys_json", "value": { "fromKey": "domain_keys_json" } },
+        { "do": "set", "key": "code_values_mapping_json", "value": { "fromKey": "code_values_mapping_json" } },
+        { "do": "set", "key": "schema_provider_json", "value": { "fromKey": "schema_provider_json" } },
+        { "do": "set", "key": "automated", "value": { "literal": "0" } },
+        { "do": "set", "key": "input_format", "value": { "fromKey": "input_format" } },
+
+        { "do": "set", "key": "scSingleOrMultiPartFileOption", "value": { "literal": "scMultiPartFileOption" },
+          "when": { "op": "equals", "key": "is_part_files", "value": "1" } },
+        { "do": "set", "key": "scSingleOrMultiPartFileOption", "value": { "literal": "scSingleFileOption" },
+          "when": { "op": "equals", "key": "is_part_files", "value": "0" } },
+
+        { "do": "set", "key": "input_format", "value": { "literal": "headerless_csv" },
+          "when": { "op": "and", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "" },
+            { "op": "not", "condition": { "op": "isNull", "key": "input_columns_json" } }
+          ] } },
+        { "do": "set", "key": "input_format", "value": { "literal": "fixed_width" },
+          "when": { "op": "and", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "" },
+            { "op": "isNull", "key": "input_columns_json" },
+            { "op": "not", "condition": { "op": "isNull", "key": "input_columns_positions_csv" } }
+          ] } },
+        { "do": "set", "key": "input_format", "value": { "literal": "csv" },
+          "when": { "op": "and", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "" },
+            { "op": "isNull", "key": "input_columns_json" },
+            { "op": "isNull", "key": "input_columns_positions_csv" }
+          ] } },
+        { "do": "set", "key": "input_format", "value": { "literal": "headerless_csv_with_schema_provider" },
+          "when": { "op": "and", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "headerless_csv" },
+            { "op": "isNull", "key": "input_columns_json" }
+          ] } },
+        { "do": "set", "key": "input_format", "value": { "literal": "fixed_width_with_schema_provider" },
+          "when": { "op": "and", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "fixed_width" },
+            { "op": "isNull", "key": "input_columns_positions_csv" }
+          ] } },
+
+        { "do": "set", "key": "input_format_data_json", "value": { "fromKey": "input_format_data_json" } },
+        { "do": "escape", "name": "readXlsxSheetOption",
+          "when": { "op": "or", "conditions": [
+            { "op": "equals", "key": "input_format", "value": "headerless_xlsx" },
+            { "op": "equals", "key": "input_format", "value": "xlsx" }
+          ] } }
+      ]
+    },
+    "scAddSourceConfigUF": {
+      "description": "Derive the staging table name from client, org and object type, leaving the organization out when there is none",
+      "steps": [
+        { "do": "set", "key": "table_name", "value": { "template": "{client}_{org}_{object_type}" },
+          "when": { "op": "not", "condition": { "op": "isNullOrEmpty", "key": "org" } } },
+        { "do": "set", "key": "table_name", "value": { "template": "{client}_{object_type}" },
+          "when": { "op": "isNullOrEmpty", "key": "org" } }
+      ]
+    },
+    "scEditXlsxOptionsUF": {
+      "description": "Record the chosen spreadsheet sheet as the file's format options",
+      "steps": [
+        { "do": "set", "key": "input_format_data_json", "value": { "template": "{\"currentSheet\": \"{currentSheet}\"}" } }
+      ]
+    },
+    "addSourceConfig.ok": {
+      "description": "Save the file configuration, nulling the fields its file type does not use",
+      "steps": [
+        { "do": "validate" },
+        { "do": "escape", "name": "saveSourceConfigForFileType" }
+      ]
+    },
+    "deleteSourceConfig": {
+      "description": "Delete the selected file configuration",
+      "steps": [
+        { "do": "confirm", "message": "Are you sure you want to delete the selected File Configuration?" },
+        { "do": "set", "key": "key", "value": { "fromKey": "key" } },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/source_config",
+          "data": { "rows": "wholeState" } },
+        { "do": "clearSelection", "key": "scSourceConfigKey" },
+        { "do": "remove", "keys": [
+          "scSourceConfigKey", "key", "client", "org", "object_type", "input_format",
+          "scSingleOrMultiPartFileOption", "is_part_files", "input_columns_json",
+          "input_columns_positions_csv", "domain_keys_json", "code_values_mapping_json",
+          "schema_provider_json"
+        ] }
+      ]
+    },
+    "dropTable": {
+      "description": "Drop the staging table of the selected data source",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "drop_table",
+          "data": {
+            "rows": "fields",
+            "fields": { "schemaName": { "literal": "public" }, "tableName": { "fromKey": "table_name" } }
+          } }
+      ]
+    }
+  }
+}

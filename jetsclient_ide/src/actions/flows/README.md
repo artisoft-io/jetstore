@@ -4,14 +4,19 @@ One document per flow, named for the flow it serves and sitting beside the
 `.uf.json` in `../../userflow/flows/`. Validated against `../action.schema.json`,
 which `../schema.ts` emits.
 
-**Ten flows as of F.8, and this paragraph said *two* until F.6.** It described
-the two proof flows the plan nominates (`plan/phase2_plan.md` §2 item 6) —
-`register_file_key`, 2 arms and no data table at all, and `load_files`, 3 arms
-including the corpus's only fan-out — and every sentence under *What is not here*
-was true of those two and of nothing since. Track F has landed eight more:
-`mapFileUF`, `loadConfigUF`, `workspacePullUF`, `clientRegistryUF`,
-`startPipelineUF`, `homeFiltersUF`, `pipelineConfigUF` and `fileMappingUF`. **One**
-coverage document remains in `../coverage/`, which is `sourceConfigUF` (F.7).
+**Eleven flows as of F.7, which is all of them, and this paragraph said *two*
+until F.6.** It described the two proof flows the plan nominates
+(`plan/phase2_plan.md` §2 item 6) — `register_file_key`, 2 arms and no data table
+at all, and `load_files`, 3 arms including the corpus's only fan-out — and every
+sentence under *What is not here* was true of those two and of nothing since.
+Track F has landed nine more: `mapFileUF`, `loadConfigUF`, `workspacePullUF`,
+`clientRegistryUF`, `startPipelineUF`, `homeFiltersUF`, `pipelineConfigUF`,
+`fileMappingUF` and `sourceConfigUF`.
+
+**`../coverage/` is gone.** It held one transcription per unmigrated flow, wired to
+nothing; F.7 promoted the last of them and deleted the directory. So every document
+in *this* directory is one a flow runs, and the distinction the two directories drew
+no longer needs a place to live.
 
 **Nobody re-read this file for five tasks**, which is the shape the repository
 `CLAUDE.md` describes: a standing claim with no owner between consumers, corrected
@@ -47,6 +52,16 @@ four turned into grammar rather than into escapes. **What F.8 adds is that it is
 an upper bound on a narrower question than the one I-74 asked** — `loadRawRows`
 is four lines the grammar can say exactly, and it is a body because S.7's
 allowlist refuses its target rather than because the vocabulary is short (I-121).
+
+**F.7 closes the question with a third answer and the count stayed at five, which
+is the wrong thing to read off it.** `sourceConfigUF` names `readXlsxSheetOption`
+and `saveSourceConfigForFileType`; the coverage document named
+`loadSourceConfigWithFileTypeInference` and `saveSourceConfigForFileType`. The
+first arm is now twenty-one steps and a four-line body, because F.2's `when` guard
+says everything about it except `JSON.parse`. The second stays whole because
+`wholeState`'s `normalise` and `omit` carry no guard, so the Dart's per-file-type
+projection of a *copy* of the state has no guarded form — neither vocabulary nor
+permission, but a gap in the payload grammar. See `../sourceConfig.ts`.
 
 ~~**No `formStateInitializer`.**~~ `homeFiltersUF` sets one — `seedFromHomeFilters`
 — and it is the only one in the corpus.

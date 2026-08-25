@@ -16,11 +16,13 @@ import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import homeFiltersActions from "../actions/flows/homeFiltersUF.ua.json";
 import pipelineConfigActions from "../actions/flows/pipelineConfigUF.ua.json";
 import fileMappingActions from "../actions/flows/fileMappingUF.ua.json";
+import sourceConfigActions from "../actions/flows/sourceConfigUF.ua.json";
 import type { WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
 import pipelineConfigFlow from "./flows/pipelineConfigUF.uf.json";
 import fileMappingFlow from "./flows/fileMappingUF.uf.json";
+import sourceConfigFlow from "./flows/sourceConfigUF.uf.json";
 import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
@@ -28,6 +30,7 @@ import { tablePath } from "../datatable/table";
 import homeFiltersForms from "./forms/homeFiltersUF.form.json";
 import pipelineConfigForms from "./forms/pipelineConfigUF.form.json";
 import fileMappingForms from "./forms/fileMappingUF.form.json";
+import sourceConfigForms from "./forms/sourceConfigUF.form.json";
 import pcAddOrEditOption from "../datatable/tables/pcAddOrEditPipelineConfigOption.tc.json";
 import pcPipelineConfigTable from "../datatable/tables/pcPipelineConfigTable.tc.json";
 import pcMainProcessInputKey from "../datatable/tables/pcMainProcessInputKey.tc.json";
@@ -40,6 +43,10 @@ import pcProcessInputRegistry from "../datatable/tables/pcProcessInputRegistry.t
 import pcProcessInputRegistry4MI from "../datatable/tables/pcProcessInputRegistry4MI.tc.json";
 import fmInputSourceMapping from "../datatable/tables/fmInputSourceMappingUF.tc.json";
 import fmFileMappingTable from "../datatable/tables/fmFileMappingTableUF.tc.json";
+import scAddOrEditOption from "../datatable/tables/scAddOrEditSourceConfigOption.tc.json";
+import scSourceConfigKey from "../datatable/tables/scSourceConfigKey.tc.json";
+import scSingleOrMultiPart from "../datatable/tables/scSingleOrMultiPartFileOption.tc.json";
+import inputFormatTable from "../datatable/tables/input_format.tc.json";
 import hfProcessTable from "../datatable/tables/hfProcessTableUF.tc.json";
 import hfStatusTable from "../datatable/tables/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../datatable/tables/hfFileKeyFilterTypeTableUF.tc.json";
@@ -657,6 +664,78 @@ describe("fileMappingUF against the shipping registry", () => {
     const { store } = storeFor(fileMappingWorkspace(), productionRegistry);
     const loaded = await store.load("fileMappingUF");
     expect(Object.keys(loaded.forms.forms)).not.toContain("fmMappingFormUF");
+  });
+});
+
+/**
+ * `sourceConfigUF` against the registry this build ships. Task F.7, and the last.
+ *
+ * **Twelve states and four tables, which is the widest load the store has been
+ * asked for** — and the first whose form document declares a query with `params`,
+ * the port's spelling of `stateKeyPredicates`.
+ */
+const sourceConfigWorkspace = () => ({
+  ...workspace("sourceConfigUF", sourceConfigFlow, sourceConfigActions, sourceConfigForms),
+  [tablePath("scAddOrEditSourceConfigOption")]: serialise(scAddOrEditOption),
+  [tablePath("scSourceConfigKey")]: serialise(scSourceConfigKey),
+  [tablePath("scSingleOrMultiPartFileOption")]: serialise(scSingleOrMultiPart),
+  [tablePath("input_format")]: serialise(inputFormatTable),
+});
+
+describe("sourceConfigUF against the shipping registry", () => {
+  it("loads twelve forms for twelve states, and all four of its tables", async () => {
+    const { store } = storeFor(sourceConfigWorkspace(), productionRegistry);
+    const loaded = await store.load("sourceConfigUF");
+    expect(Object.keys(loaded.flow.states)).toHaveLength(12);
+    // Twelve for twelve: every form is named by a state and the flow owes no
+    // dialog form, which is why `dialogCancel` is not one of its arms.
+    expect(Object.keys(loaded.forms.forms)).toHaveLength(12);
+    expect(Object.keys(loaded.tables).sort()).toEqual([
+      "input_format",
+      "scAddOrEditSourceConfigOption",
+      "scSingleOrMultiPartFileOption",
+      "scSourceConfigKey",
+    ]);
+    expect(
+      escapeReferences(loaded.flow, loaded.actions)
+        .filter((r) => r.kind === "actions")
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(["readXlsxSheetOption", "saveSourceConfigForFileType"]);
+  });
+
+  it("refuses the set when the table's Delete names an action nothing defines", async () => {
+    // I-88 on this flow's one query table: `scSourceConfigKey` carries both of
+    // the arms no state and no form button names — `dropTable` and
+    // `deleteSourceConfig` (`configure_files/data_table_config.dart`).
+    const files = sourceConfigWorkspace();
+    const actions = structuredClone(sourceConfigActions) as { actions: Record<string, unknown> };
+    delete actions.actions["deleteSourceConfig"];
+    files[actionPath("sourceConfigUF")] = serialise(actions);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("sourceConfigUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => f.message).join("\n")).toContain('runs "deleteSourceConfig"');
+  });
+
+  it("refuses the set when a dropdown names a query its form does not declare", async () => {
+    // `stateKeyPredicates`' half of I-11, checked where it lives: `orgs` is
+    // declared on `scAddSourceConfigUF` with `params: ["client"]`, and
+    // `checkItemSources` is the only thing that can say `itemsFrom` resolves.
+    const files = sourceConfigWorkspace();
+    const forms = structuredClone(sourceConfigForms) as {
+      forms: Record<string, { queries?: Record<string, unknown> }>;
+    };
+    delete forms.forms["scAddSourceConfigUF"]!.queries!["orgs"];
+    files[formPath("sourceConfigUF")] = serialise(forms);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("sourceConfigUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => f.message).join("\n")).toContain('query "orgs"');
   });
 });
 

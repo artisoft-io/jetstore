@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "scAddOrEditSourceConfigUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "scAddOrEditSourceConfigOption",
+            "table": "scAddOrEditSourceConfigOption",
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scAddSourceConfigUF": {
+      "queries": {
+        "clients": {
+          "sql": "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 200"
+        },
+        "orgs": {
+          "sql": "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}' ORDER BY org ASC LIMIT 100",
+          "params": ["client"]
+        },
+        "objectTypes": {
+          "sql": "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"
+        }
+      },
+      "validator": "sourceConfigFormValidator",
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dropdown",
+            "key": "client",
+            "label": "Client",
+            "items": [{ "value": "", "label": "Select a Client" }],
+            "itemsFrom": "clients"
+          },
+          {
+            "field": "dropdown",
+            "key": "org",
+            "label": "Organization",
+            "items": [{ "value": "", "label": "No Organization" }],
+            "itemsFrom": "orgs"
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dropdown",
+            "key": "object_type",
+            "label": "Object Type",
+            "items": [{ "value": "", "label": "Select an Object Type" }],
+            "itemsFrom": "objectTypes",
+            "rules": [{ "rule": "required", "message": "Object Type name must be selected." }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scSelectSourceConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "scSourceConfigKey",
+            "table": "scSourceConfigKey",
+            "rules": [{ "rule": "required", "message": "A file configuration must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scSourceConfigTypeUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "input_format",
+            "table": "input_format",
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scEditXlsxOptionsUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "label",
+            "text": "Enter the sheet name or position containing the data,\nthe first sheet is at position 0:"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "currentSheet",
+            "label": "Sheet name or position containing the data (position starts at 0)",
+            "hint": "Sheet name or position containing the data (position starts at 0)",
+            "maxLines": 1,
+            "maxLength": 256,
+            "rules": [{ "rule": "required", "message": "Specify the sheet position." }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scEditFileHeadersUF": {
+      "validator": "sourceConfigFormValidator",
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Paste or enter the file headers as a json array:" }],
+        [
+          {
+            "field": "text",
+            "key": "input_columns_json",
+            "label": "Input file column names (json)",
+            "hint": "Input file column names, for csv headerless or parquet files",
+            "maxLines": 13,
+            "maxLength": 51200
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scEditFixedWidthLayoutUF": {
+      "validator": "sourceConfigFormValidator",
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Paste or enter the fixed-width column layout as CSV:" }],
+        [
+          {
+            "field": "text",
+            "key": "input_columns_positions_csv",
+            "label": "Column names and positions (csv)",
+            "hint": "Input file column names, only for fixed-width files",
+            "maxLines": 13,
+            "maxLength": 51200
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scSelectSingleOrMultiPartFileUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "scSingleOrMultiPartFileOption",
+            "table": "scSingleOrMultiPartFileOption",
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scEditDomainKeysUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "label",
+            "text": "Paste or enter the Domain Keys definition as json (leave empty if there is no need to group lines together while executing rules):"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "domain_keys_json",
+            "label": "Domain Key(s) (json)",
+            "hint": "Column(s) making the key of the Master Item",
+            "maxLines": 13,
+            "maxLength": 51200,
+            "rules": [{ "rule": "json", "message": "Domain keys is not a valid json" }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scEditCodeValueMappingUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Paste or enter the Code Values mapping as json or csv:" }],
+        [
+          {
+            "field": "text",
+            "key": "code_values_mapping_json",
+            "label": "Code Values Mapping (csv or json)",
+            "hint": "Client-Specific Code Values Mapping to Canonical Codes",
+            "maxLines": 13,
+            "maxLength": 102400
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scAddSchemaProviderJsonUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Paste or enter the Schema Provider JSON:" }],
+        [
+          {
+            "field": "text",
+            "key": "schema_provider_json",
+            "label": "Schema Provider JSON",
+            "hint": "Client-Specific Schema Provider JSON",
+            "maxLines": 13,
+            "maxLength": 102400,
+            "rules": [{ "rule": "json", "message": "Schema Provider JSON is not a valid json" }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "scSummaryUF": {
+      "title": "File Configuration Summary",
+      "validator": "sourceConfigFormValidator",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client",
+            "isReadOnly": true,
+            "maxLength": 20
+          },
+          {
+            "field": "text",
+            "key": "org",
+            "label": "Vendor/Org",
+            "isReadOnly": true,
+            "maxLength": 20
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "object_type",
+            "label": "Object Type",
+            "hint": "Type of entity in the file",
+            "isReadOnly": true,
+            "maxLength": 40,
+            "rules": [{ "rule": "required", "message": "Object Type name must be selected." }]
+          },
+          {
+            "field": "text",
+            "key": "table_name",
+            "label": "Staging Table Name",
+            "isReadOnly": true,
+            "maxLength": 100,
+            "rules": [
+              { "rule": "required", "message": "Error, a table name should be specified automatically." }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "dropdown",
+            "key": "input_format",
+            "label": "File Format",
+            "isReadOnly": true,
+            "defaultItemPos": 0,
+            "items": [
+              { "value": "csv", "label": "CSV" },
+              { "value": "headerless_csv", "label": "Headerless CSV" },
+              {
+                "value": "headerless_csv_with_schema_provider",
+                "label": "Headerless CSV (with a Schema Provider)"
+              },
+              { "value": "xlsx", "label": "XLSX" },
+              { "value": "headerless_xlsx", "label": "Headerless XLSX" },
+              { "value": "fixed_width", "label": "Fixed-Width Columns" },
+              {
+                "value": "fixed_width_with_schema_provider",
+                "label": "Fixed-Width Columns (with a Schema Provider)"
+              },
+              { "value": "parquet", "label": "Parquet" },
+              { "value": "parquet_select", "label": "Parquet, Selected Columns" }
+            ],
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          },
+          {
+            "field": "dropdown",
+            "key": "scSingleOrMultiPartFileOption",
+            "label": "Single or Multi-Part Files?",
+            "isReadOnly": true,
+            "defaultItemPos": 0,
+            "items": [
+              { "value": "scSingleFileOption", "label": "Single File" },
+              { "value": "scMultiPartFileOption", "label": "Multi-Part Files" }
+            ],
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+      ]
+    }
+  }
+}
