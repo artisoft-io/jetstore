@@ -90,7 +90,7 @@ const MAPPING_FUNCTIONS = "mappingFunctions";
  * `FSK.isRequiredFlag` is **`"flag.is_required"`**, not `is_required_flag`
  * (`jetsclient/lib/utils/constants.dart`, `isRequiredFlag`). The
  * constant-name-versus-value trap has caught this project five times now —
- * `coverage.test.ts` extracts `constants.dart` at test time for exactly this
+ * `flowActions.test.ts` extracts `constants.dart` at test time for exactly this
  * reason — and it is worth a named constant because nothing else in this file
  * reads it and a typo would simply make every property look optional.
  */

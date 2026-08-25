@@ -1,30 +1,32 @@
 /**
- * Every action arm the eleven flows define, as step lists.
+ * The eleven flows' action documents, checked against the grammar and against the
+ * Dart they were derived from.
  *
- * **This exists because S.2a's exit condition said "expressible" and only five
- * arms had been expressed** (I-22). Writing the other fifty is what turns an
- * argument from a vocabulary into a demonstration — and it found two primitives
- * the grammar lacked and two more escapes than the sizing counted (I-23), which
- * is exactly what it was for.
- *
- * **`coverage/` is empty as of F.7 and the directory is gone.** For eight tasks
- * this file read two kinds of document: transcriptions in `coverage/`, wired to
- * nothing, and the runtime documents in `flows/` that track F promotes them into.
- * `sourceConfigUF` was the last transcription; every import below is now a
- * document a flow actually runs.
+ * **This was `coverage.test.ts` until F.9, 2026-08-24, and the rename is the whole
+ * of what that task did to it.** It exists because S.2a's exit condition said
+ * "expressible" and only five arms had been expressed (I-22); writing the other
+ * fifty found two primitives the grammar lacked and two more escapes than the
+ * sizing counted (I-23). For eight tasks it then read two kinds of document —
+ * transcriptions under `coverage/`, wired to nothing, and the runtime documents
+ * under `flows/` that track F promoted them into. F.7 promoted the last
+ * transcription and deleted the directory, so **every import below is a document a
+ * flow runs** and the old name described a fixture that no longer exists. The name
+ * now says what the file reads; the history is here rather than in the filename.
  *
  * **What the transcriptions did not prove, and it must not be forgotten now they
  * are gone.** They were written from reading the Dart, so the schema could tell
  * you a document was well formed and nothing could tell you it was *faithful*. A
  * delegate is a function body, not an object, so no corpus can be generated for it
- * — see `sizing_action_grammar.md` §2. Every one of the nine re-partitions found
+ * — see `sizing_action_grammar.md` §2. Each of the nine re-partitions found
  * something wrong (I-84, I-90, I-97, I-100, I-110, I-115, I-116, I-120, and F.7's
  * I-130), which is what re-deriving each arm from the Dart is for. Fidelity beyond
  * that is established by running a flow against a live server and diffing the
  * payload, as `lfLoadFilesUF` is.
  *
- * **The file keeps its name for one more task.** F.9 owns what becomes of it now
- * that the directory it is named after does not exist.
+ * **That list outlives the transcriptions and is written up in `../README.md`**,
+ * reduced to the five distinct mechanisms it holds and stated for anyone who
+ * authors or *generates* one of these documents rather than for this corpus alone.
+ * F.9, 2026-08-24, I-146.
  */
 
 import { readFileSync } from "node:fs";
@@ -619,9 +621,17 @@ describe("the flows' action documents", () => {
   });
 });
 
-describe("every form-state key exists in the Dart", () => {
+describe("every form-state key is a declared constant's value", () => {
   /**
    * Extracted from `constants.dart` at test time rather than from a fixture.
+   *
+   * **This block was headed *every form-state key exists in the Dart* until F.9,
+   * 2026-08-24.** I-135 established that the guarantee is narrower — a key the
+   * Dart never declares as a constant is invisible here, and there is one — and
+   * recorded the gap in the `is_part_files` note below while leaving the heading
+   * saying the wider thing. The heading is now the guarantee. Nothing about the
+   * check changed, which is the point: **widening the extraction would start
+   * matching column names**, and that is why the exemption list is enumerated.
    *
    * **The constant-name-versus-value trap has now caught this project four
    * times** — A.3's `scFileTypeOption`, S.1's `FormConfig.key`, the sizing's
@@ -663,9 +673,10 @@ describe("every form-state key exists in the Dart", () => {
      * every one of its three Dart sites writes the bare string rather than an
      * `FSK` constant, and this check reads `constants.dart`.
      *
-     * So the guarantee is narrower than this block's heading: it is *every key is
-     * a declared constant's value*, which catches the name-for-value trap it was
-     * built for and cannot see a key the Dart never declared. Recorded as I-135.
+     * So the guarantee is *every key is a declared constant's value*, which
+     * catches the name-for-value trap it was built for and cannot see a key the
+     * Dart never declared. Recorded as I-135, and the block heading was corrected
+     * to say it by F.9.
      */
     "is_part_files",
   ]);

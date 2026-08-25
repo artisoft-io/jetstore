@@ -18,6 +18,12 @@ nothing; F.7 promoted the last of them and deleted the directory. So every docum
 in *this* directory is one a flow runs, and the distinction the two directories drew
 no longer needs a place to live.
 
+**What the transcriptions taught is in `../README.md`** — the five ways a document
+that validates is still not faithful to what it was derived from, and which one of
+the five a check can find. F.9, 2026-08-24. `../coverage.test.ts` is
+`../flowActions.test.ts` as of the same task, for the same reason the directory
+went.
+
 **Nobody re-read this file for five tasks**, which is the shape the repository
 `CLAUDE.md` describes: a standing claim with no owner between consumers, corrected
 by the first task that had a reason to open it. F.6 had one — it is the ninth
