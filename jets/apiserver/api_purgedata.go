@@ -37,7 +37,7 @@ import (
 // single configured account. So admin-only would be faithful to the one UI that
 // reaches the endpoint. It would also be a policy narrowing beyond closing the
 // defect, against callers this repository cannot enumerate, and this change has
-// no mandate for one. ui_refresh Q-6 asks the project to settle it.
+// no mandate for one. ui_refresh I-139 asks the project to settle it.
 const PurgeDataCapability = "workspace_ide"
 
 type PurgeDataAction struct {
