@@ -64,6 +64,11 @@ import {
   updateHomeFilters,
 } from "./homeFilters";
 import { productionQueries } from "./queries";
+import {
+  readXlsxSheetOption,
+  saveSourceConfigForFileType,
+  sourceConfigFormValidator,
+} from "./sourceConfig";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -161,12 +166,27 @@ export const hasDataRegistryFilters = (_formState: FormState, _group: number): b
  * deletes before it authorises (I-121). **So the escape count is an upper bound
  * on what the grammar cannot say and not on what stays a body**, which is a
  * narrowing of I-74 rather than an instance of it.
+ *
+ * **Six as of F.7, and one of the two it adds is a *replacement* for a bigger one.**
+ * The coverage fixture transcribed the whole of `scSelectSourceConfigUF` as
+ * `loadSourceConfigWithFileTypeInference`; F.2's `when` guard expresses all but one
+ * step of it, so what is registered is `readXlsxSheetOption` — a `JSON.parse` of a
+ * value held in form state, which no value form can say. `saveSourceConfigForFileType`
+ * stays whole for a third reason again: the payload projection `wholeState` offers
+ * carries no guard. See `sourceConfig.ts`.
  */
 export const productionRegistry: EscapeRegistry = {
-  actions: { updateHomeFilters, clearHomeFilters, downloadMapping, loadRawRows },
+  actions: {
+    updateHomeFilters,
+    clearHomeFilters,
+    downloadMapping,
+    loadRawRows,
+    readXlsxSheetOption,
+    saveSourceConfigForFileType,
+  },
   initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },
-  validators: { mappingFormValidator, homeFiltersFormValidator },
+  validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
   cellFilters: { fileKeyLabel },
   predicates: { hasDataRegistryFilters, hasHomeFilters, alwaysEnabled },
   queries: productionQueries,

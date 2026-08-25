@@ -1,5 +1,5 @@
 /**
- * The coverage fixture: every action arm the nine flows define, as step lists.
+ * Every action arm the eleven flows define, as step lists.
  *
  * **This exists because S.2a's exit condition said "expressible" and only five
  * arms had been expressed** (I-22). Writing the other fifty is what turns an
@@ -7,25 +7,30 @@
  * the grammar lacked and two more escapes than the sizing counted (I-23), which
  * is exactly what it was for.
  *
- * **These documents are not wired to anything.** No flow references them and no
- * screen runs them; S.5 and Phase 3 migrate flows per flow. What they prove is
- * that the grammar can say what each arm does, checked by the schema in two
- * languages.
+ * **`coverage/` is empty as of F.7 and the directory is gone.** For eight tasks
+ * this file read two kinds of document: transcriptions in `coverage/`, wired to
+ * nothing, and the runtime documents in `flows/` that track F promotes them into.
+ * `sourceConfigUF` was the last transcription; every import below is now a
+ * document a flow actually runs.
  *
- * **What they do not prove, and this must not be misread.** They are transcribed
- * from reading the Dart, so the schema can tell you a document is well formed and
- * nothing here can tell you it is *faithful*. A delegate is a function body, not
- * an object, so no corpus can be generated for it — see
- * `sizing_action_grammar.md` §2. Fidelity is established one flow at a time, when
- * S.5 runs a flow against a live server and diffs the payload, as `lfLoadFilesUF`
- * already is.
+ * **What the transcriptions did not prove, and it must not be forgotten now they
+ * are gone.** They were written from reading the Dart, so the schema could tell
+ * you a document was well formed and nothing could tell you it was *faithful*. A
+ * delegate is a function body, not an object, so no corpus can be generated for it
+ * — see `sizing_action_grammar.md` §2. Every one of the nine re-partitions found
+ * something wrong (I-84, I-90, I-97, I-100, I-110, I-115, I-116, I-120, and F.7's
+ * I-130), which is what re-deriving each arm from the Dart is for. Fidelity beyond
+ * that is established by running a flow against a live server and diffing the
+ * payload, as `lfLoadFilesUF` is.
+ *
+ * **The file keeps its name for one more task.** F.9 owns what becomes of it now
+ * that the directory it is named after does not exist.
  */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import clientRegistry from "./flows/clientRegistryUF.ua.json";
 import fileMapping from "./flows/fileMappingUF.ua.json";
 import homeFilters from "./flows/homeFiltersUF.ua.json";
@@ -34,14 +39,12 @@ import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
 import pipelineConfig from "./flows/pipelineConfigUF.ua.json";
 import registerFileKey from "./flows/registerFileKeyUF.ua.json";
+import sourceConfig from "./flows/sourceConfigUF.ua.json";
 import startPipeline from "./flows/startPipelineUF.ua.json";
 import workspacePull from "./flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
-const coverage: Record<string, unknown> = {
-  sourceConfigUF: sourceConfig,
-};
-const proof: Record<string, unknown> = {
+const all: Record<string, unknown> = {
   loadFilesUF: loadFiles,
   registerFileKeyUF: registerFileKey,
   // F.1's re-partition: `mapperOk`, `mapperDraft` and `dialogCancel` moved here
@@ -99,10 +102,19 @@ const proof: Record<string, unknown> = {
   // with the other two and left three behind, so the coverage document this task
   // promoted was short an arm no step-level re-reading would have found (I-120).
   fileMappingUF: fileMapping,
+  // F.7's re-partition, and the last. One delegate file, one flow, nothing to
+  // split — and **the first whose document holds fewer arms than the delegate
+  // declares for two different reasons at once**. `configureFilesFormActions`
+  // declares eight `case` labels; six are here. `scStartUF` is a live `case` whose
+  // body is `return null` and which no state, form or table names — the shape of
+  // I-91's `crShowVendorUF` with nothing behind it (I-132). `dialogCancel` is the
+  // shape of I-86 rather than of I-101: this flow has **no dialog form at all**,
+  // its one confirmation being `showConfirmationDialog`, which is a built-in
+  // Yes/No and not a form whose Cancel button dispatches an action name.
+  sourceConfigUF: sourceConfig,
 };
-const all = { ...coverage, ...proof };
 
-describe("the coverage fixture", () => {
+describe("the flows' action documents", () => {
   it.each(Object.keys(all))("%s validates against the grammar", (key) => {
     const result = ActionDocumentSchema.safeParse(all[key]);
     expect(result.success ? [] : result.error.issues).toEqual([]);
@@ -181,11 +193,86 @@ describe("the coverage fixture", () => {
     // flows need — and the difference is that F.2 saw it at the split and F.1
     // could not, because the rule that a table-opened dialog's buttons resolve in
     // the flow's own document was not written until I-101, four tasks later.
+    //
+    // **54 after F.7's, and the fall of two is the whole of the dead-arm
+    // decision F.9 was going to have to take.** Eight names left
+    // `coverage/sourceConfigUF.ua.json` and six arrived in `flows/`. Both
+    // absentees are `case` labels of `configureFilesFormActions` that nothing can
+    // press: `scStartUF`, whose body is `return null` and which appears in no
+    // `UserFlowState`, no `FormActionConfig` and no `ActionConfig` (I-132), and
+    // `dialogCancel`, which is I-86's shape rather than I-101's — the flow has no
+    // dialog *form*, so there is no Cancel button to resolve.
+    //
+    // **56 was no more an invariant than 55 and 54 were.** This is a count of
+    // reachable arms, and it moves whenever a re-partition finds an arm nothing
+    // reaches or a dialog served from outside the flow's directory.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(56);
+    expect(names).toHaveLength(54);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
+  });
+
+  it("holds sourceConfigUF's four state actions plus the two its table reaches", () => {
+    // F.7. `configure_files/form_action_delegates.dart` declares eight `case`
+    // labels in one switch, all of them `sourceConfigUF`'s — the file defines one
+    // flow and `configureFilesFormActions` is named by nothing else, so this is
+    // the F.3/F.4/F.5 shape with nothing to split and no sibling to have taken an
+    // arm away (I-120's question, asked and answered *no*).
+    //
+    // Four state actions (`user_flow_config.dart`), and `scSourceConfigKey`'s two
+    // `doAction` buttons — `dropStagingTable` → `dropTable` and `deleteSourceConfig`
+    // (`configure_files/data_table_config.dart`). The eleven other forms take
+    // `standardActions` and `scSummaryUF` takes Previous / Cancel / Completed, so
+    // no form contributes an arm.
+    expect(Object.keys((sourceConfig as ActionDocument).actions).sort()).toEqual([
+      "addSourceConfig.ok",
+      "deleteSourceConfig",
+      "dropTable",
+      "scAddSourceConfigUF",
+      "scEditXlsxOptionsUF",
+      "scSelectSourceConfigUF",
+    ]);
+  });
+
+  it("leaves the organization out of the staging table name when there is none", () => {
+    // **I-130, and it is the largest thing F.7 found.** `scAddSourceConfigUF` is
+    // `state[table_name] = makeTableNameFromState(state)`, which forwards to
+    // `makeTableName` (`modules/actions/delegate_helpers.dart`, `makeTableName`) —
+    // and *that* function branches: `'${client}_${org}_$objectType'` when the org
+    // is non-empty and `'${client}_$objectType'` when it is not. The coverage
+    // document had the first arm's template, unguarded.
+    //
+    // The empty org is not hypothetical: `scAddSourceConfigUF`'s org dropdown
+    // offers *No Organization* with `value: ''` explicitly
+    // (`configure_files/form_config.dart`), so every no-org data source would have
+    // been staged into `client__object_type` — a table name no existing record has
+    // and one the loader would have to create a second time.
+    const steps = (sourceConfig as ActionDocument).actions["scAddSourceConfigUF"]!.steps;
+    expect(steps.map((s) => (s.do === "set" ? (s.value as { template: string }).template : s.do))).toEqual([
+      "{client}_{org}_{object_type}",
+      "{client}_{object_type}",
+    ]);
+    expect(steps.every((s) => s.when !== undefined)).toBe(true);
+  });
+
+  it("clears all thirteen keys the delete arm removes, not the six transcribed", () => {
+    // I-84's original mechanism, on the largest list in the corpus. The Dart calls
+    // `state.remove` thirteen times after encoding the request
+    // (`configure_files/form_action_delegates.dart`, `deleteSourceConfig`); the
+    // coverage document listed six. The seven missing ones are the record's
+    // *content* — its headers, positions, domain keys, code-value mapping and
+    // schema provider — and `source_config`'s insert statement reads every one of
+    // them (`jets/datatable/sql_stmts.go`, `sqlInsertStmts`), so a user who deleted
+    // a configuration and then created another would have inherited the deleted
+    // one's.
+    const steps = (sourceConfig as ActionDocument).actions["deleteSourceConfig"]!.steps;
+    const removal = steps.find((s) => s.do === "remove")!;
+    expect(removal.do === "remove" && removal.keys).toHaveLength(13);
+    // The post is before the removal, as `deleteClientAction`'s is: the Dart
+    // encodes the body *first* and then empties the map, and `wholeState` reads
+    // the state at the moment the step runs.
+    expect(steps.map((s) => s.do)).toEqual(["confirm", "set", "post", "clearSelection", "remove"]);
   });
 
   it("holds pipelineConfigUF's thirteen reachable arms plus the two its dialogs need", () => {
@@ -464,10 +551,21 @@ describe("the coverage fixture", () => {
     // (`jets/datatable/data_table_action.go`, `InsertRawRows`). **So "can the
     // grammar say it" is necessary and not sufficient**, and the escape count is
     // an upper bound on the first question alone.
+    //
+    // **F.7 asked it of the last two and the count did not move, which is the
+    // wrong thing to read off it.** `loadSourceConfigWithFileTypeInference` is
+    // *gone*: F.2's `when` guard expresses all but one step of
+    // `scSelectSourceConfigUF`, and what remains is `readXlsxSheetOption`, a
+    // `JSON.parse` of a value held in form state. One name replaced another and
+    // the arm went from a body to twenty-one steps plus four lines.
+    // `saveSourceConfigForFileType` stays whole for a **third** reason — neither
+    // vocabulary nor permission, but that `wholeState`'s `normalise` and `omit`
+    // carry no `when`, so the Dart's per-file-type projection of a *copy* of the
+    // state has no guarded form. See `sourceConfig.ts`.
     expect([...new Set(escapes)].sort()).toEqual([
       "downloadMapping",
       "loadRawRows",
-      "loadSourceConfigWithFileTypeInference",
+      "readXlsxSheetOption",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
     ]);
@@ -489,12 +587,23 @@ describe("the coverage fixture", () => {
     // branch, two of them choosing between an insert target and its update twin
     // (I-115) and one clearing two keys when any of four is absent. A predicate
     // over form state was enough for all three, so the grammar gained nothing.
+    //
+    // **Nineteen after F.7, and ten of them are one flow's.** That is the answer
+    // F.2 left open when it named `scSelectSourceConfigUF` as the arm that wanted
+    // this construct most: eight guards in that arm — a two-way mapping of
+    // `is_part_files`, a five-way file-type inference and the guard on the one
+    // escape that survives — and two more on `scAddSourceConfigUF` (I-130).
+    // `and`, `or`, `not` and `isNull` all have their first use here, and none of
+    // them is new: `ConditionSchema` has carried all seven forms since S.1, kept
+    // "although the corpus exercises four" on the argument that their absence
+    // would be a silent behaviour change the first time a flow wanted one. This is
+    // that flow.
     const guarded = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((a) =>
         a.steps.filter((s) => s.when !== undefined),
       ),
     );
-    expect(guarded).toHaveLength(9);
+    expect(guarded).toHaveLength(19);
     // And F.2's `csvFromKey`. **Two sites in the Dart and three here**, because
     // `loadConfigInternal` is a helper two arms call and the documents have no
     // helper — `wpLoadConfigOkUF` and `wpLoadAllClientConfigUF` each spell it.
@@ -542,8 +651,23 @@ describe("every form-state key exists in the Dart", () => {
     "featureBranch",
     "entity_rdf_type", // query result column
     "process_config_key", // query result column, and a form-state key
-    "currentSheet", // read out of the xlsx options blob, not a form-state key
+    "currentSheet", // read out of the xlsx options blob, and a form-state key
     "event", // put_schema_event_to_s3 request field
+    /**
+     * **A real form-state key the Dart does not name, and the first one.** F.7.
+     *
+     * `is_part_files` is column 11 of `scSourceConfigKey`'s `formStateBinding`
+     * and is removed by `deleteSourceConfig`
+     * (`configure_files/data_table_config.dart`, `form_action_delegates.dart`) —
+     * so it is as much a form-state key as `input_format` is. It is here because
+     * every one of its three Dart sites writes the bare string rather than an
+     * `FSK` constant, and this check reads `constants.dart`.
+     *
+     * So the guarantee is narrower than this block's heading: it is *every key is
+     * a declared constant's value*, which catches the name-for-value trap it was
+     * built for and cannot see a key the Dart never declared. Recorded as I-135.
+     */
+    "is_part_files",
   ]);
 
   it("reads the constants file it depends on", () => {

@@ -96,18 +96,25 @@ describe("the production registry", () => {
     // talk to the server.** That is what `EscapeHost` is for — an escape gets the
     // host as a second parameter, which is additive for the five bodies that
     // preceded it and for the one in another project's directory (`escapes.ts`).
+    //
+    // **F.7 added `sourceConfigUF`'s, and the bound is now tight: every flow is
+    // migrated, so every escape any document names is here and there is nothing
+    // left to be absent.** The two names are not the two the coverage document
+    // transcribed — `loadSourceConfigWithFileTypeInference` was that arm read whole
+    // and F.2's `when` guard expresses all but one step of it, so what is
+    // registered is `readXlsxSheetOption` (`sourceConfig.ts`).
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
       "downloadMapping",
       "loadRawRows",
+      "readXlsxSheetOption",
+      "saveSourceConfigForFileType",
       "updateHomeFilters",
     ]);
     expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
-    // The two still absent belong to `sourceConfigUF`, which is F.7
-    // (`actions/coverage.test.ts`, the escape-name assertion).
-    for (const name of ["loadSourceConfigWithFileTypeInference", "saveSourceConfigForFileType"]) {
-      expect(productionRegistry.actions[name]).toBeUndefined();
-    }
+    // The transcribed name is gone rather than pending, which is the one thing a
+    // reader of this file five tasks from now would otherwise assume.
+    expect(productionRegistry.actions["loadSourceConfigWithFileTypeInference"]).toBeUndefined();
   });
 
   it("resolves all three of pipelineExecStatusTable's predicates", () => {
