@@ -25,10 +25,15 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// read the file(s) or merge them depending on the main pipe
 	// --------------------
 	processingErrors := make([]string, 0)
+	// mergeResult is the merge's synthetic DAG edge, held across the branch so
+	// it can join the writer results below. A merge reports through none of the
+	// result channels — it runs in this thread — so without this the worker
+	// writes no child row at all.
+	var mergeResult *ComputePipesResult
 	if cpCtx.ComputePipesArgs.MergeFiles {
 		// Last step, merging all the part files into a single output file
 		// Special case, we're not calling StartComputePipes
-		err = cpCtx.StartMergeFiles(dbpool)
+		mergeResult, err = cpCtx.StartMergeFiles(dbpool)
 	} else {
 		err = cpCtx.LoadFiles(ctx, dbpool)
 	}
@@ -64,6 +69,19 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		if downloadResult.Err != nil {
 			err = downloadResult.Err
 			processingErrors = append(processingErrors, downloadResult.Err.Error())
+		}
+	}
+	if cpCtx.ComputePipesArgs.MergeFiles && totalInputFileCount == 0 && len(cpCtx.InputFileKeys) > 0 {
+		// The s3 multipart-copy merge path never downloads the input files, so
+		// DownloadS3ResultCh closes without sending and both file counts stay
+		// 0. The values are in hand here — the merge reads the same slice — and
+		// they are the only volume a copy-path merge can report, since it moves
+		// bytes and never parses a record.
+		for _, fk := range cpCtx.InputFileKeys[0] {
+			if fk != nil {
+				totalInputFileSize += int64(fk.size)
+				totalInputFileCount += 1
+			}
 		}
 	}
 
@@ -152,6 +170,11 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// so the per-channel detail can be recorded alongside the worker's total.
 	// The identity was always in hand here; only the += discarded it.
 	channelResults := make([]ComputePipesResult, 0)
+	if mergeResult != nil {
+		// Not summed into outputRowCount: the merge has no row count, and
+		// RowCountUnknown is what carries that into the child row.
+		channelResults = append(channelResults, *mergeResult)
+	}
 	if cpCtx.ChResults.Copy2DbResultCh != nil {
 		for table := range cpCtx.ChResults.Copy2DbResultCh {
 			// log.Println("**@= Write DB table results:")
