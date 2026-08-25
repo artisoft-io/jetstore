@@ -26,6 +26,20 @@ export interface WorkspaceNode {
   type: string;
   size: number;
   label: string;
+  /**
+   * The view of `workspace.db` this section's heading shows, absent when there
+   * is none. Set on `section` nodes only, and only for the sections whose files
+   * the compiler reads — `wsfile.WorkspaceSections` is where the predicate and
+   * the three current values live.
+   *
+   * **Nothing here reads it yet, and it is mirrored anyway.** The Workspace IDE
+   * shows a workspace from both sides of the compiler: the nodes below a heading
+   * are the source files, and the heading itself is a view of the compiled
+   * artifact. This app renders the first half; C.3 ports the second, and C.3a
+   * builds the `lookups` view the Flutter client never had. A mirror that omits
+   * a field the server sends is a mirror the next reader has to re-derive.
+   */
+  compiled_view?: string;
   route_path: string;
   route_params: Record<string, string> | null;
   children: WorkspaceNode[] | null;
