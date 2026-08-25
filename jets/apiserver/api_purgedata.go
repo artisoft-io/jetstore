@@ -29,15 +29,25 @@ import (
 // cross-project collision surface, and nothing here needs an authority the seed
 // file does not already describe.
 //
-// **AdminOnly was the stricter alternative and was also declined**, with the
-// reasoning recorded because it is a live question rather than a closed one. The
-// Flutter app offers both of these actions only from adminMenuEntries
-// (jetsclient/lib/modules/screen_config_impl.dart, the dataPurge and runInitDb
-// entries), which base_screen.dart selects on user.isAdmin, and IsAdmin is a
-// single configured account. So admin-only would be faithful to the one UI that
-// reaches the endpoint. It would also be a policy narrowing beyond closing the
-// defect, against callers this repository cannot enumerate, and this change has
-// no mandate for one. ui_refresh I-139 asks the project to settle it.
+// **~~AdminOnly was the stricter alternative and was also declined~~ -- settled
+// the other way on 2026-08-25, and the capability is no longer the gate.** The
+// interim answer above was workspace_ide, declined from admin-only on the ground
+// that a policy narrowing needed a mandate this change did not have. The mandate
+// arrived: the project asked for the front door locked (ui_refresh I-139).
+//
+// So the gate below is IsAdmin, and this capability is what the endpoint would
+// have required had the answer gone the other way. It is **kept and still
+// asserted seeded** rather than deleted, because HasCapability returns true for
+// the admin account unconditionally (jets/user/user.go, HasCapability), so a gate
+// on both would be a capability check that can never fail -- dead code with a
+// comment explaining why it is dead. Naming it here records which authority this
+// endpoint belongs to without pretending to enforce it.
+//
+// **The Flutter app already agreed.** Both actions are offered only from
+// adminMenuEntries (jetsclient/lib/modules/screen_config_impl.dart, the dataPurge
+// and runInitDb entries), which base_screen.dart selects on user.isAdmin. So this
+// is the one UI that reaches the endpoint being made to match the server rather
+// than the other way round.
 const PurgeDataCapability = "workspace_ide"
 
 type PurgeDataAction struct {
@@ -95,9 +105,20 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info"))
 		return
 	}
-	if !jetsUser.HasCapability(PurgeDataCapability) {
-		log.Printf("user %s attempted a purge data action without the %s capability",
-			userEmail, PurgeDataCapability)
+	// **The admin account, not a capability** -- ui_refresh I-139, settled
+	// 2026-08-25. IsAdmin is a single configured account (jets/user/user.go,
+	// IsAdmin, comparing against AdminEmail), so this is the narrowest gate the
+	// package has and it is deliberately narrower than the defect required.
+	//
+	// **The refusal deliberately reuses the capability wording** rather than
+	// saying "only admin". The other three gates in this package return these two
+	// messages and no others; a distinct admin refusal here would tell a caller
+	// that this endpoint is gated differently, which is exactly the oracle
+	// TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints exists to
+	// prevent. The log line is precise; the response is not, on purpose.
+	if !jetsUser.IsAdmin() {
+		log.Printf("user %s attempted a purge data action without the admin account",
+			userEmail)
 		ERROR(w, http.StatusUnauthorized,
 			errors.New("error: unauthorized, user do not have required capability"))
 		return

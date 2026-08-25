@@ -316,7 +316,7 @@ func TestPurgeDataAuthorizesBeforeItDispatches(t *testing.T) {
 		var buf strings.Builder
 		ast.Fprint(&buf, fset, stmt, nil)
 		rendered := buf.String()
-		if gateAt < 0 && strings.Contains(rendered, "HasCapability") {
+		if gateAt < 0 && strings.Contains(rendered, "IsAdmin") {
 			gateAt = i
 		}
 		if dispatchAt < 0 && (strings.Contains(rendered, "ResetDomainTables") ||
@@ -325,7 +325,7 @@ func TestPurgeDataAuthorizesBeforeItDispatches(t *testing.T) {
 		}
 	}
 	if gateAt < 0 {
-		t.Fatal("DoPurgeDataAction checks no capability; /purgeData drops every table named " +
+		t.Fatal("DoPurgeDataAction does not require the admin account; /purgeData drops every table named " +
 			"in input_loader_status and truncates two registries for any authenticated caller")
 	}
 	if dispatchAt < 0 {
@@ -447,5 +447,34 @@ func TestRegisterFileKeyCapabilityIsSeeded(t *testing.T) {
 		t.Errorf("system_role no longer holds %q; the lambda would fail this gate if it "+
 			"ever came through HTTP, which is why this capability was chosen (ui_refresh I-138)",
 			RegisterFileKeyCapability)
+	}
+}
+
+// TestPurgeDataGatesOnAdminRatherThanCapability is I-139, settled 2026-08-25.
+//
+// **It pins a negative, which is the only way this decision stays made.**
+// HasCapability returns true for the admin account unconditionally, so a gate on
+// PurgeDataCapability would pass everyone this gate passes and more -- and would
+// look, in a diff, like a tightening rather than the loosening it is. Asserting
+// that the handler does not reach for HasCapability is what makes that
+// substitution fail out loud.
+//
+// PurgeDataCapability itself is deliberately still declared and still asserted
+// seeded by TestPurgeDataCapabilityIsSeeded: it records which authority this
+// endpoint belongs to, which is the thing to restore if the project ever widens
+// the gate back from a single account.
+func TestPurgeDataGatesOnAdminRatherThanCapability(t *testing.T) {
+	src, err := os.ReadFile("api_purgedata.go")
+	if err != nil {
+		t.Fatalf("reading api_purgedata.go: %v", err)
+	}
+	text := string(src)
+	if !strings.Contains(text, "!jetsUser.IsAdmin()") {
+		t.Error("DoPurgeDataAction no longer gates on IsAdmin; ui_refresh I-139 settled that " +
+			"/purgeData requires the admin account, not a capability")
+	}
+	if strings.Contains(text, "HasCapability(PurgeDataCapability)") {
+		t.Error("DoPurgeDataAction gates on PurgeDataCapability again; HasCapability is true for " +
+			"admin unconditionally, so this widens the gate rather than narrowing it (I-139)")
 	}
 }
