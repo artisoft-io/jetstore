@@ -350,12 +350,12 @@ func TestPurgeDataCapabilityIsSeeded(t *testing.T) {
 	}
 }
 
-// TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints keeps the three
+// TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints keeps the four
 // capability gates in this package returning the same two messages, so that a
 // caller cannot tell which endpoint refused it or why beyond the two states the
-// other two already reveal.
+// others already reveal.
 func TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints(t *testing.T) {
-	for _, name := range []string{"api_purgedata.go", "api_infer_server.go", "api_agentic.go"} {
+	for _, name := range []string{"api_purgedata.go", "api_filekey.go", "api_infer_server.go", "api_agentic.go"} {
 		src, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatalf("reading %s: %v", name, err)
@@ -370,5 +370,82 @@ func TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints(t *testing.T) 
 					"to be byte-identical so they are not an oracle", name, want)
 			}
 		}
+	}
+}
+
+// TestRegisterFileKeyAuthorizesBeforeItDispatches is I-138.
+//
+// **The three handlers behind this endpoint each take a token and, until
+// 2026-08-25, none of them read it.** The shape is I-126's rather than I-125's:
+// the endpoint sat behind authh and used its token for the audit line alone.
+//
+// **The gate is asserted at the entry point on purpose.** Every one of the three
+// actions is also reached in process, by callers that are not requests — the
+// RegisterFileKeyV2 lambda calls RegisterFileKeys directly, RegisterSchemaEvent
+// reaches it from three sites in jets/datatable/pipeline_execution.go, and
+// SyncFileKeys delegates into it carrying whatever token it was given. So the
+// function is mixed-population by construction and the switch is the only place
+// where "this arrived over HTTP" is still known.
+func TestRegisterFileKeyAuthorizesBeforeItDispatches(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "api_filekey.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing api_filekey.go: %v", err)
+	}
+	var fn *ast.FuncDecl
+	for _, decl := range file.Decls {
+		d, ok := decl.(*ast.FuncDecl)
+		if ok && d.Name.Name == "DoRegisterFileKeyAction" && d.Body != nil {
+			fn = d
+		}
+	}
+	if fn == nil {
+		t.Fatal("no DoRegisterFileKeyAction in api_filekey.go; this test is stale")
+	}
+
+	gateAt, dispatchAt := -1, -1
+	for i, stmt := range fn.Body.List {
+		var buf strings.Builder
+		ast.Fprint(&buf, fset, stmt, nil)
+		rendered := buf.String()
+		if gateAt < 0 && strings.Contains(rendered, "HasCapability") {
+			gateAt = i
+		}
+		if dispatchAt < 0 && (strings.Contains(rendered, "RegisterFileKeys") ||
+			strings.Contains(rendered, "SyncFileKeys") ||
+			strings.Contains(rendered, "PutSchemaEventToS3")) {
+			dispatchAt = i
+		}
+	}
+	if gateAt < 0 {
+		t.Fatal("DoRegisterFileKeyAction checks no capability; /registerFileKey registers a file key " +
+			"and can start an automated load for any authenticated caller")
+	}
+	if dispatchAt >= 0 && gateAt > dispatchAt {
+		t.Errorf("DoRegisterFileKeyAction dispatches at statement %d and gates at %d; "+
+			"the gate must precede the work", dispatchAt, gateAt)
+	}
+}
+
+// TestRegisterFileKeyCapabilityIsSeeded follows TestPurgeDataCapabilityIsSeeded.
+//
+// **It also pins the half of I-138's decision that is easy to lose.**
+// run_pipelines was chosen because system_role holds it, so the lambda would pass
+// this gate if it ever stopped calling RegisterFileKeys in process. If a later
+// edit narrows the capability to one system_role does not hold, that property
+// goes silently; this asserts it.
+func TestRegisterFileKeyCapabilityIsSeeded(t *testing.T) {
+	sql, err := os.ReadFile("../jets_init_db.sql")
+	if err != nil {
+		t.Fatalf("reading jets_init_db.sql: %v", err)
+	}
+	text := string(sql)
+	if !strings.Contains(text, fmt.Sprintf("'%s')", RegisterFileKeyCapability)) {
+		t.Errorf("jets_init_db.sql grants no role the %q capability", RegisterFileKeyCapability)
+	}
+	if !strings.Contains(text, fmt.Sprintf("('system_role', '%s')", RegisterFileKeyCapability)) {
+		t.Errorf("system_role no longer holds %q; the lambda would fail this gate if it "+
+			"ever came through HTTP, which is why this capability was chosen (ui_refresh I-138)",
+			RegisterFileKeyCapability)
 	}
 }
