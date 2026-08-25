@@ -292,9 +292,9 @@
       }
     },
     "jetsa:Anomaly": {
-      "description": "A deterministic detector's observation (\u00a7A.2.6). Skeleton: identity and detection time; the signal fields arrive with the Observer agent.",
+      "description": "A deterministic detector's observation (\u00a7A.2.6), widened at N.2 from the skeleton to what phase-3 plan \u00a712.2 says the execution record can actually populate, and made a table. **The field list is derived from \u00a712.2's six derivable rows, not from readability.** Every property below is populated by at least one of them; two of \u00a7A.2.6's optional properties are left out because none of the six can populate them, which is \u00a712's own test applied honestly: - `confidence` \u2014 \u00a7A.2.6 has it optional. All six rows are predicates or windowed aggregates over a relational table (\u00a712.3), so a detector emits a fact and has no calibrated confidence to report. Adding it would invite a constant. **Its consumer is the Observer agent, not a detector.** - `correlation_group_id` \u2014 \u00a7A.2.6 says *\"Assigned by Observer Agent\"*, so by construction no deterministic detector writes it. Clustering anomalies into an Incident is `Incident.hypotheses`' side of the model. Both are recorded as I-126 rather than silently dropped. **Three of \u00a7A.2.6's required properties are optional here**, because \u00a712.2 fixes which rows carry a number: `expected_min`, `expected_max` and `deviation_magnitude` exist for rows 1 and 3, which compare against a history window, and do not exist for rows 2, 4, 5 and 10, which are within-run predicates with no range and no magnitude. Requiring them would force a detector to invent one. Recorded as I-126. **Names are class-scoped per F7 and the plan's instruction to name against the namespace rather than for readability.** `subject_ref` is a hard collision \u2014 it is ApprovalEvent's, declared there first \u2014 and `signal_type`, `observed_value`, `detector_ref` and `session_id` are exactly the generic names a client workspace would want for something else. Each carries its \u00a7A.2.6 name in its description, per the model's documented-against rule.",
       "base": "jets:Entity",
-      "as_table": false,
+      "as_table": true,
       "properties": {
         "jetsa:anomaly_id": {
           "type": "text",
@@ -308,6 +308,75 @@
           "array": false,
           "required": true,
           "description": "When the detector emitted it."
+        },
+        "jetsa:anomaly_session_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The pipeline run the observation is drawn from - `session_id` on every table of the execution record, and the key `purge_database` deletes by (\u00a712.1). Scoped per F7, and deliberately not named run_ref: that is ApprovalEvent's and means an AgentRun, which this is not."
+        },
+        "jetsa:anomaly_subject_type": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What the observation is about (\u00a7A.2.6 names it subject_ref.entity_type). \u00a712.2's grain column: worker for rows 1-4, edge for rows 2, 5 and 10.",
+          "vocabulary": "AnomalySubject"
+        },
+        "jetsa:anomaly_subject_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The subject's identity (\u00a7A.2.6 names it subject_ref.entity_id; scoped per F7 against ApprovalEvent's subject_ref, which is a Remediation or ChangeProposal). For a worker, the step label, shard and jets_partition that key the row; for an edge, those plus the input and output channel."
+        },
+        "jetsa:anomaly_signal_type": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Which failure mode was observed (\u00a7A.2.6 names it signal_type). Maps to a \u00a712.2 row: rejection_rate is row 1, volume is rows 2 and 5, step_regression row 3, worker_stall row 4, arrival row 10.",
+          "vocabulary": "SignalType"
+        },
+        "jetsa:anomaly_observed_value": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What was measured (\u00a7A.2.6 names it observed_value). **Text because \u00a7A.2.6 types it [number, string] and JetRules has no union**, and because \u00a712.2's rows genuinely differ: a ratio for row 1, a count for rows 2 and 5, a status for rows 3 and 4, a destination URI for row 10. The trigger property on ChangeProposal is carried as text for the same reason."
+        },
+        "jetsa:anomaly_expected_min": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The low end of what was expected (\u00a7A.2.6 names it expected_range.min; text on the same reasoning as observed_value). Optional rather than required as \u00a7A.2.6 has it: only rows 1 and 3 compare against a range at all."
+        },
+        "jetsa:anomaly_expected_max": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The high end of what was expected (\u00a7A.2.6 names it expected_range.max). Optional, same reasoning as expected_min."
+        },
+        "jetsa:anomaly_expected_basis": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**What the observation was compared against** (\u00a7A.2.6 names it expected_range.basis) - the history window and grouping for rows 1 and 3, the within-run invariant for rows 2, 4 and 5, the claim being checked for row 10. Required, and it is half of what \u00a712.3 says an actionable anomaly must be able to say."
+        },
+        "jetsa:anomaly_deviation_magnitude": {
+          "type": "double",
+          "array": false,
+          "required": false,
+          "description": "How far out, in standard deviations or as a ratio per signal type (\u00a7A.2.6 names it deviation_magnitude). Optional rather than required as \u00a7A.2.6 has it: rows 4, 5 and 10 are boolean predicates with no magnitude to report."
+        },
+        "jetsa:anomaly_confounders": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "**What the detector could not rule out** - the other half of \u00a712.3's test, and the per-observation form of \u00a712.2's *cannot see* column. Required; an empty list asserts that none of the fourteen applies, which is the contradicting_evidence discipline on Hypothesis reused. Has no \u00a7A.2.6 counterpart, because \u00a7A.2.6 was written against a warehouse rather than against this execution record.",
+          "vocabulary": "AnomalyConfounder"
+        },
+        "jetsa:anomaly_detector_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The deterministic detector that emitted this (\u00a7A.2.6 names it detector_ref, optional; required here because \u00a712.2's rows differ in what they can see and an anomaly whose detector is unknown cannot be read against the right row)."
         }
       }
     },
@@ -543,6 +612,65 @@
         "deployed"
       ],
       "description": "\u00a7A.4 \u2014 the approval lifecycle (9 values)."
+    },
+    "AnomalySubject": {
+      "properties": [
+        "jetsa:anomaly_subject_type"
+      ],
+      "values": [
+        "feed",
+        "pipeline",
+        "stage",
+        "run",
+        "table",
+        "column",
+        "worker",
+        "edge"
+      ],
+      "description": "\u00a7A.2.6's `subject_ref.entity_type` \u2014 what an anomaly is *about*. **The first six are \u00a7A.2.6's; the last two are \u00a712.2's two grains.** The execution record's rows are per *worker* (run \u00d7 step label \u00d7 shard \u00d7 `jets_partition`) and per *edge* (worker \u00d7 input channel \u00d7 output channel), and neither is one of the six. `stage` is the near miss and is not the same thing: F52 reads `cpipes_step_id` as a stage location, but a worker is finer than a stage by shard and partition, and an edge is finer again. Added at N.2 with the SignalType additions above, on the same terms (I-127)."
+    },
+    "SignalType": {
+      "properties": [
+        "jetsa:anomaly_signal_type"
+      ],
+      "values": [
+        "volume",
+        "freshness",
+        "schema",
+        "distribution",
+        "rule_breach",
+        "cost",
+        "duration",
+        "rejection_rate",
+        "cardinality",
+        "referential",
+        "step_regression",
+        "worker_stall",
+        "arrival"
+      ],
+      "description": "\u00a7A.2.6's `$defs` \u2014 scoped to Anomaly, like EvidenceSource not in \u00a7A.4. **The first ten are \u00a7A.2.6's, verbatim and in its order. The last three are ours**, added at N.2 because the ten do not name three of the six failure modes phase-3 plan \u00a712.2 found derivable from JetStore's execution record, and `signal_type` is required by \u00a7A.2.6 \u2014 so without them an anomaly for those rows is unrepresentable rather than merely unlabelled. The ten were written for a warehouse's data-quality signals (volume, freshness, distribution, cardinality); \u00a712.2's rows are *execution* signals, which is a different substrate rather than a gap in the proposal. Of the ten, \u00a712.2 populates exactly two today: `rejection_rate` is row 1 and `volume` is rows 2 and 5. **N.4 is the party that confirms or overturns the three additions** \u2014 it builds the first two detectors and is the first caller that has to choose a value. Raised as I-127."
+    },
+    "AnomalyConfounder": {
+      "properties": [
+        "jetsa:anomaly_confounders"
+      ],
+      "values": [
+        "parse_errors_only",
+        "parquet_input",
+        "on_error_drop",
+        "max_input_count",
+        "sampling_cap",
+        "device_writer_output",
+        "merge_row_count_unknown",
+        "step_label_ambiguous",
+        "stall_cause_unknown",
+        "cross_step_join_unavailable",
+        "history_truncated",
+        "no_physical_location",
+        "stage_prefix_reused",
+        "location_aimed_not_reached"
+      ],
+      "description": "**Ours entirely, and it is the vocabulary form of \u00a712.2's *cannot see* column** (14 values). Not in the proposal at any level. Phase-3 plan \u00a712.3 is the reason it exists: *\"every derivable row needs at least one qualifier carried with the anomaly, or it is not actionable \u2026 an `Anomaly` that cannot say what it compared against and what it could not rule out reproduces the signal an operator learns to ignore\"*. `basis` carries the first half; this carries the second. **A member is an alternative explanation the detector could not exclude, or a bound on the comparison it made** \u2014 not a defect, and not a reason to suppress the anomaly. Each is traceable to one cell of \u00a712.2 or to \u00a712.7, named in the comment beside it; **the list is appended to, never renumbered**, on this repository's convention for numbered series. It is deliberately *not* free text. A named `text` literal makes a mistyped value a compile error rather than a comparison that silently never matches (the .jr emitter's own argument), and free text would make two detectors' qualifiers incomparable, which defeats the purpose."
     },
     "EvidenceSource": {
       "properties": [

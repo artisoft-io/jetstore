@@ -182,3 +182,57 @@ CREATE INDEX IF NOT EXISTS approval_event_subject_idx
 -- stmt
 CREATE INDEX IF NOT EXISTS approval_event_run_idx
   ON jetsapi.approval_event (run_ref);
+-- stmt
+-- What a deterministic detector observed, emitted at N.2 (phase-3 plan section 12).
+--
+-- **This table is here because `$as_table` is not persistence.** The Anomaly entity
+-- carries jr_as_table = True, which makes it a table in the JetRules domain model and
+-- says nothing about Postgres. I-24 was raised when exactly that confusion left
+-- agent_run and change_proposal modelled and unwritable, and was resolved by emitting
+-- both from this generator. Anomaly is the third application of that resolution, and
+-- the first where the two halves were done in one change rather than two phases apart.
+--
+-- Unlike agent_audit this table is not append-only by trigger, and unlike agent_run it
+-- is not updated: a detector's observation is a fact about one run at one instant.
+-- Re-running a detector over the same worker produces a second row, and that is
+-- intended - the anomaly_detector_ref column is what tells two generations of a
+-- detector apart.
+--
+-- Section 12.2 fixes what each column can hold; three of the schema's own required
+-- properties are nullable here because four of the six derivable rows are within-run
+-- predicates with no range and no magnitude (I-126). The CHECK constraints carry the
+-- three vocabularies, two of which extend the proposal's Appendix A.2.6 with the rows
+-- and grains JetStore's execution record actually has (I-127).
+--
+-- anomaly_confounders is a text[] with a containment CHECK rather than a child table.
+-- The list is small, closed and read whole, which is the same argument the array
+-- columns above rest on; `<@` is what constrains an array against a vocabulary, since
+-- a column CHECK cannot reach inside one element at a time.
+CREATE TABLE IF NOT EXISTS jetsapi.anomaly (
+  anomaly_id                       text PRIMARY KEY,
+  detected_at                      timestamp with time zone NOT NULL,
+  anomaly_session_id               text NOT NULL,
+  anomaly_subject_type             text NOT NULL,
+  anomaly_subject_ref              text NOT NULL,
+  anomaly_signal_type              text NOT NULL,
+  anomaly_observed_value           text NOT NULL,
+  anomaly_expected_min             text,
+  anomaly_expected_max             text,
+  anomaly_expected_basis           text NOT NULL,
+  anomaly_deviation_magnitude      double precision,
+  anomaly_confounders              text[] NOT NULL,
+  anomaly_detector_ref             text NOT NULL,
+  CONSTRAINT anomaly_signal_type_ck CHECK (anomaly_signal_type IN ('volume', 'freshness', 'schema', 'distribution', 'rule_breach', 'cost', 'duration', 'rejection_rate', 'cardinality', 'referential', 'step_regression', 'worker_stall', 'arrival')),
+  CONSTRAINT anomaly_subject_type_ck CHECK (anomaly_subject_type IN ('feed', 'pipeline', 'stage', 'run', 'table', 'column', 'worker', 'edge')),
+  CONSTRAINT anomaly_confounders_ck
+             CHECK (anomaly_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[])
+);
+-- stmt
+-- "Which anomalies did this run produce", which is how a triage step reaches them, and
+-- "what has this detector been saying lately", which is how a false-positive rate is
+-- read off. Neither is answerable from the primary key.
+CREATE INDEX IF NOT EXISTS anomaly_session_idx
+  ON jetsapi.anomaly (anomaly_session_id, detected_at);
+-- stmt
+CREATE INDEX IF NOT EXISTS anomaly_detector_idx
+  ON jetsapi.anomaly (anomaly_detector_ref, detected_at);

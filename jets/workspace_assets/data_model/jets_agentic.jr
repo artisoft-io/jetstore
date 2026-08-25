@@ -78,14 +78,25 @@ class jetsa:ChangeProposal {
   $as_table = true
 };
 
-# A deterministic detector's observation (§A.2.6). Skeleton: identity and
+# A deterministic detector's observation (§A.2.6), widened at N.2 from the
 class jetsa:Anomaly {
   $base_classes = [jets:Entity],
   $data_properties = [
     jetsa:anomaly_id as text,
-    jetsa:detected_at as datetime
+    jetsa:detected_at as datetime,
+    jetsa:anomaly_session_id as text,
+    jetsa:anomaly_subject_type as text,
+    jetsa:anomaly_subject_ref as text,
+    jetsa:anomaly_signal_type as text,
+    jetsa:anomaly_observed_value as text,
+    jetsa:anomaly_expected_min as text,
+    jetsa:anomaly_expected_max as text,
+    jetsa:anomaly_expected_basis as text,
+    jetsa:anomaly_deviation_magnitude as double,
+    jetsa:anomaly_confounders as array of text,
+    jetsa:anomaly_detector_ref as text
   ],
-  $as_table = false
+  $as_table = true
 };
 
 # One evidence item of a Hypothesis (§A.2.8 `$defs`): a value object in
@@ -180,6 +191,47 @@ text jetsa:APPROVAL_STATE_APPROVED_WITH_MODIFICATION = "approved_with_modificati
 text jetsa:APPROVAL_STATE_REJECTED = "rejected";
 text jetsa:APPROVAL_STATE_SUPERSEDED = "superseded";
 text jetsa:APPROVAL_STATE_DEPLOYED = "deployed";
+
+# jetsa:anomaly_subject_type enum (AnomalySubject)
+text jetsa:ANOMALY_SUBJECT_FEED = "feed";
+text jetsa:ANOMALY_SUBJECT_PIPELINE = "pipeline";
+text jetsa:ANOMALY_SUBJECT_STAGE = "stage";
+text jetsa:ANOMALY_SUBJECT_RUN = "run";
+text jetsa:ANOMALY_SUBJECT_TABLE = "table";
+text jetsa:ANOMALY_SUBJECT_COLUMN = "column";
+text jetsa:ANOMALY_SUBJECT_WORKER = "worker";
+text jetsa:ANOMALY_SUBJECT_EDGE = "edge";
+
+# jetsa:anomaly_signal_type enum (SignalType)
+text jetsa:SIGNAL_TYPE_VOLUME = "volume";
+text jetsa:SIGNAL_TYPE_FRESHNESS = "freshness";
+text jetsa:SIGNAL_TYPE_SCHEMA = "schema";
+text jetsa:SIGNAL_TYPE_DISTRIBUTION = "distribution";
+text jetsa:SIGNAL_TYPE_RULE_BREACH = "rule_breach";
+text jetsa:SIGNAL_TYPE_COST = "cost";
+text jetsa:SIGNAL_TYPE_DURATION = "duration";
+text jetsa:SIGNAL_TYPE_REJECTION_RATE = "rejection_rate";
+text jetsa:SIGNAL_TYPE_CARDINALITY = "cardinality";
+text jetsa:SIGNAL_TYPE_REFERENTIAL = "referential";
+text jetsa:SIGNAL_TYPE_STEP_REGRESSION = "step_regression";
+text jetsa:SIGNAL_TYPE_WORKER_STALL = "worker_stall";
+text jetsa:SIGNAL_TYPE_ARRIVAL = "arrival";
+
+# jetsa:anomaly_confounders enum (AnomalyConfounder)
+text jetsa:ANOMALY_CONFOUNDER_PARSE_ERRORS_ONLY = "parse_errors_only";
+text jetsa:ANOMALY_CONFOUNDER_PARQUET_INPUT = "parquet_input";
+text jetsa:ANOMALY_CONFOUNDER_ON_ERROR_DROP = "on_error_drop";
+text jetsa:ANOMALY_CONFOUNDER_MAX_INPUT_COUNT = "max_input_count";
+text jetsa:ANOMALY_CONFOUNDER_SAMPLING_CAP = "sampling_cap";
+text jetsa:ANOMALY_CONFOUNDER_DEVICE_WRITER_OUTPUT = "device_writer_output";
+text jetsa:ANOMALY_CONFOUNDER_MERGE_ROW_COUNT_UNKNOWN = "merge_row_count_unknown";
+text jetsa:ANOMALY_CONFOUNDER_STEP_LABEL_AMBIGUOUS = "step_label_ambiguous";
+text jetsa:ANOMALY_CONFOUNDER_STALL_CAUSE_UNKNOWN = "stall_cause_unknown";
+text jetsa:ANOMALY_CONFOUNDER_CROSS_STEP_JOIN_UNAVAILABLE = "cross_step_join_unavailable";
+text jetsa:ANOMALY_CONFOUNDER_HISTORY_TRUNCATED = "history_truncated";
+text jetsa:ANOMALY_CONFOUNDER_NO_PHYSICAL_LOCATION = "no_physical_location";
+text jetsa:ANOMALY_CONFOUNDER_STAGE_PREFIX_REUSED = "stage_prefix_reused";
+text jetsa:ANOMALY_CONFOUNDER_LOCATION_AIMED_NOT_REACHED = "location_aimed_not_reached";
 
 # jetsa:source enum (EvidenceSource)
 text jetsa:EVIDENCE_SOURCE_RUN_TELEMETRY = "run_telemetry";
