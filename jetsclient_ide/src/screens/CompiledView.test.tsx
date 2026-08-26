@@ -60,6 +60,11 @@ const ROWS: Record<string, JetsRow[]> = {
   jet_rules: [["4", "RuleRow", "100", "[a] -> [b];", "jet_rules/rules.jr"]],
   rule_terms: [["TermRule", "2", "1", "TermRow", "0"]],
   main_support_files: [["MainFileRow", "SupportFileRow"]],
+  // C.3a's two, authored rather than translated.
+  lookup_tables: [
+    ["9", "LookupRow", "lk_claim", "lookups/claim.csv", "LookupKeyCol", "LookupResCol", "lookups/claim.jr"],
+  ],
+  lookup_columns: [["LookupColParent", "LookupColRow", "text", "0"]],
 };
 
 /**
@@ -186,14 +191,16 @@ async function mount(at = "/workspace") {
 const reads = (posts: Posted[]) => posts.filter((p) => p.action === "workspace_read");
 
 describe("a section heading opens its compiled view", () => {
-  it("offers the two views this app renders and not the six it does not", async () => {
+  it("offers the three views this app renders and not the five it does not", async () => {
     await mount();
     // A section this app renders a view for gets a clickable heading; one it does
-    // not gets a heading that only expands. `lookups` is the interesting row: the
-    // server declares a compiled view for it and this app has none until C.3a.
-    expect(screen.getByTitle("Open the compiled view of data_model")).toBeTruthy();
-    expect(screen.getByTitle("Open the compiled view of jet_rules")).toBeTruthy();
-    for (const dir of ["lookups", "pipes_config", "user_flows", "table_configs", "process_config", "reports"]) {
+    // not gets a heading that only expands. The five are the sections whose files
+    // compile into nothing, so there is no view for them ever — as distinct from
+    // one that is merely not built, which after C.3a is none of them.
+    for (const dir of ["data_model", "jet_rules", "lookups"]) {
+      expect(screen.getByTitle(`Open the compiled view of ${dir}`)).toBeTruthy();
+    }
+    for (const dir of ["pipes_config", "user_flows", "table_configs", "process_config", "reports"]) {
       expect(screen.queryByTitle(`Open the compiled view of ${dir}`)).toBeNull();
     }
   });
@@ -349,6 +356,48 @@ describe("a section heading opens its compiled view", () => {
     // not the first entry of the picker's list, which is `ws`.
     for (const post of reads(posts)) expect(post.workspaceName).toBe("other");
     expect((screen.getByLabelText("Workspace") as HTMLSelectElement).value).toBe("other");
+  });
+
+  /**
+   * **C.3a: the view neither client had.** `lookups` compiles into
+   * `lookup_tables` and `lookup_columns`, so the server has declared
+   * `compiled_view: lookups` since C.1; the Flutter app declared two constants
+   * for it and never registered them, and C.1 deleted them. Its two table
+   * documents are authored rather than translated — there is no Dart to measure —
+   * and what checks them in place of the round trip is
+   * `jets/workspace_schema.sql`, in `table.test.ts`.
+   */
+  it("draws the lookups view, which the Flutter app declared and never built", async () => {
+    const { posts } = await mount();
+    fireEvent.click(screen.getByTitle("Open the compiled view of lookups"));
+
+    expect(screen.getByRole("tab", { name: "Lookup Tables" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Lookup Columns" })).toBeTruthy();
+    await screen.findByText("LookupRow");
+
+    await waitFor(() => expect(reads(posts).length).toBe(2));
+    expect(reads(posts).map((p) => p.fromTable)).toEqual(["lookup_tables", "lookup_columns"]);
+    for (const post of reads(posts)) expect(post.workspaceName).toBe("ws");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Lookup Columns" }));
+    await screen.findByText("LookupColRow");
+  });
+
+  it("qualifies the lookups join, which two columns called `name` make load-bearing", async () => {
+    const { posts } = await mount();
+    fireEvent.click(screen.getByTitle("Open the compiled view of lookups"));
+    await waitFor(() => expect(reads(posts).length).toBe(2));
+
+    const columns = reads(posts).find((p) => p.fromTable === "lookup_columns")!;
+    // `lookup_columns.name` is the column and `lookup_tables.name` is the lookup
+    // it belongs to. Both are selected, so both the select list and the join have
+    // to name their table — an unqualified `name` here is ambiguous SQL rather
+    // than a tidiness question.
+    expect(columns.body["whereClauses"]).toEqual([
+      { table: "lookup_columns", column: "lookup_table_key", joinWith: "lookup_tables.key" },
+    ]);
+    expect(columns.body["sortColumnTable"]).toBe("lookup_tables");
+    for (const c of columns.body["columns"] as { table: string }[]) expect(c.table).toBeTruthy();
   });
 
   it("disables Save on a view tab, which has nothing to write back", async () => {

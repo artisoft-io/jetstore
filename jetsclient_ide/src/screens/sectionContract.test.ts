@@ -56,6 +56,14 @@ describe("the section contract", () => {
     ]);
   });
 
+  it("renders all three declared views, so the unbuilt set is empty", () => {
+    // **The state C.3a reached, asserted rather than left to be read off an empty
+    // set.** An empty `viewsNotBuiltInReact` and an empty `compiledViews` would
+    // both satisfy the case below; only one of them is this.
+    expect(Object.keys(compiledViews).sort()).toEqual(["data_model", "jet_rules", "lookups"]);
+    expect([...viewsNotBuiltInReact]).toEqual([]);
+  });
+
   it("answers every declared view either by rendering it or by naming it unbuilt", () => {
     for (const { dir, view } of parseDeclaration()) {
       if (view === "") continue;
@@ -94,9 +102,9 @@ describe("the section contract", () => {
   it("resolves a section node the way the tree asks it to", () => {
     expect(compiledViewFor("data_model")?.label).toBe("Data Model");
     expect(compiledViewFor("jet_rules")?.label).toBe("Jets Rules");
-    // Declared by the server and not built here — C.3a. The tree must get null
-    // rather than an empty view, so the heading behaves as the group it is.
-    expect(compiledViewFor("lookups")).toBeNull();
+    // C.3a's, and the one view neither client had before. The label is the
+    // section's own, from `wsfile.WorkspaceSections`.
+    expect(compiledViewFor("lookups")?.label).toBe("Lookups");
     // A section with no compiled view, and a payload that omits the field
     // entirely, which is what the Go side sends for five of the eight.
     expect(compiledViewFor("")).toBeNull();

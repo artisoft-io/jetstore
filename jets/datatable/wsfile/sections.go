@@ -92,9 +92,15 @@ var WorkspaceSections = []Section{
 	{
 		// Declared here, and not built in the Flutter client. That is the state
 		// this table exists to make sayable: the view is possible and absent,
-		// rather than impossible. It is scheduled as ui_refresh's C.3a, in React,
-		// because track X deletes jetsclient and a view built there is discarded
-		// by construction (their I-45, decided 2026-08-23 by the user).
+		// rather than impossible. **It was built in React on 2026-08-25** by
+		// ui_refresh's C.3a — jetsclient_ide/src/screens/views/lookups.view.json
+		// and two authored table documents — rather than in jetsclient, because
+		// track X deletes that app and a view built there is discarded by
+		// construction (their I-45, decided 2026-08-23 by the user).
+		//
+		// This comment said "it is scheduled as C.3a" until C.3a corrected it.
+		// A note naming a future trigger goes silent when the trigger passes, so
+		// the task that fires it is the only reader that can be relied on.
 		Dir: "lookups", Label: "Lookups",
 		Filters: []string{".jr", ".csv"}, CompiledView: LookupsView,
 	},

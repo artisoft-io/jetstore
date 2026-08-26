@@ -65,6 +65,8 @@ import wsDataPropertyTable from "../datatable/tables/wsDataPropertyTable.tc.json
 import wsDomainClassTable from "../datatable/tables/wsDomainClassTable.tc.json";
 import wsDomainTableTable from "../datatable/tables/wsDomainTableTable.tc.json";
 import wsJetRulesTable from "../datatable/tables/wsJetRulesTable.tc.json";
+import wsLookupColumnTable from "../datatable/tables/wsLookupColumnTable.tc.json";
+import wsLookupTableTable from "../datatable/tables/wsLookupTableTable.tc.json";
 import wsMainSupportFilesTable from "../datatable/tables/wsMainSupportFilesTable.tc.json";
 import wsRuleTermsTable from "../datatable/tables/wsRuleTermsTable.tc.json";
 
@@ -82,6 +84,11 @@ export const COMPILED_VIEW_TABLES: Record<string, TableConfigDocument> = {
   wsJetRulesTable: wsJetRulesTable as TableConfigDocument,
   wsRuleTermsTable: wsRuleTermsTable as TableConfigDocument,
   wsMainSupportFilesTable: wsMainSupportFilesTable as TableConfigDocument,
+  // C.3a's two, authored rather than translated — the `lookups` view the Flutter
+  // app never had. See `table.test.ts`'s authored-documents block for what checks
+  // them in place of the round trip.
+  wsLookupTableTable: wsLookupTableTable as TableConfigDocument,
+  wsLookupColumnTable: wsLookupColumnTable as TableConfigDocument,
 };
 
 export interface CompiledViewProps {

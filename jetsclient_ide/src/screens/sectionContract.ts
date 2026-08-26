@@ -27,6 +27,7 @@
 
 import dataModelView from "./views/data_model.view.json";
 import jetRulesView from "./views/jet_rules.view.json";
+import lookupsView from "./views/lookups.view.json";
 import { parseCompiledView, type CompiledViewDocument } from "./compiledView";
 
 /**
@@ -103,6 +104,11 @@ export function parseDeclaration(): { dir: string; view: string }[] {
  *   *Domain Classes*, *Data Properties*, *Domain Tables*, *Data Model Files*.
  * - `jet_rules` — `FormKeys.wsJetRulesForm`, `formTabsConfig` in the same file:
  *   *Jet Rules*, *Rule Terms*, *Files Relationship*, *Jet Rules Files*.
+ * - `lookups` — **transcribed from nothing.** The Flutter app never built this
+ *   view; `FormKeys.wsLookupsForm` and `DTKeys.wsLookupsTable` were declared,
+ *   empty, and deleted by C.1. So its two labels are authored beside its two
+ *   table documents (C.3a), and the pair to check them against is
+ *   `jets/workspace_schema.sql` rather than a form registry.
  *
  * The section labels are `wsfile.WorkspaceSections`' `Label`, which is what the
  * heading already reads in the tree — "Jets Rules", not "Jet Rules".
@@ -110,18 +116,23 @@ export function parseDeclaration(): { dir: string; view: string }[] {
 export const compiledViews: Record<string, CompiledViewDocument> = {
   data_model: parseCompiledView(dataModelView),
   jet_rules: parseCompiledView(jetRulesView),
+  lookups: parseCompiledView(lookupsView),
 };
 
 /**
- * Compiled views the server declares that this app does not render yet.
+ * Compiled views the server declares that this app does not render.
  *
- * `lookups` compiles into `lookup_tables` and `lookup_columns` and its view was
- * routed here rather than to the Flutter app because track X deletes that one
- * (**I-45**, decided 2026-08-23 by the user). It is **C.3a**, which is the task
- * that empties this set — so unlike the Dart's `viewsNotBuiltInFlutter`, which
- * is permanent, this one is a debt with a task against it.
+ * **Empty as of C.3a, and kept.** It held `lookups` for one task: that view
+ * compiles into `lookup_tables` and `lookup_columns` and was routed here rather
+ * than to the Flutter app because track X deletes that one (**I-45**, decided
+ * 2026-08-23 by the user). C.3a built it, so the set emptied — which is the
+ * outcome a debt with a task against it is supposed to have, and the reason it
+ * was a set rather than a comment.
+ *
+ * It is not deleted, because what it asserts is *every declared view has been
+ * answered*, and the ninth section is the reader that needs it.
  */
-export const viewsNotBuiltInReact: ReadonlySet<string> = new Set(["lookups"]);
+export const viewsNotBuiltInReact: ReadonlySet<string> = new Set<string>();
 
 /**
  * Tables of a declared view that this app does not draw yet, and the task that

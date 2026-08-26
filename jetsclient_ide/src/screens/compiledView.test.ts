@@ -43,7 +43,16 @@ function corpusTables(formKey: string): string[] {
     .map((f) => f.dataTableConfig!);
 }
 
-/** The Dart form key a compiled view corresponds to. */
+/**
+ * The Dart form key a compiled view corresponds to.
+ *
+ * **`lookups` has none, and that absence is the whole of C.3a.** The Flutter app
+ * declared `FormKeys.wsLookupsForm` and never registered it; C.1 deleted the
+ * constant. So there is no corpus entry to compare that view's tabs against, and
+ * the cases below skip it by construction rather than by an exclusion list — a
+ * view whose key is missing here has nothing to be measured against, which is a
+ * different claim from a view whose tabs disagree.
+ */
 const DART_FORM_KEY: Record<string, string> = {
   data_model: "workspace.data_model.form",
   jet_rules: "workspace.jet_rules.form",
@@ -80,10 +89,17 @@ describe("the compiled view documents", () => {
    */
   it("account for every table the Dart form holds, drawn or deferred, in order", () => {
     for (const [view, doc] of Object.entries(compiledViews)) {
+      const formKey = DART_FORM_KEY[view];
+      if (formKey === undefined) continue;
       const drawn = doc.tabs.map((t) => t.table);
       const deferred = TABS_DEFERRED_TO_C3B[view] ?? [];
-      expect([...drawn, ...deferred], view).toEqual(corpusTables(DART_FORM_KEY[view]!));
+      expect([...drawn, ...deferred], view).toEqual(corpusTables(formKey));
     }
+    // The skip is asserted rather than silent: exactly one view has no Dart form,
+    // and if a second ever does, this fails and somebody says why.
+    expect(Object.keys(compiledViews).filter((v) => DART_FORM_KEY[v] === undefined)).toEqual([
+      "lookups",
+    ]);
   });
 
   it("defers exactly the two tables that carry an action bar, and no others", () => {
