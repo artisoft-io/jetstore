@@ -445,6 +445,27 @@ export const FieldSchema = z
       /** Index into `items`, selected when the form state holds nothing. */
       defaultItemPos: z.number().int().nonnegative().optional(),
       isReadOnly: z.boolean().optional(),
+      /**
+       * Lock the field once it holds a value. Task C.10.
+       *
+       * `FormDropdownFieldConfig.makeReadOnlyWhenHasSelectedValue`
+       * (`jetsclient/lib/models/form_config.dart`), set by the two dropdowns of
+       * `rulesConfigv2Dialog` and by nothing else in either corpus. The dialog
+       * serves both add and update: on an update the client and the process
+       * arrive from the selected row and identify the record being written, so
+       * changing either would move the row rather than edit it.
+       *
+       * **A member rather than an `isReadOnlyFrom` predicate, and the Dart's own
+       * field name is the argument.** `isReadOnlyFrom` names a function of the
+       * whole form state; this is a property of *this field's* value, so a
+       * predicate would have to be written once per field key — two names for one
+       * rule, which is the duplication I-54 exists to avoid rather than an
+       * instance of the naming it recommends.
+       *
+       * The two compose as an `or`, like `isReadOnly` and `isReadOnlyFrom` do:
+       * a field that is locked for any reason is locked.
+       */
+      isReadOnlyWhenSet: z.boolean().optional(),
       /** As on `text` — no corpus site, and the two kinds share the widget prop. */
       isReadOnlyFrom: Identifier.optional(),
       rules: z.array(RuleSchema).optional(),

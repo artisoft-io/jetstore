@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "rulesConfigv2Dialog": {
+      "title": "Rule Configuration",
+      "queries": {
+        "clients": {
+          "sql": "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"
+        },
+        "processes": {
+          "sql": "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"
+        }
+      },
+      "rows": [
+        [
+          {
+            "field": "dropdown",
+            "key": "client",
+            "label": "Client",
+            "items": [
+              {
+                "label": "Select a Client",
+                "value": ""
+              }
+            ],
+            "itemsFrom": "clients",
+            "isReadOnlyWhenSet": true,
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Client must be selected."
+              }
+            ]
+          },
+          {
+            "field": "dropdown",
+            "key": "process_name",
+            "label": "Process",
+            "items": [
+              {
+                "label": "Select a process",
+                "value": ""
+              }
+            ],
+            "itemsFrom": "processes",
+            "isReadOnlyWhenSet": true,
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Process must be selected."
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "rule_config_json",
+            "label": "Rule Configuration CSV / Json",
+            "hint": "Enter a valid json array or csv with headers of configuration objects",
+            "maxLines": 25,
+            "maxLength": 51200,
+            "defaultValue": "[]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Rule configuration must be a valid json array."
+              }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "ruleConfigv2.ok",
+          "label": "Save",
+          "capability": "client_config"
+        },
+        {
+          "action": "dialogCancel",
+          "label": "Cancel",
+          "style": "secondary"
+        }
+      ]
+    }
+  }
+}

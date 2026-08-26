@@ -222,10 +222,18 @@ function FormGroup({
  * for a missing predicate on the other surface.
  */
 function readOnly(
-  field: { isReadOnly?: boolean; isReadOnlyFrom?: string },
+  field: { key?: string; isReadOnly?: boolean; isReadOnlyFrom?: string; isReadOnlyWhenSet?: boolean },
   host: FormHost,
 ): boolean {
   if (field.isReadOnly === true) return true;
+  // C.10's third reason, composed as an `or` with the two above: a field locked
+  // for any reason is locked. `getValue` answers `undefined` for a key that was
+  // never set *and* for one explicitly cleared, which is the same state
+  // (`datatable/formState.ts`) and the same state the Dart's null is.
+  if (field.isReadOnlyWhenSet === true && field.key !== undefined) {
+    const held = host.formState.getValue(host.group, field.key);
+    if (held != null && held !== "" && !(Array.isArray(held) && held.length === 0)) return true;
+  }
   if (field.isReadOnlyFrom === undefined) return false;
   const predicate = host.predicates[field.isReadOnlyFrom];
   if (predicate === undefined) return true;
