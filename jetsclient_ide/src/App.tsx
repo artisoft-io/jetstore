@@ -27,6 +27,7 @@ import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
 import { QueryTool, QUERY_TOOL } from "./screens/QueryTool";
 import { InferServerAdmin } from "./screens/InferServerAdmin";
+import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
@@ -171,7 +172,20 @@ export default function App() {
             }
           />
           <Route path="query-tool" element={<QueryTool api={api} />} />
-          <Route path="*" element={<Navigate to="/workspace" replace />} />
+          {/*
+            **The catch-all reports rather than redirects, as of C.16.** It was
+            `<Navigate to="/workspace" replace />` from A.1 until now, and that is
+            not the Flutter behaviour: `jetsRoutesParser` falls through to
+            `pageNotFoundPath` when no template matches. The argument, and the
+            condition under which it reverses, are in `screens/NotFound.tsx` —
+            short version, this redirect is what made I-50 invisible, and track C
+            is about to multiply the handoff urls it could hide a mistake in.
+
+            The index redirect above stays: `/ide/` bare is a url the Flutter app
+            deliberately links to, which is a known destination rather than an
+            unmatched path.
+          */}
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
