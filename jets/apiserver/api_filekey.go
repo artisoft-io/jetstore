@@ -84,7 +84,7 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 	if !jetsUser.HasCapability(RegisterFileKeyCapability) {
 		log.Printf("user %s attempted a register file key action without the %s capability",
 			userEmail, RegisterFileKeyCapability)
-		ERROR(w, http.StatusUnauthorized,
+		ERROR(w, http.StatusForbidden,
 			errors.New("error: unauthorized, user do not have required capability"))
 		return
 	}

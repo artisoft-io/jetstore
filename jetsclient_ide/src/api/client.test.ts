@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiClient, SessionExpiredError } from "./client";
+import { ApiClient, ApiError, PermissionDeniedError, SessionExpiredError } from "./client";
 
 interface Call {
   url: string;
@@ -114,6 +114,66 @@ describe("ApiClient", () => {
     await expect(api.dataTable({ action: "read" })).rejects.toBeInstanceOf(SessionExpiredError);
     expect(api.isAuthenticated).toBe(false);
     expect(api.currentUser).toBeNull();
+  });
+
+  // C.17 / I-189: a capability refusal used to arrive as a 401 and sign the user
+  // out. These four pin the contract on this side of it.
+  //
+  // **They were run against the pre-C.17 client first, and two of them passed** —
+  // which is C.4/C.14's sixth failure mode in `src/actions/README.md` (jetstore#2028,
+  // unmerged at the time of writing) caught in the act,
+  // and is worth recording rather than quietly fixing. Deleting the 403 branch from
+  // `post` failed only *treats 403 as a refusal* and *falls back to a readable
+  // message*; the other two went green against a plain `ApiError`, because
+  // `errorText` already surfaced the body's message and `post` already left the
+  // session alone on any status but 401. Both were rewritten to assert
+  // `PermissionDeniedError` rather than its effects, and both then failed.
+  //
+  // **And the assertion that reads as the heart of the defect is the weakest one
+  // here.** `api.isAuthenticated` staying true was true before C.17 too: the client
+  // never signed anyone out on a 403, because the server never sent one. The defect
+  // was that a refusal arrived as a 401, so **nothing on this side can reproduce
+  // it** — the guards that would have failed on the day are in `jets/datatable` and
+  // `jets/apiserver`, not here.
+  it("treats 403 as a refusal and keeps the session", async () => {
+    const { api } = await signedIn([
+      {
+        status: 403,
+        body: { error: "error: unauthorized, cannot get user info or does not have permission" },
+      },
+    ]);
+    await expect(api.dataTable({ action: "insert_rows" })).rejects.toBeInstanceOf(
+      PermissionDeniedError,
+    );
+    expect(api.isAuthenticated).toBe(true);
+    expect(api.currentUser).not.toBeNull();
+  });
+
+  it("carries the server's refusal message, which is the part that names the capability", async () => {
+    const { api } = await signedIn([
+      { status: 403, body: { error: "error: unauthorized, user do not have required capability" } },
+    ]);
+    const err = await api.dataTable({ action: "drop_table" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermissionDeniedError);
+    expect((err as Error).message).toContain("user do not have required capability");
+  });
+
+  // A refusal is an ApiError, so a caller that catches the base class is unaffected;
+  // and it is *not* a SessionExpiredError, which is what every existing consumer
+  // discriminates on — `WorkspaceIde`'s guard, and agentic_ai's two proposal screens.
+  // Neither needed an edit, and this test is why that claim is checkable.
+  it("makes a refusal an ApiError and not a SessionExpiredError", async () => {
+    const { api } = await signedIn([{ status: 403, body: { error: "no" } }]);
+    const err = await api.dataTable({ action: "x" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermissionDeniedError);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).not.toBeInstanceOf(SessionExpiredError);
+    expect((err as ApiError).status).toBe(403);
+  });
+
+  it("falls back to a readable message when a 403 carries no body", async () => {
+    const { api } = await signedIn([{ status: 403, body: "" }]);
+    await expect(api.dataTable({ action: "x" })).rejects.toThrow(/do not have permission/);
   });
 
   it("refuses to call dataTable without a session", async () => {

@@ -50,8 +50,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 	}
 	userProfile, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	var gitProfile user.GitProfile
@@ -384,7 +383,8 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	}
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 
 	// to package up the result
@@ -588,8 +588,7 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 	}
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 
@@ -696,8 +695,7 @@ func (ctx *DataTableContext) addWorkspaceFile(dataTableAction *DataTableAction, 
 func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	httpStatus = http.StatusOK
@@ -715,8 +713,7 @@ func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, 
 func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	httpStatus = http.StatusOK
@@ -776,7 +773,8 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -809,7 +807,8 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -860,7 +859,8 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -886,7 +886,8 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
@@ -916,7 +917,8 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName

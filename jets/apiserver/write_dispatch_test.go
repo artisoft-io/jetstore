@@ -354,6 +354,19 @@ func TestPurgeDataCapabilityIsSeeded(t *testing.T) {
 // capability gates in this package returning the same two messages, so that a
 // caller cannot tell which endpoint refused it or why beyond the two states the
 // others already reveal.
+//
+// **It asserts the status beside the message as of ui_refresh C.17, and that is a
+// widening rather than a second test.** The two messages already separated "we
+// cannot say who is asking" from "we know and the answer is no"; what they could
+// not do was let a client act on the difference, so every client treated both as a
+// dead session and signed the user out on a capability refusal (I-189). The pairing
+// -- 401 with the first message, 403 with the second -- is what makes that
+// distinction machine-readable.
+//
+// **Asserting the pair is the point.** A test on the wording alone would pass while
+// one endpoint answered 403 and another 401 for the same refusal, which is the
+// oracle this test exists to prevent, arriving through the status line instead of
+// through the body.
 func TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints(t *testing.T) {
 	for _, name := range []string{"api_purgedata.go", "api_filekey.go", "api_infer_server.go", "api_agentic.go"} {
 		src, err := os.ReadFile(name)
@@ -361,13 +374,29 @@ func TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints(t *testing.T) 
 			t.Fatalf("reading %s: %v", name, err)
 		}
 		text := string(src)
-		for _, want := range []string{
-			`errors.New("error: unauthorized, cannot get user info")`,
-			`errors.New("error: unauthorized, user do not have required capability")`,
+		for _, want := range []struct{ status, message string }{
+			{"http.StatusUnauthorized", `errors.New("error: unauthorized, cannot get user info")`},
+			{"http.StatusForbidden", `errors.New("error: unauthorized, user do not have required capability")`},
 		} {
-			if !strings.Contains(text, want) {
-				t.Errorf("%s does not return %s; the three gates in this package are supposed "+
-					"to be byte-identical so they are not an oracle", name, want)
+			if !strings.Contains(text, want.message) {
+				t.Errorf("%s does not return %s; the four gates in this package are supposed "+
+					"to be byte-identical so they are not an oracle", name, want.message)
+				continue
+			}
+			// The refusal is written as ERROR(w, <status>, <message>) across at most
+			// two lines, so the status is the text between the ERROR( and the message.
+			at := strings.Index(text, want.message)
+			head := text[:at]
+			open := strings.LastIndex(head, "ERROR(w, ")
+			if open < 0 {
+				t.Errorf("%s returns %s from something other than ERROR(w, …); this test "+
+					"can no longer read the status it is paired with", name, want.message)
+				continue
+			}
+			if !strings.Contains(head[open:], want.status) {
+				t.Errorf("%s pairs %s with a status other than %s; the four gates must answer "+
+					"the same status for the same refusal, or the status becomes the oracle "+
+					"the message is not (I-189)", name, want.message, want.status)
 			}
 		}
 	}
