@@ -34,6 +34,13 @@ const beginMarker = '===BEGIN FORM FIELD CORPUS===';
 const endMarker = '===END FORM FIELD CORPUS===';
 
 /// Update only together with the fixture. See the README beside it.
+///
+/// **That pairing is enforced as of 2026-08-25**, and was not before:
+/// `jetsclient_ide/src/corpusFixtures.test.ts` hashes the fixture on disk and
+/// asserts it against this constant, so a fixture left behind by a bump here
+/// fails on the React side under `npm test`. It caught nothing when it was
+/// written; it was written because C.0 bumped two of these constants and left
+/// both fixtures stale, and this whole suite stayed green.
 const expectedChecksum = 'fnv1a32:a87baa83';
 
 String buildCorpus() {

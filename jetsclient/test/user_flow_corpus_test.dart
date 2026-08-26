@@ -37,6 +37,13 @@ const beginMarker = '===BEGIN USER FLOW CORPUS===';
 const endMarker = '===END USER FLOW CORPUS===';
 
 /// Update only together with the fixture. See the README beside it.
+///
+/// **That pairing is enforced as of 2026-08-25**, and was not before:
+/// `jetsclient_ide/src/corpusFixtures.test.ts` hashes the fixture on disk and
+/// asserts it against this constant, so a fixture left behind by a bump here
+/// fails on the React side under `npm test`. It caught nothing when it was
+/// written; it was written because C.0 bumped two of these constants and left
+/// both fixtures stale, and this whole suite stayed green.
 const expectedChecksum = 'fnv1a32:1c9be3a3';
 
 /// Every flow the app registers.

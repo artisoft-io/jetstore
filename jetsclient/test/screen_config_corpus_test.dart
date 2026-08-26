@@ -51,6 +51,13 @@ const endMarker = '===END SCREEN CONFIG CORPUS===';
 /// **Update it only together with the React fixture.** A failure here means a
 /// screen's configuration changed; the fix is to regenerate both, never to edit
 /// this number so the test goes green.
+///
+/// **That pairing is enforced as of 2026-08-25**, and was not before:
+/// `jetsclient_ide/src/corpusFixtures.test.ts` hashes the fixture on disk and
+/// asserts it against this constant, so a fixture left behind by a bump here
+/// fails on the React side under `npm test`. It caught nothing when it was
+/// written; it was written because C.0 bumped two of these constants and left
+/// both fixtures stale, and this whole suite stayed green.
 const expectedChecksum = 'fnv1a32:6d100a40';
 
 /// Every table configuration the non-flow registries hold, sorted for a stable
