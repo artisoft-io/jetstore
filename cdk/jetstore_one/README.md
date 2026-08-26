@@ -16,6 +16,7 @@ See `CLAUDE.md` in this directory for build commands and the constraints on edit
 | [`deploy_runbook.md`](doc/deploy_runbook.md) | Preflight, deploy, first deploy of a new stack, and a second stack sharing a VPC |
 | [`stack_outputs.md`](doc/stack_outputs.md) | The fourteen CloudFormation outputs, and which are conditional |
 | [`ingest_data_flow.md`](doc/ingest_data_flow.md) | How a file key travels from an S3 event to a running Step Functions execution |
+| [`deployment_alternative.md`](doc/deployment_alternative.md) | Three ways to arrange DEV/UAT/PROD, what each shares, and what each costs |
 
 ---
 

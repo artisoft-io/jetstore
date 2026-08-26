@@ -46,11 +46,12 @@ Code paths are in `jets/`, not in this directory — the Lambda handler is
 
 ## Step by step
 
-**1 — The S3 notification.** Three notifications are registered on the bucket, all on
-`OBJECT_CREATED` (`build_registerkey_lambdas.go:90`): one on `JETS_s3_INPUT_PREFIX`, one on the
-schema-triggers prefix, and — when `JETS_SENTINEL_FILE_NAME` is set — the input-prefix one carries
-that name as a **suffix** filter as well. The Lambda is invoked directly by S3; there is no queue in
-front of it.
+**1 — The S3 notification.** **Two** notifications are registered on the bucket, both on
+`OBJECT_CREATED` (`build_registerkey_lambdas.go:90`): one on `JETS_s3_INPUT_PREFIX` — carrying
+`JETS_SENTINEL_FILE_NAME` as a **suffix** filter when that is set — and one on the schema-triggers
+prefix. The Lambda is invoked directly by S3; there is no queue in front of it. Both filter the same
+event type, which is why two stacks sharing a bucket need non-overlapping prefixes; see
+[`deployment_alternative.md`](deployment_alternative.md).
 
 **2 — Routing.** `processMessage` URL-unescapes the key, returns immediately for keys ending in `/`,
 and branches on prefix. A key matching neither prefix is logged as *untracked* and dropped.
