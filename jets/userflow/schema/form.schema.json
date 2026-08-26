@@ -536,6 +536,31 @@
             "message"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "message": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "rule": {
+              "const": "extendsKey",
+              "type": "string"
+            }
+          },
+          "required": [
+            "rule",
+            "key",
+            "message"
+          ],
+          "type": "object"
         }
       ],
       "description": "A field-level validation rule"

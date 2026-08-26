@@ -58,7 +58,7 @@
             "over": "userTable",
             "fields": {
               "user_email": {
-                "fromKey": "userTable"
+                "fromKeyAtIndex": "userTable"
               }
             }
           }

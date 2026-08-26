@@ -218,6 +218,8 @@ function translateWhere(where: WhereClause): WhereClauseDocument {
     ...(where.formStateKey ? { formStateKey: where.formStateKey } : {}),
     ...(where.defaultValue.length > 0 ? { defaultValue: where.defaultValue } : {}),
     ...(where.joinWith ? { joinWith: where.joinWith } : {}),
+    // The section prefix of the two Workspace IDE file lists. Task C.3b.
+    ...(where.like ? { like: where.like } : {}),
     // `true` or absent, never `false` — see `WhereClauseSchema`. Task C.9.
     ...(where.lookupColumnInFormState ? { lookupColumnInFormState: true as const } : {}),
     ...(where.orWith ? { orWith: translateWhere(where.orWith) } : {}),
@@ -358,8 +360,9 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // `lookupColumnInFormState` was refused here until C.9 and is in the schema
     // now: one clause in either corpus sets it, and it is the only way
     // `inputRecordsFromProcessErrorTable` can name its key column at all.
+    // `like` was refused here until C.3b and is in the schema now: two clauses in
+    // either corpus set it, and both are the tabs that task draws.
     if (where.predicate) refuse(`where ${where.column}: predicate`);
-    if (where.like) refuse(`where ${where.column}: like`);
     if (where.ge || where.le) refuse(`where ${where.column}: ge/le`);
     if (where.orWith) walkWhere(where.orWith);
   };
@@ -577,6 +580,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     formStateKey: where.formStateKey,
     defaultValue: where.defaultValue ?? [],
     joinWith: where.joinWith,
+    like: where.like,
     lookupColumnInFormState: where.lookupColumnInFormState === true,
     orWith: where.orWith ? restoreWhere(where.orWith) : undefined,
   });

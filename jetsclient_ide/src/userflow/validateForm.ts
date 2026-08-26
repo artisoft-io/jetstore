@@ -66,6 +66,30 @@ export function validateForm(
           break;
         }
       }
+      if (rule.rule === "extendsKey") {
+        // Task C.3b. The prefix is another field's value, which is what makes
+        // this the first rule that reads outside its own field — see
+        // `RuleSchema`.
+        const value = scalar(raw) ?? "";
+        const prefix = scalar(formState.getValue(group, rule.key));
+        if (prefix === null || prefix === "") {
+          // A document defect, not a user error, and it says which key is
+          // empty. Degrading to "no prefix" would turn this rule into
+          // `required` and the form would look validated.
+          errors.push({
+            key: field.key,
+            message: `${rule.message} (no prefix: "${rule.key}" is not set)`,
+            group,
+          });
+          failed = true;
+          break;
+        }
+        if (!value.startsWith(prefix) || value.length <= prefix.length) {
+          errors.push({ key: field.key, message: rule.message, group });
+          failed = true;
+          break;
+        }
+      }
       if (rule.rule === "json") {
         const value = scalar(raw);
         if (value !== null && value !== "") {

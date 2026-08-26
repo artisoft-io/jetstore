@@ -138,22 +138,21 @@ export const viewsNotBuiltInReact: ReadonlySet<string> = new Set<string>();
  * Tables of a declared view that this app does not draw yet, and the task that
  * will.
  *
- * **Two of the eight tables carry an action bar and one of those actions opens a
- * dialog** — `wsDataModelFilesTable` and `wsJetRulesFilesTable` both offer *Add
- * File* (`showDialog`, `configForm: addWorkspaceFileDialog`) and *Delete*
- * (`doAction deleteWorkspaceFiles`, gated on a selected row). The app has no
- * dialog host (**I-68**), and C.2b is building one; these two tabs are **C.3b**,
- * blocked on it.
+ * **Empty as of C.3b, and kept**, on `viewsNotBuiltInReact`'s terms one level
+ * down. It held `wsDataModelFilesTable` and `wsJetRulesFilesTable` for one task:
+ * both carry an action bar whose *Add File* opens a dialog and whose *Delete* is
+ * gated on a selected row, and the app had no dialog host (**I-68**) when C.3
+ * drew the other six tabs.
  *
- * **Named here rather than quietly omitted**, and asserted by
- * `compiledView.test.ts` against the corpus: a view that silently shows three of
- * four tabs is a screen that looks complete. This is `viewsNotBuiltInReact` one
- * level down, for the same reason.
+ * **What it bought is the reason it was a set rather than a comment.** A view
+ * that silently shows three of four tabs is a screen that looks complete — the
+ * tab strip has no gap in it, and nothing in the rendered page says a table is
+ * missing. `compiledView.test.ts` asserted drawn + deferred against the corpus
+ * *in order*, so the omission was checked rather than remembered, and emptying
+ * this constant turned that assertion into a plain equality without a line of it
+ * being rewritten.
  */
-export const TABS_DEFERRED_TO_C3B: Readonly<Record<string, readonly string[]>> = {
-  data_model: ["wsDataModelFilesTable"],
-  jet_rules: ["wsJetRulesFilesTable"],
-};
+export const TABS_DEFERRED_TO_C3B: Readonly<Record<string, readonly string[]>> = {};
 
 /** The document for a section's declared view, or null when this app has none. */
 export function compiledViewFor(compiledView: string | undefined): CompiledViewDocument | null {

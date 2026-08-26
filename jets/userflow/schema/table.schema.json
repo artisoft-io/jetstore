@@ -472,6 +472,10 @@
           "minLength": 1,
           "type": "string"
         },
+        "like": {
+          "minLength": 1,
+          "type": "string"
+        },
         "lookupColumnInFormState": {
           "const": true,
           "type": "boolean"

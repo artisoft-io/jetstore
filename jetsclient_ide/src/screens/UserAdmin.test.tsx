@@ -277,6 +277,38 @@ describe("deleting a user", () => {
     await screen.findByRole("status");
   });
 
+  /**
+   * **The case the one above could not distinguish, and it was wrong until C.3b.**
+   *
+   * The document said `{"fromKey": "userTable"}` inside its `fanOut`, and
+   * `evaluate`'s `fromKey` arm calls `unpack`, which returns element **0** of a
+   * list (`interpret.ts`, `unpack`). So two selected accounts produced two rows
+   * both naming the first — Ada deleted twice and Grace left in place, with a
+   * success notification and a refreshed table saying it had worked.
+   *
+   * **One selected row cannot see it**, which is why the case above passed for as
+   * long as it existed: with a single entry, element 0 *is* the row. The fix is
+   * `fromKeyAtIndex`, the value that exists for exactly this and throws outside a
+   * fan-out. Found at C.3b while writing the same construct for
+   * `deleteWorkspaceFiles`, which is the honest provenance — nothing about this
+   * screen prompted a re-read.
+   */
+  it("sends a distinct row for each of two selected accounts", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    const { posts } = await mount();
+    await selectUser("ada@example.com");
+    await selectUser("grace@example.com");
+    await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
+    fireEvent.click(button("Delete User"));
+
+    await waitFor(() => expect(inserts(posts, "delete/users")).toHaveLength(1));
+    const sent = inserts(posts, "delete/users")[0]!;
+    expect(sent["data"]).toEqual([
+      { user_email: "ada@example.com" },
+      { user_email: "grace@example.com" },
+    ]);
+  });
+
   it("sends nothing when the confirmation is refused", async () => {
     vi.stubGlobal("confirm", vi.fn(() => false));
     const { posts } = await mount();

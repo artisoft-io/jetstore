@@ -222,6 +222,29 @@ export const ServerActionSchema = z
      * `wsfile.SaveClientConfig` is the whole of what it reaches.
      */
     "save_workspace_client_config",
+    /**
+     * Create an empty workspace file, and delete workspace files. Task C.3b —
+     * the *Add File* and *Delete* buttons on the Data Model Files and Jets Rules
+     * Files tabs.
+     *
+     * **Two members for one pair of buttons, and the reasoning above holds
+     * unchanged.** Both are gated by `workspace_ide` in their own handlers —
+     * `AddWorkspaceFile` and `DeleteWorkspaceFile`
+     * (`jets/datatable/workspace_data_table_action.go`), each opening with
+     * `VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"})` —
+     * so a hostile document could not reach either without the running user
+     * already holding the capability. What the allowlist buys is that a button
+     * labelled *Next* cannot quietly delete a rule file.
+     *
+     * **Neither resolves a statement out of `sqlInsertStmts`, so neither takes a
+     * `table`**, which is `save_workspace_client_config`'s shape rather than
+     * `insert_rows`'. Each reads `source_file_name` off every row of `data` and
+     * the workspace off the envelope, and each answers with the recomputed file
+     * tree rather than with rows — see `CompiledView.tsx` for why the screen
+     * refreshes the tree itself rather than reading that answer.
+     */
+    "add_workspace_file",
+    "delete_workspace_files",
   ])
   .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
 

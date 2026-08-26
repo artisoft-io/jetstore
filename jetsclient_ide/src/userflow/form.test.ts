@@ -159,6 +159,87 @@ describe("a dropdown inside a form", () => {
   });
 });
 
+/**
+ * **`extendsKey`, the third rule and the first that reads a second field.** Task
+ * C.3b.
+ *
+ * The Dart it ports is `workspaceIDEFormValidator`'s `wsDbSourceFileName` arm
+ * (`jetsclient/lib/modules/workspace_ide/screen_delegates.dart`,
+ * `workspaceIDEFormValidator`), which has four outcomes and this rule reproduces
+ * three of them: the prefix key is unset, the value does not extend the prefix,
+ * and the value extends it. The fourth — the Dart's separate *"must be entered"*
+ * message for a value shorter than the prefix — is the same failure as the
+ * second, and the Dart's own two messages differ only in wording.
+ */
+describe("the extendsKey rule", () => {
+  const form: Form = FormSchema.parse({
+    title: "Add Workspace File",
+    rows: [
+      [
+        {
+          field: "text",
+          key: "source_file_name",
+          label: "File Name",
+          rules: [
+            {
+              rule: "extendsKey",
+              key: "workspace.section",
+              message: "File name must be entered, preserving the directory prefix.",
+            },
+          ],
+        },
+      ],
+    ],
+    actions: [{ action: "ok", label: "Add File" }],
+  });
+  const message = "File name must be entered, preserving the directory prefix.";
+
+  const check = (prefix: string | undefined, value: string | undefined) => {
+    const formState = new FormState();
+    if (prefix !== undefined) formState.setValue(0, "workspace.section", prefix);
+    if (value !== undefined) formState.setValue(0, "source_file_name", value);
+    return validateForm(form, formState, 0);
+  };
+
+  it("passes a value that extends the prefix", () => {
+    expect(check("data_model/", "data_model/claim.jr")).toEqual([]);
+  });
+
+  it("fails a value that leaves the section", () => {
+    expect(check("data_model/", "jet_rules/claim.jr")).toEqual([
+      { key: "source_file_name", message, group: 0 },
+    ]);
+  });
+
+  it("fails the bare prefix, which is a directory rather than a file", () => {
+    // **The half `startsWith` alone would accept**, and the reason this is one
+    // rule rather than two: the Dart guards its `startsWith` with
+    // `value.characters.length > wsSection.characters.length`.
+    expect(check("data_model/", "data_model/")).toEqual([
+      { key: "source_file_name", message, group: 0 },
+    ]);
+  });
+
+  it("fails an empty value and an untouched field alike", () => {
+    expect(check("data_model/", "")).toEqual([{ key: "source_file_name", message, group: 0 }]);
+    expect(check("data_model/", undefined)).toEqual([
+      { key: "source_file_name", message, group: 0 },
+    ]);
+  });
+
+  it("names the key when the prefix itself is missing, rather than passing", () => {
+    // A document defect, not a user error. Treating an absent prefix as `""`
+    // would degrade this rule into `required` — `"anything"` extends `""` — and
+    // the form would look validated. The Dart says *"Invalid configuration"*
+    // here; this says which key is empty, which is the same information and more
+    // of it.
+    const errors = check(undefined, "somewhere/new.jr");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe(`${message} (no prefix: "workspace.section" is not set)`);
+    expect(check("", "somewhere/new.jr")[0]!.message).toBe(errors[0]!.message);
+  });
+});
+
 describe("query-backed item sources", () => {
   /** `fmMappingFormUF`, reduced to the two fields that take items from a query. */
   const mapping: Form = FormSchema.parse({

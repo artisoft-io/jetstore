@@ -73,6 +73,22 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * `table.ts` had already named as fields the non-flow corpus sets. The list is a
  * seam and it held.
  *
+ * ## The last two, and the last predicted field. Task C.3b
+ *
+ * `wsDataModelFilesTable` and `wsJetRulesFilesTable` cost **one** schema field,
+ * `like`, and `table.ts` had named it — *"the last of the four that track C
+ * brings back — two of its clauses use it"*. Both of those clauses are these two
+ * tables'. So the seam held on the reading that is hardest for it: the field was
+ * named, the count was named, and two entries plus one optional property were the
+ * whole of the translation.
+ *
+ * **What that does not mean is that the tabs were cheap**, and the gap between
+ * the two claims is the useful part. These are the first tables in this list
+ * whose *actions* this app draws — a dialog and a row-gated delete — and none of
+ * that is in the table document. It is a form document, an action document, two
+ * members of `ServerActionSchema` and a third validation rule. **The seam is
+ * about translating a configuration, and a configuration is not a screen.**
+ *
  * ## Two more, and the seam behaved as advertised. Task C.7
  *
  * `pipelineExecDetailsTable` and `cpipesExecDetailsTable` are the tables of
@@ -88,16 +104,28 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * what it actually sets and is discovered at once rather than as a document that
  * silently means less than the Dart.
  *
- * **What "widening the list is the whole of adding a table" understates is the
+ * ~~**What "widening the list is the whole of adding a table" understates is the
  * counters, and there are three.** This file's *40*, `jets/userflow`'s
  * `TestShippingTablesValidate` and `jets/datatable`'s
  * `TestShippingTablesPassTheSaveCheck` each hard-code the directory's size, and
- * all three fail on the next table. **That is deliberate and should stay**: the
- * two sides emit and validate independently, so a literal on each is the only
- * assertion that catches a document emitted and not committed, or committed and
- * not emitted. But it makes the true cost *one entry, three counters, and
- * whatever the configuration sets that the schema dropped* — worth knowing
- * before the remaining 25 rather than after the first of them.
+ * all three fail on the next table.~~ **Two, and the third was collapsed by C.4 —
+ * corrected 2026-08-26 at C.3b.** `TestShippingTablesPassTheSaveCheck` asserts a
+ * *lower bound* now, because what it is really testing is `validatorFor`'s
+ * dispatch and it had cost two branches a spurious failure. So the counters are
+ * this file's two literals and `jets/userflow`'s one.
+ *
+ * **That the note said three is worth more than the correction.** It was written
+ * as a warning about a cost, and the cost went down without the warning noticing —
+ * a paragraph naming a number in another package ages the moment that package
+ * changes, and nothing here reads it. The exact count still belongs in
+ * `jets/userflow`, where the documents are *named*; the reason it belongs there
+ * rather than in both is the one C.4 wrote into the test it collapsed.
+ *
+ * **That is deliberate and should stay**: the two sides emit and validate
+ * independently, so a literal on each side is the only assertion that catches a
+ * document emitted and not committed, or committed and not emitted. But it makes
+ * the true cost *one entry, two counters, and whatever the configuration sets
+ * that the schema dropped*.
  */
 const screenTables = (screenCorpus as { tables: Record<string, unknown> }).tables as Record<
   string,
@@ -124,6 +152,8 @@ const NON_FLOW_KEYS = [
   "wsJetRulesTable",
   "wsRuleTermsTable",
   "wsMainSupportFilesTable",
+  "wsDataModelFilesTable",
+  "wsJetRulesFilesTable",
 ] as const;
 
 /**
@@ -205,7 +235,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 61 configurations committed beside it, for the Go check", () => {
+  it("has the 63 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -259,15 +289,15 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the twenty-four non-flow tables so far make 61", () => {
+  it("all translate, and the twenty-six non-flow tables so far make 63", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
-    // five + C.13's two + C.10's one + C.3's six + C.3a's two, of which four are authored rather than translated. The three counts are asserted separately because
+    // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two, of which four are authored rather than translated. The three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(57);
+    expect(Object.keys(translated).length).toBe(59);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(documents).length).toBe(61);
+    expect(Object.keys(documents).length).toBe(63);
   });
 
   it("all validate against the schema", () => {

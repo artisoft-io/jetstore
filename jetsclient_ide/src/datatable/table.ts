@@ -485,8 +485,12 @@ export const ModelSourceSchema = z
  *
  * ~~**`lookupColumnInFormState` is not here**: `false` on all 49.~~ It is here as
  * of C.9 — one clause in either corpus sets it. **`predicate`, `ge` and `le` are
- * not here**: never set by a flow. `like` is not here either, and is the last of
- * the four that track C brings back — two of its clauses use it.
+ * not here**: never set by a flow. ~~`like` is not here either, and is the last of
+ * the four that track C brings back — two of its clauses use it.~~ **It is here as of
+ * C.3b**, and the two clauses are that task's own — `wsDataModelFilesTable` and
+ * `wsJetRulesFilesTable` are the tabs whose rows are the section's files, and a
+ * prefix match is how each one selects its section out of one `workspace_control`
+ * table.
  */
 export interface WhereClauseDocument {
   column?: string;
@@ -494,6 +498,7 @@ export interface WhereClauseDocument {
   formStateKey?: string;
   defaultValue?: string[];
   joinWith?: string;
+  like?: string;
   lookupColumnInFormState?: true;
   orWith?: WhereClauseDocument;
 }
@@ -527,6 +532,26 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
     defaultValue: z.array(z.string()).min(1).optional(),
     /** `source_period.key` and seven others — a qualified column, not a key. */
     joinWith: z.string().min(1).optional(),
+    /**
+     * A `LIKE` pattern, matched against `column`. Task C.3b.
+     *
+     * **Two clauses in either corpus and both are one task's**, which is why this
+     * was the last of the four the header above predicted: `wsDataModelFilesTable`
+     * and `wsJetRulesFilesTable` are the file lists of the Data Model and Jets
+     * Rules sections, and both read the *same* `workspace_control` table. The
+     * prefix — `data_model/%`, `jet_rules/%` — is the whole of what separates
+     * them, because a workspace file's section is its directory.
+     *
+     * **The pattern is the document's, not the user's**, and that is the reason
+     * it can be a plain string. `makeWhereClause` (`datatable/query.ts`, the
+     * `wc.like` branch) puts it on the request envelope, and `buildWhereClause`
+     * (`jets/datatable/data_table_action.go`, the `len(wc.Like) > 0` case) binds
+     * it as a parameter rather than interpolating it — so a `%` in a document is
+     * a wildcard and nothing in it reaches SQL as text. A clause whose pattern
+     * came from form state would be a different field and is not one the corpus
+     * has.
+     */
+    like: z.string().min(1).optional(),
     /**
      * `column` is not a column name: it is a form-state key holding one. Task C.9.
      *
