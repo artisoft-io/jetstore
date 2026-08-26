@@ -174,7 +174,7 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	// start, while it still has root, before dropping privileges to run ollama.
 
 	// -----------------------------------------------------------------------
-	// Auto Scaling Group  (min=0, max=1, single AZ matching the EBS volume)
+	// Auto Scaling Group  (min=0, max=2, single AZ matching the EBS volume)
 	// -----------------------------------------------------------------------
 	// The ASG is built from the launch template above. The launch template is how the
 	// AMI, instance type, security group, role, block devices and user data are wired

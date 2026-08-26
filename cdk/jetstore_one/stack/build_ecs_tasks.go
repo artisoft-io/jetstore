@@ -184,8 +184,18 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogGroup:     cpipesContainerLogGroup,
 		}),
-		// TODO MAKE IT READ ONLY
-		// ReadonlyRootFilesystem: jsii.Bool(true),
+		// Everything this container writes lands on the tmp-volume mounted at JETS_TEMP_DATA
+		// below: TMPDIR and WORKSPACES_HOME are both under it (dockerfiles/Dockerfile.cpipes_ws),
+		// cbooter copies WORKSPACES_REPO there and chowns it to jsuser while it is still root,
+		// and the C++ engine's only filesystem access is sqlite3_open on the databases under
+		// WORKSPACES_HOME (jets/rete/lookup_sql_helper.h:421).
+		//
+		// This shipped read-only in every release from 3.0.0.rc1 to 3.2.0, with libjets.so in the
+		// image and cpipes_native_server as the entrypoint. It was switched off by 1c4430ff, an
+		// infer server commit, during bring-up; 8e57161a restored it on the infer container the
+		// next day and missed this one, leaving behind a TODO that reads as a constraint.
+		// To debug, mount a volume rather than switching this off.
+		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
 	jsComp.CpipesContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),

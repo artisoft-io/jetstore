@@ -32,7 +32,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 		ContainerName:  jsii.String("inferServiceContainer"),
 		Essential:      jsii.Bool(true),
 		EntryPoint:     jsii.Strings("cbooter", "infer_server"),
-		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12 GB
+		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 51 GB, see InferMemLimitMB
 		// Reserve one GPU for this container. ECS matches this against the GPU inventory the
 		// container agent reads from /var/lib/ecs/gpu/nvidia-gpu-info.json on the GPU-optimized
 		// AMI, then injects the devices via the nvidia runtime. Without it the task is placed

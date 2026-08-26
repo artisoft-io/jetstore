@@ -18,17 +18,17 @@ import (
 
 // functions to build the cpipes state machine
 func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	jsComp.CpipesSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesSM", "")
+	jsComp.CpipesSM = jsComp.buildCpipesSMInternal(stack, props, jsComp.CpipesNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesSM", "")
 }
 
 func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesNativeSM", "Native")
+	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props, jsComp.CpipesNativeNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesNativeSM", "Native")
 }
 
 // internal function to build the cpipes state machine
 // Expecting tag to be empty or Native.
-func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack, props *JetstoreOneStackProps, 
-	cpipesNodeFunction awslambda.IFunction, cpipesTaskDefinition awsecs.FargateTaskDefinition, cpipesContainerDef awsecs.ContainerDefinition, 
+func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack, props *JetstoreOneStackProps,
+	cpipesNodeFunction awslambda.IFunction, cpipesTaskDefinition awsecs.FargateTaskDefinition, cpipesContainerDef awsecs.ContainerDefinition,
 	stateMachineName string, tag string) (cpipesSM sfn.StateMachine) {
 
 	// ----------------
@@ -53,12 +53,12 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	suffix := tag + "LambdaTask"
 	sfx := ""
 	if len(tag) > 0 {
-		sfx = "-"+tag[:1]
+		sfx = "-" + tag[:1]
 	}
 
 	// 1) Start Sharding Task
 	// ----------------------
-	runStartSharingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartSharding" + suffix), &sfntask.LambdaInvokeProps{
+	runStartSharingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartSharding"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to start sharding input data"),
 		LambdaFunction:           jsComp.CpipesStartShardingLambda,
 		InputPath:                jsii.String("$.startSharding"),
@@ -68,7 +68,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 
 	// 2) Sharding Map Task
 	// ----------------------
-	runSharingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunShardingNode" + suffix), &sfntask.LambdaInvokeProps{
+	runSharingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunShardingNode"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to shard input data"),
 		LambdaFunction:           cpipesNodeFunction,
 		InputPath:                jsii.String("$"),
@@ -97,7 +97,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 
 	// 3) Start Reducing Task
 	// ----------------------
-	runStartReducingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartReducing" + suffix), &sfntask.LambdaInvokeProps{
+	runStartReducingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartReducing"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to start reducing the sharded data"),
 		LambdaFunction:           jsComp.CpipesStartReducingLambda,
 		InputPath:                jsii.String("$.startReducing"),
@@ -108,7 +108,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	// 4) Reducing Map Task
 	// ----------------------
 	// Lambda Option
-	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNode" + suffix), &sfntask.LambdaInvokeProps{
+	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNode"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to reduce the sharded data"),
 		LambdaFunction:           cpipesNodeFunction,
 		InputPath:                jsii.String("$"),
@@ -172,7 +172,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	if jsComp.CpipesRunReportsLambda != nil {
 		lambdaFnc = jsComp.CpipesRunReportsLambda
 	}
-	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReports" + suffix), &sfntask.LambdaInvokeProps{
+	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReports"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to run reports for cpipes task"),
 		LambdaFunction:           lambdaFnc,
 		InputPath:                jsii.String("$.reportsCommand"),
@@ -182,14 +182,14 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 
 	//	6) status update tasks
 	// ----------------------
-	runErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunErrorStatus" + suffix), &sfntask.LambdaInvokeProps{
+	runErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunErrorStatus"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to update cpipes status to failed"),
 		LambdaFunction:           jsComp.StatusUpdateLambda,
 		InputPath:                jsii.String("$.errorUpdate"),
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
 	})
-	runSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunSuccessStatus" + suffix), &sfntask.LambdaInvokeProps{
+	runSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunSuccessStatus"+suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to update cpipes status to success"),
 		LambdaFunction:           jsComp.StatusUpdateLambda,
 		InputPath:                jsii.String("$.successUpdate"),

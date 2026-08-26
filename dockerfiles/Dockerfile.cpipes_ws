@@ -23,6 +23,13 @@ ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 
 ENV JETS_TEMP_DATA=/jetsdata
 ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+# SQLite's temp-file search does not stop at TMPDIR: it is sqlite3_temp_directory, then
+# SQLITE_TMPDIR, then TMPDIR, then the hardcoded /var/tmp, /usr/tmp and /tmp. Those last
+# three are unwritable under the read-only root filesystem the cpipes task runs with
+# (cdk/jetstore_one/stack/build_ecs_tasks.go). The TMPDIR above already resolves first, so
+# this is belt and braces -- it keeps the fallback list from being reached at all if TMPDIR
+# is ever changed or unset.
+ENV SQLITE_TMPDIR=${TMPDIR}
 ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
 
 # Set the working directory
