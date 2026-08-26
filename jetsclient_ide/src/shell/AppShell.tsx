@@ -149,9 +149,21 @@ function ShellChrome({ api, nav }: AppShellProps) {
 
         <div className="spacer" />
 
-        <span className="user" title={user.email}>
+        {/*
+          The user's name is the way to the git profile screen, which is where
+          the Flutter app bar puts it: an `ElevatedButton` labelled with the
+          user's name that navigates to `userGitProfilePath`
+          (`jetsclient/lib/components/app_bar.dart`). Task C.14 — it is a link
+          rather than a nav item because no menu names that screen, in either
+          app.
+        */}
+        <NavLink
+          to="/git-profile"
+          className={({ isActive }) => `user${isActive ? " is-active" : ""}`}
+          title={`${user.email} — edit git profile`}
+        >
           {user.name || user.email}
-        </span>
+        </NavLink>
         <button
           type="button"
           className="btn"
