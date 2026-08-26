@@ -1829,7 +1829,7 @@
       "apiPath": "/dataTable",
       "apiAction": "read",
       "isCheckboxVisible": true,
-      "isCheckboxSingleSelect": false,
+      "isCheckboxSingleSelect": true,
       "isReadOnly": false,
       "showSelectedOnly": false,
       "actions": [

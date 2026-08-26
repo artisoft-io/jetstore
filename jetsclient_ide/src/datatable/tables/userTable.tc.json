@@ -33,6 +33,7 @@
   "sortAscending": true,
   "rowsPerPage": 10,
   "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
   "formStateBinding": {
     "keyColumnIdx": 1,
     "otherColumns": [

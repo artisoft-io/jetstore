@@ -58,7 +58,7 @@ const endMarker = '===END SCREEN CONFIG CORPUS===';
 /// fails on the React side under `npm test`. It caught nothing when it was
 /// written; it was written because C.0 bumped two of these constants and left
 /// both fixtures stale, and this whole suite stayed green.
-const expectedChecksum = 'fnv1a32:b5e4a1b5';
+const expectedChecksum = 'fnv1a32:a68d6288';
 
 /// Every table configuration the non-flow registries hold, sorted for a stable
 /// diff.
