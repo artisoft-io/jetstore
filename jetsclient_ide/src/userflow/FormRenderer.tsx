@@ -44,11 +44,10 @@
 
 import type { ReactNode } from "react";
 
-import { ActionBar } from "../datatable/ActionBar";
-import { DataTable } from "../datatable/DataTable";
 import type { FormState } from "../datatable/formState";
 import type { ActionRequest } from "../datatable/actionDispatch";
-import { useTableBinding, type UseTableBindingOptions } from "../datatable/useTableBinding";
+import { TableView } from "../datatable/TableView";
+import type { UseTableBindingOptions } from "../datatable/useTableBinding";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { ActionButton } from "../shell/capabilities";
@@ -209,6 +208,30 @@ function FormGroup({
   );
 }
 
+/**
+ * Whether a field is read-only right now. Task C.2b.
+ *
+ * The literal `isReadOnly` **or** a resolved `isReadOnlyFrom` predicate. No field
+ * in either corpus sets both, and `or` is the composition that makes adding the
+ * second harmless to the first.
+ *
+ * **An unresolved name leaves the field read-only.** `FlowStore.load` refuses a
+ * document set naming a predicate the build does not have, so a screen reaching
+ * here with one has bypassed that check — and the safe answer to "I cannot tell
+ * whether this is protected" is to protect it. That is `actionBarModel.ts`'s rule
+ * for a missing predicate on the other surface.
+ */
+function readOnly(
+  field: { isReadOnly?: boolean; isReadOnlyFrom?: string },
+  host: FormHost,
+): boolean {
+  if (field.isReadOnly === true) return true;
+  if (field.isReadOnlyFrom === undefined) return false;
+  const predicate = host.predicates[field.isReadOnlyFrom];
+  if (predicate === undefined) return true;
+  return predicate(host.formState, host.group);
+}
+
 function FieldView({
   field,
   host,
@@ -242,7 +265,7 @@ function FieldView({
           {...(field.maxLines !== undefined ? { maxLines: field.maxLines } : {})}
           {...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {})}
           {...(field.autofocus !== undefined ? { autofocus: field.autofocus } : {})}
-          {...(field.isReadOnly !== undefined ? { isReadOnly: field.isReadOnly } : {})}
+          {...(readOnly(field, host) ? { isReadOnly: true } : {})}
           {...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {})}
           {...(field.textRestriction !== undefined ? { textRestriction: field.textRestriction } : {})}
           {...(error !== undefined ? { error } : {})}
@@ -263,7 +286,7 @@ function FieldView({
           items={[...field.items, ...fetched]}
           loading={field.itemsFrom !== undefined && host.queriesLoading}
           {...(field.defaultItemPos !== undefined ? { defaultItemPos: field.defaultItemPos } : {})}
-          {...(field.isReadOnly !== undefined ? { isReadOnly: field.isReadOnly } : {})}
+          {...(readOnly(field, host) ? { isReadOnly: true } : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );
@@ -346,64 +369,17 @@ function FormDataTable({
   host: FormHost;
   error?: string;
 }): ReactNode {
-  const config = host.tableConfig(tableKey);
-  const binding = useTableBinding({
-    config,
-    field: { group: host.group, key: fieldKey },
-    formState: host.formState,
-    fetcher: host.fetcher,
-    ...(host.tableContext ? { context: host.tableContext } : {}),
-  });
-
-  const selectedIndex = binding.selection.findIndex(Boolean);
-  const selectedRow = selectedIndex === -1 ? undefined : binding.rows[selectedIndex];
-  const selectedRowCount = binding.selection.filter(Boolean).length;
-
   return (
     <div className="uf-form__table">
-      <DataTable
-        config={config}
-        state={binding}
-        modes={binding.modes}
+      <TableView
+        config={host.tableConfig(tableKey)}
+        field={{ group: host.group, key: fieldKey }}
+        formState={host.formState}
+        fetcher={host.fetcher}
+        {...(host.tableContext ? { context: host.tableContext } : {})}
+        predicates={host.predicates}
         cellFilters={host.cellFilters(tableKey)}
-        actions={
-          <>
-            <ActionBar
-              actions={config.actions}
-              context={{
-                selectedRowCount,
-                checkboxVisible: binding.modes.checkboxVisible,
-                // `blocked` is `hasBlockingFilter`, which is this predicate
-                // inverted — A.4c's answer reused rather than recomputed.
-                whereClauseSatisfied: !binding.blocked,
-                formState: host.formState,
-                predicates: host.predicates,
-              }}
-              {...(selectedRow !== undefined ? { selectedRow } : {})}
-              onAction={host.onTableAction}
-            />
-            {/* **The second row, F.5.** `ActionBar` renders nothing for an empty
-                list, so this costs one element on the 37 flow tables and draws
-                five buttons on `pipelineExecStatusTable` — including the only
-                two cross-document references that table has. Two bars rather
-                than one concatenated list because the Dart draws two
-                (`components/data_table.dart`), and because concatenating would
-                make a `secondRowActions` index unreachable from a finding
-                pointer that names the row. */}
-            <ActionBar
-              actions={config.secondRowActions}
-              context={{
-                selectedRowCount,
-                checkboxVisible: binding.modes.checkboxVisible,
-                whereClauseSatisfied: !binding.blocked,
-                formState: host.formState,
-                predicates: host.predicates,
-              }}
-              {...(selectedRow !== undefined ? { selectedRow } : {})}
-              onAction={host.onTableAction}
-            />
-          </>
-        }
+        onAction={host.onTableAction}
       />
       {error !== undefined && (
         <p className="field-error" role="alert">
@@ -414,7 +390,6 @@ function FormDataTable({
   );
 }
 
-/** Form state holds `string | string[]`; a label shows the first. */
 function asText(raw: unknown): string | null {
   if (typeof raw === "string") return raw;
   if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "string") return raw[0];

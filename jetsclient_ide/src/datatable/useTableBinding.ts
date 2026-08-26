@@ -26,7 +26,7 @@ import type { FormState } from "./formState";
 import { keepSelectedRows } from "./model";
 import { refreshTable, useTableModes, type TableModes } from "./modes";
 import { useDataTable, type DataTableFetcher, type DataTableState } from "./useDataTable";
-import type { QueryContext, TableConfig } from "./types";
+import type { JetsRow, QueryContext, TableConfig } from "./types";
 
 export interface UseTableBindingOptions {
   config: TableConfig;
@@ -133,13 +133,36 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
   // Restore the selection from the form whenever the page of rows changes. This
   // is `updateTableFromFormState`, and it is what makes a selection survive
   // paging away and back — the rows are retained in form state, not in the page.
-  const rowsKey = state.rows.length === 0 ? "" : JSON.stringify(state.rows);
-  const restoredFor = useRef("");
+  //
+  // **Keyed on the rows array's identity, and it was keyed on its JSON. Task
+  // C.2b, and the change is a defect fix rather than an optimisation** — though
+  // it is also that, since the old key serialised up to 200 rows on every render.
+  //
+  // The sequence that broke: publishing a selection calls `notifyListeners`, the
+  // subscription below bumps `formVersion`, `queryContext` is rebuilt, and
+  // `useDataTable` refetches. The reply is a *fresh array of identical rows*, and
+  // `setSelection(emptySelection(...))` clears the selection with it
+  // (`useDataTable.ts`, the fetch's success arm). A content key is equal across
+  // that, so the restore was skipped and the selection was gone — **selecting a
+  // row unselected it.**
+  //
+  // **Nothing caught it because nothing had ever needed the selection to survive
+  // in the widget.** A flow's form reads the selection out of *form state*, where
+  // it is still correct, so `loadFilesUF` carries it into the next state and its
+  // test passes. What needs the widget's own selection is a button gated on the
+  // selected row — `enableWhen`, which no flow table has and which
+  // `workspaceRegistryTable` puts on eight of thirteen buttons. So the symptom is
+  // a screen where every row-gated button stays dead. **I-185**, and it is I-104's
+  // shape a fourth time: a contract tested from the end that could not fail.
+  //
+  // Identity is the right key because it changes exactly once per fetch and is
+  // stable across every re-render in between, which is what the guard is for.
+  const restoredFor = useRef<JetsRow[] | null>(null);
   useEffect(() => {
     const fsc = config.formStateConfig;
     if (!fsc || state.rows.length === 0) return;
-    if (restoredFor.current === rowsKey) return;
-    restoredFor.current = rowsKey;
+    if (restoredFor.current === state.rows) return;
+    restoredFor.current = state.rows;
 
     const restored = restoreSelection(formState, field, fsc, state.rows);
     restored.forEach((isSelected, index) => {
@@ -151,7 +174,7 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
       keepSelectedRows(state.rows, restored);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowsKey]);
+  }, [state.rows]);
 
   // Watch the form for the keys this table's filters depend on.
   useEffect(() => {
@@ -162,7 +185,7 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
 
       // `_refreshTable`, shared with the action button rather than open-coded
       // here — which is how this path came to omit the page-size reset (A.5).
-      restoredFor.current = "";
+      restoredFor.current = null;
       doRefresh();
     });
     return unsubscribe;
@@ -175,7 +198,7 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
   );
 
   const refresh = useCallback(() => {
-    restoredFor.current = "";
+    restoredFor.current = null;
     doRefresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doRefresh]);

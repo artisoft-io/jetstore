@@ -56,6 +56,7 @@ import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
 import { resolveQuery } from "../userflow/formQueries";
@@ -126,6 +127,21 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   // a per-state store would lose them at every transition.
   const formState = useMemo(() => new FormState(), [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
+  /**
+   * The dialog host. **I-68, paid by C.2b's screen and wired here in the same
+   * change** — leaving the report in place while the host existed would have had
+   * the app telling a user something that had stopped being true.
+   *
+   * The five table actions of kind `showDialog` or `doActionShowDialog` are still
+   * on no proof flow's tables, which is what let F.0a meet them and not need them.
+   * So this path has no shipping consumer today and is wired anyway: the cost of
+   * an unexercised branch is small, and the cost of a button that reports a
+   * missing feature after the feature lands is a user who stops trusting the
+   * message.
+   */
+  const dialog = useFormDialog();
+  /** See `WorkspaceRegistry.tsx` — `runAction` cannot say why it stopped (I-186). */
+  const haltedByUser = useRef(false);
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
 
@@ -234,7 +250,30 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   // Declared after `currentForm` because they are the *current* form's, and a
   // transition changes the set: `FlowStore` loads every form of the flow, and
   // only the one on screen has a reason to be querying.
-  const queries = useFormQueries(currentForm, formState, queryPost);
+  /** The form a dialog is showing, or null. */
+  const dialogForm =
+    dialog.request === null || loaded === null
+      ? null
+      : (loaded.flow.forms.forms[dialog.request.form] ?? null);
+
+  /**
+   * The named queries of whichever form is *on top*. Task C.2b.
+   *
+   * A dialog's form has its own `queries`, and running the state's instead would
+   * leave a query-backed dropdown in a dialog silently empty — the failure this
+   * app refuses everywhere else. `dialogForm` is declared below and is null
+   * whenever no dialog is open, which is every frame of the eleven shipping flows:
+   * none of their tables carries a `showDialog` action, which is why F.0a met the
+   * two kinds and did not need them.
+   *
+   * **What is *not* switched is `formValid`.** It stays the state's form's, so a
+   * dialog button with `enableOnlyWhenFormValid` would read the wrong form. No
+   * configuration in either corpus does that — the five dialog-opening table
+   * actions name forms whose buttons gate on `capability` alone — and inventing
+   * the plumbing for it here would be building against nothing. Named rather than
+   * left to be found.
+   */
+  const queries = useFormQueries(dialogForm ?? currentForm, formState, queryPost);
 
   /** The form's named validator, resolved. Undefined for a form naming none. */
   const validator = useMemo((): FormValidatorContext | undefined => {
@@ -361,9 +400,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         if (currentForm === null) return true;
         const found = validateAllGroups(currentForm, formState, GROUP, validator);
         setErrors(found);
+        if (found.length > 0) haltedByUser.current = true;
         return found.length === 0;
       },
-      confirm: async (message: string) => window.confirm(message),
+      confirm: async (message: string) => {
+        const agreed = window.confirm(message);
+        if (!agreed) haltedByUser.current = true;
+        return agreed;
+      },
       post: async (request): Promise<PostResult> => {
         try {
           // The endpoint is the document's, from the two `EndpointSchema` allows;
@@ -429,6 +473,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 
   const runNamedAction = useCallback(
     async (name: string): Promise<string | null> => {
+      haltedByUser.current = false;
       const action = loaded?.flow.actions.actions[name];
       if (action === undefined) {
         // `validateDocumentSet` refuses this at load, so reaching it means a
@@ -488,6 +533,33 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     [loaded, position, formState, host, exit, runNamedAction, setError],
   );
 
+  /**
+   * Opens a `configForm` a table action named, and waits for it. Task C.2b.
+   *
+   * The document is `loaded.flow.forms.forms[key]` — `FlowStore` loads every form
+   * of the flow, not only the ones its states name, so a dialog's form is already
+   * in hand and this needs no fetch. A `configForm` that is *not* there is a
+   * document-set error `validateDocumentSet` should have caught, so it reports
+   * rather than opening an empty modal.
+   */
+  const openFlowDialog = useCallback(
+    async (form: string, params: Record<string, string>) => {
+      if (loaded === null) return;
+      if (loaded.flow.forms.forms[form] === undefined) {
+        setError(`this flow has no form named "${form}" — its document set is inconsistent`);
+        return;
+      }
+      for (const [name, value] of Object.entries(params)) formState.setValue(GROUP, name, value);
+      formState.notifyListeners();
+      setErrors([]);
+      // Not busy while a modal waits on the user; see `WorkspaceRegistry.tsx`.
+      setBusy(false);
+      const outcome = await dialog.open({ form, params });
+      if (outcome === "ok") formState.requestRefresh();
+    },
+    [dialog, formState, loaded, setError],
+  );
+
   const onTableAction = useCallback(
     (request: ActionRequest, action: ActionConfig) => {
       switch (request.kind) {
@@ -524,17 +596,60 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         }
         case "openDialog":
+          // **I-68's debt, paid by C.2b.** The host is
+          // `userflow/FormDialog.tsx`; what a flow supplies that a screen does
+          // not is the form *document*, which is already loaded — `FlowStore`
+          // reads every form of the flow, so a `configForm` a table names is in
+          // `loaded.flow.forms` beside the ones its states name.
+          void openFlowDialog(request.form, request.params);
+          return;
         case "runActionThenDialog":
-          setError(
-            `"${action.label}" opens a dialog, and this app has no dialog host yet — see I-68`,
-          );
+          void (async () => {
+            const outcome = await runNamedAction(request.name);
+            if (outcome !== null) {
+              setError(outcome);
+              return;
+            }
+            await openFlowDialog(request.form, request.params);
+          })();
           return;
       }
     },
-    [press, formState, loaded, setError, host],
+    [press, formState, loaded, setError, host, openFlowDialog],
   );
 
-  const onFormAction = useCallback((action: FormAction) => void press(action.action), [press]);
+  /**
+   * A form button, from the flow's own form or from a dialog over it.
+   *
+   * The two are told apart by which form is on screen rather than by the button:
+   * a dialog's Cancel is the dialog's, and everything else runs through `press`,
+   * which is what the flow's own buttons do. `dialogForm` is non-null only while
+   * a dialog is open.
+   */
+  const onFormAction = useCallback(
+    (action: FormAction) => {
+      if (dialog.request === null) {
+        void press(action.action);
+        return;
+      }
+      if (isDialogCancel(action)) {
+        dialog.close("cancel");
+        return;
+      }
+      void (async () => {
+        const outcome = await runNamedAction(action.action);
+        if (outcome !== null) {
+          setError(outcome);
+          dialog.close("failed");
+          return;
+        }
+        if (haltedByUser.current) return;
+        dialog.close("ok");
+      })();
+    },
+    [dialog, press, runNamedAction, setError],
+  );
+
 
   /**
    * The filters every table on the form is queried with. Task F.5.
@@ -590,6 +705,30 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         <h1>{key}</h1>
         <p className="uf-runner__state">{state.description}</p>
       </header>
+
+      {dialogForm !== null && (
+        <FormDialog
+          form={dialogForm}
+          errors={errors}
+          onDismiss={() => dialog.close("cancel")}
+          host={{
+            formState,
+            group: GROUP,
+            queryRows: queries.rows,
+            queriesLoading: queries.loading,
+            groupCount: 1,
+            tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
+            fetcher,
+            tableContext,
+            predicates: productionRegistry.predicates,
+            cellFilters: (tableKey) => cellFiltersFor(loaded.flow, tableKey),
+            onTableAction,
+            onFormAction,
+            formValid,
+            busy,
+          }}
+        />
+      )}
 
       <FormRenderer
         // **Remount on every transition, deliberately.** Two states' forms are

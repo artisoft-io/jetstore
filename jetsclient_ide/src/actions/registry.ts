@@ -80,6 +80,7 @@ import {
   saveSourceConfigForFileType,
   sourceConfigFormValidator,
 } from "./sourceConfig";
+import { openWorkspace } from "./workspaceRegistry";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -155,6 +156,73 @@ export const fileKeyLabel = (value: string | null): string | null => {
 export const hasDataRegistryFilters = (_formState: FormState, _group: number): boolean => false;
 
 /**
+ * The deployment's active workspace, once the screen that needs it has asked.
+ *
+ * The Flutter app keeps this in three top-level variables set from the
+ * `get_workspace_uri` response at sign-in
+ * (`jetsclient/lib/utils/constants.dart`, `globalWorkspaceUri`; written at
+ * `jetsclient/lib/modules/actions/user_delegates.dart:107`). This app has no
+ * sign-in bootstrap — the same gap `setFileKeyLabelPattern` above records — so
+ * the screens that care fetch it themselves and set it here. `WorkspaceApi`'s
+ * `activeWorkspace()` returns all three in one call, which is the same response
+ * the Dart reads.
+ *
+ * **Empty is the honest default and it is also the permissive one, which is why
+ * the predicates below are written the way they are.** A screen that has not
+ * fetched yet must not report *this is the active workspace* about a row it knows
+ * nothing about.
+ */
+let activeWorkspace: { name: string; branch: string; uri: string } = { name: "", branch: "", uri: "" };
+
+/** Records the deployment's workspace. Task C.2b. */
+export function setActiveWorkspace(next: { name: string; branch: string; uri: string }): void {
+  activeWorkspace = next;
+}
+
+/**
+ * Whether the row being edited is the workspace this apiserver is running.
+ *
+ * `addWorkspace`'s name and branch fields are read-only when it is
+ * (`jetsclient/lib/modules/workspace_ide/form_config.dart`, the `isReadOnlyEval`
+ * on `FSK.wsName` and `FSK.wsBranch`) — **both fields share one closure body**,
+ * which is why one name serves two sites. Renaming the workspace the deployment
+ * is pointed at would leave the server looking for a directory that no longer
+ * exists, so this is a safety gate rather than a convenience.
+ *
+ * Both halves must match, and both must be non-empty: the Dart's `b != null && w
+ * != null` guard means a form with nothing typed yet is editable, and an unset
+ * `activeWorkspace` must not make every row look active.
+ */
+export const isActiveWorkspace = (formState: FormState, group: number): boolean => {
+  if (activeWorkspace.name === "" || activeWorkspace.branch === "") return false;
+  const name = scalar(formState.getValue(group, "workspace_name"));
+  const branch = scalar(formState.getValue(group, "workspace_branch"));
+  return name === activeWorkspace.name && branch === activeWorkspace.branch;
+};
+
+/**
+ * Whether the deployment configures a workspace uri.
+ *
+ * `globalWorkspaceUri.isNotEmpty`, and **two fields share it** — `addWorkspace`'s
+ * uri and `doGitStatusWorkspaceDialog`'s command. That the second is a *git
+ * command* box gated on the same fact is not obvious and is the Dart's: when the
+ * server has a uri of its own, the status command is fixed at `git status` and
+ * the user may not substitute one.
+ *
+ * So the four `isReadOnlyEval` sites in either corpus are two bodies, which is
+ * I-54's finding on a third surface.
+ */
+export const hasWorkspaceUri = (_formState: FormState, _group: number): boolean =>
+  activeWorkspace.uri !== "";
+
+/** A form-state value as a scalar; a selection arrives as a one-element array. */
+const scalar = (value: unknown): string | null => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return null;
+};
+
+/**
  * The registry the application runs with.
  *
  * **Every namespace has an entry as of F.5**, and the last two to fill were the
@@ -197,11 +265,26 @@ export const productionRegistry: EscapeRegistry = {
     // agentic_ai's, per the arrangement in this file's header. The body is in
     // `src/cpipes/`; this line is the whole of the wiring (their U.3).
     cpipesTemplateApply,
+    // **The first escape a non-flow screen registers.** C.2b's, and it is an
+    // escape for the third reason the header lists rather than either of the
+    // first two: the grammar could express what the Dart does, and its
+    // destination screen does not exist yet. See `workspaceRegistry.ts`.
+    openWorkspace,
   },
   initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },
   validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
   cellFilters: { fileKeyLabel },
-  predicates: { hasDataRegistryFilters, hasHomeFilters, alwaysEnabled },
+  // **Five as of C.2b, and the two it adds are read by a *form field* rather than
+  // by a table action.** `isReadOnlyFrom` resolves out of this namespace because
+  // the signature is the same `(formState, group) => boolean`; a second namespace
+  // holding functions of one type would be a distinction nothing draws.
+  predicates: {
+    hasDataRegistryFilters,
+    hasHomeFilters,
+    alwaysEnabled,
+    isActiveWorkspace,
+    hasWorkspaceUri,
+  },
   queries: productionQueries,
 };

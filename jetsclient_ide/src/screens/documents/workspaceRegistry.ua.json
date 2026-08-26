@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "addWorkspaceOk": {
+      "description": "Add a workspace, or update the selected one — the same dialog serves both",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "workspace_registry", "transport": "insertRows", "spinner": true,
+          "when": { "op": "isNullOrEmpty", "key": "key" },
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "previous.workspace_name", "as": { "fromKey": "previous.workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "update/workspace_registry", "transport": "insertRows", "spinner": true,
+          "when": { "op": "not", "condition": { "op": "isNullOrEmpty", "key": "key" } },
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "previous.workspace_name", "as": { "fromKey": "previous.workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "commitWorkspaceOk": {
+      "description": "Commit the workspace's changes and push them to the repository",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "commit_workspace", "transport": "insertRows", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "pushOnlyWorkspaceOk": {
+      "description": "Push the workspace's changes without compiling it",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "push_only_workspace", "transport": "insertRows", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "doGitStatusWorkspaceOk": {
+      "description": "Run the status command in the local workspace",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "git_status_workspace", "transport": "insertRows", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "doGitCommandWorkspaceOk": {
+      "description": "Run the given git commands in the local workspace",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "git_command_workspace", "transport": "insertRows", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "exportClientConfigOk": {
+      "description": "Export the chosen client's configuration from the database into the workspace",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "save_workspace_client_config",
+          "transport": "insertRows", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "compileWorkspace": {
+      "description": "Compile the selected workspace",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "compile_workspace", "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "deleteWorkspace": {
+      "description": "Delete the selected local workspace, after confirming",
+      "steps": [
+        { "do": "confirm",
+          "message": "Are you sure you want to delete the selected local workspace?" },
+        { "do": "clearSelection", "key": "workspaceRegistryTable" },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows",
+          "table": "delete_workspace",
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "data": { "rows": "wholeState", "normalise": [
+            { "key": "user_email", "as": { "userEmail": true } },
+            { "key": "key", "as": { "fromKey": "key" } },
+            { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+            { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+            { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+            { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+            { "key": "status", "as": { "literal": "" } },
+            { "key": "last_git_log", "as": { "literal": "redacted" } }
+          ] } }
+      ]
+    },
+
+    "openWorkspace": {
+      "description": "Open the selected workspace — the destination screen is C.3's, so this reports",
+      "steps": [
+        { "do": "escape", "name": "openWorkspace" }
+      ]
+    }
+  }
+}

@@ -112,11 +112,25 @@ describe("the production registry", () => {
     // in `jets/workspace_assets/user_flows/`, so a document naming it now exists
     // in every workspace — which is the same test the six above pass, applied to
     // a flow nobody hand-wrote.
+    //
+    // **`openWorkspace` is the eighth and the first registered by a non-flow
+    // screen** (C.2b). It passes the same test on a document that is bundled
+    // rather than in a workspace: `screens/documents/workspaceRegistry.ua.json`
+    // names it, so a body that were absent would be a screen that will not load —
+    // which is what `documentFindings` checks and what
+    // `WorkspaceRegistry.test.tsx` asserts is empty.
+    //
+    // **It is also the only body here that is deliberately incomplete**, and that
+    // is not a violation of the bound. The bound is about names with no body; this
+    // has one, and what the body does is report that its destination screen is
+    // C.3's (I-183). A registered escape that says why it cannot finish is the
+    // thing `escapes.ts` prefers to an unregistered name, one layer up.
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
       "cpipesTemplateApply",
       "downloadMapping",
       "loadRawRows",
+      "openWorkspace",
       "readXlsxSheetOption",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
@@ -125,6 +139,25 @@ describe("the production registry", () => {
     // The transcribed name is gone rather than pending, which is the one thing a
     // reader of this file five tasks from now would otherwise assume.
     expect(productionRegistry.actions["loadSourceConfigWithFileTypeInference"]).toBeUndefined();
+  });
+
+  it("registers the two predicates a screen's dialog fields name", () => {
+    // C.2b. `isReadOnlyFrom` resolves out of `predicates`, the namespace a table
+    // action's `isEnabled` already used — the signature is identical and a second
+    // namespace of the same type would be a distinction nothing draws.
+    //
+    // **Two names for four sites**, which is I-54's shape a third time: the corpus
+    // reports `hasIsReadOnlyEval: true` on `addWorkspace`'s name, uri and branch
+    // and on `doGitStatusWorkspaceDialog`'s command, and reading the Dart shows
+    // two bodies. Per I-103 the mapping is a lookup keyed by what it is knowledge
+    // about, which is what naming it in the document makes it.
+    expect(Object.keys(productionRegistry.predicates).sort()).toEqual([
+      "alwaysEnabled",
+      "hasDataRegistryFilters",
+      "hasHomeFilters",
+      "hasWorkspaceUri",
+      "isActiveWorkspace",
+    ]);
   });
 
   it("resolves all three of pipelineExecStatusTable's predicates", () => {
