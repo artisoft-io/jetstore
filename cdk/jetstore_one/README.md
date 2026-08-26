@@ -17,7 +17,7 @@ See `CLAUDE.md` in this directory for build commands and the constraints on edit
 | [`stack_outputs.md`](doc/stack_outputs.md) | The fourteen CloudFormation outputs, and which are conditional |
 | [`ingest_data_flow.md`](doc/ingest_data_flow.md) | How a file key travels from an S3 event to a running Step Functions execution |
 | [`deployment_alternative.md`](doc/deployment_alternative.md) | Three ways to arrange DEV/UAT/PROD, what each shares, and what each costs |
-| [`improvement_recomendations.md`](doc/improvement_recomendations.md) | Prioritized findings from reading the stack, with the change each would need |
+| [`improvement_recommendations.md`](doc/improvement_recommendations.md) | Prioritized findings from reading the stack, with the change each would need |
 
 ---
 
