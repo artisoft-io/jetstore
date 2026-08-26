@@ -22,6 +22,11 @@ import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { UserAdmin, documentFindings } from "./UserAdmin";
+import { ActionDocumentSchema } from "../actions/schema";
+import actionsJson from "./documents/userAdmin.ua.json";
+
+/** Parsed rather than cast, so a document that stopped fitting fails here. */
+const deleteUserAction = ActionDocumentSchema.parse(actionsJson).actions["deleteUser"]!;
 
 afterEach(() => {
   cleanup();
@@ -278,35 +283,60 @@ describe("deleting a user", () => {
   });
 
   /**
-   * **The case the one above could not distinguish, and it was wrong until C.3b.**
+   * **The case the one above could not distinguish — and the answer was to remove
+   * the second row rather than to send it.**
    *
-   * The document said `{"fromKey": "userTable"}` inside its `fanOut`, and
-   * `evaluate`'s `fromKey` arm calls `unpack`, which returns element **0** of a
-   * list (`interpret.ts`, `unpack`). So two selected accounts produced two rows
-   * both naming the first — Ada deleted twice and Grace left in place, with a
-   * success notification and a refreshed table saying it had worked.
+   * The document fanned out with `{"fromKey": "userTable"}`, and `fromKey` calls
+   * `unpack`, which returns element **0** of a list (`interpret.ts`, `unpack`).
+   * Two selected accounts produced two rows both naming the first: one user
+   * deleted twice, the other left in place, with a success notification and a
+   * refreshed table saying it had worked. The spelling was fixed to
+   * `fromKeyAtIndex` at C.3b, and then the *table* was made single-select
+   * (2026-08-26), which is the decision this case now pins.
    *
-   * **One selected row cannot see it**, which is why the case above passed for as
-   * long as it existed: with a single entry, element 0 *is* the row. The fix is
-   * `fromKeyAtIndex`, the value that exists for exactly this and throws outside a
-   * fan-out. Found at C.3b while writing the same construct for
-   * `deleteWorkspaceFiles`, which is the honest provenance — nothing about this
-   * screen prompted a re-read.
+   * **The two are not alternatives and both are kept.** Single-select is the
+   * product decision — deleting an account is irreversible from the UI and one at
+   * a time is the deliberate pace, which is also what `editUserProfile` has
+   * always assumed, its `navigationParams` reading columns of *the* selection.
+   * `fromKeyAtIndex` is correctness that does not depend on it: reverting to
+   * `fromKey` would re-arm the trap for whoever makes this table multi-select
+   * again, and a fan-out over one element costs nothing.
+   *
+   * **So what is asserted here is the guard, not the payload.** A second click
+   * replaces the first selection, so the table cannot produce a two-row request
+   * at all — which is a stronger statement than "the request has one row",
+   * because it holds however the document is spelled.
    */
-  it("sends a distinct row for each of two selected accounts", async () => {
+  it("replaces the selection rather than adding to it, so a delete is always one row", async () => {
     vi.stubGlobal("confirm", vi.fn(() => true));
     const { posts } = await mount();
     await selectUser("ada@example.com");
     await selectUser("grace@example.com");
-    await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
-    fireEvent.click(button("Delete User"));
 
+    // The first checkbox cleared itself when the second was ticked.
+    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes.filter((b) => b.checked)).toHaveLength(1);
+
+    fireEvent.click(button("Delete User"));
     await waitFor(() => expect(inserts(posts, "delete/users")).toHaveLength(1));
-    const sent = inserts(posts, "delete/users")[0]!;
-    expect(sent["data"]).toEqual([
-      { user_email: "ada@example.com" },
+    expect(inserts(posts, "delete/users")[0]!["data"]).toEqual([
       { user_email: "grace@example.com" },
     ]);
+  });
+
+  it("still fans out per row, so the document survives the table becoming multi-select", () => {
+    // **The half the case above cannot reach**, and the reason it is asserted on
+    // the document rather than through the screen: with single-select there is no
+    // input that distinguishes `fromKey` from `fromKeyAtIndex`, so nothing
+    // rendered can protect the spelling. This can.
+    const step = deleteUserAction.steps.find((s) => s.do === "post")!;
+    expect(step.do).toBe("post");
+    if (step.do !== "post") return;
+    expect(step.data).toEqual({
+      rows: "fanOut",
+      over: "userTable",
+      fields: { user_email: { fromKeyAtIndex: "userTable" } },
+    });
   });
 
   it("sends nothing when the confirmation is refused", async () => {

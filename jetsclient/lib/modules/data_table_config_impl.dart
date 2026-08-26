@@ -1105,7 +1105,11 @@ final Map<String, TableConfig> _tableConfigurations = {
     label: 'Registered Users',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
-    isCheckboxSingleSelect: false,
+    // Single-select as of 2026-08-26. Deleting user accounts is destructive and
+    // irreversible from the UI, and one at a time is the deliberate pace; the
+    // other action on this table, `editUserProfile`, has only ever read one row
+    // — its `navigationParams` map columns of *the* selection.
+    isCheckboxSingleSelect: true,
     whereClauses: [],
     actions: [
       ActionConfig(
