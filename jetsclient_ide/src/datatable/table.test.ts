@@ -112,13 +112,50 @@ const NON_FLOW_KEYS = [
   "inputLoaderStatusTable",
   "inputTable",
   "inputFileViewerTable",
+  "processErrorsTable",
+  "inputRecordsFromProcessErrorTable",
+  "reteSessionRdfTypeTable",
 ] as const;
 
+/**
+ * The two documents in this directory that are **not** translations. Task C.9.
+ *
+ * `reteSessionEntityKeyTable` and `reteSessionEntityDetailsTable` name a
+ * `modelStateHandler`, which the screen corpus records as
+ * `hasModelStateHandler: true` and cannot record further: the handler is a Dart
+ * closure (`jetsclient/lib/modules/rete_session/model_handlers.dart`) and no
+ * corpus contains a closure. So `toDocument` refuses them, deliberately, and
+ * these two are written by hand.
+ *
+ * **They are the boundary of I-102 decision 1 rather than an exception to it.**
+ * The decision says a non-flow table is *translated* because "a hand-written
+ * document is a reading of the Dart where this is a measurement of it". That
+ * holds wherever the corpus carries what the document needs; it stops holding
+ * where the configuration's meaning is in code. Naming the boundary is more
+ * useful than either restating the rule or quietly departing from it, because
+ * the next reader's question is *which of my tables can I translate* and the
+ * answer is now checkable: whichever ones `toDocument` does not refuse.
+ *
+ * **And the hand-authoring is put back under measurement**, which is the part
+ * worth copying. `fromDocument` of each is asserted equal to the corpus
+ * configuration in every field the corpus can express — see the last case in this
+ * file — so what is trusted to a human here is exactly one field per document and
+ * every other field is compared against the Dart.
+ */
+const HAND_AUTHORED_KEYS = ["reteSessionEntityKeyTable", "reteSessionEntityDetailsTable"] as const;
+
 const flowDocuments = toDocuments(tables);
-const documents: Record<string, TableConfigDocument> = {
+const translated: Record<string, TableConfigDocument> = {
   ...flowDocuments,
   ...Object.fromEntries(NON_FLOW_KEYS.map((key) => [key, toDocument(screenTables[key]!)])),
 };
+const handAuthored: Record<string, TableConfigDocument> = Object.fromEntries(
+  HAND_AUTHORED_KEYS.map((key) => [
+    key,
+    JSON.parse(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")) as TableConfigDocument,
+  ]),
+);
+const documents: Record<string, TableConfigDocument> = { ...translated, ...handAuthored };
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 const documentOf = (key: string) => `${JSON.stringify(documents[key], null, 2)}\n`;
 
@@ -129,19 +166,27 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 45 translated configurations committed beside it, for the Go check", () => {
+  it("has the 50 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
     // readings of it.
     if (process.env.UPDATE_SCHEMA === "1") {
-      rmSync(tablesDir, { recursive: true, force: true });
       mkdirSync(tablesDir, { recursive: true });
-      for (const key of Object.keys(documents)) writeFileSync(`${tablesDir}${key}.tc.json`, documentOf(key));
+      // **Removing what this emitter no longer owns rather than wiping the
+      // directory, as of C.9.** The wipe was right while every document was
+      // emitted here; two are now hand-authored and committed beside the rest, and
+      // a wipe would delete them on the next regeneration — silently, since the
+      // very next line would rewrite everything else and the suite would go green
+      // with two files gone.
+      for (const file of readdirSync(tablesDir).filter((f) => f.endsWith(".tc.json"))) {
+        if (!(file.slice(0, -".tc.json".length) in documents)) rmSync(`${tablesDir}${file}`);
+      }
+      for (const key of Object.keys(translated)) writeFileSync(`${tablesDir}${key}.tc.json`, documentOf(key));
     }
     const onDisk = readdirSync(tablesDir).filter((f) => f.endsWith(".tc.json")).sort();
     expect(onDisk).toEqual(Object.keys(documents).sort().map((k) => `${k}.tc.json`));
-    for (const key of Object.keys(documents)) {
+    for (const key of Object.keys(translated)) {
       expect(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")).toBe(documentOf(key));
     }
   });
@@ -175,12 +220,15 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the eight non-flow tables so far make 45", () => {
-    // 37 + F.5's one + C.2's, C.4's, C.7's two and C.6's three. The flow count is
-    // asserted separately because it is the number every other assertion in this
-    // block is about.
+  it("all translate, and the thirteen non-flow tables so far make 50", () => {
+    // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's five, of which
+    // two are hand-authored. The three counts are asserted separately because
+    // "how many documents are there" and "how many were measured rather than
+    // written" are different questions and only the second can regress quietly.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(documents).length).toBe(45);
+    expect(Object.keys(translated).length).toBe(48);
+    expect(Object.keys(handAuthored).length).toBe(2);
+    expect(Object.keys(documents).length).toBe(50);
   });
 
   it("all validate against the schema", () => {
@@ -197,7 +245,42 @@ describe("the 37 shipping configurations", () => {
     // made because no configuration sets the field; if one does, this fails
     // rather than the document quietly meaning less than the Dart.
     for (const key of Object.keys(documents)) {
-      expect({ [key]: fromDocument(key, documents[key]!) }).toEqual({ [key]: configOf(key) });
+      // **`modelSource` is dropped before comparing, and it is the one field in
+      // `TableConfig` with no corpus counterpart.** Task C.9. The Dart spells a
+      // form-state table's row source as two fields — `modelStateFormKey` and a
+      // function pointer — and the document spells it as one construct; the
+      // restore sets *both* the corpus field and this one, so the corpus half is
+      // still compared and this half is what the corpus cannot hold. It is an
+      // addition rather than a loss, which is what this case is guarding against.
+      const { modelSource, ...restored } = fromDocument(key, documents[key]!);
+      void modelSource;
+      expect({ [key]: restored }).toEqual({ [key]: configOf(key) });
+    }
+  });
+
+  /**
+   * The two hand-authored documents, checked against the Dart. Task C.9.
+   *
+   * **This is what keeps `HAND_AUTHORED_KEYS` from being an escape hatch.** The
+   * case above proves the *translated* documents lose nothing by restoring them
+   * and comparing to the corpus; these two were never translated, so the same
+   * comparison is the only thing standing between "authored from the Dart" and
+   * "authored from memory". Everything the corpus can express is compared;
+   * `modelSource` is not, for the reason above, and `hasModelStateHandler` is not,
+   * because it is the one bit the corpus holds *instead of* the handler.
+   */
+  it("hand-authors the two handler-backed tables faithfully, field by field", () => {
+    for (const key of HAND_AUTHORED_KEYS) {
+      const { modelSource, hasModelStateHandler, ...restored } = fromDocument(key, documents[key]!);
+      expect({ key, hasModelStateHandler }).toEqual({ key, hasModelStateHandler: true });
+      expect(modelSource).toEqual({
+        from: "map",
+        key: expect.stringMatching(/^rete_session\./) as unknown as string,
+        indexBy: expect.any(String) as unknown as string,
+      });
+      const { hasModelStateHandler: corpusFlag, ...corpus } = screenTables[key]!;
+      expect({ key, corpusFlag }).toEqual({ key, corpusFlag: true });
+      expect({ [key]: restored }).toEqual({ [key]: corpus });
     }
   });
 

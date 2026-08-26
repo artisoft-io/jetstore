@@ -223,6 +223,11 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
             },
+            "flex": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
             "rules": {
               "type": "array",
               "items": {

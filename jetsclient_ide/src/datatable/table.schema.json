@@ -64,6 +64,13 @@
           "type": "boolean",
           "const": true
         },
+        "with": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WithClause"
+          }
+        },
         "from": {
           "minItems": 1,
           "type": "array",
@@ -192,6 +199,89 @@
         "columns",
         "sortColumn",
         "rows"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sortAscending": {
+          "type": "boolean"
+        },
+        "rowsPerPage": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "isCheckboxVisible": {
+          "type": "boolean"
+        },
+        "isCheckboxSingleSelect": {
+          "type": "boolean"
+        },
+        "isReadOnly": {
+          "type": "boolean"
+        },
+        "showSelectedOnly": {
+          "type": "boolean"
+        },
+        "noFooter": {
+          "type": "boolean"
+        },
+        "noCopy2Clipboard": {
+          "type": "boolean"
+        },
+        "formStateBinding": {
+          "$ref": "#/$defs/FormStateBinding"
+        },
+        "source": {
+          "type": "string",
+          "const": "formState"
+        },
+        "columns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "sortColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSource"
+        },
+        "where": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WhereClause"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "rowsPerPage",
+        "source",
+        "columns",
+        "sortColumn",
+        "model"
       ],
       "additionalProperties": false
     }
@@ -364,6 +454,36 @@
       ],
       "description": "One column of a table configuration"
     },
+    "WithClause": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "description": "A key naming a state, form, action or form-state entry"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "sql"
+      ],
+      "additionalProperties": false
+    },
     "FromClause": {
       "type": "object",
       "properties": {
@@ -386,9 +506,6 @@
           "description": "A key naming a state, form, action or form-state entry"
         }
       },
-      "required": [
-        "schema"
-      ],
       "additionalProperties": false
     },
     "WhereClause": {
@@ -422,6 +539,10 @@
         "joinWith": {
           "type": "string",
           "minLength": 1
+        },
+        "lookupColumnInFormState": {
+          "type": "boolean",
+          "const": true
         },
         "orWith": {
           "$ref": "#/$defs/WhereClause"
@@ -599,6 +720,58 @@
       ],
       "additionalProperties": false,
       "description": "One test on the selected row"
+    },
+    "ModelSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "key"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "from",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "map"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "indexBy": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "from",
+            "key",
+            "indexBy"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Where a form-state table's rows come from"
     }
   }
 }

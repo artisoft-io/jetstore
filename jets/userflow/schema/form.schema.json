@@ -99,6 +99,11 @@
               "const": "dataTable",
               "type": "string"
             },
+            "flex": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
             "key": {
               "description": "A key naming a state, form, action or form-state entry",
               "minLength": 1,

@@ -107,6 +107,17 @@ export interface TableConfig {
   apiPath: string;
   apiAction: string;
   modelStateFormKey?: string;
+  /**
+   * Where a form-state table's rows come from, when the document says. Task C.9.
+   *
+   * **Not in the corpus and not a mirror of a Dart field**, which is why it sits
+   * beside `modelStateFormKey` rather than replacing it: the Dart has two fields,
+   * a key and a function pointer, and the document has one construct covering
+   * both (`table.ts`, `ModelSourceSchema`). `fromDocument` sets both this and
+   * `modelStateFormKey` for a `key` model, so a corpus comparison still works on
+   * the field the corpus has.
+   */
+  modelSource?: { from: "key"; key: string } | { from: "map"; key: string; indexBy: string };
   staticTableModel?: JetsRow[];
   isCheckboxVisible: boolean;
   isCheckboxSingleSelect: boolean;

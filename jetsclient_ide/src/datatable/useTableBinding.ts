@@ -61,13 +61,101 @@ export interface TableBinding extends DataTableState {
   refresh(): void;
 }
 
+/**
+ * A form-state table's rows, out of the form. Task C.9.
+ *
+ * The React half of the Dart's two model branches
+ * (`jetsclient/lib/components/data_table_source.dart`, the `modelStateFormKey` and
+ * `modelStateHandler` arms of `getModelData`) — a `key` model reads the rows from
+ * a form-state key, a `map` model reads a map from one key and indexes it by the
+ * current value of another.
+ *
+ * **Everything is held encoded and parsed here**, because `FormStateValue` is
+ * `string | string[] | null | undefined` where the Dart's `JetsFormState` is
+ * `dynamic`. That is not a loss: the saved session is nested JSON at three depths
+ * in the Dart too, and its two handlers each end in `json.decode`
+ * (`jetsclient/lib/modules/rete_session/model_handlers.dart`) for exactly this
+ * reason. See `actions/processErrors.ts` for the writing half.
+ *
+ * **Group 0 on both, matching the Dart**, which reads `getValue(0, …)` in the
+ * first arm and hands the whole `JetsFormState` to a handler that does the same in
+ * the second. The rete explorer's three tables are in one dialog sharing one
+ * group, so nothing exercises the distinction; it is fixed here rather than left
+ * to the caller because a form-state *model* is the form's and a table's group is
+ * the field's.
+ *
+ * Returns `null` when the model is not ready — the session has not been loaded, or
+ * nothing is selected yet — which the caller renders as no rows rather than as an
+ * error. That is the reading `hasBlockingFilter` gives the gate clauses beside it,
+ * and it is why a missing entry is not a finding.
+ */
+function parsedRows(raw: unknown): JetsRow[] | null {
+  if (typeof raw !== "string" || raw === "") return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? (value as JetsRow[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function modelRowsOf(config: TableConfig, formState: FormState): JetsRow[] | null {
+  const model = config.modelSource;
+  if (model === undefined) return null;
+  const held = formState.getValue(0, model.key);
+  if (model.from === "key") return parsedRows(held);
+  if (typeof held !== "string" || held === "") return null;
+  // The index is a form-state value the *other* table published, so it is a list
+  // — `publishSelection` writes one (`binding.ts`) and the Dart's handlers read
+  // `entityType[0]`. Taking the first element when there is one and the value
+  // itself otherwise covers both without asking which wrote it.
+  const indexValue = formState.getValue(0, model.indexBy);
+  const index = Array.isArray(indexValue) ? indexValue[0] : indexValue;
+  if (index == null || index === "") return null;
+  try {
+    const map: unknown = JSON.parse(held);
+    if (map === null || typeof map !== "object" || Array.isArray(map)) return null;
+    return parsedRows((map as Record<string, unknown>)[String(index)]);
+  } catch {
+    return null;
+  }
+}
+
 export function useTableBinding(options: UseTableBindingOptions): TableBinding {
-  const { config, field, formState, fetcher, context } = options;
+  const { field, formState, fetcher, context } = options;
 
   const [refreshToken, setRefreshToken] = useState(0);
   // Bumped when the form changes under us, so the blocked/unblocked decision and
   // the restore are recomputed against the form as it is now.
   const [formVersion, setFormVersion] = useState(0);
+
+  /**
+   * A form-state table, handed to the rest of this hook as a static one.
+   *
+   * **The whole of the third table kind's runtime, and deliberately so.** A table
+   * whose rows are in form state differs from one whose rows are compiled in by
+   * *when* the rows are known, and by nothing else: no request, no paging against
+   * a server, no column definition arriving late. `useDataTable` already has that
+   * branch — `isStatic`, and its effect re-runs when the serialised rows change —
+   * so what this adds is the recomputation, not a second rendering path.
+   *
+   * `formVersion` is the dependency that matters, for the same reason it is
+   * `queryContext`'s: `FormState` is mutable and keeps its identity.
+   */
+  const modelRows = useMemo(
+    () => modelRowsOf(options.config, formState),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options.config, formState, formVersion],
+  );
+  const modelRowsKey = JSON.stringify(modelRows);
+  const config = useMemo(
+    () =>
+      options.config.modelSource === undefined
+        ? options.config
+        : { ...options.config, staticTableModel: (JSON.parse(modelRowsKey) as JetsRow[] | null) ?? [] },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options.config, modelRowsKey],
+  );
 
   const watched = useMemo(() => watchedFormStateKeys(config), [config]);
 

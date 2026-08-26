@@ -30,6 +30,7 @@ import { Home } from "./screens/Home";
 import { InferServerAdmin } from "./screens/InferServerAdmin";
 import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
+import { ProcessErrors } from "./screens/ProcessErrors";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
@@ -239,6 +240,20 @@ export default function App() {
             }
           />
           <Route path="query-tool" element={<QueryTool api={api} />} />
+          {/*
+            C.9. **Five table configurations and one of them is on the screen** —
+            the other four are inside its two dialogs, which is why this route
+            needs no more markup than the two above it. See `ProcessErrors.tsx`.
+
+            The path is the Flutter app's verbatim
+            (`jetsclient/lib/routes/jets_routes_app.dart`, `processErrorsPath`)
+            minus the leading slash that `basename` supplies.
+
+            **No nav entry and no user reaches it yet**, the same state C.7 and
+            C.8 are in: the only way in is the *View Process Errors* button on the
+            home screen's `pipelineExecStatusTable`, and that screen is C.6's.
+          */}
+          <Route path="processErrors/:session_id" element={<ProcessErrors api={api} />} />
           {/*
             **The catch-all reports rather than redirects, as of C.16.** It was
             `<Navigate to="/workspace" replace />` from A.1 until now, and that is

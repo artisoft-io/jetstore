@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "label": "Class Name",
+  "columns": [
+    {
+      "name": "entity_rdf_type",
+      "label": "Class Name",
+      "tooltip": "Entity Class Name Filter"
+    }
+  ],
+  "sortColumn": "entity_rdf_type",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "entity_rdf_type",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "formState",
+  "model": {
+    "from": "key",
+    "key": "rete_session.rdf_types"
+  }
+}

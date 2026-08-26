@@ -125,17 +125,33 @@ describe("the production registry", () => {
     // has one, and what the body does is report that its destination screen is
     // C.3's (I-183). A registered escape that says why it cannot finish is the
     // thing `escapes.ts` prefers to an unregistered name, one layer up.
+    // **`loadReteSession` is the ninth** (C.9), and the interesting half of that
+    // task's count is what is *not* here. `/processErrors`'s Dart delegate has
+    // three live arms; `reteSession.VisitEntity` is a guarded `set` in the
+    // screen's action document, and the third belongs to the v1 dialog C.0
+    // deleted. So a screen with two dialogs adds one escape — which is I-74's
+    // rule again: this list is an upper bound on what the grammar cannot say.
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
       "cpipesTemplateApply",
       "downloadMapping",
       "loadRawRows",
+      "loadReteSession",
       "openWorkspace",
       "readXlsxSheetOption",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
     ]);
     expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
+    // **Two row initializers as of C.9, and the second is the first outside a
+    // flow.** `seedInputRecordsRow` is `viewInputRecordsDialog`'s, and it needed
+    // nothing F.1 had not already built for `fmMappingFormUF` — which is the only
+    // evidence available that the repeating-form mechanism generalised, since its
+    // author could not produce a second consumer.
+    expect(Object.keys(productionRegistry.rowInitializers).sort()).toEqual([
+      "seedInputRecordsRow",
+      "seedMappingRow",
+    ]);
     // The transcribed name is gone rather than pending, which is the one thing a
     // reader of this file five tasks from now would otherwise assume.
     expect(productionRegistry.actions["loadSourceConfigWithFileTypeInference"]).toBeUndefined();
