@@ -311,12 +311,15 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
       (acc, t) => ({ ...acc, [t.apiAction]: (acc[t.apiAction] ?? 0) + 1 }),
       {},
     );
-    expect(Object.keys(byAction).sort()).toEqual([
-      "preview_file",
-      "raw_query_tool",
-      "read",
-      "workspace_read",
-    ]);
+    // The message is on the assertion rather than only in the comment above,
+    // because "expected 4, got 5" teaches nobody and this is not a number to
+    // update. A fifth key is a table asking the apiserver for an authority no
+    // authored document has been allowed to name; whether it may is a decision,
+    // and `ApiActionSchema` is where it is taken.
+    expect(
+      Object.keys(byAction).sort(),
+      "a value here that ApiActionSchema does not carry is a table reaching an authority no authored document may name — widen the enum deliberately or not at all",
+    ).toEqual(["preview_file", "raw_query_tool", "read", "workspace_read"]);
     // The three exceptions are counted and `read` is not: the enum is about which
     // authorities exist, and how many tables take the default is not a fact it
     // rests on — it is the fact C.0a moved.

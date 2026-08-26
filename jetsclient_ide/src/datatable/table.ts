@@ -114,11 +114,25 @@
  * **The absence is a sentinel and that is a cost worth naming**, because this
  * file argues the other way about `source`: the Dart tells a static table from a
  * query table by `apiPath` being empty, and `source` replaced that sentinel with
- * a statement. The difference is what the reader needs. A document's *kind* is
- * something every reader must know, so it is stated on every document; a table's
- * *server action* is `read` for most of both corpora and the useful signal is the
- * exception. Putting the three exceptions on the page and leaving the rule off it
- * is what makes a security review of this field a search rather than a census.
+ * a statement.
+ *
+ * **A sentinel is a problem when absence means something a reader must
+ * distinguish, and here nothing distinguishes them.** `source` had to stop being
+ * one because a document's kind is what *every* reader branches on, so absence
+ * was load-bearing for control flow. `apiAction` is read by one thing at one
+ * moment — `makeQuery` setting the request's `action` (`query.ts`) — and the
+ * absent case and the `read` case take the same arm. That is the reason the cost
+ * is acceptable, and it is written down because the paragraph above states the
+ * cost without it and would otherwise read as a known defect.
+ *
+ * **The direction of the failure is the other half.** `read` is the *least*
+ * privileged of the four, so a forgotten field cannot buy an authority: the worst
+ * a mistake here produces is a table more restricted than its author meant, which
+ * is a bug report rather than an incident. A sentinel standing for the permissive
+ * value would not be defensible on any of these grounds.
+ *
+ * So: the three exceptions are on the page and the rule is off it, which makes a
+ * security review of this field a reading rather than a count.
  *
  * ## Two kinds, because the corpus has exactly two
  *
