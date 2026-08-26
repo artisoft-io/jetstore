@@ -1964,7 +1964,7 @@
       }
     },
     {
-      "name": "insert target outside the allowlist (delete/users)",
+      "name": "insert target outside the allowlist (delete/userz, a near-miss spelling)",
       "class": "not-allowed",
       "document": "action",
       "expect": "invalid",
@@ -1982,7 +1982,7 @@
                 "do": "post",
                 "endpoint": "/dataTable",
                 "action": "insert_rows",
-                "table": "delete/users",
+                "table": "delete/userz",
                 "spinner": true,
                 "data": {
                   "rows": "fanOut",

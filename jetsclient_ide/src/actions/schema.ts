@@ -267,6 +267,30 @@ export const InsertTargetSchema = z
     "pull_workspace",
     "load_workspace_config",
     /**
+     * The two `/userAdmin` writes. Task C.13.
+     *
+     * **These are the only two entries in `sql_stmts.go` carrying
+     * `AdminOnly: true`**, and that changes what admitting them costs. Every
+     * other member of this enum is gated by a *capability*, which several roles
+     * hold; `VerifyUserPermission` refuses these unless `user.IsAdmin()`
+     * (`jets/datatable/data_table_action.go`, `VerifyUserPermission`), and
+     * `IsAdmin` is `u.Email == AdminEmail` (`jets/user/user.go`, `IsAdmin`) — one
+     * account. So an authored document naming one of these gains its author
+     * nothing at all unless the author *is* that account, which is a stronger
+     * statement than the one the eight `/workspaces` entries above can make.
+     *
+     * `Capability: "none"` beside `AdminOnly` is not a hole: `HasCapability`
+     * answers true for the admin account whatever it is asked, so the string is a
+     * sentinel that clears the *"missing capability on sql statement"*
+     * configuration check and nothing more. Both arms are still required.
+     *
+     * **What the allowlist buys here is the same thing it buys everywhere**: a
+     * button labelled *Save* in some other flow cannot quietly delete an account,
+     * even for the one user for whom the server would allow it.
+     */
+    "update/users",
+    "delete/users",
+    /**
      * The eight `/workspaces` writes. Task C.2b, and the first entries added for
      * a screen rather than a flow.
      *
