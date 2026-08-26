@@ -74,6 +74,12 @@ import {
   updateHomeFilters,
 } from "./homeFilters";
 import { cpipesTemplateApply } from "../cpipes/templateApply";
+// C.5's two, and the first escape bodies this project owns that live outside
+// this directory. The screen's domain module is beside its screen, on the same
+// terms as `src/cpipes/` above: **the registration site is this file's and the
+// body is the screen's.** A registry that imported a React component would be
+// the alternative, and it is why `inferServer.ts` is split from the `.tsx`.
+import { inferServerNotRunning, inferServerNotStopped } from "../screens/inferServer";
 import { productionQueries } from "./queries";
 import {
   readXlsxSheetOption,
@@ -275,16 +281,24 @@ export const productionRegistry: EscapeRegistry = {
   rowInitializers: { seedMappingRow },
   validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
   cellFilters: { fileKeyLabel },
-  // **Five as of C.2b, and the two it adds are read by a *form field* rather than
-  // by a table action.** `isReadOnlyFrom` resolves out of this namespace because
-  // the signature is the same `(formState, group) => boolean`; a second namespace
-  // holding functions of one type would be a distinction nothing draws.
+  // **Seven as of C.5, and they no longer divide by consumer.** Five arrived with
+  // C.2b, two of them read by a *form field* rather than by a table action —
+  // `isReadOnlyFrom` resolves out of this namespace because the signature is the
+  // same `(formState, group) => boolean`, and a second namespace holding
+  // functions of one type would be a distinction nothing draws. C.5 adds
+  // `inferServerNotRunning` and `inferServerNotStopped`, **the first entries here
+  // that no flow reaches**, and the first users of `FormActionSchema`'s
+  // `enabledWhen`. The namespace was built for a table action's `isEnabled` and
+  // takes a form action's `isEnabledEval` unchanged, which is the argument that
+  // made naming the predicate cheaper than inventing an expression for it.
   predicates: {
     hasDataRegistryFilters,
     hasHomeFilters,
     alwaysEnabled,
     isActiveWorkspace,
     hasWorkspaceUri,
+    inferServerNotRunning,
+    inferServerNotStopped,
   },
   queries: productionQueries,
 };

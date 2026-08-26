@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "inferServerAdminForm": {
+      "title": "Infer Server Admin",
+      "autovalidate": true,
+      "rows": [
+        [
+          {
+            "field": "button",
+            "action": "inferServer.start",
+            "label": "Start",
+            "style": "primary",
+            "capability": "infer_server_admin",
+            "enabledWhen": "inferServerNotRunning"
+          },
+          {
+            "field": "button",
+            "action": "inferServer.stop",
+            "label": "Stop",
+            "style": "danger",
+            "capability": "infer_server_admin",
+            "enabledWhen": "inferServerNotStopped"
+          },
+          {
+            "field": "button",
+            "action": "inferServer.macro.listModels",
+            "label": "Models",
+            "style": "secondary",
+            "capability": "infer_server_admin"
+          },
+          {
+            "field": "button",
+            "action": "inferServer.macro.pullModel",
+            "label": "Pull Model",
+            "style": "secondary",
+            "capability": "infer_server_admin"
+          },
+          {
+            "field": "button",
+            "action": "inferServer.macro.showModel",
+            "label": "Model Details",
+            "style": "secondary",
+            "capability": "infer_server_admin"
+          },
+          {
+            "field": "button",
+            "action": "inferServer.macro.deleteModel",
+            "label": "Delete",
+            "style": "secondary",
+            "capability": "infer_server_admin"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "infer.server.status_label",
+            "label": "Infer Server",
+            "isReadOnly": true,
+            "syncWithFormState": true,
+            "defaultValue": "Status: loading...",
+            "maxLength": 512
+          },
+          {
+            "field": "button",
+            "action": "inferServer.refresh",
+            "label": "Refresh",
+            "style": "secondary",
+            "capability": "infer_server_admin"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "infer.request",
+            "label": "Request",
+            "hint": "Paste a request envelope, or use a button above",
+            "syncWithFormState": true,
+            "maxLines": 10,
+            "maxLength": 4000000,
+            "rules": [{ "rule": "required", "message": "A request must be provided." }]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "infer.response",
+            "label": "Response",
+            "hint": "The infer server's response appears here",
+            "isReadOnly": true,
+            "syncWithFormState": true,
+            "maxLines": 20,
+            "maxLength": 4000000
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "inferServer.submit",
+          "label": "Submit",
+          "style": "primary",
+          "capability": "infer_server_admin",
+          "enableOnlyWhenFormValid": true
+        }
+      ]
+    }
+  }
+}

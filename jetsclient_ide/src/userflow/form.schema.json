@@ -178,6 +178,9 @@
             "defaultValue": {
               "type": "string"
             },
+            "syncWithFormState": {
+              "type": "boolean"
+            },
             "textRestriction": {
               "type": "string",
               "enum": [
@@ -429,6 +432,12 @@
             "enableOnlyWhenFormNotValid": {
               "type": "boolean"
             },
+            "enabledWhen": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
             "field": {
               "type": "string",
               "const": "button"
@@ -535,6 +544,12 @@
         },
         "enableOnlyWhenFormNotValid": {
           "type": "boolean"
+        },
+        "enabledWhen": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
         }
       },
       "required": [

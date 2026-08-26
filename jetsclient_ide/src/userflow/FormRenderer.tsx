@@ -268,6 +268,9 @@ function FieldView({
           {...(readOnly(field, host) ? { isReadOnly: true } : {})}
           {...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {})}
           {...(field.textRestriction !== undefined ? { textRestriction: field.textRestriction } : {})}
+          {...(field.syncWithFormState !== undefined
+            ? { syncWithFormState: field.syncWithFormState }
+            : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );
@@ -332,11 +335,22 @@ function FieldView({
  * `mapperDraft` proved are independent branches rather than one flag (I-76).
  */
 function FormActionButton({ action, host }: { action: FormAction; host: FormHost }): ReactNode {
+  // `isEnabledEval`, resolved through the registry the table actions already use
+  // (`form.ts`, `enabledWhen`). **An unresolved name disables the button rather
+  // than enabling it**: the gate exists to withhold an action, so a missing
+  // predicate must fail closed. It cannot happen on a flow — `FlowStore.load`
+  // refuses a document set whose escapes do not resolve — and this component is
+  // now reached by screens too, whose documents are bundled and not checked at
+  // load, so the branch is reachable in a way it was not before.
+  const gate = action.enabledWhen === undefined ? undefined : host.predicates[action.enabledWhen];
+  const gateClosed =
+    action.enabledWhen !== undefined && (gate === undefined || !gate(host.formState, host.group));
   return (
     <ActionButton
       className={`btn btn--${action.style ?? "primary"}`}
       disabled={
         host.busy ||
+        gateClosed ||
         (action.enableOnlyWhenFormValid === true && !host.formValid) ||
         (action.enableOnlyWhenFormNotValid === true && host.formValid)
       }

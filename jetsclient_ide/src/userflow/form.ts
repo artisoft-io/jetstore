@@ -194,6 +194,37 @@ export const FormActionSchema = z
      * independent branches of one condition.
      */
     enableOnlyWhenFormNotValid: z.boolean().optional(),
+    /**
+     * A named predicate over form state that gates this button. Task C.5.
+     *
+     * **`isEnabledEval` — the third gate, and the first one that is not about
+     * form validity.** `FormActionConfig.isEnabledEval` is
+     * `bool Function(JetsFormState)` (`models/form_config.dart`,
+     * `FormActionConfig`), ANDed with the capability check and with the two
+     * flags above. The Dart's own comment says why it exists: *form validity is
+     * form-wide, so this is the way to gate a single button on a single value.*
+     *
+     * **No flow uses it and one screen does**, which is why it arrives at C.5
+     * rather than in Phase 2. `inferServerAdminScreen`'s Start and Stop read the
+     * infer server's reported lifecycle state — Start is offered in every state
+     * but running, Stop in every state but stopped — and the underlying calls
+     * are idempotent, so the looser rule is deliberate and cannot strand the
+     * screen with both buttons dead if a transition stalls
+     * (`infer_server_admin/form_action_delegates.dart`, `isInferServerRunning`).
+     *
+     * **It is a name, not an expression**, and that is the same cut every other
+     * closure in this port took: `cellFilter`, `isEnabled` on a table action and
+     * `validator` on a form are all names resolved through the escape registry.
+     * A predicate language invented here would be a second way to say what
+     * `actions/registry.ts` already says one way — and this resolves through
+     * that file's existing `predicates` namespace, whose signature
+     * `(formState, group) => boolean` is the Dart's with the group it needs.
+     *
+     * **`isReadOnlyEval` is the same closure on a *field* and is still not
+     * built** (`widgets/TextInput.tsx`). Nothing sets it, which is the condition
+     * this member did not meet.
+     */
+    enabledWhen: Identifier.optional(),
   })
   .meta({ id: "FormAction" });
 
@@ -288,6 +319,26 @@ export const FieldSchema = z
        * field they were never told to fill.
        */
       defaultValue: z.string().optional(),
+      /**
+       * Re-read the form state when something other than the user writes this
+       * key. Task C.5.
+       *
+       * **`syncWithFormState` (`models/form_config.dart`, `FormInputFieldConfig`),
+       * and the same story as `enabledWhen` above: the widget has taken it since
+       * A.3, no flow sets it, and the authoring layer was the gap.**
+       * `useFormField.ts` says so in its own header — *implemented but
+       * unexercised* — and `inferServerAdminScreen` is what exercises it. Three
+       * of its four fields are written by a delegate rather than typed: the
+       * status line, the response, and the request that six macro buttons fill
+       * with a template.
+       *
+       * **Off by default, and that asymmetry is deliberate rather than untidy.**
+       * A controlled input that re-reads form state on every render fights the
+       * user's cursor whenever anything else writes the same key, and the
+       * Flutter widget defaults the same way round: seed once at `initState`,
+       * then own the value.
+       */
+      syncWithFormState: z.boolean().optional(),
       /**
        * What the widget will let the user type. Task F.6.
        *
