@@ -46,6 +46,44 @@ re-deriving each arm from the Dart, and beyond that by running a flow against a 
 server and diffing the payload — which has been done for one flow, `lfLoadFilesUF`,
 against `../datatable/fixtures/load_files_flutter_audit.log`.
 
+## The one part of the transcription that was checked, and held
+
+**147 of 147 buttons match the Dart** — the same key, label, style, capability and
+enablement, across 51 forms in the eleven documents. Measured 2026-08-25 at **C.18**,
+and re-runnable: `src/buttonFidelity.test.ts` reads the two generated corpora and the
+eleven `.form.json` documents and compares them button by button, on every `npm test`.
+
+**It is worth stating as a measurement rather than as reassurance, because the thing
+it settles was a real gap.** `form_fields.json` — the corpus track F's form work was
+sized against — reported **zero** of the flows' 143 action-bar buttons until C.0b
+(jetstore#2022), because `FormConfig.actions` was a container no traversal walked
+(**I-155**, **F87**). The flows were transcribed from the Dart rather than from the
+corpus, which is why the transcription worked and also why nothing checked it. **What
+was unverified was fidelity, not function.**
+
+**The 7 capability claims are the part that was worth checking hardest and all 7 are
+present.** A button that lost its `capability` in transcription is a control offered
+to someone the Dart hides it from; the server refuses either way, so the failure would
+have been a user pressing a button that cannot work, **not** a privilege escalation.
+
+Three things a later check of this kind has to get right, each of which cost a
+correction here:
+
+- **Two corpora, not one.** `homeFiltersUF` carries `showFailureDetailsDialog`, whose
+  Dart lives in `screen_configs.json` because it is a non-flow screen's dialog. Reading
+  only `form_fields.json` reports it as a document form with no Dart counterpart.
+- **A button can sit among the fields.** Three do — `FormActionConfig` in the Dart,
+  `field: "button"` in the document — and the two containers have to be compared
+  separately, because swapping one for the other is a real difference.
+- **Three action names were deliberately renamed** and none was forced by the schema:
+  `Identifier` accepts a dot. `dialog.cancelAction` → `dialogCancel` because
+  `DIALOG_CANCEL` is the dialog host's own constant; `mapper.ok` and `mapper.draft`
+  → `mapperOk`, `mapperDraft` as a naming choice at F.1.
+
+**This covers failure 1 of the five above and none of the other four.** A button that
+is present, correctly named and correctly gated can still run the wrong action, and
+nothing about a declaration shows it.
+
 ## If you are generating these documents rather than writing them
 
 `cpipes-contract templates --project` emits a `.uf.json`, `.form.json` and `.ua.json`
