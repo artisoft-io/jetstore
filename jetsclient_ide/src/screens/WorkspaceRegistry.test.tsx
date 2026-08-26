@@ -229,7 +229,20 @@ describe("the screen", () => {
     await mount();
     await selectRow("initech_ws");
     // `in progress` fails seven of the eight; Push Only tests `removed` alone.
-    await waitFor(() => expect(button("Open").hasAttribute("disabled")).toBe(true));
+    //
+    // **Wait on `Push Only` becoming *enabled*, not on `Open` becoming disabled.**
+    // `Open` is already disabled the moment the screen mounts — the case above
+    // asserts exactly that, titled "Select a row first" — so waiting on it is
+    // waiting on a condition that already holds, and `waitFor` returns on its
+    // first tick, before the selection's restore lands (I-185). The assertions
+    // then read an unselected screen where every button is disabled for the wrong
+    // reason, and the case passes anyway. It failed about two runs in five on
+    // `jets_ai`, and adding unrelated test files changed the rate rather than the
+    // cause, because vitest's scheduling decides which tick wins.
+    //
+    // `Push Only` is enabled *only* for a `removed` workspace, so it is true after
+    // this selection and false before it — which is what makes it a wait.
+    await waitFor(() => expect(button("Push Only").hasAttribute("disabled")).toBe(false));
     for (const label of [
       "Open", "Export Client Config", "Load Client Config", "Delete",
       "Compile Workspace", "Pull Workspace",
