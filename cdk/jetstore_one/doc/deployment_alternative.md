@@ -65,7 +65,7 @@ gateways**, multiplied by the number of VPCs:
 Interface endpoints are billed whether or not traffic flows, so this is a fixed monthly difference,
 not a usage-driven one. It is the single largest lever in the comparison.
 
-Two mechanics worth knowing:
+Three mechanics worth knowing:
 
 - **Importing a VPC skips endpoint creation entirely.** `AddVpcEndpoints` is only called on the
   create path (`jetstore_one.go:148`); with `JETS_VPC_ID` set, the stack looks up the endpoint
@@ -74,30 +74,18 @@ Two mechanics worth knowing:
   (`jetstore_vpc.go:163`) and one in `AddVpcEndpoints` (`jetstore_vpc.go:258`). Gateway endpoints are
   free, so this costs nothing; it is noted because a reader counting endpoints in the console will
   find 20, not 19.
+- **One variable gates the internet gateway and the NAT gateways together.** With
+  `JETS_VPC_INTERNET_GATEWAY` unset or false, `JETS_NBR_NAT_GATEWAY` is **forced to 0** regardless of
+  what it is set to (`nbrNatGateway`, `jetstore_vpc.go:120`). A stack has an internet gateway and
+  however many NAT gateways were asked for, or it has neither. The NAT gateways are the billable
+  half — hourly and per GB processed; the internet gateway itself is free.
 
-### On "three internet gateways"
-
-**Internet gateways are free.** AWS charges nothing for the gateway itself, and nothing for data
-through it beyond the normal data-transfer-out rates that apply regardless. Three IGWs and one IGW
-cost the same.
-
-The cost that sits behind the question is the **NAT gateway**, which is billed hourly *and* per GB
-processed, and in this stack the two are linked by one variable:
-
-```go
-if igEV == "true" || igEV == "TRUE" { internetGateway = true } else { nbrNatGateway = 0 }
-```
-
-`JETS_VPC_INTERNET_GATEWAY` gates both — with it unset or false, `JETS_NBR_NAT_GATEWAY` is **forced
-to 0** regardless of what you set it to (`nbrNatGateway`, `jetstore_vpc.go:120`). So a stack either has an IGW and
-however many NAT gateways you asked for, or neither.
-
-The practical consequence: **most JetStore stacks need neither.** The 18 interface endpoints and the
-S3 gateway endpoint exist precisely so that the isolated and private tiers reach AWS services without
-egress. `JETS_NBR_NAT_GATEWAY` is documented as needed to reach GitHub for workspace pulls — so if
-git integration is off, or the workspace is baked into the image, a NAT gateway per environment is
-three recurring charges for a path nothing uses. Check whether DEV and UAT need git access before
-giving them one.
+**Most JetStore stacks need neither.** The 18 interface endpoints and the S3 gateway endpoint exist
+precisely so that the isolated and private tiers reach AWS services without egress.
+`JETS_NBR_NAT_GATEWAY` is documented as needed to reach GitHub for workspace pulls — so if git
+integration is off, or the workspace is baked into the image, a NAT gateway per environment is three
+recurring charges for a path nothing uses. Check whether DEV and UAT need git access before giving
+them one.
 
 ## Scenario 1 — full isolation
 
