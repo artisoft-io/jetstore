@@ -60,7 +60,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -156,6 +156,7 @@ export function documentFindings(): string[] {
 
 export function WorkspaceRegistry({ api }: { api: ApiClient }) {
   const routeParams = useParams();
+  const navigate = useNavigate();
   const { setError, setStatus } = useNotifications();
 
   const [ready, setReady] = useState(false);
@@ -345,11 +346,16 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
       // nothing about either, so both are inert rather than wrong.
       goToState: () => {},
       close: () => dialog.close("ok"),
+      // C.3's route, reached without a page reload. The cross-*app* link a
+      // `showScreen` action makes is still `window.location.href` below; this is
+      // for a destination inside this bundle, and `openWorkspace` is the one
+      // escape that has one.
+      navigate: (path: string) => navigate(path),
       userEmail: () => api.currentUser?.email ?? "",
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, queryPost, setError, setStatus, dialog.close],
+    [api, currentForm, formState, navigate, queryPost, setError, setStatus, dialog.close],
   );
 
   const runNamedAction = useCallback(

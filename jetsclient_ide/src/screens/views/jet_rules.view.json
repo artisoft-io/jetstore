@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "view": "jet_rules",
+  "label": "Jets Rules",
+  "tabs": [
+    { "label": "Jet Rules", "table": "wsJetRulesTable" },
+    { "label": "Rule Terms", "table": "wsRuleTermsTable" },
+    { "label": "Files Relationship", "table": "wsMainSupportFilesTable" }
+  ]
+}

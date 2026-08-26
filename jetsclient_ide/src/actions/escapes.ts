@@ -111,6 +111,22 @@ export interface EscapeHost {
   setBusy(busy: boolean): void;
   /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
   close(): void;
+  /**
+   * Sends the user to another route of *this* app. Task C.3.
+   *
+   * **Optional, and that is not hedging.** Only a host inside the router can
+   * navigate, and two of the three hosts are not screens: a dialog host is opened
+   * *by* a screen and a generator has no router at all. An escape that wants it
+   * therefore has to say what it does without it, which `openWorkspace` does —
+   * and an optional member breaks no implementor, including the one in
+   * `src/cpipes/` that this project does not own.
+   *
+   * **A React route, not a Flutter one.** The cross-app link is
+   * `window.location.href = "/#" + path` and stays that way
+   * (`userflow/routing.ts`); this is `useNavigate()`, so the path is relative to
+   * the `/ide` basename and no page reloads.
+   */
+  navigate?(path: string): void;
   userEmail(): string;
   /**
    * Hands the browser a file to save. `download()` in the Dart

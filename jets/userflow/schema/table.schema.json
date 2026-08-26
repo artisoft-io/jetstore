@@ -198,10 +198,7 @@
           "type": "string"
         },
         "schema": {
-          "description": "A key naming a state, form, action or form-state entry",
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
-          "type": "string"
+          "$ref": "#/$defs/SchemaName"
         },
         "table": {
           "description": "A key naming a state, form, action or form-state entry",
@@ -263,6 +260,42 @@
           "type": "object"
         }
       ]
+    },
+    "RowHeight": {
+      "additionalProperties": false,
+      "description": "The pixel band a data row is drawn in",
+      "properties": {
+        "max": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "min": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
+    },
+    "SchemaName": {
+      "anyOf": [
+        {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        {
+          "const": "$SCHEMA",
+          "type": "string"
+        }
+      ],
+      "description": "A database schema, or $SCHEMA for the compiled workspace"
     },
     "TableAction": {
       "additionalProperties": false,
@@ -550,6 +583,9 @@
           "const": true,
           "type": "boolean"
         },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "rowsPerPage": {
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991,
@@ -573,6 +609,12 @@
           "type": "boolean"
         },
         "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
           "description": "A key naming a state, form, action or form-state entry",
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_.-]+$",
@@ -637,6 +679,9 @@
         "noFooter": {
           "type": "boolean"
         },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "rows": {
           "items": {
             "items": {
@@ -670,6 +715,12 @@
           "type": "boolean"
         },
         "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
           "description": "A key naming a state, form, action or form-state entry",
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_.-]+$",
@@ -731,6 +782,9 @@
         "noFooter": {
           "type": "boolean"
         },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "rowsPerPage": {
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991,
@@ -747,6 +801,12 @@
           "type": "boolean"
         },
         "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
           "description": "A key naming a state, form, action or form-state entry",
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_.-]+$",

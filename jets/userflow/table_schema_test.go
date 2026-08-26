@@ -7,13 +7,12 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 41 shipping table configurations, translated out of the
-// tablesDir holds the 40 shipping table configurations, translated out of the
+// tablesDir holds the 50 shipping table configurations, all but two translated out of the
 // Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
 // so this side can validate the *real* configuration rather than a sample. See
 // that file for why the translation is round-tripped rather than only emitted.
 //
-// **37 of them are the flows' and four are not.** `pipelineExecStatusTable` is
+// **37 of them are the flows' and ten are not.** `pipelineExecStatusTable` is
 // registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
 // F.5 could not author that flow without it; `workspaceRegistryTable` is the
 // `/workspaces` screen's, added by C.2; C.7 added `pipelineExecDetailsTable` and
@@ -39,6 +38,14 @@ import (
 // is one of the flows' 37 — it is registered in
 // `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart` and
 // rendered by the home screen, which is F18 read backwards.
+//
+// **Two of the 49 are authored rather than translated, and they are the first.**
+// `wsLookupTableTable` and `wsLookupColumnTable` are the `lookups` compiled view
+// (C.3a), which the Flutter app never built — so there is no Dart configuration
+// to measure and nothing for a round trip to compare against. That changes
+// nothing on this side: this test reads the directory and validates what it
+// finds, and an authored document that does not validate fails here exactly as a
+// translated one would.
 //
 // **The count here is deliberately a literal and deliberately duplicated.** It is
 // the one assertion that fails when a document is emitted and not committed, or
@@ -93,7 +100,7 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 53 {
+	if len(files) != 61 {
 		t.Fatalf("expected the flows' 37 table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

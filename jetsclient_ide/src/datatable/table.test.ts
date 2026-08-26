@@ -118,6 +118,12 @@ const NON_FLOW_KEYS = [
   "userTable",
   "userRolesTable",
   "ruleConfigv2Table",
+  "wsDomainClassTable",
+  "wsDataPropertyTable",
+  "wsDomainTableTable",
+  "wsJetRulesTable",
+  "wsRuleTermsTable",
+  "wsMainSupportFilesTable",
 ] as const;
 
 /**
@@ -145,20 +151,50 @@ const NON_FLOW_KEYS = [
  * file — so what is trusted to a human here is exactly one field per document and
  * every other field is compared against the Dart.
  */
+/**
+ * **Two tasks reached this idea from opposite sides and they stay two lists — C.9
+ * and C.3a, reconciled when they merged.** C.9's two name a Dart closure the
+ * corpus records as a boolean, so `toDocument` refuses them and keeps refusing
+ * them. C.3a's two have **no Dart original at all**, because the `lookups` view
+ * was never built in Flutter, so there is nothing for `toDocument` to be given.
+ *
+ * **The consequence is shared and the premise is not**, which is why this is two
+ * constants rather than one: neither kind can be a *measurement* of the Dart — the
+ * claim I-102 decision 1 actually makes about a translated document — but only
+ * C.9's kind can be checked field-by-field against a corpus entry, and only
+ * C.3a's needs `jets/workspace_schema.sql` instead. Collapsing them would put both
+ * checks on a list where half the members fail each.
+ *
+ * **The checkable rule they share is `toDocument`'s: a non-flow table is
+ * translatable iff `toDocument` does not refuse it.** The two sessions invented
+ * the names `HAND_AUTHORED_KEYS` and `AUTHORED_KEYS` independently, hours apart,
+ * for lists in the same file; that they mean different things is luck rather than
+ * design, and the distinction above is the one to read them by.
+ */
 const HAND_AUTHORED_KEYS = ["reteSessionEntityKeyTable", "reteSessionEntityDetailsTable"] as const;
+
+/** C.3a's two: no Dart original, checked against `jets/workspace_schema.sql`. */
+const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
 
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
   ...flowDocuments,
   ...Object.fromEntries(NON_FLOW_KEYS.map((key) => [key, toDocument(screenTables[key]!)])),
 };
-const handAuthored: Record<string, TableConfigDocument> = Object.fromEntries(
-  HAND_AUTHORED_KEYS.map((key) => [
-    key,
-    JSON.parse(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")) as TableConfigDocument,
-  ]),
-);
-const documents: Record<string, TableConfigDocument> = { ...translated, ...handAuthored };
+const readAuthored = (keys: readonly string[]): Record<string, TableConfigDocument> =>
+  Object.fromEntries(
+    keys.map((key) => [
+      key,
+      JSON.parse(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")) as TableConfigDocument,
+    ]),
+  );
+const handAuthored = readAuthored(HAND_AUTHORED_KEYS);
+const authoredDocuments = readAuthored(AUTHORED_KEYS);
+const documents: Record<string, TableConfigDocument> = {
+  ...translated,
+  ...handAuthored,
+  ...authoredDocuments,
+};
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 const documentOf = (key: string) => `${JSON.stringify(documents[key], null, 2)}\n`;
 
@@ -169,7 +205,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 53 configurations committed beside it, for the Go check", () => {
+  it("has the 61 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -223,15 +259,15 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the sixteen non-flow tables so far make 53", () => {
+  it("all translate, and the twenty-four non-flow tables so far make 61", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
-    // five + C.13's two + C.10's one, of which two are hand-authored. The three counts are asserted separately because
+    // five + C.13's two + C.10's one + C.3's six + C.3a's two, of which four are authored rather than translated. The three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(51);
+    expect(Object.keys(translated).length).toBe(57);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(documents).length).toBe(53);
+    expect(Object.keys(documents).length).toBe(61);
   });
 
   it("all validate against the schema", () => {
@@ -247,7 +283,7 @@ describe("the 37 shipping configurations", () => {
     // The check the schema's cuts have to survive. Each cut in `table.ts` was
     // made because no configuration sets the field; if one does, this fails
     // rather than the document quietly meaning less than the Dart.
-    for (const key of Object.keys(documents)) {
+    for (const key of Object.keys({ ...translated, ...handAuthored })) {
       // **`modelSource` is dropped before comparing, and it is the one field in
       // `TableConfig` with no corpus counterpart.** Task C.9. The Dart spells a
       // form-state table's row source as two fields — `modelStateFormKey` and a
@@ -753,6 +789,78 @@ describe("queryToolResultSetTable, the /queryTool screen's result table", () => 
     expect(restored.whereClauses[0]!.column).toBe("");
     expect(restored.requestColumnDef).toBe(true);
     expect(restored).toEqual(config);
+  });
+});
+
+/**
+ * The two authored documents. Task C.3a.
+ *
+ * **A hand-transcribed document that is wrong is still well formed**, which is
+ * C.2b's finding on a dialog whose *Close* button is keyed `dialogCancel` and
+ * styled `dialogOk`. These two have no Dart to be wrong about — the `lookups`
+ * view was never built — so the risk is not transcription but *invention*: a
+ * column that is not a column, a join that does not join. The schema cannot see
+ * either, because both are identifiers.
+ *
+ * So what is asserted here is the pair against **`jets/workspace_schema.sql`**,
+ * which is the only thing that knows what `workspace.db` holds. That is the same
+ * move the project makes everywhere else — check the claim against the other end
+ * rather than against a reading of your own.
+ */
+describe("the two lookup tables, which are authored rather than translated", () => {
+  const columnsOf = (key: string) =>
+    authoredDocuments[key]!.columns.map((c) => `${c.table ?? ""}.${c.name}`);
+
+  it("select only columns workspace_schema.sql declares", () => {
+    // `lookup_tables` and `lookup_columns` from `jets/workspace_schema.sql`, and
+    // `workspace_control.source_file_name`, which every other compiled view joins
+    // to the same way.
+    const schema: Record<string, string[]> = {
+      lookup_tables: [
+        "key", "name", "table_name", "csv_file", "lookup_key", "lookup_resources", "source_file_key",
+      ],
+      lookup_columns: ["lookup_table_key", "name", "type", "as_array"],
+      workspace_control: ["key", "source_file_name", "is_main"],
+    };
+    for (const key of AUTHORED_KEYS) {
+      for (const qualified of columnsOf(key)) {
+        const [table, column] = qualified.split(".");
+        expect(schema[table!], `${key}: ${qualified}`).toBeDefined();
+        expect(schema[table!], `${key}: ${qualified}`).toContain(column);
+      }
+    }
+  });
+
+  it("join on the foreign keys that schema declares, and qualify every column", () => {
+    const doc = authoredDocuments["wsLookupTableTable"]!;
+    expect(doc.source).toBe("query");
+    if (doc.source !== "query") return;
+    expect(doc.where).toEqual([{ column: "source_file_key", joinWith: "workspace_control.key" }]);
+
+    const columns = authoredDocuments["wsLookupColumnTable"]!;
+    expect(columns.source).toBe("query");
+    if (columns.source !== "query") return;
+    expect(columns.where).toEqual([
+      { column: "lookup_table_key", table: "lookup_columns", joinWith: "lookup_tables.key" },
+    ]);
+    // Every column names its table. Both documents have a two-table `FROM` and
+    // `wsLookupColumnTable` selects two columns called `name`, so an unqualified
+    // one is ambiguous to the server rather than merely untidy.
+    for (const key of AUTHORED_KEYS) {
+      for (const c of authoredDocuments[key]!.columns) expect(c.table, key).toBeTruthy();
+    }
+  });
+
+  it("read the compiled workspace, like the six they sit beside", () => {
+    for (const key of AUTHORED_KEYS) {
+      const doc = authoredDocuments[key]!;
+      expect(doc.source).toBe("query");
+      if (doc.source !== "query") return;
+      expect(doc.apiAction).toBe("workspace_read");
+      for (const from of doc.from) expect(from.schema).toBe("$SCHEMA");
+      // The sort has to name its table for the same reason the columns do.
+      expect(doc.sortColumnTable).toBeTruthy();
+    }
   });
 });
 

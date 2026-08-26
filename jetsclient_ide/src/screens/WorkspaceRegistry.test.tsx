@@ -21,7 +21,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
@@ -111,6 +111,10 @@ function stubServer(active = { name: "jets_ws", branch: "jets_ai", uri: "git@exa
   return { fetchImpl, posts };
 }
 
+function LocationProbe() {
+  return <span data-testid="location">{useLocation().pathname}</span>;
+}
+
 async function mount(active?: { name: string; branch: string; uri: string }) {
   const { fetchImpl, posts } = stubServer(active);
   const api = new ApiClient("", fetchImpl);
@@ -121,8 +125,12 @@ async function mount(active?: { name: string; branch: string; uri: string }) {
       <NotificationsProvider>
         <Banners />
         <MemoryRouter initialEntries={["/workspaces"]}>
+          {/* Surfaces the in-app location so the Open button's destination can be
+              asserted rather than inferred from a banner (C.3). */}
+          <LocationProbe />
           <Routes>
             <Route path="/workspaces" element={<WorkspaceRegistry api={api} />} />
+            <Route path="/workspaces/:workspace_name/home" element={<p>workspace home</p>} />
           </Routes>
         </MemoryRouter>
       </NotificationsProvider>
@@ -230,18 +238,13 @@ describe("the screen", () => {
     await selectRow("initech_ws");
     // `in progress` fails seven of the eight; Push Only tests `removed` alone.
     //
-    // **Wait on `Push Only` becoming *enabled*, not on `Open` becoming disabled.**
-    // `Open` is already disabled the moment the screen mounts — the case above
-    // asserts exactly that, titled "Select a row first" — so waiting on it is
-    // waiting on a condition that already holds, and `waitFor` returns on its
-    // first tick, before the selection's restore lands (I-185). The assertions
-    // then read an unselected screen where every button is disabled for the wrong
-    // reason, and the case passes anyway. It failed about two runs in five on
-    // `jets_ai`, and adding unrelated test files changed the rate rather than the
-    // cause, because vitest's scheduling decides which tick wins.
-    //
-    // `Push Only` is enabled *only* for a `removed` workspace, so it is true after
-    // this selection and false before it — which is what makes it a wait.
+    // **Wait on the button that becomes *enabled*, not on one that becomes
+    // disabled.** This waited on `Open` being disabled, which is also true with
+    // no row selected at all — so the wait returned before the selection landed
+    // and the assertions below raced the restore, failing about two runs in five.
+    // That is I-104's shape in a `waitFor` predicate: a condition satisfied by the
+    // state you are waiting to leave is not a wait. Found by C.3 running the suite
+    // repeatedly for its own flake check; the case itself is C.2b's and correct.
     await waitFor(() => expect(button("Push Only").hasAttribute("disabled")).toBe(false));
     for (const label of [
       "Open", "Export Client Config", "Load Client Config", "Delete",
@@ -479,15 +482,27 @@ describe("the actions that are not dialogs", () => {
     confirm.mockRestore();
   });
 
-  it("reports rather than navigating somewhere broken, for Open", async () => {
-    // I-183. The destination is C.3's, and `workspaceMenuState` is written at
-    // three button presses and read from no route — so handing the browser to the
-    // Flutter path would render a screen with no sections.
+  /**
+   * **I-183, closed by C.3 — and the case changed shape rather than being
+   * deleted.** It asserted that Open *reports* instead of navigating, because the
+   * destination did not exist; it now asserts where it goes. What is kept from the
+   * original is the second assertion: the escape does **not** post
+   * `workspace_query_structure`.
+   *
+   * That is the whole difference between the two apps. The Dart's Open fetches the
+   * tree and writes it into `JetsRouterDelegate().workspaceMenuState`, which is
+   * what the destination renders its menu from; this app's destination fetches its
+   * own tree on mount, so the same request from here would be a request whose only
+   * effect is client state nobody keeps.
+   */
+  it("navigates to the workspace home, and does not fetch the tree on the way", async () => {
     const { posts } = await mount();
     await selectRow("acme_ws");
     await waitFor(() => expect(button("Open").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Open"));
-    await screen.findByText(/needs the Workspace home screen/);
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe("/workspaces/acme_ws/home"),
+    );
     expect(posts.some((p) => p.body["action"] === "workspace_query_structure")).toBe(false);
   });
 });

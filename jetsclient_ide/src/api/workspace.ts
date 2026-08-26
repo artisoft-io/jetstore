@@ -32,12 +32,19 @@ export interface WorkspaceNode {
    * the compiler reads — `wsfile.WorkspaceSections` is where the predicate and
    * the three current values live.
    *
-   * **Nothing here reads it yet, and it is mirrored anyway.** The Workspace IDE
-   * shows a workspace from both sides of the compiler: the nodes below a heading
-   * are the source files, and the heading itself is a view of the compiled
-   * artifact. This app renders the first half; C.3 ports the second, and C.3a
-   * builds the `lookups` view the Flutter client never had. A mirror that omits
-   * a field the server sends is a mirror the next reader has to re-derive.
+   * **Read by `screens/sectionContract.ts` as of C.3**, which is what this
+   * paragraph was waiting for. The Workspace IDE shows a workspace from both
+   * sides of the compiler: the nodes below a heading are the source files, and
+   * the heading itself is a view of the compiled artifact. This app rendered only
+   * the first half until 2026-08-25; it now renders `data_model` and `jet_rules`,
+   * and `lookups` is C.3a.
+   *
+   * **The field was mirrored here before anything read it, and that turned out to
+   * be worth it** — the value of a mirror that omits nothing is that the next
+   * reader does not have to re-derive the field, and C.3 was that reader. What it
+   * does *not* say is whether this app renders a view for the value: the server
+   * answers *does this section have one*, `sectionContract.ts` answers *do we draw
+   * it*, and C.1 removed the Flutter client's conflation of the two.
    */
   compiled_view?: string;
   route_path: string;

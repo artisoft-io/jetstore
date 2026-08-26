@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "view": "lookups",
+  "label": "Lookups",
+  "tabs": [
+    { "label": "Lookup Tables", "table": "wsLookupTableTable" },
+    { "label": "Lookup Columns", "table": "wsLookupColumnTable" }
+  ]
+}

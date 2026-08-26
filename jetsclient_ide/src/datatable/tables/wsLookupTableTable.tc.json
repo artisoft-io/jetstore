@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "label": "Lookup Tables",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "lookup_tables",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "name",
+      "label": "Lookup Name",
+      "table": "lookup_tables",
+      "tooltip": "Lookup Table Name as declared in the rule file"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "table": "lookup_tables",
+      "tooltip": "Name of the table holding the lookup data"
+    },
+    {
+      "name": "csv_file",
+      "label": "CSV File",
+      "table": "lookup_tables",
+      "tooltip": "Lookup data file, read by the engine at run time rather than at compile time"
+    },
+    {
+      "name": "lookup_key",
+      "label": "Lookup Key",
+      "table": "lookup_tables",
+      "tooltip": "Columns forming the lookup key"
+    },
+    {
+      "name": "lookup_resources",
+      "label": "Lookup Resources",
+      "table": "lookup_tables",
+      "tooltip": "Columns returned by the lookup"
+    },
+    {
+      "name": "source_file_name",
+      "label": "Source File Name",
+      "table": "workspace_control",
+      "tooltip": "File containing the Lookup Table definition"
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "lookup_tables",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "lookup_tables"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_file_key",
+      "joinWith": "workspace_control.key"
+    }
+  ]
+}

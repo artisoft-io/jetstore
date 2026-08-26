@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import type { ApiClient } from "../api/client";
 import { SessionExpiredError } from "../api/client";
@@ -25,36 +26,81 @@ import { Editor } from "../editor/Editor";
 import { isServerValidatedJson, languageNameFor } from "../editor/language";
 import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
+import { CompiledView } from "./CompiledView";
+import { compiledViewFor, compiledViews } from "./sectionContract";
 
 /** The capability the server requires for every workspace action. */
 export const WORKSPACE_IDE = "workspace_ide";
 
-interface Tab {
-  fileName: string;
-  label: string;
-  /** Text as last loaded or saved; the dirty check compares against this. */
-  saved: string;
-  current: string;
-  size: number;
+/**
+ * An open tab. Task C.3 made this a union of two.
+ *
+ * **The Flutter screen has had two kinds since it was written** — its
+ * `TabBarView` renders a `JetsForm` for a file and a `JetsFormWithTabs` for a
+ * compiled view (`jetsclient/lib/screens/screen_tab_form.dart`,
+ * `ScreenWithTabsWithForm`) — and this app carried only the first, because Phase
+ * 1 ported the editor and nothing had ported the view. The discriminant is
+ * explicit rather than inferred from which fields are present: a file tab is
+ * identified by its escaped path and a view tab by the compiled view it shows,
+ * and neither key can be mistaken for the other.
+ */
+type Tab =
+  | {
+      kind: "file";
+      fileName: string;
+      label: string;
+      /** Text as last loaded or saved; the dirty check compares against this. */
+      saved: string;
+      current: string;
+      size: number;
+    }
+  | {
+      kind: "view";
+      /** The `wsfile.CompiledView` value, which is also this tab's key. */
+      view: string;
+      label: string;
+    };
+
+/** The key a tab is addressed by, unique across both kinds. */
+function tabKey(tab: Tab): string {
+  return tab.kind === "file" ? `file:${tab.fileName}` : `view:${tab.view}`;
+}
+
+function isDirty(tab: Tab): boolean {
+  return tab.kind === "file" && tab.current !== tab.saved;
 }
 
 export function WorkspaceIde({ api }: { api: ApiClient }) {
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
   const { setError, setStatus } = useNotifications();
+  /**
+   * The workspace named by the route, when there is one. Task C.3.
+   *
+   * **Two routes, one screen**: `/workspace` is Phase 1's, where the picker
+   * chooses; `/workspaces/:workspace_name/home` is the Flutter path, where the
+   * url chooses and the picker follows. The parameter is the source of truth when
+   * it is present, so a back button and a bookmark both work — which is the
+   * property the Flutter screen does not have, because its section list is client
+   * state written by the button that navigates to it.
+   */
+  const routeWorkspace = useParams()["workspace_name"];
+  const navigate = useNavigate();
 
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [workspace, setWorkspace] = useState<string>("");
+  const [workspace, setWorkspace] = useState<string>(routeWorkspace ?? "");
   const [tree, setTree] = useState<WorkspaceNode[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const canEdit = api.can(WORKSPACE_IDE);
   const activeTab = useMemo(
-    () => tabs.find((t) => t.fileName === activeFile) ?? null,
-    [tabs, activeFile],
+    () => tabs.find((t) => tabKey(t) === activeKey) ?? null,
+    [tabs, activeKey],
   );
-  const dirtyCount = tabs.filter((t) => t.current !== t.saved).length;
+  /** Only a file tab highlights a row in the tree; a view tab highlights none. */
+  const activeFile = activeTab?.kind === "file" ? activeTab.fileName : null;
+  const dirtyCount = tabs.filter(isDirty).length;
 
   /** Routes every failure to the banner, and a dead session back to the login screen. */
   const guard = useCallback(
@@ -64,7 +110,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
       } catch (err) {
         if (err instanceof SessionExpiredError) {
           setTabs([]);
-          setActiveFile(null);
+          setActiveKey(null);
           setTree([]);
         }
         setError(err instanceof Error ? err.message : String(err));
@@ -85,6 +131,8 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     void guard(async () => {
       const list = await workspaceApi.listWorkspaces();
       setWorkspaces(list);
+      // The route wins when it names one; otherwise the first is as good a
+      // default as any, which is what Phase 1 has always done.
       if (list.length > 0 && workspace === "") setWorkspace(list[0]!.name);
     });
     // Once, on mount: the shell guarantees a session, and picking a workspace is
@@ -92,10 +140,19 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The route changing under the screen — a second `Open`, a back button — is a
+  // workspace change like any other, and the effect below does the rest.
+  useEffect(() => {
+    if (routeWorkspace !== undefined && routeWorkspace !== workspace) {
+      setWorkspace(routeWorkspace);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeWorkspace]);
+
   useEffect(() => {
     if (workspace === "") return;
     setTabs([]);
-    setActiveFile(null);
+    setActiveKey(null);
     setBusy(true);
     void guard(async () => {
       setTree(await workspaceApi.fileTree(workspace));
@@ -107,8 +164,8 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     (node: WorkspaceNode) => {
       const fileName = fileNameOf(node);
       if (!fileName) return;
-      if (tabs.some((t) => t.fileName === fileName)) {
-        setActiveFile(fileName);
+      if (tabs.some((t) => t.kind === "file" && t.fileName === fileName)) {
+        setActiveKey(`file:${fileName}`);
         return;
       }
       setBusy(true);
@@ -118,6 +175,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
         setTabs((prev) => [
           ...prev,
           {
+            kind: "file",
             fileName: file.fileName,
             label: file.label,
             saved: file.content,
@@ -125,23 +183,78 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
             size: node.size,
           },
         ]);
-        setActiveFile(file.fileName);
+        setActiveKey(`file:${file.fileName}`);
       }).finally(() => setBusy(false));
     },
     [guard, setStatus, tabs, workspace, workspaceApi],
   );
 
+  /**
+   * Open a section's compiled view. Task C.3.
+   *
+   * **No fetch here, which is the difference from `openFile`.** A file tab has
+   * to read the file before it can be drawn; a compiled view is a bundled
+   * document and its tables fetch themselves once mounted. So this cannot fail,
+   * and there is nothing to guard.
+   */
+  const openView = useCallback(
+    (node: WorkspaceNode) => {
+      const document = compiledViewFor(node.compiled_view);
+      if (document === null) return;
+      const key = `view:${document.view}`;
+      if (!tabs.some((t) => tabKey(t) === key)) {
+        setTabs((prev) => [...prev, { kind: "view", view: document.view, label: document.label }]);
+      }
+      setActiveKey(key);
+    },
+    [tabs],
+  );
+
+  /**
+   * Change workspace, closing every tab in the same update. Task C.3.
+   *
+   * **The effect below already does this and doing it here as well is not
+   * redundant**, which is worth a sentence because it looks it. An effect runs
+   * *after* the render that changed the workspace, and a compiled view's tables
+   * key their fetch on the workspace name — so for exactly one render the old
+   * tabs are mounted with the new name, and every one of them issues a query
+   * against a workspace the user is leaving. Measured: three wasted requests per
+   * switch, in `CompiledView.test.tsx`. Clearing in the same batch as the change
+   * means that render never happens.
+   */
+  const pickWorkspace = useCallback(
+    (name: string) => {
+      setTabs([]);
+      setActiveKey(null);
+      setWorkspace(name);
+      // On the addressable route the url is the state, so the picker navigates
+      // rather than diverging from it; on the bare route there is nothing to keep
+      // in step. `replace`, because picking a workspace is not a place in the
+      // history a back button should return to one entry at a time.
+      if (routeWorkspace !== undefined) {
+        navigate(`/workspaces/${encodeURIComponent(name)}/home`, { replace: true });
+      }
+    },
+    [navigate, routeWorkspace],
+  );
+
+  /** Whether a tree node is a section this app renders a compiled view for. */
+  const canOpenView = useCallback(
+    (node: WorkspaceNode) => node.type === "section" && compiledViewFor(node.compiled_view) !== null,
+    [],
+  );
+
   const closeTab = useCallback(
-    (fileName: string) => {
-      const tab = tabs.find((t) => t.fileName === fileName);
-      if (tab && tab.current !== tab.saved) {
+    (key: string) => {
+      const tab = tabs.find((t) => tabKey(t) === key);
+      if (tab && isDirty(tab)) {
         const ok = window.confirm(`${tab.label} has unsaved changes. Close it anyway?`);
         if (!ok) return;
       }
       setTabs((prev) => {
-        const next = prev.filter((t) => t.fileName !== fileName);
-        setActiveFile((cur) =>
-          cur === fileName ? (next.length > 0 ? next[next.length - 1]!.fileName : null) : cur,
+        const next = prev.filter((t) => tabKey(t) !== key);
+        setActiveKey((cur) =>
+          cur === key ? (next.length > 0 ? tabKey(next[next.length - 1]!) : null) : cur,
         );
         return next;
       });
@@ -150,8 +263,11 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   );
 
   const save = useCallback(() => {
-    const tab = tabs.find((t) => t.fileName === activeFile);
-    if (!tab || tab.current === tab.saved || !canEdit) return;
+    const tab = tabs.find((t) => tabKey(t) === activeKey);
+    // A compiled view is read-only by construction: it shows what the compiler
+    // produced, and the way to change it is to edit the sources below the
+    // heading. Save is disabled on it rather than silently doing nothing.
+    if (!tab || tab.kind !== "file" || tab.current === tab.saved || !canEdit) return;
 
     // The server parses .json before writing, so catch it here and point at the
     // problem rather than surfacing a bare 400.
@@ -173,15 +289,21 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     void guard(async () => {
       await workspaceApi.saveFile(workspace, tab.fileName, tab.current);
       setTabs((prev) =>
-        prev.map((t) => (t.fileName === tab.fileName ? { ...t, saved: t.current } : t)),
+        prev.map((t) =>
+          t.kind === "file" && t.fileName === tab.fileName ? { ...t, saved: t.current } : t,
+        ),
       );
       setStatus(`Saved ${tab.label}`);
     }).finally(() => setBusy(false));
-  }, [activeFile, canEdit, guard, setError, setStatus, tabs, workspace, workspaceApi]);
+  }, [activeKey, canEdit, guard, setError, setStatus, tabs, workspace, workspaceApi]);
 
   const onChange = useCallback(
     (value: string) => {
-      setTabs((prev) => prev.map((t) => (t.fileName === activeFile ? { ...t, current: value } : t)));
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.kind === "file" && t.fileName === activeFile ? { ...t, current: value } : t,
+        ),
+      );
     },
     [activeFile],
   );
@@ -191,7 +313,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
       <div className="screenbar">
         <label className="ws-picker">
           <span className="sr-only">Workspace</span>
-          <select value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
+          <select value={workspace} onChange={(e) => pickWorkspace(e.target.value)}>
             {workspaces.length === 0 && <option value="">No workspaces</option>}
             {workspaces.map((w) => (
               <option key={w.name} value={w.name}>
@@ -211,7 +333,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           capability={WORKSPACE_IDE}
           className="btn btn-primary"
           onClick={save}
-          disabled={!activeTab || activeTab.current === activeTab.saved || busy}
+          disabled={!activeTab || activeTab.kind !== "file" || activeTab.current === activeTab.saved || busy}
         >
           Save
         </ActionButton>
@@ -219,35 +341,46 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
 
       <div className="body">
         <aside className="sidebar">
-          <FileTree nodes={tree} activeFile={activeFile} onOpen={openFile} />
+          <FileTree
+            nodes={tree}
+            activeFile={activeFile}
+            onOpen={openFile}
+            canOpenView={canOpenView}
+            onOpenView={openView}
+          />
         </aside>
 
         <main className="main">
           <div className="tabbar" role="tablist">
-            {tabs.map((t) => (
-              <div
-                key={t.fileName}
-                className={`tab${t.fileName === activeFile ? " is-active" : ""}`}
-                role="tab"
-                aria-selected={t.fileName === activeFile}
-              >
-                <button type="button" className="tab-label" onClick={() => setActiveFile(t.fileName)}>
-                  {t.current !== t.saved && <span className="dot" aria-label="unsaved" />}
-                  {t.label.split("/").pop()}
-                </button>
-                <button
-                  type="button"
-                  className="tab-close"
-                  onClick={() => closeTab(t.fileName)}
-                  aria-label={`Close ${t.label}`}
+            {tabs.map((t) => {
+              const key = tabKey(t);
+              return (
+                <div
+                  key={key}
+                  className={`tab${key === activeKey ? " is-active" : ""}`}
+                  role="tab"
+                  aria-selected={key === activeKey}
                 >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <button type="button" className="tab-label" onClick={() => setActiveKey(key)}>
+                    {isDirty(t) && <span className="dot" aria-label="unsaved" />}
+                    {t.kind === "file" ? t.label.split("/").pop() : t.label}
+                  </button>
+                  <button
+                    type="button"
+                    className="tab-close"
+                    onClick={() => closeTab(key)}
+                    aria-label={`Close ${t.label}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          {activeTab ? (
+          {activeTab?.kind === "view" ? (
+            <CompiledView api={api} document={compiledViews[activeTab.view]!} workspaceName={workspace} />
+          ) : activeTab ? (
             <>
               <Editor
                 docKey={activeTab.fileName}
@@ -268,7 +401,10 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           ) : (
             <div className="empty">
               <p>Select a file to start editing.</p>
-              <p className="empty-sub">Every file in the workspace opens here, whatever its size.</p>
+              <p className="empty-sub">
+                Every file in the workspace opens here, whatever its size. A section heading whose
+                files compile into the workspace database opens the compiled view instead.
+              </p>
             </div>
           )}
         </main>

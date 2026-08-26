@@ -288,6 +288,27 @@ body {
 .tree-caret { font-size: 9px; color: var(--ink-3); transition: transform 0.12s ease; display: inline-block; }
 .tree-caret.is-open { transform: rotate(90deg); }
 
+/* A section heading is two controls: the caret expands its sources, the label
+   opens the compiled view of what those sources became (C.3). They look like one
+   row because they are one heading. */
+.tree-dir { padding: 0; }
+.tree-caret-btn,
+.tree-dir .tree-label {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  padding: 3px 0;
+}
+.tree-caret-btn { flex: 0 0 auto; padding-left: 8px; }
+.tree-dir .tree-label { text-align: left; padding-right: 8px; }
+.tree-view-label { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+
+/* ---------- compiled view (C.3) ---------- */
+.compiled-view { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.compiled-view > [role="tabpanel"] { min-height: 0; overflow: auto; }
+
 /* ---------- tabs ---------- */
 .tabbar {
   display: flex;

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "label": "Data Model",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "domain_tables",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "name",
+      "label": "Table Name",
+      "table": "domain_tables",
+      "tooltip": "Domain Table Name"
+    },
+    {
+      "name": "name",
+      "label": "Column Name",
+      "table": "domain_columns",
+      "tooltip": "Domain Column Name"
+    },
+    {
+      "name": "type",
+      "label": "Data Type",
+      "table": "data_properties",
+      "tooltip": "Column data type"
+    },
+    {
+      "name": "as_array",
+      "label": "Is Array?",
+      "table": "domain_columns",
+      "tooltip": "Is the column multi value?"
+    },
+    {
+      "name": "name",
+      "label": "Origin Class Name",
+      "table": "domain_classes",
+      "tooltip": "Origin Domain Class Name of the Column"
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "domain_tables",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "domain_tables"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "domain_columns"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "data_properties"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "domain_classes"
+    }
+  ],
+  "where": [
+    {
+      "column": "domain_table_key",
+      "table": "domain_columns",
+      "joinWith": "domain_tables.key"
+    },
+    {
+      "column": "data_property_key",
+      "table": "domain_columns",
+      "joinWith": "data_properties.key"
+    },
+    {
+      "column": "domain_class_key",
+      "table": "data_properties",
+      "joinWith": "domain_classes.key"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "label": "Rule Terms",
+  "columns": [
+    {
+      "name": "name",
+      "label": "Rule Name",
+      "table": "jet_rules",
+      "tooltip": "Jet Rule Name"
+    },
+    {
+      "name": "vertex",
+      "label": "Rule Vertex",
+      "table": "rete_nodes",
+      "tooltip": "Jet Rule Vertex",
+      "isNumeric": true
+    },
+    {
+      "name": "parent_vertex",
+      "label": "Parent Rule Vertex",
+      "table": "rete_nodes",
+      "tooltip": "Jet Rule Parent Vertex",
+      "isNumeric": true
+    },
+    {
+      "name": "normalizedLabel",
+      "label": "Jet Rule Term",
+      "table": "rete_nodes",
+      "tooltip": "Jet Rule Term using normalized label"
+    },
+    {
+      "name": "consequent_seq",
+      "label": "Consequent Seq",
+      "table": "rete_nodes",
+      "tooltip": "0: Antecedent, 1+: Consequent",
+      "isNumeric": true
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "jet_rules",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "rule_terms"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "jet_rules"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "rete_nodes"
+    }
+  ],
+  "where": [
+    {
+      "column": "rule_key",
+      "table": "rule_terms",
+      "joinWith": "jet_rules.key"
+    },
+    {
+      "column": "rete_node_key",
+      "table": "rule_terms",
+      "joinWith": "rete_nodes.key"
+    }
+  ]
+}

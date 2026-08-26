@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "view": "data_model",
+  "label": "Data Model",
+  "tabs": [
+    { "label": "Domain Classes", "table": "wsDomainClassTable" },
+    { "label": "Data Properties", "table": "wsDataPropertyTable" },
+    { "label": "Domain Tables", "table": "wsDomainTableTable" }
+  ]
+}

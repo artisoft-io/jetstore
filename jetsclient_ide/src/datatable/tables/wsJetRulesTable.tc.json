@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "label": "Data Model",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "jet_rules",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "name",
+      "label": "Rule Name",
+      "table": "jet_rules",
+      "tooltip": "Jet Rule Name"
+    },
+    {
+      "name": "salience",
+      "label": "Rule Salience",
+      "table": "jet_rules",
+      "tooltip": "Jet Rule Salience",
+      "isNumeric": true
+    },
+    {
+      "name": "authored_label",
+      "label": "Jet Rule",
+      "table": "jet_rules",
+      "tooltip": "Jet Rule as Written",
+      "maxLines": 5,
+      "columnWidth": 900
+    },
+    {
+      "name": "source_file_name",
+      "label": "Source File Name",
+      "table": "workspace_control",
+      "tooltip": "File containing the Jet Rule definition"
+    }
+  ],
+  "sortColumn": "name",
+  "rowHeight": {
+    "min": 64,
+    "max": 90
+  },
+  "sortColumnTable": "jet_rules",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "jet_rules"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_file_key",
+      "table": "jet_rules",
+      "joinWith": "workspace_control.key"
+    }
+  ]
+}

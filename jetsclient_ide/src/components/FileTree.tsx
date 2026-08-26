@@ -5,6 +5,17 @@ interface Props {
   nodes: WorkspaceNode[];
   activeFile: string | null;
   onOpen: (node: WorkspaceNode) => void;
+  /**
+   * Whether this section's heading opens a compiled view. Task C.3.
+   *
+   * **The tree does not decide this and must not.** A section carries
+   * `compiled_view` from the server, which says whether the section *has* a view;
+   * whether *this app renders one* is `sectionContract.ts`'s question, and the
+   * two are different — `lookups` answers yes to the first and no to the second
+   * until C.3a. Conflating them is what C.1 removed from the Flutter client.
+   */
+  canOpenView?: (node: WorkspaceNode) => boolean;
+  onOpenView?: (node: WorkspaceNode) => void;
 }
 
 /** Human-readable size. Files here run from a few bytes to a few megabytes. */
@@ -34,12 +45,16 @@ function TreeNode({
   activeFile,
   onOpen,
   forceOpen,
+  canOpenView,
+  onOpenView,
 }: {
   node: WorkspaceNode;
   depth: number;
   activeFile: string | null;
   onOpen: (n: WorkspaceNode) => void;
   forceOpen: boolean;
+  canOpenView?: (n: WorkspaceNode) => boolean;
+  onOpenView?: (n: WorkspaceNode) => void;
 }) {
   const [open, setOpen] = useState(depth < 1);
   const expanded = forceOpen || open;
@@ -62,20 +77,47 @@ function TreeNode({
     );
   }
 
+  // A heading whose files compile into `workspace.db` does two things, and they
+  // are split across two controls here because they are two things: the caret
+  // expands the *sources* beneath it, and the label opens the *compiled view* of
+  // what those sources became. The Flutter app puts both on one tile, which is
+  // why a section heading there appeared to do nothing when the view was missing.
+  const opensView = canOpenView !== undefined && onOpenView !== undefined && canOpenView(node);
+
   return (
     <div>
-      <button
-        type="button"
-        className="tree-row tree-dir"
-        style={{ paddingLeft: `${8 + depth * 13}px` }}
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={expanded}
-      >
-        <span className={`tree-caret${expanded ? " is-open" : ""}`} aria-hidden="true">
-          ▸
-        </span>
-        <span className="tree-label">{node.label}</span>
-      </button>
+      <div className="tree-row tree-dir" style={{ paddingLeft: `${8 + depth * 13}px` }}>
+        <button
+          type="button"
+          className="tree-caret-btn"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${node.label}`}
+        >
+          <span className={`tree-caret${expanded ? " is-open" : ""}`} aria-hidden="true">
+            ▸
+          </span>
+        </button>
+        {opensView ? (
+          <button
+            type="button"
+            className="tree-label tree-view-label"
+            onClick={() => onOpenView(node)}
+            title={`Open the compiled view of ${node.label}`}
+          >
+            {node.label}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="tree-label"
+            onClick={() => setOpen((v) => !v)}
+            tabIndex={-1}
+          >
+            {node.label}
+          </button>
+        )}
+      </div>
       {expanded && node.children && (
         <div>
           {node.children.map((child, i) => (
@@ -86,6 +128,8 @@ function TreeNode({
               activeFile={activeFile}
               onOpen={onOpen}
               forceOpen={forceOpen}
+              canOpenView={canOpenView}
+              onOpenView={onOpenView}
             />
           ))}
         </div>
@@ -94,7 +138,7 @@ function TreeNode({
   );
 }
 
-export function FileTree({ nodes, activeFile, onOpen }: Props) {
+export function FileTree({ nodes, activeFile, onOpen, canOpenView, onOpenView }: Props) {
   const [filter, setFilter] = useState("");
   const filtered = useMemo(() => filterTree(nodes, filter.trim()), [nodes, filter]);
 
@@ -120,6 +164,8 @@ export function FileTree({ nodes, activeFile, onOpen }: Props) {
               depth={0}
               activeFile={activeFile}
               onOpen={onOpen}
+              canOpenView={canOpenView}
+              onOpenView={onOpenView}
               // While filtering, show the matches rather than making the user
               // expand to find them.
               forceOpen={filter.trim() !== ""}

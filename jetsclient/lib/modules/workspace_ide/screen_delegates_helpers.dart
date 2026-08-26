@@ -127,14 +127,25 @@ const workspaceFileEditorSizeLimit = 250000;
 /// eight sections took that path, and "no view was built", "no view can exist"
 /// and "the registry lookup failed" were one event.
 ///
-/// **`lookups` is deliberately absent, and its absence is now a stated fact
-/// rather than a gap.** Its files do compile into `workspace.db`, so the server
-/// declares `compiled_view: lookups`; the view is scheduled as ui_refresh's
-/// **C.3a in React**, because track X deletes this app and a view built here is
-/// discarded by construction (I-45, decided 2026-08-23 by the user). The state
-/// that has no name today — *declared, and not built in this client* — is
-/// asserted by `test/workspace_section_contract_test.dart`, which fails if a
-/// section is added to either side without somebody deciding which case it is.
+/// **`lookups` is deliberately absent, and it is now built elsewhere rather than
+/// scheduled.** Its files do compile into `workspace.db`, so the server declares
+/// `compiled_view: lookups`; the view was routed to React because track X deletes
+/// this app and a view built here is discarded by construction (I-45, decided
+/// 2026-08-23 by the user). **C.3a shipped it on 2026-08-25** —
+/// `jetsclient_ide/src/screens/views/lookups.view.json` and its two table
+/// documents — so the state this constant records is *built, and not in this
+/// client*, which is what `viewsNotBuiltInFlutter` has always meant and stays
+/// true until this app is deleted.
+///
+/// **This sentence said "scheduled as C.3a" and was corrected by C.3a itself**,
+/// which is the only party a note naming a future trigger can rely on: nothing
+/// re-reads a source comment on the day its trigger fires, so the task that fires
+/// it has to. The repository `CLAUDE.md` records the same failure on the
+/// `.pc.json` validator row, where nobody was holding it.
+///
+/// The state is asserted by `test/workspace_section_contract_test.dart`, which
+/// fails if a section is added to either side without somebody deciding which
+/// case it is.
 const compiledViewForms = <String, String>{
   'data_model': FormKeys.wsDataModelForm,
   'jet_rules': FormKeys.wsJetRulesForm,
