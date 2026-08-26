@@ -118,6 +118,12 @@ const NON_FLOW_KEYS = [
   "userTable",
   "userRolesTable",
   "ruleConfigv2Table",
+  "wsDomainClassTable",
+  "wsDataPropertyTable",
+  "wsDomainTableTable",
+  "wsJetRulesTable",
+  "wsRuleTermsTable",
+  "wsMainSupportFilesTable",
 ] as const;
 
 /**
@@ -169,7 +175,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 53 configurations committed beside it, for the Go check", () => {
+  it("has the 59 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -223,15 +229,15 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the sixteen non-flow tables so far make 53", () => {
+  it("all translate, and the twenty-two non-flow tables so far make 59", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
-    // five + C.13's two + C.10's one, of which two are hand-authored. The three counts are asserted separately because
+    // five + C.13's two + C.10's one + C.3's six, of which two are hand-authored. The three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(51);
+    expect(Object.keys(translated).length).toBe(57);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(documents).length).toBe(53);
+    expect(Object.keys(documents).length).toBe(59);
   });
 
   it("all validate against the schema", () => {

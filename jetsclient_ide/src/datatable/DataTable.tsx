@@ -59,6 +59,24 @@ export interface DataTableProps {
 }
 
 /**
+ * Columns are keyed by `index`, not by `name`. Task C.3.
+ *
+ * **A column name is not unique within a table and four of the corpus's tables
+ * prove it.** `wsDataPropertyTable` selects `domain_classes.name` beside
+ * `data_properties.name`; `wsDomainTableTable` selects three columns called
+ * `name` from three joined tables. React was handed the same key twice, which it
+ * warns about because the consequence is a cell duplicated or omitted rather than
+ * an error.
+ *
+ * It went unnoticed until now for a reason worth stating: **all 37 flow tables
+ * have a single-table `FROM`**, where a duplicate column name is not expressible.
+ * The first configuration with a join is the first that can hit it, and every one
+ * of those is the Workspace IDE's. `index` equals the array position on all 275
+ * flow columns and is round-tripped as such (`table.ts`, the `index` note), so it
+ * is unique by construction.
+ */
+
+/**
  * A cell's class, which is the numeric alignment plus the line clamp. Task C.7.
  *
  * **`maxLines` was in no document until C.7 and is drawn by nothing until now**,
@@ -95,6 +113,31 @@ function cellStyle(column: ColumnConfig): CSSProperties | undefined {
   };
 }
 
+/**
+ * The band a data row is drawn in, when the configuration declares one. Task C.3.
+ *
+ * **One configuration in either corpus sets it** — `wsJetRulesTable`, 64 to 90 —
+ * and it is the table whose `authored_label` column carries `maxLines: 5`: a rule
+ * as written is several lines, so without a band every row on the page is as tall
+ * as the longest rule on it and a page of short rules is unreadably sparse.
+ *
+ * **`height` on a table row is a minimum and `max-height` on one is advisory**,
+ * which is the honest description of what CSS does here rather than a claim that
+ * the band is enforced. What actually bounds the row is the `-webkit-line-clamp`
+ * on the one column that can overflow, which is why the two fields travel
+ * together in the corpus. Written in the same change that authored the field
+ * rather than in the one after, per I-104.
+ */
+function rowStyle(config: TableConfig): CSSProperties | undefined {
+  if (config.dataRowMinHeight === undefined && config.dataRowMaxHeight === undefined) {
+    return undefined;
+  }
+  return {
+    ...(config.dataRowMinHeight !== undefined ? { height: config.dataRowMinHeight } : {}),
+    ...(config.dataRowMaxHeight !== undefined ? { maxHeight: config.dataRowMaxHeight } : {}),
+  };
+}
+
 export function DataTable({
   config,
   state,
@@ -107,6 +150,7 @@ export function DataTable({
   const copyEnabled = modes ? modes.copyEnabled : false;
   const rowsPerPageId = useId();
 
+  const rowBand = rowStyle(config);
   const lastPage = lastPageIndex(state.totalRowCount, state.rowsPerPage);
   const onLastPage = isLastPage(
     state.currentDataPage,
@@ -156,7 +200,7 @@ export function DataTable({
                 const sorted = state.sort.sortColumnIndex === i;
                 return (
                   <th
-                    key={column.name}
+                    key={column.index}
                     scope="col"
                     title={column.tooltips !== "" ? column.tooltips : undefined}
                     aria-sort={
@@ -185,6 +229,7 @@ export function DataTable({
                 // Positional, because the rows are: the key column is a *column
                 // index* and a page of rows has no other identity here.
                 key={rowIndex}
+                style={rowBand}
                 aria-selected={checkboxes ? state.selection[rowIndex] === true : undefined}
                 className={state.selection[rowIndex] ? "jets-datatable__row--selected" : undefined}
               >
@@ -201,7 +246,7 @@ export function DataTable({
                 )}
                 {columns.map((column) => (
                   <td
-                    key={column.name}
+                    key={column.index}
                     className={cellClassName(column)}
                     style={cellStyle(column)}
                     onClick={

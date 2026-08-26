@@ -131,6 +131,22 @@ export default function App() {
           <Route index element={<Navigate to="/workspace" replace />} />
           <Route path="home" element={<Home api={api} />} />
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
+          {/*
+            **The same screen, addressable.** Task C.3, and the destination C.2b's
+            *Open* button named before it existed (`actions/workspaceRegistry.ts`,
+            `WORKSPACE_HOME_ROUTE`). The path is the Flutter route verbatim
+            (`jetsclient/lib/routes/jets_routes_app.dart`, `workspaceHomePath`),
+            so handing a user over is a prefix change rather than a translation.
+
+            **The Flutter screen is reachable by button and not by URL** — its
+            section list comes from `workspaceMenuState`, written by the *Open*
+            delegate and read by `base_screen.dart`, so typing the url there gives
+            an empty menu. This app has no such precondition: `WorkspaceIde`
+            fetches its own tree in an effect keyed on the workspace. The bare
+            `/workspace` above stays, because a user arriving with no workspace in
+            mind picks one, and that is Phase 1's screen unchanged.
+          */}
+          <Route path="workspaces/:workspace_name/home" element={<WorkspaceIde api={api} />} />
           {/* The Flutter route is `/workspaces`, and this is the same path under
               the `/ide` basename. Track X decides when the other app stops
               serving its copy; until then the two coexist and the Flutter one is

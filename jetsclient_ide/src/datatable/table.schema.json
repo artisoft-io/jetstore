@@ -12,6 +12,15 @@
           "type": "string",
           "minLength": 1
         },
+        "sortColumnTable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "sortAscending": {
           "type": "boolean"
         },
@@ -128,6 +137,15 @@
           "type": "string",
           "minLength": 1
         },
+        "sortColumnTable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "sortAscending": {
           "type": "boolean"
         },
@@ -213,6 +231,15 @@
           "type": "string",
           "minLength": 1
         },
+        "sortColumnTable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
         "sortAscending": {
           "type": "boolean"
         },
@@ -289,6 +316,27 @@
   "title": "JetStore table configuration",
   "description": "One data-table configuration, authored as data",
   "$defs": {
+    "RowHeight": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false,
+      "description": "The pixel band a data row is drawn in"
+    },
     "FormStateBinding": {
       "type": "object",
       "properties": {
@@ -488,10 +536,7 @@
       "type": "object",
       "properties": {
         "schema": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
-          "description": "A key naming a state, form, action or form-state entry"
+          "$ref": "#/$defs/SchemaName"
         },
         "table": {
           "type": "string",
@@ -507,6 +552,21 @@
         }
       },
       "additionalProperties": false
+    },
+    "SchemaName": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        {
+          "type": "string",
+          "const": "$SCHEMA"
+        }
+      ],
+      "description": "A database schema, or $SCHEMA for the compiled workspace"
     },
     "WhereClause": {
       "type": "object",

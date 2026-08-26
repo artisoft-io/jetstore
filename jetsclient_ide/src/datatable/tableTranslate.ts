@@ -342,9 +342,14 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   // table configuration and the corpus records it empty for that reason.
   if (config.fromConfigRowActions.length > 0) refuse("fromConfigRowActions");
   if (config.defaultToAllRows) refuse("defaultToAllRows");
-  if (config.sortColumnTableName) refuse("sortColumnTableName");
-  if (config.dataRowMinHeight !== undefined) refuse("dataRowMinHeight");
-  if (config.dataRowMaxHeight !== undefined) refuse("dataRowMaxHeight");
+  // `sortColumnTableName`, `dataRowMinHeight` and `dataRowMaxHeight` were all
+  // refused here until C.3, and `requestColumnDef` until C.4. One table sets the
+  // heights — `wsJetRulesTable`, 64 and 90 — and it is one of the eight the
+  // Workspace IDE's compiled views need. They travel as one `rowHeight` object;
+  // see `table.ts` for why that is not the call C.7 made on the column pair.
+  if ((config.dataRowMinHeight === undefined) !== (config.dataRowMaxHeight === undefined)) {
+    refuse("dataRowMinHeight/dataRowMaxHeight: one without the other");
+  }
   // `maxLines` and `columnWidth` were refused here until C.7 and are in the
   // schema now: four non-flow columns set both, and `pipelineExecDetailsTable`'s
   // `error_message` is the first one a screen needs. The refusal did its job —
@@ -375,7 +380,16 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // it, which is what lets the static arm restate it for the type checker
     // without moving it.
     columns: config.columns.map((column) => translateColumn(config.key, column)),
+    // **`sortColumn` is conditional as of C.4 and `sortColumnTable` as of C.3**,
+    // and the two reasons are different: four query tables declare no sort column
+    // at all because the server describes the result, while `sortColumnTable` is
+    // set by eight tables and all eight are the Workspace IDE's compiled views,
+    // where the `FROM` has two or three entries and `name` is a column of several.
     ...(config.sortColumnName ? { sortColumn: config.sortColumnName } : {}),
+    ...(config.dataRowMinHeight !== undefined && config.dataRowMaxHeight !== undefined
+      ? { rowHeight: { min: config.dataRowMinHeight, max: config.dataRowMaxHeight } }
+      : {}),
+    ...(config.sortColumnTableName ? { sortColumnTable: config.sortColumnTableName } : {}),
     ...(config.sortAscending ? { sortAscending: true as const } : {}),
     rowsPerPage: config.rowsPerPage,
     ...(omitFalse(config.isCheckboxVisible) ? { isCheckboxVisible: true as const } : {}),
@@ -626,11 +640,13 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
         }
       : undefined,
     sortColumnName: doc.sortColumn ?? "",
-    sortColumnTableName: "",
+    sortColumnTableName: doc.sortColumnTable ?? "",
     sortAscending: doc.sortAscending ?? false,
     rowsPerPage: doc.rowsPerPage,
     noFooter: doc.noFooter ?? false,
     noCopy2Clipboard: doc.noCopy2Clipboard,
+    dataRowMinHeight: doc.rowHeight?.min,
+    dataRowMaxHeight: doc.rowHeight?.max,
     hasModelStateHandler: doc.source === "formState" && doc.model.from === "map",
   };
 }

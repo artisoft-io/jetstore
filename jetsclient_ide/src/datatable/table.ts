@@ -43,8 +43,8 @@
  * | `index` on a column | equals the array position on all 275. A field that can only ever be wrong. |
  * | ~~`maxLines`, `columnWidth`~~ | `0` on all 275 columns — **and set by four non-flow ones; back as of C.7.** |
  * | `calculatedAs` | never set in the flows. |
- * | `defaultToAllRows`, ~~`requestColumnDef`~~ | `false` on all 37. |
- * | `sortColumnTableName` | `""` on all 37. |
+ * | `defaultToAllRows`, ~~`requestColumnDef`~~ | `false` on all 37 — `requestColumnDef` back as of C.4. |
+ * | ~~`sortColumnTableName`~~ | `""` on all 37 — **and set by eight non-flow ones, all the Workspace IDE's; back as of C.3.** |
  * | `lookupColumnInFormState` | `false` on all 49 where clauses. |
  * | `stateGroup` on an action | `0` on all 25. |
  * | `withClauses`, `distinctOnClauses`, `secondRowActions`, `fromConfigRowActions` | empty on all 37. |
@@ -79,6 +79,17 @@
  * fields were read off a corpus and the shape was reasoned from the fields. What a
  * field name cannot tell you is whether the thing it names is a *property* of a
  * table or a *kind* of table, and `modelStateFormKey` reads like the first.
+ *
+ * **~~none needs a different union~~ — that clause has now failed three times and
+ * should be read as a hope rather than a property.** C.2's `enableWhen` needed a
+ * new object schema; C.3's `rowHeight` needed a second one; and C.3's
+ * `SchemaNameSchema` needed exactly the thing the clause says none of them would,
+ * a union, because `$SCHEMA` is not a bare identifier. **The prediction was about
+ * the shape of work its author had not done**, which is the same failure the
+ * table below records about the *list* — and both halves were wrong for the same
+ * reason, that they were derived from what the flow corpus does not set rather
+ * than measured against the corpus that does. Left standing and corrected here
+ * rather than edited away, per the register's convention.
  *
  * **F.5 brought back three and C.2 brings back two more, and that prediction is
  * worth scoring rather than quietly consuming.** `secondRowActions`,
@@ -116,7 +127,7 @@
  * | Also set outside the flows | Sites | Whose screen |
  * |---|---|---|
  * | `maxLines`, `columnWidth` | 4 columns in 4 tables | C.6, C.7, C.9, C.3 |
- * | `sortColumnTableName` | 8 tables | C.3, all Workspace IDE |
+ * | `sortColumnTableName` | 8 tables | C.3 (done), all Workspace IDE |
  * | `lookupColumnInFormState` | 1 clause | C.9 |
  * | `requestColumnDef` | 1 table | C.4 |
  *
@@ -342,10 +353,45 @@ export const ColumnSchema = z
  * never have predicted it: the corpus records the schema as the empty string,
  * which reads as unset.
  */
+/**
+ * The schema a `FROM` entry names, or the sentinel for the compiled workspace.
+ *
+ * Task C.3. **`$SCHEMA` is not a variable the client substitutes and not a
+ * schema name; it is a statement that this query reads `workspace.db` rather
+ * than Postgres.** `DoWorkspaceReadAction`
+ * (`jets/datatable/workspace_data_table_action.go`, `DoWorkspaceReadAction`)
+ * rewrites it to the **empty string** before building the query, because the
+ * compiled artifact is a SQLite file opened directly and SQLite has no schemas.
+ *
+ * The comment above that loop says it replaces `$SCHEMA` "with the
+ * workspace_name" and the line below it assigns `""`; the *note* beside it is
+ * the accurate one. Read the assignment.
+ *
+ * **The other 37 configurations name `jetsapi` and would not notice this
+ * existed**, which is why the sentinel is a member of this union rather than a
+ * widening of `Identifier`: `$` is not a character a bare identifier may hold,
+ * and admitting it everywhere to serve one placeholder would let a `.uf.json`
+ * name a state `$foo`. Eight configurations use it and all eight are the
+ * Workspace IDE's compiled views.
+ */
+export const SchemaNameSchema = z
+  .union([Identifier, z.literal("$SCHEMA")])
+  .meta({
+    id: "SchemaName",
+    description: "A database schema, or $SCHEMA for the compiled workspace",
+  });
+
 export const FromClauseSchema = z
   .strictObject({
-    /** Absent means "unqualified" — the Dart's empty `schemaName`. */
-    schema: Identifier.optional(),
+    /**
+     * Absent means "unqualified" — the Dart's empty `schemaName`.
+     *
+     * **`SchemaNameSchema` rather than `Identifier` as of C.3**, because eight
+     * configurations name `$SCHEMA` and it is not a bare identifier. Still
+     * optional: the two facts are independent, and collapsing them would make an
+     * unqualified `FROM` unexpressible to serve a placeholder.
+     */
+    schema: SchemaNameSchema.optional(),
     /** Absent means "resolve at query time" — the Dart's empty `tableName`. */
     table: Identifier.optional(),
     as: Identifier.optional(),
@@ -719,6 +765,53 @@ const commonFields = {
    * the Dart's empty string is a sentinel for the same thing.
    */
   label: z.string().min(1).optional(),
+  /**
+   * Which `FROM` entry `sortColumn` belongs to. Task C.3.
+   *
+   * **Empty on all 37 flow tables and set on eight non-flow ones, every one of
+   * them a Workspace IDE compiled view** — `wsDomainClassTable` sorts on
+   * `domain_classes.name` while `domain_classes` is one of two tables in its
+   * `FROM`, and `wsMainSupportFilesTable` sorts on `main_file.source_file_name`
+   * where `main_file` is an *alias* of `workspace_control`, joined to itself.
+   *
+   * **The flows can leave it empty because none of them sorts on a joined
+   * table**, not because the field is optional in spirit: `makeQuery` writes it
+   * to `sortColumnTable` on every request, and the server composes
+   * `ORDER BY <table>.<column>` from the pair when it is non-empty and
+   * `ORDER BY <column>` when it is not (`jets/datatable/data_table_action.go`,
+   * `buildQuery`, the `SortColumnTable` branch). A multi-table `FROM` whose sort
+   * column name appears in more than one of them is ambiguous without it — and
+   * `name` is a column of `domain_classes`, `data_properties`, `domain_tables`
+   * and `jet_rules` alike, which is why six of the eight need it.
+   *
+   * Absent means the empty string, which is what a single-table `FROM` sends
+   * today — so no existing document changes and none has to.
+   */
+  sortColumnTable: Identifier.optional(),
+  /**
+   * The band a data row is drawn in, in pixels. Task C.3.
+   *
+   * **One configuration in either corpus sets either half, and it sets both** —
+   * `wsJetRulesTable` at 64 and 90 (`screens/fixtures/screen_configs.json`), the
+   * Jet Rules tab of the `jet_rules` compiled view. It is the table whose
+   * `authored_label` column carries `maxLines: 5` and `columnWidth: 900`: a rule
+   * as written is several lines of text, and without a band every row in the page
+   * is as tall as the longest rule on it.
+   *
+   * **The two are one object rather than two fields, which is the opposite of the
+   * call C.7 made on `maxLines` and `columnWidth`, and the difference is real.**
+   * Those two are independent properties of a column that happen to co-occur;
+   * these two are the ends of one range, and a document declaring a minimum with
+   * no maximum would be describing a state no configuration has and nothing
+   * draws. Both are therefore required when the object is present.
+   */
+  rowHeight: z
+    .strictObject({
+      min: z.number().int().positive(),
+      max: z.number().int().positive(),
+    })
+    .meta({ id: "RowHeight", description: "The pixel band a data row is drawn in" })
+    .optional(),
   sortAscending: z.boolean().optional(),
   rowsPerPage: z.number().int().positive(),
   isCheckboxVisible: z.boolean().optional(),
