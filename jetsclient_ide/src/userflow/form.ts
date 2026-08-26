@@ -401,7 +401,12 @@ export const FieldSchema = z
      * A button *inside the rows* rather than in the action bar. Task F.2.
      *
      * **The corpus has three and this is not a layout preference in any of
-     * them.** `form_fields.json` reports `FormActionConfig` at three sites —
+     * them.** `form_fields.json` reports `FormActionConfig` at three sites *among
+     * the fields* — a qualifier this sentence did not need until C.0a, 2026-08-25,
+     * because until then the corpus did not walk `FormConfig.actions` at all and
+     * "three" was the whole of what it knew about buttons. It now also carries the
+     * flows' 143 action-bar buttons under `actions`, which do not belong to this
+     * variant. The three are still three:
      * `wpLoadConfigUF`'s "Load All Clients Config", and
      * `pcViewMergeProcessInputsUF` and `pcViewInjectedProcessInputsUF`'s two
      * "add" buttons, which are `pipelineConfigUF`'s and therefore F.6's. Each

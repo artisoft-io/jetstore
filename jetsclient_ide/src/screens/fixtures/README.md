@@ -52,10 +52,21 @@ enumeration that cannot be wrong about its own contents.
 | Form configurations | **28** | 32 | 50 |
 | Fields | **75** | 80 | 101 |
 | Input-field types in use | **3** | 3 | 3 |
+| Buttons in `actions`, the form's action bar | **30** | *uncounted* | 143 |
+| Buttons among the fields | **7** | 7 | 3 |
+| Buttons carrying a `capability` | **20** | *uncounted* | 7 |
 
-The middle column is kept for one revision only, because the sizing document and
-the Phase 3 plan were both written against it and a reader arriving from either
-needs to know which number they are holding.
+The "before" column is kept for one revision only, because the sizing document
+and the Phase 3 plan were both written against it and a reader arriving from
+either needs to know which number they are holding.
+
+**Two of its cells say *uncounted* rather than a number, and the distinction is
+the whole of C.0a's second finding.** The other columns moved because
+configuration was *deleted*; those two moved because a container was **never
+walked**. See *The buttons no corpus could see*, below. A reviewer looking at two
+repairs an hour apart that both move counts in this file is looking at two
+different failures — one where data went stale after being seen, one where it was
+never seen.
 
 `sharedTableKeysWithUserFlows` is empty — measured, not assumed. The two surfaces
 define disjoint table configurations.
@@ -70,6 +81,49 @@ absent here as they are in the flows.
 C.0's five deletions took only `FormInputFieldConfig` and
 `FormDataTableFieldConfig` fields — 2 and 3 of them — so the shape of this
 surface is what it was and only its size moved.
+
+## The buttons no corpus could see
+
+**Added 2026-08-25, by C.0a, on the day C.5 was about to consume this file.**
+
+`allFields` (`jetsclient/test/corpus_support.dart`) walks the three field
+containers a `FormConfig` may use. **`FormConfig.actions` is a fourth container**
+— the buttons the action bar renders rather than the layout — and no traversal
+owned it, so **30 buttons on this surface and 143 in the flows were in no corpus
+at all.**
+
+**The consequence was measured rather than hypothesised, by the party holding the
+consumer.** `inferServerAdminForm` — C.5's screen, and this file's only
+`infer_server_admin` form — declares **eight** buttons: seven among its fields and
+**Submit** in `actions`. The corpus reported seven. *Porting C.5 from this file
+would have shipped a screen with no submit button.*
+
+**It stayed invisible because the undercount was not uniform.** Most forms put
+every button in `actions` and reported none; `inferServerAdminForm` is the one
+form that puts most of them among its fields, so it was the one form whose buttons
+the corpus appeared to see. A reader asking *does this corpus report buttons?*
+against the `FormActionConfig` count of 7 got yes — and all seven were that one
+form's.
+
+**Three losses, repaired together** — the full account is in
+`../../datatable/fixtures/README.md`, which carries the same repair from the flows'
+side:
+
+1. `actions` was not walked.
+2. `fieldToJson` had no `FormActionConfig` branch, so the seven buttons that *did*
+   reach this file arrived without their `capability` — all seven carry
+   `infer_server_admin` — without their style, and without the `isEnabledEval`
+   closure that gates Start and Stop on the reported server state.
+3. `inputFieldsV2`'s rows were flattened, losing `FormFieldRowConfig.flex`. This
+   file's one V2 form is `inferServerAdminForm`, whose doc comment says it chose
+   V2 *precisely* for that flex — rows of 2 and 3 for the request and response
+   boxes, reported at the fields' own flex of 1. The corpus now emits `rows`
+   beside `fields`.
+
+**Each of the three passes over this configuration was written for the question in
+front of it, and each lost what the next question needed.** That is I-12's *"a
+corpus is exactly as trustworthy as its traversal"* with a mechanism rather than a
+moral, and it is the third time on this surface.
 
 ## Regenerating
 

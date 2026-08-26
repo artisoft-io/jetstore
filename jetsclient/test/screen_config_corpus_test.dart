@@ -58,7 +58,7 @@ const endMarker = '===END SCREEN CONFIG CORPUS===';
 /// fails on the React side under `npm test`. It caught nothing when it was
 /// written; it was written because C.0 bumped two of these constants and left
 /// both fixtures stale, and this whole suite stayed green.
-const expectedChecksum = 'fnv1a32:6d100a40';
+const expectedChecksum = 'fnv1a32:b5e4a1b5';
 
 /// Every table configuration the non-flow registries hold, sorted for a stable
 /// diff.
@@ -93,6 +93,7 @@ String buildCorpus() {
   final forms = <String, dynamic>{};
   final fieldTypeCounts = <String, int>{};
   var fieldCount = 0;
+  var formActionCount = 0;
   for (final key in formKeys) {
     final config = getFormConfig(key);
     final fields = allFields(config).map((f) {
@@ -101,13 +102,8 @@ String buildCorpus() {
       fieldCount++;
       return fieldToJson(f);
     }).toList();
-    forms[key] = <String, dynamic>{
-      'key': config.key,
-      'title': config.title,
-      'fieldCount': fields.length,
-      if (config.inputFieldRowBuilder != null) 'hasRowBuilder': true,
-      'fields': fields,
-    };
+    formActionCount += formActionsOf(config).length;
+    forms[key] = formEnvelope(config, fields);
   }
 
   final body = <String, dynamic>{
@@ -117,6 +113,9 @@ String buildCorpus() {
     'tableCount': tableKeys.length,
     'formCount': formKeys.length,
     'fieldCount': fieldCount,
+    // See the note in form_field_corpus_test.dart: an action-bar button is not
+    // a field, and this surface has both kinds.
+    'formActionCount': formActionCount,
     'sharedTableKeysWithUserFlows': sharedWithFlows.toList()..sort(),
     'fieldTypeCounts': Map.fromEntries(
       fieldTypeCounts.entries.toList()

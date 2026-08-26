@@ -118,11 +118,112 @@ const userFlowFormKeys = <String>[
 /// that builds rows per record at run time, so its fields do not exist until a
 /// form is driven. Forms that use it are counted with the fields they declare
 /// statically, and `hasRowBuilder` marks them.
+///
+/// **A fifth was not walked and should have been: `FormConfig.actions`.** It is
+/// not a field container — its buttons render in the form's action bar rather
+/// than in the layout — which is why this function is right to leave it out and
+/// why nothing noticed that *nothing else* picked it up either. See
+/// [formActionsOf] and the note on [formEnvelope]. Found 2026-08-25.
 List<FormFieldConfig> allFields(FormConfig config) => [
   ...config.inputFields.expand((row) => row),
   ...config.inputFieldsV2.expand((row) => row.rowConfig),
   ...config.formTabsConfig.map((tab) => tab.inputField),
 ];
+
+/// The buttons a form declares in its action bar, as opposed to among its
+/// fields.
+///
+/// **These were in no corpus until 2026-08-25**, and the way they were missed is
+/// worth more than the count. [allFields] walks the three *field* containers and
+/// is correct to stop there; `actions` is a fourth container of a different kind,
+/// and both form corpora built their output from [allFields] alone. So the
+/// omission was not a bug in either place — it was a container nobody's traversal
+/// owned.
+///
+/// The consequence was not uniform, which is what kept it invisible. Most forms
+/// put every button in `actions` and reported none; `inferServerAdminForm` puts
+/// seven among its fields and one — **Submit** — in `actions`, so it was the one
+/// form whose buttons the corpus appeared to see. A reader checking "does the
+/// corpus report buttons?" against that form got yes.
+List<FormActionConfig> formActionsOf(FormConfig config) => config.actions;
+
+/// The row structure of a `inputFieldsV2` form, which [allFields] flattens away.
+///
+/// **`FormFieldRowConfig.flex` is the entire reason a form chooses V2 over
+/// `inputFields`** — `inferServerAdminForm`'s own doc comment says so: every row
+/// of `inputFields` gets the same flex, which would make its button row as tall
+/// as its text areas. [allFields] does `expand((row) => row.rowConfig)` and
+/// discards the row, so the corpus reported that form's rows at the fields' own
+/// flex of 1 while the request and response rows are 2 and 3.
+///
+/// Emitted beside `fields` rather than folded into them, because a field's flex
+/// and its row's flex are different numbers and merging them would give the
+/// React port one value where the Flutter widget reads two.
+List<Map<String, dynamic>> rowFlexesOf(FormConfig config) => config
+    .inputFieldsV2
+    .map(
+      (row) => <String, dynamic>{
+        'flex': row.flex,
+        'keys': row.rowConfig.map((f) => f.key).toList(),
+      },
+    )
+    .toList();
+
+/// The JSON envelope both form corpora emit for one form.
+///
+/// **Shared rather than written twice**, for the reason the table serialisers
+/// below give: emitting one shape from two places is how two corpora of the same
+/// thing stop being comparable. That it was *not* shared is part of how the
+/// `actions` gap survived — each corpus built its own map, so fixing one would
+/// not have prompted the other.
+Map<String, dynamic> formEnvelope(FormConfig config, List<dynamic> fields) {
+  final actions = formActionsOf(config);
+  final rows = rowFlexesOf(config);
+  return <String, dynamic>{
+    'key': config.key,
+    'title': config.title,
+    'fieldCount': fields.length,
+    // Counted separately from `fieldCount` on purpose. A button among the fields
+    // and a button in the action bar are laid out by different widgets and are
+    // two facts about a form, not one; a single total would answer "how many
+    // buttons" and lose "how many does the layout have to place".
+    'actionCount': actions.length,
+    if (config.inputFieldRowBuilder != null) 'hasRowBuilder': true,
+    if (config.onLoadActionKey != null) 'onLoadActionKey': config.onLoadActionKey,
+    'fields': fields,
+    'actions': actions.map(formActionToJson).toList(),
+    if (rows.isNotEmpty) 'rows': rows,
+  };
+}
+
+/// A `FormActionConfig`'s own properties.
+///
+/// **`fieldToJson` had no branch for this type**, so the seven buttons that did
+/// reach a corpus — all of them `inferServerAdminForm`'s — arrived as bare
+/// `type`/`key`/`group`/`flex` with their `capability`, their style and their
+/// enablement dropped. Every one of those seven carries
+/// `capability: "infer_server_admin"`, and the corpus said nothing about it: a
+/// capability is exactly the kind of claim a port must not infer.
+Map<String, dynamic> formActionToJson(FormActionConfig a) => <String, dynamic>{
+  'key': a.key,
+  'group': a.group,
+  'flex': a.flex,
+  'label': a.label,
+  if (a.labelByStyle.isNotEmpty)
+    'labelByStyle': a.labelByStyle.map((k, v) => MapEntry(k.name, v)),
+  'buttonStyle': a.buttonStyle.name,
+  if (a.enableOnlyWhenFormValid) 'enableOnlyWhenFormValid': true,
+  if (a.enableOnlyWhenFormNotValid) 'enableOnlyWhenFormNotValid': true,
+  if (a.capability != null) 'capability': a.capability,
+  // A closure. See the library comment on the table serialisers below: any
+  // `true` here is a place the React port needs an answer the configuration
+  // cannot give it.
+  'hasIsEnabledEval': a.isEnabledEval != null,
+  if (a.leftMargin != 0.0) 'leftMargin': a.leftMargin,
+  if (a.topMargin != 0.0) 'topMargin': a.topMargin,
+  if (a.rightMargin != 0.0) 'rightMargin': a.rightMargin,
+  if (a.bottomMargin != 0.0) 'bottomMargin': a.bottomMargin,
+};
 
 Map<String, dynamic> fieldToJson(FormFieldConfig f) {
   final json = <String, dynamic>{
@@ -170,6 +271,22 @@ Map<String, dynamic> fieldToJson(FormFieldConfig f) {
     });
   } else if (f is FormDataTableFieldConfig) {
     json['dataTableConfig'] = f.dataTableConfig;
+  } else if (f is FormActionConfig) {
+    // **There was no branch here until 2026-08-25**, so the ten buttons that do
+    // sit among the fields — seven of `inferServerAdminForm`'s and three in the
+    // flows — reached both corpora as bare `type`/`key`/`group`/`flex`, with
+    // their capability, their style and their enablement dropped. `capability`
+    // is the one that matters: it is not a property a port may infer.
+    //
+    // The same serialiser as the action bar's, because the Dart is one class —
+    // `FormActionConfig` appears in `actions` and among the fields alike — and
+    // `src/userflow/form.ts` already models it as one shape for that reason.
+    final action = formActionToJson(f);
+    json.addAll(<String, dynamic>{
+      for (final e in action.entries)
+        if (e.key != 'key' && e.key != 'group' && e.key != 'flex')
+          e.key: e.value,
+    });
   }
   return json;
 }
