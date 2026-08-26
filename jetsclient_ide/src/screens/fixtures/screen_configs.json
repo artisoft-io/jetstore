@@ -3,6 +3,7 @@
   "tableCount": 25,
   "formCount": 28,
   "fieldCount": 75,
+  "formActionCount": 30,
   "sharedTableKeysWithUserFlows": [],
   "fieldTypeCounts": {
     "FormInputFieldConfig": 42,
@@ -3565,6 +3566,7 @@
       "key": "addWorkspace",
       "title": "Add / Update Workspace",
       "fieldCount": 5,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3622,12 +3624,36 @@
           "textRestriction": "none",
           "maxLength": 120
         }
+      ],
+      "actions": [
+        {
+          "key": "addWorkspaceOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Add / Update",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "addWorkspaceFileDialog": {
       "key": "addWorkspaceFileDialog",
       "title": "Add Workspace File",
       "fieldCount": 1,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3639,12 +3665,36 @@
           "textRestriction": "none",
           "maxLength": 200
         }
+      ],
+      "actions": [
+        {
+          "key": "addWorkspaceFilesOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Add File",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "commitWorkspaceDialog": {
       "key": "commitWorkspaceDialog",
       "title": "Commit and Push Workspace Changes to Repository",
       "fieldCount": 3,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3679,12 +3729,36 @@
           "maxLength": 120,
           "defaultValue": "Commit from JetStore UI"
         }
+      ],
+      "actions": [
+        {
+          "key": "commitWorkspaceOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Commit & Push",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "doGitCommandWorkspaceDialog": {
       "key": "doGitCommandWorkspaceDialog",
       "title": "Do Git Command in Local Workspace",
       "fieldCount": 3,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3719,12 +3793,36 @@
           "maxLines": 10,
           "maxLength": 25000
         }
+      ],
+      "actions": [
+        {
+          "key": "doGitCommandWorkspaceOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Execute",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "doGitStatusWorkspaceDialog": {
       "key": "doGitStatusWorkspaceDialog",
       "title": "Do Git Status in Local Workspace",
       "fieldCount": 3,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3760,12 +3858,36 @@
           "maxLength": 100,
           "defaultValue": "git status"
         }
+      ],
+      "actions": [
+        {
+          "key": "doGitStatusWorkspaceOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Git Status",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "editUserProfile": {
       "key": "editUserProfile",
       "title": null,
       "fieldCount": 5,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3816,12 +3938,36 @@
           "flex": 1,
           "dataTableConfig": "userRolesTable"
         }
+      ],
+      "actions": [
+        {
+          "key": "editUserProfile.ok",
+          "group": 0,
+          "flex": 1,
+          "label": "Submit",
+          "buttonStyle": "dialogOk",
+          "capability": "user_profile",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "exportWorkspaceClientConfig": {
       "key": "exportWorkspaceClientConfig",
       "title": "Export Client Configuration from DB to Workspace",
       "fieldCount": 3,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -3856,12 +4002,36 @@
           ],
           "hasDropdownItemsQuery": true
         }
+      ],
+      "actions": [
+        {
+          "key": "exportClientConfigOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Export Client Config",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "homeForm": {
       "key": "homeForm",
       "title": null,
       "fieldCount": 3,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -3884,48 +4054,87 @@
           "flex": 1,
           "dataTableConfig": "inputRegistryTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "inferServerAdminForm": {
       "key": "inferServerAdminForm",
       "title": null,
       "fieldCount": 10,
+      "actionCount": 1,
+      "onLoadActionKey": "inferServer.load",
       "fields": [
         {
           "type": "FormActionConfig",
           "key": "inferServer.start",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Start",
+          "buttonStyle": "predominentInForm",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": true,
+          "leftMargin": 16,
+          "rightMargin": 8
         },
         {
           "type": "FormActionConfig",
           "key": "inferServer.stop",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Stop",
+          "buttonStyle": "danger",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": true,
+          "leftMargin": 16,
+          "rightMargin": 8
         },
         {
           "type": "FormActionConfig",
           "key": "inferServer.macro.listModels",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Models",
+          "buttonStyle": "secondary",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 8
         },
         {
           "type": "FormActionConfig",
           "key": "inferServer.macro.pullModel",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Pull Model",
+          "buttonStyle": "secondary",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 8
         },
         {
           "type": "FormActionConfig",
           "key": "inferServer.macro.showModel",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Model Details",
+          "buttonStyle": "secondary",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 8
         },
         {
           "type": "FormActionConfig",
           "key": "inferServer.macro.deleteModel",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Delete",
+          "buttonStyle": "secondary",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 8
         },
         {
           "type": "FormInputFieldConfig",
@@ -3944,7 +4153,13 @@
           "type": "FormActionConfig",
           "key": "inferServer.refresh",
           "group": 0,
-          "flex": 1
+          "flex": 1,
+          "label": "Refresh",
+          "buttonStyle": "secondary",
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
         },
         {
           "type": "FormInputFieldConfig",
@@ -3972,12 +4187,59 @@
           "syncWithFormState": true,
           "showCopyToClipboard": true
         }
+      ],
+      "actions": [
+        {
+          "key": "inferServer.submit",
+          "group": 0,
+          "flex": 1,
+          "label": "Submit",
+          "buttonStyle": "dialogOk",
+          "enableOnlyWhenFormValid": true,
+          "capability": "infer_server_admin",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
+      ],
+      "rows": [
+        {
+          "flex": 0,
+          "keys": [
+            "inferServer.start",
+            "inferServer.stop",
+            "inferServer.macro.listModels",
+            "inferServer.macro.pullModel",
+            "inferServer.macro.showModel",
+            "inferServer.macro.deleteModel"
+          ]
+        },
+        {
+          "flex": 0,
+          "keys": [
+            "infer.server.status_label",
+            "inferServer.refresh"
+          ]
+        },
+        {
+          "flex": 2,
+          "keys": [
+            "infer.request"
+          ]
+        },
+        {
+          "flex": 3,
+          "keys": [
+            "infer.response"
+          ]
+        }
       ]
     },
     "login": {
       "key": "login",
       "title": null,
       "fieldCount": 2,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4009,12 +4271,35 @@
           ],
           "useDefaultFont": true
         }
+      ],
+      "actions": [
+        {
+          "key": "loginAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Sign in",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "registerAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Register",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "pushOnlyWorkspaceDialog": {
       "key": "pushOnlyWorkspaceDialog",
       "title": "Push Workspace Changes to Repository Without Compiling Workspace",
       "fieldCount": 2,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4038,12 +4323,36 @@
           "textRestriction": "none",
           "maxLength": 120
         }
+      ],
+      "actions": [
+        {
+          "key": "pushOnlyWorkspaceOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Push Changes",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "queryToolInputForm": {
       "key": "queryToolInputForm",
       "title": "Query Tool",
       "fieldCount": 1,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4056,12 +4365,36 @@
           "maxLines": 10,
           "maxLength": 4000000
         }
+      ],
+      "actions": [
+        {
+          "key": "queryTool.ok",
+          "group": 0,
+          "flex": 1,
+          "label": "Submit Query",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        },
+        {
+          "key": "queryTool.ddl.ok",
+          "group": 0,
+          "flex": 1,
+          "label": "Submit DDL",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "queryToolResultViewForm": {
       "key": "queryToolResultViewForm",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4070,12 +4403,14 @@
           "flex": 1,
           "dataTableConfig": "queryToolResultSetTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "register": {
       "key": "register",
       "title": null,
       "fieldCount": 4,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4133,12 +4468,25 @@
           ],
           "useDefaultFont": true
         }
+      ],
+      "actions": [
+        {
+          "key": "registerAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Register",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 16
+        }
       ]
     },
     "rulesConfigv2Dialog": {
       "key": "rulesConfigv2Dialog",
       "title": "Rule Configuration",
       "fieldCount": 3,
+      "actionCount": 2,
       "fields": [
         {
           "type": "FormDropdownFieldConfig",
@@ -4177,12 +4525,36 @@
           "maxLength": 51200,
           "defaultValue": "[]"
         }
+      ],
+      "actions": [
+        {
+          "key": "ruleConfigv2.ok",
+          "group": 0,
+          "flex": 1,
+          "label": "Save",
+          "buttonStyle": "dialogOk",
+          "capability": "client_config",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        },
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Cancel",
+          "buttonStyle": "dialogCancel",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "rulesConfigv2SelectForm": {
       "key": "rulesConfigv2SelectForm",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4191,12 +4563,14 @@
           "flex": 1,
           "dataTableConfig": "ruleConfigv2Table"
         }
-      ]
+      ],
+      "actions": []
     },
     "showFailureDetailsDialog": {
       "key": "showFailureDetailsDialog",
       "title": "Pipeline Failure Details",
       "fieldCount": 1,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4209,12 +4583,25 @@
           "maxLines": 20,
           "maxLength": 4000000
         }
+      ],
+      "actions": [
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Close",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "userAdmin": {
       "key": "userAdmin",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4223,12 +4610,14 @@
           "flex": 1,
           "dataTableConfig": "userTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "userGitProfile": {
       "key": "userGitProfile",
       "title": null,
       "fieldCount": 5,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4291,12 +4680,26 @@
           "maxLength": 120,
           "useDefaultFont": true
         }
+      ],
+      "actions": [
+        {
+          "key": "submitGitProfileOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Submit",
+          "buttonStyle": "dialogOk",
+          "capability": "user_profile",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 16
+        }
       ]
     },
     "viewGitLogWorkspaceDialog": {
       "key": "viewGitLogWorkspaceDialog",
       "title": "Last Git Log of Workspace Changes",
       "fieldCount": 3,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4332,19 +4735,45 @@
           "maxLines": 15,
           "maxLength": 1000000
         }
+      ],
+      "actions": [
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Close",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "viewInputRecordsDialog": {
       "key": "viewInputRecordsDialog",
       "title": "Input Records for a Domain Key",
       "fieldCount": 0,
+      "actionCount": 1,
       "hasRowBuilder": true,
-      "fields": []
+      "fields": [],
+      "actions": [
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Close",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
+      ]
     },
     "viewProcessErrorsForm": {
       "key": "viewProcessErrorsForm",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4353,12 +4782,14 @@
           "flex": 1,
           "dataTableConfig": "processErrorsTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "viewReteTriplesDialogV2": {
       "key": "viewReteTriplesDialogV2",
       "title": "Rete Session Explorer",
       "fieldCount": 3,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4381,12 +4812,25 @@
           "flex": 2,
           "dataTableConfig": "reteSessionEntityDetailsTable"
         }
+      ],
+      "actions": [
+        {
+          "key": "dialog.cancelAction",
+          "group": 0,
+          "flex": 1,
+          "label": "Close",
+          "buttonStyle": "dialogOk",
+          "hasIsEnabledEval": false,
+          "leftMargin": 8,
+          "rightMargin": 16
+        }
       ]
     },
     "workspace.data_model.form": {
       "key": "workspace.data_model.form",
       "title": null,
       "fieldCount": 4,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4416,12 +4860,14 @@
           "flex": 1,
           "dataTableConfig": "wsDataModelFilesTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "workspace.file.form": {
       "key": "workspace.file.form",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 1,
       "fields": [
         {
           "type": "FormInputFieldConfig",
@@ -4434,12 +4880,26 @@
           "maxLines": 50,
           "maxLength": 512000
         }
+      ],
+      "actions": [
+        {
+          "key": "wsSaveFileOk",
+          "group": 0,
+          "flex": 1,
+          "label": "Save",
+          "buttonStyle": "dialogOk",
+          "capability": "workspace_ide",
+          "hasIsEnabledEval": false,
+          "leftMargin": 16,
+          "rightMargin": 8
+        }
       ]
     },
     "workspace.jet_rules.form": {
       "key": "workspace.jet_rules.form",
       "title": null,
       "fieldCount": 4,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4469,12 +4929,14 @@
           "flex": 1,
           "dataTableConfig": "wsJetRulesFilesTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "workspaceHome": {
       "key": "workspaceHome",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4483,12 +4945,14 @@
           "flex": 1,
           "dataTableConfig": "workspaceChangesTable"
         }
-      ]
+      ],
+      "actions": []
     },
     "workspaceRegistry": {
       "key": "workspaceRegistry",
       "title": null,
       "fieldCount": 1,
+      "actionCount": 0,
       "fields": [
         {
           "type": "FormDataTableFieldConfig",
@@ -4497,7 +4961,8 @@
           "flex": 1,
           "dataTableConfig": "workspaceRegistryTable"
         }
-      ]
+      ],
+      "actions": []
     }
   }
 }
