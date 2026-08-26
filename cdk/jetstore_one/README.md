@@ -5,11 +5,19 @@ an Aurora Serverless v2 cluster, ECS Fargate services and tasks, Go Lambdas, Ste
 machines, an Application Load Balancer with WAFv2, and an optional GPU inference service.
 
 Stack composition is driven **entirely by environment variables read at synth time**. The
-authoritative variable list is the comment block at the bottom of `jetstore_one.go` (from `:505`),
+authoritative variable list is the comment block at the bottom of `jetstore_one.go` (from `:506`),
 and `main` logs every value at synth. This document describes what gets built and how the pieces
 are wired; it does not repeat that list.
 
 See `CLAUDE.md` in this directory for build commands and the constraints on editing the app.
+
+| Also in `doc/` | |
+|---|---|
+| [`deploy_runbook.md`](doc/deploy_runbook.md) | Preflight, deploy, first deploy of a new stack, and a second stack sharing a VPC |
+| [`stack_outputs.md`](doc/stack_outputs.md) | The fourteen CloudFormation outputs, and which are conditional |
+| [`ingest_data_flow.md`](doc/ingest_data_flow.md) | How a file key travels from an S3 event to a running Step Functions execution |
+| [`deployment_alternative.md`](doc/deployment_alternative.md) | Three ways to arrange DEV/UAT/PROD, what each shares, and what each costs |
+| [`improvement_recommendations.md`](doc/improvement_recommendations.md) | Prioritized findings from reading the stack, with the change each would need |
 
 ---
 
@@ -105,7 +113,7 @@ longer created:
 And these are **ignored**: `JETS_NBR_NAT_GATEWAY`, `JETS_VPC_INTERNET_GATEWAY`, `JETS_VPC_CIDR`,
 `AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK`, `AWS_PREFIX_LIST_S3`.
 
-The VPC CIDR is read back from the imported VPC (`jetstore_vpc.go:47`) and used for the endpoint
+The VPC CIDR is read back from the imported VPC (`jetstore_vpc.go:46`) and used for the endpoint
 security group's ingress rule, so the sharing stack does not need to be told the CIDR. Only
 `VpcEndpointsSg` is shared — `RdsAccessSg` and `InternetAccessSg` are always created per stack, so
 each stack keeps its own database boundary.
