@@ -41,6 +41,22 @@
  * exception for the one table it most wants to check. A name that says *this
  * closure was read and it was trivial* costs one registry entry.
  *
+ * **A fifth name as of C.6, and it is the *cell filter* mapping repeating the
+ * mistake F.5 corrected in the one above it.** `translateColumn` sent every
+ * `hasCellFilter` to `fileKeyLabel`. Across both corpora there are **six**
+ * `cellFilter` sites, not three: the three above, plus `inputLoaderStatusTable`'s
+ * `file_key` and `pipelineExecStatusTable`'s `main_input_file_key`, which agree
+ * with them — and `inputLoaderStatusTable`'s `error_message`, which does not.
+ *
+ * | Name | What the Dart does | Sites |
+ * |---|---|---|
+ * | `errorMessageLabel` | strips `"File contains 0 bad rows,recovered error: "` off a load error (`modules/data_table_config_impl.dart`, the `error_message` column) | 1 column |
+ *
+ * The count in the first table — *3 columns, all `file_key`* — was a measurement
+ * of the flow corpus and is still true of it. What made it dangerous is that the
+ * mapping beside it was written as though it were a fact about closures. See
+ * `cellFilterEscapeFor`.
+ *
  * That the six collapse to two is the argument for naming them rather than
  * porting them: three identical copies of a predicate are three places to fix it.
  * **Registering the two is I.3b's**, and until it happens a document naming them
@@ -93,6 +109,8 @@ const AUTHORABLE_API_ACTIONS: readonly string[] = ["workspace_read", "preview_fi
 
 /** The registry name for the file-key display filter. */
 export const FILE_KEY_LABEL_ESCAPE = "fileKeyLabel";
+/** The registry name for the load-error display filter. Task C.6. */
+export const ERROR_MESSAGE_LABEL_ESCAPE = "errorMessageLabel";
 /** The registry name for the `clearFilters` enablement predicate. */
 export const DATA_REGISTRY_FILTERS_ESCAPE = "hasDataRegistryFilters";
 /** The registry name for the home-filter enablement predicate. Task F.5. */
@@ -109,6 +127,35 @@ export const ALWAYS_ENABLED_ESCAPE = "alwaysEnabled";
  * was written as a constant, which read as a fact about closures and was a fact
  * about the 37.
  */
+/**
+ * Which display filter a `cellFilter`-bearing column names. Task C.6.
+ *
+ * **Keyed by table and column for exactly the reason `isEnabledEscapeFor` below
+ * is, and it is the same defect found on a second field.** I-103 corrected the
+ * `isEnabled` mapping from a constant to a lookup and said the lesson was that
+ * *knowledge the corpus does not carry has to be data, keyed by what it is
+ * knowledge about*. The `cellFilter` mapping was left a constant, and it was
+ * right for as long as the only corpus was the flows'.
+ *
+ * Six sites across both corpora. Five are `fileKeyLabel`'s body — three
+ * declarations, one of them shared by reference across three configurations. The
+ * sixth is `inputLoaderStatusTable`'s `error_message`, which strips a prefix off
+ * a load error (`modules/data_table_config_impl.dart`, the `error_message`
+ * column) and has nothing to do with file keys; the constant would have rendered
+ * a stack trace as `.../` plus its last path segment.
+ *
+ * A default rather than an exhaustive map, because five of six agree and a table
+ * added later is more likely to be the fifth case than the sixth — but a *new*
+ * body is now a row here rather than a silent mistranslation, which is the whole
+ * of the correction.
+ */
+function cellFilterEscapeFor(tableKey: string, columnName: string): string {
+  if (tableKey === "inputLoaderStatusTable" && columnName === "error_message") {
+    return ERROR_MESSAGE_LABEL_ESCAPE;
+  }
+  return FILE_KEY_LABEL_ESCAPE;
+}
+
 function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
   if (tableKey === "pipelineExecStatusTable") {
     return actionKey === "clearHomeFilters" ? HOME_FILTERS_ESCAPE : ALWAYS_ENABLED_ESCAPE;
@@ -121,12 +168,12 @@ function omitFalse(value: boolean | undefined): true | undefined {
   return value === true ? true : undefined;
 }
 
-function translateColumn(column: ColumnConfig): Column {
+function translateColumn(tableKey: string, column: ColumnConfig): Column {
   const rest = {
     ...(column.table ? { table: column.table } : {}),
     ...(column.tooltips ? { tooltip: column.tooltips } : {}),
     ...(omitFalse(column.isNumeric) ? { isNumeric: true as const } : {}),
-    ...(column.hasCellFilter ? { cellFilter: FILE_KEY_LABEL_ESCAPE } : {}),
+    ...(column.hasCellFilter ? { cellFilter: cellFilterEscapeFor(tableKey, column.name) } : {}),
     ...(column.calculatedAs ? { calculatedAs: column.calculatedAs } : {}),
     // Task C.7. Zero is the Dart's "unset" for both, so the document says it by
     // omission, as it does for every other boolean-ish default here.
@@ -306,7 +353,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // in meaning. `{...common, sortColumn: x}` keeps the position `common` gave
     // it, which is what lets the static arm restate it for the type checker
     // without moving it.
-    columns: config.columns.map(translateColumn),
+    columns: config.columns.map((column) => translateColumn(config.key, column)),
     ...(config.sortColumnName ? { sortColumn: config.sortColumnName } : {}),
     ...(config.sortAscending ? { sortAscending: true as const } : {}),
     rowsPerPage: config.rowsPerPage,

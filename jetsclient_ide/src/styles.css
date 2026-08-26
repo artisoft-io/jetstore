@@ -490,3 +490,36 @@ body {
 /* A column of fields at a readable measure, not the width of the window. */
 .stack { display: flex; flex-direction: column; max-width: 560px; }
 .screen-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* The client filter, task C.6. In the top bar because the Dart draws it in the
+   left menu of every screen — it narrows tables across the app, not one screen's. */
+.clientpicker {
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  max-width: 180px;
+}
+
+/* The home screen's tab strip, task C.6. Three tabs, one mounted — the Dart's
+   `formTabsConfig` draws the same three and the port keeps the count of
+   in-flight queries at one. */
+.tabstrip {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 10px;
+}
+.tab {
+  font-size: 13px;
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.tab:hover { color: var(--ink); }
+.tab.is-active { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }

@@ -26,6 +26,7 @@ import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
 import { QueryTool, QUERY_TOOL } from "./screens/QueryTool";
+import { Home } from "./screens/Home";
 import { InferServerAdmin } from "./screens/InferServerAdmin";
 import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
@@ -33,6 +34,8 @@ import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
 import cpipesExecDetailsTable from "./datatable/tables/cpipesExecDetailsTable.tc.json";
+import inputFileViewerTable from "./datatable/tables/inputFileViewerTable.tc.json";
+import inputTable from "./datatable/tables/inputTable.tc.json";
 import pipelineExecDetailsTable from "./datatable/tables/pipelineExecDetailsTable.tc.json";
 import type { TableConfigDocument } from "./datatable/table";
 
@@ -42,6 +45,28 @@ const api = new ApiClient();
 export const BASENAME = "/ide";
 
 export const NAV: NavItem[] = [
+  /*
+    Task C.6. Ungated, mirroring Flutter's `jetstoreHome` entry, which is the
+    first row of `defaultMenuEntries` and declares no capability
+    (`jetsclient/lib/modules/screen_config_impl.dart`, `defaultMenuEntries`).
+    First in the list for the same reason it is first there.
+
+    **The route is `/home` and not the index, and that is a decision rather than
+    an accident of ordering.** Flutter serves this screen at `/`; this app's `/`
+    keeps redirecting to the editor, because `/ide/` bare is reached from exactly
+    one place — the *Code Editor ↗* menu entry, which opens it in a new tab and
+    carries `capability: 'workspace_ide'`
+    (`jetsclient/lib/modules/workspace_ide/screen_delegates_helpers.dart`,
+    `openWorkspaceIdeApp`). Every arrival at the bare prefix is therefore a
+    `workspace_ide` holder who asked for the editor, and answering that press
+    with the home screen would be wrong for the one population that generates it.
+
+    **The reversal trigger is track X**, not a condition: when `jetsclient`
+    retires, `/ide/` stops meaning "the editor" and the index should become this
+    screen. Repointing the Dart link instead would spend a change on an app track
+    X deletes, which is I-166's argument.
+  */
+  { to: "/home", label: "Home" },
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
@@ -101,6 +126,7 @@ export default function App() {
           {/* The IDE keeps the bare prefix working: /ide/ is where the Flutter
               app links to, and a redirect is cheaper than teaching it a url. */}
           <Route index element={<Navigate to="/workspace" replace />} />
+          <Route path="home" element={<Home api={api} />} />
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
           {/* The Flutter route is `/workspaces`, and this is the same path under
               the `/ide` basename. Track X decides when the other app stops
@@ -133,6 +159,47 @@ export default function App() {
             the header of `screens/GitProfile.tsx`.
           */}
           <Route path="git-profile" element={<GitProfileScreen api={api} />} />
+          {/*
+            C.11 and C.12, and they are C.7's component with a title. Both are
+            `ScreenOne` — F68's four, now all four served here — and unlike the
+            execution-detail pair both `ScreenConfig`s declare a `title:`
+            (`jetsclient/lib/modules/screen_config_impl.dart`,
+            `ScreenKeys.fileRegistryTable` and `ScreenKeys.filePreview`), so
+            `TableScreen`'s optional prop gets its first consumer.
+
+            **Both tables declare no columns**; the server describes the result
+            and `columnsFromResponse` has consumed it since A.4b (F81). C.12's
+            also names `preview_file`, the `apiAction` C.2a's enum carries and
+            no other configuration uses.
+
+            Both are entered from the home screen: `/domainTableViewer` from
+            `inputLoaderStatusTable` and `inputRegistryTable`, `/filePreviewPath`
+            from `loadFilesUF`'s staging table — which is a flow, so that one is
+            still reached from Flutter until a workspace holds the documents.
+          */}
+          <Route
+            path="domainTableViewer/:table_name/:session_id"
+            element={
+              <TableScreen
+                api={api}
+                tableKey="inputTable"
+                document={inputTable as TableConfigDocument}
+                title="Staging Table or Domain Table View"
+              />
+            }
+          />
+          <Route
+            path="filePreviewPath/:file_key"
+            element={
+              <TableScreen
+                api={api}
+                tableKey="inputFileViewerTable"
+                document={inputFileViewerTable as TableConfigDocument}
+                title="Input File Preview"
+              />
+            }
+          />
+          <Route path="*" element={<NotFound />} />
           {/*
             C.7 and C.8. **One screen, two routes** — see `TableScreen.tsx` for
             why that is a measurement rather than a convenience.
