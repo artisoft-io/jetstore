@@ -3903,7 +3903,126 @@
       }
     },
     {
-      "name": "a table with no columns",
+      "name": "a static table with no columns",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "static",
+        "label": "Select one of the following option:",
+        "columns": [],
+        "sortColumn": "option_order",
+        "sortAscending": true,
+        "rowsPerPage": 1000000,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "noFooter": true,
+        "formStateBinding": {
+          "keyColumnIdx": 1
+        },
+        "rows": [
+          [
+            "Create a client",
+            "ufClientOption",
+            "0"
+          ],
+          [
+            "Add vendors",
+            "ufVendorOption",
+            "1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a query table with no columns, which the server describes",
+      "class": "value-range",
+      "document": "table",
+      "expect": "valid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [],
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a static table with no sortColumn",
+      "class": "missing-required",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "static",
+        "label": "Select one of the following option:",
+        "columns": [
+          {
+            "name": "option_description",
+            "label": "Option"
+          },
+          {
+            "name": "option",
+            "isHidden": true
+          },
+          {
+            "name": "option_order",
+            "isNumeric": true,
+            "isHidden": true
+          }
+        ],
+        "sortAscending": true,
+        "rowsPerPage": 1000000,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "noFooter": true,
+        "formStateBinding": {
+          "keyColumnIdx": 1
+        },
+        "rows": [
+          [
+            "Create a client",
+            "ufClientOption",
+            "0"
+          ],
+          [
+            "Add vendors",
+            "ufVendorOption",
+            "1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a requestColumnDef of false rather than absent",
       "class": "value-range",
       "document": "table",
       "expect": "invalid",
@@ -3912,7 +4031,17 @@
         "schemaVersion": 1,
         "source": "query",
         "label": "Select a source configuration",
-        "columns": [],
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
         "sortColumn": "client",
         "rowsPerPage": 20,
         "isCheckboxVisible": true,
@@ -3947,7 +4076,8 @@
               "columnIdx": 1
             }
           ]
-        }
+        },
+        "requestColumnDef": false
       }
     },
     {

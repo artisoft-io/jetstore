@@ -12,19 +12,6 @@
           "type": "string",
           "minLength": 1
         },
-        "columns": {
-          "minItems": 1,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Column"
-          }
-        },
-        "sortColumn": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
-          "description": "A key naming a state, form, action or form-state entry"
-        },
         "sortAscending": {
           "type": "boolean"
         },
@@ -60,6 +47,22 @@
         },
         "apiAction": {
           "$ref": "#/$defs/TableApiAction"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "sortColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "requestColumnDef": {
+          "type": "boolean",
+          "const": true
         },
         "from": {
           "minItems": 1,
@@ -100,10 +103,9 @@
       },
       "required": [
         "schemaVersion",
-        "columns",
-        "sortColumn",
         "rowsPerPage",
         "source",
+        "columns",
         "from"
       ],
       "additionalProperties": false
@@ -118,19 +120,6 @@
         "label": {
           "type": "string",
           "minLength": 1
-        },
-        "columns": {
-          "minItems": 1,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Column"
-          }
-        },
-        "sortColumn": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
-          "description": "A key naming a state, form, action or form-state entry"
         },
         "sortAscending": {
           "type": "boolean"
@@ -165,6 +154,19 @@
           "type": "string",
           "const": "static"
         },
+        "columns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "sortColumn": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
         "rows": {
           "minItems": 1,
           "type": "array",
@@ -185,10 +187,10 @@
       },
       "required": [
         "schemaVersion",
-        "columns",
-        "sortColumn",
         "rowsPerPage",
         "source",
+        "columns",
+        "sortColumn",
         "rows"
       ],
       "additionalProperties": false
@@ -197,6 +199,53 @@
   "title": "JetStore table configuration",
   "description": "One data-table configuration, authored as data",
   "$defs": {
+    "FormStateBinding": {
+      "type": "object",
+      "properties": {
+        "keyColumnIdx": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "otherColumns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stateKey": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a state, form, action or form-state entry"
+              },
+              "columnIdx": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "stateKey",
+              "columnIdx"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "keyColumnIdx"
+      ],
+      "additionalProperties": false
+    },
+    "TableApiAction": {
+      "type": "string",
+      "enum": [
+        "workspace_read",
+        "preview_file",
+        "raw_query_tool"
+      ],
+      "description": "The server action a query table issues"
+    },
     "Column": {
       "anyOf": [
         {
@@ -315,53 +364,6 @@
       ],
       "description": "One column of a table configuration"
     },
-    "FormStateBinding": {
-      "type": "object",
-      "properties": {
-        "keyColumnIdx": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "otherColumns": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stateKey": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "^[A-Za-z0-9_.-]+$",
-                "description": "A key naming a state, form, action or form-state entry"
-              },
-              "columnIdx": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": [
-              "stateKey",
-              "columnIdx"
-            ],
-            "additionalProperties": false
-          }
-        }
-      },
-      "required": [
-        "keyColumnIdx"
-      ],
-      "additionalProperties": false
-    },
-    "TableApiAction": {
-      "type": "string",
-      "enum": [
-        "workspace_read",
-        "preview_file",
-        "raw_query_tool"
-      ],
-      "description": "The server action a query table issues"
-    },
     "FromClause": {
       "type": "object",
       "properties": {
@@ -425,9 +427,6 @@
           "$ref": "#/$defs/WhereClause"
         }
       },
-      "required": [
-        "column"
-      ],
       "additionalProperties": false
     },
     "TableAction": {

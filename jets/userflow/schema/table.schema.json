@@ -400,9 +400,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "column"
-      ],
       "type": "object"
     }
   },
@@ -425,7 +422,6 @@
           "items": {
             "$ref": "#/$defs/Column"
           },
-          "minItems": 1,
           "type": "array"
         },
         "formStateBinding": {
@@ -466,6 +462,10 @@
           },
           "minItems": 1,
           "type": "array"
+        },
+        "requestColumnDef": {
+          "const": true,
+          "type": "boolean"
         },
         "rowsPerPage": {
           "exclusiveMinimum": 0,
@@ -508,10 +508,9 @@
       },
       "required": [
         "schemaVersion",
-        "columns",
-        "sortColumn",
         "rowsPerPage",
         "source",
+        "columns",
         "from"
       ],
       "type": "object"
@@ -593,10 +592,10 @@
       },
       "required": [
         "schemaVersion",
-        "columns",
-        "sortColumn",
         "rowsPerPage",
         "source",
+        "columns",
+        "sortColumn",
         "rows"
       ],
       "type": "object"

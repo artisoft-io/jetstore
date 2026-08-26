@@ -18,9 +18,107 @@
 import type {
   DataTableAction,
   QueryContext,
+  TableConfig,
   WhereClause,
   WhereClausePayload,
 } from "./types";
+
+/**
+ * The three form-state keys the query tool's two forms pass a statement through.
+ * Values from `jetsclient/lib/utils/constants.dart` (`FSK.rawQueryReady`,
+ * `FSK.rawDdlQueryReady`, `FSK.queryReady`).
+ *
+ * **The third is a gate rather than a value.** The result table's only where
+ * clause names it and names no column, so it contributes nothing to any request
+ * and its whole effect is that `hasBlockingFilter` stops the table querying until
+ * a statement has been submitted (`binding.ts`, `hasBlockingFilter`). It is the
+ * one clause of the corpus's fifty shaped that way.
+ */
+export const RAW_QUERY_KEYS = {
+  /** The statement, when the user pressed Submit Query. */
+  query: "raw_query.ready",
+  /** The statement, when they pressed Submit DDL. */
+  ddl: "raw_query.ddl.ready",
+  /** Set by both, and the key the result table's blocking clause reads. */
+  gate: "query.ready",
+} as const;
+
+/** The `/dataTable` body of a raw-statement request — three fields, not fourteen. */
+export interface RawQueryAction {
+  action: string;
+  /** `DataTableAction.RawQuery`, `json:"query"`. Sent verbatim to the database. */
+  query: string;
+  requestColumnDef?: true;
+}
+
+/**
+ * Whether this table's rows come from a statement rather than from a structure.
+ *
+ * `fetchData` branches on `apiAction.startsWith('raw_query')`
+ * (`jetsclient/lib/components/data_table_source.dart`, `fetchData`), which is
+ * exactly one configuration in either corpus — `queryToolResultSetTable`, with
+ * `raw_query_tool`. The prefix test is kept rather than an equality test because
+ * it is the Dart's, and because `exec_ddl` below is reached *through* it.
+ */
+export function isRawStatementTable(config: TableConfig): boolean {
+  return config.apiAction.startsWith("raw_query");
+}
+
+/**
+ * The request a raw-statement table sends. Task C.4.
+ *
+ * **Three divergences from `fetchData`, all of them stated rather than silent.**
+ *
+ * *It does not reset the three keys.* The Dart nulls them after the rows arrive
+ * (`data_table_source.dart`, the end of `getModelData`), which in an imperative
+ * widget stops a re-build re-running the statement. Here the payload *is* the
+ * refetch key — `useDataTable` fetches when the serialised body changes — so
+ * clearing the statement would blank the payload, re-arm the blocking clause and
+ * throw the results away. Re-running the same statement is `requestRefresh`'s
+ * job, which is the channel the action bar already uses.
+ *
+ * *It does not read `TableConfig.sqlQuery`.* That fallback exists in the Dart and
+ * **no configuration sets the field** — `sqlQuery:` appears at no site under
+ * `jetsclient/lib/modules/`, and the only mentions are the model's declaration
+ * and the two reads in `data_table_source.dart`. A dead branch ported is a
+ * feature nobody asked for with no test that could fail.
+ *
+ * *It sends no `offset` or `limit`.* Neither does the Dart, and the consequence is
+ * that the whole result set comes back at once: `execQuery` uses `Limit` for a
+ * slice capacity and not for a bound (`jets/datatable/data_table_action.go`,
+ * `execQuery`). So this table has no server-side paging, which is why the screen
+ * renders it without a footer.
+ */
+export function makeRawQuery(ctx: QueryContext): RawQueryAction {
+  const config = ctx.config;
+  const group = ctx.formField ? ctx.formField.group : 0;
+  const read = (key: string): string | null => {
+    const value = ctx.formState?.getValue(group, key);
+    return typeof value === "string" && value !== "" ? value : null;
+  };
+
+  // The precedence is the Dart's: a plain statement wins, and the DDL key is only
+  // consulted when there is none — which is why the screen clears the other key
+  // rather than leaving both set.
+  let action = config.apiAction;
+  let query = read(RAW_QUERY_KEYS.query);
+  if (query === null) {
+    query = read(RAW_QUERY_KEYS.ddl);
+    // **The action the document names is not the action a DDL press sends.**
+    // `exec_ddl` reaches `ExecDataManagementStatement`, which runs the statement
+    // through `dbpool.Exec` and returns a one-cell result rather than rows
+    // (`jets/datatable/data_table_action.go`, `execDDL`). It is gated on the same
+    // capability as `raw_query_tool`, so this is a difference in what comes back
+    // rather than in what is permitted.
+    if (query !== null) action = "exec_ddl";
+  }
+
+  return {
+    action,
+    query: query ?? "",
+    ...(config.requestColumnDef ? { requestColumnDef: true as const } : {}),
+  };
+}
 
 /**
  * Form-state and table keys the builder special-cases.

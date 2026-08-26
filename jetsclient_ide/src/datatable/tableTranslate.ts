@@ -163,7 +163,9 @@ function translateFrom(from: TableConfig["fromClauses"][number]): FromClause {
 
 function translateWhere(where: WhereClause): WhereClauseDocument {
   return {
-    column: where.column,
+    // Omitted when the Dart's is the empty string — a gate rather than a
+    // predicate, and one clause of fifty. See `WhereClauseSchema.column`.
+    ...(where.column ? { column: where.column } : {}),
     ...(where.table ? { table: where.table } : {}),
     ...(where.formStateKey ? { formStateKey: where.formStateKey } : {}),
     ...(where.defaultValue.length > 0 ? { defaultValue: where.defaultValue } : {}),
@@ -274,7 +276,6 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   // table configuration and the corpus records it empty for that reason.
   if (config.fromConfigRowActions.length > 0) refuse("fromConfigRowActions");
   if (config.defaultToAllRows) refuse("defaultToAllRows");
-  if (config.requestColumnDef) refuse("requestColumnDef");
   if (config.sortColumnTableName) refuse("sortColumnTableName");
   if (config.dataRowMinHeight !== undefined) refuse("dataRowMinHeight");
   if (config.dataRowMaxHeight !== undefined) refuse("dataRowMaxHeight");
@@ -298,8 +299,15 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   const common = {
     schemaVersion: 1 as const,
     ...(config.label ? { label: config.label } : {}),
+    // **Still emitted here rather than per arm, though the schema now defines
+    // them per arm.** Where a key is *declared* decides what a document may say;
+    // where it is *emitted* decides the byte order of 40 committed files, and
+    // moving these into the two returns rewrote every one of them for no change
+    // in meaning. `{...common, sortColumn: x}` keeps the position `common` gave
+    // it, which is what lets the static arm restate it for the type checker
+    // without moving it.
     columns: config.columns.map(translateColumn),
-    sortColumn: config.sortColumnName,
+    ...(config.sortColumnName ? { sortColumn: config.sortColumnName } : {}),
     ...(config.sortAscending ? { sortAscending: true as const } : {}),
     rowsPerPage: config.rowsPerPage,
     ...(omitFalse(config.isCheckboxVisible) ? { isCheckboxVisible: true as const } : {}),
@@ -321,7 +329,18 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (config.actions.length > 0) refuse("a static table with actions");
     if (config.secondRowActions.length > 0) refuse("a static table with secondRowActions");
     if (config.refreshOnKeyUpdateEvent.length > 0) refuse("a static table with refreshOnKeyUpdateEvent");
-    return { ...common, source: "static", rows: config.staticTableModel };
+    // Required here and optional on the query arm: a static table's rows are
+    // compiled in, so nothing can supply columns it does not declare.
+    if (config.columns.length === 0) refuse("a static table with no columns");
+    if (!config.sortColumnName) refuse("a static table with no sortColumn");
+    return {
+      ...common,
+      source: "static",
+      // Restated so the static arm's required `sortColumn` typechecks; the key
+      // keeps `common`'s position, so no committed document moves.
+      sortColumn: config.sortColumnName,
+      rows: config.staticTableModel,
+    };
   }
 
   if (config.fromClauses.length === 0) refuse("a query table with no fromClauses");
@@ -338,6 +357,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // Omitted when it is `read`, which 44 of the two corpora's 65 configurations
     // are; see the header. The 37 flow documents are byte-identical as a result.
     ...(config.apiAction === DEFAULT_API_ACTION ? {} : { apiAction: config.apiAction as ApiAction }),
+    ...(config.requestColumnDef ? { requestColumnDef: true as const } : {}),
     from: config.fromClauses.map(translateFrom),
     ...(config.whereClauses.length > 0 ? { where: config.whereClauses.map(translateWhere) } : {}),
     ...(config.actions.length > 0
@@ -436,7 +456,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
 
   const restoreWhere = (where: WhereClauseDocument): WhereClause => ({
     table: where.table,
-    column: where.column,
+    column: where.column ?? "",
     formStateKey: where.formStateKey,
     defaultValue: where.defaultValue ?? [],
     joinWith: where.joinWith,
@@ -463,7 +483,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     fromConfigRowActions: [],
     columns,
     defaultToAllRows: false,
-    requestColumnDef: false,
+    requestColumnDef: doc.source === "query" && doc.requestColumnDef === true,
     withClauses: [],
     fromClauses:
       doc.source === "query"
@@ -482,7 +502,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
           otherColumns: doc.formStateBinding.otherColumns ?? [],
         }
       : undefined,
-    sortColumnName: doc.sortColumn,
+    sortColumnName: doc.sortColumn ?? "",
     sortColumnTableName: "",
     sortAscending: doc.sortAscending ?? false,
     rowsPerPage: doc.rowsPerPage,

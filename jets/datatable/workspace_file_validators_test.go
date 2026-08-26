@@ -100,24 +100,19 @@ func TestShippingTablesPassTheSaveCheck(t *testing.T) {
 		}
 		checked++
 	}
-	// 41 as of C.7/C.8: the flows' 37, plus `pipelineExecStatusTable` (F.5 —
-	// registered on the non-flow side and rendered by `homeFiltersUF`),
-	// `workspaceRegistryTable` (C.2, the `/workspaces` screen's), and
-	// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
-	// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`.
+	// **A lower bound, and it used to be an exact count — the change is the
+	// point.** This asserted `checked != 38` and `jets/userflow`'s
+	// TestShippingTablesValidate asserted the same directory's exact size a
+	// package away, so every screen track C ports had to update two numbers that
+	// mean the same thing. C.2 updated one of them and left this test failing on
+	// its own branch; C.4 found it while adding the fortieth document.
 	//
-	// **This is the *second* exact count of that directory** and the count in
-	// `jets/userflow/table_schema_test.go` is the first, a package away. Two
-	// branches raised this number on the same afternoon, from 38 to 39 and from 38
-	// to 40, and the answer is 41 — **the arithmetic is what conflicts, and a merge
-	// that takes either side wholesale is wrong by exactly the other side's
-	// contribution.**
-	//
-	// A lower bound would be the better assertion — what this test actually checks
-	// is `validatorFor`'s dispatch, and the exact count belongs where the documents
-	// are named — and that change is C.4's, in jetstore#2028.
-	if checked != 41 {
-		t.Errorf("expected the flows' 37 table configurations plus the four non-flow ones, checked %d", checked)
+	// The exact count belongs where the documents are *named* — `jets/userflow`
+	// lists which non-flow tables are in the directory and why — and what this test
+	// needs is only that the directory has not silently emptied, because what it is
+	// really checking is `validatorFor`'s dispatch. One number, one place.
+	if checked < 37 {
+		t.Errorf("expected at least the flows' 37 table configurations, checked %d", checked)
 	}
 }
 
