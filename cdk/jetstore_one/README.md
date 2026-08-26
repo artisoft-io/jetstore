@@ -200,9 +200,11 @@ Fargate task started by `cpipesSM` / `cpipesNativeSM`; entry point `cbooter cpip
   `JETS_CPIPES_TASK_MEM_LIMIT_MB`, `JETS_DB_POOL_SIZE`. 150 GiB ephemeral storage.
 - **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`; `VpcEndpointsSg` + `RdsAccessSg`; **isolated**
   subnets, no public IP.
-- **Security**: DB DSN and API secret injected as ECS `Secrets` from Secrets Manager (not plain
-  environment). Isolated subnets mean no route to the internet. **`ReadonlyRootFilesystem` is
-  commented out here**, unlike the UI service — the code carries a `TODO`.
+- **Security**: `ReadonlyRootFilesystem: true`, with the writable `tmp-volume` mounted at
+  `JETS_TEMP_DATA` — `TMPDIR`, `WORKSPACES_HOME` and `SQLITE_TMPDIR` all resolve under it, so
+  neither the Go temp helpers nor SQLite's hardcoded `/var/tmp`, `/usr/tmp`, `/tmp` fallbacks are
+  reached. DB DSN and API secret are injected as ECS `Secrets` from Secrets Manager rather than as
+  plain environment values. Isolated subnets mean no route to the internet.
 - **Integrations**: Aurora, S3, Secrets Manager, the notification endpoints in
   `CPIPES_STATUS_NOTIFICATION_*`, and the infer server when deployed.
 
@@ -213,8 +215,8 @@ Fargate task started by `reportsSM`; entry point `cbooter run_reports`.
 - **Deployment**: always built. 3072 MiB / 1024 CPU, 100 GiB ephemeral storage.
 - **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`; `VpcEndpointsSg` + `RdsAccessSg`; isolated
   subnets, no public IP.
-- **Security**: same isolation as the compute pipes task; the state machine's `ecs:RunTask` grant is
-  scoped to this task definition's ARN.
+- **Security**: `ReadonlyRootFilesystem: true` and the same isolation as the compute pipes task; the
+  state machine's `ecs:RunTask` grant is scoped to this task definition's ARN.
 - **Integrations**: Aurora, S3, `StatusUpdateLambda` for success/failure reporting.
 
 ### 5.4 Infer service (GPU, optional)
