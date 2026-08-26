@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "label": "CPIPES Execution Details",
+  "columns": [
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "tooltip": "Process executed"
+    },
+    {
+      "name": "cpipes_step_id",
+      "label": "CPIPES Step Id",
+      "tooltip": "Compute Pipes Step Id"
+    },
+    {
+      "name": "nbr_nodes",
+      "label": "Nbr Nodes",
+      "tooltip": "Number of nodes used for the step",
+      "isNumeric": true
+    },
+    {
+      "name": "total_input_files_size_mb",
+      "label": "Total Input Files Size (Mb)",
+      "tooltip": "Total size in Mb of input files",
+      "isNumeric": true
+    },
+    {
+      "name": "total_input_records_count",
+      "label": "Total Input Records Count",
+      "tooltip": "Total number of input records",
+      "isNumeric": true
+    },
+    {
+      "name": "total_output_records_count",
+      "label": "Total Output Records Count",
+      "tooltip": "Total number of output records",
+      "isNumeric": true
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "tooltip": "JetStore session id"
+    }
+  ],
+  "sortColumn": "total_input_files_size_mb",
+  "rowsPerPage": 10,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "cpipes_execution_status_details"
+    }
+  ],
+  "where": [
+    {
+      "column": "session_id",
+      "formStateKey": "session_id"
+    }
+  ]
+}

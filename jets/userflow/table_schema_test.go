@@ -7,17 +7,24 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 39 shipping table configurations, translated out of the
+// tablesDir holds the 41 shipping table configurations, translated out of the
 // Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
 // so this side can validate the *real* configuration rather than a sample. See
 // that file for why the translation is round-tripped rather than only emitted.
 //
-// **37 of them are the flows' and two are not.** `pipelineExecStatusTable` is
+// **37 of them are the flows' and four are not.** `pipelineExecStatusTable` is
 // registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
 // F.5 could not author that flow without it; `workspaceRegistryTable` is the
-// `/workspaces` screen's, added by track C's C.2. Both are translated out of
+// `/workspaces` screen's, added by C.2; C.7 added `pipelineExecDetailsTable` and
+// `cpipesExecDetailsTable`, the tables of `/executionStatusDetails/:session_id`
+// and `/executionStatsDetails/:session_id`. All four are translated out of
 // `screens/fixtures/screen_configs.json` by the same code path, and the count
 // here grows once per screen track C ports rather than once per phase.
+//
+// **The count here is deliberately a literal and deliberately duplicated.** It is
+// the one assertion that fails when a document is emitted and not committed, or
+// committed and not emitted — the TypeScript side compares the directory against
+// what it just produced, so it cannot notice a file that reached neither.
 const tablesDir = "../../jetsclient_ide/src/datatable/tables"
 
 func tableFiles(t *testing.T) []string {
@@ -44,8 +51,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 39 {
-		t.Fatalf("expected the flows' 37 table configurations plus pipelineExecStatusTable and workspaceRegistryTable, found %d", len(files))
+	if len(files) != 41 {
+		t.Fatalf("expected the flows' 37 table configurations plus the four non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {

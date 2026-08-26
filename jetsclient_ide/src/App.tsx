@@ -24,9 +24,13 @@ import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
+import { TableScreen } from "./screens/TableScreen";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
+import cpipesExecDetailsTable from "./datatable/tables/cpipesExecDetailsTable.tc.json";
+import pipelineExecDetailsTable from "./datatable/tables/pipelineExecDetailsTable.tc.json";
+import type { TableConfigDocument } from "./datatable/table";
 
 const api = new ApiClient();
 
@@ -94,6 +98,44 @@ export default function App() {
             the header of `screens/GitProfile.tsx`.
           */}
           <Route path="git-profile" element={<GitProfileScreen api={api} />} />
+          {/*
+            C.7 and C.8. **One screen, two routes** — see `TableScreen.tsx` for
+            why that is a measurement rather than a convenience.
+
+            The paths are the Flutter app's verbatim
+            (`jetsclient/lib/routes/jets_routes_app.dart`,
+            `executionStatusDetailsPath` and `executionStatsDetailsPath`), minus
+            the leading slash that `basename` supplies, so handing a user over is
+            a prefix change rather than a translation.
+
+            **No nav entry, and no user reaches either yet.** Both are entered
+            from the home screen's `pipelineExecStatusTable` — its
+            `viewStatusDetails` and `viewExecStatsDetails` buttons — and that
+            screen is C.6's; a table action in this app currently navigates by
+            `window.location.href = "/#" + path`, into the Flutter route. This is
+            the same state F.0a left the flow runner in and it is stated rather
+            than implied: the screens run, and nothing links to them.
+          */}
+          <Route
+            path="executionStatusDetails/:session_id"
+            element={
+              <TableScreen
+                api={api}
+                tableKey="pipelineExecDetailsTable"
+                document={pipelineExecDetailsTable as TableConfigDocument}
+              />
+            }
+          />
+          <Route
+            path="executionStatsDetails/:session_id"
+            element={
+              <TableScreen
+                api={api}
+                tableKey="cpipesExecDetailsTable"
+                document={cpipesExecDetailsTable as TableConfigDocument}
+              />
+            }
+          />
           <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Route>
       </Routes>

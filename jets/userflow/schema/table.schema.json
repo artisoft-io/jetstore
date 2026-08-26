@@ -16,6 +16,11 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "type": "string"
             },
+            "columnWidth": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
             "isHidden": {
               "type": "boolean"
             },
@@ -25,6 +30,11 @@
             "label": {
               "minLength": 1,
               "type": "string"
+            },
+            "maxLines": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
             },
             "name": {
               "description": "A key naming a state, form, action or form-state entry",
@@ -62,6 +72,11 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "type": "string"
             },
+            "columnWidth": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
             "isHidden": {
               "const": true,
               "type": "boolean"
@@ -72,6 +87,11 @@
             "label": {
               "minLength": 1,
               "type": "string"
+            },
+            "maxLines": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
             },
             "name": {
               "description": "A key naming a state, form, action or form-state entry",

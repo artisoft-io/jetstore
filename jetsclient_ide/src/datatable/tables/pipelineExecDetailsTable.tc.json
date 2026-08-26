@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "label": "Pipeline Execution Details",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "pipeline_execution_details",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "shard_id",
+      "label": "Shard ID",
+      "tooltip": "Pipeline shard ID",
+      "isNumeric": true
+    },
+    {
+      "name": "status",
+      "label": "Status",
+      "tooltip": "Status of the pipeline shard"
+    },
+    {
+      "name": "error_message",
+      "label": "Error Message",
+      "tooltip": "Error that occured during execution",
+      "maxLines": 3,
+      "columnWidth": 600
+    },
+    {
+      "name": "jets_partition",
+      "label": "Jets Partition",
+      "tooltip": "CPIPES partition"
+    },
+    {
+      "name": "cpipes_step_id",
+      "label": "Step Id",
+      "tooltip": "CPIPES Step Id"
+    },
+    {
+      "name": "input_files_size_mb",
+      "label": "Input Files Size (Mb)",
+      "tooltip": "Total size in Mb of input files",
+      "isNumeric": true
+    },
+    {
+      "name": "input_records_count",
+      "label": "Input Records Count",
+      "tooltip": "Number of input records",
+      "isNumeric": true
+    },
+    {
+      "name": "input_bad_records_count",
+      "label": "Input Bad Records Count",
+      "tooltip": "Number of bad input records",
+      "isNumeric": true
+    },
+    {
+      "name": "rete_sessions_count",
+      "label": "Rete Sessions Count",
+      "tooltip": "Number of rete sessions",
+      "isNumeric": true
+    },
+    {
+      "name": "output_records_count",
+      "label": "Output Records Count",
+      "tooltip": "Number of output records",
+      "isNumeric": true
+    },
+    {
+      "name": "run_duration",
+      "label": "Duration",
+      "tooltip": "Run duration",
+      "calculatedAs": "AGE(last_update, start_time)"
+    }
+  ],
+  "sortColumn": "shard_id",
+  "sortAscending": true,
+  "rowsPerPage": 10,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "pipeline_execution_details"
+    }
+  ],
+  "where": [
+    {
+      "column": "session_id",
+      "formStateKey": "session_id"
+    }
+  ]
+}

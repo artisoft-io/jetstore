@@ -61,12 +61,43 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * cost was two schema fields — `apiAction` and `enableWhen` — both of which
  * `table.ts` had already named as fields the non-flow corpus sets. The list is a
  * seam and it held.
+ *
+ * ## Two more, and the seam behaved as advertised. Task C.7
+ *
+ * `pipelineExecDetailsTable` and `cpipesExecDetailsTable` are the tables of
+ * `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`
+ * — one screen behind two routes (see `screens/TableScreen.tsx`). I-102 decision 1
+ * said widening this list is the whole of adding a table, and for the second of
+ * the two it was: one entry, and the document appeared. For the first it was one
+ * entry plus two schema fields, because `error_message` sets `maxLines` and
+ * `columnWidth` and the translation refused both.
+ *
+ * **That is the seam working rather than failing.** `toDocument` throws by name
+ * on anything the schema dropped, so the cost of adding a table is bounded by
+ * what it actually sets and is discovered at once rather than as a document that
+ * silently means less than the Dart.
+ *
+ * **What "widening the list is the whole of adding a table" understates is the
+ * counters, and there are three.** This file's *40*, `jets/userflow`'s
+ * `TestShippingTablesValidate` and `jets/datatable`'s
+ * `TestShippingTablesPassTheSaveCheck` each hard-code the directory's size, and
+ * all three fail on the next table. **That is deliberate and should stay**: the
+ * two sides emit and validate independently, so a literal on each is the only
+ * assertion that catches a document emitted and not committed, or committed and
+ * not emitted. But it makes the true cost *one entry, three counters, and
+ * whatever the configuration sets that the schema dropped* — worth knowing
+ * before the remaining 25 rather than after the first of them.
  */
 const screenTables = (screenCorpus as { tables: Record<string, unknown> }).tables as Record<
   string,
   TableConfig
 >;
-const NON_FLOW_KEYS = ["pipelineExecStatusTable", "workspaceRegistryTable"] as const;
+const NON_FLOW_KEYS = [
+  "pipelineExecStatusTable",
+  "workspaceRegistryTable",
+  "pipelineExecDetailsTable",
+  "cpipesExecDetailsTable",
+] as const;
 
 const flowDocuments = toDocuments(tables);
 const documents: Record<string, TableConfigDocument> = {
@@ -83,7 +114,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 39 translated configurations committed beside it, for the Go check", () => {
+  it("has the 41 translated configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -129,9 +160,9 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the two non-flow tables F.5 and C.2 needed make 39", () => {
+  it("all translate, and the four non-flow tables F.5, C.2 and C.7 needed make 41", () => {
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(documents).length).toBe(39);
+    expect(Object.keys(documents).length).toBe(41);
   });
 
   it("all validate against the schema", () => {
@@ -421,6 +452,131 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
       "doGitStatusWorkspaceDialog",
       "doGitCommandWorkspaceDialog",
       "viewGitLogWorkspaceDialog",
+    ]);
+  });
+});
+
+/**
+ * The two execution-detail tables. Task C.7.
+ *
+ * They are asserted together because the interesting claim is about the *pair*:
+ * two routes, one screen, and the only differences between the documents are the
+ * ones a screen is parameterised by.
+ */
+describe("the two execution-detail tables, which are one screen behind two routes", () => {
+  const status = documents["pipelineExecDetailsTable"]!;
+  const stats = documents["cpipesExecDetailsTable"]!;
+
+  it("both filter on session_id out of the route, and on nothing else", () => {
+    // The mechanism of both screens. `formStateKey` is what `makeWhereClause`
+    // looks up in `routeParams` when there is no form state — which is what a
+    // `ScreenOne` table has (`datatable/query.ts`, `firstRouteParam`).
+    for (const doc of [status, stats]) {
+      if (doc.source !== "query") throw new Error("both are query tables");
+      expect(doc.where).toEqual([{ column: "session_id", formStateKey: "session_id" }]);
+    }
+  });
+
+  it("neither offers an action or a dialog, on either row", () => {
+    // What makes the screen a table and nothing else: no action bar, so no
+    // `actionDispatch`, no escape registry and no dialog host (I-68).
+    for (const doc of [status, stats]) {
+      if (doc.source !== "query") throw new Error("both are query tables");
+      expect(doc.actions).toBeUndefined();
+      expect(doc.secondRowActions).toBeUndefined();
+      expect(escapeNamesOf(doc)).toEqual([]);
+      expect(actionNamesOf(doc)).toEqual([]);
+    }
+  });
+
+  it("differ only in the four things a screen is parameterised by", () => {
+    // Read the failure of this as "the pair stopped being one screen", which is
+    // the claim `TableScreen` rests on.
+    if (status.source !== "query" || stats.source !== "query") throw new Error("query");
+    expect(status.from).toEqual([{ schema: "jetsapi", table: "pipeline_execution_details" }]);
+    expect(stats.from).toEqual([{ schema: "jetsapi", table: "cpipes_execution_status_details" }]);
+    expect([status.sortColumn, status.sortAscending]).toEqual(["shard_id", true]);
+    expect([stats.sortColumn, stats.sortAscending]).toEqual(["total_input_files_size_mb", undefined]);
+    expect([status.columns.length, stats.columns.length]).toEqual([12, 7]);
+    expect([status.rowsPerPage, stats.rowsPerPage]).toEqual([10, 10]);
+  });
+
+  it("carries the second and last calculatedAs in the corpus, which stays a fragment", () => {
+    // **I-105 said C.6 would bring this in and it is C.7's**: the home screen's
+    // three tables are `inputLoaderStatusTable`, `inputRegistryTable` and
+    // `pipelineExecStatusTable`, and `pipelineExecDetailsTable` is named by
+    // `/executionStatusDetails/:session_id` and by nothing else
+    // (`screens/fixtures/screen_reachability.json`).
+    //
+    // Two sites, one expression, and the decision is to leave it authored — see
+    // the `calculatedAs` note in `table.ts` for why the server is what settles it.
+    const sites = Object.entries(documents).flatMap(([key, doc]) =>
+      doc.columns.filter((c) => c.calculatedAs).map((c) => [key, c.name, c.calculatedAs]),
+    );
+    expect(sites).toEqual([
+      ["pipelineExecStatusTable", "run_duration", "AGE(last_update, start_time)"],
+      ["pipelineExecDetailsTable", "run_duration", "AGE(last_update, start_time)"],
+    ]);
+  });
+
+  it("brings back maxLines and columnWidth, which the prediction did not name", () => {
+    // The whole of what the 38th and 39th tables cost the schema. `error_message`
+    // is a stack trace in a cell, and it is the only column in either document
+    // that sets either field.
+    const clamped = status.columns.filter((c) => c.maxLines !== undefined || c.columnWidth !== undefined);
+    expect(clamped.map((c) => [c.name, c.maxLines, c.columnWidth])).toEqual([
+      ["error_message", 3, 600],
+    ]);
+    expect(stats.columns.some((c) => c.maxLines ?? c.columnWidth)).toBe(false);
+  });
+
+  it("is what the non-flow corpus sets that the flow corpus does not — the whole list", () => {
+    // **F66.** `table.ts` predicted nine fields track C would restore and the
+    // list is short by four; this derives it rather than restating it, so a
+    // fifth one cannot hide the way these two did. Fields already in the schema
+    // are excluded: what is left is what a screen still has to pay for.
+    const inSchema = new Set(["calculatedAs", "secondRowActions", "maxLines", "columnWidth"]);
+    const owed = new Set<string>();
+    for (const config of Object.values(screenTables)) {
+      if (config.withClauses.length > 0) owed.add("withClauses");
+      if (config.secondRowActions.length > 0) owed.add("secondRowActions");
+      if (config.modelStateFormKey) owed.add("modelStateFormKey");
+      if (config.hasModelStateHandler) owed.add("hasModelStateHandler");
+      if (config.requestColumnDef) owed.add("requestColumnDef");
+      if (config.sortColumnTableName) owed.add("sortColumnTableName");
+      if (config.dataRowMinHeight !== undefined) owed.add("dataRowMinHeight");
+      if (config.dataRowMaxHeight !== undefined) owed.add("dataRowMaxHeight");
+      if (config.apiAction !== "read") owed.add("apiAction");
+      for (const column of config.columns) {
+        if (column.calculatedAs) owed.add("calculatedAs");
+        if (column.maxLines) owed.add("maxLines");
+        if (column.columnWidth) owed.add("columnWidth");
+      }
+      const walk = (where: (typeof config.whereClauses)[number]): void => {
+        if (where.lookupColumnInFormState) owed.add("lookupColumnInFormState");
+        if (where.like) owed.add("like");
+        if (where.ge ?? where.le) owed.add("ge/le");
+        if (where.orWith) walk(where.orWith);
+      };
+      for (const where of config.whereClauses) walk(where);
+      for (const action of [...config.actions, ...config.secondRowActions]) {
+        if (action.stateGroup !== 0) owed.add("stateGroup");
+        if (action.hasActionDelegate) owed.add("actionDelegate");
+        if (action.actionEnableCriterias?.length) owed.add("actionEnableCriterias");
+      }
+    }
+    expect([...owed].filter((f) => !inSchema.has(f)).sort()).toEqual([
+      "actionEnableCriterias",
+      "apiAction",
+      "dataRowMaxHeight",
+      "dataRowMinHeight",
+      "hasModelStateHandler",
+      "like",
+      "lookupColumnInFormState",
+      "modelStateFormKey",
+      "requestColumnDef",
+      "sortColumnTableName",
+      "withClauses",
     ]);
   });
 });

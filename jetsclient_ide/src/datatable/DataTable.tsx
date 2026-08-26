@@ -20,7 +20,7 @@
  * grammar; the widget renders a slot and the interpreter fills it.
  */
 
-import { type ReactNode, useId } from "react";
+import { type CSSProperties, type ReactNode, useId } from "react";
 
 import "./datatable.css";
 import {
@@ -56,6 +56,43 @@ export interface DataTableProps {
   modes?: TableModes;
   /** Per-column text filters, replacing the Dart closures the corpus cannot carry. */
   cellFilters?: Record<string, (value: string | null) => string | null>;
+}
+
+/**
+ * A cell's class, which is the numeric alignment plus the line clamp. Task C.7.
+ *
+ * **`maxLines` was in no document until C.7 and is drawn by nothing until now**,
+ * which is the pair I-104 warns about: a schema field and the widget that reads
+ * it are two halves, and the corpus can only tell you about the first. It is
+ * added here in the same change that authors it rather than in the one after.
+ */
+function cellClassName(column: ColumnConfig): string | undefined {
+  const names = [
+    column.isNumeric ? "jets-datatable__numeric" : "",
+    column.maxLines > 0 ? "jets-datatable__clamped" : "",
+  ].filter((n) => n !== "");
+  return names.length > 0 ? names.join(" ") : undefined;
+}
+
+/**
+ * A cell's width and line budget.
+ *
+ * **One faithfulness note, because it reads like a divergence and is not.** The
+ * Dart applies the width inside a `SizedBox` that only exists on the `maxLines > 0`
+ * branch (`jetsclient/lib/components/data_table_source.dart`, the `cells:` map),
+ * so a width without a line limit draws nothing there and does here. All four
+ * columns in the corpus that set either set both — `error_message` on three
+ * tables and `authored_label` on `wsJetRulesTable` — so no configuration
+ * distinguishes them and nothing differs today. Stated rather than reproduced:
+ * coupling two independent fields to match a widget's structure would be
+ * transcribing an implementation rather than a behaviour.
+ */
+function cellStyle(column: ColumnConfig): CSSProperties | undefined {
+  if (column.columnWidth <= 0 && column.maxLines <= 0) return undefined;
+  return {
+    ...(column.columnWidth > 0 ? { width: column.columnWidth } : {}),
+    ...(column.maxLines > 0 ? ({ "--jets-max-lines": column.maxLines } as CSSProperties) : {}),
+  };
 }
 
 export function DataTable({
@@ -165,8 +202,8 @@ export function DataTable({
                 {columns.map((column) => (
                   <td
                     key={column.name}
-                    className={column.isNumeric ? "jets-datatable__numeric" : undefined}
-                    style={column.columnWidth > 0 ? { width: column.columnWidth } : undefined}
+                    className={cellClassName(column)}
+                    style={cellStyle(column)}
                     onClick={
                       copyEnabled
                         ? () => void navigator.clipboard?.writeText(cellFullText(row, column))

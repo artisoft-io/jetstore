@@ -128,6 +128,10 @@ function translateColumn(column: ColumnConfig): Column {
     ...(omitFalse(column.isNumeric) ? { isNumeric: true as const } : {}),
     ...(column.hasCellFilter ? { cellFilter: FILE_KEY_LABEL_ESCAPE } : {}),
     ...(column.calculatedAs ? { calculatedAs: column.calculatedAs } : {}),
+    // Task C.7. Zero is the Dart's "unset" for both, so the document says it by
+    // omission, as it does for every other boolean-ish default here.
+    ...(column.maxLines ? { maxLines: column.maxLines } : {}),
+    ...(column.columnWidth ? { columnWidth: column.columnWidth } : {}),
   };
   if (column.label) {
     return {
@@ -274,10 +278,10 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   if (config.sortColumnTableName) refuse("sortColumnTableName");
   if (config.dataRowMinHeight !== undefined) refuse("dataRowMinHeight");
   if (config.dataRowMaxHeight !== undefined) refuse("dataRowMaxHeight");
-  for (const column of config.columns) {
-    if (column.maxLines) refuse(`column ${column.name}: maxLines`);
-    if (column.columnWidth) refuse(`column ${column.name}: columnWidth`);
-  }
+  // `maxLines` and `columnWidth` were refused here until C.7 and are in the
+  // schema now: four non-flow columns set both, and `pipelineExecDetailsTable`'s
+  // `error_message` is the first one a screen needs. The refusal did its job —
+  // it named the field rather than emitting a document quietly missing it.
   const walkWhere = (where: WhereClause): void => {
     if (where.lookupColumnInFormState) refuse(`where ${where.column}: lookupColumnInFormState`);
     if (where.predicate) refuse(`where ${where.column}: predicate`);
@@ -363,7 +367,7 @@ export function toDocuments(tables: Record<string, TableConfig>): Record<string,
  * The document, back as the configuration the query builder consumes.
  *
  * **This exists to prove the translation loses nothing**, and the test that uses
- * it round-trips all 38: `fromDocument(key, toDocument(c))` must equal `c`. A
+ * it round-trips all 40: `fromDocument(key, toDocument(c))` must equal `c`. A
  * schema that drops a field it should have kept is invisible to a forward-only
  * translation — every document validates and the behaviour is quietly gone. This
  * is the "check it against something you did not generate the same way" rule
@@ -382,8 +386,8 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     isNumeric: column.isNumeric ?? false,
     isHidden: column.isHidden ?? false,
     calculatedAs: column.calculatedAs,
-    maxLines: 0,
-    columnWidth: 0,
+    maxLines: column.maxLines ?? 0,
+    columnWidth: column.columnWidth ?? 0,
     hasCellFilter: column.cellFilter !== undefined,
   }));
 
