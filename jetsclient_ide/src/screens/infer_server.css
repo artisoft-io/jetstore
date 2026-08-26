@@ -1,0 +1,68 @@
+/*
+ * The Infer Server Admin screen. Task C.5.
+ *
+ * Its own file rather than an addition to `styles.css`, on the precedent
+ * `proposals/proposals.css` set: a screen's layout is the screen's, and the
+ * shared stylesheet stays the shell's and the widgets'.
+ *
+ * **This file is where the Dart form's row flex ended up, and that is a stated
+ * divergence rather than a coincidence.** `FormFieldRowConfig.flex` is the
+ * reason `inferServerAdminForm` is authored with `inputFieldsV2` — the request
+ * and response rows are 2 and 3, so the button row keeps its natural height
+ * while the two boxes share what is left. `FormSchema.rows` is an array of
+ * arrays and a row carries no weight, so the document cannot say it and this
+ * does. See `InferServerAdmin.tsx`'s header, item 2: the user sees the same
+ * screen, and the fact lives somewhere the schema cannot check.
+ */
+
+.infer-admin .uf-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The two text rows take the space; the button and status rows do not. */
+.infer-admin .uf-form__row:nth-of-type(3) {
+  flex: 2 1 0;
+}
+
+.infer-admin .uf-form__row:nth-of-type(4) {
+  flex: 3 1 0;
+}
+
+/* A textarea inside a growing row fills it, rather than keeping its `rows`
+   height and leaving the row empty below. `rows` stays on the element as the
+   minimum, which is what it means in the Dart too. */
+.infer-admin .uf-form__row:nth-of-type(3) textarea,
+.infer-admin .uf-form__row:nth-of-type(4) textarea {
+  height: 100%;
+  resize: vertical;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+/* The status line is the wide half of its row; Refresh is the narrow half. */
+.infer-admin .uf-form__row:nth-of-type(2) > .field {
+  flex: 5 1 0;
+}
+
+/*
+ * The stop confirmation.
+ *
+ * `styles.css` declares `.banner-error` and `.banner-ok` and no warning variant;
+ * this one is scoped here rather than adding a third to the shared sheet for a
+ * single screen. The tokens are the shared ones, so it follows the theme.
+ */
+.infer-admin__confirm {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.infer-admin__confirm p {
+  margin: 0;
+  flex: 1 1 auto;
+}

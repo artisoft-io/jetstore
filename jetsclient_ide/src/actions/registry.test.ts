@@ -141,7 +141,7 @@ describe("the production registry", () => {
     expect(productionRegistry.actions["loadSourceConfigWithFileTypeInference"]).toBeUndefined();
   });
 
-  it("registers the two predicates a screen's dialog fields name", () => {
+  it("registers the seven predicates the flows, the screens and their dialogs name", () => {
     // C.2b. `isReadOnlyFrom` resolves out of `predicates`, the namespace a table
     // action's `isEnabled` already used — the signature is identical and a second
     // namespace of the same type would be a distinction nothing draws.
@@ -151,11 +151,26 @@ describe("the production registry", () => {
     // and on `doGitStatusWorkspaceDialog`'s command, and reading the Dart shows
     // two bodies. Per I-103 the mapping is a lookup keyed by what it is knowledge
     // about, which is what naming it in the document makes it.
+    //
+    // **C.5 adds two more and they are the first here that no flow reaches** —
+    // `inferServerNotRunning` and `inferServerNotStopped`, the first users of
+    // `FormActionSchema`'s `enabledWhen`. The namespace was built for a table
+    // action's `isEnabled` and takes a form action's `isEnabledEval` unchanged,
+    // which is what made naming the predicate cheaper than inventing an
+    // expression for it.
+    //
+    // **The exact set is the point rather than the count.** This assertion is
+    // what makes a predicate that is registered and named by nothing, or named
+    // and registered by nothing, fail here rather than at the call site — and it
+    // fired on exactly that during the C.2b/C.5 merge, which is the only test of
+    // an exact-set assertion its author cannot run.
     expect(Object.keys(productionRegistry.predicates).sort()).toEqual([
       "alwaysEnabled",
       "hasDataRegistryFilters",
       "hasHomeFilters",
       "hasWorkspaceUri",
+      "inferServerNotRunning",
+      "inferServerNotStopped",
       "isActiveWorkspace",
     ]);
   });

@@ -26,6 +26,8 @@ import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
 import { QueryTool, QUERY_TOOL } from "./screens/QueryTool";
+import { InferServerAdmin } from "./screens/InferServerAdmin";
+import { INFER_SERVER_ADMIN } from "./screens/inferServer";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
@@ -58,6 +60,26 @@ export const NAV: NavItem[] = [
   // `admin` bypasses both, in `permissionFor` here and in `HasCapability`
   // (`jets/user/user.go`) there.
   { to: "/workspaces", label: "Workspaces", capability: WORKSPACE_IDE },
+  /*
+    Track C's first ported screen (C.5).
+
+    **The Flutter reachability corpus records this route's access as
+    `admin | (infer_server_admin AND workspace_ide)` and this entry names one
+    capability, which is a divergence rather than an oversight.** The conjunction
+    is an artefact of the Flutter navigation graph: the entry lives in
+    `workspaceRegistryMenuEntries`, so a user had to already be on a
+    workspace-IDE screen to see it, and this shell renders one flat nav list from
+    every screen. The `workspace_ide` half has no server counterpart either —
+    `api_infer_server.go` enforces `infer_server_admin` and nothing else — so
+    reproducing it would gate a control on a capability the endpoint does not
+    ask for.
+
+    **It is the only conjunction in the corpus**, 1 route of 27
+    (`screens/fixtures/screen_reachability.json`, `accessSummary`), which is why
+    `NavItem.capability` is still one name. What would change that: a second
+    route needing one, or the endpoint starting to require both.
+  */
+  { to: "/inferServerAdmin", label: "Infer Server Admin", capability: INFER_SERVER_ADMIN },
 ];
 
 /**
@@ -84,6 +106,7 @@ export default function App() {
               serving its copy; until then the two coexist and the Flutter one is
               what a `configScreenPath` on any other screen still reaches. */}
           <Route path="workspaces" element={<WorkspaceRegistry api={api} />} />
+          <Route path="inferServerAdmin" element={<InferServerAdmin api={api} />} />
           <Route path="proposals" element={<ProposalsScreen api={api} />} />
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
           {/*
