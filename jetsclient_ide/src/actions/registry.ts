@@ -88,6 +88,7 @@ import {
 } from "./sourceConfig";
 import { openWorkspace } from "./workspaceRegistry";
 import { loadReteSession, seedInputRecordsRow } from "./processErrors";
+import { resolveProcessConfigKey } from "./ruleConfig";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -304,6 +305,11 @@ export const productionRegistry: EscapeRegistry = {
     // all, so only the rete-session load needs a body — it decodes a JSON document
     // two levels deep, which no step reaches into. See `processErrors.ts`.
     loadReteSession,
+    // **Ten as of C.10.** The one thing `rulesConfigv2Dialog` does that no value
+    // in `ValueSchema` can say: read a *query result* rather than form state. See
+    // `ruleConfig.ts` for why a sixth `ValueSchema` member was the alternative and
+    // was declined.
+    resolveProcessConfigKey,
   },
   initializers: { seedFromHomeFilters },
   // **Two as of C.9, and the second is the first outside a flow.** F.1 built the

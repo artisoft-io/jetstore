@@ -280,6 +280,9 @@
             "isReadOnly": {
               "type": "boolean"
             },
+            "isReadOnlyWhenSet": {
+              "type": "boolean"
+            },
             "isReadOnlyFrom": {
               "type": "string",
               "minLength": 1,

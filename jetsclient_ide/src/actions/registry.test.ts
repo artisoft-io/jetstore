@@ -139,6 +139,11 @@ describe("the production registry", () => {
       "loadReteSession",
       "openWorkspace",
       "readXlsxSheetOption",
+      // **Ten as of C.10**, and the one it adds is the first in the track that the
+      // *value* grammar cannot say rather than the *step* grammar: it reads a
+      // query result. A sixth `ValueSchema` member was the alternative — four
+      // fields for one site — and `ruleConfig.ts` records why not.
+      "resolveProcessConfigKey",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
     ]);

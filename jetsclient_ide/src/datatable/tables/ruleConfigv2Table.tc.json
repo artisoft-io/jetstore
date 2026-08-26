@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "label": "Rules Configuration",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "process_name",
+      "label": "Process",
+      "tooltip": "Process Name"
+    },
+    {
+      "name": "process_config_key",
+      "label": "Process Config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "rule_config_json",
+      "isHidden": true
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 50,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "rule_configv2"
+    }
+  ],
+  "actions": [
+    {
+      "key": "configureRulesv2",
+      "label": "Add/Update Rule Configuration",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "rulesConfigv2Dialog",
+      "navigationParams": {
+        "key": 0,
+        "client": 1,
+        "process_name": 2,
+        "process_config_key": 3,
+        "rule_config_json": 4
+      }
+    },
+    {
+      "key": "deleteRuleConfig",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteRuleConfigv2",
+      "capability": "client_config",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

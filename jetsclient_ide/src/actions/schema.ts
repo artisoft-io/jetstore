@@ -291,6 +291,22 @@ export const InsertTargetSchema = z
     "update/users",
     "delete/users",
     /**
+     * The three `/ruleConfig` writes. Task C.10.
+     *
+     * All three declare `Capability: "client_config"` in
+     * `jets/datatable/sql_stmts.go`, which is the same capability the dialog's
+     * *Save* button and the table's *Delete* button both name — checked in both
+     * directions, since a client that asks for less than the server enforces is a
+     * 401 the user cannot explain.
+     *
+     * `rule_configv2` and `update/rule_configv2` are the insert and update halves
+     * of one dialog, which is the pairing `workspace_registry` above already has;
+     * the branch is a `when` guard on `key`.
+     */
+    "rule_configv2",
+    "update/rule_configv2",
+    "delete/rule_configv2",
+    /**
      * The eight `/workspaces` writes. Task C.2b, and the first entries added for
      * a screen rather than a flow.
      *

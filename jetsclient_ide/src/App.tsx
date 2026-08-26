@@ -31,6 +31,7 @@ import { InferServerAdmin } from "./screens/InferServerAdmin";
 import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
 import { ProcessErrors } from "./screens/ProcessErrors";
+import { RuleConfig } from "./screens/RuleConfig";
 import { UserAdmin } from "./screens/UserAdmin";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
@@ -267,6 +268,17 @@ export default function App() {
             distinction.
           */}
           <Route path="userAdmin" element={<UserAdmin api={api} />} />
+          {/*
+            C.10. Any authenticated user reaches it; the two writes it makes are
+            gated on `client_config` server-side and both buttons name it.
+
+            **No nav entry yet**, for the same reason the three routes above have
+            none: the shell's nav list is `NAV` in this file and adding entries for
+            track C's screens is one decision about the whole list rather than nine
+            about individual screens. The Flutter menu calls this one
+            `processConfig`, which is the v1 name for the v2 screen.
+          */}
+          <Route path="ruleConfig" element={<RuleConfig api={api} />} />
           {/*
             **The catch-all reports rather than redirects, as of C.16.** It was
             `<Navigate to="/workspace" replace />` from A.1 until now, and that is

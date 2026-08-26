@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "ruleConfigv2.ok": {
+      "description": "Add a rule configuration, or update the selected one \u2014 the same dialog serves both",
+      "steps": [
+        {
+          "do": "validate"
+        },
+        {
+          "do": "escape",
+          "name": "resolveProcessConfigKey"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "rule_configv2",
+          "spinner": true,
+          "onConflict": "A record already exists for this client on this process, please edit that record.",
+          "when": {
+            "op": "isNullOrEmpty",
+            "key": "key"
+          },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              {
+                "key": "client",
+                "as": {
+                  "fromKey": "client"
+                }
+              },
+              {
+                "key": "process_name",
+                "as": {
+                  "fromKey": "process_name"
+                }
+              },
+              {
+                "key": "process_config_key",
+                "as": {
+                  "fromKey": "process_config_key"
+                }
+              },
+              {
+                "key": "rule_config_json",
+                "as": {
+                  "fromKey": "rule_config_json"
+                }
+              },
+              {
+                "key": "user_email",
+                "as": {
+                  "userEmail": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "update/rule_configv2",
+          "spinner": true,
+          "onConflict": "A record already exists for this client on this process, please edit that record.",
+          "when": {
+            "op": "not",
+            "condition": {
+              "op": "isNullOrEmpty",
+              "key": "key"
+            }
+          },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              {
+                "key": "client",
+                "as": {
+                  "fromKey": "client"
+                }
+              },
+              {
+                "key": "process_name",
+                "as": {
+                  "fromKey": "process_name"
+                }
+              },
+              {
+                "key": "process_config_key",
+                "as": {
+                  "fromKey": "process_config_key"
+                }
+              },
+              {
+                "key": "rule_config_json",
+                "as": {
+                  "fromKey": "rule_config_json"
+                }
+              },
+              {
+                "key": "user_email",
+                "as": {
+                  "userEmail": true
+                }
+              },
+              {
+                "key": "key",
+                "as": {
+                  "fromKey": "key"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "deleteRuleConfigv2": {
+      "description": "Delete the selected rule configuration",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Are you sure you want to delete the selected Rule Configuration?"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "delete/rule_configv2",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "key": {
+                "fromKey": "key"
+              },
+              "user_email": {
+                "userEmail": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

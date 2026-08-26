@@ -151,6 +151,9 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "type": "string"
             },
+            "isReadOnlyWhenSet": {
+              "type": "boolean"
+            },
             "items": {
               "items": {
                 "$ref": "#/$defs/DropdownItem"
