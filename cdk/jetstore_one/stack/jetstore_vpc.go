@@ -87,8 +87,8 @@ func LookupApiGatewayVpcEndpoint(stack awscdk.Stack, epId string, sg awsec2.ISec
 		return nil
 	}
 	ep := awsec2.InterfaceVpcEndpoint_FromInterfaceVpcEndpointAttributes(stack, jsii.String("ImportedApiGatewayVpcEndpoint"), &awsec2.InterfaceVpcEndpointAttributes{
-		Port: jsii.Number(443),
-		VpcEndpointId: jsii.String(epId),
+		Port:           jsii.Number(443),
+		VpcEndpointId:  jsii.String(epId),
 		SecurityGroups: &[]awsec2.ISecurityGroup{sg},
 	})
 	if ep == nil {
@@ -242,8 +242,8 @@ func addTags(scope constructs.IConstruct) {
 func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	// Returned Security Group for ECS service & tasks
 	vpcEndpointsSG := awsec2.NewSecurityGroup(stack, jsii.String("VpcEndpointsSG"), &awsec2.SecurityGroupProps{
-		Vpc:              vpc,
-		Description:      jsii.String("Allow ECS Tasks network access for subnets"),
+		Vpc:         vpc,
+		Description: jsii.String("Allow ECS Tasks network access for subnets"),
 		// AllowAllOutbound: jsii.Bool(false),
 	})
 	vpcEndpointsSG.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
