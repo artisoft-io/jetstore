@@ -21,6 +21,24 @@ import (
 // and `/executionStatsDetails/:session_id`. All four are translated out of
 // `screens/fixtures/screen_configs.json` by the same code path, and the count
 // here grows once per screen track C ports rather than once per phase.
+// `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
+// `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
+// server for a *statement* rather than for a structure. All three are translated
+// out of `screens/fixtures/screen_configs.json` by the same code path, and the
+// count here grows once per screen track C ports rather than once per phase.
+// F.5 could not author that flow without it; C.7 added
+// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
+// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`;
+// C.6 added `inputLoaderStatusTable` (the home screen's first tab),
+// `inputTable` (`/domainTableViewer/…`) and `inputFileViewerTable`
+// (`/filePreviewPath/:file_key`). All of them are translated out of
+// `screens/fixtures/screen_configs.json` by the same code path.
+//
+// **The home screen's other two tables are not here and that is not an
+// omission.** `pipelineExecStatusTable` arrived with F.5, and `inputRegistryTable`
+// is one of the flows' 37 — it is registered in
+// `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart` and
+// rendered by the home screen, which is F18 read backwards.
 //
 // **The count here is deliberately a literal and deliberately duplicated.** It is
 // the one assertion that fails when a document is emitted and not committed, or
@@ -60,8 +78,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 42 {
-		t.Fatalf("expected the flows' 37 table configurations plus the five non-flow ones, found %d", len(files))
+	if len(files) != 45 {
+		t.Fatalf("expected the flows' 37 table configurations plus the eight non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {

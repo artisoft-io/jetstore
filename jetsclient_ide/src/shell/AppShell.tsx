@@ -35,13 +35,21 @@
  * nothing.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { Login } from "../components/Login";
 import { ApiProvider, useCan } from "./capabilities";
 import { NotificationsProvider, useNotifications } from "./notifications";
+import {
+  CLIENT_LIST_QUERY,
+  clientList,
+  selectedClient,
+  setClientList,
+  setSelectedClient,
+  subscribeToClient,
+} from "./selectedClient";
 
 export type Theme = "light" | "dark";
 
@@ -108,6 +116,70 @@ function ShellNavItem({ item }: { item: NavItem }) {
   );
 }
 
+/**
+ * The client filter, which every screen's tables are queried against. Task C.6.
+ *
+ * **In the shell because it is the shell's in Flutter too** — a dropdown in the
+ * left menu that `base_screen.dart` draws on every screen, writing to a router
+ * field the query builder reads (`selectedClient.ts` has the whole argument).
+ * Putting it on the home screen would have made a filter that narrows five other
+ * screens' tables settable from one of them.
+ *
+ * `useSyncExternalStore` rather than `useState` plus an effect: the store is
+ * module-level and mutable, and this is the hook that exists for exactly that —
+ * it also lets a screen read `selectedClient()` directly without a context.
+ *
+ * The list is fetched once, when the shell mounts, and a failure is silent by
+ * design — see the module header. Rendered before the spacer rather than beside
+ * the user's name, so it sits on the navigation side as the Dart's does.
+ */
+function ClientPicker({ api }: { api: ApiClient }) {
+  const clients = useSyncExternalStore(subscribeToClient, clientList);
+  const selection = useSyncExternalStore(subscribeToClient, selectedClient);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const body = await api.dataTable<{ rows?: unknown }>({
+          action: "raw_query",
+          query: CLIENT_LIST_QUERY,
+        });
+        if (cancelled || !Array.isArray(body.rows)) return;
+        setClientList(
+          (body.rows as unknown[][]).map((row) => row[0]).filter((v): v is string => typeof v === "string"),
+        );
+      } catch {
+        // Deliberately silent. The selection narrows what the user may already
+        // see, so its absence shows more rows rather than fewer, and nothing in
+        // the app depends on the list being populated.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  return (
+    <select
+      className="clientpicker"
+      aria-label="Filter Client"
+      value={selection ?? ""}
+      onChange={(event) => setSelectedClient(event.target.value)}
+    >
+      {/* The Dart's first entry is a label with no value, and choosing it clears
+          the filter: `DropdownItemConfig(label: 'Filter Client')` with `value`
+          left null (`jetsclient/lib/screens/base_screen.dart`). */}
+      <option value="">Filter Client</option>
+      {clients.map((client) => (
+        <option key={client} value={client}>
+          {client}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function ShellChrome({ api, nav }: AppShellProps) {
   const [user, setUser] = useState<User | null>(api.currentUser);
   const [theme, setTheme] = useState<Theme>(
@@ -146,6 +218,8 @@ function ShellChrome({ api, nav }: AppShellProps) {
             <ShellNavItem key={item.to} item={item} />
           ))}
         </nav>
+
+        <ClientPicker api={api} />
 
         <div className="spacer" />
 

@@ -109,6 +109,9 @@ const NON_FLOW_KEYS = [
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
   "queryToolResultSetTable",
+  "inputLoaderStatusTable",
+  "inputTable",
+  "inputFileViewerTable",
 ] as const;
 
 const flowDocuments = toDocuments(tables);
@@ -126,7 +129,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 42 translated configurations committed beside it, for the Go check", () => {
+  it("has the 45 translated configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -172,12 +175,12 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the five non-flow tables F.5, C.2, C.7 and C.4 needed make 42", () => {
-    // 37 + F.5's one + C.2's one + C.7's two + C.4's one. The flow count is
+  it("all translate, and the eight non-flow tables so far make 45", () => {
+    // 37 + F.5's one + C.2's, C.4's, C.7's two and C.6's three. The flow count is
     // asserted separately because it is the number every other assertion in this
     // block is about.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(documents).length).toBe(42);
+    expect(Object.keys(documents).length).toBe(45);
   });
 
   it("all validate against the schema", () => {

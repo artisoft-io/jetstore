@@ -144,6 +144,27 @@ export const fileKeyLabel = (value: string | null): string | null => {
 };
 
 /**
+ * Strips the prefix a recovered load error carries. Task C.6.
+ *
+ * `text?.replaceFirst('File contains 0 bad rows,recovered error: ', '')`
+ * (`jetsclient/lib/modules/data_table_config_impl.dart`, the `error_message`
+ * column of `DTKeys.inputLoaderStatusTable`) — one site, and the only
+ * `cellFilter` in either corpus that is not `fileKeyLabel`'s body.
+ *
+ * **It is here because the translation named the wrong one for it.**
+ * `translateColumn` mapped every `hasCellFilter` to `fileKeyLabel`, which is
+ * right for five of the six sites and would have rendered a stack trace as a
+ * file-key label on the sixth. See `tableTranslate.ts`'s `cellFilterEscapeFor`.
+ *
+ * `replaceFirst` rather than a global replace, and the comma with no space after
+ * it is the message the loader actually writes — both are copied rather than
+ * tidied, because a prefix that no longer matches is a filter that does nothing
+ * and says nothing.
+ */
+export const errorMessageLabel = (value: string | null): string | null =>
+  value === null ? null : value.replace("File contains 0 bad rows,recovered error: ", "");
+
+/**
  * Whether the data-registry filters are set.
  *
  * `JetsRouterDelegate().dataRegistryFilters != null && …isNotEmpty`, the gate on
@@ -280,7 +301,14 @@ export const productionRegistry: EscapeRegistry = {
   initializers: { seedFromHomeFilters },
   rowInitializers: { seedMappingRow },
   validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
-  cellFilters: { fileKeyLabel },
+  // **Two as of C.6, and the second is why the mapping is a lookup.** I-103 moved
+  // the *`isEnabled`* mapping out of a constant and stated the lesson; the cell
+  // filter beside it in the same function stayed a constant, sending every
+  // `hasCellFilter` to `fileKeyLabel`. Five of the six sites agree and the sixth
+  // is `inputLoaderStatusTable`'s `error_message`, which would have rendered a
+  // load error as a file-key label. `cellFilterEscapeFor` is keyed by table and
+  // column now (**I-219**).
+  cellFilters: { fileKeyLabel, errorMessageLabel },
   // **Seven as of C.5, and they no longer divide by consumer.** Five arrived with
   // C.2b, two of them read by a *form field* rather than by a table action —
   // `isReadOnlyFrom` resolves out of this namespace because the signature is the

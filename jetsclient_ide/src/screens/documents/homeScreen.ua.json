@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "resubmitPipeline": {
+      "description": "Resubmit the selected pipeline execution",
+      "steps": [
+        { "do": "set", "key": "session_id", "value": { "fromKey": "session_id" } },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "resubmit_pipeline",
+          "data": { "rows": "wholeState" }
+        }
+      ]
+    }
+  }
+}

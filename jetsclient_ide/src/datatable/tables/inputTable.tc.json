@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "label": "Staging Table or Domain Table Data",
+  "columns": [],
+  "rowsPerPage": 10,
+  "source": "query",
+  "from": [
+    {
+      "schema": "public"
+    }
+  ],
+  "where": [
+    {
+      "column": "session_id",
+      "formStateKey": "session_id"
+    }
+  ]
+}
