@@ -426,25 +426,104 @@ type SqlInsertDefinition struct {
 	Capability string
 }
 
+// The four refusals VerifyUserPermission makes, as values rather than as calls to
+// errors.New, so that a caller can classify one with errors.Is. **The text of each
+// is byte-identical to what it replaced**; nothing on the wire moves because of
+// this declaration, and that is what makes AuthzStatusFor's claim checkable.
+//
+// **The split that matters is identity against policy, and it is not the split the
+// text makes.** ErrNoUserInfo says we could not establish who is asking -- a
+// deleted user row, an unreachable database. The two below it say we know exactly
+// who is asking and the answer is no. Only the second pair is a 403; see
+// AuthzStatusFor.
+var (
+	// ErrCapabilityNotConfigured is a defect in the *server*, not a refusal of the
+	// caller: a SqlInsertDefinition that names no capability. It is unreachable from
+	// sqlInsertStmts today -- 58 entries, 58 Capability fields (jets/datatable/sql_stmts.go,
+	// sqlInsertStmts) -- and every ad-hoc definition in this package names one too.
+	// It stays a 401 rather than becoming a 403 or a 500, because giving a server
+	// defect its own status is a separate decision from the one C.17 took. ui_refresh
+	// I-241 records it.
+	ErrCapabilityNotConfigured = errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+	// ErrNoUserInfo is the identity half: we cannot say who is asking.
+	ErrNoUserInfo = errors.New("error: unauthorized, cannot get user info")
+	// ErrAdminOnly and ErrMissingCapability are the policy half: we know who is
+	// asking and they may not do this.
+	ErrAdminOnly         = errors.New("error: unauthorized, only admin can perform statement")
+	ErrMissingCapability = errors.New("error: unauthorized, user do not have required capability")
+)
+
+// AuthzStatusFor maps a VerifyUserPermission error to the status that describes it.
+//
+// **This exists because 401 was answering two questions and could only carry one
+// answer** -- ui_refresh I-189. A client cannot distinguish "your session is over,
+// sign in again" from "you are signed in and may not do this", so the React app
+// signed the user out on both, and a refusal presented as a session failure.
+//
+// **Reading the response body could not have fixed it**, which is why this is a
+// status change rather than a client-side one. requireCapability collapses all
+// four errors above into one string, so on /dataTable -- where nearly every post
+// goes -- the body does not separate a dead session from a missing capability. It
+// separates the middleware from the handler, and a handler refusal *includes* the
+// dead-user and database-unavailable cases.
+//
+// **It is not a new oracle**, measured against the reasoning I-124, I-125 and
+// I-126 were resolved on. The four gates in jets/apiserver already return two
+// distinct messages for exactly this distinction, deliberately (jets/apiserver/api_purgedata.go,
+// DoPurgeDataAction, the comment above the IsAdmin check). Splitting the status
+// along the line the message already splits along tells a caller nothing the
+// message did not. And an unauthenticated caller never reaches a handler gate at
+// all, because authh refuses first (jets/apiserver/server.go, authh).
+func AuthzStatusFor(err error) int {
+	switch {
+	case errors.Is(err, ErrAdminOnly), errors.Is(err, ErrMissingCapability):
+		return http.StatusForbidden
+	default:
+		return http.StatusUnauthorized
+	}
+}
+
+// ErrRefused is the one message every gate in this package returns, whichever of
+// the four errors above produced it. It is unchanged from the errors.New that
+// stood at each of the fourteen sites, and it stays collapsed on purpose: I-124's
+// fix turns on the two gates on the insert_raw_rows path being byte-identical, so
+// that neither becomes an oracle for whether a mapping exists.
+//
+// **The status now says more than the message does, and that is the whole of the
+// change.** RefusalFor is the pair, so a handler cannot take one without the other.
+var ErrRefused = errors.New("error: unauthorized, cannot get user info or does not have permission")
+
+// RefusalFor turns a VerifyUserPermission error into the (status, error) a handler
+// returns. Every gate in this package goes through it; write_capability_test.go
+// asserts that none of them hard-codes http.StatusUnauthorized instead, which is
+// the guard against the next handler re-conflating the two.
+//
+// The returned error is ErrRefused rather than the argument, so errors.Is against
+// ErrMissingCapability fails on the *result*. That is deliberate: the classification
+// is for the status line, not for the body.
+func RefusalFor(err error) (int, error) {
+	return AuthzStatusFor(err), ErrRefused
+}
+
 // Check that the user has the required permission to execute the action
 func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
 	// RBAC check
 	if sqlStmt.Capability == "" {
-		return nil, errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+		return nil, ErrCapabilityNotConfigured
 	}
 	// Get user info
 	user, err := user.GetUserByToken(ctx.Dbpool, token)
 	if err != nil {
 		log.Printf("while GetUserByToken: %v", err)
-		return nil, errors.New("error: unauthorized, cannot get user info")
+		return nil, ErrNoUserInfo
 	}
 	switch {
 	// Check if stmt is reserved for admin only
 	case sqlStmt.AdminOnly && !user.IsAdmin():
-		return nil, errors.New("error: unauthorized, only admin can perform statement")
+		return nil, ErrAdminOnly
 	// user missing capability
 	case !user.HasCapability(sqlStmt.Capability):
-		return nil, errors.New("error: unauthorized, user do not have required capability")
+		return nil, ErrMissingCapability
 	}
 	// All clear, perform action
 	return user, nil
@@ -497,8 +576,7 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
@@ -651,9 +729,8 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 				return
 			}
 			if _, err2 := ctx.VerifyUserPermission(sqlStmt, token); err2 != nil {
-				httpStatus = http.StatusUnauthorized
 				log.Printf("while VerifyUserPermission: %v", err2)
-				err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+				httpStatus, err = RefusalFor(err2)
 				return
 			}
 			// Put the table name in each row
@@ -716,9 +793,8 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 	}
 	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
 		log.Printf("while VerifyUserPermission: %v", err2)
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 
@@ -988,8 +1064,7 @@ const (
 // set of them is greppable.
 func (ctx *DataTableContext) requireCapability(capability, token string) (int, error) {
 	if _, err := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: capability}, token); err != nil {
-		return http.StatusUnauthorized,
-			errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return RefusalFor(err)
 	}
 	return http.StatusOK, nil
 }

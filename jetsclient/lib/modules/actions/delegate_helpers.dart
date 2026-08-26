@@ -82,10 +82,22 @@ Future<String?> postInsertRows(
     navigator.pop(DTActionResult.okDataTableDirty);
     return null;
   } else if (result.statusCode == 400 ||
+      result.statusCode == 403 ||
       result.statusCode == 500 ||
       result.statusCode == 406 ||
       result.statusCode == 422) {
-    // http Bad Request / Not Acceptable / Unprocessable / ServerError
+    // http Bad Request / Forbidden / Not Acceptable / Unprocessable / ServerError
+    //
+    // **403 is new, 2026-08-25, and it is the only line this app changes for
+    // ui_refresh C.17.** The apiserver used to answer 401 for a refused capability
+    // as well as for a dead token, so this client signed the user out rather than
+    // telling them (I-189); it now answers 403 for the refusal. Every other arm in
+    // this file and in `data_table_source.dart` already handles an unknown status by
+    // showing `result.body['error']`, and `sendRequest` blanks the body only for
+    // 401 -- so a 403 arrives with the server's message intact and reads better than
+    // it used to without any change. This arm did not: 403 fell to the generic
+    // `else` and reported "Got a server error", which is the one place the new
+    // status would have been *less* informative than the old one.
     // Check if we have an error message from server, if not put a generic one
     if (result.body['error'] != null) {
       formState.setValue(0, FSK.serverError, result.body['error']);

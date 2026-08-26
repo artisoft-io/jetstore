@@ -11,11 +11,34 @@
  *    Sessions therefore last as long as the user keeps working, and stop lasting
  *    the moment they stop.
  *  - A 401 means the session is over; there is no refresh endpoint to fall back to.
+ *    **A 403 means the session is fine and the answer is no**, which is a different
+ *    thing and used to be the same one — see below.
  *
  * The token is deliberately kept in memory only. Putting it in localStorage would
  * outlive the tab and widen the blast radius of any script injection, and the
  * refresh-per-response behaviour above means a reload costs one login rather than a
  * lost day's work.
+ *
+ * ## ~~A 401 means the session is over.~~ It did not, until 2026-08-25
+ *
+ * That sentence was this file's rule and it signed users out for pressing a button
+ * they lacked a capability for. The apiserver answered 401 for both a dead token and
+ * a refused capability, so `post` could not tell them apart and treated every one as
+ * an expiry: a refusal presented as a session failure, on every screen with a gated
+ * write. Raised as ui_refresh **I-189** by C.14, fixed at **C.17**.
+ *
+ * **The fix is on the server**, because it had to be. The obvious cheap alternative —
+ * read the error string — cannot work, and that is a stronger statement than "it is
+ * fragile": `requireCapability` (`jets/datatable/data_table_action.go`) collapses four
+ * distinct refusals into one message, so on `/dataTable`, where nearly every post from
+ * this app goes, the body separates *the middleware refused* from *a handler refused*
+ * and not *your token is dead* from *you may not do this*. A handler refusal includes
+ * the dead-user and database-unavailable cases. There is no string to read.
+ *
+ * So `jets/datatable`'s `AuthzStatusFor` now answers 403 for the two policy refusals
+ * and 401 for everything else, the four gates in `jets/apiserver` pair the same way,
+ * and this file reads the status. **The messages did not move**; only the status did,
+ * which is what keeps I-124's byte-identical refusals intact.
  */
 
 export class ApiError extends Error {
@@ -33,6 +56,30 @@ export class SessionExpiredError extends ApiError {
   constructor() {
     super("Session expired, please sign in again.", 401);
     this.name = "SessionExpiredError";
+  }
+}
+
+/**
+ * Thrown on 403: the session is live and the server refused what was asked. C.17.
+ *
+ * **It extends `ApiError` and not `SessionExpiredError`, and that is the whole of
+ * its contract.** Every existing consumer already discriminates on
+ * `err instanceof SessionExpiredError` — `WorkspaceIde`'s `guard`, and the
+ * `agentic_ai` project's `ProposalsScreen` and `ProposalScreen` — so a refusal now
+ * falls into the branch that shows the message rather than the branch that clears
+ * the session. Those three call sites needed no edit; they were already written for
+ * a distinction the server could not make.
+ *
+ * The message is the server's own, because it is the only thing that says which
+ * capability was wanted. `ActionButton` disables a control it can see is refused
+ * (`shell/capabilities.tsx`, `permissionFor`), so a 403 reaching a user means the
+ * client's picture and the server's disagreed — most often because a button carries
+ * no `capability` and the statement behind it does.
+ */
+export class PermissionDeniedError extends ApiError {
+  constructor(message: string) {
+    super(message, 403);
+    this.name = "PermissionDeniedError";
   }
 }
 
@@ -273,6 +320,15 @@ export class ApiClient {
     // this body is rendered in places a user can read and copy.
     const refreshed = this.takeToken(body);
     if (refreshed) this.token = refreshed;
+
+    // Before the generic branch, because a refusal is not a rejection: the session
+    // survives it and the caller is meant to be able to tell. `PermissionDeniedError`
+    // is an `ApiError`, so a caller that only catches the base class is unaffected.
+    if (res.status === 403) {
+      throw new PermissionDeniedError(
+        this.errorText(body, "You do not have permission to do that."),
+      );
+    }
 
     if (!res.ok) {
       throw new ApiError(this.errorText(body, "The server rejected the request."), res.status);

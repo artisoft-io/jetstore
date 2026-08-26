@@ -156,7 +156,7 @@ func (server *Server) DoAgenticAction(w http.ResponseWriter, r *http.Request) {
 	if !jetsUser.HasCapability(AgentSupervisionCapability) {
 		log.Printf("user %s attempted an agentic action without the %s capability",
 			userEmail, AgentSupervisionCapability)
-		ERROR(w, http.StatusUnauthorized,
+		ERROR(w, http.StatusForbidden,
 			errors.New("error: unauthorized, user do not have required capability"))
 		return
 	}

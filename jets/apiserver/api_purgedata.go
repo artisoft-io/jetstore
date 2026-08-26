@@ -99,6 +99,14 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	//
 	// The two refusals are byte-identical to the ones DoInferServerAction returns,
 	// so this gate is not an oracle for anything the other two do not already tell.
+	//
+	// **They now differ in status as well, and the pairing is fixed across all four
+	// gates in this package** -- 401 for "cannot get user info", 403 for "user do not
+	// have required capability" (ui_refresh C.17, I-189). The messages already made
+	// this distinction; the status makes it machine-readable, which is what a client
+	// needs to refuse in place rather than sign the user out.
+	// TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints asserts the pairing
+	// rather than only the wording, so the two cannot drift apart.
 	jetsUser, err := user.GetUserByToken(server.dbpool, token)
 	if err != nil {
 		log.Printf("while GetUserByToken: %v", err)
@@ -119,7 +127,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	if !jetsUser.IsAdmin() {
 		log.Printf("user %s attempted a purge data action without the admin account",
 			userEmail)
-		ERROR(w, http.StatusUnauthorized,
+		ERROR(w, http.StatusForbidden,
 			errors.New("error: unauthorized, user do not have required capability"))
 		return
 	}
