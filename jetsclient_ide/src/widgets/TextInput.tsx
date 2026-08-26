@@ -127,11 +127,25 @@ export function TextInput({
 }
 
 /**
- * **`isReadOnlyEval` is not implemented, and that is a decision.**
+ * ~~**`isReadOnlyEval` is not implemented, and that is a decision.**~~
+ * **Implemented at the document layer by C.2b, and this widget is unchanged.**
  *
- * It is a Dart closure — `bool Function(JetsFormState)` — so it cannot cross
- * into a configuration file any more than `cellFilter` or the action delegates
- * could. No field in the nine flows sets it, so nothing is lost today. When one
- * needs to, the answer is the same as everywhere else in this port: express the
- * condition in the flow schema S.1 defines, not as a function pointer.
+ * The original note is kept because its reasoning held and its prediction was
+ * half right. It read: *it is a Dart closure, so it cannot cross into a
+ * configuration file any more than `cellFilter` or the action delegates could. No
+ * field in the nine flows sets it, so nothing is lost today. When one needs to,
+ * the answer is the same as everywhere else in this port: express the condition
+ * in the flow schema S.1 defines, not as a function pointer.*
+ *
+ * Both halves of the diagnosis were right. What arrived is the third answer this
+ * port gives to a closure rather than the one predicted: **a name, resolved
+ * through the escape registry**, which is what `cellFilter` itself became. The
+ * schema route was not available — the condition is *is this the deployment's
+ * active workspace*, which is not a fact about form state at all.
+ *
+ * So `isReadOnlyFrom` is on the `text` and `dropdown` field kinds
+ * (`userflow/form.ts`) and `FormRenderer` resolves it to this widget's plain
+ * `isReadOnly` prop. **Four sites in either corpus and all four on
+ * `/workspaces`'s dialogs; zero in the flows**, which is why the sentence above
+ * stayed true for as long as it did.
  */

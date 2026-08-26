@@ -207,6 +207,21 @@ export const ServerActionSchema = z
     "sync_file_keys",
     "resubmit_pipeline",
     "put_schema_event_to_s3",
+    /**
+     * Export a client's configuration from the database into the workspace.
+     * Task C.2b — `/workspaces`'s *Export Client Config* dialog.
+     *
+     * **The first member added by a screen rather than by a flow**, and the
+     * reasoning above holds unchanged: it is gated, by `workspace_ide` in
+     * `SaveWorkspaceClientConfig` (`jets/datatable/workspace_data_table_action.go`),
+     * and the request carries the running user's token — so a hostile document
+     * could not do anything the user could not already do. What the allowlist buys
+     * is that a button labelled *Next* cannot quietly do it.
+     *
+     * It resolves no statement out of `sqlInsertStmts`, so it takes no `table`;
+     * `wsfile.SaveClientConfig` is the whole of what it reaches.
+     */
+    "save_workspace_client_config",
   ])
   .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
 
@@ -251,6 +266,41 @@ export const InsertTargetSchema = z
     "delete/process_mapping",
     "pull_workspace",
     "load_workspace_config",
+    /**
+     * The eight `/workspaces` writes. Task C.2b, and the first entries added for
+     * a screen rather than a flow.
+     *
+     * **Six of the eight are not tables**, which is worth saying because this
+     * enum is called `InsertTarget` and `pull_workspace` above already was one.
+     * `WorkspaceInsertRows` looks its argument up in `sqlInsertStmts` and then
+     * branches on the *name* to do the work — `commit_workspace` runs a commit and
+     * a push, `compile_workspace` compiles, `git_command_workspace` runs the git
+     * commands the dialog collected (`jets/datatable/workspace_data_table_action.go`,
+     * `WorkspaceInsertRows`). The row inserted afterwards is a record of what
+     * happened, so the name names an operation and the enum is an allowlist of
+     * operations.
+     *
+     * **All eight declare `Capability: "workspace_ide"`** in
+     * `jets/datatable/sql_stmts.go`, and `VerifyUserPermission` refuses without
+     * it. That is the same capability the `/workspaces` route itself is gated on
+     * and the same one every OK button in the seven dialogs declares — checked in
+     * both directions rather than assumed, because a client that asks for less
+     * than the server enforces is a 401 the user cannot explain and a client that
+     * asks for more is a button nobody can press.
+     *
+     * `workspace_registry` and `update/workspace_registry` are the insert and
+     * update halves of one dialog, which is the pairing F.6 met with
+     * `pipeline_config`; the branch is a `when` guard on `key` in
+     * `screens/documents/workspaceRegistry.ua.json`.
+     */
+    "workspace_registry",
+    "update/workspace_registry",
+    "commit_workspace",
+    "push_only_workspace",
+    "compile_workspace",
+    "delete_workspace",
+    "git_command_workspace",
+    "git_status_workspace",
   ])
   .meta({ id: "InsertTarget", description: "A table an authored flow may write to" });
 

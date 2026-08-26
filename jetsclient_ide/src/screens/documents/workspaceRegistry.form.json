@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "addWorkspace": {
+      "title": "Add / Update Workspace",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "autofocus": true, "maxLength": 20, "isReadOnlyFrom": "isActiveWorkspace",
+            "rules": [{ "rule": "required", "message": "Workspace name must be provided." }] },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "maxLength": 120, "isReadOnlyFrom": "hasWorkspaceUri",
+            "rules": [{ "rule": "required", "message": "Workspace URI must be provided." }] }
+        ],
+        [
+          { "field": "text", "key": "workspace_branch", "label": "Workspace Branch",
+            "hint": "Workspace branch of origin",
+            "autofocus": true, "maxLength": 20, "isReadOnlyFrom": "isActiveWorkspace",
+            "rules": [{ "rule": "required", "message": "Workspace branch must be provided." }] },
+          { "field": "text", "key": "feature_branch", "label": "Feature Branch",
+            "hint": "Local branch to make changes", "maxLength": 20,
+            "rules": [{ "rule": "required", "message": "Feature branch must be provided." }] }
+        ],
+        [
+          { "field": "text", "key": "description", "label": "Description",
+            "hint": "Workspace description", "maxLength": 120 }
+        ]
+      ],
+      "actions": [
+        { "action": "addWorkspaceOk", "label": "Add / Update", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+
+    "commitWorkspaceDialog": {
+      "title": "Commit and Push Workspace Changes to Repository",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ],
+        [
+          { "field": "text", "key": "git.commit.message", "label": "Commit Message",
+            "hint": "Git commit message, keep it short", "maxLength": 120,
+            "defaultValue": "Commit from JetStore UI",
+            "rules": [{ "rule": "required", "message": "Commit message must be provided." }] }
+        ]
+      ],
+      "actions": [
+        { "action": "commitWorkspaceOk", "label": "Commit & Push", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+
+    "pushOnlyWorkspaceDialog": {
+      "title": "Push Workspace Changes to Repository Without Compiling Workspace",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ]
+      ],
+      "actions": [
+        { "action": "pushOnlyWorkspaceOk", "label": "Push Changes", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+
+    "doGitStatusWorkspaceDialog": {
+      "title": "Do Git Status in Local Workspace",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ],
+        [
+          { "field": "text", "key": "git.command", "label": "Git Status Commands",
+            "hint": "Enter git commands to execute", "maxLength": 100,
+            "defaultValue": "git status", "isReadOnlyFrom": "hasWorkspaceUri" }
+        ]
+      ],
+      "actions": [
+        { "action": "doGitStatusWorkspaceOk", "label": "Git Status", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+
+    "doGitCommandWorkspaceDialog": {
+      "title": "Do Git Command in Local Workspace",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ],
+        [
+          { "field": "text", "key": "git.command", "label": "Git Commands",
+            "hint": "Enter git commands to execute", "maxLines": 10, "maxLength": 25000 }
+        ]
+      ],
+      "actions": [
+        { "action": "doGitCommandWorkspaceOk", "label": "Execute", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+
+    "viewGitLogWorkspaceDialog": {
+      "title": "Last Git Log of Workspace Changes",
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ],
+        [
+          { "field": "text", "key": "last_git_log", "label": "Last Git Log",
+            "hint": "Git log of last successful git operation",
+            "isReadOnly": true, "maxLines": 15, "maxLength": 1000000 }
+        ]
+      ],
+      "actions": [
+        { "action": "dialogCancel", "label": "Close", "style": "primary" }
+      ]
+    },
+
+    "exportWorkspaceClientConfig": {
+      "title": "Export Client Configuration from DB to Workspace",
+      "queries": {
+        "clients": {
+          "sql": "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"
+        }
+      },
+      "rows": [
+        [
+          { "field": "text", "key": "workspace_name", "label": "Workspace Name",
+            "hint": "Workspace where to export the client configuration",
+            "isReadOnly": true, "maxLength": 20 },
+          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true, "maxLength": 120 }
+        ],
+        [
+          { "field": "dropdown", "key": "client", "label": "Client",
+            "items": [{ "value": "", "label": "Select a Client" }],
+            "itemsFrom": "clients",
+            "rules": [{ "rule": "required", "message": "Client must be selected." }] }
+        ]
+      ],
+      "actions": [
+        { "action": "exportClientConfigOk", "label": "Export Client Config", "style": "primary",
+          "capability": "workspace_ide" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

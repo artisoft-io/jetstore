@@ -24,6 +24,7 @@ import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
+import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
 
 const api = new ApiClient();
@@ -36,6 +37,11 @@ export const NAV: NavItem[] = [
   // agentic_ai's screens (task K.3). The nav entry and the two routes below are
   // this file's whole knowledge of them; the screens are in `proposals/`.
   { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
+  // **Track C's first screen (C.2b).** Gated on the same capability the Flutter
+  // menu entry is and the same one the server enforces on every write it makes —
+  // `admin` bypasses both, in `permissionFor` here and in `HasCapability`
+  // (`jets/user/user.go`) there.
+  { to: "/workspaces", label: "Workspaces", capability: WORKSPACE_IDE },
 ];
 
 /**
@@ -57,6 +63,11 @@ export default function App() {
               app links to, and a redirect is cheaper than teaching it a url. */}
           <Route index element={<Navigate to="/workspace" replace />} />
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
+          {/* The Flutter route is `/workspaces`, and this is the same path under
+              the `/ide` basename. Track X decides when the other app stops
+              serving its copy; until then the two coexist and the Flutter one is
+              what a `configScreenPath` on any other screen still reaches. */}
+          <Route path="workspaces" element={<WorkspaceRegistry api={api} />} />
           <Route path="proposals" element={<ProposalsScreen api={api} />} />
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
           {/*

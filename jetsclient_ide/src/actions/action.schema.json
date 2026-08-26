@@ -820,7 +820,8 @@
         "drop_table",
         "sync_file_keys",
         "resubmit_pipeline",
-        "put_schema_event_to_s3"
+        "put_schema_event_to_s3",
+        "save_workspace_client_config"
       ],
       "description": "A server action an authored flow may invoke"
     },
@@ -844,7 +845,15 @@
         "process_mapping",
         "delete/process_mapping",
         "pull_workspace",
-        "load_workspace_config"
+        "load_workspace_config",
+        "workspace_registry",
+        "update/workspace_registry",
+        "commit_workspace",
+        "push_only_workspace",
+        "compile_workspace",
+        "delete_workspace",
+        "git_command_workspace",
+        "git_status_workspace"
       ],
       "description": "A table an authored flow may write to"
     },

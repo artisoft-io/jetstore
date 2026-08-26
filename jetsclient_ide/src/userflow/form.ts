@@ -241,6 +241,34 @@ export const FieldSchema = z
        */
       isReadOnly: z.boolean().optional(),
       /**
+       * A named predicate deciding whether the field is read-only. Task C.2b.
+       *
+       * **`isReadOnlyEval`, which is a Dart closure and therefore a name here** —
+       * the move `cellFilter` and a table action's `isEnabled` already make. The
+       * corpus can only report `hasIsReadOnlyEval: true`, so which predicate a
+       * field wants is a fact only the Dart source has, and I-103's rule applies:
+       * the mapping is data keyed by form and field, not a constant.
+       *
+       * **Four sites in either corpus and all four are on `/workspaces`'s
+       * dialogs** — `addWorkspace`'s name, uri and branch, and
+       * `doGitStatusWorkspaceDialog`'s command. Zero in the flows, which is why
+       * no task before C.2b met it. **They are two bodies, not four**: the name
+       * and branch fields share *is this the deployment's active workspace*, and
+       * the uri and command fields share *is a workspace uri configured*.
+       *
+       * It resolves through `predicates`, the namespace a table action's
+       * `isEnabled` already uses, rather than through a namespace of its own: the
+       * signature is the same `(formState, group) => boolean` and a second
+       * namespace holding functions of the same type would be a distinction
+       * nothing draws.
+       *
+       * **It composes with `isReadOnly` as an or**, and no field sets both. A
+       * name that does not resolve leaves the field **read-only**, which is the
+       * safe direction and the one `actionBarModel.ts` takes for the same reason:
+       * a missing predicate must not silently open something that was closed.
+       */
+      isReadOnlyFrom: Identifier.optional(),
+      /**
        * The value the field starts with when form state holds nothing. Task F.6,
        * and the second half of I-62.
        *
@@ -343,6 +371,8 @@ export const FieldSchema = z
       /** Index into `items`, selected when the form state holds nothing. */
       defaultItemPos: z.number().int().nonnegative().optional(),
       isReadOnly: z.boolean().optional(),
+      /** As on `text` — no corpus site, and the two kinds share the widget prop. */
+      isReadOnlyFrom: Identifier.optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     /**

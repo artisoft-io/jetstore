@@ -169,6 +169,12 @@
             "isReadOnly": {
               "type": "boolean"
             },
+            "isReadOnlyFrom": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
             "defaultValue": {
               "type": "string"
             },
@@ -265,6 +271,12 @@
             },
             "isReadOnly": {
               "type": "boolean"
+            },
+            "isReadOnlyFrom": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
             },
             "rules": {
               "type": "array",

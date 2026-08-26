@@ -437,6 +437,20 @@ export function formEscapeReferences(forms: FormDocument, key = ""): EscapeRefer
         at: `${formPath(key)}/forms/${formKey}/repeat/seed`,
       });
     }
+    // **A field's `isReadOnlyFrom`. Task C.2b.** Third kind a form can name, and
+    // it is here for the reason the two above are: an unresolved name must refuse
+    // the set at load, not leave a field that silently stops being protected. The
+    // walk is over `fieldsOf` rather than `valueFieldsOf` because a `button` field
+    // is in neither union arm that carries this and the narrowing costs nothing.
+    fieldsOf(form).forEach((field, index) => {
+      if ("isReadOnlyFrom" in field && field.isReadOnlyFrom !== undefined) {
+        references.push({
+          kind: "predicates",
+          name: field.isReadOnlyFrom,
+          at: `${formPath(key)}/forms/${formKey}/fields/${index}/isReadOnlyFrom`,
+        });
+      }
+    });
   }
   return references;
 }
