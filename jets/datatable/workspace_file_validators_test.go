@@ -100,10 +100,22 @@ func TestShippingTablesPassTheSaveCheck(t *testing.T) {
 		}
 		checked++
 	}
-	// 38 as of F.5: the flows' 37 plus `pipelineExecStatusTable`, which is
-	// registered on the non-flow side and rendered by `homeFiltersUF`.
-	if checked != 38 {
-		t.Errorf("expected the flows' 37 table configurations plus pipelineExecStatusTable, checked %d", checked)
+	// 39 as of C.2: the flows' 37, plus `pipelineExecStatusTable` (F.5, registered
+	// on the non-flow side and rendered by `homeFiltersUF`) and
+	// `workspaceRegistryTable` (track C's first screen).
+	//
+	// **This is the *second* exact count of that directory and the count in
+	// `jets/userflow/table_schema_test.go` is the first**, a package away. C.2a
+	// updated one and left this one failing, which nothing here reports: there is
+	// no CI, and `go test ./jets/userflow/` passes while `go test ./jets/...` does
+	// not. Found by another track C session running the whole tree against its
+	// *base* rather than only against its own change.
+	//
+	// A lower bound would be the better assertion — what this test actually checks
+	// is `validatorFor`'s dispatch, and the exact count belongs where the documents
+	// are named — and that change is C.4's, in a PR stacked on this one.
+	if checked != 39 {
+		t.Errorf("expected the flows' 37 table configurations plus pipelineExecStatusTable and workspaceRegistryTable, checked %d", checked)
 	}
 }
 
