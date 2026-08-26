@@ -31,6 +31,7 @@ import { InferServerAdmin } from "./screens/InferServerAdmin";
 import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
 import { ProcessErrors } from "./screens/ProcessErrors";
+import { UserAdmin } from "./screens/UserAdmin";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
@@ -254,6 +255,18 @@ export default function App() {
             home screen's `pipelineExecStatusTable`, and that screen is C.6's.
           */}
           <Route path="processErrors/:session_id" element={<ProcessErrors api={api} />} />
+          {/*
+            C.13. **No nav entry, and that is a divergence stated rather than an
+            omission.** The Flutter menu puts this in `adminMenuEntries` and the
+            shell here renders one flat list; `NavItem.capability` names a
+            capability and `admin` is not one — it is an *account*
+            (`jets/user/user.go`, `IsAdmin`). A nav entry gated on
+            `user_profile` would offer the screen to three of the four seeded
+            roles and the server would refuse every write they made, which is
+            worse than no entry. Reached by link until the shell learns the
+            distinction.
+          */}
+          <Route path="userAdmin" element={<UserAdmin api={api} />} />
           {/*
             **The catch-all reports rather than redirects, as of C.16.** It was
             `<Navigate to="/workspace" replace />` from A.1 until now, and that is

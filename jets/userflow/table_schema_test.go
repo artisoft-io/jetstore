@@ -54,7 +54,8 @@ import (
 // `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`.
 // C.9 added five for `/processErrors/:session_id` — its own table, the repeated
 // one inside `viewInputRecordsDialog`, and the three of the rule session
-// explorer, which are the first `source: "formState"` documents to exist.
+// explorer, which are the first `source: "formState"` documents to exist. C.13
+// added two for `/userAdmin`.
 //
 // **Two of those five are hand-authored rather than translated, and this test is
 // where a reader will first meet the fact.** `reteSessionEntityKeyTable` and
@@ -92,7 +93,7 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 50 {
+	if len(files) != 52 {
 		t.Fatalf("expected the flows' 37 table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "label": "Select Roles",
+  "columns": [
+    {
+      "name": "role",
+      "label": "Role Name",
+      "tooltip": "Role to assign to user"
+    },
+    {
+      "name": "details",
+      "label": "Details",
+      "tooltip": "Role details"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Updated",
+      "tooltip": "Last Updated"
+    }
+  ],
+  "sortColumn": "role",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "roles",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "roles"
+    }
+  ]
+}

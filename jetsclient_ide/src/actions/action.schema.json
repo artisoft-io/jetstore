@@ -846,6 +846,8 @@
         "delete/process_mapping",
         "pull_workspace",
         "load_workspace_config",
+        "update/users",
+        "delete/users",
         "workspace_registry",
         "update/workspace_registry",
         "commit_workspace",

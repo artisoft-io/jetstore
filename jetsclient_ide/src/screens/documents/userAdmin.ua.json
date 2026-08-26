@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "editUserProfile.ok": {
+      "description": "Write the selected user's active flag and roles",
+      "steps": [
+        {
+          "do": "validate"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "update/users",
+          "transport": "insertRows",
+          "spinner": true,
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              {
+                "key": "user_email",
+                "as": {
+                  "fromKey": "user_email"
+                }
+              },
+              {
+                "key": "is_active",
+                "as": {
+                  "fromKey": "is_active"
+                }
+              },
+              {
+                "key": "roles",
+                "as": {
+                  "fromKeyList": "roles"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "deleteUser": {
+      "description": "Delete the selected user accounts",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Are you sure you want to delete the selected user(s)?"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "delete/users",
+          "transport": "insertRows",
+          "data": {
+            "rows": "fanOut",
+            "over": "userTable",
+            "fields": {
+              "user_email": {
+                "fromKey": "userTable"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

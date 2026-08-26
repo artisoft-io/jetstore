@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "label": "Registered Users",
+  "columns": [
+    {
+      "name": "name",
+      "label": "Name",
+      "tooltip": "User Name"
+    },
+    {
+      "name": "user_email",
+      "label": "Email",
+      "tooltip": "User Email"
+    },
+    {
+      "name": "is_active",
+      "label": "Active User?",
+      "tooltip": "Is user active? (true:1, false:0)"
+    },
+    {
+      "name": "roles",
+      "label": "Roles",
+      "tooltip": "User Roles",
+      "isHidden": true
+    },
+    {
+      "name": "last_update",
+      "label": "Last Updated",
+      "tooltip": "Last Updated"
+    }
+  ],
+  "sortColumn": "name",
+  "sortAscending": true,
+  "rowsPerPage": 10,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1,
+    "otherColumns": [
+      {
+        "stateKey": "is_active",
+        "columnIdx": 2
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "users"
+    }
+  ],
+  "actions": [
+    {
+      "key": "editUserProfile",
+      "label": "Update User Profile",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "editUserProfile",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "name": 0,
+        "user_email": 1,
+        "is_active": 2,
+        "roles": 3,
+        "userRolesTable": 3
+      }
+    },
+    {
+      "key": "deleteUser",
+      "label": "Delete User",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteUser",
+      "capability": "user_profile",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}
