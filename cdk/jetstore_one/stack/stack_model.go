@@ -110,8 +110,11 @@ type JetStoreStackComponents struct {
 	DeployCpipesNative bool
 
 	// Lambdas Execution Role
-	// applicable to: RunReportsLambda, CpipesRunReportsLambda, CpipesNodeLambda, CpipesNativeNodeLambda,
-	// CpipesStartShardingLambda, CpipesStartReducingLambda, SqsRegisterKeyLambda, ApiGatewayLambda
+	// applicable to: StatusUpdateLambda, RunReportsLambda, CpipesRunReportsLambda, CpipesNodeLambda,
+	// CpipesNativeNodeLambda, CpipesStartShardingLambda, CpipesStartReducingLambda, SqsRegisterKeyLambda,
+	// ApiGatewayLambda.
+	// Not applicable to SecretRotationLambda, PurgeDataLambda and RegisterKeyV2Lambda: they set no Role
+	// and get a CDK-generated one each, with permissions granted individually.
 	LambdaExecutionRole awsiam.Role
 
 	StatusUpdateLambda        awslambdago.GoFunction
