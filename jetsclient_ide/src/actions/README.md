@@ -31,7 +31,8 @@ a function body, so nothing can serialise it and no corpus can be generated for 
 (`sizing_action_grammar.md` §2). Nine re-partitions produced nine recorded findings.
 They reduce to **five distinct failures**, and the reduction is worth more than the
 list because the entries were named rather than numbered and read as nine unrelated
-things:
+things. **A sixth was added by C.4 and is of a different kind** — it is about the
+test rather than about the document, and it is below the table for that reason:
 
 | | The failure | Recorded as | Is a check possible? |
 |---|---|---|---|
@@ -40,6 +41,21 @@ things:
 | **3** | **A step is present and its value expression is wrong.** | I-97, I-110, I-116 | No. Three tells: a nested call written as its outer half; the left-hand side supplying the right; a name-to-name map written as an identity where one end's names are decided somewhere else. |
 | **4** | **The steps are in the source's reading order rather than its effect order.** | I-90 | No. Every step present, every step right. The tell is a `post` with a mutation of a key the payload carries anywhere near it. |
 | **5** | **The arm has fewer exits than the source has outcomes.** | I-115, I-130 | Not by reading the arm. The check is arithmetic: an arm should have as many exits as the source has returns and reassignments of its post target — and the branch may be *outside* the arm, either because the grammar of the day could not express it (I-115) or because it lives in the helper the arm calls (I-130). **When a step is a call, read the callee.** |
+
+**A sixth, added by C.4 (2026-08-25), and it is not about the document at all.**
+The five above are ways a *document* can be wrong while every check passes. This one
+is a way the *test* can be wrong while it passes, and it belongs here because the
+remedy for failures 2 to 5 is "write a test that drives the thing", so a test that
+goes green without exercising what it names undoes the whole list.
+
+| | The failure | Recorded as | Is a check possible? |
+|---|---|---|---|
+| **6** | **The test passes on something other than what it names.** | I-104, and twice in C.14 | Not by a tool. Two shapes, both observed on the same afternoon. **The harness omits what renders the assertion's subject**: a screen *raises* a banner and `AppShell` *renders* it, so a test that mounts the screen without the shell and then waits for `role="alert"` after a server refusal finds a *field* error and passes. **The fixture does not reach the path**: a "valid" form fixture with a three-character git handle against a `> 3` rule meant four tests that read as exercising submit never called it. |
+
+The tells are cheap and worth the habit: **assert on text rather than on a role**
+when two things in the tree can carry that role, and **make the happy-path fixture
+prove itself once** — one assertion that the request was sent is what turns three
+silent tests into three real ones.
 
 **Only the first has an oracle.** For the other four, fidelity was established by
 re-deriving each arm from the Dart, and beyond that by running a flow against a live

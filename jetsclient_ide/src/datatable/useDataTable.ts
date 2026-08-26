@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { makeQuery } from "./query";
+import { isRawStatementTable, makeQuery, makeRawQuery } from "./query";
 // `keepSelectedRows` is deliberately not used here. `showSelectedOnly` (two
 // tables, both in `workspace_pull`) filters the page down to the selected rows
 // *after* the selection has been restored from form state — so it runs at the
@@ -164,7 +164,7 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   // anything that pointed at a loop. Keying on the *value* of the request means
   // the table asks the server again exactly when it would be asking a different
   // question.
-  const queryPayload = makeQuery({
+  const queryContext = {
     ...context,
     config,
     indexOffset: indexOffset(currentDataPage, rowsPerPage),
@@ -172,7 +172,14 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     sortColumnName: sort.sortColumnName,
     sortColumnTableName: sort.sortColumnTableName,
     sortAscending,
-  });
+  };
+  // **The branch is `fetchData`'s, not `_makeQuery`'s**, and it is here for the
+  // same reason it is there: a raw-statement table's body carries a statement and
+  // none of the structure — no from, no where, no columns, no paging. One
+  // configuration in either corpus takes it (task C.4). See `query.ts`.
+  const queryPayload = isRawStatementTable(config)
+    ? makeRawQuery(queryContext)
+    : makeQuery(queryContext);
   const payloadKey = JSON.stringify(queryPayload);
 
   // Same reasoning for the fetcher: an inline `async (p) => client.dataTable(p)`

@@ -43,7 +43,7 @@
  * | `index` on a column | equals the array position on all 275. A field that can only ever be wrong. |
  * | ~~`maxLines`, `columnWidth`~~ | `0` on all 275 columns — **and set by four non-flow ones; back as of C.7.** |
  * | `calculatedAs` | never set in the flows. |
- * | `defaultToAllRows`, `requestColumnDef` | `false` on all 37. |
+ * | `defaultToAllRows`, ~~`requestColumnDef`~~ | `false` on all 37. |
  * | `sortColumnTableName` | `""` on all 37. |
  * | `lookupColumnInFormState` | `false` on all 49 where clauses. |
  * | `stateGroup` on an action | `0` on all 25. |
@@ -71,7 +71,18 @@
  * for four of the five**; `enableWhen` needed a new object schema as well, which
  * is not a different union and is more than the sentence promised.
  *
- * What is left outstanding for the remaining 26 tables: `withClauses` (1 table),
+ * **C.4 brings back two the prediction did not name at all**, and that is the more
+ * interesting score. `requestColumnDef` and an *absent* `columns` list are both on
+ * `queryToolResultSetTable`, and neither is in the list above — the list was built
+ * by asking which dropped fields the non-flow corpus *sets*, and a field it sets to
+ * `false` on 24 of 25 reads as settled by that question. **The one it does set is
+ * the whole of a screen**, and the empty column list was invisible to the question
+ * entirely, because "the corpus sets this field" cannot notice a field the corpus
+ * leaves empty on purpose. So: a prediction built from what the corpus *declares*
+ * misses what it *omits*, which is I-20's limit arriving on the schema rather than
+ * on a count.
+ *
+ * What is left outstanding for the remaining 25 tables: `withClauses` (1 table),
  * `modelStateFormKey` and `hasModelStateHandler` (2), `like` (2 clauses),
  * `dataRowMin/MaxHeight` (1).
  * **That list is short by four, and C.7 found out by being refused.** Translating
@@ -248,6 +259,7 @@ const columnCommon = {
    * string into the bundle and leave the trust boundary exactly where it is,
    * at the cost of a third escape namespace. The gate that would matter is
    * server-side and is filed as **I-172**.
+   * should know it is here. Recorded as **I-105**.
    */
   calculatedAs: z.string().min(1).optional(),
   /**
@@ -314,7 +326,7 @@ export const FromClauseSchema = z
  * it.
  */
 export interface WhereClauseDocument {
-  column: string;
+  column?: string;
   table?: string;
   formStateKey?: string;
   defaultValue?: string[];
@@ -324,7 +336,26 @@ export interface WhereClauseDocument {
 
 export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
   .strictObject({
-    column: Identifier,
+    /**
+     * The column the clause filters on. Task C.4.
+     *
+     * **Optional, because one clause of the corpus's fifty names none**, and it
+     * is not an omission: `queryToolResultSetTable`'s only clause is
+     * `WhereClause(column: '', formStateKey: FSK.queryReady)`
+     * (`jetsclient/lib/modules/data_table_config_impl.dart`, the
+     * `queryToolResultSetTable` entry). Nothing puts it in a request — a
+     * raw-statement table's body carries no `whereClauses` at all — and its whole
+     * effect is `hasBlockingFilter`, which reads `formStateKey` and never looks at
+     * the column (`datatable/binding.ts`, `hasBlockingFilter`). So a column-less
+     * clause is a **gate**: it says *do not query until this key is set*.
+     *
+     * Absent rather than an empty string, which is the same move `label` and
+     * `from.table` make in this file: the Dart says "none" with a sentinel and the
+     * document says it by omission. `makeWhereClause` drops such a clause rather
+     * than emitting `column: ""` (`datatable/query.ts`), so a structured table
+     * that grew one would filter on nothing rather than on a nameless column.
+     */
+    column: Identifier.optional(),
     table: Identifier.optional(),
     /** 35 of 49 read their value from form state. */
     formStateKey: Identifier.optional(),
@@ -547,8 +578,6 @@ const commonFields = {
    * the Dart's empty string is a sentinel for the same thing.
    */
   label: z.string().min(1).optional(),
-  columns: z.array(ColumnSchema).min(1),
-  sortColumn: Identifier,
   sortAscending: z.boolean().optional(),
   rowsPerPage: z.number().int().positive(),
   isCheckboxVisible: z.boolean().optional(),
@@ -583,6 +612,56 @@ export const TableConfigDocumentSchema = z
        * document naming one would be asking for something it never sends.
        */
       apiAction: ApiActionSchema.optional(),
+      /**
+       * The columns, when the table knows them. Task C.4.
+       *
+       * **A query table may declare none, and four of the non-flow 25 do.** The
+       * server supplies them in that case, and it does so by two mechanisms that
+       * agree on the outcome: `DoReadAction` builds a `columnDef` whenever the
+       * request carries no columns (`jets/datatable/data_table_action.go`,
+       * `DoReadAction`), `DoPreviewFileAction` always sends one, and `execQuery`
+       * sends one when the request sets `requestColumnDef` below. The client
+       * replaces its columns with what comes back — `columnsFromResponse`
+       * (`datatable/useDataTable.ts`), which has done this since A.4b.
+       *
+       * So `min(1)` moved off `commonFields` and on to the static arm rather than
+       * being deleted: a table whose rows are compiled into it and whose columns
+       * are unknown is a document with nothing to render. **This is where the
+       * union earns its keep for a second reason** — the first was that a static
+       * table cannot name a schema.
+       *
+       * The four are `queryToolResultSetTable` (C.4), `inputFileViewerTable`
+       * (C.12), `inputRecordsFromProcessErrorTable` (C.9) and `inputTable` (C.11),
+       * and they are the same four with no `sortColumn`.
+       */
+      columns: z.array(ColumnSchema),
+      /**
+       * The column the first page is sorted on. Absent means "the server's first".
+       *
+       * Required on the static arm and optional here, for the reason above: the
+       * four tables that declare no columns have no name to put in it, and the
+       * Dart says so with an empty string. `resolveSortColumn` sorts on column 0
+       * of whatever the response defines (`datatable/model.ts`), which is what
+       * `state.setSortingColumn(columnIndex: 0)` does in the Dart after a
+       * `columnDef` arrives.
+       */
+      sortColumn: Identifier.optional(),
+      /**
+       * Ask the server to describe the result's columns. Task C.4.
+       *
+       * **One configuration in either corpus sets it, and it is only read on the
+       * raw-statement path**: `execQuery` builds a `columnDef` out of the pgx
+       * field descriptions when `DataTableAction.RequestColumnDef` is true
+       * (`jets/datatable/data_table_action.go`, `execQuery`), and nothing else in
+       * the apiserver reads the field. The structured read path needs no flag,
+       * because sending no columns is already the request for them.
+       *
+       * It is a separate field rather than implied by `apiAction: "raw_query_tool"`
+       * because implying it would be a rule inferred from one configuration, and
+       * because the Go struct's own comment scopes it to `raw_query` **and**
+       * `raw_query_tool` — two actions, of which a table may name one.
+       */
+      requestColumnDef: z.literal(true).optional(),
       from: z.array(FromClauseSchema).min(1),
       where: z.array(WhereClauseSchema).optional(),
       actions: z.array(TableActionSchema).optional(),
@@ -613,6 +692,9 @@ export const TableConfigDocumentSchema = z
     z.strictObject({
       ...commonFields,
       source: z.literal("static"),
+      /** All nine carry three; a static table with none has nothing to render. */
+      columns: z.array(ColumnSchema).min(1),
+      sortColumn: Identifier,
       /**
        * The rows, positionally, one entry per column.
        *

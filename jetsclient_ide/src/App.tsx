@@ -25,6 +25,7 @@ import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
+import { QueryTool, QUERY_TOOL } from "./screens/QueryTool";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type NavItem } from "./shell/AppShell";
@@ -39,6 +40,16 @@ export const BASENAME = "/ide";
 
 export const NAV: NavItem[] = [
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
+  /*
+    Task C.4. The Flutter menu entry for `/queryTool` sits in
+    `workspaceRegistryMenuEntries` and declares no capability of its own
+    (`jetsclient/lib/modules/workspace_ide/screen_config.dart`) — it does not
+    need one there, because that menu is only carried by screens already gated on
+    `workspace_ide`. This shell has one flat nav, so the gate that was implicit in
+    *where the menu appears* is named here instead. It is the same capability the
+    two server actions behind the screen require.
+  */
+  { to: "/query-tool", label: "Query Tool", capability: QUERY_TOOL },
   // agentic_ai's screens (task K.3). The nav entry and the two routes below are
   // this file's whole knowledge of them; the screens are in `proposals/`.
   { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
@@ -136,6 +147,7 @@ export default function App() {
               />
             }
           />
+          <Route path="query-tool" element={<QueryTool api={api} />} />
           <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Route>
       </Routes>

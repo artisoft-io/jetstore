@@ -55,6 +55,17 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * C is the *shape* — the schema fields this one needed and the escape names it
  * introduced — and that is what the assertions below pin down.
  *
+ * **C.4 is the third, and it is the one that widened the schema rather than the
+ * list.** `queryToolResultSetTable` is the only configuration in either corpus
+ * that asks the server for a *statement* rather than for a structure, and
+ * translating it cost three schema changes that no earlier reading of the corpus
+ * predicted: a query table may declare no `columns` and no `sortColumn` (four of
+ * the non-flow 25 do, and the server describes the result instead), a where clause
+ * may name no column (one clause of fifty, and it is a gate rather than a
+ * predicate), and `requestColumnDef` comes back. **The seam held for the third
+ * time and the schema moved for the second**, which is the honest summary: adding
+ * the key is cheap and the document is only as cheap as the corpus is uniform.
+ *
  * **C.2 is the first screen to widen this list, and it did exactly what F.5 said
  * widening it would be.** `workspaceRegistryTable` is the `/workspaces` screen's
  * only table; adding the key is the whole of adding the document, and what it
@@ -97,6 +108,7 @@ const NON_FLOW_KEYS = [
   "workspaceRegistryTable",
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
+  "queryToolResultSetTable",
 ] as const;
 
 const flowDocuments = toDocuments(tables);
@@ -114,7 +126,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 41 translated configurations committed beside it, for the Go check", () => {
+  it("has the 42 translated configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -160,9 +172,12 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the four non-flow tables F.5, C.2 and C.7 needed make 41", () => {
+  it("all translate, and the five non-flow tables F.5, C.2, C.7 and C.4 needed make 42", () => {
+    // 37 + F.5's one + C.2's one + C.7's two + C.4's one. The flow count is
+    // asserted separately because it is the number every other assertion in this
+    // block is about.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(documents).length).toBe(41);
+    expect(Object.keys(documents).length).toBe(42);
   });
 
   it("all validate against the schema", () => {
@@ -581,6 +596,77 @@ describe("the two execution-detail tables, which are one screen behind two route
   });
 });
 
+describe("queryToolResultSetTable, the /queryTool screen's result table", () => {
+  const doc = documents["queryToolResultSetTable"]!;
+  const config = configOf("queryToolResultSetTable");
+
+  it("declares no columns, and it is not alone in that", () => {
+    if (doc.source !== "query") return;
+    expect(doc.columns).toEqual([]);
+    expect(doc.sortColumn).toBeUndefined();
+    // **Four of the non-flow corpus, not one.** The other three are C.9's, C.11's
+    // and C.12's, and they get their columns by the other mechanism — a `read`
+    // request that names none is already the request for a `columnDef`
+    // (`jets/datatable/data_table_action.go`, `DoReadAction`). Asserted here
+    // rather than described in `table.ts`, for the reason C.2's enum count is.
+    const columnless = Object.entries(screenTables)
+      .filter(([, t]) => t.columns.length === 0)
+      .map(([key]) => key)
+      .sort();
+    expect(columnless).toEqual([
+      "inputFileViewerTable",
+      "inputRecordsFromProcessErrorTable",
+      "inputTable",
+      "queryToolResultSetTable",
+    ]);
+    // The same four, arrived at from the other field. Two independently derived
+    // lists agreeing is the check a single measurement cannot give itself.
+    const unsorted = Object.entries(screenTables)
+      .filter(([, t]) => t.sortColumnName === "")
+      .map(([key]) => key)
+      .sort();
+    expect(unsorted).toEqual(columnless);
+    // And none of the 37 flow tables is like either, which is why the schema
+    // could require both until now.
+    expect(Object.values(tables).filter((t) => t.columns.length === 0)).toEqual([]);
+  });
+
+  it("is the only configuration that asks the server to describe the result", () => {
+    if (doc.source !== "query") return;
+    expect(doc.requestColumnDef).toBe(true);
+    expect(doc.apiAction).toBe("raw_query_tool");
+    const asking = Object.entries({ ...tables, ...screenTables })
+      .filter(([, t]) => t.requestColumnDef)
+      .map(([key]) => key);
+    expect(asking).toEqual(["queryToolResultSetTable"]);
+  });
+
+  it("carries a where clause that names no column, which is a gate", () => {
+    if (doc.source !== "query") return;
+    expect(doc.where).toEqual([{ formStateKey: "query.ready" }]);
+    // One clause of the two corpora, asserted so that a second one is a decision
+    // rather than an accident: a column-less clause contributes nothing to a
+    // request and only blocks the table (`datatable/binding.ts`).
+    const gates = Object.entries({ ...tables, ...screenTables }).flatMap(([key, t]) =>
+      t.whereClauses.filter((w) => w.column === "").map(() => key),
+    );
+    expect(gates).toEqual(["queryToolResultSetTable"]);
+  });
+
+  it("round-trips the three sentinels the Dart spells as empty strings", () => {
+    // The round trip covers this with the other 39, and it is asserted again on
+    // its own because this document is the one where *absence* carries three
+    // separate meanings — no columns, no sort column, no filtered column — and a
+    // restore that got any of them wrong would still produce a valid document.
+    const restored = fromDocument("queryToolResultSetTable", doc);
+    expect(restored.columns).toEqual([]);
+    expect(restored.sortColumnName).toBe("");
+    expect(restored.whereClauses[0]!.column).toBe("");
+    expect(restored.requestColumnDef).toBe(true);
+    expect(restored).toEqual(config);
+  });
+});
+
 describe("the schema rejects", () => {
   const base = () => structuredClone(documents["lfSourceConfigTable"]!) as Record<string, unknown>;
   const staticBase = () => structuredClone(documents["input_format"]!) as Record<string, unknown>;
@@ -604,8 +690,29 @@ describe("the schema rejects", () => {
     rejects({ ...base(), from: [] });
   });
 
-  it("a table with no columns", () => {
-    rejects({ ...base(), columns: [] });
+  it("a static table with no columns", () => {
+    // **This case read "a table with no columns" and used a query table until
+    // C.4**, which is the whole of what changed: a query table may declare none
+    // and the server describes the result, and a static table's rows are compiled
+    // in with nothing to describe them.
+    rejects({ ...staticBase(), columns: [] });
+  });
+
+  it("a static table with no sortColumn", () => {
+    const doc = staticBase();
+    delete doc["sortColumn"];
+    rejects(doc);
+  });
+
+  it("a requestColumnDef of false, rather than absent", () => {
+    // `z.literal(true)`: the field is a request, and "do not request" is said by
+    // omission. Two spellings for one meaning is I-14 again, and it is the same
+    // shape `apiAction`'s absent `read` takes one field over.
+    rejects({ ...base(), requestColumnDef: false });
+  });
+
+  it("a requestColumnDef on a static table, which sends nothing", () => {
+    rejects({ ...staticBase(), requestColumnDef: true });
   });
 
   it("an unknown action type", () => {

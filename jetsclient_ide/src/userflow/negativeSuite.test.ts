@@ -54,7 +54,20 @@ describe("the negative suite", () => {
   it("has not quietly shrunk", () => {
     // A suite that gets smaller is a deletion, not a pass.
     expect(cases.length).toBeGreaterThanOrEqual(20);
-    expect(cases.filter((c) => c.expect === "valid").length).toBe(5);
+    // **Six valid cases now, and the count alone stopped saying what it meant.**
+    // It was five and it meant "the five bases are all here"; C.4 added a
+    // *positive* case — a query table with no columns, which the server describes
+    // — because a schema relaxation is a hole unless something asserts the thing
+    // it now admits. So the bases are named rather than counted, and the count is
+    // kept beside them to catch a deletion.
+    expect(cases.filter((c) => c.expect === "valid").map((c) => c.name).sort()).toEqual([
+      "a query table with no columns, which the server describes",
+      "base actions",
+      "base flow",
+      "base form",
+      "base query table",
+      "base static table",
+    ]);
   });
 
   it.each(cases.map((c) => [`${c.expect}: ${c.name}`, c] as const))("%s", (_label, tc) => {

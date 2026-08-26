@@ -176,10 +176,40 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.rows]);
 
+  /**
+   * The watched keys as this table last saw them.
+   *
+   * **This replaced `isKeyUpdated`, and the reason is a defect C.4 found rather
+   * than a preference.** `FormState.updatedKeys` is a set that `setValue` adds to
+   * and only `publishSelection` ever clears (`binding.ts`), because the Dart
+   * clears it at the end of `getModelData` and this port has no equivalent. So
+   * the flag *latches*: once a watched key has changed, `isKeyUpdated` stays true
+   * and **every subsequent notification refreshes the table** — and
+   * `useFormField` notifies on every keystroke, so a text field on the same form
+   * as a table re-queried once per character.
+   *
+   * That is an inefficiency in a flow and it is worse than that on the Query
+   * Tool, where the table's request *is* the user's SQL: each keystroke in the
+   * box re-executed the previous statement against the database.
+   *
+   * Comparing values rather than reading a shared flag also fixes the multi-table
+   * case the Dart's reset gets wrong: clearing the group's `updatedKeys` hides the
+   * change from a second table that has not been notified yet, whereas a per-table
+   * snapshot cannot. Recorded as **I-165**.
+   */
+  const lastWatched = useRef<string>("");
+  const watchedNow = useCallback(
+    () => JSON.stringify(watched.map((key) => formState.getValue(field.group, key) ?? null)),
+    [watched, formState, field.group],
+  );
+
   // Watch the form for the keys this table's filters depend on.
   useEffect(() => {
+    lastWatched.current = watchedNow();
     const unsubscribe = formState.subscribe(() => {
-      const changed = watched.some((key) => formState.isKeyUpdated(field.group, key));
+      const now = watchedNow();
+      const changed = now !== lastWatched.current;
+      lastWatched.current = now;
       setFormVersion((v) => v + 1);
       if (!changed) return;
 
@@ -190,7 +220,7 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     });
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formState, field.group, field.key, watched]);
+  }, [formState, field.group, field.key, watched, watchedNow]);
 
   const setRowSelected = useCallback(
     (index: number, value: boolean) => state.setRowSelected(index, value),

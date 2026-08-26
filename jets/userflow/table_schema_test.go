@@ -8,6 +8,7 @@ import (
 )
 
 // tablesDir holds the 41 shipping table configurations, translated out of the
+// tablesDir holds the 40 shipping table configurations, translated out of the
 // Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
 // so this side can validate the *real* configuration rather than a sample. See
 // that file for why the translation is round-tripped rather than only emitted.
@@ -25,6 +26,14 @@ import (
 // the one assertion that fails when a document is emitted and not committed, or
 // committed and not emitted — the TypeScript side compares the directory against
 // what it just produced, so it cannot notice a file that reached neither.
+// **37 of them are the flows' and three are not.** `pipelineExecStatusTable` is
+// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
+// F.5 could not author that flow without it; `workspaceRegistryTable` is the
+// `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
+// `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
+// server for a *statement* rather than for a structure. All three are translated
+// out of `screens/fixtures/screen_configs.json` by the same code path, and the
+// count here grows once per screen track C ports rather than once per phase.
 const tablesDir = "../../jetsclient_ide/src/datatable/tables"
 
 func tableFiles(t *testing.T) []string {
@@ -51,8 +60,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 41 {
-		t.Fatalf("expected the flows' 37 table configurations plus the four non-flow ones, found %d", len(files))
+	if len(files) != 42 {
+		t.Fatalf("expected the flows' 37 table configurations plus the five non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {
@@ -116,6 +125,22 @@ func TestTableSchemaRejects(t *testing.T) {
 			"from":[{"schema":"jetsapi","table":"t"}]}`,
 		"a query table with no from clause": `{"schemaVersion":1,"source":"query","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"from":[]}`,
+		// C.4's relaxation, from the side that must stay closed. A *query* table
+		// may now declare no columns, because the server describes the result when
+		// the request names none; a *static* table may not, because its rows are
+		// compiled in and nothing supplies headers for them.
+		"a static table with no columns": `{"schemaVersion":1,"source":"static","label":"L",
+			"columns":[],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]]}`,
+		"a static table with no sortColumn": `{"schemaVersion":1,"source":"static","label":"L",
+			"columns":[{"name":"a","label":"A"}],"rowsPerPage":10,"rows":[["x"]]}`,
+		// `requestColumnDef` is a request, and "do not request" is said by leaving
+		// it out — the same shape `apiAction`'s absent `read` takes.
+		"a requestColumnDef of false": `{"schemaVersion":1,"source":"query","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
+			"from":[{"schema":"jetsapi","table":"t"}],"requestColumnDef":false}`,
+		"a requestColumnDef on a static table": `{"schemaVersion":1,"source":"static","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],
+			"requestColumnDef":true}`,
 		"an unknown action type": `{"schemaVersion":1,"source":"query","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
 			"from":[{"schema":"jetsapi","table":"t"}],
@@ -141,5 +166,24 @@ func TestValidTableDocumentIsAccepted(t *testing.T) {
 		"from":[{"schema":"jetsapi","table":"t"}]}`
 	if findings := ValidateTableDocument(doc); len(findings) > 0 {
 		t.Errorf("rejected a valid document: %v", findings)
+	}
+}
+
+// TestQueryTableWithNoColumnsIsAccepted states C.4's relaxation positively.
+//
+// **A relaxation asserted only from the rejecting side is half a change**: every
+// negative above would still pass if the schema had simply stopped admitting the
+// document this describes. `queryToolResultSetTable` is the shipping instance and
+// `TestShippingTablesValidate` covers it, but that test would go quiet if the file
+// were removed, whereas this one says what the schema means.
+func TestQueryTableWithNoColumnsIsAccepted(t *testing.T) {
+	// No columns, no sortColumn, a where clause naming no column, and a
+	// requestColumnDef — the four things that were impossible before C.4, in one
+	// document, because they arrive together on the one table that has them.
+	const doc = `{"schemaVersion":1,"source":"query","label":"Query Result","columns":[],
+		"rowsPerPage":1,"apiAction":"raw_query_tool","requestColumnDef":true,
+		"from":[{"schema":"public"}],"where":[{"formStateKey":"query.ready"}]}`
+	if findings := ValidateTableDocument(doc); len(findings) > 0 {
+		t.Errorf("rejected a query table whose columns come from the server: %v", findings)
 	}
 }
