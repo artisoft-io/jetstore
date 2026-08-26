@@ -7,15 +7,17 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 38 shipping table configurations, translated out of the
+// tablesDir holds the 39 shipping table configurations, translated out of the
 // Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
 // so this side can validate the *real* configuration rather than a sample. See
 // that file for why the translation is round-tripped rather than only emitted.
 //
-// **37 of them are the flows' and the 38th is not.** `pipelineExecStatusTable` is
+// **37 of them are the flows' and two are not.** `pipelineExecStatusTable` is
 // registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
-// F.5 could not author that flow without it; it is translated out of
-// `screens/fixtures/screen_configs.json` by the same code path.
+// F.5 could not author that flow without it; `workspaceRegistryTable` is the
+// `/workspaces` screen's, added by track C's C.2. Both are translated out of
+// `screens/fixtures/screen_configs.json` by the same code path, and the count
+// here grows once per screen track C ports rather than once per phase.
 const tablesDir = "../../jetsclient_ide/src/datatable/tables"
 
 func tableFiles(t *testing.T) []string {
@@ -42,8 +44,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 38 {
-		t.Fatalf("expected the flows' 37 table configurations plus pipelineExecStatusTable, found %d", len(files))
+	if len(files) != 39 {
+		t.Fatalf("expected the flows' 37 table configurations plus pipelineExecStatusTable and workspaceRegistryTable, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {
@@ -65,11 +67,39 @@ func TestTableSchemaRejects(t *testing.T) {
 	cases := map[string]string{
 		// The security cut, and the reason it is first. `apiAction` reaches
 		// `DataTableAction.Action` and dispatches over the whole switch in
-		// `jets/apiserver/api_tables.go:42`. The document has no such field and
-		// every object is closed, so naming one is a schema error rather than a
-		// policy decision taken somewhere else.
-		"an apiAction": `{"schemaVersion":1,"source":"query","label":"L","columns":[{"name":"a","label":"A"}],
+		// `DoDataTableAction` (`jets/apiserver/api_tables.go`).
+		//
+		// **The document has a field for it as of track C's C.2, and this case is
+		// unchanged.** It is a closed three-member enum — `workspace_read`,
+		// `preview_file`, `raw_query_tool`, with `read` said by omission — chosen
+		// because those are the four values the two Flutter corpora hold between
+		// them. What could never be authored still cannot be, and it now fails
+		// against a named allowlist rather than against
+		// `additionalProperties: false`, which is a stronger statement of the same
+		// property: the reason is *this is not one of the authorities a table may
+		// reach* rather than *this document has no such field*.
+		"an apiAction outside the enum": `{"schemaVersion":1,"source":"query","label":"L","columns":[{"name":"a","label":"A"}],
 			"sortColumn":"a","rowsPerPage":10,"from":[{"schema":"jetsapi","table":"t"}],"apiAction":"exec_ddl"}`,
+		// `read` is the default and is spelled by leaving the field out; admitting
+		// it as a member would give one meaning two spellings.
+		"an apiAction of read, which is said by omission": `{"schemaVersion":1,"source":"query","label":"L","columns":[{"name":"a","label":"A"}],
+			"sortColumn":"a","rowsPerPage":10,"from":[{"schema":"jetsapi","table":"t"}],"apiAction":"read"}`,
+		// A static table sends nothing, so the field is on the query arm only.
+		"an apiAction on a static table": `{"schemaVersion":1,"source":"static","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],
+			"apiAction":"workspace_read"}`,
+		// C.2's row gate. An empty conjunction is vacuously true and would enable
+		// the button it was written to restrict, which is the one way a gate can
+		// fail that looks like no gate at all.
+		"an enableWhen with an empty conjunction": `{"schemaVersion":1,"source":"query","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
+			"from":[{"schema":"jetsapi","table":"t"}],
+			"actions":[{"key":"k","label":"L","action":"doAction","style":"primary","enableWhen":[[]]}]}`,
+		"an enableWhen with an unknown comparison": `{"schemaVersion":1,"source":"query","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
+			"from":[{"schema":"jetsapi","table":"t"}],
+			"actions":[{"key":"k","label":"L","action":"doAction","style":"primary",
+			"enableWhen":[[{"column":"a","is":"startsWith","value":"x"}]]}]}`,
 		// The two arms of the column union, from the other side: 22 of 275
 		// columns have no label and every one is hidden.
 		"a visible column with no label": `{"schemaVersion":1,"source":"query","label":"L","columns":[{"name":"a"}],

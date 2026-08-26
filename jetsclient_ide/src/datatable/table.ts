@@ -48,7 +48,7 @@
  * | `lookupColumnInFormState` | `false` on all 49 where clauses. |
  * | `stateGroup` on an action | `0` on all 25. |
  * | `withClauses`, `distinctOnClauses`, `secondRowActions`, `fromConfigRowActions` | empty on all 37. |
- * | `sqlQuery`, `modelStateFormKey`, `actionEnableCriterias`, `dataRowMinHeight`, `dataRowMaxHeight`, `predicate`/`ge`/`le` | never set in the flows. |
+ * | `sqlQuery`, `modelStateFormKey`, ~~`actionEnableCriterias`~~, `dataRowMinHeight`, `dataRowMaxHeight`, `predicate`/`ge`/`le` | never set in the flows. |
  * | `hasActionDelegate`, `hasModelStateHandler` | `false` on all 25 actions and all 37 tables. A table action reaches a delegate through `actionType: doAction` and `actionName`, not through this field. |
  *
  * **Four of those are set by the non-flow configurations and will come back**,
@@ -60,6 +60,20 @@
  * the discipline S.5 set for the form document and I.2a followed. **The shape
  * here is chosen to admit them**: every one is an added optional property or an
  * added enum member, none needs a different union.
+ *
+ * **F.5 brought back three and C.2 brings back two more, and that prediction is
+ * worth scoring rather than quietly consuming.** `secondRowActions`,
+ * `calculatedAs` and two enum members arrived with `pipelineExecStatusTable`;
+ * `apiAction` and `actionEnableCriterias` — spelled `enableWhen` — arrive with
+ * `workspaceRegistryTable`. The counts held exactly: the 8 criteria-bearing
+ * actions are all on this one table, and the 2 tables with a second action row
+ * are these two. **The "added optional property or added enum member" claim held
+ * for four of the five**; `enableWhen` needed a new object schema as well, which
+ * is not a different union and is more than the sentence promised.
+ *
+ * What is left outstanding for the remaining 26 tables: `withClauses` (1 table),
+ * `modelStateFormKey` and `hasModelStateHandler` (2), `like` (2 clauses),
+ * `dataRowMin/MaxHeight` (1).
  *
  * ## `apiAction` is dropped rather than enumerated, and that is the security call
  *
@@ -75,8 +89,50 @@
  * stronger answer is available here: the field does not exist, and a query table
  * issues `read`. Track C needs `workspace_read`, `preview_file` and
  * `raw_query_tool` for nine, one and one of its 28 — at which point this becomes
- * a four-member enum with the same reasoning S.7 wrote down, and never a bare
- * identifier.
+ * ~~a four-member enum~~ **a three-member enum whose absence means `read`**, with
+ * the same reasoning S.7 wrote down, and never a bare identifier.
+ *
+ * **C.2 is that point, and the enum has three members rather than the four
+ * predicted above.** The prediction is left standing and corrected here rather
+ * than edited away. The two corpora hold **four** values between them —
+ * `read`, `workspace_read`, `preview_file` and `raw_query_tool` — and the first
+ * is the default. Admitting it as a member would give one meaning two spellings,
+ * which is I-14's rule, and would rewrite all 37 committed documents to say the
+ * thing they already say by saying nothing. So `ApiActionSchema` carries the
+ * three exceptions and `fromDocument` restores `read` for a document that names
+ * none.
+ *
+ * **The counts are asserted in `table.test.ts` rather than written here**, and
+ * that is deliberate: an earlier draft of this paragraph carried them, and they
+ * were four hours from being wrong — C.0a's fixture regeneration removes three
+ * dead configurations and takes `read` from 17 to 14 without touching either
+ * argument this enum rests on. A count in a comment is a claim nobody re-derives;
+ * the same count in an assertion fails the moment the corpus moves. This is the
+ * project's own "generate the measurement" rule applied to a sentence rather than
+ * to a document.
+ *
+ * **The absence is a sentinel and that is a cost worth naming**, because this
+ * file argues the other way about `source`: the Dart tells a static table from a
+ * query table by `apiPath` being empty, and `source` replaced that sentinel with
+ * a statement.
+ *
+ * **A sentinel is a problem when absence means something a reader must
+ * distinguish, and here nothing distinguishes them.** `source` had to stop being
+ * one because a document's kind is what *every* reader branches on, so absence
+ * was load-bearing for control flow. `apiAction` is read by one thing at one
+ * moment — `makeQuery` setting the request's `action` (`query.ts`) — and the
+ * absent case and the `read` case take the same arm. That is the reason the cost
+ * is acceptable, and it is written down because the paragraph above states the
+ * cost without it and would otherwise read as a known defect.
+ *
+ * **The direction of the failure is the other half.** `read` is the *least*
+ * privileged of the four, so a forgotten field cannot buy an authority: the worst
+ * a mistake here produces is a table more restricted than its author meant, which
+ * is a bug report rather than an incident. A sentinel standing for the permissive
+ * value would not be defensible on any of these grounds.
+ *
+ * So: the three exceptions are on the page and the rule is off it, which makes a
+ * security review of this field a reading rather than a count.
  *
  * ## Two kinds, because the corpus has exactly two
  *
@@ -257,6 +313,79 @@ export const ActionTypeSchema = z
   .meta({ id: "TableActionType" });
 
 /**
+ * The server action a query table issues. Task C.2.
+ *
+ * **Three members, and the absent fourth is `read`** — see the `apiAction` note
+ * in this file's header for why the field exists at all, why it is an enum, and
+ * why `read` is not in it.
+ *
+ * Each member is a `case` of the `/dataTable` dispatch
+ * (`jets/apiserver/api_tables.go`, `DoDataTableAction`) and each gates itself:
+ * `workspace_read` requires `workspace_ide`
+ * (`jets/datatable/workspace_data_table_action.go`, `DoWorkspaceReadAction`),
+ * `raw_query_tool` requires `CapabilityQueryTool` and `preview_file` requires
+ * `CapabilityReadData`. **The enum is not the authorisation** — it decides what
+ * an authored document may *ask for*, and the server decides who may have it.
+ * That is S.7's division and this field does not move it.
+ *
+ * **`raw_query_tool` is the member that shows what the enum is for**, and this
+ * paragraph is C.4's, contributed by the task that owns the one table naming it.
+ * The other three name a handler that composes its own SQL from the request's
+ * structured parts; this one names the handler that executes the request's
+ * `query` string verbatim — `ExecRawQuery` passes `dataTableAction.RawQuery`
+ * straight to `dbpool.Query` (`jets/datatable/data_table_action.go`, `execQuery`).
+ * It is gated accordingly: `raw_query` takes `datatable.CapabilityReadData` and
+ * `raw_query_tool` takes `datatable.CapabilityQueryTool`, which is
+ * `"workspace_ide"` (`jets/apiserver/api_tables.go`, the `raw_query_tool` case;
+ * `jets/datatable/data_table_action.go`, the `CapabilityQueryTool` const), and
+ * `TestRawQueryToolIsGatedMoreTightlyThanRawQuery`
+ * (`jets/apiserver/read_dispatch_test.go`) refuses to let the two share a case
+ * again. **So this is not a tidy-up of a free string; it is the list of
+ * authorities an authored table may reach**, and `raw_query_tool` is the one
+ * where the authority is "run this SQL". One table has it —
+ * `queryToolResultSetTable` — and C.4 is the only screen that will ever author
+ * it.
+ */
+export const ApiActionSchema = z
+  .enum(["workspace_read", "preview_file", "raw_query_tool"])
+  .meta({ id: "TableApiAction", description: "The server action a query table issues" });
+
+/**
+ * One conjunct of a button's row gate. Task C.2.
+ *
+ * `ActionEnableCriteria` (`jetsclient/lib/models/data_table_config.dart`,
+ * `ActionEnableCriteria`), with one change: **the Dart names a column by
+ * position and this names it by name.** `columnPos` is an index into the same
+ * `columns` array whose `index` field this document already dropped for being a
+ * value that can only ever disagree with the array holding it; a criterion
+ * pointing at column 6 is that same hazard with a worse failure, because
+ * inserting a column above it silently regates the button instead of rendering a
+ * blank header. `fromDocument` restores the position by looking the name up, so
+ * the round trip is exact.
+ *
+ * **Four comparison kinds, and the corpus uses two.** All 8 criteria in either
+ * corpus are `contains` or `doesNotContain`. `equals` and `notEquals` are
+ * admitted anyway, which is `textRestriction`'s argument in `userflow/form.ts`:
+ * `isCriteriaMet` implements four, so `availability` ports four, and a
+ * two-member enum would have to be widened by whoever meets the third — a change
+ * to an exported union rather than to a document.
+ *
+ * **`value` is required here and nullable in the Dart.** `isCriteriaMet` returns
+ * `false` for a null value on `contains`/`doesNotContain` and compares it as null
+ * on `equals`/`notEquals`, so a null is either a gate that never opens or a test
+ * for an empty cell — neither of which any of the 8 sites wants, and both of
+ * which a document should have to say some other way if it ever does.
+ */
+export const EnableCriterionSchema = z
+  .strictObject({
+    /** The column whose value is tested, by name. */
+    column: Identifier,
+    is: z.enum(["equals", "notEquals", "contains", "doesNotContain"]),
+    value: z.string().min(1),
+  })
+  .meta({ id: "EnableCriterion", description: "One test on the selected row" });
+
+/**
  * One button on the table's action bar.
  *
  * **No `stateGroup`**: `0` on all 25. **No `actionDelegate`**: `false` on all 25,
@@ -286,6 +415,26 @@ export const TableActionSchema = z
     isEnabledWhenHavingSelectedRows: z.boolean().optional(),
     isEnabledWhenWhereClauseSatisfied: z.boolean().optional(),
     isEnabledWhenStateHasKeys: z.array(Identifier).min(1).optional(),
+    /**
+     * Tests on the selected row that must pass. Task C.2.
+     *
+     * **A disjunction of conjunctions, which is the Dart's own description of
+     * it** — *"the outer list is 'or' and the inner list is 'and'"*
+     * (`jetsclient/lib/models/data_table_config.dart`, `ActionConfig.isEnabled`).
+     * The shape is kept rather than flattened because two of the eight sites use
+     * the inner list: *Export Client Config* wants a workspace that is neither
+     * `removed` nor `in progress`.
+     *
+     * **Empty on all 37 flow tables and set on 8 actions of one non-flow one**,
+     * which is `table.ts`'s own prediction and is now exact: every criteria-
+     * bearing action in either corpus is on `workspaceRegistryTable`, and every
+     * one of them tests the `status` column.
+     *
+     * It is not decoration. On that table it is what refuses *Delete* on an
+     * active workspace and *Open* on one mid-compile — see **I-181** for what it
+     * cost that nothing read it.
+     */
+    enableWhen: z.array(z.array(EnableCriterionSchema).min(1)).min(1).optional(),
     /** Route parameters, taken literally. */
     navigationParams: z.record(Identifier, z.union([z.string(), z.number()])).optional(),
     /** Route parameters read out of form state, by key. */
@@ -369,6 +518,13 @@ export const TableConfigDocumentSchema = z
     z.strictObject({
       ...commonFields,
       source: z.literal("query"),
+      /**
+       * What this table asks the server to do. Absent means `read`. Task C.2.
+       *
+       * On the query arm only: a static table issues nothing, so a static
+       * document naming one would be asking for something it never sends.
+       */
+      apiAction: ApiActionSchema.optional(),
       from: z.array(FromClauseSchema).min(1),
       where: z.array(WhereClauseSchema).optional(),
       actions: z.array(TableActionSchema).optional(),
@@ -419,6 +575,8 @@ export const TableConfigDocumentSchema = z
 
 export type Column = z.infer<typeof ColumnSchema>;
 export type FromClause = z.infer<typeof FromClauseSchema>;
+export type ApiAction = z.infer<typeof ApiActionSchema>;
+export type EnableCriterion = z.infer<typeof EnableCriterionSchema>;
 export type TableAction = z.infer<typeof TableActionSchema>;
 export type FormStateBinding = z.infer<typeof FormStateBindingSchema>;
 export type TableConfigDocument = z.infer<typeof TableConfigDocumentSchema>;

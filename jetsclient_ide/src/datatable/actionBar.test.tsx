@@ -17,6 +17,7 @@ import { ActionBar } from "./ActionBar";
 import { availability, enabledPredicateFor, type ActionContext } from "./actionBarModel";
 import { UnsupportedActionType, fillPath, requestFor, resolveParams } from "./actionDispatch";
 import corpus from "./fixtures/table_configs.json";
+import screenCorpus from "../screens/fixtures/screen_configs.json";
 import { FormState } from "./formState";
 import type { ActionConfig, TableConfig } from "./types";
 
@@ -318,5 +319,160 @@ describe("the rendered bar", () => {
       </ApiProvider>,
     );
     expect(container.querySelector(".jets-datatable__actions")).toBeNull();
+  });
+});
+
+/**
+ * The row gate. Task C.2, and the entry it closes is **I-181**.
+ *
+ * **Driven from the screen corpus rather than from examples**, for the same
+ * reason the file's header gives for the flow corpus — but with a difference
+ * worth stating: the flow corpus has *no* criteria-bearing action at all, so
+ * every test above ran green against a gate that did nothing. This is what a
+ * field with a declaration, a type, a round trip and no reader looks like from
+ * the test suite's side.
+ *
+ * `workspaceRegistryTable` is the whole of the evidence: all 8 criteria-bearing
+ * actions in either corpus are on it, and all 8 test `status`, at column 6.
+ */
+describe("enableWhen — the selected row's criteria", () => {
+  const registry = (screenCorpus as unknown as { tables: Record<string, TableConfig> }).tables
+    .workspaceRegistryTable!;
+  const gatedActions = [...registry.actions, ...registry.secondRowActions].filter(
+    (a) => a.actionEnableCriterias?.length,
+  );
+  /** A row of `workspaceRegistryTable`, with `status` at column 6. */
+  const rowWithStatus = (status: string | null): (string | null)[] => [
+    "1", "acme", "main", "feature", "git@x", "a workspace", status, null, "u@x", "now",
+  ];
+  const gated = (key: string): ActionConfig => gatedActions.find((a) => a.key === key)!;
+
+  it("covers eight actions, which is every one in either corpus", () => {
+    expect(gatedActions.map((a) => a.key).sort()).toEqual([
+      "commitWorkspace",
+      "compileWorkspace",
+      "deleteWorkspace",
+      "exportWorkspaceClientConfig",
+      "loadWorkspaceConfig",
+      "openWorkspace",
+      "pullWorkspace",
+      "pushOnlyWorkspace",
+    ]);
+    const flowGated = Object.values(tables).flatMap((t) =>
+      [...(t.actions ?? []), ...(t.secondRowActions ?? [])].filter(
+        (a) => a.actionEnableCriterias?.length,
+      ),
+    );
+    expect(flowGated).toHaveLength(0);
+  });
+
+  it("refuses Delete on an active workspace, which is the defect I-181 names", () => {
+    // `deleteWorkspace` requires status to contain neither `active` nor
+    // `in progress`. Before C.2 `availability` did not read the field, so this
+    // button was enabled on every selected row — a destructive action the Flutter
+    // app makes impossible.
+    const action = gated("deleteWorkspace");
+    const context = (status: string | null) =>
+      makeContext({ selectedRow: rowWithStatus(status), selectedRowCount: 1 });
+    expect(availability(action, context("active")).enabled).toBe(false);
+    expect(availability(action, context("in progress")).enabled).toBe(false);
+    expect(availability(action, context("removed")).enabled).toBe(true);
+  });
+
+  it("refuses Open mid-compile and offers Commit only on a modified workspace", () => {
+    expect(
+      availability(gated("openWorkspace"), makeContext({ selectedRow: rowWithStatus("in progress") }))
+        .enabled,
+    ).toBe(false);
+    expect(
+      availability(gated("openWorkspace"), makeContext({ selectedRow: rowWithStatus("active") }))
+        .enabled,
+    ).toBe(true);
+    // `contains`, the only positive criterion in the corpus: the button appears
+    // *because* the row is modified rather than in spite of some other state.
+    expect(
+      availability(gated("commitWorkspace"), makeContext({ selectedRow: rowWithStatus("active") }))
+        .enabled,
+    ).toBe(false);
+    expect(
+      availability(gated("commitWorkspace"), makeContext({ selectedRow: rowWithStatus("modified") }))
+        .enabled,
+    ).toBe(true);
+  });
+
+  it("ands within a conjunction, so either term alone refuses", () => {
+    // `exportWorkspaceClientConfig` is one of the two actions whose inner list has
+    // more than one term. Flattening the disjunction of conjunctions would have
+    // turned "neither removed nor in progress" into "either", which permits an
+    // export mid-compile.
+    const action = gated("exportWorkspaceClientConfig");
+    expect(action.actionEnableCriterias![0]).toHaveLength(2);
+    for (const status of ["removed", "in progress", "removed, in progress"]) {
+      expect(availability(action, makeContext({ selectedRow: rowWithStatus(status) })).enabled).toBe(
+        false,
+      );
+    }
+    expect(
+      availability(action, makeContext({ selectedRow: rowWithStatus("active") })).enabled,
+    ).toBe(true);
+  });
+
+  it("disables when nothing is selected, and says so differently", () => {
+    // `if (row == null) return false` — and the reason has to name the absent
+    // selection rather than the row's value, because there is no row to describe.
+    const state = availability(
+      gated("deleteWorkspace"),
+      makeContext({ selectedRowCount: 0, selectedRow: undefined }),
+    );
+    expect(state).toEqual({ visible: true, enabled: false, reason: "Select a row first" });
+  });
+
+  it("names the values in the reason when a row is selected and does not qualify", () => {
+    const state = availability(
+      gated("deleteWorkspace"),
+      makeContext({ selectedRow: rowWithStatus("active") }),
+    );
+    expect(state.enabled).toBe(false);
+    expect(state.reason).toContain("active");
+    expect(state.reason).toContain("in progress");
+  });
+
+  it("treats a null cell as failing both contains and doesNotContain", () => {
+    // The Dart's two null branches, which are not symmetric: `contains` and
+    // `doesNotContain` both return false on a null value, so a row with no status
+    // enables neither Delete nor Commit.
+    const noStatus = makeContext({ selectedRow: rowWithStatus(null) });
+    expect(availability(gated("deleteWorkspace"), noStatus).enabled).toBe(false);
+    expect(availability(gated("commitWorkspace"), noStatus).enabled).toBe(false);
+  });
+
+  it("is folded in by the bar, so no caller has to put the row in the context twice", () => {
+    // The ActionBar's own `selectedRow` prop is the single source. A screen that
+    // passed the row for `navigationParams` and forgot it for the gate would have
+    // rendered an enabled Delete, which is the failure this arrangement removes.
+    const onAction = vi.fn();
+    render(
+      <ApiProvider api={{ can: () => true, isAuthenticated: () => true } as never}>
+        <ActionBar
+          actions={[gated("deleteWorkspace")]}
+          context={makeContext({ selectedRowCount: 1 })}
+          selectedRow={rowWithStatus("active")}
+          onAction={onAction}
+        />
+      </ApiProvider>,
+    );
+    expect(
+      screen.getByRole("button", { name: gated("deleteWorkspace").label }).hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("leaves every flow-table action's availability unchanged", () => {
+    // The regression this whole gate could have caused. No flow action has
+    // criteria, so adding the branch must be invisible to all 21 of them.
+    for (const action of barActions) {
+      const before = availability(action, makeContext());
+      const after = availability(action, makeContext({ selectedRow: ["a", "b"] }));
+      expect({ key: action.key, ...after }).toEqual({ key: action.key, ...before });
+    }
   });
 });

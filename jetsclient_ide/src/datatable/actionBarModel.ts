@@ -22,6 +22,27 @@
  * the safe direction — a gate that could be overridden by another gate would be
  * a gate nobody could reason about.
  *
+ * ## Six ways as of C.2, and the sixth was declared, carried and never read
+ *
+ * `actionEnableCriterias` — `enableWhen` in the document — tests the **selected
+ * row**. It was in `types.ts` from A.4a, because the corpus emits it; it was in
+ * no table this app had ever rendered, because the sizing counted it as track
+ * C's; and `availability` did not read it and did not take a row to read it
+ * *from*. So the gate parsed, round-tripped and did nothing.
+ *
+ * **The table it does not do nothing on is `workspaceRegistryTable`**, where all
+ * 8 of either corpus's criteria-bearing actions live and every one tests the
+ * `status` column: *Delete* is refused on an **active** workspace, *Open* on one
+ * **in progress**, and *Commit & Push* is offered only on a **modified** one
+ * (`jetsclient/lib/models/data_table_config.dart`, `ActionConfig.isEnabled`).
+ * Rendering that table without this enables a destructive action the Flutter app
+ * makes impossible — which is what the paragraph at the top of this file says a
+ * wrong enablement is. **I-181**.
+ *
+ * **A disjunction of conjunctions**, in the Dart's own words: the outer list is
+ * `or`, the inner is `and`, and the first conjunction to pass enables the button.
+ * No selected row means disabled, which is `if (row == null) return false`.
+ *
  * ## The three closures are one predicate, and two of them are `true`
  *
  * `hasIsEnabledFnc` is set on three actions and reads as three unknowns. It is
@@ -56,12 +77,26 @@
 
 import { DATA_REGISTRY_FILTERS_ESCAPE } from "./tableTranslate";
 import type { FormState } from "./formState";
-import type { ActionConfig } from "./types";
+import type { ActionConfig, JetsRow } from "./types";
 
 /** What the bar knows about the table underneath it when it decides. */
 export interface ActionContext {
   /** How many rows are selected right now. */
   selectedRowCount: number;
+  /**
+   * The first selected row, which `enableWhen` tests. Task C.2.
+   *
+   * `getFirstSelectedRow()` in the Dart, and *first* rather than *every*: the
+   * criteria are evaluated against one row even on a multi-select table
+   * (`jetsclient/lib/models/data_table_config.dart`, `ActionConfig.isEnabled`).
+   * Every criteria-bearing action in the corpus is on a single-select table, so
+   * the distinction is unobservable today and is reproduced rather than tidied —
+   * the same call S.2b made about `ParamPrecedence`.
+   *
+   * Optional because five of the six gates do not need it and a required field
+   * would make every existing caller name a value it has no use for.
+   */
+  selectedRow?: JetsRow;
   /** A.5's checkbox mode, which seven actions' visibility follows. */
   checkboxVisible: boolean;
   /**
@@ -101,6 +136,58 @@ export const enabledPredicateFor: Record<string, string> = {
   clearFilters: DATA_REGISTRY_FILTERS_ESCAPE,
 };
 
+/**
+ * One criterion against the selected row. `isCriteriaMet`, ported whole.
+ *
+ * The two null branches are the Dart's and they differ: `contains` and
+ * `doesNotContain` are **false** on a null cell — so a row with no status fails
+ * *both* — while `equals` and `notEquals` compare it. A `columnPos` outside the
+ * row is likewise false rather than an error, which is what `fromDocument`'s
+ * `-1` relies on for a document naming a column the table does not have.
+ */
+function criterionMet(
+  criterion: NonNullable<ActionConfig["actionEnableCriterias"]>[number][number],
+  row: JetsRow,
+): boolean {
+  if (criterion.columnPos < 0 || criterion.columnPos >= row.length) return false;
+  const value = row[criterion.columnPos] ?? null;
+  const expected = criterion.value ?? null;
+  switch (criterion.criteriaType) {
+    case "equals":
+      return expected === value;
+    case "notEquals":
+      return expected !== value;
+    case "contains":
+      return expected !== null && value !== null && value.includes(expected);
+    case "doesNotContain":
+      return expected !== null && value !== null && !value.includes(expected);
+    default:
+      // A criteriaType the schema's enum does not admit. Disabled rather than
+      // ignored: an unrecognised gate must not read as an absent one.
+      return false;
+  }
+}
+
+/**
+ * Why the selected row does not qualify, for the button's title.
+ *
+ * The Flutter app disables silently here as it does everywhere, and
+ * `capabilities.tsx` records that saying why is this port's one improvement on
+ * it. The message is built from the criteria rather than authored, because the
+ * document has no field for one and adding a per-action string would be a
+ * translation the corpus cannot supply.
+ */
+function reasonFor(
+  criterias: NonNullable<ActionConfig["actionEnableCriterias"]>,
+  row: JetsRow | undefined,
+): string {
+  if (row === undefined) return "Select a row first";
+  const values = [...new Set(criterias.flat().map((c) => c.value).filter((v): v is string => !!v))];
+  return values.length === 0
+    ? "This row does not qualify"
+    : `Not available for this row (${values.join(", ")})`;
+}
+
 export function availability(
   action: ActionConfig,
   context: ActionContext,
@@ -114,6 +201,28 @@ export function availability(
 
   if (action.isEnabledWhenHavingSelectedRows === true && context.selectedRowCount === 0) {
     return { visible: true, enabled: false, reason: "Select a row first" };
+  }
+
+  // Row criteria, immediately after the selection gate they sit inside in the
+  // Dart. A missing row disables rather than passing: `getFirstSelectedRow()`
+  // returning null is `return false` there, and it is the safe direction here.
+  if (action.actionEnableCriterias?.length) {
+    const row = context.selectedRow;
+    const met =
+      row !== undefined &&
+      action.actionEnableCriterias.some((conjunction) =>
+        conjunction.every((criterion) => criterionMet(criterion, row)),
+      );
+    if (!met) {
+      return {
+        visible: true,
+        enabled: false,
+        // Named rather than generic, because the whole point of this gate is
+        // that the row is the wrong *kind* of row. "Select a row first" would be
+        // a lie when one is selected.
+        reason: reasonFor(action.actionEnableCriterias, row),
+      };
+    }
   }
 
   if (action.isEnabledWhenStateHasKeys !== undefined) {
