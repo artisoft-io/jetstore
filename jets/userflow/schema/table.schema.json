@@ -99,6 +99,37 @@
       ],
       "description": "One column of a table configuration"
     },
+    "EnableCriterion": {
+      "additionalProperties": false,
+      "description": "One test on the selected row",
+      "properties": {
+        "column": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "is": {
+          "enum": [
+            "equals",
+            "notEquals",
+            "contains",
+            "doesNotContain"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "is",
+        "value"
+      ],
+      "type": "object"
+    },
     "FormStateBinding": {
       "additionalProperties": false,
       "properties": {
@@ -192,6 +223,17 @@
         "configScreenPath": {
           "minLength": 1,
           "type": "string"
+        },
+        "enableWhen": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/EnableCriterion"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
         },
         "isEnabled": {
           "description": "A key naming a state, form, action or form-state entry",
@@ -293,6 +335,15 @@
       ],
       "type": "string"
     },
+    "TableApiAction": {
+      "description": "The server action a query table issues",
+      "enum": [
+        "workspace_read",
+        "preview_file",
+        "raw_query_tool"
+      ],
+      "type": "string"
+    },
     "WhereClause": {
       "additionalProperties": false,
       "properties": {
@@ -346,6 +397,9 @@
             "$ref": "#/$defs/TableAction"
           },
           "type": "array"
+        },
+        "apiAction": {
+          "$ref": "#/$defs/TableApiAction"
         },
         "columns": {
           "items": {

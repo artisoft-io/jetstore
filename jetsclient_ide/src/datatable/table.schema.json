@@ -58,6 +58,9 @@
           "type": "string",
           "const": "query"
         },
+        "apiAction": {
+          "$ref": "#/$defs/TableApiAction"
+        },
         "from": {
           "minItems": 1,
           "type": "array",
@@ -330,6 +333,15 @@
       ],
       "additionalProperties": false
     },
+    "TableApiAction": {
+      "type": "string",
+      "enum": [
+        "workspace_read",
+        "preview_file",
+        "raw_query_tool"
+      ],
+      "description": "The server action a query table issues"
+    },
     "FromClause": {
       "type": "object",
       "properties": {
@@ -463,6 +475,17 @@
             "description": "A key naming a state, form, action or form-state entry"
           }
         },
+        "enableWhen": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/EnableCriterion"
+            }
+          }
+        },
         "navigationParams": {
           "type": "object",
           "propertyNames": {
@@ -526,6 +549,37 @@
         "setSessionIdFilter",
         "setRequestIdFilter"
       ]
+    },
+    "EnableCriterion": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "is": {
+          "type": "string",
+          "enum": [
+            "equals",
+            "notEquals",
+            "contains",
+            "doesNotContain"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "column",
+        "is",
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "One test on the selected row"
     }
   }
 }

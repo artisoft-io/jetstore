@@ -21,7 +21,10 @@ import type { ActionConfig } from "./types";
 export interface ActionBarProps {
   actions: ActionConfig[];
   context: ActionContext;
-  /** The row a `navigationParams` column index reads from. */
+  /**
+   * The row a `navigationParams` column index reads from — and, since C.2, the
+   * row `enableWhen` tests.
+   */
   selectedRow?: (string | null)[];
   onAction(request: ActionRequest, action: ActionConfig): void;
 }
@@ -32,8 +35,16 @@ export function ActionBar({
   selectedRow,
   onAction,
 }: ActionBarProps): ReactNode {
+  // **Folded in here rather than asked of every caller.** The bar already holds
+  // the selected row for `requestFor`, and C.2 gave `availability` a second use
+  // for the same value; making each caller put it in the context as well would
+  // be two sources for one fact, and the one a screen forgot would be the one
+  // that silently enabled a gated button. Every existing caller is correct
+  // without changing.
+  const decideWith: ActionContext =
+    selectedRow === undefined ? context : { ...context, selectedRow };
   const shown = actions
-    .map((action) => ({ action, state: availability(action, context) }))
+    .map((action) => ({ action, state: availability(action, decideWith) }))
     .filter(({ state }) => state.visible);
   if (shown.length === 0) return null;
 

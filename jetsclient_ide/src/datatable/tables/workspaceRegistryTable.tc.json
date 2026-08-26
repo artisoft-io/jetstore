@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "label": "Workspace Registry",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "workspace_name",
+      "label": "Workspace Name",
+      "tooltip": "Workspace identifier"
+    },
+    {
+      "name": "workspace_branch",
+      "label": "Workspace Branch",
+      "tooltip": "Workspace branch from origin"
+    },
+    {
+      "name": "feature_branch",
+      "label": "Feature Branch",
+      "tooltip": "Workspace feature branch to make update"
+    },
+    {
+      "name": "workspace_uri",
+      "label": "Workspace Repo",
+      "tooltip": "Workspace Repository Location"
+    },
+    {
+      "name": "description",
+      "label": "Description",
+      "tooltip": "Workspace Repository Location"
+    },
+    {
+      "name": "status",
+      "label": "Status",
+      "tooltip": "Workspace status"
+    },
+    {
+      "name": "last_git_log",
+      "label": "Last Git Log",
+      "isHidden": true
+    },
+    {
+      "name": "user_email",
+      "label": "User Email",
+      "tooltip": "User who made the last change"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Update",
+      "tooltip": "Last time the workspace was compiled"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 10,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "previous.workspace_name",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "workspace_name",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "workspace_branch",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "feature_branch",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "workspace_uri",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "description",
+        "columnIdx": 5
+      },
+      {
+        "stateKey": "status",
+        "columnIdx": 6
+      },
+      {
+        "stateKey": "last_git_log",
+        "columnIdx": 7
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "workspace_registry"
+    }
+  ],
+  "actions": [
+    {
+      "key": "addWorkspace",
+      "label": "Add/Update",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "addWorkspace",
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4,
+        "description": 5
+      }
+    },
+    {
+      "key": "openWorkspace",
+      "label": "Open",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "openWorkspace",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "exportWorkspaceClientConfig",
+      "label": "Export Client Config",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "exportWorkspaceClientConfig",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "removed"
+          },
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "loadWorkspaceConfig",
+      "label": "Load Client Config",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/workspaces/loadConfigUF/:workspace_name",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "workspace_name": 1
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "deleteWorkspace",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteWorkspace",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "active"
+          },
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    }
+  ],
+  "secondRowActions": [
+    {
+      "key": "compileWorkspace",
+      "label": "Compile Workspace",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "compileWorkspace",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "commitWorkspace",
+      "label": "Commit & Push Workspace",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "commitWorkspaceDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "contains",
+            "value": "modified"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "pushOnlyWorkspace",
+      "label": "Push Only",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "pushOnlyWorkspaceDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "removed"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "pullWorkspace",
+      "label": "Pull Workspace",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "removed"
+          },
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "doGitStatus",
+      "label": "Git Status",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "doGitStatusWorkspaceDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      }
+    },
+    {
+      "key": "doGitCommand",
+      "label": "Git Command",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "doGitCommandWorkspaceDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4
+      }
+    },
+    {
+      "key": "viewGitLogWorkspace",
+      "label": "View Last Log",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "viewGitLogWorkspaceDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "key": 0,
+        "workspace_name": 1,
+        "workspace_branch": 2,
+        "feature_branch": 3,
+        "workspace_uri": 4,
+        "last_git_log": 7
+      }
+    },
+    {
+      "key": "refreshTable",
+      "label": "Refresh",
+      "action": "refreshTable",
+      "style": "secondary"
+    }
+  ]
+}

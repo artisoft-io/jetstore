@@ -46,17 +46,50 @@
  * **Registering the two is I.3b's**, and until it happens a document naming them
  * validates and does not load — which is the asymmetry `actions/escapes.ts`
  * describes and the failure mode the agentic project met from the other side.
+ *
+ * ## What C.2 added, and the one thing it does not translate
+ *
+ * `apiAction` and `enableWhen`. Both were named in `table.ts`'s table of cuts as
+ * fields the non-flow corpus sets, so neither is a discovery — what C.2 supplies
+ * is the *shape*, and in one case that is more than a copy: a criterion names its
+ * column **by name** here and by position in the Dart, so `translateCriterion`
+ * resolves the index forward and `columnPosOf` resolves it back.
+ *
+ * **`hasIsEnabledFnc` and `enableWhen` are not the same gate and this file now
+ * carries both**, which is worth saying because they read alike. `isEnabled` is a
+ * closure over *router* state and cannot be data, so it becomes a name; a
+ * criterion is a test on the *selected row* and always could have been data. The
+ * Dart evaluates the second inside the `isEnabledWhenHavingSelectedRows` branch
+ * and the first only after that branch declines
+ * (`jetsclient/lib/models/data_table_config.dart`, `ActionConfig.isEnabled`), so
+ * no configuration sets both — `workspaceRegistryTable`'s 8 criteria-bearing
+ * actions all have `hasIsEnabledFnc: false`.
  */
 
 import type { TableConfig, ColumnConfig, ActionConfig, WhereClause } from "./types";
 import type {
+  ApiAction,
   Column,
+  EnableCriterion,
   FormStateBinding,
   FromClause,
   TableAction,
   TableConfigDocument,
   WhereClauseDocument,
 } from "./table";
+
+/**
+ * The server action a document that names none is issuing. Task C.2.
+ *
+ * One definition, read by both directions of the translation: `toDocument` omits
+ * the field when the configuration says this, and `fromDocument` restores it when
+ * the document omits it. Two literals would be the same bug the `hasActiveFilters`
+ * rename fixed — one value, two places, free to drift.
+ */
+export const DEFAULT_API_ACTION = "read";
+
+/** The three a document may name; anything else is a translation failure. */
+const AUTHORABLE_API_ACTIONS: readonly string[] = ["workspace_read", "preview_file", "raw_query_tool"];
 
 /** The registry name for the file-key display filter. */
 export const FILE_KEY_LABEL_ESCAPE = "fileKeyLabel";
@@ -135,7 +168,41 @@ function translateWhere(where: WhereClause): WhereClauseDocument {
   };
 }
 
-function translateAction(tableKey: string, action: ActionConfig): TableAction {
+/**
+ * A row gate, with its column index resolved to a column name. Task C.2.
+ *
+ * `columns` is the table's, because the index is into that array. An index past
+ * the end is refused rather than emitted as a dangling name: the Dart's
+ * `isCriteriaMet` guards `columnPos < row.length` and returns `false`, so such a
+ * criterion is a button that never enables, and a document should not be able to
+ * say that by accident.
+ */
+function translateCriterion(
+  columns: ColumnConfig[],
+  actionKey: string,
+  criterion: NonNullable<ActionConfig["actionEnableCriterias"]>[number][number],
+  refuse: (what: string) => never,
+): EnableCriterion {
+  const column = columns[criterion.columnPos];
+  if (column === undefined) {
+    refuse(`action ${actionKey}: enableWhen names column ${criterion.columnPos}, past the end`);
+  }
+  if (typeof criterion.value !== "string" || criterion.value === "") {
+    refuse(`action ${actionKey}: enableWhen on ${column!.name} has no value — see table.ts`);
+  }
+  return {
+    column: column!.name,
+    is: criterion.criteriaType as EnableCriterion["is"],
+    value: criterion.value!,
+  };
+}
+
+function translateAction(
+  tableKey: string,
+  action: ActionConfig,
+  columns: ColumnConfig[],
+  refuse: (what: string) => never,
+): TableAction {
   return {
     key: action.key,
     label: action.label,
@@ -154,6 +221,13 @@ function translateAction(tableKey: string, action: ActionConfig): TableAction {
       : {}),
     ...(action.stateFormNavigationParams && Object.keys(action.stateFormNavigationParams).length > 0
       ? { stateFormNavigationParams: action.stateFormNavigationParams }
+      : {}),
+    ...(action.actionEnableCriterias?.length
+      ? {
+          enableWhen: action.actionEnableCriterias.map((conjunction) =>
+            conjunction.map((c) => translateCriterion(columns, action.key, c, refuse)),
+          ),
+        }
       : {}),
     ...(action.hasIsEnabledFnc ? { isEnabled: isEnabledEscapeFor(tableKey, action.key) } : {}),
   };
@@ -215,7 +289,6 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   for (const action of [...config.actions, ...config.secondRowActions]) {
     if (action.stateGroup !== 0) refuse(`action ${action.key}: stateGroup`);
     if (action.hasActionDelegate) refuse(`action ${action.key}: actionDelegate`);
-    if (action.actionEnableCriterias?.length) refuse(`action ${action.key}: actionEnableCriterias`);
   }
 
   const common = {
@@ -235,6 +308,10 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   };
 
   if (config.staticTableModel !== undefined) {
+    // A static table sends nothing, so its `apiAction` is unobservable and the
+    // corpus records `read` on all nine. It has no home on the static arm and
+    // must not silently become one on the query arm.
+    if (config.apiAction !== DEFAULT_API_ACTION) refuse(`a static table with apiAction ${config.apiAction}`);
     if (config.fromClauses.length > 0) refuse("a static table with fromClauses");
     if (config.whereClauses.length > 0) refuse("a static table with whereClauses");
     if (config.actions.length > 0) refuse("a static table with actions");
@@ -244,16 +321,30 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   }
 
   if (config.fromClauses.length === 0) refuse("a query table with no fromClauses");
+  // The allowlist, enforced at the translation as well as in the schema. A value
+  // outside it is the confused-deputy door `table.ts` describes, and a
+  // translation that emitted it would produce a document Go refuses at save time
+  // — a failure two layers away from the configuration that caused it.
+  if (config.apiAction !== DEFAULT_API_ACTION && !AUTHORABLE_API_ACTIONS.includes(config.apiAction)) {
+    refuse(`apiAction ${config.apiAction}`);
+  }
   return {
     ...common,
     source: "query",
+    // Omitted when it is `read`, which 44 of the two corpora's 65 configurations
+    // are; see the header. The 37 flow documents are byte-identical as a result.
+    ...(config.apiAction === DEFAULT_API_ACTION ? {} : { apiAction: config.apiAction as ApiAction }),
     from: config.fromClauses.map(translateFrom),
     ...(config.whereClauses.length > 0 ? { where: config.whereClauses.map(translateWhere) } : {}),
     ...(config.actions.length > 0
-      ? { actions: config.actions.map((a) => translateAction(config.key, a)) }
+      ? { actions: config.actions.map((a) => translateAction(config.key, a, config.columns, refuse)) }
       : {}),
     ...(config.secondRowActions.length > 0
-      ? { secondRowActions: config.secondRowActions.map((a) => translateAction(config.key, a)) }
+      ? {
+          secondRowActions: config.secondRowActions.map((a) =>
+            translateAction(config.key, a, config.columns, refuse),
+          ),
+        }
       : {}),
     ...(config.refreshOnKeyUpdateEvent.length > 0
       ? { refreshOnKeyUpdateEvent: config.refreshOnKeyUpdateEvent }
@@ -296,6 +387,11 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     hasCellFilter: column.cellFilter !== undefined,
   }));
 
+  // The index a criterion's column name stands for. Built once per document
+  // rather than per criterion: the lookup is the inverse of `translateCriterion`
+  // and it has to agree with the `columns` array the document already ordered.
+  const columnPosOf = new Map(doc.columns.map((column, index) => [column.name, index]));
+
   const restoreAction = (action: TableAction): ActionConfig => ({
     actionType: action.action,
     key: action.key,
@@ -312,6 +408,19 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     actionName: action.actionName,
     capability: action.capability,
     stateGroup: 0,
+    actionEnableCriterias: action.enableWhen?.map((conjunction) =>
+      conjunction.map((c) => ({
+        // `-1` is unreachable from a translated document — `translateCriterion`
+        // refuses a name it could not produce — and is what an authored document
+        // naming a column the table does not have would restore to. The Dart
+        // treats an out-of-range position as an unmet criterion rather than as an
+        // error, so this reproduces "the button never enables" instead of
+        // throwing inside a render.
+        columnPos: columnPosOf.get(c.column) ?? -1,
+        criteriaType: c.is,
+        value: c.value,
+      })),
+    ),
     hasIsEnabledFnc: action.isEnabled !== undefined,
     hasActionDelegate: false,
   });
@@ -334,9 +443,12 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
   return {
     key,
     label: doc.label ?? "",
-    // Restored, not authored: see the `apiAction` note in `table.ts`.
+    // `apiPath` is restored rather than authored — `/dataTable` on all 28 query
+    // tables and empty on all nine static ones, which is the sentinel `source`
+    // replaced. `apiAction` is authored as of C.2, and a document that names none
+    // means `read`; see the note in `table.ts`.
     apiPath: doc.source === "query" ? "/dataTable" : "",
-    apiAction: "read",
+    apiAction: (doc.source === "query" ? doc.apiAction : undefined) ?? DEFAULT_API_ACTION,
     staticTableModel: doc.source === "static" ? doc.rows : undefined,
     isCheckboxVisible: doc.isCheckboxVisible ?? false,
     isCheckboxSingleSelect: doc.isCheckboxSingleSelect ?? false,

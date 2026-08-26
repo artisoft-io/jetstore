@@ -54,12 +54,19 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * them**, which is C.6's decision to make and not this task's. What F.5 owes track
  * C is the *shape* — the schema fields this one needed and the escape names it
  * introduced — and that is what the assertions below pin down.
+ *
+ * **C.2 is the first screen to widen this list, and it did exactly what F.5 said
+ * widening it would be.** `workspaceRegistryTable` is the `/workspaces` screen's
+ * only table; adding the key is the whole of adding the document, and what it
+ * cost was two schema fields — `apiAction` and `enableWhen` — both of which
+ * `table.ts` had already named as fields the non-flow corpus sets. The list is a
+ * seam and it held.
  */
 const screenTables = (screenCorpus as { tables: Record<string, unknown> }).tables as Record<
   string,
   TableConfig
 >;
-const NON_FLOW_KEYS = ["pipelineExecStatusTable"] as const;
+const NON_FLOW_KEYS = ["pipelineExecStatusTable", "workspaceRegistryTable"] as const;
 
 const flowDocuments = toDocuments(tables);
 const documents: Record<string, TableConfigDocument> = {
@@ -76,7 +83,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 38 translated configurations committed beside it, for the Go check", () => {
+  it("has the 39 translated configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -122,9 +129,9 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the one non-flow table F.5 needed makes 38", () => {
+  it("all translate, and the two non-flow tables F.5 and C.2 needed make 39", () => {
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(documents).length).toBe(38);
+    expect(Object.keys(documents).length).toBe(39);
   });
 
   it("all validate against the schema", () => {
@@ -276,6 +283,145 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
   });
 });
 
+/**
+ * The two fields `workspaceRegistryTable` brought back. Task C.2.
+ *
+ * Asserted here for F.5's reason and one more of its own: **`enableWhen` is the
+ * first field in this document whose spelling differs from the corpus's in a way
+ * a round trip alone cannot check.** The round trip proves index → name → index
+ * is exact; it cannot prove the *name* is the right one, because it reads the
+ * same `columns` array in both directions. So the column name is pinned by hand.
+ */
+describe("workspaceRegistryTable, the /workspaces screen's table", () => {
+  const doc = documents["workspaceRegistryTable"]!;
+  const config = configOf("workspaceRegistryTable");
+
+  it("accounts for every apiAction either corpus holds, which is what makes the enum closed", () => {
+    // **The membership argument, asserted rather than described.** `table.ts`
+    // carried these counts in a comment for about four hours; C.0a's fixture
+    // regeneration then took `read` from 17 to 14 by removing three dead
+    // configurations. The argument for a three-member enum is unaffected by that
+    // and the sentence would have been wrong anyway, which is the case for putting
+    // a count where something re-derives it.
+    //
+    // A fifth value appearing here is not a test to relax: it is a table asking
+    // the apiserver for an authority no authored document has been allowed to
+    // name, and the enum is the decision about whether it may.
+    const byAction = Object.values(screenTables).reduce<Record<string, number>>(
+      (acc, t) => ({ ...acc, [t.apiAction]: (acc[t.apiAction] ?? 0) + 1 }),
+      {},
+    );
+    expect(Object.keys(byAction).sort()).toEqual([
+      "preview_file",
+      "raw_query_tool",
+      "read",
+      "workspace_read",
+    ]);
+    // The three exceptions are counted and `read` is not: the enum is about which
+    // authorities exist, and how many tables take the default is not a fact it
+    // rests on — it is the fact C.0a moved.
+    expect(byAction["workspace_read"]).toBe(9);
+    expect(byAction["preview_file"]).toBe(1);
+    expect(byAction["raw_query_tool"]).toBe(1);
+    // All 37 flow tables read, which is why I.3 could answer S.7 with no field.
+    expect([...new Set(Object.values(tables).map((t) => t.apiAction))]).toEqual(["read"]);
+  });
+
+  it("names workspace_read, which the 37 flow tables had no way to say", () => {
+    if (doc.source !== "query") return;
+    expect(doc.apiAction).toBe("workspace_read");
+    // The round trip's own claim, stated separately because it is the one that
+    // would have failed before C.2: `fromDocument` restored a constant `read`.
+    expect(fromDocument("workspaceRegistryTable", doc).apiAction).toBe("workspace_read");
+  });
+
+  it("leaves apiAction off a table that reads, so the 37 are untouched", () => {
+    const flow = flowDocuments["lfSourceConfigTable"]!;
+    expect(Object.keys(flow)).not.toContain("apiAction");
+    expect(fromDocument("lfSourceConfigTable", flow).apiAction).toBe("read");
+  });
+
+  it("gates eight buttons on the selected row's status, by column name", () => {
+    if (doc.source !== "query") return;
+    const gated = [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])].filter(
+      (a) => a.enableWhen !== undefined,
+    );
+    expect(gated.map((a) => a.key)).toEqual([
+      "openWorkspace",
+      "exportWorkspaceClientConfig",
+      "loadWorkspaceConfig",
+      "deleteWorkspace",
+      "compileWorkspace",
+      "commitWorkspace",
+      "pushOnlyWorkspace",
+      "pullWorkspace",
+    ]);
+    // Every criterion in either corpus tests this one column. The Dart says `6`;
+    // that this is the column at index 6 is what the translation had to know.
+    const columns = new Set(gated.flatMap((a) => a.enableWhen!.flat().map((c) => c.column)));
+    expect([...columns]).toEqual(["status"]);
+    expect(doc.columns[6]?.name).toBe("status");
+  });
+
+  it("keeps the disjunction of conjunctions rather than flattening it", () => {
+    if (doc.source !== "query") return;
+    // Two of the eight use the inner list, and a flattened `enableWhen` would
+    // have turned "neither removed nor in progress" into "either", which is the
+    // difference between refusing a mid-compile export and permitting one.
+    const exportAction = (doc.actions ?? []).find((a) => a.key === "exportWorkspaceClientConfig");
+    expect(exportAction?.enableWhen).toEqual([
+      [
+        { column: "status", is: "doesNotContain", value: "removed" },
+        { column: "status", is: "doesNotContain", value: "in progress" },
+      ],
+    ]);
+    const commit = (doc.secondRowActions ?? []).find((a) => a.key === "commitWorkspace");
+    expect(commit?.enableWhen).toEqual([
+      [{ column: "status", is: "contains", value: "modified" }],
+    ]);
+  });
+
+  it("is the second table with a second action row, and the corpus has no third", () => {
+    if (doc.source !== "query") return;
+    expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
+      "compileWorkspace",
+      "commitWorkspace",
+      "pushOnlyWorkspace",
+      "pullWorkspace",
+      "doGitStatus",
+      "doGitCommand",
+      "viewGitLogWorkspace",
+      "refreshTable",
+    ]);
+    const withSecondRow = Object.entries(screenTables)
+      .filter(([, t]) => t.secondRowActions.length > 0)
+      .map(([key]) => key);
+    expect(withSecondRow.sort()).toEqual(["pipelineExecStatusTable", "workspaceRegistryTable"]);
+  });
+
+  it("names no escape, so this screen needs no predicate registered", () => {
+    // All eight gates are row criteria, which are data; `hasIsEnabledFnc` is
+    // false on every action of this table. The two mechanisms look alike and are
+    // not the same one — see `tableTranslate.ts`.
+    expect(escapeNamesOf(doc)).toEqual([]);
+    expect([...config.actions, ...config.secondRowActions].some((a) => a.hasIsEnabledFnc)).toBe(false);
+  });
+
+  it("names three action-document entries and five dialog forms on the second row", () => {
+    expect(actionNamesOf(doc)).toEqual(["compileWorkspace", "deleteWorkspace", "openWorkspace"]);
+    if (doc.source !== "query") return;
+    expect(
+      (doc.secondRowActions ?? []).filter((a) => a.action === "showDialog").map((a) => a.configForm),
+    ).toEqual([
+      "commitWorkspaceDialog",
+      "pushOnlyWorkspaceDialog",
+      "doGitStatusWorkspaceDialog",
+      "doGitCommandWorkspaceDialog",
+      "viewGitLogWorkspaceDialog",
+    ]);
+  });
+});
+
 describe("the schema rejects", () => {
   const base = () => structuredClone(documents["lfSourceConfigTable"]!) as Record<string, unknown>;
   const staticBase = () => structuredClone(documents["input_format"]!) as Record<string, unknown>;
@@ -309,12 +455,50 @@ describe("the schema rejects", () => {
     rejects({ ...base(), actions: [{ key: "k", label: "L", action: "exec_ddl", style: "primary" }] });
   });
 
-  it("an apiAction, which this document deliberately has no field for", () => {
-    // The security cut. `apiAction` reaches `DataTableAction.Action` and
-    // dispatches over `jets/apiserver/api_tables.go:42`, so a table that could
-    // name one could name `exec_ddl`. `additionalProperties: false` is what
-    // makes the absence enforceable rather than merely undocumented.
+  it("an apiAction outside the three-member enum", () => {
+    // **The security cut, narrowed rather than relaxed — C.2.** This case read
+    // "an apiAction, which this document deliberately has no field for" until the
+    // first screen needed `workspace_read`. The property it protects is unchanged:
+    // `apiAction` reaches `DataTableAction.Action` and dispatches over the whole
+    // switch in `jets/apiserver/api_tables.go` (`DoDataTableAction`), so what must
+    // stay impossible is an authored table naming `exec_ddl`. A closed enum of
+    // three is a different object from a free string, and
+    // `additionalProperties: false` no longer carries this constraint on its own.
     rejects({ ...base(), apiAction: "exec_ddl" });
+    rejects({ ...base(), apiAction: "insert_rows" });
+    // Not a member either: `read` is said by omission, and two spellings for one
+    // meaning is what the three members exist to avoid.
+    rejects({ ...base(), apiAction: "read" });
+  });
+
+  it("an apiAction on a static table, which sends nothing", () => {
+    rejects({ ...staticBase(), apiAction: "workspace_read" });
+  });
+
+  const gated = (enableWhen: unknown) => ({
+    ...base(),
+    actions: [{ key: "k", label: "L", action: "doAction", style: "primary", enableWhen }],
+  });
+
+  it("an enableWhen naming an unknown comparison", () => {
+    rejects(gated([[{ column: "status", is: "startsWith", value: "x" }]]));
+  });
+
+  it("an enableWhen with an empty conjunction, or none at all", () => {
+    // An empty inner list is vacuously true and would *enable* the button, which
+    // is the opposite of what writing a gate means; an empty outer list disables
+    // it forever. Neither is a thing a document should be able to say by
+    // accident, and `.min(1)` on both is why it cannot.
+    rejects(gated([[]]));
+    rejects(gated([]));
+  });
+
+  it("an enableWhen criterion with no value", () => {
+    // Nullable in the Dart, where it means "a gate that never opens" on
+    // `contains` and "test for an empty cell" on `equals`. No configuration wants
+    // either, and both deserve their own spelling if one ever does.
+    rejects(gated([[{ column: "status", is: "contains", value: "" }]]));
+    rejects(gated([[{ column: "status", is: "contains" }]]));
   });
 
   it("an unknown property anywhere", () => {
