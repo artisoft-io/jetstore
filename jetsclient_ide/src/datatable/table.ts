@@ -41,7 +41,7 @@
  * |---|---|
  * | `apiPath`, `apiAction` | `/dataTable` and `read` on all 37. See the note below — this is the security decision, not a tidy-up. |
  * | `index` on a column | equals the array position on all 275. A field that can only ever be wrong. |
- * | `maxLines`, `columnWidth` | `0` on all 275 columns. |
+ * | ~~`maxLines`, `columnWidth`~~ | `0` on all 275 columns — **and set by four non-flow ones; back as of C.7.** |
  * | `calculatedAs` | never set in the flows. |
  * | `defaultToAllRows`, `requestColumnDef` | `false` on all 37. |
  * | `sortColumnTableName` | `""` on all 37. |
@@ -74,6 +74,24 @@
  * What is left outstanding for the remaining 26 tables: `withClauses` (1 table),
  * `modelStateFormKey` and `hasModelStateHandler` (2), `like` (2 clauses),
  * `dataRowMin/MaxHeight` (1).
+ * **That list is short by four, and C.7 found out by being refused.** Translating
+ * `pipelineExecDetailsTable` threw on `maxLines` and `columnWidth`, neither of
+ * which is named above. Re-measuring every dropped field against
+ * `screens/fixtures/screen_configs.json` rather than against the nine remembered
+ * ones gives the whole set:
+ *
+ * | Also set outside the flows | Sites | Whose screen |
+ * |---|---|---|
+ * | `maxLines`, `columnWidth` | 4 columns in 4 tables | C.6, C.7, C.9, C.3 |
+ * | `sortColumnTableName` | 8 tables | C.3, all Workspace IDE |
+ * | `lookupColumnInFormState` | 1 clause | C.9 |
+ * | `requestColumnDef` | 1 table | C.4 |
+ *
+ * The prediction was not careless — it was derived from what the *flow* corpus
+ * leaves unset, and a field the flows set to a falsy default reads the same as a
+ * field nothing uses. The lesson is that **a list of what will come back has to
+ * be generated from the other corpus, not recalled from the reasons for the
+ * cuts**, and the generated version is **F66**.
  *
  * ## `apiAction` is dropped rather than enumerated, and that is the security call
  *
@@ -214,9 +232,49 @@ const columnCommon = {
    * configuration is workspace content edited by a user who already holds
    * `workspace_ide`, and that `calculatedAs` cannot name an action — but it is
    * the widest field in the document and the next person to widen this schema
-   * should know it is here. Recorded as **I-104**.
+   * should know it is here. Recorded as **I-105** — this comment said I-104 until
+   * C.7, which is the entry about a rendering seam rather than about SQL.
+   *
+   * **C.7 settled whether it stays a fragment, and the answer is yes.** I-105
+   * framed the second site as an argument for *naming* it, on I-54's analogy.
+   * The analogy does not hold: I-54 collapsed six closures to two names because a
+   * closure cannot be data at all, and `AGE(last_update, start_time)` already is.
+   * What settles it is the server. `makeSelectColumns`
+   * (`jets/datatable/data_table_action.go`, `makeSelectColumns`) writes
+   * `CalculatedAs` into the select list verbatim while sanitising the plain
+   * column beside it through `pgx.Identifier{…}.Sanitize()`, and `DoReadAction`
+   * gates `read` on `CapabilityReadData` and nothing else — so any holder of
+   * `read_data` can already post any expression here. A registry would move the
+   * string into the bundle and leave the trust boundary exactly where it is,
+   * at the cost of a third escape namespace. The gate that would matter is
+   * server-side and is filed as **I-172**.
    */
   calculatedAs: z.string().min(1).optional(),
+  /**
+   * Truncate the cell to this many lines. Task C.7.
+   *
+   * **Zero on all 275 flow columns and set on four of the 151 non-flow ones** —
+   * `error_message` on `inputLoaderStatusTable`, `pipelineExecDetailsTable` and
+   * `processErrorsTable`, and `authored_label` on `wsJetRulesTable`. A stack
+   * trace in a table cell is the case it exists for.
+   *
+   * **Not on the list of fields this file predicted would come back**, which is
+   * the finding rather than the field: the header's table of nine was derived
+   * from what the *flow* corpus does not set, and four more are set by the
+   * non-flow one — this, `columnWidth`, `sortColumnTableName` (8 tables) and
+   * `lookupColumnInFormState` (1 clause). **F66** carries the re-measurement.
+   */
+  maxLines: z.number().int().positive().optional(),
+  /**
+   * The cell's width in pixels. Task C.7.
+   *
+   * The same four columns, and in the Dart the two are not independent: the
+   * width is a `SizedBox` *inside* the `maxLines > 0` branch
+   * (`jetsclient/lib/components/data_table_source.dart`, the `cells:` map), so a
+   * width without a line limit draws nothing there. All four set both, so the
+   * schema states them separately and no configuration distinguishes them.
+   */
+  columnWidth: z.number().int().positive().optional(),
 } as const;
 
 export const ColumnSchema = z

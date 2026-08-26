@@ -65,6 +65,28 @@
   text-align: right;
 }
 
+/*
+ * A cell the configuration limits to N lines. Task C.7.
+ *
+ * `white-space: nowrap` above is what every other cell wants and is exactly wrong
+ * here: the four columns that set `maxLines` hold an error message or a rule's
+ * authored text, which is why they are the columns that set `columnWidth` too.
+ * The clamp needs the text to wrap first, so both properties are reset.
+ *
+ * `-webkit-line-clamp` is the only cross-browser way to truncate at a line count
+ * rather than at a width, and it is supported everywhere this app runs — the
+ * standard `line-clamp` is aliased to it. `--jets-max-lines` is set inline by
+ * `DataTable.tsx` from the column.
+ */
+.jets-datatable__clamped {
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--jets-max-lines, 3);
+  line-clamp: var(--jets-max-lines, 3);
+}
+
 .jets-datatable__sort {
   background: none;
   border: 0;
