@@ -154,9 +154,29 @@ is reachability and capacity, not credentials.
 
 **The subtle one.** Whoever owns the VPC owns it for everybody. Nothing in CloudFormation records
 that the DEV stack depends on the VPC the PROD stack created — no output carries an `ExportName`, so
-the coupling is values copied at synth (see [`stack_outputs.md`](stack_outputs.md)). Deleting the
-owning stack does not warn you that two others are using its network. Create the shared VPC outside
-all three stacks if you take this path.
+the coupling is values copied at synth (see [`stack_outputs.md`](stack_outputs.md)).
+
+**Deleting the owning stack does not quietly succeed — it fails, late and partially.** EC2 refuses to
+delete a subnet, a security group or a VPC that still has dependencies, so once the other stacks have
+ENIs, a DB subnet group and attached security groups in that VPC, those deletions return
+`DependencyViolation` and the stack ends in `DELETE_FAILED`. The network survives. That is a real
+guard, and it is worth knowing it is the *only* one: it is enforced by EC2 at delete time, not by
+CloudFormation at plan time, so nothing warns you before you start.
+
+The hazard is what happens in between. CloudFormation deletes in dependency order and gets a long way
+before it reaches the VPC — and **the 18 interface endpoints belong to the owning stack**. They have
+no dependants of their own, so they delete cleanly, while the subnets and the shared endpoint security
+group do not. The plausible outcome is a half-deleted owning stack, a VPC that survives, and DEV and
+UAT still running but with no endpoint route to ECR, Secrets Manager, Step Functions or CloudWatch —
+broken by a deletion that *failed*.
+
+So: create the shared VPC outside all three stacks if you take this path. Then no stack's deletion
+can reach it, and the endpoints are owned by whoever owns the VPC rather than by whichever
+environment happened to deploy first.
+
+*(The `DependencyViolation` behaviour above is AWS's documented deletion semantics, reasoned rather
+than reproduced here — the sequence in which CloudFormation reaches each resource has not been
+observed on this stack.)*
 
 ## Sharing a bucket between UAT and PROD
 
