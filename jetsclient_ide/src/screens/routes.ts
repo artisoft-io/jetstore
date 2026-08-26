@@ -52,9 +52,25 @@
  * documents today (I-87), so both flows fall through to Flutter, which is correct
  * rather than a stub.
  *
- * **Screens track C has not ported.** `/processErrors/:session_id` is C.9's and
- * `/ruleConfig` is C.10's; both fall through to Flutter until they land. A miss
- * here is the honest answer, not a broken link.
+ * ~~**Screens track C has not ported.**~~ **They landed, and the rows arrived three
+ * tasks late — corrected 2026-08-25.** This paragraph read *"`/processErrors/:session_id`
+ * is C.9's and `/ruleConfig` is C.10's; both fall through to Flutter until they
+ * land"*, and C.13's `/userAdmin` was never mentioned because it did not exist when
+ * this was written. All three are served now.
+ *
+ * **What kept it wrong is that the check could not see it.** `routes.test.ts`
+ * asserted that every row names a route `App.tsx` serves — rows to routes — and the
+ * missing direction is routes to rows, which has no symptom: `reactScreenPath`
+ * returns `null` for an absent row, the test that asserts `null` keeps passing, and
+ * the home screen quietly hands a user to Flutter for a screen this app had ported
+ * hours earlier. **A one-directional check meeting the direction it cannot see**,
+ * which is the shape Phase 3 has now recorded five times.
+ *
+ * The reverse check is in `routes.test.ts` as of this change, and it is *derived*
+ * rather than listed: it reads the Flutter route table and this app's route table
+ * and requires a row wherever both serve the same screen, with the exclusions named
+ * and justified rather than assumed. A row is still added by the task that lands the
+ * screen; what changed is that forgetting now fails.
  */
 
 import { fillPath } from "../datatable/actionDispatch";
@@ -84,6 +100,9 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
   "/workspaces": { reactPath: "/workspaces" },
   "/queryTool": { reactPath: "/query-tool" },
   "/inferServerAdmin": { reactPath: "/inferServerAdmin" },
+  "/processErrors/:session_id": { reactPath: "/processErrors/:session_id" },
+  "/userAdmin": { reactPath: "/userAdmin" },
+  "/ruleConfig": { reactPath: "/ruleConfig" },
 };
 
 /**

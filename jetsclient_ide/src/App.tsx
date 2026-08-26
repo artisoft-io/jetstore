@@ -218,7 +218,6 @@ export default function App() {
               />
             }
           />
-          <Route path="*" element={<NotFound />} />
           {/*
             C.7 and C.8. **One screen, two routes** — see `TableScreen.tsx` for
             why that is a measurement rather than a convenience.
