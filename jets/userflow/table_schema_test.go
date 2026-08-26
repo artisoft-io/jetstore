@@ -100,7 +100,7 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 61 {
+	if len(files) != 63 {
 		t.Fatalf("expected the flows' 37 table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

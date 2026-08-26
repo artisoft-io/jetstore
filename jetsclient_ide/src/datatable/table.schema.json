@@ -600,6 +600,10 @@
           "type": "string",
           "minLength": 1
         },
+        "like": {
+          "type": "string",
+          "minLength": 1
+        },
         "lookupColumnInFormState": {
           "type": "boolean",
           "const": true

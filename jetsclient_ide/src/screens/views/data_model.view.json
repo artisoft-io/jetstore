@@ -5,6 +5,7 @@
   "tabs": [
     { "label": "Domain Classes", "table": "wsDomainClassTable" },
     { "label": "Data Properties", "table": "wsDataPropertyTable" },
-    { "label": "Domain Tables", "table": "wsDomainTableTable" }
+    { "label": "Domain Tables", "table": "wsDomainTableTable" },
+    { "label": "Data Model Files", "table": "wsDataModelFilesTable" }
   ]
 }

@@ -160,6 +160,27 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace]);
 
+  /**
+   * Re-read the tree without touching the tabs. Task C.3b.
+   *
+   * **The effect above cannot serve this and the difference is the two lines it
+   * opens with.** Changing workspace closes every tab, because the open ones
+   * belong to the workspace being left; adding or deleting a file changes what
+   * the tree holds and nothing about what is open — closing the view that just
+   * added a file would be a worse answer than not refreshing at all.
+   *
+   * Both server actions answer with the recomputed structure and this throws that
+   * answer away, which is deliberate and argued in `CompiledView.tsx`: an action
+   * document has no channel for a response body, and one extra round trip is the
+   * cheaper of the two prices.
+   */
+  const refreshTree = useCallback(() => {
+    if (workspace === "") return;
+    void guard(async () => {
+      setTree(await workspaceApi.fileTree(workspace));
+    });
+  }, [guard, workspace, workspaceApi]);
+
   const openFile = useCallback(
     (node: WorkspaceNode) => {
       const fileName = fileNameOf(node);
@@ -379,7 +400,12 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           </div>
 
           {activeTab?.kind === "view" ? (
-            <CompiledView api={api} document={compiledViews[activeTab.view]!} workspaceName={workspace} />
+            <CompiledView
+              api={api}
+              document={compiledViews[activeTab.view]!}
+              workspaceName={workspace}
+              onFilesChanged={refreshTree}
+            />
           ) : activeTab ? (
             <>
               <Editor

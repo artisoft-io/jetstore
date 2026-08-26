@@ -55,16 +55,47 @@ import { z } from "zod";
 import { Identifier } from "./schema";
 
 /**
- * A validation rule. Two, because two is what the corpus needs.
+ * A validation rule. ~~Two, because two is what the corpus needs.~~ **Three as of
+ * C.3b**, and the third is the first one whose test reads a *second* field.
  *
  * `required` is "not null and not empty", which is what both Dart validators
  * mean by it — a text field holding `""` and a table with no selection both
  * fail.
+ *
+ * ## `extendsKey`, and why it is one rule rather than two
+ *
+ * `workspaceIDEFormValidator`'s `wsDbSourceFileName` arm
+ * (`jetsclient/lib/modules/workspace_ide/screen_delegates.dart`,
+ * `workspaceIDEFormValidator`) is the only validator in either corpus that
+ * compares a field against another form-state key: the *Add File* dialog is
+ * opened from a section's tab, the tab seeds the section prefix, and the file
+ * name has to stay inside it. Nothing in the grammar could express that —
+ * `required` and `json` both look at one value, and `require`'s condition
+ * vocabulary is `isNull`/`isNullOrEmpty` and the three combinators, none of which
+ * can compare two strings.
+ *
+ * **It is `startsWith` *and* a non-empty remainder, deliberately in one rule.**
+ * The Dart refuses a value equal to the prefix — `value.characters.length >
+ * wsSection.characters.length` guards the `startsWith` — because `data_model/`
+ * on its own names a directory rather than a file. Two rules would let a
+ * document say *starts with the prefix* and mean *the bare prefix is acceptable*,
+ * which is a form that creates a file called `data_model/`.
+ *
+ * **A missing prefix is reported rather than treated as the empty string**, which
+ * is the same choice the Dart makes with its *"Invalid configuration"* arm: an
+ * empty prefix would silently degrade this rule into `required` and the form
+ * would look validated.
  */
 export const RuleSchema = z
   .union([
     z.strictObject({ rule: z.literal("required"), message: z.string().min(1) }),
     z.strictObject({ rule: z.literal("json"), message: z.string().min(1) }),
+    z.strictObject({
+      rule: z.literal("extendsKey"),
+      /** The form-state key holding the prefix the value must extend. */
+      key: Identifier,
+      message: z.string().min(1),
+    }),
   ])
   .meta({ id: "Rule", description: "A field-level validation rule" });
 

@@ -5,6 +5,7 @@
   "tabs": [
     { "label": "Jet Rules", "table": "wsJetRulesTable" },
     { "label": "Rule Terms", "table": "wsRuleTermsTable" },
-    { "label": "Files Relationship", "table": "wsMainSupportFilesTable" }
+    { "label": "Files Relationship", "table": "wsMainSupportFilesTable" },
+    { "label": "Jet Rules Files", "table": "wsJetRulesFilesTable" }
   ]
 }

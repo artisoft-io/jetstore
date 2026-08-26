@@ -25,7 +25,7 @@ import screenCorpus from "./fixtures/screen_configs.json";
 import { makeQuery } from "../datatable/query";
 import { fromDocument } from "../datatable/tableTranslate";
 import { CompiledViewDocumentSchema } from "./compiledView";
-import { COMPILED_VIEW_TABLES } from "./CompiledView";
+import { COMPILED_VIEW_TABLES, hasActionBar } from "./CompiledView";
 import { compiledViews, TABS_DEFERRED_TO_C3B } from "./sectionContract";
 
 interface CorpusField {
@@ -102,16 +102,22 @@ describe("the compiled view documents", () => {
     ]);
   });
 
-  it("defers exactly the two tables that carry an action bar, and no others", () => {
-    // The reason for the deferral, measured rather than asserted: these are the
-    // only two of the eight with any action at all, and both carry a `showDialog`
-    // naming a form this app has no host for (I-68).
+  it("defer nothing, and the two that carry an action bar are drawn bound", () => {
+    // **The measurement C.3 made to justify the deferral, kept because C.3b made
+    // it the measurement behind the split.** Exactly two of the eight have any
+    // action at all, and the same two are the ones this app now renders through
+    // `TableView` rather than `useDataTable` — so the corpus and the component
+    // agree about which tables need a selection, and neither is asserting it
+    // from a list of keys.
     const tables = (screenCorpus as { tables: Record<string, { actions: unknown[] }> }).tables;
     const eight = Object.values(DART_FORM_KEY).flatMap((f) => corpusTables(f));
     expect(eight.length).toBe(8);
     const withActions = eight.filter((k) => tables[k]!.actions.length > 0);
     expect(withActions).toEqual(["wsDataModelFilesTable", "wsJetRulesFilesTable"]);
-    expect(Object.values(TABS_DEFERRED_TO_C3B).flat().sort()).toEqual(withActions.slice().sort());
+    // Derived from the documents, which is what the component branches on.
+    const bound = eight.filter((k) => hasActionBar(COMPILED_VIEW_TABLES[k]!));
+    expect(bound).toEqual(withActions);
+    expect(Object.values(TABS_DEFERRED_TO_C3B).flat()).toEqual([]);
   });
 
   /**
@@ -127,13 +133,22 @@ describe("the compiled view documents", () => {
    * this task is entitled to inherit.
    *
    * It is entitled to *measure* it, and the measurement is stronger than the
-   * claim: for these six the payload is **identical** with and without a form
-   * field. Three things in `makeQuery` read `formField` and none of them fires —
-   * no where clause names a `formStateKey` (0 of 10 clauses), no key is one of
-   * the four `KEYS` the filter blocks compare against, and the `workspaceName`
-   * lookup falls back to `routeParams` when there is no form state to read.
+   * claim: for every one of these the payload is **identical** with and without a
+   * form field. Three things in `makeQuery` read `formField` and none of them
+   * fires — no where clause names a `formStateKey`, no key is one of the four
+   * `KEYS` the filter blocks compare against, and the `workspaceName` lookup falls
+   * back to `routeParams` when there is no form state to read.
+   *
+   * **C.3b's two are in this loop and they hold, which sharpens the claim rather
+   * than contradicting it.** Those two *do* get a form field — `TableView` needs
+   * one to publish a selection — and it still buys their query nothing. What the
+   * field buys them is the selection itself, which is not a query concern: the
+   * `where` they add is a `like` on a literal prefix, not a `formStateKey`. So the
+   * honest statement is that a form field is a *selection* mechanism here and
+   * never a *filtering* one, which is what makes `useDataTable` right for the
+   * other eight rather than merely adequate.
    */
-  it("query the same with a form field as without one, so a form buys these tables nothing", () => {
+  it("query the same with a form field as without one, so a form buys no table here a query", () => {
     for (const [tableKey, document] of Object.entries(COMPILED_VIEW_TABLES)) {
       const config = fromDocument(tableKey, document);
       const base = {
