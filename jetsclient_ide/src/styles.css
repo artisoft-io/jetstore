@@ -474,8 +474,11 @@ body {
 .uf-form__title { font-size: 15px; margin: 0 0 4px; }
 .uf-form__label { margin: 6px 0 2px; font-size: 13px; color: var(--ink-2); }
 .uf-form__spacer { height: 10px; flex-basis: 100%; }
-/* A table takes the row to itself; it is never a field beside another field. */
-.uf-form__table { flex-basis: 100%; }
+/* A table takes the row to itself *unless the field names a `flex`* — which
+   `viewReteTriplesDialogV2` does for all three of its tables (C.9). This comment
+   read "it is never a field beside another field" until then, which was true of
+   the eleven flows and of the four screens ported before that one. */
+.uf-form__table { flex-basis: 100%; min-width: 0; }
 .uf-form__actions { display: flex; gap: 8px; margin-top: 14px; }
 
 /* ---------- ordinary screens (track C) ---------- */

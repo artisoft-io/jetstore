@@ -200,9 +200,10 @@ function translateColumn(tableKey: string, column: ColumnConfig): Column {
 
 function translateFrom(from: TableConfig["fromClauses"][number]): FromClause {
   return {
-    schema: from.schemaName,
-    // An empty `tableName` is the Dart's "resolve at query time"; the document
-    // says it by omission rather than by a sentinel.
+    // Both sentinels omitted rather than emitted as empty strings — see
+    // `FromClauseSchema`. An empty `tableName` is "resolve at query time"; an
+    // empty `schemaName` is "unqualified", which is what a `WITH` reference is.
+    ...(from.schemaName ? { schema: from.schemaName } : {}),
     ...(from.tableName ? { table: from.tableName } : {}),
     ...(from.asTableName ? { as: from.asTableName } : {}),
   };
@@ -217,6 +218,8 @@ function translateWhere(where: WhereClause): WhereClauseDocument {
     ...(where.formStateKey ? { formStateKey: where.formStateKey } : {}),
     ...(where.defaultValue.length > 0 ? { defaultValue: where.defaultValue } : {}),
     ...(where.joinWith ? { joinWith: where.joinWith } : {}),
+    // `true` or absent, never `false` — see `WhereClauseSchema`. Task C.9.
+    ...(where.lookupColumnInFormState ? { lookupColumnInFormState: true as const } : {}),
     ...(where.orWith ? { orWith: translateWhere(where.orWith) } : {}),
   };
 }
@@ -312,9 +315,25 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   };
 
   if (config.sqlQuery) refuse("sqlQuery");
-  if (config.modelStateFormKey) refuse("modelStateFormKey");
+  // **`modelStateHandler` is still refused and `modelStateFormKey` is not, and
+  // the asymmetry is the boundary of I-102 decision 1. Task C.9.**
+  //
+  // A `modelStateFormKey` table is translatable because the corpus carries the
+  // key. A handler table is not, because the corpus carries
+  // `hasModelStateHandler: true` and the handler is a Dart closure that no
+  // corpus contains — the same shape as I-154, where a container nobody's
+  // traversal walked left a count that no regeneration could repair.
+  //
+  // So the two tables of `viewReteTriplesDialogV2` that name a handler are the
+  // **first hand-authored table documents in this project**, and they are
+  // hand-authored under a test rather than on trust: `table.test.ts` asserts
+  // `fromDocument` of each equals the corpus configuration in every field the
+  // corpus can express. That makes them a measurement of the Dart everywhere
+  // except the one field the Dart holds as code.
   if (config.hasModelStateHandler) refuse("modelStateHandler");
-  if (config.withClauses.length > 0) refuse("withClauses");
+  if (config.withClauses.length > 0 && config.withClauses.some((w) => w.withName === "")) {
+    refuse("a withClause with no name");
+  }
   if (config.distinctOnClauses.length > 0) refuse("distinctOnClauses");
   // `secondRowActions` is in the schema as of F.5; `fromConfigRowActions` is not
   // and should not be — it is built from `BUTTON_CFG_JSON`, a compile-time
@@ -331,7 +350,9 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   // `error_message` is the first one a screen needs. The refusal did its job —
   // it named the field rather than emitting a document quietly missing it.
   const walkWhere = (where: WhereClause): void => {
-    if (where.lookupColumnInFormState) refuse(`where ${where.column}: lookupColumnInFormState`);
+    // `lookupColumnInFormState` was refused here until C.9 and is in the schema
+    // now: one clause in either corpus sets it, and it is the only way
+    // `inputRecordsFromProcessErrorTable` can name its key column at all.
     if (where.predicate) refuse(`where ${where.column}: predicate`);
     if (where.like) refuse(`where ${where.column}: like`);
     if (where.ge || where.le) refuse(`where ${where.column}: ge/le`);
@@ -390,6 +411,29 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     };
   }
 
+  if (config.modelStateFormKey) {
+    if (config.fromClauses.length > 0) refuse("a form-state table with fromClauses");
+    if (config.withClauses.length > 0) refuse("a form-state table with withClauses");
+    if (config.secondRowActions.length > 0) refuse("a form-state table with secondRowActions");
+    if (config.refreshOnKeyUpdateEvent.length > 0) refuse("a form-state table with refreshOnKeyUpdateEvent");
+    if (config.requestColumnDef) refuse("a form-state table with requestColumnDef");
+    if (config.apiAction !== DEFAULT_API_ACTION) refuse(`a form-state table with apiAction ${config.apiAction}`);
+    if (config.columns.length === 0) refuse("a form-state table with no columns");
+    if (!config.sortColumnName) refuse("a form-state table with no sortColumn");
+    return {
+      ...common,
+      source: "formState",
+      // Restated for the same reason the static arm restates it: the arm requires
+      // it and `common` already put it in position, so no committed byte moves.
+      sortColumn: config.sortColumnName,
+      model: { from: "key", key: config.modelStateFormKey },
+      ...(config.whereClauses.length > 0 ? { where: config.whereClauses.map(translateWhere) } : {}),
+      ...(config.actions.length > 0
+        ? { actions: config.actions.map((a) => translateAction(config.key, a, config.columns, refuse)) }
+        : {}),
+    };
+  }
+
   if (config.fromClauses.length === 0) refuse("a query table with no fromClauses");
   // The allowlist, enforced at the translation as well as in the schema. A value
   // outside it is the confused-deputy door `table.ts` describes, and a
@@ -405,6 +449,15 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // are; see the header. The 37 flow documents are byte-identical as a result.
     ...(config.apiAction === DEFAULT_API_ACTION ? {} : { apiAction: config.apiAction as ApiAction }),
     ...(config.requestColumnDef ? { requestColumnDef: true as const } : {}),
+    ...(config.withClauses.length > 0
+      ? {
+          with: config.withClauses.map((w) => ({
+            name: w.withName,
+            sql: w.asStatement,
+            ...(w.stateVariables.length > 0 ? { params: w.stateVariables } : {}),
+          })),
+        }
+      : {}),
     from: config.fromClauses.map(translateFrom),
     ...(config.whereClauses.length > 0 ? { where: config.whereClauses.map(translateWhere) } : {}),
     ...(config.actions.length > 0
@@ -496,8 +549,11 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     hasActionDelegate: false,
   });
 
+  // Every arm that has actions, not "the query arm". Task C.9 — a `formState`
+  // table declares them too, and `doc.source === "query"` would have restored
+  // `reteSessionEntityDetailsTable`'s *Visit Object Entity* button as absent.
   const actions: ActionConfig[] =
-    doc.source === "query" ? (doc.actions ?? []).map(restoreAction) : [];
+    doc.source === "static" ? [] : (doc.actions ?? []).map(restoreAction);
   const secondRowActions: ActionConfig[] =
     doc.source === "query" ? (doc.secondRowActions ?? []).map(restoreAction) : [];
 
@@ -507,7 +563,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     formStateKey: where.formStateKey,
     defaultValue: where.defaultValue ?? [],
     joinWith: where.joinWith,
-    lookupColumnInFormState: false,
+    lookupColumnInFormState: where.lookupColumnInFormState === true,
     orWith: where.orWith ? restoreWhere(where.orWith) : undefined,
   });
 
@@ -518,9 +574,22 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     // tables and empty on all nine static ones, which is the sentinel `source`
     // replaced. `apiAction` is authored as of C.2, and a document that names none
     // means `read`; see the note in `table.ts`.
-    apiPath: doc.source === "query" ? "/dataTable" : "",
+    // **`/dataTable` on every arm but `static`.** The three form-state tables
+    // carry `apiPath: '/dataTable'` in the corpus although none of them ever
+    // sends anything (`modules/data_table_config_impl.dart`,
+    // `reteSessionRdfTypeTable`) — the Dart's sentinel for "static" is the *empty*
+    // path and nothing else, so restoring `""` here would have made the round trip
+    // disagree with the corpus on a field the corpus does set. Task C.9.
+    apiPath: doc.source === "static" ? "" : "/dataTable",
     apiAction: (doc.source === "query" ? doc.apiAction : undefined) ?? DEFAULT_API_ACTION,
     staticTableModel: doc.source === "static" ? doc.rows : undefined,
+    // The document's `model` back as the two Dart fields it stands for. A `key`
+    // model is `modelStateFormKey`; a `map` model is what the two Dart handlers
+    // do, and `hasModelStateHandler` records that the corpus had a closure there.
+    // Task C.9 — see `ModelSourceSchema`.
+    modelStateFormKey:
+      doc.source === "formState" && doc.model.from === "key" ? doc.model.key : undefined,
+    modelSource: doc.source === "formState" ? doc.model : undefined,
     isCheckboxVisible: doc.isCheckboxVisible ?? false,
     isCheckboxSingleSelect: doc.isCheckboxSingleSelect ?? false,
     isReadOnly: doc.isReadOnly ?? false,
@@ -531,16 +600,23 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     columns,
     defaultToAllRows: false,
     requestColumnDef: doc.source === "query" && doc.requestColumnDef === true,
-    withClauses: [],
+    withClauses:
+      doc.source === "query"
+        ? (doc.with ?? []).map((w) => ({
+            withName: w.name,
+            asStatement: w.sql,
+            stateVariables: w.params ?? [],
+          }))
+        : [],
     fromClauses:
       doc.source === "query"
         ? doc.from.map((from) => ({
-            schemaName: from.schema,
+            schemaName: from.schema ?? "",
             tableName: from.table ?? "",
             asTableName: from.as ?? "",
           }))
         : [],
-    whereClauses: doc.source === "query" ? (doc.where ?? []).map(restoreWhere) : [],
+    whereClauses: doc.source === "static" ? [] : (doc.where ?? []).map(restoreWhere),
     distinctOnClauses: [],
     refreshOnKeyUpdateEvent: doc.source === "query" ? (doc.refreshOnKeyUpdateEvent ?? []) : [],
     formStateConfig: doc.formStateBinding
@@ -555,6 +631,6 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     rowsPerPage: doc.rowsPerPage,
     noFooter: doc.noFooter ?? false,
     noCopy2Clipboard: doc.noCopy2Clipboard,
-    hasModelStateHandler: false,
+    hasModelStateHandler: doc.source === "formState" && doc.model.from === "map",
   };
 }

@@ -87,6 +87,7 @@ import {
   sourceConfigFormValidator,
 } from "./sourceConfig";
 import { openWorkspace } from "./workspaceRegistry";
+import { loadReteSession, seedInputRecordsRow } from "./processErrors";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -297,9 +298,19 @@ export const productionRegistry: EscapeRegistry = {
     // first two: the grammar could express what the Dart does, and its
     // destination screen does not exist yet. See `workspaceRegistry.ts`.
     openWorkspace,
+    // **Nine as of C.9, and the count moved by one where the Dart had two arms.**
+    // `/processErrors` has three live delegate arms; `reteSession.VisitEntity` is
+    // a guarded `set` in its action document and the deleted v1 arm is nothing at
+    // all, so only the rete-session load needs a body — it decodes a JSON document
+    // two levels deep, which no step reaches into. See `processErrors.ts`.
+    loadReteSession,
   },
   initializers: { seedFromHomeFilters },
-  rowInitializers: { seedMappingRow },
+  // **Two as of C.9, and the second is the first outside a flow.** F.1 built the
+  // repeating form for `fmMappingFormUF`; `viewInputRecordsDialog` is the same
+  // construct on a screen's dialog, needing nothing that was not already here —
+  // which is the only evidence available that F.1's mechanism generalised.
+  rowInitializers: { seedMappingRow, seedInputRecordsRow },
   validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
   // **Two as of C.6, and the second is why the mapping is a lookup.** I-103 moved
   // the *`isEnabled`* mapping out of a constant and stated the lesson; the cell

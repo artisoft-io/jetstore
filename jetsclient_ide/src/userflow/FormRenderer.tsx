@@ -315,6 +315,7 @@ function FieldView({
           fieldKey={field.key}
           tableKey={field.table}
           host={host}
+          {...(field.flex !== undefined ? { flex: field.flex } : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );
@@ -376,15 +377,22 @@ function FormDataTable({
   fieldKey,
   tableKey,
   host,
+  flex,
   error,
 }: {
   fieldKey: string;
   tableKey: string;
   host: FormHost;
+  flex?: number;
   error?: string;
 }): ReactNode {
   return (
-    <div className="uf-form__table">
+    // `flex-basis: 0` beside the grow factor, so the ratio is the *whole* of the
+    // division rather than a division of what is left after each table's content
+    // has claimed its natural width — three tables of different column counts
+    // would otherwise land at whatever their widest cell asked for. Without a
+    // `flex` the class's `flex-basis: 100%` stands and the table takes the row.
+    <div className="uf-form__table" {...(flex !== undefined ? { style: { flex: `${flex} 1 0` } } : {})}>
       <TableView
         config={host.tableConfig(tableKey)}
         field={{ group: host.group, key: fieldKey }}

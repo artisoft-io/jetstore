@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "viewInputRecordsDialog": {
+      "title": "Input Records for a Domain Key",
+      "queries": {
+        "inputFields": {
+          "sql": "WITH per AS (\n  SELECT 1 AS order, 'Main Input' AS label, main_input_registry_key AS key\n  FROM jetsapi.pipeline_execution_status pes\n  WHERE pes.key = {pipeline_execution_status_key}\n  UNION\n  SELECT 2 AS order, 'Merged Input' AS label, unnest(merged_input_registry_keys) AS key\n  FROM jetsapi.pipeline_execution_status pes\n  WHERE pes.key = {pipeline_execution_status_key}\n),\npcr AS (\n  SELECT 3 AS order, 'Injected Input' AS label, unnest(pc.injected_process_input_keys) AS key\n  FROM jetsapi.pipeline_execution_status pe, jetsapi.pipeline_config pc\n  WHERE pe.key = {pipeline_execution_status_key}\n    AND pe.pipeline_config_key = pc.key\n)\nSELECT t.order, t.label, t.table_name, t.lookback_periods, t.session_id,\n  {pipeline_execution_status_key} AS pipeline_execution_status_key,\n  '{object_type}' AS object_type,\n  '{domain_key}' AS domain_key\nFROM (\n    SELECT per.order, per.label, pi.table_name, pi.lookback_periods, ir.session_id\n    FROM jetsapi.process_input pi, jetsapi.input_registry ir, per\n    WHERE ir.key = per.key\n      AND ir.client = pi.client\n      AND ir.org = pi.org\n      AND ir.object_type = pi.object_type\n      AND ir.table_name = pi.table_name\n    UNION\n    SELECT pcr.order, pcr.label, pi.table_name, pi.lookback_periods, NULL AS session_id\n    FROM jetsapi.process_input pi, pcr\n    WHERE pi.key = pcr.key\n  ) AS t\nORDER BY t.order ASC",
+          "params": [
+            "pipeline_execution_status_key",
+            "object_type",
+            "domain_key"
+          ]
+        }
+      },
+      "repeat": {
+        "from": "inputFields",
+        "seed": "seedInputRecordsRow"
+      },
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "inputRecordsFromProcessErrorTable",
+            "table": "inputRecordsFromProcessErrorTable"
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "dialogCancel",
+          "label": "Close"
+        }
+      ]
+    },
+    "viewReteTriplesDialogV2": {
+      "title": "Rete Session Explorer",
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "reteSessionRdfTypeTable",
+            "table": "reteSessionRdfTypeTable",
+            "flex": 1
+          },
+          {
+            "field": "dataTable",
+            "key": "reteSessionEntityKeyTable",
+            "table": "reteSessionEntityKeyTable",
+            "flex": 1
+          },
+          {
+            "field": "dataTable",
+            "key": "reteSessionEntityDetailsTable",
+            "table": "reteSessionEntityDetailsTable",
+            "flex": 2
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "dialogCancel",
+          "label": "Close"
+        }
+      ]
+    }
+  }
+}

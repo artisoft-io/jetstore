@@ -360,6 +360,29 @@ export const FieldSchema = z
       key: Identifier,
       /** The table configuration key; A.4's widget resolves it. */
       table: Identifier,
+      /**
+       * How much of the row this table takes, against its siblings. Task C.9.
+       *
+       * **Absent means the whole row, which is what every form until now wanted
+       * and what the stylesheet asserted was the only possibility.** Its comment
+       * read *"a table takes the row to itself; it is never a field beside
+       * another field"* — true of the eleven flows and of the four screens ported
+       * before this one, and false of `viewReteTriplesDialogV2`, which puts the
+       * class list, the entity list and the property table side by side at 1:1:2
+       * (`jetsclient/lib/modules/form_config_impl.dart`,
+       * `FormKeys.viewReteTriplesV2`). The three are a master-detail-detail
+       * browser and reading them stacked would be reading them wrong.
+       *
+       * `FormFieldRowConfig.flex` — the *row* flex F90 reports as not built — is a
+       * different construct and is still not built. This is
+       * `FormDataTableFieldConfig.flex`, which is per field.
+       *
+       * An additive optional member on an existing variant rather than a new
+       * variant, so nothing that switches over `FieldSchema` is affected — which
+       * is the distinction F.3 measured and this change relies on rather than
+       * assumes.
+       */
+      flex: z.number().int().positive().optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     /**

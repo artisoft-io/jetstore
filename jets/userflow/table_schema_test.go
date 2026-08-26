@@ -49,9 +49,23 @@ import (
 // F.5 could not author that flow without it; `workspaceRegistryTable` is the
 // `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
 // `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
-// server for a *statement* rather than for a structure. All three are translated
-// out of `screens/fixtures/screen_configs.json` by the same code path, and the
-// count here grows once per screen track C ports rather than once per phase.
+// server for a *statement* rather than for a structure; C.7 added
+// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
+// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`.
+// C.9 added five for `/processErrors/:session_id` — its own table, the repeated
+// one inside `viewInputRecordsDialog`, and the three of the rule session
+// explorer, which are the first `source: "formState"` documents to exist.
+//
+// **Two of those five are hand-authored rather than translated, and this test is
+// where a reader will first meet the fact.** `reteSessionEntityKeyTable` and
+// `reteSessionEntityDetailsTable` name a Dart closure that no corpus can carry —
+// see `jetsclient_ide/src/datatable/table.test.ts`, `HAND_AUTHORED_KEYS`, where
+// each is compared field by field against the corpus configuration anyway. The
+// count here does not distinguish them, deliberately: what this test asserts is
+// that every document in the directory passes the Go validator, and how a
+// document came to be written is not that question.
+//
+// The count grows once per screen track C ports rather than once per phase.
 const tablesDir = "../../jetsclient_ide/src/datatable/tables"
 
 func tableFiles(t *testing.T) []string {
@@ -78,8 +92,8 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 45 {
-		t.Fatalf("expected the flows' 37 table configurations plus the eight non-flow ones, found %d", len(files))
+	if len(files) != 50 {
+		t.Fatalf("expected the flows' 37 table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {

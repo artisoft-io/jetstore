@@ -57,9 +57,28 @@
  * `hasModelStateHandler` (2), `actionEnableCriterias` (8 actions), `like` (2
  * clauses), `calculatedAs` (2 columns), `dataRowMin/MaxHeight` (1), and three
  * more `apiAction` values. Track C adds them as a screen needs them, which is
- * the discipline S.5 set for the form document and I.2a followed. **The shape
+ * the discipline S.5 set for the form document and I.2a followed. ~~**The shape
  * here is chosen to admit them**: every one is an added optional property or an
- * added enum member, none needs a different union.
+ * added enum member, none needs a different union.~~
+ *
+ * **That last sentence is false and C.9 is where it broke.** `modelStateFormKey`
+ * and `hasModelStateHandler` are named above as two of the fields that would come
+ * back, and they need **a third arm on the union**: the three tables of
+ * `viewReteTriplesDialogV2` carry `fromClauses: []` and no rows, and are fed from
+ * form state rather than from a server or from the document
+ * (`modules/data_table_config_impl.dart`, `reteSessionRdfTypeTable`,
+ * `reteSessionEntityKeyTable`, `reteSessionEntityDetailsTable`). Forcing them into
+ * `source: "query"` would mean relaxing `from`'s `min(1)`, which makes an existing
+ * kind vaguer so a different kind fits inside it. `source: "formState"` is below.
+ *
+ * **This header has now been wrong twice in one day about the same kind of claim**
+ * — C.7 found its list of nine returning fields short by four and replaced the
+ * list with a derivation (**F66**, **I-173**); this is the sentence underneath that
+ * list, and it fails the same way. Both are **predictions about the shape of future
+ * work, written by the party who had not done it**, and neither was careless: the
+ * fields were read off a corpus and the shape was reasoned from the fields. What a
+ * field name cannot tell you is whether the thing it names is a *property* of a
+ * table or a *kind* of table, and `modelStateFormKey` reads like the first.
  *
  * **F.5 brought back three and C.2 brings back two more, and that prediction is
  * worth scoring rather than quietly consuming.** `secondRowActions`,
@@ -82,9 +101,12 @@
  * misses what it *omits*, which is I-20's limit arriving on the schema rather than
  * on a count.
  *
- * What is left outstanding for the remaining 25 tables: `withClauses` (1 table),
+ * ~~What is left outstanding for the remaining 25 tables: `withClauses` (1 table),
  * `modelStateFormKey` and `hasModelStateHandler` (2), `like` (2 clauses),
- * `dataRowMin/MaxHeight` (1).
+ * `dataRowMin/MaxHeight` (1).~~ **C.9 takes the first three**, leaving `like`
+ * (2 clauses), `dataRowMin/MaxHeight` (1) and `sortColumnTableName` (8 tables).
+ * The derivation in `table.test.ts` is the list to trust; this one is prose.
+ *
  * **That list is short by four, and C.7 found out by being refused.** Translating
  * `pipelineExecDetailsTable` threw on `maxLines` and `columnWidth`, neither of
  * which is named above. Re-measuring every dropped field against
@@ -303,15 +325,110 @@ export const ColumnSchema = z
  * an empty name means "resolve from form state or route params at query time",
  * which the query builder implements. It is spelled as an explicit absence here
  * so a document cannot say it by accident.
+ *
+ * **`schemaName` may be empty too, and it is the same kind of absence with a
+ * different meaning — found at C.9 by being refused.** One clause in either
+ * corpus has one: `inputRecordsFromProcessErrorTable`'s second from clause is
+ * `FromClause(schemaName: '', tableName: 'sessions')`, and `sessions` is the
+ * table's *own* `WITH` — a common table expression is not in a schema and naming
+ * one would not resolve. The server has an explicit branch for it:
+ * `makeFromClauses` writes `pgx.Identifier{Table}.Sanitize()` rather than
+ * `{Schema, Table}` when the schema is empty
+ * (`jets/datatable/data_table_action.go`, `makeFromClauses`).
+ *
+ * **So this arrived with `with` and not by coincidence.** A table that declares a
+ * CTE is a table that has something unqualified to select from, which is why one
+ * field's return brought the other's — and why "the corpus sets this field" would
+ * never have predicted it: the corpus records the schema as the empty string,
+ * which reads as unset.
  */
 export const FromClauseSchema = z
   .strictObject({
-    schema: Identifier,
+    /** Absent means "unqualified" — the Dart's empty `schemaName`. */
+    schema: Identifier.optional(),
     /** Absent means "resolve at query time" — the Dart's empty `tableName`. */
     table: Identifier.optional(),
     as: Identifier.optional(),
   })
   .meta({ id: "FromClause" });
+
+/**
+ * A `WITH` entry. Task C.9.
+ *
+ * **One table in either corpus declares one**, and it is the reason
+ * `inputRecordsFromProcessErrorTable` can show a domain key's input records at
+ * all: the statement builds the set of session ids in the lookback window, and
+ * the table's first where clause joins against it
+ * (`modules/data_table_config_impl.dart`, the
+ * `inputRecordsFromProcessErrorTable` entry).
+ *
+ * ## This is authored SQL in a document, and the question was asked before
+ *
+ * The same question `FormQuerySchema.sql` answered (I-71) and the same answer:
+ * saving a workspace file requires `workspace_ide`
+ * (`jets/datatable/workspace_data_table_action.go`, `SaveWorkspaceFileContent`)
+ * and `workspace_ide` **is** `CapabilityQueryTool`
+ * (`jets/datatable/data_table_action.go`, `CapabilityQueryTool`), so an author who
+ * can write this file can already run the statement through `raw_query_tool`. The
+ * document grants nobody authority they did not have.
+ *
+ * **It is a narrower grant than `sql` on a form query, and worth saying so.** A
+ * `WITH` runs inside a `read`, which `DoReadAction` gates on `CapabilityReadData`
+ * and which returns rows through the same paging the table already uses; a form
+ * query names its own statement outright. This is the wider of the two fields on
+ * this document — wider than `calculatedAs`, which is an expression — and the next
+ * person to widen this schema should know both are here.
+ *
+ * `params` is the Dart's `stateVariables`: keys substituted as `{key}` into
+ * `sql`, from the data table field's group, exactly as `makeQuery` already does
+ * (`datatable/query.ts`).
+ */
+export const WithClauseSchema = z
+  .strictObject({
+    name: Identifier,
+    sql: z.string().min(1),
+    params: z.array(Identifier).min(1).optional(),
+  })
+  .meta({ id: "WithClause" });
+
+/**
+ * Where a form-state-backed table's rows come from. Task C.9.
+ *
+ * **Two shapes, and the second is two of the Dart's closures rather than a
+ * language invented for them.** `modelStateFormKey` is the first: the rows *are*
+ * the value under a form-state key. `modelStateHandler` is a Dart function
+ * pointer, and both of the two that exist do the same thing —
+ * `reteSessionEntityKeyStateHandler` and `reteSessionEntityDetailsStateHandler`
+ * (`jetsclient/lib/modules/rete_session/model_handlers.dart`) each read a **map**
+ * held under one key and index it by the current value of another.
+ *
+ * So the second shape is that lookup, stated as data. **The alternative was a
+ * sixth escape namespace holding two functions**, and what decides against it is
+ * I-54's own rule read the right way round: a closure has to become a name
+ * *because a closure cannot be data*. These two already are — a key and an index
+ * key — the way `AGE(last_update, start_time)` already was (**I-171**).
+ *
+ * **The reversal condition, because two sites is a thin base for a construct.** A
+ * third handler that is not this lookup should be a named escape rather than a
+ * third member here; that is the point at which the closures stop being data and
+ * the namespace earns itself.
+ */
+export const ModelSourceSchema = z
+  .discriminatedUnion("from", [
+    z.strictObject({
+      from: z.literal("key"),
+      /** The form-state key holding the rows, read from group 0 as the Dart does. */
+      key: Identifier,
+    }),
+    z.strictObject({
+      from: z.literal("map"),
+      /** The form-state key holding the map. */
+      key: Identifier,
+      /** The form-state key whose current value indexes it. */
+      indexBy: Identifier,
+    }),
+  ])
+  .meta({ id: "ModelSource", description: "Where a form-state table's rows come from" });
 
 /**
  * A `WHERE` entry.
@@ -320,10 +437,10 @@ export const FromClauseSchema = z
  * explicit type annotation for a recursive object, and `z.toJSONSchema` emits it
  * as a `$ref` to the same definition.
  *
- * **`lookupColumnInFormState` is not here**: `false` on all 49. **`predicate`,
- * `ge` and `le` are not here**: never set by a flow. `like` is not here either,
- * and is the one of the four that track C brings back — two of its clauses use
- * it.
+ * ~~**`lookupColumnInFormState` is not here**: `false` on all 49.~~ It is here as
+ * of C.9 — one clause in either corpus sets it. **`predicate`, `ge` and `le` are
+ * not here**: never set by a flow. `like` is not here either, and is the last of
+ * the four that track C brings back — two of its clauses use it.
  */
 export interface WhereClauseDocument {
   column?: string;
@@ -331,6 +448,7 @@ export interface WhereClauseDocument {
   formStateKey?: string;
   defaultValue?: string[];
   joinWith?: string;
+  lookupColumnInFormState?: true;
   orWith?: WhereClauseDocument;
 }
 
@@ -363,6 +481,29 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
     defaultValue: z.array(z.string()).min(1).optional(),
     /** `source_period.key` and seven others — a qualified column, not a key. */
     joinWith: z.string().min(1).optional(),
+    /**
+     * `column` is not a column name: it is a form-state key holding one. Task C.9.
+     *
+     * **One clause in either corpus, and it is the only way its table can be
+     * written at all.** `inputRecordsFromProcessErrorTable` reads a *domain* table
+     * whose key column is named after the object type — `'${objectType}:domain_key'`
+     * — so the column differs per row of the dialog that opens it
+     * (`modules/form_config_impl.dart`, `viewInputRecords`'s `inputFieldRowBuilder`,
+     * which writes `FSK.domainKeyColumn`). A configuration cannot name it and a
+     * document cannot either.
+     *
+     * **The indirection is the client's and the server never sees it**: nothing
+     * under `jets/` reads the field. `_makeWhereClause`
+     * (`jetsclient/lib/components/data_table_source.dart`, `_makeWhereClause`)
+     * substitutes before the request leaves, and it reads the key **in the data
+     * table field's own group** rather than in group 0 — which is the whole
+     * mechanism, because the dialog draws one table per input source and each row's
+     * column name is its own.
+     *
+     * A `true` literal rather than a boolean: `false` would be a second spelling of
+     * absence, and the corpus's 48 other clauses say it by omission.
+     */
+    lookupColumnInFormState: z.literal(true).optional(),
     // A getter rather than `z.lazy`: both express the recursion, and `z.lazy`
     // emits an extra anonymous `$defs` entry that indirects to the real one.
     // This artifact is read by people as well as by v6.
@@ -662,6 +803,8 @@ export const TableConfigDocumentSchema = z
        * `raw_query_tool` — two actions, of which a table may name one.
        */
       requestColumnDef: z.literal(true).optional(),
+      /** Common table expressions, prepended to the read. Task C.9 — one table. */
+      with: z.array(WithClauseSchema).min(1).optional(),
       from: z.array(FromClauseSchema).min(1),
       where: z.array(WhereClauseSchema).optional(),
       actions: z.array(TableActionSchema).optional(),
@@ -706,6 +849,41 @@ export const TableConfigDocumentSchema = z
        */
       rows: z.array(z.array(z.string().nullable())).min(1),
     }),
+    /**
+     * A table whose rows are in form state. Task C.9, and the third kind.
+     *
+     * Three tables, all of `viewReteTriplesDialogV2`. The Rete Session Explorer
+     * fetches one JSON blob out of `process_errors.rete_session_triples` and then
+     * navigates it entirely in the browser — class names, the entity keys of the
+     * selected class, the properties of the selected key — so none of the three
+     * ever issues a request (`modules/actions/process_errors_delegates.dart`, the
+     * `setupShowReteTriplesV2` case).
+     *
+     * **`where` is here and it is a gate rather than a predicate**, which is F82's
+     * observation arriving on a whole arm rather than on one clause. Two of the
+     * three carry a clause naming a form-state key and no server ever sees it: its
+     * only effect is `hasBlockingFilter` (`datatable/binding.ts`,
+     * `hasBlockingFilter`), which is what makes *pick a class first* different from
+     * *this class has no entities*. The Dart runs the same check before it decides
+     * where the rows come from (`components/data_table_source.dart`, the
+     * `hasBlockingFilter` block, which precedes the `staticTableModel` /
+     * `modelStateFormKey` / `modelStateHandler` / `fetchData` chain).
+     *
+     * **No `from`, no `apiAction`, no `secondRowActions`, no
+     * `refreshOnKeyUpdateEvent`** — a table that never queries has nothing to
+     * address, nothing to ask for and nothing to re-ask. `actions` *is* here: the
+     * third table's *Visit Object Entity* button is a `doAction`, and a button that
+     * writes form state is as available to this kind as to any other.
+     */
+    z.strictObject({
+      ...commonFields,
+      source: z.literal("formState"),
+      columns: z.array(ColumnSchema).min(1),
+      sortColumn: Identifier,
+      model: ModelSourceSchema,
+      where: z.array(WhereClauseSchema).optional(),
+      actions: z.array(TableActionSchema).optional(),
+    }),
   ])
   .meta({
     id: "TableConfigDocument",
@@ -719,6 +897,8 @@ export type ApiAction = z.infer<typeof ApiActionSchema>;
 export type EnableCriterion = z.infer<typeof EnableCriterionSchema>;
 export type TableAction = z.infer<typeof TableActionSchema>;
 export type FormStateBinding = z.infer<typeof FormStateBindingSchema>;
+export type WithClause = z.infer<typeof WithClauseSchema>;
+export type ModelSource = z.infer<typeof ModelSourceSchema>;
 export type TableConfigDocument = z.infer<typeof TableConfigDocumentSchema>;
 
 export function emitJsonSchema(): unknown {
@@ -738,14 +918,34 @@ export const tablePath = (key: string): string => `${TABLE_DIR}/${key}.tc.json`;
  * resolves is a question only the client can answer. The server validates the
  * document's shape and cannot do this one.
  */
+/**
+ * Every action a table declares, on whichever rows its kind has. Task C.9.
+ *
+ * **Written because a third arm is a breaking change for anything that reads
+ * one.** The three walks below each opened with `if (table.source === "query")`,
+ * which is exactly right for two arms and silently wrong for three: a
+ * `formState` table declares `actions` — `reteSessionEntityDetailsTable`'s
+ * *Visit Object Entity* is a `doAction` — and every one of them would have
+ * reported it as declaring none. Nothing would have failed; the button would have
+ * rendered and its action would have been absent from the reference list that
+ * proves the registry can resolve it.
+ *
+ * A helper that asks *what does this table have* rather than *is this table a
+ * query* makes the fourth arm a non-event, which is the fix the seam rule asks
+ * for rather than the fix that makes today's tests pass.
+ */
+function actionsOf(table: TableConfigDocument): TableAction[] {
+  if (table.source === "static") return [];
+  if (table.source === "formState") return table.actions ?? [];
+  return [...(table.actions ?? []), ...(table.secondRowActions ?? [])];
+}
+
 export function escapeNamesOf(table: TableConfigDocument): string[] {
   const names = new Set<string>();
   for (const column of table.columns) if (column.cellFilter) names.add(column.cellFilter);
-  if (table.source === "query")
-    // Both rows, since F.5 — an `isEnabled` on a second-row button resolves out of
-    // the same registry and an unresolved one must fail the load the same way.
-    for (const action of [...(table.actions ?? []), ...(table.secondRowActions ?? [])])
-      if (action.isEnabled) names.add(action.isEnabled);
+  // Both rows, since F.5 — an `isEnabled` on a second-row button resolves out of
+  // the same registry and an unresolved one must fail the load the same way.
+  for (const action of actionsOf(table)) if (action.isEnabled) names.add(action.isEnabled);
   return [...names].sort();
 }
 
@@ -770,10 +970,28 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
       references.push({ kind: "cellFilters", name: column.cellFilter, at: `/columns/${index}/cellFilter` });
     }
   });
-  if (table.source === "query") {
+  // **Both rows and every arm, as of C.9 — this walked `actions` only.** The two
+  // functions above and below have covered `secondRowActions` since F.5 and this
+  // one did not, so an `isEnabled` on a second-row button was counted by
+  // `escapeNamesOf` and never *resolved*. No configuration exercises it today —
+  // `workspaceRegistryTable` puts eight of thirteen buttons on the second row and
+  // gates all eight on criteria rather than on a predicate — which is why it went
+  // unnoticed rather than why it was harmless.
+  if (table.source !== "static") {
     (table.actions ?? []).forEach((action, index) => {
       if (action.isEnabled) {
         references.push({ kind: "predicates", name: action.isEnabled, at: `/actions/${index}/isEnabled` });
+      }
+    });
+  }
+  if (table.source === "query") {
+    (table.secondRowActions ?? []).forEach((action, index) => {
+      if (action.isEnabled) {
+        references.push({
+          kind: "predicates",
+          name: action.isEnabled,
+          at: `/secondRowActions/${index}/isEnabled`,
+        });
       }
     });
   }
@@ -790,12 +1008,11 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
  * flows, so there is no single document to check it against.
  */
 export function actionNamesOf(table: TableConfigDocument): string[] {
-  if (table.source !== "query") return [];
   const names = new Set<string>();
   // Both rows since F.5: `resubmitPipeline` is `pipelineExecStatusTable`'s only
   // `doAction` and it is a second-row button, so a first-row-only walk would have
-  // reported this table as naming no action at all.
-  for (const action of [...(table.actions ?? []), ...(table.secondRowActions ?? [])])
-    if (action.actionName) names.add(action.actionName);
+  // reported this table as naming no action at all. Every arm since C.9: see
+  // `actionsOf`.
+  for (const action of actionsOf(table)) if (action.actionName) names.add(action.actionName);
   return [...names].sort();
 }

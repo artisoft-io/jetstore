@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "label": "Entity Key",
+  "columns": [
+    {
+      "name": "entity_key",
+      "label": "Entity Key",
+      "tooltip": "Entity Key Filter"
+    }
+  ],
+  "sortColumn": "entity_key",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "entity_key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "formState",
+  "model": {
+    "from": "map",
+    "key": "rete_session.entity_key_by_type",
+    "indexBy": "entity_rdf_type"
+  },
+  "where": [
+    {
+      "column": "entity_rdf_type",
+      "formStateKey": "entity_rdf_type"
+    }
+  ]
+}
