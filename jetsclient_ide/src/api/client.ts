@@ -36,6 +36,18 @@ export class SessionExpiredError extends ApiError {
   }
 }
 
+/**
+ * The signed-in user's git identity, as the sign-in response carries it.
+ *
+ * Task C.14. **Three fields of the four the server sends**, and the omission is
+ * the point — see `LoginResponse.gitProfile` below.
+ */
+export interface GitProfile {
+  gitName: string;
+  gitEmail: string;
+  gitHandle: string;
+}
+
 export interface User {
   name: string;
   email: string;
@@ -43,6 +55,16 @@ export interface User {
   capabilities: string[];
   jetstoreVersion: string;
   devMode: boolean;
+  /**
+   * The git identity, for the git profile screen. Task C.14.
+   *
+   * It lives on the user rather than on the screen because that is where the
+   * Flutter app keeps it and what makes the screen's route parameterless: the
+   * app bar seeds its navigation from `JetsRouterDelegate().user`
+   * (`jetsclient/lib/components/app_bar.dart`, the `userGitProfilePath` button),
+   * and this app reads the same three fields off the same response.
+   */
+  gitProfile: GitProfile;
 }
 
 /** Shape of the /login response (jets/apiserver/api_users.go). */
@@ -54,6 +76,31 @@ interface LoginResponse {
   token?: string;
   dev_mode?: string;
   jetstore_version?: string;
+  /**
+   * The git profile, from `jetsUser.UserGitProfile` (`jets/apiserver/api_users.go`,
+   * the `"gitProfile"` entry of the login `data` map).
+   *
+   * **`git_token` is in this payload and is deliberately not in `User`.**
+   * `GetGitProfile` decrypts the stored token before returning it
+   * (`jets/user/git_profile.go`, `GetGitProfile`) and `GitProfile.GitToken`
+   * carries `json:"git_token"` with no `omitempty`, so a decrypted token is in
+   * the body of every sign-in — returned over the authenticated channel to the
+   * account that owns it, which is the scope worth being precise about. The
+   * Flutter client reads the same three fields and drops the fourth
+   * (`jetsclient/lib/modules/actions/user_delegates.dart`, the `gitProfile`
+   * block).
+   *
+   * **Do not add it for symmetry.** Nothing keeping it means the exposure ends
+   * at the response; a client that kept it would put a live credential in
+   * browser memory for the length of the session and into whatever the client
+   * persists. The profile screen asks the user to type the token when they want
+   * to change it, which is what the Flutter form does. Recorded as **I-188**.
+   */
+  gitProfile?: {
+    git_name?: string;
+    git_email?: string;
+    git_handle?: string;
+  };
 }
 
 type Listener = (user: User | null) => void;
@@ -115,9 +162,31 @@ export class ApiClient {
       capabilities: body.capabilities ?? [],
       jetstoreVersion: body.jetstore_version ?? "",
       devMode: body.dev_mode === "true",
+      gitProfile: {
+        gitName: body.gitProfile?.git_name ?? "",
+        gitEmail: body.gitProfile?.git_email ?? "",
+        gitHandle: body.gitProfile?.git_handle ?? "",
+      },
     };
     this.emit();
     return this.user;
+  }
+
+  /**
+   * Records a git profile the user has just saved. Task C.14.
+   *
+   * The server writes `jetsapi.users` and answers with no profile, so the copy
+   * held here would otherwise stay at what sign-in returned until the next one —
+   * which is the Flutter app's bug reproduced rather than its behaviour: that app
+   * writes the three fields back on to `JetsRouterDelegate().user` after a 200
+   * (`jetsclient/lib/modules/actions/user_delegates.dart`,
+   * `gitProfileFormActions`). This is that write, and it notifies for the same
+   * reason the shell subscribes at all.
+   */
+  setGitProfile(profile: GitProfile): void {
+    if (this.user === null) return;
+    this.user = { ...this.user, gitProfile: { ...profile } };
+    this.emit();
   }
 
   logout(): void {

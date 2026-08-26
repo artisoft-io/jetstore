@@ -140,7 +140,18 @@ body {
 /* Visible and inert, matching how the Flutter app treats a capability the user
    lacks. See shell/capabilities.tsx. */
 .navlink.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.user { font-size: 12px; color: var(--ink-2); }
+/* A link since C.14: the git profile screen is reached from the user's name,
+   which is where the Flutter app bar puts it. Styled as text rather than as a
+   nav item, because it is not one. */
+.user {
+  font-size: 12px;
+  color: var(--ink-2);
+  text-decoration: none;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.user:hover { background: var(--rule); color: var(--ink); }
+.user.is-active { background: var(--rule); color: var(--ink); }
 
 .screenbar {
   display: flex;
@@ -466,3 +477,16 @@ body {
 /* A table takes the row to itself; it is never a field beside another field. */
 .uf-form__table { flex-basis: 100%; }
 .uf-form__actions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* ---------- ordinary screens (track C) ---------- */
+/*
+  Three classes the flow runner did not need, shared by the screens that are not
+  flows. `.screen` above is still the only thing they have in common structurally;
+  these are the three shapes that turned up twice in one task and would otherwise
+  be copied.
+*/
+.screen h1 { font-size: 18px; margin: 0; }
+.screen-sub { margin: 2px 0 14px; font-size: 13px; color: var(--ink-2); }
+/* A column of fields at a readable measure, not the width of the window. */
+.stack { display: flex; flex-direction: column; max-width: 560px; }
+.screen-actions { display: flex; gap: 8px; margin-top: 14px; }

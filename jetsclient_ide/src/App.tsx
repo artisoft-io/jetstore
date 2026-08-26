@@ -23,6 +23,7 @@ import { AGENT_SUPERVISION } from "./proposals/api";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
+import { GitProfileScreen } from "./screens/GitProfile";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { AppShell, type NavItem } from "./shell/AppShell";
 
@@ -71,6 +72,17 @@ export default function App() {
             asked for.
           */}
           <Route path="flow/:key" element={<FlowRunner api={api} />} />
+          {/*
+            Task C.14, and it has no nav entry for the same reason the flow
+            runner does not: the Flutter screen is reached from the app bar's
+            user button rather than from any menu, and its `reachedFrom` in
+            `screens/fixtures/screen_reachability.json` is empty. The shell's
+            user name is the link, which is where the Flutter app puts it.
+
+            **The four route parameters are deliberately not reproduced** — see
+            the header of `screens/GitProfile.tsx`.
+          */}
+          <Route path="git-profile" element={<GitProfileScreen api={api} />} />
           <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Route>
       </Routes>
