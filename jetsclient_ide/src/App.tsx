@@ -16,9 +16,10 @@
  * 404.
  */
 
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 import { ApiClient } from "./api/client";
+import { Register } from "./components/Register";
 import { AGENT_SUPERVISION } from "./proposals/api";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
@@ -45,7 +46,10 @@ import type { TableConfigDocument } from "./datatable/table";
 const api = new ApiClient();
 
 /** Trailing slash omitted: react-router wants the prefix without it. */
-export const BASENAME = "/ide";
+// Re-exported so nothing that imported it from here has to change; the value
+// lives in `base.ts` to keep `AppShell` from importing this module. See there.
+export { BASENAME } from "./base";
+import { BASENAME } from "./base";
 
 export const NAV: NavItem[] = [
   /*
@@ -121,11 +125,51 @@ export const NAV: NavItem[] = [
  * fetch implementation expects. Choosing the router the app actually needs kept
  * the shell testable without shimming globals.
  */
+/**
+ * `Register`, wired to the api and to the router. Task X.4.
+ *
+ * A wrapper rather than props threaded through `App`, so that the component
+ * itself takes two callbacks and knows about neither the client nor the router —
+ * which is what lets `Register.test.tsx` drive the rules without either.
+ */
+function RegisterScreen({ api }: { api: ApiClient }) {
+  const navigate = useNavigate();
+  return (
+    <Register
+      onSubmit={(name, email, password) => api.register(name, email, password)}
+      onSignIn={() => navigate("/", { replace: true })}
+    />
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter basename={BASENAME}>
       <Routes>
+        {/*
+          **Outside the shell, because the shell is the session gate.** `AppShell`
+          renders `<Login>` for anyone without a user and everything nested under
+          it may therefore assume one — which is right for every screen and wrong
+          for this one: a person registering has no account yet, so a `/register`
+          inside the shell would show them the sign-in form they cannot use.
+
+          Task X.4. It is the only unauthenticated route in the app, and the
+          reason it exists at all is that `/register` is the only path by which an
+          account is created — `UserAdmin` updates and deletes users and inserts
+          none.
+        */}
+        <Route path="/register" element={<RegisterScreen api={api} />} />
         <Route path="/" element={<AppShell api={api} nav={NAV} />}>
+          {/*
+            **`/login` is a real path and not a screen**, which is the shape the
+            gate already had: unauthenticated, any path renders `<Login>`, so a
+            person sent to `/login` sees the sign-in form without this route
+            existing. What the route adds is the *other* direction — a signed-in
+            user following an old `/login` link would otherwise fall through to
+            the 404. Flutter had `/login` as a route and this keeps the url
+            working in both states.
+          */}
+          <Route path="login" element={<Navigate to="/" replace />} />
           {/* The IDE keeps the bare prefix working: /ide/ is where the Flutter
               app links to, and a redirect is cheaper than teaching it a url. */}
           <Route index element={<Navigate to="/workspace" replace />} />

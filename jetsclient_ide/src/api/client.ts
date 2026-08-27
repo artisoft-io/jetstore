@@ -184,6 +184,41 @@ export class ApiClient {
     for (const fn of this.listeners) fn(this.user);
   }
 
+  /**
+   * Creates an account. Task X.4.
+   *
+   * **Registration does not sign you in, and that is the Dart's behaviour rather
+   * than an omission.** `CreateUser` mints a token and returns it
+   * (`jets/apiserver/api_users.go`, `CreateUser`), and the Flutter client throws
+   * it away: it shows *Registration Successful* and routes to the login page
+   * (`user_delegates.dart`, the `ActionKeys.register` arm). Reproduced, because
+   * signing a user in on the strength of a form they have just filled in is a
+   * different security posture and not one this task is entitled to change.
+   *
+   * The three status codes the Dart distinguishes are distinguished here, since
+   * *this email is taken* and *something went wrong* send a person to different
+   * places. 409 is the one worth getting right — it is the common case, and the
+   * unhelpful version of it costs a support ticket.
+   */
+  async register(name: string, email: string, password: string): Promise<void> {
+    const res = await this.fetchImpl(`${this.baseUrl}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // `user_email` for the same reason as `login` above: the endpoint
+      // unmarshals into `user.User`, whose Email carries `json:"user_email"`.
+      body: JSON.stringify({ name, user_email: email, password }),
+    });
+    if (res.ok) return;
+    const body = (await this.readJson(res)) as { error?: string };
+    if (res.status === 409) {
+      throw new ApiError("That email is already registered. Sign in instead.", res.status);
+    }
+    if (res.status === 406 || res.status === 422) {
+      throw new ApiError(this.errorText(body, "Invalid email or password."), res.status);
+    }
+    throw new ApiError(this.errorText(body, "Registration failed. Please try again."), res.status);
+  }
+
   async login(email: string, password: string): Promise<User> {
     const res = await this.fetchImpl(`${this.baseUrl}/login`, {
       method: "POST",
