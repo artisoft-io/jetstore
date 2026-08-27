@@ -77,6 +77,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { inAppPath, unservedScreenMessage } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
@@ -420,12 +421,20 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
               formState.requestRefresh();
               return;
             }
-            case "navigate":
-              // A `configScreenPath` here is a Flutter route — both of this
-              // table's are user flows the other app still serves. Same full page
-              // load the handoff in the other direction is (`userflow/routing.ts`).
-              window.location.href = `/#${request.path}`;
+            case "navigate": {
+              // **Both of this table's `configScreenPath`s are flows** — *Load
+              // Client Config* and *Pull Workspace* — and until X.1 this handed
+              // the browser to the Flutter app to serve them. There is no other
+              // app now, so the same two templates resolve in-app through the map
+              // ported out of the Dart before it was deleted.
+              const internal = inAppPath(action.configScreenPath, request.params);
+              if (internal !== null) {
+                void navigate(internal);
+                return;
+              }
+              setError(unservedScreenMessage(action.label, request.path));
               return;
+            }
             case "openDialog": {
               // **The dialog host, I-68's consumer.** The params the action
               // resolved are seeded into the shared group before the form opens,

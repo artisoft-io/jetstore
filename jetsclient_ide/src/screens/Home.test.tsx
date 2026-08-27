@@ -389,13 +389,18 @@ describe("the table's buttons", () => {
     }
   });
 
-  it("navigates in-app to a screen this app serves, and to Flutter for one it does not", async () => {
+  it("navigates in-app to a screen this app serves", async () => {
     await mount();
     await openTab("Pipeline Execution Status", "00:01:12");
     await selectRow("00:01:12");
 
     // `/executionStatusDetails/:session_id` is C.7's and is served here, so this
     // is a router navigation and the stub route renders.
+    //
+    // **The title said "and to Flutter for one it does not" until X.1**, and the
+    // body never asserted that half — which is why it kept passing when the
+    // fallback was replaced. A test name is not a test, and this one was
+    // describing behaviour nothing checked.
     fireEvent.click(button("View Execution Details"));
     await screen.findByText("details screen");
   });

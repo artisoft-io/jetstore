@@ -120,3 +120,105 @@ export function reactScreenPath(
   const served = SERVED_SCREENS[template];
   return served === undefined ? null : fillPath(served.reactPath, params);
 }
+
+/**
+ * What to say when a table action names a screen this app does not serve.
+ *
+ * **The destination for this case used to exist.** Every `navigate` arm did
+ * `window.location.href = "/#" + path`, handing the user to the Flutter app,
+ * which was right while there were two apps and is a navigation to nowhere now
+ * that X.1 has retired the other one — the fragment is not sent to the server,
+ * so it would land on this app's own root with a dead `#` and look like the
+ * button did nothing much.
+ *
+ * Reporting is the convention this codebase already follows for the same shape
+ * of problem: `escapes.ts` refuses an unresolved name rather than silently
+ * skipping it, `FlowRunner` says which dialog kind it cannot open, and C.16's
+ * `NotFound` reports an unmatched path instead of redirecting. A `configScreenPath`
+ * naming an unserved screen is now a configuration error, and configuration
+ * errors are worth a sentence rather than a redirect.
+ */
+export function unservedScreenMessage(label: string, path: string): string {
+  return `"${label}" goes to ${path}, which this app does not serve`;
+}
+
+/**
+ * Where a `configScreenPath` goes in this app, or null.
+ *
+ * **Takes the template, not the resolved path**, and that distinction cost a test
+ * failure while X.1 was being written: `SERVED_SCREENS` and `FLOW_ROUTES` are both
+ * keyed by the Flutter route *template*, while an `ActionRequest`'s `path` has the
+ * parameters already substituted — so looking up `/executionStatusDetails/sess-1`
+ * finds nothing and reports a screen the app serves as unserved. The resolved path
+ * is for the message; the template is for the lookup.
+ */
+export function inAppPath(
+  template: string | undefined,
+  params: Record<string, string>,
+): string | null {
+  if (template === undefined || template === "") return null;
+  return reactScreenPath(template, params) ?? reactFlowRoute(template, params);
+}
+
+/**
+ * The legacy route template of each flow, and what it carries.
+ *
+ * **A port of `userFlowRoutes` out of `jetsclient/lib/routes/migrated_user_flows.dart`,
+ * done at X.1 because that file was about to be deleted with the app.** It is the
+ * one piece of knowledge in there that outlives the Flutter client: a table
+ * document's `configScreenPath` still names a flow by its *Flutter route*, and
+ * those documents are workspace configuration rather than code — `workspaceRegistryTable`'s
+ * *Load Client Config* and *Pull Workspace* buttons name two of these.
+ *
+ * **Four of the eleven have a route that disagrees with their key**, which is the
+ * whole reason this is a map rather than a string operation: `mapFileUF`'s leading
+ * segment is `fileMappingUF`, `homeFiltersUF`'s is `configureHomeFiltersUF`,
+ * `workspacePullUF`'s is `pullWorkspaceUF`, and `loadConfigUF`'s is `workspaces` —
+ * which is the workspace registry's own route. That was the ui refresh project's
+ * I-75, found when a key derived from the first path segment would have handed the
+ * registry screen to a flow.
+ *
+ * The parameters travel as a query string because the React route is `/flow/:key`
+ * with nothing positional after it; `FlowRunner` seeds every query parameter into
+ * form-state group 0 by name before the flow loads.
+ */
+export const FLOW_ROUTES: Readonly<Record<string, { flowKey: string; parameters: string[] }>> = {
+  "/clientRegistryUF/:startAtKey": { flowKey: "clientRegistryUF", parameters: ["startAtKey"] },
+  "/configureHomeFiltersUF": { flowKey: "homeFiltersUF", parameters: [] },
+  "/fileMappingUF": { flowKey: "fileMappingUF", parameters: [] },
+  "/fileMappingUF/mapping/:table_name/:object_type": { flowKey: "mapFileUF", parameters: ["table_name", "object_type"] },
+  "/loadFilesUF": { flowKey: "loadFilesUF", parameters: [] },
+  "/pipelineConfigUF": { flowKey: "pipelineConfigUF", parameters: [] },
+  "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"] },
+  "/registerFileKeyUF": { flowKey: "registerFileKeyUF", parameters: [] },
+  "/sourceConfigUF/:startAtKey": { flowKey: "sourceConfigUF", parameters: ["startAtKey"] },
+  "/startPipelineUF": { flowKey: "startPipelineUF", parameters: [] },
+  "/workspaces/loadConfigUF/:workspace_name": { flowKey: "loadConfigUF", parameters: ["workspace_name"] },
+};
+
+/**
+ * Where a flow's legacy route goes in this app, or null when the template names
+ * no flow or an argument is missing.
+ *
+ * **Missing arguments fall through to null rather than opening the flow anyway**,
+ * which is F.10's decision kept: `mapFileUF` without `table_name` has no rows to
+ * draw and `loadConfigUF` without `workspace_name` has no workspace, so the runner
+ * would render an empty worksheet and say nothing about why. In the Flutter app
+ * the fallback was the old screen; here it is a reported error, which is worse for
+ * the user and better than a blank page they cannot explain.
+ */
+export function reactFlowRoute(
+  template: string,
+  params: Record<string, string>,
+): string | null {
+  const route = FLOW_ROUTES[template];
+  if (route === undefined) return null;
+  const query = new URLSearchParams();
+  for (const name of route.parameters) {
+    const value = params[name];
+    if (value === undefined || value === "") return null;
+    query.set(name, value);
+  }
+  const suffix = query.toString();
+  return `/flow/${route.flowKey}${suffix === "" ? "" : `?${suffix}`}`;
+}

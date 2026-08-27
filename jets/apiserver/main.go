@@ -19,7 +19,6 @@ import (
 //   -apiSecret "${API_SECRET}" \
 //   -awsRegion "${JETS_REGION}" \
 //   -tokenExpiration "${API_TOKEN_EXPIRATION_MIN}" \
-//   -WEB_APP_DEPLOYMENT_DIR "${WEB_APP_DEPLOYMENT_DIR}" \
 //   -adminEmail "${JETS_ADMIN_EMAIL}" \
 //   -awsAdminPwdSecret "${AWS_JETS_ADMIN_PWD_SECRET}" \
 //   -adminPwd "${JETS_ADMIN_PWD}"
@@ -37,7 +36,6 @@ import (
 // JETS_REGION
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_LOG_DEBUG set to 1 or 2 (will prints graph, very verbose)
-// WEB_APP_DEPLOYMENT_DIR
 // WORKSPACE Workspace currently in use (active workspace)
 // WORKSPACE_BRANCH deployed branch of active workspace
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
@@ -68,7 +66,6 @@ var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws s
 var dsn = flag.String("dsn", "", "primary database connection string (required unless -awsDsnSecret is provided)")
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
-var uiWebDir = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
 var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
 var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
@@ -88,10 +85,6 @@ func main() {
 		serverAddr = ":8443"
 	}
 
-	webAppDirEnv := os.Getenv("WEB_APP_DEPLOYMENT_DIR")
-	if webAppDirEnv != "" {
-		*uiWebDir = webAppDirEnv
-	}
 	ideAppDirEnv := os.Getenv("IDE_APP_DEPLOYMENT_DIR")
 	if ideAppDirEnv != "" {
 		*ideWebDir = ideAppDirEnv
@@ -197,7 +190,6 @@ func main() {
 	log.Println("Got argument: adminEmail len", len(*adminEmail))
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
-	log.Println("Got argument: WEB_APP_DEPLOYMENT_DIR", *uiWebDir)
 	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)
 	if globalDevMode {
 		log.Println("Running in DEV MODE")

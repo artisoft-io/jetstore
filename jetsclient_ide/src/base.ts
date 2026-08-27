@@ -11,9 +11,15 @@
  * **This is one of three places the prefix is written and the only one that is
  * TypeScript.** The others are `base` in `vite.config.ts`, which bakes it into
  * every asset url at build time, and `ideAssetPrefix` in
- * `jets/apiserver/static_ide.go`, which serves them. They must agree, and the
- * bundle is not relocatable without a rebuild because of the middle one. Task
- * X.2 (the ui refresh project's I-26) is what makes the three of them say
- * something other than "ide".
+ * `appAssetPrefix` in `jets/apiserver/static_ide.go`, which serves them. They must
+ * agree, and the bundle is not relocatable without a rebuild because of the
+ * middle one.
+ *
+ * **Empty since X.2, 2026-08-26.** It was `/ide`, which named one screen of an
+ * application that now has twenty — the ui refresh project's I-26, accepted as
+ * debt by its decision 4 and payable "when the Flutter app retires". The value is
+ * the empty string rather than "/" because that is what react-router wants for a
+ * root mount: a basename of "/" makes it strip a slash that is already part of
+ * every path.
  */
-export const BASENAME = "/ide";
+export const BASENAME = "";

@@ -60,7 +60,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
@@ -75,6 +75,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { inAppPath, unservedScreenMessage } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
@@ -173,6 +174,8 @@ export function documentFindings(): string[] {
 }
 
 export function UserAdmin({ api }: { api: ApiClient }) {
+  // X.1: a `navigate` request resolves in this app now.
+  const navigate = useNavigate();
   const routeParams = useParams();
   const { setError, setStatus } = useNotifications();
 
@@ -473,9 +476,17 @@ export function UserAdmin({ api }: { api: ApiClient }) {
               formState.requestRefresh();
               return;
             }
-            case "navigate":
-              window.location.href = `/#${request.path}`;
+            case "navigate": {
+              // **This arm used to hand the browser to Flutter unconditionally**,
+              // which was right when the other app served every screen this one
+              // does not. X.1 removed the destination, so it resolves in-app and
+              // reports when it cannot — the convention `escapes.ts` set for a name
+              // with no body.
+              const to = inAppPath(action.configScreenPath, request.params);
+              if (to !== null) void navigate(to);
+              else setError(unservedScreenMessage(action.label, request.path));
               return;
+            }
             case "escape": {
               const escape = productionRegistry.actions[request.name];
               if (escape === undefined) {

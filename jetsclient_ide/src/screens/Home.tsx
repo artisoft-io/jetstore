@@ -83,7 +83,7 @@ import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialo
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
 import { validateAllGroups, type FieldError } from "../userflow/validateForm";
-import { reactScreenPath } from "./routes";
+import { inAppPath, unservedScreenMessage } from "./routes";
 
 import actionsJson from "./documents/homeScreen.ua.json";
 import formsJson from "./documents/homeScreen.form.json";
@@ -460,9 +460,12 @@ export function Home({ api }: { api: ApiClient }) {
                * left C.7's and C.8's screens unreachable — they are entered from
                * this table and from nothing else.
                */
-              const internal = reactScreenPath(action.configScreenPath, request.params);
+              const internal = inAppPath(action.configScreenPath, request.params);
               if (internal !== null) void navigate(internal);
-              else window.location.href = `/#${request.path}`;
+              // The `else` was a hand-off to Flutter until X.1 retired it. This
+              // screen's `startPipeline` and `setHomeFilters` buttons name flow
+              // routes, which is what the second lookup above is for.
+              else setError(unservedScreenMessage(action.label, request.path));
               return;
             }
             case "openDialog": {

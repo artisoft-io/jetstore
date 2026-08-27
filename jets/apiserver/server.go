@@ -431,79 +431,8 @@ func listenAndServe() error {
 	// Home Route
 	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
-	// Serve the Workspace IDE (jetsclient_ide) — one handler over a prefix rather
-	// than a route per asset, because vite emits content-hashed file names that
-	// cannot be enumerated here. See static_ide.go.
-	server.Router.PathPrefix(ideAssetPrefix).
-		Handler(ideHandler(ideAssetPrefix, *ideWebDir)).
-		Methods("GET")
-
-	// Serve the jetsclient app
-	fs := http.FileServer(http.Dir(*uiWebDir))
-	server.Router.Handle("/", fs).Methods("GET")
-	server.Router.Handle("/favicon.ico", fs).Methods("GET")
-	server.Router.Handle("/flutter.js", fs).Methods("GET")
-	server.Router.Handle("/version.json", fs).Methods("GET")
-	server.Router.Handle("/main.dart.js.map", fs).Methods("GET")
-	server.Router.Handle("/index.html", fs).Methods("GET")
-	server.Router.Handle("/favicon.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-192.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-maskable-512.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-maskable-192.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-512.png", fs).Methods("GET")
-	server.Router.Handle("/assets/NOTICES", fs).Methods("GET")
-	server.Router.Handle("/assets/fonts/MaterialIcons-Regular.otf", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.json", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.bin", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.bin.json", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.smcbin", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Thin.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-MediumItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-ThinItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-BlackItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Medium.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Black.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ExtraLightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ExtraLight.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Italic-VariableFont_wght.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-MediumItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Medium.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-SemiBoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-SemiBold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ThinItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Thin.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-VariableFont_wght.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/images/logo.png", fs).Methods("GET")
-	server.Router.Handle("/assets/FontManifest.json", fs).Methods("GET")
-	server.Router.Handle("/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/shaders/ink_sparkle.frag", fs).Methods("GET")
-	server.Router.Handle("/flutter_service_worker.js", fs).Methods("GET")
-	server.Router.Handle("/flutter_bootstrap.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/canvaskit.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/canvaskit.wasm", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/profiling/canvaskit.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/profiling/canvaskit.wasm", fs).Methods("GET")
-	server.Router.Handle("/main.dart.js", fs).Methods("GET")
-	server.Router.Handle("/manifest.json", fs).Methods("GET")
-	// server.Router.Handle("", fs).Methods("GET")
+	// The web app is served last, after every api route — see the tail of this
+	// function. Task X.1 moved it there; the reason is written where it now sits.
 
 	// Health Check
 	healthCheckOptions := OptionConfig{Origin: "",
@@ -575,6 +504,34 @@ func listenAndServe() error {
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	// server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
+
+	// Serve the web app — last, and over everything.
+	//
+	// **Registration order is the whole of the safety here**, and it is why this
+	// sits at the bottom of the function rather than the top. gorilla/mux matches
+	// in registration order, so every api route above wins its own path and this
+	// takes what is left. Registered first, a `PathPrefix("/")` would shadow
+	// `/login`, `/dataTable` and the rest, and the failure would be an api call
+	// answered with the html shell — a console error about an unexpected `<` that
+	// says nothing about the cause.
+	//
+	// `static_ide.go` predicted this exact change and declined to make it early:
+	// *"a change worth making on its own when the Flutter app is retired, not as a
+	// rider on this one"*. This is that task (X.1).
+	//
+	// **A catch-all was not needed before and is required now**, which is the part
+	// worth knowing. `jetsclient` never called `setPathUrlStrategy`, so Flutter web
+	// kept hash routing and every one of its routes lived after the `#` — never
+	// sent to the server, which is why 64 hand-enumerated asset routes and no
+	// catch-all were enough. React uses real paths. Without the fallback below,
+	// every deep link into the app 404s on reload rather than on navigation, which
+	// is the kind of defect that survives testing and appears in production.
+	//
+	// GET only: a POST to an unknown path is a client error and should say so
+	// rather than receive html.
+	server.Router.PathPrefix(appAssetPrefix).
+		Handler(appHandler(appAssetPrefix, *ideWebDir)).
+		Methods("GET")
 
 	// Get the secret rotation version from db
 	server.LastSecretRotation, err = server.GetLastSecretRotation()
