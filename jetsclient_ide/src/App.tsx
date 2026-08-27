@@ -68,10 +68,12 @@ export const NAV: NavItem[] = [
     `workspace_ide` holder who asked for the editor, and answering that press
     with the home screen would be wrong for the one population that generates it.
 
-    **The reversal trigger is track X**, not a condition: when `jetsclient`
+    ~~**The reversal trigger is track X**, not a condition: when `jetsclient`
     retires, `/ide/` stops meaning "the editor" and the index should become this
-    screen. Repointing the Dart link instead would spend a change on an app track
-    X deletes, which is I-166's argument.
+    screen.~~ **Fired 2026-08-26 at X.1**: the index redirects here. Naming the
+    task rather than the condition is what made that happen on the right day —
+    the root `CLAUDE.md` records the opposite case, a note whose trigger passed
+    unnoticed because it named a state instead of an owner.
   */
   { to: "/home", label: "Home" },
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
@@ -170,9 +172,23 @@ export default function App() {
             working in both states.
           */}
           <Route path="login" element={<Navigate to="/" replace />} />
-          {/* The IDE keeps the bare prefix working: /ide/ is where the Flutter
-              app links to, and a redirect is cheaper than teaching it a url. */}
-          <Route index element={<Navigate to="/workspace" replace />} />
+          {/*
+            **The index is Home since X.1, and this is the reversal C.6 scheduled
+            rather than a change of mind.** It redirected to the editor because
+            `/ide/` bare was reached from exactly one place — the *Code Editor ↗*
+            menu entry in the Flutter app, which carried `capability:
+            'workspace_ide'` — so every arrival at the bare prefix was a knowledge
+            engineer who had asked for the editor, and answering that press with
+            the home screen would have been wrong for the one population that
+            generated it.
+            
+            That population is now everybody: `/` is the front door of the whole
+            product and most of the people arriving at it hold `jetstore_read` and
+            nothing else. C.6's comment named track X as the trigger — *"when
+            `jetsclient` retires, `/ide/` stops meaning 'the editor' and the index
+            should become this screen"* — and this is it.
+          */}
+          <Route index element={<Navigate to="/home" replace />} />
           <Route path="home" element={<Home api={api} />} />
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
           {/*
@@ -191,10 +207,9 @@ export default function App() {
             mind picks one, and that is Phase 1's screen unchanged.
           */}
           <Route path="workspaces/:workspace_name/home" element={<WorkspaceIde api={api} />} />
-          {/* The Flutter route is `/workspaces`, and this is the same path under
-              the `/ide` basename. Track X decides when the other app stops
-              serving its copy; until then the two coexist and the Flutter one is
-              what a `configScreenPath` on any other screen still reaches. */}
+          {/* The Flutter route is `/workspaces` and this is the same path, now at
+              the same address: X.1 retired the other app, so there is no second
+              copy for a `configScreenPath` to reach. */}
           <Route path="workspaces" element={<WorkspaceRegistry api={api} />} />
           <Route path="inferServerAdmin" element={<InferServerAdmin api={api} />} />
           <Route path="proposals" element={<ProposalsScreen api={api} />} />

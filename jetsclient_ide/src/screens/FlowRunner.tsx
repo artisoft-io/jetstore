@@ -56,6 +56,7 @@ import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { inAppPath, unservedScreenMessage } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
@@ -226,11 +227,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   /** Leaves the flow: the document's `exitScreenPath`, or the IDE. */
   const exit = useCallback(() => {
     const path = loaded?.flow.flow.exitScreenPath;
-    // A Flutter route rather than one of ours — two flows set it, both to
-    // `/workspaces`, and that screen is track C's. Sending the browser there is
-    // correct while both apps exist and is the same full page load the handoff
-    // in the other direction is (`userflow/routing.ts`).
-    if (path !== undefined && path !== "") window.location.href = `/#${path}`;
+    // **In-app since X.1.** Two flows set `exitScreenPath` and both set it to
+    // `/workspaces`, which was a Flutter route when they were authored and is
+    // this app's workspace registry now (C.2). It was a full page load to the
+    // other app; it is a navigation.
+    const internal = inAppPath(path, {});
+    if (internal !== null) void navigate(internal);
     else void navigate("/workspace");
   }, [loaded, navigate]);
 
@@ -566,10 +568,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         case "runAction":
           void press(request.name);
           return;
-        case "navigate":
-          // A `configScreenPath` is a Flutter route; see `exit`.
-          window.location.href = `/#${request.path}`;
+        case "navigate": {
+          // See `exit`: this app serves the destinations now, and says so when it
+          // does not.
+          const to = inAppPath(action.configScreenPath, request.params);
+          if (to !== null) void navigate(to);
+          else setError(unservedScreenMessage(action.label, request.path));
           return;
+        }
         case "escape": {
           const escape = productionRegistry.actions[request.name];
           if (escape === undefined) {

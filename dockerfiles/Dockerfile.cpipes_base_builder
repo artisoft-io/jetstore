@@ -21,23 +21,17 @@ RUN wget -q https://go.dev/dl/go1.26.7.linux-amd64.tar.gz \
 ENV PATH=$PATH:/usr/local/go/bin
 RUN go version
 
-# Install flutter stable
-RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.44.5-stable.tar.xz"
-RUN ls -la ./flutter_linux_3.44.5-stable.tar.xz
-RUN tar  -C /usr/local -xf ./flutter_linux_3.44.5-stable.tar.xz
-RUN rm flutter_linux_3.44.5-stable.tar.xz
+# **Flutter and Dart were installed here and are not any more** — X.1, 2026-08-26.
+# The toolchain was ~1GB of image for one `flutter build web`, and there is no
+# Flutter left to build: `jetsclient/` was deleted when the React app took over
+# the root.
 
-RUN git config --global --add safe.directory /usr/local/flutter
-ENV PATH="${PATH}:/usr/local/flutter/bin"
-RUN flutter --version
-RUN dart --version
-
-# Install Node.js - builds the Workspace IDE (jetsclient_ide), a vite/react app
-# served by the apiserver alongside the flutter bundle.
+# Install Node.js - builds the web app (jetsclient_ide), a vite/react app served
+# by the apiserver.
 # Pinned to a release tarball rather than taken from dnf for the same reason Go
-# and Flutter are: the distro package floats across rebuilds and the toolchain
-# must not. Extracted under its own prefix like flutter, rather than splatted
-# into /usr/local, so it can be removed or bumped without touching anything else.
+# is: the distro package floats across rebuilds and the toolchain must not.
+# Extracted under its own prefix rather than splatted into /usr/local, so it can
+# be removed or bumped without touching anything else.
 RUN wget -q "https://nodejs.org/dist/v24.19.0/node-v24.19.0-linux-x64.tar.xz" \
     && mkdir -p /usr/local/node \
     && tar -C /usr/local/node --strip-components=1 -xf node-v24.19.0-linux-x64.tar.xz \

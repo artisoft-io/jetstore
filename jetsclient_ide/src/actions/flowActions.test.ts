@@ -29,8 +29,6 @@
  * F.9, 2026-08-24, I-146.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import clientRegistry from "../../../jets/workspace_assets/user_flows/clientRegistryUF.ua.json";
@@ -45,6 +43,7 @@ import sourceConfig from "../../../jets/workspace_assets/user_flows/sourceConfig
 import startPipeline from "../../../jets/workspace_assets/user_flows/startPipelineUF.ua.json";
 import workspacePull from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
+import dartConstantValues from "./fixtures/dart_constant_values.json";
 
 const all: Record<string, unknown> = {
   loadFilesUF: loadFiles,
@@ -639,15 +638,23 @@ describe("every form-state key is a declared constant's value", () => {
    * was a name written where the app uses a value. This check makes the fifth
    * impossible: a key that is not a declared constant's *value* fails here.
    */
-  const constantValues = (() => {
-    const dart = readFileSync(
-      fileURLToPath(new URL("../../../jetsclient/lib/utils/constants.dart", import.meta.url)),
-      "utf8",
-    );
-    const values = new Set<string>();
-    for (const m of dart.matchAll(/static const \w+\s*=\s*"([^"]*)"/g)) values.add(m[1]!);
-    return values;
-  })();
+  /**
+   * **A frozen fixture since X.1, and the check survives its source.**
+   *
+   * This read `constants.dart` and extracted every `static const … = "…"`. That
+   * file was deleted with the Flutter app on 2026-08-26, so the 455 values it
+   * declared are committed in `fixtures/dart_constant_values.json`, extracted at
+   * `b4cda702` — the last commit that had them.
+   *
+   * **What is lost is the freshness, not the check.** The keys this guards are in
+   * the action documents and are still live; what can no longer happen is the
+   * fixture updating when the Dart does, because there is no Dart. A key added to
+   * a document and absent here used to mean *you wrote a constant's name where the
+   * app wants its value*; it now means that **or** *this is a new key*, and only a
+   * reader can say which. That is a real weakening and is written down rather than
+   * papered over.
+   */
+  const constantValues = new Set<string>(dartConstantValues.values);
 
   /**
    * Keys that are column names or request fields rather than form-state keys.

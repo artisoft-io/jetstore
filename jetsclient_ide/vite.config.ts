@@ -1,10 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The bundle is served by the Go apiserver under /ide/ (see jets/apiserver/server.go),
-// so every emitted asset url has to carry that prefix. In dev the same endpoints are
-// proxied to a locally running apiserver, which keeps the client's origin handling
-// identical in both modes — it always talks to a same-origin path.
+// The bundle is served by the Go apiserver at the root (see `appAssetPrefix` in
+// jets/apiserver/static_ide.go), and every emitted asset url carries that prefix.
+// In dev the api endpoints below are proxied to a locally running apiserver, which
+// keeps the client's origin handling identical in both modes — it always talks to
+// a same-origin path.
+//
+// **`base` was "/ide/" until X.2**, and it is the reason the rename was a rebuild
+// rather than a move: vite writes this value into every script and stylesheet url
+// in index.html at build time, so a bundle built for one prefix cannot be served
+// from another. The three places that must agree are here, `appAssetPrefix` in
+// Go, and `BASENAME` in src/base.ts.
 const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData", "/agentic"];
 
 // The apiserver listens on :8080 with -usingSshTunnel and on :8443 (TLS) otherwise,
@@ -13,7 +20,7 @@ const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/regist
 const apiOrigin = process.env["JETS_API_ORIGIN"] ?? "http://localhost:8080";
 
 export default defineConfig({
-  base: "/ide/",
+  base: "/",
   plugins: [react()],
   build: {
     outDir: "dist",

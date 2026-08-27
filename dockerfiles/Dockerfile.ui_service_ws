@@ -1,21 +1,14 @@
 FROM cpipes_builder:latest AS builder
 
 
-# Button config passed to flutter build
-ARG JETS_CUSTOM_BUTTONS_CONFIG_JSON='[]'
-
-# JETSTORE FRONT END == FLUTTER BUILD ==
-WORKDIR ${JETS_SOURCE_DIR}/jetsclient
-RUN rm -rf .dart_tool .flutter-plugins .flutter-plugins-dependencies build pubspec.lock
-RUN flutter pub get
-RUN flutter build web --dart-define="BUTTON_CFG_JSON=$JETS_CUSTOM_BUTTONS_CONFIG_JSON"
-
-RUN \
-  echo "Flutter web build completed with custom button config:" \
-  && ls -la build/web
-
-# JETSTORE WORKSPACE IDE == VITE BUILD ==
-# The apiserver serves this bundle under /ide/, which is baked into the asset
+# JETSTORE FRONT END == VITE BUILD ==
+#
+# **One front end since X.1, 2026-08-26.** This built the Flutter app first and
+# the React bundle beside it; `jetsclient/` is gone, and with it the
+# JETS_CUSTOM_BUTTONS_CONFIG_JSON build arg, which existed to pass
+# `--dart-define=BUTTON_CFG_JSON` into `flutter build web`.
+#
+# The apiserver serves this bundle at the root, which is baked into the asset
 # urls at build time by vite's `base` (see jetsclient_ide/vite.config.ts). The
 # bundle is therefore not relocatable: serving it from another prefix means
 # rebuilding it, not just moving the files.
@@ -61,10 +54,7 @@ ENV WORKSPACES_REPO=/workspaces
 # Copy the compiled workspace to cpipes workspace-specific image
 COPY --from=ws_builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
 
-# Copy the compiled flutter web ui to the appropriate location in the ui_service image
-COPY --from=builder /app/jetsclient/build/web /usr/local/lib/web
-
-# Copy the built Workspace IDE bundle alongside it. The destination is the
+# Copy the built web app. The destination is the
 # default of the apiserver's -IDE_APP_DEPLOYMENT_DIR flag (jets/apiserver/main.go),
 # which is why no environment variable is set for it here - the same arrangement
 # /usr/local/lib/web has with -WEB_APP_DEPLOYMENT_DIR. IDE_APP_DEPLOYMENT_DIR

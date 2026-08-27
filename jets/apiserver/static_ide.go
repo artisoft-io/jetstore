@@ -8,30 +8,41 @@ import (
 	"strings"
 )
 
-// Serving for the Workspace IDE bundle (jetsclient_ide/).
+// Serving for the web app (jetsclient_ide/).
 //
-// One handler over a path prefix, rather than the per-asset route list the
-// Flutter bundle uses above it in server.go. That is not a style preference: vite
-// emits content-hashed file names (index-DlXT-v6f.js), so the set of assets
-// changes on every build and cannot be enumerated in Go at all. The hashing is
-// also what makes the cache policy below safe.
+// One handler over a path prefix, rather than a per-asset route list. That is not
+// a style preference: vite emits content-hashed file names (index-DlXT-v6f.js),
+// so the set of assets changes on every build and cannot be enumerated in Go at
+// all. The hashing is also what makes the cache policy below safe.
 //
-// The Flutter routes are deliberately left alone. They work, they are explicit,
-// and consolidating them means moving the static registration after the api
-// routes so a catch-all cannot shadow /login — a change worth making on its own
-// when the Flutter app is retired, not as a rider on this one.
+// **Tasks X.1 and X.2, 2026-08-26.** This served `/ide/` beside 64 hand-listed
+// Flutter asset routes; the Flutter app is gone and this serves the root. The
+// paragraph that used to sit here said consolidating the two "means moving the
+// static registration after the api routes so a catch-all cannot shadow /login —
+// a change worth making on its own when the Flutter app is retired, not as a
+// rider on this one". It was right on both counts, and that is where the
+// registration now is: the bottom of `Run`, after every api route.
 
-// ideAssetPrefix is the url space the IDE owns. Everything under it is either a
-// bundled asset or a client-side route.
-const ideAssetPrefix = "/ide/"
+// appAssetPrefix is the url space this app owns, which is all of it that the api
+// has not claimed. Everything under it is either a bundled asset or a
+// client-side route.
+//
+// **`/` since X.2, and the rename is three files rather than one.** The prefix is
+// written here, as `base` in `jetsclient_ide/vite.config.ts`, and as `BASENAME` in
+// `jetsclient_ide/src/base.ts`; vite bakes it into every asset url at build time,
+// so the bundle is not relocatable and changing this alone would serve a page
+// whose scripts 404. The old value named one screen of an application that now
+// has twenty — the ui refresh project's I-26, accepted as debt by its decision 4
+// and payable "when the Flutter app retires", which is this task.
+const appAssetPrefix = "/"
 
-// ideHandler serves a single-page app from dir.
+// appHandler serves a single-page app from dir.
 //
 // Requests resolve to a file when one exists; anything else falls back to
 // index.html so client-side routes survive a reload. The fallback is what makes
 // this a SPA handler rather than a file server, and it is why the api routes must
 // never live under this prefix.
-func ideHandler(prefix, dir string) http.Handler {
+func appHandler(prefix, dir string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, prefix)
 		// path.Clean("/"+rel) collapses any ".." before it can escape dir. Joining

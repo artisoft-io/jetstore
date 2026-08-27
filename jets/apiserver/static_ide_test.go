@@ -38,9 +38,9 @@ func get(t *testing.T, h http.Handler, target string) *httptest.ResponseRecorder
 }
 
 func TestIdeHandlerServesHashedAssets(t *testing.T) {
-	h := ideHandler(ideAssetPrefix, buildIdeDir(t))
+	h := appHandler(appAssetPrefix, buildIdeDir(t))
 
-	res := get(t, h, "/ide/assets/index-abc123.js")
+	res := get(t, h, "/assets/index-abc123.js")
 	if res.Code != http.StatusOK {
 		t.Fatalf("got %d, want 200", res.Code)
 	}
@@ -54,8 +54,8 @@ func TestIdeHandlerServesHashedAssets(t *testing.T) {
 }
 
 func TestIdeHandlerServesIndexAtRoot(t *testing.T) {
-	h := ideHandler(ideAssetPrefix, buildIdeDir(t))
-	res := get(t, h, "/ide/")
+	h := appHandler(appAssetPrefix, buildIdeDir(t))
+	res := get(t, h, "/")
 	if res.Code != http.StatusOK {
 		t.Fatalf("got %d, want 200", res.Code)
 	}
@@ -65,9 +65,9 @@ func TestIdeHandlerServesIndexAtRoot(t *testing.T) {
 }
 
 func TestIdeHandlerFallsBackToIndexForClientRoutes(t *testing.T) {
-	h := ideHandler(ideAssetPrefix, buildIdeDir(t))
+	h := appHandler(appAssetPrefix, buildIdeDir(t))
 	// A deep client-side route must survive a reload rather than 404.
-	res := get(t, h, "/ide/workspace/cedargate_ws/jet_rules/main.jr")
+	res := get(t, h, "/workspace/cedargate_ws/jet_rules/main.jr")
 	if res.Code != http.StatusOK {
 		t.Fatalf("got %d, want 200", res.Code)
 	}
@@ -77,10 +77,10 @@ func TestIdeHandlerFallsBackToIndexForClientRoutes(t *testing.T) {
 }
 
 func TestIdeHandlerDoesNotFallBackForMissingAssets(t *testing.T) {
-	h := ideHandler(ideAssetPrefix, buildIdeDir(t))
+	h := appHandler(appAssetPrefix, buildIdeDir(t))
 	// Returning index.html here would surface as "unexpected token '<'" in the
 	// browser, which points nowhere near the real problem.
-	res := get(t, h, "/ide/assets/index-deadbeef.js")
+	res := get(t, h, "/assets/index-deadbeef.js")
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("got %d, want 404", res.Code)
 	}
@@ -92,12 +92,12 @@ func TestIdeHandlerRejectsTraversal(t *testing.T) {
 	if err := os.WriteFile(secret, []byte("do not serve"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h := ideHandler(ideAssetPrefix, dir)
+	h := appHandler(appAssetPrefix, dir)
 
 	for _, target := range []string{
-		"/ide/../secret.txt",
-		"/ide/assets/../../secret.txt",
-		"/ide/..%2f..%2fsecret.txt",
+		"/../secret.txt",
+		"/assets/../../secret.txt",
+		"/..%2f..%2fsecret.txt",
 	} {
 		res := get(t, h, target)
 		if body := res.Body.String(); body == "do not serve" {
@@ -119,9 +119,9 @@ func TestIdeHandlerServesTheRealBundle(t *testing.T) {
 	if err != nil {
 		t.Skip("jetsclient_ide/dist not built; run `npm run build` in jetsclient_ide")
 	}
-	h := ideHandler(ideAssetPrefix, dir)
+	h := appHandler(appAssetPrefix, dir)
 
-	if res := get(t, h, "/ide/"); res.Code != http.StatusOK {
+	if res := get(t, h, "/"); res.Code != http.StatusOK {
 		t.Fatalf("serving index: got %d, want 200", res.Code)
 	}
 
@@ -130,8 +130,8 @@ func TestIdeHandlerServesTheRealBundle(t *testing.T) {
 	checked := 0
 	for _, m := range refs {
 		ref := m[1]
-		if !strings.HasPrefix(ref, ideAssetPrefix) {
-			t.Errorf("asset %q is not under %q — vite `base` and the Go prefix disagree", ref, ideAssetPrefix)
+		if !strings.HasPrefix(ref, appAssetPrefix) {
+			t.Errorf("asset %q is not under %q — vite `base` and the Go prefix disagree", ref, appAssetPrefix)
 			continue
 		}
 		if res := get(t, h, ref); res.Code != http.StatusOK {
@@ -146,9 +146,10 @@ func TestIdeHandlerServesTheRealBundle(t *testing.T) {
 
 // TestIdeShipsItsOwnFavicon guards a dependency that is easy to reintroduce by
 // accident. With no <link rel="icon"> the browser falls back to /favicon.ico at
-// the origin root, which is the *Flutter* app's icon: the IDE then shows no tab
-// icon at all unless WEB_APP_DEPLOYMENT_DIR happens to be set, and shows the
-// wrong one when it is. The icon has to ship with this bundle and be declared.
+// the origin root — which was the *Flutter* app's icon until X.1 and is now this
+// bundle's own file if one happens to be there and a 404 otherwise. The icon has
+// to ship with this bundle and be declared, which is what stops the tab from
+// depending on what else is in the deployment directory.
 func TestIdeShipsItsOwnFavicon(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Join("..", "..", "jetsclient_ide", "dist"))
 	if err != nil {
@@ -161,21 +162,21 @@ func TestIdeShipsItsOwnFavicon(t *testing.T) {
 
 	icon := regexp.MustCompile(`rel="icon"[^>]*href="([^"]+)"`).FindSubmatch(index)
 	if icon == nil {
-		t.Fatal("index.html declares no rel=icon; the browser would fall back to the Flutter favicon")
+		t.Fatal("index.html declares no rel=icon; the tab icon would depend on what else is in the deployment dir")
 	}
 	href := string(icon[1])
-	if !strings.HasPrefix(href, ideAssetPrefix) {
-		t.Fatalf("favicon %q is not under %q, so it does not come from this bundle", href, ideAssetPrefix)
+	if !strings.HasPrefix(href, appAssetPrefix) {
+		t.Fatalf("favicon %q is not under %q, so it does not come from this bundle", href, appAssetPrefix)
 	}
-	if res := get(t, ideHandler(ideAssetPrefix, dir), href); res.Code != http.StatusOK {
+	if res := get(t, appHandler(appAssetPrefix, dir), href); res.Code != http.StatusOK {
 		t.Fatalf("favicon %q: got %d, want 200", href, res.Code)
 	}
 }
 
 func TestIdeHandlerReportsMissingDeployment(t *testing.T) {
 	// An apiserver built without the IDE bundle should say so rather than 500.
-	h := ideHandler(ideAssetPrefix, filepath.Join(t.TempDir(), "absent"))
-	res := get(t, h, "/ide/")
+	h := appHandler(appAssetPrefix, filepath.Join(t.TempDir(), "absent"))
+	res := get(t, h, "/")
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("got %d, want 404", res.Code)
 	}

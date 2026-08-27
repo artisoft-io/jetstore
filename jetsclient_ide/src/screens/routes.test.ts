@@ -12,72 +12,56 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { SERVED_SCREENS, reactScreenPath } from "./routes";
+import { FLOW_ROUTES, SERVED_SCREENS, inAppPath, reactFlowRoute, reactScreenPath } from "./routes";
 import screenConfigs from "./fixtures/screen_configs.json";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-const flutterRoutes = readFileSync(
-  new URL("../../../jetsclient/lib/routes/jets_routes_app.dart", import.meta.url),
-  "utf8",
-);
 
-/** Every route template the Flutter app declares, from its own constants. */
-const flutterTemplates = [...flutterRoutes.matchAll(/^const \w+Path = '([^']+)';/gm)].map(
-  (m) => m[1]!,
-);
+
 
 /** Every path this app routes, as `App.tsx` writes them, with the basename's slash back on. */
-const reactPaths = [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)]
-  .map((m) => m[1]!)
-  .filter((p) => p !== "*" && p !== "/")
-  .map((p) => (p.startsWith("/") ? p : `/${p}`));
-
 /**
- * Flutter templates this app deliberately does not claim, each with its reason.
+ * Every `configScreenPath` any table document names, derived rather than listed.
  *
- * **The list is the point.** The check below requires a `SERVED_SCREENS` row for
- * every Flutter template this app also routes; an entry here is a statement that
- * the omission is a decision. Adding one to silence the check is the thing to
- * refuse — the reason has to be true.
+ * **This replaces `NOT_CLAIMED`, which listed Flutter templates this app declined
+ * to serve and why.** That list was a decision register while there were two apps;
+ * with one app there is nothing to decline, and what matters instead is that every
+ * path a button carries resolves somewhere. Derived from the corpus so a new
+ * button is covered on the day it is authored rather than when somebody remembers
+ * to add a row.
+ *
+ * `screen_configs.json` is the screens' corpus; the flows' tables are the
+ * installed workspace assets, and both are read because a `configScreenPath` can
+ * sit on either.
  */
-const NOT_CLAIMED: Readonly<Record<string, string>> = {
-  // Which app owns a flow is what the workspace holds, not a compiled list
-  // (`userflow/routing.ts`, `appForFlow`). Duplicating it here is the failure that
-  // file's header exists to prevent.
-  "/clientRegistryUF/:startAtKey": "flow",
-  "/sourceConfigUF/:startAtKey": "flow",
-  "/fileMappingUF": "flow",
-  "/fileMappingUF/mapping/:table_name/:object_type": "flow",
-  "/pipelineConfigUF": "flow",
-  "/loadFilesUF": "flow",
-  "/registerFileKeyUF": "flow",
-  "/startPipelineUF": "flow",
-  "/configureHomeFiltersUF": "flow",
-  "/workspaces/loadConfigUF/:workspace_name": "flow",
-  // **Ported by X.4 on 2026-08-26, and still not claimed — the reason changed
-  // rather than the entry going.** This app serves both paths now: `/register` is
-  // its one unauthenticated route and `/login` redirects a signed-in user home,
-  // while an unauthenticated one gets the sign-in form at any path because the
-  // shell is the gate.
-  //
-  // What a `SERVED_SCREENS` row means is *a table action may navigate here in
-  // app*, and no action names either of these — there is no button anywhere that
-  // sends a user to sign in. A row would be a claim nothing reads, which is the
-  // thing the comment above says to refuse.
-  "/login": "served, but no action navigates to it",
-  "/register": "served, but no action navigates to it",
-  // This app answers an unmatched path itself (C.16, `NotFound.tsx`); there is no
-  // handoff to claim, and a row would make a table action navigate to the 404 on
-  // purpose.
-  "/404": "this app answers it directly",
-  // `/` is the Flutter home. This app serves Home at `/home` and keeps its index
-  // redirecting to the editor, because every arrival at `/ide/` is a
-  // `workspace_ide` holder who pressed *Code Editor* (C.6, I-217).
-  "/": "different entry point by decision",
-  // Reached from code rather than from a `configScreenPath`, so no table action
-  // can name it and a row would never be read.
-  "/workspaces/:workspace_name/home": "code-reached, not named by any action",
-};
+const CONFIG_SCREEN_PATHS: string[] = (() => {
+  const found = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    if (node === null || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    const path = record["configScreenPath"];
+    if (typeof path === "string" && path.length > 0) found.add(path);
+    for (const value of Object.values(record)) walk(value);
+  };
+  walk(screenConfigs);
+  for (const document of Object.values(
+    import.meta.glob("../../../jets/workspace_assets/table_configs/*.tc.json", {
+      eager: true,
+    }) as Record<string, unknown>,
+  )) {
+    walk(document);
+  }
+  for (const document of Object.values(
+    import.meta.glob("../datatable/tables/*.tc.json", { eager: true }) as Record<string, unknown>,
+  )) {
+    walk(document);
+  }
+  return [...found].sort();
+})();
 
 describe("the served-screen map", () => {
   it("names only paths App.tsx actually routes", () => {
@@ -135,62 +119,64 @@ describe("the served-screen map", () => {
     expect(renamed.map(([template]) => template)).toEqual(["/queryTool"]);
   });
 
-  it("has a row for every Flutter screen this app also serves", () => {
-    // **The direction the map was missing, and the reason three rows were three
-    // tasks late.** The assertion above checks rows against routes; nothing checked
-    // routes against rows, and that gap has no symptom — `reactScreenPath` returns
-    // `null` for an absent row exactly as it does for a screen this app does not
-    // serve, so the home screen hands a user to Flutter for a screen React ported
-    // hours earlier and every test stays green.
-    //
-    // Derived rather than listed, so a screen that lands without its row fails here
-    // instead of being noticed by somebody reading a handoff.
-    const owed = flutterTemplates.filter(
-      (template) =>
-        NOT_CLAIMED[template] === undefined &&
-        SERVED_SCREENS[template] === undefined &&
-        reactPaths.some((p) => p === template),
-    );
+  /**
+   * **Every navigation target in the corpus resolves in this app.**
+   *
+   * This replaces three checks that compared `SERVED_SCREENS` against the Flutter
+   * route table, which X.1 deleted. Those asked *does this app claim a screen the
+   * other one declares* — a question with no referent once there is one app — and
+   * what replaces them is stronger rather than weaker: it asks the question the
+   * user experiences, which is whether pressing a button goes anywhere.
+   *
+   * A `configScreenPath` that resolves to nothing is now a reported error rather
+   * than a hand-off to Flutter (`unservedScreenMessage`), so this is the check
+   * that keeps that message unreachable.
+   */
+  it("resolves every configScreenPath the table corpus names", () => {
+    const params: Record<string, string> = {
+      session_id: "s",
+      table_name: "t",
+      object_type: "o",
+      file_key: "f",
+      key: "k",
+      workspace_name: "w",
+      workspace_branch: "b",
+      feature_branch: "fb",
+      workspace_uri: "u",
+      startAtKey: "a",
+    };
+    // **The list is derived, so its emptiness has to be asserted separately.** A
+    // glob that matched nothing would make the filter below pass over zero paths
+    // and report success — the vacuous-pass failure C.0 found in the corpus tests,
+    // where a corpus that does not move is not evidence a deletion was inert.
+    expect(CONFIG_SCREEN_PATHS.length).toBeGreaterThanOrEqual(10);
+
+    const unresolved = CONFIG_SCREEN_PATHS.filter((p) => inAppPath(p, params) === null);
     expect(
-      owed,
-      "this app routes these Flutter templates and claims none of them, so a table action naming one leaves the app for a screen it serves",
+      unresolved,
+      "a table action names this path and nothing serves it, so pressing that button reports an error",
     ).toEqual([]);
   });
 
-  it("names a reason for every Flutter template it declines", () => {
-    // An entry in `NOT_CLAIMED` is a decision, so it has to correspond to a real
-    // template — a stale one would silence the check above for a screen that no
-    // longer exists, which is the same failure one level up.
-    const stale = Object.keys(NOT_CLAIMED).filter((t) => !flutterTemplates.includes(t));
-    expect(stale, "NOT_CLAIMED names a template the Flutter app no longer declares").toEqual([]);
+  it("routes flows through FLOW_ROUTES and screens through SERVED_SCREENS", () => {
+    // The two maps are keyed the same way and answer different questions, so a
+    // template in both would be ambiguous — and `inAppPath` asks the screen map
+    // first, which would silently win.
+    const inBoth = Object.keys(FLOW_ROUTES).filter((t) => SERVED_SCREENS[t] !== undefined);
+    expect(inBoth).toEqual([]);
+
+    // The eleven, which is the whole corpus (`user_flows/` holds eleven `.uf.json`
+    // plus three projections, and a projection has no Flutter route).
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
   });
 
-  it("cannot be used to excuse a screen this app serves and an action can name", () => {
-    // **The escape hatch, closed — and it was open until it was mutation-tested.**
-    // The check above requires a row for every Flutter template this app routes,
-    // and deleting a row *plus* adding a `NOT_CLAIMED` entry made it pass again:
-    // the excuse silenced exactly the case the check exists for.
-    //
-    // An entry is legitimate on one of two grounds, and both are checkable. Either
-    // this app does not route the screen at all, or it routes it and **no table
-    // action can name it**, which is `/workspaces/:workspace_name/home` — reached
-    // from code, so a `configScreenPath` never carries it and the row would never
-    // be read. `screen_configs.json` is the measurement of the second, not a
-    // reading of it.
-    const named = new Set(
-      Object.values(screenConfigs.tables).flatMap((t) =>
-        [...(t.actions ?? []), ...(t.secondRowActions ?? [])]
-          .map((a) => (a as { configScreenPath?: string }).configScreenPath)
-          .filter((p): p is string => typeof p === "string" && p.length > 0),
-      ),
+  it("carries a flow's parameters as a query string, and refuses a partial one", () => {
+    expect(reactFlowRoute("/workspaces/loadConfigUF/:workspace_name", { workspace_name: "cgt" })).toBe(
+      "/flow/loadConfigUF?workspace_name=cgt",
     );
-    const excused = Object.keys(NOT_CLAIMED).filter(
-      (template) => reactPaths.includes(template) && named.has(template),
-    );
-    expect(
-      excused,
-      "this app routes the screen and a table action names it, so declining it is not a decision — it is the missing row the check above is for",
-    ).toEqual([]);
+    // F.10's decision, kept: a flow whose arguments are absent is not opened with
+    // an empty worksheet.
+    expect(reactFlowRoute("/fileMappingUF/mapping/:table_name/:object_type", { table_name: "t" })).toBeNull();
   });
 
   it("returns null for a template neither app routes, and for none at all", () => {
