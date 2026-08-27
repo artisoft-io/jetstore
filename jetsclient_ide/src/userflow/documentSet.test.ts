@@ -22,7 +22,7 @@ import registerFileKeyActionsDoc from "../../../jets/workspace_assets/user_flows
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientTable from "../../../jets/workspace_assets/table_configs/client.tc.json";
 import orgTable from "../../../jets/workspace_assets/table_configs/org.tc.json";
-import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
+import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
 import { TableConfigDocumentSchema, type TableConfigDocument } from "../datatable/table";
 import corpus from "./fixtures/user_flows.json";
 import clientRegistryFlowDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.uf.json";

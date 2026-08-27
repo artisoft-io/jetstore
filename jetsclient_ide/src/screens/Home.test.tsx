@@ -36,6 +36,7 @@ import { NotificationsProvider, useNotifications } from "../shell/notifications"
 import { resetHomeFilters, updateHomeFilters } from "../actions/homeFilters";
 import { FormState } from "../datatable/formState";
 import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
+import pipelineExecStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
 import { Home, documentFindings } from "./Home";
 
 afterEach(() => {
@@ -98,6 +99,17 @@ function stubServer() {
     }
 
     switch (body["action"]) {
+      case "get_workspace_uri":
+        return new Response(JSON.stringify({ workspace_name: "test_ws" }), { status: 200 });
+      // **The middle tab's document, served the way the deployment serves it.**
+      // The content is the installed asset rather than a fixture, so this test
+      // fails if the document and the screen stop agreeing — which is the whole
+      // reason the bundled copy was removed.
+      case "get_workspace_document":
+        return new Response(
+          JSON.stringify({ file_content: JSON.stringify(pipelineExecStatusTable) }),
+          { status: 200 },
+        );
       case "read": {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
         const rows =
@@ -182,9 +194,46 @@ async function openTab(label: string, waitFor_: string) {
   await screen.findByText(waitFor_);
 }
 
-describe("the bundled documents", () => {
+describe("the documents", () => {
   it("parse, resolve every escape name, and declare every doAction they name", () => {
+    // **With the workspace document, and that is not a detail.** The only
+    // `doAction` on this screen — `resubmitPipeline` — is declared by
+    // `pipelineExecStatusTable`, which is no longer bundled. Calling this with no
+    // argument checks the two bundled tables, finds no `doAction` at all, and
+    // returns an empty list that reads exactly like a pass.
+    expect(documentFindings(pipelineExecStatusTable as never)).toEqual([]);
+  });
+
+  it("still parse when the workspace document has not arrived", () => {
     expect(documentFindings()).toEqual([]);
+  });
+});
+
+describe("the table this screen shares with a flow", () => {
+  /**
+   * **The capability is the point of this test, and it is invisible in the DOM.**
+   * `get_workspace_file_content` gates on `workspace_ide`, which only
+   * `knowledge_engineer` holds; `get_workspace_document` gates on `jetstore_read`.
+   * This screen is the app's front door and `ops_user` and `client_advocate` live
+   * on it, so reading through the editor's action would refuse the middle tab to
+   * most of the people who use it — while passing every test that stubs by path.
+   */
+  it("reads through the runtime action, not the editor's", async () => {
+    const { posts } = await mount();
+    const actions = posts.map((p) => p.body["action"]);
+    expect(actions).toContain("get_workspace_document");
+    expect(actions).not.toContain("get_workspace_file_content");
+    const read = posts.find((p) => p.body["action"] === "get_workspace_document")!;
+    expect((read.body["data"] as { file_name: string }[])[0]!.file_name).toBe(
+      "table_configs%2FpipelineExecStatusTable.tc.json",
+    );
+  });
+
+  it("asks for the deployment's workspace rather than assuming one", async () => {
+    const { posts } = await mount();
+    expect(posts.map((p) => p.body["action"])).toContain("get_workspace_uri");
+    const read = posts.find((p) => p.body["action"] === "get_workspace_document")!;
+    expect(read.body["workspaceName"]).toBe("test_ws");
   });
 });
 

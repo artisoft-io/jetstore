@@ -82,8 +82,19 @@ type Section struct {
 // membership is wrong.
 var WorkspaceSections = []Section{
 	{
+		// **`.meta.json` and `.schema.json` are the agentic model's two emitted
+		// companions**, installed beside `jets_agentic.jr` by U.2's predecessor and
+		// invisible here until 2026-08-26 — the same defect as the missing
+		// `.apply.json` below, found by the same test on the same run, in a
+		// directory neither project had reason to look at.
+		//
+		// **The two suffixes are named rather than `.json`**, and that is not
+		// fussiness: every asset group's directory also holds
+		// `jets_assets_manifest.json`, which belongs to the workspace's bookkeeping
+		// rather than to its author. A bare `.json` filter would put it in the tree
+		// beside the model, where editing it corrupts the install guard's evidence.
 		Dir: "data_model", Label: "Data Model",
-		Filters: []string{".jr", ".csv"}, CompiledView: DataModelView,
+		Filters: []string{".jr", ".csv", ".meta.json", ".schema.json"}, CompiledView: DataModelView,
 	},
 	{
 		Dir: "jet_rules", Label: "Jets Rules",
@@ -112,10 +123,24 @@ var WorkspaceSections = []Section{
 		// **This entry is the whole of making a new file type visible**, which is
 		// worth saying because a workspace directory that no Section names does
 		// not appear in the IDE at all. S.3 created `user_flows/` and would have
-		// shipped it invisible without a row. All three suffixes are listed
+		// shipped it invisible without a row. All four suffixes are listed
 		// because a flow, its actions and its form are edited together.
+		//
+		// **`.apply.json` is the fourth and it was missing for a day**, which is
+		// the same failure as the missing row, one level down: agentic_ai's U.2
+		// added a fourth document kind to this directory and the *embed glob*
+		// learned about it — `install.go` names four suffixes — while this filter
+		// list did not. So every projected flow shipped with three of its four
+		// documents visible and the fourth installed and unopenable. Found
+		// 2026-08-26 by running BuildWorkspaceFileStructure over an installed
+		// workspace and counting: 42 nodes for 45 documents.
+		//
+		// The lesson is the one this comment already carried, applied to itself:
+		// a *suffix* a directory does not list is as invisible as a directory no
+		// Section names, and the two lists that have to agree are in different
+		// packages with no check between them.
 		Dir: "user_flows", Label: "User Flows",
-		Filters: []string{".uf.json", ".ua.json", ".form.json"}, CompiledView: NoCompiledView,
+		Filters: []string{".uf.json", ".ua.json", ".form.json", ".apply.json"}, CompiledView: NoCompiledView,
 	},
 	{
 		// The fifth authored document type (task I.3, 2026-08-23). It sits in its

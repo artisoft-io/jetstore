@@ -187,6 +187,35 @@ export class WorkspaceApi {
   }
 
   /**
+   * Reads one flow or table document, for the running app rather than the IDE.
+   *
+   * **Same content as `readWorkspaceFile`, a different capability, and that is
+   * the whole reason it exists.** `get_workspace_file_content` gates on
+   * `workspace_ide`, which `jets_init_db.sql` grants to `knowledge_engineer`
+   * alone. Once the eleven flows became workspace assets, the runner read its
+   * documents at run time — so opening a flow required the IDE's capability, and
+   * `ops_user` and `client_advocate`, the roles the flows are *for*, were refused.
+   *
+   * `get_workspace_document` serves `user_flows/` and `table_configs/` only, and
+   * only the document suffixes each holds, at `jetstore_read`. The server refuses
+   * any other path with 403 rather than reporting whether it exists
+   * (`documentPathOK`, `jets/datatable/workspace_data_table_action.go`).
+   *
+   * **Use this for anything the app reads to run.** `readWorkspaceFile` stays the
+   * editor's read: it opens any file in the workspace and is right to want the
+   * IDE's capability for that.
+   */
+  async readWorkspaceDocument(workspaceName: string, path: string): Promise<WorkspaceFile> {
+    const fileName = queryEscape(path);
+    const body = await this.api.dataTable<{ file_content?: string }>({
+      action: "get_workspace_document",
+      workspaceName,
+      data: [{ workspace_name: workspaceName, file_name: fileName }],
+    });
+    return { fileName, label: path, content: body.file_content ?? "" };
+  }
+
+  /**
    * Save. The server validates any `.json` file before writing (it refuses to
    * persist one that will not parse), so a 400 here is frequently a real syntax
    * error in the buffer rather than a transport problem — worth surfacing verbatim.

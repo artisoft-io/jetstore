@@ -28,7 +28,7 @@ import wpClientListRO from "../../../jets/workspace_assets/table_configs/wpClien
 import hfProcessTable from "../../../jets/workspace_assets/table_configs/hfProcessTableUF.tc.json";
 import hfStatusTable from "../../../jets/workspace_assets/table_configs/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_configs/hfFileKeyFilterTypeTableUF.tc.json";
-import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
+import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
@@ -216,7 +216,7 @@ function stubServer(overrides: { missing?: string[] } = {}) {
           { status: 200 },
         );
 
-      case "get_workspace_file_content": {
+      case "get_workspace_document": {
         const data = (body["data"] as { file_name: string }[])[0]!;
         const name = decodeURIComponent(data.file_name.replace(/\+/g, " "));
         if (overrides.missing?.includes(name) || files[name] === undefined) {
@@ -329,7 +329,7 @@ describe("the route and the load", () => {
     const { posts } = await mount();
     await screen.findByText("vendorA");
     const read = posts
-      .filter((p) => p.body["action"] === "get_workspace_file_content")
+      .filter((p) => p.body["action"] === "get_workspace_document")
       .map((p) => decodeURIComponent(
         ((p.body["data"] as { file_name: string }[])[0]!.file_name).replace(/\+/g, " "),
       ));

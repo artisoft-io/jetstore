@@ -770,6 +770,102 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
+// documentDirs are the workspace directories GetWorkspaceDocument serves, and
+// the suffixes each may serve from.
+//
+// **This map is the whole of the security argument**, so it is a whitelist of
+// both halves rather than a prefix check: a directory this does not name is not
+// readable through this path at any capability, and a suffix that directory does
+// not list is not readable either. `.pc.json` beside a flow, a `.sql` under
+// reports, `workspace_control.json` at the root — none of them reach here.
+var documentDirs = map[string][]string{
+	"user_flows":    {".uf.json", ".ua.json", ".form.json", ".apply.json"},
+	"table_configs": {".tc.json"},
+}
+
+// documentPathOK reports whether fileName names a document this path may serve.
+//
+// Exactly one separator, so a nested path cannot walk out of the directory the
+// map named — `wsfile.GetContent` already confines to the workspace (CWE-73) and
+// this confines to the two directories inside it. The two checks are
+// independent and both are wanted: the first stops an escape from the workspace,
+// the second stops a jetstore_read user reading the workspace's rules, its
+// pipeline configurations or its client config.
+func documentPathOK(fileName string) bool {
+	dir, name, found := strings.Cut(fileName, "/")
+	if !found || name == "" || strings.Contains(name, "/") {
+		return false
+	}
+	suffixes, ok := documentDirs[dir]
+	if !ok {
+		return false
+	}
+	for _, suffix := range suffixes {
+		// A file that is *only* the suffix — ".tc.json" — names no document and
+		// is refused, which also refuses the dotfile it would otherwise be.
+		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetWorkspaceDocument --------------------------------------------------------------------------
+// Reads one user flow or table configuration document, for the *running* app
+// rather than for the IDE.
+//
+// **Why this exists beside GetWorkspaceFileContent, which reads any workspace
+// file.** That one gates on `workspace_ide`, and `jets_init_db.sql` grants
+// `workspace_ide` to `knowledge_engineer` alone. Since the eleven flows became
+// workspace assets (ui_refresh's X.5) the React app reads its flow documents at
+// run time, so the IDE's capability had become the capability required to *use a
+// flow* — and `ops_user` and `client_advocate`, who hold `jetstore_read` and
+// `run_pipelines`, could no longer open one. They are the roles the flows are
+// for.
+//
+// The alternative was granting them `workspace_ide`, which also carries the free
+// SQL query tool, git push, file save and delete, and purge data. Widening a
+// capability to fix a read is how a capability stops meaning anything.
+//
+// So: same content, same confinement, a *read-only* verb over a whitelist of two
+// directories, at the capability an ordinary user already has to read data.
+func (ctx *DataTableContext) GetWorkspaceDocument(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
+		return nil, code, err2
+	}
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	workspaceName := dataTableAction.WorkspaceName
+	wsFileName := request["file_name"]
+	if workspaceName == "" || wsFileName == nil {
+		err = fmt.Errorf("GetWorkspaceDocument: missing workspace_name or file_name")
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	fileName, err := url.QueryUnescape(wsFileName.(string))
+	if err != nil {
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	if !documentPathOK(fileName) {
+		// Refused by path rather than by existence, so this cannot be used to
+		// discover what a workspace holds outside the two directories.
+		err = fmt.Errorf("GetWorkspaceDocument: %s is not a user flow or table configuration document", fileName)
+		log.Println(err)
+		httpStatus = http.StatusForbidden
+		return
+	}
+
+	content, err := wsfile.GetContent(workspaceName, fileName)
+	results = &map[string]any{
+		"file_name":    wsFileName,
+		"file_content": content,
+	}
+	return
+}
+
 func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {

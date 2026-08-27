@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
 
 // The section contract, from the end that produces it.
@@ -230,4 +233,58 @@ func TestTheTwoRootFilesAreFilesAndCarryNoView(t *testing.T) {
 			t.Errorf("root file %d: got %+v, want a viewless file node for %q", i, n, want)
 		}
 	}
+}
+
+// Every asset the installer puts in a workspace is visible in the IDE.
+//
+// **The two lists are in different packages and nothing joined them until this
+// test.** `workspace_assets.AssetGroups` decides what is written into a
+// workspace; `WorkspaceSections` decides what the file tree shows. They agree by
+// convention, and on 2026-08-26 they did not: U.2 added `.apply.json` to the
+// embed glob and not to the `user_flows` filters, so the fourth document of every
+// projected flow was installed and unopenable — 45 documents, 42 nodes.
+//
+// The assertion is one-directional on purpose. A section may list a suffix the
+// installer never writes (a workspace authors its own flows, and should), but a
+// suffix JetStore *installs* and the IDE cannot show is a file a knowledge
+// engineer is told to edit and cannot find.
+func TestEveryInstalledAssetIsVisibleInTheIde(t *testing.T) {
+	filtersByDir := map[string]map[string]bool{}
+	for _, s := range WorkspaceSections {
+		set := map[string]bool{}
+		for _, f := range s.Filters {
+			set[f] = true
+		}
+		filtersByDir[s.Dir] = set
+	}
+
+	for _, g := range workspace_assets.AssetGroups {
+		filters, hasSection := filtersByDir[g.Dir]
+		if !hasSection {
+			t.Errorf("%s is installed into every workspace and no Section names it, so the IDE does not show the directory at all", g.Dir)
+			continue
+		}
+		names, err := workspace_assets.Names(g.Dir)
+		if err != nil {
+			t.Fatalf("listing %s: %v", g.Dir, err)
+		}
+		for _, name := range names {
+			if !matchesAFilter(name, filters) {
+				t.Errorf("%s/%s is installed and no filter of the %q section lists its suffix; it is invisible in the IDE",
+					g.Dir, name, g.Dir)
+			}
+		}
+	}
+}
+
+// matchesAFilter reports whether any filter is a suffix of name, which is how
+// Section.Filters is applied. Longest match is not needed: the question is
+// whether *some* filter shows the file.
+func matchesAFilter(name string, filters map[string]bool) bool {
+	for filter := range filters {
+		if strings.HasSuffix(name, filter) {
+			return true
+		}
+	}
+	return false
 }

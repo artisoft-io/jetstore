@@ -55,6 +55,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
+import { WorkspaceApi } from "../api/workspace";
 import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
 import { productionRegistry } from "../actions/registry";
 import {
@@ -68,7 +69,12 @@ import type { ActionRequest } from "../datatable/actionDispatch";
 import { FormState } from "../datatable/formState";
 import { TableView } from "../datatable/TableView";
 import { fromDocument } from "../datatable/tableTranslate";
-import { TableConfigDocumentSchema, tableEscapeReferences, type TableConfigDocument } from "../datatable/table";
+import {
+  TableConfigDocumentSchema,
+  tableEscapeReferences,
+  tablePath,
+  type TableConfigDocument,
+} from "../datatable/table";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
@@ -83,7 +89,6 @@ import actionsJson from "./documents/homeScreen.ua.json";
 import formsJson from "./documents/homeScreen.form.json";
 import inputLoaderStatusTable from "../datatable/tables/inputLoaderStatusTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
-import pipelineExecStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
 
 /**
  * The three tabs, in the Dart's order, with the Dart's labels.
@@ -97,9 +102,18 @@ import pipelineExecStatusTable from "../datatable/tables/pipelineExecStatusTable
  */
 const TABS = [
   { key: "inputLoaderStatusTable", label: "File Loader Status", document: inputLoaderStatusTable },
-  { key: "pipelineExecStatusTable", label: "Pipeline Execution Status", document: pipelineExecStatusTable },
+  // **The middle tab's document is not bundled**, and it is the only table in
+  // either corpus with two kinds of consumer: `homeFiltersUF` draws it from the
+  // workspace and this screen draws it here. It was committed twice for a day —
+  // once under `jets/workspace_assets/table_configs/` and once beside its
+  // neighbours — with a test asserting the copies agreed, which is a guard rather
+  // than a fix. One copy, read from where the flow reads it.
+  { key: "pipelineExecStatusTable", label: "Pipeline Execution Status", document: null },
   { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable },
 ] as const;
+
+/** The tab whose document comes from the workspace. */
+const WORKSPACE_TABLE = "pipelineExecStatusTable";
 
 /** One group, shared with the dialog — C.2b's decision, and the Dart's. */
 const GROUP = 0;
@@ -117,14 +131,39 @@ const SCREEN_KEY = "homeScreen";
 const parsed = {
   forms: FormDocumentSchema.safeParse(formsJson),
   actions: ActionDocumentSchema.safeParse(actionsJson),
-  tables: TABS.map((tab) => ({
+  tables: TABS.filter((tab) => tab.document !== null).map((tab) => ({
     key: tab.key,
     result: TableConfigDocumentSchema.safeParse(tab.document),
   })),
 };
 
 /** Findings from parsing and from resolving escape names, for the banner. */
-export function documentFindings(): string[] {
+/**
+ * One parsed table, as `parsed.tables` holds them, so a workspace-loaded document
+ * can join the bundled ones for every check below.
+ */
+type ParsedTable = { key: string; result: ReturnType<typeof TableConfigDocumentSchema.safeParse> };
+
+/**
+ * The bundled tables, plus the workspace one when it has arrived.
+ *
+ * **Every check in `documentFindings` needs all three and two of them are only
+ * meaningful on the third.** `pipelineExecStatusTable` is the only table on this
+ * screen whose actions include a `doAction` — `resubmitPipeline` — so a findings
+ * pass that ran over the two bundled documents would resolve nothing and report
+ * nothing, which reads exactly like a pass. That is why the parameter is
+ * threaded through rather than the check being left at module scope.
+ */
+const tablesWith = (workspaceTable: TableConfigDocument | null): ParsedTable[] =>
+  workspaceTable === null
+    ? parsed.tables
+    : [
+        ...parsed.tables,
+        { key: WORKSPACE_TABLE, result: TableConfigDocumentSchema.safeParse(workspaceTable) },
+      ];
+
+export function documentFindings(workspaceTable: TableConfigDocument | null = null): string[] {
+  const tables = tablesWith(workspaceTable);
   const findings: string[] = [];
   for (const [name, result] of [["forms", parsed.forms], ["actions", parsed.actions]] as const) {
     if (!result.success) {
@@ -133,7 +172,7 @@ export function documentFindings(): string[] {
       }
     }
   }
-  for (const table of parsed.tables) {
+  for (const table of tables) {
     if (!table.result.success) {
       for (const issue of table.result.error.issues) {
         findings.push(`${table.key}: ${issue.path.join("/")} — ${issue.message}`);
@@ -144,7 +183,7 @@ export function documentFindings(): string[] {
 
   const references = [
     ...formEscapeReferences(parsed.forms.data as FormDocument, SCREEN_KEY),
-    ...parsed.tables.flatMap((table) =>
+    ...tables.flatMap((table) =>
       tableEscapeReferences(table.result.data as TableConfigDocument).map((r) => ({
         ...r,
         at: `${table.key}.tc.json${r.at}`,
@@ -171,7 +210,7 @@ export function documentFindings(): string[] {
    * it. `pipelineExecStatusTable`'s `resubmitPipeline` is the only one.
    */
   const declared = new Set(Object.keys((parsed.actions.data as ActionDocument).actions));
-  for (const table of parsed.tables) {
+  for (const table of tables) {
     const document = table.result.data as TableConfigDocument;
     if (document.source !== "query") continue;
     for (const [row, actions] of [
@@ -206,17 +245,72 @@ export function Home({ api }: { api: ApiClient }) {
   const formState = useMemo(() => new FormState(), []);
   const dialog = useFormDialog();
 
-  const findings = useMemo(documentFindings, []);
+  /**
+   * The one table this screen reads from the workspace, and its failure.
+   *
+   * `null` while it is in flight, which is why the tab renders a placeholder
+   * rather than an empty table: an empty `TableConfig` would draw a table with no
+   * columns and say nothing, and this screen is the app's front door.
+   */
+  const [workspaceTable, setWorkspaceTable] = useState<TableConfigDocument | null>(null);
+  const [workspaceFinding, setWorkspaceFinding] = useState<string | null>(null);
+
+  const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        // The deployment's workspace, not the IDE's picker — `FlowRunner` reads
+        // the same table under the same rule, and the two must agree about which
+        // workspace they mean or they are not sharing a document at all.
+        const active = await workspaceApi.activeWorkspace();
+        const file = await workspaceApi.readWorkspaceDocument(
+          active.name,
+          tablePath(WORKSPACE_TABLE),
+        );
+        const parsedTable = TableConfigDocumentSchema.safeParse(JSON.parse(file.content));
+        if (cancelled) return;
+        if (!parsedTable.success) {
+          setWorkspaceFinding(
+            `${WORKSPACE_TABLE}.tc.json: ${parsedTable.error.issues
+              .map((i) => `${i.path.join("/")} — ${i.message}`)
+              .join("; ")}`,
+          );
+          return;
+        }
+        setWorkspaceTable(parsedTable.data as TableConfigDocument);
+      } catch (error) {
+        if (cancelled) return;
+        // Reported rather than thrown, and with the path in it: the likely causes
+        // are a workspace built before these became assets and a deployment whose
+        // install did not run, and both are answered by naming the file.
+        setWorkspaceFinding(
+          `Cannot read ${tablePath(WORKSPACE_TABLE)}: ${
+            error instanceof ApiError ? error.message : (error as Error).message
+          }`,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceApi]);
+
+  const findings = useMemo(
+    () => [...documentFindings(workspaceTable), ...(workspaceFinding === null ? [] : [workspaceFinding])],
+    [workspaceTable, workspaceFinding],
+  );
   const forms = parsed.forms.success ? parsed.forms.data.forms : {};
   const actions = parsed.actions.success ? parsed.actions.data.actions : {};
   const configs = useMemo(
     () =>
-      parsed.tables.reduce<Record<string, TableConfig>>(
+      tablesWith(workspaceTable).reduce<Record<string, TableConfig>>(
         (acc, table) =>
           table.result.success ? { ...acc, [table.key]: fromDocument(table.key, table.result.data) } : acc,
         {},
       ),
-    [],
+    [workspaceTable],
   );
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
@@ -516,17 +610,31 @@ export function Home({ api }: { api: ApiClient }) {
         id={`panel-${active.key}`}
         aria-labelledby={`tab-${active.key}`}
       >
-        <TableView
-          key={active.key}
-          config={configs[active.key]!}
-          field={{ group: GROUP, key: active.key }}
-          formState={formState}
-          fetcher={fetcher}
-          context={tableContext}
-          predicates={productionRegistry.predicates}
-          cellFilters={cellFiltersFor(parsed.tables.find((t) => t.key === active.key)!.result.data!)}
-          onAction={onTableAction}
-        />
+        {configs[active.key] === undefined ? (
+          /*
+            **Only reachable for the workspace-loaded tab, and only before it
+            arrives.** The two bundled tabs have a config at module load; this one
+            has one when the read returns. A failure is not here — it is a finding,
+            and the banner above returns early.
+          */
+          <p className="muted" role="status">
+            Loading {active.label}…
+          </p>
+        ) : (
+          <TableView
+            key={active.key}
+            config={configs[active.key]!}
+            field={{ group: GROUP, key: active.key }}
+            formState={formState}
+            fetcher={fetcher}
+            context={tableContext}
+            predicates={productionRegistry.predicates}
+            cellFilters={cellFiltersFor(
+              tablesWith(workspaceTable).find((t) => t.key === active.key)!.result.data!,
+            )}
+            onAction={onTableAction}
+          />
+        )}
       </div>
 
       {currentForm !== null && (

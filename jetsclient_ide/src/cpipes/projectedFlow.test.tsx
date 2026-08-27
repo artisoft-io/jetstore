@@ -144,7 +144,7 @@ function stubServer() {
           { status: 200 },
         );
 
-      case "get_workspace_file_content": {
+      case "get_workspace_document": {
         const data = (body["data"] as { file_name: string }[])[0]!;
         const name = decodeURIComponent(data.file_name.replace(/\+/g, " "));
         if (files[name] === undefined) {

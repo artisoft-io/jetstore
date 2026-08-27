@@ -47,6 +47,7 @@ var delegatedActions = map[string]string{
 	"workspace_query_structure":    "WorkspaceQueryStructure",
 	"add_workspace_file":           "AddWorkspaceFile",
 	"delete_workspace_files":       "DeleteWorkspaceFile",
+	"get_workspace_document":       "GetWorkspaceDocument",
 	"get_workspace_file_content":   "GetWorkspaceFileContent",
 	"save_workspace_file_content":  "SaveWorkspaceFileContent",
 	"delete_workspace_changes":     "DeleteWorkspaceChanges",
@@ -99,7 +100,7 @@ var ungatedActions = map[string]string{
 // It is pinned here because a document wanted to cite it and cited 21, from
 // counting a grep output by eye. A number a test can hold should not be a number
 // prose asserts.
-const dataTableActionCount = 23
+const dataTableActionCount = 24
 
 // apiserverEffectMarkers are the tells that an inline arm has reached the
 // database or S3. Deliberately short and deliberately a lower bound; see the

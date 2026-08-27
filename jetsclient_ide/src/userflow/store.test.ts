@@ -50,7 +50,7 @@ import inputFormatTable from "../../../jets/workspace_assets/table_configs/input
 import hfProcessTable from "../../../jets/workspace_assets/table_configs/hfProcessTableUF.tc.json";
 import hfStatusTable from "../../../jets/workspace_assets/table_configs/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_configs/hfFileKeyFilterTypeTableUF.tc.json";
-import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
+import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
 import loadFilesForms from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
 import {
   FLOW_DIR,
@@ -69,8 +69,9 @@ import { strictPolicy } from "./validate";
 /**
  * A workspace as a map from path to text.
  *
- * **The stub now answers `readWorkspaceFile`, and the change is the point of
- * I-65.** It used to answer `readFile(ws, node)` and key off `node.key`, which
+ * **The stub answers `readWorkspaceDocument`, and the change is the point of
+ * I-65 — with the method renamed on 2026-08-26 when the runtime read moved to
+ * its own, lower, capability.** It used to answer `readFile(ws, node)` and key off `node.key`, which
  * the real `WorkspaceApi` never does: `readFile` takes a tree node and asks
  * `fileNameOf` for the path, and that returns null unless `node.type === "file"`.
  * The store was synthesising `{ label, key } as never`, so the stub accepted a
@@ -83,7 +84,7 @@ function stubApi(files: Record<string, string>) {
     fileTree: vi.fn(async () =>
       Object.keys(files).map((path) => ({ label: path.split("/").pop(), key: path })),
     ),
-    readWorkspaceFile: vi.fn(async (_ws: string, path: string) => {
+    readWorkspaceDocument: vi.fn(async (_ws: string, path: string) => {
       const content = files[path];
       if (content === undefined) throw new Error(`no such file: ${path}`);
       return { fileName: path, label: path, content };

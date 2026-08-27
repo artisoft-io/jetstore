@@ -179,6 +179,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		JSONB(w, http.StatusOK, *resultsB)
 		return
 
+	case "get_workspace_document":
+		// The runtime read: a flow's documents and the tables they draw, at
+		// jetstore_read. See GetWorkspaceDocument for why it is not the case below.
+		results, code, err = ctx.GetWorkspaceDocument(&dataTableAction, token)
 	case "get_workspace_file_content":
 		results, code, err = ctx.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":
