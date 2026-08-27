@@ -39,6 +39,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
+import { BASENAME } from "../base";
 import { Login } from "../components/Login";
 import { ApiProvider, useCan } from "./capabilities";
 import { NotificationsProvider, useNotifications } from "./notifications";
@@ -204,7 +205,9 @@ function ShellChrome({ api, nav }: AppShellProps) {
 
   // The session gate. Everything below it may assume a user, which is what lets
   // screens call the api without each one re-checking.
-  if (!user) return <Login version="" onSubmit={signIn} />;
+  // `BASENAME` rather than a bare "/register": this is an href out of the
+  // router's tree, so it carries the prefix the router would otherwise add.
+  if (!user) return <Login version="" onSubmit={signIn} registerHref={`${BASENAME}/register`} />;
 
   return (
     <div className="app">

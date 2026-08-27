@@ -54,11 +54,18 @@ const NOT_CLAIMED: Readonly<Record<string, string>> = {
   "/startPipelineUF": "flow",
   "/configureHomeFiltersUF": "flow",
   "/workspaces/loadConfigUF/:workspace_name": "flow",
-  // Track X's, not track C's: porting these is the moment the Flutter app stops
-  // being reachable, which is a retirement decision (`sizing_screen_migration.md`
-  // section 7, C.15).
-  "/login": "track X",
-  "/register": "track X",
+  // **Ported by X.4 on 2026-08-26, and still not claimed — the reason changed
+  // rather than the entry going.** This app serves both paths now: `/register` is
+  // its one unauthenticated route and `/login` redirects a signed-in user home,
+  // while an unauthenticated one gets the sign-in form at any path because the
+  // shell is the gate.
+  //
+  // What a `SERVED_SCREENS` row means is *a table action may navigate here in
+  // app*, and no action names either of these — there is no button anywhere that
+  // sends a user to sign in. A row would be a claim nothing reads, which is the
+  // thing the comment above says to refuse.
+  "/login": "served, but no action navigates to it",
+  "/register": "served, but no action navigates to it",
   // This app answers an unmatched path itself (C.16, `NotFound.tsx`); there is no
   // handoff to claim, and a row would make a table action navigate to the 404 on
   // purpose.
