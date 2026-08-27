@@ -132,15 +132,20 @@ function harness(
 
   const press = async (action: string) => {
     if (!isStandardAction(action)) {
-      // A form button naming an entry in the action document.
-      return runAction({
-        action: actions.actions[action]!,
-        host,
-        formState,
-        field,
-        registry,
-        flowKey: "test",
-      });
+      // A form button naming an entry in the action document. Its *message* is
+      // what a caller here asserts on, the same thing `step` returns for a
+      // standard button — `runAction` also reports whether it completed, and the
+      // engine is the only party that needs to know (I-29).
+      return (
+        await runAction({
+          action: actions.actions[action]!,
+          host,
+          formState,
+          field,
+          registry,
+          flowKey: "test",
+        })
+      ).message;
     }
     const result = await step(action, {
       flow,
@@ -684,7 +689,7 @@ describe("client_registry, end to end", () => {
     formState.setValue(0, "client", ["ACME"]);
     const posts: unknown[] = [];
     const actions = ActionDocumentSchema.parse(clientRegistryActionsDoc) as ActionDocument;
-    const outcome = await runAction({
+    const { message: outcome } = await runAction({
       action: actions.actions["deleteClientAction"]!,
       host: {
         validate: () => true,
@@ -929,7 +934,7 @@ describe("start_pipeline, end to end", () => {
     // `formKey.currentState!.validate()`, which is an abort and not an error.
     const posts: unknown[] = [];
     const actions = ActionDocumentSchema.parse(startPipelineActionsDoc) as ActionDocument;
-    const outcome = await runAction({
+    const { message: outcome } = await runAction({
       action: actions.actions["spStartPipelineUF"]!,
       host: {
         validate: () => false,
@@ -1585,7 +1590,7 @@ describe("file_mapping, end to end", () => {
     // and the message is left in form state for the screen behind it
     // (`modules/actions/delegate_helpers.dart`, `postInsertRows`).
     const actions = ActionDocumentSchema.parse(fileMappingActionsDoc) as ActionDocument;
-    const outcome = await runAction({
+    const { message: outcome } = await runAction({
       action: actions.actions["loadRawRows.Ok"]!,
       host: {
         validate: () => true,
@@ -1828,17 +1833,27 @@ describe("configure_files, end to end", () => {
     h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
     await h.press("ufNext");
     selectExisting(h, { input_format: "xlsx", input_format_data_json: "{not json" });
+    const before = h.at();
     const outcome = await h.press("ufNext");
     // The Dart's message, mislabelled at source and reproduced (I-133).
     expect(String(outcome)).toContain("Input column names is not a valid json");
-    // **And the flow moves on anyway, in both apps.** `ufNext` runs the state
-    // action, `print`s the error and advances
-    // (`modules/actions/user_flow_actions.dart`, `ActionKeys.ufNext`); `step`
-    // returns the outcome beside the new position (`engine.ts`, `step`). So the
-    // message reaches the screen and the user is on the next page — asserted
-    // rather than left implicit, because this arm is the corpus's only state
-    // action that can fail on data rather than on a server.
-    expect(h.at()).toBe("select_file_type_option");
+    // **And the flow stays put — I-29, fixed 2026-08-26.**
+    //
+    // ~~It moved on anyway, in both apps.~~ `ufNext` ran the state action,
+    // `print`ed the error and advanced (`modules/actions/user_flow_actions.dart`,
+    // `ActionKeys.ufNext`), and `step` returned the outcome beside the *new*
+    // position — so the message reached the screen and the user was on the next
+    // page regardless. This assertion was the one place that behaviour was
+    // pinned rather than implicit, which is why it is the test that had to change
+    // when the entry was decided.
+    //
+    // **This arm is the corpus's only state action that can fail on data rather
+    // than on a server**, so it is also the only end-to-end place the fix is
+    // observable without stubbing a failure.
+    expect(h.at()).toBe(before);
+    // Named as well as compared, so a future change that moves *both* the state
+    // and the expectation cannot pass silently.
+    expect(h.at()).toBe("select_source_config");
   });
 
   it("writes the sheet back as the record's format options", async () => {

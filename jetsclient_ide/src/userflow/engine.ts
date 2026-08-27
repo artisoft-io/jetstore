@@ -29,7 +29,7 @@
  * choice evaluates false.
  */
 
-import type { ActionOutcome } from "../actions/interpret";
+import type { ActionOutcome, ActionResult } from "../actions/interpret";
 import type { FormState } from "../datatable/formState";
 import type { Condition, State, UserFlow } from "./schema";
 
@@ -150,8 +150,13 @@ export interface StepRequest {
   position: FlowPosition;
   formState: FormState;
   group: number;
-  /** Runs the state's `stateAction`, if it has one. Returns null on success. */
-  runStateAction(name: string): Promise<ActionOutcome>;
+  /**
+   * Runs the state's `stateAction`, if it has one.
+   *
+   * Returns whether the action completed as well as what to say, because the flow
+   * may only move when it did — see `step`, and I-29.
+   */
+  runStateAction(name: string): Promise<ActionResult>;
   /** Runs the form's validators. False stops without failing. */
   validate(): boolean;
   /** Leaves the flow — `exitScreenPath`, or closing the dialog. */
@@ -169,11 +174,35 @@ export interface StepResult {
  * One press of a standard button.
  *
  * The order inside `ufNext` and `ufCompleted` is the Dart's and is load-bearing:
- * **validate, then run the state's action, then move.** An action that posts runs
- * only against a form the user has completed, and a failed action still advances
- * — which looks wrong and is what the Dart does (`user_flow_actions.dart:62`),
- * logging the error and carrying on. Reproduced, and flagged as I-29 rather than
- * quietly corrected.
+ * **validate, then run the state's action, then move.**
+ *
+ * ## A failed action no longer advances — I-29, fixed 2026-08-26
+ *
+ * It used to. The Dart logs the error and carries on
+ * (`user_flow_actions.dart:62`), so a state whose action posts and gets a 500
+ * showed the user the next page as though the save had worked; on `loadFilesUF`
+ * that meant the loader was never started and the flow ended looking successful.
+ * The port reproduced it deliberately, on the reasoning that **the port's job is
+ * to be the Flutter app** and changing when a flow advances is a behaviour change
+ * rather than a translation.
+ *
+ * **That reasoning expired when the Flutter app did** (track X, 2026-08-26).
+ * There is nothing left to be faithful to, and what remained was an application
+ * that tells a user their work is saved when it is not — now in front of real
+ * users, which it was not when the entry was written.
+ *
+ * ## Two kinds of stop, and the quiet one is why this needed a type change
+ *
+ * `runAction` returned only a message, and a step that stops the action returns
+ * one *sometimes*: a `validate` that does not pass and a refused `confirm` both
+ * stop with `null`, because neither is an error. So "stopped quietly" and "ran to
+ * the end" were the same value, and no amount of checking the message could tell
+ * them apart. `ActionResult.completed` is what makes the question answerable.
+ *
+ * Both are handled the same way here, and deliberately: **the flow stays put and
+ * says whatever there is to say, which for a quiet stop is nothing.** A user who
+ * cancels a confirmation should not be moved to the next page, and should not be
+ * told off for it either.
  */
 export async function step(action: StandardAction, request: StepRequest): Promise<StepResult> {
   const { flow, position, formState, group } = request;
@@ -193,23 +222,29 @@ export async function step(action: StandardAction, request: StepRequest): Promis
       return { position: back(position), outcome: null, finished: false };
 
     case "ufContinueLater": {
-      const outcome = await runStateAction(state, request);
+      const result = await runStateAction(state, request);
+      // Leaving is a move like any other: a save that did not happen is not a
+      // reason to close the flow on the user.
+      if (!result.completed) return stay(result.message);
       request.exit();
-      return { position, outcome, finished: true };
+      return { position, outcome: result.message, finished: true };
     }
 
     case "ufCompleted": {
       if (!request.validate()) return stay();
-      const outcome = await runStateAction(state, request);
+      const result = await runStateAction(state, request);
+      if (!result.completed) return stay(result.message);
       request.exit();
-      return { position, outcome, finished: true };
+      return { position, outcome: result.message, finished: true };
     }
 
     case "ufStartFlow":
     case "ufNext": {
       // `ufStartFlow` does not validate; `ufNext` does.
       if (action === "ufNext" && !request.validate()) return stay();
-      const outcome = await runStateAction(state, request);
+      const result = await runStateAction(state, request);
+      if (!result.completed) return stay(result.message);
+      const outcome = result.message;
       const to = nextStateKey(state, formState, group);
       if (to === null) {
         return stay(`No next step from "${position.stateKey}"`);
@@ -224,7 +259,10 @@ export async function step(action: StandardAction, request: StepRequest): Promis
   }
 }
 
-async function runStateAction(state: State, request: StepRequest): Promise<ActionOutcome> {
-  if (state.stateAction === undefined) return null;
+async function runStateAction(state: State, request: StepRequest): Promise<ActionResult> {
+  // A state with no action has completed by definition — there was nothing to
+  // stop. Saying so here rather than at each call site is what keeps the three
+  // arms above identical.
+  if (state.stateAction === undefined) return { completed: true, message: null };
   return request.runStateAction(state.stateAction);
 }

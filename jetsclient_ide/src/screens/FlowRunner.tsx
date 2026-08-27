@@ -43,7 +43,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
-import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
+import { runAction, type ActionHost, type ActionResult, type PostResult } from "../actions/interpret";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
 import { setCpipesWorkspace } from "../cpipes/templateApply";
 import {
@@ -474,7 +474,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   );
 
   const runNamedAction = useCallback(
-    async (name: string): Promise<string | null> => {
+    async (name: string): Promise<ActionResult> => {
       haltedByUser.current = false;
       const action = loaded?.flow.actions.actions[name];
       if (action === undefined) {
@@ -505,8 +505,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           // A form button naming an entry in the action document. It does not go
           // through `step`, which is the Dart's shape too: the six standard keys
           // are the flow's and everything else is the action grammar's.
-          const outcome = await runNamedAction(name);
-          if (outcome !== null) setError(outcome);
+          const { message } = await runNamedAction(name);
+          if (message !== null) setError(message);
         } else {
           const result = await step(name as StandardAction, {
             flow: loaded.flow.flow,
@@ -611,9 +611,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         case "runActionThenDialog":
           void (async () => {
-            const outcome = await runNamedAction(request.name);
-            if (outcome !== null) {
-              setError(outcome);
+            const { message } = await runNamedAction(request.name);
+            if (message !== null) {
+              setError(message);
               return;
             }
             await openFlowDialog(request.form, request.params);
@@ -643,9 +643,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         return;
       }
       void (async () => {
-        const outcome = await runNamedAction(action.action);
-        if (outcome !== null) {
-          setError(outcome);
+        const { message } = await runNamedAction(action.action);
+        if (message !== null) {
+          setError(message);
           dialog.close("failed");
           return;
         }

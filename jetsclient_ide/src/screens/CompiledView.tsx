@@ -435,14 +435,14 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this view's action document`);
       }
-      return runAction({
+      return (await runAction({
         action,
         host,
         formState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: "compiledView",
-      });
+      })).message;
     },
     [actions, host, formState],
   );
