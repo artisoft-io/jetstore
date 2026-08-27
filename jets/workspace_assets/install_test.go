@@ -9,13 +9,14 @@ import (
 	"testing"
 )
 
-// The three groups are named here rather than indexed out of AssetGroups, so a
+// The four groups are named here rather than indexed out of AssetGroups, so a
 // test that stops covering a group fails to compile instead of silently
 // testing nothing.
 const (
-	dataModel   = "data_model"
-	pipesConfig = "pipes_config"
-	userFlows   = "user_flows"
+	dataModel    = "data_model"
+	pipesConfig  = "pipes_config"
+	userFlows    = "user_flows"
+	tableConfigs = "table_configs"
 )
 
 func newWorkspace(t *testing.T) string {
@@ -424,13 +425,34 @@ func rewriteManifest(t *testing.T, dir, group, name, hash string) {
 	}
 }
 
-// A projected flow is four documents and three of them do not run: FlowStore
-// reads the .uf.json, .ua.json and .form.json together and the escape reads the
-// .apply.json at the end of the walk. The embed glob names four suffixes, so a
-// set that lost one would install as three files and fail at load in the
-// browser — which is the layer this repository has least visibility into. Check
-// it here instead (task U.2).
-func TestEveryProjectedFlowInstallsAsAWholeSet(t *testing.T) {
+// The keys `cpipes-contract templates` writes, as distinct from the flows ported
+// out of the Flutter app.
+//
+// **Named rather than derived, and the alternative was worse.** A projection is
+// four documents and a ported flow is three, so the discriminator available on
+// disk is the presence of the .apply.json — which is the very thing the test
+// below is checking for. Deriving the set from it would make a projection that
+// lost its .apply.json indistinguishable from a ported flow and the check would
+// pass on the failure it exists to catch. So the keys are written down, adding a
+// template means adding a line here, and the failure names it. This mirrors
+// `jetsclient_ide/src/cpipes/projectedFlow.test.tsx`, whose TEMPLATES is the same
+// list for the same reason.
+var projectedKeys = map[string]bool{
+	"map_claim_load_stages": true,
+	"qc_metrics":            true,
+	"qc_report":             true,
+}
+
+// A flow's documents are read together and a set that lost one fails at load in
+// the browser — the layer this repository has least visibility into, so the glob
+// is checked here instead (task U.2).
+//
+// **Two shapes since the eleven ported flows moved in.** FlowStore reads the
+// .uf.json, .ua.json and .form.json of every flow; a projection has a fourth,
+// the .apply.json, which no UserFlow schema describes and only the escape reads.
+// So three documents is the rule and the fourth is a property of being generated
+// from a template.
+func TestEveryFlowInstallsAsAWholeSet(t *testing.T) {
 	names, err := Names(userFlows)
 	if err != nil {
 		t.Fatal(err)
@@ -458,10 +480,40 @@ func TestEveryProjectedFlowInstallsAsAWholeSet(t *testing.T) {
 		t.Fatalf("%s installs nothing; the embed glob matched no file", userFlows)
 	}
 	for key, got := range keys {
-		for _, suffix := range suffixes {
+		for _, suffix := range []string{".uf.json", ".ua.json", ".form.json"} {
 			if !got[suffix] {
-				t.Errorf("%s: no %s — a flow key installs all four or none", key, suffix)
+				t.Errorf("%s: no %s — a flow key installs all three or none", key, suffix)
 			}
+		}
+		switch {
+		case projectedKeys[key] && !got[".apply.json"]:
+			t.Errorf("%s: a projected flow with no .apply.json — the escape has nothing to apply", key)
+		case !projectedKeys[key] && got[".apply.json"]:
+			t.Errorf("%s: an .apply.json under a key that is not a projection", key)
+		}
+	}
+	for key := range projectedKeys {
+		if keys[key] == nil {
+			t.Errorf("%s: named as a projection and installs nothing", key)
+		}
+	}
+}
+
+// Every table a JetStore flow draws installs, and nothing else does. A .tc.json
+// is the only kind here: `FlowStore.loadTables` asks for `table_configs/<key>.tc.json`
+// by the key a form's dataTable field names, so a file of any other suffix in
+// this group is a file no flow can reach.
+func TestOnlyTableDocumentsInstallAsTableConfigs(t *testing.T) {
+	names, err := Names(tableConfigs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) == 0 {
+		t.Fatalf("%s installs nothing; the embed glob matched no file", tableConfigs)
+	}
+	for _, name := range names {
+		if !strings.HasSuffix(name, ".tc.json") {
+			t.Errorf("%s/%s: not a table configuration", tableConfigs, name)
 		}
 	}
 }

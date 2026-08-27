@@ -2,23 +2,33 @@
 // client workspace, and refuses to do it silently over a local edit (A21.2,
 // A21.3; plan section 3.9).
 //
-// The assets are committed under data_model/ and pipes_config/ — the data-model
-// generator itself stays off the deployment path, so nothing here runs Python
-// and nothing here reads the workspace it is installing into. They are embedded
+// The assets are committed under data_model/, pipes_config/, user_flows/ and
+// table_configs/ — the data-model generator itself stays off the deployment
+// path, so nothing here runs Python and nothing here reads the workspace it is
+// installing into. They are embedded
 // rather than copied out of the source tree so the install depends on the binary
 // alone: `Dockerfile.cpipes_builder`'s `COPY jets` puts the files in the builder
 // image, `go:embed` puts them in the binary, and `Dockerfile.compile_ws` needs to
 // know no path but the workspace's.
 //
-// # Two directories, one mechanism
+// # Four directories, one mechanism
 //
 // data_model/ carries the platform base model and the generated agentic model.
 // pipes_config/ carries the pipeline configurations JetStore owns — jets_loader,
 // which every workspace had its own identical copy of, and the pipelines the
-// platform itself runs. Both are installed the same way and guarded the same
-// way; they differ in one detail only, which is that a .jr file can carry a
-// comment header and a .pc.json cannot carry one that survives a round trip
-// through a JSON editor. See TokenedAssets below.
+// platform itself runs. user_flows/ carries the wizards: the projections a
+// template generates (U.2) and the eleven ported application flows. table_configs/
+// carries the table documents those flows draw.
+//
+// All four are installed the same way and guarded the same way; they differ in
+// one detail only, which is that a .jr file can carry a comment header and the
+// three JSON groups cannot carry one that survives a round trip through a JSON
+// editor. See TokenedAssets below.
+//
+// **The count of directories has been wrong in this comment twice**, once when
+// user_flows was added and once when table_configs was, both times because the
+// heading said "Two" and nothing reads a heading when adding a slice element.
+// It is a count of AssetGroups; if you add one, it is here.
 //
 // # The guard
 //
@@ -82,8 +92,16 @@ import (
 // there. A .pc.json dropped beside a projection would otherwise install as a
 // user flow.
 //
+// table_configs names its one suffix for the same reason and a weaker one: no
+// generator writes there, so the risk is a stray file rather than a stray
+// output. It is a separate group rather than a fourth suffix under user_flows
+// because a table document is installed into a *different* workspace directory
+// — `table_configs/`, which is where `FlowStore.loadTables` reads — and Dir is
+// both the source and the destination.
+//
 //go:embed data_model/*.jr data_model/*.json pipes_config/*.json
 //go:embed user_flows/*.uf.json user_flows/*.ua.json user_flows/*.form.json user_flows/*.apply.json
+//go:embed table_configs/*.tc.json
 var assetFS embed.FS
 
 // AssetGroup is one directory of JetStore-owned assets. Dir is both where the
@@ -157,17 +175,43 @@ var AssetGroups = []AssetGroup{
 	{
 		Dir:           "user_flows",
 		TokenedAssets: false,
-		Doc: "The wizard for a JetStore template is generated from the template, by\n" +
-			"`cpipes-contract templates --project jets/workspace_assets/user_flows`, and\n" +
-			"is replaced on every build. Editing one here is editing the output of a\n" +
-			"generator, so the change is lost at the next regeneration and the config the\n" +
-			"wizard writes stops matching what the template expands to.\n\n" +
-			"To run a variant, author your own flow beside it:\n\n" +
+		Doc: "If you needed a change now and JetStore is publishing a fix, do not commit\n" +
+			"it. Edit the file in the workspace IDE and leave it there: the save is\n" +
+			"recorded in jetsapi.workspace_changes and re-applied over this file at every\n" +
+			"container start, and nothing in this install ever sees it. That is what got\n" +
+			"committed if you are reading this message.\n\n" +
+			"This directory holds two kinds of document and the remedy is otherwise the\n" +
+			"same for both. A template's wizard is generated, by `cpipes-contract templates\n" +
+			"--project jets/workspace_assets/user_flows`, so editing one is editing the\n" +
+			"output of a generator: the change is lost at the next regeneration and the\n" +
+			"config the wizard writes stops matching what the template expands to. The\n" +
+			"eleven ported flows are hand-written and have no generator, and they are\n" +
+			"still JetStore's — they are the application's own screens expressed as\n" +
+			"documents, and the escape names they use are resolved by the build.\n\n" +
+			"To run a variant of either, author your own flow beside it:\n\n" +
 			"    cp user_flows/qc_metrics.uf.json user_flows/<your_workspace>_qc.uf.json\n\n" +
-			"and its .ua.json, .form.json and .apply.json under the same key — the four\n" +
-			"are read together and a set with three of them does not load. Your key is\n" +
-			"yours; the escape name in the .ua.json is the build's and must stay\n" +
-			"cpipesTemplateApply.",
+			"and its .ua.json and .form.json under the same key — a projected set has a\n" +
+			".apply.json as well, and the documents are read together, so a set missing\n" +
+			"one does not load. Your key is yours; the escape names are the build's.\n" +
+			"A flow that draws a table needs that table's .tc.json under table_configs/,\n" +
+			"which is the group below.",
+	},
+	{
+		Dir:           "table_configs",
+		TokenedAssets: false,
+		Doc: "If you needed a change now and JetStore is publishing a fix, do not commit\n" +
+			"it — edit it in the workspace IDE and leave it as a workspace_changes\n" +
+			"override, which this install never sees.\n\n" +
+			"A table configuration a JetStore flow draws. `FlowStore.loadTables` reads\n" +
+			"these by the key a form's dataTable field names, so a flow whose table is\n" +
+			"missing or edited into disagreement fails to load rather than drawing the\n" +
+			"wrong columns.\n\n" +
+			"To vary one, copy it under a key of your own and point your own flow's form\n" +
+			"at that key:\n\n" +
+			"    cp table_configs/lfFileKeyStagingTable.tc.json \\\n" +
+			"       table_configs/<your_workspace>_file_key_staging.tc.json\n\n" +
+			"A table document is keyed by table rather than by flow, so two flows may\n" +
+			"name the same one — which is why editing in place is the thing to avoid.",
 	},
 }
 

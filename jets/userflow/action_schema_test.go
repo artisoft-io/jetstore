@@ -12,7 +12,8 @@ import (
 
 const (
 	actionSchemaPath = "../../jetsclient_ide/src/actions/action.schema.json"
-	actionsDir       = "../../jetsclient_ide/src/actions/flows"
+	// Beside the .uf.json they serve; see schema_test.go's flowsDir.
+	actionsDir = "../workspace_assets/user_flows"
 )
 
 // The action grammar's Go half, on the same argument as the flow schema's: the
@@ -58,9 +59,16 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24);
 	// 11 as of F.7 (sourceConfigUF, 2026-08-24), which is all eleven flows and
 	// the end of track F's migration.
-	const migratedFlows = 11
-	if len(names) != migratedFlows {
-		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
+	//
+	// **14 rather than 11 since the flows moved to workspace assets**, and the
+	// three added are not migrations: they are the projections
+	// `cpipes-contract templates` writes into the same directory. Their action
+	// documents are one `cpipesTemplateApply` step each and are governed by this
+	// same schema, so validating them here is coverage the split would otherwise
+	// have lost — nothing else runs the Go validator over a generated .ua.json.
+	const flowDocuments = 14
+	if len(names) != flowDocuments {
+		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)
 	}
 	for _, path := range names {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".ua.json"), func(t *testing.T) {

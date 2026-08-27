@@ -265,19 +265,32 @@ void main() {
     });
   });
 
-  group('what never hands off', () {
-    test('no route hands off while the React app serves no flow', () {
-      // **This assertion is the one that was missing, in the other direction.**
+  group('what hands off, and what never does', () {
+    test('every flow route hands off, and every other route does not', () {
+      // **This replaces the assertion that the set is empty, and the shape of
+      // the check is deliberately unchanged**: it runs over `jetsRoutesMap` and
+      // decides each route by whether `userFlowRoutes` claims it, rather than
+      // against a list of eleven names written out here. A twelfth flow route
+      // added to the app is then covered by this test on the day it appears.
+      //
       // Until F.0a the set listed two flows the React app had no route for, and
       // the test that existed asserted only the URL this app *emits* — which was
       // correct, and said nothing about whether anything would accept it (I-50).
-      expect(migratedUserFlows, isEmpty);
+      // That direction is still not tested here and cannot be: what makes a
+      // handoff land is a document set in the workspace, which is neither app's
+      // compiled state (I-87, track X's X.5).
+      expect(migratedUserFlows,
+          hasLength(userFlowRoutes.values.map((r) => r.flowKey).toSet().length));
       for (final template in jetsRoutesMap.keys) {
-        expect(
-            handoffUrlFor(
-                JetsRouteData(template, params: sampleParams(template))),
-            isNull,
-            reason: template);
+        final url = handoffUrlFor(
+            JetsRouteData(template, params: sampleParams(template)));
+        final flowRoute = userFlowRoutes[template];
+        if (flowRoute == null) {
+          expect(url, isNull, reason: template);
+        } else {
+          expect(url, startsWith('/ide/flow/${flowRoute.flowKey}'),
+              reason: template);
+        }
       }
     });
 

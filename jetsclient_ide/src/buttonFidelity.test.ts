@@ -136,7 +136,9 @@ const FLOW_DOCUMENTS = [
 function documentForms(): Array<{ document: string; form: string; config: DocForm }> {
   const out: Array<{ document: string; form: string; config: DocForm }> = [];
   for (const name of FLOW_DOCUMENTS) {
-    const doc = readJson<{ forms: Record<string, DocForm> }>(`userflow/forms/${name}.form.json`);
+    const doc = readJson<{ forms: Record<string, DocForm> }>(
+      `../../jets/workspace_assets/user_flows/${name}.form.json`,
+    );
     for (const [form, config] of Object.entries(doc.forms)) {
       out.push({ document: name, form, config });
     }
