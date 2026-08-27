@@ -53,7 +53,20 @@ function makeHost(overrides: Partial<ActionHost> = {}) {
   return { host, posts, notices, events };
 }
 
-const run = (doc: ActionDocument, name: string, formState: FormState, host: ActionHost, registry: EscapeRegistry = emptyRegistry) =>
+/**
+ * Runs an action and returns what it said, which is what most cases here assert.
+ *
+ * **`runCompleting` is the one that asserts the other half.** `runAction` returns
+ * `{completed, message}` since I-29, because a step can stop an action without
+ * saying anything — a `validate` that does not pass, a refused `confirm` — and
+ * the flow engine may only advance when the action ran to the end. A test that
+ * looks at the message alone cannot tell those apart, which is the defect in one
+ * sentence.
+ */
+const run = async (doc: ActionDocument, name: string, formState: FormState, host: ActionHost, registry: EscapeRegistry = emptyRegistry) =>
+  (await runAction({ action: doc.actions[name]!, host, formState, field, registry, flowKey: "x" })).message;
+
+const runCompleting = (doc: ActionDocument, name: string, formState: FormState, host: ActionHost, registry: EscapeRegistry = emptyRegistry) =>
   runAction({ action: doc.actions[name]!, host, formState, field, registry, flowKey: "x" });
 
 describe("the emitted JSON Schema", () => {
@@ -151,13 +164,35 @@ describe("values", () => {
 });
 
 describe("control flow", () => {
-  it("stops without failing when the form is invalid", () => {
+  it("stops without failing when the form is invalid", async () => {
     // The Dart returns null from an invalid form: the user changed their mind,
     // and an error banner would be wrong.
     const { host, posts } = makeHost({ validate: () => false });
-    return expect(
-      run(registerFileKeyDoc as ActionDocument, "rfkSubmitSchemaEventUF", new FormState(), host),
-    ).resolves.toBeNull().then(() => expect(posts).toHaveLength(0));
+    const result = await runCompleting(
+      registerFileKeyDoc as ActionDocument,
+      "rfkSubmitSchemaEventUF",
+      new FormState(),
+      host,
+    );
+    expect(result.message).toBeNull();
+    // **And it says it stopped, which the message cannot** (I-29). This action is
+    // one of eleven in the corpus that opens with a `validate` step; while
+    // `runAction` returned a bare message, the engine could not tell this from a
+    // clean run and advanced the flow past a form the user had not filled in.
+    expect(result.completed).toBe(false);
+    expect(posts).toHaveLength(0);
+  });
+
+  it("reports completion when every step runs", async () => {
+    const doc = {
+      schemaVersion: 1,
+      actions: { a: { description: "d", steps: [{ do: "close" }] } },
+    } as unknown as ActionDocument;
+    const { host } = makeHost({});
+    expect(await runCompleting(doc, "a", new FormState(), host)).toEqual({
+      completed: true,
+      message: null,
+    });
   });
 
   it("stops without failing when a confirmation is declined", async () => {
@@ -166,7 +201,11 @@ describe("control flow", () => {
       actions: { a: { description: "d", steps: [{ do: "confirm", message: "sure?" }, { do: "close" }] } },
     } as unknown as ActionDocument;
     const { host, events } = makeHost({ confirm: async () => false });
-    expect(await run(doc, "a", new FormState(), host)).toBeNull();
+    const result = await runCompleting(doc, "a", new FormState(), host);
+    expect(result.message).toBeNull();
+    // Declining is a stop, not a success: silent to the user and visible to the
+    // engine, which is the whole of `ActionResult`.
+    expect(result.completed).toBe(false);
     expect(events).not.toContain("close");
   });
 

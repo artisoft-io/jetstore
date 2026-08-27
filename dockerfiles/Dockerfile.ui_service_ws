@@ -56,8 +56,7 @@ COPY --from=ws_builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
 
 # Copy the built web app. The destination is the
 # default of the apiserver's -IDE_APP_DEPLOYMENT_DIR flag (jets/apiserver/main.go),
-# which is why no environment variable is set for it here - the same arrangement
-# /usr/local/lib/web has with -WEB_APP_DEPLOYMENT_DIR. IDE_APP_DEPLOYMENT_DIR
+# which is why no environment variable is set for it here. IDE_APP_DEPLOYMENT_DIR
 # still overrides it at runtime if the bundle is ever mounted elsewhere.
 COPY --from=builder /app/jetsclient_ide/dist /usr/local/lib/ide
 

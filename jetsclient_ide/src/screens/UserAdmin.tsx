@@ -364,14 +364,14 @@ export function UserAdmin({ api }: { api: ApiClient }) {
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this screen's action document`);
       }
-      return runAction({
+      return (await runAction({
         action,
         host,
         formState: activeState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: "userAdmin",
-      });
+      })).message;
     },
     [actions, host, activeState],
   );
@@ -436,7 +436,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
               // rather than wrong there: none of its `doActionShowDialog` buttons
               // has an action that reads a parameter. Reported rather than edited.
               const opened = seed(request.params);
-              const outcome = await runAction({
+              const { message: outcome } = await runAction({
                 action: actions[request.name]!,
                 host,
                 // The state `seed` just built, not `activeState` — this render has

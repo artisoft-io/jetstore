@@ -90,6 +90,27 @@ export interface ActionRun {
 /** Null on success or a deliberate abort; a message when the action failed. */
 export type ActionOutcome = string | null;
 
+/**
+ * What running an action did: whether it finished, and what to tell the user.
+ *
+ * **`message` alone could not say whether the action completed, and that is
+ * I-29's second half.** A step that stops the action returns `{done: true}` with
+ * an outcome that is *sometimes* null — a `validate` that did not pass and a
+ * refused `confirm` both stop silently, because neither is an error worth
+ * reporting. `runAction` returned only the message, so "stopped quietly" and "ran
+ * to the end" were the same value: `null`. Eleven of the corpus's 31 state
+ * actions begin with a `validate` step.
+ *
+ * The engine needs the distinction because *advance the flow* is the wrong answer
+ * to both kinds of stop, and only one of them is loud enough to notice.
+ */
+export interface ActionResult {
+  /** False when a step stopped the action, whether or not it said anything. */
+  completed: boolean;
+  /** What to show the user, or null. A silent stop is not an error. */
+  message: ActionOutcome;
+}
+
 /** `unpack` (`delegate_helpers.dart:10`): a scalar, or the first of a list. */
 function unpack(raw: unknown): string | null {
   if (raw == null) return null;
@@ -393,10 +414,10 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
 }
 
 /** Runs an action's steps in order, stopping at the first that says to. */
-export async function runAction(run: ActionRun): Promise<ActionOutcome> {
+export async function runAction(run: ActionRun): Promise<ActionResult> {
   for (const step of run.action.steps) {
     const { done, outcome } = await runStep(step, run);
-    if (done) return outcome;
+    if (done) return { completed: false, message: outcome };
   }
-  return null;
+  return { completed: true, message: null };
 }

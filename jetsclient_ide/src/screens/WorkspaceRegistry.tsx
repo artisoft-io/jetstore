@@ -366,14 +366,14 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this screen's action document`);
       }
-      return runAction({
+      return (await runAction({
         action,
         host,
         formState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: "workspaceRegistry",
-      });
+      })).message;
     },
     [actions, host, formState],
   );
