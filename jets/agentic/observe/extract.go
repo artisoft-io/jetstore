@@ -47,6 +47,19 @@ type Extent struct {
 	OldestHeader time.Time // zero when there are none
 	OldestWorker time.Time // zero when there are none
 
+	// ExecutionRecord reports whether jetsapi.pipeline_execution_status and
+	// jetsapi.pipeline_execution_details both exist. When it is false the three
+	// numbers above are zero because there was nothing to count, not because
+	// the record is empty, and no detector can run at all.
+	//
+	// It was added at N.4 (2026-08-27) because the first caller found the
+	// claim in section 18.7 to be narrower than written: this function reported
+	// the two tables below and did so from the same statement that counted the
+	// header rows, so on a database where nothing had been migrated the query
+	// failed on the missing header table and reported neither. The precondition
+	// is only checkable if the check cannot itself fail on a missing relation,
+	// and to_regclass is the one thing here that cannot.
+	ExecutionRecord bool
 	// ChannelDetails reports whether jetsapi.pipeline_execution_channel_details
 	// exists. It is created by `update_db -migrateDb` from jets_schema.json and
 	// was absent from all four production environments measured on 2026-08-25,
@@ -78,19 +91,36 @@ func (e *Extent) Regime() string {
 	}
 }
 
-const extentSQL = `SELECT
-  (SELECT count(*) FROM jetsapi.pipeline_execution_status),
-  (SELECT min(start_time) FROM jetsapi.pipeline_execution_status),
-  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details),
+// The tables, asked first and separately. to_regclass returns NULL for an
+// absent relation rather than raising, so this statement answers on any
+// database with a jetsapi schema — including one where update_db has never
+// run, which is the case it exists for.
+const tablesSQL = `SELECT
+  to_regclass('jetsapi.pipeline_execution_status') IS NOT NULL
+    AND to_regclass('jetsapi.pipeline_execution_details') IS NOT NULL,
   to_regclass('jetsapi.pipeline_execution_channel_details') IS NOT NULL,
   to_regclass('jetsapi.anomaly') IS NOT NULL`
 
-// ReadExtent reports what the deployment's retention has left.
+const extentSQL = `SELECT
+  (SELECT count(*) FROM jetsapi.pipeline_execution_status),
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_status),
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)`
+
+// ReadExtent reports which of the four tables exist and what the deployment's
+// retention has left of the record. The two questions are two statements
+// because the second cannot be asked of a database that has not been migrated,
+// and reporting the first is the whole point of the function.
 func ReadExtent(ctx context.Context, db DB) (*Extent, error) {
 	var e Extent
+	if err := db.QueryRow(ctx, tablesSQL).Scan(
+		&e.ExecutionRecord, &e.ChannelDetails, &e.Anomalies); err != nil {
+		return nil, fmt.Errorf("while reading which execution tables exist: %w", err)
+	}
+	if !e.ExecutionRecord {
+		return &e, nil
+	}
 	var oldestHeader, oldestWorker *time.Time
-	err := db.QueryRow(ctx, extentSQL).Scan(
-		&e.Headers, &oldestHeader, &oldestWorker, &e.ChannelDetails, &e.Anomalies)
+	err := db.QueryRow(ctx, extentSQL).Scan(&e.Headers, &oldestHeader, &oldestWorker)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the execution record's extent: %w", err)
 	}
