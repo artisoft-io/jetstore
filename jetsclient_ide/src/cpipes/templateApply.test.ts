@@ -87,12 +87,12 @@ function workspace(plan: unknown) {
   return {
     saved,
     api: {
-      // **`readWorkspaceFile`, since I-147.** This stub used to answer `readFile`
+      // **`readWorkspaceDocument`, since I-147 and the 2026-08-26 capability split.** This stub used to answer `readFile`
       // and to key off the synthetic node's `label`, which is what let the escape
       // ship for two days with a call the real `WorkspaceApi` would have refused.
       // A stub shaped like the caller rather than like the callee is the whole
       // mechanism of that defect, in both the places it occurred.
-      readWorkspaceFile: async (_ws: string, path: string) => {
+      readWorkspaceDocument: async (_ws: string, path: string) => {
         if (path !== applyPlanPath(TEMPLATE)) throw new Error(`no such file: ${path}`);
         return { fileName: path, label: path, content: JSON.stringify(plan) };
       },

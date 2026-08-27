@@ -26,12 +26,18 @@ chosen — the walk is `tableKeysOf` in `jetsclient_ide/src/userflow/store.ts`.
 from a workspace. That is 29 documents, and the split is by consumer: a flow reads its
 tables through the workspace, a screen has its own compiled in.
 
-**One document is in both places.** `pipelineExecStatusTable` is drawn by `homeFiltersUF`
-from the workspace and by the Home screen from the bundle, so it is committed twice.
-`jetsclient_ide/src/datatable/table.test.ts` writes both copies from one emitter and
-asserts they agree; `sharedTableDocuments.test.ts` asserts it directly, because two
-copies kept in step by nothing is the failure this repository keeps finding. Whether the
-Home screen should read it from the workspace instead — leaving one copy — is open.
+**No document is in both places, and one nearly was.** `pipelineExecStatusTable` is drawn
+by `homeFiltersUF` *and* by the Home screen, so X.5 committed it twice with a test
+asserting the copies agreed. A guard on two copies is not a fix: the Home screen now reads
+the installed document at mount, like the flow does, and `sharedTableDocuments.test.ts`
+asserts the invariant — no key in both directories — rather than the exception.
+
+**A screen reading an installed document is a capability question as well as a path
+question.** `get_workspace_file_content` gates on `workspace_ide`, which
+`jets_init_db.sql` grants to `knowledge_engineer` alone, so a screen reading through it
+would refuse itself to `ops_user` and `client_advocate`. The runtime read is
+`get_workspace_document`, at `jetstore_read`, confined to this directory and
+`user_flows/`.
 
 ## Regenerating
 

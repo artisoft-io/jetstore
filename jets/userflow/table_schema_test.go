@@ -111,12 +111,10 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	// **64 files and 63 keys.** `pipelineExecStatusTable` is committed in both
-	// directories because `homeFiltersUF` draws it from the workspace and the Home
-	// screen draws it from the bundle; `table.test.ts` asserts the two copies are
-	// what the same emitter wrote. Every file validates either way, which is what
-	// this test is for.
-	if len(files) != 64 {
+	// 63 across the two directories, and no key in both — the Home screen reads
+	// the one table it shares with a flow from the workspace rather than keeping a
+	// second copy (`sharedTableDocuments.test.ts` asserts the invariant).
+	if len(files) != 63 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

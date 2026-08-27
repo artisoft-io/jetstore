@@ -24,17 +24,34 @@ var readPathsRequiring = map[string]string{
 	// ExecRawQuery takes its capability as a parameter, because raw_query and
 	// raw_query_tool are not equally dangerous; api_tables_test.go checks that.
 	"ExecRawQuery": "capability",
+	// The runtime document read, in the other file — see readPathFiles.
+	"GetWorkspaceDocument": "CapabilityReadData",
 }
+
+// The files this test parses.
+//
+// **It read one file until 2026-08-26 and the list above was written as though
+// that were the whole dispatch.** It is not: the workspace actions are a second
+// file reached from the same `/dataTable` switch, and a read path added there
+// was invisible to this test — which is the shape of gap this test exists to
+// close, arriving one file over. GetWorkspaceDocument is the first read path in
+// that file to use `requireCapability`; GetWorkspaceFileContent gates by calling
+// VerifyUserPermission directly and so is not expressible here yet.
+var readPathFiles = []string{"data_table_action.go", "workspace_data_table_action.go"}
 
 func TestEveryReadPathRequiresACapability(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "data_table_action.go", nil, 0)
-	if err != nil {
-		t.Fatalf("parsing: %v", err)
+	var decls []ast.Decl
+	for _, name := range readPathFiles {
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		decls = append(decls, file.Decls...)
 	}
 
 	found := map[string]bool{}
-	for _, decl := range file.Decls {
+	for _, decl := range decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok || fn.Recv == nil || fn.Body == nil {
 			continue
@@ -66,7 +83,7 @@ func TestEveryReadPathRequiresACapability(t *testing.T) {
 
 	for name := range readPathsRequiring {
 		if !found[name] {
-			t.Errorf("%s is no longer in data_table_action.go; this list is stale", name)
+			t.Errorf("%s is no longer in %v; this list is stale", name, readPathFiles)
 		}
 	}
 }

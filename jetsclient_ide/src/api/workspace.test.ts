@@ -110,6 +110,23 @@ describe("WorkspaceApi", () => {
     expect(calls[1]?.body.action).toBe("get_workspace_file_content");
   });
 
+  /**
+   * The runtime read, which is a different action and therefore a different
+   * capability — `jetstore_read` rather than `workspace_ide`. Asserted at the
+   * action name because that is the entire difference on the wire, and getting it
+   * wrong would work in every test that stubs by path and fail for every user who
+   * is not a knowledge engineer.
+   */
+  it("reads a document through the runtime action, not the editor's", async () => {
+    const { ws, calls } = await api([{ status: 200, body: { file_content: "{}" } }]);
+    const file = await ws.readWorkspaceDocument("ws", "user_flows/loadFilesUF.uf.json");
+
+    expect(calls[1]?.body.action).toBe("get_workspace_document");
+    expect(calls[1]?.body.data[0].file_name).toBe("user_flows%2FloadFilesUF.uf.json");
+    expect(file.content).toBe("{}");
+    expect(file.label).toBe("user_flows/loadFilesUF.uf.json");
+  });
+
   it("treats a missing file_content as an empty file rather than failing", async () => {
     const { ws } = await api([{ status: 200, body: {} }]);
     const file = await ws.readFile("ws", node({ pageMatchKey: "a.jr" }));

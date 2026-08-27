@@ -80,7 +80,7 @@ export interface ApplyPlan {
 
 export interface TemplateApplyDeps {
   workspaceName: string;
-  api: Pick<WorkspaceApi, "readWorkspaceFile" | "saveFile">;
+  api: Pick<WorkspaceApi, "readWorkspaceDocument" | "saveFile">;
 }
 
 /** What form state a key holds, as a plain string. */
@@ -247,7 +247,14 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
       // The fix did not reach here because it was made in the caller rather than
       // by removing the shape, and a second copy of a defect is invisible to the
       // party who fixed the first.
-      const file = await deps.api.readWorkspaceFile(deps.workspaceName, applyPlanPath(flowKey));
+      //
+      // **`readWorkspaceDocument` since 2026-08-26**, changed here by a
+      // `ui_refresh` session rather than handed over, on the convention that the
+      // editor fixes the call site: `readWorkspaceFile` gates on `workspace_ide`,
+      // so leaving this line would have left a projected flow openable by an
+      // `ops_user` and unable to apply. The `.apply.json` is one of the four
+      // suffixes `documentPathOK` serves for exactly this call.
+      const file = await deps.api.readWorkspaceDocument(deps.workspaceName, applyPlanPath(flowKey));
       plan = JSON.parse(file.content) as ApplyPlan;
     } catch (error) {
       return `Cannot read ${applyPlanPath(flowKey)}: ${(error as Error).message}`;

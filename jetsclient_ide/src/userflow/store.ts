@@ -380,7 +380,9 @@ export class FlowStore {
    * the type checker agree.
    */
   private async readText(path: string): Promise<string> {
-    const file = await this.api.readWorkspaceFile(this.options.workspaceName, path);
+    // `readWorkspaceDocument`, not `readWorkspaceFile`: this is the running app
+    // reading a document, and the difference is the capability. See the method.
+    const file = await this.api.readWorkspaceDocument(this.options.workspaceName, path);
     return file.content;
   }
 
