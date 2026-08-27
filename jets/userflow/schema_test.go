@@ -32,7 +32,11 @@ import (
 
 const (
 	schemaPath = "../../jetsclient_ide/src/userflow/userflow.schema.json"
-	flowsDir   = "../../jetsclient_ide/src/userflow/flows"
+	// The eleven converted flows are JetStore-owned workspace assets, installed
+	// into a workspace by install_workspace_assets. The directory also holds the
+	// projections `cpipes-contract templates` writes, and those are UserFlow
+	// documents too — validating them here is coverage rather than a mismatch.
+	flowsDir = "../workspace_assets/user_flows"
 )
 
 func compileSchema(t *testing.T) *jsonschema.Schema {
@@ -87,8 +91,11 @@ func instance(t *testing.T, path string) any {
 func TestShippingFlowsValidate(t *testing.T) {
 	schema := compileSchema(t)
 	files := flowFiles(t)
-	if len(files) != 11 {
-		t.Fatalf("expected the app's eleven flows, found %d", len(files))
+	// The app's eleven, plus the three projected templates that share the
+	// directory — see flowsDir. A projection is a UserFlow document and passes the
+	// same schema; the count is of documents, not of migrations.
+	if len(files) != 14 {
+		t.Fatalf("expected the app's eleven flows and three projections, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".uf.json"), func(t *testing.T) {

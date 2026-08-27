@@ -36,6 +36,43 @@ import type { TableConfig } from "./types";
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
 
+/**
+ * The other half of the corpus, since the eleven flows moved to workspace assets.
+ *
+ * A table document a JetStore flow draws is installed into a workspace by
+ * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
+ * table a *screen* draws is imported into this bundle and never leaves it. So the
+ * 63 documents this emitter owns are committed in two directories, and which one
+ * a key belongs to is a property of who reads it rather than of this test.
+ */
+const assetTablesDir = fileURLToPath(
+  new URL("../../../jets/workspace_assets/table_configs/", import.meta.url),
+);
+
+const committedIn = (dir: string): Set<string> =>
+  new Set(
+    readdirSync(dir)
+      .filter((f) => f.endsWith(".tc.json"))
+      .map((f) => f.slice(0, -".tc.json".length)),
+  );
+
+/**
+ * Where a key's document is committed, as the tree currently says.
+ *
+ * **Read off disk rather than derived from the key**, because the rule is about
+ * the consumer and this file cannot see one: `pipelineExecStatusTable` is drawn by
+ * `homeFiltersUF` *and* by the Home screen, so it is committed in both places and
+ * a rule that returned one directory would delete the other copy on the next
+ * regeneration. A key in neither directory is new, and goes where the screens'
+ * documents go — the emitter cannot know it is a flow's until a flow names it.
+ */
+function dirsFor(key: string): string[] {
+  const dirs: string[] = [];
+  if (committedIn(assetTablesDir).has(key)) dirs.push(assetTablesDir);
+  if (committedIn(tablesDir).has(key)) dirs.push(tablesDir);
+  return dirs.length > 0 ? dirs : [tablesDir];
+}
+
 const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<string, TableConfig>;
 
 /**
@@ -215,7 +252,7 @@ const readAuthored = (keys: readonly string[]): Record<string, TableConfigDocume
   Object.fromEntries(
     keys.map((key) => [
       key,
-      JSON.parse(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")) as TableConfigDocument,
+      JSON.parse(readFileSync(`${dirsFor(key)[0]}${key}.tc.json`, "utf8")) as TableConfigDocument,
     ]),
   );
 const handAuthored = readAuthored(HAND_AUTHORED_KEYS);
@@ -241,22 +278,30 @@ describe("the emitted JSON Schema", () => {
     // them at save time — two languages against one artifact rather than two
     // readings of it.
     if (process.env.UPDATE_SCHEMA === "1") {
-      mkdirSync(tablesDir, { recursive: true });
-      // **Removing what this emitter no longer owns rather than wiping the
-      // directory, as of C.9.** The wipe was right while every document was
-      // emitted here; two are now hand-authored and committed beside the rest, and
-      // a wipe would delete them on the next regeneration — silently, since the
-      // very next line would rewrite everything else and the suite would go green
-      // with two files gone.
-      for (const file of readdirSync(tablesDir).filter((f) => f.endsWith(".tc.json"))) {
-        if (!(file.slice(0, -".tc.json".length) in documents)) rmSync(`${tablesDir}${file}`);
+      for (const dir of [tablesDir, assetTablesDir]) {
+        mkdirSync(dir, { recursive: true });
+        // **Removing what this emitter no longer owns rather than wiping the
+        // directory, as of C.9.** The wipe was right while every document was
+        // emitted here; two are now hand-authored and committed beside the rest, and
+        // a wipe would delete them on the next regeneration — silently, since the
+        // very next line would rewrite everything else and the suite would go green
+        // with two files gone.
+        for (const file of readdirSync(dir).filter((f) => f.endsWith(".tc.json"))) {
+          if (!(file.slice(0, -".tc.json".length) in documents)) rmSync(`${dir}${file}`);
+        }
       }
-      for (const key of Object.keys(translated)) writeFileSync(`${tablesDir}${key}.tc.json`, documentOf(key));
+      // Written to every directory the key is committed in, which is two for the
+      // one table a flow and a screen both draw.
+      for (const key of Object.keys(translated)) {
+        for (const dir of dirsFor(key)) writeFileSync(`${dir}${key}.tc.json`, documentOf(key));
+      }
     }
-    const onDisk = readdirSync(tablesDir).filter((f) => f.endsWith(".tc.json")).sort();
-    expect(onDisk).toEqual(Object.keys(documents).sort().map((k) => `${k}.tc.json`));
+    const onDisk = [...committedIn(tablesDir), ...committedIn(assetTablesDir)];
+    expect([...new Set(onDisk)].sort()).toEqual(Object.keys(documents).sort());
     for (const key of Object.keys(translated)) {
-      expect(readFileSync(`${tablesDir}${key}.tc.json`, "utf8")).toBe(documentOf(key));
+      for (const dir of dirsFor(key)) {
+        expect(readFileSync(`${dir}${key}.tc.json`, "utf8")).toBe(documentOf(key));
+      }
     }
   });
 

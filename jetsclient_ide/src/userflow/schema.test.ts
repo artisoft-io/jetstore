@@ -24,7 +24,22 @@ import { toUserFlow, toUserFlows, type Corpus } from "./translate";
 import { errorsOnly, validateFlow } from "./validate";
 
 const artifactPath = fileURLToPath(new URL("./userflow.schema.json", import.meta.url));
-const flowsDir = fileURLToPath(new URL("./flows/", import.meta.url));
+/**
+ * Where the eleven converted flows are committed, since they became JetStore-owned
+ * workspace assets.
+ *
+ * The directory holds two kinds of document: these eleven, emitted here from the
+ * Flutter corpus, and the projections `cpipes-contract templates` writes. This
+ * emitter owns the first and must not touch the second, which is why the set
+ * assertion below is *containment* plus a named exclusion rather than equality —
+ * an equality check would have deleted three flows it knows nothing about.
+ */
+const flowsDir = fileURLToPath(
+  new URL("../../../jets/workspace_assets/user_flows/", import.meta.url),
+);
+
+/** The projected keys, named for the reason `install_test.go`'s list is named. */
+const PROJECTED = ["map_claim_load_stages", "qc_metrics", "qc_report"];
 const flows = toUserFlows(corpus as unknown as Corpus);
 
 const documentOf = (key: string) => `${JSON.stringify(flows[key], null, 2)}\n`;
@@ -50,7 +65,13 @@ describe("the emitted JSON Schema", () => {
       }
     }
     const onDisk = readdirSync(flowsDir).filter((f) => f.endsWith(".uf.json")).sort();
-    expect(onDisk).toEqual(Object.keys(flows).sort().map((k) => `${k}.uf.json`));
+    const ours = onDisk.filter(
+      (f) => !PROJECTED.includes(f.slice(0, -".uf.json".length)),
+    );
+    expect(ours).toEqual(Object.keys(flows).sort().map((k) => `${k}.uf.json`));
+    // The exclusion is asserted rather than assumed: a projection that stopped
+    // being installed would otherwise silently shrink the list this filters.
+    expect(onDisk.length - ours.length).toBe(PROJECTED.length);
     for (const key of Object.keys(flows)) {
       expect(readFileSync(`${flowsDir}${key}.uf.json`, "utf8")).toBe(documentOf(key));
     }

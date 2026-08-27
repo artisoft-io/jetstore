@@ -120,7 +120,8 @@ const userFlowRoutes = <String, UserFlowRoute>{
 /// are absent sends users to a React screen that cannot load, which is the worse
 /// of the two directions.
 ///
-/// **Empty, and it was wrongly non-empty for five days.** `loadFilesUF` and
+/// **Non-empty as of 2026-08-26 — all eleven — and empty before that for a
+/// reason worth keeping in view.** `loadFilesUF` and
 /// `registerFileKeyUF` were listed here from S.8 on the strength of their
 /// documents existing, and the React app had no `/flow/:key` route to receive
 /// either — so `handoffUrlFor` returned a URL that landed on `App.tsx`'s
@@ -144,7 +145,41 @@ const userFlowRoutes = <String, UserFlowRoute>{
 /// F.10: the key is looked up through [userFlowRoutes] rather than guessed from
 /// the path, so the four flows whose route disagrees with their key are reached
 /// like the other seven and their parameters travel with them (I-75).
-const migratedUserFlows = <String>{};
+///
+/// ## Why all eleven, and what that does not settle
+///
+/// Track F closed on 2026-08-25 at twelve of twelve, so every key below has a
+/// React runner that serves it end to end — the F10 ordering rule satisfied for
+/// all eleven at once rather than one line at a time.
+///
+/// **The other half of the condition at the top of this comment is what I-87
+/// was about, and it is answered rather than open.** The app reads a flow from
+/// the *workspace*, at `user_flows/<key>.uf.json` and
+/// `table_configs/<key>.tc.json`, and the documents used to be a test corpus
+/// under `jetsclient_ide/src/` that nothing carried into one. Track X's **X.5**
+/// took the deploy-time answer: they are installed, and the price is that a
+/// workspace no longer owns them.
+///
+/// **The documents reach a workspace by being installed into it.** They are
+/// JetStore-owned workspace assets as of 2026-08-26 — `jets/workspace_assets/`,
+/// `user_flows/` and `table_configs/` — written into every workspace by
+/// `install_workspace_assets` at `Dockerfile.compile_ws`, alongside the data
+/// model and the pipeline configurations. So a deployment built since then holds
+/// them and this list is safe; one built before it does not, and every key here
+/// is a flow that will not load.
+const migratedUserFlows = <String>{
+  UserFlowKeys.clientRegistryUF,
+  UserFlowKeys.sourceConfigUF,
+  UserFlowKeys.fileMappingUF,
+  UserFlowKeys.homeFiltersUF,
+  UserFlowKeys.mapFileUF,
+  UserFlowKeys.pipelineConfigUF,
+  UserFlowKeys.loadFilesUF,
+  UserFlowKeys.registerFileKeyUF,
+  UserFlowKeys.startPipelineUF,
+  UserFlowKeys.workspacePullUF,
+  UserFlowKeys.loadConfigUF,
+};
 
 /// Where the React app is mounted. `/ide/` is a misnomer for a whole
 /// application; see the UI refresh project's I-26.
@@ -166,8 +201,10 @@ const reactAppBase = '/ide';
 ///     in-app navigation that built a [JetsRouteData] without its parameters,
 ///     since the parser fills every one it matched.
 ///
-/// [migrated] is for tests: the production set is [migratedUserFlows] and is
-/// empty, so nothing else could exercise the URL this builds.
+/// [migrated] is for tests: it lets a case name the one flow it is about, so a
+/// failure says which. It was load-bearing while [migratedUserFlows] was empty —
+/// nothing else could exercise the URL this builds — and is a convenience now
+/// that the set is full.
 String? handoffUrlFor(JetsRouteData route, {Set<String>? migrated}) {
   final flowRoute = userFlowRoutes[route.path];
   if (flowRoute == null) return null;

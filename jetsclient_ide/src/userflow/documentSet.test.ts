@@ -15,25 +15,25 @@
 
 import { describe, expect, it } from "vitest";
 
-import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
-import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
-import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
-import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
+import clientRegistryActionsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.ua.json";
+import loadConfigActionsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
+import loadFilesActionsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
+import registerFileKeyActionsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
-import clientTable from "../datatable/tables/client.tc.json";
-import orgTable from "../datatable/tables/org.tc.json";
+import clientTable from "../../../jets/workspace_assets/table_configs/client.tc.json";
+import orgTable from "../../../jets/workspace_assets/table_configs/org.tc.json";
 import execStatusTable from "../datatable/tables/pipelineExecStatusTable.tc.json";
 import { TableConfigDocumentSchema, type TableConfigDocument } from "../datatable/table";
 import corpus from "./fixtures/user_flows.json";
-import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
-import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
-import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
-import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
+import clientRegistryFlowDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.uf.json";
+import loadConfigFlowDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.uf.json";
+import loadFilesFlowDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
+import registerFileKeyFlowDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.uf.json";
 import { FormDocumentSchema, type FormDocument } from "./form";
-import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
-import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
-import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
-import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
+import clientRegistryFormsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.form.json";
+import loadConfigFormsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.form.json";
+import loadFilesFormsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
+import registerFileKeyFormsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.form.json";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { validateDocumentSet, validateTableActions, type DocumentSet } from "./documentSet";
 

@@ -12,8 +12,8 @@ import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FormState } from "../datatable/formState";
-import loadFilesDoc from "./flows/loadFilesUF.ua.json";
-import registerFileKeyDoc from "./flows/registerFileKeyUF.ua.json";
+import loadFilesDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
+import registerFileKeyDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
 import { describeUnresolved, emptyRegistry, resolveEscapes, type EscapeRegistry } from "./escapes";
 import { evaluate, runAction, type ActionHost, type PostRequest } from "./interpret";
 import { ActionDocumentSchema, emitJsonSchema, type ActionDocument } from "./schema";

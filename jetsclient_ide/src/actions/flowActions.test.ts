@@ -33,17 +33,17 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import clientRegistry from "./flows/clientRegistryUF.ua.json";
-import fileMapping from "./flows/fileMappingUF.ua.json";
-import homeFilters from "./flows/homeFiltersUF.ua.json";
-import loadConfig from "./flows/loadConfigUF.ua.json";
-import loadFiles from "./flows/loadFilesUF.ua.json";
-import mapFile from "./flows/mapFileUF.ua.json";
-import pipelineConfig from "./flows/pipelineConfigUF.ua.json";
-import registerFileKey from "./flows/registerFileKeyUF.ua.json";
-import sourceConfig from "./flows/sourceConfigUF.ua.json";
-import startPipeline from "./flows/startPipelineUF.ua.json";
-import workspacePull from "./flows/workspacePullUF.ua.json";
+import clientRegistry from "../../../jets/workspace_assets/user_flows/clientRegistryUF.ua.json";
+import fileMapping from "../../../jets/workspace_assets/user_flows/fileMappingUF.ua.json";
+import homeFilters from "../../../jets/workspace_assets/user_flows/homeFiltersUF.ua.json";
+import loadConfig from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
+import loadFiles from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
+import mapFile from "../../../jets/workspace_assets/user_flows/mapFileUF.ua.json";
+import pipelineConfig from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.ua.json";
+import registerFileKey from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
+import sourceConfig from "../../../jets/workspace_assets/user_flows/sourceConfigUF.ua.json";
+import startPipeline from "../../../jets/workspace_assets/user_flows/startPipelineUF.ua.json";
+import workspacePull from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const all: Record<string, unknown> = {

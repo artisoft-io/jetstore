@@ -3,6 +3,7 @@ package datatable
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -58,7 +59,10 @@ func readGolden(t *testing.T, path string) string {
 // TestShippingDocumentsPassTheSaveCheck is the phase's rule at the save path: a
 // real configuration that fails means the check is wrong, not the configuration.
 func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
-	flows := "../../jetsclient_ide/src/userflow/flows"
+	// The flows are JetStore-owned workspace assets, installed by
+	// install_workspace_assets; the directory also holds the projections
+	// `cpipes-contract templates` writes, which the save check governs too.
+	flows := "../workspace_assets/user_flows"
 	entries, err := os.ReadDir(flows)
 	if err != nil {
 		t.Fatalf("reading %s: %v", flows, err)
@@ -74,8 +78,8 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 11 {
-		t.Errorf("expected the app's eleven flows, checked %d", checked)
+	if checked != 14 {
+		t.Errorf("expected the app's eleven flows and three projections, checked %d", checked)
 	}
 }
 
@@ -84,19 +88,30 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 // directly — the dispatch is the part that was untested until the mutation pass
 // found it (see the header of the file under test).
 func TestShippingTablesPassTheSaveCheck(t *testing.T) {
-	tables := "../../jetsclient_ide/src/datatable/tables"
-	entries, err := os.ReadDir(tables)
-	if err != nil {
-		t.Fatalf("reading %s: %v", tables, err)
+	// Two directories: the tables a flow draws are installed into a workspace, the
+	// tables a screen draws are bundled. Both go through this dispatch on save.
+	tableDirs := []string{
+		"../workspace_assets/table_configs",
+		"../../jetsclient_ide/src/datatable/tables",
+	}
+	var paths []string
+	for _, tables := range tableDirs {
+		found, err := os.ReadDir(tables)
+		if err != nil {
+			t.Fatalf("reading %s: %v", tables, err)
+		}
+		for _, e := range found {
+			if strings.HasSuffix(e.Name(), ".tc.json") {
+				paths = append(paths, tables+"/"+e.Name())
+			}
+		}
 	}
 	checked := 0
-	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), ".tc.json") {
-			continue
-		}
-		content := readGolden(t, tables+"/"+e.Name())
-		if findings := validatorFor(e.Name())(content); len(findings) > 0 {
-			t.Errorf("%s is refused by the save check: %v", e.Name(), findings)
+	for _, path := range paths {
+		name := filepath.Base(path)
+		content := readGolden(t, path)
+		if findings := validatorFor(name)(content); len(findings) > 0 {
+			t.Errorf("%s is refused by the save check: %v", name, findings)
 		}
 		checked++
 	}
@@ -117,7 +132,7 @@ func TestShippingTablesPassTheSaveCheck(t *testing.T) {
 }
 
 func TestSaveCheckRejects(t *testing.T) {
-	base := readGolden(t, "../../jetsclient_ide/src/userflow/flows/loadFilesUF.uf.json")
+	base := readGolden(t, "../workspace_assets/user_flows/loadFilesUF.uf.json")
 	mutate := func(f func(doc map[string]any)) string {
 		var doc map[string]any
 		if err := json.Unmarshal([]byte(base), &doc); err != nil {
@@ -180,7 +195,7 @@ func TestSaveCheckRejects(t *testing.T) {
 // broke no test, because the handler needs a database and a token and nothing
 // reached it. The check is now a function, and this is that function.
 func TestCheckWorkspaceFileIsTheWiring(t *testing.T) {
-	good := readGolden(t, "../../jetsclient_ide/src/userflow/flows/loadFilesUF.uf.json")
+	good := readGolden(t, "../workspace_assets/user_flows/loadFilesUF.uf.json")
 
 	t.Run("a valid flow is written", func(t *testing.T) {
 		if err := checkWorkspaceFile("user_flows/loadFilesUF.uf.json", good); err != nil {

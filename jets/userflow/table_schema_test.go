@@ -74,18 +74,29 @@ import (
 // document came to be written is not that question.
 //
 // The count grows once per screen track C ports rather than once per phase.
-const tablesDir = "../../jetsclient_ide/src/datatable/tables"
+// **Two directories since the eleven flows became workspace assets.** A table a
+// JetStore flow draws is installed into a workspace and read from there by
+// FlowStore.loadTables; a table a screen draws is imported into the React bundle
+// and never leaves it. Both are documents this validator enforces, so both are
+// read here — which directory a key sits in is a property of its consumer and not
+// of the schema.
+var tableDirs = []string{
+	"../workspace_assets/table_configs",
+	"../../jetsclient_ide/src/datatable/tables",
+}
 
 func tableFiles(t *testing.T) []string {
 	t.Helper()
-	entries, err := os.ReadDir(tablesDir)
-	if err != nil {
-		t.Fatalf("reading %s: %v", tablesDir, err)
-	}
 	var files []string
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".tc.json") {
-			files = append(files, filepath.Join(tablesDir, entry.Name()))
+	for _, dir := range tableDirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatalf("reading %s: %v", dir, err)
+		}
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".tc.json") {
+				files = append(files, filepath.Join(dir, entry.Name()))
+			}
 		}
 	}
 	return files
@@ -100,8 +111,13 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	if len(files) != 63 {
-		t.Fatalf("expected the flows' 37 table configurations plus the non-flow ones, found %d", len(files))
+	// **64 files and 63 keys.** `pipelineExecStatusTable` is committed in both
+	// directories because `homeFiltersUF` draws it from the workspace and the Home
+	// screen draws it from the bundle; `table.test.ts` asserts the two copies are
+	// what the same emitter wrote. Every file validates either way, which is what
+	// this test is for.
+	if len(files) != 64 {
+		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".tc.json"), func(t *testing.T) {
