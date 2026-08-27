@@ -8,6 +8,15 @@
 //
 //	docker run -d --rm -e POSTGRES_PASSWORD=pw -p 5455:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5455/postgres go test ./jets/agentic/observe/
+//
+// Use `go test -p 1` when running more than this package against one DSN.
+// go test runs packages in parallel, this package and jets/agentic/audit both
+// call audit.InstallSchema per test, and two sessions issuing the same
+// CREATE TABLE / CREATE TRIGGER sequence deadlock on catalogue locks — measured
+// 2026-08-27 at three failures in four runs of `go test ./jets/agentic/...`,
+// zero with -p 1. The failure names a trigger append or a schema install rather
+// than the concurrency, so it reads as a defect in whichever test drew the
+// short straw. Tracked as I-175 in the agentic_ai project's Phase 3 register.
 package observe
 
 import (
@@ -25,11 +34,16 @@ import (
 
 const schemaPath = "../../jets_schema.json"
 
-// The three tables this package reads and writes. pipeline_execution_channel_details
+// The tables this package reads and writes. pipeline_execution_channel_details
 // is deliberately not installed by default: ReadExtent's report that it is
 // absent is a case worth testing, and it is the state every production
 // environment measured on 2026-08-25 was in.
-var executionTables = []string{"pipeline_execution_status", "pipeline_execution_details"}
+//
+// cpipes_execution_status was added at N.4: it is where a run's configuration
+// survives the run, and it is the only substrate for the five confounders the
+// execution record cannot establish (I-168, config.go).
+var executionTables = []string{
+	"pipeline_execution_status", "pipeline_execution_details", "cpipes_execution_status"}
 
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
