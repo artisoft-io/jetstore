@@ -72,6 +72,17 @@ export function TableView({
   const selectedRow = selectedIndex === -1 ? undefined : binding.rows[selectedIndex];
   const selectedRowCount = binding.selection.filter(Boolean).length;
 
+  /**
+   * The two actions A.5 returned to the widget, handed to the bar. Task D.10.
+   *
+   * `binding` has held both since A.5 and nothing passed them on; see
+   * `ActionBar`'s `WidgetActions` for what that cost.
+   */
+  const widget = {
+    refresh: binding.refresh,
+    toggleCheckboxVisible: binding.modes.toggleCheckboxVisible,
+  };
+
   const barContext = {
     selectedRowCount,
     checkboxVisible: binding.modes.checkboxVisible,
@@ -93,6 +104,7 @@ export function TableView({
           <ActionBar
             actions={config.actions}
             context={barContext}
+            widget={widget}
             {...(selectedRow !== undefined ? { selectedRow } : {})}
             onAction={onAction}
           />
@@ -106,6 +118,7 @@ export function TableView({
           <ActionBar
             actions={config.secondRowActions}
             context={barContext}
+            widget={widget}
             {...(selectedRow !== undefined ? { selectedRow } : {})}
             onAction={onAction}
           />

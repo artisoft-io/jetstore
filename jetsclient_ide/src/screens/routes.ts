@@ -103,6 +103,16 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
   "/processErrors/:session_id": { reactPath: "/processErrors/:session_id" },
   "/userAdmin": { reactPath: "/userAdmin" },
   "/ruleConfig": { reactPath: "/ruleConfig" },
+  /**
+   * **The one key with no Flutter predecessor**, and the paragraph above is
+   * corrected by it rather than around it: keys are verbatim from
+   * `jets_routes_app.dart` for the ten screens that were routed there, and this
+   * one names a screen that was a *tab* on the home screen and never had a route
+   * at all. D.10 gives it one (**I-260**), so the string is chosen here rather
+   * than inherited — which is why the template and the React path are trivially
+   * the same and always will be.
+   */
+  "/fileLoaderStatus": { reactPath: "/fileLoaderStatus" },
 };
 
 /**
@@ -157,7 +167,11 @@ export function inAppPath(
   params: Record<string, string>,
 ): string | null {
   if (template === undefined || template === "") return null;
-  return reactScreenPath(template, params) ?? reactFlowRoute(template, params);
+  return (
+    reactScreenPath(template, params) ??
+    reactFlowRoute(template, params) ??
+    reactFlowEntry(template, params)
+  );
 }
 
 /**
@@ -321,4 +335,128 @@ export function reactFlowRoute(
   }
   const suffix = query.toString();
   return `/flow/${route.flowKey}${suffix === "" ? "" : `?${suffix}`}`;
+}
+
+
+/**
+ * Where a flow begins, when a button says somewhere other than its first state.
+ * Task D.10, from **I-260**.
+ *
+ * ## What the report asks for
+ *
+ * *"Load Data starts `LoadFilesUF` skipping the first step, taking the selected
+ * data source."* `loadFilesUF` has two states — `select_source_config` and
+ * `select_file_keys` — and the source has already been chosen on the screen the
+ * button is on, so the flow should open on its second page with that choice
+ * already in form state.
+ *
+ * **Half of that already worked.** `FlowRunner` seeds every query parameter into
+ * form-state group 0 before the load, which is how five flows carry their
+ * arguments, so `?client=…&org=…&object_type=…&table_name=…` is the whole of
+ * *taking the selected data source*. What had no mechanism at all is *skipping
+ * the first step*: `startAt(flow)` reads `startAtKey` off the document, and a
+ * document has one start.
+ *
+ * ## Why a second map rather than a row in `FLOW_ROUTES`
+ *
+ * `FLOW_ROUTES` is the port of `userFlowRoutes` and its rows are **the eleven
+ * Flutter route templates** — `routes.test.ts` asserts the count for that reason.
+ * A row here is not one of those: Flutter had no way to enter a flow partway, so
+ * `/loadFilesUF/select_file_keys` is a template this app invents. Putting it in
+ * the legacy map would make that map's own header false, and the header is the
+ * thing that tells the next reader they may not add to it freely.
+ *
+ * **The parameters are declared rather than passed through, for F.10's reason one
+ * step further on.** The obvious cheaper design is to let `reactFlowRoute` append
+ * whatever `resolveParams` resolved; that would seed *every* action's
+ * `navigationParams` into the flow's form state, silently, on the four existing
+ * flow routes that carry them. An entry point says what it carries, refuses when
+ * a name is missing, and carries nothing else.
+ */
+export interface FlowEntryPoint {
+  /** The flow to open. */
+  flowKey: string;
+  /** The state to open it on, which the document must declare. */
+  startAt: string;
+  /** Names that must all resolve, or the button reports rather than opening. */
+  parameters: string[];
+}
+
+/**
+ * The parameter naming the state a flow opens on.
+ *
+ * **The runner's own, like `RETURN_TO`**, and excluded from the form-state seed
+ * in the same `continue`: no form declares it, and seeding it would put a state
+ * key into form state where a value belongs.
+ */
+export const START_AT = "startAt";
+
+/**
+ * A flow path opening on a named state, or the path unchanged.
+ *
+ * The shape is `withReturnTo`'s and so is the reasoning: only a `/flow/` path
+ * gets one, because only the runner reads it, and an entry a caller has already
+ * chosen is left alone.
+ */
+export function withStartAt(to: string, stateKey: string): string {
+  if (!to.startsWith("/flow/") || stateKey === "") return to;
+  const [path, query = ""] = to.split("?", 2);
+  const search = new URLSearchParams(query);
+  if (search.has(START_AT)) return to;
+  search.set(START_AT, stateKey);
+  return `${path}?${search.toString()}`;
+}
+
+/** The state a flow url asks to open on, or null. */
+export function startAtState(search: URLSearchParams): string | null {
+  const value = search.get(START_AT);
+  return value === null || value === "" ? null : value;
+}
+
+/**
+ * The entry points, by the `configScreenPath` a table document names.
+ *
+ * One row, and the shape of it is the point: the template reads as
+ * *flow route, then state*, so a second entry point is a line rather than a
+ * mechanism. `fmInputSourceMappingUF`'s *Load Data* button is the only site
+ * today (`jets/workspace_assets/table_configs/fmInputSourceMappingUF.tc.json`).
+ *
+ * **The four parameters are `lfLoadFilesUF`'s, not the table's.** They are what
+ * the second state needs and nothing more: `lfFileKeyStagingTable` filters on
+ * `table_name` alone (`where`, `formStateKey`), and the action posts `client`,
+ * `org`, `object_type` and `table_name` as `fromKey`
+ * (`jets/workspace_assets/user_flows/loadFilesUF.ua.json`). Reading the list off
+ * what consumes it rather than off what the first state's `formStateBinding`
+ * happens to publish is what keeps the two from drifting silently — they agree
+ * today, and only one of them is a requirement.
+ */
+export const FLOW_ENTRY_POINTS: Readonly<Record<string, FlowEntryPoint>> = {
+  "/loadFilesUF/select_file_keys": {
+    flowKey: "loadFilesUF",
+    startAt: "select_file_keys",
+    parameters: ["client", "org", "object_type", "table_name"],
+  },
+};
+
+/**
+ * Where an entry-point template goes in this app, or null.
+ *
+ * Null for a template that is not one, and null for one whose arguments are
+ * incomplete — F.10's decision, and it bites harder here: a `loadFilesUF` opened
+ * on its second page with no `table_name` would draw an empty file list and say
+ * nothing, having skipped the page that would have set it.
+ */
+export function reactFlowEntry(
+  template: string,
+  params: Record<string, string>,
+): string | null {
+  const entry = FLOW_ENTRY_POINTS[template];
+  if (entry === undefined) return null;
+  const query = new URLSearchParams();
+  for (const name of entry.parameters) {
+    const value = params[name];
+    if (value === undefined || value === "") return null;
+    query.set(name, value);
+  }
+  return withStartAt(`/flow/${entry.flowKey}?${query.toString()}`, entry.startAt);
 }

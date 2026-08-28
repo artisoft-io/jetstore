@@ -44,6 +44,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
 import { runAction, type ActionHost, type ActionResult, type PostResult } from "../actions/interpret";
+import { cellFiltersOf, type CellFilters } from "../actions/cellFilters";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
 import { setCpipesWorkspace } from "../cpipes/templateApply";
 import {
@@ -55,12 +56,15 @@ import type { ActionRequest } from "../datatable/actionDispatch";
 import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow } from "../datatable/types";
+import { useDocumentTitleDetail } from "../shell/documentTitle";
 import { useNotifications } from "../shell/notifications";
 import {
   FLOW_EXIT_FALLBACK,
   RETURN_TO,
+  START_AT,
   inAppPath,
   returnToPath,
+  startAtState,
   unservedScreenMessage,
   withReturnTo,
 } from "./routes";
@@ -72,7 +76,7 @@ import { useFormQueries } from "../userflow/useFormQueries";
 import {
   advance,
   isStandardAction,
-  startAt,
+  startAtPosition,
   step,
   type FlowPosition,
   type StandardAction,
@@ -106,6 +110,14 @@ interface Loaded {
 export function FlowRunner({ api }: { api: ApiClient }) {
   const { key } = useParams<{ key: string }>();
   const [search] = useSearchParams();
+  /**
+   * The state this run opens on, or null for the document's own start. D.10.
+   *
+   * Read here rather than inside the load effect so that the dependency is a
+   * string: `search` is a new object every render, and the effect below must not
+   * re-run on one.
+   */
+  const requestedStart = startAtState(search);
   const navigate = useNavigate();
   /** Where this flow was opened, so a flow it opens can come back here (D.8). */
   const location = useLocation();
@@ -157,6 +169,16 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
 
   /**
+   * The tab takes the flow's name. D.10, from **I-272**.
+   *
+   * `shell/documentTitle.ts` can only say *Flow* for `/flow/:key` — a flow's name
+   * is in its document, not in its url — and this is the same string D.7 puts in
+   * the heading. Null while it loads, so the route's own answer stands until
+   * there is a better one.
+   */
+  useDocumentTitleDetail(loaded?.flow.flow.title ?? null);
+
+  /**
    * The flow's parameters, seeded into group 0 before anything reads them.
    *
    * **A flow can need arguments and until F.1 this route could not carry any.**
@@ -180,11 +202,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    */
   useEffect(() => {
     for (const [name, value] of search.entries()) {
-      // **`returnTo` is the runner's own parameter, not the flow's** (D.8). Every
-      // other name in the query string is a flow argument and is seeded by name;
-      // this one names where to go when the flow ends, no form declares it, and
-      // seeding it would put a route into form state where a value belongs.
-      if (name === RETURN_TO) continue;
+      // **Two of the names here are the runner's own, not the flow's** — `returnTo`
+      // (D.8) and `startAt` (D.10). Every other name in the query string is a flow
+      // argument and is seeded by name; these two say where the flow goes when it
+      // ends and which page it opens on, no form declares either, and seeding them
+      // would put a route and a state key into form state where values belong.
+      if (name === RETURN_TO || name === START_AT) continue;
       formState.setValue(0, name, value);
     }
     // `search` is a new object per render; its serialisation is the dependency.
@@ -213,8 +236,13 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         });
         const flow = await store.load(key);
         if (cancelled) return;
+        // **Resolved before anything is committed**, so that a `startAt` naming a
+        // state the document does not declare leaves the screen showing the
+        // findings list rather than a loaded flow with no position — it is
+        // reported through the same list a bad document is. See `startAtPosition`.
+        const opensAt = startAtPosition(flow.flow, requestedStart);
         setLoaded({ workspaceName: active.name, flow });
-        setPosition(startAt(flow.flow));
+        setPosition(opensAt);
       } catch (error) {
         if (cancelled) return;
         // **A load failure renders here rather than in the banner.** The findings
@@ -234,7 +262,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     return () => {
       cancelled = true;
     };
-  }, [key, workspaceApi]);
+  }, [key, workspaceApi, requestedStart]);
 
   const fetcher: DataTableFetcher = useCallback(
     (payload) => api.dataTable(payload),
@@ -828,23 +856,11 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 }
 
 /**
- * The per-column display filters a table document names, resolved.
+ * The per-column display filters a flow's table names, resolved.
  *
- * The document carries a *name* per column and `DataTable` takes a map from
- * column name to function — so this is where the registry is consulted. A name
- * that does not resolve cannot reach here: `FlowStore.load` refuses the whole set
- * first, which is the point of resolving at load rather than at render.
+ * The loop is `actions/cellFilters.ts`'s since D.10 — this is the lookup that
+ * remains, which is the half that is a flow's rather than a document's.
  */
-function cellFiltersFor(
-  loaded: LoadedFlow,
-  tableKey: string,
-): Record<string, (value: string | null) => string | null> {
-  const document = loaded.tables[tableKey];
-  if (document === undefined) return {};
-  const filters: Record<string, (value: string | null) => string | null> = {};
-  for (const column of document.columns) {
-    const filter = column.cellFilter ? productionRegistry.cellFilters[column.cellFilter] : undefined;
-    if (filter !== undefined) filters[column.name] = filter;
-  }
-  return filters;
+function cellFiltersFor(loaded: LoadedFlow, tableKey: string): CellFilters {
+  return cellFiltersOf(loaded.tables[tableKey]);
 }

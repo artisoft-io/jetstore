@@ -13,16 +13,21 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  FLOW_ENTRY_POINTS,
   FLOW_EXIT_FALLBACK,
   FLOW_ROUTES,
   RETURN_TO,
+  START_AT,
   SERVED_SCREENS,
   inAppPath,
   isInAppPath,
+  reactFlowEntry,
   reactFlowRoute,
   reactScreenPath,
   returnToPath,
+  startAtState,
   withReturnTo,
+  withStartAt,
 } from "./routes";
 import screenConfigs from "./fixtures/screen_configs.json";
 
@@ -155,6 +160,10 @@ describe("the served-screen map", () => {
       feature_branch: "fb",
       workspace_uri: "u",
       startAtKey: "a",
+      // D.10's entry point takes four, of which two are new to this list
+      // (`client`, `org`); `object_type` and `table_name` are already above.
+      client: "c",
+      org: "g",
     };
     // **The list is derived, so its emptiness has to be asserted separately.** A
     // glob that matched nothing would make the filter below pass over zero paths
@@ -245,5 +254,70 @@ describe("the origin a flow url carries", () => {
     // the right answer is that it is the index and is ungated — `/workspace`, the
     // fallback until D.8, is neither.
     expect(FLOW_EXIT_FALLBACK).toBe("/home");
+  });
+});
+
+/**
+ * Where a flow begins, when a button says somewhere other than its first state.
+ * Task D.10, from **I-260**.
+ */
+describe("the flow entry points", () => {
+  it("is a separate map from FLOW_ROUTES, which stays the eleven Flutter routes", () => {
+    // **The reason this is a second map.** `FLOW_ROUTES` is the port of
+    // `userFlowRoutes`; Flutter had no way to enter a flow partway, so a row
+    // here is not one of those and putting it there would make that map's own
+    // header false.
+    const inBoth = Object.keys(FLOW_ENTRY_POINTS).filter((t) => FLOW_ROUTES[t] !== undefined);
+    expect(inBoth).toEqual([]);
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
+  });
+
+  it("carries the state key and the arguments the state needs", () => {
+    const to = reactFlowEntry("/loadFilesUF/select_file_keys", {
+      client: "acme",
+      org: "vendorA",
+      object_type: "claims",
+      table_name: "staging_claims",
+    })!;
+    const search = new URLSearchParams(to.split("?")[1]);
+    expect(to.startsWith("/flow/loadFilesUF?")).toBe(true);
+    expect(search.get(START_AT)).toBe("select_file_keys");
+    expect(search.get("table_name")).toBe("staging_claims");
+    expect(startAtState(search)).toBe("select_file_keys");
+  });
+
+  it("refuses a partial argument list, which F.10 decided for the flow routes", () => {
+    // Harder here than there: a `loadFilesUF` opened on its second page without
+    // `table_name` draws an empty file list, having skipped the page that would
+    // have set it.
+    expect(reactFlowEntry("/loadFilesUF/select_file_keys", { client: "acme" })).toBeNull();
+    expect(reactFlowEntry("/noSuchEntryPoint", {})).toBeNull();
+  });
+
+  it("resolves through inAppPath, after the screens and the flow routes", () => {
+    const to = inAppPath("/loadFilesUF/select_file_keys", {
+      client: "acme",
+      org: "vendorA",
+      object_type: "claims",
+      table_name: "staging_claims",
+    })!;
+    expect(to.startsWith("/flow/loadFilesUF?")).toBe(true);
+  });
+
+  it("marks a flow path and leaves a screen path alone, as withReturnTo does", () => {
+    expect(withStartAt("/flow/x", "s")).toBe("/flow/x?startAt=s");
+    expect(withStartAt("/ruleConfig", "s")).toBe("/ruleConfig");
+    expect(withStartAt("/flow/x?startAt=chosen", "s")).toBe("/flow/x?startAt=chosen");
+    expect(startAtState(new URLSearchParams(""))).toBeNull();
+  });
+
+  it("composes with returnTo, because the two are separate parameters", () => {
+    // Both are the runner's own and `FlowRunner` excludes both from the seed;
+    // a launcher that writes one must not lose the other.
+    const to = withReturnTo(withStartAt("/flow/x?a=1", "s"), "/home");
+    const search = new URLSearchParams(to.split("?")[1]);
+    expect(search.get("a")).toBe("1");
+    expect(search.get(START_AT)).toBe("s");
+    expect(search.get(RETURN_TO)).toBe("/home");
   });
 });

@@ -18,9 +18,38 @@ import { availability, type ActionContext } from "./actionBarModel";
 import { requestFor, type ActionRequest } from "./actionDispatch";
 import type { ActionConfig } from "./types";
 
+/**
+ * The two actions the widget owns, and what pressing one does. Task D.10.
+ *
+ * **A.5 established that `refreshTable` and `toggleCheckboxVisible` act on the
+ * table rather than on the flow, and `useTableBinding`'s header says the bar
+ * "only has to find it here". It never did.** `requestFor` throws
+ * `UnsupportedActionType` for both — deliberately, and correctly, since a
+ * *request* is the wrong shape for them — and nothing caught the throw, so a
+ * press on one of the seven documents that configure one raised an uncaught
+ * error out of an event handler and the button appeared inert. `refreshTable`
+ * sits on `pipelineExecStatusTable`, which is this app's front door.
+ *
+ * Found at D.10 while moving `inputLoaderStatusTable` to a screen of its own,
+ * which is a screen whose *Refresh* button would otherwise have shipped broken.
+ * Fixed here rather than filed, on I-270's argument: a three-line handler beats
+ * an entry saying somebody should look at it.
+ */
+export interface WidgetActions {
+  /** `_refreshTable`, as a button rather than as a reaction to the form. */
+  refresh(): void;
+  toggleCheckboxVisible(): void;
+}
+
 export interface ActionBarProps {
   actions: ActionConfig[];
   context: ActionContext;
+  /**
+   * The widget's own two actions. Optional so that a bar can be rendered without
+   * a binding — which is what the corpus tests do — and a document configuring
+   * one without it is the same reported failure it was before.
+   */
+  widget?: WidgetActions;
   /**
    * The row a `navigationParams` column index reads from — and, since C.2, the
    * row `enableWhen` tests.
@@ -32,6 +61,7 @@ export interface ActionBarProps {
 export function ActionBar({
   actions,
   context,
+  widget,
   selectedRow,
   onAction,
 }: ActionBarProps): ReactNode {
@@ -65,7 +95,17 @@ export function ActionBar({
           disabled={!state.enabled}
           {...(action.capability !== undefined ? { capability: action.capability } : {})}
           {...(state.reason !== undefined ? { title: state.reason } : {})}
-          onClick={() => onAction(requestFor(action, context.formState, selectedRow), action)}
+          onClick={() => {
+            // The widget's two, before `requestFor` — which throws for both, and
+            // says why. See `WidgetActions`.
+            if (widget !== undefined) {
+              if (action.actionType === "refreshTable") return widget.refresh();
+              if (action.actionType === "toggleCheckboxVisible") {
+                return widget.toggleCheckboxVisible();
+              }
+            }
+            onAction(requestFor(action, context.formState, selectedRow), action);
+          }}
         >
           {action.label}
         </ActionButton>

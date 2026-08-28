@@ -43,6 +43,7 @@ import { BASENAME } from "../base";
 import { Login } from "../components/Login";
 import { withReturnTo } from "../screens/routes";
 import { ApiProvider, useCan } from "./capabilities";
+import { RouteTitle } from "./documentTitle";
 import { RouteFavicon } from "./favicon";
 import { NotificationsProvider, useNotifications } from "./notifications";
 import {
@@ -123,6 +124,8 @@ export function AppShell(props: AppShellProps) {
             `ShellChrome` returns `<Login>` when there is no user, and the icon
             belongs to the url rather than to the session. See `favicon.ts`. */}
         <RouteFavicon />
+        {/* D.10, from **I-272** — the same shape one element over. */}
+        <RouteTitle />
         <ShellChrome {...props} />
       </NotificationsProvider>
     </ApiProvider>

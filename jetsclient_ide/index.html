@@ -22,7 +22,16 @@
       is in that module's header.
     -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <title>JetStore Workspace IDE</title>
+    <!--
+      **The product, not a screen, since D.10 (I-272).** This was `JetStore
+      Workspace IDE`, and a static document cannot vary by route, so one screen's
+      name was the tab of all twenty-two of them. `src/shell/documentTitle.ts`
+      names each route; this line is what a tab shows before the bundle hydrates,
+      what it shows if the bundle never runs, and what the unauthenticated
+      /register route gets, that one being outside the shell and so out of reach
+      of any effect. It is the favicon argument in the element above, reused.
+    -->
+    <title>JetStore</title>
   </head>
   <body>
     <div id="root"></div>

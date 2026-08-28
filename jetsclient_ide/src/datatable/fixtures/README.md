@@ -5,7 +5,32 @@ Two files here, and only one of them had a section until 2026-08-25:
 
 # `table_configs.json` — the user flows' table configurations, as data
 
-Generated from the running Flutter app. **Do not edit it by hand.**
+~~Generated from the running Flutter app. **Do not edit it by hand.**~~
+**Both halves of that stopped being true and they stopped at different times —
+corrected 2026-08-27 at D.10.**
+
+**It cannot be regenerated.** Track X deleted `jetsclient/`, and with it
+`test/table_config_corpus_test.dart` and `jetsclient_ide/src/corpusFixtures.test.ts`
+— the generator and the drift check named in the two sections below. Those
+sections are kept because they say what this file *is*, and they should be read
+as history rather than as a procedure.
+
+**So this file is now the authoring surface for a flow table's configuration**,
+because the emitter still owns the 63 committed `.tc.json` documents and
+`table.test.ts` fails on a hand-edit to one of them. D.10 wrote the first
+configuration in here that has no Dart original: `fmInputSourceMappingUF`'s
+*Load Data* and *Loader Status* buttons (**I-260**). Everything else is still the
+measurement.
+
+**What that leaves open is not settled here** — whether the emitter should be
+retired and `jets/workspace_assets/table_configs/` promoted to the source, now
+that there is nothing left to measure against. It is **I-299**, and D.10
+deliberately did not decide it: two buttons is a bad reason to retire the one
+guard that keeps 63 documents agreeing with one another.
+
+**An edit here must say it is one.** The corpus `comment` field names the
+departure; a reader who does not know which rows are the Dart's and which are
+ours has a fixture that measures nothing.
 
 It holds the 37 `TableConfig` objects the nine user flows define — 28 that query
 `/dataTable` and 9 static ones — serialised by
@@ -16,7 +41,7 @@ sounds: the configurations run to roughly 2,700 lines of Dart, and the counting
 mistakes made while sizing this task all came from reading those files with
 `grep` instead of from the constructed objects.
 
-## Regenerating
+## Regenerating — **not possible since track X; see above**
 
 ```bash
 cd jetsclient

@@ -145,6 +145,34 @@ export const startAt = (flow: UserFlow): FlowPosition => ({
   visited: [flow.startAtKey],
 });
 
+/**
+ * Where a run begins when the url names a state. Task D.10, from **I-260**.
+ *
+ * **Three answers, and the two that are not taken are the interesting ones.**
+ *
+ * - **A state the flow does not declare throws**, rather than falling back to
+ *   `startAt`. The fallback is the plausible failure: a user who pressed *Load
+ *   Data* on a chosen source would land on the source-selection page with the
+ *   choice already made and read that as the button half working. The throw is
+ *   rendered by `FlowRunner` as a load finding naming the state, which is what an
+ *   operator who renamed a state in a workspace document needs to see. It is the
+ *   same refusal `resolveEscapes` makes for an unresolved name and `reactFlowRoute`
+ *   makes for a partial argument list.
+ * - **`visited` is the requested state alone, not the flow's own start followed
+ *   by it.** Seeding the stack would make *Previous* show a page this entry point
+ *   exists to skip — a step the user never saw, appearing from behind them, with
+ *   the choice they made on another screen presented again as a table. So
+ *   `ufPrevious` refuses here, exactly as it refuses on any flow's first page.
+ *   The cost is real and is a page the run does not have rather than one it lost.
+ */
+export function startAtPosition(flow: UserFlow, requested: string | null): FlowPosition {
+  if (requested === null || requested === flow.startAtKey) return startAt(flow);
+  if (flow.states[requested] === undefined) {
+    throw new FlowError(`this flow has no state "${requested}" to start at`);
+  }
+  return { stateKey: requested, visited: [requested] };
+}
+
 export interface StepRequest {
   flow: UserFlow;
   position: FlowPosition;

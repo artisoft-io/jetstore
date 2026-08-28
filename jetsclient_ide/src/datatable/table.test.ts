@@ -411,14 +411,22 @@ describe("the 37 shipping configurations", () => {
     expect(fromCorpus).toBe(9);
   });
 
-  it("carry the corpus's 275 columns, 25 actions and 49 where clauses", () => {
+  it("carry the corpus's 275 columns, 27 actions and 49 where clauses", () => {
+    /*
+      **25 until D.10, and the two it gained are the first configuration in this
+      corpus with no Dart original** — `fmInputSourceMappingUF`'s *Load Data* and
+      *Loader Status* (**I-260**). The count is still a measurement of the
+      fixture; what changed is that the fixture stopped being only a measurement
+      of the Flutter app, because track X deleted the generator that produced it.
+      See `fixtures/README.md`, and **I-299** for the question that leaves open.
+    */
     const count = (f: (d: TableConfigDocument) => number) =>
       Object.values(flowDocuments).reduce((n, d) => n + f(d), 0);
     expect({
       columns: count((d) => d.columns.length),
       actions: count((d) => (d.source === "query" ? (d.actions ?? []).length : 0)),
       where: count((d) => (d.source === "query" ? (d.where ?? []).length : 0)),
-    }).toEqual({ columns: 275, actions: 25, where: 49 });
+    }).toEqual({ columns: 275, actions: 27, where: 49 });
   });
 
   it("name two escapes between them, not six", () => {

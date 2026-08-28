@@ -31,7 +31,7 @@ import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_confi
 import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
-import { NotificationsProvider } from "../shell/notifications";
+import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { resetHomeFilters } from "../actions/homeFilters";
 import homeFiltersActions from "../../../jets/workspace_assets/user_flows/homeFiltersUF.ua.json";
 import loadConfigActions from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
@@ -286,6 +286,16 @@ function stubServer(overrides: { missing?: string[] } = {}) {
   return { fetchImpl, posts };
 }
 
+function Banners() {
+  const { error, status } = useNotifications();
+  return (
+    <>
+      {error != null && <div role="alert">{error}</div>}
+      {status != null && <div role="status">{status}</div>}
+    </>
+  );
+}
+
 async function mount(
   flowKey = "loadFilesUF",
   overrides: { missing?: string[]; search?: string } = {},
@@ -297,6 +307,12 @@ async function mount(
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
+        {/* **The harness renders the banners**, as `Home.test.tsx`'s does and for
+            the same reason: `AppShell` draws them and this tree does not, so a
+            case asserting a refusal would otherwise find nothing and have no way
+            to tell "refused" from "did nothing". Added at D.10 for the entry
+            point's `ufPrevious`. */}
+        <Banners />
         <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
           <Routes>
             <Route path="/flow/:key" element={<FlowRunner api={api} />} />
@@ -484,6 +500,94 @@ describe("driving the flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(await screen.findByText("Select a file data source configuration")).toBeTruthy();
     expect(actions(posts)).not.toContain("insert_rows");
+  });
+});
+
+/**
+ * Starting a flow partway through. Task D.10, from **I-260**.
+ *
+ * The entry point in the corpus is `fmInputSourceMappingUF`'s *Load Data*, which
+ * resolves to `/flow/loadFilesUF?client=…&org=…&object_type=…&table_name=…&startAt=select_file_keys`
+ * (`screens/routes.ts`, `FLOW_ENTRY_POINTS`). What is asserted here is the
+ * runner's half: which page opens, that the arguments arrive as form state and
+ * the state key does not, and what a state key the document does not declare
+ * does.
+ */
+describe("opening a flow at a named state", () => {
+  const ENTRY = "?client=acme&org=vendorA&object_type=claims&table_name=staging_claims";
+
+  it("opens on the second page with the source already chosen", async () => {
+    const { posts } = await mount("loadFilesUF", {
+      search: `${ENTRY}&startAt=select_file_keys`,
+    });
+    // The second state's table, rather than the first's — and its rows, which
+    // exist only because `table_name` reached form state: `lfFileKeyStagingTable`
+    // filters on it by `formStateKey`, so a page opened without the argument
+    // draws an empty list and says nothing about why.
+    expect(await screen.findByText("Select File(s) to Load")).toBeTruthy();
+    expect(screen.queryByText("Select a File Data Source Configurations")).toBeNull();
+    const read = posts
+      .map((p) => p.body)
+      .find((b) => (b["fromClauses"] as { table: string }[] | undefined)?.[0]?.table === "input_registry")!;
+    expect((read["whereClauses"] as { column: string; values?: string[] }[]).find(
+      (c) => c.column === "table_name",
+    )?.values).toEqual(["staging_claims"]);
+  });
+
+  it("posts the four arguments the second state's action needs", async () => {
+    // The point of carrying them rather than letting the skipped page set them:
+    // `lfLoadFilesUF` reads `client`, `org`, `object_type` and `table_name` by
+    // `fromKey`, and the page that would have published them is the one skipped.
+    const { posts } = await mount("loadFilesUF", {
+      search: `${ENTRY}&startAt=select_file_keys`,
+    });
+    await screen.findByText("s3://bucket/in/f10.csv");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(1),
+    );
+    const row = (posts.find((p) => p.body["action"] === "insert_rows")!.body["data"] as Record<
+      string,
+      unknown
+    >[])[0]!;
+    expect(row["client"]).toBe("acme");
+    expect(row["org"]).toBe("vendorA");
+    expect(row["object_type"]).toBe("claims");
+    expect(row["table_name"]).toBe("staging_claims");
+    // **`startAt` is the runner's own and is not one of the flow's arguments**,
+    // the same exclusion `returnTo` gets. Seeding it would put a state key into
+    // form state where a value belongs, and this posted row is where that would
+    // show.
+    expect(row["startAt"]).toBeUndefined();
+  });
+
+  it("refuses a state the document does not declare, rather than starting at the top", async () => {
+    // **The fallback is the plausible failure.** A user who pressed *Load Data*
+    // on a chosen source would land on the source-selection page with the choice
+    // already made and read that as the button half working. The finding names
+    // the state, which is what an operator who renamed one needs to see.
+    await mount("loadFilesUF", { search: `${ENTRY}&startAt=no_such_state` });
+    expect(
+      await screen.findByText(/this flow has no state "no_such_state" to start at/),
+    ).toBeTruthy();
+    expect(screen.queryByText("Select File(s) to Load")).toBeNull();
+  });
+
+  it("has no page behind it, so Previous refuses", async () => {
+    // `visited` is the requested state alone. Seeding the flow's own start would
+    // make *Previous* show a page this entry point exists to skip — a step the
+    // user never saw, with the choice they made on another screen presented
+    // again. So `ufPrevious` refuses here exactly as it does on any first page.
+    await mount("loadFilesUF", { search: `${ENTRY}&startAt=select_file_keys` });
+    await screen.findByText("Select File(s) to Load");
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText(/Already at the first step/)).toBeTruthy();
+  });
+
+  it("starts at the document's own state when the url names none", async () => {
+    await mount("loadFilesUF");
+    expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
   });
 });
 
