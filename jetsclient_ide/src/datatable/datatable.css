@@ -30,7 +30,9 @@
 
 .jets-datatable__error {
   margin: 0.25rem 0.5rem;
-  color: #b3261e;
+  /* The same literal `.btn-danger` carried until D.11 gave the palette a
+     `--danger`; this is the last copy of it. */
+  color: var(--danger);
 }
 
 /* The table scrolls inside its own box; wide tables are the norm here — the
@@ -97,6 +99,15 @@
   color: inherit;
 }
 
+/* The header row of a one-column picker whose caption already says it. D.11.
+   The row stays in the table — `<th scope="col">` is what associates a cell with
+   its column for a screen reader — and loses its height and its rule, so it does
+   not draw an empty bar between the caption and the first option. */
+.jets-datatable__head--silent th {
+  padding: 0;
+  border-bottom: none;
+}
+
 /* Zebra striping, as the Flutter table has (`data_table_source.dart:252`). */
 .jets-datatable__table tbody tr:nth-child(even) {
   background: rgb(0 0 0 / 0.03);
@@ -111,9 +122,16 @@
   width: 2rem;
 }
 
+/* **`var(--ink-3)` and not a literal black: this text was invisible in dark
+   mode.** `rgb(0 0 0 / 0.6)` is 60% black, which reads on the light ground and
+   is black-on-near-black on the dark one — so *No rows.* and the blocked message
+   were there and could not be read. Found at D.11 while checking the Query
+   Tool's new empty-state string in the browser, which is the only way this was
+   ever going to be found: it is invisible, so it looks like a table with no
+   message rather than a message with no contrast. */
 .jets-datatable__empty {
   padding: 1rem 0.5rem;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--ink-3);
   font-style: italic;
 }
 
@@ -128,6 +146,17 @@
   margin: 0 0.5rem;
 }
 
+/* **The four pager buttons were four different heights**, and the cause is the
+   glyphs rather than the rule: `⏮`/`⏭` (U+23EE/U+23ED) fall through to an emoji
+   font whose metrics have nothing to do with `‹`/`›`, so each button sized itself
+   to whatever its own glyph asked for. Fixing it by naming the glyphs would work
+   until the next font; giving the button a height of its own does not depend on
+   what is inside it. D.11. */
 .jets-datatable__footer button {
   min-width: 2rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }

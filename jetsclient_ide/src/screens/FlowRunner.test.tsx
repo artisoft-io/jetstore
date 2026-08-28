@@ -428,6 +428,27 @@ describe("driving the flow", () => {
     expect(await screen.findByText("s3://bucket/in/f10.csv")).toBeTruthy();
   });
 
+  it("disables Previous on the first step and enables it on the second", async () => {
+    // **D.11.** `back` throws below two entries in `visited`, and not one of the
+    // **174** `ufPrevious` buttons in the installed documents declares a gate —
+    // so every flow's first page offered a live *Previous* whose only outcome
+    // was an error message.
+    //
+    // **Both halves are asserted, and the second is the one worth having.** A
+    // rule that disables a control is easy to write and easy to leave disabled;
+    // the failure it invites is not the false positive but the control that
+    // never comes back.
+    await mount();
+    await screen.findByText("vendorA");
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("s3://bucket/in/f10.csv");
+
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(false);
+  });
+
   it("posts the state action's rows on completion, built by the interpreter", async () => {
     const { posts } = await mount();
     await screen.findByText("vendorA");
@@ -581,8 +602,14 @@ describe("opening a flow at a named state", () => {
     // again. So `ufPrevious` refuses here exactly as it does on any first page.
     await mount("loadFilesUF", { search: `${ENTRY}&startAt=select_file_keys` });
     await screen.findByText("Select File(s) to Load");
-    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
-    expect(await screen.findByText(/Already at the first step/)).toBeTruthy();
+    // **It now refuses before the press rather than after it, and this assertion
+    // moved with the behaviour rather than being weakened.** D.11 disables
+    // `ufPrevious` wherever `back` would throw, so the *"Already at the first
+    // step"* message this used to wait for is unreachable from the UI — the
+    // engine still raises it, and `engineStops.test.ts` still pins that. What is
+    // asserted here is the same claim one layer up: an entry point has no page
+    // behind it, and the control says so.
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
   });
 
   it("starts at the document's own state when the url names none", async () => {

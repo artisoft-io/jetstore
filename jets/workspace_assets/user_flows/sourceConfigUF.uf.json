@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "title": "Source Config",
+  "title": "Source Configuration",
   "startAtKey": "select_add_or_edit",
   "states": {
     "select_add_or_edit": {

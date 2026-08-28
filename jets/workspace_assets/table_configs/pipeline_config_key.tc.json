@@ -95,7 +95,7 @@
   ],
   "sortColumn": "process_name",
   "sortAscending": true,
-  "rowsPerPage": 100,
+  "rowsPerPage": 25,
   "isCheckboxVisible": true,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {

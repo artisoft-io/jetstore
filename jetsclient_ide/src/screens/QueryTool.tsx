@@ -207,6 +207,8 @@ export function QueryTool({ api }: { api: ApiClient }) {
         config={{ ...resultTableConfig, noFooter: true }}
         state={table}
         modes={table.modes}
+        // The default names a selection, and there is nothing here to select.
+        blockedMessage="Submit a query above to see rows."
       />
     </main>
   );

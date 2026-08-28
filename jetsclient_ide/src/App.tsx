@@ -158,10 +158,10 @@ export const NAV: NavEntry[] = [
  */
 export const FLOW_MENU: FlowMenuItem[] = [
   { to: "/flow/clientRegistryUF", label: "Clients & Vendors" },
-  { to: "/flow/sourceConfigUF", label: "Source Config" },
+  { to: "/flow/sourceConfigUF", label: "Source Configuration" },
   { to: "/flow/fileMappingUF", label: "Source Mapping" },
-  { to: "/ruleConfig", label: "Rules Config" },
-  { to: "/flow/pipelineConfigUF", label: "Pipeline Config" },
+  { to: "/ruleConfig", label: "Rules Configuration" },
+  { to: "/flow/pipelineConfigUF", label: "Pipeline Configuration" },
 ];
 
 /**

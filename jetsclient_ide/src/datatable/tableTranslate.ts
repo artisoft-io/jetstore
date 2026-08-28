@@ -107,6 +107,25 @@ export const DEFAULT_API_ACTION = "read";
 /** The three a document may name; anything else is a translation failure. */
 const AUTHORABLE_API_ACTIONS: readonly string[] = ["workspace_read", "preview_file", "raw_query_tool"];
 
+/**
+ * Page sizes this port sets differently from the Dart, and the whole list. D.11.
+ *
+ * **A map here rather than an edit to the corpus fixture, because the fixture is
+ * the record of what the Dart shipped** and staying able to say *the translation
+ * loses nothing* depends on that record not being rewritten when somebody wants
+ * a different number. Everything else about these two tables still translates
+ * straight through; the divergence is one field, is deliberate, and is visible.
+ *
+ * Both are `startPipelineUF`'s and neither is referenced by any other flow or
+ * screen — checked across the 14 installed `.form.json` documents, which is what
+ * makes the change local to the flow the report was about. The Dart set both to
+ * 100.
+ */
+export const ROWS_PER_PAGE: Readonly<Record<string, number>> = {
+  pipeline_config_key: 25,
+  spSummaryDataSources: 25,
+};
+
 /** The registry name for the file-key display filter. */
 export const FILE_KEY_LABEL_ESCAPE = "fileKeyLabel";
 /** The registry name for the load-error display filter. Task C.6. */
@@ -394,7 +413,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
       : {}),
     ...(config.sortColumnTableName ? { sortColumnTable: config.sortColumnTableName } : {}),
     ...(config.sortAscending ? { sortAscending: true as const } : {}),
-    rowsPerPage: config.rowsPerPage,
+    rowsPerPage: ROWS_PER_PAGE[config.key] ?? config.rowsPerPage,
     ...(omitFalse(config.isCheckboxVisible) ? { isCheckboxVisible: true as const } : {}),
     ...(omitFalse(config.isCheckboxSingleSelect) ? { isCheckboxSingleSelect: true as const } : {}),
     ...(omitFalse(config.isReadOnly) ? { isReadOnly: true as const } : {}),

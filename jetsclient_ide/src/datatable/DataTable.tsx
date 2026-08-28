@@ -59,6 +59,17 @@ export interface DataTableProps {
   modes?: TableModes;
   /** Per-column text filters, replacing the Dart closures the corpus cannot carry. */
   cellFilters?: Record<string, (value: string | null) => string | null>;
+  /**
+   * What an empty *blocked* table says instead of the default.
+   *
+   * **A prop and not a `TableConfig` field**, because `blocked` is the host's
+   * state rather than the document's: `useDataTable` takes it as an option and
+   * the table configuration has no word for it. The default reads *Make a
+   * selection above*, which is true of every blocked table in the corpus bar one
+   * — the Query Tool blocks on an unsubmitted statement, not on a selection, and
+   * told the user to select something that is not on the screen. D.11.
+   */
+  blockedMessage?: string;
 }
 
 /**
@@ -147,6 +158,7 @@ export function DataTable({
   actions,
   modes,
   cellFilters,
+  blockedMessage = "Make a selection above to see rows.",
 }: DataTableProps): React.JSX.Element {
   const columns = visibleColumns(state.columns);
   const checkboxes = modes ? modes.checkboxVisible : config.isCheckboxVisible;
@@ -160,6 +172,46 @@ export function DataTable({
     state.totalRowCount,
   );
   const onFirstPage = state.currentDataPage === 0;
+
+  /**
+   * **The footer is paging apparatus, and a table that does not page has none.**
+   * D.11, from the report: one page of rows drew *Rows per page*, a range that
+   * read `1–1 of 1`, and four dead buttons.
+   *
+   * `lastPage === 0` and not `totalRowCount <= rowsPerPage`, because the two
+   * disagree exactly where it matters — `lastPageIndex` carries the correction
+   * for the Dart's paging arithmetic (see `model.ts`), and a second expression
+   * for *is there more than one page* would be a second place to keep it right.
+   *
+   * The count goes with it, which is the one real loss and is deliberate: *1–1
+   * of 1* said nothing the rows did not, and the alternative — a footer holding
+   * only a range — is a row of chrome for a fact the user is looking at. A table
+   * still on page 0 of several keeps its footer; only a single-page table loses
+   * one.
+   */
+  const paged = lastPage > 0;
+
+  /**
+   * **A one-column picker says the same thing twice, so it stops saying it.**
+   * D.11, reported on `clientRegistryUF`'s first step: the caption reads *Select
+   * one of the following options:* and the single column header beneath it reads
+   * *Select one of the following option* — the same sentence, one letter shorter.
+   *
+   * **The test is structural rather than textual, and the corpus is why.** Of the
+   * 35 installed table documents, **9 have exactly one visible column, and the
+   * header is redundant in all 9** — either the caption restated, or generic
+   * filler beneath a caption carrying the real question. Comparing the two
+   * *strings* catches **5** of those 9: *Select Status(es) as filter criteria*
+   * against *Select the Status(es)* is plainly repetitive to a reader and scores
+   * 0.57 to a matcher. And a text rule loose enough to reach the other four
+   * reaches `org.tc.json`, where *Client Organization Registry* captions a real
+   * *Client Organization* column among three.
+   *
+   * So: one visible column **and** a caption. A single-column table with no
+   * caption keeps its header, because then the header is the only thing naming
+   * what the column holds.
+   */
+  const captionRepeatedByHeader = columns.length === 1 && state.label !== "";
 
   const cellContent = (row: (string | null)[], column: ColumnConfig): string =>
     cellText(row, column, cellFilters?.[column.name]);
@@ -179,7 +231,7 @@ export function DataTable({
 
       <div className="jets-datatable__scroll">
         <table className="jets-datatable__table">
-          <thead>
+          <thead className={captionRepeatedByHeader ? "jets-datatable__head--silent" : undefined}>
             <tr>
               {checkboxes && <th scope="col" className="jets-datatable__checkbox-col" />}
               {columns.map((column, i) => {
@@ -194,16 +246,26 @@ export function DataTable({
                     }
                     className={column.isNumeric ? "jets-datatable__numeric" : undefined}
                   >
-                    <button
-                      type="button"
-                      className="jets-datatable__sort"
-                      onClick={() => state.sortByVisibleColumn(i)}
-                    >
-                      {column.label}
-                      {sorted && (
-                        <span aria-hidden="true">{state.sortAscending ? " ▲" : " ▼"}</span>
-                      )}
-                    </button>
+                    {/* **The row stays and the control goes.** Keeping the
+                        `<th scope="col">` is what still associates each cell
+                        with its column for a screen reader; keeping the
+                        `<button>` would leave **a control with no accessible
+                        name**, which is worse than the duplication it was
+                        removing — and it would hold a line box, so the row drew
+                        17px of empty header. A one-column picker sorted by a
+                        hidden `option_order` loses nothing operable. */}
+                    {captionRepeatedByHeader ? null : (
+                      <button
+                        type="button"
+                        className="jets-datatable__sort"
+                        onClick={() => state.sortByVisibleColumn(i)}
+                      >
+                        {column.label}
+                        {sorted && (
+                          <span aria-hidden="true">{state.sortAscending ? " ▲" : " ▼"}</span>
+                        )}
+                      </button>
+                    )}
                   </th>
                 );
               })}
@@ -258,7 +320,7 @@ export function DataTable({
                   {state.loading
                     ? "Loading…"
                     : state.blocked
-                      ? "Make a selection above to see rows."
+                      ? blockedMessage
                       : "No rows."}
                 </td>
               </tr>
@@ -267,7 +329,7 @@ export function DataTable({
         </table>
       </div>
 
-      {!config.noFooter && (
+      {!config.noFooter && paged && (
         <div className="jets-datatable__footer">
           <label htmlFor={rowsPerPageId}>Rows per page</label>
           <select
@@ -290,7 +352,7 @@ export function DataTable({
             )}
           </span>
           <button type="button" aria-label="First page" disabled={onFirstPage} onClick={() => state.setPage(0)}>
-            {"⏮"}
+            {"«"}
           </button>
           <button
             type="button"
@@ -314,7 +376,7 @@ export function DataTable({
             disabled={onLastPage}
             onClick={() => state.setPage(lastPage)}
           >
-            {"⏭"}
+            {"»"}
           </button>
         </div>
       )}

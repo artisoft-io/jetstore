@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "title": "Pipeline Config",
+  "title": "Pipeline Configuration",
   "startAtKey": "select_add_or_edit",
   "states": {
     "select_add_or_edit": {

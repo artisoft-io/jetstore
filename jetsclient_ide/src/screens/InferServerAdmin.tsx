@@ -282,9 +282,30 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
     busy,
   };
 
+  /**
+   * **Two lists, because a rule can gate a button without decorating a box.**
+   * D.11, from the report: the request box sat in the error state from the
+   * moment the screen opened, on a screen the user may have come to only to
+   * press *Start* or *Models*.
+   *
+   * `errors` still gates Submit — `host.formValid` reads it below and an empty
+   * request is still not submittable. What changes is only what the *field* is
+   * told: an empty box is a box nobody has filled in yet, and saying so in red
+   * before the user has typed is a reprimand for arriving.
+   *
+   * **Emptiness is re-tested here rather than the error being matched on its
+   * rule**, because `FieldError` carries a key and a message and not the rule
+   * that raised it. Today `required` is the only rule on the field, so the two
+   * are the same test; if a second rule is added, this filter keeps hiding only
+   * the case it was written for and the new one shows.
+   */
+  const requestValue = formState.getValue(GROUP, INFER_REQUEST);
+  const requestEmpty = typeof requestValue !== "string" || requestValue.trim() === "";
+  const shownErrors = requestEmpty ? errors.filter((e) => e.key !== INFER_REQUEST) : errors;
+
   return (
     <main className="screen infer-admin">
-      <FormRenderer form={FORM} host={host} errors={errors} />
+      <FormRenderer form={FORM} host={host} errors={shownErrors} />
 
       {confirmStop && (
         <div className="banner infer-admin__confirm" role="alertdialog">
@@ -293,7 +314,7 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
             unloaded.
           </p>
           <ActionButton
-            className="btn btn--danger"
+            className="btn btn-danger"
             capability={INFER_SERVER_ADMIN}
             disabled={busy}
             onClick={() => {
@@ -304,7 +325,7 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
           >
             Stop it
           </ActionButton>
-          <ActionButton className="btn btn--secondary" onClick={() => setConfirmStop(false)}>
+          <ActionButton className="btn btn-secondary" onClick={() => setConfirmStop(false)}>
             Keep it running
           </ActionButton>
         </div>
