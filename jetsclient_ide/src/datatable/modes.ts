@@ -1,5 +1,6 @@
 /**
- * The table's two display modes, and the refresh that resets it. Task A.5.
+ * The table's display mode, and the refresh that resets it. Task A.5, less the
+ * copy toggle D.6 deleted.
  *
  * **These are the widget's own actions, and they were misfiled.** Three
  * `toggleCheckboxVisible` configurations and one `refreshTable` sit in the same
@@ -9,10 +10,16 @@
  * (`sizing_action_grammar.md` §5) found them; this file is where they belong,
  * beside A.4b's widget.
  *
- * A fifth belongs here too and is not in the 25: **`toggleCopy2Clipboard` is
- * never configured.** The widget synthesises its button
- * (`data_table.dart:163`), so it appears in no `TableConfig` and the corpus
- * cannot show it. Counting configured actions would have missed it entirely.
+ * ~~A fifth belongs here too and is not in the 25: `toggleCopy2Clipboard` is
+ * never configured.~~ **Deleted 2026-08-27 at D.6 (I-262), and the reason is the
+ * premise rather than the control.** The Dart kept copy-on-click and row
+ * selection opposed because both answered a *click on a row*: a table you were
+ * ticking rows in could not also be one where every click copied a cell, so a
+ * button switched between them. React selects rows with a checkbox in its own
+ * column, and nothing else consumes a click on a data cell — so the two modes
+ * no longer compete and there is nothing left for a switch to switch. What
+ * survives is the behaviour the user asked to keep: a cell click copies the
+ * cell's unfiltered text, unconditionally.
  */
 
 import { useCallback, useState } from "react";
@@ -25,57 +32,44 @@ import type { DataTableFormStateConfig, TableConfig } from "./types";
 export interface TableModes {
   /** Whether the selection checkbox column is shown. `isTableEditable` (`:310`). */
   checkboxVisible: boolean;
-  /** Whether a cell copies its text on click. The inverse of `noCopy2Clipboard`. */
-  copyEnabled: boolean;
-  /** Whether the widget offers its own copy-mode button. */
-  copyToggleAvailable: boolean;
   toggleCheckboxVisible(): void;
-  toggleCopyEnabled(): void;
 }
 
 /**
- * `_checkboxVisible` and `_noCopy2Clipboard`, which are one mode switch wearing
- * two names.
- *
- * The Dart initialises them at `data_table.dart:372`:
+ * `_checkboxVisible`, which the Dart initialised at `data_table.dart:372`
+ * alongside a copy mode it was kept opposed to:
  *
  *     _checkboxVisible  = tableConfig.isCheckboxVisible;
  *     _noCopy2Clipboard = tableConfig.noCopy2Clipboard ?? true;
  *     if (!tableConfig.isCheckboxVisible) _noCopy2Clipboard = false;
  *
- * — so a table without checkboxes gets copy-on-click whatever its config said,
- * and `toggleCheckboxVisible` (`:478`) sets `_noCopy2Clipboard = _checkboxVisible`,
- * keeping them opposed. **That coupling is the feature rather than an accident**:
- * a table you are ticking rows in should not also be one where every click
- * copies a cell. Ten of the 37 configurations set `isCheckboxVisible: false` and
- * eleven set `noCopy2Clipboard`, so both halves are exercised.
+ * — and `toggleCheckboxVisible` (`:478`) then set
+ * `_noCopy2Clipboard = _checkboxVisible` on every flip, so revealing the
+ * checkbox column turned copying off and hiding it turned copying on.
  *
- * The copy button only appears when checkboxes are visible *and* the config left
- * `noCopy2Clipboard` unset (`data_table.dart:163`) — a table that stated a
- * preference does not get a control to override it.
+ * **The second half of all that is gone as of D.6 and only the checkbox state
+ * remains.** The reason the coupling existed does not survive the port: in
+ * Flutter both modes answered a click on a row, and here a checkbox answers
+ * selection and nothing else reads a cell click. Keeping the coupling would now
+ * mean a *configured* `toggleCheckboxVisible` action silently switching copying
+ * off, which is a side effect neither the action's name nor any of the three
+ * configurations that carry it asks for.
+ *
+ * **`noCopy2Clipboard` therefore decides nothing here, and that is a smaller
+ * change than it looks.** All 11 of the 37 configurations that set it also set
+ * `isCheckboxVisible: true`, where the Dart's own default was already
+ * *suppressed* — so setting it changed no load-time behaviour in any of them;
+ * its whole observable effect was to withhold the toggle button. Delete the
+ * button and the field has no distinct meaning left to honour. It stays in the
+ * schema and in `TableConfig` because the workspace documents that set it must
+ * keep validating (I-278).
  */
 export function useTableModes(config: TableConfig): TableModes {
   const [checkboxVisible, setCheckboxVisible] = useState(config.isCheckboxVisible);
-  const [copyEnabled, setCopyEnabled] = useState(
-    // Inverted on the way in: the Dart names the suppression, not the feature.
-    !(config.isCheckboxVisible ? (config.noCopy2Clipboard ?? true) : false),
-  );
-
-  const toggleCheckboxVisible = useCallback(() => {
-    setCheckboxVisible((visible) => {
-      // `_noCopy2Clipboard = _checkboxVisible`, inverted: copy follows the
-      // *new* checkbox state, opposed to it.
-      setCopyEnabled(visible);
-      return !visible;
-    });
-  }, []);
 
   return {
     checkboxVisible,
-    copyEnabled,
-    copyToggleAvailable: checkboxVisible && config.noCopy2Clipboard === undefined,
-    toggleCheckboxVisible,
-    toggleCopyEnabled: useCallback(() => setCopyEnabled((on) => !on), []),
+    toggleCheckboxVisible: useCallback(() => setCheckboxVisible((visible) => !visible), []),
   };
 }
 
