@@ -261,10 +261,22 @@ describe("the input-records dialog", () => {
     // at.
     await waitFor(() => expect(within(dialog).getAllByRole("table")).toHaveLength(2));
 
-    const dialogReads = readsOf(posts).filter(
-      (r) => (r["withClauses"] as unknown[] | undefined)?.length === 1,
-    );
-    expect(dialogReads).toHaveLength(2);
+    /*
+      **Waited for rather than asserted, fixed at D.9.** The `waitFor` above
+      settles when the two tables are *in the DOM*, and each table issues its
+      read from its own effect — so the requests trail the markup and this
+      assertion was reading `posts` in the gap between. It is racy by
+      construction and it was not observed to fail in twelve runs of the suite
+      as it stood; adding one unrelated test file was enough to change the
+      worker scheduling and lose the race twice in eleven. That is the whole
+      claim — the file did not cause the race, it changed the load — and the
+      repair belongs to whoever trips it rather than to a pull request of its
+      own.
+    */
+    const dialogReadsOf = () =>
+      readsOf(posts).filter((r) => (r["withClauses"] as unknown[] | undefined)?.length === 1);
+    await waitFor(() => expect(dialogReadsOf()).toHaveLength(2));
+    const dialogReads = dialogReadsOf();
 
     // **Each table's `WITH` carries its own row's four values**, substituted from
     // that group's form state by the seed. The lookback differs between the two

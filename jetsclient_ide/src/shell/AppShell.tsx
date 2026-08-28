@@ -42,6 +42,7 @@ import { ApiClient, type User } from "../api/client";
 import { BASENAME } from "../base";
 import { Login } from "../components/Login";
 import { ApiProvider, useCan } from "./capabilities";
+import { RouteFavicon } from "./favicon";
 import { NotificationsProvider, useNotifications } from "./notifications";
 import {
   CLIENT_LIST_QUERY,
@@ -117,6 +118,10 @@ export function AppShell(props: AppShellProps) {
   return (
     <ApiProvider api={props.api}>
       <NotificationsProvider>
+        {/* Task D.9 (I-267). Above `ShellChrome` rather than inside it because
+            `ShellChrome` returns `<Login>` when there is no user, and the icon
+            belongs to the url rather than to the session. See `favicon.ts`. */}
+        <RouteFavicon />
         <ShellChrome {...props} />
       </NotificationsProvider>
     </ApiProvider>
