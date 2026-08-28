@@ -27,6 +27,7 @@ import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
 import { QueryTool, QUERY_TOOL } from "./screens/QueryTool";
+import { FileLoaderStatus } from "./screens/FileLoaderStatus";
 import { Home } from "./screens/Home";
 import { InferServerAdmin } from "./screens/InferServerAdmin";
 import { NotFound } from "./screens/NotFound";
@@ -399,6 +400,18 @@ export default function App() {
             `processConfig`, which is the v1 name for the v2 screen.
           */}
           <Route path="ruleConfig" element={<RuleConfig api={api} />} />
+          {/*
+            Task D.10, from **I-260**. **The one route in this table with no
+            Flutter predecessor**: it was the home screen's second tab and never
+            had a route in either app, so the template `SERVED_SCREENS` carries
+            for it was chosen rather than copied.
+
+            **No nav entry, deliberately.** It is reached from
+            `fileMappingUF`'s *Loader Status* button, which is where the report
+            asked for it, and adding a seventh item to a row I-259 specified
+            exactly would be answering a question nobody asked.
+          */}
+          <Route path="fileLoaderStatus" element={<FileLoaderStatus api={api} />} />
           {/*
             **The catch-all reports rather than redirects, as of C.16.** It was
             `<Navigate to="/workspace" replace />` from A.1 until now, and that is

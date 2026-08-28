@@ -60,15 +60,6 @@ const execRows: (string | null)[][] = [
   ],
 ];
 
-/** `input_loader_status` rows. Column 7 is `table_name`, 11 is `session_id`. */
-const loaderRows: (string | null)[][] = [
-  [
-    "1", "acme", "acme_org", "claim", "2026", "8", "25", "claim_staging", "9000",
-    "completed", "s3://in/claims.csv", "sess-1", "0",
-    "File contains 0 bad rows,recovered error: a column was short", "u@x", "now",
-  ],
-];
-
 /** `input_registry` rows. */
 const registryRows: (string | null)[][] = [
   ["1", "acme", "acme_org", "claim", "2026", "8", "25", "claim_staging", "sess-1", "File", "s3://in/claims.csv", "u@x", "now", "7"],
@@ -112,12 +103,9 @@ function stubServer() {
         );
       case "read": {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
-        const rows =
-          from === "pipeline_execution_status"
-            ? execRows
-            : from === "input_loader_status"
-              ? loaderRows
-              : registryRows;
+        // Two tables since D.10 — the loader table moved to `/fileLoaderStatus`,
+        // and its rows and its assertions went with it.
+        const rows = from === "pipeline_execution_status" ? execRows : registryRows;
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
       case "raw_query":
@@ -255,7 +243,7 @@ describe("the table this screen shares with a flow", () => {
 });
 
 describe("the screen", () => {
-  it("draws three tabs, pipelines first, and mounts one", async () => {
+  it("draws two tabs, pipelines first, and mounts one", async () => {
     await mount();
     /*
       ~~The order is the document's and it is the order a user's muscle memory is
@@ -263,16 +251,31 @@ describe("the screen", () => {
       the first time this order has been chosen rather than inherited: *Pipeline
       Execution Status* becomes first and default, relabelled *Pipelines Status*.
 
-      **`File Loader Status` is still here and is leaving.** I-260 moves it into
-      `fileMappingUF` as a pair of buttons, which needs a route and a flow that
-      can start at its second state — **D.10**. It stays until that exists.
+      ~~**`File Loader Status` is still here and is leaving.**~~ **Gone at D.10**,
+      to `/fileLoaderStatus`, reached from `fileMappingUF`'s *Loader Status*
+      button. Three tabs to two, which is the whole of I-260's first line.
     */
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Pipelines Status",
-      "File Loader Status",
       "Data Registry",
     ]);
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  it("draws no caption on the pipelines table, because the tab strip names it", async () => {
+    /*
+      **The last line of I-260, and it is at this render site rather than in the
+      document.** D.4 tried emptying `label` in `pipelineExecStatusTable.tc.json`
+      and backed out: `homeFiltersUF` renders the same document out of the
+      workspace, where nothing else names the table, and eight tests said so.
+
+      Asserted as *this heading is absent while the flow's is not* rather than as
+      "no `h2`", so that a change which emptied the document instead would fail
+      here **and** in `FlowRunner`'s tests rather than passing both.
+    */
+    await mount();
+    expect(screen.queryByRole("heading", { name: "Pipeline Execution Status" })).toBeNull();
+    expect((pipelineExecStatusTable as { label: string }).label).toBe("Pipeline Execution Status");
   });
 
   it("issues one query on load, not three", async () => {
@@ -285,29 +288,16 @@ describe("the screen", () => {
 
   it("queries a tab's table only once it is opened", async () => {
     /*
-      **The tab this asserts about changed at D.4 and the property did not.**
-      Pipelines is first and default now, so it is queried on mount; the loader
-      table is the one that must wait to be opened. Rewritten around the loader
-      rather than deleted, because what is under test is laziness rather than any
-      particular table.
+      **The tab this asserts about has changed twice and the property has not.**
+      D.4 made pipelines first and default, so the *other* tab is the one that
+      must wait; D.10 removed the loader tab, so the other tab is the registry.
+      Rewritten each time rather than deleted, because what is under test is
+      laziness rather than any particular table.
     */
     const { posts } = await mount();
-    expect(readsOf(posts, "input_loader_status")).toHaveLength(0);
-    await openTab("File Loader Status", "acme_org");
-    expect(readsOf(posts, "input_loader_status")).toHaveLength(1);
-  });
-
-  it("names the two display filters apart on the loader table", async () => {
-    await mount();
-    // The loader table is the second tab since D.4, so it has to be opened.
-    await openTab("File Loader Status", "acme_org");
-    // **The translation used to send both columns to `fileKeyLabel`.** The file
-    // key is shortened to its last segment; the error message keeps its text with
-    // the recovered-error prefix removed. One name for both would have rendered
-    // the message as `.../` plus whatever followed its last slash — here, the
-    // whole string, since it has none.
-    expect(screen.getByText(".../claims.csv")).toBeTruthy();
-    expect(screen.getByText("a column was short")).toBeTruthy();
+    expect(readsOf(posts, "input_registry")).toHaveLength(0);
+    await openTab("Data Registry", "claim_staging");
+    expect(readsOf(posts, "input_registry")).toHaveLength(1);
   });
 });
 
@@ -315,31 +305,32 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("splices selectedClient into every table that has a client column", async () => {
     setSelectedClient("acme");
     const { posts } = await mount();
-    // The loader table is the second tab since D.4 (I-260), so it is queried
-    // when opened rather than on mount.
-    await openTab("File Loader Status", "acme_org");
-    const where = lastRead(posts, "input_loader_status")!["whereClauses"] as Record<string, unknown>[];
+    const where = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as Record<
+      string,
+      unknown
+    >[];
     expect(where).toContainEqual({
-      table: "input_loader_status",
+      table: "pipeline_execution_status",
       column: "client",
       values: ["acme"],
     });
   });
 
-  it("reaches all three tables, because all three declare a client column", async () => {
-    // **Three tables, three chances to have supplied the context to one of them.**
+  it("reaches both tables, because both declare a client column", async () => {
+    // **Two tables, two chances to have supplied the context to one of them.**
     // The single-table assertion above passes on a screen that wired the picker
-    // into the first tab and forgot the other two — which is the shape of every
-    // I-104 failure: correct where it was checked, absent where it was not.
+    // into the first tab and forgot the other — which is the shape of every I-104
+    // failure: correct where it was checked, absent where it was not.
+    //
+    // **Three until D.10 moved the loader table off this screen**, where the same
+    // claim is `FileLoaderStatus.test.tsx`'s. It is asserted there rather than
+    // dropped, because a table that leaves a screen with the filter is a table
+    // that can arrive on the next one without it.
     setSelectedClient("acme");
     const { posts } = await mount();
-    // The loader table is the second tab since D.4 (I-260), so it is queried
-    // when opened rather than on mount.
-    await openTab("File Loader Status", "acme_org");
     await openTab("Pipelines Status", "00:01:12");
     await openTab("Data Registry", "claim_staging");
     for (const [table, column] of [
-      ["input_loader_status", "client"],
       ["pipeline_execution_status", "client"],
       ["input_registry", "client"],
     ] as const) {
@@ -353,13 +344,13 @@ describe("the three filters, none of which is visible on the screen", () => {
     // is false — and `inputRegistryTable` alone then gets the `Any` exclusion
     // (`data_table_source.dart`, `_makeQuery`).
     const { posts } = await mount();
-    // The loader table is the second tab since D.4 (I-260), so it is queried
-    // when opened rather than on mount.
-    await openTab("File Loader Status", "acme_org");
-    const loader = lastRead(posts, "input_loader_status")!["whereClauses"] as
+    // The pipelines table since D.10; it was the loader table, which has moved to
+    // a screen of its own. Either serves — what is under test is that no client
+    // clause is sent at all, on a table that has the column.
+    const pipelines = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as
       | Record<string, unknown>[]
       | undefined;
-    expect((loader ?? []).some((w) => w["column"] === "client")).toBe(false);
+    expect((pipelines ?? []).some((w) => w["column"] === "client")).toBe(false);
 
     await openTab("Data Registry", "claim_staging");
     const registry = lastRead(posts, "input_registry")!["whereClauses"] as Record<string, unknown>[];
@@ -393,14 +384,14 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("splices dataRegistryFilters into inputRegistryTable and into nothing else", async () => {
     seedHomeFilters();
     const { posts } = await mount();
-    // The loader table is the second tab since D.4 (I-260), so it is queried
-    // when opened rather than on mount.
-    await openTab("File Loader Status", "acme_org");
-    const loader = (lastRead(posts, "input_loader_status")!["whereClauses"] ?? []) as Record<
+    // **The "nothing else" table is the pipelines one since D.10.** It was the
+    // loader table; that one has moved, and this screen's remaining pair is what
+    // the claim can be made against here.
+    const pipelines = (lastRead(posts, "pipeline_execution_status")!["whereClauses"] ?? []) as Record<
       string,
       unknown
     >[];
-    expect(loader.some((w) => w["column"] === "last_update")).toBe(false);
+    expect(pipelines.some((w) => w["column"] === "last_update")).toBe(false);
 
     await openTab("Data Registry", "claim_staging");
     const registry = lastRead(posts, "input_registry")!["whereClauses"] as Record<string, unknown>[];

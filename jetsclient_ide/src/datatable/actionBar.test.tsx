@@ -41,9 +41,13 @@ function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
 }
 
 describe("the corpus this task owns", () => {
-  it("is 21 of the 25 configurations, the other four being the widget's", () => {
-    expect(allActions).toHaveLength(25);
-    expect(barActions).toHaveLength(21);
+  it("is 23 of the 27 configurations, the other four being the widget's", () => {
+    // **25 and 21 until D.10**, which added `fmInputSourceMappingUF`'s two
+    // `showScreen` buttons (**I-260**) — the first configuration in this corpus
+    // with no Dart original. The widget's four are unchanged, which is the half
+    // worth asserting: this test is about the split rather than about the size.
+    expect(allActions).toHaveLength(27);
+    expect(barActions).toHaveLength(23);
     expect(allActions.length - barActions.length).toBe(4);
   });
 

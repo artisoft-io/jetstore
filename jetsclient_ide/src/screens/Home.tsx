@@ -82,12 +82,12 @@ import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
+import { cellFiltersOf } from "../actions/cellFilters";
 import { validateAllGroups, type FieldError } from "../userflow/validateForm";
 import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 
 import actionsJson from "./documents/homeScreen.ua.json";
 import formsJson from "./documents/homeScreen.form.json";
-import inputLoaderStatusTable from "../datatable/tables/inputLoaderStatusTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 
 /**
@@ -101,23 +101,36 @@ import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
  * table caption are both visible.
  */
 const TABS = [
-  // **First and default since D.4** (**I-260**), and relabelled *Pipelines
-  // Status*: the tab strip's label is the tab's, not the table's, which is why
-  // this line changes and the document does not.
-  { key: "pipelineExecStatusTable", label: "Pipelines Status", document: null },
-  // **Leaving, but not yet.** I-260 moves this tab to `fileMappingUF`'s first
-  // screen as a pair of buttons; that needs a route, a `startAt` for the flow and
-  // an edit to a workspace document, so it is **D.10** rather than part of this
-  // change. Removing it here before the destination exists would take the screen
-  // away from users to save a later diff.
-  { key: "inputLoaderStatusTable", label: "File Loader Status", document: inputLoaderStatusTable },
-  // **The middle tab's document is not bundled**, and it is the only table in
-  // either corpus with two kinds of consumer: `homeFiltersUF` draws it from the
-  // workspace and this screen draws it here. It was committed twice for a day —
-  // once under `jets/workspace_assets/table_configs/` and once beside its
-  // neighbours — with a test asserting the copies agreed, which is a guard rather
-  // than a fix. One copy, read from where the flow reads it.
-  { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable },
+  /*
+    **First and default since D.4** (**I-260**), and relabelled *Pipelines
+    Status*: the tab strip's label is the tab's, not the table's, which is why
+    this line changes and the document does not.
+
+    **`caption: ""` is the rest of I-260 and it is here rather than in the
+    document.** The report asks for the table's own caption to be emptied, and
+    D.4 tried that in `pipelineExecStatusTable.tc.json` and backed out:
+    `homeFiltersUF` renders the same document out of the workspace, so emptying
+    its `label` takes the caption off the flow too. The tab strip above names
+    this table and the caption repeats it; nothing names it in the flow. So the
+    suppression is a property of *this screen's* render of the document, which is
+    what a per-tab field says and what a shared document cannot.
+  */
+  { key: "pipelineExecStatusTable", label: "Pipelines Status", document: null, caption: "" },
+  /*
+    **The first tab's document is not bundled**, and it is the only table in
+    either corpus with two kinds of consumer: `homeFiltersUF` draws it from the
+    workspace and this screen draws it here. It was committed twice for a day —
+    once under `jets/workspace_assets/table_configs/` and once beside its
+    neighbours — with a test asserting the copies agreed, which is a guard rather
+    than a fix. One copy, read from where the flow reads it.
+
+    ~~**Leaving, but not yet.**~~ **Gone, D.10.** *File Loader Status* sat between
+    these two until its destination existed; it is now `/fileLoaderStatus` and is
+    reached from `fileMappingUF`'s *Loader Status* button (`FileLoaderStatus.tsx`).
+    Two tabs rather than three, and the screen's own comment about issuing one
+    query rather than three is now one rather than two.
+  */
+  { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable, caption: null },
 ] as const;
 
 /** The tab whose document comes from the workspace. */
@@ -314,13 +327,28 @@ export function Home({ api }: { api: ApiClient }) {
   );
   const forms = parsed.forms.success ? parsed.forms.data.forms : {};
   const actions = parsed.actions.success ? parsed.actions.data.actions : {};
+  /**
+   * The tables this screen draws, with this screen's caption where it has one.
+   *
+   * **The override is in the memo rather than in the JSX**, which is not style:
+   * `useDataTable` seeds its label state from `config.label` and keys its fetch
+   * effect on the serialised payload, so a `config` object rebuilt every render
+   * would be a new identity inside both. Memoised on the one input that can move
+   * it, exactly as `TableScreen` does for the same reason.
+   *
+   * A `caption` of `""` empties it; `null` means the document's own label stands.
+   * The server can still replace a label in a `/dataTable` response, which no
+   * query on this screen does — the two sites that set one are the raw-query and
+   * file-preview paths (`jets/datatable/data_table_action.go`).
+   */
   const configs = useMemo(
     () =>
-      tablesWith(workspaceTable).reduce<Record<string, TableConfig>>(
-        (acc, table) =>
-          table.result.success ? { ...acc, [table.key]: fromDocument(table.key, table.result.data) } : acc,
-        {},
-      ),
+      tablesWith(workspaceTable).reduce<Record<string, TableConfig>>((acc, table) => {
+        if (!table.result.success) return acc;
+        const caption = TABS.find((t) => t.key === table.key)?.caption ?? null;
+        const config = fromDocument(table.key, table.result.data);
+        return { ...acc, [table.key]: caption === null ? config : { ...config, label: caption } };
+      }, {}),
     [workspaceTable],
   );
 
@@ -645,7 +673,7 @@ export function Home({ api }: { api: ApiClient }) {
             fetcher={fetcher}
             context={tableContext}
             predicates={productionRegistry.predicates}
-            cellFilters={cellFiltersFor(
+            cellFilters={cellFiltersOf(
               tablesWith(workspaceTable).find((t) => t.key === active.key)!.result.data!,
             )}
             onAction={onTableAction}
@@ -680,23 +708,4 @@ export function Home({ api }: { api: ApiClient }) {
   );
 }
 
-/**
- * The per-column display filters a table document names, resolved.
- *
- * `FlowRunner` has the same function against a loaded flow; this one reads a
- * bundled document. **Both matter more than they look on this screen**, because
- * two of its columns name filters and they are not the same one:
- * `inputLoaderStatusTable`'s `file_key` names `fileKeyLabel` and its
- * `error_message` names `errorMessageLabel`, which the translation used to
- * conflate.
- */
-function cellFiltersFor(
-  document: TableConfigDocument,
-): Record<string, (value: string | null) => string | null> {
-  const filters: Record<string, (value: string | null) => string | null> = {};
-  for (const column of document.columns) {
-    const filter = column.cellFilter ? productionRegistry.cellFilters[column.cellFilter] : undefined;
-    if (filter !== undefined) filters[column.name] = filter;
-  }
-  return filters;
-}
+

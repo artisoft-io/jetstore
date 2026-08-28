@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ActionResult } from "../actions/interpret";
 import { FormState } from "../datatable/formState";
-import { startAt, step, type StepRequest } from "./engine";
+import { FlowError, back, startAt, startAtPosition, step, type StepRequest } from "./engine";
 import type { UserFlow } from "./schema";
 
 /** Two states and a transition, which is the least that can advance. */
@@ -140,5 +140,38 @@ describe("ufCancel", () => {
     const result = await step("ufCancel", request);
     expect(events).toEqual(["exit"]);
     expect(result.finished).toBe(true);
+  });
+});
+
+/**
+ * Where a run begins when the url names a state. Task D.10, from **I-260**.
+ *
+ * Here rather than in a new file because `startAtPosition` is `startAt`'s other
+ * case and the two are read together; the end-to-end behaviour is
+ * `FlowRunner.test.tsx`'s.
+ */
+describe("startAtPosition", () => {
+  it("is startAt when the url names nothing, or names the document's own start", () => {
+    expect(startAtPosition(FLOW, null)).toEqual(startAt(FLOW));
+    expect(startAtPosition(FLOW, "first")).toEqual(startAt(FLOW));
+  });
+
+  it("opens on the named state with nothing behind it", () => {
+    // **The visited stack is the requested state alone.** Seeding the flow's own
+    // start would make `ufPrevious` show a page this entry point exists to skip.
+    expect(startAtPosition(FLOW, "second")).toEqual({
+      stateKey: "second",
+      visited: ["second"],
+    });
+    expect(() => back(startAtPosition(FLOW, "second"))).toThrow(FlowError);
+  });
+
+  it("throws by name for a state the document does not declare", () => {
+    // Rather than falling back to the start, which is the plausible failure: the
+    // user pressed a button naming a page and would land on the one before it
+    // with their choice already made.
+    expect(() => startAtPosition(FLOW, "third")).toThrow(
+      /this flow has no state "third" to start at/,
+    );
   });
 });

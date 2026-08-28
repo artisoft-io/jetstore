@@ -83,5 +83,28 @@
       "table": "source_config",
       "joinWith": "object_type_registry.object_type"
     }
+  ],
+  "actions": [
+    {
+      "key": "loadData",
+      "label": "Load Data",
+      "action": "showScreen",
+      "style": "primary",
+      "configScreenPath": "/loadFilesUF/select_file_keys",
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "client": 1,
+        "org": 2,
+        "object_type": 3,
+        "table_name": 4
+      }
+    },
+    {
+      "key": "loaderStatus",
+      "label": "Loader Status",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/fileLoaderStatus"
+    }
   ]
 }
