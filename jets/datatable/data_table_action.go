@@ -426,24 +426,39 @@ type SqlInsertDefinition struct {
 	Capability string
 }
 
-// The four refusals VerifyUserPermission makes, as values rather than as calls to
+// The four errors VerifyUserPermission returns, as values rather than as calls to
 // errors.New, so that a caller can classify one with errors.Is. **The text of each
 // is byte-identical to what it replaced**; nothing on the wire moves because of
 // this declaration, and that is what makes AuthzStatusFor's claim checkable.
 //
-// **The split that matters is identity against policy, and it is not the split the
-// text makes.** ErrNoUserInfo says we could not establish who is asking -- a
-// deleted user row, an unreachable database. The two below it say we know exactly
-// who is asking and the answer is no. Only the second pair is a 403; see
-// AuthzStatusFor.
+// **Three of the four are refusals and the first is not**, which is the split
+// ui_refresh D.2 added on top of the one below. ErrCapabilityNotConfigured says
+// the server is misconfigured; the other three say something about the caller.
+//
+// **Among the refusals the split that matters is identity against policy, and it
+// is not the split the text makes.** ErrNoUserInfo says we could not establish who
+// is asking -- a deleted user row, an unreachable database. The two below it say we
+// know exactly who is asking and the answer is no. Only the second pair is a 403;
+// see AuthzStatusFor.
 var (
 	// ErrCapabilityNotConfigured is a defect in the *server*, not a refusal of the
-	// caller: a SqlInsertDefinition that names no capability. It is unreachable from
-	// sqlInsertStmts today -- 58 entries, 58 Capability fields (jets/datatable/sql_stmts.go,
-	// sqlInsertStmts) -- and every ad-hoc definition in this package names one too.
-	// It stays a 401 rather than becoming a 403 or a 500, because giving a server
-	// defect its own status is a separate decision from the one C.17 took. ui_refresh
-	// I-241 records it.
+	// caller: a SqlInsertDefinition that names no capability. It answers **500**,
+	// and it is the only one of the four that does; ui_refresh I-241 raised it and
+	// D.2 fixed it.
+	//
+	// **It is unreachable from every caller in this package, re-measured 2026-08-27.**
+	// sqlInsertStmts has 58 entries and 58 non-empty Capability fields
+	// (jets/datatable/sql_stmts.go, sqlInsertStmts); the two reading "none" are both
+	// AdminOnly, so the admin branch decides them. Every ad-hoc definition in this
+	// package names a capability literally except requireCapability's, which passes a
+	// parameter -- and each of its nine call sites passes one of the three
+	// Capability* constants below. So a statement added without a capability is what
+	// reaches this, and nothing else does.
+	//
+	// **The text keeps its "unauthorized" prefix deliberately.** It is pinned by
+	// TestTheFourRefusalTextsAreUnchanged, which exists so C.17's promise that no
+	// message moved stays checkable, and the clause after the comma is the half an
+	// operator needs. Rewording it would spend that guard on a word.
 	ErrCapabilityNotConfigured = errors.New("error: unauthorized, configuration error: missing capability on sql statement")
 	// ErrNoUserInfo is the identity half: we cannot say who is asking.
 	ErrNoUserInfo = errors.New("error: unauthorized, cannot get user info")
@@ -459,6 +474,20 @@ var (
 // answer** -- ui_refresh I-189. A client cannot distinguish "your session is over,
 // sign in again" from "you are signed in and may not do this", so the React app
 // signed the user out on both, and a refusal presented as a session failure.
+//
+// **It was answering three, and the third is why 500 is here** -- ui_refresh I-241,
+// fixed at D.2 on 2026-08-27. ErrCapabilityNotConfigured is not an answer about the
+// caller at all: it says a SqlInsertDefinition names no capability, which no request
+// can cause and no request can repair. Left at 401 it signed out a user for the
+// server's mistake, in a corner of exactly the failure I-189 describes. C.17 saw it
+// and declined it on two grounds -- that it was unreachable, which it still is, and
+// that a third status was a decision outside what that task was approved to take.
+// The second ground is what Phase 4 exists to discharge.
+//
+// **One of C.17's grounds has also expired rather than been overruled.** It weighed
+// a third status as "a change on a path both clients use"; track X deleted
+// jetsclient on 2026-08-26, so there is one client, and the cost side of that trade
+// is gone.
 //
 // **Reading the response body could not have fixed it**, which is why this is a
 // status change rather than a client-side one. requireCapability collapses all
@@ -476,6 +505,8 @@ var (
 // all, because authh refuses first (jets/apiserver/server.go, authh).
 func AuthzStatusFor(err error) int {
 	switch {
+	case errors.Is(err, ErrCapabilityNotConfigured):
+		return http.StatusInternalServerError
 	case errors.Is(err, ErrAdminOnly), errors.Is(err, ErrMissingCapability):
 		return http.StatusForbidden
 	default:
@@ -483,13 +514,13 @@ func AuthzStatusFor(err error) int {
 	}
 }
 
-// ErrRefused is the one message every gate in this package returns, whichever of
-// the four errors above produced it. It is unchanged from the errors.New that
-// stood at each of the fourteen sites, and it stays collapsed on purpose: I-124's
-// fix turns on the two gates on the insert_raw_rows path being byte-identical, so
-// that neither becomes an oracle for whether a mapping exists.
+// ErrRefused is the one message every gate in this package returns when it refuses
+// a caller. It is unchanged from the errors.New that stood at each of the fourteen
+// sites, and it stays collapsed on purpose: I-124's fix turns on the two gates on
+// the insert_raw_rows path being byte-identical, so that neither becomes an oracle
+// for whether a mapping exists.
 //
-// **The status now says more than the message does, and that is the whole of the
+// **The status says more than the message does, and that is the whole of C.17's
 // change.** RefusalFor is the pair, so a handler cannot take one without the other.
 var ErrRefused = errors.New("error: unauthorized, cannot get user info or does not have permission")
 
@@ -498,10 +529,22 @@ var ErrRefused = errors.New("error: unauthorized, cannot get user info or does n
 // asserts that none of them hard-codes http.StatusUnauthorized instead, which is
 // the guard against the next handler re-conflating the two.
 //
-// The returned error is ErrRefused rather than the argument, so errors.Is against
-// ErrMissingCapability fails on the *result*. That is deliberate: the classification
-// is for the status line, not for the body.
+// For the three refusals the returned error is ErrRefused rather than the argument,
+// so errors.Is against ErrMissingCapability fails on the *result*. That is
+// deliberate: the classification is for the status line, not for the body.
+//
+// **The configuration error is the exception, and it is the one case where the body
+// moves too** (ui_refresh D.2). Collapsing it into ErrRefused would answer 500 with
+// a sentence asserting the caller is unauthorised -- the misdescription this fix is
+// about, surviving the fix. I-124's argument does not reach it either: that argument
+// is about two gates on one path staying indistinguishable, and both of those gates
+// resolve the *same* SqlInsertDefinition, so a missing capability field is identical
+// at both by construction rather than by collapse. Nobody but the operator who
+// misconfigured the statement can ever read this string, and it names their mistake.
 func RefusalFor(err error) (int, error) {
+	if errors.Is(err, ErrCapabilityNotConfigured) {
+		return http.StatusInternalServerError, ErrCapabilityNotConfigured
+	}
 	return AuthzStatusFor(err), ErrRefused
 }
 
