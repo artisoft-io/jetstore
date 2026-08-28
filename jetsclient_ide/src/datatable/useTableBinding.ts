@@ -13,7 +13,7 @@
  * that no longer contain it.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   hasBlockingFilter,
@@ -26,6 +26,7 @@ import type { FormState } from "./formState";
 import { keepSelectedRows } from "./model";
 import { refreshTable, useTableModes, type TableModes } from "./modes";
 import { useDataTable, type DataTableFetcher, type DataTableState } from "./useDataTable";
+import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import type { JetsRow, QueryContext, TableConfig } from "./types";
 
 export interface UseTableBindingOptions {
@@ -166,13 +167,33 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     context?.routeParams,
   );
 
+  /**
+   * The client filter, defaulted here rather than required of every caller. D.3.
+   *
+   * **`makeQuery` has implemented this since A.4a** — it adds the implicit
+   * `WHERE client = $n` when `selectedClient` is set *and* the table has a
+   * `client` column — and until D.3 exactly one caller passed it, `Home.tsx`.
+   * So the filter narrowed the Home screen's tables and silently did nothing on
+   * every other screen and in every flow, which is **I-259**'s note: it must
+   * apply to *"all tables in user flows that have the column `client`"*.
+   *
+   * **Defaulted rather than added to each call site**, because the call sites are
+   * the thing that keeps growing: a screen or a flow table that forgets the
+   * context gets a filter that is quietly off, which looks like more rows rather
+   * than an error. A caller that genuinely means *unfiltered* still says so by
+   * passing `selectedClient: null` explicitly, which `??` preserves.
+   */
+  const shellClient = useSyncExternalStore(subscribeToClient, selectedClient);
+  const client = context?.selectedClient ?? shellClient;
+
   const queryContext = useMemo(
-    () => ({ ...context, formField: field, formState }),
+    () => ({ ...context, selectedClient: client, formField: field, formState }),
     // `formVersion` is the dependency that matters: the form state object is
     // mutable and keeps its identity across changes, so nothing else here would
-    // tell the query builder to look again.
+    // tell the query builder to look again. `client` is the second: changing the
+    // filter has to refetch, and the store notifies through neither of the two.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [context, field, formState, formVersion],
+    [context, client, field, formState, formVersion],
   );
 
   const state = useDataTable({

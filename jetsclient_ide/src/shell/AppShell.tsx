@@ -35,7 +35,7 @@
  * nothing.
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
@@ -64,9 +64,45 @@ export interface NavItem {
   capability?: string;
 }
 
+/**
+ * The client filter's slot in the row, as a nav entry rather than a fixed
+ * position. Task D.3, from **I-259**, which specifies the order as
+ * *Home | Filter Client | Workspaces | Workspace IDE | Proposals | Query Tool |
+ * Infer Server Admin* — the filter sits second, between two links.
+ *
+ * **The array is the order**, which is why this is an entry and not a prop: the
+ * alternative was rendering the picker after the first item by name, and a
+ * position expressed as *after the item whose `to` is `/home`* is a rule nobody
+ * can see from the array they are editing.
+ */
+export interface ClientFilterSlot {
+  kind: "client-filter";
+}
+
+export type NavEntry = NavItem | ClientFilterSlot;
+
+const isClientFilter = (e: NavEntry): e is ClientFilterSlot =>
+  "kind" in e && e.kind === "client-filter";
+
+/**
+ * One entry of the flow menu the brand becomes. Task D.3, from **I-261**.
+ *
+ * `to` is a full route rather than a flow key, because **one of the five entries
+ * is not a flow**: *Rules Config* is `screens/RuleConfig.tsx` at `/ruleConfig`,
+ * which the report listed among the missing flows because nothing in the
+ * navigation named it (**I-268**). Keying on flow ids would have forced that one
+ * to be a special case.
+ */
+export interface FlowMenuItem {
+  to: string;
+  label: string;
+}
+
 export interface AppShellProps {
   api: ApiClient;
-  nav: NavItem[];
+  nav: NavEntry[];
+  /** When non-empty, the brand becomes the menu that opens these. */
+  flowMenu?: FlowMenuItem[];
 }
 
 /**
@@ -181,7 +217,44 @@ function ClientPicker({ api }: { api: ApiClient }) {
   );
 }
 
-function ShellChrome({ api, nav }: AppShellProps) {
+/**
+ * The brand, as the way into the flows. Task D.3, from **I-261**.
+ *
+ * **The Flutter left panel's menu tree held twenty distinct labels and this row
+ * holds six**, which is why the flows became unreachable when X.1 retired that
+ * app: they were started from the tree, not from a screen. I-266 settled that
+ * the panel does not come back, so the launcher lives here.
+ *
+ * **A `<details>` rather than a popover built out of state.** It closes on
+ * `Escape` and on outside click for free, it is keyboard-reachable without a
+ * roving tabindex, and it needs no effect that must be torn down — which is the
+ * whole of what a menu this size owes. The click handler exists only to close it
+ * after a choice; navigation is the `NavLink`'s.
+ */
+function FlowMenu({ items }: { items: FlowMenuItem[] }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  return (
+    <details className="flowmenu" ref={ref}>
+      <summary className="brand" aria-label="Open a configuration flow">
+        JetStore <strong>Workspace</strong>
+      </summary>
+      <nav className="flowmenu-items" aria-label="Configuration flows">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) => `flowmenu-item${isActive ? " is-active" : ""}`}
+            onClick={() => ref.current?.removeAttribute("open")}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+    </details>
+  );
+}
+
+function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
   const [user, setUser] = useState<User | null>(api.currentUser);
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "light",
@@ -212,17 +285,25 @@ function ShellChrome({ api, nav }: AppShellProps) {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand">
-          JetStore <strong>Workspace</strong>
-        </span>
+        {flowMenu && flowMenu.length > 0 ? (
+          <FlowMenu items={flowMenu} />
+        ) : (
+          <span className="brand">
+            JetStore <strong>Workspace</strong>
+          </span>
+        )}
 
+        {/* The client filter is inside the row now, at the position I-259 gives
+            it, rather than after the row. See `ClientFilterSlot`. */}
         <nav className="mainnav" aria-label="Screens">
-          {nav.map((item) => (
-            <ShellNavItem key={item.to} item={item} />
-          ))}
+          {nav.map((entry) =>
+            isClientFilter(entry) ? (
+              <ClientPicker key="client-filter" api={api} />
+            ) : (
+              <ShellNavItem key={entry.to} item={entry} />
+            ),
+          )}
         </nav>
-
-        <ClientPicker api={api} />
 
         <div className="spacer" />
 

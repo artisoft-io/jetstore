@@ -53,7 +53,11 @@ async function mount(clients: (payload: Record<string, unknown>) => Response) {
   await api.login("michel@artisoft.io", "pw");
   render(
     <MemoryRouter>
-      <AppShell api={api} nav={[]} />
+      {/* The client filter is a nav *entry* since D.3, not a fixed position
+          after the row (I-259 puts it second, between Home and Workspaces), so a
+          nav without the slot renders no picker. Passing the slot alone is what
+          this file is about; the ordering is `App.tsx`'s. */}
+      <AppShell api={api} nav={[{ kind: "client-filter" }]} />
     </MemoryRouter>,
   );
   return { posts };
@@ -96,5 +100,76 @@ describe("the client picker", () => {
     await waitFor(() => expect(picker.options).toHaveLength(1));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(selectedClient()).toBeNull();
+  });
+});
+
+/**
+ * D.3's two shell changes: where the filter sits, and what the brand became.
+ *
+ * **In this file rather than in `AppShell.test.tsx`** for the same reason the
+ * header gives for the picker: what is under test is the navigation surface the
+ * left panel used to be, and both halves of it arrived together.
+ */
+describe("the navigation surface that replaced the left panel", () => {
+  it("renders the client filter where the nav array puts it, not after the row", async () => {
+    // I-259 orders the row Home | Filter Client | Workspaces. The slot is an
+    // entry, so the array is the order and this asserts exactly that.
+    const { fetchImpl } = stub(ok);
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    render(
+      <MemoryRouter>
+        <AppShell
+          api={api}
+          nav={[
+            { to: "/home", label: "Home" },
+            { kind: "client-filter" },
+            { to: "/workspaces", label: "Workspaces" },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    const row = await screen.findByLabelText("Screens");
+    const labels = [...row.children].map((el) =>
+      el.tagName === "SELECT" ? "Filter Client" : el.textContent,
+    );
+    expect(labels).toEqual(["Home", "Filter Client", "Workspaces"]);
+  });
+
+  it("turns the brand into the flow menu when one is given, and leaves it alone when not", async () => {
+    // I-261: the flows lost their entry points when X.1 retired the left panel's
+    // menu tree. The brand is where they came back.
+    const { fetchImpl } = stub(ok);
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    const { unmount } = render(
+      <MemoryRouter>
+        <AppShell
+          api={api}
+          nav={[]}
+          flowMenu={[
+            { to: "/flow/clientRegistryUF", label: "Clients & Vendors" },
+            { to: "/ruleConfig", label: "Rules Config" },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    const menu = await screen.findByLabelText("Open a configuration flow");
+    expect(menu.tagName).toBe("SUMMARY");
+    // `/ruleConfig` is in the list and is not a flow — I-268. A launcher keyed on
+    // flow ids would have had to special-case it, which is why `to` is a route.
+    expect(screen.getByText("Rules Config").getAttribute("href")).toContain("/ruleConfig");
+    expect(screen.getByText("Clients & Vendors").getAttribute("href")).toContain(
+      "/flow/clientRegistryUF",
+    );
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <AppShell api={api} nav={[]} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/JetStore/)).toBeTruthy();
+    expect(screen.queryByLabelText("Open a configuration flow")).toBeNull();
   });
 });
