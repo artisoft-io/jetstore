@@ -172,4 +172,29 @@ describe("the navigation surface that replaced the left panel", () => {
     expect(await screen.findByText(/JetStore/)).toBeTruthy();
     expect(screen.queryByLabelText("Open a configuration flow")).toBeNull();
   });
+
+  it("tells a flow it opens where the user was, and tells a screen nothing", async () => {
+    // **D.8, I-265.** The menu is reachable from every screen and launches four
+    // of the eleven flows, so without this the four exit to the same place
+    // wherever they were started. `/ruleConfig` is a screen and reads nothing.
+    const { fetchImpl } = stub(ok);
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    render(
+      <MemoryRouter initialEntries={["/workspaces"]}>
+        <AppShell
+          api={api}
+          nav={[]}
+          flowMenu={[
+            { to: "/flow/clientRegistryUF", label: "Clients & Vendors" },
+            { to: "/ruleConfig", label: "Rules Config" },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect((await screen.findByText("Clients & Vendors")).getAttribute("href")).toContain(
+      "returnTo=%2Fworkspaces",
+    );
+    expect(screen.getByText("Rules Config").getAttribute("href")).not.toContain("returnTo");
+  });
 });

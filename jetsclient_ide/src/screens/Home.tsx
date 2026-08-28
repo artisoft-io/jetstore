@@ -52,7 +52,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -83,7 +83,7 @@ import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialo
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
 import { validateAllGroups, type FieldError } from "../userflow/validateForm";
-import { inAppPath, unservedScreenMessage } from "./routes";
+import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 
 import actionsJson from "./documents/homeScreen.ua.json";
 import formsJson from "./documents/homeScreen.form.json";
@@ -243,6 +243,9 @@ export function documentFindings(workspaceTable: TableConfigDocument | null = nu
 export function Home({ api }: { api: ApiClient }) {
   const routeParams = useParams();
   const navigate = useNavigate();
+  /** Where a flow opened from this screen should return to (D.8). */
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
 
   const [tab, setTab] = useState(0);
@@ -469,7 +472,9 @@ export function Home({ api }: { api: ApiClient }) {
                * this table and from nothing else.
                */
               const internal = inAppPath(action.configScreenPath, request.params);
-              if (internal !== null) void navigate(internal);
+              // D.8: a flow this button opens comes back here rather than to
+              // the Workspace IDE. A no-op for the screens, which do not read it.
+              if (internal !== null) void navigate(withReturnTo(internal, here));
               // The `else` was a hand-off to Flutter until X.1 retired it. This
               // screen's `startPipeline` and `setHomeFilters` buttons name flow
               // routes, which is what the second lookup above is for.

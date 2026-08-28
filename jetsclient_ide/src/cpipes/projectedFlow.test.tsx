@@ -240,12 +240,16 @@ describe("the runner drives one, in a DOM, against the real client", () => {
           <MemoryRouter initialEntries={["/flow/qc_report"]}>
             <Routes>
               <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-              {/* Where a finished flow lands. `App.tsx` puts the editor here and
-                  `FlowRunner.exit` navigates to it when the flow declares no
-                  `exitScreenPath` — which a projected one does not. Stubbed so
-                  that "the flow completed" is observable rather than a router
-                  warning. */}
-              <Route path="/workspace" element={<p>Workspace IDE</p>} />
+              {/* Where a finished flow lands. **`/home` since D.8, and it was
+                  `/workspace` until then** — a flow declaring no `exitScreenPath`,
+                  which a projected one does not, used to exit to the Workspace IDE
+                  wherever it began (I-265). It now returns to the `returnTo` its
+                  url carries, and to the app's index when it carries none, which
+                  is this case. Stubbed so that "the flow completed" is observable
+                  rather than a router warning. Changed by the ui_refresh session
+                  that made it, per the cross-project rule in the root `CLAUDE.md`:
+                  the editor fixes the call site rather than handing it over. */}
+              <Route path="/home" element={<p>Home</p>} />
             </Routes>
           </MemoryRouter>
         </NotificationsProvider>
@@ -288,8 +292,9 @@ describe("the runner drives one, in a DOM, against the real client", () => {
     expect(saved[0]!.content).toContain("bindings._item.report");
 
     // And the flow finished: `ufCompleted` exits after the state action, so the
-    // runner is gone and the app is where a completed flow leaves a user.
-    await waitFor(() => expect(screen.getByText("Workspace IDE")).toBeTruthy());
+    // runner is gone and the app is where a completed flow leaves a user — the
+    // index, since this url carries no `returnTo` (D.8).
+    await waitFor(() => expect(screen.getByText("Home")).toBeTruthy());
   });
 
   /**

@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "File Mapping Configuration",
   "startAtKey": "map_file",
   "states": {
     "map_file": {

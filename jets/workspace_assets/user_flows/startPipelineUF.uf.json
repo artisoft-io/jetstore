@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Start Pipeline",
   "startAtKey": "select_pipeline_config",
   "states": {
     "select_pipeline_config": {

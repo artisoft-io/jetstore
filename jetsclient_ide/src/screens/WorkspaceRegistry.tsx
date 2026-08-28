@@ -60,7 +60,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -77,7 +77,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
-import { inAppPath, unservedScreenMessage } from "./routes";
+import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
@@ -158,6 +158,9 @@ export function documentFindings(): string[] {
 export function WorkspaceRegistry({ api }: { api: ApiClient }) {
   const routeParams = useParams();
   const navigate = useNavigate();
+  /** Where a flow opened from this screen should return to (D.8). */
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
 
   const [ready, setReady] = useState(false);
@@ -429,7 +432,8 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
               // ported out of the Dart before it was deleted.
               const internal = inAppPath(action.configScreenPath, request.params);
               if (internal !== null) {
-                void navigate(internal);
+                // D.8: both of these are flows, so both come back here.
+                void navigate(withReturnTo(internal, here));
                 return;
               }
               setError(unservedScreenMessage(action.label, request.path));

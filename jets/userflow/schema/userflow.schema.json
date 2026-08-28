@@ -417,6 +417,10 @@
         "type": "string"
       },
       "type": "object"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
     }
   },
   "required": [

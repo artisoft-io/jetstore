@@ -300,6 +300,12 @@ async function mount(
         <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
           <Routes>
             <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+            {/* The three destinations a flow can leave for (D.8): the app's
+                index, an origin the url named, and the editor — which is where
+                every flow used to land regardless. All three are stubbed so
+                that a wrong exit fails by naming the screen it reached. */}
+            <Route path="/home" element={<p>the home screen</p>} />
+            <Route path="/workspaces" element={<p>the workspace registry</p>} />
             <Route path="/workspace" element={<p>the workspace ide</p>} />
           </Routes>
         </MemoryRouter>
@@ -323,6 +329,23 @@ describe("the route and the load", () => {
     ).toBeTruthy();
     expect(screen.getByText("Select a file data source configuration")).toBeTruthy();
     expect(await screen.findByText("vendorA")).toBeTruthy();
+  });
+
+  it("heads the screen with the flow's title rather than its key", async () => {
+    await mount();
+    // **The defect I-263 reported**: this was `<h1>{key}</h1>`, so a user saw
+    // `loadFilesUF`. The title is a field of the `.uf.json` now, and the document
+    // read here is the committed one rather than a fixture.
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Load Files");
+    expect(screen.queryByText("loadFilesUF")).toBeNull();
+  });
+
+  it("falls back to the key for a flow whose document carries no title", async () => {
+    // `itemSourceProbe` is the synthetic flow this file already carries and it
+    // sets no `title`, which makes it the fallback's only exercise — every
+    // shipping flow has one (`translate.ts`, `flowTitles`).
+    await mount("itemSourceProbe");
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("itemSourceProbe");
   });
 
   it("reads all five documents, and the table set from the forms", async () => {
@@ -415,18 +438,40 @@ describe("driving the flow", () => {
     expect(insert.body["fromClauses"]).toEqual([{ table: "input_loader_status" }]);
   });
 
-  it("leaves the flow when it finishes", async () => {
-    await mount();
+  /** Drives `loadFilesUF` to its end state and presses the last button. */
+  async function finish() {
     await screen.findByText("vendorA");
     fireEvent.click(screen.getAllByRole("checkbox")[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("s3://bucket/in/f10.csv");
     fireEvent.click(screen.getAllByRole("checkbox")[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
+  }
 
-    // `loadFilesUF` sets no `exitScreenPath`, so the runner falls back to the
-    // one screen this app has.
-    expect(await screen.findByText("the workspace ide")).toBeTruthy();
+  it("leaves the flow for the app's index when nothing says otherwise", async () => {
+    await mount();
+    await finish();
+
+    // **`/home`, and it was `/workspace` until D.8.** `loadFilesUF` sets no
+    // `exitScreenPath` and this url carries no origin, so this is the fallback —
+    // which was the editor because F.0a wrote it when `/` redirected there. X.1
+    // moved the index and nothing revisited the exit (I-265).
+    expect(await screen.findByText("the home screen")).toBeTruthy();
+  });
+
+  it("returns to the screen that invoked it", async () => {
+    await mount("loadFilesUF", { search: "?returnTo=%2Fworkspaces" });
+    await finish();
+    expect(await screen.findByText("the workspace registry")).toBeTruthy();
+  });
+
+  it("refuses an origin that leaves this app, rather than following it", async () => {
+    // `//evil.example.com` is a path to `startsWith("/")` and a protocol-relative
+    // url to a browser, which is the whole reason `isInAppPath` exists: the
+    // parameter arrives from whoever composed the link.
+    await mount("loadFilesUF", { search: "?returnTo=%2F%2Fevil.example.com" });
+    await finish();
+    expect(await screen.findByText("the home screen")).toBeTruthy();
   });
 
   it("goes back without re-running anything", async () => {
@@ -742,6 +787,19 @@ describe("loadConfigUF — loading client configuration", () => {
     // retargets the pull.
     expect(name.readOnly).toBe(true);
     expect(uri.readOnly).toBe(true);
+  });
+
+  it("does not treat returnTo as one of the flow's arguments", async () => {
+    // **Every other query parameter is seeded into form-state group 0 by name**,
+    // and this screen is where that is visible: two of its fields render the
+    // route's parameters. `returnTo` is the runner's own and no form declares it,
+    // so it must not arrive as a value (D.8). This shows the fields are
+    // unaffected and that the origin is not rendered anywhere; it does not
+    // inspect the form state, which this screen does not expose.
+    await mount("loadConfigUF", { search: `${LOAD_CONFIG_SEARCH}&returnTo=%2Fworkspaces` });
+    const name = (await screen.findByLabelText("Workspace Name")) as HTMLInputElement;
+    expect(name.value).toBe("jets_ws");
+    expect(screen.queryByDisplayValue("/workspaces")).toBeNull();
   });
 
   it("draws the inline button beside the client table, not in the action bar", async () => {

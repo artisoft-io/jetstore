@@ -83,6 +83,61 @@ export const formStateInitializerNames: Record<string, string> = {
 };
 
 /**
+ * What each flow is called. Task D.7, from **I-263**.
+ *
+ * **A table here for the same reason `formStateInitializerNames` is one: the
+ * value exists and the corpus never traversed it.** `user_flow_corpus_test.dart`
+ * walked `UserFlowConfig`, and a flow's title was not on it — it was on the
+ * `ScreenConfig` registered for the flow's *route*
+ * (`jetsclient/lib/screens/user_flow_screen.dart:37` draws `screenConfig.title`
+ * above the form). So the fixture cannot supply these and never could, which is
+ * why S.1 concluded a flow had no title and the runner ended up rendering the
+ * key.
+ *
+ * **Ten titles for eleven flows, and the eleventh is not missing.**
+ * `file_mapping/screen_config.dart` registers one `ScreenConfig`,
+ * `ufFileMapping`, and both `/fileMappingUF` and
+ * `/fileMappingUF/mapping/:table_name/:object_type` resolve to it
+ * (`screens/fixtures/screen_reachability.json`) — so `fileMappingUF` and
+ * `mapFileUF` shared the heading *File Mapping Configuration*. That is the pair
+ * `workspace_pull/` is not: it registers two configurations for its two flows.
+ *
+ * **Four are the reporter's rather than Flutter's, and that is the whole of the
+ * divergence.** I-263 says *"the actual label to use are given in I-261"*, and
+ * I-261 renames the four flows it puts in the launcher — so *Client Registry
+ * User Flow* is *Clients & Vendors* here, and the heading agrees with the menu
+ * entry that opened it. The other seven are recovered verbatim from the deleted
+ * Dart, because nobody asked for them to change and inventing a rename is worse
+ * than keeping one.
+ *
+ * **`mapFileUF` therefore no longer matches its parent**, which is a visible
+ * consequence rather than a hidden one: the reporter renamed `fileMappingUF` and
+ * did not mention the worksheet it opens, so the worksheet keeps *File Mapping
+ * Configuration*. Recorded because a shared title becoming two is exactly the
+ * kind of change a derived heading would have made silently.
+ *
+ * **This table is history, not maintenance.** It exists to regenerate the eleven
+ * documents from the frozen fixture; a twelfth flow is authored as a document
+ * and carries its own `title`, and never appears here. That is what keeps it off
+ * I-25's list of hand-maintained mappings.
+ */
+export const flowTitles: Record<string, string> = {
+  // I-261's labels, for the four the launcher opens.
+  clientRegistryUF: "Clients & Vendors",
+  sourceConfigUF: "Source Config",
+  fileMappingUF: "Source Mapping",
+  pipelineConfigUF: "Pipeline Config",
+  // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
+  homeFiltersUF: "Pipeline Execution Status Filters",
+  loadConfigUF: "Load Client Configurations",
+  loadFilesUF: "Load Files",
+  mapFileUF: "File Mapping Configuration",
+  registerFileKeyUF: "Submit Schema Event (Register File Key)",
+  startPipelineUF: "Start Pipeline",
+  workspacePullUF: "Pull Workspace Changes",
+};
+
+/**
  * Transitions an action makes, which the Dart `UserFlowConfig` does not declare.
  *
  * **Enumerated mechanically, not read.** An action delegate that moves the flow
@@ -200,17 +255,28 @@ export function toUserFlow(flowKey: string, flow: CorpusFlow): UserFlow {
   if (flow.hasFormStateInitializer === true && initializer === undefined) {
     throw new Error(`flow "${flowKey}" has a formStateInitializer with no name in the table`);
   }
+  const states = Object.fromEntries(
+    Object.entries(flow.states).map(([key, state]) => [
+      key,
+      toState(state, actionTransitions[`${flowKey}.${key}`]),
+    ]),
+  );
+  // **A missing title refuses rather than emitting a document that renders its
+  // key**, which is the failure this task exists to remove. Checked *after* the
+  // states, deliberately: a structural problem in the conversion is the more
+  // informative error, and putting this first made the nested-`nextState`
+  // refusal unreachable for any flow not in the table.
+  const title = flowTitles[flowKey];
+  if (title === undefined) {
+    throw new Error(`flow "${flowKey}" has no title in the table`);
+  }
   return {
     schemaVersion: 1,
+    title,
     startAtKey: flow.startAtKey,
     ...(flow.exitScreenPath !== undefined ? { exitScreenPath: flow.exitScreenPath } : {}),
     ...(initializer !== undefined ? { formStateInitializer: initializer } : {}),
-    states: Object.fromEntries(
-      Object.entries(flow.states).map(([key, state]) => [
-        key,
-        toState(state, actionTransitions[`${flowKey}.${key}`]),
-      ]),
-    ),
+    states,
   };
 }
 

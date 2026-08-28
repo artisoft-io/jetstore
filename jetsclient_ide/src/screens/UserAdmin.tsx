@@ -60,7 +60,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
@@ -75,7 +75,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
-import { inAppPath, unservedScreenMessage } from "./routes";
+import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
@@ -176,6 +176,9 @@ export function documentFindings(): string[] {
 export function UserAdmin({ api }: { api: ApiClient }) {
   // X.1: a `navigate` request resolves in this app now.
   const navigate = useNavigate();
+  /** Where a flow opened from this screen should return to (D.8). */
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
   const { setError, setStatus } = useNotifications();
 
@@ -483,7 +486,10 @@ export function UserAdmin({ api }: { api: ApiClient }) {
               // reports when it cannot — the convention `escapes.ts` set for a name
               // with no body.
               const to = inAppPath(action.configScreenPath, request.params);
-              if (to !== null) void navigate(to);
+              // D.8, and uniformly rather than where a flow is reachable today:
+              // `withReturnTo` only marks a `/flow/` path, and a skip list of the
+              // screens that cannot reach one is a list that goes stale.
+              if (to !== null) void navigate(withReturnTo(to, here));
               else setError(unservedScreenMessage(action.label, request.path));
               return;
             }

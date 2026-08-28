@@ -12,7 +12,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { FLOW_ROUTES, SERVED_SCREENS, inAppPath, reactFlowRoute, reactScreenPath } from "./routes";
+import {
+  FLOW_EXIT_FALLBACK,
+  FLOW_ROUTES,
+  RETURN_TO,
+  SERVED_SCREENS,
+  inAppPath,
+  isInAppPath,
+  reactFlowRoute,
+  reactScreenPath,
+  returnToPath,
+  withReturnTo,
+} from "./routes";
 import screenConfigs from "./fixtures/screen_configs.json";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
@@ -182,5 +193,57 @@ describe("the served-screen map", () => {
   it("returns null for a template neither app routes, and for none at all", () => {
     expect(reactScreenPath("/noSuchScreen", {})).toBeNull();
     expect(reactScreenPath(undefined, {})).toBeNull();
+  });
+});
+
+/**
+ * Where a flow goes when it ends. Task D.8, from **I-265**.
+ *
+ * The end-to-end behaviour is `FlowRunner.test.tsx`'s — a flow finishing and the
+ * app arriving somewhere. What is here is the part with a decision in it: which
+ * strings this app is willing to navigate to on the say-so of a query parameter.
+ */
+describe("the origin a flow url carries", () => {
+  it("marks a flow path and leaves a screen path alone", () => {
+    expect(withReturnTo("/flow/loadFilesUF", "/home")).toBe("/flow/loadFilesUF?returnTo=%2Fhome");
+    // `/ruleConfig` is in the launcher and is not a flow; nothing there reads it.
+    expect(withReturnTo("/ruleConfig", "/home")).toBe("/ruleConfig");
+  });
+
+  it("keeps the flow's own arguments, which travel in the same query string", () => {
+    const to = withReturnTo("/flow/loadConfigUF?workspace_name=cgt", "/workspaces");
+    expect(new URLSearchParams(to.split("?")[1]).get("workspace_name")).toBe("cgt");
+    expect(returnToPath(new URLSearchParams(to.split("?")[1]))).toBe("/workspaces");
+  });
+
+  it("does not overwrite an origin the caller already chose", () => {
+    expect(withReturnTo("/flow/x?returnTo=%2Fworkspaces", "/home")).toBe(
+      "/flow/x?returnTo=%2Fworkspaces",
+    );
+  });
+
+  it("refuses anything that is not a path inside this app", () => {
+    // A protocol-relative url passes `startsWith("/")` and is followed off-site
+    // by a browser, which is the case worth naming: the parameter is written by
+    // whoever composed the link rather than by this app.
+    expect(isInAppPath("//evil.example.com")).toBe(false);
+    expect(isInAppPath("https://evil.example.com")).toBe(false);
+    expect(isInAppPath("/\\evil.example.com")).toBe(false);
+    expect(isInAppPath("home")).toBe(false);
+    expect(isInAppPath("/home")).toBe(true);
+    expect(isInAppPath("/flow/loadFilesUF?a=b")).toBe(true);
+  });
+
+  it("reads nothing back from a url that carries a refused origin", () => {
+    expect(returnToPath(new URLSearchParams(`${RETURN_TO}=//evil.example.com`))).toBeNull();
+    expect(returnToPath(new URLSearchParams(`${RETURN_TO}=`))).toBeNull();
+    expect(returnToPath(new URLSearchParams(""))).toBeNull();
+  });
+
+  it("falls back to a route the app serves and no capability gates", () => {
+    // The value is asserted rather than the constant, because what makes `/home`
+    // the right answer is that it is the index and is ungated — `/workspace`, the
+    // fallback until D.8, is neither.
+    expect(FLOW_EXIT_FALLBACK).toBe("/home");
   });
 });

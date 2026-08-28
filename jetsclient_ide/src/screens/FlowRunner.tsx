@@ -39,7 +39,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -56,7 +56,14 @@ import { FormState } from "../datatable/formState";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
-import { inAppPath, unservedScreenMessage } from "./routes";
+import {
+  FLOW_EXIT_FALLBACK,
+  RETURN_TO,
+  inAppPath,
+  returnToPath,
+  unservedScreenMessage,
+  withReturnTo,
+} from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
@@ -100,6 +107,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const { key } = useParams<{ key: string }>();
   const [search] = useSearchParams();
   const navigate = useNavigate();
+  /** Where this flow was opened, so a flow it opens can come back here (D.8). */
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -169,7 +179,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * first pass and no query runs twice.
    */
   useEffect(() => {
-    for (const [name, value] of search.entries()) formState.setValue(0, name, value);
+    for (const [name, value] of search.entries()) {
+      // **`returnTo` is the runner's own parameter, not the flow's** (D.8). Every
+      // other name in the query string is a flow argument and is seeded by name;
+      // this one names where to go when the flow ends, no form declares it, and
+      // seeding it would put a route into form state where a value belongs.
+      if (name === RETURN_TO) continue;
+      formState.setValue(0, name, value);
+    }
     // `search` is a new object per render; its serialisation is the dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formState, search.toString()]);
@@ -224,17 +241,34 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     [api],
   );
 
-  /** Leaves the flow: the document's `exitScreenPath`, or the IDE. */
+  /**
+   * Leaves the flow: the document's `exitScreenPath`, then where it came from,
+   * then the front door. Task D.8, from **I-265**.
+   *
+   * **The order is authored, inferred, default, and the first two agree wherever
+   * both exist today.** `exitScreenPath` is a decision somebody wrote into the
+   * document and it wins: the two flows that set one both set `/workspaces`, and
+   * both are launched from `/workspaces` by `workspaceRegistryTable`'s buttons
+   * (`screens/fixtures/screen_reachability.json`, `reachedFrom`), so the
+   * precedence is untested by the corpus rather than contentious in it.
+   *
+   * **`returnTo` replaces a pop the port dropped.** A Flutter flow with no
+   * `exitScreenPath` popped the navigator back to whatever pushed it
+   * (`user_flow_actions.dart`); this fell back to a constant instead, and since
+   * X.1 moved the index off the editor that constant has been the wrong screen
+   * for everyone. See `screens/routes.ts` for why the origin travels in the url
+   * rather than as `navigate(-1)` or a store.
+   *
+   * **In-app since X.1.** `exitScreenPath` is a *Flutter* route template, so it
+   * goes through `inAppPath`; `returnTo` is already this app's own path and does
+   * not.
+   */
   const exit = useCallback(() => {
-    const path = loaded?.flow.flow.exitScreenPath;
-    // **In-app since X.1.** Two flows set `exitScreenPath` and both set it to
-    // `/workspaces`, which was a Flutter route when they were authored and is
-    // this app's workspace registry now (C.2). It was a full page load to the
-    // other app; it is a navigation.
-    const internal = inAppPath(path, {});
-    if (internal !== null) void navigate(internal);
-    else void navigate("/workspace");
-  }, [loaded, navigate]);
+    const internal = inAppPath(loaded?.flow.flow.exitScreenPath, {});
+    void navigate(internal ?? returnToPath(search) ?? FLOW_EXIT_FALLBACK);
+    // `search` is a new object per render; its serialisation is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, navigate, search.toString()]);
 
   const queryPost = useCallback(
     (payload: Record<string, unknown>) => api.dataTable<{ result_map?: Record<string, unknown> }>(payload),
@@ -570,9 +604,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         case "navigate": {
           // See `exit`: this app serves the destinations now, and says so when it
-          // does not.
+          // does not. A flow reached from a flow carries this one back (D.8).
           const to = inAppPath(action.configScreenPath, request.params);
-          if (to !== null) void navigate(to);
+          if (to !== null) void navigate(withReturnTo(to, here));
           else setError(unservedScreenMessage(action.label, request.path));
           return;
         }
@@ -677,6 +711,11 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   if (loadFindings !== null) {
     return (
       <main className="screen uf-runner">
+        {/* **The key, and here that is right rather than the defect D.7 fixed.**
+            The document did not load, so its title does not exist to be shown —
+            and this screen's subject is the failure, whose audience is whoever
+            authors the documents. `loadFilesUF` is the string they need to find
+            the file; *Load Files* is not. */}
         <h1>{key}</h1>
         <div className="banner banner-error" role="alert">
           <div>
@@ -705,10 +744,19 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   return (
     <main className="screen uf-runner">
       <header className="uf-runner__header">
-        {/* A flow document carries no title — S.1 dropped it, because the key is
-            the name and two names for one thing is one too many (I-14). The form
-            may carry one, and `FormRenderer` shows it. */}
-        <h1>{key}</h1>
+        {/* **Task D.7, and the comment this replaces was wrong about its own
+            reason.** It read *"a flow document carries no title — S.1 dropped
+            it, because the key is the name and two names for one thing is one
+            too many (I-14)"*. I-14 refuses a document naming *itself*; a title
+            names nothing else and duplicates nothing, and the Flutter app drew
+            one above every flow form from the route's `ScreenConfig`
+            (`jetsclient/lib/screens/user_flow_screen.dart:37`). So the heading
+            was showing `loadFilesUF` on a claim that did not hold — I-263. The
+            title is in the document now (`UserFlowSchema`); a flow without one
+            falls back to the key, which is what this line used to do
+            unconditionally. The form may carry one too, and `FormRenderer`
+            shows it below this. */}
+        <h1>{loaded.flow.flow.title ?? key}</h1>
         <p className="uf-runner__state">{state.description}</p>
       </header>
 

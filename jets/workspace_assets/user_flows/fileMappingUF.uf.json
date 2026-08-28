@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Source Mapping",
   "startAtKey": "select_source_config",
   "states": {
     "select_source_config": {

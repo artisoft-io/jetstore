@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Pipeline Execution Status Filters",
   "startAtKey": "select_process",
   "formStateInitializer": "seedFromHomeFilters",
   "states": {
