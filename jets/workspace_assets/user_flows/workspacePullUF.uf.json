@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Pull Workspace Changes",
   "startAtKey": "pull_workspace",
   "exitScreenPath": "/workspaces",
   "states": {

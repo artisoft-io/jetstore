@@ -36,11 +36,12 @@
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { BASENAME } from "../base";
 import { Login } from "../components/Login";
+import { withReturnTo } from "../screens/routes";
 import { ApiProvider, useCan } from "./capabilities";
 import { RouteFavicon } from "./favicon";
 import { NotificationsProvider, useNotifications } from "./notifications";
@@ -238,6 +239,18 @@ function ClientPicker({ api }: { api: ApiClient }) {
  */
 function FlowMenu({ items }: { items: FlowMenuItem[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
+  /**
+   * **Where the user was when they opened the menu, so the flow can send them
+   * back** (D.8, I-265). The menu is the launch point for four of the eleven
+   * flows and it is reachable from every screen, so without this the four would
+   * exit to the same place wherever they were started — which is the defect,
+   * with `/home` in place of `/workspace`.
+   *
+   * `withReturnTo` leaves `/ruleConfig` alone: it is a screen rather than a flow
+   * and nothing there reads the parameter.
+   */
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
   return (
     <details className="flowmenu" ref={ref}>
       <summary className="brand" aria-label="Open a configuration flow">
@@ -247,7 +260,7 @@ function FlowMenu({ items }: { items: FlowMenuItem[] }) {
         {items.map((item) => (
           <NavLink
             key={item.to}
-            to={item.to}
+            to={withReturnTo(item.to, here)}
             className={({ isActive }) => `flowmenu-item${isActive ? " is-active" : ""}`}
             onClick={() => ref.current?.removeAttribute("open")}
           >

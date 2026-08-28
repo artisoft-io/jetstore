@@ -234,10 +234,45 @@ export const StateSchema = z
  * opened by another has something to disagree about explicitly. It is the one
  * field with no counterpart in the Dart, and the one field a later revision will
  * be glad of.
+ *
+ * ## `title` — added by D.7, and it is not the self-key I-14 refused
+ *
+ * **The runner rendered `<h1>{key}</h1>` and a user saw `loadFilesUF` where a
+ * title belongs** (I-263). The comment at that site read *"a flow document
+ * carries no title — S.1 dropped it, because the key is the name and two names
+ * for one thing is one too many (I-14)"*, and **that is a misreading of I-14
+ * this field corrects.** I-14 is about a document naming *itself* — a
+ * `FormConfig.key` beside the registry key it is reached by, which disagreed for
+ * two of the fifty forms because nothing read it. Its rule is exact: *a name
+ * written inside a document that duplicates a name outside it is a field that
+ * can only ever drift.* A title duplicates nothing. Nothing resolves it, no
+ * second copy exists to disagree with, and it is the one fact about a flow that
+ * the key cannot carry.
+ *
+ * **The Flutter app had one, and the port lost it rather than declining it.**
+ * `UserFlowScreen` drew `screenConfig.title` above the form
+ * (`jetsclient/lib/screens/user_flow_screen.dart:37`) — *Load Files*, *Pipeline
+ * Configuration*, *Pull Workspace Changes*. It lived in the `ScreenConfig`
+ * registered for the flow's *route*, which is why no corpus generated out of
+ * `UserFlowConfig` ever saw it and why S.1 could believe there had never been
+ * one.
+ *
+ * **Why here rather than in a React constant.** D.3's `FLOW_MENU` (`App.tsx`)
+ * now holds five labels and is the obvious place to look, and it is the wrong
+ * one: it is a *launcher*, it names four of the eleven flows plus one screen
+ * that is not a flow, and a flow's heading would then depend on whether somebody
+ * had put it in a menu. A workspace may hold a flow this build has never heard
+ * of — three do already, projected by `cpipes-contract templates` — and a
+ * compiled list has no answer for those. The document does.
+ *
+ * **Optional, and a flow without one falls back to its key**, which is today's
+ * behaviour kept as the floor rather than as the default. All eleven shipping
+ * flows carry one (`translate.ts`, `flowTitles`).
  */
 export const UserFlowSchema = z
   .strictObject({
     schemaVersion: z.literal(1),
+    title: z.string().min(1).optional(),
     startAtKey: Identifier,
     exitScreenPath: z.string().min(1).optional(),
     formStateInitializer: Identifier.optional(),

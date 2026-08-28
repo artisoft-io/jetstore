@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Clients & Vendors",
   "startAtKey": "select_client_vendor",
   "states": {
     "select_client_vendor": {

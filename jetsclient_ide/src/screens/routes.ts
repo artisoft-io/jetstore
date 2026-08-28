@@ -161,6 +161,106 @@ export function inAppPath(
 }
 
 /**
+ * Where a flow goes when it ends. Task D.8, from **I-265**.
+ *
+ * ## What the port lost
+ *
+ * A Flutter flow that set no `exitScreenPath` **popped the navigator** — it
+ * returned to whatever screen had pushed it. `FlowRunner`'s `exit` replaced the
+ * pop with a constant, `navigate("/workspace")`, and that was defensible when
+ * F.0a wrote it: `/` redirected to the editor then, so `/workspace` *was* this
+ * app's index. **X.1 moved the index to `/home` and nothing revisited the flow
+ * exit**, so every flow with no authored destination has landed on the Workspace
+ * IDE since — a `workspace_ide` screen, for a population that mostly holds
+ * `jetstore_read` and nothing else.
+ *
+ * ## The origin travels in the url
+ *
+ * `returnTo` is a query parameter on `/flow/:key`, written by whoever navigates
+ * to the flow. Three candidates were weighed and this is why it is not the other
+ * two:
+ *
+ * - **`navigate(-1)`, the literal pop.** It is what the Dart did and it cannot
+ *   be checked: a test can assert that history went back one, not that the user
+ *   is on the screen that launched the flow. It is also wrong in a case that
+ *   already exists — a flow's table action navigates out to
+ *   `/filePreviewPath/:file_key` and the user comes back with the browser's Back
+ *   button, after which the previous entry is the file preview rather than the
+ *   origin. And it has no answer at all when the flow was opened in a fresh tab,
+ *   which is the case that has to degrade.
+ * - **A module-level store written by the shell.** No launch site would need
+ *   changing, and it answers a subtly different question: *where was the user
+ *   last*, not *what invoked this flow*. Those diverge for the same reason
+ *   `navigate(-1)` does, and the divergence is silent.
+ *
+ * A parameter is written by the party that knows the answer, is visible in the
+ * url, survives a reload, and a test asserts the destination rather than a
+ * history offset. The cost is that every launch site has to pass it, which is
+ * `withReturnTo` below and is one line each.
+ *
+ * **It is stripped before the flow's parameters are seeded.** `FlowRunner` writes
+ * every query parameter into form-state group 0 by name; this one is the
+ * runner's own and no form declares it, so it is excluded there rather than left
+ * to be harmless.
+ */
+export const RETURN_TO = "returnTo";
+
+/**
+ * Whether a string may be navigated to inside this app.
+ *
+ * **The whole of the check is that it is a path and not a url.** `returnTo`
+ * arrives from the query string, so it arrives from anyone who can get a user to
+ * click a link — and `navigate()` will happily take `//evil.example.com`, which
+ * a browser reads as protocol-relative and follows off-site. A single leading
+ * slash, and no backslash anywhere, is what separates the two.
+ */
+export function isInAppPath(path: string): boolean {
+  return (
+    path.startsWith("/") &&
+    !path.startsWith("//") &&
+    !path.includes("\\") &&
+    // eslint-disable-next-line no-control-regex
+    !/[\u0000-\u001f\u007f]/.test(path)
+  );
+}
+
+/**
+ * A flow path carrying where to return to, or the path unchanged.
+ *
+ * **Only flow paths get one**, because only the flow runner reads it: the same
+ * `inAppPath` result may be an ordinary screen, and a `returnTo` on one of those
+ * would be a parameter nothing consumes. An existing `returnTo` is left alone so
+ * that a launcher which has already decided beats this default.
+ */
+export function withReturnTo(to: string, from: string): string {
+  if (!to.startsWith("/flow/") || !isInAppPath(from)) return to;
+  const [path, query = ""] = to.split("?", 2);
+  const search = new URLSearchParams(query);
+  if (search.has(RETURN_TO)) return to;
+  search.set(RETURN_TO, from);
+  return `${path}?${search.toString()}`;
+}
+
+/** The origin a flow url carries, or null when it carries none this app may follow. */
+export function returnToPath(search: URLSearchParams): string | null {
+  const value = search.get(RETURN_TO);
+  if (value === null || value === "" || !isInAppPath(value)) return null;
+  return value;
+}
+
+/**
+ * Where a flow goes when neither its document nor its url says.
+ *
+ * **`/home` rather than `/workspace`, and rather than nothing.** It is the app's
+ * index since X.1, it is the one screen no capability gates, and it is the
+ * destination the reporter offered as the acceptable second best. The case is
+ * real rather than theoretical: a bookmarked flow, a flow opened in a new tab,
+ * and a flow reached from the Flutter-era route templates before F.10's map was
+ * asked for one.
+ */
+export const FLOW_EXIT_FALLBACK = "/home";
+
+/**
  * The legacy route template of each flow, and what it carries.
  *
  * **A port of `userFlowRoutes` out of `jetsclient/lib/routes/migrated_user_flows.dart`,

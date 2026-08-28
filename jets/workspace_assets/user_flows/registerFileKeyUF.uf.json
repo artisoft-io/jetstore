@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "title": "Submit Schema Event (Register File Key)",
   "startAtKey": "submit_schema_event",
   "states": {
     "submit_schema_event": {
