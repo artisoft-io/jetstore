@@ -848,6 +848,10 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           onTableAction,
           onFormAction,
           formValid: formValid,
+          // D.11. `back` refuses below two, so this is the same test the engine
+          // makes, read off the same value — not a second rule that could drift
+          // from it.
+          canGoBack: position.visited.length > 1,
           busy,
         }}
       />

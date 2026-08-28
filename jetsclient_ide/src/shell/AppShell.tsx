@@ -234,14 +234,58 @@ function ClientPicker({ api }: { api: ApiClient }) {
  * app: they were started from the tree, not from a screen. I-266 settled that
  * the panel does not come back, so the launcher lives here.
  *
- * **A `<details>` rather than a popover built out of state.** It closes on
- * `Escape` and on outside click for free, it is keyboard-reachable without a
- * roving tabindex, and it needs no effect that must be torn down — which is the
- * whole of what a menu this size owes. The click handler exists only to close it
- * after a choice; navigation is the `NavLink`'s.
+ * **A `<details>` rather than a popover built out of state**, and two thirds of
+ * the reason given for that were wrong.
+ *
+ * ~~It closes on `Escape` and on outside click for free, it is
+ * keyboard-reachable without a roving tabindex, and it needs no effect that must
+ * be torn down.~~ **`<details>` does neither of the first two.** It has exactly
+ * one behaviour — a click on the `<summary>` toggles `open` — and no user-agent
+ * closes it on `Escape` or on a click elsewhere; that is `<dialog>`, and the
+ * popover API. So the menu stayed open until it was clicked shut, which is what
+ * the second report on **I-261** describes.
+ *
+ * The third clause held: it is keyboard-reachable as it stands. The element is
+ * still the right choice — open state, focus order and the disclosure semantics
+ * come with it, and what it does not come with is 12 lines below rather than the
+ * 60 a from-scratch menu would need. D.11.
  */
 function FlowMenu({ items }: { items: FlowMenuItem[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
+
+  /**
+   * The two dismissals the element does not supply. D.11.
+   *
+   * **`pointerdown` and not `click`**: a menu should be gone before the press it
+   * was dismissed by lands on whatever is underneath, and a `click` listener
+   * closes it after. The guard is containment rather than a target test, so a
+   * press on the summary itself falls through to the element's own toggle
+   * instead of racing it — closing here and toggling there would reopen it.
+   *
+   * Bound to `document` for the lifetime of the menu rather than only while it
+   * is open: the menu mounts once per session, the handlers return immediately
+   * when it is shut, and an effect that re-subscribes on every toggle is more
+   * moving parts than the two branches it saves.
+   */
+  useEffect(() => {
+    const el = ref.current;
+    if (el === null) return;
+    const dismiss = (event: Event) => {
+      if (!el.open) return;
+      if (event.target instanceof Node && el.contains(event.target)) return;
+      el.open = false;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && el.open) el.open = false;
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
   /**
    * **Where the user was when they opened the menu, so the flow can send them
    * back** (D.8, I-265). The menu is the launch point for four of the eleven

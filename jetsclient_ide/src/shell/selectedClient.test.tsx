@@ -197,4 +197,56 @@ describe("the navigation surface that replaced the left panel", () => {
     );
     expect(screen.getByText("Rules Config").getAttribute("href")).not.toContain("returnTo");
   });
+
+  /**
+   * The two dismissals `<details>` does not have. D.11, from the second report
+   * on I-261.
+   *
+   * **The comment on `FlowMenu` claimed the element supplied both** — *"it
+   * closes on `Escape` and on outside click for free"* — and it supplies
+   * neither; the menu stayed open until the brand was clicked a second time.
+   * These are written as two tests rather than one because the handlers are
+   * independent and a menu that closes on click and not on Escape is a real
+   * state to be able to name.
+   */
+  async function openMenu() {
+    const { fetchImpl } = stub(ok);
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    render(
+      <MemoryRouter>
+        <AppShell
+          api={api}
+          nav={[]}
+          flowMenu={[{ to: "/flow/clientRegistryUF", label: "Clients & Vendors" }]}
+        />
+      </MemoryRouter>,
+    );
+    const summary = await screen.findByLabelText("Open a configuration flow");
+    const details = summary.closest("details")!;
+    // jsdom does not implement the summary's default toggle, so the open state
+    // is set here as the browser would. What is under test is the closing.
+    details.open = true;
+    return details;
+  }
+
+  it("closes the flow menu on a press outside it", async () => {
+    const details = await openMenu();
+    // `pointerdown`, not `click`: the menu should be gone before the press it
+    // was dismissed by reaches whatever is underneath.
+    fireEvent.pointerDown(document.body);
+    expect(details.open).toBe(false);
+  });
+
+  it("leaves the flow menu open on a press inside it", async () => {
+    const details = await openMenu();
+    fireEvent.pointerDown(screen.getByText("Clients & Vendors"));
+    expect(details.open).toBe(true);
+  });
+
+  it("closes the flow menu on Escape", async () => {
+    const details = await openMenu();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(details.open).toBe(false);
+  });
 });

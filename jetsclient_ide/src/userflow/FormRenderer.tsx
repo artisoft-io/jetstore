@@ -88,6 +88,22 @@ export interface FormHost {
    * field would make five callers name a value they do not have.
    */
   tableContext?: UseTableBindingOptions["context"];
+  /**
+   * Whether `ufPrevious` has anywhere to go. Task D.11.
+   *
+   * **The engine owns this and no document should have to declare it.** `back`
+   * (`engine.ts`) throws *"Already at the first step"* when `visited` holds one
+   * entry, and **all 174 `ufPrevious` buttons across the installed documents
+   * declare no gate whatever** — so the first step of every flow offered a live
+   * *Previous* whose only outcome was an error message. The available moves are a property of the
+   * position, and the position is the runner's.
+   *
+   * **Optional, and absent means unconstrained.** `FormActionButton` is reached
+   * by screens as well as flows, and a screen has no flow position — it also has
+   * no `ufPrevious` button, so the branch never fires there. Making it required
+   * would put a value five callers do not have into five call sites.
+   */
+  canGoBack?: boolean;
   /** Named predicates for a table action's `isEnabled` — `actions/registry.ts`. */
   predicates: Readonly<Record<string, (formState: FormState, group: number) => boolean>>;
   /** Per-column display filters, by column name, for the table this field names. */
@@ -337,6 +353,57 @@ function FieldView({
 }
 
 /**
+ * What the engine's own actions look like, overriding what a document declares.
+ * Task **D.11**, from the report that *Next* did not match *Previous* and
+ * *Cancel*.
+ *
+ * **The corpus disagrees with itself on all four**, measured across the 14
+ * installed flow documents:
+ *
+ * | action | `primary` | `secondary` |
+ * |---|---|---|
+ * | `ufNext` | 127 | 35 |
+ * | `ufPrevious` | 44 | 130 |
+ * | `ufCancel` | 42 | 130 |
+ * | `ufCompleted` | 3 | 9 |
+ *
+ * So the same engine action is drawn two ways depending on which form the user
+ * happens to be on — *Previous* and *Cancel* filled and *Next* plain on one
+ * screen, the reverse on the next. **This was invisible until D.11 fixed
+ * `btn--`** (I-308): while no declared style reached a rule, all 537 buttons
+ * drew identically and the disagreement cost nothing.
+ *
+ * **Keyed on the action rather than on the majority.** Three of the four
+ * majorities agree with this table anyway; the fourth is `ufCompleted`, where
+ * the majority is `secondary` and the action is *the one that finishes the
+ * flow*. A majority rule would have codified that, which is why the rule is the
+ * role: **the action that advances or finishes is the prominent one, and the
+ * ones that retreat or abandon are not.**
+ *
+ * **Here rather than in the documents, for two reasons.** These actions belong
+ * to the engine — `FLOW_ACTIONS` in `engine.ts` — not to the form that draws
+ * them, which is the same argument `canGoBack` above makes about availability;
+ * a document should no more decide that *Cancel* outranks *Next* than it should
+ * decide whether *Previous* is reachable. And editing the documents would put
+ * `ufPrimary` on both sides of `buttonFidelity.test.ts`'s style mapping, which
+ * asserts that the Dart-to-document relation is a *function* — so 130 style
+ * edits would land as a failed fidelity check rather than as a deliberate
+ * divergence.
+ *
+ * **It overrides 130 explicit declarations and that is a real cost.** Deleting
+ * this map restores exactly what the documents say. A non-standard action — a
+ * flow's own `crAddClientUF` or `mapperOk` — is not in the table and keeps
+ * whatever it declares.
+ */
+const FLOW_ACTION_STYLE: Readonly<Record<string, string>> = {
+  ufNext: "primary",
+  ufCompleted: "primary",
+  ufPrevious: "secondary",
+  ufCancel: "secondary",
+  ufContinueLater: "secondary",
+};
+
+/**
  * One button, wherever it sits. Task F.2.
  *
  * Factored out of the action bar's map so the bar and an inline `button` field
@@ -356,10 +423,30 @@ function FormActionButton({ action, host }: { action: FormAction; host: FormHost
     action.enabledWhen !== undefined && (gate === undefined || !gate(host.formState, host.group));
   return (
     <ActionButton
-      className={`btn btn--${action.style ?? "primary"}`}
+      // **`btn-` and not `btn--`, which is D.4's fix arriving at the site that
+      // actually carries the buttons.** D.4 corrected the class the *table*
+      // action bar emits and its comment enumerated the call sites it had
+      // checked — `Login.tsx`, `GitProfile.tsx`, `WorkspaceIde.tsx` — none of
+      // which is this one. So every button a *form* renders kept emitting
+      // `btn--primary`, matching no rule: **537 buttons across the 14 installed
+      // flow documents**, 225 of them declared `primary` and 312 `secondary`.
+      // That is eleven times the 49 D.4 counted, and it is the whole of why a
+      // flow's *Next* did not look like the *Start Pipeline* button the report
+      // compared it to — the style was declared and inert.
+      //
+      // I-281 recorded this exact shape at D.2: an argument that enumerates the
+      // call sites it can see and calls the list complete. It is recorded again
+      // rather than merely repeated because the second instance is what makes it
+      // a pattern — and because the enumeration was inside a comment explaining
+      // the fix, which is the last place a reader looks for an omission.
+      className={`btn btn-${FLOW_ACTION_STYLE[action.action] ?? action.style ?? "primary"} btn-lg`}
       disabled={
         host.busy ||
         gateClosed ||
+        // D.11. See `FormHost.canGoBack`: the first step of a flow has nowhere
+        // to go back to, and the documents do not say so because it is not
+        // theirs to say.
+        (action.action === "ufPrevious" && host.canGoBack === false) ||
         (action.enableOnlyWhenFormValid === true && !host.formValid) ||
         (action.enableOnlyWhenFormNotValid === true && host.formValid)
       }

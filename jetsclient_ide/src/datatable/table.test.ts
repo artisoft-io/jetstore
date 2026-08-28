@@ -30,7 +30,7 @@ import {
   tablePath,
   type TableConfigDocument,
 } from "./table";
-import { fromDocument, toDocument, toDocuments } from "./tableTranslate";
+import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments } from "./tableTranslate";
 import type { TableConfig } from "./types";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
@@ -368,7 +368,16 @@ describe("the 37 shipping configurations", () => {
       // addition rather than a loss, which is what this case is guarding against.
       const { modelSource, ...restored } = fromDocument(key, documents[key]!);
       void modelSource;
-      expect({ [key]: restored }).toEqual({ [key]: configOf(key) });
+      // **`rowsPerPage` is compared against the diverged value, not the Dart's**,
+      // for the two tables `ROWS_PER_PAGE` overrides. D.11. The claim this test
+      // makes is that the *schema* loses nothing — every field the Dart sets has
+      // somewhere to live and comes back — and a deliberate, listed, one-field
+      // divergence is not a loss. Applying the same map here rather than
+      // excusing the two keys keeps every other field of both still compared;
+      // skipping them would have retired 2 of the 63 configurations from the
+      // check to record a change to one field.
+      const expected = { ...configOf(key), ...(key in ROWS_PER_PAGE ? { rowsPerPage: ROWS_PER_PAGE[key]! } : {}) };
+      expect({ [key]: restored }).toEqual({ [key]: expected });
     }
   });
 

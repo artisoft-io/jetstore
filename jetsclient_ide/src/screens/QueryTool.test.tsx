@@ -100,7 +100,8 @@ describe("the query tool", () => {
     // The blocking clause: `query.ready` is unset, so the table has nothing to
     // ask. Typing is not submitting, and the Dart's `WhereClause(column: '',
     // formStateKey: FSK.queryReady)` is what says so.
-    await waitFor(() => expect(screen.getByText("Make a selection above to see rows.")).toBeTruthy());
+    // D.11: the Query Tool blocks on an unsubmitted statement, not a selection.
+    await waitFor(() => expect(screen.getByText("Submit a query above to see rows.")).toBeTruthy());
     expect(sent).toEqual([]);
   });
 

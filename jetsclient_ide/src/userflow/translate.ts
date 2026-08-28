@@ -122,11 +122,17 @@ export const formStateInitializerNames: Record<string, string> = {
  * I-25's list of hand-maintained mappings.
  */
 export const flowTitles: Record<string, string> = {
-  // I-261's labels, for the four the launcher opens.
+  // I-261's labels, for the four the launcher opens. **Spelled out at D.11**,
+  // from the second report on I-261: the menu abbreviated *Configuration* where
+  // every screen it sits beside writes it in full (`RuleConfig.tsx` has said
+  // *Rules Configuration* since C.13). The launcher reads these, so changing
+  // them here changes both the menu entry and the heading of the flow it opens
+  // — which is the point of the map and is why `App.tsx`'s `FLOW_MENU` was
+  // changed in the same commit rather than left to drift.
   clientRegistryUF: "Clients & Vendors",
-  sourceConfigUF: "Source Config",
+  sourceConfigUF: "Source Configuration",
   fileMappingUF: "Source Mapping",
-  pipelineConfigUF: "Pipeline Config",
+  pipelineConfigUF: "Pipeline Configuration",
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadConfigUF: "Load Client Configurations",

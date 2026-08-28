@@ -157,10 +157,56 @@ describe("DataTable", () => {
   });
 
   it("disables the paging buttons at the ends", async () => {
-    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "a", "v", "t", "s", "c", "d"]], 5)} />);
+    // **50 rows at 20 per page, where this asked for 5.** With 5 the table had
+    // one page, so *both ends* were the same end and the assertion held for a
+    // reason it was not testing — and since D.11 a one-page table draws no
+    // footer at all, which is what turned a weak test into a failing one. Three
+    // pages, on the first: the backward pair is disabled and the forward pair is
+    // not, which is the claim the name makes.
+    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "a", "v", "t", "s", "c", "d"]], 50)} />);
     await screen.findByText("a");
     expect(screen.getByRole("button", { name: "First page" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: "Next page" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Previous page" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Next page" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: "Last page" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("draws no footer at all for a table that fits on one page", async () => {
+    // D.11. The footer is paging apparatus; 5 rows at 20 per page have no pages
+    // to move between, and the four buttons were rendered permanently disabled
+    // beside a range that read `1–5 of 5`.
+    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "a", "v", "t", "s", "c", "d"]], 5)} />);
+    await screen.findByText("a");
+    expect(screen.queryByRole("button", { name: "First page" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Last page" })).toBeNull();
+    expect(screen.queryByLabelText("Rows per page")).toBeNull();
+  });
+
+  it("blanks the column header of a one-column table that already has a caption", async () => {
+    // **D.11.** `ufClientOrVendorOption` captions itself *Select one of the
+    // following options:* and its single column header reads *Select one of the
+    // following option* — the same sentence, one letter shorter. **9 of the 35
+    // installed documents have exactly one visible column and the header is
+    // redundant in all 9**; comparing the two strings catches only 5 of them,
+    // which is why the test is structural.
+    const config = tables["ufClientOrVendorOption"]!;
+    render(<Harness config={config} fetcher={respondWith([["Create a client and add vendors"]], 1)} />);
+    await screen.findByText("Create a client and add vendors");
+    // The caption survives; the header does not repeat it.
+    expect(screen.getByText("Select one of the following options:")).toBeTruthy();
+    expect(screen.queryByText("Select one of the following option")).toBeNull();
+    // The row is still there, so the cells still have a `<th scope="col">`.
+    expect(document.querySelectorAll("thead th").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the column headers of a table with more than one column", async () => {
+    // The guard on the rule above. `org.tc.json` captions itself *Client
+    // Organization Registry* and has a real *Client Organization* column among
+    // three — a text comparison loose enough to catch all 9 single-column cases
+    // reaches this one and blanks a header that names its column.
+    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "a", "v", "t", "s", "c", "d"]], 5)} />);
+    await screen.findByText("a");
+    expect(document.querySelectorAll("thead th button")[0]!.textContent).not.toBe("");
   });
 
   it("says why it is empty when a blocking filter is unsatisfied", async () => {

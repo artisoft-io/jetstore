@@ -31,7 +31,7 @@
     }
   ],
   "sortColumn": "source_type",
-  "rowsPerPage": 100,
+  "rowsPerPage": 25,
   "isCheckboxSingleSelect": true,
   "noFooter": true,
   "formStateBinding": {

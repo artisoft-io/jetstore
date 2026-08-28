@@ -22,6 +22,11 @@
   --crit: #a03a31;
   --crit-bg: #fbeae8;
   --good-bg: #e7f3ec;
+  /* Found at D.11 by the same audit that caught `--bg`: `--danger` was used
+     by `.btn-danger` and defined by neither palette, surviving only on its
+     `#b3261e` fallback — a light-mode red the dark palette then had no way
+     to override. The light value is that literal, unchanged. */
+  --danger: #b3261e;
 
   --editor-bg: #ffffff;
   --editor-gutter: #f4f7f8;
@@ -65,6 +70,7 @@
   --crit: #e08279;
   --crit-bg: #33201e;
   --good-bg: #14291f;
+  --danger: #e08279;
 
   --editor-bg: #10161d;
   --editor-gutter: #131a22;
@@ -153,7 +159,14 @@ body {
   padding: 4px;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  background: var(--bg);
+  /* `var(--surface)` and not `var(--bg)`: **there is no `--bg` in this palette**
+     and there never was, so the panel drew with no background at all and the
+     page showed through it — unreadable over any table. D.11, from the second
+     report on **I-261**. The audit that found it is one line and worth keeping:
+     of the 40 custom properties this stylesheet uses, `--bg` was the only one
+     undefined with no fallback. `--surface` is the topbar's own colour, which is
+     what a panel hanging off the topbar should be. */
+  background: var(--surface);
   box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
 }
 .flowmenu-item {
@@ -233,7 +246,15 @@ body {
   border-color: var(--accent);
   font-weight: 600;
 }
-.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* **`background` is restated here, and dropping it is the bug this replaced.**
+   `.btn:hover:not(:disabled)` above is three classes' worth of specificity and
+   `.btn-primary` is one, so on hover the base rule's `--surface-2` won the
+   background while `.btn-primary`'s `--accent-ink` kept the text. In light mode
+   that is near-white text on a near-white fill: the label vanishes on hover, on
+   every primary button in the app. Dark mode hid it, because there `--surface-2`
+   is dark and white text still reads. D.11, from the report on the *Start
+   Pipeline* button. */
+.btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
 /* `danger` is declared by four Delete actions across the installed table
    documents and had no rule, so a destructive button rendered as a plain one.
    Found at D.4 fixing the class name the action bar emits — the style was never
@@ -241,13 +262,23 @@ body {
    Outlined rather than filled: the accent fill is the primary action's, and a
    Delete should read as dangerous rather than as the thing to press. */
 .btn-danger {
-  color: var(--danger, #b3261e);
-  border-color: var(--danger, #b3261e);
+  color: var(--danger);
+  border-color: var(--danger);
   font-weight: 600;
 }
-.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger, #b3261e) 10%, transparent); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 /* `secondary` is the base button and needs no rule; named here so the next
    reader does not go looking for one. */
+
+/* **A size, not a style** — the two are separate requests and this carries only
+   the first. Form and flow action buttons wear it; table action bars do not, so
+   a toolbar sitting above a table stays compact while the buttons that advance a
+   flow are the largest thing on the row. Measured in the browser rather than
+   predicted: 15px text against 13px, and a rendered box of 34px against 27px —
+   **26% taller**, a little over the ~20% asked for and one pixel of padding away
+   from being under it.
+   D.11, from the report on the flow navigation buttons. */
+.btn-lg { font-size: 15px; padding: 7px 14px; }
 .btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -497,8 +528,8 @@ body {
 }
 .field textarea { resize: vertical; }
 .field--readonly input, .field--readonly select, .field--readonly textarea { opacity: 0.6; }
-.field [aria-invalid="true"] { border-color: #b3261e; }
-.field-error { margin: 0; font-size: 12px; color: #b3261e; }
+.field [aria-invalid="true"] { border-color: var(--danger); }
+.field-error { margin: 0; font-size: 12px; color: var(--danger); }
 
 /* ---------- typeahead (I.2b) ---------- */
 /*
@@ -570,6 +601,12 @@ body {
 .screen-sub { margin: 2px 0 14px; font-size: 13px; color: var(--ink-2); }
 /* A column of fields at a readable measure, not the width of the window. */
 .stack { display: flex; flex-direction: column; max-width: 560px; }
+/* **The one `.stack` whose content is not a column of fields.** `.qt-input` has
+   been on the Query Tool's stack since I.1 and had no rule, so the query box
+   inherited the 560px measure meant for labelled inputs — a paste target for
+   generated SQL, in a third of the window. The measure is right for a form and
+   wrong for a code box; this says which one this is. D.11. */
+.qt-input { max-width: none; }
 .screen-actions { display: flex; gap: 8px; margin-top: 14px; }
 
 /* The client filter, task C.6. In the top bar because the Dart draws it in the
