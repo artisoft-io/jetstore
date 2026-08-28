@@ -46,43 +46,80 @@ function Harness({ config, ...rest }: { config: TableConfig; fetcher: any; formS
 }
 
 describe("useTableModes", () => {
-  it("starts from the configuration, both halves", () => {
-    // Ten of the 37 configurations set `isCheckboxVisible: false` and eleven set
-    // `noCopy2Clipboard`, so neither branch is hypothetical.
-    const shown = { isCheckboxVisible: true, noCopy2Clipboard: undefined } as TableConfig;
-    const hidden = { isCheckboxVisible: false, noCopy2Clipboard: undefined } as TableConfig;
-    expect(runHook(shown)).toMatchObject({ checkboxVisible: true, copyEnabled: false });
-    // `if (!isCheckboxVisible) _noCopy2Clipboard = false` — a table without
-    // checkboxes gets copy-on-click whatever its config said.
-    expect(runHook(hidden)).toMatchObject({ checkboxVisible: false, copyEnabled: true });
+  it("starts from the configuration", () => {
+    // Ten of the 37 configurations set `isCheckboxVisible: false`, so neither
+    // branch is hypothetical.
+    const shown = { isCheckboxVisible: true } as TableConfig;
+    const hidden = { isCheckboxVisible: false } as TableConfig;
+    expect(runHook(shown).checkboxVisible).toBe(true);
+    expect(runHook(hidden).checkboxVisible).toBe(false);
   });
 
-  it("honours an explicit noCopy2Clipboard when checkboxes are shown", () => {
-    const config = { isCheckboxVisible: true, noCopy2Clipboard: false } as TableConfig;
-    expect(runHook(config).copyEnabled).toBe(true);
-  });
-
-  it("keeps the two modes opposed when toggled", () => {
-    // `_noCopy2Clipboard = _checkboxVisible` (`data_table.dart:483`). A table you
-    // are ticking rows in should not also copy a cell on every click.
-    const config = { isCheckboxVisible: true, noCopy2Clipboard: undefined } as TableConfig;
-    const hook = runHook(config);
-    expect([hook.checkboxVisible, hook.copyEnabled]).toEqual([true, false]);
+  it("toggles the checkbox column and nothing else", () => {
+    // The Dart flipped copy-on-click on every checkbox toggle
+    // (`_noCopy2Clipboard = _checkboxVisible`, `data_table.dart:483`) because the
+    // two modes competed for a click on a row. D.6 removed the copy mode, so a
+    // configured `toggleCheckboxVisible` now does only what its name says.
+    const hook = runHook({ isCheckboxVisible: true } as TableConfig);
+    expect(Object.keys(hook).sort()).toEqual(["checkboxVisible", "toggleCheckboxVisible"]);
     act(() => hook.toggleCheckboxVisible());
-    expect([hook.checkboxVisible, hook.copyEnabled]).toEqual([false, true]);
+    expect(hook.checkboxVisible).toBe(false);
     act(() => hook.toggleCheckboxVisible());
-    expect([hook.checkboxVisible, hook.copyEnabled]).toEqual([true, false]);
+    expect(hook.checkboxVisible).toBe(true);
   });
 
-  it("offers the copy button only when the config expressed no preference", () => {
-    // A table that stated `noCopy2Clipboard` does not get a control to override
-    // it (`data_table.dart:164`).
-    expect(runHook({ isCheckboxVisible: true } as TableConfig).copyToggleAvailable).toBe(true);
-    expect(
-      runHook({ isCheckboxVisible: true, noCopy2Clipboard: true } as TableConfig)
-        .copyToggleAvailable,
-    ).toBe(false);
-    expect(runHook({ isCheckboxVisible: false } as TableConfig).copyToggleAvailable).toBe(false);
+  it("takes nothing from noCopy2Clipboard, which never decided behaviour in the corpus anyway", () => {
+    // I-278, and the corpus is the argument rather than the code. All 11 of the
+    // 37 configurations that set the field also set `isCheckboxVisible: true`,
+    // where the Dart's own default was already suppression — so setting it
+    // changed no load-time behaviour in any of them, and its whole observable
+    // effect was to withhold the toggle button. Asserted here so that a later
+    // reader does not restore a gate the corpus never exercised.
+    const setters = Object.values(tables).filter((t) => t.noCopy2Clipboard === true);
+    expect(setters).toHaveLength(11);
+    expect(setters.every((t) => t.isCheckboxVisible)).toBe(true);
+    expect(runHook({ isCheckboxVisible: true, noCopy2Clipboard: true } as TableConfig))
+      .toMatchObject({ checkboxVisible: true });
+  });
+});
+
+describe("copying a cell", () => {
+  /** The widget's only clipboard path; jsdom supplies no `navigator.clipboard`. */
+  function withClipboard(): { writeText: ReturnType<typeof vi.fn> } {
+    const clipboard = { writeText: vi.fn() };
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      value: clipboard,
+      configurable: true,
+    });
+    return clipboard;
+  }
+
+  it("copies the full cell text on click, with no toggle to arm first", async () => {
+    // I-262: this is the behaviour the report asked to keep. It used to need
+    // *Enable Copy Cell* pressed first on any table with checkboxes showing.
+    const { config, formState, fetcher } = seededOrg();
+    config.isCheckboxVisible = true;
+    const clipboard = withClipboard();
+    render(<Harness config={config} fetcher={fetcher} formState={formState} />);
+    await act(async () => {});
+
+    expect(screen.queryByText("Enable Copy Cell")).toBeNull();
+    expect(screen.queryByText("Enable Select Row")).toBeNull();
+
+    fireEvent.click(screen.getByText("c0"));
+    expect(clipboard.writeText).toHaveBeenCalledWith("c0");
+  });
+
+  it("copies from a table that sets noCopy2Clipboard, which used to suppress it", async () => {
+    const { config, formState, fetcher } = seededOrg();
+    config.isCheckboxVisible = true;
+    config.noCopy2Clipboard = true;
+    const clipboard = withClipboard();
+    render(<Harness config={config} fetcher={fetcher} formState={formState} />);
+    await act(async () => {});
+
+    fireEvent.click(screen.getByText("c1"));
+    expect(clipboard.writeText).toHaveBeenCalledWith("c1");
   });
 });
 
@@ -117,14 +154,16 @@ describe("the checkbox column", () => {
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
-  it("shows the copy button only while checkboxes are visible", () => {
-    // `org` leaves `noCopy2Clipboard` unset, so it qualifies — but the button is
-    // gated on the *runtime* checkbox state, not the configured one.
+  it("no longer drags a copy button along with it", () => {
+    // Until D.6 revealing the column also revealed an *Enable Copy Cell* button,
+    // because `org` leaves `noCopy2Clipboard` unset and so qualified for one.
+    // Both states are asserted: the button is absent either way, so a
+    // reintroduction fails here rather than only in the browser.
     const { config, formState, fetcher } = seededOrg();
     render(<Harness config={config} fetcher={fetcher} formState={formState} />);
     expect(screen.queryByText("Enable Copy Cell")).toBeNull();
     fireEvent.click(screen.getByText("Toggle Checkbox"));
-    expect(screen.getByText("Enable Copy Cell")).toBeTruthy();
+    expect(screen.queryByText("Enable Copy Cell")).toBeNull();
   });
 });
 

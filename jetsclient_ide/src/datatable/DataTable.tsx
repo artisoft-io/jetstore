@@ -45,13 +45,16 @@ export interface DataTableProps {
    */
   actions?: ReactNode;
   /**
-   * The table's own display modes — checkbox column and copy-on-click — and the
-   * buttons that flip them.
+   * The table's own display mode — the checkbox column — and the configured
+   * action that flips it.
    *
    * **Optional, and the fallback is the honest one**: without it the table reads
-   * `isCheckboxVisible` straight from the configuration and never copies, which
-   * is what A.4b did and is correct for a table with no mode buttons. A.5 added
-   * this because the toggles turned out to be the widget's rather than S.2's.
+   * `isCheckboxVisible` straight from the configuration, which is what A.4b did
+   * and is correct for a table with no mode buttons. A.5 added this because the
+   * toggle turned out to be the widget's rather than S.2's.
+   *
+   * **Copy-on-click is no longer part of this**, since D.6: it is unconditional
+   * and so needs nothing passed in to enable it.
    */
   modes?: TableModes;
   /** Per-column text filters, replacing the Dart closures the corpus cannot carry. */
@@ -147,7 +150,6 @@ export function DataTable({
 }: DataTableProps): React.JSX.Element {
   const columns = visibleColumns(state.columns);
   const checkboxes = modes ? modes.checkboxVisible : config.isCheckboxVisible;
-  const copyEnabled = modes ? modes.copyEnabled : false;
   const rowsPerPageId = useId();
 
   const rowBand = rowStyle(config);
@@ -166,23 +168,7 @@ export function DataTable({
     <div className="jets-datatable">
       <div className="jets-datatable__header">
         {state.label !== "" && <h2 className="jets-datatable__label">{state.label}</h2>}
-        {(actions != null || modes?.copyToggleAvailable) && (
-          <div className="jets-datatable__actions">
-            {actions}
-            {/*
-              The copy-mode button is synthesised by the widget rather than
-              configured — no `TableConfig` declares it (`data_table.dart:163`) —
-              which is why counting the 25 configured actions did not find it.
-            */}
-            {modes?.copyToggleAvailable && (
-              <button type="button" onClick={modes.toggleCopyEnabled}>
-                {/* The Dart's own labels (`data_table.dart:176`), which name
-                    the mode being switched *to* rather than the current one. */}
-                {modes.copyEnabled ? "Enable Select Row" : "Enable Copy Cell"}
-              </button>
-            )}
-          </div>
-        )}
+        {actions != null && <div className="jets-datatable__actions">{actions}</div>}
       </div>
 
       {state.error != null && (
@@ -249,11 +235,14 @@ export function DataTable({
                     key={column.index}
                     className={cellClassName(column)}
                     style={cellStyle(column)}
-                    onClick={
-                      copyEnabled
-                        ? () => void navigator.clipboard?.writeText(cellFullText(row, column))
-                        : undefined
-                    }
+                    // Unconditional since D.6 (I-262). It was gated on a mode a
+                    // button switched; the button is gone and the gate with it,
+                    // so the *unfiltered* cell text reaches the clipboard from
+                    // any table. Selecting text inside a cell still wins: the
+                    // click writes the whole value, and the Ctrl-C that follows
+                    // overwrites it with the selection, which is the browser's
+                    // own behaviour and not something this widget arbitrates.
+                    onClick={() => void navigator.clipboard?.writeText(cellFullText(row, column))}
                   >
                     {cellContent(row, column)}
                   </td>
