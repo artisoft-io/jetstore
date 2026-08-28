@@ -36,7 +36,7 @@ import { RuleConfig } from "./screens/RuleConfig";
 import { UserAdmin } from "./screens/UserAdmin";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
-import { AppShell, type NavItem } from "./shell/AppShell";
+import { AppShell, type FlowMenuItem, type NavEntry } from "./shell/AppShell";
 import cpipesExecDetailsTable from "./datatable/tables/cpipesExecDetailsTable.tc.json";
 import inputFileViewerTable from "./datatable/tables/inputFileViewerTable.tc.json";
 import inputTable from "./datatable/tables/inputTable.tc.json";
@@ -51,7 +51,7 @@ const api = new ApiClient();
 export { BASENAME } from "./base";
 import { BASENAME } from "./base";
 
-export const NAV: NavItem[] = [
+export const NAV: NavEntry[] = [
   /*
     Task C.6. Ungated, mirroring Flutter's `jetstoreHome` entry, which is the
     first row of `defaultMenuEntries` and declares no capability
@@ -76,7 +76,28 @@ export const NAV: NavItem[] = [
     unnoticed because it named a state instead of an owner.
   */
   { to: "/home", label: "Home" },
+  /*
+    Task D.3, from **I-259**, which specifies the row as
+    *Home | Filter Client | Workspaces | Workspace IDE | Proposals | Query Tool |
+    Infer Server Admin*. The order below is that order, and the client filter is
+    an entry rather than a fixed position after the row — see `ClientFilterSlot`.
+
+    **The order is the reporter's and no argument is made for it here.** What is
+    worth recording is that it is not the Flutter order either: that app had no
+    row to order, it had a menu tree in the left panel, and the row this replaces
+    was assembled a screen at a time as track C ported them. So this is the first
+    time anybody has chosen the order rather than accumulated it.
+  */
+  { kind: "client-filter" },
+  // **Track C's first screen (C.2b).** Gated on the same capability the Flutter
+  // menu entry is and the same one the server enforces on every write it makes —
+  // `admin` bypasses both, in `permissionFor` here and in `HasCapability`
+  // (`jets/user/user.go`) there.
+  { to: "/workspaces", label: "Workspaces", capability: WORKSPACE_IDE },
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
+  // agentic_ai's screens (task K.3). The nav entry and the two routes below are
+  // this file's whole knowledge of them; the screens are in `proposals/`.
+  { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
     `workspaceRegistryMenuEntries` and declares no capability of its own
@@ -87,14 +108,6 @@ export const NAV: NavItem[] = [
     two server actions behind the screen require.
   */
   { to: "/query-tool", label: "Query Tool", capability: QUERY_TOOL },
-  // agentic_ai's screens (task K.3). The nav entry and the two routes below are
-  // this file's whole knowledge of them; the screens are in `proposals/`.
-  { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
-  // **Track C's first screen (C.2b).** Gated on the same capability the Flutter
-  // menu entry is and the same one the server enforces on every write it makes —
-  // `admin` bypasses both, in `permissionFor` here and in `HasCapability`
-  // (`jets/user/user.go`) there.
-  { to: "/workspaces", label: "Workspaces", capability: WORKSPACE_IDE },
   /*
     Track C's first ported screen (C.5).
 
@@ -115,6 +128,39 @@ export const NAV: NavItem[] = [
     route needing one, or the endpoint starting to require both.
   */
   { to: "/inferServerAdmin", label: "Infer Server Admin", capability: INFER_SERVER_ADMIN },
+];
+
+/**
+ * The flows the brand opens. Task D.3, from **I-261**.
+ *
+ * **The Flutter left panel's menu tree is where these were started**, and X.1
+ * retired it with the app; the flows kept running and lost their entry points,
+ * which is what the report describes. I-266 settled that the panel does not come
+ * back, so the launcher is a menu on the brand.
+ *
+ * **The order is the reporter's, and so are the labels** — they are not the flow
+ * keys, which is the point: **I-263** is the same problem seen from inside a
+ * flow, where the key is rendered where a title belongs, and these are the titles
+ * it needs.
+ *
+ * **`/ruleConfig` is not a flow and is in the list**, because it is what the
+ * report asked for. It was reported as *"I can't find it in the React version"*
+ * and it was routed the whole time, named by no navigation (**I-268**) — so the
+ * fix for that entry is this line rather than a screen.
+ *
+ * **No capability is declared on any entry.** The four flows run through
+ * `FlowRunner`, whose route carries no guard and whose reads the server gates;
+ * `/ruleConfig` is likewise gated where it acts. Declaring one here would be a
+ * second, client-side answer to a question the server already answers — and
+ * `FLOW_RUNNER` is exactly such an answer sitting unused two files away
+ * (**I-269**).
+ */
+export const FLOW_MENU: FlowMenuItem[] = [
+  { to: "/flow/clientRegistryUF", label: "Clients & Vendors" },
+  { to: "/flow/sourceConfigUF", label: "Source Config" },
+  { to: "/flow/fileMappingUF", label: "Source Mapping" },
+  { to: "/ruleConfig", label: "Rules Config" },
+  { to: "/flow/pipelineConfigUF", label: "Pipeline Config" },
 ];
 
 /**
@@ -161,7 +207,7 @@ export default function App() {
           none.
         */}
         <Route path="/register" element={<RegisterScreen api={api} />} />
-        <Route path="/" element={<AppShell api={api} nav={NAV} />}>
+        <Route path="/" element={<AppShell api={api} nav={NAV} flowMenu={FLOW_MENU} />}>
           {/*
             **`/login` is a real path and not a screen**, which is the shape the
             gate already had: unauthenticated, any path renders `<Login>`, so a

@@ -123,6 +123,49 @@ body {
 }
 .brand { font-size: 13px; color: var(--ink-2); letter-spacing: -0.01em; }
 .brand strong { color: var(--ink); }
+
+/* The brand as the flow launcher — task D.3, from I-261. A `<details>`, so the
+   open state, Escape and outside-click are the browser's rather than ours.
+   `position: relative` on the host and `absolute` on the panel keep the row's
+   height fixed whether the menu is open or shut. */
+.flowmenu { position: relative; }
+.flowmenu > summary.brand {
+  cursor: pointer;
+  list-style: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  user-select: none;
+}
+/* Safari still draws the disclosure triangle without this. */
+.flowmenu > summary::-webkit-details-marker { display: none; }
+.flowmenu > summary.brand:hover { background: var(--rule); }
+.flowmenu > summary.brand::after { content: " \25BE"; color: var(--ink-2); }
+.flowmenu[open] > summary.brand { background: var(--rule); }
+.flowmenu-items {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+}
+.flowmenu-item {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.flowmenu-item:hover { background: var(--rule); color: var(--ink); }
+.flowmenu-item.is-active { background: var(--rule); color: var(--ink); font-weight: 600; }
 .spacer { flex: 1 1 auto; }
 
 /* Screen navigation. One row for the application, a second for the screen —
