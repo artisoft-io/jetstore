@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -92,14 +93,23 @@ func TestEveryReadPathRequiresACapability(t *testing.T) {
 // testable without a database: VerifyUserPermission treats an empty capability
 // as a configuration error rather than as "no requirement", and this helper must
 // not paper over that.
+//
+// **The status is 500 as of ui_refresh D.2, and it was 401 until 2026-08-27** --
+// I-241. What the empty capability means did not change; what changed is that
+// saying it with a 401 signed the user out for a mistake in the server. This is
+// also the reachable end of that defect: every production caller of
+// requireCapability passes one of the Capability* constants, so the string that
+// gets here comes from this test rather than from a request.
 func TestRequireCapabilityRefusesAnEmptyCapability(t *testing.T) {
 	ctx := &DataTableContext{}
 	code, err := ctx.requireCapability("", "any-token")
 	if err == nil {
 		t.Fatal("an empty capability must not authorise anything")
 	}
-	if code != 401 {
-		t.Errorf("expected 401, got %d", code)
+	if code != http.StatusInternalServerError {
+		t.Errorf("expected %d, got %d (I-241: a missing capability on a statement is "+
+			"a defect in the server, not a refusal of the caller)",
+			http.StatusInternalServerError, code)
 	}
 }
 
