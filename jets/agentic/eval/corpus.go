@@ -237,6 +237,62 @@ type Case struct {
 	// Expected is the instance that was removed — ground truth, for the diff
 	// and never for the gate.
 	Expected json.RawMessage
+	// Hole locates what was cut, so an answer can be put back where the
+	// removed instance was.
+	//
+	// **Added at P.1, 2026-08-27, because the first caller could not score a
+	// case without it.** A compile-pass gate runs the *whole config* through
+	// the startup validator, and a proposed transformation is not a config —
+	// so the caller has to splice the answer into the hole before it has
+	// anything a verifier will judge. Without this field the path is knowable
+	// only to whoever still holds the Instance that made the case, which is an
+	// accident of iteration order rather than a property of the case. Four
+	// functions could cut a hole and none could fill one, for as long as
+	// nothing called them (F32).
+	Hole Instance
+}
+
+// Fill puts a proposed instance back where the removed one was and returns the
+// whole config, which is the artefact a compile-pass gate actually judges.
+//
+// **It works from Context rather than from the original file**, so what is
+// verified is the document the model was given plus the model's answer, and
+// nothing else. Verifying against the pristine file would let a context that
+// was mangled on the way out still produce a passing case — the failure I-147
+// found one layer along, where a stub shaped like the caller agreed with the
+// caller by construction.
+func (c *Case) Fill(artifact json.RawMessage) ([]byte, error) {
+	var proposed any
+	if err := json.Unmarshal(artifact, &proposed); err != nil {
+		return nil, fmt.Errorf("eval: the proposed instance is not JSON: %w", err)
+	}
+	var doc any
+	if err := json.Unmarshal(c.Context, &doc); err != nil {
+		return nil, fmt.Errorf("eval: %s: the case context does not parse: %w", c.File, err)
+	}
+	holder, err := navigate(doc, c.Hole.Path)
+	if err != nil {
+		return nil, fmt.Errorf("eval: %s: %w", c.File, err)
+	}
+	apply, ok := holder.([]any)
+	if !ok {
+		return nil, fmt.Errorf("eval: %s: %s is not an apply array", c.File, pathString(c.Hole))
+	}
+	// The index is a position in the *original* array, and the context is that
+	// array one shorter, so the hole's index may legitimately equal its length
+	// — the instance that was cut was the last one.
+	if c.Hole.Index > len(apply) {
+		return nil, fmt.Errorf("eval: %s: cannot fill position %d of a %d-element apply array",
+			c.File, c.Hole.Index, len(apply))
+	}
+	filled := make([]any, 0, len(apply)+1)
+	filled = append(filled, apply[:c.Hole.Index]...)
+	filled = append(filled, proposed)
+	filled = append(filled, apply[c.Hole.Index:]...)
+	if err := replace(doc, c.Hole.Path, filled); err != nil {
+		return nil, fmt.Errorf("eval: %s: %w", c.File, err)
+	}
+	return json.Marshal(doc)
 }
 
 // MakeCase removes one instance from a config and returns both halves.
@@ -273,6 +329,7 @@ func MakeCase(raw []byte, inst Instance) (*Case, error) {
 	return &Case{
 		File: inst.File, Operator: inst.Operator,
 		Context: context, Expected: expected,
+		Hole: inst,
 	}, nil
 }
 

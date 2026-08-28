@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,8 @@ import (
 
 func TestReport_RefusesToPublishWithoutAnEra(t *testing.T) {
 	r := &Report{
+		Model:        "granite4.1:3b",
+		CaseSource:   "mutation cases from workspaces/*/pipes_config/**",
 		Operators:    []OperatorResult{{Operator: "map_record", Attempted: 10, Passed: 7, LiveInstances: 241}},
 		HeldOutFiles: []string{"a.pc.json"},
 	}
@@ -28,17 +31,29 @@ func TestReport_RefusesAReportNobodyCanPlace(t *testing.T) {
 		r    *Report
 	}{
 		{"no held-out files", &Report{
-			Era:       EraPreTemplates,
+			Era: EraPreTemplates, Model: "m", CaseSource: "s",
 			Operators: []OperatorResult{{Operator: "x", LiveInstances: 1}},
 		}},
-		{"no operators", &Report{Era: EraPreTemplates, HeldOutFiles: []string{"a"}}},
+		{"no operators", &Report{
+			Era: EraPreTemplates, Model: "m", CaseSource: "s", HeldOutFiles: []string{"a"},
+		}},
 		{"passed exceeds attempted", &Report{
-			Era: EraPreTemplates, HeldOutFiles: []string{"a"},
+			Era: EraPreTemplates, Model: "m", CaseSource: "s", HeldOutFiles: []string{"a"},
 			Operators: []OperatorResult{{Operator: "x", Attempted: 2, Passed: 3, LiveInstances: 9}},
 		}},
 		{"untested but attempted", &Report{
-			Era: EraPreTemplates, HeldOutFiles: []string{"a"},
+			Era: EraPreTemplates, Model: "m", CaseSource: "s", HeldOutFiles: []string{"a"},
 			Operators: []OperatorResult{{Operator: "clustering", Attempted: 1, LiveInstances: 0}},
+		}},
+		// P.1's two additions. A figure that cannot say what produced it or
+		// what it measured is the one that travels furthest.
+		{"no model", &Report{
+			Era: EraPreTemplates, CaseSource: "s", HeldOutFiles: []string{"a"},
+			Operators: []OperatorResult{{Operator: "x", LiveInstances: 1}},
+		}},
+		{"no case source", &Report{
+			Era: EraPreTemplates, Model: "m", HeldOutFiles: []string{"a"},
+			Operators: []OperatorResult{{Operator: "x", LiveInstances: 1}},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -54,6 +69,8 @@ func TestReport_RefusesAReportNobodyCanPlace(t *testing.T) {
 func TestReport_RendersEachOperatorHonestly(t *testing.T) {
 	r := &Report{
 		Era:          EraPreTemplates,
+		Model:        "granite4.1:3b",
+		CaseSource:   "mutation cases from workspaces/*/pipes_config/**",
 		HeldOutFiles: []string{"qc_hra.pc.json"},
 		Operators: []OperatorResult{
 			// Enough cases for a percentage to carry information.
@@ -98,6 +115,8 @@ func TestReport_RendersEachOperatorHonestly(t *testing.T) {
 func TestReport_PublishesNoAggregate(t *testing.T) {
 	r := &Report{
 		Era:          EraPreTemplates,
+		Model:        "granite4.1:3b",
+		CaseSource:   "mutation cases from workspaces/*/pipes_config/**",
 		HeldOutFiles: []string{"a.pc.json"},
 		Operators: []OperatorResult{
 			{Operator: "map_record", Attempted: 100, Passed: 90, LiveInstances: 241},
@@ -258,4 +277,92 @@ func repoRootWithWorkspaces(t *testing.T) string {
 	}
 	// jets/agentic/eval -> jetstore_ai -> the parent checkout.
 	return filepath.Clean(filepath.Join(wd, "..", "..", "..", ".."))
+}
+
+// --- P.1's additions: filling a hole, and saying why one was not filled ----
+
+// The corpus API could cut a hole and could not fill one, which is what the
+// first caller needed: a compile-pass gate judges a whole config, and a
+// proposed transformation is not one.
+func TestCase_FillPutsAnAnswerBackWhereTheInstanceWas(t *testing.T) {
+	inst := Instance{
+		File: "t.pc.json", Operator: "analyze",
+		Path:  []Step{key("conditional_pipes_config"), at(0), key("apply")},
+		Index: 1,
+	}
+	c, err := MakeCase([]byte(twoPipes), inst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Hole.Index != 1 || len(c.Hole.Path) != 3 {
+		t.Fatalf("the case does not carry the hole it cut: %+v", c.Hole)
+	}
+	filled, err := c.Fill(json.RawMessage(`{"type":"analyze","note":"proposed"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(filled, &doc); err != nil {
+		t.Fatal(err)
+	}
+	apply := doc["conditional_pipes_config"].([]any)[0].(map[string]any)["apply"].([]any)
+	if len(apply) != 2 {
+		t.Fatalf("filled apply array has %d entries, want 2", len(apply))
+	}
+	// Position matters: an answer appended to the end is a different config
+	// from one restored where the instance was, and cpipes steps are ordered.
+	if apply[0].(map[string]any)["type"] != "map_record" {
+		t.Errorf("the answer displaced its sibling: %s", filled)
+	}
+	if apply[1].(map[string]any)["note"] != "proposed" {
+		t.Errorf("the answer is not at the hole: %s", filled)
+	}
+}
+
+// Filling the last position is legal and the naive bound refuses it: the index
+// is a position in the original array and the context is that array one
+// shorter, so index == len is exactly the case where the cut instance was last.
+func TestCase_FillAcceptsTheLastPositionAndRefusesPastIt(t *testing.T) {
+	c, err := MakeCase([]byte(twoPipes), Instance{
+		File: "t.pc.json", Operator: "partition_writer",
+		Path:  []Step{key("conditional_pipes_config"), at(1), key("apply")},
+		Index: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Fill(json.RawMessage(`{"type":"partition_writer"}`)); err != nil {
+		t.Errorf("filling the only position of an emptied apply array must work: %v", err)
+	}
+	c.Hole.Index = 4
+	if _, err := c.Fill(json.RawMessage(`{"type":"x"}`)); err == nil {
+		t.Error("expected a position past the end to be refused")
+	}
+	c.Hole.Index = 0
+	if _, err := c.Fill(json.RawMessage(`not json`)); err == nil {
+		t.Error("expected a non-JSON answer to be refused rather than spliced in")
+	}
+}
+
+// Two operators that were never attempted, for two different reasons, must not
+// render as the same sentence.
+func TestReport_DistinguishesNotRunByTheSplitFromNotRunByTheHarness(t *testing.T) {
+	r := &Report{
+		Era:          EraPreTemplates,
+		Model:        "granite4.1:3b",
+		CaseSource:   "mutation cases from workspaces/*/pipes_config/**",
+		HeldOutFiles: []string{"a.pc.json"},
+		Operators: []OperatorResult{
+			{Operator: "merge", Attempted: 0, LiveInstances: 8},
+			{Operator: "map_record", Attempted: 0, LiveInstances: 241,
+				NotRun: "schema is ~28,754 tokens and does not fit the 32,768 context"},
+		},
+	}
+	out := r.String()
+	if !strings.Contains(out, "merge") || !strings.Contains(out, "8 live instances available") {
+		t.Errorf("a split that held nothing out should say so:\n%s", out)
+	}
+	if !strings.Contains(out, "does not fit the 32,768 context") {
+		t.Errorf("an operator the harness refused should say why:\n%s", out)
+	}
 }
