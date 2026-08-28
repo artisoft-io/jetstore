@@ -234,6 +234,20 @@ body {
   font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* `danger` is declared by four Delete actions across the installed table
+   documents and had no rule, so a destructive button rendered as a plain one.
+   Found at D.4 fixing the class name the action bar emits — the style was never
+   reaching the stylesheet at all, so nobody had noticed this half was missing.
+   Outlined rather than filled: the accent fill is the primary action's, and a
+   Delete should read as dangerous rather than as the thing to press. */
+.btn-danger {
+  color: var(--danger, #b3261e);
+  border-color: var(--danger, #b3261e);
+  font-weight: 600;
+}
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger, #b3261e) 10%, transparent); }
+/* `secondary` is the base button and needs no rule; named here so the next
+   reader does not go looking for one. */
 .btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;

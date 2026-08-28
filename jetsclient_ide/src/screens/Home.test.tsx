@@ -166,9 +166,14 @@ async function mount() {
   // **A row value rather than the table's label**, and a *visible* one. A static
   // table's rows arrive one tick after its caption, so awaiting the label and
   // then querying a row is racy — I-104's flake, recorded rather than
-  // rediscovered. `org` rather than `table_name`, because the loader table hides
-  // that column and a hidden cell is not in the DOM at all.
-  await screen.findByText("acme_org");
+  // rediscovered.
+  //
+  // **The marker is the pipelines table's since D.4**, because that tab is now
+  // first and default (**I-260**). It was `acme_org`, a loader-table row, and the
+  // loader table is no longer what mounts. `acme_org` would not do for both: the
+  // pipelines table hides `main_object_type`, and a hidden cell is not in the DOM
+  // at all — which is the same trap the previous comment recorded, one column over.
+  await screen.findByText(PIPELINES_MARKER);
   return { posts, api };
 }
 
@@ -189,6 +194,18 @@ const lastRead = (posts: Posted[], table: string) => {
 const tab = (label: string) => screen.getByRole("tab", { name: label });
 const button = (label: string) => screen.getByRole("button", { name: label });
 
+/** A visible cell of the pipelines table, which `mount` now lands on. */
+const PIPELINES_MARKER = "00:01:12";
+
+/**
+ * Opens a tab and waits for one of its rows.
+ *
+ * **Tolerant of the tab already being open since D.4.** The pipelines tab is the
+ * default now, so the calls that used to click their way to it are asking for a
+ * tab that is already active; clicking an active tab is harmless and the wait is
+ * the part that matters. Left as calls rather than deleted, because each one
+ * still documents which table its test is about.
+ */
 async function openTab(label: string, waitFor_: string) {
   fireEvent.click(tab(label));
   await screen.findByText(waitFor_);
@@ -238,13 +255,21 @@ describe("the table this screen shares with a flow", () => {
 });
 
 describe("the screen", () => {
-  it("draws the Dart's three tabs, in the Dart's order, and mounts one", async () => {
+  it("draws three tabs, pipelines first, and mounts one", async () => {
     await mount();
-    // `formTabsConfig`'s three labels, from `FormKeys.home`. The order is the
-    // document's and it is the order a user's muscle memory is in.
+    /*
+      ~~The order is the document's and it is the order a user's muscle memory is
+      in.~~ **Changed at D.4, from I-260**, which is the reporter's decision and
+      the first time this order has been chosen rather than inherited: *Pipeline
+      Execution Status* becomes first and default, relabelled *Pipelines Status*.
+
+      **`File Loader Status` is still here and is leaving.** I-260 moves it into
+      `fileMappingUF` as a pair of buttons, which needs a route and a flow that
+      can start at its second state — **D.10**. It stays until that exists.
+    */
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Pipelines Status",
       "File Loader Status",
-      "Pipeline Execution Status",
       "Data Registry",
     ]);
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
@@ -258,15 +283,24 @@ describe("the screen", () => {
     expect(posts.filter((p) => p.body["action"] === "read")).toHaveLength(1);
   });
 
-  it("queries the second tab's table only once it is opened", async () => {
+  it("queries a tab's table only once it is opened", async () => {
+    /*
+      **The tab this asserts about changed at D.4 and the property did not.**
+      Pipelines is first and default now, so it is queried on mount; the loader
+      table is the one that must wait to be opened. Rewritten around the loader
+      rather than deleted, because what is under test is laziness rather than any
+      particular table.
+    */
     const { posts } = await mount();
-    expect(readsOf(posts, "pipeline_execution_status")).toHaveLength(0);
-    await openTab("Pipeline Execution Status", "00:01:12");
-    expect(readsOf(posts, "pipeline_execution_status")).toHaveLength(1);
+    expect(readsOf(posts, "input_loader_status")).toHaveLength(0);
+    await openTab("File Loader Status", "acme_org");
+    expect(readsOf(posts, "input_loader_status")).toHaveLength(1);
   });
 
   it("names the two display filters apart on the loader table", async () => {
     await mount();
+    // The loader table is the second tab since D.4, so it has to be opened.
+    await openTab("File Loader Status", "acme_org");
     // **The translation used to send both columns to `fileKeyLabel`.** The file
     // key is shortened to its last segment; the error message keeps its text with
     // the recovered-error prefix removed. One name for both would have rendered
@@ -281,6 +315,9 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("splices selectedClient into every table that has a client column", async () => {
     setSelectedClient("acme");
     const { posts } = await mount();
+    // The loader table is the second tab since D.4 (I-260), so it is queried
+    // when opened rather than on mount.
+    await openTab("File Loader Status", "acme_org");
     const where = lastRead(posts, "input_loader_status")!["whereClauses"] as Record<string, unknown>[];
     expect(where).toContainEqual({
       table: "input_loader_status",
@@ -296,7 +333,10 @@ describe("the three filters, none of which is visible on the screen", () => {
     // I-104 failure: correct where it was checked, absent where it was not.
     setSelectedClient("acme");
     const { posts } = await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    // The loader table is the second tab since D.4 (I-260), so it is queried
+    // when opened rather than on mount.
+    await openTab("File Loader Status", "acme_org");
+    await openTab("Pipelines Status", "00:01:12");
     await openTab("Data Registry", "claim_staging");
     for (const [table, column] of [
       ["input_loader_status", "client"],
@@ -313,6 +353,9 @@ describe("the three filters, none of which is visible on the screen", () => {
     // is false — and `inputRegistryTable` alone then gets the `Any` exclusion
     // (`data_table_source.dart`, `_makeQuery`).
     const { posts } = await mount();
+    // The loader table is the second tab since D.4 (I-260), so it is queried
+    // when opened rather than on mount.
+    await openTab("File Loader Status", "acme_org");
     const loader = lastRead(posts, "input_loader_status")!["whereClauses"] as
       | Record<string, unknown>[]
       | undefined;
@@ -335,7 +378,7 @@ describe("the three filters, none of which is visible on the screen", () => {
     // entirely correct.
     seedHomeFilters();
     const { posts } = await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     const where = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as Record<
       string,
       unknown
@@ -350,6 +393,9 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("splices dataRegistryFilters into inputRegistryTable and into nothing else", async () => {
     seedHomeFilters();
     const { posts } = await mount();
+    // The loader table is the second tab since D.4 (I-260), so it is queried
+    // when opened rather than on mount.
+    await openTab("File Loader Status", "acme_org");
     const loader = (lastRead(posts, "input_loader_status")!["whereClauses"] ?? []) as Record<
       string,
       unknown
@@ -371,7 +417,7 @@ describe("the table's buttons", () => {
     // I-104's other half: `secondRowActions` was authored and nothing drew it.
     // `TableView` draws both bars, and this table is the reason it has to.
     await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     for (const label of [
       "Start Pipeline",
       "Refresh",
@@ -391,7 +437,7 @@ describe("the table's buttons", () => {
 
   it("navigates in-app to a screen this app serves", async () => {
     await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     await selectRow("00:01:12");
 
     // `/executionStatusDetails/:session_id` is C.7's and is served here, so this
@@ -410,7 +456,7 @@ describe("the table's buttons", () => {
     // dialog host. `showGetInputDialog` is one `TextField` with CANCEL and OK.
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("sess-1, sess-2");
     const { posts } = await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     fireEvent.click(button("Set Session Id"));
     await waitFor(() => {
       const where = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as Record<
@@ -429,7 +475,7 @@ describe("the table's buttons", () => {
   it("does nothing when the prompt is cancelled", async () => {
     const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
     const { posts } = await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     const before = readsOf(posts, "pipeline_execution_status").length;
     fireEvent.click(button("Set Session Id"));
     expect(readsOf(posts, "pipeline_execution_status")).toHaveLength(before);
@@ -441,7 +487,7 @@ describe("the table's buttons", () => {
     // and one Close button, seeded from column 13 of the selected row through
     // `navigationParams`.
     await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     await selectRow("00:01:12");
     fireEvent.click(button("View Failure Details"));
     const dialog = await screen.findByRole("dialog");
@@ -455,7 +501,7 @@ describe("the table's buttons", () => {
 
   it("posts resubmit_pipeline with the selected session, unpacked", async () => {
     const { posts } = await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     await selectRow("00:01:12");
     fireEvent.click(button("Resubmit"));
     await waitFor(() => {
@@ -471,7 +517,7 @@ describe("the table's buttons", () => {
 
   it("gates the row buttons on a selection, and the whole toolbar is not gated", async () => {
     await mount();
-    await openTab("Pipeline Execution Status", "00:01:12");
+    await openTab("Pipelines Status", "00:01:12");
     expect(button("View Execution Details").hasAttribute("disabled")).toBe(true);
     expect(button("Refresh").hasAttribute("disabled")).toBe(false);
     await selectRow("00:01:12");

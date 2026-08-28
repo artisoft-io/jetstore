@@ -101,6 +101,15 @@ import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
  * table caption are both visible.
  */
 const TABS = [
+  // **First and default since D.4** (**I-260**), and relabelled *Pipelines
+  // Status*: the tab strip's label is the tab's, not the table's, which is why
+  // this line changes and the document does not.
+  { key: "pipelineExecStatusTable", label: "Pipelines Status", document: null },
+  // **Leaving, but not yet.** I-260 moves this tab to `fileMappingUF`'s first
+  // screen as a pair of buttons; that needs a route, a `startAt` for the flow and
+  // an edit to a workspace document, so it is **D.10** rather than part of this
+  // change. Removing it here before the destination exists would take the screen
+  // away from users to save a later diff.
   { key: "inputLoaderStatusTable", label: "File Loader Status", document: inputLoaderStatusTable },
   // **The middle tab's document is not bundled**, and it is the only table in
   // either corpus with two kinds of consumer: `homeFiltersUF` draws it from the
@@ -108,7 +117,6 @@ const TABS = [
   // once under `jets/workspace_assets/table_configs/` and once beside its
   // neighbours — with a test asserting the copies agreed, which is a guard rather
   // than a fix. One copy, read from where the flow reads it.
-  { key: "pipelineExecStatusTable", label: "Pipeline Execution Status", document: null },
   { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable },
 ] as const;
 

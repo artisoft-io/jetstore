@@ -53,7 +53,15 @@ export function ActionBar({
       {shown.map(({ action, state }) => (
         <ActionButton
           key={action.key}
-          className={`btn btn--${action.style}`}
+          // `btn-` and not `btn--`: the stylesheet defines `.btn-primary` and
+          // the rest of the app writes `btn btn-primary` (`Login.tsx`,
+          // `GitProfile.tsx`, `WorkspaceIde.tsx`). This emitted `btn--primary`,
+          // which matched no rule, so **every configured action rendered as a
+          // plain `.btn` and each document's declared `style` was inert** — 49
+          // buttons across 24 table documents, of which 4 are `danger` Deletes.
+          // D.4, from **I-264**, which reported the visible half: *Start
+          // Pipeline* is declared `primary` and did not look it.
+          className={`btn btn-${action.style}`}
           disabled={!state.enabled}
           {...(action.capability !== undefined ? { capability: action.capability } : {})}
           {...(state.reason !== undefined ? { title: state.reason } : {})}
