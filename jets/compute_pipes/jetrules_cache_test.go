@@ -84,3 +84,66 @@ func TestDomainCachesAreNotPublishedBeforeTheyAreFull(t *testing.T) {
 		})
 	}
 }
+
+// The flat record's columns are the class's data properties.
+//
+// **This is the defect that nulled `cintel:has_Medical_Events`**, one layer up
+// from where it was reported. The column reached `extractLiteralValue` because
+// `GetDomainProperties` put it there, and `GetMultiValueDataProperties` excludes
+// object properties from the multi-value set — so a multi-valued object property
+// looked single-valued and its data was dropped with a warning. Both halves came
+// from the commit that introduced object properties.
+//
+// The fixture is `cintel:Patient_Profile`'s real shape: a text data property
+// that receives the `toon` serialisation, two `resource` object properties that
+// are walked to build it, and a multi-valued data property that must survive.
+func TestFlatRecordColumnsAreDataPropertiesOnly(t *testing.T) {
+	ws := t.TempDir()
+	build := filepath.Join(ws, "testws", "build")
+	if err := os.MkdirAll(build, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tables := `{"cintel:Patient_Profile":{"table_name":"cintel:Patient_Profile",` +
+		`"class_name":"cintel:Patient_Profile","columns":[` +
+		`{"column_name":"cintel:Claim_Summary","type":"text"},` +
+		`{"column_name":"cintel:has_Medical_Events","type":"resource","is_object":true,"as_array":true},` +
+		`{"column_name":"hc:Member_ID","type":"text"},` +
+		`{"column_name":"jets:ruleTag","type":"text","as_array":true}]}}`
+	if err := os.WriteFile(filepath.Join(build, "tables.json"), []byte(tables), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldHome, oldPrefix := workspaceHome, wsPrefix
+	workspaceHome, wsPrefix = ws, "testws"
+	t.Cleanup(func() {
+		workspaceHome, wsPrefix = oldHome, oldPrefix
+		ClearJetrulesCaches()
+	})
+	ClearJetrulesCaches()
+
+	columns, err := GetDomainProperties("cintel:Patient_Profile", false)
+	if err != nil {
+		t.Fatalf("GetDomainProperties: %v", err)
+	}
+	got := make(map[string]bool, len(columns))
+	for _, c := range columns {
+		got[c] = true
+	}
+	if got["cintel:has_Medical_Events"] {
+		t.Error("an object property must not be a column of a flat record — " +
+			"this is what reached extractLiteralValue and had its values nulled")
+	}
+	for _, want := range []string{
+		"jets:key", "rdf:type", "jets:source_period_sequence",
+		"cintel:Claim_Summary", "hc:Member_ID", "jets:ruleTag",
+	} {
+		if !got[want] {
+			t.Errorf("%s should be a column, got %v", want, columns)
+		}
+	}
+	// The column that receives the toon serialisation is a *data* property and
+	// survives, which is why the filter needs no knowledge of column_encodings.
+	if !got["cintel:Claim_Summary"] {
+		t.Error("the encoded column is a data property and must survive the filter")
+	}
+}

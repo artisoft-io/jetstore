@@ -486,6 +486,12 @@ func GetMultiValueDataProperties(className string) ([]string, error) {
 	multiValueProperties := make([]string, 0)
 	for i := range tableInfo.Columns {
 		p := tableInfo.Columns[i]
+		// `!p.IsObject` is belt and braces now rather than the rule. It used to
+		// be the only thing standing between an object property and this set,
+		// and it was the wrong thing: excluding a multi-valued object property
+		// here made it look single-valued, and its data was dropped. Object
+		// properties no longer reach a flat record at all
+		// (`GetDomainProperties`), so nothing gets here to be excluded.
 		if p.AsArray && !p.IsObject {
 			multiValueProperties = append(multiValueProperties, p.ColumnName)
 		}
@@ -565,10 +571,32 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 		columns = append(columns, "rdf:type")
 		columns = append(columns, "jets:source_period_sequence")
 		for i := range tableInfo.Columns {
-			p := tableInfo.Columns[i].ColumnName
-			switch p {
-			case "jets:key", "rdf:type", "jets:source_period_sequence":
+			col := &tableInfo.Columns[i]
+			p := col.ColumnName
+			switch {
+			case p == "jets:key" || p == "rdf:type" || p == "jets:source_period_sequence":
 				// skip reserved properties
+			case col.IsObject:
+				// **An object property is graph structure, not a column.** A flat
+				// record carries data properties; the object properties are how
+				// the graph is *traversed* when a channel asks for a serialised
+				// one, and the serialisation lands in a data property — in
+				// `patient_profile.pc.json` the `toon` encoding names
+				// `cintel:Claim_Summary`, which is `type: text`, while the two
+				// object properties are `type: resource`.
+				//
+				// Leaving them in is what produced
+				// `property cintel:has_Medical_Events is not multi-value but has
+				// multiple values ..., setting value to null`: the column reached
+				// `extractLiteralValue`, where `GetMultiValueDataProperties`
+				// excludes object properties from the multi-value set, so a
+				// multi-valued one looked single-valued and its data was dropped.
+				// Both halves date from the commit that introduced object
+				// properties; see jets/compute_pipes/README.md.
+				//
+				// The *derived* list is filtered and `chSpec.Columns` is not — an
+				// explicitly listed column is still honoured, which is the escape
+				// hatch if one is ever wanted materialised.
 			default:
 				columns = append(columns, p)
 			}

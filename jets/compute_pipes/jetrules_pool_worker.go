@@ -23,7 +23,6 @@ type JrPoolWorker struct {
 	source                   *InputChannel
 	rdfType2Columns          map[string][]string
 	multiValueDataProperties map[string]bool
-	objectProperties         map[string]bool
 	column2RdfType           map[string]string
 	ruleEngine               JetRuleEngine
 	errorCount               int
@@ -41,7 +40,6 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 
 	// Prepare a map of the multi-value properties for the output channels, to ensure proper cardinality.
 	mvProperties := make(map[string]bool)
-	objProperties := make(map[string]bool)
 	var column2RdfType map[string]string
 	for _, outChannel := range outputChannels {
 		pm, err := GetMultiValueDataProperties(outChannel.ClassName)
@@ -51,14 +49,6 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 		}
 		for _, prop := range pm {
 			mvProperties[prop] = true
-		}
-		op, err := GetObjectProperties(outChannel.ClassName)
-		if err != nil {
-			log.Println("Error getting object properties for class", outChannel.ClassName, ":", err)
-			continue
-		}
-		for _, prop := range op {
-			objProperties[prop] = true
 		}
 		p2t, err := GetDataPropertyRdfType(outChannel.ClassName)
 		if err != nil {
@@ -86,7 +76,6 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 		errCh:                    errCh,
 		rdfType2Columns:          rdfType2Columns,
 		multiValueDataProperties: mvProperties,
-		objectProperties:         objProperties,
 		column2RdfType:           column2RdfType,
 		builderContext:           ctx,
 	}
