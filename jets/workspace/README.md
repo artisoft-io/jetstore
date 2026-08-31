@@ -170,3 +170,66 @@ one, use the constant the code uses.
 `TestWorkspaceModesAgree` guards the invariant instead of the symptom: it compares
 the two modes to each other, which needs no second identity, and the comparison is
 the thing that was wrong.
+
+## What the seed copies, and why it is less than the workspace
+
+**The seed exists to stand in for a fetch, so it should deliver what that fetch
+would have delivered.** It did not: `os.CopyFS` copies a directory, and the
+directory is the client's whole repository.
+
+`SyncWorkspaceFiles` already declares what each runtime needs, through its
+`contentType` argument:
+
+| caller | fetches | which contains |
+|---|---|---|
+| `SyncComputePipesWorkspace` | `workspace.tgz`, `sqlite` | `workspace_control.json`, `build/**`, `pipes_config/**`, `lookup.db`, `workspace.db` |
+| `SyncRunReportsWorkspace` | `reports.tgz` | the report definitions |
+
+**Neither carries `.git`, and neither carries `lookups/`** — those CSVs are the
+*source* that the compile turns into the `lookup.db` that `sqlite` delivers. So a
+compute-pipes run that took the fetch never had them, and a seeded one having
+them was the anomaly rather than the saving.
+
+Measured on the native lambda's cold start of 2026-08-31: **113.5 MB over 222
+files in 24.4s**, of which
+
+| | MB | files |
+|---|---:|---:|
+| `lookup.db` and the other root files | 59.0 | 7 |
+| `lookups/` — the CSV source | 46.2 | 9 |
+| `.git` | 6.9 | 83 |
+| everything else | 1.4 | 123 |
+
+so the two exclusions are **53 MB, 47%**.
+
+**The list belongs to the caller, and `run_reports` is why** — for a stronger
+reason than "it reads them". `run_reports` syncs the lookups to S3 (`:287`) and
+then **recompiles the workspace** unless `SkipCompileWorkspace` is set (`:293`),
+and the compile is what consumes the CSVs: `PackageLookupTablesToSqlite` opens
+each one (`lookup_tables.go:87`) to rebuild `lookup.db`. **A report that updates
+a lookup table needs the source present**, not merely copied onward. So a list
+baked into the seed would be right for one caller and wrong for the other — the
+same reason `contentType` is a parameter.
+
+**That also settles whether the compute-pipes exclusion is safe.** The compile is
+the only thing that reads the CSVs, and its three callers are the apiserver
+(`datatable/workspace_helper_functions.go:92`, `apiserver/server.go`),
+`run_reports` (`:295`), and the build-time CLI (`cmds/compile_workspace`).
+**`jets/compute_pipes` contains no call to `CompileWorkspace` at all**, so nothing
+on the path that passes the exclusions can ever need them. That is a demonstrated
+property rather than an assumption about what gets read.
+
+**The default is to copy.** A new top-level entry is included unless somebody
+names it. An unnecessary copy costs seconds; a missing one breaks a pipeline, and
+the failure would look exactly like the two that preceded it.
+
+**The images are untouched.** `.git` and `lookups/` are still in every `*_ws`
+image, because the UI service needs both — it compiles the workspace locally and
+syncs it with git. What changed is only what the lambda copies into `/tmp`.
+
+Byte counts for both sides are logged, so a skip that stops paying says so:
+
+```
+Seeded /tmp/workspaces/jets_ws in 12.1s (60.4 MB copied, 53.1 MB skipped: [.git lookups])
+```
+

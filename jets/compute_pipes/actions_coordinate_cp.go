@@ -44,9 +44,22 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		return fmt.Errorf("error while synching workspace files from db: %v", err)
 	}
 	if didSync {
+		// The workspace content changed under us, so what is cached is stale.
 		ClearJetrulesCaches()
-		LoadJetrulesCaches()
 	}
+	// **Pre-load on both paths, not only after a fetch.** `didSync` is true only
+	// when the workspace was pulled from the database; the image-workspace skip
+	// returns false (`SyncComputePipesWorkspace`), so from the moment that skip
+	// was enabled this pre-load stopped running on the native lambda and the
+	// three caches first loaded inside the worker pool instead.
+	//
+	// That is what surfaced the race in `GetWorkspaceDomainTables` on
+	// 2026-08-31: six workers, one winner, five reading an empty cache. The race
+	// is fixed where it lives, so this is no longer load-bearing for
+	// correctness — it is here because loading three files once, before the
+	// goroutines start, is what the code always intended and is strictly better
+	// than having six of them arrive at a cold cache together.
+	LoadJetrulesCaches()
 
 	// Make sure we have a jet partition key set
 	if len(args.JetsPartitionLabel) == 0 {
