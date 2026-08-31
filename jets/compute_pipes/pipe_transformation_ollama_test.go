@@ -2,10 +2,12 @@ package compute_pipes
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -860,5 +862,178 @@ func TestOllamaMissingServerUrl(t *testing.T) {
 		map[string]any{"$PORT": 11434, "$JETS_INFER_URL": "http://from-env:11434"}, "ollama_config")
 	if err != nil || url != "http://configured:11434" {
 		t.Errorf("expecting the configured url, got %q, err %v", url, err)
+	}
+}
+
+// A stopped infer server fails the pipeline instead of passing every record
+// through. Reported 2026-08-31.
+//
+// **`on_error` defaults to pass-through, and none of its three answers fits a
+// server that is not there.** Drop, fail-on-record and pass-through are all about
+// one record; with the server down, every record paid three attempts and their
+// backoff and was forwarded unchanged, so the lambda ran to its 15-minute
+// timeout and the pipeline "succeeded" having skipped the inference it exists to
+// perform. The operator saw only
+// `after 3 attempts: error: the infer server returned 503 Service Temporarily
+// Unavailable`, repeated.
+func TestOllamaStopsThePipelineWhenTheServerIsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) == 0 {
+		t.Fatalf("a 503 from the infer server must fail the pipeline, got none; output=%v errors=%v",
+			result.outputRecords, result.errorRecords)
+	}
+	const want = "Infer server is not available (is it running?)"
+	// The message must name the setting. The default that decided this is not
+	// written in the document, so the failure is the only place the operator can
+	// learn what to write instead.
+	const wantSetting = `"on_error": "pass_through"`
+	found := false
+	for _, err := range result.pipelineErrs {
+		if strings.Contains(err.Error(), want) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("the failure must name the cause an operator can act on, want %q, got %v",
+			want, result.pipelineErrs)
+	}
+	named := false
+	for _, err := range result.pipelineErrs {
+		if strings.Contains(err.Error(), wantSetting) {
+			named = true
+		}
+	}
+	if !named {
+		t.Errorf("the failure must name the setting that changes it, want %s, got %v",
+			wantSetting, result.pipelineErrs)
+	}
+}
+
+// An author who wrote `on_error: pass_through` gets pass-through, even with the
+// server down. **Only the invisible default is overruled**: a default nobody
+// wrote should not decide, and a choice somebody did write should not be
+// silently reversed. Without this the fix above would make on_error unsettable
+// for the one failure where an operator might most want to set it.
+func TestOllamaExplicitPassThroughIsHonouredWhenTheServerIsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+			OnError:        OnErrorPassThrough,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("an explicit on_error must be honoured, got %v", result.pipelineErrs)
+	}
+	if len(result.outputRecords) != 1 {
+		t.Errorf("pass_through must still pass the record through, got %d output records",
+			len(result.outputRecords))
+	}
+}
+
+// A 429 is the server asking to be asked more slowly, not a server that is gone,
+// so it stays a record-level failure and `on_error` still decides. Without this
+// the fix above would take down a pipeline that is merely being throttled.
+func TestOllamaThrottlingDoesNotStopThePipeline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("slow down"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("a 429 must not fail the pipeline, got %v", result.pipelineErrs)
+	}
+	if len(result.errorRecords) != 1 {
+		t.Errorf("a 429 must still report the record, got %d error records", len(result.errorRecords))
+	}
+}
+
+// With pass_through chosen explicitly, a stopped server is asked once, not once
+// per record.
+//
+// **Otherwise the explicit choice costs exactly what the default did.** The
+// pipeline no longer fails, but every record still pays its retry sequence and
+// backoff against a server already known to be down — the same fifteen-minute
+// timeout, opted into. The first record's exhausted retries are proof enough for
+// the rest.
+func TestOllamaAsksAStoppedServerOncePerCooldown(t *testing.T) {
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	records := make([][]any, 0, 8)
+	for i := range 8 {
+		records = append(records, []any{fmt.Sprintf("c-%d", i), "tooth ache", nil, nil, nil})
+	}
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+			OnError:        OnErrorPassThrough,
+			PoolSize:       1,
+		},
+	}, nil, records)
+
+	// One worker, so the breaker opens on the first record and the other seven
+	// never reach the wire. Asserted as an equality rather than a bound: if it
+	// becomes 8 again the saving is gone, and if it becomes 0 the operator has
+	// stopped calling the server at all.
+	if got := calls.Load(); got != 1 {
+		t.Errorf("a stopped server should be asked once for 8 records, got %d calls", got)
+	}
+	// pass_through was chosen, so every record still comes out.
+	if len(result.outputRecords) != len(records) {
+		t.Errorf("pass_through must pass all %d records through, got %d",
+			len(records), len(result.outputRecords))
+	}
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("an explicit on_error must be honoured, got %v", result.pipelineErrs)
 	}
 }

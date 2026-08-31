@@ -1274,6 +1274,14 @@ type OllamaSpec struct {
 // format is unchanged: encoding/json promotes the fields onto the host.
 // See the doc block above OllamaSpec for the field-by-field description.
 type InferCommonSpec struct {
+	// onErrorDefaulted records that OnError was not set by the author and was
+	// filled in by applyInferCommonDefaults. Unexported, so it never round-trips
+	// through json: it is a fact about the document rather than part of it.
+	//
+	// It exists because an invisible default should not get to decide whether a
+	// stopped infer server takes the pipeline down — see the infer operator's
+	// failedRecord.
+	onErrorDefaulted       bool
 	PromptTemplate         string               `json:"prompt_template,omitempty"`
 	PromptTemplateName     string               `json:"prompt_template_name,omitempty"`
 	SystemPrompt           string               `json:"system_prompt,omitempty"`

@@ -148,7 +148,8 @@ func (c *embedClient) callOnce(ctx context.Context, payload []byte) (
 	if err != nil {
 		// The common case is the infer server being stopped; say so in terms the operator
 		// can act on rather than surfacing a bare dial error.
-		return nil, nil, true, fmt.Errorf("while calling the infer server at %s, is it running? %v", c.url, err)
+		return nil, nil, true, unavailable(
+			fmt.Errorf("while calling the infer server at %s, is it running? %v", c.url, err))
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(response.Body)
@@ -157,8 +158,14 @@ func (c *embedClient) callOnce(ctx context.Context, payload []byte) (
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
 		retryable := response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= 500
-		return nil, nil, retryable, fmt.Errorf("error: the infer server returned %s: %s",
+		statusErr := fmt.Errorf("error: the infer server returned %s: %s",
 			response.Status, embedExplainError(string(body)))
+		// A 5xx is the server; a 429 is the server asking to be asked more
+		// slowly, which the retry already answers. See inferServerUnavailable.
+		if response.StatusCode >= 500 {
+			return nil, nil, retryable, unavailable(statusErr)
+		}
+		return nil, nil, retryable, statusErr
 	}
 	var resp embedApiResponse
 	if err = json.Unmarshal(body, &resp); err != nil {

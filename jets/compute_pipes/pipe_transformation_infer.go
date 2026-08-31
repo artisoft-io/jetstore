@@ -15,6 +15,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -138,11 +139,53 @@ type inferPoolManager struct {
 	errorCount    atomic.Int64 // records that failed
 	retryCount    atomic.Int64
 	latencyMs     atomic.Int64
-	promptTokens  atomic.Int64
-	evalTokens    atomic.Int64
+	// unavailableUntil is the unix nano before which the infer server is treated
+	// as down without asking it again. See `serverDown` and `call`.
+	unavailableUntil atomic.Int64
+	promptTokens     atomic.Int64
+	evalTokens       atomic.Int64
 	// interruptOnce guards the close of the done channel, since every worker may hit an
 	// error concurrently.
 	interruptOnce sync.Once
+}
+
+// The circuit breaker, and why it is not a latch.
+//
+// **Remembering costs nothing and forgetting is what makes it safe.** With
+// `on_error` explicitly `pass_through` or `drop`, a stopped server does not fail
+// the run — every record then pays its full retry sequence and backoff before
+// being passed through, which is the same fifteen-minute timeout as before,
+// merely opted into. One record's exhausted retries are already proof enough
+// about the server, so the rest skip the call.
+//
+// **It reopens on a timer rather than latching for the run.** A latch is simpler
+// and wrong for the case that actually happens here: the infer server is an ECS
+// service on a single GPU instance, so a deploy stops and restarts it, and a
+// pipeline running across that window would otherwise fail every record after
+// the outage — including the ones the server came back in time to answer. The
+// cooldown bounds the hammering without deciding the server is gone forever.
+//
+// No explicit close: a probe that succeeds simply does not extend the window.
+const inferUnavailableCooldown = 30 * time.Second
+
+// serverDown reports whether the infer server was found unavailable recently
+// enough that there is no point asking again.
+func (pm *inferPoolManager) serverDown() bool {
+	until := pm.unavailableUntil.Load()
+	return until > 0 && time.Now().UnixNano() < until
+}
+
+// noteServerDown opens the window. Monotonic under concurrency: several workers
+// may exhaust their retries at once and the latest wins, which is the one that
+// learnt most recently.
+func (pm *inferPoolManager) noteServerDown() {
+	deadline := time.Now().Add(inferUnavailableCooldown).UnixNano()
+	for {
+		current := pm.unavailableUntil.Load()
+		if current >= deadline || pm.unavailableUntil.CompareAndSwap(current, deadline) {
+			return
+		}
+	}
 }
 
 func (pm *inferPoolManager) summary(prefix string) string {
@@ -278,6 +321,27 @@ func (w *inferWorker) sendRecord(record *[]any) {
 
 // failedRecord reports a row-level failure and applies the on_error policy.
 func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
+	// **The server being down overrules the *default* `on_error`, and never an
+	// explicit one.** Every policy this switch offers is about one record — drop
+	// it, fail on it, pass it through — and none is an answer to "there is no
+	// server". Pass-through is the worst of the three here and it is also the
+	// default, so with the server stopped a pipeline that never mentioned
+	// `on_error` completed having silently skipped the inference it exists to
+	// perform, after paying every record's retries.
+	//
+	// **But a default that is not written down should not get to decide
+	// either way**, which is why this checks `onErrorDefaulted` rather than the
+	// value: an author who wrote `on_error: pass_through` has said what they want
+	// and gets it. The message names the setting, so the operator who did not
+	// write one learns what to write from the failure rather than from the
+	// documentation for a field they did not know existed.
+	if isServerUnavailable(err) && w.common.onErrorDefaulted {
+		w.pm.interrupt(w.errCh, w.doneCh, fmt.Errorf(
+			"%s: Infer server is not available (is it running?). To let the pipeline "+
+				"continue without inference instead, set \"on_error\": \"%s\" on this operator. Cause: %v",
+			w.labels.ErrPrefix, OnErrorPassThrough, err))
+		return
+	}
 	nbrErrors := w.pm.errorCount.Add(1)
 	err = fmt.Errorf("%s: %v", w.labels.ErrPrefix, err)
 	maxErrors := int64(w.common.MaxErrorCount)
@@ -309,10 +373,50 @@ func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
 	}
 }
 
+// inferServerUnavailable marks a failure that is about the **server** rather
+// than about the record being processed.
+//
+// **The distinction is what stops a stopped infer server from costing fifteen
+// minutes.** `on_error` defaults to pass-through, so a record whose call fails
+// is logged and forwarded — correct for a record the model cannot handle, and
+// exactly wrong when the server is down: every record then pays its attempts and
+// their backoff before being passed through unchanged, and the lambda runs to
+// its timeout while the pipeline reports success, having skipped the inference
+// it exists to perform. Reported 2026-08-31 against a stopped server, where the
+// operator saw `after 3 attempts: error: the infer server returned 503 Service
+// Temporarily Unavailable` repeated until the 15-minute wall.
+//
+// Two failures carry it: a connection error, and a 5xx. **A 429 does not** — that
+// is the server asking to be asked more slowly, which is what the retry is for,
+// and a throttled pipeline should not die.
+type inferServerUnavailable struct{ err error }
+
+func (e *inferServerUnavailable) Error() string { return e.err.Error() }
+func (e *inferServerUnavailable) Unwrap() error { return e.err }
+
+// unavailable wraps err when the status says the server, not the request, is the
+// problem. The backends call it so the classification lives in one place.
+func unavailable(err error) error { return &inferServerUnavailable{err: err} }
+
+// isServerUnavailable reports whether err is a server-level failure.
+func isServerUnavailable(err error) bool {
+	var u *inferServerUnavailable
+	return errors.As(err, &u)
+}
+
 // call posts the payload to the infer server, retrying the failures that are worth
 // retrying: timeouts, connection errors, 429 and 5xx. A 4xx is a request the server will
 // keep refusing, so it fails the record immediately.
 func (w *inferWorker) call(ctx context.Context, payload []byte) ([]byte, inferResponse, error) {
+	// **Ask the breaker before the server.** A record arriving inside the
+	// cooldown fails immediately, with no attempt and no backoff — which is the
+	// whole saving, since the alternative is every record repeating the
+	// discovery that the server is down.
+	if w.pm.serverDown() {
+		return nil, nil, unavailable(fmt.Errorf(
+			"the infer server was unavailable within the last %s, not retried for this record",
+			inferUnavailableCooldown))
+	}
 	var lastErr error
 	wait := w.retryWait
 	for attempt := 0; attempt <= w.maxRetry; attempt++ {
@@ -334,7 +438,18 @@ func (w *inferWorker) call(ctx context.Context, payload []byte) ([]byte, inferRe
 			return nil, nil, err
 		}
 	}
-	return nil, nil, fmt.Errorf("after %d attempts: %v", w.maxRetry+1, lastErr)
+	// **Retry exhaustion against an unavailable server is not a record-level
+	// failure**, and saying so here is what lets `failedRecord` stop the pipeline
+	// rather than pass the record through. The retry policy has already judged
+	// these errors transient; still failing on the last attempt means the server
+	// is not there.
+	err := fmt.Errorf("after %d attempts: %v", w.maxRetry+1, lastErr)
+	if isServerUnavailable(lastErr) {
+		// One record's exhausted retries are proof enough for the rest.
+		w.pm.noteServerDown()
+		return nil, nil, unavailable(err)
+	}
+	return nil, nil, err
 }
 
 // ---------------------------------------------------------------------------
@@ -779,6 +894,11 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 // configuration; the backend applies its own on top.
 func applyInferCommonDefaults(common *InferCommonSpec) {
 	if len(common.OnError) == 0 {
+		// **Recorded before it is filled in**, because from here on an unset
+		// `on_error` and an explicit `on_error: pass_through` are the same
+		// string, and the difference decides whether a stopped infer server may
+		// be overruled. See `failedRecord`.
+		common.onErrorDefaulted = true
 		common.OnError = OnErrorPassThrough
 	}
 	if common.PoolSize < 1 {
