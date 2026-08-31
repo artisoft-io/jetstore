@@ -28,7 +28,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Make the build directory if not exists
 	buildDir := fmt.Sprintf("%s/%s/build", workspaceHome, workspaceName)
-	err = os.MkdirAll(buildDir, 0770)
+	err = os.MkdirAll(buildDir, workspaceDirMode)
 	if err != nil {
 		return "", fmt.Errorf("while creating build directory: %v", err)
 	}
@@ -137,7 +137,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
 		// Make sure the directory exists
-		err = os.MkdirAll(filepath.Dir(fpath), 0770)
+		err = os.MkdirAll(filepath.Dir(fpath), workspaceDirMode)
 		if err != nil {
 			return "", fmt.Errorf("while creating build sub-directory: %v", err)
 		}

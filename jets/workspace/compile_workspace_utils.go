@@ -107,7 +107,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 			}
 			// create workspace.tgz file and dir structure
 			fileDir := filepath.Dir(localFileName)
-			if err = os.MkdirAll(fileDir, 0770); err != nil {
+			if err = os.MkdirAll(fileDir, workspaceDirMode); err != nil {
 				return false, fmt.Errorf("while creating file directory structure: %v", err)
 			}
 			// Put obj to local file system
