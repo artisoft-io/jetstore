@@ -127,3 +127,101 @@ func TestFailsLoudlyWhenTheImageClaimsAVersionAndCarriesNoWorkspace(t *testing.T
 		}
 	}
 }
+
+// The exclusions, and the three properties that make them safe.
+//
+// The seed stands in for a fetch that would have delivered `workspace.tgz` and
+// `sqlite` — neither of which carries `.git` or `lookups/`. Trimming those is
+// bringing the seed back to the contract, not guessing at what is read; see
+// copyWorkspaceExcept.
+func TestSeedLeavesOutWhatTheCallerNames(t *testing.T) {
+	home, repo := t.TempDir(), t.TempDir()
+	withEnv(t, home, "jets_ws", repo)
+	ws := filepath.Join(repo, "jets_ws")
+	seedRepo(t, repo, "jets_ws")
+	// The two large entries the compute-pipes fetch never delivers...
+	mk := func(rel string, perm os.FileMode) {
+		t.Helper()
+		p := filepath.Join(ws, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), perm); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk(".git/HEAD", 0644)
+	mk("lookups/codes.csv", 0644)
+	// ...an executable, because 16 of the workspace's files are...
+	mk("scripts/run.sh", 0755)
+	// ...and a nested `lookups/`, which must NOT be skipped: the caller named a
+	// top-level entry, and silently matching it at any depth would be a surprise.
+	mk("data_model/lookups/keep.csv", 0644)
+
+	if err := ensureLocalRepoSeeded(".git", "lookups"); err != nil {
+		t.Fatalf("ensureLocalRepoSeeded: %v", err)
+	}
+
+	dest := filepath.Join(home, "jets_ws")
+	for _, gone := range []string{".git", "lookups"} {
+		if _, err := os.Stat(filepath.Join(dest, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s should not have been copied, got err=%v", gone, err)
+		}
+	}
+	for _, kept := range []string{
+		"build/classes.json", "lookup.db", "scripts/run.sh", "data_model/lookups/keep.csv",
+	} {
+		if _, err := os.Stat(filepath.Join(dest, kept)); err != nil {
+			t.Errorf("%s should have been copied: %v", kept, err)
+		}
+	}
+	// The execute bit survives, which os.CopyFS also preserved and a naive
+	// rewrite would drop.
+	fi, err := os.Stat(filepath.Join(dest, "scripts/run.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm()&0o111 == 0 {
+		t.Errorf("scripts/run.sh lost its execute bit: %#o", fi.Mode().Perm())
+	}
+	// And every directory is traversable by any identity, which is the property
+	// the whole seed exists to preserve — see jets/workspace/README.md.
+	if err := filepath.WalkDir(dest, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		info, iErr := d.Info()
+		if iErr != nil {
+			return iErr
+		}
+		if info.Mode().Perm()&0o005 != 0o005 {
+			t.Errorf("%s is not world-traversable: %#o", p, info.Mode().Perm())
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// With no exclusions it copies everything, which is what run_reports gets: it
+// reads lookups/ and would break if this function had the list baked in.
+func TestSeedCopiesEverythingWhenNothingIsNamed(t *testing.T) {
+	home, repo := t.TempDir(), t.TempDir()
+	withEnv(t, home, "jets_ws", repo)
+	seedRepo(t, repo, "jets_ws")
+	if err := os.MkdirAll(filepath.Join(repo, "jets_ws", "lookups"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "jets_ws", "lookups", "codes.csv"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureLocalRepoSeeded(); err != nil {
+		t.Fatalf("ensureLocalRepoSeeded: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "jets_ws", "lookups", "codes.csv")); err != nil {
+		t.Errorf("lookups/ must be copied when the caller names no exclusions: %v", err)
+	}
+}

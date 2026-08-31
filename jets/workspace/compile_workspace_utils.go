@@ -3,6 +3,8 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -81,8 +83,8 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 	} else {
 		log.Printf("Start synching overriten workspace file from database")
 	}
-	
-	// Mitigating external control of file name or path (CWE-73) in workspaceName. 
+
+	// Mitigating external control of file name or path (CWE-73) in workspaceName.
 	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
 		return false, err
@@ -99,7 +101,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 			(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
 
 			// Mitigating external control of file name or path (CWE-73) in resolveWorkspacePath
-			// Confine the DB-provided file name within the workspace directory (CWE-73).			
+			// Confine the DB-provided file name within the workspace directory (CWE-73).
 			baseDir := filepath.Join(workspaceHome, workspaceName)
 			localFileName, err := resolveWorkspacePath(baseDir, fo.FileName)
 			if err != nil {
@@ -196,7 +198,11 @@ func resolveWorkspacePath(baseDir, fileName string) (string, error) {
 // runtime is known to read. The workspace is a client artifact and what reads
 // what is not this function's business to predict; jets_ws measures 110 MB, of
 // which .git is a few, against an S3 fetch and untar of the compiled halves.
-func ensureLocalRepoSeeded() error {
+// skipTopLevel names top-level entries this caller does not need. **The list is
+// the caller's because the contract is the caller's**: `SyncWorkspaceFiles`
+// already says what each runtime fetches, by `contentType`, and the seed exists
+// to stand in for that fetch. See ensureLocalRepoSeeded's own note.
+func ensureLocalRepoSeeded(skipTopLevel ...string) error {
 	repo := os.Getenv("WORKSPACES_REPO")
 	if repo == "" || workspaceHome == "" || wprefix == "" || repo == workspaceHome {
 		return nil
@@ -214,13 +220,122 @@ func ensureLocalRepoSeeded() error {
 			"workspace version %s matches this image's, but the image carries no workspace at %s: %v",
 			workspaceVersion, src, err)
 	}
+	skip := make(map[string]bool, len(skipTopLevel))
+	for _, name := range skipTopLevel {
+		skip[name] = true
+	}
 	log.Printf("Seeding %s from the image's %s ...", dest, src)
 	start := time.Now()
-	if err := os.CopyFS(dest, os.DirFS(src)); err != nil {
+	copied, skipped, err := copyWorkspaceExcept(dest, src, skip)
+	if err != nil {
 		return fmt.Errorf("while seeding %s from %s: %v", dest, src, err)
 	}
-	log.Printf("Seeded %s in %s", dest, time.Since(start).Round(time.Millisecond))
+	log.Printf("Seeded %s in %s (%.1f MB copied, %.1f MB skipped: %v)",
+		dest, time.Since(start).Round(time.Millisecond),
+		float64(copied)/1e6, float64(skipped)/1e6, skipTopLevel)
 	return nil
+}
+
+// copyWorkspaceExcept copies src to dest, leaving out the named top-level
+// entries, and reports the bytes on each side of that decision.
+//
+// **It replaces `os.CopyFS`, which cannot leave anything out.** Copying
+// everything measured 113.5 MB over 222 files and 24.4s on the native lambda's
+// cold start.
+//
+// **The seed was delivering a superset of the fetch it replaces, and that is the
+// argument for trimming it rather than a guess about what is read.**
+// `SyncWorkspaceFiles` already declares what each runtime needs, by
+// `contentType`: `SyncComputePipesWorkspace` fetches `workspace.tgz` and
+// `sqlite`, `SyncRunReportsWorkspace` fetches `reports.tgz`. And
+// `workspace.tgz` holds `workspace_control.json`, `build/**` and
+// `pipes_config/**` — it does not hold `.git`, and it does not hold `lookups/`,
+// whose CSVs are compiled into the `lookup.db` that `sqlite` brings instead. So
+// a compute-pipes run that took the fetch never had those 53 MB, and a seeded
+// one having them is the anomaly.
+//
+// **The exclusions are the caller's, not this function's**, for the same reason
+// the content types are: `run_reports` *does* read `lookups/`
+// (`run_reports/delegate/run_reports.go`, syncing them to S3), so a list baked in
+// here would be right for one caller and wrong for the other.
+//
+// **The default is to copy.** A new top-level entry is included unless somebody
+// names it, which is the safe direction: an unnecessary copy costs seconds and a
+// missing one breaks a pipeline. And the byte counts are logged rather than
+// assumed, so if a skip stops paying, the log says so.
+//
+// Modes follow `os.CopyFS`'s rule — directories get WorkspaceDirMode, files get
+// WorkspaceFileMode plus whatever execute bits the source carried, which is what
+// keeps the workspace's 16 executable files executable.
+func copyWorkspaceExcept(dest, src string, skip map[string]bool) (copied, skipped int64, err error) {
+	fsys := os.DirFS(src)
+	err = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == "." {
+			return os.MkdirAll(dest, utils.WorkspaceDirMode)
+		}
+		// Top-level only: a nested `lookups/` under some other directory is not
+		// what the caller named, and silently matching it would be a surprise.
+		if !strings.Contains(path, "/") && skip[path] {
+			if size, sErr := treeSize(fsys, path); sErr == nil {
+				skipped += size
+			}
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		target := filepath.Join(dest, path)
+		if d.IsDir() {
+			return os.MkdirAll(target, utils.WorkspaceDirMode)
+		}
+		info, iErr := d.Info()
+		if iErr != nil {
+			return iErr
+		}
+		if !info.Mode().IsRegular() {
+			// The workspace holds none today; refuse rather than copy something
+			// whose meaning in the destination is not the same as here.
+			return fmt.Errorf("cannot seed %s: not a regular file (%v)", path, info.Mode())
+		}
+		in, oErr := fsys.Open(path)
+		if oErr != nil {
+			return oErr
+		}
+		defer in.Close()
+		perm := utils.WorkspaceFileMode | (info.Mode().Perm() & 0o111)
+		out, cErr := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
+		if cErr != nil {
+			return cErr
+		}
+		n, copyErr := io.Copy(out, in)
+		copied += n
+		if closeErr := out.Close(); closeErr != nil && copyErr == nil {
+			copyErr = closeErr
+		}
+		return copyErr
+	})
+	return copied, skipped, err
+}
+
+// treeSize totals the regular files under one entry, for the skipped-bytes log.
+func treeSize(fsys fs.FS, root string) (int64, error) {
+	var total int64
+	err := fs.WalkDir(fsys, root, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if info, iErr := d.Info(); iErr == nil {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total, err
 }
 
 // Sync the workspace files for run report lambdas if a new version of the workspace exist since the last call.
@@ -298,7 +413,11 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		if len(localRepoVersion) > 0 && localRepoVersion == workspaceVersion {
 			// No need to sync since workspace taken from local repo
 			log.Printf("Skipping sync of workspace.tgz and sqlite since workspace version %s is same as local repo version", workspaceVersion)
-			return false, ensureLocalRepoSeeded()
+			// The two entries the fetch this stands in for would not have
+			// delivered: `.git` is version-control metadata, and `lookups/` is
+			// the CSV source compiled into the `lookup.db` that `sqlite` brings.
+			// 53 MB of 113 MB, measured.
+			return false, ensureLocalRepoSeeded(".git", "lookups")
 		}
 		// Get the compiled rules
 		_, err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
