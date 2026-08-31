@@ -35,6 +35,28 @@ ARG JETS_VERSION
 # Copy the whole repo so to be able to pull and push changes
 COPY . $WORKSPACES_REPO/$WORKSPACE/
 
+# **Normalise the incoming workspace's permissions. This is the client's
+# artifact, and its directory modes are whatever their checkout produced.**
+#
+# It matters because `ensureLocalRepoSeeded` copies this tree out of the image
+# as the *native lambda handler's* identity rather than as the root that built
+# it, so a directory anywhere below here that root can traverse and nobody else
+# can fails the copy and the function never starts. That is not hypothetical: the
+# image shipped on 2026-08-31 carried `build/`, `build/jet_rules` and
+# `build/jet_rules/clinical_intel` at 0770 — dated months before that build,
+# because they came in through the COPY above — against 222 files that were all
+# world-readable. See jets/workspace/README.md.
+#
+# **Here rather than only after the compile, because the archive is built in
+# between.** `compile_workspace` writes workspace.tgz from this tree, and a
+# tarball preserves modes; normalising afterwards would ship a correct directory
+# tree alongside an archive that still carried the bad one.
+#
+# `a+rX` adds read for everyone and execute only where execute is already set, so
+# it opens directories and does not make data files executable. It only ever
+# adds permissions, and this filesystem is read-only at runtime.
+RUN chmod -R a+rX $WORKSPACES_REPO/$WORKSPACE
+
 # Install the JetStore-owned assets into the workspace's data_model/ and
 # pipes_config/ before the compile reads them. The assets are embedded in the binary, so this needs no path
 # into the JetStore source tree. It fails the build rather than overwrite a
@@ -49,3 +71,18 @@ RUN \
   && rm -rf $WORKSPACES_REPO/$WORKSPACE/cdk/jetstore_one/cdk.out/* \  
   && ls -la $WORKSPACES_REPO/$WORKSPACE/ \
   && WORKSPACES_HOME=${WORKSPACES_REPO} /app/compile_workspace -w=${WORKSPACE} -v=${JETS_VERSION}
+
+# The same again, and it is not a duplicate of the one after the COPY — **do not
+# delete either thinking it is.** That one normalises what the client shipped,
+# before the archive is built from it. This one covers what the two RUN steps
+# above created: the asset installer and the compiler both write directories,
+# and while both now go through `utils.EnsureWorkspaceDir`, this is the last
+# point where the shipped tree can be made to hold the property the lambda needs
+# regardless of which step produced a given directory.
+#
+# Cheap insurance for a failure whose cost is a production outage plus a full
+# image rebuild — which is what it cost twice, on 2026-08-27 and again on
+# 2026-08-31, the second time because the first fix passed the right mode to
+# `os.MkdirAll` and `os.MkdirAll` does not re-mode a directory that already
+# exists.
+RUN chmod -R a+rX $WORKSPACES_REPO/$WORKSPACE

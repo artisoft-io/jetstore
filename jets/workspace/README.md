@@ -20,6 +20,71 @@ files inside them `0644`. The files were world-readable; the directories they sa
 in were not world-traversable. `utils.WorkspaceDirMode` holds the constants and
 `TestWorkspaceModesAgree` the invariant that now guards them.
 
+### The fix was wrong once, and the second cause is the more useful one
+
+**The first fix passed `WorkspaceDirMode` to `os.MkdirAll` and the symptom did not
+change.** `os.MkdirAll`'s mode applies only to directories it *creates*; given one
+that already exists it returns nil and leaves the mode alone. Measured, because
+this is the whole of the second failure:
+
+```
+existing  after MkdirAll(0755): -rwx------
+fresh     after MkdirAll(0755): -rwxr-xr-x
+```
+
+**And `build/` already existed.** It arrives through `COPY . $WORKSPACES_REPO/$WORKSPACE/`
+in `Dockerfile.compile_ws` — it is in the client's repository — so the compiler
+never created it and never re-moded it. The shipped image says so plainly: `build`
+dated **2026-08-27** and `build/jet_rules` dated **2025-07-05**, both `drwxrwx---`,
+holding `classes.json` written `-rw-r--r--` at **2026-08-31 14:59** by that day's
+compile. `table_configs/`, which the asset installer *did* create that morning, is
+`drwxr-xr-x`. Same image, same run: **the mode a directory ends up with depends
+only on whether it had to be created.**
+
+Three directories in the whole tree, and zero files:
+
+```
+rwxrwx---  /workspaces/jets_ws/build
+rwxrwx---  /workspaces/jets_ws/build/jet_rules
+rwxrwx---  /workspaces/jets_ws/build/jet_rules/clinical_intel
+```
+
+`utils.EnsureWorkspaceDir` asserts the mode instead of requesting it, and
+**unlike the original defect this one is unit-testable** — whether `MkdirAll`
+re-modes an existing directory is a question the owning process can answer, so
+`TestEnsureWorkspaceDirFixesAnExistingDirectory` is a real regression test rather
+than an invariant standing in for one. It was confirmed to fail against the first
+fix before being kept.
+
+### Reproducing it without AWS
+
+The failure is one `docker run` away from any machine holding the image, which is
+worth knowing before the next three-hour rebuild-and-deploy cycle:
+
+```bash
+docker run --rm --entrypoint /bin/ls cpipes_lambda_jets_ws:latest /workspaces/jets_ws/build
+docker run --rm --user 1000:1000 --entrypoint /bin/ls cpipes_lambda_jets_ws:latest /workspaces/jets_ws/build
+```
+
+The first lists four entries; the second is `Permission denied`. That pair also
+settles what no documentation states outright — **the Lambda handler is not
+effectively root**, since nothing else makes `EACCES` reachable on a
+`drwxrwx---` directory.
+
+### The workspace is a client artifact, so Go cannot be the whole answer
+
+The compiler can assert modes on directories it creates. It has no say over
+`lookups/`, `jet_rules/` or anything else a client's checkout carried, and a
+client shipping one directory at 0700 reproduces this exactly. So
+`Dockerfile.compile_ws` runs `chmod -R a+rX` over the workspace **twice, and
+neither is redundant**: once immediately after the `COPY`, which normalises what
+the client shipped *before* `workspace.tgz` is built from it — a tarball preserves
+modes, so normalising only at the end would ship a correct tree beside an archive
+carrying the bad one — and once after the compile, covering whatever the two build
+steps created. All three `*_ws` images (`cpipes_ws`, `ui_service_ws`,
+`cpipes_native_lambda_ws`) `COPY --from` `compile_ws`, so that one place covers
+every baked workspace.
+
 **`build` is not special.** `os.CopyFS` walks in lexical order and `build` is the
 first directory the compiler makes. Every other one would have failed next.
 
