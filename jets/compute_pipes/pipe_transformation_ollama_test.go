@@ -2,10 +2,12 @@ package compute_pipes
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -982,5 +984,56 @@ func TestOllamaThrottlingDoesNotStopThePipeline(t *testing.T) {
 	}
 	if len(result.errorRecords) != 1 {
 		t.Errorf("a 429 must still report the record, got %d error records", len(result.errorRecords))
+	}
+}
+
+// With pass_through chosen explicitly, a stopped server is asked once, not once
+// per record.
+//
+// **Otherwise the explicit choice costs exactly what the default did.** The
+// pipeline no longer fails, but every record still pays its retry sequence and
+// backoff against a server already known to be down — the same fifteen-minute
+// timeout, opted into. The first record's exhausted retries are proof enough for
+// the rest.
+func TestOllamaAsksAStoppedServerOncePerCooldown(t *testing.T) {
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	records := make([][]any, 0, 8)
+	for i := range 8 {
+		records = append(records, []any{fmt.Sprintf("c-%d", i), "tooth ache", nil, nil, nil})
+	}
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+			OnError:        OnErrorPassThrough,
+			PoolSize:       1,
+		},
+	}, nil, records)
+
+	// One worker, so the breaker opens on the first record and the other seven
+	// never reach the wire. Asserted as an equality rather than a bound: if it
+	// becomes 8 again the saving is gone, and if it becomes 0 the operator has
+	// stopped calling the server at all.
+	if got := calls.Load(); got != 1 {
+		t.Errorf("a stopped server should be asked once for 8 records, got %d calls", got)
+	}
+	// pass_through was chosen, so every record still comes out.
+	if len(result.outputRecords) != len(records) {
+		t.Errorf("pass_through must pass all %d records through, got %d",
+			len(records), len(result.outputRecords))
+	}
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("an explicit on_error must be honoured, got %v", result.pipelineErrs)
 	}
 }

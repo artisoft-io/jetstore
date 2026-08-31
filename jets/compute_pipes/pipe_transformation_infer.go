@@ -139,11 +139,53 @@ type inferPoolManager struct {
 	errorCount    atomic.Int64 // records that failed
 	retryCount    atomic.Int64
 	latencyMs     atomic.Int64
-	promptTokens  atomic.Int64
-	evalTokens    atomic.Int64
+	// unavailableUntil is the unix nano before which the infer server is treated
+	// as down without asking it again. See `serverDown` and `call`.
+	unavailableUntil atomic.Int64
+	promptTokens     atomic.Int64
+	evalTokens       atomic.Int64
 	// interruptOnce guards the close of the done channel, since every worker may hit an
 	// error concurrently.
 	interruptOnce sync.Once
+}
+
+// The circuit breaker, and why it is not a latch.
+//
+// **Remembering costs nothing and forgetting is what makes it safe.** With
+// `on_error` explicitly `pass_through` or `drop`, a stopped server does not fail
+// the run — every record then pays its full retry sequence and backoff before
+// being passed through, which is the same fifteen-minute timeout as before,
+// merely opted into. One record's exhausted retries are already proof enough
+// about the server, so the rest skip the call.
+//
+// **It reopens on a timer rather than latching for the run.** A latch is simpler
+// and wrong for the case that actually happens here: the infer server is an ECS
+// service on a single GPU instance, so a deploy stops and restarts it, and a
+// pipeline running across that window would otherwise fail every record after
+// the outage — including the ones the server came back in time to answer. The
+// cooldown bounds the hammering without deciding the server is gone forever.
+//
+// No explicit close: a probe that succeeds simply does not extend the window.
+const inferUnavailableCooldown = 30 * time.Second
+
+// serverDown reports whether the infer server was found unavailable recently
+// enough that there is no point asking again.
+func (pm *inferPoolManager) serverDown() bool {
+	until := pm.unavailableUntil.Load()
+	return until > 0 && time.Now().UnixNano() < until
+}
+
+// noteServerDown opens the window. Monotonic under concurrency: several workers
+// may exhaust their retries at once and the latest wins, which is the one that
+// learnt most recently.
+func (pm *inferPoolManager) noteServerDown() {
+	deadline := time.Now().Add(inferUnavailableCooldown).UnixNano()
+	for {
+		current := pm.unavailableUntil.Load()
+		if current >= deadline || pm.unavailableUntil.CompareAndSwap(current, deadline) {
+			return
+		}
+	}
 }
 
 func (pm *inferPoolManager) summary(prefix string) string {
@@ -366,6 +408,15 @@ func isServerUnavailable(err error) bool {
 // retrying: timeouts, connection errors, 429 and 5xx. A 4xx is a request the server will
 // keep refusing, so it fails the record immediately.
 func (w *inferWorker) call(ctx context.Context, payload []byte) ([]byte, inferResponse, error) {
+	// **Ask the breaker before the server.** A record arriving inside the
+	// cooldown fails immediately, with no attempt and no backoff — which is the
+	// whole saving, since the alternative is every record repeating the
+	// discovery that the server is down.
+	if w.pm.serverDown() {
+		return nil, nil, unavailable(fmt.Errorf(
+			"the infer server was unavailable within the last %s, not retried for this record",
+			inferUnavailableCooldown))
+	}
 	var lastErr error
 	wait := w.retryWait
 	for attempt := 0; attempt <= w.maxRetry; attempt++ {
@@ -394,6 +445,8 @@ func (w *inferWorker) call(ctx context.Context, payload []byte) ([]byte, inferRe
 	// is not there.
 	err := fmt.Errorf("after %d attempts: %v", w.maxRetry+1, lastErr)
 	if isServerUnavailable(lastErr) {
+		// One record's exhausted retries are proof enough for the rest.
+		w.pm.noteServerDown()
 		return nil, nil, unavailable(err)
 	}
 	return nil, nil, err
