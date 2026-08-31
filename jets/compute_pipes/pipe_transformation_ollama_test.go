@@ -897,6 +897,10 @@ func TestOllamaStopsThePipelineWhenTheServerIsUnavailable(t *testing.T) {
 			result.outputRecords, result.errorRecords)
 	}
 	const want = "Infer server is not available (is it running?)"
+	// The message must name the setting. The default that decided this is not
+	// written in the document, so the failure is the only place the operator can
+	// learn what to write instead.
+	const wantSetting = `"on_error": "pass_through"`
 	found := false
 	for _, err := range result.pipelineErrs {
 		if strings.Contains(err.Error(), want) {
@@ -906,6 +910,49 @@ func TestOllamaStopsThePipelineWhenTheServerIsUnavailable(t *testing.T) {
 	if !found {
 		t.Errorf("the failure must name the cause an operator can act on, want %q, got %v",
 			want, result.pipelineErrs)
+	}
+	named := false
+	for _, err := range result.pipelineErrs {
+		if strings.Contains(err.Error(), wantSetting) {
+			named = true
+		}
+	}
+	if !named {
+		t.Errorf("the failure must name the setting that changes it, want %s, got %v",
+			wantSetting, result.pipelineErrs)
+	}
+}
+
+// An author who wrote `on_error: pass_through` gets pass-through, even with the
+// server down. **Only the invisible default is overruled**: a default nobody
+// wrote should not decide, and a choice somebody did write should not be
+// silently reversed. Without this the fix above would make on_error unsettable
+// for the one failure where an operator might most want to set it.
+func TestOllamaExplicitPassThroughIsHonouredWhenTheServerIsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+			OnError:        OnErrorPassThrough,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("an explicit on_error must be honoured, got %v", result.pipelineErrs)
+	}
+	if len(result.outputRecords) != 1 {
+		t.Errorf("pass_through must still pass the record through, got %d output records",
+			len(result.outputRecords))
 	}
 }
 

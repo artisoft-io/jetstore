@@ -279,14 +279,25 @@ func (w *inferWorker) sendRecord(record *[]any) {
 
 // failedRecord reports a row-level failure and applies the on_error policy.
 func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
-	// **The server being down overrides `on_error`.** Every policy this switch
-	// offers is about one record — drop it, fail on it, pass it through — and
-	// none of them is an answer to "there is no server". Passing through, the
-	// default, is the worst of the three here: the pipeline completes having
-	// silently skipped the inference.
-	if isServerUnavailable(err) {
-		w.pm.interrupt(w.errCh, w.doneCh,
-			fmt.Errorf("%s: Infer server is not available (is it running?): %v", w.labels.ErrPrefix, err))
+	// **The server being down overrules the *default* `on_error`, and never an
+	// explicit one.** Every policy this switch offers is about one record — drop
+	// it, fail on it, pass it through — and none is an answer to "there is no
+	// server". Pass-through is the worst of the three here and it is also the
+	// default, so with the server stopped a pipeline that never mentioned
+	// `on_error` completed having silently skipped the inference it exists to
+	// perform, after paying every record's retries.
+	//
+	// **But a default that is not written down should not get to decide
+	// either way**, which is why this checks `onErrorDefaulted` rather than the
+	// value: an author who wrote `on_error: pass_through` has said what they want
+	// and gets it. The message names the setting, so the operator who did not
+	// write one learns what to write from the failure rather than from the
+	// documentation for a field they did not know existed.
+	if isServerUnavailable(err) && w.common.onErrorDefaulted {
+		w.pm.interrupt(w.errCh, w.doneCh, fmt.Errorf(
+			"%s: Infer server is not available (is it running?). To let the pipeline "+
+				"continue without inference instead, set \"on_error\": \"%s\" on this operator. Cause: %v",
+			w.labels.ErrPrefix, OnErrorPassThrough, err))
 		return
 	}
 	nbrErrors := w.pm.errorCount.Add(1)
@@ -830,6 +841,11 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 // configuration; the backend applies its own on top.
 func applyInferCommonDefaults(common *InferCommonSpec) {
 	if len(common.OnError) == 0 {
+		// **Recorded before it is filled in**, because from here on an unset
+		// `on_error` and an explicit `on_error: pass_through` are the same
+		// string, and the difference decides whether a stopped infer server may
+		// be overruled. See `failedRecord`.
+		common.onErrorDefaulted = true
 		common.OnError = OnErrorPassThrough
 	}
 	if common.PoolSize < 1 {
