@@ -41,11 +41,29 @@ places, and only the middle one shows up in a log.
 
 ### Why only this image
 
-| path | who copies the workspace | as whom |
+| path | who copies the workspace | why the mode does not bite |
 |---|---|---|
-| container | `cbooter`, before exec'ing the binary | the same identity, so the mode never mattered |
-| zip lambdas | nothing — they carry no workspace | `WORKSPACES_REPO` unset, `ensureLocalRepoSeeded` no-ops |
-| **native lambda** | `ensureLocalRepoSeeded`, at cold start | **not the compiler's identity — this is the one that broke** |
+| ECS tasks | `cbooter`: `cp -r` **as root**, then `chown -hR 999:999 $JETS_TEMP_DATA`, then exec **as jsuser** | jsuser ends up **owning** the copy, and the owner bits of 0770 are `rwx` |
+| zip lambdas | nothing — they carry no workspace | `WORKSPACES_REPO` is unset, so `ensureLocalRepoSeeded` no-ops on its first guard |
+| **native lambda** | `ensureLocalRepoSeeded`, in-process, at cold start | **nothing rewrites ownership — this is the one that broke** |
+
+**~~The container is safe because the same identity copies and reads.~~ It is not,
+and the difference matters.** Three identities are involved: root copies, root
+chowns to 999:999, and jsuser reads. The mode never mattered because **ownership
+was rewritten**, not because the writer and the reader are the same.
+
+That distinction is the whole reason this section exists rather than a one-line
+"containers are fine". `makeJetsdataWritable` is named and commented for a
+different purpose — *"the mounted volume may have root ownership and jsuser needs
+write access"* — so **ECS's immunity to this defect is a side effect of a call
+made for writability.** Anyone who removes or narrows that chown, on the entirely
+reasonable ground that the volume is already writable, breaks every ECS task the
+way the lambda broke, and nothing in cbooter says so.
+
+`WORKSPACES_HOME` is `JETS_TEMP_DATA + "/workspaces"` in the CDK
+(`build_ecs_tasks.go`), derived rather than configured independently, so the
+chown provably covers it. If that ever becomes two separate settings, the chown
+can miss the workspace and this returns.
 
 `Dockerfile.cpipes_native_lambda_ws` does `COPY --from=builder`, which preserves
 the source modes, so the `0770` travels from `compile_ws` into the shipped image.
