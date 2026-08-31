@@ -17,8 +17,8 @@ Seeding /tmp/workspaces/jets_ws from the image's /workspaces/jets_ws ...
 
 **Cause.** `compileWorkspaceV2` created workspace directories `0770` and wrote the
 files inside them `0644`. The files were world-readable; the directories they sat
-in were not world-traversable. `modes.go` holds the constants and the invariant
-that now guards it.
+in were not world-traversable. `utils.WorkspaceDirMode` holds the constants and
+`TestWorkspaceModesAgree` the invariant that now guards them.
 
 **`build` is not special.** `os.CopyFS` walks in lexical order and `build` is the
 first directory the compiler makes. Every other one would have failed next.
@@ -68,12 +68,26 @@ can miss the workspace and this returns.
 `Dockerfile.cpipes_native_lambda_ws` does `COPY --from=builder`, which preserves
 the source modes, so the `0770` travels from `compile_ws` into the shipped image.
 
-### Two creators disagreed, and one of them was right
+### Three writers disagreed, and the constants moved because of it
 
-`jets/workspace_assets/install.go` also creates directories under a workspace —
-`table_configs/`, `user_flows/` — and has always used `0755` with `0644` files.
-So two packages wrote adjacent directories in the same image under different
-rules, and nothing compared them. If you add a third writer, match `modes.go`.
+| package | what it writes | dirs (before) | files |
+|---|---|---|---|
+| `jets/workspace` | compile output | **0770** | 0644 |
+| `jets/awsi` | files fetched from S3 | **0750** | 0644 |
+| `jets/workspace_assets` | installed assets (`table_configs/`, `user_flows/`) | 0755 | 0644 |
+
+Three packages wrote adjacent directories in one tree under three different
+rules, and nothing compared them. **Only the first cost an incident, and fixing
+only the first would have left the identical trap one package over** — latent for
+exactly the reason this one was latent for eleven months, which is that the
+process fetching is the process reading.
+
+So the constants live in `jets/utils`, which `jets/workspace` and `jets/awsi` both
+already import and which neither imports from. `workspace_assets` is left alone:
+it was already correct, and rewriting a correct call site to name a constant is
+churn. If it grows a second mode, move it too.
+
+**If you add a fourth writer, use `utils.WorkspaceDirMode`.**
 
 ### What a test can and cannot do here
 

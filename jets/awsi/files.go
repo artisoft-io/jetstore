@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,7 +49,12 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 			return err
 		}
 		fileDir := filepath.Dir(localFileName)
-		if err = os.MkdirAll(fileDir, 0750); err != nil {
+		// 0750 until the native lambda's cold start showed what a directory
+		// tighter than its own contents costs. `os.Create` below writes 0644, so
+		// this tree had the same asymmetry `jets/workspace` did — latent only
+		// because the process that fetches is the process that reads. See
+		// jets/workspace/README.md.
+		if err = os.MkdirAll(fileDir, utils.WorkspaceDirMode); err != nil {
 			return fmt.Errorf("while creating file directory structure: %v", err)
 		}
 
