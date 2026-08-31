@@ -862,3 +862,78 @@ func TestOllamaMissingServerUrl(t *testing.T) {
 		t.Errorf("expecting the configured url, got %q, err %v", url, err)
 	}
 }
+
+// A stopped infer server fails the pipeline instead of passing every record
+// through. Reported 2026-08-31.
+//
+// **`on_error` defaults to pass-through, and none of its three answers fits a
+// server that is not there.** Drop, fail-on-record and pass-through are all about
+// one record; with the server down, every record paid three attempts and their
+// backoff and was forwarded unchanged, so the lambda ran to its 15-minute
+// timeout and the pipeline "succeeded" having skipped the inference it exists to
+// perform. The operator saw only
+// `after 3 attempts: error: the infer server returned 503 Service Temporarily
+// Unavailable`, repeated.
+func TestOllamaStopsThePipelineWhenTheServerIsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("Service Temporarily Unavailable"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) == 0 {
+		t.Fatalf("a 503 from the infer server must fail the pipeline, got none; output=%v errors=%v",
+			result.outputRecords, result.errorRecords)
+	}
+	const want = "Infer server is not available (is it running?)"
+	found := false
+	for _, err := range result.pipelineErrs {
+		if strings.Contains(err.Error(), want) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("the failure must name the cause an operator can act on, want %q, got %v",
+			want, result.pipelineErrs)
+	}
+}
+
+// A 429 is the server asking to be asked more slowly, not a server that is gone,
+// so it stays a record-level failure and `on_error` still decides. Without this
+// the fix above would take down a pipeline that is merely being throttled.
+func TestOllamaThrottlingDoesNotStopThePipeline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("slow down"))
+	}))
+	t.Cleanup(server.Close)
+
+	noRetry := 0
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
+		Model: "m",
+		InferCommonSpec: InferCommonSpec{
+			PromptTemplate: "Classify {{claim_id}}",
+			OutputMapping:  []InferMappingSpec{{Column: "claim_category", Path: "category"}},
+			ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
+			MaxRetry:       &noRetry,
+		},
+	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+
+	if len(result.pipelineErrs) != 0 {
+		t.Errorf("a 429 must not fail the pipeline, got %v", result.pipelineErrs)
+	}
+	if len(result.errorRecords) != 1 {
+		t.Errorf("a 429 must still report the record, got %d error records", len(result.errorRecords))
+	}
+}

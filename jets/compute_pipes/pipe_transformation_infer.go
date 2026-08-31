@@ -15,6 +15,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -278,6 +279,16 @@ func (w *inferWorker) sendRecord(record *[]any) {
 
 // failedRecord reports a row-level failure and applies the on_error policy.
 func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
+	// **The server being down overrides `on_error`.** Every policy this switch
+	// offers is about one record — drop it, fail on it, pass it through — and
+	// none of them is an answer to "there is no server". Passing through, the
+	// default, is the worst of the three here: the pipeline completes having
+	// silently skipped the inference.
+	if isServerUnavailable(err) {
+		w.pm.interrupt(w.errCh, w.doneCh,
+			fmt.Errorf("%s: Infer server is not available (is it running?): %v", w.labels.ErrPrefix, err))
+		return
+	}
 	nbrErrors := w.pm.errorCount.Add(1)
 	err = fmt.Errorf("%s: %v", w.labels.ErrPrefix, err)
 	maxErrors := int64(w.common.MaxErrorCount)
@@ -309,6 +320,37 @@ func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
 	}
 }
 
+// inferServerUnavailable marks a failure that is about the **server** rather
+// than about the record being processed.
+//
+// **The distinction is what stops a stopped infer server from costing fifteen
+// minutes.** `on_error` defaults to pass-through, so a record whose call fails
+// is logged and forwarded — correct for a record the model cannot handle, and
+// exactly wrong when the server is down: every record then pays its attempts and
+// their backoff before being passed through unchanged, and the lambda runs to
+// its timeout while the pipeline reports success, having skipped the inference
+// it exists to perform. Reported 2026-08-31 against a stopped server, where the
+// operator saw `after 3 attempts: error: the infer server returned 503 Service
+// Temporarily Unavailable` repeated until the 15-minute wall.
+//
+// Two failures carry it: a connection error, and a 5xx. **A 429 does not** — that
+// is the server asking to be asked more slowly, which is what the retry is for,
+// and a throttled pipeline should not die.
+type inferServerUnavailable struct{ err error }
+
+func (e *inferServerUnavailable) Error() string { return e.err.Error() }
+func (e *inferServerUnavailable) Unwrap() error { return e.err }
+
+// unavailable wraps err when the status says the server, not the request, is the
+// problem. The backends call it so the classification lives in one place.
+func unavailable(err error) error { return &inferServerUnavailable{err: err} }
+
+// isServerUnavailable reports whether err is a server-level failure.
+func isServerUnavailable(err error) bool {
+	var u *inferServerUnavailable
+	return errors.As(err, &u)
+}
+
 // call posts the payload to the infer server, retrying the failures that are worth
 // retrying: timeouts, connection errors, 429 and 5xx. A 4xx is a request the server will
 // keep refusing, so it fails the record immediately.
@@ -334,7 +376,16 @@ func (w *inferWorker) call(ctx context.Context, payload []byte) ([]byte, inferRe
 			return nil, nil, err
 		}
 	}
-	return nil, nil, fmt.Errorf("after %d attempts: %v", w.maxRetry+1, lastErr)
+	// **Retry exhaustion against an unavailable server is not a record-level
+	// failure**, and saying so here is what lets `failedRecord` stop the pipeline
+	// rather than pass the record through. The retry policy has already judged
+	// these errors transient; still failing on the last attempt means the server
+	// is not there.
+	err := fmt.Errorf("after %d attempts: %v", w.maxRetry+1, lastErr)
+	if isServerUnavailable(lastErr) {
+		return nil, nil, unavailable(err)
+	}
+	return nil, nil, err
 }
 
 // ---------------------------------------------------------------------------
