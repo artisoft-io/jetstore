@@ -54,7 +54,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		// this tree had the same asymmetry `jets/workspace` did — latent only
 		// because the process that fetches is the process that reads. See
 		// jets/workspace/README.md.
-		if err = os.MkdirAll(fileDir, utils.WorkspaceDirMode); err != nil {
+		if err = utils.EnsureWorkspaceDir(fileDir); err != nil {
 			return fmt.Errorf("while creating file directory structure: %v", err)
 		}
 
