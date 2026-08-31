@@ -28,17 +28,41 @@ type DomainTable struct {
 	DomainKeysInfo *schema.HeadersAndDomainKeysInfo
 }
 
+// DomainColumnsOf is the class's columns as table columns, which is **its data
+// properties**.
+//
+// **Object properties are graph structure, not columns**, for the same reason
+// they are not columns in a flat record — see `GetDomainProperties`
+// (`jets/compute_pipes/jetrules_utils.go`). The entity serialisations a channel
+// can ask for (`toon`, `json`) land in a *data* property: in
+// `patient_profile.pc.json` the encoding names `cintel:Claim_Summary`, which is
+// `type: text`, while the object properties walked to build it are
+// `type: resource`. So an object property has nothing to write into a table, and
+// this schema was carrying a column that could only ever be null.
+//
+// Unconditional, and it can be, because the rule has no exceptions to know
+// about: a `column_encodings` entry names the data property that receives the
+// serialisation, never the object property that was traversed.
+//
+// Split out of NewDomainTable so the rule can be tested without a database —
+// NewDomainTable needs a pool for the domain-key registry and this does not.
+func DomainColumnsOf(tableInfo *rete.TableNode) []DomainColumn {
+	columns := make([]DomainColumn, 0, len(tableInfo.Columns))
+	for i := range tableInfo.Columns {
+		c := &tableInfo.Columns[i]
+		if c.IsObject {
+			continue
+		}
+		columns = append(columns, DomainColumn{ColumnInfo: c})
+	}
+	return columns
+}
+
 func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTable, error) {
 	// Create the DomainTable from the rete model TableNode
 	domainTable := &DomainTable{
 		TableInfo: tableInfo,
-		Columns:   make([]DomainColumn, len(tableInfo.Columns)),
-	}
-	for i := range tableInfo.Columns {
-		c := &tableInfo.Columns[i]
-		domainTable.Columns[i] = DomainColumn{
-			ColumnInfo: c,
-		}
+		Columns:   DomainColumnsOf(tableInfo),
 	}
 
 	// Load the Domain Key info from domain_keys_registry
