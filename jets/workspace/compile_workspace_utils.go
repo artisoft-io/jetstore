@@ -255,9 +255,22 @@ func ensureLocalRepoSeeded(skipTopLevel ...string) error {
 // one having them is the anomaly.
 //
 // **The exclusions are the caller's, not this function's**, for the same reason
-// the content types are: `run_reports` *does* read `lookups/`
-// (`run_reports/delegate/run_reports.go`, syncing them to S3), so a list baked in
-// here would be right for one caller and wrong for the other.
+// the content types are — and `run_reports` needs `lookups/` for a stronger
+// reason than this comment first gave. It does sync them to S3
+// (`run_reports/delegate/run_reports.go:287`), but it also **recompiles the
+// workspace** immediately after, unless `SkipCompileWorkspace` is set (`:293`),
+// and the compile is what actually consumes the CSVs:
+// `PackageLookupTablesToSqlite` opens each one (`lookup_tables.go:87`) to
+// rebuild `lookup.db`. So a report that updates a lookup table needs the source
+// present, not merely copied onward. A list baked in here would be right for one
+// caller and wrong for the other.
+//
+// **And that is why the compute-pipes exclusion is safe rather than merely
+// untested.** The three callers of `CompileWorkspace` are the apiserver
+// (`datatable/workspace_helper_functions.go:92`, `apiserver/server.go`),
+// `run_reports` (`:295`) and the build-time CLI (`cmds/compile_workspace`).
+// **`jets/compute_pipes` does not contain one**, so nothing on that path can
+// ever need the CSVs to rebuild anything.
 //
 // **The default is to copy.** A new top-level entry is included unless somebody
 // names it, which is the safe direction: an unnecessary copy costs seconds and a
@@ -416,7 +429,10 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 			// The two entries the fetch this stands in for would not have
 			// delivered: `.git` is version-control metadata, and `lookups/` is
 			// the CSV source compiled into the `lookup.db` that `sqlite` brings.
-			// 53 MB of 113 MB, measured.
+			// 53 MB of 113 MB, measured. Safe here because nothing in
+			// `jets/compute_pipes` calls `CompileWorkspace` — the compile is the
+			// only thing that reads the CSVs, and it lives on the apiserver and
+			// `run_reports` paths, which pass no exclusions.
 			return false, ensureLocalRepoSeeded(".git", "lookups")
 		}
 		// Get the compiled rules
