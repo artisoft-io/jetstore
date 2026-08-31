@@ -532,6 +532,7 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 				Type:       cls.DataProperties[i].Type,
 				ColumnName: cls.DataProperties[i].Name,
 				AsArray:    cls.DataProperties[i].AsArray,
+				Deleted:    cls.DataProperties[i].Deleted,
 			}
 		}
 	}
@@ -542,6 +543,7 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 				ColumnName: cls.ObjectProperties[i].Name,
 				AsArray:    cls.ObjectProperties[i].AsArray,
 				IsObject:   true,
+				Deleted:    cls.ObjectProperties[i].Deleted,
 			}
 		}
 	}

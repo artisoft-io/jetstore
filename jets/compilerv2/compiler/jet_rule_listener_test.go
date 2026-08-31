@@ -446,3 +446,67 @@ func TestJetRuleListener_ParseObjectAtom(t *testing.T) {
 	}
 
 }
+
+// `deleted` in the model reaches the table column as a tombstone.
+//
+// **The whole point is that nothing else drops a domain column.** A column that
+// merely stops appearing in the model is reported as deprecated and left alone,
+// because diffing the model against the database would make a bad config cost
+// data — the same rule `jets_schema.json` already applies to the JetStore
+// tables. So this flag is the only path, and it has to survive the grammar, the
+// listener and MakeTableFromClass to be one.
+func TestJetRuleListener_DeletedColumns(t *testing.T) {
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "deleted_columns.jr", false, true, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jrCompiler.ErrorLog().Len() > 0 {
+		t.Fatal(jrCompiler.ErrorLog().String())
+	}
+
+	var table *rete.TableNode
+	for _, tbl := range jrCompiler.JetRuleModel().Tables {
+		if tbl.TableName == "Retired" {
+			table = tbl
+		}
+	}
+	if table == nil {
+		t.Fatalf("no table for class Retired; got %d tables", len(jrCompiler.JetRuleModel().Tables))
+	}
+
+	deleted := make(map[string]bool)
+	for _, c := range table.Columns {
+		deleted[c.ColumnName] = c.Deleted
+	}
+	for name, want := range map[string]bool{
+		"liveText":          false,
+		"liveArray":         false,
+		"retiredText":       true,
+		"retiredArray":      true,
+		"liveObject":        false,
+		"staleObjectColumn": true,
+	} {
+		got, present := deleted[name]
+		if !present {
+			t.Errorf("%s missing from the table columns", name)
+			continue
+		}
+		if got != want {
+			t.Errorf("%s: Deleted = %v, want %v", name, got, want)
+		}
+	}
+	// `deleted` must not disturb the flags beside it: a tombstone on an array
+	// property is still an array, and on an object property still an object.
+	for _, c := range table.Columns {
+		switch c.ColumnName {
+		case "retiredArray":
+			if !c.AsArray {
+				t.Error("retiredArray lost AsArray next to deleted")
+			}
+		case "staleObjectColumn":
+			if !c.IsObject || !c.AsArray {
+				t.Errorf("staleObjectColumn lost its flags next to deleted: %+v", c)
+			}
+		}
+	}
+}

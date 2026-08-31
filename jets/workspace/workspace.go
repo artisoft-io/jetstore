@@ -50,7 +50,9 @@ func DomainColumnsOf(tableInfo *rete.TableNode) []DomainColumn {
 	columns := make([]DomainColumn, 0, len(tableInfo.Columns))
 	for i := range tableInfo.Columns {
 		c := &tableInfo.Columns[i]
-		if c.IsObject {
+		// A tombstone is not a live column either — it exists to be dropped, and
+		// `UpdateDomainTableSchema` reads it straight off `TableInfo.Columns`.
+		if c.IsObject || c.Deleted {
 			continue
 		}
 		columns = append(columns, DomainColumn{ColumnInfo: c})
@@ -207,6 +209,33 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		}
 		tableDefinition.Columns = append(tableDefinition.Columns, columnDef)
 	}
+	// **The tombstones, which is the only way a domain column is ever dropped.**
+	// `UpdateTable` drops a `ColumnDefinition` marked `Deleted` and adds every
+	// other one, so emitting them here is what turns `deleted` in the model into
+	// an `ALTER TABLE ... DROP COLUMN`.
+	//
+	// Read off `TableInfo.Columns` rather than `tableSpec.Columns`, because
+	// `DomainColumnsOf` has already excluded them: they are not live columns, and
+	// they must not reach `DomainHeaders` or the domain-key registry.
+	//
+	// **A column that merely stops appearing in the model is not dropped** — it
+	// is reported as deprecated below and left alone. That asymmetry is the whole
+	// design: diffing the model against the database would make a bad config cost
+	// data, and this is the same rule `jets_schema.json` already applies to the
+	// JetStore tables, where ten columns carry `"deleted": true` today.
+	for i := range tableSpec.TableInfo.Columns {
+		c := &tableSpec.TableInfo.Columns[i]
+		if !c.Deleted {
+			continue
+		}
+		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
+			ColumnName: c.ColumnName,
+			DataType:   c.Type,
+			IsArray:    c.AsArray,
+			Deleted:    true,
+		})
+	}
+
 	// Add JetStore system column
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",

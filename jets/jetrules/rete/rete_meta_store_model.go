@@ -232,6 +232,9 @@ type PropertyNode struct {
 	ClassName string `json:"class_name,omitempty"`
 	AsArray   bool   `json:"as_array,omitzero"`
 	IsObject  bool   `json:"is_object,omitzero"`
+	// Deleted is a tombstone: the property's column is to be dropped from the
+	// domain table. Written `deleted` in the `.jr` source. See TableColumnNode.
+	Deleted bool `json:"deleted,omitzero"`
 }
 
 type TableNode struct {
@@ -246,6 +249,21 @@ type TableColumnNode struct {
 	Type     string `json:"type,omitempty"`
 	AsArray  bool   `json:"as_array,omitzero"`
 	IsObject bool   `json:"is_object,omitzero"`
+	// Deleted is a tombstone: this column is to be **dropped** from the domain
+	// table, and is not one of the table's live columns.
+	//
+	// **It is about the column, not about the property**, which is what lets one
+	// flag serve both cases. A data property that has been removed from the class
+	// leaves a declaration behind carrying this, exactly as a removed column
+	// leaves an entry in `jets_schema.json` carrying `"deleted": true`. An object
+	// property carries it when a column exists from before the property was one —
+	// object properties are not columns, so for them this can only ever mean
+	// "drop the stale one".
+	//
+	// **Nothing is dropped without one.** A column that simply stops appearing in
+	// the model is reported as deprecated and left alone: the alternative is
+	// diffing the model against the database, where a bad config costs data.
+	Deleted bool `json:"deleted,omitzero"`
 	// PropertyName string `json:"property_name,omitempty"`
 	ColumnName string `json:"column_name,omitempty"`
 }
