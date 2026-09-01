@@ -79,7 +79,7 @@ func resolveDsn() (string, error) {
 
 func doJob(ctx context.Context, db *pgxpool.Pool) error {
 	detect := observe.Window{
-		Since:       time.Now().Add(-*since),
+		Since:       time.Now().UTC().Add(-*since),
 		Client:      *client,
 		ProcessName: *process,
 		SessionId:   *session,

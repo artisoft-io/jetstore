@@ -31,7 +31,15 @@ type Window struct {
 
 func (w Window) until() time.Time {
 	if w.Until.IsZero() {
-		return time.Now()
+		// UTC, because the bound is compared against
+		// pipeline_execution_details.start_time, which is `timestamp without
+		// time zone` holding UTC. A local clock west of Greenwich puts the
+		// bound behind rows that have just been written, and the detectors go
+		// blind for exactly the UTC offset -- on a deployment at -04:00, the
+		// four hours a scheduled run is most likely to be asked about. Every
+		// site that *writes* a timestamp here already uses .UTC(); these two
+		// reads were the exception. Found 2026-09-01 against a real run.
+		return time.Now().UTC()
 	}
 	return w.Until
 }
