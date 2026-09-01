@@ -167,12 +167,12 @@ def render(arms: list[ArmResult], methods: list[str], unavailable: dict[str, str
 
     # --- the compile-pass table ------------------------------------------------
     lines += ["", "compile-pass gate - the expanded config accepted by ValidatePipeSpecConfig", ""]
-    lines.append(f"{'template':30s}" + "".join(f"{m:>34s}" for m in methods))
+    lines.append(f"{'template':30s}" + "".join(f"{m:>39s}" for m in methods))
     for name in sorted({a.template for a in arms}):
         cells = ""
         for m in methods:
             hit = [a for a in arms if a.template == name and a.method == m]
-            cells += f"{'-':>18s}" if not hit else f"{hit[0].compile:>34s}"
+            cells += f"{'-':>39s}" if not hit else f"{hit[0].compile:>39s}"
         lines.append(f"{name:30s}{cells}")
 
     for arm in arms:
