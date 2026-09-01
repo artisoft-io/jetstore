@@ -400,3 +400,30 @@ func contains(s []string, v string) bool {
 	}
 	return false
 }
+
+// TestWindowUntilIsUTC pins the fix for the blind spot found on 2026-09-01
+// against a live deployment.
+//
+// The bound is compared against pipeline_execution_details.start_time, which is
+// `timestamp without time zone` holding UTC. It used to be time.Now() in the
+// caller's zone, so an operator running anomaly_detect from a machine west of
+// Greenwich could not see the last N hours of the record, N being the offset --
+// the rows read as being in the future. On the cluster the host is UTC and the
+// two agree, so this never showed in a deployment; it showed the first time
+// somebody ran the tool from a laptop, which is when it matters most.
+//
+// The assertion is on the location rather than on a formatted string, because
+// a test that compared wall clocks would pass in UTC for the wrong reason and
+// tell whoever runs CI nothing.
+func TestWindowUntilIsUTC(t *testing.T) {
+	if got := (Window{}).until().Location(); got != time.UTC {
+		t.Errorf("until() location = %v, want UTC: the bound is compared against a UTC column", got)
+	}
+
+	// An explicit Until is the caller's to get right and is passed through
+	// unchanged -- the zero value is the only case this function decides.
+	explicit := time.Date(2026, 9, 1, 12, 0, 0, 0, time.FixedZone("EDT", -4*3600))
+	if got := (Window{Until: explicit}).until(); !got.Equal(explicit) {
+		t.Errorf("until() = %v, want the explicit bound %v", got, explicit)
+	}
+}
