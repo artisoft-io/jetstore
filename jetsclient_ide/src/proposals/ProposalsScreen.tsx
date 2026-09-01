@@ -12,10 +12,20 @@
  * before opening one. And the last-decision time distinguishes a proposal
  * somebody is working through from one nobody has touched.
  *
- * **The state filter defaults to the open states rather than to everything.**
- * A staging queue whose default view includes rejected and superseded proposals
- * grows without bound and stops being a queue. "All" is one click away and the
- * active filter is echoed by the server rather than assumed.
+ * **The state filter defaults to the states that still want a human**, not to
+ * everything and not to every non-terminal state. A staging queue whose default
+ * view includes proposals nobody needs to look at stops being a queue. The
+ * other two views are one click away and the active filter is echoed by the
+ * server rather than assumed.
+ *
+ * **It used to default to `audit.Terminal`'s complement and that was the wrong
+ * audience** (2026-09-01, I-249). Non-terminal is a fact about the *machine* --
+ * `approved` still has an outgoing edge to `deployed`, so it is movable and was
+ * therefore "open". But `deployed` is left only by `superseded`, which nothing
+ * routine does, so every decided proposal stayed in the default view for ever
+ * while `awaiting_human_approval` became a shrinking fraction of it. This
+ * screen is gated on `agent_supervision`; its reader is the person who decides,
+ * and the default should be what awaits a decision.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,32 +37,57 @@ import "./proposals.css";
 import { AGENT_SUPERVISION, ProposalsApi, stateLabel, type ProposalRow } from "./api";
 
 /**
- * The states a proposal can still be moved out of — `audit.Terminal`'s
- * complement, spelled here because the filter has to be sent before any
- * proposal has been read, so there is nothing to read the answer off.
+ * The states that still want a human. Everything before a decision is taken,
+ * and nothing after: `approved`, `approved_with_modification` and `deployed`
+ * have all been decided, and what remains for them is deployment rather than
+ * supervision.
  *
- * That makes it the one place in this app that repeats the vocabulary, and it
- * is a *filter* rather than a policy: getting it wrong shows the wrong rows and
- * cannot authorise anything. The transition sets, which can, are never repeated
- * here.
+ * This is the default because the screen's reader is the person who decides.
  */
-const OPEN_STATES = [
+const PENDING_STATES = [
   "draft",
   "validated",
   "agent_reviewed",
   "awaiting_human_approval",
+];
+
+/**
+ * The states a proposal can still be moved out of — `audit.Terminal`'s
+ * complement, spelled here because the filter has to be sent before any
+ * proposal has been read, so there is nothing to read the answer off.
+ *
+ * That makes these the one place in this app that repeats the vocabulary, and
+ * they are a *filter* rather than a policy: getting one wrong shows the wrong
+ * rows and cannot authorise anything. The transition sets, which can, are never
+ * repeated here.
+ */
+const OPEN_STATES = [
+  ...PENDING_STATES,
   "approved",
   "approved_with_modification",
   "deployed",
 ];
 
-type Filter = "open" | "all";
+type Filter = "pending" | "open" | "all";
+
+/** What the server is asked for, per filter. `all` sends none and means all. */
+const STATES_FOR: Record<Filter, string[]> = {
+  pending: PENDING_STATES,
+  open: OPEN_STATES,
+  all: [],
+};
+
+const EMPTY_FOR: Record<Filter, string> = {
+  pending: "No proposals are waiting for a decision.",
+  open: "No proposals are open.",
+  all: "No proposals.",
+};
 
 export function ProposalsScreen({ api }: { api: ApiClient }) {
   const proposals = useMemo(() => new ProposalsApi(api), [api]);
   const { setError } = useNotifications();
 
-  const [filter, setFilter] = useState<Filter>("open");
+  const [filter, setFilter] = useState<Filter>("pending");
   const [rows, setRows] = useState<ProposalRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -72,7 +107,7 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
     }
     setBusy(true);
     try {
-      setRows(await proposals.list(filter === "open" ? OPEN_STATES : []));
+      setRows(await proposals.list(STATES_FOR[filter]));
       setLoaded(true);
     } catch (err) {
       if (!(err instanceof SessionExpiredError)) {
@@ -110,6 +145,7 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
         <label className="ws-picker">
           <span className="sr-only">Which proposals</span>
           <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
+            <option value="pending">Awaiting a decision</option>
             <option value="open">Open proposals</option>
             <option value="all">All proposals</option>
           </select>
@@ -125,7 +161,7 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
         <main className="main">
           {rows.length === 0 && loaded ? (
             <div className="empty">
-              <p>{filter === "open" ? "No open proposals." : "No proposals."}</p>
+              <p>{EMPTY_FOR[filter]}</p>
               <p className="empty-sub">
                 A proposal is written when an agent run produces something, in state <code>draft</code>.
               </p>
