@@ -130,18 +130,37 @@ describe("the staging list", () => {
     expect(link.getAttribute("href")).toBe("/proposals/chg_1");
   });
 
-  // The default view is the open states, not everything: a queue that
-  // accumulates rejected and superseded proposals stops being a queue.
-  it("asks for the open states by default and for none when told all", async () => {
+  // The default view is what still wants a human, not everything and not every
+  // non-terminal state. `approved` and `deployed` are decided; leaving them in
+  // the default meant a queue that never shed anything, because `deployed` is
+  // left only by `superseded` (I-249).
+  it("defaults to the states awaiting a decision, and widens on request", async () => {
     const { api, sent } = await clientWith({ list_proposals: { body: { proposals: [] } } });
     renderAt(api, "/proposals");
-    await screen.findByText("No open proposals.");
-    expect((sent[0]!["states"] as string[]).length).toBeGreaterThan(0);
-    expect(sent[0]!["states"]).not.toContain("rejected");
+    await screen.findByText("No proposals are waiting for a decision.");
+
+    const pending = sent[0]!["states"] as string[];
+    expect(pending).toContain("awaiting_human_approval");
+    // The point of the change: a decided proposal is not awaiting a decision.
+    expect(pending).not.toContain("approved");
+    expect(pending).not.toContain("deployed");
+    // And terminal states were never in any default.
+    expect(pending).not.toContain("rejected");
+    expect(pending).not.toContain("superseded");
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "open" } });
+    await waitFor(() => expect(sent.length).toBe(2));
+    const open = sent[1]!["states"] as string[];
+    expect(open).toContain("approved");
+    expect(open).toContain("deployed");
+    expect(open).not.toContain("rejected");
+    expect(open).not.toContain("superseded");
+    // Widening is a superset rather than a different list.
+    for (const s of pending) expect(open).toContain(s);
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "all" } });
-    await waitFor(() => expect(sent.length).toBe(2));
-    expect(sent[1]!["states"]).toEqual([]);
+    await waitFor(() => expect(sent.length).toBe(3));
+    expect(sent[2]!["states"]).toEqual([]);
   });
 
   // A draft with no generated tests is the ordinary output of a Phase-1
