@@ -21,6 +21,22 @@
 // inventing one and calling it a measurement would be the more expensive
 // mistake.
 //
+// **T.2 added an arm axis, 2026-08-31, and it is what makes I-94's remedy
+// falsifiable.** compile_rule_file and validate_cpipes_config now take a
+// workspace-relative path as an alternative to their content arguments, on the
+// argument that a model which never holds the text cannot mangle it. The
+// obvious way for that to be wrong is that the model fails to *name* a path as
+// often as it failed to *copy* a rule — so the two populations are reported as
+// separate rows with their own denominators, and the comparison is within one
+// model in one run rather than against J.2's granite4.1:3b figures.
+//
+// **The paths in the path-arm prompts do not exist anywhere**, deliberately.
+// What is measured is whether the string the prompt gave survives into the
+// argument — the same question the content arm asks about a rule — and the tool
+// is never called, so nothing resolves them. A prompt naming a file that
+// happened to exist would measure the same thing and invite the reader to think
+// otherwise.
+//
 //	go run ./tools/tool_conformance
 //	go run ./tools/tool_conformance -repeats 3 -model granite4.1:3b
 package main
@@ -59,9 +75,23 @@ type testCase struct {
 	ID string `json:"id"`
 	// Expect is the tool the prompt should reach for, or "" when no catalogue
 	// tool answers it.
-	Expect   string        `json:"expect"`
+	Expect string `json:"expect"`
+	// Arm partitions the cases for one tool into variants being compared.
+	// T.2 gives compile_rule_file and validate_cpipes_config a path-valued
+	// alternative to their content arguments (I-94's remedy), and the question
+	// the remedy has to answer is whether the model *names* a path as
+	// unreliably as it *copied* a rule. That comparison is only readable if the
+	// two populations are reported apart, which is what this field is for.
+	Arm      string        `json:"arm,omitempty"`
 	Prompt   string        `json:"prompt"`
 	Fidelity *fidelitySpec `json:"fidelity,omitempty"`
+}
+
+// row identifies one reported line: a tool, and the arm where a tool has more
+// than one.
+type row struct {
+	tool string
+	arm  string
 }
 
 type caseFile struct {
@@ -111,15 +141,31 @@ func main() {
 	repeats := flag.Int("repeats", 1, "how many times to run each case")
 	timeout := flag.Duration("timeout", 180*time.Second, "per-call timeout")
 	verbose := flag.Bool("v", false, "print every trial")
+	// **Added at T.2, because the rates could not be diagnosed from the rates.**
+	// The path arm of one tool moved payload fidelity from 0 of 11 to 11 of 14
+	// and the other's did not, and nothing in the report could say whether the
+	// failing arm named a wrong path, named none, or filled the content
+	// argument instead. Those are three different verdicts on I-94's remedy.
+	dump := flag.String("dump", "", "append every tool call's raw arguments to this JSONL file")
 	flag.Parse()
 
-	if err := run(*host, *model, *repeats, *timeout, *verbose); err != nil {
+	if err := run(*host, *model, *repeats, *timeout, *verbose, *dump); err != nil {
 		fmt.Fprintln(os.Stderr, "tool_conformance:", err)
 		os.Exit(1)
 	}
 }
 
-func run(host, model string, repeats int, timeout time.Duration, verbose bool) error {
+func run(host, model string, repeats int, timeout time.Duration, verbose bool, dumpPath string) error {
+	var dumpTo *os.File
+	if dumpPath != "" {
+		var err error
+		dumpTo, err = os.Create(dumpPath)
+		if err != nil {
+			return err
+		}
+		defer dumpTo.Close()
+	}
+
 	reg, err := tools.DefaultRegistry()
 	if err != nil {
 		return fmt.Errorf("while building the registry: %w", err)
@@ -157,9 +203,33 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 		}
 	}
 
-	results := map[string]*eval.ToolResult{}
+	// One row per (tool, arm) the case file actually exercises, plus a bare row
+	// for every tool, so a tool with no case still reports "not exercised"
+	// rather than vanishing — a catalogue growing a tool nobody wrote a probe
+	// for is exactly what a conformance run should say out loud.
+	results := map[row]*eval.ToolResult{}
+	order := []row{}
+	addRow := func(r row) {
+		if results[r] == nil {
+			results[r] = &eval.ToolResult{Tool: r.tool, Arm: r.arm}
+			order = append(order, r)
+		}
+	}
 	for _, sig := range sigs {
-		results[sig.Name] = &eval.ToolResult{Tool: sig.Name}
+		hasArmed := false
+		for _, c := range cf.Cases {
+			if c.Expect == sig.Name && c.Arm != "" {
+				hasArmed = true
+			}
+		}
+		if !hasArmed {
+			addRow(row{tool: sig.Name})
+		}
+	}
+	for _, c := range cf.Cases {
+		if c.Expect != "" {
+			addRow(row{tool: c.Expect, arm: c.Arm})
+		}
 	}
 	var abst eval.AbstentionResult
 	served := model
@@ -178,13 +248,38 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 			for _, tc := range resp.Message.ToolCalls {
 				called[tc.Function.Name] = tc.Function.Arguments
 			}
+			if dumpTo != nil {
+				for name, a := range called {
+					line, _ := json.Marshal(map[string]any{
+						"case": c.ID, "expect": c.Expect, "arm": c.Arm,
+						"called": name, "args": json.RawMessage(a),
+					})
+					fmt.Fprintln(dumpTo, string(line))
+				}
+				if len(called) == 0 {
+					line, _ := json.Marshal(map[string]any{
+						"case": c.ID, "expect": c.Expect, "arm": c.Arm, "called": "",
+					})
+					fmt.Fprintln(dumpTo, string(line))
+				}
+			}
 
-			// Denominators first, so every tool's OtherTrials counts this trial
+			// Denominators first, so every row's OtherTrials counts this trial
 			// exactly once whether or not anything was called.
-			for name, r := range results {
-				if name == c.Expect {
+			//
+			// **A sibling arm's trial lands in neither denominator, and that is
+			// the one judgement in this loop.** A prompt naming a path is not a
+			// trial in which compile_rule_file was the wrong answer, so counting
+			// it against the text arm's OtherTrials would manufacture false
+			// calls out of the tool being correctly selected. The tool is the
+			// unit of selection; the arm is the unit of argument population.
+			for key, r := range results {
+				switch {
+				case key.tool == c.Expect && key.arm == c.Arm:
 					r.Trials++
-				} else {
+				case key.tool == c.Expect:
+					// sibling arm: neither
+				default:
 					r.OtherTrials++
 				}
 			}
@@ -196,8 +291,7 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 			}
 
 			for name, args := range called {
-				r := results[name]
-				if r == nil {
+				if validators[name] == nil {
 					// A name the registry does not carry is a hallucinated tool.
 					// It cannot be attributed to any row, so it is reported as a
 					// line of its own rather than silently dropped.
@@ -205,6 +299,7 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 					continue
 				}
 				if name == c.Expect {
+					r := results[row{tool: c.Expect, arm: c.Arm}]
 					// Exactly this tool, and nothing else, counts as selected:
 					// a call accompanied by a second call is not the behaviour a
 					// client can act on.
@@ -219,15 +314,30 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 						}
 						if c.Fidelity != nil {
 							r.PayloadTrials++
-							if missing := payloadMissing(args, c.Fidelity); len(missing) == 0 {
+							switch missing, present := payloadMissing(args, c.Fidelity); {
+							case !present:
+								// The argument is absent, so nothing was mangled:
+								// the model answered through another argument of
+								// the same tool. Counted apart, because folding it
+								// in reads as I-68's corruption recurring.
+								r.PayloadDiverted++
+								fmt.Printf("  > %s sent no %s at all\n", c.ID, c.Fidelity.Arg)
+							case len(missing) == 0:
 								r.PayloadFaithful++
-							} else {
+							default:
 								fmt.Printf("  ~ %s dropped from %s: %v\n", c.ID, c.Fidelity.Arg, missing)
 							}
 						}
 					}
-				} else {
-					r.FalsePositives++
+					continue
+				}
+				// A false call is attributed to every row of the tool that was
+				// wrongly called, because the arm is a property of the *case*
+				// and a call nobody asked for belongs to none of them.
+				for key, r := range results {
+					if key.tool == name {
+						r.FalsePositives++
+					}
 				}
 			}
 			if verbose {
@@ -243,26 +353,32 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool) e
 		Repeats:    repeats,
 		Abstention: abst,
 	}
-	for _, sig := range sigs {
-		report.Tools = append(report.Tools, *results[sig.Name])
+	for _, key := range order {
+		report.Tools = append(report.Tools, *results[key])
 	}
 	fmt.Println()
 	fmt.Print(report.String())
 	return nil
 }
 
-// payloadMissing returns the expected fragments the call did not carry. The
-// argument is rendered back to text before searching, so a config passed as a
-// JSON object and one passed as a JSON string are judged the same way — the
-// question is whether the content survived, not how it was typed.
-func payloadMissing(args json.RawMessage, spec *fidelitySpec) []string {
+// payloadMissing returns the expected fragments the call did not carry, and
+// whether the argument was there at all. The argument is rendered back to text
+// before searching, so a config passed as a JSON object and one passed as a JSON
+// string are judged the same way — the question is whether the content survived,
+// not how it was typed.
+//
+// **The second return value is T.2's, and it separates two things that had one
+// number.** An argument that is absent is not a mangled payload; on a tool with
+// a path alternative it is usually the model choosing the other argument, which
+// is a different verdict on the remedy.
+func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 	var obj map[string]any
 	if err := json.Unmarshal(args, &obj); err != nil {
-		return spec.MustContain
+		return spec.MustContain, false
 	}
 	v, ok := obj[spec.Arg]
 	if !ok {
-		return spec.MustContain
+		return spec.MustContain, false
 	}
 	var text string
 	if s, isString := v.(string); isString {
@@ -270,7 +386,7 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) []string {
 	} else {
 		b, err := json.Marshal(v)
 		if err != nil {
-			return spec.MustContain
+			return spec.MustContain, true
 		}
 		text = string(b)
 	}
@@ -280,7 +396,7 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) []string {
 			missing = append(missing, want)
 		}
 	}
-	return missing
+	return missing, true
 }
 
 func keys(m map[string]json.RawMessage) []string {
