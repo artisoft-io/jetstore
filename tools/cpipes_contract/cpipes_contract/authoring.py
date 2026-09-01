@@ -37,6 +37,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import retrieval as R
 from .expand import Fill
 from .template import Hole, _bundle_members
 
@@ -111,6 +112,11 @@ class Report:
     """Per-hole outcomes. **There is deliberately no aggregate.**"""
 
     model: str
+    # Which candidate-selection method produced the few-shot examples (T.3).
+    # Mandatory in the sense that it is always rendered: a fragment pass rate whose
+    # report cannot say how examples were chosen will be compared with one produced
+    # the other way, which is `eval.ToolReport.Mechanism`'s argument one toolchain over.
+    method: str = R.CITED
     attempts: list[Attempt] = field(default_factory=list)
 
     def per_hole(self) -> dict[str, tuple[int, int]]:
@@ -123,8 +129,36 @@ class Report:
                 row[0] += 1
         return {k: (v[0], v[1]) for k, v in out.items()}
 
+    def per_operator(self) -> dict[str, tuple[int, int]]:
+        """schema_ref -> (passed, attempted).
+
+        **The operator is the reporting unit criterion 38 names, and it is not the
+        hole.** Two holes of one template can bind the same bundle - `qc_report` has
+        four `ColumnAggregation` holes - so a per-hole table splits one operator's
+        evidence four ways and a reader comparing arms compares eight small numbers
+        instead of two. Both tables are published: the hole is where a failure is
+        debugged, the operator is where an arm is judged.
+        """
+        out: dict[str, list[int]] = {}
+        for a in self.attempts:
+            row = out.setdefault(a.schema_ref, [0, 0])
+            row[1] += 1
+            if a.ok:
+                row[0] += 1
+        return {k: (v[0], v[1]) for k, v in out.items()}
+
     def render(self) -> str:
-        lines = [f"model: {self.model}", "", f"{'hole':24s}{'schema_ref':26s}{'pass':>6s}{'of':>4s}  commonest failure"]
+        lines = [
+            f"model: {self.model}",
+            f"selection: {self.method}",
+            "",
+            f"{'operator (schema_ref)':30s}{'pass':>6s}{'of':>4s}  commonest failure",
+        ]
+        for ref, (ok, n) in sorted(self.per_operator().items()):
+            errs = [a.error for a in self.attempts if a.schema_ref == ref and a.error]
+            top = max(set(errs), key=errs.count)[:60] if errs else ""
+            lines.append(f"{ref:30s}{ok:>6d}{n:>4d}  {top}")
+        lines += ["", f"{'hole':24s}{'schema_ref':26s}{'pass':>6s}{'of':>4s}  commonest failure"]
         for hole, (ok, n) in sorted(self.per_hole().items()):
             ref = next(a.schema_ref for a in self.attempts if a.hole == hole)
             errs = [a.error for a in self.attempts if a.hole == hole and a.error]
@@ -176,13 +210,19 @@ def reachable(host: str = DEFAULT_HOST, timeout: int = 5) -> tuple[bool, str]:
 
 
 def examples_for(
-    schema_ref: str, library: list[dict], members: dict[str, list[str]], limit: int = 4
+    schema_ref: str,
+    library: list[dict],
+    members: dict[str, list[str]],
+    limit: int = 4,
+    method: str = R.CITED,
+    query: str = "",
+    embedder: "R.Embedder | None" = None,
 ) -> list[dict]:
     """Up to `limit` library parts for a bundle, chosen for **shape diversity**.
 
     Three `select` examples teach less than one each of select, value and eval, so the
-    pick is one part per member type, most-cited first, before any second example of a
-    type it already has.
+    pick is one part per member type, best-first within a type, before any second
+    example of a type it already has.
 
     **Few-shot from the library is legitimate for criterion 22 and few-shot from the
     target is not.** §5.3.9's qualification is about a harness recovering *the answer*;
@@ -190,25 +230,18 @@ def examples_for(
     exactly this. The boundary is that no example may come from the config a template was
     derived from - which is why this reads the library and `from_target` remains a
     separate function nothing here calls.
-    """
-    wanted = members.get(schema_ref, [schema_ref])
-    best: dict[str, list[dict]] = {}
-    for part in library:
-        if part["defs_name"] in wanted:
-            best.setdefault(part["defs_name"], []).append(part)
-    for parts in best.values():
-        parts.sort(key=lambda p: (-p.get("prod_instances", 0), -p["instances"]))
 
-    picked: list[dict] = []
-    round_ = 0
-    while len(picked) < limit and any(len(v) > round_ for v in best.values()):
-        for name in sorted(best, key=lambda n: -best[n][0]["instances"]):
-            if len(picked) >= limit:
-                break
-            if len(best[name]) > round_:
-                picked.append(best[name][round_])
-        round_ += 1
-    return picked
+    **`method` is T.3's axis and `cited` is what this function has always done** - most
+    production instances first, then most instances. `lexical` and `semantic` reorder
+    *within* a member type and leave the diversity rule alone, which is I-96's stated
+    caution rather than a convenience. The picker itself lives in `retrieval.pick` so all
+    three arms share it exactly; a comparison whose arms did not would be measuring the
+    picker.
+    """
+    by_type = R.candidates_by_type(schema_ref, library, members)
+    if not by_type:
+        return []
+    return R.pick(by_type, R.ranker_for(method, query, embedder), limit)
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +349,8 @@ def instruction_for(
     members: dict[str, list[str]] | None = None,
     tokens: dict[str, list[str]] | None = None,
     fmt: dict | None = None,
+    method: str = R.CITED,
+    embedder: "R.Embedder | None" = None,
 ) -> str:
     """The prompt `from_model` sends for one hole.
 
@@ -323,6 +358,11 @@ def instruction_for(
     to size a hole by its JSON Schema and the prompt was built separately; Q-15 measured
     that the schema does not enter the context at all, so the two had to become one
     function or drift apart again.
+
+    **The selection method changes which examples appear and nothing else** (T.3). The
+    instruction's structure, the TypeScript declarations, the token list and the
+    ordering of the regions are identical across arms, so a difference in compile-pass
+    is attributable to the examples rather than to the prompt.
     """
     if fmt is None:
         fmt = subschema(schema, hole.schema_ref)
@@ -331,7 +371,19 @@ def instruction_for(
     if tokens is None:
         tokens = _bundle_tokens(matrix)
 
-    shown = examples_for(hole.schema_ref, library, members, shots) if library else []
+    shown = (
+        examples_for(
+            hole.schema_ref,
+            library,
+            members,
+            shots,
+            method=method,
+            query=R.query_for(hole.prompt, item),
+            embedder=embedder,
+        )
+        if library
+        else []
+    )
     examples = ""
     if shown:
         body = "\n".join(
@@ -374,12 +426,22 @@ def from_model(
     reserve_tokens: int = 8192,
     library: list[dict] | None = None,
     shots: int = 4,
+    method: str = R.CITED,
+    embedder: "R.Embedder | None" = None,
 ) -> Fill:
     """A `Fill` that asks the infer server to author each fragment.
 
     The hole's `prompt` is the English description criterion 22 is about; the hole's
     `schema_ref` becomes the `format`, so the model is constrained by the contract rather
-    than asked to remember it. **Neither the library nor the target is consulted.**
+    than asked to remember it. **The target is never consulted**; the library is, as
+    few-shot material, and `method` is which of it (T.3).
+
+    ~~**Neither the library nor the target is consulted.**~~ That sentence was left
+    behind by F.6, which added the `library` parameter above it: `instruction_for`
+    reads the library on every call and has since the day few-shot examples were added.
+    The clause that matters — and is still true — is the one about the *target*, which
+    is what §5.3.9's qualification is about. Corrected 2026-08-31 at T.3, which had to
+    know exactly what the prompt contains before changing which examples reach it.
     """
     members = _bundle_members(matrix)
     tokens = _bundle_tokens(matrix)
@@ -392,7 +454,8 @@ def from_model(
         fmt = cache[hole.schema_ref]
         item = ctx.get("$item")
         instruction = instruction_for(
-            hole, schema, matrix, library, shots, item, members, tokens, fmt
+            hole, schema, matrix, library, shots, item, members, tokens, fmt,
+            method=method, embedder=embedder,
         )
         # The server is already in hand here, so take its count and fall back to the
         # estimate only when it will not answer (I-42).
