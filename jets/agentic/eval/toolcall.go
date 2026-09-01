@@ -49,6 +49,19 @@ const (
 // called anyway".
 type ToolResult struct {
 	Tool string
+	// Arm names a variant of the same tool being compared against another,
+	// empty when a tool has only one. Added at T.2 (2026-08-31), where
+	// compile_rule_file and validate_cpipes_config each gained a path-valued
+	// alternative to a content argument (I-94's remedy) and the question is
+	// whether the model names a path as unreliably as it copied a rule.
+	//
+	// **A field rather than a suffix on Tool, because the two rows are one
+	// comparison.** Reporting "compile_rule_file [path]" beside
+	// "compile_rule_file [text]" would read as two tools and invite a total
+	// across them — which is exactly the aggregate decision 13 refuses, since
+	// the denominators are equal by construction here and would make a total
+	// look defensible. Arm keeps the pair legible as a pair.
+	Arm string
 	// Trials is how many prompts had this tool as the expected answer, times
 	// the repeat count.
 	Trials int
@@ -70,6 +83,21 @@ type ToolResult struct {
 	// ArgsValid. The two tools whose arguments carry the most meaning are
 	// exactly the two whose schemas check the least.
 	PayloadFaithful int
+	// PayloadDiverted is how many of PayloadTrials did not carry the payload
+	// argument at all — the model answered through a *different* argument of the
+	// same tool.
+	//
+	// **Added at T.2 because without it the run said the wrong thing.** Giving
+	// validate_cpipes_config a path alternative made the model reach for the path
+	// even when the prompt handed it a config inline: 5 of 8 content-arm calls in
+	// one dump filled `config_path` and nothing else. Those are schema-valid calls
+	// carrying no payload, and folding them into PayloadFaithful's complement reads
+	// as *the payload was mangled* — I-68's finding recurring — when what happened
+	// is that the payload was never sent. Two different verdicts on the remedy, and
+	// the rate alone cannot tell them apart.
+	//
+	// PayloadFaithful + (mangled) + PayloadDiverted = PayloadTrials.
+	PayloadDiverted int
 	// OtherTrials is how many trials expected something else, including the
 	// no-tool cases.
 	OtherTrials int
@@ -98,9 +126,24 @@ func (r ToolResult) Line() string {
 	}
 	if r.PayloadTrials > 0 {
 		args += fmt.Sprintf(", payload intact %d of %d", r.PayloadFaithful, r.PayloadTrials)
+		if r.PayloadDiverted > 0 {
+			args += fmt.Sprintf(" (%d sent no payload)", r.PayloadDiverted)
+		}
 	}
 	fp := fmt.Sprintf("false calls %d of %d", r.FalsePositives, r.OtherTrials)
-	return fmt.Sprintf("%-24s %-34s %-46s %s", r.Tool, sel, args, fp)
+	name := r.Tool
+	if r.Arm != "" {
+		name += " · " + r.Arm
+	}
+	return fmt.Sprintf("%-31s %-34s %-46s %s", name, sel, args, fp)
+}
+
+// Label is the row's identity — the tool, and the arm where there is one.
+func (r ToolResult) Label() string {
+	if r.Arm == "" {
+		return r.Tool
+	}
+	return r.Tool + " · " + r.Arm
 }
 
 // AbstentionResult is the no-tool population: prompts no catalogue tool
@@ -163,23 +206,27 @@ func (r *ToolReport) Validate() error {
 	}
 	for _, t := range r.Tools {
 		if t.Selected > t.Trials {
-			return fmt.Errorf("eval: %s selected %d of %d trials", t.Tool, t.Selected, t.Trials)
+			return fmt.Errorf("eval: %s selected %d of %d trials", t.Label(), t.Selected, t.Trials)
 		}
 		if t.ArgsValid > t.Selected {
 			return fmt.Errorf("eval: %s had %d valid argument sets from %d calls",
-				t.Tool, t.ArgsValid, t.Selected)
+				t.Label(), t.ArgsValid, t.Selected)
 		}
 		if t.PayloadFaithful > t.PayloadTrials {
 			return fmt.Errorf("eval: %s reproduced %d payloads intact from %d that carried one",
-				t.Tool, t.PayloadFaithful, t.PayloadTrials)
+				t.Label(), t.PayloadFaithful, t.PayloadTrials)
 		}
 		if t.PayloadTrials > t.Selected {
 			return fmt.Errorf("eval: %s had %d payload trials from %d calls",
-				t.Tool, t.PayloadTrials, t.Selected)
+				t.Label(), t.PayloadTrials, t.Selected)
+		}
+		if t.PayloadFaithful+t.PayloadDiverted > t.PayloadTrials {
+			return fmt.Errorf("eval: %s reports %d intact and %d with no payload from %d trials",
+				t.Label(), t.PayloadFaithful, t.PayloadDiverted, t.PayloadTrials)
 		}
 		if t.FalsePositives > t.OtherTrials {
 			return fmt.Errorf("eval: %s was called falsely %d times in %d trials that expected "+
-				"something else", t.Tool, t.FalsePositives, t.OtherTrials)
+				"something else", t.Label(), t.FalsePositives, t.OtherTrials)
 		}
 	}
 	if r.Abstention.Abstained > r.Abstention.Trials {
@@ -197,7 +244,7 @@ func (r *ToolReport) String() string {
 	}
 	ts := make([]ToolResult, len(r.Tools))
 	copy(ts, r.Tools)
-	sort.Slice(ts, func(i, j int) bool { return ts[i].Tool < ts[j].Tool })
+	sort.Slice(ts, func(i, j int) bool { return ts[i].Label() < ts[j].Label() })
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "tool-call conformance — mechanism %s, model %s\n", r.Mechanism, r.Model)

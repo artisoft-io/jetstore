@@ -106,7 +106,8 @@
           "acme",
           "load"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "vcc-2",
@@ -118,7 +119,8 @@
           "acme",
           "main"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "vcc-3",
@@ -130,7 +132,8 @@
           "fan_out",
           "p"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "vcc-4",
@@ -142,7 +145,8 @@
           "c",
           "n"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "vcc-5",
@@ -153,7 +157,8 @@
         "must_contain": [
           "map_record"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "vcc-6",
@@ -165,7 +170,8 @@
           "embed",
           "parts"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-1",
@@ -178,7 +184,8 @@
           "?x jets:key ?k",
           "hc:flag"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-2",
@@ -192,7 +199,8 @@
           "[r2]",
           "hc:amount"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-3",
@@ -204,7 +212,8 @@
           "[bad]",
           "jets:key"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-4",
@@ -217,7 +226,8 @@
           "hc:x",
           "hc:y"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-5",
@@ -230,7 +240,8 @@
           "hc:paid",
           "hc:settled"
         ]
-      }
+      },
+      "arm": "content"
     },
     {
       "id": "crf-6",
@@ -242,6 +253,247 @@
           "[r9]",
           "jets:entity",
           "hc:seen"
+        ]
+      },
+      "arm": "content"
+    },
+    {
+      "id": "crfp-1",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "Does the rule file jet_rules/claims_main.jr compile?",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "jet_rules/claims_main.jr"
+        ]
+      }
+    },
+    {
+      "id": "crfp-2",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "Compile data_model/jets_agentic.jr and show me the errors.",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "data_model/jets_agentic.jr"
+        ]
+      }
+    },
+    {
+      "id": "crfp-3",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "I edited the file at jet_rules/mapping/member_rules.jr and I am not sure about the syntax. Check it.",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "jet_rules/mapping/member_rules.jr"
+        ]
+      }
+    },
+    {
+      "id": "crfp-4",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "check my jetrule source\n\njet_rules/r5.jr",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "jet_rules/r5.jr"
+        ]
+      }
+    },
+    {
+      "id": "crfp-5",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "Please run the compiler over the workspace file jet_rules/qc/claims_qc.jr.",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "jet_rules/qc/claims_qc.jr"
+        ]
+      }
+    },
+    {
+      "id": "crfp-6",
+      "expect": "compile_rule_file",
+      "arm": "path",
+      "prompt": "Will the RETE compiler accept data_model/hc_model.jr as it stands in the workspace?",
+      "fidelity": {
+        "arg": "rule_path",
+        "must_contain": [
+          "data_model/hc_model.jr"
+        ]
+      }
+    },
+    {
+      "id": "vccp-1",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "Is the config at pipes_config/acme_load.pc.json valid?",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/acme_load.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "vccp-2",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "Check pipes_config/main_loader.pc.json against the real validator.",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/main_loader.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "vccp-3",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "I think there is something wrong with the pipeline definition in pipes_config/qc/qc_metrics.pc.json.",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/qc/qc_metrics.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "vccp-4",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "Run the startup validator over the workspace file pipes_config/embed_input_parts.pc.json and tell me every diagnostic.",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/embed_input_parts.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "vccp-5",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "Would pipes_config/anonymize_file.pc.json start?",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/anonymize_file.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "vccp-6",
+      "expect": "validate_cpipes_config",
+      "arm": "path",
+      "prompt": "validate: pipes_config/shard_claims.pc.json",
+      "fidelity": {
+        "arg": "config_path",
+        "must_contain": [
+          "pipes_config/shard_claims.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "lwf-1",
+      "expect": "list_workspace_files",
+      "prompt": "What files are in this workspace?"
+    },
+    {
+      "id": "lwf-2",
+      "expect": "list_workspace_files",
+      "prompt": "List every rule file in the workspace."
+    },
+    {
+      "id": "lwf-3",
+      "expect": "list_workspace_files",
+      "prompt": "Which pipeline configurations exist here? I need their paths."
+    },
+    {
+      "id": "lwf-4",
+      "expect": "list_workspace_files",
+      "prompt": "show me the workspace file tree"
+    },
+    {
+      "id": "lwf-5",
+      "expect": "list_workspace_files",
+      "prompt": "Before I read anything I want to know what source files are available."
+    },
+    {
+      "id": "lwf-6",
+      "expect": "list_workspace_files",
+      "prompt": "Are there any lookup tables (.csv) in this workspace?"
+    },
+    {
+      "id": "rwf-1",
+      "expect": "read_workspace_file",
+      "prompt": "Show me the contents of jet_rules/claims_main.jr.",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "jet_rules/claims_main.jr"
+        ]
+      }
+    },
+    {
+      "id": "rwf-2",
+      "expect": "read_workspace_file",
+      "prompt": "Read data_model/jets_model.jr for me.",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "data_model/jets_model.jr"
+        ]
+      }
+    },
+    {
+      "id": "rwf-3",
+      "expect": "read_workspace_file",
+      "prompt": "I want to see what is in pipes_config/acme_load.pc.json.",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "pipes_config/acme_load.pc.json"
+        ]
+      }
+    },
+    {
+      "id": "rwf-4",
+      "expect": "read_workspace_file",
+      "prompt": "open workspace_control.json",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "workspace_control.json"
+        ]
+      }
+    },
+    {
+      "id": "rwf-5",
+      "expect": "read_workspace_file",
+      "prompt": "Print the source of the file at jet_rules/qc/claims_qc.jr so I can review it.",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "jet_rules/qc/claims_qc.jr"
+        ]
+      }
+    },
+    {
+      "id": "rwf-6",
+      "expect": "read_workspace_file",
+      "prompt": "What does lookups/state_codes.csv contain?",
+      "fidelity": {
+        "arg": "path",
+        "must_contain": [
+          "lookups/state_codes.csv"
         ]
       }
     },

@@ -148,6 +148,10 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 		"describe_domain_class":  true,
 		"validate_cpipes_config": true,
 		"compile_rule_file":      true,
+		// The two workspace reads J.1 decided in Phase 2 and T.1 built
+		// (2026-08-31). Six of J.1's seven; the seventh is the write tool.
+		"list_workspace_files": true,
+		"read_workspace_file":  true,
 	}
 	sigs := reg.List()
 	got := map[string]bool{}
@@ -165,7 +169,7 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 		}
 	}
 	for _, sig := range sigs {
-		// Still true of all four, and still worth asserting rather than
+		// Still true of all six, and still worth asserting rather than
 		// assuming: the first tool that changes anything arrives with the
 		// Phase-2 write catalogue, and this line is where that shows up.
 		if sig.Reversibility != "na" {

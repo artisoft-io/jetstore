@@ -291,6 +291,47 @@ def main(argv: list[str] | None = None) -> int:
         help="emit candidate cases from one workspace's history, for curation",
     )
 
+    gc_cmd = sub.add_parser(
+        "generate-compile",
+        help="T.3 / criterion 38: generate each template's holes under two or more "
+        "candidate-selection methods, expand, and report compile-pass per operator "
+        "with denominators",
+    )
+    gc_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    gc_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    gc_cmd.add_argument(
+        "--library",
+        type=Path,
+        default=DEFAULT_MATRIX.parent / "fragments" / "library.curated.jsonl",
+    )
+    gc_cmd.add_argument("--dir", type=Path, default=DEFAULT_MATRIX.parent / "templates")
+    gc_cmd.add_argument("--model", required=True, help="the generating model tag")
+    gc_cmd.add_argument("--host", default="http://localhost:11434")
+    gc_cmd.add_argument(
+        "--select",
+        default="cited,lexical,semantic",
+        help="comma-separated selection arms: cited (the shipped ordering, the "
+        "baseline), lexical, semantic",
+    )
+    gc_cmd.add_argument(
+        "--embed-model",
+        default="nomic-embed-text",
+        help="the embedding model the semantic arm ranks with; I-53 measured with "
+        "this one",
+    )
+    gc_cmd.add_argument("--shots", type=int, default=4)
+    gc_cmd.add_argument("--timeout", type=int, default=180)
+    gc_cmd.add_argument(
+        "--code",
+        type=Path,
+        help="the JetStore repo root; with it, every assembled config is put through "
+        "the real ValidatePipeSpecConfig, which is what makes this compile-pass "
+        "rather than schema validation",
+    )
+    gc_cmd.add_argument("--out", type=Path, help="write the per-arm results as JSON")
+
     validate_cmd = sub.add_parser(
         "validate",
         help="validate the live corpus against the emitted schema with the Go "
@@ -310,6 +351,16 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.command == "generate-compile":
+        # Dispatched here, beside `templates`, rather than below with the
+        # matrix-consuming commands: this one wants the matrix *directory*
+        # (`_bundle_members` and `_bundle_tokens` read two CSVs out of it) and
+        # not the parsed Matrix, and parsing one to hand over its path is a cost
+        # for nothing.
+        from . import generate_compile as gc_mod
+
+        return gc_mod.run(args, args.matrix)
 
     if args.command == "templates":
         import json

@@ -50,6 +50,19 @@ type CompileReport struct {
 
 type compileArgs struct {
 	RuleText string `json:"rule_text"`
+	// RulePath is I-94's remedy: name a workspace file instead of carrying its
+	// text (T.2). J.2 measured the model reproducing a rule file correctly 9
+	// times in 18, deterministically, with a verbatim-copy instruction making
+	// it worse — and `rule_text` is `{"type":"string"}`, so no schema anywhere
+	// can see a dropped import line. A path removes the failure rather than
+	// detecting it: the model never holds the text.
+	//
+	// **Exactly one of the two, not a precedence rule.** A caller sending both
+	// has two different intentions and the tool cannot know which, so it says
+	// so instead of quietly preferring one. Silently ignoring `rule_text`
+	// beside a path would reproduce I-68's own defect — a call that looks
+	// answered and compiled something else.
+	RulePath string `json:"rule_path"`
 	FileName string `json:"file_name"`
 }
 
@@ -63,16 +76,54 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 	if err := json.Unmarshal(args, &in); err != nil {
 		return nil, fmt.Errorf("while parsing arguments: %w", err)
 	}
-	if strings.TrimSpace(in.RuleText) == "" {
-		return nil, fmt.Errorf("argument 'rule_text' is required and cannot be blank")
+	hasText := strings.TrimSpace(in.RuleText) != ""
+	hasPath := strings.TrimSpace(in.RulePath) != ""
+	switch {
+	case hasText && hasPath:
+		return nil, fmt.Errorf(
+			"give either 'rule_text' or 'rule_path', not both: they name two different " +
+				"rules and this tool will not guess which one you meant")
+	case !hasText && !hasPath:
+		return nil, fmt.Errorf(
+			"one of 'rule_path' (a workspace-relative .jr, preferred) or 'rule_text' " +
+				"(the source itself) is required")
 	}
-	fileName, err := compileFileName(in.FileName)
-	if err != nil {
-		return nil, err
-	}
+
 	wsDir, err := ws.LocalDir()
 	if err != nil {
 		return nil, err
+	}
+
+	// fileName is what the compile is attributed to, and it is also the path
+	// inside the throwaway. For the path arm that is the file's own relative
+	// path, so a rule sitting in jet_rules/ compiles from jet_rules/ and its
+	// imports resolve exactly as they do in the workspace — which is the point
+	// of the arm rather than a convenience.
+	fileName := ""
+	if hasPath {
+		rel, _, err := resolveWorkspacePath(ws, in.RulePath)
+		if err != nil {
+			return nil, err
+		}
+		if filepath.Ext(rel) != ".jr" {
+			return nil, fmt.Errorf("argument 'rule_path' must name a .jr file, got %q", rel)
+		}
+		if _, err := os.Stat(filepath.Join(wsDir, filepath.FromSlash(rel))); err != nil {
+			return nil, fmt.Errorf(
+				"no rule file at %q in this workspace (list_workspace_files reports the paths that exist): %w",
+				rel, err)
+		}
+		if in.FileName != "" {
+			return nil, fmt.Errorf(
+				"argument 'file_name' renames submitted text and does not apply to 'rule_path'; " +
+					"a file compiled by path is attributed to its own name")
+		}
+		fileName = filepath.FromSlash(rel)
+	} else {
+		fileName, err = compileFileName(in.FileName)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	scratch, err := os.MkdirTemp("", "jets_compile_rule_")
@@ -86,9 +137,13 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 	}
 	// Write the submitted text last, so a caller cannot overwrite one of the
 	// workspace's own files in the copy and have the compile silently read
-	// something other than what it was given.
-	if err := os.WriteFile(filepath.Join(scratch, fileName), []byte(in.RuleText), 0o600); err != nil {
-		return nil, fmt.Errorf("while writing the submitted rule text: %w", err)
+	// something other than what it was given. The path arm writes nothing:
+	// copyRuleSources has already staged that file at its own relative path,
+	// which is what makes the arm cheap.
+	if hasText {
+		if err := os.WriteFile(filepath.Join(scratch, fileName), []byte(in.RuleText), 0o600); err != nil {
+			return nil, fmt.Errorf("while writing the submitted rule text: %w", err)
+		}
 	}
 
 	// saveJson false: compile and report, write nothing. autoAddResources

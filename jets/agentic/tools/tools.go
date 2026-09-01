@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
+	"strings"
 
 	cp "github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -151,6 +153,12 @@ func DescribeDomainClass(_ context.Context, ws *Workspace, args json.RawMessage)
 
 type validateArgs struct {
 	Config json.RawMessage `json:"config"`
+	// ConfigPath is I-94's remedy on this tool (T.2). `config` relaxes to
+	// {"type":"object"} at the wire — relaxExternalRefs must, since an MCP
+	// client cannot resolve a cross-file $ref — so a config arriving with half
+	// its pipes missing satisfies the schema. A path is not carried and cannot
+	// be mangled. Exactly one of the two, for the reason compileArgs gives.
+	ConfigPath string `json:"config_path"`
 }
 
 type StepDiagnostic struct {
@@ -170,13 +178,54 @@ type ValidationReport struct {
 // into a private CpipesStartup, so the validator's default-applying
 // mutations (I-4) touch a copy and nothing the caller holds. The env is the
 // quiet single-shard case the harness uses.
-func ValidateCpipesConfig(_ context.Context, _ *Workspace, args json.RawMessage) (any, error) {
+func ValidateCpipesConfig(_ context.Context, ws *Workspace, args json.RawMessage) (any, error) {
 	var in validateArgs
 	if err := json.Unmarshal(args, &in); err != nil {
 		return nil, fmt.Errorf("while parsing arguments: %w", err)
 	}
-	if len(in.Config) == 0 {
-		return nil, fmt.Errorf("argument 'config' is required")
+	hasConfig := len(in.Config) > 0 && string(in.Config) != "null"
+	hasPath := strings.TrimSpace(in.ConfigPath) != ""
+	switch {
+	case hasConfig && hasPath:
+		return nil, fmt.Errorf(
+			"give either 'config' or 'config_path', not both: they name two different " +
+				"configurations and this tool will not guess which one you meant")
+	case !hasConfig && !hasPath:
+		return nil, fmt.Errorf(
+			"one of 'config_path' (a workspace-relative .pc.json, preferred) or 'config' " +
+				"(the configuration object itself) is required")
+	}
+	if hasPath {
+		// The path arm needs the handle this tool did not previously use, and
+		// that is the one visible cost of the remedy here: validation itself
+		// touches no workspace — the config is validated in a private
+		// CpipesStartup — so a config given by value can be checked against a
+		// workspace that was never materialised on disk, and one given by path
+		// cannot.
+		rel, abs, err := resolveWorkspacePath(ws, in.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasSuffix(rel, ".json") {
+			return nil, fmt.Errorf(
+				"argument 'config_path' must name a .json file (a cpipes config is a .pc.json), got %q", rel)
+		}
+		raw, err := os.ReadFile(abs)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"no configuration at %q in this workspace (list_workspace_files reports the paths that exist): %w",
+				rel, err)
+		}
+		if !json.Valid(raw) {
+			// A file that is not JSON is a fact about the file, and reporting
+			// it as a step diagnostic keeps the caller's report shape the same
+			// whichever arm produced it.
+			return &ValidationReport{
+				Valid:       false,
+				Diagnostics: []StepDiagnostic{{Step: -1, Error: fmt.Sprintf("%s does not hold JSON", rel)}},
+			}, nil
+		}
+		in.Config = json.RawMessage(raw)
 	}
 	var probe cp.ComputePipesConfig
 	if err := json.Unmarshal(in.Config, &probe); err != nil {
