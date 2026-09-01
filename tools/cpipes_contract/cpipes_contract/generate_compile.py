@@ -44,6 +44,10 @@ from .template import Template
 from .template import check as check_template
 from .template import load as load_template
 
+# `eval.RateThreshold`, restated here rather than imported across the Go/Python
+# boundary: decision 13 says four or fewer attempts report cases, inclusive.
+RATE_THRESHOLD = 5
+
 
 @dataclass
 class ArmResult:
@@ -121,6 +125,16 @@ def compile_pass(code_root: Path, arms: list[ArmResult]) -> None:
     for cid, res in run_cases(code_root, cases).items():
         arm = index[cid]
         arm.compile = "pass" if res.ok else "fail"
+        # **A pass over zero model-authored fragments is not evidence about the
+        # model, and the first run of this tool produced two of them.** `qc_report`
+        # asks a filler for nothing - every one of its holes carries a `$body`, so
+        # it is a loop rather than a blank and its configuration lives in its
+        # bindings (I-76, sharpened by I-78). Expanding it therefore assembles a
+        # valid config from the bindings alone and the validator accepts it, which
+        # renders as `pass` beside two genuine `not-reached`s and reads as the
+        # arm's best result. It is the arm's *empty* result.
+        if not arm.report.attempts:
+            arm.compile = arm.compile + " (vacuous: 0 fragments authored)"
         arm.compile_error = res.error
         arm.compile_steps = res.steps
 
@@ -143,16 +157,22 @@ def render(arms: list[ArmResult], methods: list[str], unavailable: dict[str, str
         for m in methods:
             row = per.get((ref, m))
             cells += f"{'-':>18s}" if row is None else f"{f'{row[0]} of {row[1]}':>18s}"
-        lines.append(f"{ref:30s}{cells}")
+        # Decision 13's threshold, applied here as it is in `eval`: below five
+        # attempts an operator reports cases and not a rate, and marking the row
+        # is what stops a reader reading `1 of 3` against `2 of 3` as 33% against
+        # 67%.
+        thin = max((per[(ref, m)][1] for m in methods if (ref, m) in per), default=0)
+        mark = "   (cases, not a rate)" if thin < RATE_THRESHOLD else ""
+        lines.append(f"{ref:30s}{cells}{mark}")
 
     # --- the compile-pass table ------------------------------------------------
     lines += ["", "compile-pass gate - the expanded config accepted by ValidatePipeSpecConfig", ""]
-    lines.append(f"{'template':30s}" + "".join(f"{m:>18s}" for m in methods))
+    lines.append(f"{'template':30s}" + "".join(f"{m:>34s}" for m in methods))
     for name in sorted({a.template for a in arms}):
         cells = ""
         for m in methods:
             hit = [a for a in arms if a.template == name and a.method == m]
-            cells += f"{'-':>18s}" if not hit else f"{hit[0].compile:>18s}"
+            cells += f"{'-':>18s}" if not hit else f"{hit[0].compile:>34s}"
         lines.append(f"{name:30s}{cells}")
 
     for arm in arms:
