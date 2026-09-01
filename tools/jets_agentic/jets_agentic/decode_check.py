@@ -153,7 +153,7 @@ def run(args: argparse.Namespace) -> int:
           f"{len(collect_vocabularies())} vocabularies as $defs enums, projections cannot widen")
     check_xgrammar(problems)
     print(f"vLLM guided_json via xgrammar (A2a.3): "
-          f"{'FAILED' if len(problems) > shape_problems else 'ok - all 10 entities + the triage projection compile to grammars'}")
+          f"{'FAILED' if len(problems) > shape_problems else f'ok - all {len(M.ENTITIES)} entities + the triage projection compile to grammars'}")
     if args.ollama_model:
         before = len(problems)
         check_ollama(args.ollama_model, problems)

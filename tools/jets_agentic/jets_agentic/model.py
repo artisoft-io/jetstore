@@ -1,6 +1,6 @@
 """The jets_agentic domain model — the schema-first source (plan §4, decision 7).
 
-Ten entities in three tranches and nine controlled vocabularies. The emitters
+Nine entities in three tranches and nine controlled vocabularies. The emitters
 (jr.py, sidecar.py, and the item-2a/3 emitters that extend them) read this
 module through Pydantic reflection; nothing else does. Authoring rules:
 
@@ -557,13 +557,6 @@ class Remediation(JetsaEntity):
     remediation_approval_state: ApprovalState = prop("Where the remediation sits in the approval lifecycle (§A.2.9 names it approval_state; scoped per F7 against ChangeProposal's).")
 
 
-class EvalCase(JetsaEntity):
-    """One evaluation case of the assurance suite (ours; §11's consumer
-    arrives in a later phase). Skeleton: identity only."""
-
-    eval_case_id: str = prop("The evaluation case identity.", key=True)
-
-
 class DomainModelVersion(JetsaEntity):
     """A released version of the domain model itself (proposal §5.3: identity
     and intent given, fields ours). Skeleton: the version and when it took
@@ -573,7 +566,7 @@ class DomainModelVersion(JetsaEntity):
     effective_at: datetime = prop("When this version became the current one.")
 
 
-# The ten entities, in emission order: full tranche, then skeleton. The
+# The nine entities, in emission order: full tranche, then skeleton. The
 # emitters iterate this list; vocabularies are discovered by reachability.
 ENTITIES: list[type[BaseModel]] = [
     AgentRun,
@@ -584,6 +577,5 @@ ENTITIES: list[type[BaseModel]] = [
     Hypothesis,
     Incident,
     Remediation,
-    EvalCase,
     DomainModelVersion,
 ]

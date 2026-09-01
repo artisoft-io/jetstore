@@ -71,7 +71,7 @@ def _clean(node: Any) -> Any:
 
 
 def emit() -> str:
-    """The committed bundle: all ten entities and every reachable vocabulary
+    """The committed bundle: all nine entities and every reachable vocabulary
     under one `$defs`, each entity independently reachable as
     `jets_agentic.schema.json#/$defs/<Entity>`."""
     _, definitions = models_json_schema(
