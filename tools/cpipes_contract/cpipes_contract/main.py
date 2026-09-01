@@ -266,6 +266,31 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_MATRIX.parent / "fragments" / "library.jsonl",
     )
 
+    repairs_cmd = sub.add_parser(
+        "repairs",
+        help="the repair-case library: real config defects and the commits that fixed "
+        "them, classified by what the contract could see (P.2)",
+    )
+    repairs_cmd.add_argument(
+        "--library", type=Path,
+        default=DEFAULT_MATRIX.parent / "repairs" / "library.jsonl",
+    )
+    repairs_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    repairs_cmd.add_argument(
+        "--corpus", type=Path, default=Path("../.."),
+        help="root holding workspaces/, relative to the JetStore repo root",
+    )
+    repairs_cmd.add_argument(
+        "--check", action="store_true",
+        help="re-derive every recorded class from the history and fail on a mismatch",
+    )
+    repairs_cmd.add_argument(
+        "--extract", metavar="WORKSPACE",
+        help="emit candidate cases from one workspace's history, for curation",
+    )
+
     validate_cmd = sub.add_parser(
         "validate",
         help="validate the live corpus against the emitted schema with the Go "
@@ -510,6 +535,25 @@ def main(argv: list[str] | None = None) -> int:
         # **Not a gate.** The report is the deliverable; there is nothing here for CI to
         # fail on, because nothing is merged into the library.
         return 0
+
+    if args.command == "repairs":
+        import json
+
+        from . import repairs as R
+
+        schema = json.loads(args.schema.read_text())
+        if args.extract:
+            for case in R.candidates(args.corpus, args.extract, schema):
+                print(json.dumps(case.to_record(), sort_keys=True))
+            return 0
+
+        cases = R.load(args.library)
+        findings = R.check(cases, schema, args.corpus) if args.check else []
+        print(R.render_check(cases, findings))
+        # **A gate only under --check.** Without it the report is the deliverable,
+        # on `fixtures`' precedent; with it a drifted class fails, because a class
+        # nothing re-derives is a label rather than a claim.
+        return 1 if findings else 0
 
     if args.command == "validate":
         import subprocess

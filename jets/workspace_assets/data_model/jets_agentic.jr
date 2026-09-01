@@ -155,15 +155,6 @@ class jetsa:Remediation {
   $as_table = false
 };
 
-# One evaluation case of the assurance suite (ours; §11's consumer
-class jetsa:EvalCase {
-  $base_classes = [jets:Entity],
-  $data_properties = [
-    jetsa:eval_case_id as text
-  ],
-  $as_table = false
-};
-
 # A released version of the domain model itself (proposal §5.3: identity
 class jetsa:DomainModelVersion {
   $base_classes = [jets:Entity],

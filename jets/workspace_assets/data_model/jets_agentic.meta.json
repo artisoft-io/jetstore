@@ -542,20 +542,6 @@
         }
       }
     },
-    "jetsa:EvalCase": {
-      "description": "One evaluation case of the assurance suite (ours; \u00a711's consumer arrives in a later phase). Skeleton: identity only.",
-      "base": "jets:Entity",
-      "as_table": false,
-      "properties": {
-        "jetsa:eval_case_id": {
-          "type": "text",
-          "array": false,
-          "required": true,
-          "description": "The evaluation case identity.",
-          "key": true
-        }
-      }
-    },
     "jetsa:DomainModelVersion": {
       "description": "A released version of the domain model itself (proposal \u00a75.3: identity and intent given, fields ours). Skeleton: the version and when it took effect.",
       "base": "jets:Entity",

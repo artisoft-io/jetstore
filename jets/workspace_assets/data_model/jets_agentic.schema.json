@@ -398,20 +398,6 @@
       ],
       "type": "object"
     },
-    "EvalCase": {
-      "additionalProperties": false,
-      "description": "One evaluation case of the assurance suite (ours; \u00a711's consumer\narrives in a later phase). Skeleton: identity only.",
-      "properties": {
-        "eval_case_id": {
-          "description": "The evaluation case identity.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "eval_case_id"
-      ],
-      "type": "object"
-    },
     "Evidence": {
       "additionalProperties": false,
       "description": "One evidence item of a Hypothesis (\u00a7A.2.8 `$defs`): a value object in\nworking memory, so \u00a7B.3's escalation trigger \u2014 contradictory evidence\nexceeding supporting \u2014 is a rule-countable fact rather than a JSON blob.",
