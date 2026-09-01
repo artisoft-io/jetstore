@@ -1,4 +1,9 @@
-"""The MCP tool-signature emitter (A3.2) — three tools, typed, classed.
+"""The MCP tool-signature emitter (A3.2) — the tool catalogue, typed, classed.
+
+**Six tools as of T.1/T.2 (2026-08-31), and the count is deliberately not in this
+line any more.** It said "three tools" through Phase 1's fourth and would have
+said "four" through Phase 3's sixth; a docstring that carries an inventory is a
+docstring that lags the list twenty lines below it, which `TOOLS` already is.
 
 Emits `jets/agentic/tools/jets_agentic_tools.json`, which the Go tool
 registry embeds: the signatures live here, in the one Python source, and Go
@@ -12,12 +17,28 @@ is worse than carrying them with three tools.
 
 Parameter typing: a parameter that is a domain entity `$ref`s into the
 item-2a schema via `entity_ref()`; `validate_cpipes_config`'s payload
-`$ref`s the item-2b schema the same way. None of the three read-only tools
+`$ref`s the item-2b schema the same way. No read-only tool
 takes an entity-typed parameter — the first entity-typed parameters arrive
 with the Phase-2 write tools — so `entity_ref` is exercised by the emitter's
 own self-check rather than by a shipped signature. External `$ref`s are the
 *typed* truth; the stdio adapter relaxes them to a self-contained schema at
 the wire, because an MCP client cannot resolve a cross-file reference.
+
+**A path argument is not the local-disk shape `Workspace`'s comment refuses**
+(T.2, I-94's remedy). That rule is about the *workspace root* — the stdio
+adapter resolves it, so the registry interface never learns where a checkout
+sits on this machine. A **workspace-relative** path names a file *inside* a
+workspace the handle already resolved, and carries nothing about the host. The
+distinction is what lets `compile_rule_file` and `validate_cpipes_config` take
+a path instead of a payload, which is the whole of I-94's remedy: I-68 measured
+the model reproducing a rule file correctly 9 times in 18, worse with a
+verbatim-copy instruction, and a model that never holds the text cannot mangle
+it.
+
+**Neither tool is path-only, and the residue is stated rather than discovered.**
+A rule or a config the model composed and has not saved has no path, so the
+content argument stays. `oneOf` on the two `required` sets is what says exactly
+one of them.
 """
 
 from __future__ import annotations
@@ -89,12 +110,89 @@ TOOLS: list[dict] = [
         },
     },
     {
+        "name": "list_workspace_files",
+        "description": (
+            "List the live workspace's authored source files - rule files, "
+            "pipeline configurations, lookup tables, process configurations "
+            "and documentation - as paths relative to the workspace root. "
+            "Optionally filtered by a glob, where * matches within one path "
+            "segment and ** matches across segments "
+            "(e.g. 'pipes_config/*.pc.json', '**/*.jr'). Compiled outputs "
+            "and version-control metadata are not listed. Read-only."
+        ),
+        "reversibility": "na",
+        "min_tier": "T0",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string",
+                    "description": (
+                        "Glob over workspace-relative paths. * matches "
+                        "within a path segment, ** across segments. "
+                        "Defaults to every listable file."
+                    ),
+                },
+                "max_results": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": (
+                        "Stop after this many matches, so a large workspace "
+                        "cannot fill the context. The reply says whether it "
+                        "was truncated."
+                    ),
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_workspace_file",
+        "description": (
+            "Read one of the live workspace's authored source files by its "
+            "workspace-relative path - the path list_workspace_files "
+            "returns. The file is read, never written. Read-only."
+        ),
+        "reversibility": "na",
+        "min_tier": "T0",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": (
+                        "Workspace-relative path, exactly as "
+                        "list_workspace_files reports it "
+                        "(e.g. 'jet_rules/main.jr'). Not an absolute path, "
+                        "and it may not leave the workspace."
+                    ),
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": (
+                        "Stop after this many bytes. The reply says whether "
+                        "the content was truncated."
+                    ),
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "validate_cpipes_config",
         "description": (
             "Validate a compute-pipes configuration with the real "
             "startup-time validator (CpipesStartup.ValidatePipeSpecConfig), "
             "step by step, and report every diagnostic. Validates a copy; "
-            "the submitted config is never executed or stored. Read-only."
+            "the submitted config is never executed or stored. Give it "
+            "EITHER 'config_path' - the workspace-relative path of an "
+            "existing .pc.json, which is preferred whenever the "
+            "configuration is already in the workspace, because the tool "
+            "then reads the file itself and nothing has to be copied - OR "
+            "'config', the configuration object itself, for one that has "
+            "not been saved. Read-only."
         ),
         "reversibility": "na",
         "min_tier": "T0",
@@ -105,11 +203,21 @@ TOOLS: list[dict] = [
                     "$ref": f"{CPIPES_SCHEMA}#",
                     "description": (
                         "The cpipes config object, as it would appear in a "
-                        ".pc.json file."
+                        ".pc.json file. Use this only for a configuration "
+                        "that is not in the workspace; prefer config_path."
                     ),
-                }
+                },
+                "config_path": {
+                    "type": "string",
+                    "description": (
+                        "Workspace-relative path of a .pc.json to validate "
+                        "(e.g. 'pipes_config/loader.pc.json'). The tool "
+                        "reads the file, so the configuration is never "
+                        "carried through this call."
+                    ),
+                },
             },
-            "required": ["config"],
+            "oneOf": [{"required": ["config"]}, {"required": ["config_path"]}],
             "additionalProperties": False,
         },
     },
@@ -124,7 +232,12 @@ TOOLS: list[dict] = [
             "resolve against the workspace's own rule files, because a rule "
             "file is inlined with its data model before parsing and cannot "
             "be compiled without the vocabulary that gives its terms "
-            "meaning. Read-only."
+            "meaning. Read-only. Give it EITHER 'rule_path' - the "
+            "workspace-relative path of an existing .jr, which is preferred "
+            "whenever the rule is already in the workspace, because the "
+            "tool then reads the file itself and the source is never "
+            "carried through this call - OR 'rule_text', the source itself, "
+            "for a rule that has not been saved."
         ),
         "reversibility": "na",
         "min_tier": "T0",
@@ -135,7 +248,18 @@ TOOLS: list[dict] = [
                     "type": "string",
                     "description": (
                         "The JetRule source to compile, as it would appear "
-                        "in a .jr file, import statements included."
+                        "in a .jr file, import statements included. Use "
+                        "this only for a rule that is not in the "
+                        "workspace; prefer rule_path."
+                    ),
+                },
+                "rule_path": {
+                    "type": "string",
+                    "description": (
+                        "Workspace-relative path of a .jr file to compile "
+                        "(e.g. 'jet_rules/main.jr'). It is compiled at that "
+                        "path, so its imports resolve exactly as they do in "
+                        "the workspace."
                     ),
                 },
                 "file_name": {
@@ -144,11 +268,13 @@ TOOLS: list[dict] = [
                         "Name to compile the text under, so diagnostics "
                         "about it are attributed to a recognisable file. "
                         "Must be a bare file name ending in .jr, no path "
-                        "separators. Defaults to a generated name."
+                        "separators. Defaults to a generated name. Applies "
+                        "to rule_text only; rule_path is compiled under its "
+                        "own name."
                     ),
                 },
             },
-            "required": ["rule_text"],
+            "oneOf": [{"required": ["rule_text"]}, {"required": ["rule_path"]}],
             "additionalProperties": False,
         },
     },

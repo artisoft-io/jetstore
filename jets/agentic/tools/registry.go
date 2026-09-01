@@ -77,16 +77,22 @@ func NewRegistry(handlers map[string]Handler) (*Registry, error) {
 }
 
 // DefaultRegistry is the registry as it stands: the three Phase-0 read-only
-// tools plus compile_rule_file, which Phase 1 adds as gap 6's second verifier.
-// All four are still read-only; the first tool that changes anything arrives
-// with the Phase-2 write catalogue, and it will need a reversibility class
-// other than "na".
+// tools, compile_rule_file, which Phase 1 adds as gap 6's second verifier, and
+// the two workspace reads J.1 decided in Phase 2 and T.1 built (2026-08-31).
+//
+// **Six of J.1's seven. All six are read-only and carry reversibility "na".**
+// The seventh is propose_workspace_edit, the first tool that changes anything
+// and the first that will need a class other than "na"; J.1 sequenced it behind
+// K.1's approval record, K.1 is done, and it is still deliberately not here —
+// plan §7 declines to take it merely because it became available.
 func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(map[string]Handler{
 		"list_domain_classes":    ListDomainClasses,
 		"describe_domain_class":  DescribeDomainClass,
 		"validate_cpipes_config": ValidateCpipesConfig,
 		"compile_rule_file":      CompileRuleFile,
+		"list_workspace_files":   ListWorkspaceFiles,
+		"read_workspace_file":    ReadWorkspaceFile,
 	})
 }
 

@@ -38,8 +38,53 @@
       }
     },
     {
+      "name": "list_workspace_files",
+      "description": "List the live workspace's authored source files - rule files, pipeline configurations, lookup tables, process configurations and documentation - as paths relative to the workspace root. Optionally filtered by a glob, where * matches within one path segment and ** matches across segments (e.g. 'pipes_config/*.pc.json', '**/*.jr'). Compiled outputs and version-control metadata are not listed. Read-only.",
+      "reversibility": "na",
+      "min_tier": "T0",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob over workspace-relative paths. * matches within a path segment, ** across segments. Defaults to every listable file."
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many matches, so a large workspace cannot fill the context. The reply says whether it was truncated."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "read_workspace_file",
+      "description": "Read one of the live workspace's authored source files by its workspace-relative path - the path list_workspace_files returns. The file is read, never written. Read-only.",
+      "reversibility": "na",
+      "min_tier": "T0",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative path, exactly as list_workspace_files reports it (e.g. 'jet_rules/main.jr'). Not an absolute path, and it may not leave the workspace."
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many bytes. The reply says whether the content was truncated."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "validate_cpipes_config",
-      "description": "Validate a compute-pipes configuration with the real startup-time validator (CpipesStartup.ValidatePipeSpecConfig), step by step, and report every diagnostic. Validates a copy; the submitted config is never executed or stored. Read-only.",
+      "description": "Validate a compute-pipes configuration with the real startup-time validator (CpipesStartup.ValidatePipeSpecConfig), step by step, and report every diagnostic. Validates a copy; the submitted config is never executed or stored. Give it EITHER 'config_path' - the workspace-relative path of an existing .pc.json, which is preferred whenever the configuration is already in the workspace, because the tool then reads the file itself and nothing has to be copied - OR 'config', the configuration object itself, for one that has not been saved. Read-only.",
       "reversibility": "na",
       "min_tier": "T0",
       "input_schema": {
@@ -47,18 +92,31 @@
         "properties": {
           "config": {
             "$ref": "tools/cpipes_contract/cpipes_schema.json#",
-            "description": "The cpipes config object, as it would appear in a .pc.json file."
+            "description": "The cpipes config object, as it would appear in a .pc.json file. Use this only for a configuration that is not in the workspace; prefer config_path."
+          },
+          "config_path": {
+            "type": "string",
+            "description": "Workspace-relative path of a .pc.json to validate (e.g. 'pipes_config/loader.pc.json'). The tool reads the file, so the configuration is never carried through this call."
           }
         },
-        "required": [
-          "config"
+        "oneOf": [
+          {
+            "required": [
+              "config"
+            ]
+          },
+          {
+            "required": [
+              "config_path"
+            ]
+          }
         ],
         "additionalProperties": false
       }
     },
     {
       "name": "compile_rule_file",
-      "description": "Compile JetRule source with the real compiler (compilerv2) against a throwaway copy of the live workspace, and report every diagnostic with the file and line it belongs to. The submitted text is compiled, never saved: the live workspace, its workspace.db and its build outputs are untouched. Imports resolve against the workspace's own rule files, because a rule file is inlined with its data model before parsing and cannot be compiled without the vocabulary that gives its terms meaning. Read-only.",
+      "description": "Compile JetRule source with the real compiler (compilerv2) against a throwaway copy of the live workspace, and report every diagnostic with the file and line it belongs to. The submitted text is compiled, never saved: the live workspace, its workspace.db and its build outputs are untouched. Imports resolve against the workspace's own rule files, because a rule file is inlined with its data model before parsing and cannot be compiled without the vocabulary that gives its terms meaning. Read-only. Give it EITHER 'rule_path' - the workspace-relative path of an existing .jr, which is preferred whenever the rule is already in the workspace, because the tool then reads the file itself and the source is never carried through this call - OR 'rule_text', the source itself, for a rule that has not been saved.",
       "reversibility": "na",
       "min_tier": "T0",
       "input_schema": {
@@ -66,15 +124,28 @@
         "properties": {
           "rule_text": {
             "type": "string",
-            "description": "The JetRule source to compile, as it would appear in a .jr file, import statements included."
+            "description": "The JetRule source to compile, as it would appear in a .jr file, import statements included. Use this only for a rule that is not in the workspace; prefer rule_path."
+          },
+          "rule_path": {
+            "type": "string",
+            "description": "Workspace-relative path of a .jr file to compile (e.g. 'jet_rules/main.jr'). It is compiled at that path, so its imports resolve exactly as they do in the workspace."
           },
           "file_name": {
             "type": "string",
-            "description": "Name to compile the text under, so diagnostics about it are attributed to a recognisable file. Must be a bare file name ending in .jr, no path separators. Defaults to a generated name."
+            "description": "Name to compile the text under, so diagnostics about it are attributed to a recognisable file. Must be a bare file name ending in .jr, no path separators. Defaults to a generated name. Applies to rule_text only; rule_path is compiled under its own name."
           }
         },
-        "required": [
-          "rule_text"
+        "oneOf": [
+          {
+            "required": [
+              "rule_text"
+            ]
+          },
+          {
+            "required": [
+              "rule_path"
+            ]
+          }
         ],
         "additionalProperties": false
       }
