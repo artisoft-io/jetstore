@@ -40,10 +40,14 @@ import "fmt"
 //     disclosure a decision somebody took rather than a side effect of holding
 //     a supervision role.
 //
-// **Who holds that capability is not decided here** (**Q-42**). It is a policy
-// about client data in a healthcare deployment, which I-311 itself says is the
-// user's; `jets_init_db.sql` grants it to no role, so the default is redacted
-// for everybody and granting it is a deliberate act on a screen that exists.
+// **Who holds that capability was decided by the user on 2026-09-04** (**Q-42**):
+// `knowledge_engineer`, and no other role. It is a policy about client data in a
+// healthcare deployment, which I-311 itself says is the user's.
+// ~~`jets_init_db.sql` grants it to no role, so the default is redacted for
+// everybody.~~ The default is still redaction; one role now opts out of it, and
+// that role is the same one holding `agent_supervision` in the seed — so the
+// separation this package enforces is what a *second* supervising role would
+// meet rather than something the shipped seed exercises.
 //
 // # Why the answer is a parameter rather than a package default
 //

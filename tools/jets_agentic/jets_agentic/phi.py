@@ -23,7 +23,8 @@ package that already holds the generated DDL, listing every marked property as
 **What it deliberately does not do is decide policy.** The list says which
 properties are classified; what a classification obliges a reader to do is the
 audit package's `PHIAccess` and the apiserver's capability check, and *who*
-holds that capability is a deployment decision (Q-42). The `.jr` triple stays
+holds that capability was decided by the user on 2026-09-04 (Q-42):
+`knowledge_engineer` alone. The `.jr` triple stays
 where it is and is still read by no rule — this emitter adds a consumer for the
 marker, not for the triple.
 

@@ -86,6 +86,7 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'user_profile'),
   ('knowledge_engineer', 'infer_server_admin'),
   ('knowledge_engineer', 'agent_supervision'),
+  ('knowledge_engineer', 'agent_phi_access'),
   ('system_role', 'run_pipelines')
 ;
 

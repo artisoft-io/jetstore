@@ -70,9 +70,14 @@ const AgentSupervisionCapability = "agent_supervision"
 // it is client data sitting inside a governance record — so it needs its own
 // authority rather than a wider reading of this one.
 //
-// **Granted to no role in jets_init_db.sql, deliberately** (**Q-42**). Who may
-// see PHI in a healthcare deployment is a policy decision with an owner, and the
-// safe default while it is unmade is redacted-for-everybody. That is a departure
+// **Granted to `knowledge_engineer` and to no other role** — the user's decision,
+// 2026-09-04 (**Q-42**), taken against a recommendation for a new role. In the
+// seeded deployment that role is also the only holder of `agent_supervision`, so
+// the two sets coincide today and the separation is what a *second* supervising
+// role would meet. ~~The safe default while it is unmade is redacted-for-everybody.~~
+// The default is still redaction; what changed is that one role now opts out of it.
+// The reasoning below is kept because it is why the capability exists at all, and
+// it is a departure
 // from `TestPurgeDataCapabilityIsSeeded`'s argument — *a capability no role holds
 // refuses everyone, which looks like a broken menu item rather than like a
 // policy* — and the departure is narrow: that argument is about a capability

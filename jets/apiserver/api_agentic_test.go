@@ -551,15 +551,22 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 	}
 }
 
-// The seed file must **not** grant this one, and the test says why rather than
-// only that. It is the inverse of TestAgentSupervisionCapabilityIsSeeded and of
-// TestPurgeDataCapabilityIsSeeded, whose argument — a capability no role holds
-// refuses everyone and looks like a broken menu item — is about a capability
-// gating a whole action. This gates a field's disclosure: its absence is one
-// value replaced by a sentence naming the capability, and who may see PHI in a
-// healthcare deployment is a policy decision with an owner (Q-42). Granting it
-// means editing this test, which is the point.
-func TestAgentPHIAccessCapabilityIsDocumentedAndGrantedToNoRole(t *testing.T) {
+// The grant was taken by the user on 2026-09-04 (Q-42): knowledge_engineer, the
+// role jets_init_db.sql calls a super user and the only seeded role holding
+// agent_supervision. This test is the one the earlier version said would have to
+// be edited, and it is edited rather than deleted, because what it asserts is
+// still worth asserting: the capability is documented, and exactly one role holds
+// it.
+//
+// **What the grant costs is worth stating where somebody will read it.** In the
+// seeded deployment the set of principals who can supervise agents and the set
+// who can read PHI are now the same set, because knowledge_engineer is the only
+// member of the first. So I-311's floor — a PHI-marked field is not covered by
+// agent_supervision alone — is true in the code and has no effect in the default
+// seed. It is not vacuous: it is what a *second* role granted agent_supervision
+// and not agent_phi_access will meet, and a deployment that wants supervision
+// without disclosure now has a mechanism rather than a request.
+func TestAgentPHIAccessCapabilityIsGrantedToExactlyKnowledgeEngineer(t *testing.T) {
 	sql, err := os.ReadFile("../jets_init_db.sql")
 	if err != nil {
 		t.Fatalf("reading jets_init_db.sql: %v", err)
@@ -567,9 +574,15 @@ func TestAgentPHIAccessCapabilityIsDocumentedAndGrantedToNoRole(t *testing.T) {
 	if !strings.Contains(string(sql), fmt.Sprintf("- %s:", AgentPHIAccessCapability)) {
 		t.Errorf("jets_init_db.sql does not document the %q capability", AgentPHIAccessCapability)
 	}
-	if grant := fmt.Sprintf("'%s')", AgentPHIAccessCapability); strings.Contains(string(sql), grant) {
-		t.Errorf("jets_init_db.sql grants %q to a role; that is a policy decision (Q-42), and "+
-			"if it has been taken, update this test and say who took it", AgentPHIAccessCapability)
+	grant := fmt.Sprintf("('knowledge_engineer', '%s')", AgentPHIAccessCapability)
+	if !strings.Contains(string(sql), grant) {
+		t.Errorf("jets_init_db.sql does not grant %q to knowledge_engineer; the user took that "+
+			"decision on 2026-09-04 (Q-42)", AgentPHIAccessCapability)
+	}
+	if n := strings.Count(string(sql), fmt.Sprintf("'%s')", AgentPHIAccessCapability)); n != 1 {
+		t.Errorf("jets_init_db.sql grants %q to %d roles, expected exactly 1 (knowledge_engineer). "+
+			"Widening it is a policy decision (Q-42): take it deliberately and update this test",
+			AgentPHIAccessCapability, n)
 	}
 }
 
