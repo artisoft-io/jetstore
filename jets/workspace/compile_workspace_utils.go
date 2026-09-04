@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -462,16 +463,45 @@ func GetWorkspaceVersion(dbpool *pgxpool.Pool) (string, error) {
 	return version, nil
 }
 
+// UpdateWorkspaceVersionDb records the compiled workspace version.
+//
+// **It received workspaceName and discarded it until 2026-09-04**, which is why a
+// run bound to a version could not be resolved to a source: the version answered
+// *which compiled artefact* and never *which workspace*, and the table's unique
+// constraint was on the version string alone across every workspace at once. The
+// row now names the workspace and the commit its source tree was at.
+//
+// **The commit is best-effort and null is a real answer.** A workspace may be
+// synced without a .git directory, and a compile must not fail because the record
+// cannot say what it compiled -- the same reasoning setWorkspaceBinding applies to
+// a run that starts before any workspace has been compiled
+// (`setWorkspaceBinding`, `jets/datatable/workspace_binding.go:41`).
 func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {
 
 	if version == "" {
 		log.Println("Error: attempting to write empty version to table workspace_version, skipping")
 		return nil
 	}
+	// The workspace name is what makes the version resolvable; write null rather
+	// than "" when it is absent, so a reader can tell "not recorded" from a name.
+	var name any
+	if workspaceName != "" {
+		name = workspaceName
+	}
+	var commit any
+	if workspaceName != "" {
+		if sha, err := git.HeadCommit(workspaceHome, workspaceName); err == nil {
+			commit = sha
+		} else {
+			log.Printf("Notice: workspace %s HEAD commit is not available, recording version %s without one: %v",
+				workspaceName, version, err)
+		}
+	}
 	// insert the new workspace version in jetsapi db
-	log.Println("Updating workspace version in database to", version)
-	stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1) ON CONFLICT DO NOTHING"
-	_, err := dbpool.Exec(context.Background(), stmt, version)
+	log.Println("Updating workspace version in database to", version, "for workspace", workspaceName)
+	stmt := `INSERT INTO jetsapi.workspace_version (version, workspace_name, workspace_commit)
+		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`
+	_, err := dbpool.Exec(context.Background(), stmt, version, name, commit)
 	if err != nil {
 		return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)
 	}
