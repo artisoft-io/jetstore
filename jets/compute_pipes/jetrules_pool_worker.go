@@ -235,7 +235,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 					log.Printf("jetrules: ExecuteRules returned error: %v", err2)
 					if ctx.errorOutputCh != nil {
 						// report the rule error
-						peRow := ctx.builderContext.NewProcessError()
+						peRow := ctx.builderContext.NewProcessError("jetrules")
 						peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", err2)
 						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
 					}
@@ -262,7 +262,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			case ctx.errorCount <= ctx.config.MaxErrorCount:
 				log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
 				if ctx.errorOutputCh != nil {
-					peRow := ctx.builderContext.NewProcessError()
+					peRow := ctx.builderContext.NewProcessError("jetrules")
 					peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", maxLooping)
 					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
 				}
@@ -286,7 +286,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 				case ctx.errorCount <= ctx.config.MaxErrorCount:
 					log.Printf("jetrule: jets:exception caught: %s", hasException)
 					if ctx.errorOutputCh != nil {
-						peRow := ctx.builderContext.NewProcessError()
+						peRow := ctx.builderContext.NewProcessError("jetrules")
 						peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
 						if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
 							ctx.nbrReteSessionsSaved++
@@ -463,7 +463,7 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 					case ctx.errorCount <= ctx.config.MaxErrorCount:
 						log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
 						if ctx.errorOutputCh != nil {
-							peRow := ctx.builderContext.NewProcessError()
+							peRow := ctx.builderContext.NewProcessError("jetrules")
 							peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
 							peRow.write2Chan(ctx.errorOutputCh, ctx.done)
 						}

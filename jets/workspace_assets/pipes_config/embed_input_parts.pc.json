@@ -25,6 +25,7 @@
   ],
   "channels": [
     {
+      "comment": "The last three columns are the discriminators the process_errors table gained for triage: which step the operator ran in, which error channel the row arrived on, and which operator type wrote it. They are optional -- an error channel that omits them still works and writes NULL -- but a configuration that declares them is the only one whose error rows can be attributed, so a new configuration should copy this list rather than the nine-column one.",
       "name": "process_errors",
       "columns": [
         "pipeline_execution_status_key",
@@ -35,7 +36,10 @@
         "error_message",
         "rete_session_saved",
         "rete_session_triples",
-        "shard_id"
+        "shard_id",
+        "cpipes_step_id",
+        "error_channel",
+        "operator_type"
       ]
     },
     {

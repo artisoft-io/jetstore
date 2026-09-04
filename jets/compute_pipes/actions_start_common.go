@@ -1083,7 +1083,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			}
 		}
 	}
-	return validateErrorChannels(pipeConfig)
+	return validateErrorChannelSpecs(cpConfig, pipeConfig)
 }
 
 // errorChannelConfig returns the error channel of a transformation, nil when it has none.
