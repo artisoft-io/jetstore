@@ -262,6 +262,7 @@ func (ctx *BuilderContext) NewOllamaTransformationPipe(source *InputChannel, out
 		inferLabels{
 			Pipe:       "OllamaTransformationPipe",
 			Operator:   "ollama operator",
+			Type:       "ollama",
 			ConfigName: "ollama_config",
 			ErrPrefix:  fmt.Sprintf("ollama operator (model %s)", config.Model),
 			Summary:    fmt.Sprintf("OllamaTransformationPipe completed: model %s", config.Model),

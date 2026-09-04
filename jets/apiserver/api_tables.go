@@ -124,14 +124,19 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			ERROR(w, 400, err)
 			return
 		}
+		// The workspace binding is taken as it stands now rather than copied from
+		// the run being resubmitted: a resubmission runs under today's compiled
+		// workspace, and copying the old row's version would assert the opposite.
 		stmt := `INSERT INTO jetsapi.pipeline_execution_status (
-								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email) 
-							(SELECT 
-								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2 
+								pipeline_config_key, main_input_registry_key, main_input_file_key,
+								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email,
+								workspace_name, workspace_version)
+							(SELECT
+								pipeline_config_key, main_input_registry_key, main_input_file_key,
+								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2,
+								NULLIF($4, ''), (SELECT MAX(version) FROM jetsapi.workspace_version)
 							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
-		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid)
+		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid, os.Getenv("WORKSPACE"))
 		if err != nil {
 			err = fmt.Errorf("error: failed resubmit to database: %v", err)
 			log.Printf("Error: %v", err)

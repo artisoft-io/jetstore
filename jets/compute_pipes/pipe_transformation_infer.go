@@ -74,6 +74,7 @@ type inferResponse interface {
 type inferLabels struct {
 	Pipe       string // the operator pipe name, used in log lines
 	Operator   string // the operator name, used in error messages
+	Type       string // the operator type as the configuration spells it, recorded on process_errors
 	ConfigName string // the config element name, used in configuration errors
 	ErrPrefix  string // operator + model, prefixes row-level failure reports
 	Summary    string // the completion-summary prefix logged by Finally
@@ -349,7 +350,7 @@ func (w *inferWorker) failedRecord(record *[]any, column string, err error) {
 	case nbrErrors <= maxErrors:
 		log.Println(err)
 		if w.errorOutputCh != nil {
-			peRow := w.builderContext.NewProcessError()
+			peRow := w.builderContext.NewProcessError(w.labels.Type)
 			peRow.ErrorMessage = err.Error()
 			if len(column) > 0 {
 				peRow.InputColumn = sql.NullString{String: column, Valid: true}

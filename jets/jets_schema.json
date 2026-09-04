@@ -1402,6 +1402,26 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "failure_class",
+        "description": "The Step Functions error class of the failure, verbatim: States.Timeout, States.TaskFailed, a Lambda's exception type. Computed by the platform and carried through the status-update decoder rather than discarded. Null when the run did not fail, and when the failure arrived without an Error field.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "failure_source",
+        "description": "Which arm of the status-update decoder produced failure_details: lambda_error_message, ecs_stopped_reason, cause_text, plain_string, unstructured or none. A closed vocabulary, so the shape of the prose in failure_details is declared rather than guessed.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_name",
+        "description": "The workspace the run was submitted under, from the WORKSPACE environment of the process that inserted the row.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_version",
+        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit -- see the note on workspace_version in the Phase 4 plan.",
+        "dataType": "text"
       }
     ],
     "indexes": [
@@ -1856,12 +1876,31 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "cpipes_step_id",
+        "description": "The step the failing operator ran in, the same string pipeline_execution_details.cpipes_step_id carries for that worker, so an error row joins to its worker row on (session_id, cpipes_step_id, shard_id). Null for rows written by a configuration whose error channel does not declare the column.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "error_channel",
+        "description": "The name of the error channel the row was written to. The configuration already distinguishes operators by this name -- validateErrorChannels refuses two operators sharing one -- and this is where that discriminator lands in the record.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "operator_type",
+        "description": "The operator type as it is spelled in the configuration: jetrules, map_record, ollama, embed or vllm. Set at the construction site rather than derived from the message prefix.",
+        "dataType": "text"
       }
     ],
     "indexes": [
       {
         "indexName": "process_errors_session_id_idx",
         "indexDef": "INDEX process_errors_session_id_idx ON jetsapi.process_errors (session_id ASC)"
+      },
+      {
+        "indexName": "process_errors_session_step_idx",
+        "indexDef": "INDEX process_errors_session_step_idx ON jetsapi.process_errors (session_id, cpipes_step_id)"
       }
     ]
   },

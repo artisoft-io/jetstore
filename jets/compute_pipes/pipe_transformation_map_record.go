@@ -72,7 +72,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			case ctx.errorCount <= ctx.maxErrorCount:
 				log.Printf("mapping error: %s", err.Error())
 				if ctx.errorOutputCh != nil {
-					peRow := ctx.builderContext.NewProcessError()
+					peRow := ctx.builderContext.NewProcessError("map_record")
 					peRow.ErrorMessage = err.Error()
 					peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
 				}

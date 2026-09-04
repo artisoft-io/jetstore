@@ -261,6 +261,7 @@ func (ctx *BuilderContext) NewEmbedTransformationPipe(source *InputChannel, outp
 		inferLabels{
 			Pipe:       "EmbedTransformationPipe",
 			Operator:   "embed operator",
+			Type:       "embed",
 			ConfigName: "embed_config",
 			ErrPrefix:  fmt.Sprintf("embed operator (model %s)", config.Model),
 			Summary:    fmt.Sprintf("EmbedTransformationPipe completed: model %s", config.Model),

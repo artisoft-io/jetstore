@@ -163,6 +163,10 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			dataTableAction.Data[irow]["request_id"] = requestId.String
 		}
+		// Bind the run to the workspace it is being submitted under. Stamped here
+		// rather than taken from the request: the caller is a browser and the
+		// workspace is a property of the deployment. See workspace_binding.go.
+		setWorkspaceBinding(ctx.Dbpool, dataTableAction.Data[irow])
 		//=============
 		// Need to get:
 		//	- DevMode: run_report_only, run_server_only, run_server_reports

@@ -381,6 +381,7 @@ func (ctx *BuilderContext) NewVllmTransformationPipe(source *InputChannel, outpu
 		inferLabels{
 			Pipe:       "VllmTransformationPipe",
 			Operator:   "vllm operator",
+			Type:       "vllm",
 			ConfigName: "vllm_config",
 			ErrPrefix:  fmt.Sprintf("vllm operator (model %s)", config.Model),
 			Summary:    fmt.Sprintf("VllmTransformationPipe completed: model %s", config.Model),

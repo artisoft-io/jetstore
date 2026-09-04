@@ -41,7 +41,20 @@ type StatusUpdate struct {
 	Status                   string
 	FileKey                  string
 	FailureDetails           string
+	FailureClass             string
+	FailureSource            string
 	NotifyApiGatewayOverride string
+}
+
+// failureInfo is what updateStatus records about a failure: the prose, the class
+// the platform computed and the decoder arm that produced the prose. See
+// failure_details.go.
+func (ca *StatusUpdate) failureInfo() *FailureInfo {
+	return &FailureInfo{
+		Details: ca.FailureDetails,
+		Class:   ca.FailureClass,
+		Source:  ca.FailureSource,
+	}
 }
 
 // Support Functions
@@ -94,11 +107,24 @@ func GetOutputTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) ([]string, 
 	}
 	return outTables, nil
 }
-func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
+
+// updateStatus records the run's terminal status and, when the run carries one,
+// the failure. failure is nil for the statuses that have none, and the three
+// failure columns are then left null together rather than half written.
+func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failure *FailureInfo) error {
 	// Record the status of the pipeline execution
 	log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
-	stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3"
-	_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, pipelineExecutionKey)
+	var failureDetails, failureClass, failureSource *string
+	if failure != nil {
+		failureDetails = &failure.Details
+		failureClass = &failure.Class
+		failureSource = &failure.Source
+	}
+	stmt := `UPDATE jetsapi.pipeline_execution_status
+		SET (status, failure_details, failure_class, failure_source, last_update) = ($1, $2, $3, $4, DEFAULT)
+		WHERE key = $5`
+	_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, failureClass, failureSource,
+		pipelineExecutionKey)
 	if err != nil {
 		return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 	}
@@ -130,6 +156,8 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: status", ca.Status)
 	log.Println("Got argument: fileKey", ca.FileKey)
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
+	log.Println("Got argument: failureClass", ca.FailureClass)
+	log.Println("Got argument: failureSource", ca.FailureSource)
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
 	log.Println("Got argument: notify_api_gateway_override", ca.NotifyApiGatewayOverride)
@@ -204,14 +232,14 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 	switch {
 	case ca.Status == "failed":
-		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", ca.failureInfo())
 
 	case statusCountMap["interrupted"] > 0:
-		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", &ca.FailureDetails)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", ca.failureInfo())
 
 	case statusCountMap["failed"] > 0:
 		ca.Status = "recovered"
-		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", &ca.FailureDetails)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", ca.failureInfo())
 
 	case statusCountMap["errors"] > 0:
 		ca.Status = "errors"
