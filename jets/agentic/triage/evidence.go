@@ -229,7 +229,7 @@ func ReadEdges(ctx context.Context, db observe.DB, sessionId string) ([]Edge, er
 }
 
 // The five operator types whose failures can reach process_errors, from
-// errorChannelConfig (jets/compute_pipes/actions_start_common.go:1091). Any
+// errorChannelConfig (jets/compute_pipes/actions_start_common.go:1092). Any
 // other operator's row-level failure has nowhere to go by construction and is
 // not this locus.
 //
@@ -406,7 +406,7 @@ func isErrorChannelOperator(t string) bool {
 
 // hasNamedErrorChannel looks for an error_channel with a non-empty name
 // anywhere below node. validateErrorChannels
-// (actions_start_common.go:1247) treats a channel with an empty name as no
+// (actions_start_common.go:1251) treats a channel with an empty name as no
 // channel at all, and so does this.
 func hasNamedErrorChannel(node any) bool {
 	found := false
