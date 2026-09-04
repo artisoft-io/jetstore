@@ -186,8 +186,10 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	return jetsTempData
 }
 
-// InferImageTag is the ECR tag of the infer image (Ollama + cbooter, built from
-// dockerfiles/Dockerfile.infer_service).
+// InferImageTag is the ECR tag of the infer image — cbooter plus one model server, built
+// from dockerfiles/Dockerfile.infer_service (Ollama) or Dockerfile.infer_service_vllm.
+// **Which of the two this tag names has to agree with INFER_BACKEND**; nothing checks it
+// here, and a disagreement is a container that starts and cannot exec its server.
 //
 // Required, not defaulted. The infer image shares no content with the JetStore image,
 // so there is no value of JETS_IMAGE_TAG that would produce a working infer task:
@@ -215,6 +217,63 @@ func (jsComp *JetStoreStackComponents) InferEcrRepoArn() string {
 		log.Fatal("INFER_ECR_REPO_ARN must be provided when BUILD_INFER_SERVICE is true")
 	}
 	return arn
+}
+
+// The inference backends the infer service can run, and the values INFER_BACKEND takes.
+// They match the JETS_INFER_BACKEND values cbooter dispatches on
+// (jets/cmds/cbooter/main.go); the two are separate constants because the stack and the
+// container are separate Go modules, and a mismatch is a container that starts and cannot
+// exec its server.
+const (
+	InferBackendOllama = "ollama"
+	InferBackendVllm   = "vllm"
+)
+
+// InferBackend selects which model server the infer service runs, and therefore which of
+// the two infer images INFER_IMAGE_TAG is expected to name:
+// dockerfiles/Dockerfile.infer_service (Ollama) or Dockerfile.infer_service_vllm.
+//
+// Ollama is the default, so a stack that has never heard of this variable synthesises the
+// container definition it synthesised before — byte for byte, since the vLLM branch adds
+// its keys only when selected. Whether vLLM is ever promoted to the default is item 17's
+// decision and is deliberately not taken here.
+//
+// It decides two things and only two: which block of environment the container definition
+// carries, and which path the load balancer health-checks. Everything else about the arm
+// is the image — the service, the capacity provider, the ASG, the target group, the port
+// and JETS_INFER_URL are the same in both.
+//
+// An unknown value is fatal at synth rather than defaulted, because defaulting would
+// deploy Ollama under a vLLM tag and report its numbers as vLLM's.
+func (jsComp *JetStoreStackComponents) InferBackend() string {
+	backend := strings.ToLower(os.Getenv("INFER_BACKEND"))
+	switch backend {
+	case "":
+		return InferBackendOllama
+	case InferBackendOllama, InferBackendVllm:
+		return backend
+	default:
+		log.Fatalf("INFER_BACKEND must be %q or %q, got %q", InferBackendOllama, InferBackendVllm, backend)
+		return ""
+	}
+}
+
+// InferModel is the model the vLLM backend serves, from JETS_INFER_MODEL.
+//
+// Required for that backend and meaningless for Ollama, which is the asymmetry the whole
+// of this pair turns on: vLLM binds one model at startup, Ollama chooses one per request
+// and pulls it on demand. So changing model under vLLM is a task-definition revision, and
+// there is nothing for the infer admin screen's pull_model action to call.
+//
+// Required rather than defaulted, for the reason InferImageTag is: a default would name a
+// model this deployment may not want and the mistake would surface only in the container
+// log, several GB of download later.
+func (jsComp *JetStoreStackComponents) InferModel() string {
+	model := os.Getenv("JETS_INFER_MODEL")
+	if model == "" {
+		log.Fatalf("JETS_INFER_MODEL must be provided when INFER_BACKEND is %q: vLLM serves the single model it is started with", InferBackendVllm)
+	}
+	return model
 }
 
 // InferEnvOrDefault reads an Ollama tuning variable from the synth environment,

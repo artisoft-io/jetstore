@@ -1,0 +1,116 @@
+# vLLM + cbooter — the second arm of the infer service (item 15b).
+#
+# This is a *second* image rather than a second backend inside Dockerfile.infer_service,
+# and the reasoning is worth having in front of you because the fused image is the
+# cheaper-looking option.
+#
+#   1. The CUDA story does not compose. Dockerfile.infer_service says in terms that "the
+#      CUDA runtime libraries this binary needs ship inside the Ollama archive under
+#      /usr/local/lib/ollama"; vLLM's come from PyTorch wheels pinned to their own CUDA
+#      version. Fusing them means two CUDA runtimes in one image or a build project to
+#      make them share one.
+#   2. Cold start is one of the four things the backend comparison measures, and a fused
+#      image makes each backend pay the other's pull. That measures the packaging
+#      decision rather than either backend.
+#   3. The comparison exists to decide whether vLLM is worth adopting. Putting it in the
+#      production infer image before the measurement runs inverts that decision, and an
+#      unfavourable result would have to be unpicked from a fused image rather than
+#      declined.
+#
+# What the second image does not cost: no second ECS service and no second EC2 pool. A
+# task definition names an image, so an arm is a task-definition revision on the same
+# service, the same capacity provider, the same ASG and the same target group. GpuCount is
+# 1, so the two could not run at once in any case.
+#
+# ARG before the first FROM so it can be interpolated into the base image reference. It
+# has to be re-declared after that FROM to be visible to the instructions below it.
+#
+# The version is pinned for the same reason the Ollama archive is, and the -cu129 variant
+# is chosen deliberately: the default v0.28.0 tag is built against CUDA 13.0.2 and
+# declares NVIDIA_REQUIRE_CUDA "cuda>=13.0", while this one declares "cuda>=12.9". The
+# requirement is enforced by the nvidia container runtime at task start, against the
+# driver the stock ECS GPU-optimized AMI ships — which this repository does not pin and
+# which is not known here. The weaker requirement is the safer pin; if the task still
+# fails to start with an unsatisfied-condition error naming cuda, the levers are this ARG
+# and VLLM_ENABLE_CUDA_COMPATIBILITY, which the base image sets to 0.
+ARG VLLM_VERSION=v0.28.0-cu129
+
+FROM cpipes_builder:latest AS builder
+
+# cbooter is rebuilt here with cgo disabled rather than taken from the builder image's own
+# /app/cbooter. The builder is Amazon Linux 2023 and this image is not, so a dynamically
+# linked binary would carry that glibc's version symbols into another userland. cbooter
+# imports only the standard library and jets/utils, so nothing is lost by the static link.
+RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /cbooter ${JETS_SOURCE_DIR}/jets/cmds/cbooter
+
+FROM vllm/vllm-openai:${VLLM_VERSION}
+ARG VLLM_VERSION
+
+# Create the system group and user cbooter drops privileges to. The uid/gid must match the
+# pair in jets/cmds/cbooter/main.go.
+#
+# Unlike the Amazon Linux 2023 base of Dockerfile.infer_service, this base is not ours and
+# its uid allocation can change under a version bump — so the build refuses rather than
+# quietly reusing whatever occupant it finds. A pre-existing 999 would mean cbooter drops
+# into an identity the image did not create and does not own the caches of, which fails at
+# task start in a container log rather than here.
+ARG USER_ID="999"
+ARG GROUP_ID="999"
+RUN if getent passwd ${USER_ID} > /dev/null || getent group ${GROUP_ID} > /dev/null; then \
+      echo "uid/gid ${USER_ID}/${GROUP_ID} is already taken in ${VLLM_VERSION}; cbooter drops to that pair" >&2; \
+      getent passwd ${USER_ID} >&2 || true; getent group ${GROUP_ID} >&2 || true; \
+      exit 1; \
+    fi \
+    && groupadd -g ${GROUP_ID} jsuser \
+    && useradd -l -r -u ${USER_ID} -g jsuser jsuser
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+ARG JETS_GIT_SHA
+ENV JETS_GIT_SHA=${JETS_GIT_SHA}
+RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
+    echo "VLLM_VERSION: ${VLLM_VERSION}"                      >> /VERSION.txt && \
+    echo "----------------*********************-------------" >> /VERSION.txt
+
+# cbooter is the entrypoint: it runs as root, prepares the mounted volume, then starts the
+# server named by JETS_INFER_BACKEND as jsuser.
+COPY --from=builder /cbooter /usr/local/bin/
+RUN chmod +x /usr/local/bin/cbooter
+
+# The backend is carried by the image rather than only by the container definition,
+# because the image is what holds the server binary: a container told to run the other
+# backend would start and then fail to exec it. cbooter reads this variable and defaults
+# to ollama when it is absent, so an image built before the toggle existed is unaffected.
+ENV JETS_INFER_BACKEND=vllm
+
+# Defaults for a local `docker run`; the CDK stack sets these explicitly on the container
+# definition. Everything written at runtime has to land under JETS_TEMP_DATA: the task's
+# root filesystem is read only.
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+# HF_HOME is where the weights land, and is this backend's counterpart of OLLAMA_MODELS.
+# It goes on the mounted volume so a model survives task restarts and instance
+# replacement; without it every start re-downloads, which is paid in the cold-start figure
+# the backend comparison measures.
+ENV HF_HOME=${JETS_TEMP_DATA}/huggingface
+# Dropping to uid 999 does not change HOME. Left at the inherited /root, vLLM's other
+# caches — VLLM_CACHE_ROOT, the torch inductor and triton caches, and the guided-decoding
+# grammar cache — all resolve under a directory jsuser cannot write and the root
+# filesystem refuses.
+ENV HOME=${JETS_TEMP_DATA}/home
+
+# The same port Ollama serves on, not vLLM's own default of 8000. That single choice is
+# what leaves the container port mapping, the load balancer target group and JETS_INFER_URL
+# untouched when the backend changes.
+EXPOSE 11434
+
+WORKDIR ${JETS_TEMP_DATA}
+
+# The base image's ENTRYPOINT is ["vllm", "serve"] and it sets no CMD; both are replaced
+# here. CMD is cleared explicitly rather than left unset for the reason the Ollama image
+# documents: ECS overrides entryPoint and not command, so a base image that grows a CMD
+# would silently append it to cbooter's arguments.
+ENTRYPOINT ["cbooter", "infer_server"]
+CMD []
