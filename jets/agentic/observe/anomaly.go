@@ -95,6 +95,15 @@ var RecordConfounders = []string{
 	ConfounderParseErrorsOnly,
 }
 
+// IsConfounder reports whether name is in the confounder vocabulary.
+//
+// It is exported for jets/agentic/triage (AC.1), which writes the same fourteen
+// members onto an incident. jetsapi.incident's incident_confounders_ck admits
+// exactly this vocabulary, so a second list there would be a second thing to
+// keep in step and, worse, would make an incident's qualifiers incomparable
+// with those of the anomaly that gave rise to it.
+func IsConfounder(name string) bool { return slices.Contains(confounders, name) }
+
 // Anomaly is one row of jetsapi.anomaly, the thirteen properties N.2 gave
 // jetsa:Anomaly. The three nullable fields are nullable because four of the
 // six derivable failure modes are within-run predicates with no range and no
