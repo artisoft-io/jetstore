@@ -260,6 +260,15 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- identity (F52) -- which is why incident_confounders reuses the detector's vocabulary
 -- rather than opening a second one that would not compare.
 --
+-- **incident_step_confounder_ck is the one cross-column rule in this file, and it is an
+-- invariant rather than a convention.** Section 9.6 says an incident that names a step
+-- must carry step_label_ambiguous, and F52's reason does not depend on which step it is:
+-- cpipes_step_id is a stage location, so *any* incident naming one inherits the
+-- ambiguity. That makes it checkable, and a requirement that is checkable and left to
+-- prose is a requirement that goes quiet the first time nobody re-reads the plan. The
+-- alternative -- leave it to AC.1 -- was rejected for that reason and not for a
+-- technical one.
+--
 -- Note what is NOT a column: hypotheses. The domain model declares it as an object
 -- property and JetRules traverses it in working memory; in Postgres the same
 -- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
@@ -274,7 +283,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_session_id              text NOT NULL,
   incident_detected_at             timestamp with time zone NOT NULL,
   incident_locus                   text NOT NULL,
-  classification                   text NOT NULL,
+  classification                   text,
   severity                         text NOT NULL,
   status                           text NOT NULL,
   incident_step_ref                text,
@@ -282,11 +291,15 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_confounders             text[] NOT NULL,
   incident_model_version           text NOT NULL,
   CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived')),
-  CONSTRAINT incident_classification_ck CHECK (classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
+  CONSTRAINT incident_classification_ck
+             CHECK (classification IS NULL OR classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
   CONSTRAINT incident_severity_ck CHECK (severity IN ('info', 'low', 'medium', 'high', 'critical')),
   CONSTRAINT incident_status_ck CHECK (status IN ('detected', 'triaged', 'diagnosed', 'remediation_proposed', 'awaiting_approval', 'remediating', 'resolved', 'verified', 'closed', 'reclassified', 'suppressed_as_benign')),
   CONSTRAINT incident_confounders_ck
-             CHECK (incident_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[])
+             CHECK (incident_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[]),
+  CONSTRAINT incident_step_confounder_ck
+             CHECK (incident_step_ref IS NULL
+                    OR 'step_label_ambiguous' = ANY (incident_confounders))
 );
 -- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a

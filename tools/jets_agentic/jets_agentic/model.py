@@ -688,12 +688,21 @@ class Incident(JetsaEntity):
     decides whether to split within one.
 
     **The locus (§9.5).** `incident_locus` is required and is typed against
-    `IncidentLocus`, which is what the record actually decides;
-    `classification` stays required and typed against the imported
-    `IncidentClassification`, which is what a diagnosis claims. Carrying both is
-    §9.5's recommendation and it is followed here rather than resolved — see
-    `IncidentLocus`'s docstring for why pruning the imported taxonomy is not this
-    project's call to make.
+    `IncidentLocus`, which is what the record actually decides; `classification`
+    stays, typed against the imported `IncidentClassification`, which is what a
+    diagnosis claims. Carrying both is §9.5's recommendation and it is followed
+    here rather than resolved — see `IncidentLocus`'s docstring for why pruning
+    the imported taxonomy is not this project's call to make.
+
+    **The one thing §9.5 did not settle is which of the two is required, and the
+    answer follows from its own finding.** `classification` is **optional**
+    (I-289). §9.5 says the record supplies a locus and never a cause and §9.8
+    puts the step between them in `AC.2`; a required classification would make a
+    deterministic triage step unable to write an incident without inventing a
+    cause, which is R-27's failure compiled into the schema. Optional is not
+    pruning: the property and its ten values both survive, and N.2 has the
+    precedent — three of §A.2.6's required properties are optional on `Anomaly`
+    because requiring them would force a detector to invent a number (I-126).
 
     **`incident_confounders` reuses `AnomalyConfounder` deliberately.** §9.6
     requires an incident that names a step to inherit `step_label_ambiguous`,
@@ -733,11 +742,15 @@ class Incident(JetsaEntity):
         "carried beside classification rather than instead of it (§9.5): the locus is evidence, "
         "the classification is a claim."
     )
-    classification: IncidentClassification = prop(
-        "The causal classification (§A.4's ten). Kept required and unpruned on §9.5's "
-        "recommendation, and read with §9.5's table beside it: three of the ten have no "
-        "substrate in JetStore's record at all and four are evidenced only at a grain coarser "
-        "than the class name implies (I-262)."
+    classification: IncidentClassification | None = prop(
+        "The causal classification (§A.4's ten), kept and unpruned on §9.5's recommendation. "
+        "**Optional rather than required as §A.2.7 has it** (I-289): §9.5's finding is that the "
+        "record supplies a locus and never a cause, and §9.8 puts the step from one to the other "
+        "in AC.2 rather than AC.1 - so a required classification would force a deterministic "
+        "triage step to invent one, which is R-27's failure written into the schema. Read with "
+        "§9.5's table beside it: three of the ten have no substrate in JetStore's record at all "
+        "and four are evidenced only at a grain coarser than the class name implies (I-262).",
+        default=None,
     )
     severity: Severity = prop("The severity.")
     status: IncidentStatus = prop("Where the incident sits in §A.5's state machine.")

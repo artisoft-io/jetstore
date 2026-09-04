@@ -245,6 +245,9 @@ def emit() -> str:
     signal_types = ", ".join(f"'{m.value}'" for m in M.SignalType)
     anomaly_subjects = ", ".join(f"'{m.value}'" for m in M.AnomalySubject)
     confounders = ", ".join(f"'{m.value}'" for m in M.AnomalyConfounder)
+    # Named from the vocabulary rather than spelled out, so the cross-column
+    # rule below moves with a rename instead of silently ceasing to fire.
+    step_ambiguous = M.AnomalyConfounder.step_label_ambiguous.value
     classifications = ", ".join(f"'{m.value}'" for m in M.IncidentClassification)
     loci = ", ".join(f"'{m.value}'" for m in M.IncidentLocus)
     severities = ", ".join(f"'{m.value}'" for m in M.Severity)
@@ -461,6 +464,15 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- identity (F52) -- which is why incident_confounders reuses the detector's vocabulary
 -- rather than opening a second one that would not compare.
 --
+-- **incident_step_confounder_ck is the one cross-column rule in this file, and it is an
+-- invariant rather than a convention.** Section 9.6 says an incident that names a step
+-- must carry step_label_ambiguous, and F52's reason does not depend on which step it is:
+-- cpipes_step_id is a stage location, so *any* incident naming one inherits the
+-- ambiguity. That makes it checkable, and a requirement that is checkable and left to
+-- prose is a requirement that goes quiet the first time nobody re-reads the plan. The
+-- alternative -- leave it to AC.1 -- was rejected for that reason and not for a
+-- technical one.
+--
 -- Note what is NOT a column: hypotheses. The domain model declares it as an object
 -- property and JetRules traverses it in working memory; in Postgres the same
 -- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
@@ -473,11 +485,15 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 CREATE TABLE IF NOT EXISTS jetsapi.incident (
 {incident_columns},
   CONSTRAINT incident_locus_ck CHECK (incident_locus IN ({loci})),
-  CONSTRAINT incident_classification_ck CHECK (classification IN ({classifications})),
+  CONSTRAINT incident_classification_ck
+             CHECK (classification IS NULL OR classification IN ({classifications})),
   CONSTRAINT incident_severity_ck CHECK (severity IN ({severities})),
   CONSTRAINT incident_status_ck CHECK (status IN ({incident_statuses})),
   CONSTRAINT incident_confounders_ck
-             CHECK (incident_confounders <@ ARRAY[{confounders}]::text[])
+             CHECK (incident_confounders <@ ARRAY[{confounders}]::text[]),
+  CONSTRAINT incident_step_confounder_ck
+             CHECK (incident_step_ref IS NULL
+                    OR '{step_ambiguous}' = ANY (incident_confounders))
 );
 -- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
