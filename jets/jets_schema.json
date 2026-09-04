@@ -48,12 +48,22 @@
         "columnName": "version",
         "dataType": "text",
         "isNotNull": true
+      },
+      {
+        "columnName": "workspace_name",
+        "description": "Workspace this version was compiled from. Null on rows written before 2026-09-04, when the version was keyed across every workspace at once.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_commit",
+        "description": "Full sha of the workspace repository HEAD at compile time. Null when the compile ran against a tree with no git repository, which is a real deployment shape rather than an error.",
+        "dataType": "text"
       }
     ],
     "tableConstraints": [
       {
-        "name": "workspace_version_unique_cstraint",
-        "definition": "CONSTRAINT workspace_version_unique_cstraint UNIQUE (version)"
+        "name": "workspace_version_unique_cstraint_v2",
+        "definition": "CONSTRAINT workspace_version_unique_cstraint_v2 UNIQUE (workspace_name, version)"
       }
     ]
   },

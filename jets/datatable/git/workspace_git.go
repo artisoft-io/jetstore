@@ -147,6 +147,39 @@ func tokenizeGitCommand(line string) ([]string, error) {
 	return tokens, nil
 }
 
+// HeadCommit reports the commit the local workspace tree is checked out at, as a
+// full 40-character sha, for the workspace named under workspacesHome.
+//
+// **This is not workspace_registry.last_git_log and the difference is the whole
+// reason it exists.** That column accumulates the *transcript* of the git commands
+// and the compile output (`UpdateLocalWorkspace` and `compileWorkspaceAction`,
+// `jets/datatable/workspace_helper_functions.go:96`) -- free text, appended to,
+// and overwritten on the next compile. It cannot be resolved to a commit by any
+// consumer. This can.
+//
+// It is deliberately best-effort for its caller's sake: the workspace tree may be
+// synced without a .git directory, in which case the honest answer is that the
+// commit is not known, and that is a reason to write null rather than to fail a
+// compile.
+func HeadCommit(workspacesHome, workspaceName string) (string, error) {
+	if _, err := utils.ValidateWorkspaceName(workspaceName); err != nil {
+		return "", err
+	}
+	out, err := runGit(filepath.Join(workspacesHome, workspaceName), "rev-parse", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	commit := strings.TrimSpace(out)
+	// rev-parse prints the sha on success and an explanation on some failures that
+	// still exit zero; refuse anything that is not a sha rather than storing prose.
+	if !shaPattern.MatchString(commit) {
+		return "", fmt.Errorf("unexpected output from git rev-parse HEAD in workspace %s", workspaceName)
+	}
+	return commit, nil
+}
+
+var shaPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
 // Function to delete local workspace directory
 func (wg *WorkspaceGit) DeleteWorkspace() error {
 	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {

@@ -218,10 +218,45 @@ func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
+// CreateTable creates the table from scratch, on a database where it has never
+// existed.
+//
+// **A column or an index marked Deleted is a tombstone and is skipped here.** It
+// exists in the definition so that UpdateTable can emit the DROP that removes it
+// from a database that already has it (`UpdateTable`, the branch at
+// `jets/schema/schema.go:346`); on a fresh install there is nothing to drop, and
+// creating it is how a table gets a column no code writes.
+//
+// This did not test the flag until 2026-09-04, and the consequence was not
+// cosmetic: `sharding_config_json` and `reducing_config_json` are deleted **and**
+// `isNotNull` with no default, so a freshly created jetsapi.cpipes_execution_status
+// could not be written by the sharding start's own insert, which names neither
+// (`StartShardingComputePipes`, `jets/compute_pipes/actions_start_sharding_cp.go:385`).
+// Running the migration a second time cleared it, which is why every long-lived
+// deployment was unaffected and why it survived.
+//
+// **The two halves are coupled and skipping only the columns is worse than
+// skipping neither.** Two deleted indexes are declared over deleted columns —
+// compute_pipes_shard_registry_idx2 over jets_partition and _idx3 over sc_id — so a
+// CreateTable that dropped the columns and kept the indexes would fail the fresh
+// install outright rather than leaving it merely wrong.
 func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error {
 	log.Println("Creating Table", tableDefinition.TableName)
 	if dbpool == nil {
 		return errors.New("error: dbpool required")
+	}
+	// A definition whose columns are all tombstones would emit "CREATE TABLE x()",
+	// which is a syntax error naming the paren rather than the cause. Say so here.
+	liveColumns := 0
+	for i := range tableDefinition.Columns {
+		if !tableDefinition.Columns[i].Deleted {
+			liveColumns++
+		}
+	}
+	if liveColumns == 0 {
+		return fmt.Errorf(
+			"error: table %s.%s has no column that is not marked deleted; nothing to create",
+			tableDefinition.SchemaName, tableDefinition.TableName)
 	}
 	// drop stmt
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
@@ -239,6 +274,9 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 	buf.WriteString("(\n")
 	isFirst := true
 	for _, col := range tableDefinition.Columns {
+		if col.Deleted {
+			continue
+		}
 		if !isFirst {
 			buf.WriteString(",\n")
 		}
@@ -270,8 +308,11 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 		buf.WriteString(constraint.Definition)
 	}
 	buf.WriteString(");\n")
-	// index defs
+	// index defs -- a deleted index is a tombstone, see the note on this function
 	for _, idx := range tableDefinition.Indexes {
+		if idx.Deleted {
+			continue
+		}
 		buf.WriteString("CREATE ")
 		buf.WriteString(idx.IndexDef)
 		buf.WriteString(" ;\n")

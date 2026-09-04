@@ -246,58 +246,65 @@ func processErrors(t *testing.T, pool *pgxpool.Pool, execKey int, session string
 
 // storeConfig puts a configuration where a run's configuration lives.
 //
-// **It names sharding_config_json and reducing_config_json, and the production
-// writer does not** — which is I-305 and is a defect in jets/schema rather than
-// a quirk of this fixture. Both columns are marked "deleted": true in
-// jets_schema.json and both are declared NOT NULL with no default.
-// TableDefinition.UpdateTable drops a deleted column (schema.go:305) and
-// TableDefinition.CreateTable does not check the flag at all (schema.go:240),
-// so an existing deployment loses them at the next migration and a **freshly
-// created** database gets them. On such a database the sharding start's own
-// insert (actions_start_sharding_cp.go:385) names six columns, not these two,
-// and fails with a not-null violation — reproduced verbatim on 2026-09-04.
+// **It named sharding_config_json and reducing_config_json until 2026-09-04, and
+// no longer needs to** — which was I-305 and was a defect in jets/schema rather
+// than a quirk of this fixture. Both columns are marked "deleted": true in
+// jets_schema.json and both are declared NOT NULL with no default;
+// TableDefinition.UpdateTable dropped a deleted column and
+// TableDefinition.CreateTable did not test the flag at all, so an existing
+// deployment lost them at the next migration and a **freshly created** database
+// got them. On such a database the sharding start's own insert
+// (`StartShardingComputePipes`, `jets/compute_pipes/actions_start_sharding_cp.go:385`)
+// names six columns, not these two, and failed with a not-null violation.
 //
-// **Running the migration twice clears it**, because the second pass finds the
-// table and takes UpdateTable. That is the remedy and it is also why the defect
-// is invisible: every environment that has been migrated more than once is fine
-// for ever after, and only a brand-new deployment's first run meets it.
+// **Fixed at AH.1**: CreateTable now skips a column or an index marked deleted
+// (`CreateTable`, `jets/schema/schema.go:277`), so one pass and two passes agree
+// and this fixture names what the production writer names.
 //
-// observe's own suite does not see it either, and by luck rather than by
-// design: its testPool calls UpdateTableSchema at every test, and the first
-// test that calls storeConfig is the fourth, by which point the second pass has
-// already dropped the columns. Verified 2026-09-04 against a virgin schema —
-// the suite is green. The databases below are created per run and per test
-// group, so the first pass is the only pass, which is why this surfaced here.
+// The reason it took until AC.1 to find is worth keeping. Running the migration
+// twice cleared it, so every environment migrated more than once was fine for
+// ever after and only a brand-new deployment's first run met it. observe's own
+// suite did not see it either, and by luck rather than by design: its testPool
+// calls UpdateTableSchema at every test, and the first test that calls its own
+// storeConfig is the fourth, by which point the second pass had already dropped
+// the columns. The databases below are created per run and per test group, so
+// the first pass is the only pass, which is why this surfaced here.
 func storeConfig(t *testing.T, pool *pgxpool.Pool, execKey int, session, config string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `INSERT INTO jetsapi.cpipes_execution_status
-		(pipeline_execution_status_key, session_id, cpipes_config_json,
-		 sharding_config_json, reducing_config_json) VALUES ($1, $2, $3, '', '')`,
+		(pipeline_execution_status_key, session_id, cpipes_config_json) VALUES ($1, $2, $3)`,
 		execKey, session, config)
 	if err != nil {
 		t.Fatalf("inserting cpipes_execution_status row: %v", err)
 	}
 }
 
-// TestFreshInstallCannotWriteTheRunConfiguration is I-305 as an assertion
-// rather than a comment. It runs the sharding start's insert statement verbatim
-// against a freshly created schema and requires it to fail, so that the day
-// somebody fixes CreateTable this test fails and says which defect went away.
-func TestFreshInstallCannotWriteTheRunConfiguration(t *testing.T) {
+// TestFreshInstallCanWriteTheRunConfiguration is I-305 as an assertion, and the
+// assertion is now the opposite of the one it was written as.
+//
+// **It was TestFreshInstallCannotWriteTheRunConfiguration until 2026-09-04.** AC.1
+// wrote it to require the insert to *fail*, skipping with an explanation the day
+// somebody fixed CreateTable, so that the suite would say which defect went away
+// rather than going quietly green. AH.1 fixed it, the skip fired, and the test is
+// inverted here rather than deleted: what was a reproduction is now a regression
+// guard over this suite's own fixture, and the two are the same statement run
+// against the same schema for opposite reasons.
+//
+// jets/schema asserts this over the shipped jets_schema.json
+// (`TestFreshInstallAcceptsTheRunConfigurationInsert`,
+// `jets/schema/create_table_deleted_test.go:146`). This one is not that: it runs
+// over migratedTables through freshDB, so it also pins that this suite's fixture
+// and the production writer still agree about the columns.
+func TestFreshInstallCanWriteTheRunConfiguration(t *testing.T) {
 	pool := freshDB(t, "triage_freshinstall", migratedTables)
 	// The statement from actions_start_sharding_cp.go:385, column for column.
 	_, err := pool.Exec(context.Background(), `INSERT INTO jetsapi.cpipes_execution_status
 		(pipeline_execution_status_key, session_id, cpipes_config_json, input_parquet_schema_json,
 		 cpipes_startup_json, input_row_columns_json)
 		VALUES (1, 'probe', '{}', '{}', '{}', '{}')`)
-	if err == nil {
-		t.Skip("the sharding start's insert now succeeds on a fresh schema: I-305 appears to be fixed, " +
-			"and storeConfig above can drop its two extra columns")
+	if err != nil {
+		t.Fatalf("the sharding start's own insert failed on a fresh schema, which is I-305 returning: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sharding_config_json") {
-		t.Fatalf("the insert failed for some other reason than I-305: %v", err)
-	}
-	t.Logf("I-305 reproduced: %v", err)
 }
 
 // Two configurations in the shape cpipes_config_json holds: a list of PipeSpec.
