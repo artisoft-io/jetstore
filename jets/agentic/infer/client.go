@@ -29,9 +29,28 @@
 // rather than in the seam.
 //
 // The honest cost is two request/response envelope implementations against one
-// server, recorded as Q-13. The recommendation there is to revisit when gap
-// 15b's vLLM operator lands, now on the narrower question of whether the schema
+// server, recorded as Q-13. The recommendation there was to revisit when gap
+// 15b's vLLM operator lands, on the narrower question of whether the schema
 // belongs in the seam — guided_json is not format.
+//
+// **15b landed 2026-09-04 as AG.1, so that trigger has fired and this paragraph
+// has stopped waiting for it.** What the vLLM operator settles is the narrower
+// half, and it settles it against putting the schema in the seam:
+// pipe_transformation_vllm.go translates the operator's response_format into
+// guided_json, or into a named response_format, exactly once when the pipe is
+// built, so BuildRequest is handed a finished request body and the difference
+// between the two servers is absorbed by the backend's constructor rather than
+// by the interface. Three backends now sit on that seam and
+// pipe_transformation_infer.go is unchanged across all three.
+//
+// **What it does not settle is this package**, and the reason is a shape rather
+// than a schema. A cpipes operator's schema is fixed for the life of the node,
+// which is what makes a build-time translation possible; here it varies per
+// call, and BuildRequest takes one prompt string where this package varies
+// System and User. Sharing the seam would therefore still mean widening it for
+// a caller that has no records. Q-13's remaining question is whether that is
+// worth doing, and AG.2 is where it is answered from the bake-off rather than
+// from an argument.
 //
 // **The size to watch is the envelope, not the file.** Of this file's 247 code
 // lines about 86 are envelope; the rest is schema compilation, validation and

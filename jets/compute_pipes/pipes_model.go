@@ -633,6 +633,7 @@ type TransformationSpec struct {
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
 	OllamaConfig          *OllamaSpec                      `json:"ollama_config,omitzero"`
 	EmbedConfig           *EmbedSpec                       `json:"embed_config,omitzero"`
+	VllmConfig            *VllmSpec                        `json:"vllm_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
@@ -1565,6 +1566,56 @@ type EmbedSpec struct {
 	Options         map[string]any    `json:"options,omitempty"`
 	KeepAlive       string            `json:"keep_alive,omitempty"`
 	Server          *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion gives the wire shape the ollama operator has (15a).
+	InferCommonSpec
+}
+
+// VllmSpec is the configuration of the vllm transformation operator: it calls a vLLM
+// server's OpenAI-compatible api once per input record and augments that record *in
+// place* with values extracted from the model response, exactly as the ollama operator
+// does. The input and output channels must therefore share the same ChannelSpec.
+//
+// It embeds InferCommonSpec, so the prompt template, the response mapping, the request
+// policy (pool, timeouts, retries), the cost guard and the on_error handling are the
+// ollama operator's and are described on the doc block above OllamaSpec. A .pc.json moves
+// between the two operators by changing the type token and the config element; what
+// differs is below.
+//
+// Model is the model the server was started with, required. Unlike ollama there is no
+// model lifecycle to configure: a vLLM server serves one model, loaded at startup, so
+// there is no keep_alive and a wrong name is a request error rather than a pull.
+// Api is the route to call: chat (default, /v1/chat/completions) or completions
+// (/v1/completions). SystemPrompt requires chat, the completions api having no message
+// roles; asking for both is a build time error rather than a silent fold into the prompt.
+// StructuredOutput chooses how the promoted ResponseFormat reaches the server:
+//   - guided_json (default) sends the schema in vLLM's own `guided_json` parameter;
+//   - json_schema sends it in the OpenAI-compatible `response_format`, named and strict.
+//
+// Which one a server accepts is a property of its vLLM version, not of the pipeline,
+// which is why this is configurable at all. The promoted ResponseFormat keeps ollama's
+// shape either way: the string "json" becomes OpenAI json mode, a schema document is
+// constrained decoding. It is *not* passed through as ollama's `format` - guided_json is
+// not format, and the translation is done once when the operator is built.
+// Options is merged into the request body at the top level rather than nested, because
+// that is where the OpenAI api puts sampling parameters: temperature, max_tokens, top_p,
+// seed, and vLLM's own extensions such as top_k and repetition_penalty. The keys the
+// operator sets itself (model, stream, messages, prompt, guided_json, response_format)
+// are refused rather than merged.
+// Server specifies how to reach the vLLM server, shared with the ollama operator - note
+// that its JETS_INFER_URL fallback names the deployed *Ollama* infer service, which does
+// not serve /v1/*, so url is in practice required here.
+//
+// There is no `think` property: vLLM exposes reasoning through a server-side parser and
+// the reasoning text arrives as message.reasoning_content, which the `thinking` mapping
+// source reads when the server supplies it.
+type VllmSpec struct {
+	Comment          string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model            string            `json:"model"`
+	Api              string            `json:"api,omitempty"`
+	StructuredOutput string            `json:"structured_output,omitempty"`
+	Options          map[string]any    `json:"options,omitempty"`
+	Server           *OllamaServerSpec `json:"server,omitzero"`
 	// The backend-agnostic configuration, embedded anonymously so encoding/json
 	// field promotion gives the wire shape the ollama operator has (15a).
 	InferCommonSpec

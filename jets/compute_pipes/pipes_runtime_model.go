@@ -323,6 +323,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "embed":
 		return ctx.NewEmbedTransformationPipe(source, outCh, spec)
 
+	case "vllm":
+		return ctx.NewVllmTransformationPipe(source, outCh, spec)
+
 	case "analyze":
 		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
 
