@@ -61,7 +61,7 @@ const AgentSupervisionCapability = "agent_supervision"
 
 // AgenticAction is the request envelope. Fields are read per action and ignored
 // otherwise; the alternative, a `json.RawMessage` per action, buys nothing at
-// four actions and costs a second unmarshal in each.
+// six actions and costs a second unmarshal in each.
 type AgenticAction struct {
 	Action string `json:"action"`
 
@@ -74,6 +74,15 @@ type AgenticAction struct {
 
 	// read_transcript
 	RunId string `json:"runId"`
+
+	// list_incidents. A separate field from `States` rather than a reused one:
+	// the two vocabularies are different — nine approval states against eleven
+	// incident statuses — and a filter sent under the wrong name would be
+	// refused by the wrong validator with a message naming the wrong taxonomy.
+	Statuses []string `json:"statuses"`
+
+	// get_incident
+	IncidentId string `json:"incidentId"`
 
 	// record_approval. There is no `actor` and no `tier`: the actor is the
 	// authenticated user and the tier is read from the run. A request that
@@ -101,6 +110,11 @@ type agenticOps interface {
 	ReadTranscript(ctx context.Context, runId string) (*audit.Transcript, error)
 	RunTier(ctx context.Context, runId string) (string, error)
 	RecordApproval(ctx context.Context, a *audit.Approval) (int, error)
+	// The incident half (task AE.1), read-only. There is no write here at all:
+	// an incident's classification transitions are what I-276 asks for an actor
+	// on, and that widening is `AB.2`'s.
+	ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error)
+	ReadIncident(ctx context.Context, incidentId string) (*audit.Incident, error)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -131,6 +145,12 @@ func (o pgOps) RunTier(ctx context.Context, runId string) (string, error) {
 }
 func (o pgOps) RecordApproval(ctx context.Context, a *audit.Approval) (int, error) {
 	return audit.RecordApproval(ctx, o.db, a)
+}
+func (o pgOps) ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error) {
+	return audit.ListIncidents(ctx, o.db, statuses, limit)
+}
+func (o pgOps) ReadIncident(ctx context.Context, id string) (*audit.Incident, error) {
+	return audit.ReadIncident(ctx, o.db, id)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -191,6 +211,10 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 		return readTranscript(ctx, ops, a)
 	case "record_approval":
 		return recordApproval(ctx, ops, a, actor)
+	case "list_incidents":
+		return listIncidents(ctx, ops, a)
+	case "get_incident":
+		return getIncident(ctx, ops, a)
 	default:
 		return nil, http.StatusBadRequest, fmt.Errorf("unknown agentic action %q", a.Action)
 	}
@@ -391,6 +415,120 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		"auditSeq":    seq,
 		"transitions": transitionsOrEmpty(ap.ToState),
 	}, http.StatusOK, nil
+}
+
+// The incident half (task AE.1, gap 11 residue) — two reads and no write.
+//
+// **Both actions carry the locus and the classification together**, which is the
+// endpoint's share of R-27's mitigation. Plan §9.5 found the record supports a
+// taxonomy of *locus* and not of *cause*, so `AB.1` put both on the row with the
+// classification optional (I-289); a response that carried one without the other
+// would let a screen render a locus in a column headed with a cause word, which
+// is the risk arriving through the wire rather than through the prose.
+
+func listIncidents(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
+	rows, err := ops.ListIncidents(ctx, a.Statuses, a.Limit)
+	if err != nil {
+		return nil, incidentErrorCode(err), err
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, i := range rows {
+		out = append(out, incidentRow(i))
+	}
+	return &map[string]any{
+		"incidents": out,
+		// Echoed for the same reason `list_proposals` echoes its states: what
+		// the server understood is cheaper to render than what the request
+		// hoped it would.
+		"statuses": nonEmptyStrings(a.Statuses),
+		// **The vocabularies travel with the list rather than being spelled in
+		// the browser**, on the same argument as the transition sets: a client
+		// copy of a controlled vocabulary is the copy nothing enforces, and this
+		// one is nine values that a regeneration can change. The screen renders
+		// a legend from it and falls back to the bare value for anything it has
+		// no gloss for, so a tenth locus degrades rather than disappears.
+		"loci":             audit.IncidentLoci,
+		"incidentStatuses": audit.IncidentStatuses,
+	}, http.StatusOK, nil
+}
+
+func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
+	inc, err := ops.ReadIncident(ctx, a.IncidentId)
+	if err != nil {
+		var missing *audit.ErrNoIncident
+		if errors.As(err, &missing) {
+			return nil, http.StatusNotFound, err
+		}
+		return nil, incidentErrorCode(err), err
+	}
+	hs := make([]map[string]any, 0, len(inc.Hypotheses))
+	for _, h := range inc.Hypotheses {
+		hs = append(hs, map[string]any{
+			"hypothesisId":  h.HypothesisId,
+			"incidentRef":   h.IncidentRef,
+			"cause":         h.Cause,
+			"causeCategory": h.CauseCategory,
+			"confidence":    h.Confidence,
+			"rank":          h.Rank,
+			// Both sides, always. §A.2.8 calls the contradicting side a
+			// calibration control, and an endpoint that could return one
+			// without the other would offer a caller the choice of showing a
+			// claim nobody argued with.
+			"supportingEvidence":    evidenceItems(h.SupportingEvidence),
+			"contradictingEvidence": evidenceItems(h.ContradictingEvidence),
+		})
+	}
+	row := incidentRow(inc.IncidentSummary)
+	row["hypotheses"] = hs
+	return &map[string]any{"incident": row}, http.StatusOK, nil
+}
+
+func incidentRow(i audit.IncidentSummary) map[string]any {
+	return map[string]any{
+		"incidentId": i.IncidentId,
+		"sessionId":  i.SessionId,
+		"detectedAt": timeOrEmpty(i.DetectedAt),
+		"locus":      i.Locus,
+		// "" when nothing has claimed a cause, which is a state the schema
+		// deliberately admits rather than a missing value.
+		"classification": i.Classification,
+		"severity":       i.Severity,
+		"status":         i.Status,
+		"stepRef":        i.StepRef,
+		// null rather than 0 when the incident localises to no shard: 0 is the
+		// first shard, so a coalesced zero would invent a localisation.
+		"shardRef":        i.ShardRef,
+		"confounders":     nonEmptyStrings(i.Confounders),
+		"modelVersion":    i.ModelVersion,
+		"hypothesisCount": i.HypothesisCount,
+	}
+}
+
+func evidenceItems(items []audit.Evidence) []map[string]any {
+	out := make([]map[string]any, 0, len(items))
+	for _, e := range items {
+		out = append(out, map[string]any{
+			"statement": e.Statement, "source": e.Source, "sourceRef": e.SourceRef,
+		})
+	}
+	return out
+}
+
+// incidentErrorCode separates "this deployment has not been migrated" from every
+// other database failure.
+//
+// **503 rather than 500, and the distinction is the whole reason the error type
+// exists.** `jetsapi.incident` reaches a database only through
+// `update_db -migrateDb` (P3 I-169), so on any deployment older than AB.1 the
+// tables are simply absent — which is not a fault, not the caller's mistake, and
+// fixable by a named command. A 500 would put it in the same bucket as an outage
+// and a screen would report it as one.
+func incidentErrorCode(err error) int {
+	var notDeployed *audit.ErrTablesNotDeployed
+	if errors.As(err, &notDeployed) {
+		return http.StatusServiceUnavailable
+	}
+	return http.StatusInternalServerError
 }
 
 // transitionsOrEmpty returns [] rather than nil so the json is an empty array
