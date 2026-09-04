@@ -236,3 +236,102 @@ CREATE INDEX IF NOT EXISTS anomaly_session_idx
 -- stmt
 CREATE INDEX IF NOT EXISTS anomaly_detector_idx
   ON jetsapi.anomaly (anomaly_detector_ref, detected_at);
+-- stmt
+-- What triage concluded, emitted at AB.1 (phase-4 plan section 9).
+--
+-- **Two taxonomies, on purpose.** incident_locus is where in the execution record
+-- the evidence sits -- nine values, each a predicate over jetsapi with no free-text
+-- parsing -- and classification is what produced the failure, the proposal's own ten.
+-- Section 9.5's reading is that the record supports the first and does not support the
+-- second below the level of a hypothesis: three of the ten classes have no substrate
+-- in JetStore at all and four are evidenced only coarsely. Carrying both is that
+-- section's recommendation rather than this task's choice, because pruning an imported
+-- model on this project's authority is the unreviewed extraction gap 2b exists to
+-- prevent. Read incident_locus as evidence and classification as a claim; a report
+-- that aggregates accuracy over both is the silent rescoping criterion 46 forbids.
+--
+-- **The grain is the session and that is a finding, not a default.** Seven tables can
+-- carry evidence for an incident and session_id is the only key all seven share
+-- (F202), so an incident identified below the session is one whose evidence set cannot
+-- be assembled by a join. incident_step_ref and incident_shard_ref are nullable
+-- because localisation is a property of an incident and not its identity: four of the
+-- nine loci supply no step at all. An incident that sets incident_step_ref should
+-- carry step_label_ambiguous, cpipes_step_id being a stage location rather than a step
+-- identity (F52) -- which is why incident_confounders reuses the detector's vocabulary
+-- rather than opening a second one that would not compare.
+--
+-- Note what is NOT a column: hypotheses. The domain model declares it as an object
+-- property and JetRules traverses it in working memory; in Postgres the same
+-- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
+-- statements of one fact is how they drift. The emitter drops the column by rule
+-- rather than by hand -- see _table_columns.
+--
+-- Like anomaly and unlike agent_audit this table is not append-only by trigger, and
+-- unlike anomaly it IS updated: status walks Appendix A.5's state machine, so an
+-- incident row is mutable state and the audit chain is the record of how it moved.
+CREATE TABLE IF NOT EXISTS jetsapi.incident (
+  incident_id                      text PRIMARY KEY,
+  incident_session_id              text NOT NULL,
+  incident_detected_at             timestamp with time zone NOT NULL,
+  incident_locus                   text NOT NULL,
+  classification                   text NOT NULL,
+  severity                         text NOT NULL,
+  status                           text NOT NULL,
+  incident_step_ref                text,
+  incident_shard_ref               bigint,
+  incident_confounders             text[] NOT NULL,
+  incident_model_version           text NOT NULL,
+  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived')),
+  CONSTRAINT incident_classification_ck CHECK (classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
+  CONSTRAINT incident_severity_ck CHECK (severity IN ('info', 'low', 'medium', 'high', 'critical')),
+  CONSTRAINT incident_status_ck CHECK (status IN ('detected', 'triaged', 'diagnosed', 'remediation_proposed', 'awaiting_approval', 'remediating', 'resolved', 'verified', 'closed', 'reclassified', 'suppressed_as_benign')),
+  CONSTRAINT incident_confounders_ck
+             CHECK (incident_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[])
+);
+-- stmt
+-- "What happened in this run", which is how an operator reaches an incident from a
+-- session id, and "what is open", which is how a supervision screen lists them.
+CREATE INDEX IF NOT EXISTS incident_session_idx
+  ON jetsapi.incident (incident_session_id, incident_detected_at);
+-- stmt
+CREATE INDEX IF NOT EXISTS incident_status_idx
+  ON jetsapi.incident (status, incident_detected_at);
+-- stmt
+-- One ranked causal hypothesis for an incident, emitted at AB.1 with the table above.
+--
+-- **contradicting_evidence is NOT NULL because the model marks it required, and that
+-- is the whole point of the column.** Appendix A.2.8 calls it a calibration control:
+-- an agent that can omit the evidence against its own hypothesis will. Section 9.7
+-- found that side has a substrate already built -- AnomalyConfounder's fourteen
+-- members are the record's own statement of what a detector could not rule out -- and
+-- EvidenceSource gained detector_confounder at AB.1 so a hypothesis can name it. An
+-- empty array is the honest value where the agent asserts none exists; null is not.
+--
+-- Both evidence columns are jsonb rather than text[]. Evidence is a value object with
+-- three fields and no table of its own (it is a JetsaValue, $as_table = false, on the
+-- jets:State precedent), so it inlines; text[] is what the emitter's unmapped-type
+-- fall-through would have produced, and it would have stored three fields as one
+-- opaque string per item. That is I-128's silent widening reaching a composite, and
+-- tabling this entity is what exposed it.
+--
+-- hypothesis_incident_ref has no foreign key, on approval_event.run_ref's precedent:
+-- these tables are installed by one call and purged by session, and a constraint here
+-- would order inserts that shadow mode has no reason to order. The index is what the
+-- question actually needs.
+CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
+  hypothesis_id                    text PRIMARY KEY,
+  hypothesis_incident_ref          text NOT NULL,
+  cause                            text NOT NULL,
+  cause_category                   text,
+  confidence                       double precision NOT NULL,
+  rank                             bigint NOT NULL,
+  supporting_evidence              jsonb NOT NULL,
+  contradicting_evidence           jsonb NOT NULL,
+  CONSTRAINT hypothesis_cause_category_ck
+             CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation'))
+);
+-- stmt
+-- "The ranking for this incident, in order", which is the only way a human reads
+-- hypotheses and is not answerable from the primary key.
+CREATE INDEX IF NOT EXISTS hypothesis_incident_idx
+  ON jetsapi.hypothesis (hypothesis_incident_ref, rank);

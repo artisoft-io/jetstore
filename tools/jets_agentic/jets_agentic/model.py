@@ -11,11 +11,20 @@ module through Pydantic reflection; nothing else does. Authoring rules:
   this phase. The skeleton tranche carries identity, key and lifecycle only;
   detector- and eval-specific fields wait for their consumer (§4). **`Anomaly`
   left that tranche at N.2**, when phase-3 plan §12.2 became its consumer's
-  specification; the rule is that a skeleton widens when something can say what
-  its fields are for, not when someone can think of some.
+  specification, and **`Incident` and `Hypothesis` left it at AB.1**, when
+  phase-4 plan §9 became theirs; the rule is that a skeleton widens when
+  something can say what its fields are for, not when someone can think of some.
+  Three entities are still skeletons: `Remediation` (AB.2's, and deliberately
+  untouched here), `DomainModelVersion`, and `Evidence`, which is a value object
+  with nothing pending.
 - Entities whose schema exists in the proposal's Appendix A (`Anomaly` §A.2.6,
   `Incident` §A.2.7, `Hypothesis` §A.2.8, `Remediation` §A.2.9,
   `ChangeProposal` §A.2.10) follow that schema; do not re-derive them.
+  **Departing from one is allowed and being quiet about it is not**: N.2
+  extended §A.2.6's vocabularies (I-127) and AB.1 adds a required property
+  §A.2.8 has no counterpart for (I-286) and a required locus §A.2.7 does not
+  name (§9.5). Each is argued in the entity's docstring and carried as an issue;
+  none prunes what the appendix declares.
 - F7 makes property names one flat workspace-wide namespace, and workspace.db
   enforces it (data_properties.name is globally unique). A property shared by
   several entities therefore gets a class-scoped name on all but its primary
@@ -84,6 +93,59 @@ class IncidentClassification(StrEnum):
     dependency_failure = "dependency_failure"
     capacity_or_cost_deviation = "capacity_or_cost_deviation"
     benign_variation = "benign_variation"
+
+
+class IncidentLocus(StrEnum):
+    """**Ours entirely, and it is the taxonomy phase-4 plan §9.4 derived from
+    the execution record** (9 values). Not in the proposal at any level.
+
+    **A locus is where in the record a cause would have to have left its
+    evidence; it is not a cause.** §9.5's finding is that the record supports
+    triage and does not support root-cause attribution below the level of a
+    hypothesis. The nine below are mutually distinguishable by predicates over
+    `jetsapi` with no free-text parsing and no join outside it, and eight of the
+    nine are computable in SQL of the shape N.3 decided.
+
+    **Both vocabularies are carried, which is §9.5's recommendation rather than
+    this task's choice.** `IncidentClassification` above says what *produced*
+    the failure and three of its ten members have no substrate in JetStore at
+    all (I-262); pruning it on this project's authority is the unreviewed
+    extraction gap 2b exists to prevent. So `classification` stays typed against
+    §A.4's ten and `incident_locus` is added beside it. **The locus is evidence
+    and the classification is a claim**, which is the distinction §12.3 drew
+    between an anomaly's observation and its basis.
+
+    **R-27 is the risk this vocabulary creates rather than one it inherits**: a
+    nine-member locus taxonomy sitting beside a ten-member cause taxonomy will
+    be read as a second cause taxonomy, and *classified* will be read as
+    *diagnosed*. The member names are written as observations rather than as
+    diagnoses for that reason — `worker_not_terminated` and not `worker_hung`,
+    `rows_lost_silently` and not `data_dropped`.
+
+    Ordered as §9.4 orders them: by how early the failure occurs, which is also
+    roughly the order of how little the record retains. Appended to, never
+    renumbered.
+    """
+
+    # §9.4 row 1: header terminal, zero worker rows.
+    run_not_started = "run_not_started"
+    # row 2: a `cpipes_step_id` history has and this run does not.
+    step_never_started = "step_never_started"
+    # row 3: a worker still 'in progress' under a terminal header (F192).
+    worker_not_terminated = "worker_not_terminated"
+    # row 4: status 'failed' with an `error_message` (F191).
+    worker_failed = "worker_failed"
+    # row 5: an edge carries an error under a parent that completed.
+    sink_failed_under_completed_worker = "sink_failed_under_completed_worker"
+    # row 6: counts collapse with every status terminal and clean.
+    rows_lost_silently = "rows_lost_silently"
+    # row 7: `process_errors` rows exist for the session (F186).
+    per_record_failures_reported = "per_record_failures_reported"
+    # row 8: the failing operator has no error channel, so nothing could be
+    # reported. Indistinguishable from a clean run, which is why it is a locus.
+    per_record_failures_unreportable = "per_record_failures_unreportable"
+    # row 9: `output_location` names a destination the data is not at.
+    written_not_arrived = "written_not_arrived"
 
 
 class IncidentStatus(StrEnum):
@@ -226,7 +288,32 @@ class AnomalyConfounder(StrEnum):
 
 class EvidenceSource(StrEnum):
     """§A.2.8's `$defs` — scoped to Evidence and deliberately NOT in §A.4,
-    which is why the emitters discover vocabularies by reachability (9 values)."""
+    which is why the emitters discover vocabularies by reachability (10 values,
+    9 of them §A.2.8's).
+
+    **The first nine are §A.2.8's; the tenth is ours, added at AB.1.** Phase-4
+    plan §9.7 read all nine against what JetStore actually has: two are
+    unconditional, four are conditional or partial, and **three have no
+    substrate at all** — `commit_history` (no run names a commit, F196),
+    `infrastructure_log` (what the record holds is a decoded `StoppedReason`
+    string, not a log) and `prior_incident`, the last of which stops being
+    substrate-less the moment `jetsapi.incident` exists, which is this task
+    (I-263). That vocabulary is therefore **too wide** for the record, which is
+    the mirror of I-127, where §A.2.6's was too narrow; the honest response is
+    to say so rather than to prune an imported model unilaterally, so nothing
+    is removed here.
+
+    **What is added is a member for evidence that already exists and had nowhere
+    to be filed.** `AnomalyConfounder`'s fourteen members are the record's own
+    statement of what a detector could not rule out, they are a closed
+    vocabulary, and every anomaly N.4's detectors write already carries them.
+    That is contradicting evidence in the record's own words, and §A.2.8's nine
+    sources have no member for it — so `AC.2`'s hardest requirement, the
+    contradicting side of a ranked hypothesis, had a populated substrate and no
+    way to name it. `detector_confounder` is that name, and it is an **addition**
+    rather than a re-derivation: the only change this reading asks of an
+    imported vocabulary (§9.8).
+    """
 
     run_telemetry = "run_telemetry"
     lineage = "lineage"
@@ -237,6 +324,10 @@ class EvidenceSource(StrEnum):
     dq_result = "dq_result"
     code_inspection = "code_inspection"
     profile = "profile"
+    # Ours (§9.7): a confounder the detector declared it could not rule out.
+    # `source_ref` carries the AnomalyConfounder member and the anomaly it was
+    # read from.
+    detector_confounder = "detector_confounder"
 
 
 class AuditEventType(StrEnum):
@@ -389,9 +480,10 @@ class ChangeProposal(JetsaEntity):
 # Skeleton tranche (A1.4) — identity, key and lifecycle only; consumed by
 # Phases 3–4. Defining more now is how a model acquires fields nobody uses.
 #
-# **Anomaly is no longer in it (N.2, 2026-08-24).** It stays here in emission
-# order, because ENTITIES is append-ordered and moving it would churn every
-# emitted artifact for no gain, but it is a full definition and a table now.
+# **Anomaly is no longer in it (N.2, 2026-08-24), and neither are Incident and
+# Hypothesis (AB.1, 2026-09-04).** All three stay here in emission order,
+# because ENTITIES is append-ordered and moving them would churn every emitted
+# artifact for no gain, but they are full definitions and tables now.
 # ---------------------------------------------------------------------------
 
 
@@ -521,9 +613,39 @@ class Evidence(JetsaValue):
 class Hypothesis(JetsaEntity):
     """A causal hypothesis for an Incident (§A.2.8): the RCA agent's output
     contract (§B.3). contradicting_evidence is required — a calibration
-    control, not a documentation nicety (§A.2.8's own note)."""
+    control, not a documentation nicety (§A.2.8's own note).
+
+    **Made a table at AB.1, and it gained exactly one property to be one.**
+    §A.2.8 nests a hypothesis inside its incident, so nothing in the imported
+    schema names the incident it belongs to — which is adequate for a JSON
+    document and is not adequate for a row. `hypothesis_incident_ref` is that
+    name and it is **required**: a hypothesis whose incident is unknown cannot be
+    ranked against its siblings, which is what `rank` is for. The departure from
+    §A.2.8 is stated rather than applied silently, on I-126's precedent
+    (**I-286**).
+
+    **The parent keeps its object property and the child gains a reference, and
+    both are correct.** `Incident.hypotheses` is what a rule traverses in working
+    memory; `hypothesis_incident_ref` is what a query joins on. The DDL emitter
+    resolves the redundancy in the direction relational modelling already
+    settles — see `_table_columns`, which omits a column for an object property
+    whose target is itself a table.
+    """
+
+    # AB.1. `Incident` and `Hypothesis` are tabled in the same change, because
+    # a triage output that cannot be read back is the shape criterion 43 is
+    # written to refuse. F68's trap is that this flag and the Postgres table are
+    # two files with nothing checking that they agree; `ddl._assert_tables_agree`
+    # is what now checks, per class and in both directions.
+    jr_as_table: ClassVar[bool] = True
 
     hypothesis_id: str = prop("The hypothesis identity.", key=True)
+    hypothesis_incident_ref: str = prop(
+        "The Incident this hypothesis is about. Has no §A.2.8 counterpart, which nests a "
+        "hypothesis inside its incident rather than keying it; required here because a table "
+        "needs the join its parent's array gave it for free (AB.1, I-286). Scoped per F7 "
+        "against Remediation's incident_ref."
+    )
     cause: str = prop("The hypothesised cause (max 500 chars in §A.2.8).")
     cause_category: IncidentClassification | None = prop("The causal taxonomy entry.", default=None)
     confidence: float = prop("The agent's confidence, 0..1.")
@@ -535,15 +657,115 @@ class Hypothesis(JetsaEntity):
 
 
 class Incident(JetsaEntity):
-    """A triaged cluster of anomalies (§A.2.7). Skeleton: identity, lifecycle
-    and the classification trio; the impact and generated_by fields arrive
-    with their consumer."""
+    """A triaged cluster of anomalies (§A.2.7), keyed on a session (AB.1).
+
+    Widened at AB.1 from the skeleton to what phase-4 plan §9's reading of the
+    execution record says an incident can be *about*, and made a table. The
+    first line above is deliberately a complete sentence: the `.jr` emitter
+    takes an entity's class comment from the docstring's first **physical**
+    line, so a sentence that wraps is published half-written (I-288).
+
+    **The widening is a grain and a locus, and both come from the record rather
+    than from §A.2.7.**
+
+    **The grain (§9.6, I-264).** As declared through Phase 3 this entity had six
+    properties — identity, classification, severity, status, model version and
+    its hypotheses — and **none of them was a session, a run, a pipeline or a
+    time**, so an incident could not say what it was about. Q-23 asked whether an
+    incident aggregates anomalies or is one per anomaly; the record answers that
+    it aggregates and that the key is `session_id`, because seven tables can
+    carry evidence for an incident and `session_id` is the only key all seven
+    share (F202). `incident_session_id` is therefore required. **The step and
+    shard references are optional and that is the finding, not a hedge**:
+    localisation is a property of an incident and not its identity, evidenced
+    where the locus supplies it and absent where it does not.
+
+    **The boundary of that answer is worth keeping in view.** *One incident per
+    session* is the grain the record can **evidence**; it is not a claim that a
+    run produces at most one incident. Two anomalies in one session with disjoint
+    loci are arguably two incidents and nothing in the record forbids it. What is
+    settled is that an incident cannot be keyed *below* the session. `AC.1`
+    decides whether to split within one.
+
+    **The locus (§9.5).** `incident_locus` is required and is typed against
+    `IncidentLocus`, which is what the record actually decides;
+    `classification` stays required and typed against the imported
+    `IncidentClassification`, which is what a diagnosis claims. Carrying both is
+    §9.5's recommendation and it is followed here rather than resolved — see
+    `IncidentLocus`'s docstring for why pruning the imported taxonomy is not this
+    project's call to make.
+
+    **`incident_confounders` reuses `AnomalyConfounder` deliberately.** §9.6
+    requires an incident that names a step to inherit `step_label_ambiguous`,
+    because `cpipes_step_id` is a stage location rather than a step identity
+    (P3 F52). A second vocabulary saying the same thing one entity over would
+    make a detector's qualifier and a triage step's qualifier incomparable, which
+    is the failure the closed vocabulary was authored to prevent. Required, with
+    an empty list asserting that none of the fourteen applies — Anomaly's own
+    discipline.
+
+    **What is still not here.** §A.2.7's impact and generated_by blocks, which
+    still have no consumer, and `correlation_group_id`, whose §A.2.6 counterpart
+    was left off Anomaly for the same reason. The rule is unchanged: a skeleton
+    widens when something can say what its fields are for.
+    """
+
+    # AB.1, with Hypothesis. See that entity's note on F68 and the flag/table
+    # assertion; the two are tabled in one change because a hypothesis without a
+    # readable incident is not an RCA output, it is a fragment.
+    jr_as_table: ClassVar[bool] = True
 
     incident_id: str = prop("The incident identity (§A.2.7: ^inc_[a-z0-9]+$).", key=True)
-    classification: IncidentClassification = prop("The causal classification.")
+    incident_session_id: str = prop(
+        "The pipeline run the incident is about - `session_id` on every table of the execution "
+        "record, the only key all seven evidence-bearing tables share (F202), and the key "
+        "`purge_database` deletes by. Required: Q-23's answer is that an incident aggregates and "
+        "that it cannot be keyed below the session (§9.6, I-264). Scoped per F7 against "
+        "Anomaly's anomaly_session_id."
+    )
+    incident_detected_at: datetime = prop(
+        "When the incident was raised. Scoped per F7 against Anomaly's detected_at, which is "
+        "when a detector emitted an observation rather than when triage clustered them."
+    )
+    incident_locus: IncidentLocus = prop(
+        "**Where in the execution record the evidence sits** - §9.4's nine loci, the taxonomy "
+        "the record can evidence and the one AC.1 classifies deterministically. Required, and "
+        "carried beside classification rather than instead of it (§9.5): the locus is evidence, "
+        "the classification is a claim."
+    )
+    classification: IncidentClassification = prop(
+        "The causal classification (§A.4's ten). Kept required and unpruned on §9.5's "
+        "recommendation, and read with §9.5's table beside it: three of the ten have no "
+        "substrate in JetStore's record at all and four are evidenced only at a grain coarser "
+        "than the class name implies (I-262)."
+    )
     severity: Severity = prop("The severity.")
     status: IncidentStatus = prop("Where the incident sits in §A.5's state machine.")
-    hypotheses: list[Hypothesis] = prop("The ranked causal hypotheses.", default=None)
+    incident_step_ref: str | None = prop(
+        "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional "
+        "by construction - four of §9.4's nine loci have no step. An incident that sets it "
+        "should carry step_label_ambiguous in incident_confounders (F52).",
+        default=None,
+    )
+    incident_shard_ref: int | None = prop(
+        "The shard the incident localises to, where the locus supplies one. Optional for the "
+        "same reason as incident_step_ref, and narrower: `shard_id` is on three of the seven "
+        "evidence-bearing tables and the edge table reaches it only through its parent (F202).",
+        default=None,
+    )
+    incident_confounders: list[AnomalyConfounder] = prop(
+        "**What the incident's evidence could not rule out**, in the same closed vocabulary a "
+        "detector writes. Required; an empty list asserts that none of the fourteen applies. "
+        "§9.6 requires step_label_ambiguous whenever incident_step_ref is set."
+    )
+    hypotheses: list[Hypothesis] | None = prop(
+        "The ranked causal hypotheses. Corrected at AB.1: this was declared list[Hypothesis] "
+        "with default=None, which Pydantic does not validate and which the sidecar reported as "
+        "optional while the DDL emitter would have read as required - the same defect D.7 fixed "
+        "twice on ChangeProposal, found here because tabling the entity is what made a column "
+        "depend on the answer.",
+        default=None,
+    )
     incident_model_version: str = prop("§A.2.7's domain_model_version, scoped per F7: the model version the incident was raised against.")
 
 

@@ -20,6 +20,12 @@ What the DDL enforces, per §7.2 and §7.3:
   the application connects as a superuser, which bypasses GRANT/REVOKE but
   not triggers — so the trigger does the work and the REVOKE starts meaning
   something the day the application moves off superuser (I-5, §7.3).
+- **The flag and the table agree, per class (F68, added at AB.1):**
+  `_assert_tables_agree` runs inside `emit()` and fails the generate when an
+  entity carrying `jr_as_table` has no `CREATE TABLE` here, or when a table
+  here belongs to an entity the domain model does not make a table. The file
+  now writes six of them, which is where naming them one at a time stopped
+  being a method.
 - **The hash chain (A8.5):** a BEFORE INSERT trigger assigns `seq`
   (monotonic per run), links `prev_hash` to the previous row's `row_hash`,
   and computes `row_hash` as SHA-256 over the row's fields joined by the
@@ -30,6 +36,10 @@ What the DDL enforces, per §7.2 and §7.3:
 """
 
 from __future__ import annotations
+
+import re
+
+from pydantic import BaseModel
 
 from . import model as M
 
@@ -82,11 +92,29 @@ def _pg_type(annotation) -> tuple[str, bool]:
         args = typing.get_args(annotation)
 
     if typing.get_origin(annotation) is list:
-        inner, _ = _pg_type(args[0]) if args else ("text", False)
+        inner_annotation = args[0] if args else str
+        if isinstance(inner_annotation, type) and issubclass(inner_annotation, BaseModel):
+            # A list of value objects is **one** jsonb array, not an array of
+            # jsonb. Hypothesis.supporting_evidence is the first of these and
+            # AB.1 is where it arrived: before this entity was a table the
+            # branch below fell through to `text`, so the column would have been
+            # `text[]` — a list of opaque strings where the model declares a list
+            # of {statement, source, source_ref}. That is I-128's silent
+            # widening firing on a composite rather than on a scalar, and it is
+            # the failure mode `jr_as_table` on a second entity was always going
+            # to expose (I-287).
+            return "jsonb", nullable
+        inner, _ = _pg_type(inner_annotation)
         return f"{inner}[]", nullable
 
     if isinstance(annotation, type) and issubclass(annotation, enum.StrEnum):
         return "text", nullable
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        # A value object inlines as jsonb. An entity that is itself a table
+        # never reaches here — _table_columns omits the column, because the
+        # relationship is the child's foreign reference rather than the
+        # parent's array.
+        return "jsonb", nullable
     if annotation is datetime.datetime:
         return "timestamp with time zone", nullable
     if annotation is datetime.date:
@@ -101,6 +129,23 @@ def _pg_type(annotation) -> tuple[str, bool]:
     return _PG_TYPES.get(annotation, "text"), nullable
 
 
+def _entity_target(annotation) -> type[BaseModel] | None:
+    """The entity or value class a property points at, unwrapping Optional and
+    list; None for a scalar or a vocabulary."""
+    import types
+    import typing
+
+    args = typing.get_args(annotation)
+    if typing.get_origin(annotation) in (typing.Union, types.UnionType) and type(None) in args:
+        annotation = next(a for a in args if a is not type(None))
+        args = typing.get_args(annotation)
+    if typing.get_origin(annotation) is list:
+        annotation = args[0] if args else None
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+    return None
+
+
 def _table_columns(entity) -> str:
     """An entity's fields as column definitions, in declaration order.
 
@@ -108,10 +153,21 @@ def _table_columns(entity) -> str:
     added there arrives here on the next `generate` rather than by hand. A field
     the model marks required becomes NOT NULL, which is the point: the model is
     where requiredness is decided and this is a projection of it.
+
+    **One kind of property gets no column: an object property whose target is
+    itself a table.** `Incident.hypotheses` is the first — a JetRules object
+    property, and correctly so, since a rule traverses the incident to its
+    hypotheses in working memory. In Postgres the same relationship is the
+    child's `hypothesis_incident_ref`, and emitting both would be two writable
+    statements of one fact. A target that is *not* a table (`Evidence`, a
+    JetsaValue) has nowhere else to live and inlines as jsonb.
     """
     key, _ = _key_field(entity)
     lines = []
     for fname, field in entity.model_fields.items():
+        target = _entity_target(field.annotation)
+        if target is not None and getattr(target, "jr_as_table", False):
+            continue
         pg, nullable = _pg_type(field.annotation)
         parts = [f"  {fname:<32} {pg}"]
         if fname == key:
@@ -122,20 +178,79 @@ def _table_columns(entity) -> str:
     return ",\n".join(lines)
 
 
+def _table_name(entity) -> str:
+    """The jetsapi table name for an entity: its class name in snake case."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", entity.__name__).lower()
+
+
+def _assert_tables_agree(sql: str) -> None:
+    """**F68's guard, and the reason it is here rather than in a check script.**
+
+    F68 is that this emitter names its tabled entities one at a time while the
+    rest of the toolchain — the .jr, the sidecar, the schema projection, the
+    compile check — iterates `ENTITIES` on `jr_as_table`. So the flag and the
+    Postgres table are set in two files with nothing connecting them, and
+    setting one is a complete-looking change: every check in the chain reports
+    clean, because they all read the .jr side. I-24 recorded the confusion in
+    Phase 1 after `agent_run` and `change_proposal` were left modelled and
+    unwritable; N.2 avoided it for `Anomaly` by hand; AB.1 tables two more at
+    once, which is when *by hand* stops being a method.
+
+    The assertion runs inside `emit()`, so it fires on `jets-agentic generate`
+    **and** on `generate --check` — a stale or missing table is a nonzero exit
+    rather than something a reader has to notice. It is deliberately checked in
+    **both directions and per class**: a flagged entity with no CREATE TABLE is
+    the failure I-24 recorded, and an unflagged entity *with* one is a table
+    nothing in the domain model asks for, which is the same defect arriving from
+    the other side and would otherwise be invisible.
+
+    What it does not check is the columns — that is `_table_columns`, which is
+    reflection-driven and cannot drift. The JetRules half is checked separately,
+    by `compile_check`, against `domain_tables` in the compiled workspace
+    (I-129).
+    """
+    problems: list[str] = []
+    for entity in M.ENTITIES:
+        stmt = f"CREATE TABLE IF NOT EXISTS jetsapi.{_table_name(entity)} ("
+        present = stmt in sql
+        if entity.jr_as_table and not present:
+            problems.append(
+                f"{entity.__name__} carries jr_as_table = True and this emitter writes no "
+                f"`{stmt}`. Setting the flag alone leaves the entity modelled and unwritable, "
+                f"which is I-24; add the table to emit()."
+            )
+        if not entity.jr_as_table and present:
+            problems.append(
+                f"{entity.__name__} does not carry jr_as_table and this emitter writes "
+                f"`{stmt}`. A Postgres table for an entity the domain model does not make a "
+                f"table is the same disagreement from the other side."
+            )
+    if problems:
+        raise AssertionError(
+            "jr_as_table and the emitted DDL disagree (F68):\n  " + "\n  ".join(problems)
+        )
+
+
 def emit() -> str:
     run_key, _ = _key_field(M.AgentRun)
     run_columns = _table_columns(M.AgentRun)
     proposal_columns = _table_columns(M.ChangeProposal)
     approval_columns = _table_columns(M.ApprovalEvent)
     anomaly_columns = _table_columns(M.Anomaly)
+    incident_columns = _table_columns(M.Incident)
+    hypothesis_columns = _table_columns(M.Hypothesis)
     approval_states = ", ".join(f"'{m.value}'" for m in M.ApprovalState)
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
     signal_types = ", ".join(f"'{m.value}'" for m in M.SignalType)
     anomaly_subjects = ", ".join(f"'{m.value}'" for m in M.AnomalySubject)
     confounders = ", ".join(f"'{m.value}'" for m in M.AnomalyConfounder)
+    classifications = ", ".join(f"'{m.value}'" for m in M.IncidentClassification)
+    loci = ", ".join(f"'{m.value}'" for m in M.IncidentLocus)
+    severities = ", ".join(f"'{m.value}'" for m in M.Severity)
+    incident_statuses = ", ".join(f"'{m.value}'" for m in M.IncidentStatus)
 
-    return f"""-- =====================================================================================
+    sql = f"""-- =====================================================================================
 -- jetsapi.agent_audit -- GENERATED by `jets-agentic generate`. DO NOT EDIT.
 -- Source: tools/jets_agentic/jets_agentic/model.py, model version {M.MODEL_VERSION}.
 -- The agentic audit store's system of record (plan section 7.2): intent, decision and
@@ -322,4 +437,88 @@ CREATE INDEX IF NOT EXISTS anomaly_session_idx
 -- stmt
 CREATE INDEX IF NOT EXISTS anomaly_detector_idx
   ON jetsapi.anomaly (anomaly_detector_ref, detected_at);
+-- stmt
+-- What triage concluded, emitted at AB.1 (phase-4 plan section 9).
+--
+-- **Two taxonomies, on purpose.** incident_locus is where in the execution record
+-- the evidence sits -- nine values, each a predicate over jetsapi with no free-text
+-- parsing -- and classification is what produced the failure, the proposal's own ten.
+-- Section 9.5's reading is that the record supports the first and does not support the
+-- second below the level of a hypothesis: three of the ten classes have no substrate
+-- in JetStore at all and four are evidenced only coarsely. Carrying both is that
+-- section's recommendation rather than this task's choice, because pruning an imported
+-- model on this project's authority is the unreviewed extraction gap 2b exists to
+-- prevent. Read incident_locus as evidence and classification as a claim; a report
+-- that aggregates accuracy over both is the silent rescoping criterion 46 forbids.
+--
+-- **The grain is the session and that is a finding, not a default.** Seven tables can
+-- carry evidence for an incident and session_id is the only key all seven share
+-- (F202), so an incident identified below the session is one whose evidence set cannot
+-- be assembled by a join. incident_step_ref and incident_shard_ref are nullable
+-- because localisation is a property of an incident and not its identity: four of the
+-- nine loci supply no step at all. An incident that sets incident_step_ref should
+-- carry step_label_ambiguous, cpipes_step_id being a stage location rather than a step
+-- identity (F52) -- which is why incident_confounders reuses the detector's vocabulary
+-- rather than opening a second one that would not compare.
+--
+-- Note what is NOT a column: hypotheses. The domain model declares it as an object
+-- property and JetRules traverses it in working memory; in Postgres the same
+-- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
+-- statements of one fact is how they drift. The emitter drops the column by rule
+-- rather than by hand -- see _table_columns.
+--
+-- Like anomaly and unlike agent_audit this table is not append-only by trigger, and
+-- unlike anomaly it IS updated: status walks Appendix A.5's state machine, so an
+-- incident row is mutable state and the audit chain is the record of how it moved.
+CREATE TABLE IF NOT EXISTS jetsapi.incident (
+{incident_columns},
+  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ({loci})),
+  CONSTRAINT incident_classification_ck CHECK (classification IN ({classifications})),
+  CONSTRAINT incident_severity_ck CHECK (severity IN ({severities})),
+  CONSTRAINT incident_status_ck CHECK (status IN ({incident_statuses})),
+  CONSTRAINT incident_confounders_ck
+             CHECK (incident_confounders <@ ARRAY[{confounders}]::text[])
+);
+-- stmt
+-- "What happened in this run", which is how an operator reaches an incident from a
+-- session id, and "what is open", which is how a supervision screen lists them.
+CREATE INDEX IF NOT EXISTS incident_session_idx
+  ON jetsapi.incident (incident_session_id, incident_detected_at);
+-- stmt
+CREATE INDEX IF NOT EXISTS incident_status_idx
+  ON jetsapi.incident (status, incident_detected_at);
+-- stmt
+-- One ranked causal hypothesis for an incident, emitted at AB.1 with the table above.
+--
+-- **contradicting_evidence is NOT NULL because the model marks it required, and that
+-- is the whole point of the column.** Appendix A.2.8 calls it a calibration control:
+-- an agent that can omit the evidence against its own hypothesis will. Section 9.7
+-- found that side has a substrate already built -- AnomalyConfounder's fourteen
+-- members are the record's own statement of what a detector could not rule out -- and
+-- EvidenceSource gained detector_confounder at AB.1 so a hypothesis can name it. An
+-- empty array is the honest value where the agent asserts none exists; null is not.
+--
+-- Both evidence columns are jsonb rather than text[]. Evidence is a value object with
+-- three fields and no table of its own (it is a JetsaValue, $as_table = false, on the
+-- jets:State precedent), so it inlines; text[] is what the emitter's unmapped-type
+-- fall-through would have produced, and it would have stored three fields as one
+-- opaque string per item. That is I-128's silent widening reaching a composite, and
+-- tabling this entity is what exposed it.
+--
+-- hypothesis_incident_ref has no foreign key, on approval_event.run_ref's precedent:
+-- these tables are installed by one call and purged by session, and a constraint here
+-- would order inserts that shadow mode has no reason to order. The index is what the
+-- question actually needs.
+CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
+{hypothesis_columns},
+  CONSTRAINT hypothesis_cause_category_ck
+             CHECK (cause_category IS NULL OR cause_category IN ({classifications}))
+);
+-- stmt
+-- "The ranking for this incident, in order", which is the only way a human reads
+-- hypotheses and is not answerable from the primary key.
+CREATE INDEX IF NOT EXISTS hypothesis_incident_idx
+  ON jetsapi.hypothesis (hypothesis_incident_ref, rank);
 """
+    _assert_tables_agree(sql)
+    return sql
