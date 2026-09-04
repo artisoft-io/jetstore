@@ -14,9 +14,12 @@ module through Pydantic reflection; nothing else does. Authoring rules:
   specification, and **`Incident` and `Hypothesis` left it at AB.1**, when
   phase-4 plan §9 became theirs; the rule is that a skeleton widens when
   something can say what its fields are for, not when someone can think of some.
-  Three entities are still skeletons: `Remediation` (AB.2's, and deliberately
-  untouched here), `DomainModelVersion`, and `Evidence`, which is a value object
-  with nothing pending.
+  **`Remediation` left it at AB.2**, tabled with one field added and four of
+  §A.2.9's required properties named as absent rather than dropped quietly —
+  and `IncidentEvent`, appended in the same task, was never in the tranche at
+  all: it is A.5's *"every transition records actor and timestamp"* given an
+  entity (I-276). Two entities are still skeletons: `DomainModelVersion`, and
+  `Evidence`, which is a value object with nothing pending.
 - Entities whose schema exists in the proposal's Appendix A (`Anomaly` §A.2.6,
   `Incident` §A.2.7, `Hypothesis` §A.2.8, `Remediation` §A.2.9,
   `ChangeProposal` §A.2.10) follow that schema; do not re-derive them.
@@ -162,6 +165,56 @@ class IncidentStatus(StrEnum):
     closed = "closed"
     reclassified = "reclassified"
     suppressed_as_benign = "suppressed_as_benign"
+
+
+class ActorKind(StrEnum):
+    """**Ours entirely** (2 values). Not in the proposal at any level.
+
+    **Who made a transition, as a column rather than as a spelling
+    convention.** `ApprovalEvent.actor` and `jetsapi.agent_audit.actor` both
+    carry *"a user_email or an agent identity"* and leave the two apart by the
+    shape of the string. That is adequate for attribution — the question those
+    columns were built to answer is *which* actor — and it is not adequate for
+    the question I-276 asks, which is *which kind*.
+
+    I-276's sentence is that **a label the measured system may have written is
+    not a label**: §11.3.1's four label-bearing metrics score an agent's
+    classification against a human's correction, so a query that cannot
+    partition the corrections by kind has no denominator. Deciding that by
+    pattern-matching an email address would make the population a property of a
+    regular expression.
+
+    Two members and no more. `agent` covers a deterministic classifier as well
+    as a model-driven one: the distinction that matters to a metric is whether
+    the transition came from **outside** the system under test, and AC.1 being
+    deterministic does not put it outside (AB.2, **I-292**).
+    """
+
+    human = "human"
+    agent = "agent"
+
+
+class Reversibility(StrEnum):
+    """§A.2.9's `reversibility` enum (3 values), verbatim and in its order.
+
+    **The DDL accepts two of the three, and that is §A.2.9's own validator
+    rule rather than a pruning.** The appendix states it in terms: *"`reversibility:
+    irreversible` is rejected at schema level. No irreversible remediation may be
+    persisted at any tier (Section 4.3)."* The vocabulary keeps all three — the
+    third is what the rule is *about*, and a vocabulary that omitted it could not
+    express the rule — and `remediation_reversibility_ck` is where the refusal
+    happens.
+
+    This is §11.4's pattern used a second time: a stated invariant that is
+    checkable and left in prose is one that goes quiet the first time nobody
+    re-reads the appendix. The excluded member is read off this enum rather than
+    spelled into the SQL, so a rename moves the rule instead of silently stopping
+    it from firing (AB.2, **I-293**).
+    """
+
+    fully_reversible = "fully_reversible"
+    reversible_with_backfill = "reversible_with_backfill"
+    irreversible = "irreversible"
 
 
 class ApprovalState(StrEnum):
@@ -480,10 +533,13 @@ class ChangeProposal(JetsaEntity):
 # Skeleton tranche (A1.4) — identity, key and lifecycle only; consumed by
 # Phases 3–4. Defining more now is how a model acquires fields nobody uses.
 #
-# **Anomaly is no longer in it (N.2, 2026-08-24), and neither are Incident and
-# Hypothesis (AB.1, 2026-09-04).** All three stay here in emission order,
-# because ENTITIES is append-ordered and moving them would churn every emitted
-# artifact for no gain, but they are full definitions and tables now.
+# **Anomaly is no longer in it (N.2, 2026-08-24), neither are Incident and
+# Hypothesis (AB.1, 2026-09-04), and neither is Remediation (AB.2, same day).**
+# All four stay here in emission order, because ENTITIES is append-ordered and
+# moving them would churn every emitted artifact for no gain, but they are
+# tables now — Remediation with four of §A.2.9's required properties still
+# absent, which is a narrower claim than the other three and is stated in its
+# docstring.
 # ---------------------------------------------------------------------------
 
 
@@ -783,12 +839,77 @@ class Incident(JetsaEntity):
 
 
 class Remediation(JetsaEntity):
-    """A proposed corrective action (§A.2.9). Skeleton: identity, the incident
-    it corrects, and the two governing states."""
+    """A proposed corrective action (§A.2.9), tabled at AB.2 and with no executor.
+
+    The first line above is deliberately one physical line: the `.jr` emitter
+    takes an entity's class comment from the docstring's first line (I-288).
+
+    **It is a table before it is a writer, and that is the task rather than a
+    shortcut.** Nothing in this phase proposes a remediation, and nothing
+    executes one — criterion 47 says in terms that nothing acts. What the table
+    buys is that Phase 5's autonomy gate has a subject: §1.4's finding is that
+    autonomy tiers are *recorded, trustworthy, and gate nothing*, and
+    `autonomy_tier_required` is the one property in the model that names the
+    authority an action needs rather than the authority a run had. A tier with
+    nowhere to be written is the shape gap 7b has been in for four phases.
+
+    **The one field added to the skeleton is `reversibility`, and its consumer
+    is a constraint this task installs rather than a task that might want it.**
+    The model's rule is that a skeleton widens when something can say what its
+    fields are for; §A.2.9's validator rule says what this one is for, and
+    `remediation_reversibility_ck` is where it is enforced. **That is the only
+    property of a remediation this phase can act on without an executor** — every
+    other gate reads what the action *does*, and what it does is the executor's
+    to say.
+
+    **Four of §A.2.9's nine required properties are deliberately absent, and
+    naming them is cheaper than rediscovering them** (**I-294**):
+
+    - `action_type` (§A.4's ten-member `RemediationActionType`) — the dispatch
+      key. Nothing dispatches, and a tier rule keyed on it (*T2 may rerun a load
+      and may not rotate a credential*) would be this task inventing Phase 5's
+      gate. It is the first widening the executor's task owes.
+    - `proposed_by` — `$ref Incident#/properties/generated_by`, the block
+      `Incident` also does not carry (AB.1), for the same reason.
+    - `rationale` and `blast_radius` — both are read by a supervision screen
+      deciding whether to approve, and `AE.1` is read-only this round.
+
+    **`approver` and `approved_at` are absent for a different reason and it is
+    not deferral.** `ApprovalEvent.subject_ref` is documented as *"the
+    Remediation or ChangeProposal being decided"*, so who approved and when are
+    already a row in `jetsapi.approval_event`. Inlining them here would be two
+    writable statements of one fact, which is the rule `_table_columns` already
+    applies to `Incident.hypotheses`.
+
+    **A.5's Remediation machine and A.4's ApprovalState do not agree, and this
+    entity cannot fix it** (**F252**, **I-295**). §A.2.9 types `approval_state`
+    against `ApprovalState`; A.5 draws the machine over `proposed`,
+    `awaiting_approval`, `executing`, `succeeded`, `failed`, `rolled_back`,
+    `partial` and `escalated`, of which ApprovalState contains **two**. That is
+    the divergence `lifecycle.go` recorded for ChangeProposal, where four states
+    were missing, arriving an order of magnitude larger. **The schema is
+    followed and the diagram is recorded**, because six of the eight missing
+    states describe an execution this phase does not perform, and widening a
+    controlled vocabulary for an executor that does not exist is how a model
+    acquires fields nobody uses.
+    """
+
+    # AB.2. The Postgres table lands in the same change, per I-24 and the
+    # `_assert_tables_agree` guard AB.1 built: `$as_table` is a JetRules
+    # property and says nothing about Postgres, so setting this flag alone is
+    # the complete-looking change every check in the chain reports clean.
+    jr_as_table: ClassVar[bool] = True
 
     remediation_id: str = prop("The remediation identity (§A.2.9: ^rem_[a-z0-9]+$).", key=True)
     incident_ref: str = prop("The Incident this remediates (§A.2.9 names it incident_id; scoped per F7 against Incident's identity).")
     autonomy_tier_required: AutonomyTier = prop("The tier the action requires (recorded; enforcement is by privilege, §9.1).")
+    reversibility: Reversibility = prop(
+        "Whether the action can be undone (§A.2.9's enum, all three values). Required, and the "
+        "one field AB.2 adds to this skeleton: §A.2.9's validator rule - no irreversible "
+        "remediation may be persisted at any tier (§4.3) - is checkable, and "
+        "remediation_reversibility_ck is where it is checked. The vocabulary keeps the third "
+        "member because the rule is about it."
+    )
     remediation_approval_state: ApprovalState = prop("Where the remediation sits in the approval lifecycle (§A.2.9 names it approval_state; scoped per F7 against ChangeProposal's).")
 
 
@@ -801,8 +922,129 @@ class DomainModelVersion(JetsaEntity):
     effective_at: datetime = prop("When this version became the current one.")
 
 
-# The nine entities, in emission order: full tranche, then skeleton. The
-# emitters iterate this list; vocabularies are discovered by reachability.
+class IncidentEvent(JetsaEntity):
+    """One transition of one Incident: who moved it, when, and from what to what.
+
+    The first line above is deliberately one physical line (I-288).
+
+    **Ours entirely; the proposal has no counterpart, and A.5 is why it is
+    owed.** A.5's preamble says *"Every transition records actor, agent version
+    where applicable, and timestamp"* and then draws four machines and no entity
+    to record any of them. `ApprovalEvent` is that entity for `ChangeProposal`;
+    nothing was it for `Incident`, so a transition on an incident was a mutable
+    `status` column and nothing else (**I-276**).
+
+    **What that cost is a population rather than an audit trail.** Three of
+    `IncidentStatus`'s eleven values are adjudications rather than progress —
+    `reclassified`, `verified` and `suppressed_as_benign` — so an incident's
+    lifecycle already carried the verdicts §11.3.1's four label-bearing metrics
+    need. What it did not carry is who reached them, and **a label the measured
+    system may have written is not a label**. Phase 4 still cannot have a
+    labelled population; this is the instrument that lets Phase 5 accumulate one,
+    which is plan §10.7's argument and is scheduling rather than consolation.
+
+    **It is a second use of K.1's and K.3's pattern, not a new mechanism.**
+    `jetsapi.agent_audit` already carries an actor; `RecordApproval` already
+    guards a transition on its expected `from_state` and writes the typed row,
+    the chain event and the subject's new state in one transaction;
+    `audit/lifecycle.go` already holds a transition table the server enforces and
+    a screen reads. `audit/incident.go` and `audit/incident_lifecycle.go` are
+    those three things again over this entity.
+
+    **Three departures from `ApprovalEvent`, each with a reason.**
+
+    - **`event_actor_kind` is a column, where `ApprovalEvent` leaves human and
+      agent apart by the shape of `actor`.** See `ActorKind` (**I-292**): the
+      metric partitions on kind, and a partition decided by a regular expression
+      over an email address is not a partition.
+    - **`classification_before` and `classification_after` travel on the event.**
+      The incident row is mutable, so a second correction overwrites the first
+      and the pairing §11.3.1 scores is gone. `classification_before` is
+      **read from the row inside the write** rather than accepted from the
+      caller (`RecordIncidentTransition`), which is the handler's *"checked
+      against the row, not trusted as it"* rule moved down to where every caller
+      gets it: the party being measured does not get to state what it is being
+      measured against.
+    - **There is no `tier_at_event`.** An approval is an authority-bearing act
+      and an incident transition is not; the tier a *corrective action* requires
+      is `Remediation.autonomy_tier_required`, one entity over. Recorded as
+      **I-296** rather than left as an omission.
+
+    **`event_run_ref` is optional and that is the one weakness worth stating.**
+    `agent_audit.run_id` is `AgentRun`'s key, and neither a human working a
+    screen nor a deterministic triage step is an `AgentRun` — `Incident` has no
+    run reference at all, where `ChangeProposal.trigger_ref` carries one, which
+    is exactly what the approval handler reads to find the chain to append to
+    (**F255**). So a transition with no run is written to this table and **not**
+    to the hash chain: durable and attributable, and not tamper-evident. The
+    alternative — require a run and make the screen mint one — decides `AE.1`'s
+    design from here, and is refused for that reason (**R-34**, **I-297**).
+    """
+
+    # AB.2. Tabled with Remediation, and for the same reason the two Incident
+    # and Hypothesis tables landed together at AB.1: a transition record that
+    # cannot be read back is not a labelling instrument, it is a log line.
+    jr_as_table: ClassVar[bool] = True
+
+    incident_event_id: str = prop("The event identity.", key=True)
+    event_incident_ref: str = prop(
+        "The Incident this transition moved. Scoped per F7 against Remediation's incident_ref "
+        "and Hypothesis's hypothesis_incident_ref; the mechanical <class>_incident_ref form "
+        "would stutter here, this class name already beginning with incident."
+    )
+    from_status: IncidentStatus = prop(
+        "The status the incident was in. Scoped per F7 against ApprovalEvent's from_state, and "
+        "named status rather than state because it is IncidentStatus's vocabulary and not "
+        "ApprovalState's - the two machines share neither members nor shape (A.5)."
+    )
+    to_status: IncidentStatus = prop("The status it moved to.")
+    event_actor: str = prop(
+        "Who moved it: a user_email or an agent identity, as jetsapi.agent_audit.actor and "
+        "ApprovalEvent.actor carry it (scoped per F7 against the latter)."
+    )
+    event_actor_kind: ActorKind = prop(
+        "**Whether that actor was a person or the system** - the column I-276 asks for, and the "
+        "one a label-bearing metric partitions on. Required: a transition whose kind is unknown "
+        "counts for nothing, so there is no honest default."
+    )
+    transitioned_at: datetime = prop(
+        "When the transition was made. Scoped per F7 against ApprovalEvent's decided_at and "
+        "Incident's incident_detected_at, which is when the incident was raised rather than "
+        "when it last moved."
+    )
+    event_run_ref: str | None = prop(
+        "The AgentRun this transition belongs to, when it has one; the chain event is appended "
+        "to that run and is omitted when this is unset. Optional because neither a human at a "
+        "screen nor a deterministic triage step is an AgentRun and Incident records no run "
+        "(F255). Scoped per F7 against ApprovalEvent's run_ref.",
+        default=None,
+    )
+    classification_before: IncidentClassification | None = prop(
+        "The incident's classification before the transition, read from the row by "
+        "RecordIncidentTransition rather than supplied by the caller. Null where the incident "
+        "carried none - which is the ordinary case out of AC.1, since classification is optional "
+        "and a locus is not a cause (I-289).",
+        default=None,
+    )
+    classification_after: IncidentClassification | None = prop(
+        "The classification the transition set, null where it changed none. Required in effect "
+        "for a reclassification, by incident_event_reclassified_ck rather than by this "
+        "annotation: A.5 says reclassified returns to triaged *with a new classification and a "
+        "recorded reason*, and that is a cross-column rule.",
+        default=None,
+    )
+    transition_rationale: str | None = prop(
+        "Why, in the actor's words. Optional in general and required for a reclassification by "
+        "the same CHECK (A.5). Scoped per F7 against ApprovalEvent's decision_rationale.",
+        default=None,
+    )
+
+
+# The entities, in emission order: full tranche, then skeleton, then what a
+# later phase appended. The emitters iterate this list; vocabularies are
+# discovered by reachability. **Append, never insert** — the .jr, the sidecar,
+# the schema projection and the tool signatures are all emitted in this order,
+# so moving an entry churns four artifacts and reviews as a rewrite.
 ENTITIES: list[type[BaseModel]] = [
     AgentRun,
     ApprovalEvent,
@@ -813,4 +1055,6 @@ ENTITIES: list[type[BaseModel]] = [
     Incident,
     Remediation,
     DomainModelVersion,
+    # AB.2.
+    IncidentEvent,
 ]

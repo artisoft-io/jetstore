@@ -150,16 +150,17 @@ class jetsa:Incident {
   $as_table = true
 };
 
-# A proposed corrective action (§A.2.9). Skeleton: identity, the incident
+# A proposed corrective action (§A.2.9), tabled at AB.2 and with no executor.
 class jetsa:Remediation {
   $base_classes = [jets:Entity],
   $data_properties = [
     jetsa:remediation_id as text,
     jetsa:incident_ref as text,
     jetsa:autonomy_tier_required as text,
+    jetsa:reversibility as text,
     jetsa:remediation_approval_state as text
   ],
-  $as_table = false
+  $as_table = true
 };
 
 # A released version of the domain model itself (proposal §5.3: identity
@@ -170,6 +171,25 @@ class jetsa:DomainModelVersion {
     jetsa:effective_at as datetime
   ],
   $as_table = false
+};
+
+# One transition of one Incident: who moved it, when, and from what to what.
+class jetsa:IncidentEvent {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:incident_event_id as text,
+    jetsa:event_incident_ref as text,
+    jetsa:from_status as text,
+    jetsa:to_status as text,
+    jetsa:event_actor as text,
+    jetsa:event_actor_kind as text,
+    jetsa:transitioned_at as datetime,
+    jetsa:event_run_ref as text,
+    jetsa:classification_before as text,
+    jetsa:classification_after as text,
+    jetsa:transition_rationale as text
+  ],
+  $as_table = true
 };
 
 # jetsa:autonomy_tier_required / jetsa:tier / jetsa:tier_at_event enum (AutonomyTier)
@@ -243,7 +263,7 @@ text jetsa:EVIDENCE_SOURCE_CODE_INSPECTION = "code_inspection";
 text jetsa:EVIDENCE_SOURCE_PROFILE = "profile";
 text jetsa:EVIDENCE_SOURCE_DETECTOR_CONFOUNDER = "detector_confounder";
 
-# jetsa:cause_category / jetsa:classification enum (IncidentClassification)
+# jetsa:cause_category / jetsa:classification / jetsa:classification_after / jetsa:classification_before enum (IncidentClassification)
 text jetsa:INCIDENT_CLASSIFICATION_SOURCE_DELIVERY_FAILURE = "source_delivery_failure";
 text jetsa:INCIDENT_CLASSIFICATION_SOURCE_CONTENT_CHANGE = "source_content_change";
 text jetsa:INCIDENT_CLASSIFICATION_TRANSPORT_FAILURE = "transport_failure";
@@ -273,7 +293,7 @@ text jetsa:SEVERITY_MEDIUM = "medium";
 text jetsa:SEVERITY_HIGH = "high";
 text jetsa:SEVERITY_CRITICAL = "critical";
 
-# jetsa:status enum (IncidentStatus)
+# jetsa:from_status / jetsa:status / jetsa:to_status enum (IncidentStatus)
 text jetsa:INCIDENT_STATUS_DETECTED = "detected";
 text jetsa:INCIDENT_STATUS_TRIAGED = "triaged";
 text jetsa:INCIDENT_STATUS_DIAGNOSED = "diagnosed";
@@ -285,6 +305,15 @@ text jetsa:INCIDENT_STATUS_VERIFIED = "verified";
 text jetsa:INCIDENT_STATUS_CLOSED = "closed";
 text jetsa:INCIDENT_STATUS_RECLASSIFIED = "reclassified";
 text jetsa:INCIDENT_STATUS_SUPPRESSED_AS_BENIGN = "suppressed_as_benign";
+
+# jetsa:reversibility enum (Reversibility)
+text jetsa:REVERSIBILITY_FULLY_REVERSIBLE = "fully_reversible";
+text jetsa:REVERSIBILITY_REVERSIBLE_WITH_BACKFILL = "reversible_with_backfill";
+text jetsa:REVERSIBILITY_IRREVERSIBLE = "irreversible";
+
+# jetsa:event_actor_kind enum (ActorKind)
+text jetsa:ACTOR_KIND_HUMAN = "human";
+text jetsa:ACTOR_KIND_AGENT = "agent";
 
 # Rule-visible property metadata (§3.5): data_classification markers as
 # triples, readable in working memory and at build time (workspace.db triples).

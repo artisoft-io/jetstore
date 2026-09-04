@@ -348,3 +348,130 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
 -- hypotheses and is not answerable from the primary key.
 CREATE INDEX IF NOT EXISTS hypothesis_incident_idx
   ON jetsapi.hypothesis (hypothesis_incident_ref, rank);
+-- stmt
+-- A proposed corrective action, emitted at AB.2 (phase-4 plan section 12) -- **with no
+-- executor, and nothing in this phase writes a row.** Criterion 47 says in terms that
+-- nothing acts; what the table buys is that Phase 5's autonomy gate has a subject.
+-- Section 1.4's finding is that autonomy tiers are recorded, trustworthy and gate
+-- nothing, and autonomy_tier_required is the one property in the model that names the
+-- authority an *action* needs rather than the authority a run had.
+--
+-- **remediation_reversibility_ck is Appendix A.2.9's validator rule and not this
+-- project's policy.** The appendix states it: "reversibility: irreversible is rejected
+-- at schema level. No irreversible remediation may be persisted at any tier (Section
+-- 4.3)." So the Reversibility vocabulary carries three members -- the rule is about the
+-- third -- and this table accepts two. The excluded value is read off the enum rather
+-- than spelled here, so a rename moves the rule instead of quietly widening it, which
+-- is the same mechanism as incident_step_confounder_ck above.
+--
+-- **The cost of that CHECK is worth naming beside it.** An agent that concludes the
+-- only available correction is irreversible cannot record the conclusion; it can only
+-- decline to propose. The record then shows nothing where a refusal happened, which is
+-- a gap a supervision screen cannot display and a Phase 5 metric cannot count. Enforcing
+-- the appendix's own rule is still the right call at this phase -- the alternative is a
+-- table that accepts a row section 4.3 forbids -- but it is a trade rather than a free
+-- guard (R-35).
+--
+-- Four of Appendix A.2.9's nine required properties are absent: action_type, proposed_by,
+-- rationale and blast_radius. The first is the executor's dispatch key and a tier rule
+-- keyed on it would be this task inventing Phase 5's gate; the others are read by a
+-- screen that does not write yet. approver and approved_at are absent for a different
+-- reason -- ApprovalEvent.subject_ref is documented as "the Remediation or ChangeProposal
+-- being decided", so they are already a row in jetsapi.approval_event, and inlining them
+-- would be two writable statements of one fact.
+CREATE TABLE IF NOT EXISTS jetsapi.remediation (
+  remediation_id                   text PRIMARY KEY,
+  incident_ref                     text NOT NULL,
+  autonomy_tier_required           text NOT NULL,
+  reversibility                    text NOT NULL,
+  remediation_approval_state       text NOT NULL,
+  CONSTRAINT remediation_tier_ck CHECK (autonomy_tier_required IN ('T0', 'T1', 'T2', 'T3', 'T4')),
+  CONSTRAINT remediation_approval_state_ck
+             CHECK (remediation_approval_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed')),
+  -- Appendix A.2.9: 'irreversible' is a member of the vocabulary and is not
+  -- a persistable value.
+  CONSTRAINT remediation_reversibility_ck
+             CHECK (reversibility IN ('fully_reversible', 'reversible_with_backfill'))
+);
+-- stmt
+-- "What has been proposed for this incident", which is how a supervision screen reaches
+-- a remediation and is not answerable from the primary key.
+CREATE INDEX IF NOT EXISTS remediation_incident_idx
+  ON jetsapi.remediation (incident_ref, remediation_approval_state);
+-- stmt
+-- One transition of one incident, emitted at AB.2 (I-276). Appendix A.5's preamble says
+-- "Every transition records actor, agent version where applicable, and timestamp" and
+-- then draws four machines and no entity to record one. jetsapi.approval_event is that
+-- entity for ChangeProposal; this is it for Incident.
+--
+-- **The reason it is owed is a labelled population rather than an audit trail.** Three
+-- of IncidentStatus's eleven values are adjudications rather than progress --
+-- reclassified, verified, suppressed_as_benign -- so the lifecycle already carried the
+-- verdicts section 11.3.1's four label-bearing metrics need. What it did not carry is
+-- who reached them, and a label the measured system may have written is not a label.
+--
+-- **event_actor_kind is a column and not a spelling convention**, which is the one place
+-- this table departs from approval_event's shape on purpose. That table's actor is "a
+-- user_email or an agent identity" and leaves the two apart by the shape of the string;
+-- a metric that partitions human corrections from the system's own reclassifications
+-- cannot rest its denominator on a regular expression over an email address.
+--
+-- **classification_before and classification_after travel on the event because the
+-- incident row is mutable.** A second correction overwrites the first, so the pairing
+-- the metrics score would be gone. RecordIncidentTransition reads classification_before
+-- out of the row inside the same statement that moves it, rather than accepting it from
+-- the caller: the party being measured does not state what it is measured against.
+--
+-- incident_event_reclassified_ck is Appendix A.5's own sentence -- "reclassified returns
+-- to triaged with a new classification and a recorded reason" -- as a cross-column rule.
+-- It is the second such CHECK in this file and it fires on the same argument as the
+-- first: a requirement that is checkable and left in prose goes quiet the first time
+-- nobody re-reads the appendix.
+--
+-- event_run_ref is nullable and that is the table's one stated weakness. agent_audit's
+-- run_id is an AgentRun's key, and neither a human at a screen nor a deterministic
+-- triage step is an AgentRun -- Incident records no run at all, where
+-- ChangeProposal.trigger_ref does, which is precisely what the approval handler reads to
+-- find the chain to append to. A transition with no run is durable and attributable here
+-- and is not in the hash chain (R-34).
+--
+-- Like incident and unlike agent_audit this table has no append-only trigger, and like
+-- approval_event it is never updated: a further transition is a further row.
+CREATE TABLE IF NOT EXISTS jetsapi.incident_event (
+  incident_event_id                text PRIMARY KEY,
+  event_incident_ref               text NOT NULL,
+  from_status                      text NOT NULL,
+  to_status                        text NOT NULL,
+  event_actor                      text NOT NULL,
+  event_actor_kind                 text NOT NULL,
+  transitioned_at                  timestamp with time zone NOT NULL,
+  event_run_ref                    text,
+  classification_before            text,
+  classification_after             text,
+  transition_rationale             text,
+  CONSTRAINT incident_event_from_status_ck CHECK (from_status IN ('detected', 'triaged', 'diagnosed', 'remediation_proposed', 'awaiting_approval', 'remediating', 'resolved', 'verified', 'closed', 'reclassified', 'suppressed_as_benign')),
+  CONSTRAINT incident_event_to_status_ck CHECK (to_status IN ('detected', 'triaged', 'diagnosed', 'remediation_proposed', 'awaiting_approval', 'remediating', 'resolved', 'verified', 'closed', 'reclassified', 'suppressed_as_benign')),
+  CONSTRAINT incident_event_actor_kind_ck CHECK (event_actor_kind IN ('human', 'agent')),
+  CONSTRAINT incident_event_classification_before_ck
+             CHECK (classification_before IS NULL
+                    OR classification_before IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
+  CONSTRAINT incident_event_classification_after_ck
+             CHECK (classification_after IS NULL
+                    OR classification_after IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
+  CONSTRAINT incident_event_reclassified_ck
+             CHECK (to_status <> 'reclassified'
+                    OR (classification_after IS NOT NULL
+                        AND transition_rationale IS NOT NULL))
+);
+-- stmt
+-- "How did this incident get here, in order", which is the whole point of the table and
+-- is not answerable from the primary key.
+CREATE INDEX IF NOT EXISTS incident_event_incident_idx
+  ON jetsapi.incident_event (event_incident_ref, transitioned_at);
+-- stmt
+-- "Which verdicts did people reach, and when" -- the query a labelled population is
+-- counted with (plan section 10.7). Partial on the actor kind because the human rows are
+-- the scarce ones and the index exists to make counting them cheap.
+CREATE INDEX IF NOT EXISTS incident_event_human_verdict_idx
+  ON jetsapi.incident_event (to_status, transitioned_at)
+  WHERE event_actor_kind = 'human';
