@@ -37,6 +37,17 @@ type fakeOps struct {
 	// recorded captures what RecordApproval was handed, which is how the
 	// server-side derivation of actor and tier is asserted.
 	recorded *audit.Approval
+
+	// The incident half (task AE.1). `incidentErr` is what makes the
+	// unmigrated-database path testable here at all: the alternative is a
+	// database with no schema, which the audit package tests and this one
+	// cannot.
+	incidents   []audit.IncidentSummary
+	incident    *audit.Incident
+	incidentErr error
+	// statusFilter captures what ListIncidents was asked for, so a test can
+	// assert the screen's filter reached the store rather than the wrong field.
+	statusFilter []string
 }
 
 func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {
@@ -72,6 +83,23 @@ func (f *fakeOps) RecordApproval(_ context.Context, a *audit.Approval) (int, err
 		return 0, f.recordErr
 	}
 	return 7, nil
+}
+
+func (f *fakeOps) ListIncidents(_ context.Context, statuses []string, _ int) ([]audit.IncidentSummary, error) {
+	f.statusFilter = statuses
+	if f.incidentErr != nil {
+		return nil, f.incidentErr
+	}
+	return f.incidents, nil
+}
+func (f *fakeOps) ReadIncident(_ context.Context, id string) (*audit.Incident, error) {
+	if f.incidentErr != nil {
+		return nil, f.incidentErr
+	}
+	if f.incident == nil || f.incident.IncidentId != id {
+		return nil, &audit.ErrNoIncident{IncidentId: id}
+	}
+	return f.incident, nil
 }
 
 func dispatch(t *testing.T, ops agenticOps, a *AgenticAction, actor string) (map[string]any, int, error) {
@@ -339,5 +367,131 @@ func TestAProposalWithNoRunCannotBeDecided(t *testing.T) {
 	}
 	if ops.recorded != nil {
 		t.Error("it reached the store anyway")
+	}
+}
+
+// The incident half (task AE.1) --------------------------------------------
+//
+// **What is worth asserting here is what the endpoint refuses to lose**, on the
+// same argument as the proposal tests above: both taxonomies travel together,
+// an unclaimed cause survives as an empty string rather than becoming one, a
+// shard that is absent stays absent, and an unmigrated database is a different
+// answer from an outage.
+
+func sampleIncident() audit.IncidentSummary {
+	shard := int64(0)
+	return audit.IncidentSummary{
+		IncidentId: "inc_1", SessionId: "sess_1", DetectedAt: time.Unix(1757000000, 0).UTC(),
+		Locus: audit.LocusWorkerFailed, Classification: "", Severity: "high", Status: "triaged",
+		StepRef: "reducing00", ShardRef: &shard,
+		Confounders: []string{"step_label_ambiguous"}, ModelVersion: "0.1.0", HypothesisCount: 1,
+	}
+}
+
+func TestListIncidentsCarriesBothTaxonomiesAndTheVocabulary(t *testing.T) {
+	ops := &fakeOps{incidents: []audit.IncidentSummary{sampleIncident()}}
+	res, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "list_incidents", Statuses: []string{"triaged"},
+	}, "a@b")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	if got := ops.statusFilter; len(got) != 1 || got[0] != "triaged" {
+		t.Errorf("the status filter reached the store as %v", got)
+	}
+	rows := res["incidents"].([]map[string]any)
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows", len(rows))
+	}
+	row := rows[0]
+	// The row carries both columns. A response with only one of them is R-27
+	// arriving on the wire: a locus rendered under a heading that says cause.
+	if row["locus"] != audit.LocusWorkerFailed {
+		t.Errorf("locus %v", row["locus"])
+	}
+	if _, ok := row["classification"]; !ok {
+		t.Error("the row has no classification key at all; an unclaimed cause must be visibly empty")
+	}
+	if row["classification"] != "" {
+		t.Errorf("classification %v, want empty", row["classification"])
+	}
+	if shard, ok := row["shardRef"].(*int64); !ok || shard == nil || *shard != 0 {
+		t.Errorf("shardRef %v, want a pointer to 0 — shard 0 is a shard", row["shardRef"])
+	}
+	// The nine loci come from the server so the screen's legend cannot drift
+	// from the CHECK the rows are written against.
+	if loci, ok := res["loci"].([]string); !ok || len(loci) != 9 {
+		t.Errorf("loci %v, want the nine", res["loci"])
+	}
+	if st, ok := res["incidentStatuses"].([]string); !ok || len(st) != 11 {
+		t.Errorf("incidentStatuses %v, want the eleven", res["incidentStatuses"])
+	}
+}
+
+func TestGetIncidentReturnsBothEvidenceSides(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{
+		IncidentSummary: sampleIncident(),
+		Hypotheses: []audit.Hypothesis{{
+			HypothesisId: "hyp_1", IncidentRef: "inc_1", Cause: "a step regressed",
+			CauseCategory: "", Confidence: 0.6, Rank: 1,
+			SupportingEvidence:    []audit.Evidence{{Statement: "slower", Source: "run_telemetry"}},
+			ContradictingEvidence: []audit.Evidence{},
+		}},
+	}}
+	res, code, err := dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: "inc_1"}, "a@b")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	inc := res["incident"].(map[string]any)
+	hs := inc["hypotheses"].([]map[string]any)
+	if len(hs) != 1 {
+		t.Fatalf("got %d hypotheses", len(hs))
+	}
+	// An empty contradicting array must arrive as an array. A hypothesis that
+	// asserts nothing against itself and one that was never asked are different
+	// claims, and A.2.8 calls the difference a calibration control.
+	got, ok := hs[0]["contradictingEvidence"].([]map[string]any)
+	if !ok || got == nil {
+		t.Fatalf("contradictingEvidence is %T, want an array", hs[0]["contradictingEvidence"])
+	}
+	if len(got) != 0 {
+		t.Errorf("contradictingEvidence %v, want empty", got)
+	}
+	if len(hs[0]["supportingEvidence"].([]map[string]any)) != 1 {
+		t.Error("the supporting side was lost")
+	}
+}
+
+func TestAnUnknownIncidentIs404(t *testing.T) {
+	_, code, err := dispatch(t, &fakeOps{}, &AgenticAction{Action: "get_incident", IncidentId: "nope"}, "a@b")
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	if code != http.StatusNotFound {
+		t.Errorf("code %d, want 404", code)
+	}
+}
+
+// **The one a live database will not hand a test on demand**, and the reason
+// ErrTablesNotDeployed is a type rather than a message: on every deployment
+// older than AB.1 these tables are absent, and a 500 would put a missing
+// migration in the same bucket as an outage. 503 says the deployment is not
+// ready, which is both true and actionable.
+func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
+	ops := &fakeOps{incidentErr: &audit.ErrTablesNotDeployed{Detail: `relation "jetsapi.incident" does not exist`}}
+	for _, action := range []*AgenticAction{
+		{Action: "list_incidents"},
+		{Action: "get_incident", IncidentId: "inc_1"},
+	} {
+		_, code, err := dispatch(t, ops, action, "a@b")
+		if err == nil {
+			t.Fatalf("%s: expected the failure to surface", action.Action)
+		}
+		if code != http.StatusServiceUnavailable {
+			t.Errorf("%s: code %d, want 503", action.Action, code)
+		}
+		if !strings.Contains(err.Error(), "migrateDb") {
+			t.Errorf("%s: the error should name the remedy; got %v", action.Action, err)
+		}
 	}
 }

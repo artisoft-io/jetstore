@@ -21,6 +21,8 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-route
 import { ApiClient } from "./api/client";
 import { Register } from "./components/Register";
 import { AGENT_SUPERVISION } from "./proposals/api";
+import { IncidentScreen } from "./incidents/IncidentScreen";
+import { IncidentsScreen } from "./incidents/IncidentsScreen";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
@@ -99,6 +101,10 @@ export const NAV: NavEntry[] = [
   // agentic_ai's screens (task K.3). The nav entry and the two routes below are
   // this file's whole knowledge of them; the screens are in `proposals/`.
   { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
+  // agentic_ai's screens (task AE.1), gated on the same capability and reached
+  // the same way. The entry and the two routes below are this file's whole
+  // knowledge of them; the screens are in `incidents/`.
+  { to: "/incidents", label: "Incidents", capability: AGENT_SUPERVISION },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
     `workspaceRegistryMenuEntries` and declares no capability of its own
@@ -261,6 +267,8 @@ export default function App() {
           <Route path="inferServerAdmin" element={<InferServerAdmin api={api} />} />
           <Route path="proposals" element={<ProposalsScreen api={api} />} />
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
+          <Route path="incidents" element={<IncidentsScreen api={api} />} />
+          <Route path="incidents/:incidentId" element={<IncidentScreen api={api} />} />
           {/*
             The route the Flutter app has been handing users to since S.8, and
             which nothing registered until F.0a — so the handoff fell through to

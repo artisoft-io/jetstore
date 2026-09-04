@@ -1,0 +1,185 @@
+/*
+ * Styles for the incident screens (task AE.1).
+ *
+ * **A file of its own rather than a block in `styles.css`**, which belongs to the
+ * ui_refresh project — the same division `src/proposals/proposals.css` made and
+ * for the same reason: every colour below is one of their custom properties, so
+ * light and dark follow the app's theme through the cascade without a second
+ * switch, and nothing is added to a stylesheet this project does not own.
+ *
+ * This is the third directory to take that arrangement, which is what makes it a
+ * convention rather than a repeated one-off.
+ *
+ * If these screens are ever restyled by a design pass, the right move is to
+ * delete this file and use whatever table and definition-list classes that pass
+ * establishes. Nothing here is load-bearing.
+ */
+
+.incident-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.incident-table th,
+.incident-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.incident-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.incident-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The word under a column heading that says whether it is evidence or a claim.
+   R-27 is that the two are read as one thing; this is where the page says they
+   are not. */
+.col-note {
+  display: block;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
+}
+
+/* An unclaimed cause, an unlocalised step, an empty confounder set: rendered as
+   words rather than as a blank, because a blank cell reads as data that failed
+   to arrive and every one of these is a state the schema admits on purpose. */
+.unclaimed {
+  color: var(--ink-3);
+}
+
+/* An incident with no hypothesis is not an error and is the thing a reader most
+   needs to notice before opening it — the same argument `.count-zero` carries on
+   a proposal with no generated tests. */
+.count-zero {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.incident-detail {
+  overflow: auto;
+  padding: 12px 16px 32px;
+}
+
+.incident-detail h2 {
+  font-family: var(--mono);
+  font-size: 16px;
+  margin: 4px 0 12px;
+}
+
+.incident-detail h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin: 22px 0 8px;
+}
+
+.incident-detail h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin: 0 0 4px;
+}
+
+.incident-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.incident-facts dt {
+  color: var(--ink-3);
+}
+
+.incident-facts dd {
+  margin: 0;
+}
+
+.locus-meaning {
+  margin: 4px 0 0;
+}
+
+/* The blind spot is given a rule of its own so it cannot be skimmed past as a
+   caption. It is the half of the gate's finding that a summary drops. */
+.locus-blind {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-bg);
+  color: var(--ink-2);
+}
+
+.hypotheses {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hypotheses > li {
+  border-left: 2px solid var(--rule-2);
+  padding: 0 0 12px 10px;
+  margin: 0 0 10px;
+}
+
+.hypothesis-head {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.hypothesis-head .pill,
+.hypothesis-head .unclaimed {
+  margin-left: 6px;
+}
+
+/* Side by side at width, stacked when there is not room — the two sides are
+   meant to be compared, and a layout that puts the contradicting evidence below
+   the fold would undo the reason the column is NOT NULL. */
+.evidence-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.evidence li {
+  margin-bottom: 6px;
+}
+
+.evidence-source {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.evidence-statement {
+  display: block;
+}
+
+.read-only-note {
+  margin-top: 24px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+}

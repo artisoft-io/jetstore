@@ -80,6 +80,12 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   ["/inferServerAdmin", "Infer Server Admin"],
   ["/proposals", "Proposals"],
   ["/proposals/:proposalId", "Proposal"],
+  // agentic_ai's incident screens (AE.1). Added here rather than left to their
+  // owner because this table's own test refuses a route with no title, and it
+  // fails on the route rather than on the screen — the seam rule the repository
+  // CLAUDE.md states for a break in the other direction, applied in this one.
+  ["/incidents", "Incidents"],
+  ["/incidents/:incidentId", "Incident"],
   // The flow's own title replaces this as soon as the document loads; see above.
   ["/flow/:key", "Flow"],
   ["/git-profile", "Git Profile"],
