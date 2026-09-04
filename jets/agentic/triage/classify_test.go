@@ -292,7 +292,7 @@ func storeConfig(t *testing.T, pool *pgxpool.Pool, execKey int, session, config 
 //
 // jets/schema asserts this over the shipped jets_schema.json
 // (`TestFreshInstallAcceptsTheRunConfigurationInsert`,
-// `jets/schema/create_table_deleted_test.go:146`). This one is not that: it runs
+// `jets/schema/create_table_deleted_test.go:193`). This one is not that: it runs
 // over migratedTables through freshDB, so it also pins that this suite's fixture
 // and the production writer still agree about the columns.
 func TestFreshInstallCanWriteTheRunConfiguration(t *testing.T) {
