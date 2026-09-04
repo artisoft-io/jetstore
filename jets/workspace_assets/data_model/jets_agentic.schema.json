@@ -422,7 +422,7 @@
       "type": "object"
     },
     "EvidenceSource": {
-      "description": "\u00a7A.2.8's `$defs` \u2014 scoped to Evidence and deliberately NOT in \u00a7A.4,\nwhich is why the emitters discover vocabularies by reachability (9 values).",
+      "description": "\u00a7A.2.8's `$defs` \u2014 scoped to Evidence and deliberately NOT in \u00a7A.4,\nwhich is why the emitters discover vocabularies by reachability (10 values,\n9 of them \u00a7A.2.8's).\n\n**The first nine are \u00a7A.2.8's; the tenth is ours, added at AB.1.** Phase-4\nplan \u00a79.7 read all nine against what JetStore actually has: two are\nunconditional, four are conditional or partial, and **three have no\nsubstrate at all** \u2014 `commit_history` (no run names a commit, F196),\n`infrastructure_log` (what the record holds is a decoded `StoppedReason`\nstring, not a log) and `prior_incident`, the last of which stops being\nsubstrate-less the moment `jetsapi.incident` exists, which is this task\n(I-263). That vocabulary is therefore **too wide** for the record, which is\nthe mirror of I-127, where \u00a7A.2.6's was too narrow; the honest response is\nto say so rather than to prune an imported model unilaterally, so nothing\nis removed here.\n\n**What is added is a member for evidence that already exists and had nowhere\nto be filed.** `AnomalyConfounder`'s fourteen members are the record's own\nstatement of what a detector could not rule out, they are a closed\nvocabulary, and every anomaly N.4's detectors write already carries them.\nThat is contradicting evidence in the record's own words, and \u00a7A.2.8's nine\nsources have no member for it \u2014 so `AC.2`'s hardest requirement, the\ncontradicting side of a ranked hypothesis, had a populated substrate and no\nway to name it. `detector_confounder` is that name, and it is an **addition**\nrather than a re-derivation: the only change this reading asks of an\nimported vocabulary (\u00a79.8).",
       "enum": [
         "run_telemetry",
         "lineage",
@@ -432,16 +432,21 @@
         "source_delivery_history",
         "dq_result",
         "code_inspection",
-        "profile"
+        "profile",
+        "detector_confounder"
       ],
       "type": "string"
     },
     "Hypothesis": {
       "additionalProperties": false,
-      "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output\ncontract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration\ncontrol, not a documentation nicety (\u00a7A.2.8's own note).",
+      "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output\ncontract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration\ncontrol, not a documentation nicety (\u00a7A.2.8's own note).\n\n**Made a table at AB.1, and it gained exactly one property to be one.**\n\u00a7A.2.8 nests a hypothesis inside its incident, so nothing in the imported\nschema names the incident it belongs to \u2014 which is adequate for a JSON\ndocument and is not adequate for a row. `hypothesis_incident_ref` is that\nname and it is **required**: a hypothesis whose incident is unknown cannot be\nranked against its siblings, which is what `rank` is for. The departure from\n\u00a7A.2.8 is stated rather than applied silently, on I-126's precedent\n(**I-286**).\n\n**The parent keeps its object property and the child gains a reference, and\nboth are correct.** `Incident.hypotheses` is what a rule traverses in working\nmemory; `hypothesis_incident_ref` is what a query joins on. The DDL emitter\nresolves the redundancy in the direction relational modelling already\nsettles \u2014 see `_table_columns`, which omits a column for an object property\nwhose target is itself a table.",
       "properties": {
         "hypothesis_id": {
           "description": "The hypothesis identity.",
+          "type": "string"
+        },
+        "hypothesis_incident_ref": {
+          "description": "The Incident this hypothesis is about. Has no \u00a7A.2.8 counterpart, which nests a hypothesis inside its incident rather than keying it; required here because a table needs the join its parent's array gave it for free (AB.1, I-286). Scoped per F7 against Remediation's incident_ref.",
           "type": "string"
         },
         "cause": {
@@ -477,6 +482,7 @@
       },
       "required": [
         "hypothesis_id",
+        "hypothesis_incident_ref",
         "cause",
         "confidence",
         "rank",
@@ -487,15 +493,28 @@
     },
     "Incident": {
       "additionalProperties": false,
-      "description": "A triaged cluster of anomalies (\u00a7A.2.7). Skeleton: identity, lifecycle\nand the classification trio; the impact and generated_by fields arrive\nwith their consumer.",
+      "description": "A triaged cluster of anomalies (\u00a7A.2.7), keyed on a session (AB.1).\n\nWidened at AB.1 from the skeleton to what phase-4 plan \u00a79's reading of the\nexecution record says an incident can be *about*, and made a table. The\nfirst line above is deliberately a complete sentence: the `.jr` emitter\ntakes an entity's class comment from the docstring's first **physical**\nline, so a sentence that wraps is published half-written (I-288).\n\n**The widening is a grain and a locus, and both come from the record rather\nthan from \u00a7A.2.7.**\n\n**The grain (\u00a79.6, I-264).** As declared through Phase 3 this entity had six\nproperties \u2014 identity, classification, severity, status, model version and\nits hypotheses \u2014 and **none of them was a session, a run, a pipeline or a\ntime**, so an incident could not say what it was about. Q-23 asked whether an\nincident aggregates anomalies or is one per anomaly; the record answers that\nit aggregates and that the key is `session_id`, because seven tables can\ncarry evidence for an incident and `session_id` is the only key all seven\nshare (F202). `incident_session_id` is therefore required. **The step and\nshard references are optional and that is the finding, not a hedge**:\nlocalisation is a property of an incident and not its identity, evidenced\nwhere the locus supplies it and absent where it does not.\n\n**The boundary of that answer is worth keeping in view.** *One incident per\nsession* is the grain the record can **evidence**; it is not a claim that a\nrun produces at most one incident. Two anomalies in one session with disjoint\nloci are arguably two incidents and nothing in the record forbids it. What is\nsettled is that an incident cannot be keyed *below* the session. `AC.1`\ndecides whether to split within one.\n\n**The locus (\u00a79.5).** `incident_locus` is required and is typed against\n`IncidentLocus`, which is what the record actually decides; `classification`\nstays, typed against the imported `IncidentClassification`, which is what a\ndiagnosis claims. Carrying both is \u00a79.5's recommendation and it is followed\nhere rather than resolved \u2014 see `IncidentLocus`'s docstring for why pruning\nthe imported taxonomy is not this project's call to make.\n\n**The one thing \u00a79.5 did not settle is which of the two is required, and the\nanswer follows from its own finding.** `classification` is **optional**\n(I-289). \u00a79.5 says the record supplies a locus and never a cause and \u00a79.8\nputs the step between them in `AC.2`; a required classification would make a\ndeterministic triage step unable to write an incident without inventing a\ncause, which is R-27's failure compiled into the schema. Optional is not\npruning: the property and its ten values both survive, and N.2 has the\nprecedent \u2014 three of \u00a7A.2.6's required properties are optional on `Anomaly`\nbecause requiring them would force a detector to invent a number (I-126).\n\n**`incident_confounders` reuses `AnomalyConfounder` deliberately.** \u00a79.6\nrequires an incident that names a step to inherit `step_label_ambiguous`,\nbecause `cpipes_step_id` is a stage location rather than a step identity\n(P3 F52). A second vocabulary saying the same thing one entity over would\nmake a detector's qualifier and a triage step's qualifier incomparable, which\nis the failure the closed vocabulary was authored to prevent. Required, with\nan empty list asserting that none of the fourteen applies \u2014 Anomaly's own\ndiscipline.\n\n**What is still not here.** \u00a7A.2.7's impact and generated_by blocks, which\nstill have no consumer, and `correlation_group_id`, whose \u00a7A.2.6 counterpart\nwas left off Anomaly for the same reason. The rule is unchanged: a skeleton\nwidens when something can say what its fields are for.",
       "properties": {
         "incident_id": {
           "description": "The incident identity (\u00a7A.2.7: ^inc_[a-z0-9]+$).",
           "type": "string"
         },
+        "incident_session_id": {
+          "description": "The pipeline run the incident is about - `session_id` on every table of the execution record, the only key all seven evidence-bearing tables share (F202), and the key `purge_database` deletes by. Required: Q-23's answer is that an incident aggregates and that it cannot be keyed below the session (\u00a79.6, I-264). Scoped per F7 against Anomaly's anomaly_session_id.",
+          "type": "string"
+        },
+        "incident_detected_at": {
+          "description": "When the incident was raised. Scoped per F7 against Anomaly's detected_at, which is when a detector emitted an observation rather than when triage clustered them.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "incident_locus": {
+          "$ref": "#/$defs/IncidentLocus",
+          "description": "**Where in the execution record the evidence sits** - \u00a79.4's nine loci, the taxonomy the record can evidence and the one AC.1 classifies deterministically. Required, and carried beside classification rather than instead of it (\u00a79.5): the locus is evidence, the classification is a claim."
+        },
         "classification": {
           "$ref": "#/$defs/IncidentClassification",
-          "description": "The causal classification."
+          "description": "The causal classification (\u00a7A.4's ten), kept and unpruned on \u00a79.5's recommendation. **Optional rather than required as \u00a7A.2.7 has it** (I-289): \u00a79.5's finding is that the record supplies a locus and never a cause, and \u00a79.8 puts the step from one to the other in AC.2 rather than AC.1 - so a required classification would force a deterministic triage step to invent one, which is R-27's failure written into the schema. Read with \u00a79.5's table beside it: three of the ten have no substrate in JetStore's record at all and four are evidenced only at a grain coarser than the class name implies (I-262)."
         },
         "severity": {
           "$ref": "#/$defs/Severity",
@@ -505,12 +524,27 @@
           "$ref": "#/$defs/IncidentStatus",
           "description": "Where the incident sits in \u00a7A.5's state machine."
         },
+        "incident_step_ref": {
+          "type": "string",
+          "description": "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional by construction - four of \u00a79.4's nine loci have no step. An incident that sets it should carry step_label_ambiguous in incident_confounders (F52)."
+        },
+        "incident_shard_ref": {
+          "type": "integer",
+          "description": "The shard the incident localises to, where the locus supplies one. Optional for the same reason as incident_step_ref, and narrower: `shard_id` is on three of the seven evidence-bearing tables and the edge table reaches it only through its parent (F202)."
+        },
+        "incident_confounders": {
+          "description": "**What the incident's evidence could not rule out**, in the same closed vocabulary a detector writes. Required; an empty list asserts that none of the fourteen applies. \u00a79.6 requires step_label_ambiguous whenever incident_step_ref is set.",
+          "items": {
+            "$ref": "#/$defs/AnomalyConfounder"
+          },
+          "type": "array"
+        },
         "hypotheses": {
-          "description": "The ranked causal hypotheses.",
           "items": {
             "$ref": "#/$defs/Hypothesis"
           },
-          "type": "array"
+          "type": "array",
+          "description": "The ranked causal hypotheses. Corrected at AB.1: this was declared list[Hypothesis] with default=None, which Pydantic does not validate and which the sidecar reported as optional while the DDL emitter would have read as required - the same defect D.7 fixed twice on ChangeProposal, found here because tabling the entity is what made a column depend on the answer."
         },
         "incident_model_version": {
           "description": "\u00a7A.2.7's domain_model_version, scoped per F7: the model version the incident was raised against.",
@@ -519,9 +553,12 @@
       },
       "required": [
         "incident_id",
-        "classification",
+        "incident_session_id",
+        "incident_detected_at",
+        "incident_locus",
         "severity",
         "status",
+        "incident_confounders",
         "incident_model_version"
       ],
       "type": "object"
@@ -539,6 +576,21 @@
         "dependency_failure",
         "capacity_or_cost_deviation",
         "benign_variation"
+      ],
+      "type": "string"
+    },
+    "IncidentLocus": {
+      "description": "**Ours entirely, and it is the taxonomy phase-4 plan \u00a79.4 derived from\nthe execution record** (9 values). Not in the proposal at any level.\n\n**A locus is where in the record a cause would have to have left its\nevidence; it is not a cause.** \u00a79.5's finding is that the record supports\ntriage and does not support root-cause attribution below the level of a\nhypothesis. The nine below are mutually distinguishable by predicates over\n`jetsapi` with no free-text parsing and no join outside it, and eight of the\nnine are computable in SQL of the shape N.3 decided.\n\n**Both vocabularies are carried, which is \u00a79.5's recommendation rather than\nthis task's choice.** `IncidentClassification` above says what *produced*\nthe failure and three of its ten members have no substrate in JetStore at\nall (I-262); pruning it on this project's authority is the unreviewed\nextraction gap 2b exists to prevent. So `classification` stays typed against\n\u00a7A.4's ten and `incident_locus` is added beside it. **The locus is evidence\nand the classification is a claim**, which is the distinction \u00a712.3 drew\nbetween an anomaly's observation and its basis.\n\n**R-27 is the risk this vocabulary creates rather than one it inherits**: a\nnine-member locus taxonomy sitting beside a ten-member cause taxonomy will\nbe read as a second cause taxonomy, and *classified* will be read as\n*diagnosed*. The member names are written as observations rather than as\ndiagnoses for that reason \u2014 `worker_not_terminated` and not `worker_hung`,\n`rows_lost_silently` and not `data_dropped`.\n\nOrdered as \u00a79.4 orders them: by how early the failure occurs, which is also\nroughly the order of how little the record retains. Appended to, never\nrenumbered.",
+      "enum": [
+        "run_not_started",
+        "step_never_started",
+        "worker_not_terminated",
+        "worker_failed",
+        "sink_failed_under_completed_worker",
+        "rows_lost_silently",
+        "per_record_failures_reported",
+        "per_record_failures_unreportable",
+        "written_not_arrived"
       ],
       "type": "string"
     },

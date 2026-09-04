@@ -115,6 +115,7 @@ class jetsa:Hypothesis {
   $base_classes = [jets:Entity],
   $data_properties = [
     jetsa:hypothesis_id as text,
+    jetsa:hypothesis_incident_ref as text,
     jetsa:cause as text,
     jetsa:cause_category as text,
     jetsa:confidence as double,
@@ -124,23 +125,29 @@ class jetsa:Hypothesis {
     jetsa:supporting_evidence as array of resource,
     jetsa:contradicting_evidence as array of resource
   ],
-  $as_table = false
+  $as_table = true
 };
 
-# A triaged cluster of anomalies (§A.2.7). Skeleton: identity, lifecycle
+# A triaged cluster of anomalies (§A.2.7), keyed on a session (AB.1).
 class jetsa:Incident {
   $base_classes = [jets:Entity],
   $data_properties = [
     jetsa:incident_id as text,
+    jetsa:incident_session_id as text,
+    jetsa:incident_detected_at as datetime,
+    jetsa:incident_locus as text,
     jetsa:classification as text,
     jetsa:severity as text,
     jetsa:status as text,
+    jetsa:incident_step_ref as text,
+    jetsa:incident_shard_ref as int,
+    jetsa:incident_confounders as array of text,
     jetsa:incident_model_version as text
   ],
   $object_properties = [
     jetsa:hypotheses as array of resource
   ],
-  $as_table = false
+  $as_table = true
 };
 
 # A proposed corrective action (§A.2.9). Skeleton: identity, the incident
@@ -208,7 +215,7 @@ text jetsa:SIGNAL_TYPE_STEP_REGRESSION = "step_regression";
 text jetsa:SIGNAL_TYPE_WORKER_STALL = "worker_stall";
 text jetsa:SIGNAL_TYPE_ARRIVAL = "arrival";
 
-# jetsa:anomaly_confounders enum (AnomalyConfounder)
+# jetsa:anomaly_confounders / jetsa:incident_confounders enum (AnomalyConfounder)
 text jetsa:ANOMALY_CONFOUNDER_PARSE_ERRORS_ONLY = "parse_errors_only";
 text jetsa:ANOMALY_CONFOUNDER_PARQUET_INPUT = "parquet_input";
 text jetsa:ANOMALY_CONFOUNDER_ON_ERROR_DROP = "on_error_drop";
@@ -234,6 +241,7 @@ text jetsa:EVIDENCE_SOURCE_SOURCE_DELIVERY_HISTORY = "source_delivery_history";
 text jetsa:EVIDENCE_SOURCE_DQ_RESULT = "dq_result";
 text jetsa:EVIDENCE_SOURCE_CODE_INSPECTION = "code_inspection";
 text jetsa:EVIDENCE_SOURCE_PROFILE = "profile";
+text jetsa:EVIDENCE_SOURCE_DETECTOR_CONFOUNDER = "detector_confounder";
 
 # jetsa:cause_category / jetsa:classification enum (IncidentClassification)
 text jetsa:INCIDENT_CLASSIFICATION_SOURCE_DELIVERY_FAILURE = "source_delivery_failure";
@@ -246,6 +254,17 @@ text jetsa:INCIDENT_CLASSIFICATION_INFRASTRUCTURE_FAILURE = "infrastructure_fail
 text jetsa:INCIDENT_CLASSIFICATION_DEPENDENCY_FAILURE = "dependency_failure";
 text jetsa:INCIDENT_CLASSIFICATION_CAPACITY_OR_COST_DEVIATION = "capacity_or_cost_deviation";
 text jetsa:INCIDENT_CLASSIFICATION_BENIGN_VARIATION = "benign_variation";
+
+# jetsa:incident_locus enum (IncidentLocus)
+text jetsa:INCIDENT_LOCUS_RUN_NOT_STARTED = "run_not_started";
+text jetsa:INCIDENT_LOCUS_STEP_NEVER_STARTED = "step_never_started";
+text jetsa:INCIDENT_LOCUS_WORKER_NOT_TERMINATED = "worker_not_terminated";
+text jetsa:INCIDENT_LOCUS_WORKER_FAILED = "worker_failed";
+text jetsa:INCIDENT_LOCUS_SINK_FAILED_UNDER_COMPLETED_WORKER = "sink_failed_under_completed_worker";
+text jetsa:INCIDENT_LOCUS_ROWS_LOST_SILENTLY = "rows_lost_silently";
+text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_REPORTED = "per_record_failures_reported";
+text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_UNREPORTABLE = "per_record_failures_unreportable";
+text jetsa:INCIDENT_LOCUS_WRITTEN_NOT_ARRIVED = "written_not_arrived";
 
 # jetsa:severity enum (Severity)
 text jetsa:SEVERITY_INFO = "info";

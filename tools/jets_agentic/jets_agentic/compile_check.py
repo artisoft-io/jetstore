@@ -10,7 +10,21 @@ asserts against the produced workspace.db:
 - the round trip holds: the classes and properties read back from the
   compiled model equal the projection of the Python source, with the one
   documented asymmetry — Evidence appears as a class plus object properties
-  where the source declares a nested value object (§4).
+  where the source declares a nested value object (§4);
+- **`domain_tables` holds exactly the entities carrying `jr_as_table`**, per
+  class and in both directions (added at AB.1).
+
+That last assertion closes **I-129**, which recorded that this check asserted
+classes, literals and properties **and not tables** — so `$as_table` was the
+one thing in the chain that no check would have caught had it silently failed
+to take effect. N.2 verified it for `Anomaly` by reading `domain_tables` out of
+the compiled workspace by hand; AB.1 tables two more, and by-hand does not
+scale to three. Note what it is *not*: this is the **JetRules** table, whose
+column set is the class graph walked in both directions and is wider than the
+Postgres one (F67 measured 19 against 13 for `Anomaly`). The Postgres half is
+asserted by `ddl._assert_tables_agree`, which is F68's guard; the two together
+are what make *"the flag and the table agree"* a checked claim rather than a
+remembered one.
 
 Note on F5: `build/classes.json` — the workspace-wide view — is written by
 the *full* workspace compile (`jets/workspace/compile_workspace_v2.go`).
@@ -59,6 +73,12 @@ def expected_literals() -> dict[str, str]:
         for member in cls:
             out[jr.qname(jr.snake_upper(cls.__name__) + "_" + member.name.upper())] = member.value
     return out
+
+
+def expected_tables() -> set[str]:
+    """The entities the domain model makes JetRules tables — the `$as_table`
+    side of the flag whose Postgres side `ddl._assert_tables_agree` checks."""
+    return {jr.qname(e.__name__) for e in M.ENTITIES if e.jr_as_table}
 
 
 def expected_properties() -> set[tuple[str, str, str, int]]:
@@ -128,6 +148,26 @@ def run(args: argparse.Namespace) -> int:
                     f"got {got_literals.get(name)!r}"
                 )
 
+        # AB.1 (I-129): $as_table took effect, per class and both ways. The
+        # `jetsa:` filter is what keeps this about our model — the platform base
+        # model this workspace also compiles declares tables of its own.
+        got_tables = {
+            r[0]
+            for r in db.execute(
+                f"select name from domain_tables where name like '{M.PREFIX}:%'"
+            )
+        }
+        want_tables = expected_tables()
+        for name in sorted(want_tables - got_tables):
+            problems.append(
+                f"{name} carries jr_as_table and is not in domain_tables: the flag did not "
+                f"take effect"
+            )
+        for name in sorted(got_tables - want_tables):
+            problems.append(
+                f"{name} is in domain_tables and carries no jr_as_table in the source"
+            )
+
         # A1.9: the round trip - properties read back vs the source projection
         got_props: set[tuple[str, str, str, int]] = set()
         for cname, pname, ptype, as_array in db.execute(
@@ -165,6 +205,7 @@ def run(args: argparse.Namespace) -> int:
     print(
         f"compile check: clean - {len(expected_classes())} classes, "
         f"{len(expected_literals())} vocabulary literals, "
-        f"{len(expected_properties())} properties round-trip"
+        f"{len(expected_properties())} properties round-trip, "
+        f"{len(expected_tables())} domain tables"
     )
     return 0
