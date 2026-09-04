@@ -49,6 +49,32 @@ construct rather than a variable:
 - **`INFER_ECR_REPO_ARN` and `INFER_IMAGE_TAG`** — `log.Fatal` from `InferEcrRepoArn()` /
   `InferImageTag()` when `BUILD_INFER_SERVICE` is on. Deliberately not defaulted to the JetStore
   image: that would deploy a container with no `ollama` binary and fail only in the container log.
+- **`JETS_INFER_MODEL`** — `log.Fatal` from `InferModel()`, but **only when `INFER_BACKEND=vllm`**.
+  vLLM serves the single model it was started with, so there is nothing to default to.
+
+### Choosing the infer backend
+
+`INFER_BACKEND` is `ollama` unless set, and the stack it synthesises with the variable absent is
+the one it synthesised before the variable existed. Setting it to `vllm` requires two things
+together, and **nothing checks that they agree**:
+
+1. `INFER_IMAGE_TAG` naming an image built from `dockerfiles/Dockerfile.infer_service_vllm`
+   rather than `Dockerfile.infer_service`. A mismatch is a task that starts and cannot exec its
+   server — visible only in the container log.
+2. `JETS_INFER_MODEL` naming what vLLM serves. `JETS_INFER_SERVED_MODEL_NAME` is the alias a
+   pipeline configuration's `model` property may use instead of the full repository id; the four
+   `JETS_VLLM_*` variables are optional tuning and are left to vLLM's own defaults when unset.
+
+Both arms use the same service, ASG, capacity provider, target group, port and `JETS_INFER_URL`,
+so switching is a task-definition revision. Two things do not carry over:
+
+- **The infer admin screen's model actions are Ollama's** — `/api/pull`, `/api/ps`, `/api/show`,
+  `/api/delete` (`inferActions`, `../../../jets/apiserver/api_infer_server.go`). vLLM serves none
+  of them; expect the screen's model list and pull to fail against a vLLM task.
+- **A deploy of this service does not rotate.** `GpuCount` is 1 on a single-GPU instance, so the
+  replacement task cannot be scheduled beside the one it replaces; the service is stopped by hand
+  first. Two backend arms therefore cost two of those stops, which is an argument for running them
+  in one sitting.
 - **`JETS_VPC_ID`, `JETS_VPC_ENDPOINTS_SG_ID`** — `log.Fatal` from the lookup helpers when the
   imported-VPC path is taken. See §5.
 

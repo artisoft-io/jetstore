@@ -210,15 +210,44 @@ the default stack is unaffected. It spans two files that must be read together:
 | File | Builds |
 |---|---|
 | `stack/build_infer_ec2.go` | ASG + launch template, persistent EBS volume, lifecycle-hook Lambda |
-| `stack/build_infer_service.go` | ECS container definition — infer image, `cbooter infer_server` entrypoint, port 11434, `GpuCount: 1` |
+| `stack/build_infer_service.go` | ECS container definition — infer image, `cbooter infer_server` entrypoint, port 11434, `GpuCount: 1`, and the per-backend environment |
 
-It runs Ollama as an EC2-backed ECS service (not Fargate — Fargate has no GPU support). The
-image is built from `dockerfiles/Dockerfile.infer_service`: Amazon Linux 2023 + the Ollama
-release archive + `cbooter`, which starts `ollama serve` as `jsuser` (uid/gid 999). Two traps
-in that hand-off: AL2023 does not predefine uid 999, so the Dockerfile creates it the way
-`Dockerfile.cpipes` does; and `syscall.Credential` changes the uid without changing `HOME`, so
-`HOME` and `OLLAMA_MODELS` must both be pointed under `JETS_TEMP_DATA` or Ollama fails writing
-its signing key and caches to root's home.
+It runs a model server as an EC2-backed ECS service (not Fargate — Fargate has no GPU
+support). The default image is built from `dockerfiles/Dockerfile.infer_service`: Amazon
+Linux 2023 + the Ollama release archive + `cbooter`, which starts `ollama serve` as `jsuser`
+(uid/gid 999). Two traps in that hand-off: AL2023 does not predefine uid 999, so the Dockerfile
+creates it the way `Dockerfile.cpipes` does; and `syscall.Credential` changes the uid without
+changing `HOME`, so `HOME` and `OLLAMA_MODELS` must both be pointed under `JETS_TEMP_DATA` or
+Ollama fails writing its signing key and caches to root's home.
+
+**There are two images and one toggle** (item 15b, 2026-09-04).
+`dockerfiles/Dockerfile.infer_service_vllm` is the second: the pinned `vllm/vllm-openai` image
+plus the same `cbooter`, serving on the same port 11434. `cbooter infer_server` dispatches on
+`JETS_INFER_BACKEND` (`inferServerCommand`, `jets/cmds/cbooter/main.go`), each image sets that
+variable, and the default when it is absent is `ollama` — so nothing about the existing arm
+changes.
+
+**A second image rather than a fused one, and the reason is the paragraph above.** The CUDA
+runtime ships *inside* the Ollama archive; vLLM's comes from PyTorch wheels pinned to their own
+CUDA version. Fusing them means two runtimes in one image or a build project to share one. Two
+consequences worth knowing before touching either file: cold start is one of the things the
+backend comparison measures and a fused image makes each backend pay the other's pull; and the
+comparison exists to decide whether vLLM is adopted at all, which putting it in the production
+image would pre-empt.
+
+**No second service and no second pool.** A task definition names an image, so an arm is a
+task-definition revision on the same service, capacity provider, ASG and target group.
+`GpuCount` is 1, so the two could not run at once regardless. What the stack varies besides the
+image is `INFER_BACKEND`, and it decides exactly two things: which environment block the
+container definition carries (`inferContainerEnvironment`,
+`cdk/jetstore_one/stack/build_infer_service.go`) and which path the ALB health-checks
+(`build_elb.go`) — **the two servers 404 on each other's health route**, Ollama having no
+`/health` and vLLM's OpenAI server returning 404 on `/`.
+
+**The asymmetry that is not cosmetic: vLLM binds one model at startup and Ollama pulls one per
+request.** So `JETS_INFER_MODEL` is required for the vLLM arm, changing model is a
+task-definition revision, and the four Ollama routes the infer admin screen proxies
+(`inferActions`, `jets/apiserver/api_infer_server.go`) have no vLLM counterpart.
 
 Three pieces of non-obvious wiring:
 

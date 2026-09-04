@@ -121,6 +121,23 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 				inferPort = inferPortDef
 			}
 		}
+		// The health-check path is the second of the two things INFER_BACKEND decides, and
+		// the reason it cannot be left alone: **the two servers 404 on each other's health
+		// route.** Ollama has no /health and returns 200 "Ollama is running" on GET /; vLLM's
+		// OpenAI server serves /health and returns 404 on /. Either mismatch is the failure
+		// the comment below already describes — the ALB kills the task in a loop.
+		//
+		// A single path that suits both would be better and one may exist: GET /v1/models
+		// returns 200 on Ollama (measured 2026-09-04 against ollama 0.31.1 locally, not
+		// against the deployed 0.32.5) and is part of vLLM's OpenAI surface. It is not taken
+		// here because the vLLM half is unverified — there is no vLLM to ask (R-29) — and the
+		// Ollama arm is what production runs today. Changing the live arm's health check on
+		// an untested premise is the wrong side to be wrong on; the backend comparison can
+		// settle it with one request.
+		inferHealthCheckPath := "/"
+		if jsComp.InferBackend() == InferBackendVllm {
+			inferHealthCheckPath = "/health"
+		}
 		var inferListener awselb.ApplicationListener
 		inferListener = jsComp.UiLoadBalancer.AddListener(jsii.String("InferListener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(inferPort),
@@ -138,8 +155,8 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 				HealthCheck: &awselb.HealthCheck{
 					// Ollama has no /healthcheck/status route — GET / returns 200 "Ollama is
 					// running". Using the JetStore path here would 404 and the ALB would kill
-					// the task in a loop.
-					Path: jsii.String("/"),
+					// the task in a loop. vLLM's route is /health; see above.
+					Path: jsii.String(inferHealthCheckPath),
 					// Loading a model can stall the server past the default 5s/2-try budget.
 					Timeout:                 awscdk.Duration_Seconds(jsii.Number(10)),
 					Interval:                awscdk.Duration_Seconds(jsii.Number(30)),

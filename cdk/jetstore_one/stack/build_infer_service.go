@@ -27,7 +27,8 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 	})
 	// Define the container
 	jsComp.InferTaskContainer = jsComp.InferTaskDefinition.AddContainer(jsii.String("inferServiceContainer"), &awsecs.ContainerDefinitionOptions{
-		// Dedicated infer image (Ollama + cbooter on Amazon Linux 2023), not the JetStore image
+		// Dedicated infer image — cbooter plus one model server — not the JetStore image.
+		// Which server is INFER_BACKEND's choice; see inferContainerEnvironment below.
 		Image:          jsComp.InferImage,
 		ContainerName:  jsii.String("inferServiceContainer"),
 		Essential:      jsii.Bool(true),
@@ -46,82 +47,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 				AppProtocol:   awsecs.AppProtocol_Http(),
 			},
 		},
-		Environment: &map[string]*string{
-			"JETS_TEMP_DATA": jsii.String(jsComp.JetsTempData()),
-			"TMPDIR":         jsii.String(jsComp.TempDir()),
-			"WORKSPACE":      jsii.String(os.Getenv("WORKSPACE")),
-			"ENVIRONMENT":    jsii.String(os.Getenv("ENVIRONMENT")),
-			// No WORKSPACES_REPO / WORKSPACES_HOME: the infer image carries no workspace and
-			// cbooter only requires those for the commands that stage one.
-			// Ollama runs as a direct child of cbooter (as jsuser, uid 999) rather than as a
-			// nested `docker run`, so it inherits these directly.
-			// OLLAMA_MODELS puts the weights on the persistent EBS volume so they survive both
-			// task restarts and instance replacement; jsuser has no writable HOME otherwise.
-			"OLLAMA_MODELS": jsii.String(jsComp.JetsTempData() + "/ollama"),
-			"OLLAMA_HOST":   jsii.String("0.0.0.0:11434"),
-			// Dropping to uid 999 does not change HOME; left at root's, Ollama cannot write
-			// its signing key or caches under /root/.ollama.
-			"HOME": jsii.String(jsComp.JetsTempData() + "/home"),
-			// **Divides the context window rather than adding to it**, so each in-flight
-			// request gets OLLAMA_CONTEXT_LENGTH / OLLAMA_NUM_PARALLEL tokens and the
-			// VRAM cost does not change with it. Measured 2026-08-20 rather than assumed:
-			// with the env var at 98304 and this at 2, /api/ps reports 32.26 GiB and
-			// context_length 98304 — the same figure a single 98304-token request
-			// allocates. Multiplying would have wanted ~120 GiB and refused to start.
-			//
-			// **4 is safe at 98304 and would restore E.8's K**, at 24576 per request. It
-			// is left at 2 only because raising it costs a deployment and nothing is
-			// waiting on it.
-			"OLLAMA_NUM_PARALLEL": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "2")),
-			// One model at a time. A second resident model of this size would want another
-			// ~12 GiB of KV cache on top of the first (see OLLAMA_CONTEXT_LENGTH below),
-			// which does not fit in the A10G's 24 GiB and would push both caches into host
-			// RAM. Raise this only together with a lower OLLAMA_CONTEXT_LENGTH.
-			// **One, and that is a pair decision with OLLAMA_CONTEXT_LENGTH below.** Two
-			// models is what the g6e.2xlarge was bought for and 48 GiB can hold two — but
-			// not at 98304 each, which is 2 x 32.26 = 64.5 GiB. Raising this to 2 requires
-			// lowering the context in the same change; leaving them inconsistent is safe
-			// only for as long as exactly one model exists, and the failure when a second
-			// arrives is a silent spill rather than a refusal. See I-47.
-			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "1")),
-			// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
-			// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
-			// next request.
-			"OLLAMA_KEEP_ALIVE": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30m")),
-			// Sizes the KV cache, which is allocated up front at model load — NOT on demand
-			// from the actual prompt. It is also the one Ollama setting MemoryLimitMiB cannot
-			// protect: that is a cgroup limit on host RAM, invisible to Ollama's memory
-			// planner, which sizes the cache against total VRAM plus total host RAM.
-			//
-			// Measured on g6e.2xlarge (L40S, 48 GiB VRAM / 64 GiB host RAM) with
-			// granite4.1:3b, 2026-08-20, using tools/infer_capacity:
-			//   32k -> 12.32 GiB   48k -> 17.39 GiB   64k -> 22.45 GiB   128k -> 42.14 GiB
-			// **Nothing spilled, at any context this model supports.** 131072 is granite's
-			// own maximum and it sits fully on the GPU with ~6 GiB to spare, so for a
-			// single model the card is no longer the constraint - the model is. Throughput
-			// is flat at ~203 tok/s, against 131 on the g5.xlarge this replaced.
-			//
-			// The cache costs ~0.31 MiB per token on a ~2.3 GiB base; that is a property
-			// of the model and did not change with the card. What changed is how much fits.
-			//
-			// **98304 with OLLAMA_NUM_PARALLEL=2 gives each request 49152 tokens** and
-			// costs 32.26 GiB, leaving ~15.7 GiB. The largest prompt the authoring loop
-			// actually builds is 13.5k (measured at F.6), so that is 3.6x headroom.
-			//
-			// **How the division was established, because the first attempt did not.**
-			// tools/infer_capacity sets num_ctx per request, which overrides this variable
-			// entirely - so the sweep measures the per-request path and says nothing about
-			// how this setting interacts with OLLAMA_NUM_PARALLEL. What settled it was a
-			// reading with no override at all: /api/ps reported 32.26 GiB and
-			// context_length 98304 against 98304/2, which is the single-request figure and
-			// not twice it. An earlier revision of this comment asserted the division from
-			// the sweep; the sweep could not see it.
-			//
-			// One consequence worth keeping: the previous default of 32768 with
-			// OLLAMA_NUM_PARALLEL at 4 was giving each request 8192 tokens, under the
-			// prompts the loop builds. That truncation was latent and unnoticed.
-			"OLLAMA_CONTEXT_LENGTH": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "98304")),
-		},
+		Environment: jsComp.inferContainerEnvironment(),
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
 		// 	"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
@@ -173,4 +99,144 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.EcsInferService).Add(descriptionTagName, jsii.String("JetStore Platform Infer service"), nil)
 	}
+}
+
+// inferContainerEnvironment is the environment of the infer container, and it is the
+// second of the two things INFER_BACKEND decides (the other is the health-check path, in
+// build_elb.go). The image decides everything else about an arm.
+//
+// Two blocks: what both servers need, and what the selected one needs. **The Ollama block
+// is unchanged and the vLLM block is additive**, so a stack synthesised without
+// INFER_BACKEND carries the container definition it carried before this function existed.
+// That is the property that makes an arm of the backend comparison a task-definition
+// revision on the same service rather than a second deployment.
+//
+// JETS_INFER_BACKEND is deliberately not emitted for Ollama. The image sets it and cbooter
+// defaults to it, so adding the key here would move the running arm's task definition for
+// no change in behaviour.
+func (jsComp *JetStoreStackComponents) inferContainerEnvironment() *map[string]*string {
+	env := map[string]*string{
+		"JETS_TEMP_DATA": jsii.String(jsComp.JetsTempData()),
+		"TMPDIR":         jsii.String(jsComp.TempDir()),
+		"WORKSPACE":      jsii.String(os.Getenv("WORKSPACE")),
+		"ENVIRONMENT":    jsii.String(os.Getenv("ENVIRONMENT")),
+		// Dropping to uid 999 does not change HOME; left at root's, neither server can write
+		// its caches -- Ollama's signing key under /root/.ollama, vLLM's model, compile and
+		// grammar caches under /root/.cache -- and the read-only root filesystem refuses
+		// both. Shared because both need it and for the same reason.
+		"HOME": jsii.String(jsComp.JetsTempData() + "/home"),
+	}
+
+	switch jsComp.InferBackend() {
+	case InferBackendOllama:
+		// No WORKSPACES_REPO / WORKSPACES_HOME: the infer image carries no workspace and
+		// cbooter only requires those for the commands that stage one.
+		// Ollama runs as a direct child of cbooter (as jsuser, uid 999) rather than as a
+		// nested `docker run`, so it inherits these directly.
+		// OLLAMA_MODELS puts the weights on the persistent EBS volume so they survive both
+		// task restarts and instance replacement; jsuser has no writable HOME otherwise.
+		env["OLLAMA_MODELS"] = jsii.String(jsComp.JetsTempData() + "/ollama")
+		env["OLLAMA_HOST"] = jsii.String("0.0.0.0:11434")
+		// **Divides the context window rather than adding to it**, so each in-flight
+		// request gets OLLAMA_CONTEXT_LENGTH / OLLAMA_NUM_PARALLEL tokens and the
+		// VRAM cost does not change with it. Measured 2026-08-20 rather than assumed:
+		// with the env var at 98304 and this at 2, /api/ps reports 32.26 GiB and
+		// context_length 98304 — the same figure a single 98304-token request
+		// allocates. Multiplying would have wanted ~120 GiB and refused to start.
+		//
+		// **4 is safe at 98304 and would restore E.8's K**, at 24576 per request. It
+		// is left at 2 only because raising it costs a deployment and nothing is
+		// waiting on it.
+		env["OLLAMA_NUM_PARALLEL"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "2"))
+		// One model at a time. A second resident model of this size would want another
+		// ~12 GiB of KV cache on top of the first (see OLLAMA_CONTEXT_LENGTH below),
+		// which does not fit in the A10G's 24 GiB and would push both caches into host
+		// RAM. Raise this only together with a lower OLLAMA_CONTEXT_LENGTH.
+		// **One, and that is a pair decision with OLLAMA_CONTEXT_LENGTH below.** Two
+		// models is what the g6e.2xlarge was bought for and 48 GiB can hold two — but
+		// not at 98304 each, which is 2 x 32.26 = 64.5 GiB. Raising this to 2 requires
+		// lowering the context in the same change; leaving them inconsistent is safe
+		// only for as long as exactly one model exists, and the failure when a second
+		// arrives is a silent spill rather than a refusal. See I-47.
+		env["OLLAMA_MAX_LOADED_MODELS"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "1"))
+		// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
+		// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
+		// next request.
+		env["OLLAMA_KEEP_ALIVE"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30m"))
+		// Sizes the KV cache, which is allocated up front at model load — NOT on demand
+		// from the actual prompt. It is also the one Ollama setting MemoryLimitMiB cannot
+		// protect: that is a cgroup limit on host RAM, invisible to Ollama's memory
+		// planner, which sizes the cache against total VRAM plus total host RAM.
+		//
+		// Measured on g6e.2xlarge (L40S, 48 GiB VRAM / 64 GiB host RAM) with
+		// granite4.1:3b, 2026-08-20, using tools/infer_capacity:
+		//   32k -> 12.32 GiB   48k -> 17.39 GiB   64k -> 22.45 GiB   128k -> 42.14 GiB
+		// **Nothing spilled, at any context this model supports.** 131072 is granite's
+		// own maximum and it sits fully on the GPU with ~6 GiB to spare, so for a
+		// single model the card is no longer the constraint - the model is. Throughput
+		// is flat at ~203 tok/s, against 131 on the g5.xlarge this replaced.
+		//
+		// The cache costs ~0.31 MiB per token on a ~2.3 GiB base; that is a property
+		// of the model and did not change with the card. What changed is how much fits.
+		//
+		// **98304 with OLLAMA_NUM_PARALLEL=2 gives each request 49152 tokens** and
+		// costs 32.26 GiB, leaving ~15.7 GiB. The largest prompt the authoring loop
+		// actually builds is 13.5k (measured at F.6), so that is 3.6x headroom.
+		//
+		// **How the division was established, because the first attempt did not.**
+		// tools/infer_capacity sets num_ctx per request, which overrides this variable
+		// entirely - so the sweep measures the per-request path and says nothing about
+		// how this setting interacts with OLLAMA_NUM_PARALLEL. What settled it was a
+		// reading with no override at all: /api/ps reported 32.26 GiB and
+		// context_length 98304 against 98304/2, which is the single-request figure and
+		// not twice it. An earlier revision of this comment asserted the division from
+		// the sweep; the sweep could not see it.
+		//
+		// One consequence worth keeping: the previous default of 32768 with
+		// OLLAMA_NUM_PARALLEL at 4 was giving each request 8192 tokens, under the
+		// prompts the loop builds. That truncation was latent and unnoticed.
+		env["OLLAMA_CONTEXT_LENGTH"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "98304"))
+
+	case InferBackendVllm:
+		// The second arm (item 15b). vLLM is started by cbooter, as jsuser and as a direct
+		// child, exactly as Ollama is; what differs is that its bind address and its tuning
+		// are command-line arguments rather than environment the server reads for itself, so
+		// these variables are read by cbooter and translated (jets/cmds/cbooter/main.go,
+		// vllmServerCommand).
+		//
+		// Set here as well as in the image because the image cannot carry a model: vLLM binds
+		// one at startup, and which model this deployment serves is not a property of the
+		// build.
+		env["JETS_INFER_BACKEND"] = jsii.String(InferBackendVllm)
+		// **Required, and the asymmetry that makes the two arms differ at all.** Ollama picks
+		// a model per request and pulls it on demand; vLLM serves the one it was started
+		// with. So a model change here is a task-definition revision, and the infer admin
+		// screen's pull_model action has nothing to call.
+		env["JETS_INFER_MODEL"] = jsii.String(jsComp.InferModel())
+		// The counterpart of OLLAMA_MODELS: the weights land on the persistent EBS volume so
+		// they survive task restarts and instance replacement. Unset, they would go under
+		// HOME -- which is also on the volume, so the cost of getting this wrong is a
+		// confusing layout rather than a failure, and it is set explicitly for that reason.
+		env["HF_HOME"] = jsii.String(jsComp.JetsTempData() + "/huggingface")
+		// Optional, and each omitted entirely when its synth variable is unset so that vLLM's
+		// own default applies rather than a number invented here. **None of these has been
+		// measured on this hardware**, which is why none carries a default: the Ollama block
+		// above is what a measured setting looks like, and the equivalent readings for vLLM
+		// are the backend comparison's to take. JETS_VLLM_MAX_MODEL_LEN and
+		// JETS_VLLM_MAX_NUM_SEQS are the pair that divides VRAM against each other, as
+		// OLLAMA_CONTEXT_LENGTH and OLLAMA_NUM_PARALLEL do.
+		for _, name := range []string{
+			"JETS_INFER_SERVED_MODEL_NAME",
+			"JETS_VLLM_MAX_MODEL_LEN",
+			"JETS_VLLM_MAX_NUM_SEQS",
+			"JETS_VLLM_GPU_MEMORY_UTILIZATION",
+			"JETS_VLLM_EXTRA_ARGS",
+		} {
+			if v := os.Getenv(name); v != "" {
+				env[name] = jsii.String(v)
+			}
+		}
+	}
+
+	return &env
 }

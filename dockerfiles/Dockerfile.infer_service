@@ -49,6 +49,13 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 RUN chmod +x /usr/local/bin/cbooter
 
+# The backend cbooter starts. Stated rather than left to the default, so that the two
+# infer images each say which server they carry -- cbooter falls back to ollama when the
+# variable is absent, which is what keeps an image built before the toggle working. The
+# other image is dockerfiles/Dockerfile.infer_service_vllm; whether that one is ever
+# promoted to the default is the backend comparison's decision, not this file's.
+ENV JETS_INFER_BACKEND=ollama
+
 # Defaults for a local `docker run`; the CDK stack sets these explicitly on the
 # container definition. OLLAMA_MODELS puts the weights on the mounted volume --
 # jsuser has no writable home, so Ollama's default of $HOME/.ollama will not do.

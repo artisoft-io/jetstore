@@ -630,6 +630,23 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
 // (optional) Ollama tuning passed through to the infer container, defaults 4 / 1 / 30m / 32768
 // (see infer_server_readme.md before changing the last two — they are GPU-memory bound)
+// INFER_BACKEND (optional) which model server the infer service runs, "ollama" (default) or
+// "vllm". It must agree with the image INFER_IMAGE_TAG names — Dockerfile.infer_service builds
+// the first, Dockerfile.infer_service_vllm the second — and nothing checks that it does.
+// It decides two things and nothing else: the container's environment block and the load
+// balancer's health-check path. The service, the ASG, the capacity provider, the target group,
+// port 11434 and JETS_INFER_URL are the same either way, so switching arms is a task-definition
+// revision rather than a second deployment
+// JETS_INFER_MODEL (required when INFER_BACKEND=vllm) the model vLLM serves. Required because
+// vLLM binds one model at startup where Ollama pulls one per request; changing it is a
+// task-definition revision
+// JETS_INFER_SERVED_MODEL_NAME, JETS_VLLM_MAX_MODEL_LEN, JETS_VLLM_MAX_NUM_SEQS,
+// JETS_VLLM_GPU_MEMORY_UTILIZATION, JETS_VLLM_EXTRA_ARGS (optional, vllm only) passed through to
+// the infer container and turned into `vllm serve` arguments by cbooter. **No defaults**, and
+// deliberately: the OLLAMA_* figures above were measured on this hardware and the vLLM
+// equivalents have not been, so an unset variable means vLLM's own default rather than a number
+// invented here. The middle two are the pair that divides VRAM, as OLLAMA_CONTEXT_LENGTH and
+// OLLAMA_NUM_PARALLEL are
 //XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
@@ -738,6 +755,13 @@ func main() {
 	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
 	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
 	log.Println("env INFER_ROOT_VOLUME_GB:", os.Getenv("INFER_ROOT_VOLUME_GB"))
+	log.Println("env INFER_BACKEND:", os.Getenv("INFER_BACKEND"))
+	log.Println("env JETS_INFER_MODEL:", os.Getenv("JETS_INFER_MODEL"))
+	log.Println("env JETS_INFER_SERVED_MODEL_NAME:", os.Getenv("JETS_INFER_SERVED_MODEL_NAME"))
+	log.Println("env JETS_VLLM_MAX_MODEL_LEN:", os.Getenv("JETS_VLLM_MAX_MODEL_LEN"))
+	log.Println("env JETS_VLLM_MAX_NUM_SEQS:", os.Getenv("JETS_VLLM_MAX_NUM_SEQS"))
+	log.Println("env JETS_VLLM_GPU_MEMORY_UTILIZATION:", os.Getenv("JETS_VLLM_GPU_MEMORY_UTILIZATION"))
+	log.Println("env JETS_VLLM_EXTRA_ARGS:", os.Getenv("JETS_VLLM_EXTRA_ARGS"))
 	// log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
 
 	// Verify that we have all the required env variables
