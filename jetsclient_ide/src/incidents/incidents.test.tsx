@@ -16,7 +16,11 @@
  *    outage;
  *  - contradicting evidence has a rendering when it is empty, because the empty
  *    array is an assertion (§A.2.8);
- *  - **nothing writes** — no reclassify, no verify, no suppress (I-276).
+ *  - **nothing writes** — no reclassify, no verify, no suppress (I-276);
+ *  - an incident with no `AgentRun` says its corrections will not be
+ *    hash-chained, which is the whole visible consequence of `AB.4` (Q-32);
+ *  - a withheld PHI statement is words rather than a blank, and the screen names
+ *    the capability that would lift it (`AE.2`, I-311).
  *
  * The api is driven through a stub `fetch`, the way `proposals.test.tsx` does it,
  * so these exercise `ApiClient.agentic` and the wire shapes as well as the
@@ -96,6 +100,9 @@ const vocabularies = {
 const triagedRow = {
   incidentId: "inc_1",
   sessionId: "sess_1",
+  // "" is the ordinary case out of AC.1: a deterministic triage step is not an
+  // AgentRun, so the incident it writes names none (AB.4).
+  runRef: "",
   detectedAt: "2026-09-04T10:00:00Z",
   locus: "worker_failed",
   classification: "",
@@ -119,7 +126,12 @@ const detail = {
       confidence: 0.6,
       rank: 1,
       supportingEvidence: [
-        { statement: "step 3 ran 4x longer", source: "run_telemetry", sourceRef: "sess_1/3" },
+        {
+          statement: "step 3 ran 4x longer",
+          source: "run_telemetry",
+          sourceRef: "sess_1/3",
+          statementRedacted: false,
+        },
       ],
       contradictingEvidence: [],
     },
@@ -132,11 +144,24 @@ const detail = {
       rank: 2,
       supportingEvidence: [],
       contradictingEvidence: [
-        { statement: "a sampling cap was set", source: "detector_confounder", sourceRef: "sampling_cap" },
+        {
+          statement: "a sampling cap was set",
+          source: "detector_confounder",
+          sourceRef: "sampling_cap",
+          statementRedacted: false,
+        },
       ],
     },
   ],
 };
+
+/**
+ * The `get_incident` envelope as the server sends it. `AE.2` widened it: the
+ * redaction is reported rather than inferred from a blank statement, so a test
+ * that kept sending the bare `{ incident }` would be testing a wire shape the
+ * server no longer produces.
+ */
+const disclosed = { incident: detail, phiRedacted: false, phiCapability: "agent_phi_access", phiProperties: ["statement (PHI)"] };
 
 describe("the incident list", () => {
   it("shows an incident and links to it", async () => {
@@ -223,7 +248,7 @@ describe("the incident list", () => {
 
 describe("one incident", () => {
   it("renders the locus with what the record cannot see about it", async () => {
-    const { api } = await clientWith({ get_incident: { body: { incident: detail } } });
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     // The gloss and the blind spot travel with the value. Without the second,
@@ -233,7 +258,7 @@ describe("one incident", () => {
   });
 
   it("says an empty contradicting set is asserted rather than absent", async () => {
-    const { api } = await clientWith({ get_incident: { body: { incident: detail } } });
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     expect(screen.getByText("None asserted.")).toBeTruthy();
@@ -243,7 +268,7 @@ describe("one incident", () => {
   // §B.3's escalation trigger, which the domain model states as a
   // rule-countable fact: contradicting evidence exceeding supporting.
   it("flags a hypothesis contradicted more than it is supported", async () => {
-    const { api } = await clientWith({ get_incident: { body: { incident: detail } } });
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     expect(screen.getAllByText("contradicted more than supported").length).toBe(1);
@@ -253,7 +278,7 @@ describe("one incident", () => {
   // decision would move an incident into are adjudications, and a corrected
   // label needs an actor on the transition before it means anything (I-276).
   it("offers no way to write anything", async () => {
-    const { api, sent } = await clientWith({ get_incident: { body: { incident: detail } } });
+    const { api, sent } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     const buttons = screen.getAllByRole("button").map((b) => b.textContent);
@@ -262,8 +287,72 @@ describe("one incident", () => {
     expect(sent[0]?.["action"]).toBe("get_incident");
   });
 
+  // AB.4, Q-32. The run reference is not provenance trivia: it is what decides
+  // whether a correction to this incident reaches the audit hash chain, and a
+  // supervision screen is the only place a person could learn that it will not.
+  it("says an incident with no agent run has corrections that are not hash-chained", async () => {
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getByText("no agent run")).toBeTruthy();
+    expect(screen.getByText(/not hash-chained/)).toBeTruthy();
+  });
+
+  it("names the run when one raised the incident, and says corrections chain to it", async () => {
+    const { api } = await clientWith({
+      get_incident: { body: { ...disclosed, incident: { ...detail, runRef: "run_abc" } } },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getByText("run_abc")).toBeTruthy();
+    expect(screen.getByText(/appended to that run's audit chain/)).toBeTruthy();
+  });
+
+  // AE.2, I-311. The marker was read by nothing and this screen rendered the
+  // field it marks to any holder of `agent_supervision`. Two assertions, because
+  // they are two different claims: that the value does not arrive, and that the
+  // reader is told why rather than shown a blank.
+  it("renders a withheld PHI statement as words and names the capability", async () => {
+    const redactedDetail = {
+      ...detail,
+      hypotheses: detail.hypotheses.map((h) => ({
+        ...h,
+        supportingEvidence: h.supportingEvidence.map((e) => ({
+          ...e,
+          statement: "",
+          statementRedacted: true,
+        })),
+        contradictingEvidence: h.contradictingEvidence.map((e) => ({
+          ...e,
+          statement: "",
+          statementRedacted: true,
+        })),
+      })),
+    };
+    const { api } = await clientWith({
+      get_incident: { body: { ...disclosed, incident: redactedDetail, phiRedacted: true } },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.queryByText("step 3 ran 4x longer")).toBeNull();
+    expect(screen.getAllByText("statement withheld · PHI").length).toBe(2);
+    expect(screen.getByText(/agent_phi_access/)).toBeTruthy();
+    expect(screen.getByText(/withheld by the server, not hidden here/)).toBeTruthy();
+  });
+
+  // The other half of the same claim, and it is what makes the assertion above
+  // about a control rather than about a stylesheet: with the capability the
+  // statements are there and no banner is shown.
+  it("shows the statements and no banner when PHI was disclosed", async () => {
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getByText("step 3 ran 4x longer")).toBeTruthy();
+    expect(screen.queryByText(/withheld by the server/)).toBeNull();
+  });
+
   it("distinguishes shard 0 from no shard", async () => {
-    const { api } = await clientWith({ get_incident: { body: { incident: detail } } });
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     // shardRef 0 is a shard. A screen that treated it as falsy would report an

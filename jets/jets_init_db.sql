@@ -57,6 +57,19 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     Deliberately not workspace_ide and not jetstore_read: editing a rule
 --	                     file and authorising an agent's change are different authorities, and
 --	                     a transcript is a governance record rather than client data.
+--	- agent_phi_access:  See the fields the agentic domain model marks
+--	                     data_classification = "PHI" -- today one, an evidence statement on a
+--	                     causal hypothesis (jets/agentic/audit/data_classification.go, generated
+--	                     from tools/jets_agentic/jets_agentic/model.py). Without it those fields
+--	                     are withheld server-side and the screen says so; the rest of the record
+--	                     is unaffected.
+--	                     GRANTED TO NO ROLE ON PURPOSE. The line above says a governance record
+--	                     is not client data, and a PHI-marked property is the exception: it is
+--	                     client data inside a governance record, so agent_supervision does not
+--	                     cover it. Which role should hold this is a policy decision about client
+--	                     data in a healthcare deployment rather than an engineering one, and
+--	                     redacted-for-everybody is the safe default while it is unmade. Grant it
+--	                     from the roles screen, or add a row below and say who decided.
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),

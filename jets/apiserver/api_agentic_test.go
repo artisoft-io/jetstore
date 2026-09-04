@@ -48,6 +48,15 @@ type fakeOps struct {
 	// statusFilter captures what ListIncidents was asked for, so a test can
 	// assert the screen's filter reached the store rather than the wrong field.
 	statusFilter []string
+
+	// phiSeen captures the PHI decision ReadIncident was handed (task AE.2).
+	// **The redaction itself is not testable here**: this fake stands where the
+	// audit package's read would be, and that read is where the withholding
+	// happens — which is the design rather than a limitation of the fake. What
+	// this endpoint owes is that the capability decision reaches the read
+	// unaltered, and that is what phiSeen is for.
+	phiSeen  audit.PHIAccess
+	phiAsked bool
 }
 
 func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {
@@ -92,7 +101,9 @@ func (f *fakeOps) ListIncidents(_ context.Context, statuses []string, _ int) ([]
 	}
 	return f.incidents, nil
 }
-func (f *fakeOps) ReadIncident(_ context.Context, id string) (*audit.Incident, error) {
+func (f *fakeOps) ReadIncident(_ context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
+	f.phiSeen = phi
+	f.phiAsked = true
 	if f.incidentErr != nil {
 		return nil, f.incidentErr
 	}
@@ -102,9 +113,18 @@ func (f *fakeOps) ReadIncident(_ context.Context, id string) (*audit.Incident, e
 	return f.incident, nil
 }
 
-func dispatch(t *testing.T, ops agenticOps, a *AgenticAction, actor string) (map[string]any, int, error) {
+// dispatch drives one action. **The PHI access defaults to RedactPHI and is
+// passed explicitly by the tests that are about it** — deliberately the safe
+// value, on the same argument the production signature makes: a helper that
+// disclosed by default would let a future test inherit disclosure by writing
+// nothing, which is the failure AE.2 exists to close one layer down.
+func dispatch(t *testing.T, ops agenticOps, a *AgenticAction, actor string, phi ...audit.PHIAccess) (map[string]any, int, error) {
 	t.Helper()
-	res, code, err := agenticDispatch(context.Background(), ops, a, actor)
+	access := audit.RedactPHI
+	if len(phi) > 0 {
+		access = phi[0]
+	}
+	res, code, err := agenticDispatch(context.Background(), ops, a, actor, access)
 	if res == nil {
 		return nil, code, err
 	}
@@ -459,6 +479,97 @@ func TestGetIncidentReturnsBothEvidenceSides(t *testing.T) {
 	}
 	if len(hs[0]["supportingEvidence"].([]map[string]any)) != 1 {
 		t.Error("the supporting side was lost")
+	}
+}
+
+// AB.4, Q-32. The run reference is what decides whether a transition on this
+// incident reaches the hash chain, so a supervision surface that dropped it on
+// the way to the browser would leave the screen unable to say so.
+func TestIncidentRowCarriesTheRunReference(t *testing.T) {
+	sample := sampleIncident()
+	sample.RunRef = "run_abc"
+	ops := &fakeOps{incidents: []audit.IncidentSummary{sample}}
+	res, code, err := dispatch(t, ops, &AgenticAction{Action: "list_incidents"}, "a@b")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	rows := res["incidents"].([]map[string]any)
+	if rows[0]["runRef"] != "run_abc" {
+		t.Errorf("runRef reached the wire as %v", rows[0]["runRef"])
+	}
+	// "" rather than absent for an incident nothing agentic raised, which is
+	// the ordinary case out of AC.1 and is a value the screen renders words for.
+	ops2 := &fakeOps{incidents: []audit.IncidentSummary{sampleIncident()}}
+	res2, _, err := dispatch(t, ops2, &AgenticAction{Action: "list_incidents"}, "a@b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows2 := res2["incidents"].([]map[string]any)
+	if got, ok := rows2[0]["runRef"]; !ok || got != "" {
+		t.Errorf("an incident with no run reached the wire as %v (present: %v)", got, ok)
+	}
+}
+
+// AE.2, I-311. Two claims, and they are separate: the capability decision has to
+// reach the read unchanged, and the caller has to be told what was withheld
+// rather than being left to infer it from a blank statement.
+func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		phi      audit.PHIAccess
+		redacted bool
+	}{
+		{"without the capability", audit.RedactPHI, true},
+		{"with the capability", audit.DisclosePHI, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+			res, code, err := dispatch(t, ops,
+				&AgenticAction{Action: "get_incident", IncidentId: "inc_1"}, "a@b", tc.phi)
+			if err != nil || code != http.StatusOK {
+				t.Fatalf("code %d err %v", code, err)
+			}
+			if !ops.phiAsked {
+				t.Fatal("the read was never asked for a PHI decision")
+			}
+			if ops.phiSeen != tc.phi {
+				t.Errorf("the read was handed %v, want %v", ops.phiSeen, tc.phi)
+			}
+			if res["phiRedacted"] != tc.redacted {
+				t.Errorf("phiRedacted %v, want %v", res["phiRedacted"], tc.redacted)
+			}
+			if res["phiCapability"] != AgentPHIAccessCapability {
+				t.Errorf("phiCapability %v", res["phiCapability"])
+			}
+			// The classified properties come from the generated manifest, so a
+			// second marked property reaches the screen with no edit here.
+			props, ok := res["phiProperties"].([]string)
+			if !ok || len(props) != 1 || props[0] != "statement (PHI)" {
+				t.Errorf("phiProperties %v", res["phiProperties"])
+			}
+		})
+	}
+}
+
+// The seed file must **not** grant this one, and the test says why rather than
+// only that. It is the inverse of TestAgentSupervisionCapabilityIsSeeded and of
+// TestPurgeDataCapabilityIsSeeded, whose argument — a capability no role holds
+// refuses everyone and looks like a broken menu item — is about a capability
+// gating a whole action. This gates a field's disclosure: its absence is one
+// value replaced by a sentence naming the capability, and who may see PHI in a
+// healthcare deployment is a policy decision with an owner (Q-42). Granting it
+// means editing this test, which is the point.
+func TestAgentPHIAccessCapabilityIsDocumentedAndGrantedToNoRole(t *testing.T) {
+	sql, err := os.ReadFile("../jets_init_db.sql")
+	if err != nil {
+		t.Fatalf("reading jets_init_db.sql: %v", err)
+	}
+	if !strings.Contains(string(sql), fmt.Sprintf("- %s:", AgentPHIAccessCapability)) {
+		t.Errorf("jets_init_db.sql does not document the %q capability", AgentPHIAccessCapability)
+	}
+	if grant := fmt.Sprintf("'%s')", AgentPHIAccessCapability); strings.Contains(string(sql), grant) {
+		t.Errorf("jets_init_db.sql grants %q to a role; that is a policy decision (Q-42), and "+
+			"if it has been taken, update this test and say who took it", AgentPHIAccessCapability)
 	}
 }
 

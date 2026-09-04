@@ -36,6 +36,7 @@ import { SessionExpiredError, type ApiClient } from "../api/client";
 import { useNotifications } from "../shell/notifications";
 import "./incidents.css";
 import {
+  AGENT_PHI_ACCESS,
   AGENT_SUPERVISION,
   DeploymentNotMigratedError,
   IncidentsApi,
@@ -43,7 +44,7 @@ import {
   vocabLabel,
   type Evidence,
   type HypothesisRow,
-  type IncidentDetail,
+  type IncidentDetailResponse,
 } from "./api";
 
 export function IncidentScreen({ api }: { api: ApiClient }) {
@@ -51,7 +52,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   const incidents = useMemo(() => new IncidentsApi(api), [api]);
   const { setError } = useNotifications();
 
-  const [incident, setIncident] = useState<IncidentDetail | null>(null);
+  const [detail, setDetail] = useState<IncidentDetailResponse | null>(null);
   const [notMigrated, setNotMigrated] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -62,14 +63,14 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
     setBusy(true);
     setNotMigrated("");
     try {
-      setIncident(await incidents.get(incidentId));
+      setDetail(await incidents.get(incidentId));
     } catch (err) {
       if (err instanceof DeploymentNotMigratedError) {
         setNotMigrated(err.message);
       } else if (!(err instanceof SessionExpiredError)) {
         setError(err instanceof Error ? err.message : String(err));
       }
-      setIncident(null);
+      setDetail(null);
     } finally {
       setBusy(false);
     }
@@ -99,7 +100,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
     );
   }
 
-  if (!incident) {
+  if (!detail) {
     return (
       <div className="empty">
         <p>{busy ? "Loading…" : `No incident ${incidentId}.`}</p>
@@ -110,8 +111,11 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
     );
   }
 
+  const incident = detail.incident;
   const gloss = LOCUS_GLOSS[incident.locus];
   const namesAStep = incident.stepRef !== "";
+  const namesARun = incident.runRef !== "";
+  const phiCapability = detail.phiCapability || AGENT_PHI_ACCESS;
 
   return (
     <>
@@ -148,6 +152,24 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             </dd>
             <dt>Session</dt>
             <dd>{incident.sessionId}</dd>
+            <dt>Raised by</dt>
+            <dd>
+              {namesARun ? (
+                <code>{incident.runRef}</code>
+              ) : (
+                <em className="unclaimed">no agent run</em>
+              )}
+              {/* Not provenance trivia. A transition on an incident reaches the
+                  audit hash chain through this run, so an incident with none is
+                  one whose corrections are durable and attributable and not
+                  tamper-evident (AB.4, R-44). Saying so here is the only place
+                  a supervisor could learn it. */}
+              <p className="empty-sub">
+                {namesARun
+                  ? "Corrections to this incident are appended to that run's audit chain."
+                  : "Nothing agentic raised this incident, so corrections to it are recorded and not hash-chained."}
+              </p>
+            </dd>
             <dt>Detected</dt>
             <dd>{incident.detectedAt}</dd>
             <dt>Step</dt>
@@ -217,6 +239,19 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
           </dl>
 
           <h3>Ranked hypotheses</h3>
+          {detail.phiRedacted && (
+            // Said once, above the evidence, rather than only per item: a reader
+            // who meets three withheld statements should not have to work out
+            // that they share one cause. The server names both the capability
+            // and the classified properties, so this sentence does not encode a
+            // policy the browser could get wrong (AE.2, I-311).
+            <p className="empty-sub" role="status">
+              Evidence marked as protected health information is withheld from this view
+              {detail.phiProperties?.length ? ` — ${detail.phiProperties.join(", ")}` : ""}. It is
+              withheld by the server, not hidden here. The <code>{phiCapability}</code> capability
+              lifts it.
+            </p>
+          )}
           {incident.hypotheses.length === 0 ? (
             <p className="empty-sub">
               None. This incident has a locus and no proposed cause.
@@ -306,7 +341,15 @@ function EvidenceList({
                 {e.source}
                 {e.sourceRef !== "" && ` · ${e.sourceRef}`}
               </span>
-              <span className="evidence-statement">{e.statement}</span>
+              {e.statementRedacted ? (
+                // Words rather than a blank, on `not claimed`'s argument one
+                // section up: an empty statement reads as an agent that cited a
+                // source and said nothing about it, which is a different and
+                // worse claim than one this reader may not see.
+                <em className="unclaimed">statement withheld · PHI</em>
+              ) : (
+                <span className="evidence-statement">{e.statement}</span>
+              )}
             </li>
           ))}
         </ul>

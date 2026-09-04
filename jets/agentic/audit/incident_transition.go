@@ -40,13 +40,18 @@ import (
 //     apart from a lost race; it will not be enforcing something this function
 //     leaves open. Recorded as **I-299**.
 //
-//   - **The chain event is conditional.** `agent_audit.run_id` is an AgentRun's
-//     key. A ChangeProposal knows its run — `trigger_ref` — and an Incident
-//     does not, because neither a human at a screen nor a deterministic triage
-//     step is an AgentRun. So a transition with no run is written to
-//     `jetsapi.incident_event` and not to the chain: durable and attributable,
-//     and **not tamper-evident**. The alternative is to require a run and make
-//     the screen mint one, which decides AE.1's design from here (**R-34**).
+//   - **The chain event is conditional, and AB.4 changed what it is conditional
+//     on.** `agent_audit.run_id` is an AgentRun's key. A ChangeProposal knows
+//     its run — `trigger_ref` — and an Incident did not, so the chain event was
+//     appended only when the *caller* named a run: an agent's own
+//     reclassification was tamper-evident and a person's correction of it was
+//     not, which inverts the property a governance record is for (**R-34**,
+//     **I-297**). **Q-32 was settled by the user on 2026-09-04 in favour of
+//     giving `Incident` a run reference**, and this function now reads
+//     `incident_run_ref` off the row and uses it when the caller supplies none.
+//     What remains conditional is the *incident* naming a run rather than the
+//     transition — so an incident nothing agentic raised still chains nothing,
+//     for every actor alike rather than for humans alone (**R-44**).
 //
 // **The event type is `decision` rather than `approval`.** An approval is a
 // verdict on a proposed *action*; a reclassification is a verdict on a *claim*,
@@ -96,8 +101,11 @@ type IncidentTransition struct {
 	Actor string
 	// ActorKind is ActorHuman or ActorAgent — the column I-276 asks for.
 	ActorKind string
-	// RunRef is the AgentRun this transition belongs to, or "" when it has
-	// none. The chain event is appended only when it is set.
+	// RunRef is the AgentRun this transition belongs to, or "" to take the
+	// incident's own `incident_run_ref` (AB.4). It is therefore an input *and*
+	// an output: RecordIncidentTransition writes back whichever run the chain
+	// event was appended to, and "" on return means the incident named none
+	// either. The chain event is appended iff it is non-empty afterwards.
 	RunRef string
 	// ClassificationBefore is filled in by RecordIncidentTransition from the
 	// row; "" means the incident carried none, which is the ordinary case out
@@ -168,11 +176,12 @@ func (e *ErrIncidentStateConflict) Error() string {
 }
 
 // RecordIncidentTransition moves the incident, writes the typed event and — when
-// the transition names a run — appends the chain event, in one transaction. It
-// returns the seq the chain trigger assigned, or **0 when no chain event was
-// appended**, which is the case documented above and not an error.
+// a run is in hand — appends the chain event, in one transaction. It returns the
+// seq the chain trigger assigned, or **0 when no chain event was appended**,
+// which is the case documented above and not an error.
 //
-// It fills in t.ClassificationBefore and t.TransitionedAt.
+// It fills in t.ClassificationBefore, t.TransitionedAt and, when the caller left
+// it empty, t.RunRef.
 func RecordIncidentTransition(ctx context.Context, db Beginner, t *IncidentTransition) (int, error) {
 	if err := t.validate(); err != nil {
 		return 0, err
@@ -192,12 +201,12 @@ func RecordIncidentTransition(ctx context.Context, db Beginner, t *IncidentTrans
 	// into the write, so every caller gets it rather than every caller
 	// remembering it — and it is the only way to learn the classification the
 	// transition is about to replace.
-	var status, before string
+	var status, before, incidentRun string
 	err = tx.QueryRow(ctx,
-		`SELECT status, coalesce(classification, '')
+		`SELECT status, coalesce(classification, ''), coalesce(incident_run_ref, '')
 		   FROM jetsapi.incident
 		  WHERE incident_id = $1
-		    FOR UPDATE`, t.IncidentRef).Scan(&status, &before)
+		    FOR UPDATE`, t.IncidentRef).Scan(&status, &before, &incidentRun)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, &ErrNoIncident{IncidentId: t.IncidentRef}
 	}
@@ -210,6 +219,20 @@ func RecordIncidentTransition(ctx context.Context, db Beginner, t *IncidentTrans
 		}
 	}
 	t.ClassificationBefore = before
+
+	// AB.4, Q-32. The caller's run wins where it has one — an agent
+	// transitioning an incident inside its own run belongs in *its* transcript,
+	// not in the transcript of whatever raised the incident. Where it has none,
+	// the incident's run is used, which is the whole of what the new column
+	// buys: a person correcting a classification at a screen has no run of their
+	// own and now chains onto the run that raised the thing they are correcting.
+	//
+	// **Read from the row rather than accepted as a second caller field**, on
+	// ClassificationBefore's argument one line up: the party being measured does
+	// not get to state what its verdict is attached to.
+	if t.RunRef == "" {
+		t.RunRef = incidentRun
+	}
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE jetsapi.incident

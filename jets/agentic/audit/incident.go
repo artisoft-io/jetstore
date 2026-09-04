@@ -35,12 +35,14 @@ import (
 //
 // # What is not here
 //
-// **No write path.** An incident's status walks Appendix A.5's machine and the
-// transitions that matter are adjudications — `reclassified`, `verified`,
-// `suppressed_as_benign` — which is exactly what I-276 asks for an actor and a
-// timestamp on. That work is `AB.2`'s by the user's decision of 2026-09-04, and
-// writing a transition here against a schema that is still moving would be the
-// thing the split was made to avoid.
+// **No write path** — in *this file*. An incident's status walks Appendix A.5's
+// machine and the transitions that matter are adjudications — `reclassified`,
+// `verified`, `suppressed_as_benign` — which is exactly what I-276 asks for an
+// actor and a timestamp on. That work was `AB.2`'s by the user's decision of
+// 2026-09-04 and **it landed the same day**: `RecordIncidentTransition` in
+// `incident_transition.go`. The sentence is kept because its reasoning is why the
+// two files are separate, and corrected because *no write path* now reads as a
+// claim about the package rather than about the file.
 
 // The nine loci of plan §9.4, mirroring `IncidentLocus` in model.py and the
 // CHECK the DDL generates from it. Named constants for the same reason the
@@ -105,14 +107,31 @@ func inVocabulary(vocab []string, v string) bool {
 //
 // **`Statement` is the only property in the whole domain model carrying
 // `data_classification = "PHI"`** (`statement`,
-// `tools/jets_agentic/jets_agentic/model.py:605`), and the marker reaches the
-// workspace as a rule-visible triple. Nothing in Go or in the browser reads that
-// marker; the only control on this field is the `agent_supervision` capability on
-// the endpoint that returns it. Recorded as I-313 rather than solved here.
+// `tools/jets_agentic/jets_agentic/model.py:661`), and the marker reaches the
+// workspace as a rule-visible triple.
+//
+// **~~Nothing in Go or in the browser reads that marker.~~ AE.2 gave it a
+// reader, 2026-09-04 (I-311 — the entry number this comment first got wrong,
+// naming I-313, which is about a stale paragraph in `jetstore_ai/CLAUDE.md`).**
+// The marker is now generated into `DataClassifiedProperties` and enforced by
+// `phi.go`: `Statement` is withheld unless the read was asked for `DisclosePHI`,
+// which the apiserver passes only for a caller holding the PHI capability. The
+// rule-visible triple is unchanged and is still matched by no rule; what gained
+// a consumer is the marker, not the triple.
 type Evidence struct {
 	Statement string `json:"statement"`
 	Source    string `json:"source"`
 	SourceRef string `json:"source_ref"`
+	// StatementRedacted says the statement was withheld rather than empty.
+	// `json:"-"` because this is a property of the *read*, not of the stored
+	// value: it must never round-trip into the jsonb column, and a writer that
+	// serialised it would be recording a policy decision as data.
+	//
+	// **Blanked and flagged rather than replaced with a placeholder**: a
+	// placeholder in the value is indistinguishable from an agent that wrote
+	// those words, and a screen has to tell *withheld* from *the evidence is
+	// empty*.
+	StatementRedacted bool `json:"-"`
 }
 
 // Hypothesis is one row of jetsapi.hypothesis: a ranked causal claim about an
@@ -145,8 +164,18 @@ type Hypothesis struct {
 // count, which is the one thing that changes whether an incident is worth opening
 // and the one thing not on the table.
 type IncidentSummary struct {
-	IncidentId     string
-	SessionId      string
+	IncidentId string
+	SessionId  string
+	// RunRef is the AgentRun that raised the incident, "" when nothing agentic
+	// did (AB.4, Q-32) — which is what decides whether a transition on this
+	// incident reaches the hash chain.
+	//
+	// It sits on the summary because `Incident` embeds this struct, so the
+	// detail read needs it here; **the list screen does not render it**, a
+	// seventh column costing more than it tells at a glance. Both queries select
+	// it all the same, since the column is narrow and a summary that omitted it
+	// would make the two reads disagree about what a row is.
+	RunRef         string
 	DetectedAt     time.Time
 	Locus          string
 	Classification string
@@ -229,7 +258,8 @@ func ListIncidents(ctx context.Context, db Querier, statuses []string, limit int
 		}
 	}
 	rows, err := db.Query(ctx,
-		`SELECT i.incident_id, i.incident_session_id, i.incident_detected_at,
+		`SELECT i.incident_id, i.incident_session_id, coalesce(i.incident_run_ref, ''),
+		        i.incident_detected_at,
 		        i.incident_locus, coalesce(i.classification, ''), i.severity, i.status,
 		        coalesce(i.incident_step_ref, ''), i.incident_shard_ref,
 		        i.incident_confounders, i.incident_model_version,
@@ -250,7 +280,7 @@ func ListIncidents(ctx context.Context, db Querier, statuses []string, limit int
 	var out []IncidentSummary
 	for rows.Next() {
 		var s IncidentSummary
-		if err := rows.Scan(&s.IncidentId, &s.SessionId, &s.DetectedAt, &s.Locus,
+		if err := rows.Scan(&s.IncidentId, &s.SessionId, &s.RunRef, &s.DetectedAt, &s.Locus,
 			&s.Classification, &s.Severity, &s.Status, &s.StepRef, &s.ShardRef,
 			&s.Confounders, &s.ModelVersion, &s.HypothesisCount); err != nil {
 			return nil, fmt.Errorf("while scanning an incident summary: %w", err)
@@ -270,12 +300,13 @@ func ListIncidents(ctx context.Context, db Querier, statuses []string, limit int
 // hypothesis is what an incident's diagnosis *is*, and an endpoint that could
 // return the classification without the reasoning would offer a caller the choice
 // of showing a claim with no basis.
-func ReadIncident(ctx context.Context, db Querier, incidentId string) (*Incident, error) {
+func ReadIncident(ctx context.Context, db Querier, incidentId string, phi PHIAccess) (*Incident, error) {
 	if incidentId == "" {
 		return nil, fmt.Errorf("cannot read an incident without an id")
 	}
 	rows, err := db.Query(ctx,
-		`SELECT incident_id, incident_session_id, incident_detected_at, incident_locus,
+		`SELECT incident_id, incident_session_id, coalesce(incident_run_ref, ''),
+		        incident_detected_at, incident_locus,
 		        coalesce(classification, ''), severity, status,
 		        coalesce(incident_step_ref, ''), incident_shard_ref,
 		        incident_confounders, incident_model_version
@@ -292,7 +323,7 @@ func ReadIncident(ctx context.Context, db Querier, incidentId string) (*Incident
 		return nil, &ErrNoIncident{IncidentId: incidentId}
 	}
 	var inc Incident
-	if err := rows.Scan(&inc.IncidentId, &inc.SessionId, &inc.DetectedAt, &inc.Locus,
+	if err := rows.Scan(&inc.IncidentId, &inc.SessionId, &inc.RunRef, &inc.DetectedAt, &inc.Locus,
 		&inc.Classification, &inc.Severity, &inc.Status, &inc.StepRef, &inc.ShardRef,
 		&inc.Confounders, &inc.ModelVersion); err != nil {
 		return nil, fmt.Errorf("while scanning incident %s: %w", incidentId, err)
@@ -302,7 +333,7 @@ func ReadIncident(ctx context.Context, db Querier, incidentId string) (*Incident
 	}
 	rows.Close()
 
-	hs, err := HypothesesFor(ctx, db, incidentId)
+	hs, err := HypothesesFor(ctx, db, incidentId, phi)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +344,7 @@ func ReadIncident(ctx context.Context, db Querier, incidentId string) (*Incident
 
 // HypothesesFor returns an incident's hypotheses in rank order, which is the
 // only order in which a human reads them and the order the index exists for.
-func HypothesesFor(ctx context.Context, db Querier, incidentRef string) ([]Hypothesis, error) {
+func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIAccess) ([]Hypothesis, error) {
 	rows, err := db.Query(ctx,
 		`SELECT hypothesis_id, hypothesis_incident_ref, cause, coalesce(cause_category, ''),
 		        confidence, rank, supporting_evidence, contradicting_evidence
@@ -342,6 +373,10 @@ func HypothesesFor(ctx context.Context, db Querier, incidentRef string) ([]Hypot
 		if h.ContradictingEvidence, err = decodeEvidence(contradicting); err != nil {
 			return nil, fmt.Errorf("hypothesis %s: contradicting_evidence: %w", h.HypothesisId, err)
 		}
+		// The PHI decision is applied here rather than by the caller, so a
+		// caller cannot hold an unredacted Evidence without having said
+		// DisclosePHI (AE.2, I-311). See phi.go for why it is a parameter.
+		applyPHIPolicy(phi, h.SupportingEvidence, h.ContradictingEvidence)
 		out = append(out, h)
 	}
 	if err := rows.Err(); err != nil {

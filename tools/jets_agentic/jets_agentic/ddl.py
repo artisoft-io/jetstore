@@ -29,6 +29,14 @@ What the DDL enforces, per §7.2 and §7.3:
   than the one that wrote it**: setting `jr_as_table` on `Remediation` and
   `IncidentEvent` failed `generate --check` by name, before either table
   existed here.
+- **The additive half of a migration, per table (AB.4, I-337):** every
+  `CREATE TABLE` is followed by one `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
+  per **nullable** column. `CREATE TABLE IF NOT EXISTS` does nothing to a table
+  that already exists, so before this a column added to the model reached a
+  fresh database and no migrated one — and `InstallSchema` ran clean either
+  way. The boundary is deliberate and is stated on `_nullable_column_alters`:
+  NOT NULL columns, drops, renames and type changes each need a migration with
+  an author, and this covers none of them.
 - **The hash chain (A8.5):** a BEFORE INSERT trigger assigns `seq`
   (monotonic per run), links `prev_hash` to the previous row's `row_hash`,
   and computes `row_hash` as SHA-256 over the row's fields joined by the
@@ -186,6 +194,47 @@ def _table_name(entity) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", entity.__name__).lower()
 
 
+def _nullable_column_alters(entity) -> str:
+    """`ADD COLUMN IF NOT EXISTS` for every nullable column of one table.
+
+    **`CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists,
+    which is fine while a generator only ever creates and stops being fine at the
+    second version.** AB.1 and AB.2 created these tables; AB.4 is the first task
+    to *change* one, and without this the new `incident_run_ref` would reach a
+    fresh database and no migrated one — silently, since `InstallSchema` runs
+    clean either way and the missing column surfaces as a 42703 in whatever
+    queries it next (**I-337**).
+
+    The rule is nullable columns only, and the boundary is stated rather than
+    implied. A NOT NULL column cannot be added to a populated table without a
+    default, so it needs a hand-written migration that decides what the existing
+    rows should say — a decision no emitter is entitled to take. Drops, renames
+    and type changes are likewise not covered: each destroys or reinterprets data
+    and is a migration with an author. **So what this buys is exactly the cheap
+    half** — the additive, nullable widening, which is what a schema-first domain
+    model produces most of — and it says so instead of reading as a migration
+    story.
+
+    Emitted after the table's CREATE, one statement per column, each idempotent.
+    """
+    key, _ = _key_field(entity)
+    table = _table_name(entity)
+    lines = []
+    for fname, field in entity.model_fields.items():
+        if fname == key:
+            continue
+        target = _entity_target(field.annotation)
+        if target is not None and getattr(target, "jr_as_table", False):
+            continue
+        pg, nullable = _pg_type(field.annotation)
+        if not nullable:
+            continue
+        lines.append(
+            f"-- stmt\nALTER TABLE jetsapi.{table} ADD COLUMN IF NOT EXISTS {fname} {pg};\n"
+        )
+    return "".join(lines)
+
+
 def _assert_tables_agree(sql: str) -> None:
     """**F68's guard, and the reason it is here rather than in a check script.**
 
@@ -244,6 +293,17 @@ def emit() -> str:
     hypothesis_columns = _table_columns(M.Hypothesis)
     remediation_columns = _table_columns(M.Remediation)
     incident_event_columns = _table_columns(M.IncidentEvent)
+    # AB.4: the additive half of a migration, per table. See
+    # _nullable_column_alters for what it covers and what it deliberately does
+    # not.
+    run_alters = _nullable_column_alters(M.AgentRun)
+    proposal_alters = _nullable_column_alters(M.ChangeProposal)
+    approval_alters = _nullable_column_alters(M.ApprovalEvent)
+    anomaly_alters = _nullable_column_alters(M.Anomaly)
+    incident_alters = _nullable_column_alters(M.Incident)
+    hypothesis_alters = _nullable_column_alters(M.Hypothesis)
+    remediation_alters = _nullable_column_alters(M.Remediation)
+    incident_event_alters = _nullable_column_alters(M.IncidentEvent)
     approval_states = ", ".join(f"'{m.value}'" for m in M.ApprovalState)
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
@@ -358,7 +418,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
 {run_columns},
   CONSTRAINT agent_run_tier_ck CHECK (tier IN ({tiers}))
 );
--- stmt
+{run_alters}-- stmt
 -- What a run proposes. Phase 1 writes one on success and writes nothing to git:
 -- staged branch writes are the analysis's "Write - staged" class and arrive
 -- with the Phase-2 approval screens, because a copilot that can commit before
@@ -376,7 +436,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
 {proposal_columns},
   CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ({approval_states}))
 );
--- stmt
+{proposal_alters}-- stmt
 -- Who decided what, and from which state to which. The supervision seam of
 -- section 7.2, emitted for the first time at K.1.
 --
@@ -407,7 +467,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.approval_event (
   CONSTRAINT approval_event_to_state_ck CHECK (to_state IN ({approval_states})),
   CONSTRAINT approval_event_tier_ck CHECK (tier_at_event IN ({tiers}))
 );
--- stmt
+{approval_alters}-- stmt
 -- Answering "who approved proposal X" and "what happened to it" without a
 -- jsonb scan is the whole reason the typed half exists.
 CREATE INDEX IF NOT EXISTS approval_event_subject_idx
@@ -448,7 +508,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.anomaly (
   CONSTRAINT anomaly_confounders_ck
              CHECK (anomaly_confounders <@ ARRAY[{confounders}]::text[])
 );
--- stmt
+{anomaly_alters}-- stmt
 -- "Which anomalies did this run produce", which is how a triage step reaches them, and
 -- "what has this detector been saying lately", which is how a false-positive rate is
 -- read off. Neither is answerable from the primary key.
@@ -490,6 +550,19 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- alternative -- leave it to AC.1 -- was rejected for that reason and not for a
 -- technical one.
 --
+-- **incident_run_ref is a governance column and not a localisation one (AB.4, Q-32).**
+-- Every other reference here says where in the execution record the incident sits; this
+-- one says which AgentRun raised it, and it exists because jetsapi.agent_audit is keyed
+-- on an AgentRun by construction (F254). Before it, a transition on an incident reached
+-- the hash chain only when its own caller named a run -- which put a person's correction
+-- of a classification on the unchained side and an agent's own reclassification on the
+-- chained one, inverting the property a governance record is for (R-34).
+-- RecordIncidentTransition reads this column inside the write and uses it when the
+-- caller supplies none. It is nullable because a deterministic triage step is not an
+-- AgentRun, so the residue is *incidents nothing agentic raised*, uniform across actors
+-- rather than aimed at humans (R-44). No foreign key, on approval_event.run_ref's
+-- precedent.
+--
 -- Note what is NOT a column: hypotheses. The domain model declares it as an object
 -- property and JetRules traverses it in working memory; in Postgres the same
 -- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
@@ -512,7 +585,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
              CHECK (incident_step_ref IS NULL
                     OR '{step_ambiguous}' = ANY (incident_confounders))
 );
--- stmt
+{incident_alters}-- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
 -- session id, and "what is open", which is how a supervision screen lists them.
 CREATE INDEX IF NOT EXISTS incident_session_idx
@@ -547,7 +620,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
   CONSTRAINT hypothesis_cause_category_ck
              CHECK (cause_category IS NULL OR cause_category IN ({classifications}))
 );
--- stmt
+{hypothesis_alters}-- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
 -- hypotheses and is not answerable from the primary key.
 CREATE INDEX IF NOT EXISTS hypothesis_incident_idx
@@ -593,7 +666,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.remediation (
   CONSTRAINT remediation_reversibility_ck
              CHECK (reversibility IN ({persistable_reversibilities}))
 );
--- stmt
+{remediation_alters}-- stmt
 -- "What has been proposed for this incident", which is how a supervision screen reaches
 -- a remediation and is not answerable from the primary key.
 CREATE INDEX IF NOT EXISTS remediation_incident_idx
@@ -653,7 +726,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident_event (
                     OR (classification_after IS NOT NULL
                         AND transition_rationale IS NOT NULL))
 );
--- stmt
+{incident_event_alters}-- stmt
 -- "How did this incident get here, in order", which is the whole point of the table and
 -- is not answerable from the primary key.
 CREATE INDEX IF NOT EXISTS incident_event_incident_idx

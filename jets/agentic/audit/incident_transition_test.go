@@ -21,23 +21,52 @@ import (
 // none) and returns its id. It is deliberately a raw INSERT: nothing in
 // JetStore writes jetsapi.incident yet — AC.1's is the first writer — so a
 // helper that pretended otherwise would be a fixture agreeing with itself.
+//
+// **It names no run**, which is the ordinary case out of a deterministic triage
+// step and is therefore the right default for a fixture (AB.4). Tests about the
+// run reference use seedIncidentRaisedBy.
 func seedIncident(t *testing.T, pool *pgxpool.Pool, status, classification string) string {
 	t.Helper()
+	return seedIncidentRaisedBy(t, pool, status, classification, "")
+}
+
+// seedIncidentRaisedBy is seedIncident with an incident_run_ref (AB.4, Q-32).
+func seedIncidentRaisedBy(t *testing.T, pool *pgxpool.Pool, status, classification, runRef string) string {
+	t.Helper()
 	id := fmt.Sprintf("inc_%d", time.Now().UnixNano())
-	var class any
+	var class, run any
 	if classification != "" {
 		class = classification
 	}
+	if runRef != "" {
+		run = runRef
+	}
 	_, err := pool.Exec(context.Background(),
 		`INSERT INTO jetsapi.incident (
-		   incident_id, incident_session_id, incident_detected_at, incident_locus,
-		   classification, severity, status, incident_confounders, incident_model_version)
-		 VALUES ($1, $2, now(), 'worker_failed', $3, 'high', $4, ARRAY[]::text[], '0.1.0')`,
-		id, "sess_"+id, class, status)
+		   incident_id, incident_session_id, incident_run_ref, incident_detected_at,
+		   incident_locus, classification, severity, status, incident_confounders,
+		   incident_model_version)
+		 VALUES ($1, $2, $3, now(), 'worker_failed', $4, 'high', $5, ARRAY[]::text[], '0.1.0')`,
+		id, "sess_"+id, run, class, status)
 	if err != nil {
 		t.Fatalf("seeding incident: %v", err)
 	}
 	return id
+}
+
+// startTestRun writes an AgentRun so that a chain event's run_id names something
+// that ran. No constraint enforces it — StartRun is how one arrives.
+func startTestRun(t *testing.T, pool *pgxpool.Pool, prefix string) string {
+	t.Helper()
+	runId := fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+	if err := StartRun(context.Background(), pool, &Run{
+		RunId: runId, AgentId: "triage", AgentVersion: "0.1.0", ModelId: "none",
+		PromptVersion: "0.1.0", Tier: "T1", IterationCap: 1, WallClockCapSeconds: 60,
+		DomainModelVersion: "0.1.0",
+	}, []byte(`{"intent":"triage"}`)); err != nil {
+		t.Fatalf("starting the run: %v", err)
+	}
+	return runId
 }
 
 // The whole of I-276 in one test: a human corrects a classification, and the
@@ -212,9 +241,16 @@ func TestUnknownIncidentIsNotAConflict(t *testing.T) {
 	}
 }
 
-// The chain event is conditional on a run, which is the design weakness R-34
-// records. A test that only ever passed a run would leave the *other* branch —
-// the one every human transition will take — unexercised.
+// The chain event is conditional, and **AB.4 changed what it is conditional
+// on** — this test's name says "the transition names a run" and that is now the
+// *first* of two ways one is found. It is kept under its original name because
+// the branch it exercises is unchanged: a caller that names a run gets a chain
+// event, and one on an incident that names neither gets none. What AB.4 added is
+// the middle case, which is TestATransitionInheritsTheIncidentsRun below.
+//
+// A test that only ever passed a run would leave the *other* branch — the one
+// every human transition takes — unexercised, which is why R-34's residue is
+// still asserted rather than assumed gone.
 func TestTheChainEventIsAppendedOnlyWhenTheTransitionNamesARun(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
@@ -232,16 +268,7 @@ func TestTheChainEventIsAppendedOnlyWhenTheTransitionNamesARun(t *testing.T) {
 		t.Errorf("a transition with no run reported chain seq %d; 0 means no chain event", seq)
 	}
 
-	// With a run there must be a run row for the foreign meaning of run_id to
-	// hold, even though no constraint enforces it — StartRun is how one arrives.
-	runId := fmt.Sprintf("run_ie_%d", time.Now().UnixNano())
-	if err := StartRun(ctx, pool, &Run{
-		RunId: runId, AgentId: "triage", AgentVersion: "0.1.0", ModelId: "none",
-		PromptVersion: "0.1.0", Tier: "T1", IterationCap: 1, WallClockCapSeconds: 60,
-		DomainModelVersion: "0.1.0",
-	}, []byte(`{"intent":"triage"}`)); err != nil {
-		t.Fatalf("starting the run: %v", err)
-	}
+	runId := startTestRun(t, pool, "run_ie")
 	withRun := seedIncident(t, pool, IncidentTriaged, "")
 	seq, err = RecordIncidentTransition(ctx, pool, &IncidentTransition{
 		IncidentEventId: "ie_run_" + withRun, IncidentRef: withRun,
@@ -472,5 +499,120 @@ func TestHumanVerdictsReadsAdjudicationsAndNotProgress(t *testing.T) {
 	}
 	if len(seen) != 1 || seen[0] != humanSide {
 		t.Fatalf("human verdicts since the test began: %v, want exactly [%s]", seen, humanSide)
+	}
+}
+
+// AB.4, Q-32 — the case the change exists for.
+//
+// **A person at a supervision screen has no run of their own**, so before this
+// their correction of a classification was written to jetsapi.incident_event and
+// nowhere else: durable, attributable, and not tamper-evident, while the agent's
+// own reclassification of the same incident was chained. That inversion is R-34
+// and it is what this asserts is gone — the human transition names no run, and
+// the chain event is appended to the run that raised the incident.
+func TestATransitionInheritsTheIncidentsRun(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	runId := startTestRun(t, pool, "run_ab4")
+	id := seedIncidentRaisedBy(t, pool, IncidentTriaged, "transformation_defect", runId)
+
+	tr := &IncidentTransition{
+		IncidentEventId: "ie_inherit_" + id, IncidentRef: id,
+		FromStatus: IncidentTriaged, ToStatus: IncidentReclassified,
+		Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+		ClassificationAfter: "source_content_change",
+		Rationale:           "the upstream feed changed its header row",
+		// RunRef deliberately unset: this is the shape a screen writes.
+	}
+	seq, err := RecordIncidentTransition(ctx, pool, tr)
+	if err != nil {
+		t.Fatalf("recording the transition: %v", err)
+	}
+	if seq == 0 {
+		t.Fatal("a human transition on an incident that names a run must reach the chain")
+	}
+	// The struct is filled in, so a caller can report which run its verdict was
+	// chained to without re-reading the incident.
+	if tr.RunRef != runId {
+		t.Errorf("RunRef was filled in as %q, want %q", tr.RunRef, runId)
+	}
+
+	got, err := IncidentTransitionsFor(ctx, pool, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].RunRef != runId {
+		t.Fatalf("the stored event names run %q, want %q", got[0].RunRef, runId)
+	}
+	// And the chain row is the one the incident's run carries, with the human as
+	// its actor — which is the whole of what makes the correction tamper-evident.
+	var actor, eventType string
+	if err := pool.QueryRow(ctx,
+		`SELECT actor, event_type FROM jetsapi.agent_audit WHERE run_id = $1 AND seq = $2`,
+		runId, seq).Scan(&actor, &eventType); err != nil {
+		t.Fatal(err)
+	}
+	if actor != "michel@artisoft.io" || eventType != EventDecision {
+		t.Errorf("the chain event is %s by %q", eventType, actor)
+	}
+}
+
+// The caller's run wins where it has one, and the reason is not precedence for
+// its own sake: an agent transitioning an incident inside its own run belongs in
+// *its* transcript, not in the transcript of whatever raised the incident.
+func TestACallersRunWinsOverTheIncidentsRun(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	raiser := startTestRun(t, pool, "run_raiser")
+	mover := startTestRun(t, pool, "run_mover")
+	id := seedIncidentRaisedBy(t, pool, IncidentTriaged, "", raiser)
+
+	seq, err := RecordIncidentTransition(ctx, pool, &IncidentTransition{
+		IncidentEventId: "ie_own_" + id, IncidentRef: id,
+		FromStatus: IncidentTriaged, ToStatus: IncidentDiagnosed,
+		Actor: "rca@jetstore", ActorKind: ActorAgent, RunRef: mover,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM jetsapi.agent_audit WHERE run_id = $1 AND seq = $2`,
+		mover, seq).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("the chain event did not land on the caller's run")
+	}
+	got, err := IncidentTransitionsFor(ctx, pool, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].RunRef != mover {
+		t.Errorf("the stored event names %q, want the caller's run %q", got[0].RunRef, mover)
+	}
+}
+
+// **R-44: the residue, asserted rather than assumed.** An incident nothing
+// agentic raised chains nothing, and that is now true for every actor alike
+// rather than for humans alone — which is the property a governance record
+// needs and is a weaker claim than "every transition is tamper-evident". A test
+// that only covered the two cases above would let this read as closed.
+func TestAnIncidentWithNoRunChainsNothingForEitherActorKind(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	for _, kind := range ActorKinds {
+		id := seedIncident(t, pool, IncidentTriaged, "")
+		seq, err := RecordIncidentTransition(ctx, pool, &IncidentTransition{
+			IncidentEventId: fmt.Sprintf("ie_norun_%s_%s", kind, id), IncidentRef: id,
+			FromStatus: IncidentTriaged, ToStatus: IncidentDiagnosed,
+			Actor: "somebody@example.com", ActorKind: kind,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seq != 0 {
+			t.Errorf("actor kind %s: chain seq %d on an incident with no run", kind, seq)
+		}
 	}
 }
