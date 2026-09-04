@@ -13,6 +13,64 @@ nothing in `pipe_transformation_infer.go` had to change — the seam took a
 backend whose response carries no text at all. What the checklist *understated*
 is the last paragraph, the contract chain: see the note at the end.
 
+**Exercised again 2026-09-04 by the `vllm` operator — the one this document was
+written for — and the six rows were right a second time.**
+`pipe_transformation_vllm.go` is ~430 lines, the five Go registration points
+cost three to seven lines each, and `pipe_transformation_infer.go` is again
+untouched: the seam took a backend whose request shape, guided-decoding field,
+sampling-parameter placement and error envelope all differ from Ollama's.
+
+Two things this run adds to the rows below.
+
+**The row 1 wording was a prediction and it held verbatim.** It names
+`VllmConfig *VllmSpec` with json key `vllm_config` and `InferCommonSpec`
+embedded anonymously, written before the field existed; that is what
+`pipes_model.go` now declares.
+
+**There is a seventh site, and it is the one a reader following the table would
+miss.** A tree-wide search for the `"ollama"` token, excluding tests and
+`tools/cpipes_contract/`, returns exactly the five Go switch arms rows 2–6 name
+— so the *hand-edited* surface is enumerable rather than merely enumerated. But
+searching for `ollama_config` instead returns one more file in this package:
+**`cpipes_contract_data.go`, which is generated (`cpipes-contract gofile`) and
+checked in**, and which carries a `TransformationSpec/<token>` entry per
+operator.
+
+**It already existed when this checklist was written, which is the part worth
+knowing.** `cpipes_contract_data.go` landed at `a01fdb53` on 2026-08-16 at
+21:19; this document landed at `a5c0f848` thirty minutes later, and does not
+name it. So the omission is not staleness catching up with a list — the list was
+incomplete on the evening it was verified. The `embed` operator did regenerate
+the file (`e52d3c8f`, 2026-08-20) and `TransformationSpec/embed` is in it, so
+the step was taken without the checklist asking for it, and the omission has
+never yet cost anything. Nothing in the runtime reads
+`CpipesContract` today — only its own spot-check test — so a token missing from
+it breaks nothing and announces nothing, which is why it is worth a row's worth
+of prose here rather than being left to the contract-chain paragraph that covers
+it only by implication.
+
+**`vllm` is absent from it, deliberately**: it is downstream of the matrix, and
+the matrix was not regenerated (below). What that costs is narrow and should be
+stated rather than assumed. The *runtime* validation path is registered — row 3
+is `ValidatePipeSpecConfig`, which is what `jets/agentic/tools`'
+`validate_cpipes_config` wraps — so a `vllm` step is validated like any other.
+What is not registered is the *projected* contract: `cpipes_schema.json` and
+this table do not mention the operator, so a model authoring a `.pc.json` from
+the projection cannot reach it.
+
+**The contract-chain paragraph below has been overtaken, and the `vllm`
+operator did not regenerate the matrix.** Its warning is that a change to
+`pipes_model.go` costs a mass re-approval; measured on the pinned commit
+**before** this operator's field was added, `cpipes-contract check --code`
+already reported **443 `evidence_ref` citations that no longer name their
+field** — `MapExpression.Comment` cited at a line inside `HashExpression.String`,
+`EmbedSpec` cited eight lines above its own declaration, and so on. The
+re-approval the paragraph asks for has not been paid for the changes since
+2026-08-20, so the matrix is adrift by considerably more than one operator's
+worth, and adding 50 correct rows to it would not make it a document a reviewer
+could trust. Recorded as the agentic_ai project's **I-271**; the repair is the
+citation scheme the paragraph already proposes, not another `--restamp`.
+
 What the operator does NOT have to write is everything in
 `pipe_transformation_infer.go`: the operator shell, the worker pool and its
 counters, the on_error policy, the prompt template compile/render with the

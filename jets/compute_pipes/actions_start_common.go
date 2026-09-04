@@ -1030,6 +1030,13 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if transformationConfig.EmbedConfig.PoolSize < 1 {
 					transformationConfig.EmbedConfig.PoolSize = 1
 				}
+			case "vllm":
+				if transformationConfig.VllmConfig == nil {
+					return fmt.Errorf("configuration error: missing vllm_config for vllm operator")
+				}
+				if transformationConfig.VllmConfig.PoolSize < 1 {
+					transformationConfig.VllmConfig.PoolSize = 1
+				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
 					transformationConfig.ClusteringConfig.CorrelationOutputChannel == nil {
@@ -1099,6 +1106,10 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 	case "embed":
 		if transformationConfig.EmbedConfig != nil {
 			return transformationConfig.EmbedConfig.ErrorChannel
+		}
+	case "vllm":
+		if transformationConfig.VllmConfig != nil {
+			return transformationConfig.VllmConfig.ErrorChannel
 		}
 	}
 	return nil
