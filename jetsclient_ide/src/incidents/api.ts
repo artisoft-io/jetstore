@@ -42,6 +42,21 @@
  * anything writes one — that widening is `AB.2`'s by the user's decision of
  * 2026-09-04. A screen that wrote a transition against a schema still moving
  * underneath it is what that split exists to avoid.
+ *
+ * **Still read-only after `AB.2` and `AB.4`, and that is now a choice rather
+ * than a wait.** The write primitive exists (`RecordIncidentTransition`), the
+ * transition it writes is chainable as of `AB.4`, and no screen calls it: the
+ * writer is unassigned, and the honest thing for this file to say is which of
+ * the two it is.
+ *
+ * ## PHI is withheld here unless the caller was granted it
+ *
+ * `Evidence.statement` is the one property the domain model marks
+ * `data_classification = "PHI"`. Until `AE.2` (2026-09-04) that marker was read
+ * by nothing and this screen rendered the field to any holder of
+ * `agent_supervision`. It is now redacted **server-side** unless the caller holds
+ * `agent_phi_access`, and the response says so rather than leaving the browser to
+ * infer it from a blank. See `Evidence.statementRedacted`.
  */
 
 import { ApiError, type ApiClient } from "../api/client";
@@ -50,6 +65,14 @@ import { ApiError, type ApiClient } from "../api/client";
 export interface IncidentRow {
   incidentId: string;
   sessionId: string;
+  /**
+   * The `AgentRun` that raised the incident, `""` when nothing agentic did
+   * (AB.4, Q-32). **Not decoration**: it is what decides whether a transition on
+   * this incident reaches the audit hash chain, so an incident with none is one
+   * whose corrections would be durable and not tamper-evident. The detail screen
+   * renders it; the list does not.
+   */
+  runRef: string;
   /** RFC3339. */
   detectedAt: string;
   /** One of the nine loci — where the evidence sits. Never empty. */
@@ -69,9 +92,22 @@ export interface IncidentRow {
 
 /** Mirrors audit.Evidence — a value object, stored inline as jsonb. */
 export interface Evidence {
+  /** `""` when `statementRedacted` is true — see below. */
   statement: string;
   source: string;
   sourceRef: string;
+  /**
+   * The statement was **withheld** rather than empty (AE.2, I-311).
+   *
+   * `Evidence.statement` is the one property the domain model marks
+   * `data_classification = "PHI"`, and the server redacts it unless the caller
+   * holds `agent_phi_access`. **The redaction is server-side and this flag is
+   * the only trace of it that reaches the browser** — there is no hidden value
+   * to reveal, which is the point: a client-side hide would still have shipped
+   * the PHI. Render it as a withholding notice rather than as nothing, because
+   * *withheld* and *the agent cited no words* are different claims.
+   */
+  statementRedacted: boolean;
 }
 
 /** Mirrors audit.Hypothesis. */
@@ -89,6 +125,25 @@ export interface HypothesisRow {
 
 export interface IncidentDetail extends IncidentRow {
   hypotheses: HypothesisRow[];
+}
+
+/**
+ * What `get_incident` returns: the incident, and what this caller was not shown.
+ *
+ * **The redaction is reported by the server rather than inferred from a blank
+ * field**, and the two are not the same. A screen inferring it would have to
+ * decide that an empty statement means withheld, which is exactly the confusion
+ * `statementRedacted` exists to prevent — and it would say nothing at all on an
+ * incident that happens to have no hypotheses yet.
+ */
+export interface IncidentDetailResponse {
+  incident: IncidentDetail;
+  /** True when PHI-classified fields were withheld from this caller. */
+  phiRedacted: boolean;
+  /** The capability that would lift it, named by the server. */
+  phiCapability: string;
+  /** Which properties of an evidence item are classified, and how. */
+  phiProperties: string[];
 }
 
 export interface IncidentList {
@@ -126,11 +181,10 @@ export class IncidentsApi {
     );
   }
 
-  async get(incidentId: string): Promise<IncidentDetail> {
-    const body = await this.wrap(
-      this.api.agentic<{ incident: IncidentDetail }>({ action: "get_incident", incidentId }),
+  async get(incidentId: string): Promise<IncidentDetailResponse> {
+    return this.wrap(
+      this.api.agentic<IncidentDetailResponse>({ action: "get_incident", incidentId }),
     );
-    return body.incident;
   }
 
   private async wrap<T>(p: Promise<T>): Promise<T> {
@@ -147,6 +201,17 @@ export class IncidentsApi {
 
 /** The capability the server requires for every action on this endpoint. */
 export const AGENT_SUPERVISION = "agent_supervision";
+
+/**
+ * The capability that lifts the redaction of PHI-classified fields (AE.2).
+ *
+ * **A default, not the answer.** The server names the capability in every
+ * `get_incident` response (`phiCapability`), and the screen renders what it was
+ * told; this constant is what the screen falls back to when a response predates
+ * the field. Spelling it here is safe for the reason `OPEN_STATUSES` is: getting
+ * it wrong shows the wrong sentence and cannot authorise anything.
+ */
+export const AGENT_PHI_ACCESS = "agent_phi_access";
 
 /**
  * A controlled-vocabulary value rendered for a human: `worker_failed` becomes

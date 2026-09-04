@@ -12,7 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import ddl, header, jr, schema, sidecar, toolsig
+from . import ddl, header, jr, phi, schema, sidecar, toolsig
 
 # The emitter registry: (repo-root-relative output path, emitter). Item 3's
 # glossary and tool-signature emitters append here. Workspace-installed
@@ -23,6 +23,10 @@ EMITTERS: list[tuple[str, object]] = [
     ("jets/workspace_assets/data_model/jets_agentic.meta.json", sidecar.emit),
     ("jets/workspace_assets/data_model/jets_agentic.schema.json", schema.emit),
     ("jets/agentic/audit/agent_audit.sql", ddl.emit),
+    # AE.2: the data_classification markers as data, beside the DDL and for
+    # the same reason -- the package that consumes it is the package it has
+    # to live in.
+    ("jets/agentic/audit/data_classification.go", phi.emit),
     ("jets/agentic/tools/jets_agentic_tools.json", toolsig.emit),
 ]
 

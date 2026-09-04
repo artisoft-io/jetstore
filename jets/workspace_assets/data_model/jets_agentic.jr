@@ -134,6 +134,7 @@ class jetsa:Incident {
   $data_properties = [
     jetsa:incident_id as text,
     jetsa:incident_session_id as text,
+    jetsa:incident_run_ref as text,
     jetsa:incident_detected_at as datetime,
     jetsa:incident_locus as text,
     jetsa:classification as text,

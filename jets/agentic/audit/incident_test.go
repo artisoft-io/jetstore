@@ -81,7 +81,7 @@ func TestListIncidentsRefusesAnUnknownStatus(t *testing.T) {
 }
 
 func TestReadIncidentRequiresAnId(t *testing.T) {
-	if _, err := ReadIncident(context.Background(), nil, ""); err == nil {
+	if _, err := ReadIncident(context.Background(), nil, "", DisclosePHI); err == nil {
 		t.Fatal("an empty incident id was accepted")
 	}
 }
@@ -139,7 +139,9 @@ func TestReadIncidentCarriesBothVocabulariesAndBothEvidenceSides(t *testing.T) {
 		`[{"statement":"step 3 slower","source":"run_telemetry","source_ref":"sess/3"}]`,
 		`[{"statement":"sampling cap was set","source":"detector_confounder","source_ref":"sampling_cap"}]`)
 
-	inc, err := ReadIncident(ctx, pool, id)
+	// DisclosePHI: this test is about the round trip, and a redacted read
+	// would assert nothing about whether the statement survived the jsonb.
+	inc, err := ReadIncident(ctx, pool, id, DisclosePHI)
 	if err != nil {
 		t.Fatalf("reading %s: %v", id, err)
 	}
@@ -266,7 +268,7 @@ func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
 	}
 	// The detail read screen reaches the same wall and must report the same
 	// thing: a stale link and an unmigrated database are different failures.
-	_, err = ReadIncident(ctx, bare, "inc_1")
+	_, err = ReadIncident(ctx, bare, "inc_1", DisclosePHI)
 	if !errors.As(err, &notDeployed) {
 		t.Fatalf("ReadIncident: want ErrTablesNotDeployed, got %v", err)
 	}

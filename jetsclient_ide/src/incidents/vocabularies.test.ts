@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { ADJUDICATED_STATUSES, LOCUS_GLOSS, OPEN_STATUSES } from "./api";
+import { AGENT_PHI_ACCESS, ADJUDICATED_STATUSES, LOCUS_GLOSS, OPEN_STATUSES } from "./api";
 
 // The one test here that is not about a browser.
 //
@@ -50,5 +50,42 @@ describe("the vocabularies this app spells", () => {
     // The two lists are disjoint: a status cannot be both open work and a
     // verdict on finished work.
     expect(OPEN_STATUSES.filter((s) => ADJUDICATED_STATUSES.includes(s))).toEqual([]);
+  });
+});
+
+/**
+ * The PHI marker, from the browser's end (task AE.2, I-311).
+ *
+ * **The screen renders a withholding notice for one field, and it has no way of
+ * its own to know that field is the marked one.** The generated manifest is that
+ * statement, so this reads it — the same move as the CHECK above, one file over.
+ * If a regeneration marks a second property, this fails and names it, which is
+ * what stops the browser from quietly withholding one of two.
+ */
+describe("the PHI marker this app renders a notice for", () => {
+  const generated = readFileSync(
+    fileURLToPath(new URL("../../../jets/agentic/audit/data_classification.go", import.meta.url)),
+    "utf8",
+  );
+
+  const entries = [...generated.matchAll(
+    /\{Entity: "([^"]+)", Property: "([^"]+)", Classification: "([^"]+)"\}/g,
+  )].map(([, entity, property, classification]) => ({ entity, property, classification }));
+
+  it("is Evidence.statement, and it is the only one", () => {
+    expect(entries).toEqual([
+      { entity: "Evidence", property: "statement", classification: "PHI" },
+    ]);
+  });
+
+  // The capability name is the server's and this constant is only a fallback for
+  // a response that predates `phiCapability` — but a fallback nobody checks is a
+  // fallback that is wrong when it is finally used.
+  it("names the capability the server documents", () => {
+    const seeding = readFileSync(
+      fileURLToPath(new URL("../../../jets/jets_init_db.sql", import.meta.url)),
+      "utf8",
+    );
+    expect(seeding.includes(`- ${AGENT_PHI_ACCESS}:`)).toBe(true);
   });
 });

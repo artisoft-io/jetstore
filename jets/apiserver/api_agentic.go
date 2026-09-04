@@ -59,6 +59,29 @@ import (
 // checks that this constant and that file still agree.
 const AgentSupervisionCapability = "agent_supervision"
 
+// AgentPHIAccessCapability lifts the redaction of PHI-classified fields on this
+// endpoint (task AE.2, I-311).
+//
+// **The floor it implements is that a PHI-marked field is not covered by
+// `agent_supervision` alone**, settled by the user on 2026-09-04. The argument
+// for `AgentSupervisionCapability` above is that a governance record is not
+// client data; a property the domain model marks
+// `data_classification = "PHI"` is the one place that argument does not reach —
+// it is client data sitting inside a governance record — so it needs its own
+// authority rather than a wider reading of this one.
+//
+// **Granted to no role in jets_init_db.sql, deliberately** (**Q-42**). Who may
+// see PHI in a healthcare deployment is a policy decision with an owner, and the
+// safe default while it is unmade is redacted-for-everybody. That is a departure
+// from `TestPurgeDataCapabilityIsSeeded`'s argument — *a capability no role holds
+// refuses everyone, which looks like a broken menu item rather than like a
+// policy* — and the departure is narrow: that argument is about a capability
+// gating a whole **action**, whose absence is a dead button. This one gates a
+// **field's disclosure**, and its absence is one value replaced by a sentence
+// saying why. TestAgentPHIAccessCapabilityIsNotSeeded is what makes granting it
+// a change somebody has to read this paragraph to make.
+const AgentPHIAccessCapability = "agent_phi_access"
+
 // AgenticAction is the request envelope. Fields are read per action and ignored
 // otherwise; the alternative, a `json.RawMessage` per action, buys nothing at
 // six actions and costs a second unmarshal in each.
@@ -114,7 +137,10 @@ type agenticOps interface {
 	// an incident's classification transitions are what I-276 asks for an actor
 	// on, and that widening is `AB.2`'s.
 	ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error)
-	ReadIncident(ctx context.Context, incidentId string) (*audit.Incident, error)
+	// ReadIncident takes the PHI decision rather than making it: the audit
+	// package redacts inside the read, so a handler cannot obtain an
+	// unredacted Evidence without having passed audit.DisclosePHI (AE.2).
+	ReadIncident(ctx context.Context, incidentId string, phi audit.PHIAccess) (*audit.Incident, error)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -149,8 +175,8 @@ func (o pgOps) RecordApproval(ctx context.Context, a *audit.Approval) (int, erro
 func (o pgOps) ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error) {
 	return audit.ListIncidents(ctx, o.db, statuses, limit)
 }
-func (o pgOps) ReadIncident(ctx context.Context, id string) (*audit.Incident, error) {
-	return audit.ReadIncident(ctx, o.db, id)
+func (o pgOps) ReadIncident(ctx context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
+	return audit.ReadIncident(ctx, o.db, id, phi)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -187,7 +213,14 @@ func (server *Server) DoAgenticAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, code, err := agenticDispatch(r.Context(), pgOps{server.dbpool}, &action, jetsUser.Email)
+	// The PHI decision is taken here, where the identity is, and travels down
+	// as a value. A handler that could ask the user object would be a handler
+	// that could forget to (AE.2).
+	phi := audit.RedactPHI
+	if jetsUser.HasCapability(AgentPHIAccessCapability) {
+		phi = audit.DisclosePHI
+	}
+	results, code, err := agenticDispatch(r.Context(), pgOps{server.dbpool}, &action, jetsUser.Email, phi)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		ERROR(w, code, err)
@@ -201,7 +234,7 @@ func (server *Server) DoAgenticAction(w http.ResponseWriter, r *http.Request) {
 // http plumbing so it can be driven by a fake store. `actor` is the
 // authenticated user's email and is the only identity a decision may be
 // recorded under.
-func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, actor string) (*map[string]any, int, error) {
+func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, actor string, phi audit.PHIAccess) (*map[string]any, int, error) {
 	switch a.Action {
 	case "list_proposals":
 		return listProposals(ctx, ops, a)
@@ -214,7 +247,7 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 	case "list_incidents":
 		return listIncidents(ctx, ops, a)
 	case "get_incident":
-		return getIncident(ctx, ops, a)
+		return getIncident(ctx, ops, a, phi)
 	default:
 		return nil, http.StatusBadRequest, fmt.Errorf("unknown agentic action %q", a.Action)
 	}
@@ -452,8 +485,8 @@ func listIncidents(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 	}, http.StatusOK, nil
 }
 
-func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
-	inc, err := ops.ReadIncident(ctx, a.IncidentId)
+func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audit.PHIAccess) (*map[string]any, int, error) {
+	inc, err := ops.ReadIncident(ctx, a.IncidentId, phi)
 	if err != nil {
 		var missing *audit.ErrNoIncident
 		if errors.As(err, &missing) {
@@ -480,13 +513,36 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[st
 	}
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
-	return &map[string]any{"incident": row}, http.StatusOK, nil
+	// What was withheld and what would lift it, said once for the screen rather
+	// than inferred from a field being empty. `phiProperties` comes from the
+	// generated manifest, so a second marked property appears here without an
+	// edit (AE.2).
+	return &map[string]any{
+		"incident":      row,
+		"phiRedacted":   phi == audit.RedactPHI,
+		"phiCapability": AgentPHIAccessCapability,
+		"phiProperties": classifiedPropertyNames("Evidence"),
+	}, http.StatusOK, nil
+}
+
+// classifiedPropertyNames renders one entity's data-classification markers for
+// the wire, as "property (CLASSIFICATION)".
+func classifiedPropertyNames(entity string) []string {
+	marked := audit.ClassifiedPropertiesOf(entity)
+	out := make([]string, 0, len(marked))
+	for _, c := range marked {
+		out = append(out, fmt.Sprintf("%s (%s)", c.Property, c.Classification))
+	}
+	return out
 }
 
 func incidentRow(i audit.IncidentSummary) map[string]any {
 	return map[string]any{
 		"incidentId": i.IncidentId,
 		"sessionId":  i.SessionId,
+		// "" when nothing agentic raised the incident, which is what decides
+		// whether a transition on it reaches the hash chain (AB.4, Q-32).
+		"runRef":     i.RunRef,
 		"detectedAt": timeOrEmpty(i.DetectedAt),
 		"locus":      i.Locus,
 		// "" when nothing has claimed a cause, which is a state the schema
@@ -509,6 +565,10 @@ func evidenceItems(items []audit.Evidence) []map[string]any {
 	for _, e := range items {
 		out = append(out, map[string]any{
 			"statement": e.Statement, "source": e.Source, "sourceRef": e.SourceRef,
+			// Withheld is not empty. A screen that could not tell them apart
+			// would render a redacted PHI statement as an agent that cited
+			// nothing (AE.2).
+			"statementRedacted": e.StatementRedacted,
 		})
 	}
 	return out

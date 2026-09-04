@@ -100,6 +100,14 @@ CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
   CONSTRAINT agent_run_tier_ck CHECK (tier IN ('T0', 'T1', 'T2', 'T3', 'T4'))
 );
 -- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS ended_at timestamp with time zone;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS run_status text;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS triggered_by text;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS token_spend bigint;
+-- stmt
 -- What a run proposes. Phase 1 writes one on success and writes nothing to git:
 -- staged branch writes are the analysis's "Write - staged" class and arrive
 -- with the Phase-2 approval screens, because a copilot that can commit before
@@ -135,6 +143,28 @@ CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
   proposal_model_version           text NOT NULL,
   CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed'))
 );
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS trigger_ref text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_repository text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_branch text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_files_changed text[];
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_lines_added bigint;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_lines_removed bigint;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS rationale text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS assumptions_made text[];
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_status text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_tests_run bigint;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_tests_failed bigint;
 -- stmt
 -- Who decided what, and from which state to which. The supervision seam of
 -- section 7.2, emitted for the first time at K.1.
@@ -174,6 +204,8 @@ CREATE TABLE IF NOT EXISTS jetsapi.approval_event (
   CONSTRAINT approval_event_to_state_ck CHECK (to_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed')),
   CONSTRAINT approval_event_tier_ck CHECK (tier_at_event IN ('T0', 'T1', 'T2', 'T3', 'T4'))
 );
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS decision_rationale text;
 -- stmt
 -- Answering "who approved proposal X" and "what happened to it" without a
 -- jsonb scan is the whole reason the typed half exists.
@@ -228,6 +260,12 @@ CREATE TABLE IF NOT EXISTS jetsapi.anomaly (
              CHECK (anomaly_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[])
 );
 -- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_expected_min text;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_expected_max text;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_deviation_magnitude double precision;
+-- stmt
 -- "Which anomalies did this run produce", which is how a triage step reaches them, and
 -- "what has this detector been saying lately", which is how a false-positive rate is
 -- read off. Neither is answerable from the primary key.
@@ -269,6 +307,19 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- alternative -- leave it to AC.1 -- was rejected for that reason and not for a
 -- technical one.
 --
+-- **incident_run_ref is a governance column and not a localisation one (AB.4, Q-32).**
+-- Every other reference here says where in the execution record the incident sits; this
+-- one says which AgentRun raised it, and it exists because jetsapi.agent_audit is keyed
+-- on an AgentRun by construction (F254). Before it, a transition on an incident reached
+-- the hash chain only when its own caller named a run -- which put a person's correction
+-- of a classification on the unchained side and an agent's own reclassification on the
+-- chained one, inverting the property a governance record is for (R-34).
+-- RecordIncidentTransition reads this column inside the write and uses it when the
+-- caller supplies none. It is nullable because a deterministic triage step is not an
+-- AgentRun, so the residue is *incidents nothing agentic raised*, uniform across actors
+-- rather than aimed at humans (R-44). No foreign key, on approval_event.run_ref's
+-- precedent.
+--
 -- Note what is NOT a column: hypotheses. The domain model declares it as an object
 -- property and JetRules traverses it in working memory; in Postgres the same
 -- relationship is jetsapi.hypothesis.hypothesis_incident_ref, and two writable
@@ -281,6 +332,7 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_id                      text PRIMARY KEY,
   incident_session_id              text NOT NULL,
+  incident_run_ref                 text,
   incident_detected_at             timestamp with time zone NOT NULL,
   incident_locus                   text NOT NULL,
   classification                   text,
@@ -301,6 +353,14 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
              CHECK (incident_step_ref IS NULL
                     OR 'step_label_ambiguous' = ANY (incident_confounders))
 );
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_run_ref text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS classification text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_step_ref text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_shard_ref bigint;
 -- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
 -- session id, and "what is open", which is how a supervision screen lists them.
@@ -343,6 +403,8 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
   CONSTRAINT hypothesis_cause_category_ck
              CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation'))
 );
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS cause_category text;
 -- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
 -- hypotheses and is not answerable from the primary key.
@@ -463,6 +525,14 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident_event (
                     OR (classification_after IS NOT NULL
                         AND transition_rationale IS NOT NULL))
 );
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS event_run_ref text;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS classification_before text;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS classification_after text;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS transition_rationale text;
 -- stmt
 -- "How did this incident get here, in order", which is the whole point of the table and
 -- is not answerable from the primary key.

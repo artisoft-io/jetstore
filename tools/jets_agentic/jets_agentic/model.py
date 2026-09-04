@@ -769,6 +769,25 @@ class Incident(JetsaEntity):
     an empty list asserting that none of the fourteen applies — Anomaly's own
     discipline.
 
+    **The run reference (AB.4, Q-32), added 2026-09-04 and it is a governance
+    property rather than a localisation one.** Every other reference on this
+    entity says where in the *execution record* the incident sits;
+    `incident_run_ref` says which *agent run* raised it, and it exists because
+    `jetsapi.agent_audit` is keyed on an `AgentRun` by construction. Without it a
+    transition on an incident reached the hash chain only when its own caller
+    named a run, which put the human corrections I-276 exists to capture on the
+    unchained side of the line — the record of the system's own reclassifications
+    tamper-evident and the record of a person's corrections to them not. The user
+    settled Q-32 on that argument; the alternatives, a chain that accepts a null
+    run and a separate human record, are refused rather than unconsidered.
+
+    **What it does not do is make the chain unconditional**, and the residue is
+    narrower than what it replaces rather than gone. The condition moves from
+    *the transition names a run* to *the incident names one*, so an incident
+    raised by a deterministic triage step is still outside the chain — but it is
+    outside it for **every** actor rather than for humans alone, which is the
+    property a governance record needs (R-44).
+
     **What is still not here.** §A.2.7's impact and generated_by blocks, which
     still have no consumer, and `correlation_group_id`, whose §A.2.6 counterpart
     was left off Anomaly for the same reason. The rule is unchanged: a skeleton
@@ -787,6 +806,20 @@ class Incident(JetsaEntity):
         "`purge_database` deletes by. Required: Q-23's answer is that an incident aggregates and "
         "that it cannot be keyed below the session (§9.6, I-264). Scoped per F7 against "
         "Anomaly's anomaly_session_id."
+    )
+    incident_run_ref: str | None = prop(
+        "The AgentRun that raised the incident, when one did (AB.4, Q-32). **This is what makes a "
+        "classification transition chainable** - jetsapi.agent_audit is keyed on an AgentRun by "
+        "construction (F254), so before this property a transition could reach the hash chain only "
+        "if its own caller named a run, and the callers least able to name one are the human ones "
+        "the labelling instrument depends on (I-297, R-34). RecordIncidentTransition now reads this "
+        "off the row and uses it when the caller supplies none. **Optional, and optional is not a "
+        "hedge**: AC.1 is deterministic by design and a deterministic triage step is not an "
+        "AgentRun, so an incident it raises names none and there is no honest value to invent. "
+        "Scoped per F7 against ApprovalEvent's run_ref, AgentRun's run_id and IncidentEvent's "
+        "event_run_ref; it is not incident_session_id, which is a *pipeline* session and names no "
+        "agent (the naming hazard AB.1 refused the name run_ref for).",
+        default=None,
     )
     incident_detected_at: datetime = prop(
         "When the incident was raised. Scoped per F7 against Anomaly's detected_at, which is "
@@ -970,15 +1003,23 @@ class IncidentEvent(JetsaEntity):
       is `Remediation.autonomy_tier_required`, one entity over. Recorded as
       **I-296** rather than left as an omission.
 
-    **`event_run_ref` is optional and that is the one weakness worth stating.**
-    `agent_audit.run_id` is `AgentRun`'s key, and neither a human working a
-    screen nor a deterministic triage step is an `AgentRun` — `Incident` has no
-    run reference at all, where `ChangeProposal.trigger_ref` carries one, which
-    is exactly what the approval handler reads to find the chain to append to
-    (**F255**). So a transition with no run is written to this table and **not**
-    to the hash chain: durable and attributable, and not tamper-evident. The
-    alternative — require a run and make the screen mint one — decides `AE.1`'s
-    design from here, and is refused for that reason (**R-34**, **I-297**).
+    **~~`event_run_ref` is optional and that is the one weakness worth
+    stating.~~ Half of that weakness is gone as of AB.4 and the half that
+    remains is a different shape.** It read: `agent_audit.run_id` is `AgentRun`'s
+    key, neither a human working a screen nor a deterministic triage step is an
+    `AgentRun`, and `Incident` has no run reference at all where
+    `ChangeProposal.trigger_ref` carries one (**F255**) — so a transition with no
+    run was durable, attributable and not tamper-evident, and the alternative was
+    refused as deciding `AE.1`'s design from here (**R-34**, **I-297**).
+
+    **`Incident` now carries `incident_run_ref`** (Q-32, decided by the user
+    2026-09-04), and `RecordIncidentTransition` reads it off the row when the
+    caller names no run. So this column stays optional and is now **filled from
+    the incident for the transitions that could not fill it themselves** — a
+    human's correction of an agent-raised incident is chained, which is the row
+    the labelling instrument is for. What survives is that an incident raised by
+    something that is not an `AgentRun` chains nothing, and that residue is
+    uniform across actors rather than aimed at humans (**R-44**).
     """
 
     # AB.2. Tabled with Remediation, and for the same reason the two Incident
@@ -1014,9 +1055,11 @@ class IncidentEvent(JetsaEntity):
     )
     event_run_ref: str | None = prop(
         "The AgentRun this transition belongs to, when it has one; the chain event is appended "
-        "to that run and is omitted when this is unset. Optional because neither a human at a "
-        "screen nor a deterministic triage step is an AgentRun and Incident records no run "
-        "(F255). Scoped per F7 against ApprovalEvent's run_ref.",
+        "to that run and is omitted when this is unset. **Filled from the caller when it names a "
+        "run and from Incident.incident_run_ref otherwise** (AB.4), so a human at a screen "
+        "chains onto the run that raised the incident rather than onto nothing. Still optional, "
+        "because an incident raised by something that is not an AgentRun supplies none either "
+        "(R-44). Scoped per F7 against ApprovalEvent's run_ref.",
         default=None,
     )
     classification_before: IncidentClassification | None = prop(
