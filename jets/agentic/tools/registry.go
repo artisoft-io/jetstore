@@ -118,6 +118,29 @@ func (r *Registry) Unbound() []string {
 	return out
 }
 
+// MinTierOf returns the minimum autonomy tier the named tool requires, as
+// generated into its signature (task AJ.1, gap 7b).
+//
+// **It is the first reader of MinTier that is not a test or a display.** The
+// field has ridden along since Phase 1 — "the minimum autonomy tier ride along
+// from day one" — and until this method its only consumers were the MCP
+// adapter, which passes it to a client, and a test asserting all six tools are
+// T0. Carrying it was the right call and nothing compared it.
+//
+// Both failures are errors rather than an empty string, because the caller is a
+// gate: a tool with no tier and a tool that does not exist must both refuse, and
+// "" would compare as unreadable only if every caller remembered to check it.
+func (r *Registry) MinTierOf(name string) (string, error) {
+	tool, ok := r.tools[name]
+	if !ok {
+		return "", fmt.Errorf("no tool named %q in the registry", name)
+	}
+	if tool.MinTier == "" {
+		return "", fmt.Errorf("tool %q carries no min_tier, so the authority it requires cannot be compared", name)
+	}
+	return tool.MinTier, nil
+}
+
 // Call dispatches by name — this, not MCP, is how the Phase-1 loop reaches
 // a tool.
 func (r *Registry) Call(ctx context.Context, ws *Workspace, name string, args json.RawMessage) (any, error) {

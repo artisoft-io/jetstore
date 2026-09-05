@@ -80,6 +80,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/agent"
+	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/eval"
 	"github.com/artisoft-io/jetstore/jets/agentic/infer"
 	"github.com/artisoft-io/jetstore/jets/agentic/prompt"
@@ -351,7 +352,18 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 			Budget:   agent.Budget{MaxIterations: iterations, WallClock: wall},
 			RunId:    fmt.Sprintf("p1-%s-%d", inst.Operator, totalOf(attempted)+totalOf(errored)),
 			Actor:    "tools/compile_pass",
-			Tier:     "assisted",
+			// **This read `"assisted"` until AJ.1, and that is not a member of
+			// the vocabulary.** agent_audit.tier is CHECKed against T0-T4, so
+			// the value would have been refused at the INSERT; it never was,
+			// because this loop carries no Auditor and no Recorder and
+			// therefore persists nothing. A tier written by the only non-test
+			// caller of the loop, invalid, and invisible for want of a reader
+			// is exactly the argument for the vocabulary now existing in Go.
+			//
+			// T2 is §9.2's *Propose* — "generate staged artifacts in a
+			// non-executing state" — which is what this harness measures: a
+			// proposal is produced, verified, counted, and nothing acts on it.
+			Tier: string(audit.TierT2),
 		}
 
 		began := time.Now()

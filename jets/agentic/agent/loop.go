@@ -174,8 +174,15 @@ type Loop struct {
 	// Guard is the durable stop. When set, it is consulted before the first
 	// model call and before every tool call that writes. Nil means unguarded,
 	// which is what the tests use — and what production must not be.
-	Guard  Guard
-	Budget Budget
+	Guard Guard
+	// TierGate compares the tier an action requires against the authority this
+	// run is operating at, and refuses below it (AJ.1, gap 7b). Consulted
+	// before every tool call and nowhere else — see the note at the Guard check
+	// in Run for why there is no tier check before the first model call. Nil
+	// means ungated, on Guard's precedent and for the same reason: it is what
+	// the tests are, and what production must not be.
+	TierGate TierGate
+	Budget   Budget
 
 	// RunId correlates every audit event of this run. One run, one id; a
 	// fan-out gives each candidate its own.
@@ -226,6 +233,17 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	// The kill switch, before anything else spends money or writes a record.
 	// A revoked identity should not leave an audit trail of a run it was never
 	// allowed to start, so this precedes even the intent.
+	//
+	// **There is deliberately no tier check here, and the asymmetry is the
+	// point rather than an omission (AJ.1).** Guard asks whether an identity
+	// may act at all, which is answerable with no action in hand. A tier gate
+	// asks whether this run's authority reaches *this* action, and before the
+	// first model call there is no action to ask about — the loop does not yet
+	// know which tool it will call, and the task names a verifier rather than
+	// requiring one. Gating on the task's declared verifier here would refuse
+	// runs that were going to exhaust before reaching it, and would put a
+	// second, earlier answer beside the one in verify with nothing keeping the
+	// two in step.
 	if l.Guard != nil {
 		if err := l.Guard.Allowed(ctx); err != nil {
 			l.event(ctx, audit.EventError, "", errorPayload("capability", err.Error()))
@@ -302,6 +320,15 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 
 		verdict, err := l.verify(ctx, task, artifact)
 		if err != nil {
+			// A refusal is already on the transcript with its own kind and its
+			// own operands, and the verifier was never reached — so it must not
+			// be appended a second time as a verifier failure, and must not be
+			// reported as one. See the note on refusal.
+			var ref *refusal
+			if errors.As(err, &ref) {
+				l.finish(ctx, OutcomeFailed, result)
+				return result, fmt.Errorf("agent: refused before the tool call on iteration %d: %w", i, err)
+			}
 			l.event(ctx, audit.EventError, task.Verifier, errorPayload("verifier", err.Error()))
 			l.finish(ctx, OutcomeFailed, result)
 			return result, fmt.Errorf("agent: the verifier failed on iteration %d: %w", i, err)
@@ -373,7 +400,25 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 	// thing that introduces the check.
 	if l.Guard != nil {
 		if err := l.Guard.Allowed(ctx); err != nil {
-			return nil, err
+			// **The refusal goes on the transcript, and did not until AJ.1.**
+			// The same check before the first model call has always appended an
+			// error event; this one returned silently, so a run stopped by a
+			// mid-run revocation left a trail ending at a decision with no
+			// reason beside it. A refusal nothing records is indistinguishable
+			// from a check that never ran, which is the distinction criterion
+			// 47's attestation was built around.
+			l.event(ctx, audit.EventError, task.Verifier, errorPayload("capability", err.Error()))
+			return nil, &refusal{Kind: "capability", Err: err}
+		}
+	}
+	// The autonomy gate (AJ.1, gap 7b, criterion 51). It sits behind the kill
+	// switch because the two refuse different things and the cheaper, broader
+	// one should answer first: an identity that may not act at all need not
+	// have its authority compared against anything.
+	if l.TierGate != nil {
+		if err := l.permitTool(ctx, task.Verifier); err != nil {
+			l.event(ctx, audit.EventError, task.Verifier, tierRefusalPayload(err))
+			return nil, &refusal{Kind: "autonomy_tier", Err: err}
 		}
 	}
 	raw, err := l.Registry.Call(ctx, l.Workspace, task.Verifier, args)
@@ -393,6 +438,29 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 	}
 	return &verdict, nil
 }
+
+// refusal marks an error the loop raised itself, before the tool ran, rather
+// than one the tool returned.
+//
+// **It exists because the transcript was blaming the verifier for both, and
+// AJ.1 is where that became visible.** A refusal from the kill switch or the
+// autonomy gate is appended at the point of refusal, with its own kind and its
+// own operands; Run then saw an error coming out of verify and appended a
+// second error event reading `"kind":"verifier"`, so a run stopped by a
+// governance control produced a trail whose last word named a tool that was
+// never called. The wrapper is what lets Run tell a refusal from a failure and
+// say which it was — which is the same distinction the payload's kinds make one
+// level down, and criterion 51's last clause is worth nothing if the record
+// then contradicts itself.
+type refusal struct {
+	// Kind matches the payload's kind, so the event and the returned error
+	// agree about what stopped the run.
+	Kind string
+	Err  error
+}
+
+func (r *refusal) Error() string { return r.Err.Error() }
+func (r *refusal) Unwrap() error { return r.Err }
 
 // repairFromVerdict builds the next prompt from the diagnostics. This is Rung
 // 3 of the analysis's §7, and the reason it is worth more than its size: the
@@ -478,6 +546,33 @@ func toolCallPayload(args, report json.RawMessage) []byte {
 
 func errorPayload(kind, message string) []byte {
 	b, _ := json.Marshal(map[string]any{"kind": kind, "message": message})
+	return b
+}
+
+// tierRefusalPayload is criterion 51's last clause: the refusal, in the audit
+// record, with both operands.
+//
+// **The kind is distinct from "capability" on purpose.** Both refusals stop a
+// tool call and they mean different things — one says the identity has been
+// stopped, the other says this run's authority does not reach this action — and
+// a reader counting refusals wants to tell them apart without parsing English.
+// The operands are separate keys rather than interpolated into the message for
+// the same reason: a query asking which actions were refused at which tier
+// should read columns, not sentences.
+func tierRefusalPayload(err error) []byte {
+	m := map[string]any{"kind": "autonomy_tier", "message": err.Error()}
+	var low *ErrTierTooLow
+	if errors.As(err, &low) {
+		m["action"] = low.Action
+		m["required_tier"] = low.Required
+		m["current_tier"] = low.Current
+	} else {
+		// The comparison could not be made rather than having been made and
+		// refused. Saying so is what keeps "not authorised" and "could not
+		// tell" apart in the record.
+		m["comparison"] = "not made"
+	}
+	b, _ := json.Marshal(m)
 	return b
 }
 
