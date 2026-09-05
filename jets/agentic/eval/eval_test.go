@@ -240,12 +240,26 @@ func TestAgainstTheRealCorpus(t *testing.T) {
 		len(c.Files), len(c.Instances), len(byOp))
 	// The figures every count in this project rests on, re-measured 2026-08-16
 	// at B.4 and asserted here so the walk cannot quietly disagree with them.
+	//
+	// **The instance count moved 458 -> 459 on 2026-09-05** when AK.2 added a
+	// partition_writer to patient_profile.pc.json for the briefing output
+	// (jets_ws#7). The corpus grew legitimately and this constant was stale, not
+	// the walk. Verified by counting that one document at both jets_ws commits:
+	// 15 transformations before, 16 after, the addition a partition_writer.
+	//
+	// **It went undetected for three merges because `go test` caches this test
+	// across a corpus change.** The corpus lives outside the module, so the
+	// cache does not invalidate when workspaces/ moves: an old-corpus `ok` is
+	// replayed against a new corpus. Demonstrated by clearing the cache, running
+	// green at the old commit, moving the workspace, and getting `ok` again
+	// where -count=1 gives FAIL. **Run this and every corpus-reading test with
+	// -count=1**; two sessions and a reviewer read a stale pass here.
 	if len(c.Files) != 45 {
 		t.Errorf("corpus has %d live files, want 45 (I-13's definition: workspaces/*/pipes_config/**)",
 			len(c.Files))
 	}
-	if len(c.Instances) != 458 {
-		t.Errorf("corpus has %d transformation instances, want 458; a flat walk of the top-level "+
+	if len(c.Instances) != 459 {
+		t.Errorf("corpus has %d transformation instances, want 459; a flat walk of the top-level "+
 			"pipes finds 257, which is the mistake this assertion exists to catch", len(c.Instances))
 	}
 	for _, op := range []string{"map_record", "partition_writer", "ollama", "high_freq", "distinct"} {
