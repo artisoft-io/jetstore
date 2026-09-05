@@ -1,0 +1,167 @@
+{
+  "incident": {
+    "classification": "",
+    "confounders": [
+      "stall_cause_unknown",
+      "step_label_ambiguous"
+    ],
+    "detectedAt": "2026-09-04T12:00:00Z",
+    "hypotheses": [
+      {
+        "basis": {
+          "contradictingCount": 4,
+          "evidenceability": "coarse",
+          "supportingCount": 3
+        },
+        "cause": "transformation_defect, inferred from locus worker_not_terminated — §9.5 lists worker_not_terminated among the loci that can carry this class",
+        "causeCategory": "transformation_defect",
+        "confidence": 0.42857142857142855,
+        "contradictingEvidence": [
+          {
+            "source": "code_inspection",
+            "sourceRef": "phase-4 plan §9.5",
+            "statement": "the execution record's ability to evidence transformation_defect is \"coarse\": the locus yes, the cause coarsely: N.4's StepRegression establishes that this step used to work, and a run now names a workspace and a compiled version (§16.2, AB.3), which that version now pairs with a commit (AH.2) — so two runs of the same step under different versions are distinguishable and what changed inside a version is not (F337). **The join is through a read that is known wrong**: four call sites resolve the workspace version as MAX(version) with no workspace predicate, so a deployment with two workspaces can stamp a run with the other one's version (§18.4, I-347)",
+            "statementRedacted": false
+          },
+          {
+            "source": "detector_confounder",
+            "sourceRef": "triage finding triage@1: stall_cause_unknown at s-golden/worker_not_terminated",
+            "statement": "stall_cause_unknown: the comparison behind this locus is bounded, so it does not exclude an explanation other than transformation_defect",
+            "statementRedacted": false
+          },
+          {
+            "source": "detector_confounder",
+            "sourceRef": "triage finding triage@1: step_label_ambiguous at s-golden/worker_not_terminated",
+            "statement": "step_label_ambiguous: the comparison behind this locus is bounded, so it does not exclude an explanation other than transformation_defect",
+            "statementRedacted": false
+          },
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/per_record_failures_reported",
+            "statement": "§9.5 says this class can also be carried by locus per_record_failures_reported, and that locus could not be evaluated at all, so the case for this class is bounded rather than complete: jetsapi.process_errors is not deployed on this database, so the absence of a per-record failure cannot be told from the absence of the table",
+            "statementRedacted": false
+          }
+        ],
+        "hypothesisId": "hyp_inc_s-golden_worker_not_terminated_transformation_defect",
+        "incidentRef": "inc_s-golden_worker_not_terminated",
+        "locus": "worker_not_terminated",
+        "rank": 1,
+        "supportingEvidence": [
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/worker_not_terminated (triage@1)",
+            "statement": "triage found locus worker_not_terminated present for session s-golden: 1 of 3 worker rows of session \"s-golden\" are still at 'in progress' under a header that reached \"failed\". The record says nothing about why: this locus collapses a killed task, an out-of-memory kill, a lost node and a hung read into one observation. Their six counts are NULL rather than 0, because only UpdatePipelineExecutionStatus sets them (F99), so no arithmetic over this run's volumes includes them. **And none of them can say which step it is**: cpipes_step_id is set by that same update and the insert names eleven columns without it, so a worker that never terminated has an empty step label by construction, whatever its configuration said — 0 of the 1 carry one. The step aggregate then does not merely omit these rows: cpipes_execution_status_details is a GROUP BY filtered `status \u003c\u003e 'in progress'` (F193), so the step's totals describe the workers that finished and read as a clean step",
+            "statementRedacted": false
+          },
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/worker_failed",
+            "statement": "§9.5 says this class can also be carried by locus worker_failed, and that locus is present for this run as well: 1 of 3 worker rows of session \"s-golden\" are at 'failed'; 1 carry an error_message. That column is strings.Join(processingErrors, \",\") with eight append sites feeding it and no escaping (F191), and the messages contain commas, so it cannot be split back into the errors that made it: 2 comma-separated segments is an upper bound on how many things went wrong and not a count of them. No column of the row carries a class (F199), and jets/compute_pipes constructs 984 distinct errors that all arrive here as text",
+            "statementRedacted": false
+          },
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/rows_lost_silently",
+            "statement": "§9.5 says this class can also be carried by locus rows_lost_silently, and that locus is present for this run as well: volume_collapse@1 found 1 of the 1 completed worker rows of session \"s-golden\" emitting materially fewer rows than they read. This is the one locus of the nine that carries a threshold, and both of its numbers are unsourced (R-21): nothing in this repository has measured what a normal output ratio is for a JetStore step. The first anomaly's own basis: worker row 3 of session s-golden, step reducing01, shard 2: output_records_count 40 against input_records_count 8000 on the same row, 0.5% of what it read, against a floor of 50%. The comparison is within one row and needs no history. No configuration was consulted, so on_error: drop, max_input_count, sampling_max_count and device_writer_type are unruled-out and unreported",
+            "statementRedacted": false
+          }
+        ]
+      },
+      {
+        "basis": {
+          "contradictingCount": 4,
+          "evidenceability": "coarse",
+          "supportingCount": 2
+        },
+        "cause": "infrastructure_failure, inferred from locus worker_not_terminated — §9.5 lists worker_not_terminated among the loci that can carry this class",
+        "causeCategory": "infrastructure_failure",
+        "confidence": 0.3333333333333333,
+        "contradictingEvidence": [
+          {
+            "source": "code_inspection",
+            "sourceRef": "phase-4 plan §9.5",
+            "statement": "the execution record's ability to evidence infrastructure_failure is \"coarse\": the ECS StoppedReason arm of the decoder is real and which of its four arms fired is not recorded (F198), and locus worker_not_terminated collapses a killed task, an out-of-memory kill, a lost node and a hung read into one observation (§9.5)",
+            "statementRedacted": false
+          },
+          {
+            "source": "detector_confounder",
+            "sourceRef": "triage finding triage@1: stall_cause_unknown at s-golden/worker_not_terminated",
+            "statement": "stall_cause_unknown: the comparison behind this locus is bounded, so it does not exclude an explanation other than infrastructure_failure",
+            "statementRedacted": false
+          },
+          {
+            "source": "detector_confounder",
+            "sourceRef": "triage finding triage@1: step_label_ambiguous at s-golden/worker_not_terminated",
+            "statement": "step_label_ambiguous: the comparison behind this locus is bounded, so it does not exclude an explanation other than infrastructure_failure",
+            "statementRedacted": false
+          },
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/run_not_started",
+            "statement": "§9.5 says this class can also be carried by locus run_not_started, and that locus was evaluated and does not hold: the run header of session \"s-golden\" is terminal at \"failed\" and the run has 3 worker rows, so it started",
+            "statementRedacted": false
+          }
+        ],
+        "hypothesisId": "hyp_inc_s-golden_worker_not_terminated_infrastructure_failure",
+        "incidentRef": "inc_s-golden_worker_not_terminated",
+        "locus": "worker_not_terminated",
+        "rank": 2,
+        "supportingEvidence": [
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/worker_not_terminated (triage@1)",
+            "statement": "triage found locus worker_not_terminated present for session s-golden: 1 of 3 worker rows of session \"s-golden\" are still at 'in progress' under a header that reached \"failed\". The record says nothing about why: this locus collapses a killed task, an out-of-memory kill, a lost node and a hung read into one observation. Their six counts are NULL rather than 0, because only UpdatePipelineExecutionStatus sets them (F99), so no arithmetic over this run's volumes includes them. **And none of them can say which step it is**: cpipes_step_id is set by that same update and the insert names eleven columns without it, so a worker that never terminated has an empty step label by construction, whatever its configuration said — 0 of the 1 carry one. The step aggregate then does not merely omit these rows: cpipes_execution_status_details is a GROUP BY filtered `status \u003c\u003e 'in progress'` (F193), so the step's totals describe the workers that finished and read as a clean step",
+            "statementRedacted": false
+          },
+          {
+            "source": "run_telemetry",
+            "sourceRef": "s-golden/worker_failed",
+            "statement": "§9.5 says this class can also be carried by locus worker_failed, and that locus is present for this run as well: 1 of 3 worker rows of session \"s-golden\" are at 'failed'; 1 carry an error_message. That column is strings.Join(processingErrors, \",\") with eight append sites feeding it and no escaping (F191), and the messages contain commas, so it cannot be split back into the errors that made it: 2 comma-separated segments is an upper bound on how many things went wrong and not a count of them. No column of the row carries a class (F199), and jets/compute_pipes constructs 984 distinct errors that all arrive here as text",
+            "statementRedacted": false
+          }
+        ]
+      }
+    ],
+    "hypothesisCount": 2,
+    "incidentId": "inc_s-golden_worker_not_terminated",
+    "locus": "worker_not_terminated",
+    "modelVersion": "0.1.0",
+    "runRef": "",
+    "sessionId": "s-golden",
+    "severity": "info",
+    "shardRef": 1,
+    "status": "diagnosed",
+    "stepRef": ""
+  },
+  "phiCapability": "agent_phi_access",
+  "phiProperties": [
+    "statement (PHI)"
+  ],
+  "phiRedacted": false,
+  "transitions": [
+    {
+      "actor": "triage@1",
+      "actorKind": "agent",
+      "classificationAfter": "",
+      "classificationBefore": "",
+      "fromStatus": "detected",
+      "incidentEventId": "ie_inc_s-golden_worker_not_terminated_triaged",
+      "rationale": "1 of 3 worker rows of session \"s-golden\" are still at 'in progress' under a header that reached \"failed\". The record says nothing about why: this locus collapses a killed task, an out-of-memory kill, a lost node and a hung read into one observation. Their six counts are NULL rather than 0, because only UpdatePipelineExecutionStatus sets them (F99), so no arithmetic over this run's volumes includes them. **And none of them can say which step it is**: cpipes_step_id is set by that same update and the insert names eleven columns without it, so a worker that never terminated has an empty step label by construction, whatever its configuration said — 0 of the 1 carry one. The step aggregate then does not merely omit these rows: cpipes_execution_status_details is a GROUP BY filtered `status \u003c\u003e 'in progress'` (F193), so the step's totals describe the workers that finished and read as a clean step",
+      "runRef": "",
+      "toStatus": "triaged",
+      "transitionedAt": "2026-09-04T12:00:00Z"
+    },
+    {
+      "actor": "triage@1",
+      "actorKind": "agent",
+      "classificationAfter": "",
+      "classificationBefore": "",
+      "fromStatus": "triaged",
+      "incidentEventId": "ie_inc_s-golden_worker_not_terminated_diagnosed",
+      "rationale": "rca@1 ranked 9 hypotheses for session s-golden. 3 locus/loci are present (worker_not_terminated, worker_failed, rows_lost_silently), and each was mapped to the cause classes phase-4 plan §9.5 lists as able to carry it. 5 of the nine loci could not be evaluated (step_never_started, sink_failed_under_completed_worker, per_record_failures_reported, per_record_failures_unreportable, written_not_arrived), so every class whose only evidence position is among them has not been ruled out — it has not been looked at. 2 of the ten cause classes are attached to no locus at all in §9.5 (dependency_failure, capacity_or_cost_deviation) and can therefore never be emitted by this floor, whatever the run did. A further 1 are attached to a locus and answered \"no\" in §9.5's evidenceability column (source_delivery_failure): those are emitted where their locus fires and carry §9.5's own reason as evidence against themselves, which is how a class the record cannot support is put in front of a reader rather than hidden from one. No anomaly rows were supplied for this session, so no detector's confounders entered the case against; jetsapi.anomaly is deployed only where `update_db -migrateDb` has run. No model was consulted.",
+      "runRef": "",
+      "toStatus": "diagnosed",
+      "transitionedAt": "2026-09-04T12:00:00.001Z"
+    }
+  ]
+}

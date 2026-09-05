@@ -463,6 +463,20 @@
           "required": true,
           "description": "The evidence against \u2014 required; empty only where the agent explicitly asserts none exists (\u00a7A.2.8).",
           "entity": "jetsa:Evidence"
+        },
+        "jetsa:hypothesis_locus": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**The AC.1 verdict this hypothesis was derived from** - the same nine-value vocabulary Incident.incident_locus is constrained by, deliberately not a second list (F68). Added at AC.3 by the user's answer to Q-46, before the first row was written rather than after. Required: AC.2's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly the failure mode that task discovered, in a form that hides it.",
+          "vocabulary": "IncidentLocus"
+        },
+        "jetsa:basis": {
+          "type": "resource",
+          "array": false,
+          "required": true,
+          "description": "**How the rank was arrived at, as counts** (Q-46). Section 19.7 graded criterion 45's last clause as met for what AC.2 emits and not surviving the write; this is the column that carries it. Required, because a hypothesis whose basis is absent is one nobody can check and the whole argument for the deterministic floor is that its arithmetic is checkable.",
+          "entity": "jetsa:HypothesisBasis"
         }
       }
     },
@@ -697,6 +711,32 @@
           "description": "Why, in the actor's words. Optional in general and required for a reclassification by the same CHECK (A.5). Scoped per F7 against ApprovalEvent's decision_rationale."
         }
       }
+    },
+    "jetsa:HypothesisBasis": {
+      "description": "How a hypothesis was ranked, as numbers (Q-46, answered by the user 2026-09-04). **Numbers rather than prose, and that is the whole of the shape.** `AC.2` emits a sentence per hypothesis and a sentence per ranking; a sentence cannot be checked against anything, and a count can. `supporting_count` and `contradicting_count` are the lengths of the two evidence arrays on the same row, so a reader \u2014 or a test \u2014 can confirm that the stored confidence is the ratio it claims to be, months after the run and without the run. **Why it is persisted at all, which the question had to settle rather than assume.** *Reconstructable by re-running* is false for the model arm: `AC.2` measured 16 hypotheses on one run and 13 on the next from identical input (\u00a719.6). And the evidence expires while the row persists, on two independent clocks \u2014 `RETENTION_DAYS` with no default and a hard-coded six months on the run header (P3 F54) \u2014 so even the deterministic floor's basis is reconstructable only inside a window nobody has set.",
+      "base": "owl:Thing",
+      "as_table": false,
+      "properties": {
+        "jetsa:supporting_count": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "How many evidence items were for the hypothesis. The length of supporting_evidence on the same row, stored so that the ratio confidence claims can be checked without the run."
+        },
+        "jetsa:contradicting_count": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "How many were against. Zero is a claim the ranker made, not a question it was never asked - contradicting_evidence is required and nil fails validation (F390)."
+        },
+        "jetsa:evidenceability": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What plan section 9.5 says the record can do for this hypothesis's cause class. It is AC.2's primary sort key rather than a gloss: a class the substrate cannot speak to outranks nothing, whatever its counts (I-361).",
+          "vocabulary": "Evidenceability"
+        }
+      }
     }
   },
   "vocabularies": {
@@ -836,6 +876,7 @@
     },
     "IncidentLocus": {
       "properties": [
+        "jetsa:hypothesis_locus",
         "jetsa:incident_locus"
       ],
       "values": [
@@ -905,6 +946,19 @@
         "agent"
       ],
       "description": "**Ours entirely** (2 values). Not in the proposal at any level. **Who made a transition, as a column rather than as a spelling convention.** `ApprovalEvent.actor` and `jetsapi.agent_audit.actor` both carry *\"a user_email or an agent identity\"* and leave the two apart by the shape of the string. That is adequate for attribution \u2014 the question those columns were built to answer is *which* actor \u2014 and it is not adequate for the question I-276 asks, which is *which kind*. I-276's sentence is that **a label the measured system may have written is not a label**: \u00a711.3.1's four label-bearing metrics score an agent's classification against a human's correction, so a query that cannot partition the corrections by kind has no denominator. Deciding that by pattern-matching an email address would make the population a property of a regular expression. Two members and no more. `agent` covers a deterministic classifier as well as a model-driven one: the distinction that matters to a metric is whether the transition came from **outside** the system under test, and AC.1 being deterministic does not put it outside (AB.2, **I-292**)."
+    },
+    "Evidenceability": {
+      "properties": [
+        "jetsa:evidenceability"
+      ],
+      "values": [
+        "evidenced",
+        "conditional",
+        "coarse",
+        "asymmetric",
+        "none"
+      ],
+      "description": "**Ours entirely** (5 values), and it is phase-4 plan \u00a79.5's third column reduced to a vocabulary. Not in the proposal at any level. \u00a79.5 asked, per imported cause class, *can the record evidence this class*, and answered in prose per cell. `AC.2`'s ranker reduced those answers to five tiers and **sorts on them as its primary key** \u2014 a class the substrate cannot speak to is not a weak candidate, which is the finding that inverted its first ranking (**I-361**). The tier is therefore an input to a rank rather than a gloss on one, and `AC.3` persists it for that reason (Q-46). The order below is the sort order: better-evidenced first."
     }
   }
 }

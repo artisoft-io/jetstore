@@ -121,10 +121,75 @@ export interface HypothesisRow {
   rank: number;
   supportingEvidence: Evidence[];
   contradictingEvidence: Evidence[];
+  /**
+   * The `AC.1` locus this hypothesis was raised from (`AC.3`, Q-46).
+   *
+   * **It is not the incident's locus restated.** The shadow writer files a
+   * hypothesis under the incident of its own locus, so today the two agree; a
+   * ranker that proposed a cause at a locus triage did **not** find present would
+   * produce a row where they do not, and `AC.2` measured exactly that as 20 of 29
+   * on its model arm. The screen shows it beside the incident's so a supervisor
+   * can see the disagreement rather than infer it.
+   */
+  locus: string;
+  /** How the rank was arrived at, as counts. */
+  basis: HypothesisBasisRow;
+}
+
+/**
+ * The `basis` column: two counts and the tier the ranker sorts on.
+ *
+ * **Numbers rather than prose, which is what makes the confidence checkable.**
+ * `confidence` is `supportingCount / (supportingCount + contradictingCount)` for
+ * the deterministic floor, and a reader who can see both numbers can see that —
+ * where a sentence saying so could not be checked against anything.
+ */
+export interface HypothesisBasisRow {
+  supportingCount: number;
+  contradictingCount: number;
+  /** Plan §9.5's third column: what the record can do for this cause class. */
+  evidenceability: string;
 }
 
 export interface IncidentDetail extends IncidentRow {
   hypotheses: HypothesisRow[];
+}
+
+/**
+ * One row of `jetsapi.incident_event` — how the incident got where it is
+ * (`AB.2`'s table, put on the wire by `AC.3`).
+ *
+ * **`rationale` is where the reasoning lives, and that is a property of the
+ * schema rather than a convention.** `jetsapi.hypothesis` has eight columns and
+ * neither a basis nor a locus is one of them, so `AC.2`'s account of *why this
+ * hypothesis ranks where it does* and *what was considered and dropped* has
+ * nowhere on the rows it is about. The shadow-mode writer puts the locus
+ * verdict's own basis on the `detected -> triaged` transition and the ranking's
+ * on `triaged -> diagnosed`, which is the only place in the record that holds
+ * them. A screen that dropped this column would be dropping the reasoning.
+ *
+ * **`actorKind` is a column and not a spelling convention** (`AB.2`, I-276):
+ * `agent` here means the system reached this verdict about its own work, and a
+ * supervision screen that showed the two alike would show half a label.
+ */
+export interface IncidentTransitionRow {
+  incidentEventId: string;
+  fromStatus: string;
+  toStatus: string;
+  actor: string;
+  /** "human" or "agent". */
+  actorKind: string;
+  transitionedAt: string;
+  /**
+   * The `AgentRun` this transition was chained onto, "" when the incident names
+   * none — which is every incident triage writes, a deterministic classifier not
+   * being an `AgentRun` (`AB.4`, R-44). An empty value means this transition is
+   * durable and attributable and is **not** hash-chained.
+   */
+  runRef: string;
+  classificationBefore: string;
+  classificationAfter: string;
+  rationale: string;
 }
 
 /**
@@ -138,6 +203,13 @@ export interface IncidentDetail extends IncidentRow {
  */
 export interface IncidentDetailResponse {
   incident: IncidentDetail;
+  /**
+   * How the incident got here, oldest first. Optional on the wire: a database
+   * migrated between `AB.1` and `AB.2` has the incident and not its history, and
+   * an incident a supervisor cannot open is worse than one whose history is
+   * missing.
+   */
+  transitions?: IncidentTransitionRow[];
   /** True when PHI-classified fields were withheld from this caller. */
   phiRedacted: boolean;
   /** The capability that would lift it, named by the server. */

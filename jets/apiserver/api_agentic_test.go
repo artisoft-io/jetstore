@@ -26,6 +26,10 @@ import (
 // reaches an unset one gets a zero value, which is what an "unused in this
 // test" arm should look like.
 type fakeOps struct {
+	// AC.3's incident transition history; nil is a legitimate answer.
+	transitions    []audit.IncidentTransition
+	transitionsErr error
+
 	proposals   []audit.ProposalSummary
 	proposal    *audit.Proposal
 	proposalErr error
@@ -618,4 +622,11 @@ func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
 			t.Errorf("%s: the error should name the remedy; got %v", action.Action, err)
 		}
 	}
+}
+
+// IncidentTransitionsFor completes the agenticOps interface for the fake store
+// (task AC.3). The scripted value is `transitions`; nil is a legitimate answer
+// and is what a database migrated between AB.1 and AB.2 would give.
+func (f *fakeOps) IncidentTransitionsFor(context.Context, string) ([]audit.IncidentTransition, error) {
+	return f.transitions, f.transitionsErr
 }

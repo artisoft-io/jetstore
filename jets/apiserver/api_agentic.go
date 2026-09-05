@@ -146,6 +146,14 @@ type agenticOps interface {
 	// package redacts inside the read, so a handler cannot obtain an
 	// unredacted Evidence without having passed audit.DisclosePHI (AE.2).
 	ReadIncident(ctx context.Context, incidentId string, phi audit.PHIAccess) (*audit.Incident, error)
+	// IncidentTransitionsFor returns how the incident got where it is, added at
+	// `AC.3`. **It is the audit record's visible form and not a detail**: the
+	// classifier's own basis for the locus travels on the `detected -> triaged`
+	// rationale and the ranker's account of the whole ranking on
+	// `triaged -> diagnosed`, neither of which has a column on the rows they are
+	// about (F402, Q-46). Without this the basis reaches the database and stops
+	// there, which is criterion 45's last clause met and invisible.
+	IncidentTransitionsFor(ctx context.Context, incidentRef string) ([]audit.IncidentTransition, error)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -182,6 +190,9 @@ func (o pgOps) ListIncidents(ctx context.Context, statuses []string, limit int) 
 }
 func (o pgOps) ReadIncident(ctx context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
 	return audit.ReadIncident(ctx, o.db, id, phi)
+}
+func (o pgOps) IncidentTransitionsFor(ctx context.Context, ref string) ([]audit.IncidentTransition, error) {
+	return audit.IncidentTransitionsFor(ctx, o.db, ref)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -514,16 +525,62 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 			// claim nobody argued with.
 			"supportingEvidence":    evidenceItems(h.SupportingEvidence),
 			"contradictingEvidence": evidenceItems(h.ContradictingEvidence),
+			// The two columns Q-46 added at `AC.3`. **The locus travels because
+			// a hypothesis raised at a locus triage did not find present is
+			// otherwise indistinguishable on the screen from one raised at a
+			// locus it did**, which is `AC.2`'s headline finding; the basis
+			// travels because a confidence a reader cannot check against
+			// anything is the number R-48 warns will be read as a probability.
+			"locus": h.Locus,
+			"basis": map[string]any{
+				"supportingCount":    h.Basis.SupportingCount,
+				"contradictingCount": h.Basis.ContradictingCount,
+				"evidenceability":    h.Basis.Evidenceability,
+			},
 		})
 	}
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
+
+	// How it got here (`AC.3`). **A read failure here is not a failure of the
+	// screen**: jetsapi.incident_event arrived at AB.2 and jetsapi.incident at
+	// AB.1, so a database migrated between the two has the incident and not its
+	// history — and an incident a supervisor cannot open is worse than one whose
+	// history is missing. The empty list is what the screen renders in that case,
+	// and it renders it as *no recorded transitions* rather than as a blank.
+	transitions := []map[string]any{}
+	if ts, err := ops.IncidentTransitionsFor(ctx, a.IncidentId); err == nil {
+		for _, t := range ts {
+			transitions = append(transitions, map[string]any{
+				"incidentEventId": t.IncidentEventId,
+				"fromStatus":      t.FromStatus,
+				"toStatus":        t.ToStatus,
+				"actor":           t.Actor,
+				// The column I-276 asks for, on the wire because a screen showing
+				// a verdict without whose it is shows half a label.
+				"actorKind":            t.ActorKind,
+				"transitionedAt":       timeOrEmpty(t.TransitionedAt),
+				"runRef":               t.RunRef,
+				"classificationBefore": t.ClassificationBefore,
+				"classificationAfter":  t.ClassificationAfter,
+				// Where the basis lives. `AC.2` emits a per-hypothesis basis and a
+				// ranking basis and jetsapi.hypothesis has a column for neither, so
+				// `AC.3` writes the ranking's account here — criterion 45's last
+				// clause, carried by the transition rather than by the row.
+				"rationale": t.Rationale,
+			})
+		}
+	} else {
+		log.Printf("while reading the transitions of incident %s: %v", a.IncidentId, err)
+	}
+
 	// What was withheld and what would lift it, said once for the screen rather
 	// than inferred from a field being empty. `phiProperties` comes from the
 	// generated manifest, so a second marked property appears here without an
 	// edit (AE.2).
 	return &map[string]any{
 		"incident":      row,
+		"transitions":   transitions,
 		"phiRedacted":   phi == audit.RedactPHI,
 		"phiCapability": AgentPHIAccessCapability,
 		"phiProperties": classifiedPropertyNames("Evidence"),

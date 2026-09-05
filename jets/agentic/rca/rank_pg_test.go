@@ -377,12 +377,25 @@ func TestHypothesesAreWritableAndReadBackWholeAlbeitByATest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("marshalling contradicting evidence: %v", err)
 		}
+		// hypothesis_locus and basis are columns as of AC.3 (Q-46, answered by
+		// the user 2026-09-04). This test wrote its rows before they existed;
+		// it now writes the locus the ranker actually derived from and a basis
+		// computed from the two slices being marshalled above, which is what
+		// the shadow writer does one package over.
+		basis, err := json.Marshal(map[string]any{
+			"supporting_count":    len(h.SupportingEvidence),
+			"contradicting_count": len(h.ContradictingEvidence),
+			"evidenceability":     string(EvidenceabilityOf(h.CauseCategory)),
+		})
+		if err != nil {
+			t.Fatalf("marshalling basis: %v", err)
+		}
 		if _, err := pool.Exec(ctx, `INSERT INTO jetsapi.hypothesis
 			(hypothesis_id, hypothesis_incident_ref, cause, cause_category, confidence, rank,
-			 supporting_evidence, contradicting_evidence)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			 supporting_evidence, contradicting_evidence, hypothesis_locus, basis)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 			h.HypothesisId, "incident-for-"+r.SessionId, h.Cause, h.CauseCategory, h.Confidence,
-			h.Rank, sup, con); err != nil {
+			h.Rank, sup, con, h.Locus, basis); err != nil {
 			t.Fatalf("inserting hypothesis %s: %v", h.HypothesisId, err)
 		}
 	}

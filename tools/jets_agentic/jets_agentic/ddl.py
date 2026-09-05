@@ -34,7 +34,7 @@ What the DDL enforces, per §7.2 and §7.3:
   per **nullable** column. `CREATE TABLE IF NOT EXISTS` does nothing to a table
   that already exists, so before this a column added to the model reached a
   fresh database and no migrated one — and `InstallSchema` ran clean either
-  way. The boundary is deliberate and is stated on `_nullable_column_alters`:
+  way. The boundary is deliberate and is stated on `_added_column_alters`:
   NOT NULL columns, drops, renames and type changes each need a migration with
   an author, and this covers none of them.
 - **The hash chain (A8.5):** a BEFORE INSERT trigger assigns `seq`
@@ -194,8 +194,8 @@ def _table_name(entity) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", entity.__name__).lower()
 
 
-def _nullable_column_alters(entity) -> str:
-    """`ADD COLUMN IF NOT EXISTS` for every nullable column of one table.
+def _added_column_alters(entity) -> str:
+    """`ADD COLUMN IF NOT EXISTS` for every non-key column of one table.
 
     **`CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists,
     which is fine while a generator only ever creates and stops being fine at the
@@ -205,17 +205,50 @@ def _nullable_column_alters(entity) -> str:
     clean either way and the missing column surfaces as a 42703 in whatever
     queries it next (**I-337**).
 
-    The rule is nullable columns only, and the boundary is stated rather than
-    implied. A NOT NULL column cannot be added to a populated table without a
-    default, so it needs a hand-written migration that decides what the existing
-    rows should say — a decision no emitter is entitled to take. Drops, renames
-    and type changes are likewise not covered: each destroys or reinterprets data
-    and is a migration with an author. **So what this buys is exactly the cheap
-    half** — the additive, nullable widening, which is what a schema-first domain
-    model produces most of — and it says so instead of reading as a migration
-    story.
+    **The rule was nullable columns only until AC.3, and it is now every added
+    column, with the NOT NULL case emitted as two statements.** `AB.4` wrote the
+    boundary as *a NOT NULL column cannot be added to a populated table without a
+    default, so it needs a hand-written migration* — true, and it made the first
+    NOT NULL widening silent rather than hard. `AC.3` added two required columns
+    to `Hypothesis` (Q-46) and would have had them reach a fresh database and no
+    migrated one, which is I-337 with the loudness removed.
 
-    Emitted after the table's CREATE, one statement per column, each idempotent.
+    So the constraint travels on the same statement: a NOT NULL column emits
+    `ADD COLUMN IF NOT EXISTS <col> <type> NOT NULL`. **One statement rather than
+    an ADD followed by a SET NOT NULL, and the difference is not cosmetic.**
+    `IF NOT EXISTS` makes the whole subcommand a no-op where the column already
+    exists, so a fresh install and every table this widening does not touch pay
+    nothing — where the two-statement form would emit some sixty redundant
+    `SET NOT NULL`s across eight tables, each taking an ACCESS EXCLUSIVE lock for
+    a catalogue check.
+
+    **What it does in each of the three states.** On a fresh install the CREATE
+    already made the column and the statement is skipped. On a migrated **empty**
+    table the column is added with its constraint, which is every deployment of
+    `jetsapi.hypothesis` that exists — the table has never held a row (F288). On
+    a migrated **populated** table it fails with a not-null violation naming the
+    column.
+
+    **That last case is a trade rather than a fix, and the direction is
+    deliberate.** It converts a silently missing column — which surfaces later as
+    a 42703 in whatever query touches it, in production, far from the cause — into
+    a migration that stops and says which column it could not add. What the
+    existing rows should say is still a hand-written migration with an author;
+    what changed is that nobody discovers the gap by accident (**I-381**).
+
+    **One case is still silent and is named rather than left to be found**: a
+    column that already exists as nullable and that the model now marks required
+    is skipped by `IF NOT EXISTS`, so the table keeps the weaker constraint. That
+    is a nullability *change* rather than an addition, and it is in the same class
+    as a drop, a rename or a type change — each destroys or reinterprets data and
+    is a migration with an author.
+
+    **So what this buys is the additive half**, now including the
+    required-additive half where the table can take it, and it says so instead of
+    reading as a migration story.
+
+    Emitted after the table's CREATE, one or two statements per column, each
+    idempotent.
     """
     key, _ = _key_field(entity)
     table = _table_name(entity)
@@ -227,10 +260,10 @@ def _nullable_column_alters(entity) -> str:
         if target is not None and getattr(target, "jr_as_table", False):
             continue
         pg, nullable = _pg_type(field.annotation)
-        if not nullable:
-            continue
+        constraint = "" if nullable else " NOT NULL"
         lines.append(
-            f"-- stmt\nALTER TABLE jetsapi.{table} ADD COLUMN IF NOT EXISTS {fname} {pg};\n"
+            f"-- stmt\nALTER TABLE jetsapi.{table} "
+            f"ADD COLUMN IF NOT EXISTS {fname} {pg}{constraint};\n"
         )
     return "".join(lines)
 
@@ -294,16 +327,16 @@ def emit() -> str:
     remediation_columns = _table_columns(M.Remediation)
     incident_event_columns = _table_columns(M.IncidentEvent)
     # AB.4: the additive half of a migration, per table. See
-    # _nullable_column_alters for what it covers and what it deliberately does
+    # _added_column_alters for what it covers and what it deliberately does
     # not.
-    run_alters = _nullable_column_alters(M.AgentRun)
-    proposal_alters = _nullable_column_alters(M.ChangeProposal)
-    approval_alters = _nullable_column_alters(M.ApprovalEvent)
-    anomaly_alters = _nullable_column_alters(M.Anomaly)
-    incident_alters = _nullable_column_alters(M.Incident)
-    hypothesis_alters = _nullable_column_alters(M.Hypothesis)
-    remediation_alters = _nullable_column_alters(M.Remediation)
-    incident_event_alters = _nullable_column_alters(M.IncidentEvent)
+    run_alters = _added_column_alters(M.AgentRun)
+    proposal_alters = _added_column_alters(M.ChangeProposal)
+    approval_alters = _added_column_alters(M.ApprovalEvent)
+    anomaly_alters = _added_column_alters(M.Anomaly)
+    incident_alters = _added_column_alters(M.Incident)
+    hypothesis_alters = _added_column_alters(M.Hypothesis)
+    remediation_alters = _added_column_alters(M.Remediation)
+    incident_event_alters = _added_column_alters(M.IncidentEvent)
     approval_states = ", ".join(f"'{m.value}'" for m in M.ApprovalState)
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
@@ -611,6 +644,27 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 -- opaque string per item. That is I-128's silent widening reaching a composite, and
 -- tabling this entity is what exposed it.
 --
+-- **hypothesis_locus and basis were added at AC.3 by the user's answer to Q-46, and
+-- deliberately before the first row was written.** Section 19.7 graded criterion 45's last
+-- clause -- *a human can read the ranking's basis* -- as met in what the ranker emits and
+-- not surviving the write, because this table had a column for neither.
+--
+-- hypothesis_locus is constrained by the SAME vocabulary incident_locus is: the CHECK
+-- below interpolates the one {loci} the emitter builds from M.IncidentLocus, so there is
+-- no second list to drift (F68). It is required because AC.2's headline finding was that
+-- 20 of 29 model-generated hypotheses sat at loci triage did not find present -- and
+-- without this column a hypothesis raised at an absent locus is indistinguishable in
+-- stored data from a sound one, which would persist that failure mode in a form that
+-- hides it.
+--
+-- basis is counts rather than prose: the two evidence lengths and the section 9.5
+-- evidenceability tier the ranker sorts on. A count can be checked against the arrays on
+-- the same row and a sentence cannot. It is persisted rather than left to be recomputed
+-- because *re-run it* is false twice over: the model arm is not deterministic (16
+-- hypotheses on one run and 13 on the next from identical input), and the evidence itself
+-- expires on two clocks the row does not share -- RETENTION_DAYS with no default, and six
+-- months hard-coded on the run header.
+--
 -- hypothesis_incident_ref has no foreign key, on approval_event.run_ref's precedent:
 -- these tables are installed by one call and purged by session, and a constraint here
 -- would order inserts that shadow mode has no reason to order. The index is what the
@@ -618,7 +672,8 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
 {hypothesis_columns},
   CONSTRAINT hypothesis_cause_category_ck
-             CHECK (cause_category IS NULL OR cause_category IN ({classifications}))
+             CHECK (cause_category IS NULL OR cause_category IN ({classifications})),
+  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ({loci}))
 );
 {hypothesis_alters}-- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
