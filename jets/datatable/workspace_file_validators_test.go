@@ -253,8 +253,13 @@ func TestCheckWorkspaceFileIsTheWiring(t *testing.T) {
 // mechanism I.3's comment describes - adding a row is the whole of adding a file
 // type - held for a fifth type added by a different stream.
 func TestProvenanceSchemaGoesThroughTheSavePath(t *testing.T) {
+	// The disclaimer block is required by Confine (agentic_ai AK.3): a schema
+	// declaring a briefing's shape and no intended-use notice is refused at save
+	// time. This sample gained it on 2026-09-05, when AK.2's fixture and AK.3's
+	// rule met on jets_ai and neither pull request's diff showed the other.
 	const good = `{
 	  "key": "patient_briefing",
+	  "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
 	  "response_format": {"type": "object", "additionalProperties": false,
 	    "properties": {"count": {"type": "integer"}}},
 	  "rules": [{"field": "count", "kind": "count_of", "sources": ["e[]"]}]
