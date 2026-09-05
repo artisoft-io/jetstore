@@ -781,6 +781,20 @@ func MergeTransformationSpec(host, override *TransformationSpec) error {
 
 // Function to prune the output tables and return only the tables used in pipeConfig
 // Returns an error if pipeConfig makes reference to a non-existent table
+//
+// An error channel names a table too. A synthesised default error channel is bound
+// to the default process_errors table by its spec name (isDefaultErrorChannel), and
+// without reading that here the table would be pruned away before the node ever saw
+// it -- the same shape as an unreferenced output table never reaching the node,
+// which is why this function exists.
+//
+// The result is deduplicated by table key. Every synthesised error channel of a step
+// names the one default table, and one table spec means one WriteTableSource holding
+// one pooled connection, so returning the entry once per channel would start one
+// writer per operator on a channel only one of them drains. Deduplication is not
+// scoped to the synthesised entries: two applies naming the same output_table_key
+// would have raced two writers over one channel before, and there are 0 such pairs
+// in the 45 configurations of the rule corpus.
 func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([]*TableSpec, error) {
 	// get a mapping of table name to table spec
 	tableMap := make(map[string]*TableSpec)
@@ -791,17 +805,37 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 	}
 	// Identify the used tables
 	activeTables := make([]*TableSpec, 0)
+	seen := make(map[string]bool)
+	addTable := func(key, usedIn string) error {
+		if len(key) == 0 || seen[key] {
+			return nil
+		}
+		spec := tableMap[key]
+		if spec == nil {
+			return fmt.Errorf("error: Output Table spec %s not found, is used in %s", key, usedIn)
+		}
+		seen[key] = true
+		activeTables = append(activeTables, spec)
+		return nil
+	}
+	// Two passes rather than one, so the tables an output_channel names keep the
+	// positions and the order they had before error channels were read here at all.
+	// The order is the order the writers are started in and the order their results
+	// reach Copy2DbResultCh; nothing observed depends on it, and a default that
+	// reshuffles an author's writers would be a change nobody asked for.
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
-			transformationSpec := &pipeConfig[i].Apply[j]
-			if len(transformationSpec.OutputChannel.OutputTableKey) > 0 {
-				spec := tableMap[transformationSpec.OutputChannel.OutputTableKey]
-				if spec == nil {
-					return nil, fmt.Errorf(
-						"error: Output Table spec %s not found, is used in output_channel",
-						transformationSpec.OutputChannel.OutputTableKey)
+			if err := addTable(pipeConfig[i].Apply[j].OutputChannel.OutputTableKey, "output_channel"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			if isDefaultErrorChannel(errorChannelConfig(&pipeConfig[i].Apply[j])) {
+				if err := addTable(DefaultErrorTableKey, "a default error_channel"); err != nil {
+					return nil, err
 				}
-				activeTables = append(activeTables, spec)
 			}
 		}
 	}
