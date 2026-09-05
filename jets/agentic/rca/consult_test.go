@@ -70,6 +70,16 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 			"contradicting_evidence": []any{map[string]any{
 				"statement": "no process_errors rows", "source": SourceDqResult}},
 		},
+		// 4. At a locus the classifier could not evaluate at all, which is the
+		// half LociNotPresent used to fold into the one above (AD.1).
+		map[string]any{
+			"cause": "the sink never completed", "cause_category": CauseTransportFailure,
+			"locus": triage.LocusSinkFailedUnderCompletedWorker, "confidence": 0.5,
+			"supporting_evidence": []any{map[string]any{
+				"statement": "the worker failed", "source": SourceRunTelemetry}},
+			"contradicting_evidence": []any{map[string]any{
+				"statement": "the DAG edge table was not read", "source": SourceRunTelemetry}},
+		},
 	}}
 	raw, err := json.Marshal(answer)
 	if err != nil {
@@ -88,12 +98,14 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 		got  int
 		want int
 	}{
-		{"Hypotheses", rep.Hypotheses, 3},
-		{"WithContradicting", rep.WithContradicting, 2},
+		{"Hypotheses", rep.Hypotheses, 4},
+		{"WithContradicting", rep.WithContradicting, 3},
 		{"UnsubstantiatedSources", rep.UnsubstantiatedSources, 1},
 		{"ClassesWithNoLocus", rep.ClassesWithNoLocus, 1},
 		{"PairsOutsideTheTable", rep.PairsOutsideTheTable, 2},
-		{"LociNotPresent", rep.LociNotPresent, 1},
+		{"LociNotPresent", rep.LociNotPresent, 2},
+		{"LociAbsent", rep.LociAbsent, 1},
+		{"LociNotEvaluable", rep.LociNotEvaluable, 1},
 		{"PromptTokens", rep.PromptTokens, 11},
 	} {
 		if c.got != c.want {
@@ -108,8 +120,15 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 		t.Errorf("the floor cited %d sources with no substrate; it transcribes §9.5 and reads the "+
 			"record, so it should cite none", rep.FloorUnsubstantiatedSource)
 	}
-	if len(got.Hypotheses) != 3 {
-		t.Errorf("%d hypotheses survived validation, want 3", len(got.Hypotheses))
+	if len(got.Hypotheses) != 4 {
+		t.Errorf("%d hypotheses survived validation, want 4", len(got.Hypotheses))
+	}
+	// The split has to be a split: a reader comparing a new figure against
+	// §19.6's, which predates it, is comparing against the sum.
+	if rep.LociAbsent+rep.LociNotEvaluable != rep.LociNotPresent {
+		t.Errorf("LociAbsent %d + LociNotEvaluable %d is not LociNotPresent %d, so the two figures "+
+			"are not a decomposition of the one §19.6 reported", rep.LociAbsent, rep.LociNotEvaluable,
+			rep.LociNotPresent)
 	}
 	if !strings.Contains(rep.Describe(), "None of these counts is an accuracy") {
 		t.Error("the report's description does not say what it is not measuring")

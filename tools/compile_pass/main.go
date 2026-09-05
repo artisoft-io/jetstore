@@ -21,12 +21,30 @@
 // **The wall this hit, and why it is the finding rather than the number.**
 // A mutation case's ground truth is a whole transformation instance, so the
 // schema that constrains generation is one operator's TransformationSpec — and
-// on the emitted cpipes contract every one of the sixteen closes over the same
-// shared substrate of channel specs and column evaluators, at 28,277 to 30,542
-// estimated tokens (F112). Task.validate calls prompt.Fits, which reserves
-// 8,192 of a 32,768 window for the instruction and the answer, so **at the
-// deployed context length the loop refuses all 134 held-out cases before a
-// model is called** — every operator in the corpus, for the same reason.
+// on the emitted cpipes contract every one of the sixteen flat leaves closes
+// over the same shared substrate of channel specs and column evaluators, at
+// 28,277 to 30,542 estimated tokens (F112). Task.validate calls prompt.Fits,
+// which reserves 8,192 of a 32,768 window for the instruction and the answer,
+// so against the **leaf** entry point every held-out case is refused before a
+// model is called — every operator in the corpus, for the same reason.
+//
+// > **~~at the deployed context length the loop refuses all 134 held-out cases
+// > before a model is called~~ — that sentence was this comment's own and it is
+// > wrong about the program it heads. Corrected 2026-09-05 at AD.1 by running
+// > the documented invocation.** `bundleMembers` maps every operator to its
+// > `…Pipe` **bundle** rather than to the flat leaf, which is F112's third row
+// > and the entry point §20 concluded on — *every leaf is refused and every
+// > bundle fits*. So `go run ./tools/compile_pass -root .. -dry-run` reports
+// > **134 askable and 0 refused**, and the boundary is where F112's bundle sizes
+// > put it: at a plan budget of 24,576 all 134 are askable, at 20,000 sixty-two
+// > are refused, at 12,288 all of them are.
+// >
+// > **This is authorship rot rather than accretion** — the paragraph was written
+// > about the version §20 records as wrong (*"the first version of this caller
+// > reported that the harness could not ask a single question"*), and the fix
+// > landed in the code and not in the comment above it. It is left struck rather
+// > than deleted because the leaf measurement is still true and is still the
+// > reason the bundle layer exists.
 //
 // **And the budget prompt.Fits enforces is not one this serving path spends
 // (F113).** The schema rides in Ollama's `format` field, where it is compiled
@@ -38,8 +56,9 @@
 // asked to serve. Raising the first is how a case gets asked at all; the second
 // stays at the deployed window, because that is the honest number to run at.
 //
-//	# what the deployed configuration measures: nothing, and it says why
-//	go run ./tools/compile_pass -root ..
+//	# what the deployed configuration measures: 134 askable cases against the
+//	# bundle entry point, and hours of CPU-bound model calls to measure them
+//	go run ./tools/compile_pass -root .. -dry-run
 //
 //	# ask anyway, with the served window left where the deployment has it
 //	go run ./tools/compile_pass -root .. -plan-budget 40960 -model qwen2.5:0.5b
