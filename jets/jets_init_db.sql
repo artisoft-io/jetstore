@@ -61,7 +61,7 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     data_classification = "PHI" -- today one, an evidence statement on a
 --	                     causal hypothesis (jets/agentic/audit/data_classification.go, generated
 --	                     from tools/jets_agentic/jets_agentic/model.py). Without it those fields
---	                     are withheld server-side and the screen says so; the rest of the record
+--	                     are withheld server-side and the screen says so, and the rest of the record
 --	                     is unaffected.
 --	                     GRANTED TO NO ROLE ON PURPOSE. The line above says a governance record
 --	                     is not client data, and a PHI-marked property is the exception: it is
