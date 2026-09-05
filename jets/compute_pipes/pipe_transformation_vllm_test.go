@@ -278,9 +278,14 @@ func TestVllmResponseErrorMessage(t *testing.T) {
 // The configured response_format is ollama's; what reaches the server is vLLM's. This is
 // the whole of the request difference between the two backends, so it is asserted on the
 // wire rather than on the config.
+// The guided_json arm, which is no longer the default and is still reachable: an
+// author sets `structured_output` explicitly for a vLLM version that honours it.
+// The arm is set here rather than relied upon, which is the whole of what changed
+// when AG.2 measured the pinned v0.28.0 discarding the field.
 func TestVllmSchemaGoesToGuidedJson(t *testing.T) {
 	server, requests, _ := vllmTestServer(t, []vllmTestResponse{{content: `{"category":"dental"}`}})
 	config := vllmTestConfig()
+	config.StructuredOutput = vllmStructuredGuidedJson
 	config.ResponseFormat = json.RawMessage(`{"type":"object","properties":{"category":{"type":"string"}}}`)
 	runVllmTestPipe(t, server.URL, config, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
@@ -693,8 +698,11 @@ func TestVllmDefaults(t *testing.T) {
 	if config.Api != vllmApiChat {
 		t.Errorf("api defaulted to %q", config.Api)
 	}
-	if config.StructuredOutput != vllmStructuredGuidedJson {
-		t.Errorf("structured_output defaulted to %q", config.StructuredOutput)
+	// json_schema, not guided_json: the pinned vLLM accepts guided_json and
+	// discards it, so the old default constrained nothing. See applyVllmDefaults.
+	if config.StructuredOutput != vllmStructuredJsonSchema {
+		t.Errorf("structured_output defaulted to %q, want %q",
+			config.StructuredOutput, vllmStructuredJsonSchema)
 	}
 	if config.PoolSize != 1 {
 		t.Errorf("pool_size defaulted to %d", config.PoolSize)

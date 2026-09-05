@@ -486,7 +486,28 @@ func applyVllmDefaults(config *VllmSpec) {
 		config.Api = vllmApiChat
 	}
 	if len(config.StructuredOutput) == 0 {
-		config.StructuredOutput = vllmStructuredGuidedJson
+		// **json_schema rather than guided_json, and the reason is measured rather
+		// than preferred.** vLLM v0.28.0 -- the version Dockerfile.infer_service_vllm
+		// pins -- accepts `guided_json` and discards it. At temperature 0 with a fixed
+		// seed the same request with and without the field returns a byte-identical
+		// answer, sha256 and all, while `response_format: {"type":"json_schema"}`
+		// carrying the same schema returns a conformant one. AG.2 measured the two arms
+		// at 0 of 24 and 23 of 24.
+		//
+		// **It is not specific to that field**: guided_regex, guided_choice and an
+		// invented field all return 200 with an unconstrained answer, so this server
+		// discards unknown top-level request fields as a class and says nothing. A
+		// default that is inert is worse than one that is wrong, because the operator
+		// reports success on an unconstrained answer.
+		//
+		// **This default is version-dependent and that is a real cost, not a caveat.**
+		// It is correct against the pinned image and would be wrong against a version
+		// where the OpenAI-compatible arm is the weaker one. An author who needs the
+		// other arm sets `structured_output` explicitly, which is why this is a default
+		// rather than a removal of the guided_json path. Detecting the discard rather
+		// than defaulting around it is Q-82, and is the fix that would survive a
+		// version change.
+		config.StructuredOutput = vllmStructuredJsonSchema
 	}
 	applyInferCommonDefaults(&config.InferCommonSpec)
 }
