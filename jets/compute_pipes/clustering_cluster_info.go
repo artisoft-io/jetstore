@@ -1,7 +1,7 @@
 package compute_pipes
 
 import (
-	"slices"
+	"sort"
 	"strings"
 )
 
@@ -47,138 +47,142 @@ func (cc *ClusterInfo) String() string {
 	return buf.String()
 }
 
-func getClusterOf(column string, clusters []*ClusterInfo) int {
-	for i, c := range clusters {
-		if c.membership[column] {
-			return i
-		}
-	}
-	return -1
+// edgeWeightFunc yields the undirected association weight of one measured
+// column pair. It is a parameter rather than a constant so that the
+// measurement in clustering_measure_test.go can hold the partition fixed and
+// vary the score, which is what grading the two changes separately requires.
+type edgeWeightFunc func(*ColumnCorrelation) float64
+
+// normalisedDependencyWeight is the production weight: the normalised
+// association measure of clustering_association.go. A pair measured in both
+// directions has both its measurements averaged into one edge below, which is
+// where the directional measure stops being used as though it were symmetric.
+func normalisedDependencyWeight(cc *ColumnCorrelation) float64 {
+	return cc.scores.NormalisedDependency
 }
 
-func remove(s []*ClusterInfo, i int) []*ClusterInfo {
-	return slices.Delete(s, i, i+1)
-}
-
-func merge(c1, c2 *ClusterInfo) *ClusterInfo {
-	for k, v := range c2.clusterTags {
-		c1.clusterTags[k] = v
-	}
-	for k, v := range c2.membership {
-		c1.membership[k] = v
-	}
-	return c1
-}
-
-// Check if cluster and rest[c2] can merge.
-// Rules:
-// If after the merge there is no cluster without tags, return false
-// unless there were no cluster without tags before the merge.
+// MakeClusters builds the clusters from the raw column correlation.
 //
-// Essentially this means:
-//   - if c2 is without tags, return true if there is one other
-//     cluster without tags.
-//   - if c2 has tags and cluster is without tags, return true if there is one other
-//     cluster without tags.
-func canMerge(cluster *ClusterInfo, c2 int, rest []*ClusterInfo) bool {
-	if len(rest[c2].clusterTags) == 0 {
-		// c2 is without tags, check if there is one other without tags
-		if len(cluster.clusterTags) == 0 {
-			return true
-		}
-		for j, c := range rest {
-			if j != c2 {
-				if len(c.clusterTags) == 0 {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	// c2 has tags, check if cluster is without tags
-	if len(cluster.clusterTags) == 0 {
-		// return true if there is one other cluster without tags.
-		for j, c := range rest {
-			if j != c2 {
-				if len(c.clusterTags) == 0 {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	return true
-}
-
-// Function that build the clusters from the raw column correlation
+// Revised 2026-09-05. What it did before: sort the pairs ascending by
+// distinct2Count/observationCount and merge them agglomeratively in that
+// order, held back from over-merging by a tag heuristic -- canMerge permitted
+// a merge only if some cluster without tags survived it -- and abandoning
+// every remaining pair the moment that heuristic refused once. Four defects
+// were diagnosed in that:
+//
+//  1. the score is an unnormalised proxy for functional dependency;
+//  2. functional dependence is directional and the score was used as though
+//     symmetric;
+//  3. greedy merging in score order is single-linkage, and single-linkage
+//     chains;
+//  4. over-merging was held back by a tag heuristic rather than by an
+//     objective.
+//
+// 1 and 2 are fixed in clustering_association.go, which normalises the ratio
+// against what column2's own distribution predicts and computes both
+// directions. 3 is fixed in clustering_partition.go, which replaces the greedy
+// merge with a modularity partition of the weighted graph. 4 is fixed here, by
+// deleting the heuristic: with a global objective deciding the merges there is
+// nothing for it to hold back, and the tags keep only the job they were
+// introduced for, which is labelling a cluster's subclassification through
+// AddMember.
+//
+// Note that config.TransitiveDataClassification is no longer read. It gated
+// which columns could bridge two clusters under the greedy merge, and a
+// partition has no bridging step to gate.
 func MakeClusters(columnsCorrelation []*ColumnCorrelation,
 	columnClassificationMap map[string]string, config *ClusteringSpec) []*ClusterInfo {
+	return makeClustersWithWeights(columnsCorrelation, columnClassificationMap, config,
+		normalisedDependencyWeight)
+}
 
-	// Sort the columnsCorrelation result, in decreasing value of probability the columns are correlated
-	slices.SortFunc(columnsCorrelation, func(a, b *ColumnCorrelation) int {
-		valueA := float64(a.distinct2Count) / float64(a.observationCount)
-		valueB := float64(b.distinct2Count) / float64(b.observationCount)
-		switch {
-		case valueA < valueB:
-			return -1
-		case valueA > valueB:
-			return 1
-		default:
-			return 0
+// makeClustersWithWeights is MakeClusters with the edge weight injected.
+func makeClustersWithWeights(columnsCorrelation []*ColumnCorrelation,
+	columnClassificationMap map[string]string, config *ClusteringSpec,
+	weightOf edgeWeightFunc) []*ClusterInfo {
+
+	// Index the columns, in order of first appearance, so that the partition's
+	// node ids are stable for a given input ordering.
+	index := make(map[string]int)
+	names := make([]string, 0)
+	addColumn := func(c string) {
+		if _, ok := index[c]; !ok {
+			index[c] = len(names)
+			names = append(names, c)
 		}
-	})
-	// //***
-	// for _, cc := range columnsCorrelation {
-	//   log.Printf("SORTED COLUMN CORRELATION: %s -> %s: (%v, %v, %v)\n",
-	//   cc.column1, cc.column2, cc.distinct1Count, cc.distinct2Count, cc.observationCount)
-	// }
-	// //***
-	// Determine the clusters
-	// make a lookup of the columns that have a transitive data classification
-	transitiveDC := make(map[string]bool)
-	for _, dc := range config.TransitiveDataClassification {
-		for column, tag := range columnClassificationMap {
-			if tag == dc {
-				transitiveDC[column] = true
-			}
-		}
-		transitiveDC[dc] = true
 	}
-	// make the clusters
-	clusters := make([]*ClusterInfo, 0)
-	var cluster *ClusterInfo
-	count := len(columnsCorrelation)
-	for i, cc := range columnsCorrelation {
-		// log.Printf("Considering (%s, %s)\n", cc.column1, cc.column2)
-		c1 := getClusterOf(cc.column1, clusters)
-		if c1 < 0 {
-			cluster = NewClusterInfo(columnClassificationMap, config)
-			cluster.AddMember(cc.column1)
-		} else {
-			cluster = clusters[c1]
-			clusters = remove(clusters, c1)
-		}
+	for _, cc := range columnsCorrelation {
+		addColumn(cc.column1)
+		addColumn(cc.column2)
+	}
+	if len(names) == 0 {
+		return make([]*ClusterInfo, 0)
+	}
 
-		c2 := getClusterOf(cc.column2, clusters)
-		if c2 < 0 || !transitiveDC[cc.column2] {
-			// column2 is not yet in a cluster, put it in the current cluster
-			cluster.AddMember(cc.column2)
-		} else {
-			// Merge c2 into cluster, check if this will breakdown the clusters structure
-			if i*10 < count || canMerge(cluster, c2, clusters) {
-				cluster = merge(cluster, clusters[c2])
-				// Remove c2 from clusters
-				clusters = remove(clusters, c2)
-			} else {
-				// log.Printf("Cannot merge %s with %s\n", cluster, clusters[c2])
-				// cluster structure complete
-				//*TODO may continue for unseen columns
-				// Add cluster into the set of clusters
-				clusters = append(clusters, cluster)
-				return clusters
-			}
+	// Build the undirected graph. A pair measured in both directions
+	// contributes both measurements and the edge takes their mean, so the
+	// graph is symmetric by construction rather than by whichever direction
+	// happened to be sorted on -- which is diagnosis 2.
+	sum := make(map[[2]int]float64)
+	count := make(map[[2]int]int)
+	for _, cc := range columnsCorrelation {
+		i, j := index[cc.column1], index[cc.column2]
+		if i == j {
+			continue
 		}
-		// Add cluster into the set of clusters
+		if i > j {
+			i, j = j, i
+		}
+		key := [2]int{i, j}
+		sum[key] += weightOf(cc)
+		count[key]++
+	}
+	keys := make([][2]int, 0, len(sum))
+	for k := range sum {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(x, y int) bool {
+		if keys[x][0] != keys[y][0] {
+			return keys[x][0] < keys[y][0]
+		}
+		return keys[x][1] < keys[y][1]
+	})
+	edges := make([]weightedEdge, 0, len(keys))
+	for _, k := range keys {
+		w := sum[k] / float64(count[k])
+		if w > 0 {
+			edges = append(edges, weightedEdge{i: k[0], j: k[1], w: w})
+		}
+	}
+
+	labels := louvainPartition(len(names), edges, clusteringModularityResolution)
+
+	// Materialise the clusters. Every column that appears in any measured pair
+	// lands in exactly one cluster -- the greedy merge could leave a column in
+	// two, and could abandon the remaining columns altogether.
+	byLabel := make(map[int][]string)
+	for i, name := range names {
+		byLabel[labels[i]] = append(byLabel[labels[i]], name)
+	}
+	labelList := make([]int, 0, len(byLabel))
+	for l := range byLabel {
+		labelList = append(labelList, l)
+	}
+	// Order the clusters by their alphabetically first member, so that the
+	// cluster0, cluster1, ... identifiers the pool manager emits do not depend
+	// on map iteration order.
+	for _, l := range labelList {
+		sort.Strings(byLabel[l])
+	}
+	sort.Slice(labelList, func(x, y int) bool {
+		return byLabel[labelList[x]][0] < byLabel[labelList[y]][0]
+	})
+	clusters := make([]*ClusterInfo, 0, len(labelList))
+	for _, l := range labelList {
+		cluster := NewClusterInfo(columnClassificationMap, config)
+		for _, name := range byLabel[l] {
+			cluster.AddMember(name)
+		}
 		clusters = append(clusters, cluster)
 	}
 	return clusters
