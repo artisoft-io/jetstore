@@ -1308,6 +1308,14 @@ class TransformationSpecEmbed(TransformationSpecBase):
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
+class TransformationSpecVllm(TransformationSpecBase):
+    """Calls a vLLM server's OpenAI-compatible api once per record and augments the record in place with values extracted from the model response."""
+    type: Literal["vllm"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm.")
+    columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the vllm operator maps the response through output_mapping instead.")
+    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+    vllm_config: VllmSpec = Field(description="Configuration of the vllm operator.")
+
+
 class TransformationSpecPartitionWriter(TransformationSpecBase):
     """Writes the records of its input channel to partition files."""
     type: Literal["partition_writer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
@@ -1439,6 +1447,34 @@ class TransformationSpecOverride(_Base):
     sort_config: SortSpec | None = Field(default=None, description="Configuration of the sort operator.")
 
 
+class VllmSpec(_Base):
+    """Configuration of the vllm transformation operator: model, route, guided decoding, the prompt and response mapping, and the request policy."""
+    api: Literal["chat", "completions"] | None = Field(default=None, description="The OpenAI-compatible route to call: chat (/v1/chat/completions) or completions (/v1/completions). Engine default: chat (builder).")
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    connect_timeout_sec: int | None = Field(default=None, description="Connection and tls handshake timeout. Engine default: 10 (builder).")
+    disable_strip_code_fences: bool | None = Field(default=None, description="Turn off the removal of markdown code fences around the response.")
+    error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where row-level errors are reported, on the process_errors channel spec.")
+    is_debug: bool | None = Field(default=None, description="Log the prompt and the response of every record.")
+    max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel. Engine default: 50 (builder).")
+    max_input_count: int | None = Field(default=None, description="Cap on the records sent to the model. A cost guard.")
+    max_retry: int | None = Field(default=None, description="Retries on timeout, connection error, 429 and 5xx. Engine default: 2 (builder).")
+    model: str = Field(description="The model the vLLM server was started with.")
+    on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record that failed. Engine default: pass_through (builder).")
+    options: dict[str, Any] | None = Field(default=None, description="Sampling parameters, merged into the request body at the top level: temperature, max_tokens, top_p, and vLLM's own extensions.")
+    output_mapping: list[InferMappingSpec] = Field(description="How the response maps onto the record's columns.")
+    pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
+    prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
+    prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
+    provenance_schema_name: str | None = Field(default=None, description="Names a provenance schema of the workspace, provenance/<name>.pv.json, turning on the per-field provenance check of jets/agentic/briefing.")
+    request_timeout_sec: int | None = Field(default=None, description="Timeout of a single request attempt. Engine default: 120 (builder).")
+    response_format: str | dict[str, Any] | None = Field(default=None, description="The string \"json\" or a json schema document, translated into what vLLM constrains generation with.")
+    retry_wait_sec: int | None = Field(default=None, description="Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).")
+    row_key_column: str | None = Field(default=None, description="Column identifying the record in the error reports (row_jets_key).")
+    server: OllamaServerSpec | None = Field(default=None, description="How to reach the vLLM server.")
+    structured_output: Literal["guided_json", "json_schema"] | None = Field(default=None, description="How the promoted response_format reaches the server: guided_json is vLLM's own parameter, json_schema the OpenAI-compatible one, named and strict. Engine default: guided_json (builder).")
+    system_prompt: str | None = Field(default=None, description="The system message.")
+
+
 
 AnonymizeSpec = Annotated[Union[AnonymizeSpecAnonymization, AnonymizeSpecDeIdentification], Field(discriminator="mode"), BeforeValidator(_tag_default("mode", "anonymization"))]
 CsvSourceSpec = Annotated[Union[CsvSourceSpecCpipes, CsvSourceSpecCsvFile], Field(discriminator="type")]
@@ -1451,7 +1487,7 @@ PipeSpec = Annotated[Union[PipeSpecFanOut, PipeSpecMergeFiles, PipeSpecSplitter]
 SchemaProviderSpec = Annotated[Union[SchemaProviderSpecDefault, SchemaProviderSpecPipelineCoordinatorMap], Field(discriminator="type")]
 SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Field(discriminator="type"), BeforeValidator(_tag_default("type", "standard"))]
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
-TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering], Field(discriminator="type")]
+TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering], Field(discriminator="type")]
 
 
 # class -> (go_struct, type_token); the reflect direction's key.
@@ -1575,6 +1611,8 @@ _MATRIX_KEYS = {
     "TransformationSpecPartitionWriter": ("TransformationSpec", "partition_writer"),
     "TransformationSpecShuffling": ("TransformationSpec", "shuffling"),
     "TransformationSpecSort": ("TransformationSpec", "sort"),
+    "TransformationSpecVllm": ("TransformationSpec", "vllm"),
+    "VllmSpec": ("VllmSpec", "*"),
 }
 
 _MODELS = [v for v in list(globals().values()) if isinstance(v, type) and issubclass(v, BaseModel) and v is not BaseModel]

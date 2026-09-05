@@ -615,7 +615,7 @@ type TransformationSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize,
 	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
-	// embed
+	// embed, vllm
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
