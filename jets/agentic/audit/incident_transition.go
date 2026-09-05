@@ -135,14 +135,6 @@ func (t *IncidentTransition) validate() error {
 		return fmt.Errorf("transition %s names no from_status, so it cannot be guarded against a concurrent decision", t.IncidentEventId)
 	case t.ToStatus == "":
 		return fmt.Errorf("transition %s names no to_status", t.IncidentEventId)
-	case t.Actor == "":
-		return fmt.Errorf("transition %s names no actor; an unattributable transition is the one thing this record exists to prevent", t.IncidentEventId)
-	case !KnownActorKind(t.ActorKind):
-		// There is no honest default. A transition whose kind is unknown
-		// counts for nothing in a metric that partitions on it, so guessing
-		// would be worse than refusing.
-		return fmt.Errorf("transition %s carries actor kind %q; it must be %q or %q, because a label a metric cannot attribute is not a label",
-			t.IncidentEventId, t.ActorKind, ActorHuman, ActorAgent)
 	case !KnownIncidentStatus(t.FromStatus):
 		return fmt.Errorf("transition %s names from_status %q, which is not an IncidentStatus", t.IncidentEventId, t.FromStatus)
 	case !KnownIncidentStatus(t.ToStatus):
@@ -151,7 +143,11 @@ func (t *IncidentTransition) validate() error {
 		return fmt.Errorf("incident %s is in %s, from which %q is not a permitted transition; permitted: %v (Appendix A.5)",
 			t.IncidentRef, t.FromStatus, t.ToStatus, IncidentTransitions(t.FromStatus))
 	}
-	return nil
+	// The attribution rule is shared with RecordTierTransition rather than
+	// spelled twice (task AJ.2). It was this function's, moved into
+	// state_change.go unchanged — including its messages, which two tests match
+	// on — when a second act of the same shape arrived and needed exactly it.
+	return validateAttribution(fmt.Sprintf("transition %s", t.IncidentEventId), t.Actor, t.ActorKind)
 }
 
 // `ErrNoIncident` is `incident.go`'s, landed hours earlier by `AE.1` for the

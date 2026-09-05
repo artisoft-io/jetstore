@@ -40,6 +40,14 @@ func TestIncidentStatusesMatchTheGeneratedCheck(t *testing.T) {
 		IncidentStatuses, "IncidentStatuses")
 }
 
+// Added at AJ.2, when the reclassify control needed the list of causes to offer.
+// The CHECK admits NULL, so the pattern matches the `IN (...)` half of it.
+func TestIncidentClassificationsMatchTheGeneratedCheck(t *testing.T) {
+	assertVocabularyMatchesCheck(t,
+		`incident_classification_ck\s*\n\s*CHECK \(classification IS NULL OR classification IN \(([^)]*)\)\)`,
+		IncidentClassifications, "IncidentClassifications")
+}
+
 func assertVocabularyMatchesCheck(t *testing.T, pattern string, vocab []string, name string) {
 	t.Helper()
 	sql, err := os.ReadFile("agent_audit.sql")

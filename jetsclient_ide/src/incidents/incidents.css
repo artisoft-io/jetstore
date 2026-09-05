@@ -178,10 +178,21 @@
   display: block;
 }
 
-.read-only-note {
-  margin-top: 24px;
+/* The verdict control (AJ.2). It sits below the history on purpose: a
+   supervisor adjudicating an incident should have read how it got here before
+   the buttons come into view, and a control at the top of a long screen is one
+   that gets used without the evidence. */
+.verdict {
+  margin-top: 12px;
   border-top: 1px solid var(--rule);
-  padding-top: 8px;
+  padding-top: 12px;
+  max-width: 46rem;
+}
+.verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* The transition history (AC.3). It is a reading surface rather than a table:

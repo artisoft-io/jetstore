@@ -21,26 +21,41 @@
  * rather than nothing at all: the two are different claims and only one of them
  * is a hypothesis nobody argued with.
  *
- * **It does not write.** There is no reclassify button, no verify, no suppress.
- * Those three transitions are adjudications and a corrected label needs an actor
- * and a timestamp on the transition before it means anything (**I-276**, plan
- * §10.7); that widening is `AB.2`'s by the user's decision of 2026-09-04. A
- * button here would record a verdict that could not be attributed, which is
- * exactly the state the entry was raised about.
+ * **~~It does not write.~~ It writes exactly one thing, as of `AJ.2`.** This
+ * paragraph read *there is no reclassify button, no verify, no suppress*, and
+ * gave the reason: a corrected label needs an actor and a timestamp on the
+ * transition before it means anything (**I-276**, P4 §10.7). `AB.2` built those
+ * on 2026-09-04 and `AB.4` made the transition chainable; Q-52 was answered
+ * *Phase 5* on 2026-09-05 and the control is below.
+ *
+ * **What it writes is a verdict, and nothing else.** No field of the incident is
+ * editable here, no hypothesis is, and the locus is not — a locus is computed
+ * from the record by a deterministic step, so correcting one would be correcting
+ * a computation rather than supplying a judgement (P4 §12.7). The buttons are
+ * whatever `permittedTransitions` says and the screen invents none.
+ *
+ * **And the honest thing to say about what it achieves is a schedule.**
+ * `HumanVerdicts` — *the labelled population, as a query* — returns zero rows
+ * because nothing wrote `human` into `event_actor_kind`. This control is what
+ * writes it. It does not label anything retrospectively, so the population is
+ * still zero the moment this ships and starts moving when a supervisor uses it.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
+import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
 import "./incidents.css";
 import {
   AGENT_PHI_ACCESS,
   AGENT_SUPERVISION,
   DeploymentNotMigratedError,
+  IncidentStateConflictError,
   IncidentsApi,
   LOCUS_GLOSS,
+  RECLASSIFIED,
   vocabLabel,
   type Evidence,
   type HypothesisRow,
@@ -51,11 +66,13 @@ import {
 export function IncidentScreen({ api }: { api: ApiClient }) {
   const { incidentId = "" } = useParams();
   const incidents = useMemo(() => new IncidentsApi(api), [api]);
-  const { setError } = useNotifications();
+  const { setError, setStatus } = useNotifications();
 
   const [detail, setDetail] = useState<IncidentDetailResponse | null>(null);
   const [notMigrated, setNotMigrated] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rationale, setRationale] = useState("");
+  const [classification, setClassification] = useState("");
 
   const canSupervise = api.can(AGENT_SUPERVISION);
 
@@ -80,6 +97,55 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Record a verdict (`AJ.2`, Q-52).
+   *
+   * The confirmation names the actor, the kind and the audit seq, because those
+   * three are what make the row a label rather than an edit — and because the
+   * kind is set by the server, so seeing it come back is the only place a
+   * supervisor learns it was recorded as theirs. Seq 0 is said in words: an
+   * incident nothing agentic raised chains nothing (AB.4, R-44), and a `0` on
+   * its own reads as a failure.
+   */
+  const recordVerdict = useCallback(
+    async (toStatus: string) => {
+      const incident = detail?.incident;
+      if (!incident) return;
+      setBusy(true);
+      try {
+        const result = await incidents.recordVerdict(
+          incident.incidentId,
+          incident.status,
+          toStatus,
+          rationale,
+          toStatus === RECLASSIFIED ? classification : "",
+        );
+        setStatus(
+          `Recorded ${vocabLabel(result.fromStatus)} → ${vocabLabel(result.toStatus)} as ` +
+            `${result.actor} (${result.actorKind})` +
+            (result.auditSeq > 0
+              ? `, audit seq ${result.auditSeq}.`
+              : `. This incident names no agent run, so the verdict is recorded and not hash-chained.`),
+        );
+        setRationale("");
+        setClassification("");
+        await load();
+      } catch (err) {
+        if (err instanceof IncidentStateConflictError) {
+          // Re-read before saying anything: the useful recovery is to show the
+          // verdict that got there first.
+          await load();
+          setError(`${err.message} The incident has been re-read; its history is below.`);
+        } else if (!(err instanceof SessionExpiredError)) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [incidents, detail, rationale, classification, load, setError, setStatus],
+  );
 
   if (!canSupervise) {
     return (
@@ -117,6 +183,11 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   const namesAStep = incident.stepRef !== "";
   const namesARun = incident.runRef !== "";
   const phiCapability = detail.phiCapability || AGENT_PHI_ACCESS;
+  // Both default to empty rather than to a guess: a response from a server
+  // predating AJ.2 carries neither, and the screen is then read-only again
+  // rather than offering buttons the server would refuse.
+  const permitted = detail.permittedTransitions ?? [];
+  const causes = detail.classifications ?? [];
 
   return (
     <>
@@ -268,12 +339,71 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
           <h3>How this incident got here</h3>
           <Transitions rows={detail.transitions ?? []} />
 
-
-          <p className="empty-sub read-only-note">
-            Nothing on this screen writes. An incident's classification cannot be corrected here.
-            The record that a correction would go into exists — every transition below carries an
-            actor and a kind — and the button that would write one does not.
-          </p>
+          <h3>Your verdict</h3>
+          {permitted.length === 0 ? (
+            <p className="empty-sub">
+              {vocabLabel(incident.status)} admits no further transition. Nothing on this screen
+              writes to a terminal incident.
+            </p>
+          ) : (
+            <div className="verdict">
+              {/* The wording is deliberate and is R-27's mitigation in the one
+                  place a supervisor acts rather than reads: a locus is evidence,
+                  a cause is a claim, and choosing one here is a judgement the
+                  record cannot make. */}
+              <p className="empty-sub">
+                Recorded as {api.currentUser?.email ?? "you"}, as a human verdict. The record keeps
+                the classification this incident carried before your change as well as the one you
+                set, so a later correction cannot erase this one.
+              </p>
+              <label className="field">
+                <span>
+                  Reason (recorded with the verdict; required for a reclassification)
+                </span>
+                <textarea
+                  value={rationale}
+                  rows={3}
+                  onChange={(e) => setRationale(e.target.value)}
+                />
+              </label>
+              {permitted.includes(RECLASSIFIED) && (
+                <label className="field">
+                  <span>Cause, if you are reclassifying — your claim, not the record's</span>
+                  <select
+                    value={classification}
+                    onChange={(e) => setClassification(e.target.value)}
+                  >
+                    <option value="">Choose a cause…</option>
+                    {causes.map((c) => (
+                      <option key={c} value={c}>
+                        {vocabLabel(c)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="verdict-actions">
+                {permitted.map((to) => (
+                  <ActionButton
+                    key={to}
+                    capability={AGENT_SUPERVISION}
+                    className="btn btn-primary"
+                    // A reclassification with no cause and no reason is refused
+                    // by a CHECK. Disabling the button says so before the round
+                    // trip rather than after it, and the CHECK is still what
+                    // enforces it.
+                    disabled={
+                      busy ||
+                      (to === RECLASSIFIED && (classification === "" || rationale === ""))
+                    }
+                    onClick={() => void recordVerdict(to)}
+                  >
+                    {vocabLabel(to)}
+                  </ActionButton>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </>

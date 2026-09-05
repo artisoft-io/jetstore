@@ -34,20 +34,26 @@
  * explicit *not claimed* rather than as an empty cell. A blank reads as missing
  * data; the schema says it is a legitimate state.
  *
- * ## Read-only, deliberately
+ * ## ~~Read-only, deliberately~~ It writes a verdict as of `AJ.2`
  *
- * There is no `decide` here and no counterpart to `ProposalsApi.decide`. An
- * incident's `reclassified`, `verified` and `suppressed_as_benign` transitions are
- * adjudications, and **I-276** asks for an actor and a timestamp on them before
- * anything writes one — that widening is `AB.2`'s by the user's decision of
- * 2026-09-04. A screen that wrote a transition against a schema still moving
- * underneath it is what that split exists to avoid.
+ * This section said there was no counterpart to `ProposalsApi.decide` and that
+ * the writer was unassigned. **Both stopped being true on 2026-09-05**, when
+ * Q-52 was answered *Phase 5* and `AJ.2` took the control. `recordVerdict` below
+ * is that counterpart.
  *
- * **Still read-only after `AB.2` and `AB.4`, and that is now a choice rather
- * than a wait.** The write primitive exists (`RecordIncidentTransition`), the
- * transition it writes is chainable as of `AB.4`, and no screen calls it: the
- * writer is unassigned, and the honest thing for this file to say is which of
- * the two it is.
+ * **The wait was real and is worth keeping rather than deleting.** `AE.1`
+ * shipped read-only because the actor, the actor kind and the immutable
+ * classification pairing a corrected label needs did not exist yet; `AB.2` built
+ * them, `AB.4` made the transition chainable, and only then was there anything
+ * for a button to write into. A screen that had written a transition against a
+ * schema still moving underneath it is what the split avoided.
+ *
+ * **What the control is for is one number.** `HumanVerdicts` calls itself *the
+ * labelled population, as a query* and returned zero rows because nothing in
+ * JetStore wrote `event_actor_kind = 'human'`. This is the only thing that does.
+ * **Shipping it is necessary and not sufficient**: no label is produced
+ * retrospectively, so the population starts accumulating when a supervisor uses
+ * this, repeatedly, in front of a running system.
  *
  * ## PHI is withheld here unless the caller was granted it
  *
@@ -210,12 +216,74 @@ export interface IncidentDetailResponse {
    * missing.
    */
   transitions?: IncidentTransitionRow[];
+  /**
+   * What may be done to this incident from where it is (`AJ.2`), from
+   * `audit.IncidentTransitions` — Appendix A.5's graph, enforced on the server.
+   *
+   * **The screen renders a button per entry and invents none.** A terminal
+   * status gives `[]`, which is the same distinction `ProposalView.transitions`
+   * draws: no buttons and unknown must not need a branch in the client.
+   * Optional on the wire so a response from a server predating this task
+   * renders as read-only rather than as an error.
+   */
+  permittedTransitions?: string[];
+  /**
+   * The ten causes a reclassification may claim, from
+   * `audit.IncidentClassifications`. Optional for the same reason.
+   *
+   * **Not a taxonomy the record supports.** P4 §9.5 found the execution record
+   * determines a *locus* and not a cause, which is why `classification` is
+   * nullable — so a choice from this list is a supervisor's judgement, and the
+   * screen labels it as one.
+   */
+  classifications?: string[];
   /** True when PHI-classified fields were withheld from this caller. */
   phiRedacted: boolean;
   /** The capability that would lift it, named by the server. */
   phiCapability: string;
   /** Which properties of an evidence item are classified, and how. */
   phiProperties: string[];
+}
+
+/**
+ * What `record_incident_transition` returns (`AJ.2`).
+ *
+ * **`actorKind` comes back rather than being sent**, which is the wire's share
+ * of the guarantee: a caller cannot label its own verdict, so the field is worth
+ * rendering as confirmation of what was recorded.
+ */
+export interface VerdictResult {
+  incidentEventId: string;
+  incidentId: string;
+  fromStatus: string;
+  toStatus: string;
+  actor: string;
+  /** Always "human" through this endpoint; see above. */
+  actorKind: string;
+  /** The two ends of the label, as the record has them. */
+  classificationBefore: string;
+  classificationAfter: string;
+  transitionedAt: string;
+  /** "" when the incident named no run, so the verdict is not hash-chained. */
+  runRef: string;
+  /** The chain seq, or 0 in that same case — which is not an error. */
+  auditSeq: number;
+  permittedTransitions: string[];
+}
+
+/**
+ * Thrown when the server answers 409 on a verdict.
+ *
+ * **Two supervisors on one incident is not an edge case in a supervision
+ * screen**, and this is `proposals/api.ts`'s `StateConflictError` a second time
+ * for its reason: the useful recovery is to re-read and show the verdict that
+ * got there first, not to offer a retry of a decision that has been overtaken.
+ */
+export class IncidentStateConflictError extends ApiError {
+  constructor(message: string) {
+    super(message, 409);
+    this.name = "IncidentStateConflictError";
+  }
 }
 
 export interface IncidentList {
@@ -257,6 +325,44 @@ export class IncidentsApi {
     return this.wrap(
       this.api.agentic<IncidentDetailResponse>({ action: "get_incident", incidentId }),
     );
+  }
+
+  /**
+   * Record a supervisor's verdict on an incident (`AJ.2`, Q-52).
+   *
+   * `fromStatus` is sent so the server can refuse a verdict taken against a
+   * screen that has gone stale — checked against the row rather than trusted as
+   * it, which is what turns "somebody else adjudicated this" from a silent
+   * overwrite into a 409.
+   *
+   * **There is no actor and no actor kind in this call, and the second absence
+   * is the one that matters.** The actor is the authenticated user; the kind is
+   * `human` because the server sets it. `HumanVerdicts` filters on that column,
+   * so a client that could name it could write itself into the labelled
+   * population.
+   */
+  async recordVerdict(
+    incidentId: string,
+    fromStatus: string,
+    toStatus: string,
+    rationale: string,
+    classification = "",
+  ): Promise<VerdictResult> {
+    try {
+      return await this.api.agentic<VerdictResult>({
+        action: "record_incident_transition",
+        incidentId,
+        fromStatus,
+        toStatus,
+        rationale,
+        classification,
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        throw new IncidentStateConflictError(err.message);
+      }
+      return this.wrap(Promise.reject(err));
+    }
   }
 
   private async wrap<T>(p: Promise<T>): Promise<T> {
@@ -386,3 +492,16 @@ export const OPEN_STATUSES = [
  * shows nothing — which is that count, visible, rather than an empty screen.
  */
 export const ADJUDICATED_STATUSES = ["verified", "reclassified", "suppressed_as_benign"];
+
+/**
+ * The one status whose verdict must also claim a cause.
+ *
+ * `incident_event_reclassified_ck` is Appendix A.5's own sentence as a
+ * cross-column CHECK — *"reclassified returns to triaged with a new
+ * classification and a recorded reason"* — so a reclassification with either
+ * missing is refused at the database. **Spelling it here decides which fields
+ * the form shows and nothing else**: getting it wrong shows the wrong field, and
+ * the constraint still fires. That is `OPEN_STATUSES`'s distinction — a filter
+ * rather than a policy — applied to a form.
+ */
+export const RECLASSIFIED = "reclassified";

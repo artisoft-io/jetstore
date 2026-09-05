@@ -83,6 +83,36 @@ var IncidentStatuses = []string{
 	"verified", "reclassified", "suppressed_as_benign",
 }
 
+// IncidentClassifications is the ten causes `classification` may name, in the
+// order the CHECK carries them.
+//
+// **It exists because a screen that offers a reclassification has to offer the
+// vocabulary to reclassify *into*** (task AJ.2). Until then nothing needed the
+// list in Go: the column is optional (I-289) and every reader rendered whatever
+// value it found. It travels to the browser with the incident on the same
+// argument as `IncidentLoci` and the transition sets — a client's copy of a
+// controlled vocabulary is the copy that cannot be enforced —
+// and `TestIncidentClassificationsMatchTheGeneratedCheck` holds it against the
+// generated SQL rather than against a comment.
+//
+// **Do not read it as a taxonomy of cause that the record supports.** P4 §9.5's
+// finding is the opposite: the execution record supports a taxonomy of *locus*
+// and does not determine a cause, which is exactly why this column is nullable
+// and why a human's choice from this list is a judgement rather than a lookup.
+var IncidentClassifications = []string{
+	"source_delivery_failure", "source_content_change", "transport_failure",
+	"parse_failure", "validation_breach", "transformation_defect",
+	"infrastructure_failure", "dependency_failure", "capacity_or_cost_deviation",
+	"benign_variation",
+}
+
+// KnownIncidentClassification reports whether v is one of the ten. A request may
+// carry anything; the CHECK would refuse it at the INSERT, and refusing it here
+// names the vocabulary instead of naming a constraint.
+func KnownIncidentClassification(v string) bool {
+	return inVocabulary(IncidentClassifications, v)
+}
+
 // KnownLocus and KnownIncidentStatus report vocabulary membership. A row cannot
 // hold anything else — the CHECKs see to that — but a request body can, and a
 // caller naming a value that does not exist should be told so rather than

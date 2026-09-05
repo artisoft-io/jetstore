@@ -16,7 +16,9 @@
  *    outage;
  *  - contradicting evidence has a rendering when it is empty, because the empty
  *    array is an assertion (§A.2.8);
- *  - **nothing writes** — no reclassify, no verify, no suppress (I-276);
+ *  - **the verdict control writes one thing and only when the server offers it**
+ *    (`AJ.2`, Q-52) — the buttons come from `permittedTransitions`, a response
+ *    that carries none renders read-only, and nothing else on the screen writes;
  *  - an incident with no `AgentRun` says its corrections will not be
  *    hash-chained, which is the whole visible consequence of `AB.4` (Q-32);
  *  - a withheld PHI statement is words rather than a blank, and the screen names
@@ -35,7 +37,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
-import { NotificationsProvider } from "../shell/notifications";
+import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { IncidentScreen } from "./IncidentScreen";
 import { IncidentsScreen } from "./IncidentsScreen";
 import { ADJUDICATED_STATUSES, LOCUS_GLOSS, OPEN_STATUSES, vocabLabel } from "./api";
@@ -79,10 +81,25 @@ async function clientWith(
   return { api, sent };
 }
 
+/**
+ * Renders the shell's banner state so a test can read it (`AJ.2`).
+ *
+ * The real banner belongs to `App.tsx` and is not under test here, so without
+ * this the two levels the shell exposes — `error` and `status` — are invisible
+ * to every test in this file. That is what a verdict's confirmation and the 409
+ * recovery are: the screen's whole visible answer is a banner, and a screen
+ * whose only output nothing can assert is a screen with an untested output.
+ */
+function NotificationProbe() {
+  const { error, status } = useNotifications();
+  return <div data-testid="banner">{error ?? status ?? ""}</div>;
+}
+
 function renderAt(api: ApiClient, path: string) {
   return render(
     <ApiProvider api={api}>
       <NotificationsProvider>
+        <NotificationProbe />
         <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route path="/incidents" element={<IncidentsScreen api={api} />} />
@@ -284,10 +301,11 @@ describe("one incident", () => {
     expect(screen.getAllByText("contradicted more than supported").length).toBe(1);
   });
 
-  // Read-only, and this is the assertion that keeps it so. The three statuses a
-  // decision would move an incident into are adjudications, and a corrected
-  // label needs an actor on the transition before it means anything (I-276).
-  it("offers no way to write anything", async () => {
+  // **A response carrying no `permittedTransitions` renders read-only**, which is
+  // this screen's behaviour against a server predating `AJ.2` and is why the
+  // fields are optional on the wire. It was the whole screen until 2026-09-05;
+  // it is now the fallback, and the tests below are the control itself.
+  it("offers no way to write when the server names no permitted transition", async () => {
     const { api, sent } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
@@ -396,6 +414,23 @@ describe("one incident", () => {
  * crossing, and nothing here shortens it.
  */
 describe("an incident triage actually wrote", () => {
+  // The verdict control over the golden payload (`AJ.2`). **This is the one
+  // assertion here that is not about rendering**: the buttons are whatever
+  // `permittedTransitions` carries, and on a payload triage produced that is
+  // exactly one, because the incident reached `diagnosed` and A.5 draws one edge
+  // out of it. A fixture regenerated after a lifecycle change fails this rather
+  // than quietly offering a different set.
+  it("offers the transition A.5 draws out of the status triage left it in", async () => {
+    const { api } = await clientWith({ get_incident: { body: triageWritten } });
+    renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
+    await screen.findByRole("heading", { name: triageWritten.incident.incidentId });
+    expect(triageWritten.incident.status).toBe("diagnosed");
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(buttons).toEqual(["Refresh", "Remediation proposed"]);
+    // `reclassified` is not among them, so no cause chooser is offered.
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
   it("renders its locus, its unclaimed cause and its ranked hypotheses", async () => {
     const written = triageWritten.incident;
     const { api } = await clientWith({
@@ -530,5 +565,172 @@ describe("a hypothesis's own basis and locus", () => {
     const { api } = await clientWith({ get_incident: { body: strayed } });
     renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
     await screen.findAllByText(/not this incident's locus/);
+  });
+});
+
+/**
+ * The verdict control (`AJ.2`, Q-52) — the single change that gives
+ * `HumanVerdicts` a writer.
+ *
+ * **What is worth testing is again what it refuses**, and the refusals are not
+ * the same as `AE.1`'s. The screen may not invent a transition the server did
+ * not offer; it may not send a reclassification the CHECK would refuse; and it
+ * may not send an actor or an actor kind at all, because a client that could
+ * name its own kind could write itself into the labelled population.
+ */
+describe("the verdict control", () => {
+  // `triaged` is the only status with three successors and all three are
+  // adjudications, which is why P4 §10.7 calls this screen the labelling
+  // instrument.
+  const adjudicable = {
+    ...disclosed,
+    permittedTransitions: ["diagnosed", "reclassified", "suppressed_as_benign"],
+    classifications: ["parse_failure", "transformation_defect"],
+  };
+
+  it("offers exactly the transitions the server named", async () => {
+    const { api } = await clientWith({ get_incident: { body: adjudicable } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(buttons).toEqual([
+      "Refresh",
+      "Diagnosed",
+      "Reclassified",
+      "Suppressed as benign",
+    ]);
+  });
+
+  it("sends no actor and no actor kind, and says who it was recorded as", async () => {
+    const { api, sent } = await clientWith({
+      get_incident: { body: adjudicable },
+      record_incident_transition: {
+        body: {
+          incidentEventId: "ievt_1", incidentId: "inc_1",
+          fromStatus: "triaged", toStatus: "suppressed_as_benign",
+          actor: "supervisor@example.com", actorKind: "human",
+          classificationBefore: "", classificationAfter: "",
+          transitionedAt: "2026-09-05T12:00:00Z", runRef: "", auditSeq: 0,
+          permittedTransitions: [],
+        },
+      },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    fireEvent.click(screen.getByRole("button", { name: "Suppressed as benign" }));
+
+    await waitFor(() => expect(sent.length).toBeGreaterThan(1));
+    const write = sent.find((r) => r["action"] === "record_incident_transition");
+    expect(write).toBeTruthy();
+    expect(write?.["fromStatus"]).toBe("triaged");
+    expect(write?.["toStatus"]).toBe("suppressed_as_benign");
+    // The two the request must not carry.
+    expect(write).not.toHaveProperty("actor");
+    expect(write).not.toHaveProperty("actorKind");
+    // And the confirmation names the kind the server chose, which is the only
+    // place a supervisor learns their verdict was recorded as a human's.
+    await waitFor(() =>
+      expect(screen.getByTestId("banner").textContent).toMatch(
+        /supervisor@example.com \(human\)/,
+      ),
+    );
+  });
+
+  // AB.4, R-44. Seq 0 is not a failure and must not read as one.
+  it("says in words when a verdict is recorded and not hash-chained", async () => {
+    const { api } = await clientWith({
+      get_incident: { body: adjudicable },
+      record_incident_transition: {
+        body: {
+          incidentEventId: "ievt_2", incidentId: "inc_1",
+          fromStatus: "triaged", toStatus: "diagnosed",
+          actor: "supervisor@example.com", actorKind: "human",
+          classificationBefore: "", classificationAfter: "",
+          transitionedAt: "2026-09-05T12:00:00Z", runRef: "", auditSeq: 0,
+          permittedTransitions: ["remediation_proposed"],
+        },
+      },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    fireEvent.click(screen.getByRole("button", { name: "Diagnosed" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("banner").textContent).toMatch(/not hash-chained/),
+    );
+  });
+
+  // `incident_event_reclassified_ck` refuses a reclassification carrying neither
+  // a cause nor a reason. Disabling says so before the round trip; the CHECK is
+  // still what enforces it.
+  it("will not send a reclassification with no cause and no reason", async () => {
+    const { api, sent } = await clientWith({ get_incident: { body: adjudicable } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    const button = screen.getByRole("button", { name: "Reclassified" });
+    expect(button.hasAttribute("disabled")).toBe(true);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "the message names a mapping error" } });
+    expect(screen.getByRole("button", { name: "Reclassified" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "transformation_defect" } });
+    expect(screen.getByRole("button", { name: "Reclassified" }).hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reclassified" }));
+    await waitFor(() => expect(sent.length).toBeGreaterThan(1));
+    const write = sent.find((r) => r["action"] === "record_incident_transition");
+    expect(write?.["classification"]).toBe("transformation_defect");
+    expect(write?.["rationale"]).toBe("the message names a mapping error");
+  });
+
+  // The cause list is the server's, and the screen offers no other.
+  it("offers only the causes the server sent", async () => {
+    const { api } = await clientWith({ get_incident: { body: adjudicable } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    const options = Array.from(screen.getByRole("combobox").querySelectorAll("option"))
+      .map((o) => (o as HTMLOptionElement).value)
+      .filter((v) => v !== "");
+    expect(options).toEqual(["parse_failure", "transformation_defect"]);
+  });
+
+  // proposals.test.tsx's argument, a second time: two supervisors on one
+  // incident is not an edge case, and the recovery is to re-read rather than to
+  // offer a retry of a verdict that has been overtaken.
+  it("re-reads on a 409 rather than reporting a failure to retry", async () => {
+    let gets = 0;
+    const { api } = await clientWith({
+      get_incident: () => {
+        gets += 1;
+        return { body: adjudicable };
+      },
+      record_incident_transition: {
+        status: 409,
+        body: { error: "incident inc_1 is in \"diagnosed\", not \"triaged\"" },
+      },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(gets).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "Diagnosed" }));
+    await waitFor(() => expect(gets).toBe(2));
+    await waitFor(() =>
+      expect(screen.getByTestId("banner").textContent).toMatch(/has been re-read/),
+    );
+  });
+
+  it("says a terminal incident admits no verdict", async () => {
+    const { api } = await clientWith({
+      get_incident: {
+        body: {
+          ...disclosed,
+          incident: { ...detail, status: "closed" },
+          permittedTransitions: [],
+          classifications: ["parse_failure"],
+        },
+      },
+    });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getByText(/admits no further transition/)).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 });
