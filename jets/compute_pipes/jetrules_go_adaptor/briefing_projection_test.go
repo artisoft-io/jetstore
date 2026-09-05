@@ -58,6 +58,10 @@ func projectedBriefing(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
 	ins("briefing", "rdf:type", rm.NewResource("cintel:Briefing"))
 	ins("briefing", "jets:key", rm.NewTextLiteral("k-1"))
 	ins("briefing", "cintel:Briefing_Member_ID", rm.NewTextLiteral("M-4471"))
+	// A§8.3's intended-use notice, asserted by BP_Disclaimer10 with no condition
+	// beyond the briefing existing. It is on the record and out of the prompt,
+	// which is the second half of what the exclusions here are doing.
+	ins("briefing", "cintel:Briefing_Disclaimer", rm.NewTextLiteral(shippedNotice))
 
 	ins("briefing", "cintel:has_Briefing_Medical_Events", rm.NewResource("event1"))
 	ins("event1", "rdf:type", rm.NewResource("cintel:Briefing_Medical_Event"))
@@ -102,6 +106,7 @@ func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, 
 			"rdf:type":                    true,
 			"jets:source_period_sequence": true,
 			"cintel:Briefing_Member_ID":   true,
+			"cintel:Briefing_Disclaimer":  true,
 		},
 	}
 	out := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: rm.NewResource("briefing")})
@@ -116,7 +121,8 @@ func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, 
 // workspaces/jets_ws/provenance/patient_briefing.pv.json, as a document.
 const briefingSchema = `{
   "key": "patient_briefing",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
   "response_format": {
     "type": "object",
     "additionalProperties": false,
@@ -195,6 +201,52 @@ func TestProjectedEntityGroundsABriefing(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// shippedNotice is the text `BP_Disclaimer10` asserts in
+// `workspaces/jets_ws/jet_rules/clinical_intel/briefing_projection.jr`.
+const shippedNotice = "Informational only. Prepared from claims data for a call-centre representative, " +
+	"who is not a clinician. This is not medical advice, not a diagnosis and not a treatment " +
+	"recommendation, and it must not be used to make or support a clinical decision. " +
+	"Downstream use is governed by the service agreement."
+
+// The notice is on the record and out of the prompt, and **the exclusion is what
+// puts it out** - which is the point of testing it in both directions rather
+// than only the passing one.
+//
+// `cintel:Briefing` is an allowlist: a property no rule copies onto it cannot
+// reach the model. The notice breaks that symmetry in the same way
+// `cintel:Briefing_Member_ID` does, and for the same reason - the record must
+// carry it and the prompt must not - so it is kept out by an
+// `exclude_properties` entry, which is a denylist. **Delete that entry and a
+// legal notice is in every prompt, and nothing fails.** This is agentic_ai
+// I-439's second instance rather than its first, and the second is what turns
+// a one-property exception into the argument for an `include_properties`.
+func TestTheNoticeIsOnTheRecordAndNotInThePrompt(t *testing.T) {
+	s, rm := projectedBriefing(t)
+	for _, encoding := range []string{"toon", "json"} {
+		entity := encodeAsPipeline(t, s, rm, encoding)
+		if contains(entity, "Briefing_Disclaimer") || contains(entity, "not medical advice") {
+			t.Errorf("%s encoding carries the intended-use notice:\n%s", encoding, entity)
+		}
+	}
+	// Without the exclusion it is there, so the exclusion is doing the work.
+	ce := &compute_pipes.JrSpecialColumnEncoding{
+		Config: &compute_pipes.ColumnEncodingSpec{
+			Column:              "cintel:Briefing_Input",
+			EntityEncoding:      "toon",
+			RemoveModelPrefixes: true,
+		},
+		ExcludeProperties: map[string]bool{"jets:key": true, "rdf:type": true},
+	}
+	out, ok := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: rm.NewResource("briefing")}).(string)
+	if !ok {
+		t.Fatal("EncodeColumnData did not return a string")
+	}
+	if !contains(out, "Briefing_Disclaimer") {
+		t.Fatalf("without the exclusion the notice should reach the prompt, so that removing the "+
+			"exclusion is a change with a consequence a test can see:\n%s", out)
 	}
 }
 

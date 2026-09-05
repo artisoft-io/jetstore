@@ -13,8 +13,12 @@ func coverFindings(t *testing.T, doc string) []wsvalidate.Finding {
 	return findings
 }
 
+// coveredDoc gained a `disclaimer` at AK.3: a schema that declares the shape of
+// a briefing declares a delivered artefact, and A§8.3 makes the intended-use
+// notice a required field of it. Confine refuses one without.
 const coveredDoc = `{
   "key": "b",
+  "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
   "response_format": {
     "type": "object", "additionalProperties": false,
     "properties": {
@@ -163,8 +167,19 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 // requires exactly one value, so `medications[].adherence_flag` derived from
 // `fills[].flag` fails for every member with two fills - the field resolves per
 // medication and the source resolves per entity, and nothing pairs them. It is
-// usable for a field that is one per briefing, which is the disclaimer AK.3
-// adds and is the case its doc comment names.
+// usable for a field that is one per briefing.
+//
+// **This comment used to name the disclaimer as that field and AK.3 did not
+// build it that way.** A derived rule resolves its source against the *input
+// entity*, so a derived disclaimer would have to be serialised into the prompt,
+// restated by the model and compared - three copies of a constant, a per-record
+// token cost against A§8.2's arithmetic, and a record refused when a model
+// garbles one character of a legal notice. The notice is asserted onto the
+// record by the projection and the model never sees it; advisory.go's Disclaimer
+// carries the argument. What that leaves is a kind with no live case in the
+// delivered schema, which is a fair thing to know and not a defect: it is the
+// right shape for a field the projection computes and the model restates, which
+// is what A§8.3's *adherence flags* becomes once I-436 is answered.
 //
 // This is the shape a rule session would express naturally and the table does
 // not: a rule matching (medication, fill) pairs is what a rete join is for. It

@@ -126,6 +126,18 @@ func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []st
 	}
 	switch r.Kind {
 	case KindUngrounded:
+		// **Exempt from grounding, not exempt from the language check** - which
+		// is the whole of what `AK.3` changed about this kind, and it adds no
+		// sixth kind to a table two issues already want extended (I-436,
+		// I-437). A field nothing bounds is where the model writes its own
+		// prose, and A§8.3's first guardrail is about prose. See advisory.go
+		// for why the scan runs here and nowhere else.
+		if marker, found := advisoryMarker(loc.Value); found {
+			return fail(CodeAdvisoryLanguage, fmt.Sprintf(
+				"%s is exempt from grounding and reads as guidance: it carries %q. A briefing is read by a "+
+					"non-clinical representative who may restate it to the member, so it must carry nothing "+
+					"that could be relayed as advice", loc.Pointer, marker))
+		}
 		return nil, nil
 
 	case KindGrounded:
