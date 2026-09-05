@@ -325,6 +325,12 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		}
 	}
 
+	// Built-in error reporting: the synthesised error channels are one per operator,
+	// as validateErrorChannels requires, and they share one table writer rather than
+	// taking one pooled connection each. Started before the writers so the sink is
+	// being fed from the moment the writer's CopyFrom begins reading it.
+	startDefaultErrorChannelFanIn(channelRegistry, cpCtx.CpConfig, cpCtx.Done)
+
 	// Prepare the output tables
 	for i := range cpCtx.CpConfig.OutputTables {
 		tableName := cpCtx.CpConfig.OutputTables[i].Name

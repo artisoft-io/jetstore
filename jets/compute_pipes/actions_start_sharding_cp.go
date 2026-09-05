@@ -126,6 +126,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, mainInputSchemaProvider, fmt.Errorf("while applying conditional transformation spec: %v", err)
 	}
 
+	// Built-in error reporting: give the operators that report row-level failures and
+	// name no error channel one of their own, with the shared channel spec and table
+	// binding they need. Ahead of both SelectActiveOutputTable and
+	// ValidatePipeSpecConfig, which the two startup paths call in opposite orders.
+	SynthesizeDefaultErrorChannels(&cpipesStartup.CpConfig, pipeConfig)
+
 	// Select the active output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
 	if err != nil {

@@ -107,6 +107,12 @@ startStepId:
 		return result, fmt.Errorf("while applying conditional transformation spec: %v", err)
 	}
 
+	// Built-in error reporting: give the operators that report row-level failures and
+	// name no error channel one of their own, with the shared channel spec and table
+	// binding they need. Ahead of both SelectActiveOutputTable and
+	// ValidatePipeSpecConfig, which the two startup paths call in opposite orders.
+	SynthesizeDefaultErrorChannels(&cpipesStartup.CpConfig, pipeConfig)
+
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	// also sync the input and output channels with the associated schema provider.
 	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
