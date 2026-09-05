@@ -149,8 +149,8 @@ type Evidence struct {
 // not share — `RETENTION_DAYS`, an environment variable with no default, and six
 // months hard-coded on the run header (P3 F54).
 type HypothesisBasis struct {
-	SupportingCount    int    `json:"supporting_count"`
-	ContradictingCount int    `json:"contradicting_count"`
+	SupportingCount    int `json:"supporting_count"`
+	ContradictingCount int `json:"contradicting_count"`
 	// Evidenceability is plan §9.5's third column reduced to five tiers, and it
 	// is the ranker's **primary** sort key rather than a gloss: a class the
 	// substrate cannot speak to outranks nothing, whatever its counts. That

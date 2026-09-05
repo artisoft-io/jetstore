@@ -102,6 +102,23 @@ type ConsultReport struct {
 	// LociNotPresent counts hypotheses at a locus triage did not find present,
 	// which is the model reasoning past its evidence rather than from it.
 	LociNotPresent int
+	// LociAbsent and LociNotEvaluable split LociNotPresent by which of the two
+	// answers the classifier actually gave, and they sum to it.
+	//
+	// **The split is AD.1's and the reason is §13.4's, arriving one layer up.**
+	// triage.Verdict is three-valued precisely because *the predicate was asked
+	// and does not hold* and *the predicate could not be asked* are different
+	// claims; a counter that adds them together undoes that distinction in the
+	// measurement after the classifier went to some trouble to keep it. The two
+	// are not equally bad either: a hypothesis at an **absent** locus is a claim
+	// the record contradicts, and one at a **not_evaluable** locus is a claim
+	// about something nobody looked at — the second is unfalsifiable rather than
+	// false, and on the deployment state all four production environments were
+	// measured in, four of the nine loci are not_evaluable by default (F282).
+	//
+	// LociNotPresent is kept rather than replaced so that §19.6's figures stay
+	// comparable as a sum.
+	LociAbsent, LociNotEvaluable int
 
 	// FloorHypotheses is what the deterministic floor produced over the same
 	// input, so every count above has something to be read against.
@@ -122,7 +139,8 @@ func (r *ConsultReport) Describe() string {
 	fmt.Fprintf(&b, "%d hypotheses, %d of them carrying contradicting evidence; %d supporting items "+
 		"and %d contradicting. %d evidence item(s) cite a source §9.7 found has no substrate; "+
 		"%d hypothesis/hypotheses name a class §9.5 attaches to no locus; %d pair a class with a locus "+
-		"§9.5 does not list for it; %d sit at a locus triage did not find present. "+
+		"§9.5 does not list for it; %d sit at a locus triage did not find present, of which %d are at a "+
+		"locus it evaluated and found absent and %d at one it could not evaluate at all. "+
 		"The deterministic floor produced %d hypotheses over the same evidence, %d with contradicting "+
 		"evidence and %d citing a source with no substrate. "+
 		"%d prompt tokens, %d completion tokens. "+
@@ -130,6 +148,7 @@ func (r *ConsultReport) Describe() string {
 		"whether either ranking is right is not a question this measures.",
 		r.Hypotheses, r.WithContradicting, r.SupportingItems, r.ContradictingItems,
 		r.UnsubstantiatedSources, r.ClassesWithNoLocus, r.PairsOutsideTheTable, r.LociNotPresent,
+		r.LociAbsent, r.LociNotEvaluable,
 		r.FloorHypotheses, r.FloorWithContradicting, r.FloorUnsubstantiatedSource,
 		r.PromptTokens, r.EvalTokens)
 	return b.String()
@@ -216,6 +235,15 @@ func (r Ranker) Consult(ctx context.Context, client Inferer, model string, in *I
 		return nil, rep, nil
 	}
 
+	// The classifier's verdict per locus, rather than only the loci that fired:
+	// LociAbsent and LociNotEvaluable need the answer and not merely its
+	// negation. A locus the report does not mention at all — which no Report
+	// this package is given should have, Classify returning all nine — is
+	// counted as absent, on the same reasoning report() uses for its fixtures.
+	verdict := map[string]triage.Verdict{}
+	for i := range in.Report.Findings {
+		verdict[in.Report.Findings[i].Locus] = in.Report.Findings[i].Verdict
+	}
 	present := map[string]bool{}
 	for _, l := range in.Report.Loci() {
 		present[l] = true
@@ -264,6 +292,11 @@ func (r Ranker) Consult(ctx context.Context, client Inferer, model string, in *I
 		}
 		if !present[h.Locus] {
 			rep.LociNotPresent++
+			if verdict[h.Locus] == triage.NotEvaluable {
+				rep.LociNotEvaluable++
+			} else {
+				rep.LociAbsent++
+			}
 		}
 		if err := h.Validate(); err != nil {
 			// Dropped rather than repaired, and counted through the fields
