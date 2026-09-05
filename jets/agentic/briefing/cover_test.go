@@ -155,3 +155,49 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 		}
 	}
 }
+
+// KindDerived cannot express a per-element correspondence, and this measures it
+// rather than asserting it (agentic_ai AK.2, I-436).
+//
+// A derived rule resolves its single source against the whole entity and
+// requires exactly one value, so `medications[].adherence_flag` derived from
+// `fills[].flag` fails for every member with two fills - the field resolves per
+// medication and the source resolves per entity, and nothing pairs them. It is
+// usable for a field that is one per briefing, which is the disclaimer AK.3
+// adds and is the case its doc comment names.
+//
+// This is the shape a rule session would express naturally and the table does
+// not: a rule matching (medication, fill) pairs is what a rete join is for. It
+// is recorded rather than remedied, because the checker's closure is what
+// carries criterion 52 and widening it here would be widening AK.1 to fit AK.2.
+func TestDerivedCannotPairElementsOfAnArray(t *testing.T) {
+	doc := `{"key":"b","rules":[
+	  {"field":"medications[].flag","kind":"derived","sources":["fills[].flag[]"]}]}`
+	s, findings := ParseSchema(doc)
+	if s == nil {
+		t.Fatalf("schema does not parse: %+v", findings)
+	}
+	entity := `{"fills":[{"flag":"low"},{"flag":"ok"}]}`
+
+	// One fill: the source resolves to one value and the rule works.
+	res, err := CheckJSON(s, `{"fills":[{"flag":"low"}]}`, `{"medications":[{"flag":"low"}]}`)
+	if err != nil {
+		t.Fatalf("CheckJSON: %v", err)
+	}
+	if !res.OK() {
+		t.Fatalf("the one-element case should hold: %s", res.String())
+	}
+
+	// Two fills, each briefing element matching its own: still refused, because
+	// the source resolves to two values rather than one.
+	res, err = CheckJSON(s, entity, `{"medications":[{"flag":"low"},{"flag":"ok"}]}`)
+	if err != nil {
+		t.Fatalf("CheckJSON: %v", err)
+	}
+	if res.OK() {
+		t.Fatal("expected derived to refuse a per-element correspondence")
+	}
+	if res.Findings[0].Code != CodeNotDerived {
+		t.Errorf("expected %s, got %s", CodeNotDerived, res.Findings[0].Code)
+	}
+}
