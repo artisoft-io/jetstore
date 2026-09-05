@@ -61,6 +61,12 @@ type fakeOps struct {
 	// unaltered, and that is what phiSeen is for.
 	phiSeen  audit.PHIAccess
 	phiAsked bool
+
+	// The verdict write (task AJ.2, Q-52).
+	recordedVerdict             *audit.IncidentTransition
+	verdictErr                  error
+	verdictClassificationBefore string
+	verdictRunRef               string
 }
 
 func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {
@@ -629,4 +635,215 @@ func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
 // and is what a database migrated between AB.1 and AB.2 would give.
 func (f *fakeOps) IncidentTransitionsFor(context.Context, string) ([]audit.IncidentTransition, error) {
 	return f.transitions, f.transitionsErr
+}
+
+// RecordIncidentTransition is the verdict write (task AJ.2). `recordedVerdict`
+// captures what the handler composed, which is how the two things the request
+// may not carry — the actor and the actor **kind** — are asserted to have been
+// derived server-side.
+func (f *fakeOps) RecordIncidentTransition(_ context.Context, t *audit.IncidentTransition) (int, error) {
+	f.recordedVerdict = t
+	if f.verdictErr != nil {
+		return 0, f.verdictErr
+	}
+	// The classification the row carried before the write is an output of the
+	// real function, read off the locked row. The fake supplies it so a test
+	// can assert the pair reaches the response rather than being dropped.
+	t.ClassificationBefore = f.verdictClassificationBefore
+	t.RunRef = f.verdictRunRef
+	if t.RunRef == "" {
+		// 0 seq is what an incident naming no run gets, and it is not an error.
+		return 0, nil
+	}
+	return 11, nil
+}
+
+// The verdict control's server half (task AJ.2, Q-52) — the single change that
+// gives `HumanVerdicts` a writer.
+//
+// **Every test below is about something the request may not decide.** The
+// endpoint's own argument for `record_approval` is that a caller who could name
+// its own actor could sign a decision as somebody else; a caller who could name
+// its own actor *kind* could write itself into the labelled population, which is
+// worse, because the population is the instrument.
+
+func TestAVerdictIsRecordedAsAHumanAndTheRequestCannotSayOtherwise(t *testing.T) {
+	ops := &fakeOps{
+		incident:                    &audit.Incident{IncidentSummary: sampleIncident()},
+		verdictClassificationBefore: "",
+		verdictRunRef:               "run_1",
+	}
+	res, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1",
+		FromStatus: "triaged", ToStatus: audit.IncidentReclassified,
+		Classification: "transformation_defect",
+		Rationale:      "the worker message names a mapping error, not a source failure",
+	}, "michel@artisoft.io")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	got := ops.recordedVerdict
+	if got == nil {
+		t.Fatal("nothing reached RecordIncidentTransition")
+	}
+	if got.ActorKind != audit.ActorHuman {
+		t.Errorf("actor kind recorded as %q; a verdict written through this endpoint is a person's", got.ActorKind)
+	}
+	if got.Actor != "michel@artisoft.io" {
+		t.Errorf("actor recorded as %q, want the authenticated user", got.Actor)
+	}
+	if got.FromStatus != "triaged" {
+		t.Errorf("from_status recorded as %q; it is read off the row", got.FromStatus)
+	}
+	if got.IncidentEventId == "" {
+		t.Error("the event id was not minted server-side")
+	}
+	if res["actorKind"] != audit.ActorHuman {
+		t.Errorf("the response says actorKind %v", res["actorKind"])
+	}
+	if res["auditSeq"] != 11 {
+		t.Errorf("auditSeq = %v; an incident naming a run is chained", res["auditSeq"])
+	}
+	if res["classificationAfter"] != "transformation_defect" {
+		t.Errorf("classificationAfter = %v", res["classificationAfter"])
+	}
+	// The two ends of the label come back together — a pairing recovered later
+	// from a mutable column is one the next correction destroys (P4 §12.4).
+	if _, ok := res["classificationBefore"]; !ok {
+		t.Error("the response drops classificationBefore, which is half the label")
+	}
+}
+
+// A verdict on an incident nothing agentic raised is durable, attributable and
+// not hash-chained (AB.4, R-44). Seq 0 is that case and is not an error.
+func TestAVerdictOnAnIncidentWithNoRunIsRecordedAndNotChained(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+	res, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1",
+		FromStatus: "triaged", ToStatus: audit.IncidentSuppressedAsBenign,
+		Rationale: "a known seasonal dip",
+	}, "michel@artisoft.io")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	if res["auditSeq"] != 0 {
+		t.Errorf("auditSeq = %v, want 0", res["auditSeq"])
+	}
+	if res["runRef"] != "" {
+		t.Errorf("runRef = %v, want empty", res["runRef"])
+	}
+}
+
+func TestAVerdictNeedsAnAuthenticatedActor(t *testing.T) {
+	_, code, err := dispatch(t, &fakeOps{}, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1", ToStatus: "verified",
+	}, "")
+	if err == nil || code != http.StatusUnauthorized {
+		t.Fatalf("code %d err %v, want 401", code, err)
+	}
+}
+
+// A.5's graph is enforced at the endpoint as well as in the primitive, so the
+// message can name the permitted set rather than the constraint that fired.
+func TestAnIllegalVerdictEdgeIsRefused(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+	_, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1",
+		FromStatus: "triaged", ToStatus: "closed",
+	}, "michel@artisoft.io")
+	if err == nil || code != http.StatusBadRequest {
+		t.Fatalf("code %d err %v, want 400", code, err)
+	}
+	if !strings.Contains(err.Error(), "not a permitted transition") {
+		t.Errorf("message = %v", err)
+	}
+	if ops.recordedVerdict != nil {
+		t.Error("the write was attempted after the edge was refused")
+	}
+}
+
+// A screen that has gone stale gets a 409 rather than overwriting somebody
+// else's verdict — recordApproval's rule, applied to the second act of the same
+// shape.
+func TestAVerdictAgainstAStaleStatusIsAConflict(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+	_, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1",
+		FromStatus: "detected", ToStatus: "triaged",
+	}, "michel@artisoft.io")
+	if code != http.StatusConflict {
+		t.Fatalf("code %d err %v, want 409", code, err)
+	}
+	var conflict *audit.ErrIncidentStateConflict
+	if !errors.As(err, &conflict) {
+		t.Fatalf("error = %v, want an *ErrIncidentStateConflict", err)
+	}
+	if conflict.Found != "triaged" {
+		t.Errorf("the conflict says found %q", conflict.Found)
+	}
+}
+
+func TestAVerdictNamingAnUnknownClassificationIsRefused(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+	_, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_1",
+		FromStatus: "triaged", ToStatus: audit.IncidentReclassified,
+		Classification: "operator_error", Rationale: "because",
+	}, "michel@artisoft.io")
+	if err == nil || code != http.StatusBadRequest {
+		t.Fatalf("code %d err %v, want 400", code, err)
+	}
+	if !strings.Contains(err.Error(), "not an incident classification") {
+		t.Errorf("message = %v", err)
+	}
+}
+
+func TestAVerdictOnAMissingIncidentIs404(t *testing.T) {
+	_, code, _ := dispatch(t, &fakeOps{}, &AgenticAction{
+		Action: "record_incident_transition", IncidentId: "inc_nope", ToStatus: "verified",
+	}, "michel@artisoft.io")
+	if code != http.StatusNotFound {
+		t.Fatalf("code %d, want 404", code)
+	}
+}
+
+// The detail response carries what may be done next and what a reclassification
+// may claim, both from the server (AJ.2).
+func TestGetIncidentCarriesThePermittedTransitionsAndTheCauses(t *testing.T) {
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
+	res, code, err := dispatch(t, ops,
+		&AgenticAction{Action: "get_incident", IncidentId: "inc_1"}, "a@b")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	permitted, ok := res["permittedTransitions"].([]string)
+	if !ok {
+		t.Fatalf("permittedTransitions = %#v", res["permittedTransitions"])
+	}
+	// `triaged` is the only status with three successors and all three are
+	// adjudications — which is why plan §10.7 calls this screen the labelling
+	// instrument.
+	if len(permitted) != 3 {
+		t.Errorf("permittedTransitions = %v, want the three adjudications of `triaged`", permitted)
+	}
+	causes, ok := res["classifications"].([]string)
+	if !ok || len(causes) != len(audit.IncidentClassifications) {
+		t.Errorf("classifications = %#v", res["classifications"])
+	}
+}
+
+// A terminal status offers nothing, as an empty array rather than null — the
+// argument transitionsOrEmpty already makes for proposals.
+func TestGetIncidentOffersNothingOnATerminalStatus(t *testing.T) {
+	inc := sampleIncident()
+	inc.Status = audit.IncidentClosed
+	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: inc}}
+	res, _, err := dispatch(t, ops,
+		&AgenticAction{Action: "get_incident", IncidentId: "inc_1"}, "a@b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res["permittedTransitions"].([]string); len(got) != 0 {
+		t.Errorf("a closed incident offers %v", got)
+	}
 }

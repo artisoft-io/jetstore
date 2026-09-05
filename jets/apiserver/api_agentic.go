@@ -119,6 +119,26 @@ type AgenticAction struct {
 	FromState string `json:"fromState"`
 	ToState   string `json:"toState"`
 	Rationale string `json:"rationale"`
+
+	// record_incident_transition (AJ.2, Q-52). Separate fields from
+	// `FromState`/`ToState` for the reason `Statuses` is separate from
+	// `States`: nine approval states and eleven incident statuses are different
+	// vocabularies, and a value sent under the wrong name would be judged by
+	// the wrong lifecycle table.
+	//
+	// **There is no `actor` and no `actorKind` here, and the second absence is
+	// the load-bearing one.** The actor is the authenticated user, as it is for
+	// an approval. The *kind* is `human` because this endpoint is reached by a
+	// person holding a capability — a request that could name its own kind
+	// could label an agent's verdict as a human's, and `HumanVerdicts` filters
+	// on exactly that column, so the labelled population would be one a caller
+	// could write itself into.
+	FromStatus string `json:"fromStatus"`
+	ToStatus   string `json:"toStatus"`
+	// Classification is the cause a reclassification claims. Required for
+	// `reclassified` by incident_event_reclassified_ck and meaningless
+	// otherwise.
+	Classification string `json:"classification"`
 }
 
 // agenticOps is the data access this endpoint needs, as an interface so the
@@ -138,9 +158,12 @@ type agenticOps interface {
 	ReadTranscript(ctx context.Context, runId string) (*audit.Transcript, error)
 	RunTier(ctx context.Context, runId string) (string, error)
 	RecordApproval(ctx context.Context, a *audit.Approval) (int, error)
-	// The incident half (task AE.1), read-only. There is no write here at all:
-	// an incident's classification transitions are what I-276 asks for an actor
-	// on, and that widening is `AB.2`'s.
+	// The incident half. **Read-only at `AE.1` and no longer** (task AJ.2,
+	// Q-52): `AB.2` built the actor, the actor kind and the immutable
+	// classification pairing that I-276 asked for before anything wrote a
+	// verdict, and `RecordIncidentTransition` below is what finally writes one.
+	// Until it existed, `HumanVerdicts` — *the labelled population, as a query*
+	// — had no writer that could put a row in it.
 	ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error)
 	// ReadIncident takes the PHI decision rather than making it: the audit
 	// package redacts inside the read, so a handler cannot obtain an
@@ -154,6 +177,11 @@ type agenticOps interface {
 	// about (F402, Q-46). Without this the basis reaches the database and stops
 	// there, which is criterion 45's last clause met and invisible.
 	IncidentTransitionsFor(ctx context.Context, incidentRef string) ([]audit.IncidentTransition, error)
+	// RecordIncidentTransition is the verdict write (AJ.2). The guard, the
+	// lifecycle check, the classification pairing and the chain event are all
+	// on the far side of this call — P4 §12.5 stated that as a fact about the
+	// interface and named the remaining step as "one call", and this is it.
+	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -193,6 +221,9 @@ func (o pgOps) ReadIncident(ctx context.Context, id string, phi audit.PHIAccess)
 }
 func (o pgOps) IncidentTransitionsFor(ctx context.Context, ref string) ([]audit.IncidentTransition, error) {
 	return audit.IncidentTransitionsFor(ctx, o.db, ref)
+}
+func (o pgOps) RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error) {
+	return audit.RecordIncidentTransition(ctx, o.db, t)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -264,6 +295,8 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 		return listIncidents(ctx, ops, a)
 	case "get_incident":
 		return getIncident(ctx, ops, a, phi)
+	case "record_incident_transition":
+		return recordIncidentTransition(ctx, ops, a, actor)
 	default:
 		return nil, http.StatusBadRequest, fmt.Errorf("unknown agentic action %q", a.Action)
 	}
@@ -579,12 +612,151 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	// generated manifest, so a second marked property appears here without an
 	// edit (AE.2).
 	return &map[string]any{
-		"incident":      row,
-		"transitions":   transitions,
-		"phiRedacted":   phi == audit.RedactPHI,
-		"phiCapability": AgentPHIAccessCapability,
-		"phiProperties": classifiedPropertyNames("Evidence"),
+		"incident":    row,
+		"transitions": transitions,
+		// What may be done to it from here, and what a reclassification may
+		// claim (AJ.2). **Both come from the server for the same reason the
+		// loci do**: A.5's graph and the ten causes are enforced by
+		// `IncidentTransitionAllowed` and by a CHECK, and a browser copy of
+		// either is the copy that cannot enforce anything. The screen renders
+		// a button per permitted status and refuses to invent one.
+		"permittedTransitions": incidentTransitionsOrEmpty(inc.Status),
+		"classifications":      audit.IncidentClassifications,
+		"phiRedacted":          phi == audit.RedactPHI,
+		"phiCapability":        AgentPHIAccessCapability,
+		"phiProperties":        classifiedPropertyNames("Evidence"),
 	}, http.StatusOK, nil
+}
+
+// recordIncidentTransition writes a human verdict on an incident (task AJ.2,
+// Q-52).
+//
+// **This is the single change that moves the labelled population off zero**, and
+// the reason it is one function rather than a feature is that `AB.2` built
+// everything under it: the guard, A.5's lifecycle, the immutable classification
+// pairing, the actor kind and the conditional chain event are all inside
+// `RecordIncidentTransition`. P4 §12.5 said the remaining step was one call and
+// meant it.
+//
+// It is `recordApproval` a second time and deliberately so — the same shape of
+// act, at the same endpoint, under the same capability. Three things differ and
+// each is a decision:
+//
+//   - **The actor kind is set here and cannot be sent.** An approval has no such
+//     field; a verdict does, and `HumanVerdicts` filters on it. A request that
+//     could name its own kind could write itself into the labelled population.
+//   - **There is no tier.** An approval is an authority-bearing act and records
+//     `tier_at_event`; a reclassification is a verdict on a claim and authorises
+//     nothing (P4 §12.4). The authority half of this task is
+//     `audit.RecordTierTransition`, which has no endpoint for the reason
+//     `tier_transition.go` gives.
+//   - **The `from` status is checked against the row before the lifecycle is
+//     consulted**, which is `recordApproval`'s own rule and is why the read
+//     below happens at all: guarding inside the write alone would judge the edge
+//     against a status the incident has already left.
+func recordIncidentTransition(ctx context.Context, ops agenticOps, a *AgenticAction, actor string) (*map[string]any, int, error) {
+	if actor == "" {
+		return nil, http.StatusUnauthorized,
+			errors.New("a verdict cannot be recorded without an authenticated actor")
+	}
+	// RedactPHI: this read exists to learn the incident's current status, and
+	// nothing here renders evidence. Asking for disclosure would widen what a
+	// write path can see for no reason the write needs (AE.2).
+	inc, err := ops.ReadIncident(ctx, a.IncidentId, audit.RedactPHI)
+	if err != nil {
+		var missing *audit.ErrNoIncident
+		if errors.As(err, &missing) {
+			return nil, http.StatusNotFound, err
+		}
+		return nil, incidentErrorCode(err), err
+	}
+	if a.FromStatus != "" && a.FromStatus != inc.Status {
+		return nil, http.StatusConflict, &audit.ErrIncidentStateConflict{
+			IncidentRef: inc.IncidentId, Expected: a.FromStatus, Found: inc.Status,
+		}
+	}
+	if !audit.IncidentTransitionAllowed(inc.Status, a.ToStatus) {
+		return nil, http.StatusBadRequest, fmt.Errorf(
+			"incident %s is in %s, from which %q is not a permitted transition; permitted: %v (Appendix A.5)",
+			inc.IncidentId, inc.Status, a.ToStatus, incidentTransitionsOrEmpty(inc.Status))
+	}
+	// Refused here rather than at the CHECK, so the message names the
+	// vocabulary rather than a constraint. The CHECK is still the authority and
+	// still fires for anything that reaches it.
+	if a.Classification != "" && !audit.KnownIncidentClassification(a.Classification) {
+		return nil, http.StatusBadRequest, fmt.Errorf(
+			"%q is not an incident classification; the vocabulary is %v",
+			a.Classification, audit.IncidentClassifications)
+	}
+
+	at := time.Now().UTC()
+	t := &audit.IncidentTransition{
+		// Minted here for recordApproval's reason: it is the primary key of an
+		// append-only governance record, and a caller that could choose it
+		// could collide with an existing verdict.
+		IncidentEventId: fmt.Sprintf("ievt_%d", at.UnixNano()),
+		IncidentRef:     inc.IncidentId,
+		FromStatus:      inc.Status,
+		ToStatus:        a.ToStatus,
+		Actor:           actor,
+		// The whole point of the control. Nothing wrote `human` before this
+		// line existed.
+		ActorKind:           audit.ActorHuman,
+		ClassificationAfter: a.Classification,
+		TransitionedAt:      at,
+		Rationale:           a.Rationale,
+	}
+	seq, err := ops.RecordIncidentTransition(ctx, t)
+	if err != nil {
+		var conflict *audit.ErrIncidentStateConflict
+		if errors.As(err, &conflict) {
+			// 409: the incident moved between the read above and the write,
+			// which is a race the screen recovers from by re-reading.
+			return nil, http.StatusConflict, err
+		}
+		var missing *audit.ErrNoIncident
+		if errors.As(err, &missing) {
+			return nil, http.StatusNotFound, err
+		}
+		// A refusal by the primitive — an unattributable actor, an illegal
+		// edge, a reclassification with no cause — is the caller's mistake and
+		// not a fault. It reaches here only when the checks above missed it,
+		// which for the reclassification CHECK is the ordinary case.
+		return nil, http.StatusBadRequest, err
+	}
+	return &map[string]any{
+		"incidentEventId": t.IncidentEventId,
+		"incidentId":      t.IncidentRef,
+		"fromStatus":      t.FromStatus,
+		"toStatus":        t.ToStatus,
+		"actor":           t.Actor,
+		"actorKind":       t.ActorKind,
+		// Read off the row inside the write, so the pair a label is made of
+		// comes back as the record has it rather than as the screen assumed.
+		"classificationBefore": t.ClassificationBefore,
+		"classificationAfter":  t.ClassificationAfter,
+		"transitionedAt":       timeOrEmpty(t.TransitionedAt),
+		// "" when the incident named no run, in which case the verdict is
+		// durable and attributable and **not** hash-chained (AB.4, R-44). The
+		// screen says so rather than leaving a supervisor to infer it from a
+		// zero seq.
+		"runRef": t.RunRef,
+		// 0 when no chain event was appended, which is that same case and is
+		// not an error.
+		"auditSeq":             seq,
+		"permittedTransitions": incidentTransitionsOrEmpty(t.ToStatus),
+	}, http.StatusOK, nil
+}
+
+// incidentTransitionsOrEmpty is transitionsOrEmpty over A.5's Incident machine
+// rather than its ChangeProposal one. Two functions rather than one taking a
+// table, because the two vocabularies are the thing most worth not mixing up
+// here — see the `Statuses`/`States` split in AgenticAction.
+func incidentTransitionsOrEmpty(status string) []string {
+	if t := audit.IncidentTransitions(status); t != nil {
+		return t
+	}
+	return []string{}
 }
 
 // classifiedPropertyNames renders one entity's data-classification markers for

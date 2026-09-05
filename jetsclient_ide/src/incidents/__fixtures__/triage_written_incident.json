@@ -1,4 +1,16 @@
 {
+  "classifications": [
+    "source_delivery_failure",
+    "source_content_change",
+    "transport_failure",
+    "parse_failure",
+    "validation_breach",
+    "transformation_defect",
+    "infrastructure_failure",
+    "dependency_failure",
+    "capacity_or_cost_deviation",
+    "benign_variation"
+  ],
   "incident": {
     "classification": "",
     "confounders": [
@@ -133,6 +145,9 @@
     "status": "diagnosed",
     "stepRef": ""
   },
+  "permittedTransitions": [
+    "remediation_proposed"
+  ],
   "phiCapability": "agent_phi_access",
   "phiProperties": [
     "statement (PHI)"
