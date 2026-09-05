@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -109,11 +110,16 @@ func insertHypothesis(t *testing.T, pool *pgxpool.Pool, id, incidentRef, cause, 
 	rank int64, confidence float64, supporting, contradicting string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
+		// hypothesis_locus and basis are columns as of AC.3 (Q-46). The fixture
+		// writes a locus from the same nine-value vocabulary the CHECK admits and
+		// a basis whose counts are those of the two arrays above, so a read-path
+		// test still exercises a row shaped like one the writer produces.
 		`INSERT INTO jetsapi.hypothesis
 		   (hypothesis_id, hypothesis_incident_ref, cause, cause_category, confidence, rank,
-		    supporting_evidence, contradicting_evidence)
-		 VALUES ($1,$2,$3,NULLIF($4,''),$5,$6,$7::jsonb,$8::jsonb)`,
-		id, incidentRef, cause, category, confidence, rank, supporting, contradicting)
+		    supporting_evidence, contradicting_evidence, hypothesis_locus, basis)
+		 VALUES ($1,$2,$3,NULLIF($4,''),$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb)`,
+		id, incidentRef, cause, category, confidence, rank, supporting, contradicting,
+		LocusWorkerFailed, basisFor(supporting, contradicting, category))
 	if err != nil {
 		t.Fatalf("inserting hypothesis %s: %v", id, err)
 	}
@@ -272,4 +278,27 @@ func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
 	if !errors.As(err, &notDeployed) {
 		t.Fatalf("ReadIncident: want ErrTablesNotDeployed, got %v", err)
 	}
+}
+
+// basisFor builds the `basis` column for a fixture from the two evidence arrays
+// it is written beside, so the counts describe the row rather than being typed
+// (AC.3, Q-46). The evidenceability tier is left `none` for a fixture, which is
+// the honest value for a hand-composed row: nothing here consulted plan §9.5.
+func basisFor(supporting, contradicting, category string) string {
+	count := func(raw string) int {
+		var items []Evidence
+		if err := json.Unmarshal([]byte(raw), &items); err != nil {
+			return 0
+		}
+		return len(items)
+	}
+	b, err := json.Marshal(HypothesisBasis{
+		SupportingCount:    count(supporting),
+		ContradictingCount: count(contradicting),
+		Evidenceability:    "none",
+	})
+	if err != nil {
+		return `{"supporting_count":0,"contradicting_count":0,"evidenceability":"none"}`
+	}
+	return string(b)
 }

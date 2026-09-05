@@ -229,9 +229,34 @@ func TestTheGeneratedDDLCarriesTheAdditiveMigration(t *testing.T) {
 	if !strings.Contains(schemaSQL, want) {
 		t.Errorf("the generated DDL does not contain %q", want)
 	}
-	// Never for a NOT NULL column: adding one to a populated table needs a
-	// default, which is a decision no emitter is entitled to take.
-	if strings.Contains(schemaSQL, "ADD COLUMN IF NOT EXISTS incident_session_id") {
-		t.Error("the emitter produced an ALTER for a NOT NULL column")
+	// **This assertion was the opposite until 2026-09-04 and the reversal is
+	// deliberate.** `AB.4` wrote it as *never for a NOT NULL column*, on the
+	// argument that adding one to a populated table needs a default and that is a
+	// decision no emitter is entitled to take. That argument is intact and it was
+	// answering the wrong question: the emitter's alternative to a bad default is
+	// not silence. `AC.3` added two required columns to `Hypothesis` (Q-46) and
+	// under the old rule they would have reached a fresh database and no migrated
+	// one — I-337 with the loudness removed.
+	//
+	// So a NOT NULL column now carries its constraint on the same statement.
+	// `IF NOT EXISTS` makes it a no-op wherever the column already exists, which
+	// is every table this widening does not touch; it takes on a migrated empty
+	// table, which is every deployment of `jetsapi.hypothesis` there is; and on a
+	// populated table missing the column it fails, naming the column, which is a
+	// migration that stops rather than a 42703 in production later (**I-381**).
+	for _, want := range []string{
+		"ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_session_id text NOT NULL;",
+		"ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_locus text NOT NULL;",
+		"ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS basis jsonb NOT NULL;",
+	} {
+		if !strings.Contains(schemaSQL, want) {
+			t.Errorf("the generated DDL does not contain %q", want)
+		}
+	}
+	// And the constraint travels on the ADD rather than as a second statement,
+	// which is what keeps a fresh install from taking an ACCESS EXCLUSIVE lock per
+	// NOT NULL column for a catalogue check it does not need.
+	if strings.Contains(schemaSQL, "ALTER COLUMN hypothesis_locus SET NOT NULL") {
+		t.Error("the emitter split the constraint onto a second statement; see _added_column_alters")
 	}
 }

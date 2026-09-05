@@ -42,6 +42,29 @@ const (
 	None Evidenceability = "none"
 )
 
+// Evidenceabilities is the vocabulary in its sort order, better-evidenced
+// first. It mirrors the model's `Evidenceability`, which `AC.3` added at Q-46 so
+// that the tier a rank is computed from is persisted with the row rather than
+// recovered by re-running a ranker that is not deterministic on its model arm.
+var Evidenceabilities = []Evidenceability{Evidenced, Conditional, Coarse, Asymmetric, None}
+
+// EvidenceabilityOf returns §9.5's answer for a cause class, or None for a
+// hypothesis that names no class.
+//
+// **None is the honest value for an unnamed class rather than a fallback.** A
+// hypothesis with no `cause_category` makes no claim in the imported vocabulary
+// at all, so there is no §9.5 row to read — and the tier that says *the record
+// cannot evidence this* is the one that ranks it last, which is where a claim
+// nobody can check belongs.
+func EvidenceabilityOf(causeCategory string) Evidenceability {
+	for i := range causeClasses {
+		if causeClasses[i].Name == causeCategory {
+			return causeClasses[i].Evidenceability
+		}
+	}
+	return None
+}
+
 // CauseClass is one row of §9.5.
 type CauseClass struct {
 	// Name is the IncidentClassification member.

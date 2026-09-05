@@ -100,11 +100,29 @@ CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
   CONSTRAINT agent_run_tier_ck CHECK (tier IN ('T0', 'T1', 'T2', 'T3', 'T4'))
 );
 -- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS agent_id text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS agent_version text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS model_id text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS prompt_version text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS tier text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS started_at timestamp with time zone NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS ended_at timestamp with time zone;
 -- stmt
 ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS run_status text;
 -- stmt
 ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS triggered_by text;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS domain_model_version text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS iteration_cap bigint NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS wall_clock_cap_seconds bigint NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.agent_run ADD COLUMN IF NOT EXISTS token_spend bigint;
 -- stmt
@@ -144,7 +162,11 @@ CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
   CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed'))
 );
 -- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS trigger text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS trigger_ref text;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS affected_pipelines text[] NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS code_diff_repository text;
 -- stmt
@@ -160,11 +182,21 @@ ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS rationale text;
 -- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS assumptions_made text[];
 -- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS generated_tests text[] NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_status text;
 -- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_tests_run bigint;
 -- stmt
 ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS ci_result_tests_failed bigint;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS impact_affected_assets text[] NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS impact_clinical_relevance_touched boolean NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS approval_state text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.change_proposal ADD COLUMN IF NOT EXISTS proposal_model_version text NOT NULL;
 -- stmt
 -- Who decided what, and from which state to which. The supervision seam of
 -- section 7.2, emitted for the first time at K.1.
@@ -204,6 +236,20 @@ CREATE TABLE IF NOT EXISTS jetsapi.approval_event (
   CONSTRAINT approval_event_to_state_ck CHECK (to_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed')),
   CONSTRAINT approval_event_tier_ck CHECK (tier_at_event IN ('T0', 'T1', 'T2', 'T3', 'T4'))
 );
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS run_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS subject_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS from_state text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS to_state text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS actor text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS tier_at_event text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS decided_at timestamp with time zone NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.approval_event ADD COLUMN IF NOT EXISTS decision_rationale text;
 -- stmt
@@ -260,11 +306,29 @@ CREATE TABLE IF NOT EXISTS jetsapi.anomaly (
              CHECK (anomaly_confounders <@ ARRAY['parse_errors_only', 'parquet_input', 'on_error_drop', 'max_input_count', 'sampling_cap', 'device_writer_output', 'merge_row_count_unknown', 'step_label_ambiguous', 'stall_cause_unknown', 'cross_step_join_unavailable', 'history_truncated', 'no_physical_location', 'stage_prefix_reused', 'location_aimed_not_reached']::text[])
 );
 -- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS detected_at timestamp with time zone NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_session_id text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_subject_type text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_subject_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_signal_type text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_observed_value text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_expected_min text;
 -- stmt
 ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_expected_max text;
 -- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_expected_basis text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_deviation_magnitude double precision;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_confounders text[] NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.anomaly ADD COLUMN IF NOT EXISTS anomaly_detector_ref text NOT NULL;
 -- stmt
 -- "Which anomalies did this run produce", which is how a triage step reaches them, and
 -- "what has this detector been saying lately", which is how a false-positive rate is
@@ -354,13 +418,27 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
                     OR 'step_label_ambiguous' = ANY (incident_confounders))
 );
 -- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_session_id text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_run_ref text;
 -- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_detected_at timestamp with time zone NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_locus text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS classification text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS severity text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS status text NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_step_ref text;
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_shard_ref bigint;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_confounders text[] NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_model_version text NOT NULL;
 -- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
 -- session id, and "what is open", which is how a supervision screen lists them.
@@ -387,6 +465,27 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 -- opaque string per item. That is I-128's silent widening reaching a composite, and
 -- tabling this entity is what exposed it.
 --
+-- **hypothesis_locus and basis were added at AC.3 by the user's answer to Q-46, and
+-- deliberately before the first row was written.** Section 19.7 graded criterion 45's last
+-- clause -- *a human can read the ranking's basis* -- as met in what the ranker emits and
+-- not surviving the write, because this table had a column for neither.
+--
+-- hypothesis_locus is constrained by the SAME vocabulary incident_locus is: the CHECK
+-- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived' the emitter builds from M.IncidentLocus, so there is
+-- no second list to drift (F68). It is required because AC.2's headline finding was that
+-- 20 of 29 model-generated hypotheses sat at loci triage did not find present -- and
+-- without this column a hypothesis raised at an absent locus is indistinguishable in
+-- stored data from a sound one, which would persist that failure mode in a form that
+-- hides it.
+--
+-- basis is counts rather than prose: the two evidence lengths and the section 9.5
+-- evidenceability tier the ranker sorts on. A count can be checked against the arrays on
+-- the same row and a sentence cannot. It is persisted rather than left to be recomputed
+-- because *re-run it* is false twice over: the model arm is not deterministic (16
+-- hypotheses on one run and 13 on the next from identical input), and the evidence itself
+-- expires on two clocks the row does not share -- RETENTION_DAYS with no default, and six
+-- months hard-coded on the run header.
+--
 -- hypothesis_incident_ref has no foreign key, on approval_event.run_ref's precedent:
 -- these tables are installed by one call and purged by session, and a constraint here
 -- would order inserts that shadow mode has no reason to order. The index is what the
@@ -400,11 +499,30 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
   rank                             bigint NOT NULL,
   supporting_evidence              jsonb NOT NULL,
   contradicting_evidence           jsonb NOT NULL,
+  hypothesis_locus                 text NOT NULL,
+  basis                            jsonb NOT NULL,
   CONSTRAINT hypothesis_cause_category_ck
-             CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation'))
+             CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
+  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived'))
 );
 -- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_incident_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS cause text NOT NULL;
+-- stmt
 ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS cause_category text;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS confidence double precision NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS rank bigint NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS supporting_evidence jsonb NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS contradicting_evidence jsonb NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_locus text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS basis jsonb NOT NULL;
 -- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
 -- hypotheses and is not answerable from the primary key.
@@ -455,6 +573,14 @@ CREATE TABLE IF NOT EXISTS jetsapi.remediation (
   CONSTRAINT remediation_reversibility_ck
              CHECK (reversibility IN ('fully_reversible', 'reversible_with_backfill'))
 );
+-- stmt
+ALTER TABLE jetsapi.remediation ADD COLUMN IF NOT EXISTS incident_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.remediation ADD COLUMN IF NOT EXISTS autonomy_tier_required text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.remediation ADD COLUMN IF NOT EXISTS reversibility text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.remediation ADD COLUMN IF NOT EXISTS remediation_approval_state text NOT NULL;
 -- stmt
 -- "What has been proposed for this incident", which is how a supervision screen reaches
 -- a remediation and is not answerable from the primary key.
@@ -525,6 +651,18 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident_event (
                     OR (classification_after IS NOT NULL
                         AND transition_rationale IS NOT NULL))
 );
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS event_incident_ref text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS from_status text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS to_status text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS event_actor text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS event_actor_kind text NOT NULL;
+-- stmt
+ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS transitioned_at timestamp with time zone NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.incident_event ADD COLUMN IF NOT EXISTS event_run_ref text;
 -- stmt

@@ -119,11 +119,13 @@ class jetsa:Hypothesis {
     jetsa:cause as text,
     jetsa:cause_category as text,
     jetsa:confidence as double,
-    jetsa:rank as int
+    jetsa:rank as int,
+    jetsa:hypothesis_locus as text
   ],
   $object_properties = [
     jetsa:supporting_evidence as array of resource,
-    jetsa:contradicting_evidence as array of resource
+    jetsa:contradicting_evidence as array of resource,
+    jetsa:basis as resource
   ],
   $as_table = true
 };
@@ -191,6 +193,17 @@ class jetsa:IncidentEvent {
     jetsa:transition_rationale as text
   ],
   $as_table = true
+};
+
+# How a hypothesis was ranked, as numbers (Q-46, answered by the user
+class jetsa:HypothesisBasis {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jetsa:supporting_count as int,
+    jetsa:contradicting_count as int,
+    jetsa:evidenceability as text
+  ],
+  $as_table = false
 };
 
 # jetsa:autonomy_tier_required / jetsa:tier / jetsa:tier_at_event enum (AutonomyTier)
@@ -276,7 +289,7 @@ text jetsa:INCIDENT_CLASSIFICATION_DEPENDENCY_FAILURE = "dependency_failure";
 text jetsa:INCIDENT_CLASSIFICATION_CAPACITY_OR_COST_DEVIATION = "capacity_or_cost_deviation";
 text jetsa:INCIDENT_CLASSIFICATION_BENIGN_VARIATION = "benign_variation";
 
-# jetsa:incident_locus enum (IncidentLocus)
+# jetsa:hypothesis_locus / jetsa:incident_locus enum (IncidentLocus)
 text jetsa:INCIDENT_LOCUS_RUN_NOT_STARTED = "run_not_started";
 text jetsa:INCIDENT_LOCUS_STEP_NEVER_STARTED = "step_never_started";
 text jetsa:INCIDENT_LOCUS_WORKER_NOT_TERMINATED = "worker_not_terminated";
@@ -315,6 +328,13 @@ text jetsa:REVERSIBILITY_IRREVERSIBLE = "irreversible";
 # jetsa:event_actor_kind enum (ActorKind)
 text jetsa:ACTOR_KIND_HUMAN = "human";
 text jetsa:ACTOR_KIND_AGENT = "agent";
+
+# jetsa:evidenceability enum (Evidenceability)
+text jetsa:EVIDENCEABILITY_EVIDENCED = "evidenced";
+text jetsa:EVIDENCEABILITY_CONDITIONAL = "conditional";
+text jetsa:EVIDENCEABILITY_COARSE = "coarse";
+text jetsa:EVIDENCEABILITY_ASYMMETRIC = "asymmetric";
+text jetsa:EVIDENCEABILITY_NONE = "none";
 
 # Rule-visible property metadata (§3.5): data_classification markers as
 # triples, readable in working memory and at build time (workspace.db triples).

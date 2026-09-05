@@ -445,6 +445,17 @@
       ],
       "type": "string"
     },
+    "Evidenceability": {
+      "description": "**Ours entirely** (5 values), and it is phase-4 plan \u00a79.5's third column\nreduced to a vocabulary. Not in the proposal at any level.\n\n\u00a79.5 asked, per imported cause class, *can the record evidence this class*,\nand answered in prose per cell. `AC.2`'s ranker reduced those answers to five\ntiers and **sorts on them as its primary key** \u2014 a class the substrate cannot\nspeak to is not a weak candidate, which is the finding that inverted its first\nranking (**I-361**). The tier is therefore an input to a rank rather than a\ngloss on one, and `AC.3` persists it for that reason (Q-46).\n\nThe order below is the sort order: better-evidenced first.",
+      "enum": [
+        "evidenced",
+        "conditional",
+        "coarse",
+        "asymmetric",
+        "none"
+      ],
+      "type": "string"
+    },
     "Hypothesis": {
       "additionalProperties": false,
       "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output\ncontract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration\ncontrol, not a documentation nicety (\u00a7A.2.8's own note).\n\n**Made a table at AB.1, and it gained exactly one property to be one.**\n\u00a7A.2.8 nests a hypothesis inside its incident, so nothing in the imported\nschema names the incident it belongs to \u2014 which is adequate for a JSON\ndocument and is not adequate for a row. `hypothesis_incident_ref` is that\nname and it is **required**: a hypothesis whose incident is unknown cannot be\nranked against its siblings, which is what `rank` is for. The departure from\n\u00a7A.2.8 is stated rather than applied silently, on I-126's precedent\n(**I-286**).\n\n**The parent keeps its object property and the child gains a reference, and\nboth are correct.** `Incident.hypotheses` is what a rule traverses in working\nmemory; `hypothesis_incident_ref` is what a query joins on. The DDL emitter\nresolves the redundancy in the direction relational modelling already\nsettles \u2014 see `_table_columns`, which omits a column for an object property\nwhose target is itself a table.",
@@ -486,6 +497,14 @@
             "$ref": "#/$defs/Evidence"
           },
           "type": "array"
+        },
+        "hypothesis_locus": {
+          "$ref": "#/$defs/IncidentLocus",
+          "description": "**The AC.1 verdict this hypothesis was derived from** - the same nine-value vocabulary Incident.incident_locus is constrained by, deliberately not a second list (F68). Added at AC.3 by the user's answer to Q-46, before the first row was written rather than after. Required: AC.2's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly the failure mode that task discovered, in a form that hides it."
+        },
+        "basis": {
+          "$ref": "#/$defs/HypothesisBasis",
+          "description": "**How the rank was arrived at, as counts** (Q-46). Section 19.7 graded criterion 45's last clause as met for what AC.2 emits and not surviving the write; this is the column that carries it. Required, because a hypothesis whose basis is absent is one nobody can check and the whole argument for the deterministic floor is that its arithmetic is checkable."
         }
       },
       "required": [
@@ -495,7 +514,33 @@
         "confidence",
         "rank",
         "supporting_evidence",
-        "contradicting_evidence"
+        "contradicting_evidence",
+        "hypothesis_locus",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "HypothesisBasis": {
+      "additionalProperties": false,
+      "description": "How a hypothesis was ranked, as numbers (Q-46, answered by the user\n2026-09-04).\n\n**Numbers rather than prose, and that is the whole of the shape.** `AC.2`\nemits a sentence per hypothesis and a sentence per ranking; a sentence cannot\nbe checked against anything, and a count can. `supporting_count` and\n`contradicting_count` are the lengths of the two evidence arrays on the same\nrow, so a reader \u2014 or a test \u2014 can confirm that the stored confidence is the\nratio it claims to be, months after the run and without the run.\n\n**Why it is persisted at all, which the question had to settle rather than\nassume.** *Reconstructable by re-running* is false for the model arm: `AC.2`\nmeasured 16 hypotheses on one run and 13 on the next from identical input\n(\u00a719.6). And the evidence expires while the row persists, on two independent\nclocks \u2014 `RETENTION_DAYS` with no default and a hard-coded six months on the\nrun header (P3 F54) \u2014 so even the deterministic floor's basis is\nreconstructable only inside a window nobody has set.",
+      "properties": {
+        "supporting_count": {
+          "description": "How many evidence items were for the hypothesis. The length of supporting_evidence on the same row, stored so that the ratio confidence claims can be checked without the run.",
+          "type": "integer"
+        },
+        "contradicting_count": {
+          "description": "How many were against. Zero is a claim the ranker made, not a question it was never asked - contradicting_evidence is required and nil fails validation (F390).",
+          "type": "integer"
+        },
+        "evidenceability": {
+          "$ref": "#/$defs/Evidenceability",
+          "description": "What plan section 9.5 says the record can do for this hypothesis's cause class. It is AC.2's primary sort key rather than a gloss: a class the substrate cannot speak to outranks nothing, whatever its counts (I-361)."
+        }
+      },
+      "required": [
+        "supporting_count",
+        "contradicting_count",
+        "evidenceability"
       ],
       "type": "object"
     },

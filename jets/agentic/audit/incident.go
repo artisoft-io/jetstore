@@ -134,6 +134,31 @@ type Evidence struct {
 	StatementRedacted bool `json:"-"`
 }
 
+// HypothesisBasis is the `basis` column: how the rank was arrived at, as counts.
+//
+// **Added at `AC.3` by the user's answer to Q-46, and it is numbers rather than
+// prose on purpose.** `AC.2` emits a sentence per hypothesis and a sentence per
+// ranking; a sentence cannot be checked against anything and a count can — these
+// two are the lengths of the evidence arrays on the same row, so a reader can
+// confirm months later that the stored confidence is the ratio it claims to be.
+//
+// **Why it is stored at all**, which the question had to settle rather than
+// assume: *reconstructable by re-running* is false for the model arm (16
+// hypotheses on one run and 13 on the next from identical input, plan §19.6),
+// and the evidence expires while the row persists, on two clocks the row does
+// not share — `RETENTION_DAYS`, an environment variable with no default, and six
+// months hard-coded on the run header (P3 F54).
+type HypothesisBasis struct {
+	SupportingCount    int    `json:"supporting_count"`
+	ContradictingCount int    `json:"contradicting_count"`
+	// Evidenceability is plan §9.5's third column reduced to five tiers, and it
+	// is the ranker's **primary** sort key rather than a gloss: a class the
+	// substrate cannot speak to outranks nothing, whatever its counts. That
+	// inversion is what a ratio over evidence positions got wrong on its first
+	// run (I-361), which is why the tier is persisted and not recomputed.
+	Evidenceability string `json:"evidenceability"`
+}
+
 // Hypothesis is one row of jetsapi.hypothesis: a ranked causal claim about an
 // incident, with the evidence on both sides.
 //
@@ -154,6 +179,20 @@ type Hypothesis struct {
 	Rank                  int64
 	SupportingEvidence    []Evidence
 	ContradictingEvidence []Evidence
+	// Locus is the `AC.1` verdict the hypothesis was raised from, in the same
+	// nine-value vocabulary `Incident.Locus` carries and constrained by a CHECK
+	// built from the same list (`hypothesis_locus_ck`).
+	//
+	// **It is not redundant with the incident's locus and that is the point.**
+	// `AC.3` writes one incident per (session, locus) and each hypothesis under
+	// the incident of its own locus, so today the two agree by construction —
+	// but a ranker that proposed a cause at a locus triage did **not** find
+	// present would produce a row where they do not, and `AC.2` measured that as
+	// 20 of 29 on its model arm (plan §19.6). Without the column such a row is
+	// indistinguishable from a sound one once written.
+	Locus string
+	// Basis is the `basis` column: criterion 45's last clause, persisted.
+	Basis HypothesisBasis
 }
 
 // IncidentSummary is one row of the incident list.
@@ -347,7 +386,8 @@ func ReadIncident(ctx context.Context, db Querier, incidentId string, phi PHIAcc
 func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIAccess) ([]Hypothesis, error) {
 	rows, err := db.Query(ctx,
 		`SELECT hypothesis_id, hypothesis_incident_ref, cause, coalesce(cause_category, ''),
-		        confidence, rank, supporting_evidence, contradicting_evidence
+		        confidence, rank, supporting_evidence, contradicting_evidence,
+		        hypothesis_locus, basis
 		   FROM jetsapi.hypothesis
 		  WHERE hypothesis_incident_ref = $1
 		  ORDER BY rank, hypothesis_id`, incidentRef)
@@ -358,10 +398,18 @@ func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIA
 	var out []Hypothesis
 	for rows.Next() {
 		var h Hypothesis
-		var supporting, contradicting []byte
+		var supporting, contradicting, basis []byte
 		if err := rows.Scan(&h.HypothesisId, &h.IncidentRef, &h.Cause, &h.CauseCategory,
-			&h.Confidence, &h.Rank, &supporting, &contradicting); err != nil {
+			&h.Confidence, &h.Rank, &supporting, &contradicting,
+			&h.Locus, &basis); err != nil {
 			return nil, fmt.Errorf("while scanning a hypothesis for %s: %w", incidentRef, err)
+		}
+		// The column is jsonb NOT NULL, so a shape this cannot parse is an error
+		// rather than a zero basis: three zeros read as *nothing for it, nothing
+		// against it, and the record cannot evidence it*, which is a claim rather
+		// than a decode failure.
+		if err := json.Unmarshal(basis, &h.Basis); err != nil {
+			return nil, fmt.Errorf("hypothesis %s: basis: %w", h.HypothesisId, err)
 		}
 		// Both columns are NOT NULL jsonb holding an array of Evidence. A shape
 		// this cannot parse is an error rather than a silently empty list: the

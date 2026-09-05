@@ -45,6 +45,7 @@ import {
   type Evidence,
   type HypothesisRow,
   type IncidentDetailResponse,
+  type IncidentTransitionRow,
 } from "./api";
 
 export function IncidentScreen({ api }: { api: ApiClient }) {
@@ -259,18 +260,93 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
           ) : (
             <ol className="hypotheses">
               {incident.hypotheses.map((h) => (
-                <Hypothesis key={h.hypothesisId} h={h} />
+                <Hypothesis key={h.hypothesisId} h={h} incidentLocus={incident.locus} />
               ))}
             </ol>
           )}
 
+          <h3>How this incident got here</h3>
+          <Transitions rows={detail.transitions ?? []} />
+
+
           <p className="empty-sub read-only-note">
-            Nothing on this screen writes. An incident's classification cannot be corrected here,
-            because a correction has to record who made it and when — and that is not built.
+            Nothing on this screen writes. An incident's classification cannot be corrected here.
+            The record that a correction would go into exists — every transition below carries an
+            actor and a kind — and the button that would write one does not.
           </p>
         </main>
       </div>
     </>
+  );
+}
+
+/**
+ * The transition history — `jetsapi.incident_event`, oldest first.
+ *
+ * **This is where the reasoning is, and that is a property of the schema rather
+ * than a layout choice.** `jetsapi.hypothesis` has no basis column and no locus
+ * column, so `AC.2`'s account of why a hypothesis ranks where it does and of
+ * what was considered and dropped before any hypothesis existed has nowhere on
+ * the rows it is about. `AC.3` writes the locus verdict's own basis onto the
+ * `detected -> triaged` transition and the ranking's onto `triaged -> diagnosed`.
+ * Rendering the rationale is therefore not a nicety: without it the reasoning
+ * reaches the database and stops there.
+ *
+ * **An empty list is words rather than a blank**, on the same argument as *not
+ * claimed* two sections up: a database migrated between `AB.1` and `AB.2` has
+ * incidents and no history for them, and a blank reads as data that failed to
+ * load.
+ *
+ * **A transition with no run says so.** `agent_audit` is keyed on an `AgentRun`,
+ * a deterministic classifier is not one, and every transition on an incident
+ * nothing agentic raised is outside the hash chain (`AB.4`, R-44). That is the
+ * whole visible consequence of the arrangement and it belongs where a supervisor
+ * is deciding how much to trust the row.
+ */
+function Transitions({ rows }: { rows: IncidentTransitionRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="empty-sub">
+        No recorded transitions. The incident's status is where it sits now; nothing here says how
+        it got there. A database migrated before the transition record existed shows this.
+      </p>
+    );
+  }
+  return (
+    <ol className="transitions">
+      {rows.map((t) => (
+        <li key={t.incidentEventId}>
+          <span className="hypothesis-head">
+            <strong>
+              {vocabLabel(t.fromStatus)} → {vocabLabel(t.toStatus)}
+            </strong>
+            <span className={t.actorKind === "human" ? "pill" : "pill pill-warn"}>
+              {t.actorKind === "human" ? "a person" : "the system itself"}
+            </span>
+            <span className="pill">{t.actor}</span>
+            <span className="empty-sub">{t.transitionedAt}</span>
+            {t.runRef === "" && (
+              <span className="pill pill-warn" title="jetsapi.agent_audit is keyed on an AgentRun">
+                not hash-chained
+              </span>
+            )}
+          </span>
+          {t.classificationAfter !== "" && (
+            <p className="empty-sub">
+              Cause {t.classificationBefore === "" ? "unclaimed" : vocabLabel(t.classificationBefore)}{" "}
+              → {vocabLabel(t.classificationAfter)}
+            </p>
+          )}
+          {t.rationale === "" ? (
+            <p className="empty-sub">
+              <em className="unclaimed">no rationale recorded</em>
+            </p>
+          ) : (
+            <p className="transition-rationale">{t.rationale}</p>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -282,8 +358,14 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
  * rule-countable fact rather than a judgement, which is what makes it renderable
  * without this screen deciding anything.
  */
-function Hypothesis({ h }: { h: HypothesisRow }) {
+function Hypothesis({ h, incidentLocus }: { h: HypothesisRow; incidentLocus: string }) {
   const outweighed = h.contradictingEvidence.length > h.supportingEvidence.length;
+  // The two columns Q-46 added. A hypothesis raised at a locus other than the
+  // incident's is the shape AC.2 measured at 20 of 29 on its model arm, and it is
+  // the reason the locus is stored rather than joined: without it such a row is
+  // indistinguishable from a sound one.
+  const elsewhere = !!h.locus && h.locus !== incidentLocus;
+  const basis = h.basis;
   return (
     <li>
       <span className="hypothesis-head">
@@ -299,7 +381,24 @@ function Hypothesis({ h }: { h: HypothesisRow }) {
             contradicted more than supported
           </span>
         )}
+        {elsewhere && (
+          <span className="pill pill-warn" role="status">
+            raised at {vocabLabel(h.locus)}, not this incident's locus
+          </span>
+        )}
       </span>
+      {basis && (
+        // The rank as arithmetic rather than as a claim. A confidence with no
+        // visible denominator is the number R-48 warns will be read as a
+        // probability; these two counts are the ones it was computed from and
+        // they are the lengths of the lists below, so a reader can check it.
+        <p className="empty-sub">
+          Ranked on {basis.supportingCount} for and {basis.contradictingCount} against, at
+          evidenceability <strong>{basis.evidenceability}</strong> — what the execution record can
+          do for this class, and the ranker's first sort key. The confidence is that ratio, not a
+          probability.
+        </p>
+      )}
       <div className="evidence-pair">
         <EvidenceList
           title="Supporting"

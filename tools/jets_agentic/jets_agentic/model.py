@@ -666,6 +666,62 @@ class Evidence(JetsaValue):
     source_ref: str | None = prop("A resolvable reference into the source.", default=None)
 
 
+class Evidenceability(StrEnum):
+    """**Ours entirely** (5 values), and it is phase-4 plan §9.5's third column
+    reduced to a vocabulary. Not in the proposal at any level.
+
+    §9.5 asked, per imported cause class, *can the record evidence this class*,
+    and answered in prose per cell. `AC.2`'s ranker reduced those answers to five
+    tiers and **sorts on them as its primary key** — a class the substrate cannot
+    speak to is not a weak candidate, which is the finding that inverted its first
+    ranking (**I-361**). The tier is therefore an input to a rank rather than a
+    gloss on one, and `AC.3` persists it for that reason (Q-46).
+
+    The order below is the sort order: better-evidenced first.
+    """
+
+    EVIDENCED = "evidenced"
+    CONDITIONAL = "conditional"
+    COARSE = "coarse"
+    ASYMMETRIC = "asymmetric"
+    NONE = "none"
+
+
+class HypothesisBasis(JetsaValue):
+    """How a hypothesis was ranked, as numbers (Q-46, answered by the user
+    2026-09-04).
+
+    **Numbers rather than prose, and that is the whole of the shape.** `AC.2`
+    emits a sentence per hypothesis and a sentence per ranking; a sentence cannot
+    be checked against anything, and a count can. `supporting_count` and
+    `contradicting_count` are the lengths of the two evidence arrays on the same
+    row, so a reader — or a test — can confirm that the stored confidence is the
+    ratio it claims to be, months after the run and without the run.
+
+    **Why it is persisted at all, which the question had to settle rather than
+    assume.** *Reconstructable by re-running* is false for the model arm: `AC.2`
+    measured 16 hypotheses on one run and 13 on the next from identical input
+    (§19.6). And the evidence expires while the row persists, on two independent
+    clocks — `RETENTION_DAYS` with no default and a hard-coded six months on the
+    run header (P3 F54) — so even the deterministic floor's basis is
+    reconstructable only inside a window nobody has set.
+    """
+
+    supporting_count: int = prop(
+        "How many evidence items were for the hypothesis. The length of supporting_evidence on "
+        "the same row, stored so that the ratio confidence claims can be checked without the run."
+    )
+    contradicting_count: int = prop(
+        "How many were against. Zero is a claim the ranker made, not a question it was never "
+        "asked - contradicting_evidence is required and nil fails validation (F390)."
+    )
+    evidenceability: Evidenceability = prop(
+        "What plan section 9.5 says the record can do for this hypothesis's cause class. It is "
+        "AC.2's primary sort key rather than a gloss: a class the substrate cannot speak to "
+        "outranks nothing, whatever its counts (I-361)."
+    )
+
+
 class Hypothesis(JetsaEntity):
     """A causal hypothesis for an Incident (§A.2.8): the RCA agent's output
     contract (§B.3). contradicting_evidence is required — a calibration
@@ -709,6 +765,21 @@ class Hypothesis(JetsaEntity):
     supporting_evidence: list[Evidence] = prop("The evidence for (min 1).")
     contradicting_evidence: list[Evidence] = prop(
         "The evidence against — required; empty only where the agent explicitly asserts none exists (§A.2.8)."
+    )
+    hypothesis_locus: IncidentLocus = prop(
+        "**The AC.1 verdict this hypothesis was derived from** - the same nine-value vocabulary "
+        "Incident.incident_locus is constrained by, deliberately not a second list (F68). Added at "
+        "AC.3 by the user's answer to Q-46, before the first row was written rather than after. "
+        "Required: AC.2's headline finding is that 20 of 29 model-generated hypotheses sat at loci "
+        "triage did not find present, and without this column a hypothesis raised at an absent locus "
+        "is indistinguishable in stored data from a sound one - which would persist exactly the "
+        "failure mode that task discovered, in a form that hides it."
+    )
+    basis: HypothesisBasis = prop(
+        "**How the rank was arrived at, as counts** (Q-46). Section 19.7 graded criterion 45's last "
+        "clause as met for what AC.2 emits and not surviving the write; this is the column that "
+        "carries it. Required, because a hypothesis whose basis is absent is one nobody can check "
+        "and the whole argument for the deterministic floor is that its arithmetic is checkable."
     )
 
 
@@ -1100,4 +1171,8 @@ ENTITIES: list[type[BaseModel]] = [
     DomainModelVersion,
     # AB.2.
     IncidentEvent,
+    # AC.3 (Q-46). A JetsaValue, so it is emitted as a class and gets no table;
+    # `_assert_tables_agree` checks that in the direction that would otherwise be
+    # invisible - a Postgres table nothing in the domain model asks for.
+    HypothesisBasis,
 ]
