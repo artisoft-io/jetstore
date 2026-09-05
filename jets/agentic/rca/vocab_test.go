@@ -164,6 +164,14 @@ func TestTwoLociMapToNoCauseClass(t *testing.T) {
 // *would* sit at — while its third column answers **No**, because nothing
 // records what was due.
 //
+// **The set answering "no" is exactly I-262's three, and it took a correction to
+// become so.** §9.5 also answered "no" for transformation_defect, on F196's
+// ground that nothing binds a run to a workspace version; §16.2 supersedes that
+// in terms, AB.3 and AH.2 having landed the binding the same day, so this file
+// classifies that row Coarse and cites §16.2 for it (I-359). Had the
+// transcription been literal, a class the record can now distinguish coarsely
+// would have been ranked below every class it can evidence at all.
+//
 // So the floor does emit a source_delivery_failure hypothesis when locus 1
 // fires, and the thing that says the record cannot support it is the
 // contradicting evidence item §9.5's note becomes. **That is the design working
@@ -193,10 +201,7 @@ func TestClassesWithNoSubstrateAreThreeAndClassesWithNoLocusAreTwo(t *testing.T)
 		t.Errorf("the classes the floor can never emit have changed:\n  got:  %v\n  want: %v",
 			noLocus, wantNoLocus)
 	}
-	// transformation_defect is the fourth here and is not I-262's: §9.5 answers
-	// "the locus yes, the cause no" for it, which is the same evidenceability
-	// and a different reason.
-	wantNoEvidence := []string{CauseSourceDeliveryFailure, CauseTransformationDefect,
+	wantNoEvidence := []string{CauseSourceDeliveryFailure,
 		CauseDependencyFailure, CauseCapacityOrCostDeviation}
 	slices.Sort(noEvidence)
 	slices.Sort(wantNoEvidence)

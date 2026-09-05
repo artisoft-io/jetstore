@@ -49,7 +49,7 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 			"cause": "a bad commit", "cause_category": CauseTransformationDefect,
 			"locus": triage.LocusWorkerFailed, "confidence": 0.9,
 			"supporting_evidence": []any{map[string]any{
-				"statement": "the last commit changed the mapping", "source": SourceCommitHistory}},
+				"statement": "the ECS agent log shows a restart", "source": SourceInfrastructureLog}},
 			"contradicting_evidence": []any{},
 		},
 		// 2. A class §9.5 attaches to no locus, at a locus that is not present.

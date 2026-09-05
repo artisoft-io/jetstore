@@ -135,8 +135,34 @@ func (r *ConsultReport) Describe() string {
 	return b.String()
 }
 
-// sourcesWithNoSubstrate are §9.7's three: nothing in JetStore can produce one.
-var sourcesWithNoSubstrate = []string{SourceCommitHistory, SourceInfrastructureLog, SourcePriorIncident}
+// sourcesWithNoSubstrate is §9.7's list, **and it is one member rather than
+// three** — which is a correction to §9.7 rather than a disagreement with it.
+//
+// §9.7 read `EvidenceSource`'s nine against what JetStore holds and found three
+// with no substrate at all: `commit_history` (no run names a commit, F196),
+// `infrastructure_log`, and `prior_incident`, whose own entry says *absent until
+// AB.1*. **Two of the three acquired one on the day §9.7 was written**, by
+// tasks in this same phase:
+//
+//   - `prior_incident` — `AB.1` created `jetsapi.incident`, which is the
+//     condition §9.7 itself named. The table exists and holds no rows until
+//     `AC.3` writes them, so the substrate is present and empty; those are
+//     different states and only the first is what this list is about.
+//   - `commit_history` — `AB.3` gave the run header a `workspace_name` and a
+//     `workspace_version`, and `AH.2` gave `jetsapi.workspace_version` a
+//     `workspace_commit`. A run therefore reaches a commit through two joins,
+//     which is exactly what F196 said nothing did.
+//
+// `infrastructure_log` is the one that has not moved, and `AB.3` came close
+// without doing it: `failure_class` and `failure_source` record the decoded
+// class and which decoder arm produced it (§16.2 row 1), which is a *classified
+// string* rather than a log. §9.7's own words — *what the record holds is a
+// decoded StoppedReason string, not a log* — are still exact.
+//
+// **This is why the list is here rather than inlined at its use.** It is a
+// dated reading of a substrate that three tasks moved inside one afternoon, and
+// the next task to move one has to find it (I-360).
+var sourcesWithNoSubstrate = []string{SourceInfrastructureLog}
 
 // Consult asks a model for a ranking over the same evidence the floor read, and
 // returns the model's ranking beside a report comparing the two.

@@ -105,10 +105,30 @@ var causeClasses = []CauseClass{
 		Name: CauseTransformationDefect,
 		Loci: []string{triage.LocusWorkerNotTerminated, triage.LocusWorkerFailed,
 			triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported},
-		Evidenceability: None,
-		Note: "the locus yes, the cause no: N.4's StepRegression establishes that this step used to work, " +
-			"and establishing what changed requires binding the run to a workspace version, which F196 " +
-			"says nothing does. This is the class the record is furthest from (§9.5)",
+		// **§9.5 answers "no" here and §16.2 supersedes it, so this row is
+		// Coarse rather than None.** §9.5's reason was F196 — establishing what
+		// changed requires binding a run to a workspace version and nothing
+		// does. AB.3 gave pipeline_execution_status a workspace_name and a
+		// workspace_version the same day, and AH.2 gave jetsapi.workspace_version
+		// a workspace_commit; §16.2's own last row records the consequence in
+		// terms: *a run names a workspace and a compiled version, two runs of
+		// the same step under different versions are now distinguishable, and
+		// what changed inside those versions is still not answerable*. That is
+		// the definition of Coarse.
+		//
+		// **The classification is taken from §16.2 rather than decided here.**
+		// Reclassifying a row of the gate's table on this task's authority would
+		// be the extraction gap 2b exists to prevent; what this file does is
+		// apply a correction another section of the same plan already made and
+		// record that §9.5's own cell has not been edited (I-359).
+		Evidenceability: Coarse,
+		Note: "the locus yes, the cause coarsely: N.4's StepRegression establishes that this step used to " +
+			"work, and a run now names a workspace and a compiled version (§16.2, AB.3), which that " +
+			"version now pairs with a commit (AH.2) — so two runs of the same step under different " +
+			"versions are distinguishable and what changed inside a version is not (F337). **The join " +
+			"is through a read that is known wrong**: four call sites resolve the workspace version as " +
+			"MAX(version) with no workspace predicate, so a deployment with two workspaces can stamp a " +
+			"run with the other one's version (§18.4, I-347)",
 	},
 	{
 		Name: CauseInfrastructureFailure,
