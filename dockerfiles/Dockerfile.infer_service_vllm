@@ -54,15 +54,43 @@ ARG VLLM_VERSION
 # quietly reusing whatever occupant it finds. A pre-existing 999 would mean cbooter drops
 # into an identity the image did not create and does not own the caches of, which fails at
 # task start in a container log rather than here.
+#
+# It fired on the first real build, v0.28.0-cu129, and on the gid alone: uid 999 is free and
+# gid 999 is systemd-journal. The pair is not negotiable in either direction. cbooter drops
+# to a hard-coded 999/999 (jsuserSysProcAttr, jets/cmds/cbooter/main.go), and JETS_TEMP_DATA
+# is one persistent volume shared with the Ollama image, whose caches are already owned by
+# 999:999 — so a different pair here reads as a permissions failure mid-run rather than as a
+# build error. The remedy is to free the gid, not to move ours.
+#
+# systemd-journal is named rather than pattern-matched, and that is the point: nothing in a
+# vLLM container runs systemd or journald, so moving it costs nothing, while moving an
+# occupant nobody has reasoned about is the silent reuse this guard exists to refuse. A new
+# occupant under a future version bump still stops the build.
 ARG USER_ID="999"
 ARG GROUP_ID="999"
-RUN if getent passwd ${USER_ID} > /dev/null || getent group ${GROUP_ID} > /dev/null; then \
-      echo "uid/gid ${USER_ID}/${GROUP_ID} is already taken in ${VLLM_VERSION}; cbooter drops to that pair" >&2; \
-      getent passwd ${USER_ID} >&2 || true; getent group ${GROUP_ID} >&2 || true; \
+ARG MOVABLE_GROUP="systemd-journal"
+ARG MOVED_GROUP_ID="990"
+RUN if getent passwd ${USER_ID} > /dev/null; then \
+      echo "uid ${USER_ID} is already taken in ${VLLM_VERSION}; cbooter drops to it" >&2; \
+      getent passwd ${USER_ID} >&2; \
       exit 1; \
     fi \
+    && occupant="$(getent group ${GROUP_ID} | cut -d: -f1)" \
+    && if [ -n "${occupant}" ] && [ "${occupant}" != "${MOVABLE_GROUP}" ]; then \
+         echo "gid ${GROUP_ID} is held by ${occupant} in ${VLLM_VERSION}, which this build will not move" >&2; \
+         getent group ${GROUP_ID} >&2; \
+         exit 1; \
+       elif [ -n "${occupant}" ]; then \
+         echo "gid ${GROUP_ID} is held by ${MOVABLE_GROUP} in ${VLLM_VERSION}; moving it to ${MOVED_GROUP_ID}" >&2; \
+         if getent group ${MOVED_GROUP_ID} > /dev/null; then \
+           echo "cannot move ${MOVABLE_GROUP}: gid ${MOVED_GROUP_ID} is held by $(getent group ${MOVED_GROUP_ID} | cut -d: -f1)" >&2; \
+           exit 1; \
+         fi; \
+         groupmod -g ${MOVED_GROUP_ID} ${MOVABLE_GROUP}; \
+       fi \
     && groupadd -g ${GROUP_ID} jsuser \
-    && useradd -l -r -u ${USER_ID} -g jsuser jsuser
+    && useradd -l -r -u ${USER_ID} -g jsuser jsuser \
+    && [ "$(id -u jsuser)" = "${USER_ID}" ] && [ "$(id -g jsuser)" = "${GROUP_ID}" ]
 
 ARG JETS_VERSION
 ENV JETS_VERSION=${JETS_VERSION}
