@@ -78,18 +78,41 @@ func Check(s *Schema, entity, brief map[string]any) (*Result, error) {
 
 // CheckJSON is Check over two undecoded documents, which is what a pipeline
 // operator holds: the entity column is a json string and the response is a json
-// string. toon is not decoded here - nothing in the tree reads toon back, and a
-// checker that silently accepted a format it cannot parse would report a clean
+// string.
+//
+// **The entity column may instead be toon, and CheckTOON reads it** (toon.go,
+// `AK.2`). What has not changed is why a format nothing can parse is refused
+// rather than passed: a checker that silently accepted one would report a clean
 // briefing for every record.
 func CheckJSON(s *Schema, entityJSON, briefJSON string) (*Result, error) {
-	var entity, brief map[string]any
-	if err := json.Unmarshal([]byte(entityJSON), &entity); err != nil {
-		return nil, fmt.Errorf("while reading the input entity as json: %w", err)
+	entity, err := decodeJSONObject(entityJSON, "the input entity")
+	if err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal([]byte(briefJSON), &brief); err != nil {
-		return nil, fmt.Errorf("while reading the briefing as json: %w", err)
+	brief, err := decodeJSONObject(briefJSON, "the briefing")
+	if err != nil {
+		return nil, err
 	}
 	return Check(s, entity, brief)
+}
+
+// decodeJSONObject reads one of the two documents Check takes.
+//
+// A document that decodes to something other than an object is refused with its
+// own message rather than passed on as an empty map: a null briefing and a
+// briefing with no fields are both "no findings" to Check, and only one of them
+// is a briefing.
+func decodeJSONObject(content, what string) (map[string]any, error) {
+	var v any
+	if err := json.Unmarshal([]byte(content), &v); err != nil {
+		return nil, fmt.Errorf("while reading %s as json: %w", what, err)
+	}
+	obj, ok := v.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf(
+			"while reading %s as json: the document is a %T rather than an object", what, v)
+	}
+	return obj, nil
 }
 
 func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []string) {

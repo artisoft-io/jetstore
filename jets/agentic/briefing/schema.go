@@ -102,8 +102,18 @@ type Schema struct {
 	// version* (A§8.3's last guardrail).
 	Key string `json:"key"`
 	// Version is the schema version, recorded for the same reason.
-	Version string      `json:"version,omitempty"`
-	Rules   []FieldRule `json:"rules"`
+	Version string `json:"version,omitempty"`
+	// Response is the fielded briefing's own shape, as the json schema the
+	// inference operator passes to the model as `response_format`
+	// (`ResponseFormat`, `jets/compute_pipes/pipes_model.go:1290`). It is
+	// optional and declaring it is what turns the runtime closure into a
+	// property of the briefing rather than of a run - see Cover.
+	//
+	// **It lives here rather than only in the pipeline config because the two
+	// halves of gap 18 are one document.** A provenance schema that does not
+	// know what fields the briefing has can only wait for one to arrive.
+	Response json.RawMessage `json:"response_format,omitempty"`
+	Rules    []FieldRule     `json:"rules"`
 }
 
 // ParseSchema decodes a provenance schema and reports what is wrong with it.
@@ -130,6 +140,16 @@ func ParseSchema(content string) (*Schema, []wsvalidate.Finding) {
 		}}
 	}
 	findings := s.compile()
+	for _, f := range findings {
+		if f.Severity == wsvalidate.Error {
+			return nil, findings
+		}
+	}
+	// Cover runs here rather than in compile() because it is a check on the
+	// document and compile() is on Check's per-record path. A schema whose rules
+	// do not compile is not asked whether they cover the briefing: the answer
+	// would name fields whose selectors never parsed.
+	findings = append(findings, s.Cover()...)
 	for _, f := range findings {
 		if f.Severity == wsvalidate.Error {
 			return nil, findings

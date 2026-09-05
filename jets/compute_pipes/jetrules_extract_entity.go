@@ -73,8 +73,21 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 			}
 			objProperties[prop.String()] = prop
 		} else {
-			// It's a literal property, extract its value
-			addToEntityObj(entityObj, removeModelPrefixes, prop.String(), itor.GetObject().Value())
+			// It's a literal property, extract its value.
+			//
+			// GetRdfNodeValue rather than Value(): a node's raw Value for a date
+			// is an rdf.LDate and for a datetime an rdf.LDatetime, both structs
+			// with one exported field, so json and toon marshalled them as a
+			// nested object - `"Service_Date":{"Date":"2025-08-14T00:00:00Z"}` -
+			// and the WithTimeFormatter this function passes to togo.Marshal
+			// never fired, because it matches time.Time and the value was never
+			// a time.Time. The ordinary column path beside this one has always
+			// unwrapped (`extractLiteralValue`,
+			// `jets/compute_pipes/jetrules_pool_worker.go:434`), so a date was a
+			// date in a column and a nested object in the prompt.
+			// Found 2026-09-05 by agentic_ai's AK.2, whose provenance rule over a
+			// service date could not read one.
+			addToEntityObj(entityObj, removeModelPrefixes, prop.String(), GetRdfNodeValue(itor.GetObject()))
 		}
 		itor.Next()
 	}
