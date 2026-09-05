@@ -237,6 +237,8 @@ func (ctx *BuilderContext) NewEmbedTransformationPipe(source *InputChannel, outp
 		{len(config.SystemPrompt) > 0, "system_prompt", "an embeddings call has no system message"},
 		{len(config.ResponseFormat) > 0, "response_format", "an embeddings response is a vector, not model text"},
 		{config.DisableStripCodeFences, "disable_strip_code_fences", "an embeddings response carries no model text to strip"},
+		{len(config.ProvenanceSchemaName) > 0, "provenance_schema_name",
+			"a provenance schema grounds a model's answer and an embeddings response is a vector"},
 	} {
 		if unusable.set {
 			return nil, fmt.Errorf("error: embed_config does not support %s: %s", unusable.name, unusable.why)

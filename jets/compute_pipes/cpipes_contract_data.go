@@ -678,6 +678,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"pool_size":                 {},
 		"prompt_template":           {},
 		"prompt_template_name":      {},
+		"provenance_schema_name":    {},
 		"request_timeout_sec":       {},
 		"response_format":           {},
 		"retry_wait_sec":            {},

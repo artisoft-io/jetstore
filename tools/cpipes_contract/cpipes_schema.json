@@ -9658,6 +9658,19 @@
           "description": "Key of a prompt_templates entry of the document.",
           "title": "Prompt Template Name"
         },
+        "provenance_schema_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Names a provenance schema of the workspace, provenance/<name>.pv.json, turning on the per-field provenance check of jets/agentic/briefing.",
+          "title": "Provenance Schema Name"
+        },
         "request_timeout_sec": {
           "anyOf": [
             {

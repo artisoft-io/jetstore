@@ -140,6 +140,18 @@ type inferPoolManager struct {
 	errorCount    atomic.Int64 // records that failed
 	retryCount    atomic.Int64
 	latencyMs     atomic.Int64
+	// The provenance counters, kept apart from errorCount because they count a
+	// different population: a briefing that was answered and is ungrounded is
+	// not a record that failed. provenanceErrorCount is records reported and
+	// bounds itself against max_error_count; provenanceFindingCount is the
+	// findings inside them and is unbounded, since it is the run's own answer to
+	// "what is the refusal rate" and capping it would make the number a
+	// property of the cap.
+	provenanceErrorCount   atomic.Int64
+	provenanceFindingCount atomic.Int64
+	// hasProvenance is set at build when a provenance schema resolved, so the
+	// summary can report a clean run as 0 rather than as silence.
+	hasProvenance bool
 	// unavailableUntil is the unix nano before which the infer server is treated
 	// as down without asking it again. See `serverDown` and `call`.
 	unavailableUntil atomic.Int64
@@ -195,11 +207,22 @@ func (pm *inferPoolManager) summary(prefix string) string {
 	if calls > 0 {
 		avg = pm.latencyMs.Load() / calls
 	}
-	return fmt.Sprintf(
+	line := fmt.Sprintf(
 		"%s, %d records, %d calls, %d errors, %d retries, "+
 			"avg latency %dms, prompt tokens %d, eval tokens %d",
 		prefix, pm.dispatchCount.Load(), calls, pm.errorCount.Load(), pm.retryCount.Load(),
 		avg, pm.promptTokens.Load(), pm.evalTokens.Load())
+	// Appended only when a provenance schema is configured, so every summary
+	// that existed before this stays byte-identical. The two numbers are the
+	// only instrument anybody has for the rate R-60 says nobody has: how often a
+	// model's answer asserts something its input entity does not support.
+	// A run with no findings reports the zero rather than saying nothing: a
+	// clean guardrail and an absent one are otherwise the same silence.
+	if pm.hasProvenance {
+		line += fmt.Sprintf(", %d records with provenance findings, %d findings",
+			pm.provenanceErrorCount.Load(), pm.provenanceFindingCount.Load())
+	}
+	return line
 }
 
 // interrupt stops the whole pipeline, used when on_error is fail.
@@ -234,7 +257,8 @@ type inferWorker struct {
 	needParsedJson   bool
 	needEnvelope     bool
 	columnEvaluators []TransformationColumnEvaluator
-	rowKeyPos        int // -1 when row_key_column is not configured
+	provenance       *inferProvenanceCheck // nil when no provenance_schema_name is set
+	rowKeyPos        int                   // -1 when row_key_column is not configured
 	nbrColumns       int
 	maxRetry         int
 	retryWait        time.Duration
@@ -300,6 +324,14 @@ func (w *inferWorker) processRecord(record *[]any) {
 		w.failedRecord(record, column, err)
 		return
 	}
+
+	// Per-field provenance, when a provenance_schema_name is configured. It runs
+	// **after** the mappings and not before, because the check is about the
+	// briefing that is delivered: a record whose required mapping was missing has
+	// already been reported and is drop/fail/pass_through by on_error, and a
+	// provenance report about it would be a finding on something no reader sees.
+	// It never changes the record and never changes its fate - see checkProvenance.
+	w.checkProvenance(record, resp)
 
 	// Apply the column transformations, if any, so the model output can be post-processed
 	// with the standard column evaluators.
@@ -653,9 +685,7 @@ func (w *inferWorker) applyMappings(record *[]any, body []byte, resp inferRespon
 	}
 
 	text, thinking := resp.Text()
-	if !w.common.DisableStripCodeFences {
-		text = inferStripCodeFences(text)
-	}
+	text = w.stripFences(text)
 
 	var parsed any
 	if w.needParsedJson {
@@ -735,6 +765,26 @@ func (w *inferWorker) applyMappings(record *[]any, body []byte, resp inferRespon
 	return "", nil
 }
 
+// stripFences removes the markdown code fences around the model's answer unless
+// the configuration turned that off.
+func (w *inferWorker) stripFences(text string) string {
+	if w.common.DisableStripCodeFences {
+		return text
+	}
+	return inferStripCodeFences(text)
+}
+
+// answerText is the model's answer as the mappings see it.
+//
+// It exists so the provenance check and applyMappings read the **same** string:
+// two readers of one value with nothing comparing them is how a date came to be
+// a nested object in the prompt and a scalar in a column (AK.2's F554), and the
+// cheapest way not to repeat that is to have one reader.
+func (w *inferWorker) answerText(resp inferResponse) string {
+	text, _ := resp.Text()
+	return w.stripFences(text)
+}
+
 // inferWalkPath follows a dot notation path into a parsed json value.
 // A path element that is an integer indexes into an array.
 func inferWalkPath(value any, path []string) (any, bool) {
@@ -793,6 +843,16 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 	}
 	common.SystemPrompt = utils.ReplaceEnvVars(common.SystemPrompt, ctx.env)
 
+	// The provenance check, when one is named. It resolves after the template so
+	// that the template's response_format is already on `common` when the schema's
+	// copy is reconciled against it, and before the mappings so that a
+	// configuration this operator will refuse is refused before anything else is
+	// compiled.
+	provenance, err := resolveInferProvenanceSchema(common, source, labels.ConfigName)
+	if err != nil {
+		return nil, err
+	}
+
 	mappings, needParsedJson, needEnvelope, err := compileInferMappings(common, outputCh, labels.ConfigName)
 	if err != nil {
 		return nil, err
@@ -845,6 +905,7 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 	pm := &inferPoolManager{
 		workersTaskCh: make(chan []any, 1),
 		workersWg:     new(sync.WaitGroup),
+		hasProvenance: provenance != nil,
 	}
 	for w := range common.PoolSize {
 		worker := &inferWorker{
@@ -858,6 +919,7 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 			needParsedJson:   needParsedJson,
 			needEnvelope:     needEnvelope,
 			columnEvaluators: columnEvaluators[w],
+			provenance:       provenance,
 			rowKeyPos:        rowKeyPos,
 			nbrColumns:       len(outputCh.Config.Columns),
 			maxRetry:         *common.MaxRetry,
