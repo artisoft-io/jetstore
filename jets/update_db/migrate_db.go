@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,46 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-func MigrateDb(dbpool *pgxpool.Pool) error {
-	// read jetstore sys tables definition using schema in json from location specified by env var
-	schemaFname := os.Getenv("JETS_SCHEMA_FILE")
-	if len(schemaFname) == 0 {
-		schemaFname = "jets_schema.json"
-	}
-	// open json file
-	file, err := os.Open(schemaFname)
-	if err != nil {
-		return fmt.Errorf("error while opening jetstore schema file: %v", err)
-	}
-	defer file.Close()
-	// open and decode the schema definition
-	dec := json.NewDecoder(file)
-	var schemaDef []schema.TableDefinition
-	if err := dec.Decode(&schemaDef); err != nil {
-		return fmt.Errorf("error while decoding jstore schema: %v", err)
-	}
-	for i := range schemaDef {
-		log.Println("Got schema for", schemaDef[i].SchemaName, ".", schemaDef[i].TableName)
-		// Drop specified tables
-		if schemaDef[i].Deleted {
-			err = schemaDef[i].DropTable(dbpool)
-			if err != nil {
-				return fmt.Errorf("error while droping table: %v", err)
-			}
-		} else {
-			err = schemaDef[i].UpdateTableSchema(dbpool, false)
-			if err != nil {
-				return fmt.Errorf("error while migrating jetstore schema: %v", err)
-			}
-		}
-	}
-	return nil
-}
 
 func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 	sqlFile, err := utils.ConfineFilePath(baseDir, fileName)

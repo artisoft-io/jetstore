@@ -15,6 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
+	"github.com/artisoft-io/jetstore/jets/migratedb"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -154,8 +155,73 @@ func (server *Server) checkJetStoreSchema() error {
 	return nil
 }
 
+// Bring the JetStore *system* tables to the deployed release, before anything
+// reads or writes one.
+// Precondition: db schema exist (checkJetStoreSchema has run)
+//
+// **This is a step of its own rather than a clause of checkDomainTablesVersion,
+// and the ordering is the whole of it.** The system tables are described by
+// jets_schema.json, which is baked into the image; the domain tables are described
+// by build/tables.json, which the workspace compile writes. Only the second is
+// downstream of the compile, and folding both into one late step meant that
+// everything between checkJetStoreSchema and checkDomainTablesVersion ran against
+// the *previous* release's system schema.
+//
+// checkWorkspaceVersion is that everything. On 2026-09-05 at 08:31 its insert into
+// workspace_version raised SQLSTATE 42703 on workspace_name -- a column the same
+// release had added (`UpdateWorkspaceVersionDb`,
+// `jets/workspace/compile_workspace_utils.go:502`) -- and the apiserver did not
+// start.
+//
+// **It is one of three system tables read or written before the old migration
+// point, and the other two are worth knowing because they age differently.** The
+// workspace_registry upsert below names workspace_name_unique_cstraintv3 in an
+// ON CONFLICT ON CONSTRAINT clause and logs its error rather than returning it, so
+// the same shape of staleness there loses the active workspace registration
+// silently instead of stopping the start; that constraint is older than the
+// current schema file and nothing has made it fire, which is exactly why it would
+// not be noticed. workspace_changes is the third and is not exposed at all:
+// UpdateTableSchema skips it by name once it exists (`UpdateTableSchema`,
+// `jets/schema/schema.go:189`), so no migration reaches it in either order.
+//
+// **Gated on the release, not on the workspace version.** This is the same gate
+// checkDomainTablesVersion applies, deliberately: a workspace version changes on
+// every recompile and a release does not, so gating here on a recompile would run
+// the migration far more often than the step it is being lifted out of.
+//
+// **It does not record the release.** addVersionToDb stays with
+// checkDomainTablesVersion, so a migration that runs and a start that then fails
+// leaves the release unrecorded and the next start repeats both halves.
+func (server *Server) checkSystemTablesVersion() error {
+	jetstoreVersion := os.Getenv("JETS_VERSION")
+	var version sql.NullString
+	stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
+	err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	switch {
+	case err == nil && version.Valid && jetstoreVersion <= version.String:
+		log.Println("JetStore system tables are at the deployed release", version.String, "- no migration needed")
+		return nil
+	case err != nil:
+		// The release is unreadable, so it is not known to be current. Migrating is
+		// the safe act: it is idempotent, and it is what checkDomainTablesVersion's
+		// own recovery branch runs anyway, only later than the compile.
+		log.Println("Notice: cannot read jetsapi.jetstore_release, migrating the system tables anyway:", err)
+	default:
+		log.Println("New JetStore release deployed, migrating the system tables before the workspace compile")
+	}
+	if err := migratedb.MigrateSystemTables(context.Background(), server.dbpool); err != nil {
+		return fmt.Errorf("while migrating the JetStore system tables: %v", err)
+	}
+	return nil
+}
+
 // Update JetStore Db -- Domain Tables and System Tables if needed
 // Precondition: db schema exist
+//
+// The -migrateDb here is the second, idempotent pass over the system tables that
+// checkSystemTablesVersion has already made on this start. It is kept rather than
+// dropped because UpdateScripts -- the release-specific data fixups -- rides the
+// same flag and must run *after* -initBaseWorkspaceDb, which is a workspace file.
 func (server *Server) checkDomainTablesVersion() error {
 	var serverArgs []string
 	var version sql.NullString
@@ -380,6 +446,13 @@ func listenAndServe() error {
 	err = server.checkJetStoreSchema()
 	if err != nil {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
+	}
+
+	// Bring the system tables to the deployed release. This must precede
+	// checkWorkspaceVersion, which reads and writes several of them.
+	err = server.checkSystemTablesVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
 	}
 
 	// Check workspace version, compile workspace if needed
