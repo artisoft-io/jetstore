@@ -104,6 +104,17 @@ var RecordConfounders = []string{
 // with those of the anomaly that gave rise to it.
 func IsConfounder(name string) bool { return slices.Contains(confounders, name) }
 
+// Confounders returns the fourteen-member vocabulary in the model's order.
+//
+// It is exported for jets/agentic/rca (AC.2), which has to partition the whole
+// vocabulary rather than test one member: a confounder is contradicting
+// evidence for a causal hypothesis unless it is a configured behaviour that
+// would produce the observation on purpose, in which case it is the case *for*
+// benign variation. A partition that is not exhaustive puts a new member
+// silently on one side, so that package asserts over this list rather than over
+// its own copy.
+func Confounders() []string { return slices.Clone(confounders) }
+
 // Anomaly is one row of jetsapi.anomaly, the thirteen properties N.2 gave
 // jetsa:Anomaly. The three nullable fields are nullable because four of the
 // six derivable failure modes are within-run predicates with no range and no
@@ -211,4 +222,48 @@ func InsertAnomaly(ctx context.Context, db Exec, a *Anomaly) error {
 		return fmt.Errorf("while inserting anomaly %q: %w", a.AnomalyId, err)
 	}
 	return nil
+}
+
+const selectAnomaliesSQL = `SELECT anomaly_id, detected_at, anomaly_session_id,
+    anomaly_subject_type, anomaly_subject_ref, anomaly_signal_type,
+    anomaly_observed_value, anomaly_expected_min, anomaly_expected_max,
+    anomaly_expected_basis, anomaly_deviation_magnitude, anomaly_confounders,
+    anomaly_detector_ref
+  FROM jetsapi.anomaly WHERE anomaly_session_id = $1 ORDER BY detected_at, anomaly_id`
+
+// ReadAnomalies returns what the detectors said about one run, oldest first.
+//
+// **This table had a write path and no read path**, which is the shape K.2
+// found in the audit store and gave the same answer to: a row nothing can read
+// back is a row whose contents nobody has checked. The first consumer is
+// jets/agentic/rca (AC.2), whose contradicting evidence is populated from
+// Anomaly.Confounders — so the read exists because a caller needed it rather
+// than for symmetry.
+//
+// The caller must have established that jetsapi.anomaly is deployed;
+// ReadExtent's Anomaly flag is that check, and it is not repeated here for the
+// reason ReadEdges gives one table over — a deployment question belongs with
+// the other deployment questions.
+func ReadAnomalies(ctx context.Context, db DB, sessionId string) ([]Anomaly, error) {
+	rows, err := db.Query(ctx, selectAnomaliesSQL, sessionId)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the anomalies of session %q: %w", sessionId, err)
+	}
+	defer rows.Close()
+	var out []Anomaly
+	for rows.Next() {
+		var a Anomaly
+		if err := rows.Scan(&a.AnomalyId, &a.DetectedAt, &a.SessionId,
+			&a.SubjectType, &a.SubjectRef, &a.SignalType,
+			&a.ObservedValue, &a.ExpectedMin, &a.ExpectedMax,
+			&a.ExpectedBasis, &a.DeviationMagnitude, &a.Confounders,
+			&a.DetectorRef); err != nil {
+			return nil, fmt.Errorf("while scanning an anomaly row: %w", err)
+		}
+		out = append(out, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("while reading anomaly rows: %w", err)
+	}
+	return out, nil
 }
