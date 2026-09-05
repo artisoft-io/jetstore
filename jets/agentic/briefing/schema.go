@@ -113,7 +113,11 @@ type Schema struct {
 	// halves of gap 18 are one document.** A provenance schema that does not
 	// know what fields the briefing has can only wait for one to arrive.
 	Response json.RawMessage `json:"response_format,omitempty"`
-	Rules    []FieldRule     `json:"rules"`
+	// Disclaimer is A§8.3's intended-use notice, declared here and populated by
+	// the projection rather than by the model. `AK.3` added it, and Confine is
+	// what asserts the part a document can assert.
+	Disclaimer *Disclaimer `json:"disclaimer,omitempty"`
+	Rules      []FieldRule `json:"rules"`
 }
 
 // ParseSchema decodes a provenance schema and reports what is wrong with it.
@@ -150,6 +154,15 @@ func ParseSchema(content string) (*Schema, []wsvalidate.Finding) {
 	// do not compile is not asked whether they cover the briefing: the answer
 	// would name fields whose selectors never parsed.
 	findings = append(findings, s.Cover()...)
+	for _, f := range findings {
+		if f.Severity == wsvalidate.Error {
+			return nil, findings
+		}
+	}
+	// Confine runs after Cover and for the same reason: it is a check on the
+	// document, and it reads the leaf set Cover has just established is
+	// walkable. `AK.3`.
+	findings = append(findings, s.Confine()...)
 	for _, f := range findings {
 		if f.Severity == wsvalidate.Error {
 			return nil, findings
