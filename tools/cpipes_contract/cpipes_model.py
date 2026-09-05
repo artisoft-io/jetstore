@@ -751,6 +751,7 @@ class OllamaSpec(_Base):
     pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
     prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
     prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
+    provenance_schema_name: str | None = Field(default=None, description="Names a provenance schema of the workspace, provenance/<name>.pv.json, turning on the per-field provenance check of jets/agentic/briefing.")
     request_timeout_sec: int | None = Field(default=None, description="Timeout of a single request attempt. Engine default: 120 (builder).")
     response_format: str | dict[str, Any] | None = Field(default=None, description="Passed to ollama as format: the string \"json\" or a json schema.")
     retry_wait_sec: int | None = Field(default=None, description="Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).")

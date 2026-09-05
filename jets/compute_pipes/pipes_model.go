@@ -1231,6 +1231,16 @@ type PromptTemplateSpec struct {
 // error reported when the operator is built.
 // SystemPrompt is the system message, optional.
 // ResponseFormat is passed to ollama as `format`: the string "json" or a json schema.
+// ProvenanceSchemaName names a provenance schema of the workspace,
+// provenance/<name>.pv.json, and turns on the per-field provenance check of
+// jets/agentic/briefing: the model's answer is checked against the serialised
+// entity the prompt was built from, and a field the entity does not support is
+// reported on the error channel. It resolves the way prompt_template_name does -
+// at build time, so a name nothing matches is a configuration error rather than a
+// per-record one, and the named document supplies the response_format the
+// operator does not otherwise set. When both are set they must be identical: the
+// shape the model is constrained by and the shape the guardrail checks are then
+// the same bytes rather than two copies nothing compares.
 // Options is passed to ollama as `options`, eg temperature, num_ctx, seed, num_predict.
 // KeepAlive is passed to ollama as `keep_alive`, it is how long the model stays resident
 // between calls; defaults to 30m since a pipeline calls the model for every record.
@@ -1287,6 +1297,7 @@ type InferCommonSpec struct {
 	PromptTemplateName     string               `json:"prompt_template_name,omitempty"`
 	SystemPrompt           string               `json:"system_prompt,omitempty"`
 	ResponseFormat         json.RawMessage      `json:"response_format,omitempty"`
+	ProvenanceSchemaName   string               `json:"provenance_schema_name,omitempty"`
 	OutputMapping          []InferMappingSpec   `json:"output_mapping,omitempty"`
 	DisableStripCodeFences bool                 `json:"disable_strip_code_fences,omitzero"`
 	PoolSize               int                  `json:"pool_size,omitzero"`
