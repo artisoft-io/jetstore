@@ -414,3 +414,147 @@ func TestSynthesizeIsIdempotent(t *testing.T) {
 		t.Errorf("the second pass changed the config\n first: %s\n  then: %s", first, got)
 	}
 }
+
+// --- The deployment switch (AM.2) ---------------------------------------------
+//
+// Always-on is the default and off is one environment variable, because how much
+// error data a deployment wants written by default belongs to whoever operates it
+// (A section 9.2). The tests below assert the two properties that makes the switch
+// worth having: off is a *whole-step* no-op rather than a partial one, and the cap
+// is a value carried into an existing contract field rather than a new axis.
+
+// Off means the document that reaches the node is the document the author wrote.
+// Not "no channels" -- no channel spec, no output_tables entry, and no fan-in,
+// which together are what makes the off state indistinguishable from a build that
+// never had the feature.
+func TestSynthesizeIsOffWhenTheDeploymentSaysSo(t *testing.T) {
+	t.Setenv(DefaultErrorReportingEnvVar, "false")
+	cpConfig, pipeConfig := corpusWiring()
+	before := mustJSON(t, struct {
+		Cp    *ComputePipesConfig
+		Pipes []PipeSpec
+	}{cpConfig, pipeConfig})
+
+	if n := SynthesizeDefaultErrorChannels(cpConfig, pipeConfig); n != 0 {
+		t.Fatalf("synthesised %d channels with the switch off, want 0", n)
+	}
+	if got := mustJSON(t, struct {
+		Cp    *ComputePipesConfig
+		Pipes []PipeSpec
+	}{cpConfig, pipeConfig}); got != before {
+		t.Errorf("the configuration changed with the switch off\n before: %s\n  after: %s", before, got)
+	}
+	if defaultErrorTableIsActive(cpConfig) {
+		t.Error("the default table is active with the switch off")
+	}
+	// No table means no writer, and the fan-in must not start or close anything.
+	reg := &ChannelRegistry{ComputeChannels: map[string]*Channel{}}
+	if started := startDefaultErrorChannelFanIn(reg, cpConfig, make(chan struct{})); started != 0 {
+		t.Errorf("the fan-in started %d copier(s) with the switch off", started)
+	}
+}
+
+// The spellings a deployment is likely to write, and what each decides. An
+// unrecognised value leaves the feature on: the recoverable failure is error data
+// nobody wanted, not silence nobody asked for.
+func TestDefaultErrorReportingSwitchSpellings(t *testing.T) {
+	cases := []struct {
+		value string
+		want  bool
+	}{
+		{"", true},
+		{"false", false}, {"FALSE", false}, {"False", false},
+		{"0", false}, {"off", false}, {"OFF", false}, {"no", false}, {"disabled", false},
+		{"true", true}, {"1", true}, {"on", true}, {"yes", true}, {"enabled", true},
+		{" false ", false}, {" on ", true},
+		{"maybe", true}, {"2", true}, {"of", true},
+	}
+	for _, c := range cases {
+		t.Setenv(DefaultErrorReportingEnvVar, c.value)
+		if got := defaultErrorReportingEnabled(); got != c.want {
+			t.Errorf("%s=%q: enabled %v, want %v", DefaultErrorReportingEnvVar, c.value, got, c.want)
+		}
+	}
+}
+
+// The cap is written onto every operator the synthesis reaches, and onto no other.
+// max_error_count is an existing field of all five operator configs, so this carries
+// a value into the document rather than moving an axis of the emitted contract.
+func TestDefaultErrorMaxCountReachesEveryOperatorItGivesAChannel(t *testing.T) {
+	t.Setenv(DefaultErrorMaxCountEnvVar, "3")
+	pipeConfig := []PipeSpec{{Apply: []TransformationSpec{
+		{Type: "map_record"},
+		{Type: "jetrules", JetrulesConfig: &JetrulesSpec{}},
+		{Type: "ollama", OllamaConfig: &OllamaSpec{}},
+		{Type: "embed", EmbedConfig: &EmbedSpec{}},
+		{Type: "vllm", VllmConfig: &VllmSpec{}},
+		{Type: "filter"},
+	}}}
+	if n := SynthesizeDefaultErrorChannels(&ComputePipesConfig{}, pipeConfig); n != 5 {
+		t.Fatalf("synthesised %d channels, want 5", n)
+	}
+	got := []int{
+		pipeConfig[0].Apply[0].MapRecordConfig.MaxErrorCount,
+		pipeConfig[0].Apply[1].JetrulesConfig.MaxErrorCount,
+		pipeConfig[0].Apply[2].OllamaConfig.MaxErrorCount,
+		pipeConfig[0].Apply[3].EmbedConfig.MaxErrorCount,
+		pipeConfig[0].Apply[4].VllmConfig.MaxErrorCount,
+	}
+	for i, n := range got {
+		if n != 3 {
+			t.Errorf("operator %d: max_error_count is %d, want 3", i, n)
+		}
+	}
+	// The operator that reports nothing gets no config and therefore no cap.
+	if pipeConfig[0].Apply[5].MapRecordConfig != nil {
+		t.Error("the filter operator was given a map_record config")
+	}
+}
+
+// An author's max_error_count wins over the deployment's, which is the same rule as
+// an explicit error_channel winning over a synthesised one. The ten corpus
+// declarations are out of reach of the cap for a stronger reason still: the
+// synthesis never touches an operator that names a channel.
+func TestDefaultErrorMaxCountYieldsToTheAuthor(t *testing.T) {
+	t.Setenv(DefaultErrorMaxCountEnvVar, "3")
+	pipeConfig := []PipeSpec{{Apply: []TransformationSpec{
+		{Type: "map_record", MapRecordConfig: &MapRecordSpec{MaxErrorCount: 500}},
+	}}}
+	SynthesizeDefaultErrorChannels(&ComputePipesConfig{}, pipeConfig)
+	if n := pipeConfig[0].Apply[0].MapRecordConfig.MaxErrorCount; n != 500 {
+		t.Errorf("the author's max_error_count became %d, want 500", n)
+	}
+
+	cpConfig, corpus := corpusWiring()
+	SynthesizeDefaultErrorChannels(cpConfig, corpus)
+	if c := corpus[0].Apply[0].JetrulesConfig; c.MaxErrorCount != 0 {
+		t.Errorf("the authored jetrules operator gained max_error_count %d", c.MaxErrorCount)
+	}
+}
+
+// A cap that does not parse, or that is zero or negative, leaves every operator its
+// own default. The fallback is the behaviour the deployment already had.
+func TestDefaultErrorMaxCountIgnoresWhatItCannotUse(t *testing.T) {
+	for _, v := range []string{"", "nonsense", "0", "-1", "3.5", " "} {
+		t.Setenv(DefaultErrorMaxCountEnvVar, v)
+		if n := defaultErrorMaxCount(); n != 0 {
+			t.Errorf("%s=%q gave %d, want 0", DefaultErrorMaxCountEnvVar, v, n)
+		}
+	}
+	t.Setenv(DefaultErrorMaxCountEnvVar, " 12 ")
+	if n := defaultErrorMaxCount(); n != 12 {
+		t.Errorf("a padded value gave %d, want 12", n)
+	}
+}
+
+// The cap is silent when unset: an operator that names no max_error_count keeps the
+// zero its builder reads as "use my default" (20 for map_record and jetrules, 50 for
+// the inference operators). This is what makes the default arm of AM.2 identical to
+// what AM.1 shipped.
+func TestNoCapLeavesTheOperatorDefaults(t *testing.T) {
+	pipeConfig := []PipeSpec{{Apply: []TransformationSpec{{Type: "map_record"}}}}
+	SynthesizeDefaultErrorChannels(&ComputePipesConfig{}, pipeConfig)
+	if n := pipeConfig[0].Apply[0].MapRecordConfig.MaxErrorCount; n != 0 {
+		t.Errorf("max_error_count is %d with no cap set, want 0", n)
+	}
+}

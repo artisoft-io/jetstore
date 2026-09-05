@@ -32,10 +32,23 @@ package compute_pipes
 // a pool of three is a deadlock rather than a cost, so the synthesised channels
 // fan into one sink channel and that sink is the single table writer's source.
 // See startDefaultErrorChannelFanIn.
+//
+// On by default, off by one environment variable. How much error data a
+// deployment wants written by default belongs to whoever operates it, so this is
+// a default rather than a law: JETS_DEFAULT_ERROR_REPORTING=false turns the
+// synthesis off wholesale, and JETS_DEFAULT_ERROR_MAX_COUNT lowers what it costs
+// without turning it off. Both are deployment-level. Whether a *particular*
+// operator opts out is an author's decision, would need a new .pc.json field and
+// therefore a new axis of the emitted contract, and is deliberately not offered
+// here -- that is the unreviewed extraction gap 2b exists to prevent.
+// See defaultErrorReportingEnabled and defaultErrorMaxCount.
 
 import (
 	"fmt"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -58,6 +71,14 @@ const (
 	// DefaultErrorTableName is the table the synthesised entry binds to. The
 	// identity is never in doubt: all ten corpus declarations bind here.
 	DefaultErrorTableName = "jetsapi.process_errors"
+
+	// DefaultErrorReportingEnvVar turns built-in error reporting off for a
+	// deployment. Unset means on, which is the whole point of the feature.
+	DefaultErrorReportingEnvVar = "JETS_DEFAULT_ERROR_REPORTING"
+
+	// DefaultErrorMaxCountEnvVar is the max_error_count the synthesis writes onto
+	// the operators it reaches. Unset means each operator keeps its own default.
+	DefaultErrorMaxCountEnvVar = "JETS_DEFAULT_ERROR_MAX_COUNT"
 )
 
 // DefaultProcessErrorColumns is the column list the synthesised channel spec
@@ -85,6 +106,63 @@ var DefaultProcessErrorColumns = []string{
 	"operator_type",
 }
 
+// defaultErrorReportingEnabled says whether this deployment wants built-in error
+// reporting. Unset is on: the feature exists because reporting a mapping error
+// should cost an author nothing, and a default that has to be switched on is the
+// configuration cost it removes, reappearing one level out.
+//
+// It is read per call rather than at package init so that a test can set it, and
+// because the two callers are startup actions that run once per step -- there is
+// no hot path here to protect.
+//
+// An unrecognised value leaves the feature ON and says so. The safe direction is
+// the one that keeps writing error rows: a deployment that meant to turn this off
+// and mistyped the value gets error data it did not want, which is recoverable,
+// rather than silence it did not ask for, which is the condition locus 8 exists to
+// report.
+func defaultErrorReportingEnabled() bool {
+	v := strings.TrimSpace(os.Getenv(DefaultErrorReportingEnvVar))
+	if v == "" {
+		return true
+	}
+	switch strings.ToLower(v) {
+	case "false", "0", "off", "no", "disabled":
+		return false
+	case "true", "1", "on", "yes", "enabled":
+		return true
+	}
+	log.Printf("warning: %s is set to '%s', which is neither on nor off; built-in error reporting stays on",
+		DefaultErrorReportingEnvVar, v)
+	return true
+}
+
+// defaultErrorMaxCount is the max_error_count the synthesis writes onto the
+// operators it gives a channel to, or 0 to write none and leave each operator its
+// own default (20 for map_record and jetrules, 50 for the inference operators).
+//
+// It is the lever between all and nothing. Always-on is affordable because the
+// volume is bounded per operator instance, and the bound is a number a deployment
+// could not previously reach without editing every .pc.json -- max_error_count is
+// an existing field of the contract, so this carries a *value* into the document
+// and moves no axis.
+//
+// An unparseable or non-positive value is ignored and reported, on
+// defaultErrorReportingEnabled's reasoning: the fallback is the behaviour the
+// deployment already had.
+func defaultErrorMaxCount() int {
+	v := strings.TrimSpace(os.Getenv(DefaultErrorMaxCountEnvVar))
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		log.Printf("warning: %s is set to '%s', which is not a positive integer; "+
+			"the operators keep their own max_error_count defaults", DefaultErrorMaxCountEnvVar, v)
+		return 0
+	}
+	return n
+}
+
 // SynthesizeDefaultErrorChannels gives every operator that reports row-level
 // failures and names no error channel a channel of its own, and adds the shared
 // channel spec and table binding those channels need. It returns the number of
@@ -102,6 +180,20 @@ func SynthesizeDefaultErrorChannels(cpConfig *ComputePipesConfig, pipeConfig []P
 	if cpConfig == nil {
 		return 0
 	}
+	// Off is a whole-step no-op rather than a partial one: no channels, so no
+	// channel spec and no output_tables entry, so defaultErrorTableIsActive is
+	// false and the fan-in does not start either. The document reaching the node
+	// is then the document the author wrote.
+	//
+	// Logged every time. A deployment that turned this off and a build that never
+	// had it are otherwise indistinguishable from the worker log, and this is the
+	// only line either way.
+	if !defaultErrorReportingEnabled() {
+		log.Printf("Built-in error reporting is off (%s); operators naming no error_channel report nothing",
+			DefaultErrorReportingEnvVar)
+		return 0
+	}
+	maxErrorCount := defaultErrorMaxCount()
 	// The names already spoken for, so a synthesised one cannot collide with an
 	// authored channel and trip validateErrorChannels on a name nobody wrote.
 	taken := make(map[string]bool)
@@ -152,6 +244,7 @@ func SynthesizeDefaultErrorChannels(cpConfig *ComputePipesConfig, pipeConfig []P
 			if !setErrorChannelConfig(transformationConfig, ec) {
 				continue
 			}
+			setDefaultMaxErrorCount(transformationConfig, maxErrorCount)
 			synthesized++
 		}
 	}
@@ -160,9 +253,51 @@ func SynthesizeDefaultErrorChannels(cpConfig *ComputePipesConfig, pipeConfig []P
 	}
 	ensureDefaultErrorChannelSpec(cpConfig)
 	ensureDefaultErrorTable(cpConfig)
-	log.Printf("Built-in error reporting: synthesised %d error channel(s) into %s",
-		synthesized, DefaultErrorTableName)
+	if maxErrorCount > 0 {
+		log.Printf("Built-in error reporting: synthesised %d error channel(s) into %s, "+
+			"capped at %d error(s) per operator instance (%s)",
+			synthesized, DefaultErrorTableName, maxErrorCount, DefaultErrorMaxCountEnvVar)
+	} else {
+		log.Printf("Built-in error reporting: synthesised %d error channel(s) into %s",
+			synthesized, DefaultErrorTableName)
+	}
 	return synthesized
+}
+
+// setDefaultMaxErrorCount writes the deployment's cap onto an operator the
+// synthesis has just given a channel to. It does nothing when no cap is set, and
+// nothing when the operator names a max_error_count of its own -- an author's
+// explicit number wins over a deployment's default, which is the same rule as an
+// explicit error_channel winning over a synthesised one.
+//
+// It is reached only for operators that named no error channel, so none of the ten
+// corpus declarations can be touched by it.
+func setDefaultMaxErrorCount(transformationConfig *TransformationSpec, n int) {
+	if n < 1 {
+		return
+	}
+	switch transformationConfig.Type {
+	case "map_record":
+		if c := transformationConfig.MapRecordConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
+	case "jetrules":
+		if c := transformationConfig.JetrulesConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
+	case "ollama":
+		if c := transformationConfig.OllamaConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
+	case "embed":
+		if c := transformationConfig.EmbedConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
+	case "vllm":
+		if c := transformationConfig.VllmConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
+	}
 }
 
 // reportsRowLevelFailures says whether an operator of this type reports row-level

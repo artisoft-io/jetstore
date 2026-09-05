@@ -250,3 +250,141 @@ func TestCorpusValidatesWithSynthesizedErrorChannels(t *testing.T) {
 		}
 	}
 }
+
+// With the deployment switch off, every corpus document reaching the node is byte
+// identical to the document its author wrote -- pipes, channel specs and pruned
+// output tables alike. That is a stronger claim than "the ten declarations still
+// work", and it is the one an operator backing this change out is relying on: off
+// has to be indistinguishable from a build without the feature, and the only way to
+// say so about 45 documents is to run them.
+func TestCorpusIsUntouchedWhenReportingIsOff(t *testing.T) {
+	dir := corpusDir(t)
+	files := corpusFiles(t, dir)
+	t.Setenv(DefaultErrorReportingEnvVar, "off")
+
+	steps, changed := 0, 0
+	for _, path := range files {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading %s: %v", path, err)
+		}
+		var probe ComputePipesConfig
+		if err := json.Unmarshal(raw, &probe); err != nil {
+			continue
+		}
+		for stepId := range probe.NbrComputePipes() {
+			startup, pipeConfig := stepStartup(t, raw, stepId)
+			if pipeConfig == nil {
+				continue
+			}
+			steps++
+			before, err := json.Marshal(struct {
+				Channels []ChannelSpec
+				Tables   []*TableSpec
+				Pipes    []PipeSpec
+			}{startup.CpConfig.Channels, startup.CpConfig.OutputTables, pipeConfig})
+			if err != nil {
+				t.Fatalf("marshalling %s step %d: %v", filepath.Base(path), stepId, err)
+			}
+			if n := SynthesizeDefaultErrorChannels(&startup.CpConfig, pipeConfig); n != 0 {
+				t.Errorf("%s step %d: synthesised %d channel(s) with the switch off",
+					filepath.Base(path), stepId, n)
+			}
+			after, err := json.Marshal(struct {
+				Channels []ChannelSpec
+				Tables   []*TableSpec
+				Pipes    []PipeSpec
+			}{startup.CpConfig.Channels, startup.CpConfig.OutputTables, pipeConfig})
+			if err != nil {
+				t.Fatalf("marshalling %s step %d: %v", filepath.Base(path), stepId, err)
+			}
+			if string(before) != string(after) {
+				changed++
+				t.Errorf("%s step %d: the configuration changed with the switch off",
+					filepath.Base(path), stepId)
+			}
+		}
+	}
+	t.Logf("corpus: %d documents, %d steps, %d step(s) changed with %s=off",
+		len(files), steps, changed, DefaultErrorReportingEnvVar)
+}
+
+// The deployment cap reaches exactly the operators the synthesis gives a channel to,
+// over the real corpus. What it must not do is reach an operator that already names
+// a max_error_count, or one whose error channel its author wrote.
+func TestCorpusCapReachesOnlyTheSynthesizedOperators(t *testing.T) {
+	dir := corpusDir(t)
+	files := corpusFiles(t, dir)
+	t.Setenv(DefaultErrorMaxCountEnvVar, "7")
+
+	capped, authoredKept, synthesised := 0, 0, 0
+	for _, path := range files {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading %s: %v", path, err)
+		}
+		var probe ComputePipesConfig
+		if err := json.Unmarshal(raw, &probe); err != nil {
+			continue
+		}
+		for stepId := range probe.NbrComputePipes() {
+			startup, pipeConfig := stepStartup(t, raw, stepId)
+			if pipeConfig == nil {
+				continue
+			}
+			before := authoredErrorChannels(t, pipeConfig)
+			synthesised += SynthesizeDefaultErrorChannels(&startup.CpConfig, pipeConfig)
+			for i := range pipeConfig {
+				for j := range pipeConfig[i].Apply {
+					pos := fmt.Sprintf("%d.%d", i, j)
+					n := maxErrorCountOf(&pipeConfig[i].Apply[j])
+					if _, authored := before[pos]; authored {
+						if n == 7 {
+							t.Errorf("%s step %d apply %s: an authored operator was capped",
+								filepath.Base(path), stepId, pos)
+						}
+						authoredKept++
+						continue
+					}
+					if isDefaultErrorChannel(errorChannelConfig(&pipeConfig[i].Apply[j])) {
+						if n != 7 {
+							t.Errorf("%s step %d apply %s: max_error_count is %d, want 7",
+								filepath.Base(path), stepId, pos, n)
+						}
+						capped++
+					}
+				}
+			}
+		}
+	}
+	t.Logf("corpus: %d channel(s) synthesised, %d operator(s) capped, %d authored declaration(s) untouched",
+		synthesised, capped, authoredKept)
+}
+
+// maxErrorCountOf reads the operator's max_error_count, or 0 where the operator has
+// no config or no such field.
+func maxErrorCountOf(ts *TransformationSpec) int {
+	switch ts.Type {
+	case "map_record":
+		if ts.MapRecordConfig != nil {
+			return ts.MapRecordConfig.MaxErrorCount
+		}
+	case "jetrules":
+		if ts.JetrulesConfig != nil {
+			return ts.JetrulesConfig.MaxErrorCount
+		}
+	case "ollama":
+		if ts.OllamaConfig != nil {
+			return ts.OllamaConfig.MaxErrorCount
+		}
+	case "embed":
+		if ts.EmbedConfig != nil {
+			return ts.EmbedConfig.MaxErrorCount
+		}
+	case "vllm":
+		if ts.VllmConfig != nil {
+			return ts.VllmConfig.MaxErrorCount
+		}
+	}
+	return 0
+}

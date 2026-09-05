@@ -607,6 +607,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // TASK_MAX_CONCURRENCY (defaults to 1)
+// JETS_DEFAULT_ERROR_REPORTING (optional, defaults to on) false/off/0/no stops giving operators that name no error_channel a default one writing to jetsapi.process_errors; read by the two cpipes starter lambdas only
+// JETS_DEFAULT_ERROR_MAX_COUNT (optional) max_error_count written onto the operators that get a default error channel, bounding what the default costs without turning it off; unset leaves each operator its own (20, or 50 for infer)
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
@@ -735,6 +737,8 @@ func main() {
 	log.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	log.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
 	log.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
+	log.Println("env JETS_DEFAULT_ERROR_REPORTING:", os.Getenv("JETS_DEFAULT_ERROR_REPORTING"))
+	log.Println("env JETS_DEFAULT_ERROR_MAX_COUNT:", os.Getenv("JETS_DEFAULT_ERROR_MAX_COUNT"))
 	log.Println("env WORKSPACE_BRANCH:", os.Getenv("WORKSPACE_BRANCH"))
 	log.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	log.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
