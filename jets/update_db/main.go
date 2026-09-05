@@ -8,9 +8,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/migratedb"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,17 +58,16 @@ func doJob() error {
 	}
 	defer dbpool.Close()
 
-	// JetStore system table migration
+	// JetStore system table migration.
+	//
+	// The apiserver runs this same function before it compiles the workspace
+	// (`checkSystemTablesVersion`, `jets/apiserver/server.go`), because the stage
+	// at the bottom of this function reads build/tables.json and so cannot run
+	// until the compile has written it. Reaching here on a release bump is
+	// therefore a second, idempotent pass rather than a second migration.
 	if *migrateDb {
 		log.Println("Migrating jetsapi system tables to latest schema")
-		err = MigrateDb(dbpool)
-		if err != nil {
-			return err
-		}
-		// The agentic audit store rides the same migration; its DDL is
-		// generated from the jets_agentic model and idempotent.
-		log.Println("Installing jetsapi.agent_audit (agentic audit store)")
-		err = audit.InstallSchema(context.Background(), dbpool)
+		err = migratedb.MigrateSystemTables(context.Background(), dbpool)
 		if err != nil {
 			return err
 		}
@@ -107,6 +106,15 @@ func doJob() error {
 		}
 	}
 
+	// Domain tables.
+	//
+	// **This stage is unconditional and it is what makes the whole binary
+	// downstream of the workspace compile**: build/tables.json is written by the
+	// compile (`compileWorkspaceV2`,
+	// `jets/workspace/compile_workspace_v2.go:297`) and is gitignored in every
+	// workspace, so there is no flag combination under which update_db can be run
+	// before one. That is why the system half was lifted into jets/migratedb
+	// rather than reached here with a new flag.
 	log.Println("-- Create / Update JetStore Domain Tables")
 	tableMap := make(map[string]*rete.TableNode)
 	fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wprefix)
