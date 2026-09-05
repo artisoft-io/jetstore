@@ -9,6 +9,11 @@ type ClusterCorrelation struct {
 	minObservationsCount int
 	distinctValuesCount  int
 	observationsCount    int
+	// stats carries the additive entropy sufficient statistics of the pair.
+	// They are what the normalised, symmetric association measure is computed
+	// from; the two counts above remain because they are what the correlation
+	// output channel has always reported.
+	stats columnEntropyStats
 }
 
 func NewClusterCorrelation(c1, c2 string, minObservationsCount int) *ClusterCorrelation {
@@ -19,9 +24,15 @@ func NewClusterCorrelation(c1, c2 string, minObservationsCount int) *ClusterCorr
 	}
 }
 
-func (cc *ClusterCorrelation) AddObservation(distinctValues, nbrObservations int) {
+// AddObservation folds one column1 value group into the pair's evidence.
+// distinctValues and nbrObservations are the group's distinct column2 value
+// count and its non-empty observation count; groupJointNLogN is the sum of
+// n*ln(n) over the group's column2 value counts, which is what makes the joint
+// entropy reducible across groups.
+func (cc *ClusterCorrelation) AddObservation(distinctValues, nbrObservations int, groupJointNLogN float64) {
 	cc.distinctValuesCount += distinctValues
 	cc.observationsCount += nbrObservations
+	cc.stats.addGroup(nbrObservations, distinctValues, groupJointNLogN)
 }
 
 // returns commulated counts

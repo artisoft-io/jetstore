@@ -28,9 +28,9 @@ func NewClusteringWorker(config *ClusteringSpec, source *InputChannel,
 	for _, c := range columns2 {
 		if c != *column1 {
 			evaluators = append(evaluators, &distinctCountCorrelationEval{
-				column2:        &c,
-				column2Pos:     (*source.Columns)[c],
-				distinctValues: make(map[string]bool),
+				column2:    &c,
+				column2Pos: (*source.Columns)[c],
+				values:     newValueHistogram(),
 			})
 		}
 	}
@@ -57,13 +57,18 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 	name2Pos := (*ctx.outputChannel.Columns)["column_name_2"]
 	countPos := (*ctx.outputChannel.Columns)["distinct_count"]
 	totalPos := (*ctx.outputChannel.Columns)["total_non_nil_count"]
+	nLogNPos := (*ctx.outputChannel.Columns)["joint_n_log_n"]
 	for _, evaluator := range ctx.correlationEvaluators {
-		if evaluator.nonNilCount > ctx.config.MinColumn2NonNilCount {
+		if evaluator.values.total > ctx.config.MinColumn2NonNilCount {
 			result := make([]any, len(ctx.outputChannel.Config.Columns))
 			result[name1Pos] = *ctx.column1
 			result[name2Pos] = *evaluator.column2
-			result[countPos] = len(evaluator.distinctValues)
-			result[totalPos] = evaluator.nonNilCount
+			result[countPos] = evaluator.values.distinctCount()
+			result[totalPos] = evaluator.values.total
+			// The group's contribution to the joint entropy. The pool manager
+			// sums it across the groups of one column1, which is exact because
+			// the groups partition the rows.
+			result[nLogNPos] = evaluator.values.sumNLog
 			// Send the out the result
 			select {
 			case outputCh <- result:
@@ -82,11 +87,14 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 
 // A modified version of the distinct column transformation operator.
 // column2Pos correspond to the position of column2 in the input row.
+//
+// It kept a set of the distinct values seen until 2026-09-05 and keeps their
+// counts now. The map is the same size; what the counts buy is the group's
+// value distribution, which is what the joint entropy is computed from.
 type distinctCountCorrelationEval struct {
-	column2        *string
-	column2Pos     int
-	distinctValues map[string]bool
-	nonNilCount    int
+	column2    *string
+	column2Pos int
+	values     *valueHistogram
 }
 
 func (eval *distinctCountCorrelationEval) Apply(input []interface{}) {
@@ -97,8 +105,7 @@ func (eval *distinctCountCorrelationEval) Apply(input []interface{}) {
 			str = fmt.Sprintf("%v", value)
 		}
 		if len(str) > 0 {
-			eval.distinctValues[str] = true
-			eval.nonNilCount += 1
+			eval.values.add(str)
 		}
 	}
 }
