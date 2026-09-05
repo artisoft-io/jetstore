@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 	"github.com/artisoft-io/jetstore/jets/userflow"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
@@ -26,6 +27,15 @@ import (
 // on 2026-08-18, so that row is overdue rather than scheduled** — this comment
 // said "when their gap 6 activates" for five days after it had (their I-81).
 // A note naming a future trigger goes silent when the trigger passes.
+//
+// `.pv.json` is the fifth (agentic_ai's `AK.2`, 2026-09-05): a briefing
+// provenance schema, the document that says what each field of a generated
+// briefing is allowed to assert. It is a row and nothing else, again — the
+// validator is `briefing.ValidateProvenanceDocument` and it existed before this
+// row did, because `ParseSchema` was written to return `wsvalidate.Finding`
+// for exactly this reason. **This is the second extension by a party that did
+// not write the table**, after ui_refresh's `.tc.json`, and the first by the
+// stream the table's comment was addressed to.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -34,6 +44,7 @@ var workspaceFileValidators = []struct {
 	{".ua.json", userflow.ValidateActionDocument},
 	{".form.json", userflow.ValidateFormDocument},
 	{".tc.json", userflow.ValidateTableDocument},
+	{briefing.DocumentSuffix, briefing.ValidateProvenanceDocument},
 }
 
 // validatorFor returns the most specific match, or nil.

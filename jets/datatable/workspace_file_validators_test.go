@@ -16,6 +16,7 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"user_flows/loadFilesUF.ua.json":            true,
 		"user_flows/loadFilesUF.form.json":          true,
 		"table_configs/lfSourceConfigTable.tc.json": true,
+		"provenance/patient_briefing.pv.json":       true,
 		// The plain-JSON files that have always been saved through this path keep
 		// their existing behaviour: well-formedness only, no specific validator.
 		"workspace_control.json":    false,
@@ -23,6 +24,7 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"pipes_config/x.pc.json":    false, // agentic_ai's row, not yet added
 		"user_flows/notes.md":       false,
 		"looks_like.uf.json.backup": false,
+		"provenance/notes.json":     false,
 		"UPPER/LOADFILES.UF.JSON":   true, // case-insensitive, like the check it sits behind
 	}
 	for name, want := range cases {
@@ -244,4 +246,46 @@ func TestCheckWorkspaceFileIsTheWiring(t *testing.T) {
 			t.Errorf("refused a non-json file: %v", err)
 		}
 	})
+}
+
+// The `.pv.json` row (agentic_ai AK.2). It is here rather than only in
+// jets/agentic/briefing because the claim being tested is the *wiring*: the
+// mechanism I.3's comment describes - adding a row is the whole of adding a file
+// type - held for a fifth type added by a different stream.
+func TestProvenanceSchemaGoesThroughTheSavePath(t *testing.T) {
+	const good = `{
+	  "key": "patient_briefing",
+	  "response_format": {"type": "object", "additionalProperties": false,
+	    "properties": {"count": {"type": "integer"}}},
+	  "rules": [{"field": "count", "kind": "count_of", "sources": ["e[]"]}]
+	}`
+	if err := checkWorkspaceFile("provenance/patient_briefing.pv.json", good); err != nil {
+		t.Fatalf("a well-formed provenance schema must save: %v", err)
+	}
+
+	// A briefing field with no rule is refused at save time, which is what makes
+	// the totality a property of the document rather than of a run.
+	const uncovered = `{
+	  "key": "patient_briefing",
+	  "response_format": {"type": "object", "additionalProperties": false,
+	    "properties": {"count": {"type": "integer"}, "note": {"type": "string"}}},
+	  "rules": [{"field": "count", "kind": "count_of", "sources": ["e[]"]}]
+	}`
+	err := checkWorkspaceFile("provenance/patient_briefing.pv.json", uncovered)
+	if err == nil {
+		t.Fatal("a briefing field with no provenance rule must not save")
+	}
+	if !strings.Contains(err.Error(), "note") {
+		t.Errorf("the message should name the field, got %v", err)
+	}
+
+	// An exemption with no reason: the escape hatch stays a sentence somebody has
+	// to write.
+	const unreasoned = `{
+	  "key": "patient_briefing",
+	  "rules": [{"field": "note", "kind": "ungrounded"}]
+	}`
+	if err := checkWorkspaceFile("provenance/patient_briefing.pv.json", unreasoned); err == nil {
+		t.Fatal("an ungrounded field with no reason must not save")
+	}
 }
