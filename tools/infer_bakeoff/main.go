@@ -660,19 +660,17 @@ func runArm(ctx context.Context, c config, arm string, pass int, cases []*eval.C
 func validates(schema *jsonschema.Schema, content string, a *attempt) bool {
 	var value any
 	if err := json.Unmarshal([]byte(content), &value); err != nil {
-		if a.Err == "" {
-			a.Err = "not valid JSON: " + firstLine(err.Error())
-		}
+		a.Err = "not valid JSON: " + firstLine(err.Error())
 		return false
 	}
 	if err := schema.Validate(value); err != nil {
-		if a.Err == "" {
-			// **The whole failure, squashed, rather than its first line.** A
-			// jsonschema/v6 error opens with the document url and puts the
-			// cause on the lines after it, so a first-line reading records the
-			// same string for every failure in the run and classifies nothing.
-			a.Err = truncate(squash(err.Error()), 300)
-		}
+		// **The whole failure, squashed, rather than its first line, and it
+		// overwrites whatever the client that made the call recorded.** A
+		// jsonschema/v6 error opens with the document url and puts the cause on
+		// the lines after it, so a first-line reading stores the same string for
+		// every failure in the run and classifies nothing — which is what the
+		// arms going through infer.Client produced until this overwrote it.
+		a.Err = truncate(squash(err.Error()), 300)
 		return false
 	}
 	return true
