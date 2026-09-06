@@ -823,7 +823,9 @@
         "put_schema_event_to_s3",
         "save_workspace_client_config",
         "add_workspace_file",
-        "delete_workspace_files"
+        "delete_workspace_files",
+        "delete_workspace_changes",
+        "delete_all_workspace_changes"
       ],
       "description": "A server action an authored flow may invoke"
     },

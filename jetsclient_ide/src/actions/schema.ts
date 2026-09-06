@@ -245,6 +245,32 @@ export const ServerActionSchema = z
      */
     "add_workspace_file",
     "delete_workspace_files",
+    /**
+     * Revert the selected workspace changes, and revert all of them. The
+     * workspace home screen's two buttons, ported from `FormKeys.workspaceHome`.
+     *
+     * **The reasoning above holds unchanged.** Both are gated by `workspace_ide`
+     * in their own handlers — `DeleteWorkspaceChanges` and
+     * `DeleteAllWorkspaceChanges` (`jets/datatable/workspace_data_table_action.go`),
+     * each opening with
+     * `VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"})` —
+     * so a hostile document could not reach either without the running user
+     * already holding the capability. What the allowlist buys is that a button
+     * labelled *Next* cannot quietly discard someone's uncommitted edits.
+     *
+     * **Neither resolves a statement out of `sqlInsertStmts`, so neither takes a
+     * `table`**, which is `save_workspace_client_config`'s shape. The scoped one
+     * reads **only `file_name`** off each row of `data` — the Dart also sent
+     * `key`, `oid` and `user_email` and the handler reads none of them, so the
+     * document sends what is read rather than what was sent. The other reads
+     * nothing but the workspace off the envelope.
+     *
+     * **`oid` in particular is not merely unread but deprecated**: the column
+     * carries `deprecated: true` in `jets/jets_schema.json` and every live row
+     * held 0 when this was measured on 2026-09-05.
+     */
+    "delete_workspace_changes",
+    "delete_all_workspace_changes",
   ])
   .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
 

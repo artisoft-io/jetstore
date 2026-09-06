@@ -27,6 +27,7 @@ import { isServerValidatedJson, languageNameFor } from "../editor/language";
 import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
 import { CompiledView } from "./CompiledView";
+import { WorkspaceChanges } from "./WorkspaceChanges";
 import { compiledViewFor, compiledViews } from "./sectionContract";
 
 /** The capability the server requires for every workspace action. */
@@ -425,13 +426,29 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               </footer>
             </>
           ) : (
-            <div className="empty">
-              <p>Select a file to start editing.</p>
-              <p className="empty-sub">
-                Every file in the workspace opens here, whatever its size. A section heading whose
-                files compile into the workspace database opens the compiled view instead.
-              </p>
-            </div>
+            /*
+              **The base content, not a placeholder.** The Flutter workspace home
+              is `ScreenWithTabsWithForm` — tabs *and* a form — and its form is
+              action-less with one full-height field, the `workspaceChangesTable`
+              (`workspace_ide/form_config.dart`, `FormKeys.workspaceHome`). So the
+              changes table is what this screen shows when no tab is open, and the
+              "Select a file" text that stood here was the half of that screen the
+              port had not reached.
+
+              It needs a workspace to filter on, so the bare `/workspace` route —
+              where a user has not picked one yet — keeps the placeholder.
+            */
+            workspace ? (
+              <WorkspaceChanges api={api} workspace={workspace} />
+            ) : (
+              <div className="empty">
+                <p>Select a workspace to see its changes, or a file to start editing.</p>
+                <p className="empty-sub">
+                  Every file in the workspace opens here, whatever its size. A section heading whose
+                  files compile into the workspace database opens the compiled view instead.
+                </p>
+              </div>
+            )
           )}
         </main>
       </div>
