@@ -262,7 +262,17 @@ func TestAgainstTheRealCorpus(t *testing.T) {
 		t.Errorf("corpus has %d transformation instances, want 459; a flat walk of the top-level "+
 			"pipes finds 257, which is the mistake this assertion exists to catch", len(c.Instances))
 	}
-	for _, op := range []string{"map_record", "partition_writer", "ollama", "high_freq", "distinct"} {
+	// **"ollama" became "infer" on 2026-09-05** when patient_profile.pc.json moved to
+	// the backend-agnostic infer operator, which ResolveInferBackend rewrites into an
+	// ollama or vllm step at startup. The corpus records what was *authored*, so the
+	// only raw ollama instance stopped existing and this canary had to move with it.
+	//
+	// The count did not change -- 459 either way -- because one operator became
+	// another rather than being added or removed, which is why this list caught it and
+	// the instance assertion above did not. The canary's job is unchanged: infer sits
+	// in the same nested apply array ollama did, so a walk that misses nested arrays
+	// still fails here.
+	for _, op := range []string{"map_record", "partition_writer", "infer", "high_freq", "distinct"} {
 		if byOp[op] == 0 {
 			t.Errorf("%s has no instances; nested apply arrays are not being walked", op)
 		}

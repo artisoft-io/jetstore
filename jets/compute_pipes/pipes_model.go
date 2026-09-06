@@ -634,6 +634,7 @@ type TransformationSpec struct {
 	OllamaConfig          *OllamaSpec                      `json:"ollama_config,omitzero"`
 	EmbedConfig           *EmbedSpec                       `json:"embed_config,omitzero"`
 	VllmConfig            *VllmSpec                        `json:"vllm_config,omitzero"`
+	InferConfig           *InferSpec                       `json:"infer_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
@@ -1620,6 +1621,41 @@ type EmbedSpec struct {
 // There is no `think` property: vLLM exposes reasoning through a server-side parser and
 // the reasoning text arrives as message.reasoning_content, which the `thinking` mapping
 // source reads when the server supplies it.
+// InferSpec is the backend-agnostic inference operator. It carries the whole of
+// what both backends read, so a document that switches between them states its
+// configuration once rather than twice.
+//
+// It is resolved away before anything else sees it: ResolveInferBackend rewrites a
+// `type: infer` step into a `type: ollama` or `type: vllm` one, between
+// ApplyAllConditionalTransformationSpec and SynthesizeDefaultErrorChannels. So the
+// executors, the error-channel synthesis, the validator and the matrix all keep
+// seeing the two operators they already know, and this type adds no dispatch site.
+//
+// The specialized keys are flat and inert on the backend that does not read them:
+// KeepAlive and Think are ollama's, StructuredOutput is vllm's. That is what lets
+// one document serve both. An inert key is logged at resolution rather than
+// refused, because refusing it would defeat the point of the type.
+type InferSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// Backend names the server this step runs against: "ollama" or "vllm". It may be
+	// an env var reference -- "$INFER_BACKEND" is copied from the process environment
+	// by shardingInitializeCpipes -- which is the point of the field: the deployment
+	// states which server is running and the document does not have to. Empty, or an
+	// env var that is unset, means ollama.
+	Backend          string            `json:"backend,omitempty"`
+	Model            string            `json:"model"`
+	Api              string            `json:"api,omitempty"`
+	Options          map[string]any    `json:"options,omitempty"`
+	Server           *OllamaServerSpec `json:"server,omitzero"`
+	KeepAlive        string            `json:"keep_alive,omitempty"`        // ollama only
+	Think            *bool             `json:"think,omitzero"`              // ollama only
+	StructuredOutput string            `json:"structured_output,omitempty"` // vllm only
+	// The backend-agnostic configuration, embedded anonymously exactly as the two
+	// concrete operators embed it, so every shared key is the same field rather than
+	// a third copy of the same list.
+	InferCommonSpec
+}
+
 type VllmSpec struct {
 	Comment          string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Model            string            `json:"model"`
