@@ -293,7 +293,18 @@ describe("a section heading opens its compiled view", () => {
     // `DoWorkspaceReadAction` gates on `workspace_ide` and opens the SQLite file;
     // `read` gates on `read_data` and queries Postgres. A document that said
     // nothing would mean `read` and would query the wrong database entirely.
-    expect(posts.filter((p) => p.action === "read")).toEqual([]);
+    //
+    // **A plain `read` is no longer zero, and narrowing this is the point rather
+    // than a concession.** The workspace home's base content is the changes
+    // table, which queries `jetsapi.workspace_changes` in Postgres — exactly what
+    // `read` is for. What this case is about is that the *compiled view's*
+    // queries do not use it, so it asserts which table the plain reads name
+    // rather than that there are none. Asserting emptiness again would have
+    // meant either deleting the case or making the screen quieter than it is.
+    const tablesRead = posts
+      .filter((p) => p.action === "read")
+      .flatMap((p) => (p.body["fromClauses"] as { table: string }[]).map((c) => c.table));
+    expect([...new Set(tablesRead)]).toEqual(["workspace_changes"]);
   });
 
   it("names the compiled workspace with the $SCHEMA sentinel, unresolved", async () => {
@@ -330,7 +341,13 @@ describe("a section heading opens its compiled view", () => {
     fireEvent.change(screen.getByLabelText("Workspace"), { target: { value: "other" } });
     // Changing the workspace closes every tab, as it does for file tabs: the
     // documents in one workspace's compiled database are not the other's.
-    await screen.findByText("Select a file to start editing.");
+    //
+    // **What is behind the closed tabs is the changes table now**, not the "Select
+    // a file" placeholder — the workspace home's base content, which is what the
+    // Flutter screen's action-less form always was. Asserting the heading rather
+    // than the absence of tabs keeps this case testing that the tabs closed *and*
+    // that something correct is underneath them.
+    await screen.findByRole("heading", { name: "Workspace Changes" });
     expect(screen.queryByRole("tab", { name: "Domain Classes" })).toBeNull();
 
     fireEvent.click(screen.getByTitle("Open the compiled view of data_model"));

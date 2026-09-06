@@ -30,7 +30,9 @@ import {
   tablePath,
   type TableConfigDocument,
 } from "./table";
-import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments } from "./tableTranslate";
+import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments,
+  CORPUS_CORRECTIONS,
+} from "./tableTranslate";
 import type { TableConfig } from "./types";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
@@ -42,7 +44,7 @@ const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
  * table a *screen* draws is imported into this bundle and never leaves it. So the
- * 63 documents this emitter owns are committed in two directories, and which one
+ * 64 documents this emitter owns are committed in two directories, and which one
  * a key belongs to is a property of who reads it rather than of this test.
  */
 const assetTablesDir = fileURLToPath(
@@ -171,6 +173,7 @@ const screenTables = (screenCorpus as { tables: Record<string, unknown> }).table
 const NON_FLOW_KEYS = [
   "pipelineExecStatusTable",
   "workspaceRegistryTable",
+  "workspaceChangesTable",
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
   "queryToolResultSetTable",
@@ -272,7 +275,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the 63 configurations committed beside it, for the Go check", () => {
+  it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -334,15 +337,17 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 37 shipping configurations", () => {
-  it("all translate, and the twenty-six non-flow tables so far make 63", () => {
+  it("all translate, and the twenty-seven non-flow tables so far make 64", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
-    // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two, of which four are authored rather than translated. The three counts are asserted separately because
+    // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
+    // workspace home's one, of which four are authored rather than translated. The
+    // three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(59);
+    expect(Object.keys(translated).length).toBe(60);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(documents).length).toBe(63);
+    expect(Object.keys(documents).length).toBe(64);
   });
 
   it("all validate against the schema", () => {
@@ -374,9 +379,19 @@ describe("the 37 shipping configurations", () => {
       // somewhere to live and comes back — and a deliberate, listed, one-field
       // divergence is not a loss. Applying the same map here rather than
       // excusing the two keys keeps every other field of both still compared;
-      // skipping them would have retired 2 of the 63 configurations from the
+      // skipping them would have retired 2 of the 64 configurations from the
       // check to record a change to one field.
-      const expected = { ...configOf(key), ...(key in ROWS_PER_PAGE ? { rowsPerPage: ROWS_PER_PAGE[key]! } : {}) };
+      // **And `label` for the one key `CORPUS_CORRECTIONS` corrects**, on exactly
+      // the reasoning above and by the same device. The corpus says the workspace
+      // *changes* table is labelled "Workspace Registry"; the Dart said so, and the
+      // corpus is a faithful record of a deleted app rather than a claim about what
+      // should ship. Listing the divergence here keeps every other field of that
+      // configuration compared, which excusing the key would not.
+      const expected = {
+        ...configOf(key),
+        ...(key in ROWS_PER_PAGE ? { rowsPerPage: ROWS_PER_PAGE[key]! } : {}),
+        ...(CORPUS_CORRECTIONS[key] ?? {}),
+      };
       expect({ [key]: restored }).toEqual({ [key]: expected });
     }
   });

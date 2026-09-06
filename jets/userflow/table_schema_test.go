@@ -111,10 +111,16 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	// 63 across the two directories, and no key in both — the Home screen reads
+	// 64 across the two directories, and no key in both — the Home screen reads
 	// the one table it shares with a flow from the workspace rather than keeping a
 	// second copy (`sharedTableDocuments.test.ts` asserts the invariant).
-	if len(files) != 63 {
+	//
+	// **63 -> 64 on 2026-09-05**, when the workspace home screen's
+	// `workspaceChangesTable` was translated out of the screen corpus. This is the
+	// third of the three counters `table.test.ts` names, and the one furthest from
+	// the change that moves it: a table added on the TypeScript side fails here, in
+	// Go, with a message that names no table.
+	if len(files) != 64 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

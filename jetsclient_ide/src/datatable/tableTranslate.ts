@@ -330,6 +330,33 @@ function translateBinding(config: TableConfig): { formStateBinding: FormStateBin
  * the useful outcome is a failing translation naming it — not a document that
  * silently omits behaviour the Dart has.
  */
+/**
+ * The one field a translated document deliberately does **not** take from the
+ * corpus, and the reason. Added 2026-09-05 with the workspace home screen.
+ *
+ * `workspaceChangesTable` is labelled `"Workspace Registry"` in the Dart — a
+ * copy-paste from the table above it in `data_table_config.dart` — and
+ * `DataTable` draws a table's label as its `<h2>`, so translating it faithfully
+ * puts the wrong heading on the workspace home screen.
+ *
+ * **The correction is here rather than in the fixture, and that is the whole
+ * point of the constant.** `screen_configs.json` is *dumped from the running
+ * Flutter app* (`screens/fixtures/README.md`), and `jetsclient/` was deleted at
+ * X.1 — so it can never be regenerated, and editing it would silently turn a
+ * historical record of what the Dart said into a record of what we wish it had.
+ * The checksum that used to guard exactly that is gone too, which makes the
+ * fixture easier to edit and no safer.
+ *
+ * So the corpus keeps saying what the Dart said, this says what ships, and the
+ * difference is one greppable line with its reason attached rather than an
+ * invisible divergence. **A correction belongs here only when the corpus is
+ * wrong about the world** — not when it is inconvenient. Anything else is a
+ * translation bug and belongs in `toDocument`.
+ */
+export const CORPUS_CORRECTIONS: Record<string, { label?: string }> = {
+  workspaceChangesTable: { label: "Workspace Changes" },
+};
+
 export function toDocument(config: TableConfig): TableConfigDocument {
   const refuse = (what: string): never => {
     throw new Error(`${config.key}: ${what} is not in the table document schema — see table.ts`);
@@ -391,9 +418,12 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (action.hasActionDelegate) refuse(`action ${action.key}: actionDelegate`);
   }
 
+  const corrected = CORPUS_CORRECTIONS[config.key];
+  const label = corrected?.label ?? config.label;
+
   const common = {
     schemaVersion: 1 as const,
-    ...(config.label ? { label: config.label } : {}),
+    ...(label ? { label } : {}),
     // **Still emitted here rather than per arm, though the schema now defines
     // them per arm.** Where a key is *declared* decides what a document may say;
     // where it is *emitted* decides the byte order of 40 committed files, and
