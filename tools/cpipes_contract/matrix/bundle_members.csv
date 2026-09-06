@@ -43,3 +43,4 @@ ColumnReducePhase,count,theme,-,-,reviewed,corpus-attested in apply_reduce (12 i
 ColumnReducePhase,sum,theme,-,-,reviewed,proposed on semantics; combines partials correctly
 ColumnReducePhase,min,theme,-,-,reviewed,proposed on semantics; combines partials correctly
 ColumnReducePhase,max,theme,-,-,reviewed,proposed on semantics; combines partials correctly
+InferPipe,infer,theme,ColumnMapping,InferPipe,unreviewed,"Added 2026-09-05 with the infer token. Its own bundle rather than a member of OllamaPipe, because a bundle names exactly one TransformationSpec operator. Note that vllm and embed have no member row here at all, so the emitted schema has never admitted either as an apply step; that is a separate gap."

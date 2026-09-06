@@ -265,6 +265,10 @@ func validateStep(raw json.RawMessage, stepId int) (diag string) {
 	if err := cp.ApplyAllConditionalTransformationSpec(pipeConfig, startup.EnvSettings); err != nil {
 		return err.Error()
 	}
+	// Mirror the startup sequence: the validator only ever sees resolved operators.
+	if err := cp.ResolveInferBackend(pipeConfig, startup.EnvSettings); err != nil {
+		return err.Error()
+	}
 	if err := startup.ValidatePipeSpecConfig(&startup.CpConfig, pipeConfig); err != nil {
 		return err.Error()
 	}

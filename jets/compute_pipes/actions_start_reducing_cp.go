@@ -107,6 +107,14 @@ startStepId:
 		return result, fmt.Errorf("while applying conditional transformation spec: %v", err)
 	}
 
+	// Resolve the abstract infer operator into the concrete backend the deployment
+	// names. After the conditional pass, which may introduce one, and before the
+	// error-channel synthesis, which dispatches on the operator type.
+	err = ResolveInferBackend(pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, fmt.Errorf("while resolving the infer backend: %v", err)
+	}
+
 	// Built-in error reporting: give the operators that report row-level failures and
 	// name no error channel one of their own, with the shared channel spec and table
 	// binding they need. Ahead of both SelectActiveOutputTable and

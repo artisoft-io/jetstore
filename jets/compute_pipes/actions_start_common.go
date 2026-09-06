@@ -226,6 +226,27 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	mainInputSchemaProvider.Env["$YEAR"] = year
 	mainInputSchemaProvider.Env["$MONTH"] = month
 	mainInputSchemaProvider.Env["$DAY"] = day
+	// Copy INFER_BACKEND from the process environment into the cpipes env, so that a
+	// conditional_config can replace an infer operator with the backend the deployment
+	// is actually running without editing the workspace. The value names a backend
+	// ("vllm"), and the pipeline decides what it means: the host operator stays the
+	// default and the `then` names the alternative.
+	//
+	// Set unconditionally rather than only when present, so a `when` node reading it
+	// with a select leaf gets the empty string rather than nil. That keeps the
+	// comparison total: an unset INFER_BACKEND is a value that matches nothing, not an
+	// absent key whose behaviour depends on the operator it is compared with.
+	//
+	// Set *before* the env_json merge below, which is what makes a process_config able
+	// to override it. The deployment says what is running; a pipeline may still pin a
+	// backend, for a bake-off or while one server is being replaced.
+	//
+	// Only this path reads the process environment. reducingInitializeCpipes replays
+	// this map out of cpipes_startup_json, so every step of one run sees the value
+	// sharding captured -- a service redeployed mid-run cannot move a pipeline from one
+	// backend to the other between steps.
+	mainInputSchemaProvider.Env["$INFER_BACKEND"] = os.Getenv("INFER_BACKEND")
+
 	// Merge the env var from process_config with mainInputSchemaProvider.Env
 	if envJson.Valid && len(envJson.String) > 0 {
 		err = json.Unmarshal([]byte(envJson.String), &mainInputSchemaProvider.Env)
