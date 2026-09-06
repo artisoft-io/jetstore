@@ -367,6 +367,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		OutputFiles:     cpipesStartup.CpConfig.OutputFiles,
 		LookupTables:    lookupTables,
 		Channels:        cpipesStartup.CpConfig.Channels,
+		// **Carried because the node resolves a named prompt template, not the
+		// startup.** `resolveInferTemplate` looks `prompt_template_name` up in
+		// `cpConfig.PromptTemplates` at build time on the node
+		// (`pipe_transformation_infer.go`), and this literal is the whole of what a
+		// node sees — so omitting it made every named template resolve to nothing.
+		// An operator with an inline `prompt_template` was unaffected, which is why
+		// this survived until a config used the named form on a live run.
+		PromptTemplates: cpipesStartup.CpConfig.PromptTemplates,
 		Context:         cpipesStartup.CpConfig.Context,
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
