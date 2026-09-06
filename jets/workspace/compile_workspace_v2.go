@@ -306,11 +306,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	file.Close()
 
 	// Archive the build rules and cpipes config
-	inputPath = []string{
-		fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, workspaceName),
-		fmt.Sprintf("%s/%s/build/", workspaceHome, workspaceName),
-		fmt.Sprintf("%s/%s/pipes_config/", workspaceHome, workspaceName),
-	}
+	inputPath = workspaceArchivePaths(workspaceHome, workspaceName)
 	outputPath = fmt.Sprintf("%s/%s/workspace.tgz", workspaceHome, workspaceName)
 	buf.WriteString("\nArchiving the build and cpipes config directories\n")
 	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)
