@@ -52,6 +52,18 @@ const (
 // backend: build the request payload for a rendered prompt, and perform one
 // call attempt. The retry policy lives in the shared worker, so CallOnce
 // reports whether its failure is worth retrying.
+// inferBackendPreparer is implemented by a backend that cannot finish building
+// itself until the shared builder has resolved the configuration.
+//
+// Optional on purpose: the ollama and embed backends read what they need per
+// request and have nothing to defer, and giving them an empty method to satisfy an
+// interface would say they had a step here when they do not.
+type inferBackendPreparer interface {
+	// prepare completes the backend, after every step that writes to InferCommonSpec
+	// has run. It is called once, at build time, and its error fails the build.
+	prepare() error
+}
+
 type inferBackend interface {
 	BuildRequest(prompt string) ([]byte, error)
 	CallOnce(ctx context.Context, payload []byte) (body []byte, resp inferResponse, retryable bool, err error)
@@ -851,6 +863,24 @@ func (ctx *BuilderContext) newInferTransformationPipe(source *InputChannel, outp
 	provenance, err := resolveInferProvenanceSchema(common, source, labels.ConfigName)
 	if err != nil {
 		return nil, err
+	}
+
+	// **The configuration is complete here and not before**, which is what this hook
+	// exists to say. `resolveInferProvenanceSchema` is the last step that *writes* to
+	// `common` — it adopts the provenance schema's `response_format` when the operator
+	// declared none — so a backend that reads `response_format` while building itself
+	// reads it empty.
+	//
+	// Two of the three backends do not, and that is why this was invisible: the ollama
+	// backend reads `config.ResponseFormat` in `BuildRequest`, per request, and the
+	// embed backend has no response format at all. The vllm backend built its whole
+	// request base in its constructor, so a `provenance_schema_name` with no explicit
+	// `response_format` produced an **unconstrained** vLLM request — the model free to
+	// omit a required field, and free to keep generating.
+	if p, ok := backend.(inferBackendPreparer); ok {
+		if err := p.prepare(); err != nil {
+			return nil, err
+		}
 	}
 
 	mappings, needParsedJson, needEnvelope, err := compileInferMappings(common, outputCh, labels.ConfigName)
