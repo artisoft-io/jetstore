@@ -215,6 +215,29 @@ func (r *vllmApiResponse) errorMessage() string {
 	return ""
 }
 
+// prepare builds the request base, once, after the shared builder has resolved the
+// configuration.
+//
+// **It is deferred rather than computed in the constructor, and that is the whole
+// of this method.** `vllmRequestBase` reads `response_format`, and a
+// `provenance_schema_name` puts it there — `resolveInferProvenanceSchema` adopts the
+// schema's copy onto `InferCommonSpec` inside `newInferTransformationPipe`, which
+// runs after this backend is constructed. Building the base early therefore read an
+// empty `response_format` and sent an unconstrained request: the model was free to
+// omit a required field and free to keep generating, which is a mapping error on
+// some records and a timeout across enough of them.
+//
+// The ollama backend has no equivalent because it reads `config.ResponseFormat` in
+// `BuildRequest`, per request, by which time the adoption has happened.
+func (b *vllmBackend) prepare() error {
+	base, constrained, err := vllmRequestBase(b.config)
+	if err != nil {
+		return err
+	}
+	b.base, b.constrained = base, constrained
+	return nil
+}
+
 func (b *vllmBackend) BuildRequest(prompt string) ([]byte, error) {
 	payload := make(map[string]any, len(b.base)+1)
 	maps.Copy(payload, b.base)
@@ -364,11 +387,6 @@ func (ctx *BuilderContext) NewVllmTransformationPipe(source *InputChannel, outpu
 	if err := validateInferOnError(&config.InferCommonSpec, "vllm_config"); err != nil {
 		return nil, err
 	}
-	base, constrained, err := vllmRequestBase(config)
-	if err != nil {
-		return nil, err
-	}
-
 	client, err := newVllmClient(config, ctx.env)
 	if err != nil {
 		return nil, err
@@ -377,7 +395,7 @@ func (ctx *BuilderContext) NewVllmTransformationPipe(source *InputChannel, outpu
 		config.PoolSize, config.Model, client.url)
 
 	return ctx.newInferTransformationPipe(source, outputCh, spec, &config.InferCommonSpec,
-		&vllmBackend{config: config, client: client, base: base, constrained: constrained},
+		&vllmBackend{config: config, client: client},
 		inferLabels{
 			Pipe:       "VllmTransformationPipe",
 			Operator:   "vllm operator",
