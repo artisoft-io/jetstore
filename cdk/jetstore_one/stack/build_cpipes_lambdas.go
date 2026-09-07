@@ -212,6 +212,24 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			// is read somewhere it is not.
 			"JETS_DEFAULT_ERROR_REPORTING": jsii.String(os.Getenv("JETS_DEFAULT_ERROR_REPORTING")),
 			"JETS_DEFAULT_ERROR_MAX_COUNT": jsii.String(os.Getenv("JETS_DEFAULT_ERROR_MAX_COUNT")),
+			// Which inference server the deployment is running, for the operators that
+			// switch on it. `shardingInitializeCpipes` copies it into the cpipes env as
+			// `$INFER_BACKEND` and `ResolveInferBackend` rewrites a `type: infer` step
+			// into an ollama or vllm one before anything else sees it.
+			//
+			// **The sharding starter only, and that is not an oversight.** The reducing
+			// starter recovers the value from the record rather than the environment:
+			// sharding writes it into the main input schema provider's `env`, which
+			// serialises into `cpipes_execution_status.cpipes_startup_json`, and
+			// `reducingInitializeCpipes` reads it back from there. Carrying it on the
+			// reducing starter, the node lambdas or the cpipes task would say the switch
+			// is read somewhere it is not -- the same reason the two above are here and
+			// nowhere else.
+			//
+			// **It is the same variable the infer service is chosen with** (`stack_model.go`),
+			// deliberately: one name for "which server is running" rather than one for the
+			// deployment and another for the pipelines, which could disagree.
+			"INFER_BACKEND": jsii.String(os.Getenv("INFER_BACKEND")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
 			"WORKSPACES_HOME": jsii.String("/tmp/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
