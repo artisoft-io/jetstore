@@ -14,6 +14,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/migratedb"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -170,7 +171,7 @@ func (server *Server) checkJetStoreSchema() error {
 // checkWorkspaceVersion is that everything. On 2026-09-05 at 08:31 its insert into
 // workspace_version raised SQLSTATE 42703 on workspace_name -- a column the same
 // release had added (`UpdateWorkspaceVersionDb`,
-// `jets/workspace/compile_workspace_utils.go:502`) -- and the apiserver did not
+// `jets/workspace/compile_workspace_utils.go:563`) -- and the apiserver did not
 // start.
 //
 // **It is one of three system tables read or written before the old migration
@@ -287,10 +288,60 @@ func (server *Server) checkWorkspaceVersion() error {
 		}
 	}
 
-	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI is set
+	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI
+	// is set, or if git is off for this deployment.
+	//
+	// **The second arm is here because an empty registry is a dead end rather than a
+	// cosmetic defect.** Compile, load client config, open and export all act on a
+	// *selected* row of the Workspace Registry screen -- 11 of that screen's 13
+	// actions carry isEnabledWhenHavingSelectedRows, the exceptions being Add
+	// Workspace and Refresh
+	// (`workspaceRegistryTable.tc.json`, jetsclient_ide/src/datatable/tables/,
+	// counted 2026-09-07). So a deployment that sets neither ACTIVE_WORKSPACE_URI nor
+	// WORKSPACE_BRANCH -- which is what a site with no source-control host looks like
+	// -- reaches a screen that renders correctly, has nothing in it to select, and
+	// offers no way to compile the workspace the process is running on. That failure
+	// hides behind the more obvious one: an operator meeting this deployment sees the
+	// git buttons fail first, fixes those, and finds the screen still empty for a
+	// reason that had nothing to do with the buttons.
+	//
+	// **The uri is written as the empty string and not as a null**, because
+	// workspace_registry.workspace_uri is NOT NULL with no default
+	// (jets/jets_schema.json). Empty reads as "this workspace has no remote", which is
+	// the state being recorded rather than a placeholder for one.
+	//
+	// **Both values are taken from the environment verbatim, so this arm does not
+	// have to decide what a no-git site *should* have configured.** When the
+	// deployment sets neither, the row carries two empty strings; when it sets a uri
+	// and turns git off anyway, the row records what was configured and the switch
+	// still governs what runs.
+	//
+	// **The branch is written as WORKSPACE_BRANCH holds it, empty included, rather
+	// than as the column's 'main' default.** A row is recognised as *the active
+	// workspace* by comparing its workspace_branch against os.Getenv("WORKSPACE_BRANCH")
+	// (`InitWorkspaceGit`, jets/datatable/git/workspace_git.go, read by `GetStatus`),
+	// and the status that comparison produces is what disables Delete on the active
+	// workspace: that button's enableWhen clause refuses a status containing
+	// "active", in the same table document. Writing 'main' against an unset variable
+	// would make the row fail its own identity test, and the screen would then offer
+	// to delete the workspace the deployment is running on -- refused by
+	// `DeleteWorkspace` with a 400, so the guard holds, but the courtesy is lost for
+	// no gain. Matching the variable keeps the comparison true whatever it holds, and
+	// the column's 'main' default is unreachable here in any case, because the
+	// statement names the column.
+	//
+	// **The new arm asks for a workspace name and the old one does not**, which is not
+	// an inconsistency being introduced so much as one being kept out of the arm that
+	// fires unconditionally. WORKSPACE is what the row is keyed on
+	// (workspace_name_unique_cstraintv3) and what makes it selectable; with git off
+	// and WORKSPACE unset there is nothing to register, and inserting a row named ""
+	// would put an entry on the screen that no action can act on. The existing arm's
+	// behaviour in that case is left as it is -- it is reachable only when someone has
+	// configured a uri and a branch but no workspace, and changing it is a separate
+	// question from this one.
 	activeWorkspaceUri := os.Getenv("ACTIVE_WORKSPACE_URI")
 	workspaceBranch := os.Getenv("WORKSPACE_BRANCH")
-	if activeWorkspaceUri != "" && workspaceBranch != "" {
+	if (activeWorkspaceUri != "" && workspaceBranch != "") || (git.NoGitAccess() && workspaceName != "") {
 		stmt := fmt.Sprintf(`
 			INSERT INTO jetsapi.workspace_registry 
 				(workspace_name, workspace_uri, workspace_branch, user_email) VALUES 
