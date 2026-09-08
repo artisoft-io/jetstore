@@ -1114,27 +1114,27 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		// Git off: the row is the only copy, so neither half of a revert runs.
+		// **Reverting a file runs whether or not git is on, and the reason it is
+		// safe with git off is a property of the stash rather than of this call.**
 		//
-		// `DeleteFileChange` does two things (`DeleteFileChange`,
-		// `jets/datatable/wsfile/delete_changes.go:19`): it deletes the file's row
-		// from `jetsapi.workspace_changes`, and it copies the stashed version back
-		// over the working file. With a repository both are recoverable -- the
-		// content is in the remote, and a pull brings it back. With no repository
-		// the row is the only record of the edit that survives a task rotation,
-		// because the container's workspace tree is re-copied from the image on
-		// every start, so deleting it discards the work rather than reverting it.
+		// `DeleteFileChange` deletes the file's row from `jetsapi.workspace_changes`
+		// and copies the stashed version back over the working file. The deletion is
+		// only a revert if the stash holds the *pristine* content; if it holds the
+		// user's own edits the row is discarded and the file does not change, which
+		// is a silent loss rather than a revert.
 		//
-		// **This is the same argument `commit_workspace` above makes about
-		// `DeleteAllFileChanges`, arriving through a different button.** There the
-		// deletion followed a push that did not happen; here it follows nothing at
-		// all. In both cases the deletion is safe exactly when something else holds
-		// a copy, and with git off nothing does.
-		if git.NoGitAccess() {
-			log.Printf("DeleteWorkspaceChanges: %s Workspace change for %s is kept and the file is not restored from the stash.",
-				git.NoGitAccessNotice, wsFileName.(string))
-			continue
-		}
+		// With a repository the stash is re-taken after every pull, so it tracks the
+		// remote. With no repository it is taken once at startup, from the tree
+		// `cbooter` copied out of the image and before the database overrides are
+		// applied -- so it is pristine by construction. **What makes that hold is
+		// that `pullWorkspaceAction` no longer clears and re-takes it when git is
+		// off** (see the comment there): the clear is what would have replaced the
+		// pristine snapshot with an edited one.
+		//
+		// This was gated shut for one revision of Phase 6, before that fix existed,
+		// on the ground that the row is the only copy of the edit. It is the only
+		// copy, and with a pristine stash the revert is still what the user asked
+		// for. Q-89.
 		err = wsfile.DeleteFileChange(ctx.Dbpool, workspaceName, wsFileName.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
@@ -1163,22 +1163,17 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 		httpStatus = http.StatusBadRequest
 		return
 	}
-	// Git off: the rows are the only copy, so nothing is deleted and nothing is
-	// restored. The single-file case above carries the argument in full.
+	// Runs whether or not git is on; `DeleteWorkspaceChanges` above carries the
+	// argument, which is that the stash a no-git deployment restores from is
+	// pristine by construction and stays that way. Q-89.
 	//
-	// **What this costs is worth stating rather than leaving to be discovered:
-	// a deployment with no repository cannot revert a workspace edit from the
-	// UI.** That is a real loss of function and it is preferred to the
-	// alternative, which is a button that discards the only copy of a user's work
-	// and reports success. The pristine content is still reachable -- it is what
-	// the image carries, and a task rotation restores it -- so what is lost is the
-	// convenience rather than the content.
-	if git.NoGitAccess() {
-		log.Printf("DeleteAllWorkspaceChanges: %s Workspace changes for %s are kept and no file is restored from the stash.",
-			git.NoGitAccessNotice, workspaceName)
-		results = &map[string]any{}
-		return
-	}
+	// **Note the asymmetry with `commit_workspace`, which is still skipped when
+	// git is off.** That call passes `restaureFromStash` false: it drops the rows
+	// *without* putting anything back, because with a repository the content has
+	// just been pushed. With no repository nothing was pushed and nothing is
+	// restored, so it is a deletion with no counterpart -- which is a different
+	// act from the revert here, and the reason one is gated and the other is not.
+	//
 	// Delete all workspace changes and restaure from stash
 	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, false)
 	if err != nil {
