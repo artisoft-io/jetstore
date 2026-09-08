@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -137,6 +138,19 @@ func main() {
 			}
 		} else {
 			log.Println("Workspace files already exist in WORKSPACES_HOME, skipping workspace setup.")
+		}
+		// The apiserver shells out to git for its workspace operations (`runGit`,
+		// `jets/datatable/git/workspace_git.go:76`), and git reads $HOME/.config/git/attributes
+		// and $HOME/.config/git/ignore before doing anything else. Switching uid does not
+		// change HOME, so without this the child inherits cbooter's -- cbooter runs as root --
+		// and a git command run through the UI answers with permission warnings against /root
+		// ahead of its output, /root being a directory the read-only root filesystem does not
+		// let uid 999 read. Those warnings are the visible half; the half that fails quietly is
+		// anything wanting a writable home, `git config --global` and a credential helper's
+		// store among them. This is the trap `startInferServer` already solves, arriving in the
+		// arm that was left alone when the infer images were given a home.
+		if err := prepareJsuserHome(); err != nil {
+			log.Printf("Warning: jsuser has no writable home, git will warn on every workspace operation: %s", err)
 		}
 		log.Println("Starting apiserver...")
 		err := runCommandAsJsuser("apiserver", cmdArgs)
@@ -322,6 +336,78 @@ func vllmServerCommand() (string, []string, []string, error) {
 	// against a running server, and the ordering is what this side controls.
 	args = append(args, strings.Fields(os.Getenv("JETS_VLLM_EXTRA_ARGS"))...)
 	return "vllm", args, []string{hfHome}, nil
+}
+
+// prepareJsuserHome creates HOME and hands it to jsuser, before runCommandAsJsuser drops
+// to uid 999 and while this process can still chown.
+//
+// It reports a problem rather than resolving one: nothing here can change the child's HOME,
+// because that would mean giving runCommandAsJsuser an explicit environment, and its other
+// callers a behaviour they did not ask for. The variable has to be right in the image, which is
+// what dockerfiles/Dockerfile.ui_service sets it for.
+//
+// Deliberately not makeJetsdataWritable(): that chowns the whole mounted volume, which on
+// this path carries the staged workspace tree, and the apiserver arm already skips it once
+// the workspace is in place. Paying a recursive chown of the entire volume at every task
+// start to fix a directory holding a handful of dotfiles is the wrong trade. The home
+// directory itself is chowned recursively because git writes into it.
+func prepareJsuserHome() error {
+	homeDir := os.Getenv("HOME")
+	jetsTempData := os.Getenv("JETS_TEMP_DATA")
+	if err := checkJsuserHome(homeDir, jetsTempData); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(homeDir, 0775); err != nil {
+		return fmt.Errorf("failed to create the home directory %s: %w", homeDir, err)
+	}
+	// MkdirAll leaves the directory owned by root, and the mode it asks for is cut by the
+	// umask, so the group bit is not something to rely on either -- the chown is what makes
+	// the directory jsuser's rather than a permission it happens to inherit.
+	if err := runCommandAsRoot("chown", []string{"-hR", "999:999", homeDir}); err != nil {
+		return fmt.Errorf("failed to give %s to jsuser: %w", homeDir, err)
+	}
+	return nil
+}
+
+// checkJsuserHome decides whether HOME is a directory this process may create and give
+// away. It reads nothing and touches nothing, so both outcomes can be exercised without a
+// container.
+//
+// An unusable HOME is reported and is not fatal, which is the one judgement call in this
+// change and is the opposite of what startInferServer does with the same condition. The two
+// differ in what is lost. A model server with no writable home cannot write its signing key
+// or its weights cache and dies seconds later, so failing at start costs nothing that was
+// not already gone and turns a confusing crash into a named variable. The apiserver
+// degrades instead: git prints its warnings and carries on with the answer, and the rest of
+// the API is untouched. Refusing to start would convert that into an unreachable control
+// plane -- and it would do so on the first deploy after this change, for a deployment whose
+// task definition supplies JETS_TEMP_DATA (build_ui_service.go) and can therefore disagree
+// with a HOME baked into the image at build time. An operator who cannot reach the UI
+// cannot fix the task definition through it.
+//
+// The condition checked is not simply "empty". A container started without HOME in its
+// image or task definition is given HOME=/root by the runtime, so the empty case is the
+// rare one and an inherited /root is the case that actually arrives -- from an image built
+// before this change, or from a JETS_TEMP_DATA overridden at synth time. Creating and
+// chowning /root would be a worse outcome than the warnings: on a writable root filesystem
+// it hands root's home to uid 999.
+func checkJsuserHome(homeDir, jetsTempData string) error {
+	if homeDir == "" {
+		return fmt.Errorf("HOME is not set; it must be a directory under JETS_TEMP_DATA, see dockerfiles/Dockerfile.ui_service")
+	}
+	if jetsTempData == "" {
+		return fmt.Errorf("JETS_TEMP_DATA is not set, so HOME %q cannot be checked against it", homeDir)
+	}
+	// Strictly under, so that HOME set to the mount point itself is refused: that would make
+	// the chown above recursive over the whole volume, which is the cost this function is
+	// written to avoid.
+	home, base := filepath.Clean(homeDir), filepath.Clean(jetsTempData)
+	if home == base || !strings.HasPrefix(home, base+string(os.PathSeparator)) {
+		return fmt.Errorf(
+			"HOME %q is not under JETS_TEMP_DATA %q, so it is left alone rather than created and given to jsuser; set HOME under JETS_TEMP_DATA in the image or the task definition",
+			homeDir, jetsTempData)
+	}
+	return nil
 }
 
 func makeJetsdataWritable() error {

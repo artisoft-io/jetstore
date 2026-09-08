@@ -38,3 +38,36 @@ chmod +x /usr/local/bin/apiserver \
 && chmod +x /usr/local/bin/cbooter \
 && chmod +x /usr/local/bin/update_db \
 && chmod +x /usr/local/bin/run_reports
+
+# cbooter drops to jsuser (uid/gid 999) before exec'ing the apiserver, and switching uid
+# does not change HOME. Left at the /root the container runtime supplies for uid 0, git
+# looks for $HOME/.config/git/attributes and $HOME/.config/git/ignore under a directory
+# uid 999 cannot read, so a git command run through the UI answers with permission warnings
+# ahead of its output -- measured 2026-09-08 in this image: `git status` as uid 999 with
+# HOME=/root prints the '/root/.config/git/ignore' warning and the same command with a
+# writable HOME prints none. Which of the two paths a warning names depends on the
+# operation, `attributes` being read by the ones that touch file content. Those warnings are
+# the visible half; anything wanting a home it can write to -- `git config --global`, a
+# credential helper's store -- fails without saying so. HOME therefore has to
+# point somewhere jsuser owns, and JETS_TEMP_DATA is the mounted volume, the one place the
+# read-only root filesystem leaves writable. Dockerfile.infer_service and
+# Dockerfile.infer_service_vllm carry the same two lines for the same reason; this image
+# was left out when they were written.
+#
+# JETS_TEMP_DATA is declared here rather than only in Dockerfile.ui_service_ws because
+# ${...} in an ENV resolves against the build that contains it: a downstream ENV set in an
+# image built FROM this one is not in scope while this line is read. Measured against this
+# image on 2026-09-08 rather than reasoned from the manual -- `ENV HOME=${JETS_TEMP_DATA}/home`
+# alone resolves to /home, and the same line preceded by the ENV below resolves to
+# /jetsdata/home. Dockerfile.ui_service_ws restates the same /jetsdata, so today the two
+# agree; a child image that changed it would leave HOME behind at the value baked here,
+# which the same measurement confirmed.
+#
+# What that leaves open is a divergence, and it is not hypothetical: the task definition
+# passes JETS_TEMP_DATA into the container (uiEnvironment, cdk/jetstore_one/stack/build_ui_service.go:49)
+# from a synth-time variable, so a site that overrides it gets a runtime JETS_TEMP_DATA
+# that no longer contains the HOME baked in here. cbooter checks for exactly that before it
+# creates the directory (checkJsuserHome, jets/cmds/cbooter/main.go) and warns rather than
+# starting a chown of the wrong tree.
+ENV JETS_TEMP_DATA=/jetsdata
+ENV HOME=${JETS_TEMP_DATA}/home

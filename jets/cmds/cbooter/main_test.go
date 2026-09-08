@@ -218,3 +218,82 @@ func setVllmEnv(t *testing.T) {
 		t.Setenv(name, "")
 	}
 }
+
+// Tests for the jsuser home directory the apiserver arm prepares.
+//
+// checkJsuserHome is the whole of what is testable without a container: it reads its two
+// arguments and returns a verdict. What no test here reaches is the half that matters most
+// operationally -- whether the image actually sets HOME, and whether git stops warning once
+// it does. Both are properties of dockerfiles/Dockerfile.ui_service and of a deployed task,
+// and the second is observed by running `git status` through the UI.
+
+// The shipped arrangement: HOME under the mounted volume, which is where the read-only root
+// filesystem leaves anything writable.
+func TestCheckJsuserHomeAcceptsAHomeUnderJetsTempData(t *testing.T) {
+	if err := checkJsuserHome("/jetsdata/home", "/jetsdata"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// Trailing separators and an uncleaned path are the same directory, and a task
+	// definition is written by hand.
+	if err := checkJsuserHome("/jetsdata/./home/", "/jetsdata/"); err != nil {
+		t.Errorf("unexpected error for an uncleaned pair: %v", err)
+	}
+}
+
+// The case that actually arrives from an image built before this change. The runtime hands
+// uid 0 a HOME of /root when nothing else sets one, so this is the ordinary state of an
+// older ui_service image running a newer cbooter, and creating and chowning it would give
+// root's home to uid 999 on any filesystem that permitted the write.
+func TestCheckJsuserHomeRejectsRoot(t *testing.T) {
+	err := checkJsuserHome("/root", "/jetsdata")
+	if err == nil {
+		t.Fatal("expected an error for HOME=/root")
+	}
+	for _, want := range []string{"/root", "/jetsdata"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the error must name %q, got: %v", want, err)
+		}
+	}
+}
+
+// HOME set to the mount point itself is refused rather than accepted: the chown that
+// follows is recursive, and over the whole volume it would walk the staged workspace tree
+// the apiserver arm deliberately stops chowning once it is in place.
+func TestCheckJsuserHomeRejectsTheMountPointItself(t *testing.T) {
+	if err := checkJsuserHome("/jetsdata", "/jetsdata"); err == nil {
+		t.Error("expected an error for HOME equal to JETS_TEMP_DATA")
+	}
+}
+
+// A sibling sharing the mount point's name as a prefix is outside it. This is the failure a
+// plain string prefix test would let through, and the directory it would then chown is
+// somebody else's.
+func TestCheckJsuserHomeRejectsAPrefixSibling(t *testing.T) {
+	if err := checkJsuserHome("/jetsdata_old/home", "/jetsdata"); err == nil {
+		t.Error("expected an error for a sibling sharing the JETS_TEMP_DATA prefix")
+	}
+}
+
+// Both variables are named in their own error, because the message is read from a task's
+// log by somebody who has neither in front of them.
+func TestCheckJsuserHomeRequiresBothVariables(t *testing.T) {
+	err := checkJsuserHome("", "/jetsdata")
+	if err == nil || !strings.Contains(err.Error(), "HOME") {
+		t.Errorf("an unset HOME must produce an error naming HOME, got: %v", err)
+	}
+	err = checkJsuserHome("/jetsdata/home", "")
+	if err == nil || !strings.Contains(err.Error(), "JETS_TEMP_DATA") {
+		t.Errorf("an unset JETS_TEMP_DATA must produce an error naming it, got: %v", err)
+	}
+}
+
+// The directory reaches `chown` through utils.SanitizeArgs, which rewrites shell
+// metacharacters. A path it altered would be a chown of a directory nobody configured, so
+// the shipped value is asserted to survive it -- the same guard the vLLM arguments carry
+// above, for the same reason.
+func TestJsuserHomeSurvivesSanitizeArgs(t *testing.T) {
+	args := []string{"-hR", "999:999", "/jetsdata/home"}
+	if sanitized := utils.SanitizeArgs(args); !slices.Equal(args, sanitized) {
+		t.Errorf("SanitizeArgs altered the chown invocation:\n got %v\nwant %v", sanitized, args)
+	}
+}
