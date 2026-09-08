@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
 
 // The corpus, its split, and the cases drawn from it (decision 13).
@@ -65,9 +67,38 @@ func LoadCorpus(root string) (*Corpus, error) {
 	}
 	c := &Corpus{}
 	for _, dir := range dirs {
-		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		owned, err := jetstoreOwnedAssets(dir)
+		if err != nil {
+			return nil, err
+		}
+		err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".pc.json") {
 				return err
+			}
+			// **JetStore's own assets are not corpus, and until 2026-09-08 the
+			// distinction cost nothing because they were not on disk.**
+			// `install_workspace_assets` writes `embed_input_parts.pc.json` and
+			// `jets_loader.pc.json` into every workspace's pipes_config, from
+			// copies embedded in the JetStore binary. The image build has always
+			// run it; a developer's checkout had not, so a walk of
+			// `workspaces/*/pipes_config/**` happened to select only what a
+			// client authored.
+			//
+			// **That coincidence ended when the workspaces stopped committing
+			// them**: running the installer locally, which is now the documented
+			// step before an apiserver run, took this walk from 45 files to 49
+			// and from 459 transformation instances to 471. The numbers were not
+			// wrong before and are not wrong now -- the *definition* was
+			// answering "what is in this directory" while every consumer of it
+			// means "what did a client write".
+			//
+			// So the manifest the installer leaves behind is the filter. It is
+			// authoritative by construction, since it is written by the thing
+			// that put the files there, and it needs no maintenance when an
+			// asset is added. Its absence is a workspace nobody has installed
+			// into, where there is nothing to skip.
+			if owned[d.Name()] {
+				return nil
 			}
 			rel, _ := filepath.Rel(root, path)
 			raw, err := os.ReadFile(path)
@@ -381,4 +412,32 @@ func replace(node any, path []Step, value any) error {
 	}
 	m[last.Key] = value
 	return nil
+}
+
+// jetstoreOwnedAssets reads the names JetStore installed into dir, from the
+// manifest `install_workspace_assets` writes beside them.
+//
+// A missing manifest is not an error: it is a workspace the installer has not
+// run against, which has no JetStore assets in it to exclude. That is the state
+// of a fresh clone, and reading it as "exclude nothing" is what makes the corpus
+// the same size before and after an install rather than only after one.
+func jetstoreOwnedAssets(dir string) (map[string]bool, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, workspace_assets.ManifestName))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading the asset manifest in %s: %w", dir, err)
+	}
+	var m struct {
+		Assets map[string]string `json:"assets"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, fmt.Errorf("parsing the asset manifest in %s: %w", dir, err)
+	}
+	owned := make(map[string]bool, len(m.Assets)+1)
+	for name := range m.Assets {
+		owned[name] = true
+	}
+	return owned, nil
 }

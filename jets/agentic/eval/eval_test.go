@@ -254,12 +254,27 @@ func TestAgainstTheRealCorpus(t *testing.T) {
 	// green at the old commit, moving the workspace, and getting `ok` again
 	// where -count=1 gives FAIL. **Run this and every corpus-reading test with
 	// -count=1**; two sessions and a reviewer read a stale pass here.
-	if len(c.Files) != 45 {
-		t.Errorf("corpus has %d live files, want 45 (I-13's definition: workspaces/*/pipes_config/**)",
-			len(c.Files))
+	// **45 and 459 until 2026-09-08, and the numbers moved because the definition
+	// was sharpened rather than because the corpus changed.** I-13's definition is
+	// `workspaces/*/pipes_config/**`, and that selected only client-authored
+	// configs for as long as JetStore's own assets were absent from a developer's
+	// checkout. They stopped being absent when the workspaces stopped committing
+	// them and `install_workspace_assets` became the documented step before a
+	// local apiserver run: the walk went to 49 files and 471 instances, counting
+	// `embed_input_parts.pc.json` and `jets_loader.pc.json` four times each.
+	//
+	// `LoadCorpus` now excludes what the installer's manifest names, so these are
+	// the authored configs alone -- 4 fewer files and 4 fewer instances than the
+	// old figures, the difference being the four `jets_loader.pc.json` that were
+	// committed and counted. **Verified install-independent**: removing the
+	// installed assets from all four workspaces and re-installing them gives 41
+	// and 455 both times, which is the property the old definition lacked.
+	if len(c.Files) != 41 {
+		t.Errorf("corpus has %d live files, want 41 (I-13's definition, less what the asset "+
+			"manifest names: workspaces/*/pipes_config/**)", len(c.Files))
 	}
-	if len(c.Instances) != 459 {
-		t.Errorf("corpus has %d transformation instances, want 459; a flat walk of the top-level "+
+	if len(c.Instances) != 455 {
+		t.Errorf("corpus has %d transformation instances, want 455; a flat walk of the top-level "+
 			"pipes finds 257, which is the mistake this assertion exists to catch", len(c.Instances))
 	}
 	// **"ollama" became "infer" on 2026-09-05** when patient_profile.pc.json moved to
