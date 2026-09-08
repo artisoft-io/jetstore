@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
@@ -41,6 +42,10 @@ import (
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 // ACTIVE_WORKSPACE_URI Workspace uri for active workspace
 // WORKSPACE_URI (optional) fixed Workspace uri for all workspaces when defined
+// JETS_NO_GIT_ACCESS (optional) truthy ("1", "true", "yes", "on") turns every workspace git
+//   operation into a logged no-op. Unset, empty or anything else leaves git on. For a site with no
+//   path to a source-control host, and for local development, where WORKSPACES_HOME is a checkout
+//   whose workspaces are submodules and a push would land in the developer's own tree.
 // WORKSPACES_HOME Home dir of workspaces
 // JETS_BUCKET (required for SyncFileKeys)
 // JETS_s3_INPUT_PREFIX Input file key prefix
@@ -206,6 +211,10 @@ func main() {
 	log.Println("ENV WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	log.Println("ENV ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	log.Println("ENV WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
+	// Says once, loudly, whether workspace git operations will run. The switch
+	// is silent by design afterwards, and a misread switch is indistinguishable
+	// from a correctly read one without this line.
+	git.LogGitAccessMode()
 	log.Println("ENV JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("ENV JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	log.Println("ENV JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))

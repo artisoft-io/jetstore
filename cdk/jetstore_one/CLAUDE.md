@@ -63,6 +63,15 @@ gets built and what goes into every container and Lambda environment. Consequenc
 - **Synth reaches the network.** With `JETS_GIT_ACCESS` naming `github`, `getGithubIps`
   (`jetstore_github.go:19`) does a live `GET https://api.github.com/meta` and **panics** if it fails,
   so the git security group's rules differ run to run and an offline synth is impossible.
+- **`JETS_GIT_ACCESS` is synth-time only, and reads as though it were not.** Its one consumer is
+  `NewGitAccessSecurityGroup` (`jetstore_github.go:71`); it is in no task definition's environment
+  map, so no container can read it. It decides whether a git operation *could* reach a provider, not
+  whether one is attempted, and a stack deployed without it still runs the git commands the Workspace
+  Registry offers. The runtime switch is `JETS_NO_GIT_ACCESS`, added to `build_ui_service.go`'s
+  `uiEnvironment` in 2026-09; the comment on that entry is the one to read before adding another
+  boolean switch, because the map sets every environment-sourced entry from `os.Getenv` without
+  filtering and an unset variable therefore arrives present and empty. `doc/deploy_runbook.md`
+  section 8 covers the local-development case.
 - `cdk.context.json` caches an availability-zone lookup **pinned to one account and region**. It is
   committed; delete the entry rather than editing it when targeting a different account.
 

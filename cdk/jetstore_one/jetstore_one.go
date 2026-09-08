@@ -546,13 +546,35 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
 // JETS_ELB_MODE (defaults private)
 // JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
-// JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'
+// JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'. **Synth-time only:
+//	no container receives it.** It is read once, by NewGitAccessSecurityGroup
+//	(stack/jetstore_github.go:71), to add egress rules to those providers' address ranges: one
+//	os.Getenv in the whole CDK app besides the synth log below, measured 2026-09-07, and no
+//	task definition's environment map carries the name -- so the apiserver cannot read it and
+//	does not change what it does when it is unset. This is worth stating because "deployed
+//	without JETS_GIT_ACCESS" reads as a statement about the runtime and is a statement about
+//	the network: it decides whether a git operation could reach a host, not whether one is
+//	attempted. The runtime switch is JETS_NO_GIT_ACCESS below.
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
 // DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
+// JETS_NO_GIT_ACCESS (optional, values: 1/true/yes/on, case-insensitive and trimmed; anything
+//	else, including unset and including the empty string, leaves git integration on) turns the
+//	workspace's git operations into logged no-ops. The Workspace Registry screen then reports
+//	its status from the file system without shelling out to git, and the update, commit and
+//	push actions return a notice saying which variable produced the silence instead of acting.
+//	Two deployments want it: a site with no route to a source-control host, whose image
+//	carries a workspace with no .git in it, and a developer workstation, where WORKSPACES_HOME
+//	is a tree of submodules of the developer's own checkout and a button in the UI would
+//	otherwise run switch, pull, add -A and push against it.
+//	The value is tested rather than the presence, and that is mechanical rather than a
+//	preference: build_ui_service.go sets this entry from os.Getenv unconditionally, so an
+//	operator who never set it still gets it in the task definition, empty. See
+//	jets/datatable/git/no_git_access.go. Distinct from JETS_GIT_ACCESS above, which is a
+//	synth-time network control the runtime cannot read.
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
@@ -699,6 +721,7 @@ func main() {
 	log.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	log.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
+	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
 	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))

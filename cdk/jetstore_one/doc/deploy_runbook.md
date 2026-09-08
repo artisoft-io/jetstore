@@ -19,6 +19,14 @@ what is **required**, what fails **loudly**, and what fails **silently**.
 The Lambda bundles are compiled from source at synth by `awslambdago`, so a broken Go build in
 `jets/` fails the deploy, not just the image build.
 
+**That row is about synth and only about synth: `JETS_GIT_ACCESS` does not reach a container.** It is
+read once, by `NewGitAccessSecurityGroup` (`stack/jetstore_github.go:71`), to open egress to the
+providers it names, and it is in no task definition's environment map. So it decides whether a git
+operation *could* reach a host, not whether the apiserver attempts one, and a stack deployed without
+it still runs the git commands the Workspace Registry screen offers. The runtime switch is
+`JETS_NO_GIT_ACCESS` (section 8), and the two are worth keeping apart because "deployed without
+`JETS_GIT_ACCESS`" reads as a statement about behaviour and is a statement about the network.
+
 ## 2. Preflight — what `main` refuses to run without
 
 These are checked together and reported as a list before CDK is reached; any one of them panics with
@@ -178,3 +186,45 @@ aws cloudformation describe-stacks --stack-name "${JETS_STACK_ID:-JetstoreOneSta
 regardless and must be removed by hand if you mean to: the **infer persistent volume**
 (`RemovalPolicy_RETAIN`, named by the `PersistentVolumeId` output) and an **imported bucket**
 (`JETS_BUCKET_NAME`). A stack-created bucket is emptied and deleted with the stack.
+
+## 8. Running against a local checkout, and why `JETS_NO_GIT_ACCESS=1` belongs there
+
+This section is about a workstation rather than a stack. It sits in the deploy runbook because this
+is the document that says which environment variable decides what, and the setting below is one a
+developer wants **before** the first run rather than after the first surprise.
+
+**Locally, `WORKSPACES_HOME` is a tree of submodules of the developer's own repository.** JetStore's
+checkout on the `jets_ai` branch puts the code at `jetstore_ai/` and the workspaces at `workspaces/`,
+so `${WORKSPACES_HOME}/${WORKSPACE}` is a working tree of the repository the developer is editing in,
+not a copy the server owns. Two consequences follow, and the second is the expensive one.
+
+**The Workspace Registry screen does not render.** An uninitialised submodule is an existing
+directory that is not a repository, so the directory-absent branch of `GetStatus`
+(`jets/datatable/git/workspace_git.go`) does not catch it: `git rev-parse` exits 128 with
+`fatal: not a git repository`, and the read action turns that into a 400 for the whole request. One
+workspace nobody initialised blanks the screen for the others as well.
+
+**A button in a local UI can write into the developer's repository.** The git operations in that
+package go through one helper, `runGit`, which sets `cmd.Dir` to `${WORKSPACES_HOME}/${WORKSPACE}`.
+`UpdateLocalWorkspace` runs `switch`, `pull` and `push`; `CommitLocalWorkspace` runs `add -A`,
+`commit` and `push`. So pressing *Update Local Workspace* in a UI started for an unrelated reason can
+move the developer's HEAD, stage everything below it, and push it.
+
+**And that failure hides itself, which is the argument for setting the variable in advance.** A
+submodule moved under you leaves a detached HEAD with `git status` reporting **clean** about a tree
+you did not ask for. The signals an ordinary check produces all say nothing happened, so the cost is
+not a visible error but an afternoon spent working out where the work went.
+
+**So set `JETS_NO_GIT_ACCESS=1` in the local environment file**, alongside `WORKSPACES_HOME`,
+`WORKSPACE` and `WORKSPACE_BRANCH`. Truthy is `1`, `true`, `yes` or `on`, case-insensitive and
+trimmed; anything else, including unset and including the empty string, leaves git integration on
+(`jets/datatable/git/no_git_access.go`, which is the authority on the semantics). With it set, the
+registry screen reports its status from the file system without shelling out to git, and the write
+actions return a notice naming the variable instead of acting. The apiserver states at startup which
+way the switch went, so a misread setting is visible in the first few lines of the log rather than in
+its consequences.
+
+**It is not a local-only workaround.** The same variable serves a site with no route to a
+source-control host, which is the deployment it was added for: no `JETS_GIT_ACCESS`, no
+`WORKSPACE_URI`, and a workspace baked into the image with no `.git` in it. Local development is the
+second consumer and the one that reaches a developer's own files.

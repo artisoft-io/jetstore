@@ -490,11 +490,72 @@ func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version strin
 	}
 	var commit any
 	if workspaceName != "" {
-		if sha, err := git.HeadCommit(workspaceHome, workspaceName); err == nil {
+		if sha, err := git.HeadCommit(workspaceHome, workspaceName); err == nil && isWorkspaceCommitSha(sha) {
 			commit = sha
 		} else {
-			log.Printf("Notice: workspace %s HEAD commit is not available, recording version %s without one: %v",
-				workspaceName, version, err)
+			// **The tree could not answer, so the image that carries the tree is
+			// asked instead, and this is the one part of the no-git work that is
+			// about the agentic layer rather than about a screen.** `rca.mapping`
+			// classifies `CauseTransformationDefect` as `Coarse` rather than `None`
+			// partly on the strength of a run resolving to a workspace commit
+			// (`CauseTransformationDefect`, `jets/agentic/rca/mapping.go:128`). In a
+			// deployment with no repository this column would otherwise be null on
+			// each row this function writes -- not stale, not unreliable, absent --
+			// and a triage classification would be weakened by a deployment choice
+			// that has nothing to do with triage. The build already knows the sha
+			// (`ARG WORKSPACE_GIT_SHA`, `dockerfiles/Dockerfile.ui_service_ws:35`,
+			// promoted to an ENV at `:36`); until this, nothing in Go read it.
+			//
+			// **What the fallback is worth, said plainly, because the column will
+			// be read as though it still means what it used to mean.** A sha
+			// recorded from an image build argument is as trustworthy as the build
+			// script that set it, and until this change the identifier appeared in
+			// that one Dockerfile and nowhere else in the tree (grepped
+			// 2026-09-07) -- its only other consumer is the /VERSION.txt line at
+			// `:40`, and no script, Makefile or CDK file here passes a value for
+			// the ARG, so a site that wants this column populated has to arrange
+			// that in the image build, which lives outside this repository. It also
+			// names the commit the *image* was built from, which is the commit the
+			// workspace tree is at only while the tree arrives inside the image --
+			// true of the recursive copy cbooter makes
+			// (`jets/cmds/cbooter/main.go:129`), and not a property this function
+			// can check. So it records a sha or a null and claims nothing further
+			// about provenance.
+			//
+			// **It is deliberately not scoped to the git-off case.** A tree synced
+			// without a .git directory in a deployment that has git is the same
+			// question with the same answer, and `HeadCommit`'s own comment already
+			// names that shape as the reason it is best-effort.
+			buildSha, ignored := workspaceCommitFromBuildEnv()
+			switch {
+			case buildSha != "":
+				commit = buildSha
+				log.Printf("Notice: workspace %s HEAD commit is not available, recording version %s with the commit carried by %s instead",
+					workspaceName, version, workspaceGitShaEnvVar)
+			case ignored != "":
+				// A build argument holding prose, a short sha or a tag is a
+				// misconfiguration rather than an absence, and it is invisible from
+				// the column it failed to fill -- both cases write a null. Saying
+				// which one happened is the difference between "this deployment
+				// records no commit" and "this deployment meant to and its build
+				// script is wrong".
+				log.Printf("Notice: %s is set to %q, which is not a 40-character lowercase hex sha, recording version %s for workspace %s without a commit",
+					workspaceGitShaEnvVar, ignored, version, workspaceName)
+			case git.NoGitAccess():
+				// The expected case, reported as a configuration rather than as a
+				// fault: git is off and the image carries no sha, so there is no
+				// commit to record and nothing has gone wrong. `HeadCommit`'s error
+				// is deliberately not echoed here -- it is an accurate description
+				// of a deployment doing what it was told, and an error line printed
+				// on every compile for the one thing the operator configured is the
+				// alarm that HeadCommit's short-circuit removed at source, arriving
+				// one level up.
+				log.Printf("Notice: git is off for this deployment and %s carries no sha, recording version %s for workspace %s without a commit",
+					workspaceGitShaEnvVar, version, workspaceName)
+			default:
+				log.Printf("Notice: workspace %s HEAD commit is not available, recording version %s without one: %v",
+					workspaceName, version, err)
+			}
 		}
 	}
 	// insert the new workspace version in jetsapi db
@@ -507,4 +568,72 @@ func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version strin
 	}
 
 	return nil
+}
+
+// workspaceGitShaEnvVar names the image build argument that carries the commit the
+// workspace tree was built from.
+//
+// **It has existed and gone unread.** `dockerfiles/Dockerfile.ui_service_ws`
+// declares it as an ARG and promotes it to an ENV (`:35`, `:36`) so that
+// /VERSION.txt can print it (`:40`); reading it here uses something the build was
+// already told rather than asking the build for anything new.
+//
+// **It reaches the apiserver's image and not the others.** `Dockerfile.compile_ws`
+// and `Dockerfile.cpipes_ws` declare no such argument (checked 2026-09-07), so a
+// compile driven from one of those images finds the variable absent and writes a
+// null exactly as it did before. That is a limit of the fallback rather than a
+// defect in it: ui_service_ws is the image the UI compiles a workspace from, and it
+// is the image a deployment with no source-control host runs.
+const workspaceGitShaEnvVar = "WORKSPACE_GIT_SHA"
+
+// isWorkspaceCommitSha reports whether s is what this package will accept into
+// workspace_version.workspace_commit: forty lowercase hex digits, the full object
+// name git itself prints.
+//
+// **It restates the git package's `shaPattern` rather than sharing it**
+// (`shaPattern`, `jets/datatable/git/workspace_git.go`), which is unexported.
+// Exporting it to share one regular expression would widen that package's surface
+// for the sake of four characters; the two do not have to be the same object, they
+// have to agree about what the column holds. Written as a loop rather than as a
+// second `^[0-9a-f]{40}$` because the rule is short enough to state exactly, and
+// one comparison per compile does not need a pattern compiled at init.
+//
+// **Uppercase is refused rather than folded to lower**, so the column has one
+// spelling of a commit and a reader comparing two rows can compare strings. A value
+// that is nearly a sha -- a short one, a tag, a branch name -- is prose as far as
+// this column is concerned, which is the whole point of validating an environment
+// variable that no build script in this repository sets (grepped 2026-09-07).
+func isWorkspaceCommitSha(s string) bool {
+	if len(s) != 40 {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// workspaceCommitFromBuildEnv reads workspaceGitShaEnvVar and returns the sha it
+// carries, or an empty sha and the raw value when it carries something else.
+//
+// **The second return exists so a misconfigured build can be said out loud.** An
+// absent variable and a variable holding "unknown" both end in a null commit, and
+// from the column they are indistinguishable; the caller logs them differently
+// because only one of them is somebody's mistake.
+//
+// **The value is trimmed before it is judged.** It travels from a shell through a
+// Docker build argument into an environment variable, and a trailing newline
+// picked up on that route is a transport artefact rather than a different sha.
+// Trimming is not leniency about the format: what is left is matched whole.
+func workspaceCommitFromBuildEnv() (sha string, ignored string) {
+	raw := strings.TrimSpace(os.Getenv(workspaceGitShaEnvVar))
+	switch {
+	case raw == "":
+		return "", ""
+	case !isWorkspaceCommitSha(raw):
+		return "", raw
+	}
+	return raw, ""
 }

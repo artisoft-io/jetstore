@@ -82,6 +82,26 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		// unreachable-state warning into a refusal. Off unless set; see
 		// jets/userflow/validate.go for why the default is what it is.
 		"JETS_USERFLOW_STRICT_REACHABILITY": jsii.String(os.Getenv("JETS_USERFLOW_STRICT_REACHABILITY")),
+		// Deployment-time switch turning every git operation on the workspace into a
+		// logged no-op: the Workspace Registry screen reports status without shelling out
+		// to git, and the update, commit and push actions return a notice instead of
+		// acting. It is for a site with no route to a source-control host, and for a
+		// developer workstation where WORKSPACES_HOME is a tree of submodules of the
+		// developer's own checkout. Off unless the value is 1/true/yes/on; see
+		// jets/datatable/git/no_git_access.go, which is the authority on the semantics.
+		//
+		// **Worth reading before adding the next switch to this map, because it decides
+		// how the runtime is allowed to read one.** The entries here that come from the
+		// environment are written as jsii.String(os.Getenv(...)) with no test on the
+		// result, and nothing drops an empty value, so a variable the operator never set
+		// arrives in the task definition present and empty. A runtime that tested
+		// presence -- os.LookupEnv -- would therefore read "set" in every deployment from
+		// the day its entry landed here, which for this switch would have turned git off
+		// everywhere on an unrelated CDK release. The consumer tests the value through
+		// utils.IsTruthy for that reason, and no_git_access_test.go covers the empty
+		// string explicitly, so adding this line changes nothing for a deployment that
+		// does not set the variable.
+		"JETS_NO_GIT_ACCESS": jsii.String(os.Getenv("JETS_NO_GIT_ACCESS")),
 	}
 
 	// Identifiers used by awsi.StartInferServer / StopInferServer, which scale the infer

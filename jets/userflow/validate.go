@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
@@ -89,13 +89,17 @@ func PolicyFromEnv() Policy {
 // IsTruthy matches isTruthy in validate.ts. Kept exported and separate for that
 // reason: it is the one place the two implementations must agree character for
 // character, and a shared test table is cheaper than a shared reading.
+//
+// **The rule moved to utils.IsTruthy on 2026-09-07 and this delegates to it.**
+// A second Go caller arrived -- JETS_NO_GIT_ACCESS, read by jets/datatable/git,
+// which has no business importing a UserFlow package for one boolean -- and two
+// implementations of a rule whose whole property is that it agrees character for
+// character would have been the defect this comment warns about, one language
+// over. The name stays exported here because this package's tests and callers
+// use it, and because the correspondence with validate.ts is a fact about
+// UserFlow validation rather than about jets/utils.
 func IsTruthy(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
+	return utils.IsTruthy(value)
 }
 
 // Choice is a guarded transition. Only the target is read here; the condition is

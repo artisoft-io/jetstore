@@ -31,8 +31,25 @@ ENV WORKSPACES_REPO=/workspaces
 # nothing will match.
 ARG JETS_VERSION
 
-# Copy the workspace and compile it
-# Copy the whole repo so to be able to pull and push changes
+# Copy the workspace and compile it.
+#
+# The whole build context, `.`, rather than a subset. The reason used to be
+# stated here as "so to be able to pull and push changes": the runtime pulls and
+# pushes through the workspace's own .git, so the repository had to travel with
+# the tree. That reason holds for a site that has a route to a source-control
+# host and it is no longer the only shape a workspace comes in. A tree with no
+# .git in it is a supported input as of 2026-09: a deployment setting
+# JETS_NO_GIT_ACCESS runs with git integration off, and the workspace registry
+# then reports status and refuses the write actions without shelling out to git
+# (jets/datatable/git/no_git_access.go).
+#
+# So this line decides something narrower than the old comment claimed, and also
+# something more final. Whether a .git is on disk at runtime is settled by what
+# the build context holds: cbooter carries WORKSPACES_REPO to WORKSPACES_HOME
+# with `cp -r` (jets/cmds/cbooter/main.go:129, and again at :155), which
+# preserves whatever this COPY brought in and adds nothing. Copying `.` keeps a
+# repository for the deployment that wants one and costs a no-git build only the
+# bytes, which is why the COPY itself is unchanged.
 COPY . $WORKSPACES_REPO/$WORKSPACE/
 
 # **Normalise the incoming workspace's permissions. This is the client's

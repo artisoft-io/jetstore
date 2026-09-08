@@ -49,19 +49,50 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int, gitProfile *user.GitPro
 		goto setPullGitLog
 	}
 
-	// Clear existing stash
-	err = wsfile.ClearStash(workspaceName)
-	if err != nil {
-		buf.WriteString(fmt.Sprintf("Error while clearing stash for workspace %s, ignored\n", workspaceName))
-		log.Printf("Error while clearing stash for workspace %s, ignored", workspaceName)
-		err = nil
-	}
-	// Create new stash corresponding to this pulled workspace
-	err = wsfile.StashFiles(workspaceName)
-	if err != nil {
-		buf.WriteString(fmt.Sprintf("Error while stashing workspace %s, ignored\n", workspaceName))
-		log.Printf("Error while stashing workspace %s, ignored", workspaceName)
-		err = nil
+	// Re-stash the pulled tree, so that "delete my changes" has a pristine
+	// baseline to restore from.
+	//
+	// **Skipped when git is off, and this is the one place in that mode where
+	// running the ordinary path would destroy something.** The pair is a clear
+	// followed by a re-stash, and the clear is what does the damage: `StashFiles`
+	// on its own refuses to overwrite an existing stash
+	// (`StashFiles`, `jets/datatable/wsfile/file_stash.go:21`, the
+	// already-stashed branch), so without the `ClearStash` above it the sequence
+	// is inert. With it, the stash is re-taken from the tree as it stands now.
+	//
+	// With a repository that is correct: the pull has just put the tree at the
+	// remote's content, so a snapshot of it *is* the pristine baseline. With git
+	// off there was no pull, so the tree still carries whatever the database
+	// overrides last wrote onto it -- and re-stashing captures the user's own
+	// edits as the thing to restore *to*. Nothing fails, and every later revert
+	// silently returns the edited file. The pristine copy that was taken at
+	// startup from the image (`checkWorkspaceVersion`,
+	// `jets/apiserver/server.go`) would already have been thrown away by the
+	// clear.
+	//
+	// So the honest behaviour with no repository is to leave the stash alone.
+	// The startup snapshot stays pristine, revert keeps working, and the two
+	// steps this skips had nothing to contribute without a pull in front of them.
+	if git.NoGitAccess() {
+		buf.WriteString(git.NoGitAccessNotice)
+		buf.WriteString("\nThe workspace file stash is left as it is.\n")
+		log.Printf("pullWorkspaceAction: %s Stash untouched for workspace %s.",
+			git.NoGitAccessNotice, workspaceName)
+	} else {
+		// Clear existing stash
+		err = wsfile.ClearStash(workspaceName)
+		if err != nil {
+			buf.WriteString(fmt.Sprintf("Error while clearing stash for workspace %s, ignored\n", workspaceName))
+			log.Printf("Error while clearing stash for workspace %s, ignored", workspaceName)
+			err = nil
+		}
+		// Create new stash corresponding to this pulled workspace
+		err = wsfile.StashFiles(workspaceName)
+		if err != nil {
+			buf.WriteString(fmt.Sprintf("Error while stashing workspace %s, ignored\n", workspaceName))
+			log.Printf("Error while stashing workspace %s, ignored", workspaceName)
+			err = nil
+		}
 	}
 
 	// Apply workspace overrides from database, skipping compiled files

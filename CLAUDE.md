@@ -180,6 +180,32 @@ Rules are authored in JetRules DSL, compiled via `CompilerV2` into a `workspace.
 
 `JETS_DSN` (PostgreSQL DSN), `JETS_REGION` (AWS region), `API_SECRET` (JWT secret), `WORKSPACE` (active workspace name), `WORKSPACES_HOME` (workspace root path), `JETS_BUCKET` (S3 bucket), `NBR_SHARDS`.
 
+**`JETS_NO_GIT_ACCESS=1` — set this when running the apiserver on a workstation.** Truthy is `1`,
+`true`, `yes` or `on`; unset, empty or anything else leaves git on, so this changes nothing for a
+deployment that does not set it. It turns every workspace git operation into a logged no-op
+(`jets/datatable/git/no_git_access.go`), and it exists for two consumers: a site deployed with no
+route to a source-control host, and local development.
+
+**The local reason is the one that costs you something if you skip it, and it is not the obvious
+one.** On a workstation this repo is normally checked out as a submodule of `jetstore_agentic_ai`,
+whose `workspaces/` is the natural `WORKSPACES_HOME` — so a workspace is a **submodule of the
+repository you are working in**. Two consequences:
+
+- **The visible one.** An uninitialised submodule is a directory that exists and is not a
+  repository, so `GetStatus`'s directory-absent branch does not catch it, `git rev-parse` exits 128,
+  and `DoWorkspaceReadAction` returns 400 for the whole request rather than for the row — the
+  Workspace Registry screen does not render at all.
+- **The expensive one.** `runGit` sets `cmd.Dir` to `${WORKSPACES_HOME}/${WORKSPACE}`, so the write
+  actions operate on *your* working tree: `UpdateLocalWorkspace` runs `switch`, `pull` and `push`,
+  and `CommitLocalWorkspace` runs `add -A`, `commit` and `push`. A button in a local UI can move your
+  HEAD, stage everything under it, and push. And a submodule moved under you leaves a detached HEAD
+  with `git status` reporting **clean** about a tree you did not ask for, so every signal says
+  nothing happened.
+
+The apiserver states which way the switch went in its first lines of log output
+(`LogGitAccessMode`), which is the cheapest way to find out you forgot. `cdk/jetstore_one/doc/deploy_runbook.md`
+§8 carries the longer version.
+
 ## Database
 
 PostgreSQL is the primary database. Schema files:
