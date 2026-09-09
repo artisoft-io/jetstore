@@ -39,6 +39,7 @@ type JetResources struct {
 	Jets__range_value             *Node
 	Jets__replace_chars           *Node
 	Jets__replace_with            *Node
+	Jets__separator               *Node
 	Jets__source_period_sequence  *Node
 	Jets__sourcePeriodType        *Node
 	Jets__state                   *Node
@@ -77,6 +78,7 @@ func (jr *JetResources) Initialize(rm *ResourceManager) {
 	jr.Jets__range_value = rm.NewResource("jets:range_value")
 	jr.Jets__replace_chars = rm.NewResource("jets:replace_chars")
 	jr.Jets__replace_with = rm.NewResource("jets:replace_with")
+	jr.Jets__separator = rm.NewResource("jets:separator")
 	jr.Jets__source_period_sequence = rm.NewResource("jets:source_period_sequence")
 	jr.Jets__sourcePeriodType = rm.NewResource("jets:sourcePeriodType")
 	jr.Jets__state = rm.NewResource("jets:State")

@@ -43,6 +43,8 @@ func (ctx *ReteBuilderContext) CreateBinaryOperator(op string) BinaryOperator {
 		return NewSortedHeadOp()
 	case "sum_values":
 		return NewSumValuesOp()
+	case "join_values":
+		return NewJoinValuesOp()
 
 		// String operators
 	case "literal_regex", "apply_regex":
