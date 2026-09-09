@@ -21,6 +21,7 @@ about deployment wiring goes stale without announcing it. Entries are appended, 
 | Package | Covers |
 |---|---|
 | `jets/compute_pipes/README.md` | How a compiled workspace reaches a running process, and the `JETS_VERSION` chain that decides whether it is fetched — including the cbooter/Lambda asymmetry and the Docker `ARG`/`ENV` resolution rule |
+| `jets/jetrules/rete/README.md` | Where the Go and C++ rule engines disagree — three measured divergences on `sum_values`, the double-literal quantisation, and why adding an operator is exactly two registrations |
 
 **Put the entry where someone will be standing when they hit the symptom**, not where the mechanism
 happens to be implemented, and cross-reference by `file:line` rather than duplicating. A discovery

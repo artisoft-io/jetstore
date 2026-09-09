@@ -33,6 +33,7 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "min_of")            return create_expr_binary_operator<MinOfVisitor>(key, lhs, rhs);
   if(op == "sorted_head")       return create_expr_binary_operator<SortedHeadVisitor>(key, lhs, rhs);
   if(op == "sum_values")        return create_expr_binary_operator<SumValuesVisitor>(key, lhs, rhs);
+  if(op == "join_values")       return create_expr_binary_operator<JoinValuesVisitor>(key, lhs, rhs);
 
   // Logical operators
   if(op == "and")               return create_expr_binary_operator<AndVisitor>(key, lhs, rhs);

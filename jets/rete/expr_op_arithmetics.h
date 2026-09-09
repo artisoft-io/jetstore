@@ -9,6 +9,8 @@
 #include <memory>
 #include <utility>
 #include <regex>
+#include <sstream>
+#include <vector>
 
 #include <boost/numeric/conversion/cast.hpp>
 
@@ -599,6 +601,213 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
       jr->jets__value_property);
     if(not p_filter) {
       return 0;
+    }
+
+    auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
+    rdf_session_p->asserted_graph()->register_callback(cb);
+    rdf_session_p->inferred_graph()->register_callback(cb);
+    return 0;
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// JOIN VALUES =========================================================================
+// Fold a multi-valued property into ONE ordered string.
+//
+// Mirrors sum_values (see ApplySumValuesVisitor above) rather than inventing a shape:
+// the same two config forms, the same truth-maintenance callback. What it adds is a
+// jets:separator triple on the config and a sort.
+//
+// THE OUTPUT IS SORTED, AND THE REASON IS REPRODUCIBILITY RATHER THAN TASTE.
+// An rdf multi-valued property is a *set* and has no order, so the iteration order is
+// an implementation detail of the graph container. An unsorted join would therefore
+// make the same entity produce a different string — and, downstream, a different LLM
+// prompt — between two runs over identical data, which is noise injected straight into
+// an experiment whose design is one variable. Sorting is on the *rendered* strings,
+// byte-wise ascending, which is also what the Go engine does; ISO-8601 dates sort
+// lexically into chronological order, so the sort costs nothing for the date case that
+// motivated the operator.
+//
+// BEHAVIOUR, DECIDED AND DOCUMENTED:
+//  - empty set   -> rdf::Null(). Nothing is asserted, exactly as sum_values does when it
+//                   finds no value. An empty string would assert "this entity has an
+//                   empty list", which is a different claim from "this entity has no
+//                   list", and the rule author can still test for the absence.
+//  - single value-> that value rendered, with no separator. A separator separates.
+//  - null/absent -> skipped, and no empty slot is left behind. In the
+//    values          entity_property+value_property form an object that carries no value
+//                    property contributes nothing rather than an empty string, which
+//                    matches min_of/max_of/sum_values, all of which skip nulls.
+//  - duplicates  -> kept. This is a fold, not a distinct: two pharmacy claims filled on
+//                   the same day are two fills, and dropping one would lose a fact.
+//  - non-string  -> rendered by JoinTextVisitor below. Dates and datetimes render
+//    values         ISO-8601 (YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS), integers as decimal,
+//                   doubles with the default 6 significant digits, named resources by
+//                   name. The Go engine renders identically — see the note in
+//                   jets/jetrules/rete/expr_operator_math_join_values.go, since two
+//                   engines that render a date differently is the same defect as two
+//                   engines that support different operators.
+//
+// The separator comes from (config, jets:separator, "..."). It is OPTIONAL and defaults
+// to ", ": a missing separator running the values together is a worse failure than a
+// sensible default, and the default is the one the fill-date case wants.
+
+// Render one rdf value the way join_values wants it in the joined string.
+// Deliberately not ToTextVisitor: that one renders a double with std::to_string, i.e.
+// six decimal places ("1.500000"), which the Go engine does not match.
+struct JoinTextVisitor: public boost::static_visitor<std::string>
+{
+  std::string operator()(rdf::RDFNull       const& )const{return {};}
+  std::string operator()(rdf::BlankNode     const&v)const{return {"bn("+std::to_string(v.key)+")"};}
+  std::string operator()(rdf::NamedResource const&v)const{return v.name;}
+  std::string operator()(rdf::LInt32        const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LUInt32       const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LInt64        const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LUInt64       const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LDouble       const&v)const
+  {
+    // Default ostream formatting is %g with 6 significant digits, which is what
+    // strconv.FormatFloat(v, 'g', 6, 64) gives on the Go side.
+    std::ostringstream buf;
+    buf << v.data;
+    return buf.str();
+  }
+  std::string operator()(rdf::LString       const&v)const{return v.data;}
+  std::string operator()(rdf::LDate         const&v)const{return rdf::to_string(v.data);}
+  std::string operator()(rdf::LDatetime     const&v)const{return rdf::to_string(v.data);}
+};
+
+inline std::string
+join_render_value(rdf::r_index v)
+{
+  if(not v) return {};
+  return boost::apply_visitor(JoinTextVisitor(), *v);
+}
+
+struct ApplyJoinValuesVisitor
+{
+  ApplyJoinValuesVisitor(ReteSession * rs, std::string separator)
+    : rs(rs), separator(std::move(separator)) {}
+
+  // Apply the visitor to find:
+  //  - case objp is nullptr: the sorted join of ?v in (s, datap, ?v)
+  //  - case objp is not nullptr: the sorted join of ?v in (s, objp, ?o).(?o, datap, ?v)
+  RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap)const
+  {
+    if(not datap) {
+      RETE_EXCEPTION("Invalid arguments for ApplyJoinValuesVisitor, cannot have null datap");
+    }
+    std::vector<std::string> items;
+    if(objp == nullptr) {
+      // join ?v: (s, datap, ?v)
+      auto itor = rs->rdf_session()->find(s, datap);
+      while(!itor.is_end()) {
+        auto val = itor.get_object();
+        if(val and val->which() != rdf::rdf_null_t) {
+          items.push_back(join_render_value(val));
+        }
+        itor.next();
+      }
+    } else {
+      // join ?v: (s, objp, ?o).(?o, datap, ?v)
+      auto itor = rs->rdf_session()->find(s, objp);
+      while(!itor.is_end()) {
+        auto val = rs->rdf_session()->get_object(itor.get_object(), datap);
+        if(val and val->which() != rdf::rdf_null_t) {
+          items.push_back(join_render_value(val));
+        }
+        itor.next();
+      }
+    }
+    if(items.empty()) return rdf::RDFNull();
+    std::sort(items.begin(), items.end());
+    std::string res;
+    bool is_first = true;
+    for(auto const& item: items) {
+      if(is_first) {
+        is_first = false;
+      } else {
+        res += this->separator;
+      }
+      res += item;
+    }
+    return rdf::LString(std::move(res));
+  }
+
+  ReteSession * rs;
+  std::string separator;
+};
+
+// JoinValuesVisitor * Add truth maintenance
+// --------------------------------------------------------------------------------------
+struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  JoinValuesVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for join_values: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
+  {
+    auto * sess = this->rs->rdf_session();
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) {
+      RETE_EXCEPTION(
+        "Invalid argument for join_values, must lhs and rhs must "
+        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
+        pr.first<<", and "<<pr.second
+      );
+    }
+    auto const* jr = sess->rmgr()->jets();
+    // The separator is optional, defaulting to ", ".
+    std::string separator{", "};
+    auto sep = sess->get_object(pr.second, jr->jets__separator);
+    if(sep) {
+      if(sep->which() != rdf::rdf_literal_string_t) {
+        RETE_EXCEPTION("Invalid argument for join_values: jets:separator must be a text literal, got "<<sep);
+      }
+      separator = boost::get<rdf::LString>(*sep).data;
+    }
+    ApplyJoinValuesVisitor av(this->rs, std::move(separator));
+    // Three config forms, stated explicitly rather than fallen into, since a config
+    // carrying jets:entity_property and no jets:value_property is a misconfiguration
+    // that sum_values silently turns into an empty result.
+    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
+    auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    if(objp) {
+      // (lhs, objp, ?o).(?o, datap, ?v) -- objp non functional, datap functional
+      if(not datap) {
+        RETE_EXCEPTION(
+          "Invalid argument for join_values: config "<<rhs<<" has jets:entity_property "
+          "and no jets:value_property");
+      }
+    } else if(datap) {
+      // config carrying only jets:value_property: join ?v in (lhs, datap, ?v)
+    } else {
+      // rhs is itself the non functional data property: join ?v in (lhs, rhs, ?v)
+      datap = pr.second;
+    }
+    return av(pr.first, objp, datap);
+  }
+
+  int
+  register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
+  {
+    VLOG(40)<<"JoinValuesVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
+
+    auto * rdf_session_p = rs->rdf_session();
+    auto const* jr = rdf_session_p->rmgr()->jets();
+    auto rhs_r = get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs));
+    if(not rhs_r) {
+      return 0;
+    }
+    // The property to watch is jets:value_property when the rhs is a config, and the
+    // rhs itself when it is the multi-valued property. Note that SumValuesVisitor
+    // registers nothing in the second case while the Go SumValuesOp does; join_values
+    // registers in both, so that the two engines maintain the same truth.
+    auto p_filter = rdf_session_p->get_object(rhs_r, jr->jets__value_property);
+    if(not p_filter) {
+      p_filter = rhs_r;
     }
 
     auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);

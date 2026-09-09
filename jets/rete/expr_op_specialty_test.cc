@@ -13,7 +13,7 @@
 #include "../rete/expr_op_resources.h"
 #include "../rete/expr_op_others.h"
 // This file contains test cases for the specialty operators: 
-//  sorted_head, max_of, min_of, sum_values
+//  sorted_head, max_of, min_of, sum_values, join_values
 namespace jets::rete {
 namespace {
 // Arithmetic operators test
@@ -265,6 +265,194 @@ TEST_F(ExprOpSpecialtyTest, SumValuesVisitor2) {
   rdf::NamedResource rhs("config");
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(6)));
+}
+
+
+// JOIN VALUES
+// -----------------------------------------------------------------------------------
+// The Go engine carries the same cases in
+// jets/jetrules/rete/expr_operator_math_join_values_test.go; the two implementations
+// are independently maintained, so the tests are deliberately parallel.
+
+// Form 3: rhs is itself the non functional data property, default separator.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitor1) {
+  // test join ?v in (s, p, ?v)
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("values");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("10, 20, 30"))));
+}
+
+// Form 2: config carrying jets:value_property alone, with an explicit separator.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitor2) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ2");
+  rdf::r_index values = rmgr->create_resource("values");
+  this->rdf_session->insert(config, jets->jets__value_property, values);
+  this->rdf_session->insert(config, jets->jets__separator, std::string("-"));
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("configJ2");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("10-20-30"))));
+}
+
+// Form 1: jets:entity_property + jets:value_property, default separator.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitor3) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ3");
+  rdf::r_index has = rmgr->create_resource("hasSupport");
+  rdf::r_index name = rmgr->create_resource("name");
+  this->rdf_session->insert(config, jets->jets__entity_property, has);
+  this->rdf_session->insert(config, jets->jets__value_property, name);
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("configJ3");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("name1, name2, name3"))));
+}
+
+// The output is sorted, not in insertion order: the fill dates go in unsorted and come
+// out chronological, which is what ISO-8601 lexical order buys.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorSorted) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJS");
+  rdf::r_index hasFill = rmgr->create_resource("hasFill");
+  rdf::r_index fillDate = rmgr->create_resource("fillDate");
+  this->rdf_session->insert(config, jets->jets__entity_property, hasFill);
+  this->rdf_session->insert(config, jets->jets__value_property, fillDate);
+
+  rdf::r_index med = rmgr->create_resource("lisinopril");
+  char const* dates[] = {"2025-08-24", "2025-06-15", "2025-07-20"};
+  for(int i=0; i<3; ++i) {
+    auto f = rmgr->create_resource(std::string("fill")+std::to_string(i));
+    this->rdf_session->insert(med, hasFill, f);
+    this->rdf_session->insert(f, fillDate, rdf::boost_date_from_string(dates[i]));
+  }
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("lisinopril");
+  rdf::NamedResource rhs("configJS");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(
+    rdf::LString(std::string("2025-06-15, 2025-07-20, 2025-08-24"))));
+}
+
+// A single value carries no separator.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorSingleValue) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto s = rmgr->create_resource(std::string("sJ1"));
+  auto p = rmgr->create_resource(std::string("pJ1"));
+  this->rdf_session->insert(s, p, std::string("2025-07-02"));
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("sJ1");
+  rdf::NamedResource rhs("pJ1");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("2025-07-02"))));
+}
+
+// The empty set yields null, so the rule asserts nothing.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorEmptySet) {
+  auto rmgr = this->rdf_session->rmgr();
+  rmgr->create_resource(std::string("sJ0"));
+  rmgr->create_resource(std::string("pJ0"));
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("sJ0");
+  rdf::NamedResource rhs("pJ0");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::RDFNull()));
+}
+
+// An object carrying no value property contributes nothing, and leaves no empty slot.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorSkipsAbsentValues) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ4");
+  rdf::r_index has = rmgr->create_resource("hasThing");
+  rdf::r_index val = rmgr->create_resource("thingValue");
+  this->rdf_session->insert(config, jets->jets__entity_property, has);
+  this->rdf_session->insert(config, jets->jets__value_property, val);
+
+  rdf::r_index owner = rmgr->create_resource("ownerJ4");
+  auto t1 = rmgr->create_resource("thing1");
+  auto t2 = rmgr->create_resource("thing2");
+  this->rdf_session->insert(owner, has, t1);
+  this->rdf_session->insert(owner, has, t2);
+  this->rdf_session->insert(t1, val, std::string("alpha"));
+  // t2 carries no value property
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("ownerJ4");
+  rdf::NamedResource rhs("configJ4");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("alpha"))));
+}
+
+// Duplicates are kept: two fills on the same day are two fills.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorKeepsDuplicates) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ5");
+  rdf::r_index has = rmgr->create_resource("hasThing5");
+  rdf::r_index val = rmgr->create_resource("thingValue5");
+  this->rdf_session->insert(config, jets->jets__entity_property, has);
+  this->rdf_session->insert(config, jets->jets__value_property, val);
+
+  rdf::r_index owner = rmgr->create_resource("ownerJ5");
+  auto t1 = rmgr->create_resource("thing51");
+  auto t2 = rmgr->create_resource("thing52");
+  this->rdf_session->insert(owner, has, t1);
+  this->rdf_session->insert(owner, has, t2);
+  this->rdf_session->insert(t1, val, std::string("2025-06-15"));
+  this->rdf_session->insert(t2, val, std::string("2025-06-15"));
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("ownerJ5");
+  rdf::NamedResource rhs("configJ5");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString(std::string("2025-06-15, 2025-06-15"))));
+}
+
+// jets:entity_property with no jets:value_property is a misconfiguration and is
+// reported rather than silently yielding nothing.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorMisconfigured) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ6");
+  rdf::r_index has = rmgr->create_resource("hasThing6");
+  this->rdf_session->insert(config, jets->jets__entity_property, has);
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("configJ6");
+  EXPECT_THROW(
+    boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs)),
+    jets::rete_exception);
+}
+
+// A non text jets:separator is reported rather than silently ignored.
+TEST_F(ExprOpSpecialtyTest, JoinValuesVisitorBadSeparator) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  rdf::r_index config = rmgr->create_resource("configJ7");
+  rdf::r_index values = rmgr->create_resource("values");
+  this->rdf_session->insert(config, jets->jets__value_property, values);
+  this->rdf_session->insert(config, jets->jets__separator, 3);
+
+  JoinValuesVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("configJ7");
+  EXPECT_THROW(
+    boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs)),
+    jets::rete_exception);
 }
 
 }   // namespace
