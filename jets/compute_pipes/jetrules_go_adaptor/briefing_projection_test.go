@@ -92,8 +92,18 @@ func projectedBriefing(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
 	return s, rm
 }
 
-// encodeAsPipeline runs the real encoder with patient_profile.pc.json's settings.
+// encodeAsPipeline runs the real encoder with patient_profile.pc.json's settings
+// over this file's hand-built fixture, whose briefing node is named "briefing".
 func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, encoding string) string {
+	t.Helper()
+	return encodeBriefingEntity(t, s, rm.NewResource("briefing"), encoding)
+}
+
+// encodeBriefingEntity is the same settings over any briefing node, so that
+// briefing_projection_completeness_test.go - whose briefing is a uuid the rule
+// session minted - encodes through one copy of the exclusion list rather than a
+// second one that can drift from it.
+func encodeBriefingEntity(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, encoding string) string {
 	t.Helper()
 	ce := &compute_pipes.JrSpecialColumnEncoding{
 		Config: &compute_pipes.ColumnEncodingSpec{
@@ -109,7 +119,7 @@ func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, 
 			"cintel:Briefing_Disclaimer":  true,
 		},
 	}
-	out := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: rm.NewResource("briefing")})
+	out := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: briefing})
 	text, ok := out.(string)
 	if !ok {
 		t.Fatalf("EncodeColumnData returned %T: %v", out, out)
