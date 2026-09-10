@@ -3429,6 +3429,46 @@
       "title": "ConditionalTransformationSpec",
       "type": "object"
     },
+    "ConditionalTransformationSpecEmbedPipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideEmbedPipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
     "ConditionalTransformationSpecFilterPipe": {
       "additionalProperties": false,
       "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
@@ -3850,6 +3890,46 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TransformationSpecOverrideSortPipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
+    "ConditionalTransformationSpecVllmPipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideVllmPipe"
             },
             {
               "type": "null"
@@ -4577,6 +4657,113 @@
         "domain_keys_info"
       ],
       "title": "DomainKeysSpec",
+      "type": "object"
+    },
+    "EmbedPipe": {
+      "additionalProperties": false,
+      "description": "Calls the infer server's embeddings endpoint once per record and writes the returned vector onto the record; builds a retrieval corpus rather than generating text.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column transformations; the ollama operator maps through output_mapping instead.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecEmbedPipe"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "embed_config": {
+          "$ref": "#/$defs/EmbedSpec",
+          "description": "Configuration of the embed operator."
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "embed",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "embed_config",
+        "output_channel"
+      ],
+      "title": "TransformationSpecEmbed",
       "type": "object"
     },
     "EmbedSpec": {
@@ -19375,6 +19562,78 @@
       "title": "TransformationSpecOverride",
       "type": "object"
     },
+    "TransformationSpecOverrideEmbedPipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The column transformations producing the output record.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
     "TransformationSpecOverrideFilterPipe": {
       "additionalProperties": false,
       "description": "Fragments of transformation operator to override fields of the host transformation operator.",
@@ -20203,6 +20462,78 @@
       "title": "TransformationSpecOverride",
       "type": "object"
     },
+    "TransformationSpecOverrideVllmPipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The column transformations producing the output record.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
     "TransformationSpecPartitionWriter": {
       "additionalProperties": false,
       "description": "Writes the records of its input channel to partition files.",
@@ -20675,6 +21006,113 @@
             {
               "items": {
                 "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "vllm",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm.",
+          "title": "Type",
+          "type": "string"
+        },
+        "vllm_config": {
+          "$ref": "#/$defs/VllmSpec",
+          "description": "Configuration of the vllm operator."
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "output_channel",
+        "vllm_config"
+      ],
+      "title": "TransformationSpecVllm",
+      "type": "object"
+    },
+    "VllmPipe": {
+      "additionalProperties": false,
+      "description": "Calls a vLLM server's OpenAI-compatible api once per record and augments the record in place with values extracted from the model response, constraining generation to a schema when one is given.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column transformations; the vllm operator maps the response through output_mapping instead.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecVllmPipe"
               },
               "type": "array"
             },
