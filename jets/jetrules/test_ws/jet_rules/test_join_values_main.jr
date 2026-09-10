@@ -1,0 +1,51 @@
+# Main Rule File for the join_values UC
+#
+# join_values was added with unit tests on both engines' operators and nothing
+# exercised it through COMPILE -> METASTORE -> EXECUTION, and no .jr file anywhere used
+# it. An operator name is an opaque string all the way from the lexer to the factory
+# (see the note at the top of jets/jetrules/rete/operator_registration_test.go), so a
+# rule is the only thing that shows the name survives that journey.
+#
+# TestJoinValuesCompilesAndRuns in jets/jetrules/rete/join_values_rule_test.go compiles
+# this file and runs it; TestCompiler1 in jets/compilerv2/compiler compiles it as part
+# of the compiler's own suite.
+#
+# The two configs are two of the three forms the operator accepts, and they are here
+# for different reasons.
+
+import "data_model/jets_model.jr"
+import "data_model/test_join_values_model.jr"
+
+# FORM 1: jets:entity_property + jets:value_property, walking
+# (?med jv:has_fill ?fill).(?fill jv:fill_date ?d).
+# This is the form the fill-date case wants and the one every aggregate in
+# workspaces/jets_ws uses.
+#
+# The separator is explicit here so the test can tell it apart from the default: an
+# operator that ignored jets:separator would still produce a plausible string.
+resource fillDatesConfig = "fillDatesConfig";
+triple(fillDatesConfig, jets:entity_property, jv:has_fill);
+triple(fillDatesConfig, jets:value_property, jv:fill_date);
+triple(fillDatesConfig, jets:separator, "; ");
+
+# FORM 2: jets:value_property alone, joining ?v in (?med jv:ndc_seen ?v), and NO
+# jets:separator, so the default ", " applies.
+#
+# This form is worth a rule rather than only a unit test: it is the form the package
+# README records as a Go/C++ divergence for sum_values -- C++ resolves it and the Go
+# engine silently yields nothing -- and join_values was written to accept it on both
+# sides deliberately. A rule is what says so about the compiled path.
+resource ndcListConfig = "ndcListConfig";
+triple(ndcListConfig, jets:value_property, jv:ndc_seen);
+
+[JV_FillDates]:
+  (?med rdf:type jv:Medication)
+  ->
+  (?med jv:fill_dates (?med join_values fillDatesConfig))
+;
+
+[JV_NdcList]:
+  (?med rdf:type jv:Medication)
+  ->
+  (?med jv:ndc_list (?med join_values ndcListConfig))
+;

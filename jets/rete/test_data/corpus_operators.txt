@@ -1,0 +1,61 @@
+# Operator names used by the compiled rule corpus.
+#
+# GENERATED. Do not hand edit: TestCorpusOperatorNamesResolve
+# (jets/jetrules/rete/operator_registration_test.go) compiles every rule set of every
+# workspace and fails when this file drifts from what it finds. Regenerate with
+#
+#   JETS_UPDATE_OPERATOR_MANIFEST=1 go test -count=1 \
+#     -run TestCorpusOperatorNamesResolve ./jets/jetrules/rete/
+#
+# It exists because the C++ engine cannot compile a .jr file and therefore cannot
+# collect these names for itself. CorpusOperatorNames in expr_operator_factory_test.cc
+# reads it and asserts each name resolves in create_binary_expr / create_unary_expr.
+# CMake copies this directory next to the jets_test binary after every build.
+binary !=
+binary *
+binary +
+binary -
+binary /
+binary <
+binary <=
+binary ==
+binary >
+binary >=
+binary age_as_of
+binary age_in_months_as_of
+binary and
+binary apply_format
+binary char_at
+binary contains
+binary ends_with
+binary exist
+binary exist_not
+binary join_values
+binary literal_regex
+binary lookup
+binary max_of
+binary min_of
+binary multi_lookup
+binary or
+binary range
+binary replace_char_of
+binary size_of
+binary sorted_head
+binary starts_with
+binary substring_of
+binary sum_values
+unary abs
+unary create_entity
+unary create_literal
+unary create_resource
+unary create_uuid_resource
+unary length_of
+unary month_period_of
+unary not
+unary to_double
+unary to_int
+unary to_text
+unary to_timestamp
+unary to_upper
+unary uuid_sha1
+unary week_period_of
