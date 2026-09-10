@@ -8,8 +8,18 @@ Found while adding `join_values` (`JoinValuesOp`, `expr_operator_math_join_value
 is `JoinValuesVisitor`, `jets/rete/expr_op_arithmetics.h`). Every operator here has a C++ twin and
 nothing checks that the two behave alike, so **a rule can compile against one engine and not the
 other, or — worse — run on both and produce different values**. Three divergences were measured on
-`sum_values` while writing its sibling. None is fixed here; they are recorded so the next operator
-author does not rediscover them.
+`sum_values` while writing its sibling. ~~None is fixed here; they~~ **They** are recorded so the
+next operator author does not rediscover them.
+
+**A fourth entry was added later the same day**, by the session that fixed 2, and it is a different
+animal: **item 4 was not a divergence when it was found** — both engines had it — and it became one
+because only C++ was fixed. It is filed here anyway because this is where a reader looking for
+"why is this aggregate wrong" will be standing.
+
+**Items 2 and 4 were fixed in the C++ engine on 2026-09-09**, and each entry says so in place
+rather than being struck out, because what a fix leaves behind matters: 4 is fixed on one side
+only, and both are reachable by far less of the rule corpus than they look — see the paragraph
+after 4, which is the one to read first if you arrived here from a wrong aggregate in production.
 
 **1. A config carrying `jets:value_property` alone works in C++ and silently yields nothing in Go.**
 `SumValuesVisitor` resolves `datap = (rhs, jets:value_property, ?)` and falls back to `rhs` itself
@@ -20,11 +30,14 @@ resource is walked as if it were a property of the subject, matching nothing. Th
 `expr_op_specialty_test.cc` `SumValuesVisitor1` case is exactly this form, and it has no Go
 counterpart. `join_values` accepts the form on **both** sides, deliberately.
 
-**2. C++ registers no truth-maintenance callback for the direct-property form.**
-`SumValuesVisitor::register_callback` returns 0 when the rhs carries no `jets:value_property`,
-while `SumValuesOp.RegisterCallback` falls back to watching `objProperty`. So
-`(?s sum_values someMultiValuedProperty)` is recomputed on change under the Go engine and is not
-under the C++ one. `join_values` registers in both cases on both sides.
+**2. ~~C++ registers no truth-maintenance callback for the direct-property form.~~ FIXED in C++
+2026-09-09.** `SumValuesVisitor::register_callback` returned 0 when the rhs carried no
+`jets:value_property`, while `SumValuesOp.RegisterCallback` falls back to watching `objProperty`. So
+`(?s sum_values someMultiValuedProperty)` was recomputed on change under the Go engine and was not
+under the C++ one. `join_values` registered in both cases on both sides. The C++ side now goes
+through `register_callbacks_for_aggregate` (`jets/rete/expr_op_arithmetics.h`), which carries that
+fallback for every operator that accepts the form. `SumValuesRecomputesOnDirectMultiValuedProperty`
+in `jets/rete/expr_op_specialty_test.cc` fails without it.
 
 **3. A double *literal* is quantised to 15 bits of mantissa by the Go engine and not by the C++ one.**
 `ResourceManager.NewDoubleLiteral` (`jets/jetrules/rdf/resource_manager.go:287`) does
@@ -33,6 +46,38 @@ under the C++ one. `join_values` registers in both cases on both sides.
 stores the value as given), so the same number reaches the graph differently depending on whether a
 rule wrote it down or worked it out. Measured 2026-09-09 by a rendering test that expected the two
 engines to agree on `0.891089` and got `0.891083` from Go.
+
+**4. No aggregate operator watched `jets:entity_property`, on either side — FIXED in C++
+2026-09-09, and still open in Go.** An aggregate configured with `jets:entity_property` **and** `jets:value_property` walks
+`(s, entityP, ?o).(?o, valueP, ?v)` and therefore depends on both properties, and every one of the
+five operators registered its callback on the value property alone — `sum_values`, `min_of`,
+`max_of`, `sorted_head` and `join_values`, in both engines. **Only a change to an already-linked
+child was ever seen.** Linking a further child does not touch the value property, so an entity
+materialised with its value and then attached — which is the ordinary order for an entity built by
+rules — moves the aggregate without anything noticing. The C++ side now registers on both
+(`register_callbacks_for_aggregate`, `jets/rete/expr_op_arithmetics.h`); `MinMaxOp`, `SumValuesOp`
+and `JoinValuesOp` in this package still do not.
+
+**And a fifth thing, which is not a divergence and is the one that actually bites.** All of the
+above is about `register_callback`, and **`register_callback` is never called for a consequent
+expression.** `ReteSession::set_graph_callbacks` (`jets/rete/rete_session.cc`) registers a node
+vertex's *antecedent* alpha node and its *filter* expression, and nothing else; `ReteSession`'s
+initialisation in `rete_session.go` does the same and calls `InitializeExpression` alone on a
+consequent. So **an aggregate in a consequent has no truth maintenance in either engine**, whatever
+its config, and the four fixes above cannot reach one.
+
+That is not a hypothetical shape. **All 89 uses of these five operators across the four workspaces
+under `workspaces/` are in consequents; none is in a filter** (counted 2026-09-09). The visible case
+is `CE_RxDateRange10` (`workspaces/jets_ws/jet_rules/clinical_intel/common_events.jr`), whose
+antecedent `(?entity tag hasPharmacyClaim)` is a *constant* triple that `AM_PCreateEvent40`
+(`analysis_pharmacy_rules.jr`) asserts alongside the first claim it links. The rule term is created
+once, at that first claim, and its `min_of`/`max_of`/`sum_values` consequents are computed over
+whatever is linked when the row is drained from the consequent queue — which for equal salience is
+heap order. A three-fill event aggregating exactly one claim is that, not any of the four
+divergences above. `AggregateInConsequentIsNotMaintained` in
+`jets/rete/expr_op_specialty_test.cc` pins the behaviour so that a reader who fixes
+`register_callback` and expects that rule to change is told otherwise by a test rather than by a
+production number.
 
 **The consequence for anyone adding an operator: write the tests in pairs.**
 `expr_operator_math_join_values_test.go` and the `JoinValues*` cases in
