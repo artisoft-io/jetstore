@@ -284,7 +284,7 @@ type ChannelSpec struct {
 
 // ColumnEncodingSpec is used to specify special encoding for a channel column, e.g., toon or json
 // Column is the column name to which the special encoding applies, this is required.
-// EntityEncoding is used to specify the encoding of the column: range values: json, toon (default is json).
+// EntityEncoding is used to specify the encoding of the column: range values: json, toon, briefing_prose (default is json).
 // RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (any prefix up to the character ':').
 // ExcludeProperties is used to specify the properties to exclude from the output, e.g., jets:key, rdf:type, etc.
 // This is used to exclude properties from the json or toon output.

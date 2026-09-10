@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/briefing/prose"
 	togo "github.com/toon-format/toon-go"
 )
 
@@ -19,6 +20,33 @@ func (ce *JrSpecialColumnEncoding) EncodeColumnData(rdfSession JetRdfSession, su
 	entityObj := make(map[string]any)
 	extractAsEntity(rdfSession, ce.Config.RemoveModelPrefixes, subject, entityObj, ce.ExcludeProperties)
 	// log.Printf("*** Extracting json/toon obj - end")
+	if ce.Config.EntityEncoding == "briefing_prose" {
+		// The deterministic briefing (agentic_ai Phase 7 AT.3): the same entity
+		// map the toon and json arms encode, rendered as the briefing itself.
+		//
+		// **It hangs here rather than beside the operator on purpose.** Plan
+		// §1.10.8's recommendation is "render from extractAsEntity's map with an
+		// empty exclusion set - one function, two callers, and the exclusion list
+		// the only difference between what the template sees and what the model
+		// sees", which is what criterion 76 needs: the template arm and the model
+		// arm must differ in the renderer and in nothing else. A second
+		// extraction path would be a second thing to keep in step, and this
+		// repository has measured what a second encoder costs (P2 M.5).
+		//
+		// Two settings a column carrying this encoding needs, neither of which
+		// this function can impose: remove_model_prefixes must be true, which
+		// prose.Render refuses by name when it is not; and the exclusion list
+		// must **not** carry cintel:Briefing_Disclaimer, which the toon column
+		// does exclude - the notice is out of the prompt and is the first thing
+		// in the artefact.
+		text, err := prose.Render(entityObj)
+		if err != nil {
+			err = fmt.Errorf("error: failed to render the briefing prose for subject %s: %v", subject, err)
+			log.Println(err)
+			return err
+		}
+		return text
+	}
 	if ce.Config.EntityEncoding == "toon" {
 		// For toon encoding, we need to convert the map to a toon string
 		toonBytes, err := togo.Marshal(entityObj, togo.WithTimeFormatter(func(t time.Time) string {

@@ -2243,7 +2243,8 @@
             {
               "enum": [
                 "json",
-                "toon"
+                "toon",
+                "briefing_prose"
               ],
               "type": "string"
             },
@@ -2252,7 +2253,7 @@
             }
           ],
           "default": null,
-          "description": "EntityEncoding is used to specify the encoding of the column: range values: json, toon (default is json).",
+          "description": "EntityEncoding is used to specify the encoding of the column: range values: json, toon, briefing_prose (default is json).",
           "title": "Entity Encoding"
         },
         "exclude_properties": {
