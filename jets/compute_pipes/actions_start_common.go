@@ -1065,9 +1065,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with no column specified", outCh.Name)
 						}
 						switch encoding.EntityEncoding {
-						case "json", "toon":
+						case "json", "toon", "briefing_prose":
 						default:
-							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with unknown entity_encoding type '%s' (valid types: json, toon)", outCh.Name, encoding.EntityEncoding)
+							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with unknown entity_encoding type '%s' (valid types: json, toon, briefing_prose)", outCh.Name, encoding.EntityEncoding)
 						}
 					}
 				}

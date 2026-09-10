@@ -185,7 +185,7 @@ class ColumnEncodingSpec(_Base):
     """JetRules configuration for encoding entity from rule session into an output column"""
     column: str = Field(description="Column is the column name to which the special encoding applies, this is required.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    entity_encoding: Literal["json", "toon"] | None = Field(default=None, description="EntityEncoding is used to specify the encoding of the column: range values: json, toon (default is json).")
+    entity_encoding: Literal["json", "toon", "briefing_prose"] | None = Field(default=None, description="EntityEncoding is used to specify the encoding of the column: range values: json, toon, briefing_prose (default is json).")
     exclude_properties: list[str] | None = Field(default=None, description="ExcludeProperties is used to specify the properties to exclude from the output, e.g., jets:key, rdf:type, etc. This is used to exclude properties from the json or toon output.")
     remove_model_prefixes: bool | None = Field(default=None, description="RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (any prefix up to the character ':').")
 
