@@ -35,6 +35,61 @@ get_resource(ReteSession * rs, rdf::RdfAstType && r)
 
 using RDFTTYPE = rdf::RdfAstType;
 
+// Truth maintenance for the aggregate operators: min_of, max_of, sorted_head,
+// sum_values and join_values.
+// --------------------------------------------------------------------------------------
+// All five fold a set of triples into one value, and all five take an rhs that is either
+// an operator config carrying jets:entity_property and/or jets:value_property, or the
+// multi-valued data property itself. This registers the graph callbacks that make the
+// engine replay the rule term when that set changes.
+//
+// AN AGGREGATE OVER (s, entityP, ?o).(?o, valueP, ?v) DEPENDS ON BOTH PROPERTIES, and
+// until 2026-09-09 each of these operators watched jets:value_property alone. Watching
+// the value property is not enough, and the case it misses is the ordinary one: a child
+// entity is materialised with its own value and THEN attached to the subject, so at the
+// moment the (s, entityP, ?o) triple lands there is no value triple to notice, and the
+// aggregate silently keeps the figure it had when the rule term was first evaluated.
+// Only a change to an ALREADY LINKED child was seen. Measured against the C++ engine by
+// AggregateTruthMaintenanceTest in expr_op_specialty_test.cc.
+//
+// `fallback_to_rhs` is for the operators that also accept the rhs as a multi-valued data
+// property directly -- (?s sum_values someMultiValuedProperty). sorted_head passes false
+// because its rhs must be a config: it needs jets:operator as well.
+inline int
+register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
+  bool fallback_to_rhs)
+{
+  if(not rs or not rhs) {
+    return 0;
+  }
+  auto * rdf_session_p = rs->rdf_session();
+  auto const* jr = rdf_session_p->rmgr()->jets();
+
+  auto register_on = [rs, vertex, rdf_session_p](rdf::r_index p_filter) {
+    if(not p_filter) return;
+    auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
+    rdf_session_p->asserted_graph()->register_callback(cb);
+    rdf_session_p->inferred_graph()->register_callback(cb);
+  };
+
+  auto value_p  = rdf_session_p->get_object(rhs, jr->jets__value_property);
+  auto entity_p = rdf_session_p->get_object(rhs, jr->jets__entity_property);
+  if(not value_p and not entity_p) {
+    // The rhs is not a config. For the operators that accept it, it is itself the
+    // multi-valued data property to watch.
+    if(fallback_to_rhs) register_on(rhs);
+    return 0;
+  }
+  // Either or both may be absent, and each valid config form is covered by registering
+  // on whichever are present:
+  //  - entity + value: the aggregate walks both, so watch both.
+  //  - value alone:    the aggregate is over (s, valueP, ?v).
+  //  - entity alone:   min_of/max_of over the objects themselves, no value involved.
+  register_on(value_p);
+  register_on(entity_p);
+  return 0;
+}
+
 // AddVisitor
 // --------------------------------------------------------------------------------------
 struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
@@ -356,22 +411,11 @@ doMinMaxOf(ReteSession * rs, rdf::r_index lhs, rdf::r_index rhs, bool doMin)
 inline int
 registerCallback4MinMaxOf(ReteSession * rs, int vertex, rdf::r_index lhs, rdf::r_index rhs)
 {
-  // Determine which mode the operator is to be used
-  auto * rdf_session_p = rs->rdf_session();
-  auto const* jr = rdf_session_p->rmgr()->jets();
-  auto p_filter  = rdf_session_p->get_object(rhs, jr->jets__value_property);
-  if( p_filter == nullptr) {
-    // Mode is min/max of a multi value property
-    p_filter = rhs;
-  }
-  if(not p_filter) {
-    return 0;
-  }
-
-  auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
-  rdf_session_p->asserted_graph()->register_callback(cb);
-  rdf_session_p->inferred_graph()->register_callback(cb);
-  return 0;
+  // The rhs is either a config carrying jets:entity_property and/or jets:value_property,
+  // or the multi valued property itself -- see register_callbacks_for_aggregate, which
+  // covers every one of those forms and, since 2026-09-09, watches the entity property
+  // as well as the value property.
+  return register_callbacks_for_aggregate(rs, vertex, rhs, true);
 }
 
 struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
@@ -483,18 +527,10 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
   {
     VLOG(40)<<"SortedHeadVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
 
-    auto * rdf_session_p = rs->rdf_session();
-    auto const* jr = rdf_session_p->rmgr()->jets();
-    auto p_filter  = rdf_session_p->get_object(get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), 
-      jr->jets__value_property);
-    if(not p_filter) {
-      return 0;
-    }
-
-    auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
-    rdf_session_p->asserted_graph()->register_callback(cb);
-    rdf_session_p->inferred_graph()->register_callback(cb);
-    return 0;
+    // false: sorted_head has no direct-property form, its rhs must be a config since it
+    // needs jets:operator as well.
+    return register_callbacks_for_aggregate(rs, vertex,
+      get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), false);
   }
 
   ReteSession * rs;
@@ -595,18 +631,12 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
   {
     VLOG(40)<<"SumValuesVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
 
-    auto * rdf_session_p = rs->rdf_session();
-    auto const* jr = rdf_session_p->rmgr()->jets();
-    auto p_filter  = rdf_session_p->get_object(get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), 
-      jr->jets__value_property);
-    if(not p_filter) {
-      return 0;
-    }
-
-    auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
-    rdf_session_p->asserted_graph()->register_callback(cb);
-    rdf_session_p->inferred_graph()->register_callback(cb);
-    return 0;
+    // Until 2026-09-09 this returned 0 whenever the rhs carried no jets:value_property,
+    // so (?s sum_values someMultiValuedProperty) had no truth maintenance at all in the
+    // C++ engine while the Go SumValuesOp recomputed it. That fallback is now in
+    // register_callbacks_for_aggregate, which also watches the entity property.
+    return register_callbacks_for_aggregate(rs, vertex,
+      get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), true);
   }
 
   ReteSession * rs;
@@ -795,25 +825,15 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>
   {
     VLOG(40)<<"JoinValuesVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
 
-    auto * rdf_session_p = rs->rdf_session();
-    auto const* jr = rdf_session_p->rmgr()->jets();
-    auto rhs_r = get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs));
-    if(not rhs_r) {
-      return 0;
-    }
-    // The property to watch is jets:value_property when the rhs is a config, and the
-    // rhs itself when it is the multi-valued property. Note that SumValuesVisitor
-    // registers nothing in the second case while the Go SumValuesOp does; join_values
-    // registers in both, so that the two engines maintain the same truth.
-    auto p_filter = rdf_session_p->get_object(rhs_r, jr->jets__value_property);
-    if(not p_filter) {
-      p_filter = rhs_r;
-    }
-
-    auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
-    rdf_session_p->asserted_graph()->register_callback(cb);
-    rdf_session_p->inferred_graph()->register_callback(cb);
-    return 0;
+    // The properties to watch are jets:entity_property and jets:value_property when the
+    // rhs is a config, and the rhs itself when it is the multi-valued property.
+    //
+    // The second case used to be join_values' own: SumValuesVisitor registered nothing
+    // for it while the Go SumValuesOp did. That is fixed as of 2026-09-09 and both now
+    // go through register_callbacks_for_aggregate, which additionally watches the
+    // entity property -- which none of these operators did, on either side.
+    return register_callbacks_for_aggregate(rs, vertex,
+      get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), true);
   }
 
   ReteSession * rs;
