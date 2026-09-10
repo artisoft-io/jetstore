@@ -277,6 +277,24 @@ func (s *Schema) ProseSurfaces() []string {
 	return out
 }
 
+// AdvisoryMarker is advisoryMarker for a caller outside this package, and it is
+// exported for one reason rather than as a convenience.
+//
+// `AK.3` polices advisory language on the fields of a briefing *record*.
+// `jets/agentic/briefing/score` has to ask the same question of a briefing that
+// is one string of prose, because the pipeline this phase measures asks the
+// model for prose rather than for a record. **Those are the same lexicon and
+// they must not become two**: a second copy would drift, and the drift would be
+// invisible because each copy would keep passing its own tests.
+//
+// What the caller must supply for itself is the *boundary*. This function is
+// documented as blunt on purpose - it is safe on a declared free-text field and
+// is not safe on arbitrary text - so a caller over whole prose owes a decision
+// about what it hands in. `score` strips the intended-use notice before it
+// asks, because the notice is the one string in the artefact that must carry
+// imperative language, and hands the rest in a clause at a time.
+func AdvisoryMarker(v any) (string, bool) { return advisoryMarker(v) }
+
 // advisoryMarker reports the first imperative or advisory marker in a value.
 //
 // # Two families, and only one of them is position-free

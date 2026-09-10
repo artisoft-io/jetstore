@@ -88,6 +88,29 @@ const Width = 78
 // §1.10.6 - 68 characters, which is inside Width and so is never wrapped.
 const rule = "--------------------------------------------------------------------"
 
+// SplitNotice separates a rendered briefing into its intended-use notice and
+// its body, at the horizontal rule Render puts between them.
+//
+// **It exists so that a reader of the rendered artefact does not have to
+// re-declare the rule.** §1.10.5 makes the notice a field carried *above* the
+// prose rather than a sentence inside it, and every consumer that reasons about
+// what the prose says - a scorer, a diff, a length measurement - has to drop it
+// first. The notice is also the one string in the artefact that must carry
+// imperative language, so a consumer that forgets is not merely counting a few
+// extra words: it is counting the exemption as a violation.
+//
+// A briefing with no rule is all body and no notice, which is what a model arm's
+// answer looks like. That is returned as it stands rather than refused: this is
+// a reader's helper, and the *renderer* is where a missing notice is an error
+// (`Render` refuses an entity with no `Briefing_Disclaimer`).
+func SplitNotice(rendered string) (notice, body string) {
+	i := strings.Index(rendered, rule)
+	if i < 0 {
+		return "", rendered
+	}
+	return strings.TrimSpace(rendered[:i]), strings.TrimSpace(rendered[i+len(rule):])
+}
+
 // emptyCase is what a briefing with no claims activity says.
 //
 // **It emits a sentence rather than nothing** (§1.10.6). A blank artefact under
