@@ -229,7 +229,7 @@ type projection struct {
 	sourceMedical   map[string][]string // source event -> cintel:Diagnosis values
 	sourcePharmacy  map[string][]string // source event -> hc:Drug_Name values
 	briefingMedical map[string][]string // briefing event -> cintel:Diagnosis values
-	briefingRx      map[string][]string // briefing event -> cintel:Medication values
+	briefingRx      map[string][]string // briefing event -> hc:Drug_Name values
 	fromSource      map[string]string   // briefing event -> the source event it copies
 }
 
@@ -262,7 +262,14 @@ func readProjection(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) *p
 		p.fromSource[ev.String()] = object(t, s, rm, ev, "_0:fromSourceEvent").String()
 	}
 	for _, ev := range objects(s, rm, p.briefing, "cintel:has_Briefing_Pharmacy_Events") {
-		p.briefingRx[ev.String()] = values(s, rm, ev, "cintel:Medication")
+		// **hc:Drug_Name and not cintel:Medication, as of `AT.1`(ii).** The
+		// medication is the drug name concatenated with the indicator, the ratio,
+		// the count and the fill dates, so a containment test over it would be a
+		// substring match - which is what I-415 rejected one property over. The
+		// component is on the node for exactly this reason (F757), so the
+		// containment stays an identity and `TestTheMedicationIsOneValuePerDrug`
+		// below is what ties the component to the joined value.
+		p.briefingRx[ev.String()] = values(s, rm, ev, "hc:Drug_Name")
 		p.fromSource[ev.String()] = object(t, s, rm, ev, "_0:fromSourceEvent").String()
 	}
 	return p
@@ -531,7 +538,7 @@ func (p *projection) incompleteMedical() []string {
 }
 
 func (p *projection) incompletePharmacy() []string {
-	return p.incomplete(p.sourcePharmacy, p.briefingRx, "hc:Drug_Name", "cintel:Medication")
+	return p.incomplete(p.sourcePharmacy, p.briefingRx, "hc:Drug_Name", "hc:Drug_Name")
 }
 
 // incomplete reports one line per source value that no briefing event copied
@@ -648,4 +655,254 @@ func nodeText(n *rdf.Node) string {
 		return d.Date.Format("2006-01-02")
 	}
 	return n.String()
+}
+
+// --- `AT.1`(ii): one medication is one value -----------------------------
+
+// The concatenated medication, asserted as the exact strings the rules produce
+// rather than as a description of them.
+//
+// **Why an exact string rather than a set of substring checks.** The whole point
+// of `AT.1`(ii) is that a medication's facts travel together: the briefing's
+// `medications[]` is a flatten across every pharmacy event, so a drug name and a
+// maintenance indicator carried as two multi-valued properties could be zipped
+// wrong by any consumer and pass every check that looked at them separately
+// (agentic_ai I-528, F735). A test that asserted "the value contains the drug
+// name" and "the value contains the indicator" would have exactly that defect,
+// one layer up. **The pairing is the claim, so the whole string is the
+// assertion.**
+//
+// The fixture is §1.7.2a's member: one non-maintenance drug with a single fill,
+// and one maintenance drug with three, which is what exercises both arms of the
+// rule and both the singular and the plural.
+func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
+	s, rm := ruleSessionOverTheFixture(t)
+	p := readProjection(t, s, rm)
+
+	want := map[string]string{
+		"traMADol HCl": "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
+		// **`adherence 0.00` is what the pipeline produces today and it is
+		// wrong.** `cintel:Total_Days_Supply` is 90 and `cintel:Span_Days` is
+		// 101, both correct since `AT.7`, and the ratio is **0** because
+		// `sum_values` seeds its accumulator with `rdf.I(0)` (`SumValuesOp.Eval`,
+		// `jets/jetrules/rete/expr_operator_math_sum_values.go:83`), so a sum
+		// over a double property comes back an int and two ints divide to zero.
+		// Measured on `jets_ai` before this change as well as after, so it is not
+		// this task's (agentic_ai F794, I-557).
+		//
+		// **The literal is left as the measurement rather than as the intent.**
+		// Writing `0.89` here would make this file assert what the design wants
+		// and go red on a pipeline that is wrong, which is the failure the plan's
+		// own worked example made: an example computed from the rules is a claim
+		// about the rules and not about the engine that runs them. When I-557
+		// lands this line changes to `0.89` in the same commit.
+		"Lisinopril-hydroCHLOROthiazide": "Lisinopril-hydroCHLOROthiazide " +
+			"(maintenance Y, adherence 0.00, 3 fills: 2025-06-15, 2025-07-20, 2025-08-24)",
+	}
+	if len(p.briefingRx) != len(want) {
+		t.Fatalf("the briefing carries %d pharmacy events, expecting %d", len(p.briefingRx), len(want))
+	}
+	for ev, names := range p.briefingRx {
+		if len(names) != 1 {
+			t.Fatalf("briefing pharmacy event %s carries %d drug names; "+
+				"AM_PCreateEvent20 indexes events by NDC so one event is one drug", ev, len(names))
+		}
+		node := rm.NewResource(ev)
+		expected, ok := want[names[0]]
+		if !ok {
+			t.Errorf("unexpected drug %q on the briefing", names[0])
+			continue
+		}
+		if got := textValue(t, s, rm, node, "cintel:Medication"); got != expected {
+			t.Errorf("cintel:Medication is\n  %q\nexpecting\n  %q", got, expected)
+		}
+	}
+}
+
+// The four components stay on the node beside the joined value, because the
+// template arm needs them and parsing them back out of the string would encode
+// `join_values`' separator in a second place (agentic_ai F757, I-544).
+//
+// **This asserts that they are present and agree with the joined value**, which
+// is the property that makes them safe to read: two representations of one fact
+// are a drift risk unless something compares them, and nothing else does.
+func TestTheMedicationComponentsAreOnTheNodeAndAgree(t *testing.T) {
+	s, rm := ruleSessionOverTheFixture(t)
+	p := readProjection(t, s, rm)
+
+	for ev := range p.briefingRx {
+		node := rm.NewResource(ev)
+		name := textValue(t, s, rm, node, "hc:Drug_Name")
+		maintenance := textValue(t, s, rm, node, "cintel:Maintenance")
+		count := intValue(t, s, rm, node, "cintel:Fill_Count")
+		fills := values(s, rm, node, "cintel:Fill_Date")
+		medication := textValue(t, s, rm, node, "cintel:Medication")
+
+		if count != len(fills) {
+			t.Errorf("%s: Fill_Count is %d and the node carries %d Fill_Date values",
+				name, count, len(fills))
+		}
+		// The joined value opens with the drug name, names the indicator, and
+		// carries every fill date. Checked against the components rather than
+		// against a literal, so this test keeps working when the fixture changes.
+		if !hasPrefix(medication, name+" (maintenance "+maintenance) {
+			t.Errorf("%s: cintel:Medication does not open with its own components: %q",
+				name, medication)
+		}
+		for _, fill := range fills {
+			if !contains(medication, fill) {
+				t.Errorf("%s: fill date %s is on the node and not in %q", name, fill, medication)
+			}
+		}
+		// Singular and plural, which jetrules has no conditional string for and
+		// which is therefore a guard on the count in a second rule.
+		switch {
+		case count == 1 && !contains(medication, "1 fill: "):
+			t.Errorf("%s: one fill should read `1 fill:`, got %q", name, medication)
+		case count > 1 && !contains(medication, " fills: "):
+			t.Errorf("%s: %d fills should read `N fills:`, got %q", name, count, medication)
+		}
+	}
+}
+
+// **The fill dates inside the joined value are chronological, and the property
+// they are joined from is not.** `join_values` sorts (agentic_ai `AT.6`), and
+// that is the whole reason the prompt is reproducible over identical data: an rdf
+// multi-valued property is a set with no order of its own, so the raw
+// `cintel:Fill_Date` list comes out in whatever order the graph container yields
+// - which has been observed to differ between runs over the same fixture.
+//
+// This test is what stops somebody "simplifying" the joined value into something
+// that reads the set directly, and it is what `AU` and `AV` rest on: an unsorted
+// join would put noise into an experiment whose design is one variable.
+func TestTheJoinedFillDatesAreChronological(t *testing.T) {
+	s, rm := ruleSessionOverTheFixture(t)
+	p := readProjection(t, s, rm)
+
+	checked := 0
+	for ev := range p.briefingRx {
+		node := rm.NewResource(ev)
+		fills := values(s, rm, node, "cintel:Fill_Date") // `values` sorts its own output
+		if len(fills) < 2 {
+			continue
+		}
+		checked++
+		joined := textValue(t, s, rm, node, "_0:fillDateList")
+		want := fills[0]
+		for _, f := range fills[1:] {
+			want += ", " + f
+		}
+		if joined != want {
+			t.Errorf("the joined fill dates are %q, expecting them sorted: %q", joined, want)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no pharmacy event in the fixture has more than one fill, so this test asserts nothing")
+	}
+}
+
+// --- F758: the condition union is deduplicated ---------------------------
+
+// **A multi-valued property is a set and a set is per subject**, so a diagnosis
+// recorded at two encounters is one value on each of two briefing medical events
+// and appears twice in the `has_Briefing_Medical_Events[].Diagnosis[]` flatten.
+// `cintel:Condition_Summary` is the union asserted onto the briefing, where the
+// set semantics deduplicate it (agentic_ai F758, I-543).
+//
+// **The fixture is what makes this a test rather than a restatement.** The
+// projection's main fixture has no repeated diagnosis, so it would pass a
+// deduplication check that deduplicated nothing. This one repeats `B182` across
+// two visits: the flatten carries it twice and the summary must carry it once.
+func TestTheConditionSummaryIsTheDistinctUnion(t *testing.T) {
+	s, rm := ruleSessionOver(t, repeatedDiagnosisFixture)
+	p := readProjection(t, s, rm)
+
+	var flattened []string
+	for _, vals := range p.briefingMedical {
+		flattened = append(flattened, vals...)
+	}
+	sort.Strings(flattened)
+	summary := values(s, rm, p.briefing, "cintel:Condition_Summary")
+
+	// Non-vacuity, twice over: the flatten has to actually repeat, or the
+	// deduplication is untested; and the summary has to be non-empty, or the
+	// containment below passes on an absent property.
+	if len(flattened) != 3 {
+		t.Fatalf("the fixture should flatten to 3 diagnoses across 2 events, got %d: %v",
+			len(flattened), flattened)
+	}
+	if len(summary) == 0 {
+		t.Fatal("the briefing carries no cintel:Condition_Summary")
+	}
+	if len(summary) != 2 {
+		t.Errorf("Condition_Summary is %v; the two distinct diagnoses of %v are expected",
+			summary, flattened)
+	}
+	for _, v := range flattened {
+		found := false
+		for _, w := range summary {
+			if v == w {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("diagnosis %q is on a briefing event and not in Condition_Summary %v", v, summary)
+		}
+	}
+	// And it reaches the prompt, which is the layer a projection test would
+	// otherwise stop short of: the channel excludes the member id and the
+	// disclaimer and nothing else, so a property asserted on the briefing is a
+	// line of the claim summary the renderer reads.
+	prompt := encodeBriefingEntity(t, s, p.briefing, "toon")
+	for _, v := range summary {
+		if !contains(prompt, v) {
+			t.Errorf("%q is in Condition_Summary and not in the prompt:\n%s", v, prompt)
+		}
+	}
+}
+
+// **`cintel:Condition` is deliberately NOT unioned into the summary**, and this
+// test is the measurement that decided it rather than a restatement of the
+// decision. `cintel:Diagnosis` is the coded description and `cintel:Condition` is
+// the Elixhauser rollup, both built by `analysis_medical_rules_v2` from the same
+// claim - so they are two vocabularies for overlapping facts and a set cannot
+// deduplicate two names for one condition. Over this fixture the union of both is
+// five values for three conditions (agentic_ai F796).
+//
+// The rollup is still on every briefing medical event, so nothing is lost from
+// the entity; what it does not have is a deduplicated briefing-level property,
+// which is I-556.
+func TestTheConditionSummaryDoesNotCarryTheElixhauserRollup(t *testing.T) {
+	s, rm := ruleSessionOverTheFixture(t)
+	p := readProjection(t, s, rm)
+
+	var rollups []string
+	for ev := range p.briefingMedical {
+		rollups = append(rollups, values(s, rm, rm.NewResource(ev), "cintel:Condition")...)
+	}
+	if len(rollups) == 0 {
+		t.Fatal("no briefing medical event carries a cintel:Condition, so this test asserts " +
+			"nothing; AM2_Elixhauser10 no longer resolves for the fixture's codes")
+	}
+	summary := values(s, rm, p.briefing, "cintel:Condition_Summary")
+	for _, r := range rollups {
+		for _, v := range summary {
+			if v == r {
+				t.Errorf("the Elixhauser rollup %q is in Condition_Summary %v", r, summary)
+			}
+		}
+	}
+}
+
+// repeatedDiagnosisFixture: two visits, both carrying B182, the second also
+// carrying L0390. Real codes, for the reason the main fixture's comment gives.
+func repeatedDiagnosisFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+	t.Helper()
+	c := claims(t, s, rm)
+	c.medical("mc-1", "81", 2025, 6, 10, "B182")
+	c.medical("mc-2", "81", 2025, 8, 14, "B182", "L0390")
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
