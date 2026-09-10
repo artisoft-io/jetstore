@@ -79,6 +79,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -315,17 +316,101 @@ type at5ChatMessage struct {
 }
 
 // at5BuildRequest mirrors `vllmBackend.BuildRequest` for the chat api with no
-// `options` and no structured output, which is what an infer_config carrying
-// neither produces.
-func at5BuildRequest(model, toon string) ([]byte, error) {
-	return json.Marshal(map[string]any{
+// structured output, which is what an infer_config carrying none produces, and
+// with the `options` the workspace's own config sets merged in at the top level,
+// which is what that backend does with them.
+//
+// # The options are read from the config rather than restated here
+//
+// `patient_profile.pc.json` gained `temperature: 0` and `seed: 42` on
+// 2026-09-10 (agentic_ai `I-575`), and this harness sent neither for the first
+// two runs after that - so it stopped reproducing the operator on the same day
+// the operator changed, silently, in the direction that makes a measurement
+// look noisier than the pipeline is. Two runs over identical data differed in
+// every model briefing and in no prompt or template line, which is exactly what
+// a missing `temperature` looks like and exactly what a broken encoder would
+// have looked like too.
+//
+// **So they are read out of the document rather than copied into this file.**
+// A second copy of a sampling parameter, compared by nothing, is the seam this
+// project already records at `I-438` and `I-544`; and a harness whose whole
+// claim is that it reproduces the operator cannot afford a knob that drifts.
+// `at5InferOptions` returns an empty map when the config carries none, so a
+// workspace that sets nothing gets exactly the request this function sent
+// before.
+func at5BuildRequest(model, toon string, options map[string]any) ([]byte, error) {
+	body := map[string]any{
 		"model":  model,
 		"stream": false,
 		"messages": []at5ChatMessage{
 			{Role: "system", Content: at5SystemPrompt},
 			{Role: "user", Content: at5UserPrompt(toon)},
 		},
-	})
+	}
+	// Top level rather than nested, because that is what vllmBackend does with
+	// them: the OpenAI chat api has no `options` envelope and the sampling
+	// parameters are peers of `model`. The reserved keys the operator sets
+	// itself are refused there; refusing them here as well would be a second
+	// copy of that list, so this trusts the config the operator already
+	// validated.
+	for k, v := range options {
+		body[k] = v
+	}
+	return json.Marshal(body)
+}
+
+// at5InferOptions reads the `options` map off the infer step of
+// `pipes_config/patient_profile.pc.json` in the workspace under test.
+//
+// It walks the document rather than unmarshalling it into the operator's
+// structs, because those live in `compute_pipes` and this package already
+// imports enough of the pipeline; what it needs is four levels of `any`.
+// A document with no infer step, or an infer step with no `options`, yields an
+// empty map and no error - the absence is a valid configuration and was this
+// pipeline's own until 2026-09-10.
+func at5InferOptions(t *testing.T) map[string]any {
+	t.Helper()
+	home, ws := os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")
+	if home == "" || ws == "" {
+		return map[string]any{}
+	}
+	b, err := os.ReadFile(filepath.Join(home, ws, "pipes_config", "patient_profile.pc.json"))
+	if err != nil {
+		t.Fatalf("reading patient_profile.pc.json for its sampling options: %v", err)
+	}
+	var doc any
+	if err := json.Unmarshal(b, &doc); err != nil {
+		t.Fatalf("parsing patient_profile.pc.json: %v", err)
+	}
+	var found map[string]any
+	var walk func(any)
+	walk = func(n any) {
+		switch v := n.(type) {
+		case map[string]any:
+			// The infer step is the one carrying both a model and an
+			// output_mapping; matching on `options` alone would find any
+			// operator that has one.
+			if _, hasModel := v["model"]; hasModel {
+				if _, hasMapping := v["output_mapping"]; hasMapping {
+					if o, ok := v["options"].(map[string]any); ok && found == nil {
+						found = o
+					}
+				}
+			}
+			for _, c := range v {
+				walk(c)
+			}
+		case []any:
+			for _, c := range v {
+				walk(c)
+			}
+		}
+	}
+	walk(doc)
+	if found == nil {
+		return map[string]any{}
+	}
+	return found
 }
 
 type at5ChatResponse struct {
@@ -345,10 +430,14 @@ type at5ModelArm struct {
 	url   string
 	model string
 	http  *http.Client
+	// options is what patient_profile.pc.json's infer step sets, read at
+	// construction so that the request this harness sends is the request the
+	// operator sends (agentic_ai I-575).
+	options map[string]any
 }
 
 // at5Model returns the model arm, or nil when the gate is closed.
-func at5Model() *at5ModelArm {
+func at5Model(t *testing.T) *at5ModelArm {
 	url := os.Getenv("JETS_AT5_MODEL_URL")
 	if url == "" {
 		return nil
@@ -357,11 +446,15 @@ func at5Model() *at5ModelArm {
 	if model == "" {
 		model = "granite4.1:3b"
 	}
-	return &at5ModelArm{url: url, model: model, http: &http.Client{Timeout: 10 * time.Minute}}
+	return &at5ModelArm{
+		url: url, model: model,
+		http:    &http.Client{Timeout: 10 * time.Minute},
+		options: at5InferOptions(t),
+	}
 }
 
 func (m *at5ModelArm) call(toon string) (body []byte, answer string, finish string, prompt, completion int, err error) {
-	body, err = at5BuildRequest(m.model, toon)
+	body, err = at5BuildRequest(m.model, toon, m.options)
 	if err != nil {
 		return nil, "", "", 0, 0, err
 	}
@@ -404,7 +497,7 @@ func (m *at5ModelArm) call(toon string) (body []byte, answer string, finish stri
 func TestAT5TheTemplateAndTheModelOverOneFactSet(t *testing.T) {
 	requireCompiledWorkspace(t)
 	out := os.Getenv("JETS_AT5_ARTEFACT")
-	arm := at5Model()
+	arm := at5Model(t)
 	if out == "" && arm == nil {
 		t.Skip("neither JETS_AT5_ARTEFACT nor JETS_AT5_MODEL_URL is set; " +
 			"see the header of this file")
