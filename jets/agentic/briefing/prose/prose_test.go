@@ -36,10 +36,15 @@ func section1106Entity() map[string]any {
 	return map[string]any{
 		"Briefing_Member_ID":  "900123456",
 		"Briefing_Disclaimer": shippedNotice,
+		// Ordered as the encoder now orders it: lexicographic on the canonical
+		// JSON of each element, so a coded condition sorts by its code
+		// (agentic_ai I-574, jetstore#2122). The plan's transcription order stood
+		// here until 2026-09-10; it was the unsorted walk's order and is one the
+		// pipeline can no longer produce.
 		"Condition_Summary": []any{
+			"(B182) Chronic viral hepatitis C",
 			"(F1120) Alcohol dependence",
 			"(L0390) Cellulitis",
-			"(B182) Chronic viral hepatitis C",
 		},
 		"Medical_Event_Count":   2,
 		"Pharmacy_Event_Count":  2,
@@ -57,14 +62,13 @@ func section1106Entity() map[string]any {
 				"Service_Date": d(2025, 8, 14),
 			},
 		},
+		// lisinopril first, and NOT because of the drug name. The ordering key is
+		// the whole canonical JSON of the element, so the first differing property
+		// name decides it - "Adherence" against "Drug_Name", A before D. That it
+		// agrees with alphabetical order here is a coincidence of this fixture, and
+		// F846 records that a legible order would need a per-property sort key the
+		// channel spec does not have.
 		"has_Briefing_Pharmacy_Events": []any{
-			map[string]any{
-				"Medication":  "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
-				"Drug_Name":   "traMADol HCl",
-				"Maintenance": "N",
-				"Fill_Count":  1,
-				"Fill_Date":   d(2025, 7, 2),
-			},
 			map[string]any{
 				"Medication": "lisinopril (maintenance Y, adherence 0.89, 3 fills: " +
 					"2025-06-15, 2025-07-20, 2025-08-24)",
@@ -73,6 +77,13 @@ func section1106Entity() map[string]any {
 				"Fill_Count":  3,
 				"Fill_Date":   []any{d(2025, 6, 15), d(2025, 7, 20), d(2025, 8, 24)},
 				"Adherence":   0.89,
+			},
+			map[string]any{
+				"Medication":  "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
+				"Drug_Name":   "traMADol HCl",
+				"Maintenance": "N",
+				"Fill_Count":  1,
+				"Fill_Date":   d(2025, 7, 2),
 			},
 		},
 	}
@@ -91,11 +102,11 @@ agreement.
 Two medical visits on record, between 10 June and 14 August 2025. Most recent
 contact: Independent Laboratory, 14 August.
 
-Conditions on record: Alcohol dependence, Cellulitis and Chronic viral
-hepatitis C.
+Conditions on record: Chronic viral hepatitis C, Alcohol dependence and
+Cellulitis.
 
-Medications: traMADol HCl, one fill, most recently 2 July; and lisinopril, a
-maintenance medication, three fills, most recently 24 August.`
+Medications: lisinopril, a maintenance medication, three fills, most recently
+24 August; and traMADol HCl, one fill, most recently 2 July.`
 
 // TestRendersSection1106Verbatim is the single most load-bearing assertion in
 // this package: the plan prints the briefing it decided on, so the plan is the
@@ -156,7 +167,13 @@ func TestAdherenceAppearsNowhereInTheProse(t *testing.T) {
 			t.Errorf("the prose carries %q; §1.10.4 keeps the adherence ratio out of it entirely", forbidden)
 		}
 	}
-	if !strings.Contains(got, "three fills, most recently 24 August") {
+	// Compared with the line breaks collapsed, deliberately. What this asserts
+	// is that the count and the latest fill are what replaces the ratio; where
+	// the greedy wrap happens to break the sentence is a property of the wrap
+	// width and of the list order, and both moved on 2026-09-10 when the encoder
+	// started sorting (agentic_ai I-574). An assertion that pins a wrap point is
+	// asserting the wrong thing, and it failed for the right reason once.
+	if !strings.Contains(unwrapped(got), "three fills, most recently 24 August") {
 		t.Error("what replaces the ratio is the count and the latest fill, and it is missing")
 	}
 }
@@ -440,4 +457,10 @@ func TestNoLineExceedsTheWidth(t *testing.T) {
 			t.Errorf("line of %d characters: %q", len([]rune(line)), line)
 		}
 	}
+}
+
+// unwrapped collapses the renderer's line breaks so that a substring assertion
+// about a sentence is not also an assertion about where that sentence wraps.
+func unwrapped(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
