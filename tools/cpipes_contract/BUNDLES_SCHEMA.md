@@ -2,8 +2,11 @@
 
 **Seeded 2026-08-19 · authored and reviewed by Michel 2026-08-20 · three files in `matrix/`, two authored and one measured**
 
-The layer is authored. `bundles.csv` carries **seventeen** bundles: one per `TransformationSpec`
-operator, plus `ColumnMapping`, `ColumnAggregation`, and the two map-reduce phase bundles.
+The layer is authored. `bundles.csv` carries ~~**seventeen**~~ **twenty-two** bundles: one per
+`TransformationSpec` operator, plus `ColumnMapping`, `ColumnAggregation`, and the two map-reduce
+phase bundles. *(Seventeen was right on 2026-08-20 and the invariant it states is what moved the
+number: `infer`, `vllm` and `embed` were built afterwards, and one bundle per operator means three
+more bundles. See* The three infer-family bundles *at the end.)*
 
 **One bundle per operator is a deliberate choice and it makes the `TransformationSpec` tier 1:1 with
 the leaves** — those rows group nothing, they carry a range and a description. It is the right shape
@@ -219,3 +222,48 @@ Once the authored files have rows, the corpus check is: for every live config, e
 (pipe operator, column operator) pair must be admitted by the authoring, and every operator must
 belong to at least one bundle. A violation means the authoring is wrong or the config is — and
 `corpus_prod_files` says which of those to believe first.
+
+
+## The three infer-family bundles — 2026-09-10
+
+**Added at `agentic_ai`'s `AW.1`, for `I-512`.** `InferPipe` landed on 2026-09-05 with the `infer`
+token; `VllmPipe` and `EmbedPipe` land now, and with them every token
+`TransformationSpec`'s discriminator admits has a bundle.
+
+**What the gap actually was, measured rather than described.** The *flat* tier admitted `vllm` and
+`embed` from the day each operator's leaf rows were extracted — both are in
+`TransformationSpec`'s discriminator mapping, and `validate` has been green over the corpus
+throughout. What admitted neither was the **bundle** tier, which is the tier an authoring hole binds
+(`Hole.schema_ref` names a bundle) and the tier `bundles` checks the corpus against. So the operators
+were authorable in a hand-written `.pc.json` and unreachable from a template hole.
+
+**It was invisible until an asset install made it visible.** `bundles` can only falsify: it walks
+live configs, so an operator no `.pc.json` uses is an operator it never asks about. `embed` became
+visible on 2026-09-08, when the JetStore-owned `pipes_config/embed_input_parts.pc.json` was installed
+into all four workspaces and the command began reporting `operator 'embed' is in no bundle` four
+times over. `vllm` is still unattested and would have stayed invisible indefinitely.
+
+**So `tests_bundles.py` holds the rule the corpus cannot.** `test_every_admitted_operator_has_a_bundle`
+compares the discriminator mapping against `bundle_members.csv` and fails on any token in no bundle,
+which is the check that would have caught both on the day their leaf rows landed. The rest of that
+file is the negative half: a bundle is a `deepcopy` of its leaf with two properties retargeted, so
+the way it goes wrong is by admitting *more* than the leaf did — and a bundle that admitted
+everything would pass both the corpus check and the authorability check.
+
+**Two things in this document are stale for the same reason and are left as the dated measurements
+they are.** *Fifteen operators* (§*What the layer is for*, and the two range tables) was the count on
+2026-08-20 and is eighteen today; the token figures below were measured over those fifteen and are
+not re-measured here. `tests_template.py`'s `test_every_bundle_is_authorable` reads `bundles.csv`
+rather than a literal, so the budget claim is re-checked over all twenty-two on every run and does
+not depend on the prose.
+
+**`bundle_evidence.csv` has no row for any of the three, and that is not an omission of this change.**
+The file is documented above as *regenerated from the corpus, never hand-edited* — and nothing
+regenerates it: no command reads or writes it, so it is a hand-seeded snapshot of 2026-08-19 that has
+never been refreshed. Adding rows by hand would contradict its own header; writing the generator is a
+separate piece of work.
+
+**`status` in these two files takes `reviewed` / `unreviewed`, not the `example` / `todo` /
+`authored` the column reference above names.** The new rows are `unreviewed`, following `InferPipe`.
+Neither file carries a `reviewed_hash`, so nothing here is self-certifying a review: the stamp
+mechanism covers `types.csv`, `fields.csv` and `constraints.csv` alone.
