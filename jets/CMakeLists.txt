@@ -84,6 +84,8 @@ add_executable(jets_test
   rete/rete_meta_store_factory_test2.cc
   rete/expr_op_test.cc
   rete/expr_op_specialty_test.cc
+  rete/expr_operator_factory_test.cc
+  rete/no_truth_main_on_exist_test.cc
 )
 
 target_link_libraries(jets_test

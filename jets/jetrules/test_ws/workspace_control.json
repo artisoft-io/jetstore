@@ -1,7 +1,8 @@
 {
   "rule_sets": [
     "jet_rules/test_lookup_main.jr",
-    "jet_rules/test_looping_main.jr"
+    "jet_rules/test_looping_main.jr",
+    "jet_rules/test_join_values_main.jr"
   ],
   "rule_sequences": []
 }

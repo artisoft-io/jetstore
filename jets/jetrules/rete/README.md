@@ -2,6 +2,21 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
+
+C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.
+`workspaces/usi_ws` sets it in `pipes_config/usiclaim_processes.pc.json` because its rules predate
+rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
+`ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
+
+**The two directions fail differently, which is worth knowing before reading a wrong result.** With
+the flag on, an `exist` filter that becomes true is never noticed, and an `exist_not` filter that
+becomes false keeps whatever it inferred — the second is a triple that should have been retracted and
+was not. `NoTruthMainOnExistTest` (`jets/rete/no_truth_main_on_exist_test.cc`) pins both, and the
+default: **absent means truth maintenance ON**, and so does a value that is present and is not an
+int32, which is how a workspace writing `"1"` as text gets the opposite of what it asked for with
+nothing logged.
+
 ## The Go and C++ engines are independently maintained and they disagree — 2026-09-09
 
 Found while adding `join_values` (`JoinValuesOp`, `expr_operator_math_join_values.go`; the C++ half
@@ -86,6 +101,16 @@ rendering test in the Go file exists only to pin agreement with the C++ `JoinTex
 `Node.String()` is **not** that rendering: it formats an `LDate` with `%v` on the struct
 (`{2025-06-15 00:00:00 +0000 UTC}`), where C++ emits ISO-8601.
 
+**And write a rule as well as a pair of unit tests, because a visitor test cannot see the name.**
+`join_values` shipped with matched unit tests on both engines and no `.jr` file anywhere used it, so
+nothing exercised compile → metastore → execution — the leg on which an operator name is an opaque
+string. `jets/jetrules/test_ws/jet_rules/test_join_values_main.jr` is that rule, run by
+`TestJoinValuesCompilesAndRuns` (`join_values_rule_test.go`), which compiles a scratch copy of
+`test_ws` with `compile_workspace` and asserts the joined strings. **Two of the three config forms
+are in it deliberately**: the `jets:entity_property` + `jets:value_property` form with an explicit
+`jets:separator`, and the `jets:value_property`-alone form with the default — which is item 1 above,
+the form `sum_values` gets wrong in Go, so the rule is what says `join_values` does not.
+
 ## Operator names are not registered anywhere but the two factories — 2026-09-09
 
 Searched while adding `join_values`. A binary operator name reaches the engine as an opaque string:
@@ -98,3 +123,35 @@ registrations** — a `case` in `CreateBinaryOperator` (`expr_operator_factory.g
 
 The cost of that design is that **an unknown operator is not a compile error**. It compiles, and
 fails at rule-execution time: `create_binary_expr` throws, `CreateBinaryOperator` returns nil.
+
+**That is now checked at test time instead, and the check is in two halves because no one process can
+do both.** `operator_registration_test.go` in this package compiles every rule set of every
+workspace — 50 of them, from each `workspace_control.json`'s `rule_sets` rather than from a
+`*_main.jr` glob, which finds 2 of usi_ws's 34 — collects every `ExpressionNode.Op` and asserts each
+one resolves in `CreateBinaryOperator` / `CreateUnaryOperator`. It writes the names it found to
+`jets/rete/test_data/corpus_operators.txt`, and `OperatorFactoryTest.CorpusOperatorNames`
+(`jets/rete/expr_operator_factory_test.cc`) asserts the same list against `create_binary_expr` /
+`create_unary_expr` — **the C++ engine cannot compile a `.jr` file, so it cannot collect the names
+for itself**, and the manifest is the only thing keeping the two halves looking at the same list. It
+is checked in and the Go test fails when it drifts.
+
+**And the *two registrations* claim is itself now a test, which is how the next entry got measured.**
+`TestBothFactoriesRegisterTheSameOperators` reads both factories as text — `case "name":` and
+`if(op == "name")`, C++ comments stripped so the two commented-out `to_type_of` / `cast_to` lines do
+not count — and fails when a name is in one and not the other.
+
+**Six names are, and none of them is in the corpus, which is the only reason nobody has paid for
+it.** Measured 2026-09-09 and listed in `knownFactoryDivergences` so a seventh fails the test rather
+than joining them:
+
+| Name | | |
+|---|---|---|
+| `apply_regex` | binary | Go only, an alias for `literal_regex`; C++ has `literal_regex` alone |
+| `min_head_of`, `max_head_of` | binary | Go only, `NewMinMaxOp(_, true)`; C++ has no head form |
+| `to_date`, `to_datetime` | unary | Go only; C++ has `to_timestamp` and neither of these |
+| `raise_exception` | unary | C++ only, `RaiseExceptionVisitor`; the Go engine has no counterpart |
+
+**Read that as five ways to write a rule that runs on the Go engine and throws on the deployed one**,
+and one the other way round. `cpipes_native_server` is what ships (`Dockerfile.cpipes:46`) and its
+default factory is `jetrules_native_adaptor`, so the Go-only column is the dangerous one — a rule
+using `to_date` passes every test a developer runs with `use_jet_rules_go` and fails in production.
