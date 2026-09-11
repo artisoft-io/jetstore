@@ -35,7 +35,7 @@ for `ollama`, `vllm` and `embed` because it is one implementation rather than th
 | Concern | Where to read it |
 |---|---|
 | In-place augmentation; input and output must share one `ChannelSpec` | infer readme §2 |
-| Prompt templating: `$ENV` at build time, `{{column}}` and `{{@record}}` per record | vllm prompt doc §2 |
+| Prompt templating: `$ENV` at build time, `{{column}}` and `{{@record}}` per record | infer readme §2.4 |
 | `output_mapping`: `source`, `path`, `as_rdf_type`, `default`, `required` | infer readme §2 |
 | Worker pool, `pool_size`, order preservation at 1 | infer readme §2 |
 | Retry with doubling backoff; circuit breaker on a server reported down | infer readme §2 |
