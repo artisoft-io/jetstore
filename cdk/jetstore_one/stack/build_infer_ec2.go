@@ -64,8 +64,53 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	//    Created once; the lifecycle-hook Lambda re-attaches it on every launch.
 	//    DeleteOnTermination is intentionally NOT set on this volume — it is
 	//    managed independently of the instance lifecycle.
+	//
+	// This volume holds the model weights, so its throughput is the model-load
+	// half of scale-from-zero. Measured 2026-09-10 (agentic_ai F894, I-607):
+	// vLLM reads a 6.34 GiB bf16 checkpoint in 51.0 s and ollama a ~2.1 GiB
+	// Q4_K_M blob in 17.3 s -- 124 and ~120 MiB/s. Neither server is slow at
+	// loading; both are reading at gp3's *baseline* 125 MiB/s, because nothing
+	// here ever provisioned any more. So the load time is artefact size divided
+	// by volume throughput, and the single largest lever on cold start belongs
+	// to this block rather than to the choice of backend. It moves more than
+	// switching backends does, and the EC2 pool idles at 0, which makes cold
+	// start a recurring cost rather than a one-off.
+	//
+	// The default below is 500 MiB/s, which takes that 6.34 GiB load from ~51 s
+	// to ~13 s. 500 rather than gp3's 1000 maximum because the returns are
+	// strongly diminishing in absolute seconds -- 1000 MiB/s buys a further
+	// ~6 s -- while the charge is linear in provisioned MiB/s. Set
+	// INFER_VOLUME_THROUGHPUT_MIBPS to 1000 if that 6 s is worth it, or to 125
+	// to return to the unprovisioned baseline.
+	//
+	// Cost is list price and region-dependent, so treat it as an order of
+	// magnitude rather than a quote: gp3 bills provisioned throughput above the
+	// free 125 MiB/s, so 500 is ~375 MiB/s chargeable and 1000 is ~875.
+	//
+	// Two things worth knowing before changing it. gp3 caps throughput at
+	// 0.25 MiB/s per provisioned IOPS, so anything above 750 MiB/s needs IOPS
+	// raised past the free 3000 as well -- computed below rather than left as a
+	// trap that surfaces as a synth-time rejection. And modifying throughput or
+	// IOPS on an existing gp3 volume is an in-place update with no interruption
+	// and no replacement, so raising this does not disturb the weights already
+	// on the volume.
 	// -----------------------------------------------------------------------
-	jsComp.PersistentVolume = awsec2.NewVolume(stack, jsii.String("PersistentVolume"), &awsec2.VolumeProps{
+	var volumeThroughput float64 = 500
+	if v := os.Getenv("INFER_VOLUME_THROUGHPUT_MIBPS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 125 && n <= 1000 {
+			volumeThroughput = float64(n)
+		} else {
+			log.Println("Invalid INFER_VOLUME_THROUGHPUT_MIBPS (want 125..1000), defaulting to", volumeThroughput)
+		}
+	}
+	// gp3 allows at most 0.25 MiB/s of throughput per provisioned IOPS, and
+	// 3000 IOPS come free. Provision IOPS only when the requested throughput
+	// actually needs more than that, so the common case adds no IOPS charge.
+	volumeIops := 3000.0
+	if required := volumeThroughput / 0.25; required > volumeIops {
+		volumeIops = required
+	}
+	volumeProps := &awsec2.VolumeProps{
 		// Pin to the first AZ so the ASG always launches into the same AZ.
 		AvailabilityZone: awscdk.Fn_Select(jsii.Number(0), stack.AvailabilityZones()),
 		Size:             awscdk.Size_Gibibytes(jsii.Number(100)),
@@ -73,7 +118,19 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		// Retain the volume even if the stack is destroyed — data safety first.
 		RemovalPolicy: awscdk.RemovalPolicy_RETAIN,
 		Encrypted:     jsii.Bool(true),
-	})
+	}
+	// Leave both unset at the baseline so the template stays identical to the
+	// one deployed before this was configurable: an explicit 125/3000 is the
+	// same volume, but it is a template diff, and a diff on a RETAINed volume
+	// is worth not producing for nothing.
+	if volumeThroughput > 125 {
+		volumeProps.Throughput = jsii.Number(volumeThroughput)
+		if volumeIops > 3000 {
+			volumeProps.Iops = jsii.Number(volumeIops)
+		}
+	}
+	log.Printf("Infer persistent volume: gp3, 100 GiB, %.0f MiB/s, %.0f IOPS", volumeThroughput, volumeIops)
+	jsComp.PersistentVolume = awsec2.NewVolume(stack, jsii.String("PersistentVolume"), volumeProps)
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.PersistentVolume).Add(phiTagName, jsii.String("true"), nil)
 	}
