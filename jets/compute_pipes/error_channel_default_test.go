@@ -16,6 +16,17 @@ import (
 //
 // The backwards-compatibility clause of this change is a claim about these ten, so
 // the tests below are written against the shape rather than against an invented one.
+//
+// The paragraph above is kept as the measurement it was and is not renumbered. The
+// corpus moved on 2026-09-11: patient_profile.pc.json dropped its two declarations,
+// leaving eight in eight documents of usi_ws and walrus_ws. One of the two was the
+// corpus's only non-jetrules declaration -- the "one on ollama" above, which had
+// since become an infer step -- so all eight survivors are on jetrules, and the
+// family this paragraph says is one shape is now one operator as well. The shape did
+// not move, which is the only property these tests rest on -- so what is stale is
+// the count, and the count is a fact about four repositories JetStore does not
+// control rather than a fact about this fixture. The fixture is deliberately exact
+// because it is committed here.
 func corpusWiring() (*ComputePipesConfig, []PipeSpec) {
 	cpConfig := &ComputePipesConfig{
 		Channels: []ChannelSpec{
@@ -57,17 +68,18 @@ func mustJSON(t *testing.T, v any) string {
 	return string(b)
 }
 
-// The ten declarations keep working, and "keep working" is stated as "nothing about
-// them changes": the synthesis is a default and a default that edits an author's
-// configuration is not one.
+// The authored declarations keep working, and "keep working" is stated as "nothing
+// about them changes": the synthesis is a default and a default that edits an
+// author's configuration is not one.
 //
 // Note what the second pipe's map_record proves as a side effect. It is an operator
 // that reports row-level failures and names no error channel of its own, so a
 // synthesis that looked only at the operator would have given the corpus's own error
 // *writer* an error channel. It does not, because the map_record here does carry a
-// config -- but a bare one, which is the same state 240 corpus instances are in. See
-// TestSynthesizeGivesTheErrorWriterAChannelToo for what does happen and why it is
-// harmless.
+// config -- but a bare one, which is the same state every corpus map_record is in:
+// 240 when this was written, 235 as of 2026-09-11, and 0 of them with an error
+// channel at every count. See TestSynthesizeGivesTheErrorWriterAChannelToo for what
+// does happen and why it is harmless.
 func TestSynthesizeLeavesAnAuthoredErrorChannelAlone(t *testing.T) {
 	cpConfig, pipeConfig := corpusWiring()
 	before := mustJSON(t, pipeConfig[0])
@@ -192,7 +204,7 @@ func errorChannelConfigTypeIsKnown(ts *TransformationSpec) bool {
 	return false
 }
 
-// The synthesised channel spec declares the three discriminators the ten hand-written
+// The synthesised channel spec declares the three discriminators the hand-written
 // specs do not, which is the difference between an error row that names its operator,
 // channel and step and one that writes NULL for all three.
 func TestSynthesizedSpecDeclaresTheDiscriminators(t *testing.T) {
@@ -381,7 +393,7 @@ func TestDefaultErrorChannelFanInClosesTheSinkWithNoSources(t *testing.T) {
 }
 
 // A configuration that wires its error channels by hand starts no fan-in, so the
-// ten corpus declarations run through exactly the code they ran through before.
+// the authored corpus declarations run through exactly the code they ran through before.
 func TestDefaultErrorChannelFanInIsANoOpForTheCorpusShape(t *testing.T) {
 	cpConfig, pipeConfig := corpusWiring()
 	pipeConfig[1].Apply[0].MapRecordConfig = &MapRecordSpec{
@@ -512,7 +524,7 @@ func TestDefaultErrorMaxCountReachesEveryOperatorItGivesAChannel(t *testing.T) {
 }
 
 // An author's max_error_count wins over the deployment's, which is the same rule as
-// an explicit error_channel winning over a synthesised one. The ten corpus
+// an explicit error_channel winning over a synthesised one. The authored corpus
 // declarations are out of reach of the cap for a stronger reason still: the
 // synthesis never touches an operator that names a channel.
 func TestDefaultErrorMaxCountYieldsToTheAuthor(t *testing.T) {
