@@ -7,10 +7,27 @@ package compute_pipes
 // in one .pc.json -- an error_channel on the operator, a channel declaration
 // listing that channel's columns, an output_tables entry binding a channel to
 // jetsapi.process_errors, and a whole further pipe reading the error channel and
-// map_record'ing it into the channel the table writer drains. Ten declarations in
+// map_record'ing it into the channel the table writer drains. Eight declarations in
 // the rule corpus carry between them one distinct column list, one table and two
 // channel names whose specs are byte-identical, so every instance of the feature is
 // the same instance. This file makes that instance the default.
+//
+// Eight was ten until 2026-09-11, when patient_profile.pc.json dropped its two --
+// this file is why they were no longer earning their place. The figure is a
+// measurement of four repositories JetStore does not control, so it is documentation
+// rather than an assertion: nothing asserts it, and the corpus test below logs what
+// it finds rather than requiring a number.
+//
+// Two counts of it are defensible and they differ by the infer operator. Counting
+// error_channel keys in the corpus gives 8; counting what errorChannelConfig can see
+// gives 8 as well -- and gave 9 against the corpus of the day before, because that
+// switch has no infer arm and one of patient_profile's two declarations sat on an
+// infer step. Neither is wrong. ResolveInferBackend rewrites infer into ollama or
+// vllm before this synthesis ever runs, so the switch is right to omit the token,
+// and an author still had to write the key. The two figures agree today only
+// because the declaration that separated them is the one that went, so quote the
+// key count when the subject is what an author writes and the switch count when the
+// subject is what the synthesis leaves alone, and expect them to part again.
 //
 // The synthesis runs at startup, on the step's pipe config, after the conditional
 // transformation specs have been applied and before anything validates or prunes.
@@ -19,7 +36,7 @@ package compute_pipes
 // what keeps the runtime unchanged.
 //
 // An explicit error_channel wins. SynthesizeDefaultErrorChannels only fills a
-// nil one, so the ten existing declarations keep their names, their specs and
+// nil one, so the eight existing declarations keep their names, their specs and
 // their consuming pipes, and nothing about their behaviour moves.
 //
 // One writer, not one per operator. validateErrorChannels requires each operator
@@ -69,7 +86,7 @@ const (
 	DefaultErrorTableKey = "jets_process_errors"
 
 	// DefaultErrorTableName is the table the synthesised entry binds to. The
-	// identity is never in doubt: all ten corpus declarations bind here.
+	// identity is never in doubt: all eight corpus declarations bind here.
 	DefaultErrorTableName = "jetsapi.process_errors"
 
 	// DefaultErrorReportingEnvVar turns built-in error reporting off for a
@@ -87,10 +104,12 @@ const (
 //
 // The three are the point rather than a bonus. A process_errors row is assembled
 // against its channel's declared columns and not against the table's
-// (write2Chan, jets/compute_pipes/jetsrules_process_error.go:110), so the ten
-// hand-written specs write NULL for all three until eleven files across three
-// workspace repositories are edited. A synthesised spec carries them from the
-// first run.
+// (write2Chan, jets/compute_pipes/jetsrules_process_error.go:110), so the
+// hand-written specs write NULL for all three until every file that declares one is
+// edited. That was eleven files across three workspace repositories when the cost
+// was first priced; measured again 2026-09-11 it is ten specs in ten files across
+// two, usi_ws 3 and walrus_ws 7, patient_profile.pc.json having dropped both of its
+// own. A synthesised spec carries the three from the first run.
 var DefaultProcessErrorColumns = []string{
 	"pipeline_execution_status_key",
 	"session_id",
@@ -323,7 +342,8 @@ func setErrorChannelConfig(transformationConfig *TransformationSpec, ec *OutputC
 			// map_record is the one operator whose config is optional: its
 			// builder reads a nil config and applies the defaults. Give it one
 			// rather than skip it, since it is the operator the corpus wires an
-			// error channel on 0 times in 240.
+			// error channel on 0 times in 235 (measured 2026-09-11; 240 when this
+			// was written, and the numerator has been 0 at every count).
 			transformationConfig.MapRecordConfig = &MapRecordSpec{}
 		}
 		transformationConfig.MapRecordConfig.ErrorChannel = ec

@@ -1,9 +1,16 @@
 package compute_pipes
 
 // The backwards-compatibility clause of built-in error reporting is a claim about
-// the rule corpus -- ten error channel declarations across three workspace
+// the rule corpus -- eight error channel declarations across two workspace
 // repositories keep working -- and a claim about a corpus is worth what running it
 // is worth. This file runs it.
+//
+// Ten across three until 2026-09-11, when patient_profile.pc.json dropped both of
+// its own. Nothing here asserts that count and nothing should: the workspaces are
+// living repositories, so the figure is documentation of a measurement and the
+// assertions are about the property -- every authored channel byte-identical, every
+// table still selected. See the head of error_channel_default.go for why counting
+// keys and counting what errorChannelConfig sees are two defensible numbers.
 //
 // It skips unless JETS_PC_CORPUS_DIR names a directory to walk for *.pc.json,
 // because the workspaces are separate repositories and are not present in a plain
@@ -253,10 +260,13 @@ func TestCorpusValidatesWithSynthesizedErrorChannels(t *testing.T) {
 
 // With the deployment switch off, every corpus document reaching the node is byte
 // identical to the document its author wrote -- pipes, channel specs and pruned
-// output tables alike. That is a stronger claim than "the ten declarations still
-// work", and it is the one an operator backing this change out is relying on: off
-// has to be indistinguishable from a build without the feature, and the only way to
-// say so about 45 documents is to run them.
+// output tables alike. That is a stronger claim than "the authored declarations
+// still work", and it is the one an operator backing this change out is relying on:
+// off has to be indistinguishable from a build without the feature, and the only way
+// to say so about every document in the corpus is to run them all. That was 45
+// documents when this was written and is 41 as of 2026-09-11, the definition having
+// been sharpened rather than the corpus having shrunk -- which is the reason the
+// sentence no longer names a number the test does not assert.
 func TestCorpusIsUntouchedWhenReportingIsOff(t *testing.T) {
 	dir := corpusDir(t)
 	files := corpusFiles(t, dir)
