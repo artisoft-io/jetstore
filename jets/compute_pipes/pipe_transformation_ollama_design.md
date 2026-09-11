@@ -6,6 +6,32 @@ augments that record in place with values extracted from the model's response.
 Implementation: `pipe_transformation_ollama.go`, transformation type `ollama`,
 configuration `ollama_config` (`OllamaSpec`).
 
+> ## Read this first — this document predates the backend abstraction
+>
+> **Written 2026-08-10. The shared inference plumbing was extracted on 2026-08-16** (item
+> 15a), and `pipe_transformation_ollama.go` went from **1147 lines to 339**. It now holds
+> **only the backend**: the Ollama request and response shapes, the http client, the
+> builder and the defaults.
+>
+> **Everything this document describes is still true of the *operator*. What has moved is
+> where it lives.** §3 (prompt templating), §4 (response mapping), §5 (runtime) and most of
+> §6 (validation) describe `pipe_transformation_infer.go`, which serves `ollama`, `vllm` and
+> `embed` alike — see
+> [`pipe_transformation_infer_readme.md`](pipe_transformation_infer_readme.md).
+>
+> **The configuration table in §2 is still correct as a description of the document**, which
+> is what most readers want from it: the shared keys moved into `InferCommonSpec`, embedded
+> anonymously, so `encoding/json` field promotion leaves the wire shape unchanged. They are
+> no longer fields of `OllamaSpec` in Go.
+>
+> **And most documents should now use `type: infer` rather than naming this operator**, so
+> the deployment chooses the server. §7 and §8 are a record of the original change rather
+> than a map of the code.
+>
+> *Corrected in place rather than rewritten, on the repository's standing rule that a dated
+> document is a snapshot and should stay readable as one — what it must not do is read as
+> current.*
+
 ## 1. What the operator does
 
 For each record arriving on the input channel:
@@ -78,6 +104,8 @@ says so.
 
 ## 3. Prompt templating
 
+> **Moved 2026-08-16.** This is `pipe_transformation_infer.go` now — `resolveInferTemplate` and `compileInferPromptTemplate`. The behaviour below is unchanged and is shared by all three backends.
+
 Two substitution layers, each resolved as early as it can be:
 
 **Env, once at build time.** `utils.ReplaceEnvVars` handles `$CLIENT`, `$SESSIONID`,
@@ -97,6 +125,8 @@ One reserved placeholder, `{{@record}}`, expands to the whole record as a JSON o
 the shape most useful for prompting.
 
 ## 4. Response mapping
+
+> **Moved 2026-08-16**, to the shared plumbing, unchanged. One thing this section could not say: `source: envelope` reads *Ollama's* envelope. The vLLM backend's token counts are `usage.prompt_tokens` and `usage.completion_tokens`, so a mapping copied between backends needs its `path` changed.
 
 `output_mapping` entries:
 
@@ -121,6 +151,8 @@ the mapping needs. If a full expression language is ever wanted, it slots in beh
 same `path` field.
 
 ## 5. Runtime
+
+> **Moved 2026-08-16.** The pool manager, `Apply`, `Finally` and the worker loop are `inferTransformationPipe` in `pipe_transformation_infer.go`. The description below is accurate; the file it names is not. A circuit breaker was added with the extraction and is not described here at all.
 
 **Always a worker pool, default size 1.** One code path instead of two: `Apply` hands the
 record to `WorkersTaskCh` and returns; workers do the HTTP call, mutate their record, and
@@ -157,6 +189,8 @@ Per record, in the worker:
 
 ## 6. Build-time validation
 
+> **Split 2026-08-16.** The channel, mapping and template checks are the shared builder's; what stayed in the backend is the model, `api`, `keep_alive` and url checking. The step-wide error-channel rules below are unchanged.
+
 In the constructor:
 
 - `outputCh.Config == source.Config` (pointer equality — `compute_pipes.go` maps every
@@ -179,6 +213,8 @@ operator of a step:
   trips either rule.
 
 ## 7. Integration points
+
+> **This table is a record of the change that added the operator in August 2026, not a map of the code today.** `pipes_runtime_model.go` and `actions_start_common.go` now carry `vllm` and `embed` cases beside the `ollama` one, and the operator itself is split across `pipe_transformation_infer.go` and `pipe_transformation_ollama.go`.
 
 | File | Change |
 |---|---|
@@ -262,6 +298,8 @@ last in `jetstore_one.go`, so all three exist by then.
 what makes the in-place augmentation legal.
 
 ## 10. Deliberately not built
+
+> **One of these three was built.** Embeddings are the `embed` operator now, with its own backend on the same seam — the paragraph below correctly predicted it wanted a different operator. The cache and the batching are still not built.
 
 - **Prompt-hash response cache.** Repeated values in a column are common and a cache could
   cut GPU time by an order of magnitude, but it changes failure semantics (a cached error?
