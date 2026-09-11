@@ -575,8 +575,13 @@ func TestTheLiveBriefingOperatorResolvesItsSchema(t *testing.T) {
 	if err := json.Unmarshal(content, &cpConfig); err != nil {
 		t.Fatal(err)
 	}
-	if len(cpConfig.PromptTemplates) != 1 {
-		t.Fatalf("expecting one prompt template, got %d", len(cpConfig.PromptTemplates))
+	// A floor rather than an equality, and the reason is BB.3's: this is a count
+	// measured from `workspaces/jets_ws`, a living workspace, and a second
+	// prompt template added there is a legitimate change rather than a
+	// regression. What the test needs is that there is one to index; the number
+	// is logged below with everything else it measured.
+	if len(cpConfig.PromptTemplates) == 0 {
+		t.Fatal("expecting the delivered pipeline to declare a prompt template")
 	}
 	// **Written to pass against either pin, deliberately, and it is not a
 	// weakened assertion.** This repository's submodules move separately, so a
@@ -622,6 +627,8 @@ func TestTheLiveBriefingOperatorResolvesItsSchema(t *testing.T) {
 			t.Errorf("the prompt template's response_format and the provenance schema's differ (err %v)", err)
 		}
 	}
-	t.Logf("patient_briefing: %d rules, response_format adopted from provenance/%s%s, entity column %s as %s",
-		len(check.schema.Rules), check.name, provenanceSchemaSuffix, check.entityColumn, check.encoding)
+	t.Logf("patient_briefing: %d rules, %d prompt template(s), response_format adopted from "+
+		"provenance/%s%s, entity column %s as %s",
+		len(check.schema.Rules), len(cpConfig.PromptTemplates), check.name, provenanceSchemaSuffix,
+		check.entityColumn, check.encoding)
 }
