@@ -341,6 +341,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "shuffling":
 		return ctx.NewShufflingTransformationPipe(source, outCh, spec)
 
+	case RenderOperatorType:
+		return ctx.NewRenderTransformationPipe(source, outCh, spec)
+
 	default:
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}
