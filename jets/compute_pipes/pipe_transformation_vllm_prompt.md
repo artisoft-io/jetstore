@@ -25,34 +25,24 @@ The config fragments show only the prompt-relevant keys. A working `vllm_config`
 
 ## 1. Where a prompt is declared
 
-**Identical to the ollama operator, because it is the same code.** Two places, and exactly one of
-them per operator:
+**Shared, and stated once in the infer readme §2.3**: inline `prompt_template` on `vllm_config`, or
+`prompt_template_name` into the top-level `prompt_templates` registry — exactly one of the two, and a
+named template's `system_prompt` and `response_format` are defaults the operator's own values beat.
 
-| Config | Where | Key |
-|---|---|---|
-| Inline | `vllm_config` | `prompt_template` |
-| Named | `ComputePipesConfig` (top level, beside `lookup_tables` and `schema_providers`) | `prompt_templates[].key`, referenced by `vllm_config.prompt_template_name` |
-
-A named template's `system_prompt` and `response_format` are **defaults**; the operator's own values
-win when both are set. Specifying both `prompt_template` and `prompt_template_name`, or neither, is a
-build-time error.
-
-**The adoption of a named template's `response_format` is why this backend has a `prepare()` step**
-that the ollama backend does not — see the design doc §6. It matters here because it decides whether
-the request below carries a guided-decoding field at all.
+**One consequence is this backend's own.** Because a named template's `response_format` is adopted
+during the build, and because this backend translates `response_format` **once** rather than per
+request, it implements `inferBackendPreparer` so the translation runs after the adoption — design doc
+§6. It decides whether the request below carries a guided-decoding field at all.
 
 ## 2. The two kinds of placeholder
 
-Also shared, also unchanged:
+**Shared, and stated once in the infer readme §2.4**: `$VAR` and `${VAR}` from the cpipes env,
+resolved at build time; `{{column_name}}` and `{{@record}}` compiled at build time and rendered per
+record. A `{{col}}` naming no column is a build-time error, and only `{{` opens a placeholder — so a
+JSON skeleton can be written into a template as-is.
 
-| Syntax | Substituted from | When |
-|---|---|---|
-| `$VAR`, `${VAR}` | the cpipes env | once, at build time |
-| `{{column_name}}` | the record's value for that column | per record |
-| `{{@record}}` | the whole record as a JSON object | per record |
-
-A `{{col}}` naming no column in the input channel is a **build-time error** listing the available
-columns. Only `{{` opens a placeholder, so a JSON skeleton can be written into a template as-is.
+Nothing about the templating differs between the backends. What differs is where the rendered string
+lands, which is §3.
 
 ## 3. Where the prompt lands in the request
 
