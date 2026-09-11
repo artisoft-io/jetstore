@@ -316,6 +316,10 @@ func setDefaultMaxErrorCount(transformationConfig *TransformationSpec, n int) {
 		if c := transformationConfig.VllmConfig; c != nil && c.MaxErrorCount == 0 {
 			c.MaxErrorCount = n
 		}
+	case RenderOperatorType:
+		if c := transformationConfig.RenderConfig; c != nil && c.MaxErrorCount == 0 {
+			c.MaxErrorCount = n
+		}
 	}
 }
 
@@ -325,7 +329,7 @@ func setDefaultMaxErrorCount(transformationConfig *TransformationSpec, n int) {
 // nothing can find, or finds a channel nothing gave it.
 func reportsRowLevelFailures(operatorType string) bool {
 	switch operatorType {
-	case "map_record", "jetrules", "ollama", "embed", "vllm":
+	case "map_record", "jetrules", "ollama", "embed", "vllm", RenderOperatorType:
 		return true
 	}
 	return false
@@ -371,6 +375,12 @@ func setErrorChannelConfig(transformationConfig *TransformationSpec, ec *OutputC
 			return false
 		}
 		transformationConfig.VllmConfig.ErrorChannel = ec
+		return true
+	case RenderOperatorType:
+		if transformationConfig.RenderConfig == nil {
+			return false
+		}
+		transformationConfig.RenderConfig.ErrorChannel = ec
 		return true
 	}
 	return false

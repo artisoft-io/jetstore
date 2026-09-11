@@ -288,6 +288,16 @@ startStepId:
 		// An operator with an inline `prompt_template` was unaffected, which is why
 		// this survived until a config used the named form on a live run.
 		PromptTemplates: cpipesStartup.CpConfig.PromptTemplates,
+		// **Carried for the same reason, one element later.** The render
+		// operator resolves `template_name` in `cpConfig.TextTemplates` and
+		// compiles the document at build time *on the node*
+		// (`resolveRenderTemplate`, `jets/compute_pipes/pipe_transformation_render.go`),
+		// so a `text_templates` array that does not reach this literal reaches
+		// no operator. The failure would be a build error on a worker in a
+		// deployed run, which is the most expensive place in this system to find
+		// a configuration bug, and it was named before the operator was written
+		// rather than after -- see TestTextTemplatesReachAWorkerNode.
+		TextTemplates:   cpipesStartup.CpConfig.TextTemplates,
 		Context:         cpipesStartup.CpConfig.Context,
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,

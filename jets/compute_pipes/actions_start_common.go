@@ -893,6 +893,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			}
 		}
 	}
+	if err := validateTextTemplates(cpConfig); err != nil {
+		return err
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
@@ -1092,6 +1095,29 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if transformationConfig.VllmConfig.PoolSize < 1 {
 					transformationConfig.VllmConfig.PoolSize = 1
 				}
+			case RenderOperatorType:
+				// The render operator's build-time failures are the operator's
+				// own (see NewRenderTransformationPipe): the template name, the
+				// template's own twelve compile failures, the two column names
+				// and the input encoding are all resolved there, against the
+				// channels, which this validation does not have. What is owed
+				// here is the part that is answerable without them -- that the
+				// config element is present at all, and that the three fields a
+				// step cannot do without were written. Catching those here means
+				// an author gets them from the startup rather than from a worker
+				// node.
+				renderConfig := transformationConfig.RenderConfig
+				if renderConfig == nil {
+					return fmt.Errorf("configuration error: missing render_config for render operator")
+				}
+				if len(renderConfig.TemplateName) == 0 {
+					return fmt.Errorf(
+						"configuration error: render_config must specify a template_name, naming one of the text_templates")
+				}
+				if len(renderConfig.InputColumn) == 0 || len(renderConfig.OutputColumn) == 0 {
+					return fmt.Errorf(
+						"configuration error: render_config must specify input_column and output_column")
+				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
 					transformationConfig.ClusteringConfig.CorrelationOutputChannel == nil {
@@ -1165,6 +1191,10 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 	case "vllm":
 		if transformationConfig.VllmConfig != nil {
 			return transformationConfig.VllmConfig.ErrorChannel
+		}
+	case RenderOperatorType:
+		if transformationConfig.RenderConfig != nil {
+			return transformationConfig.RenderConfig.ErrorChannel
 		}
 	}
 	return nil

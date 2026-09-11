@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/agentic/template"
 )
 
 // This file contains the Compute Pipes configuration model
@@ -18,6 +20,7 @@ type ComputePipesConfig struct {
 	LookupTables           []*LookupSpec           `json:"lookup_tables,omitempty"`
 	Channels               []ChannelSpec           `json:"channels,omitempty"`
 	PromptTemplates        []PromptTemplateSpec    `json:"prompt_templates,omitempty"`
+	TextTemplates          []TextTemplateSpec      `json:"text_templates,omitempty"`
 	Context                []ContextSpec           `json:"context,omitempty"`
 	SchemaProviders        []*SchemaProviderSpec   `json:"schema_providers,omitempty"`
 	PipesConfig            []PipeSpec              `json:"pipes_config,omitempty"`
@@ -615,7 +618,7 @@ type TransformationSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize,
 	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
-	// embed, vllm
+	// embed, vllm, render
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -635,6 +638,7 @@ type TransformationSpec struct {
 	EmbedConfig           *EmbedSpec                       `json:"embed_config,omitzero"`
 	VllmConfig            *VllmSpec                        `json:"vllm_config,omitzero"`
 	InferConfig           *InferSpec                       `json:"infer_config,omitzero"`
+	RenderConfig          *RenderSpec                      `json:"render_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
@@ -1210,6 +1214,86 @@ type PromptTemplateSpec struct {
 	Template       string          `json:"template"`
 	SystemPrompt   string          `json:"system_prompt,omitempty"`
 	ResponseFormat json.RawMessage `json:"response_format,omitempty"`
+}
+
+// TextTemplateSpec is a named text template document, declared at the
+// ComputePipesConfig level so that a document can be shared by several steps and
+// pipes -- which is PromptTemplateSpec's argument for the same indirection, and
+// the reason this element copies that shape rather than paralleling it.
+//
+// Key is the name used by RenderSpec.TemplateName. The rest is the document:
+// Width is the column each paragraph is wrapped to, Elements are emitted in
+// array order, and Empty is what the document says when no element said
+// anything. The notation is specified in agentic_ai's Phase 8 plan §10 and
+// implemented in jets/agentic/template; RenderSpec is its only consumer here.
+//
+// **The array is `text_templates` rather than `templates`, and the word is doing
+// work.** `prompt_templates` is the only other template array in this
+// configuration and it is qualified; a bare `templates` would be the sole
+// unqualified one, and it is the one that collides with gap 20's *configuration*
+// templates (`tools/cpipes_contract/templates/`). The operator renders; what it
+// applies is a text template.
+//
+// **The document fields are copied from template.Spec rather than embedded, and
+// TestTextTemplateSpecCarriesTheDocument is what keeps the two in step.** The
+// engine's Spec decodes strictly (its C1: `wen` written for `when` is a template
+// that silently never fires), so it admits no `comment` -- and every element of
+// this configuration carries one. Copying buys the comment; the test buys back
+// what embedding would have given for free.
+type TextTemplateSpec struct {
+	Comment  string              `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Key      string              `json:"key"`
+	Width    int                 `json:"width"`
+	Elements []*template.Element `json:"elements"`
+	Empty    string              `json:"empty,omitempty"`
+}
+
+// Document is the spec as the template engine's compiler takes it.
+func (s *TextTemplateSpec) Document() *template.Spec {
+	if s == nil {
+		return nil
+	}
+	return &template.Spec{
+		Key:      s.Key,
+		Width:    s.Width,
+		Elements: s.Elements,
+		Empty:    s.Empty,
+	}
+}
+
+// RenderSpec configuration for the render transformation operator.
+// The operator renders one text template per input record and augments that
+// record *in place*, so the input and output channels must share the same
+// ChannelSpec; this is validated when the operator is built.
+//
+// TemplateName names an entry of ComputePipesConfig.TextTemplates (required).
+// There is no inline alternative to it -- see resolveRenderTemplate for why.
+// InputColumn is the column carrying the serialised entity the template renders
+// from, and OutputColumn is where the rendered text is written (both required,
+// and they may not be the same column).
+// InputEncoding says how InputColumn is serialised: json (the default) or toon.
+// It is an override rather than the answer: the encoding is read off the input
+// channel's column_encodings entry when there is one, and a disagreement between
+// the two is a configuration error.
+// RowKeyColumn names a column whose value identifies the record on an error row,
+// optional; it is InferCommonSpec.RowKeyColumn's field for the same purpose.
+// OnError specifies what to do with a record whose render failed -- because the
+// input column is not a document, or because a `require` the template declares
+// was not satisfied: pass_through (default, the record is sent on with the
+// output column left unwritten), drop, or fail.
+// MaxErrorCount caps the number of errors reported to the log and the error
+// channel, default 20. Errors are logged even when no error_channel is
+// configured.
+type RenderSpec struct {
+	Comment       string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	TemplateName  string               `json:"template_name"`
+	InputColumn   string               `json:"input_column"`
+	OutputColumn  string               `json:"output_column"`
+	InputEncoding string               `json:"input_encoding,omitempty"`
+	RowKeyColumn  string               `json:"row_key_column,omitempty"`
+	OnError       string               `json:"on_error,omitempty"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
 }
 
 // OllamaSpec configuration for the ollama transformation operator.
