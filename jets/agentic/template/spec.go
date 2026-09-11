@@ -22,6 +22,18 @@ import (
 // the configuration root, referenced by a step, so that a template can be
 // shared and a name that is not there fails at build time.
 type Spec struct {
+	// Comment is free text for the reader; ignored by JetStore.
+	//
+	// **It is here because C1 turns an omission into a build failure**, which
+	// is the one place strict decoding costs something. Every sibling spec in
+	// `jets/compute_pipes` carries this field - 71 of them, including
+	// `PromptTemplateSpec`, the type `Key` above is modelled on
+	// (`PromptTemplateSpec`, `jets/compute_pipes/pipes_model.go:1207`) - so a
+	// `.pc.json` that comments every other object and cannot comment this one
+	// would be an inconsistency a reader reads as a mistake, and `wen` for
+	// `when` is caught either way. Added at `AY.3`, whose own document could
+	// not otherwise say why its predicates are shaped as they are.
+	Comment string `json:"comment,omitempty"`
 	// Key names the document within the configuration's `text_templates`.
 	Key string `json:"key"`
 	// Width is the column each paragraph is wrapped to. **Required rather than
@@ -41,6 +53,12 @@ type Spec struct {
 // contract wants an explicit discriminator instead is Q-106, settled where the
 // matrix rows are written rather than here.
 type Element struct {
+	// Comment is free text for the reader; ignored by JetStore. See [Spec].
+	//
+	// **An element is where the comment is actually wanted**, because a `when`
+	// is a line of logic with an argument behind it and the argument has
+	// nowhere else to live once the document is inlined in a `.pc.json`.
+	Comment string `json:"comment,omitempty"`
 	// When gates the element. Absent means always.
 	When string `json:"when,omitempty"`
 	// Text is a paragraph's markup.
