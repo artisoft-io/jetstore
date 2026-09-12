@@ -21,8 +21,10 @@ import (
 // false when the value does not read as one. So a term comparing a property
 // with the empty literal is *the property is there and is not blank*, and
 // `Event_Count > 0` is *it is there and reads as a number greater than zero*,
-// which is what the accessors of the package this generalises do (`asInt`,
-// `jets/agentic/briefing/prose/entity.go:183`).
+// which is what the accessors of the package this generalises do (`AsInt`,
+// `jets/agentic/briefing/value.go:90`, which this package and
+// `jets/agentic/briefing/prose` both read through since `AY.5` merged the three
+// copies of it).
 //
 // **The literal's form is what C11 checks, and the two rules differ by
 // operator.** A quoted literal after `>` is refused and a bare word after `==`

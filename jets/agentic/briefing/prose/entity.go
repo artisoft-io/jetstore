@@ -2,7 +2,6 @@ package prose
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -142,109 +141,29 @@ func prefixedKey(entity map[string]any) string {
 	return ""
 }
 
-// scalar renders one entity value as text.
+// scalar, asInt and asDate are one line each because the implementations moved.
 //
-// The three shapes it must accept are the three the entity can arrive in. From
-// `extractAsEntity` a value is what `GetRdfNodeValue` returns - a string, an
-// int, a uint, a float64 or a `time.Time` (`GetRdfNodeValue`,
-// `jets/compute_pipes/jetrules_interface.go:96`). From a decoded json or toon
-// document every number is a float64 and every date is text. Both are rendered
-// the same way here.
-func scalar(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return ""
-	case string:
-		return x
-	case time.Time:
-		return x.Format("2006-01-02")
-	case float64:
-		return strconv.FormatFloat(x, 'f', -1, 64)
-	case float32:
-		return strconv.FormatFloat(float64(x), 'f', -1, 32)
-	case int:
-		return strconv.Itoa(x)
-	case int64:
-		return strconv.FormatInt(x, 10)
-	case uint:
-		return strconv.FormatUint(uint64(x), 10)
-	case uint64:
-		return strconv.FormatUint(x, 10)
-	case bool:
-		return strconv.FormatBool(x)
-	default:
-		return fmt.Sprintf("%v", x)
-	}
-}
-
-// asInt reads a count. A float is truncated rather than rounded, because toon
-// and json return every number as a float64 and a count that arrives as 2.0 is
-// the integer 2.
-func asInt(v any) (int, bool) {
-	switch x := v.(type) {
-	case int:
-		return x, true
-	case int32:
-		return int(x), true
-	case int64:
-		return int(x), true
-	case uint:
-		return int(x), true
-	case uint32:
-		return int(x), true
-	case uint64:
-		return int(x), true
-	case float32:
-		return int(x), true
-	case float64:
-		return int(x), true
-	case string:
-		n, err := strconv.Atoi(strings.TrimSpace(x))
-		return n, err == nil
-	default:
-		return 0, false
-	}
-}
-
-// dateLayouts is what a date can look like on the way in.
+// **I-563 and I-643 are resolved by [briefing.ValueText], [briefing.AsInt] and
+// [briefing.AsDate]**, which this package could not call when it was written:
+// the originals were unexported and `AT.3` was forbidden to edit
+// `jets/agentic/briefing/`. `AY.5` is the task that was allowed to, and the
+// divergence the entries predicted had already happened - the date table here
+// carried five layouts and the checker's carried six, so `2025-08-14 10:00:00`
+// was a date to `briefing.Check` and not to this renderer.
 //
-// A date reaches this renderer as a `time.Time` when it comes straight from
-// `extractAsEntity`, which is the wiring `EncodeColumnData` uses, and as text
-// when the entity has been through json or toon. The padded pair is what the
-// encoder writes; the unpadded pair is what the one hand-written briefing input
-// in the tree carries, and `jets/agentic/briefing`'s own checker accepts both
-// for that reason (`dateLayouts`, `jets/agentic/briefing/check.go:299`).
+// **They stay as local names rather than being inlined at the call sites**, and
+// that is a smaller change on purpose: `prose.go` and `filters.go` are the
+// renderer criterion 82 compares against, and a diff that touched thirty lines
+// of them to save three here would put the control arm's text in the way of
+// reading what actually changed.
 //
-// **This is a second copy of that table and it is one this package could not
-// avoid**: the original is unexported and `AT.3` may not edit files under
-// `jets/agentic/briefing/`. Recorded as I-563.
-var dateLayouts = []string{
-	"2006-01-02",
-	"2006-01-02T15:04:05",
-	time.RFC3339,
-	"2006-1-2",
-	"2006-1-2T15:04:05",
-}
+// **What is not delegated is `filters.go`'s ten functions**, which are copied
+// into the engine and stay copied - that is I-647, and the argument for it is
+// the opposite of this one: a filter is named by the template document, so two
+// implementations that disagree are a difference criterion 82 is meant to see.
+// A value reader is named by neither document.
+func scalar(v any) string { return briefing.ValueText(v) }
 
-func asDate(v any) (time.Time, bool) {
-	switch x := v.(type) {
-	case time.Time:
-		return x, true
-	case *time.Time:
-		if x == nil {
-			return time.Time{}, false
-		}
-		return *x, true
-	case string:
-		s := strings.TrimSpace(x)
-		if s == "" {
-			return time.Time{}, false
-		}
-		for _, layout := range dateLayouts {
-			if t, err := time.Parse(layout, s); err == nil {
-				return t, true
-			}
-		}
-	}
-	return time.Time{}, false
-}
+func asInt(v any) (int, bool) { return briefing.AsInt(v) }
+
+func asDate(v any) (time.Time, bool) { return briefing.AsDate(v) }
