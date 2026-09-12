@@ -2,6 +2,57 @@
 
 Entries are appended, newest first.
 
+## 2026-09-12 — the `.sql` row in the save hook, and what the first non-JSON file type cost
+
+`ValidateScript` (`validate.go`) is the sixth row in the per-suffix validator table
+(`jets/datatable/workspace_file_validators.go`), so an unterminated string literal, quoted
+identifier, block comment or dollar-quoted body is refused **at save, with the line it opened on**,
+instead of at deployment with a PostgreSQL error naming a line inside whatever the unclosed construct
+swallowed.
+
+**Five predecessors had made *adding a row is the whole of adding a file type* a measured claim. This
+one is the first row that was not a row and nothing else**, and both extra changes were assumptions
+nobody had had reason to write down:
+
+| | What was written around JSON | Now |
+|---|---|---|
+| `checkWorkspaceFile` | `if !HasSuffix(ToUpper(fileName), ".JSON") { return nil }` gated the **whole** check, so a `.sql` row would have been dispatched to by `validatorFor` and never reached | the JSON check is the *precondition* it always was, applied to the names that need it |
+| `wsvalidate.Finding` | carried `Path`, a JSON Pointer, and no line | `Line` added — the same argument as `Path` (I-21: *a message is not something an editor can jump to*) for the first file type `Path` cannot serve |
+
+So the claim survives with its scope named: **adding a row is the whole of adding a *JSON* file
+type.** `TestSaveCheckValidatesSqlFiles` is what asserts the row is reached, and it is the regression
+test for the gate rather than for the lexer.
+
+**Severity is `Error`, licensed by a measurement and not by confidence.** All 89 `.sql` files that
+exist lex clean — 82 under `workspaces/`, 7 here, 2026-09-12 — and a lexical check that refuses a
+file somebody has to edit would be worse than no check. `TestCorpusLexesClean` re-takes the number
+(`JETS_SQL_CORPUS_DIR`, `-count=1`).
+
+**`Split` returns a typed `*UnterminatedError` because of this row.** The check needs the line as a
+number and the message *without* it, so that a renderer printing both does not say it twice; the
+first cut recovered the line by parsing `"opened on line %d"` out of the sentence, which is the kind
+of thing that works until somebody rewords a message. `Error()` still produces that sentence, so
+`Split`'s other callers print what they always did.
+
+### Three checks deliberately not in it
+
+- **A report script's `--name;` comments.** Six of the 26 `reports/*.sql` legitimately have none, and
+  a validator sees a file name and its content — never the `config.json` that says which are
+  `reportOrScript: "script"`. Flagging 6 of 26 correct files is the 38%-false-flag result
+  `agentic_ai`'s Phase 3 §17.4 measured and rejected for the citation checker, arriving at a
+  different door.
+- **A final statement with no `;`.** It reads like a truncated file and is not:
+  `usi_ws/reports/auth_error_report.sql` and `elig_error_report.sql` are both written that way and
+  both work, under this reader and the one it replaced. This is why the entry below records the
+  dropped-trailing-statement finding as *history* rather than as something to warn about.
+- **A `;` inside a comment**, which was the whole cause of the entry below and is now correct. A
+  warning saying *this is fine* is noise.
+
+**A fourth was considered and is not possible here**: a `Warning` severity would be computed and
+discarded, because `checkWorkspaceFile` acts on `wsvalidate.ErrorsOnly` and nothing renders the rest.
+That is pre-existing and untouched — worth knowing before designing a check whose natural tier is
+warning.
+
 ## 2026-09-12 — a `;` is not a statement boundary, and `Exec` on a whole file is one transaction
 
 JetStore reads SQL from workspace files in three places, and until this date all three decided where

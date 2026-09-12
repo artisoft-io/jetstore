@@ -1047,7 +1047,9 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 	//
 	//  1. **Well-formedness, for anything ending .json.** It is a precondition for
 	//     every structured check, so doing it once keeps one bad file from
-	//     producing two different complaints.
+	//     producing two different complaints. **It is not a gate on step 2** —
+	//     it was, until the `.sql` row on 2026-09-12 needed a validator to run
+	//     for a file that is not JSON at all.
 	//  2. **At most one specific validator**, on the most specific suffix match —
 	//     see validatorFor. Absent for a plain .json, which keeps the behaviour
 	//     every existing file type has today.

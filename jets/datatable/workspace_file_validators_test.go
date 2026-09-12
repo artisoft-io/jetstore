@@ -25,7 +25,22 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"user_flows/notes.md":       false,
 		"looks_like.uf.json.backup": false,
 		"provenance/notes.json":     false,
-		"UPPER/LOADFILES.UF.JSON":   true, // case-insensitive, like the check it sits behind
+		"UPPER/LOADFILES.UF.JSON":   true, // case-insensitive, like the JSON check beside it
+		// The sixth row, and the first that is not JSON — so the first whose
+		// validator would have been unreachable behind the old `.json` gate in
+		// checkWorkspaceFile. TestSaveCheckValidatesSqlFiles is what asserts it
+		// is reached; this only asserts the dispatch.
+		"process_config/base__workspace_init_db.sql": true,
+		"reports/CM.sql": true,
+		"reports/CM.SQL": true,
+		// Matches the `.sql` row today, deliberately recorded rather than
+		// asserted away: no such file exists in any workspace or in this
+		// repository, so whether it is a PostgreSQL script is unknown. If it is
+		// not, a `.jr.sql` row is what excludes it and longest-match is what
+		// makes that work.
+		"jet_rules/mapping.jr.sql": true,
+		"jet_rules/mapping.jr":     false,
+		"reports/CM.sql.backup":    false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -292,5 +307,90 @@ func TestProvenanceSchemaGoesThroughTheSavePath(t *testing.T) {
 	}`
 	if err := checkWorkspaceFile("provenance/patient_briefing.pv.json", unreasoned); err == nil {
 		t.Fatal("an ungrounded field with no reason must not save")
+	}
+}
+
+// The `.sql` row is the first non-JSON file type, and what it found was that
+// checkWorkspaceFile gated the whole check on a `.json` suffix — so a row could
+// be dispatched to by validatorFor and never reached. That is the regression
+// this test exists for, not the lexer, which has its own tests in
+// jets/sqlscript.
+func TestSaveCheckValidatesSqlFiles(t *testing.T) {
+	t.Run("a script with a semicolon in a comment is saved", func(t *testing.T) {
+		// The shape that cost a deployment on 2026-09-12 and is now legal.
+		content := "-- Registering it does not schedule it; a pipeline runs when somebody\n" +
+			"-- starts it.\nDELETE FROM jetsapi.process_config WHERE key = 50105;\n"
+		if err := checkWorkspaceFile("process_config/base__workspace_init_db.sql", content); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+	})
+
+	t.Run("an unterminated literal is refused, with the line", func(t *testing.T) {
+		content := "DELETE FROM jetsapi.source_config WHERE client = 'CI';\n" +
+			"INSERT INTO jetsapi.source_config VALUES ('CI', '{\n  \"a\": \"b; c\"\n}');\n"
+		// Closing quote removed from the JSON literal, which is the ciseit and
+		// fbin shape: unloadable, and reported at deployment against a line in
+		// whatever the unclosed quote swallowed.
+		content = strings.Replace(content, "}');", "});", 1)
+		err := checkWorkspaceFile("process_config/ci_workspace_init_db.sql", content)
+		if err == nil {
+			t.Fatal("want the save refused")
+		}
+		if !strings.Contains(err.Error(), "unterminated string literal") {
+			t.Errorf("error = %v, want it to name the unterminated literal", err)
+		}
+		// The coordinate is the point of Finding.Line: line 2 is where the
+		// literal opened, not where the file ran out.
+		if !strings.Contains(err.Error(), "line 2:") {
+			t.Errorf("error = %v, want it to carry the opening line", err)
+		}
+	})
+
+	t.Run("a report script is checked too", func(t *testing.T) {
+		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b' FROM t;\n"); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b FROM t;\n"); err == nil {
+			t.Error("want the save refused")
+		}
+	})
+
+	t.Run("a plain .json still gets its well-formedness check", func(t *testing.T) {
+		// The JSON check stopped being the gate on the whole function; it must
+		// not have stopped being applied.
+		if err := checkWorkspaceFile("reports/config.json", "{ not json"); err == nil {
+			t.Error("want a malformed plain .json refused")
+		}
+		if err := checkWorkspaceFile("reports/config.json", `{"a": 1}`); err != nil {
+			t.Errorf("want a well-formed plain .json saved, got %v", err)
+		}
+	})
+
+	t.Run("a file with no row is still untouched", func(t *testing.T) {
+		if err := checkWorkspaceFile("jet_rules/mapping.jr", "not json, not sql, not checked"); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+	})
+}
+
+// describeFindings renders a coordinate where a finding has one, and the two
+// kinds do not collide: a JSON Pointer, a line, or neither.
+func TestDescribeFindingsRendersBothCoordinates(t *testing.T) {
+	got := describeFindings("x.sql", []wsvalidate.Finding{
+		{Severity: wsvalidate.Error, Code: "a", Message: "no coordinate"},
+		{Severity: wsvalidate.Error, Code: "b", Message: "a pointer", Path: "/states/x"},
+		{Severity: wsvalidate.Error, Code: "c", Message: "a line", Line: 12},
+		{Severity: wsvalidate.Error, Code: "d", Message: "both", Path: "/a/b", Line: 3},
+	}).Error()
+	for _, want := range []string{
+		"x.sql cannot be saved:",
+		"\n  no coordinate",
+		"\n  /states/x: a pointer",
+		"\n  line 12: a line",
+		"\n  /a/b:3: both",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering = %q, want it to contain %q", got, want)
+		}
 	}
 }

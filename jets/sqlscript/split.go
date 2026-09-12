@@ -70,6 +70,30 @@ type Comment struct {
 	Line int
 }
 
+// UnterminatedError is the one error Split returns: a construct the script
+// opens and never closes.
+//
+// **It is typed because the line is the useful half and a sentence is a poor
+// way to hand it over.** The save-time check in validate.go needs the line as a
+// number, to put in wsvalidate.Finding.Line where an editor can reach it, and
+// needs the message without the line so that rendering the two together does
+// not say it twice. Error() produces the sentence Split's other callers already
+// print.
+type UnterminatedError struct {
+	// Construct names what was left open: "string literal", "quoted
+	// identifier", "block comment", or "dollar-quoted string $tag$".
+	Construct string
+
+	// Line is the 1-based line the construct opened on, which is the line worth
+	// reporting — the line the file ran out on says only how far the damage
+	// reached.
+	Line int
+}
+
+func (e *UnterminatedError) Error() string {
+	return fmt.Sprintf("unterminated %s opened on line %d", e.Construct, e.Line)
+}
+
 // Split returns the statements of script in source order.
 //
 // A statement is terminated by a top-level `;`. Trailing text after the last
@@ -80,10 +104,10 @@ type Comment struct {
 // between two terminators — are not returned.
 //
 // An unterminated block comment, string literal, quoted identifier or
-// dollar-quoted string is an error naming the line on which it opened. That is
-// the diagnostic a caller most wants and the one PostgreSQL cannot give,
-// because by the time the server sees the text the damage has already been done
-// by whatever split it.
+// dollar-quoted string is an *UnterminatedError naming the line on which it
+// opened. That is the diagnostic a caller most wants and the one PostgreSQL
+// cannot give, because by the time the server sees the text the damage has
+// already been done by whatever split it.
 func Split(script string) ([]Statement, error) {
 	var out []Statement
 	start := 0     // byte offset where the current chunk starts
@@ -292,7 +316,7 @@ func skipBlockComment(s string, i, line int) (int, int, error) {
 			i++
 		}
 	}
-	return 0, 0, fmt.Errorf("unterminated block comment opened on line %d", openLine)
+	return 0, 0, &UnterminatedError{Construct: "block comment", Line: openLine}
 }
 
 // skipQuoted scans from i, which is just past the opening quote, to just past
@@ -326,7 +350,7 @@ func skipQuoted(s string, i, line int, quote byte, backslash bool) (int, int, er
 	if quote == '"' {
 		kind = "quoted identifier"
 	}
-	return 0, 0, fmt.Errorf("unterminated %s opened on line %d", kind, openLine)
+	return 0, 0, &UnterminatedError{Construct: kind, Line: openLine}
 }
 
 // dollarTag reports whether the `$` at i opens a dollar-quoted string, and if
@@ -351,7 +375,7 @@ func skipDollarQuoted(s string, i, line int, tag string) (int, int, error) {
 	rest := s[i:]
 	j := strings.Index(rest, tag)
 	if j < 0 {
-		return 0, 0, fmt.Errorf("unterminated dollar-quoted string %s opened on line %d", tag, openLine)
+		return 0, 0, &UnterminatedError{Construct: "dollar-quoted string " + tag, Line: openLine}
 	}
 	line += strings.Count(rest[:j+len(tag)], "\n")
 	return i + j + len(tag), line, nil
