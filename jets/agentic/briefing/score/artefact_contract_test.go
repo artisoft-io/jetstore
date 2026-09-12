@@ -45,7 +45,7 @@ import (
 // `R-111`'s residual and is not closeable from here: a scorer written for one
 // briefing cannot assert a property of a briefing that does not exist yet. The
 // honest form of the remainder is that `score` is `patient_profile`'s scorer,
-// and the entry that says so is `I-737`.
+// and the entry that says so is `I-733`.
 
 // contractEntity is three medications and one visit: three because `sep` and
 // `last` are different strings in the document and two drugs exercise only

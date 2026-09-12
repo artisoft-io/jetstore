@@ -46,7 +46,7 @@ import (
 // an affirmative false statement, with no violation and no error, and **nothing
 // in the engine or the operator can catch that without refusing a legal
 // configuration**. What is available is the author's own `require`, which is why
-// the shipped document carries one and why `I-737` records the general case as
+// the shipped document carries one and why `I-732` records the general case as
 // guidance owed rather than as a check owed.
 
 // prefixedEntity is the section-1106 fixture as a column with
@@ -132,7 +132,7 @@ func TestADocumentWithNoRequireRendersThePrefixedEntityAsEmpty(t *testing.T) {
 	out, violations := tmpl.Render(prefixedEntity())
 	if len(violations) > 0 {
 		t.Fatalf("this document asserts nothing, so a violation here means the engine has gained a check "+
-			"and I-737 should be reopened rather than this test relaxed: %v", violations)
+			"and I-732 should be reopened rather than this test relaxed: %v", violations)
 	}
 	if !strings.Contains(out, "No claims activity") {
 		t.Fatalf("expected the empty fallback, got %q", out)
