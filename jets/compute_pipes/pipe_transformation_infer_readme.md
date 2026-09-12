@@ -490,14 +490,23 @@ five maintenance drugs, filling most months of the year, was described as at 0%.
 **The model is the reader who supplies the threshold.** A number that reads as a grade will
 be graded.
 
+**That template is an operator now, and this paragraph is where a reader will look for it.**
+`type: render` applies a configured text template to a serialised entity column — the same input
+contract as an infer step, so two versions of a pipeline can differ in the operator block and in
+nothing else. See
+[`pipe_transformation_render_readme.md`](pipe_transformation_render_readme.md). **What it does not
+do is settle which arm a deployment runs**: the arms differ on cost, latency and what a briefing is
+for, and §3.7 below still bounds what the 22-of-22 result licenses.
+
 ### 3.6 Recommendations
 
 1. **Name `type: infer` and set the backend from the deployment.** Everything in §3.1 says
    the document should not care which server runs.
 2. **Prefer a template where the output is a projection of the input.** Ask what the model
    adds that a deterministic renderer cannot; if the answer is *phrasing*, the template is
-   more accurate and free. **Run a deterministic control beside any model arm** — without
-   one, §3.5 is not measurable.
+   more accurate and free — and since 2026-09-11 it is a configured operator rather than Go,
+   [`pipe_transformation_render_readme.md`](pipe_transformation_render_readme.md). **Run a
+   deterministic control beside any model arm** — without one, §3.5 is not measurable.
 3. **Encode entities as JSON** (§3.4) unless something specific argues otherwise.
 4. **If you deploy vLLM: run it with CUDA graphs, set `pool_size` to 4 or more, and expect
    a slow scale-from-zero.** If the service idles at zero and wakes often, ollama's ~20 s
