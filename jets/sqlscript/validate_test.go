@@ -74,11 +74,13 @@ func TestValidateScriptReportsTheOpeningLine(t *testing.T) {
 
 // The severity is Error, which blocks a save, and that is licensed by every
 // .sql file that exists lexing clean rather than by confidence. This is the
-// measurement, made re-runnable: 89 files, 0 failures, 2026-09-12 — 82 under
+// measurement, made re-runnable: 86 files, 0 failures, 2026-09-12 — 79 under
 // `workspaces/` and 7 in this repository. Pointed at the parent checkout's root
-// it reports 90, the extra being a gitignored query in its `out/`; the figure
+// it reports 87, the extra being a gitignored query in its `out/`; the figure
 // is documentation of a scope rather than an assertion, which is why the test
-// asserts only that nothing fails.
+// asserts only that nothing fails. **It was 89 earlier the same day**, before
+// three unused report scripts were deleted from usi_ws, which is the argument
+// for a re-runnable check rather than a number in a comment.
 //
 // Skips unless JETS_SQL_CORPUS_DIR names a directory to walk, because the
 // workspaces are separate repositories and are not present in a plain checkout

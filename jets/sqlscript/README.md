@@ -23,10 +23,11 @@ So the claim survives with its scope named: **adding a row is the whole of addin
 type.** `TestSaveCheckValidatesSqlFiles` is what asserts the row is reached, and it is the regression
 test for the gate rather than for the lexer.
 
-**Severity is `Error`, licensed by a measurement and not by confidence.** All 89 `.sql` files that
-exist lex clean — 82 under `workspaces/`, 7 here, 2026-09-12 — and a lexical check that refuses a
+**Severity is `Error`, licensed by a measurement and not by confidence.** All 86 `.sql` files that
+exist lex clean — 79 under `workspaces/`, 7 here, 2026-09-12 — and a lexical check that refuses a
 file somebody has to edit would be worse than no check. `TestCorpusLexesClean` re-takes the number
-(`JETS_SQL_CORPUS_DIR`, `-count=1`).
+(`JETS_SQL_CORPUS_DIR`, `-count=1`), and it earns its keep: the figure was **89** earlier the same
+day, before three unused report scripts were deleted.
 
 **`Split` returns a typed `*UnterminatedError` because of this row.** The check needs the line as a
 number and the message *without* it, so that a renderer printing both does not say it twice; the
@@ -36,11 +37,14 @@ of thing that works until somebody rewords a message. `Error()` still produces t
 
 ### Three checks deliberately not in it
 
-- **A report script's `--name;` comments.** Six of the 26 `reports/*.sql` legitimately have none, and
-  a validator sees a file name and its content — never the `config.json` that says which are
-  `reportOrScript: "script"`. Flagging 6 of 26 correct files is the 38%-false-flag result
-  `agentic_ai`'s Phase 3 §17.4 measured and rejected for the citation checker, arriving at a
-  different door.
+- **A report script's `--name;` comments.** Six of the 23 `reports/*.sql` legitimately have none, and
+  a validator sees a file name and its content — never the `config.json` whose `reportOrScript` is
+  what decides. Refusing those is the 38%-false-flag result `agentic_ai`'s Phase 3 §17.4 measured and
+  rejected for the citation checker, arriving at a different door. The narrower form — flag only a
+  file where *some* statements are named — looked promising for a day and has its own false positive:
+  a declared script with one `;`-terminated comment above a statement, a shape
+  `usi_ws/reports/network_csv_output.sql` already contains. **That check belongs in a lint that reads
+  `config.json` beside the file**, which is a workspace tool and not a per-file validator.
 - **A final statement with no `;`.** It reads like a truncated file and is not:
   `usi_ws/reports/auth_error_report.sql` and `elig_error_report.sql` are both written that way and
   both work, under this reader and the one it replaced. This is why the entry below records the
@@ -62,7 +66,21 @@ a statement ended by reading up to the next `;` **byte**:
 |---|---|---|
 | `loadConfig`, `jets/update_db/migrate_db.go` | `process_config/*_workspace_init_db.sql`, and `$JETS_INIT_DB_SCRIPT` | **no** — whole file, one `Exec` |
 | `runSqlScriptDelegate`, `jets/run_reports/delegate/run_reports.go:350` | a `reports/*.sql` declared `reportOrScript: "script"` | **no**, and never did |
-| `runReportsDelegate`, same file | a `reports/*.sql` declared (or defaulted to) `report` | **yes**, and must — each statement is its own output file |
+| `runReportsDelegate`, same file | any other `reports/*.sql`, which is the default | **yes**, and must — each statement is its own output file |
+
+**Which of the two a `reports/*.sql` gets is declared, not inferred, and the declaration is why the
+script path must never split.** `reportOrScript: "script"` in the directory's `config.json` means the
+file is one `Exec` of its whole text; **the author may therefore write their own transaction**, and
+two do — `walrus_ws/reports/drug_class_interchange_savings.sql:1` and
+`update_drug_class_interchange_lookups.sql:2` both open with `BEGIN`, the latter relying on
+`ON COMMIT DROP` temp tables. Split either one and its transaction becomes a `BEGIN` with nothing
+inside it. The default is the reports shape: each statement paired with the output file name in the
+comment above it.
+
+The consequence for anything inspecting these files: **a `reports/*.sql` with no name comments is not
+thereby wrong.** It is either declared a script or is not being run, and unused report SQL is retained
+here on purpose — confirmed 2026-09-12 — so "nothing wires this" is a supported state rather than a
+finding. Nothing in the file's own text distinguishes those two from an authoring slip.
 
 A `;` is an ordinary character inside a `--` comment, a `/* */` comment, a string literal, a quoted
 identifier or a dollar-quoted body. Reading to the next one therefore cut a statement in half and
@@ -133,14 +151,20 @@ that ends with `;`.** The semicolon is no longer a delimiter and is kept as the 
 *this comment is a name* — every report script in `workspaces/` is written that way, and without it
 any comment above a statement would be read as one.
 
-Validated by replaying both readers over the corpus: for the ten wired report scripts that exist on
-disk, every report name and every statement is identical, modulo a trailing newline the old reader
-left in. (`config.json` names eleven — `walrus_ws`'s `Update_Mspn_Lookups` also lists
-`loader_mspn_mf2name.sql`, which is **not in the repository**; `runReportsDelegate` logs and skips a
-missing script, so that one has never run.) Six of the 26 `reports/*.sql` carry no name comment at all — three declared
-`"script"`, three wired by nothing — and the new reader says so instead of taking the first *n*
-characters of the SQL as a file name. `TestReportCorpusParses` runs this
-(`JETS_REPORTS_CORPUS_DIR`); run it with `-count=1`, the corpus being outside this module.
+Validated by replaying both readers over the corpus: for the ten wired report scripts that existed on
+disk when this was written, every report name and every statement is identical, modulo a trailing
+newline the old reader left in. (`config.json` named eleven — `walrus_ws`'s `Update_Mspn_Lookups` also
+lists `loader_mspn_mf2name.sql`, which is **not in the repository**; `runReportsDelegate` logs and
+skips a missing script, so that one has never run.) A file with no name comments makes the new reader
+say so, instead of taking the first *n* characters of the SQL as a file name.
+`TestReportCorpusParses` runs this (`JETS_REPORTS_CORPUS_DIR`); run it with `-count=1`, the corpus
+being outside this module.
+
+**The corpus figures, dated rather than asserted.** 2026-09-12, after three unused `usi_ws` reports
+were removed: **23 files, 17 naming every statement and carrying 75 reports, 6 naming none, and none
+mixed.** Three of the six are declared `"script"`; the other three are not run by anything and are
+kept for debugging. The split being clean at 17/6/0 is what makes a *partial*-naming lint look
+attractive, and it is still the wrong place for one — see `validate.go` for why.
 
 ### Two side findings
 

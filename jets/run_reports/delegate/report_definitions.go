@@ -14,6 +14,16 @@ import (
 //	--process={PROCESSNAME}/{ORIGINALFILENAME}_Opportunity.csv;
 //	SELECT ... FROM "wrs:Opportunity" WHERE session_id='$SESSIONID';
 //
+// **Which of the two shapes a file has is declared, not inferred.**
+// `reportOrScript: "script"` in the directory's `config.json` says the file is a
+// single `Exec` of the whole text, and **that is why those files may open their
+// own transaction** — `walrus_ws`'s `update_drug_class_interchange_lookups.sql`
+// opens with BEGIN and relies on `ON COMMIT DROP` temp tables. Anything else,
+// including a file no `config.json` entry mentions, is a reports file and comes
+// here. So a `reports/*.sql` with no name comments is not thereby wrong: it is
+// either declared a script or is not being run, and nothing in a file's own
+// text distinguishes those from an authoring slip.
+//
 // This used to be read by taking the text up to the next `;` byte as the name
 // and the text up to the one after that as the statement. A `;` is an ordinary
 // character inside a comment, a string literal, a quoted identifier or a

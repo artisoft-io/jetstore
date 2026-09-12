@@ -116,18 +116,24 @@ func TestParseReportDefinitionsErrors(t *testing.T) {
 // Run it with -count=1: the corpus is outside this Go module, so nothing in the
 // test cache key changes when the workspaces move.
 //
-// It asserts only that a script parsing as a report script parses cleanly, and
-// counts the rest. Of the 26 reports/*.sql in the corpus on 2026-09-12, twenty
-// parsed as report scripts carrying 86 reports and six carry no name comment at
-// all: three are declared `reportOrScript: "script"` in their config.json —
-// cedargate's two update_qc_*_thresholds.sql and walrus's
-// update_drug_class_interchange_lookups.sql, executed whole by
-// runSqlScriptDelegate, two of them opening their own transaction — and three
-// are wired by nothing (usi's network_csv_output.sql and
-// network_json_output.sql, walrus's drug_class_interchange_savings.sql). So a
-// test asserting that every .sql under reports/ parses as a report would be
-// asserting something false. The figures are a dated measurement of living
-// repositories, not an assertion; what is asserted is the property.
+// It asserts only that a file parsing as a report script parses cleanly, and
+// counts the rest, **because a `reports/*.sql` with no name comments is not
+// thereby wrong**: `reportOrScript: "script"` in the directory's config.json
+// declares a file to be a single Exec of its whole text, which is why such a
+// file may open its own transaction, and a file no config.json entry mentions
+// is simply not being run. Neither is visible in the file, so a test asserting
+// that every .sql under reports/ parses as a report would be asserting
+// something false.
+//
+// Of the 23 reports/*.sql in the corpus on 2026-09-12, seventeen name every
+// statement, carrying 75 reports; six name none, and none is mixed. Three of
+// the six are declared "script" — cedargate's two update_qc_*_thresholds.sql
+// and walrus's update_drug_class_interchange_lookups.sql, two of them opening
+// their own transaction. The other three are not run by anything, deliberately:
+// the user confirmed on 2026-09-12 that unused report SQL is retained for
+// debugging, so "nothing wires this" is a supported state and not a finding.
+// The figures are a dated measurement of living repositories, not an assertion;
+// what is asserted is the property.
 func TestReportCorpusParses(t *testing.T) {
 	dir := os.Getenv("JETS_REPORTS_CORPUS_DIR")
 	if dir == "" {
@@ -168,13 +174,14 @@ func TestReportCorpusParses(t *testing.T) {
 				}
 			}
 		case strings.Contains(err.Error(), "has no output file name"):
-			// A plain SQL script rather than a report script.
+			// Declared `reportOrScript: "script"`, or not run by anything.
+			// Either way it is not this parser's input.
 			notReports++
-			t.Logf("plain SQL script: %s", f)
+			t.Logf("no name comments, so not a reports file: %s", f)
 		default:
 			t.Errorf("%s: %v", f, err)
 		}
 	}
-	t.Logf("%d files: %d parsed as report scripts (%d reports), %d are plain SQL scripts",
+	t.Logf("%d files: %d parsed as reports files (%d reports), %d carry no name comments",
 		len(files), parsed, reports, notReports)
 }
