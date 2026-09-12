@@ -102,7 +102,10 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   `workspaces/` resolves against the repo holding the corpus** — the parent of the code root — because
   generator evidence (the org1 lambdas) lives in the client workspaces beside the JetStore checkout,
   not inside it. `check --code` follows both.
-- **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 45 files. The `.pc.json` under
+- **The corpus is `workspaces/*/pipes_config/**` minus what each directory's asset manifest
+  names** — ~~45~~ **42 files, measured 2026-09-11**; the 2026-09-08 sharpening excluded the
+  JetStore-owned assets `install_workspace_assets` installs, which a developer's checkout
+  acquired when the workspace repositories stopped committing them. The `.pc.json` under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
   not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
 - **The corpus is authored documents.** The root type also serialises a *runtime* shape that
@@ -129,7 +132,7 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
 | `go_struct` | The Go struct name, as declared. |
 | `type_token` | One value of that struct's discriminator, `*` when it has none, or a `~virtual` token (see *Conventions*). |
 | `defs_name` | Mechanical: `CamelCase(type_token) + go_struct`, or `go_struct` when the token is `*`. `OllamaTransformationSpec`, `MergeFilesPipeSpec`, `StageInputChannelConfig`. A virtual token drops its `~` first; hyphens split like underscores (`de-identification` → `DeIdentificationAnonymizeSpec`). Where the token repeats a word of the struct the name stutters — `OutputOutputChannelConfig`, `SqlLookupLookupSpec` — and the stutter stands: it is the price of a rule under which no hand-picked pair of names can collide. The check enforces the rule and also that every `defs_name` is unique, so the `$defs` key, the Pydantic class name and the fragment-library entry are one name rather than three conventions. |
-| `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. Virtual rows carry it too, so all rows of one struct can be checked to agree on it. |
+| `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. Virtual rows carry it too, so all rows of one struct can be checked to agree on it — **except where a struct discriminates only by shape, and then every row carries `-`** (2026-09-11). `Element` is the case: a paragraph and a group are told apart by which of `text` and `elements` is present and by nothing else, so there is no key to name, and `variant_when` is where the membership is written. The rule the check enforces is *`-` exactly when the token is `*` or the struct's variants are all `~virtual`*; it read *exactly when the token is `*`* until then, which conflated *this struct has variants* with *this struct has a discriminating key*. The two virtual tokens that existed before — `ExpressionNode`'s and `TransformationSpec`'s — both sit on structs that also carry a value discriminator, so the conflation cost nothing and was never tested. |
 | `variant_when` | The membership predicate of a `~virtual` token — `present(key)` or `absent(key)` — and `-` on every other row. The corpus walker and the emitted schema both read it. |
 | `embeds` | Structs embedded anonymously, whose fields are promoted onto this type on the wire. `InputChannelConfig` embeds `FileConfig`. |
 | `fragment` | Whether this type can be authored and validated standing alone (plan criteria 6 and 7). Expected to be `yes` almost everywhere; a `no` must say why in `notes`. |

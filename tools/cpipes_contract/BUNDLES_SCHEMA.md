@@ -2,7 +2,7 @@
 
 **Seeded 2026-08-19 · authored and reviewed by Michel 2026-08-20 · three files in `matrix/`, two authored and one measured**
 
-The layer is authored. `bundles.csv` carries ~~**seventeen**~~ **twenty-two** bundles: one per
+The layer is authored. `bundles.csv` carries ~~**seventeen**~~ ~~**twenty-two**~~ **twenty-three** bundles: one per
 `TransformationSpec` operator, plus `ColumnMapping`, `ColumnAggregation`, and the two map-reduce
 phase bundles. *(Seventeen was right on 2026-08-20 and the invariant it states is what moved the
 number: `infer`, `vllm` and `embed` were built afterwards, and one bundle per operator means three
@@ -252,10 +252,23 @@ everything would pass both the corpus check and the authorability check.
 
 **Two things in this document are stale for the same reason and are left as the dated measurements
 they are.** *Fifteen operators* (§*What the layer is for*, and the two range tables) was the count on
-2026-08-20 and is eighteen today; the token figures below were measured over those fifteen and are
+2026-08-20 and is ~~eighteen~~ **nineteen** today (`render`, 2026-09-11); the token figures below were measured over those fifteen and are
 not re-measured here. `tests_template.py`'s `test_every_bundle_is_authorable` reads `bundles.csv`
-rather than a literal, so the budget claim is re-checked over all twenty-two on every run and does
-not depend on the prose.
+rather than a literal, so the budget claim is re-checked over all ~~twenty-two~~ **twenty-three** on
+every run and does not depend on the prose.
+
+**`RenderPipe` is the twenty-third, added 2026-09-11 with the `render` operator.** It is the first
+bundle whose `columns_range` is `-` for a reason other than the operator having no `columns` field in
+Go: the render operator carries the key and the matrix marks it inapplicable, because the operator
+writes one column named by `render_config.output_column` and runs no column transformations. The
+emitter treats the two the same — it pops `columns` from the bundle and from its override — so the
+distinction is one for a reader of `fields.csv` rather than one the schema can see.
+
+**The check that found it owed a row is `cpipes-contract bundles`, and it found it by name**: a live
+`render` fragment in `patient_profile_template.pc.json` reported *operator 'render' is in no bundle*.
+Nothing in `check` or `schema` would have — the emitter fails on a bundle naming an unknown token and
+not on a token named by no bundle — so *one bundle per operator* is an invariant the corpus check
+enforces and the emitter does not.
 
 **`bundle_evidence.csv` has no row for any of the three, and that is not an omission of this change.**
 The file is documented above as *regenerated from the corpus, never hand-edited* — and nothing

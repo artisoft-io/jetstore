@@ -264,11 +264,19 @@ class TypeRow(Row):
             )
         if virtual:
             parse_variant_when(self.variant_when)  # raises on a malformed predicate
-            if self.discriminator == NONE:
-                raise ValueError(
-                    "a virtual token still names the struct's discriminator, so the "
-                    "rows of one struct can be checked for agreement on it"
-                )
+            # **A virtual token names the struct's discriminator where the struct
+            # has one, and `-` is legal where it has not.** This rule refused `-`
+            # outright until 2026-09-11, on the argument that carrying the
+            # discriminator lets the rows of one struct be checked for agreement
+            # on it. That argument survives - the agreement check is in
+            # `check`, which can see the siblings a row validator cannot - but
+            # the rule read a struct that discriminates *only* by shape as
+            # malformed. `Element` is the first: a paragraph and a group are
+            # told apart by which of `text` and `elements` is present, and
+            # `variant_when` is where that is written down. The consistency this
+            # rule was reaching for is `check`'s `discriminator must be '-'
+            # exactly when type_token is '*' or the struct's variants are all
+            # ~virtual`, which is the same claim with the siblings in hand.
         return self
 
 

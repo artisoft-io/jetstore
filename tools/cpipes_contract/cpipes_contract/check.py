@@ -103,10 +103,29 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
         # the column records what the schema calls it, which is the column's job.
         if t.defs_name not in (expected, t.go_struct):
             bad(where, f"defs_name should be {expected} or {t.go_struct}, found {t.defs_name}")
-        if (t.discriminator == NONE) != (t.type_token == ANY_TOKEN):
+        # A token implies a discriminator, **except where the discrimination is
+        # by shape all the way down.** The rule read "'-' exactly when the token
+        # is '*'" until 2026-09-11, which conflated *this struct has variants*
+        # with *this struct has a discriminating key*. The two virtual tokens
+        # that existed then - ExpressionNode's `~unary` and `~binary`,
+        # TransformationSpec's `~override` - both sit on structs that also carry
+        # a value discriminator, so the conflation cost nothing and was never
+        # tested. `Element` is the first struct whose only variants are virtual:
+        # a paragraph and a group are told apart by which of `text` and
+        # `elements` is present and by nothing else, and `variant_when` is the
+        # column that says so. Naming a discriminator there would be inventing a
+        # key the wire format has not got.
+        virtual = t.type_token.startswith(VIRTUAL_PREFIX)
+        shape_only = virtual and all(
+            r.type_token.startswith(VIRTUAL_PREFIX)
+            for r in matrix.types
+            if r.go_struct == t.go_struct
+        )
+        if (t.discriminator == NONE) != (t.type_token == ANY_TOKEN or shape_only):
             bad(
                 where,
-                "discriminator must be '-' exactly when type_token is '*'",
+                "discriminator must be '-' exactly when type_token is '*' or the "
+                "struct's variants are all `~virtual`",
             )
         if strict and (t.corpus_instances > 0) != (t.exemplar_file != NONE):
             # Strict-only: while extraction is partial the walk cannot reach every

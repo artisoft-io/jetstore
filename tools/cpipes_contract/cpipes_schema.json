@@ -3015,6 +3015,22 @@
           "default": null,
           "description": "Runtime configuration providers for channels and files.",
           "title": "Schema Providers"
+        },
+        "text_templates": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/TextTemplateSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named text template documents for the render operator.",
+          "title": "Text Templates"
         }
       },
       "title": "ComputePipesConfig",
@@ -3810,6 +3826,46 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TransformationSpecOverridePartitionWriterPipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
+    "ConditionalTransformationSpecRenderPipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideRenderPipe"
             },
             {
               "type": "null"
@@ -4657,6 +4713,123 @@
         "domain_keys_info"
       ],
       "title": "DomainKeysSpec",
+      "type": "object"
+    },
+    "Element": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ElementParagraph"
+        },
+        {
+          "$ref": "#/$defs/ElementGroup"
+        }
+      ]
+    },
+    "ElementGroup": {
+      "additionalProperties": false,
+      "description": "Element: a group of a text template document - children emitted in array order, with a fallback for the case where none of them emitted.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "elements": {
+          "description": "A group's children, emitted in array order.",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementParagraph"
+              },
+              {
+                "$ref": "#/$defs/ElementGroup"
+              }
+            ]
+          },
+          "title": "Elements",
+          "type": "array"
+        },
+        "empty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A group's fallback, emitted as one paragraph when no child emitted anything.",
+          "title": "Empty"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Predicate gating the element. Absent means always.",
+          "title": "When"
+        }
+      },
+      "required": [
+        "elements"
+      ],
+      "title": "ElementGroup",
+      "type": "object"
+    },
+    "ElementParagraph": {
+      "additionalProperties": false,
+      "description": "Element: a paragraph of a text template document - one block of markup, wrapped to the document's width.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "text": {
+          "description": "A paragraph's markup.",
+          "title": "Text",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Predicate gating the element. Absent means always.",
+          "title": "When"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ElementParagraph",
       "type": "object"
     },
     "EmbedPipe": {
@@ -12554,6 +12727,7 @@
                     "merge": "#/$defs/TransformationSpecMerge",
                     "ollama": "#/$defs/TransformationSpecOllama",
                     "partition_writer": "#/$defs/TransformationSpecPartitionWriter",
+                    "render": "#/$defs/TransformationSpecRender",
                     "shuffling": "#/$defs/TransformationSpecShuffling",
                     "sort": "#/$defs/TransformationSpecSort",
                     "vllm": "#/$defs/TransformationSpecVllm"
@@ -12614,6 +12788,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecInfer"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecRender"
                   }
                 ]
               },
@@ -12782,6 +12959,7 @@
                     "merge": "#/$defs/TransformationSpecMerge",
                     "ollama": "#/$defs/TransformationSpecOllama",
                     "partition_writer": "#/$defs/TransformationSpecPartitionWriter",
+                    "render": "#/$defs/TransformationSpecRender",
                     "shuffling": "#/$defs/TransformationSpecShuffling",
                     "sort": "#/$defs/TransformationSpecSort",
                     "vllm": "#/$defs/TransformationSpecVllm"
@@ -12842,6 +13020,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecInfer"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecRender"
                   }
                 ]
               },
@@ -13047,6 +13228,234 @@
         "name"
       ],
       "title": "RegexNode",
+      "type": "object"
+    },
+    "RenderPipe": {
+      "additionalProperties": false,
+      "description": "Renders one text template per record and augments the record in place with the rendered text.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecRenderPipe"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "render_config": {
+          "$ref": "#/$defs/RenderSpec",
+          "description": "Configuration of the render operator."
+        },
+        "type": {
+          "const": "render",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "output_channel",
+        "render_config"
+      ],
+      "title": "TransformationSpecRender",
+      "type": "object"
+    },
+    "RenderSpec": {
+      "additionalProperties": false,
+      "description": "Configuration of the render transformation operator: the template it applies, the column it reads and the column the rendered text lands in.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "error_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Channel where row-level errors are reported, on the process_errors channel spec.",
+          "title": "Error Channel"
+        },
+        "input_column": {
+          "description": "The column carrying the serialised entity the template renders from.",
+          "title": "Input Column",
+          "type": "string"
+        },
+        "input_encoding": {
+          "anyOf": [
+            {
+              "enum": [
+                "json",
+                "toon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How input_column is serialised. An override rather than the answer: the encoding is read off the input channel's column_encodings entry when there is one, and a disagreement between the two is a build failure. Engine default: json (builder).",
+          "title": "Input Encoding"
+        },
+        "max_error_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cap on the records reported to the log and the error channel. Engine default: 20 (builder).",
+          "title": "Max Error Count"
+        },
+        "on_error": {
+          "anyOf": [
+            {
+              "enum": [
+                "pass_through",
+                "drop",
+                "fail"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What to do with a record whose render failed: pass_through sends it on with the output column left unwritten, drop discards it, fail stops the run. Engine default: pass_through (builder).",
+          "title": "On Error"
+        },
+        "output_column": {
+          "description": "The column the rendered text is written to; it may not be input_column.",
+          "title": "Output Column",
+          "type": "string"
+        },
+        "row_key_column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column identifying the record in the error reports (row_jets_key).",
+          "title": "Row Key Column"
+        },
+        "template_name": {
+          "description": "Key of a text_templates entry of the document. There is no inline alternative to it.",
+          "title": "Template Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_column",
+        "output_column",
+        "template_name"
+      ],
+      "title": "RenderSpec",
       "type": "object"
     },
     "ReportCmdSpec": {
@@ -15021,6 +15430,70 @@
       "title": "TargetColumnsLookupSpec",
       "type": "object"
     },
+    "TextTemplateSpec": {
+      "additionalProperties": false,
+      "description": "Shared configuration of text template documents, named and applied by the render operator.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "elements": {
+          "description": "The elements of the document, emitted in array order, each as its own paragraph.",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementParagraph"
+              },
+              {
+                "$ref": "#/$defs/ElementGroup"
+              }
+            ]
+          },
+          "title": "Elements",
+          "type": "array"
+        },
+        "empty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The markup the document emits when no element emitted anything.",
+          "title": "Empty"
+        },
+        "key": {
+          "description": "Key is the name used by RenderSpec.TemplateName.",
+          "title": "Key",
+          "type": "string"
+        },
+        "width": {
+          "description": "The column each paragraph is wrapped to. Required rather than defaulted: the shape of the output depends on it.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "elements",
+        "key",
+        "width"
+      ],
+      "title": "TextTemplateSpec",
+      "type": "object"
+    },
     "TransformationColumnSpec": {
       "discriminator": {
         "mapping": {
@@ -16580,6 +17053,7 @@
           "merge": "#/$defs/TransformationSpecMerge",
           "ollama": "#/$defs/TransformationSpecOllama",
           "partition_writer": "#/$defs/TransformationSpecPartitionWriter",
+          "render": "#/$defs/TransformationSpecRender",
           "shuffling": "#/$defs/TransformationSpecShuffling",
           "sort": "#/$defs/TransformationSpecSort",
           "vllm": "#/$defs/TransformationSpecVllm"
@@ -16640,6 +17114,9 @@
         },
         {
           "$ref": "#/$defs/TransformationSpecInfer"
+        },
+        {
+          "$ref": "#/$defs/TransformationSpecRender"
         }
       ]
     },
@@ -20326,6 +20803,62 @@
       "title": "TransformationSpecOverride",
       "type": "object"
     },
+    "TransformationSpecOverrideRenderPipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
     "TransformationSpecOverrideShufflingPipe": {
       "additionalProperties": false,
       "description": "Fragments of transformation operator to override fields of the host transformation operator.",
@@ -20718,6 +21251,97 @@
         "partition_writer_config"
       ],
       "title": "TransformationSpecPartitionWriter",
+      "type": "object"
+    },
+    "TransformationSpecRender": {
+      "additionalProperties": false,
+      "description": "Renders one text template per record and augments the record in place with the rendered text.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "render_config": {
+          "$ref": "#/$defs/RenderSpec",
+          "description": "Configuration of the render operator."
+        },
+        "type": {
+          "const": "render",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "output_channel",
+        "render_config"
+      ],
+      "title": "TransformationSpecRender",
       "type": "object"
     },
     "TransformationSpecShuffling": {

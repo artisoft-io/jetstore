@@ -248,6 +248,7 @@ class ComputePipesConfig(_Base):
     prompt_templates: list[PromptTemplateSpec] | None = Field(default=None, description="Named prompt templates for the ollama operator.")
     reducing_pipes_config: list[list[PipeSpec]] | None = Field(default=None, description="DEPRECATED. The superseded authored form: groups of pipes per reducing step.")
     schema_providers: list[SchemaProviderSpec] | None = Field(default=None, description="Runtime configuration providers for channels and files.")
+    text_templates: list[TextTemplateSpec] | None = Field(default=None, description="Named text template documents for the render operator.")
 
 
 class ConditionalEnvVariable(_Base):
@@ -333,6 +334,21 @@ class DomainKeysSpec(_Base):
     """Domain-key configuration: an overriding hashing method applicable to all object types, and per-object-type key info."""
     domain_keys_info: dict[str, DomainKeyInfo] = Field(description="Domain keys keyed by object type.")
     hashing_override: Literal["none", "sha1", "md5"] | None = Field(default=None, description="Overriding hashing method, applicable to all object types.")
+
+
+class ElementParagraph(_Base):
+    """Element: a paragraph of a text template document - one block of markup, wrapped to the document's width."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    text: str = Field(description="A paragraph's markup.")
+    when: str | None = Field(default=None, description="Predicate gating the element. Absent means always.")
+
+
+class ElementGroup(_Base):
+    """Element: a group of a text template document - children emitted in array order, with a fallback for the case where none of them emitted."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    elements: list[Element] = Field(description="A group's children, emitted in array order.")
+    empty: str | None = Field(default=None, description="A group's fallback, emitted as one paragraph when no child emitted anything.")
+    when: str | None = Field(default=None, description="Predicate gating the element. Absent means always.")
 
 
 class EmbedSpec(_Base):
@@ -1008,6 +1024,19 @@ class RegexNode(_Base):
     use_scrubbed_value: bool | None = Field(default=None, description="Match against the scrubbed value rather than the raw one.")
 
 
+class RenderSpec(_Base):
+    """Configuration of the render transformation operator: the template it applies, the column it reads and the column the rendered text lands in."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where row-level errors are reported, on the process_errors channel spec.")
+    input_column: str = Field(description="The column carrying the serialised entity the template renders from.")
+    input_encoding: Literal["json", "toon"] | None = Field(default=None, description="How input_column is serialised. An override rather than the answer: the encoding is read off the input channel's column_encodings entry when there is one, and a disagreement between the two is a build failure. Engine default: json (builder).")
+    max_error_count: int | None = Field(default=None, description="Cap on the records reported to the log and the error channel. Engine default: 20 (builder).")
+    on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record whose render failed: pass_through sends it on with the output column left unwritten, drop discards it, fail stops the run. Engine default: pass_through (builder).")
+    output_column: str = Field(description="The column the rendered text is written to; it may not be input_column.")
+    row_key_column: str | None = Field(default=None, description="Column identifying the record in the error reports (row_jets_key).")
+    template_name: str = Field(description="Key of a text_templates entry of the document. There is no inline alternative to it.")
+
+
 class ReportCmdSpec(_Base):
     """A report command run by the schema provider; s3_copy_file copies a file from s3 to s3, optionally gated by a when expression."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -1180,6 +1209,15 @@ class TargetColumnsLookupSpec(_Base):
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     data_classification_column: str = Field(description="The lookup-table column holding the data classification value.")
     lookup_name: str = Field(description="The lookup table, keyed by column name, giving each input column's data classification.")
+
+
+class TextTemplateSpec(_Base):
+    """Shared configuration of text template documents, named and applied by the render operator."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    elements: list[Element] = Field(description="The elements of the document, emitted in array order, each as its own paragraph.")
+    empty: str | None = Field(default=None, description="The markup the document emits when no element emitted anything.")
+    key: str = Field(description="Key is the name used by RenderSpec.TemplateName.")
+    width: int = Field(description="The column each paragraph is wrapped to. Required rather than defaulted: the shape of the output depends on it.")
 
 
 class TransformationColumnSpecBase(_Base):
@@ -1467,6 +1505,13 @@ class TransformationSpecInfer(TransformationSpecBase):
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
+class TransformationSpecRender(TransformationSpecBase):
+    """Renders one text template per record and augments the record in place with the rendered text."""
+    type: Literal["render"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
+    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+    render_config: RenderSpec = Field(description="Configuration of the render operator.")
+
+
 class TransformationSpecOverride(_Base):
     """Fragments of transformation operator to override fields of the host transformation operator."""
     analyze_config: AnalyzeSpec | None = Field(default=None, description="Configuration of the analyze operator.")
@@ -1516,6 +1561,13 @@ class VllmSpec(_Base):
 
 
 AnonymizeSpec = Annotated[Union[AnonymizeSpecAnonymization, AnonymizeSpecDeIdentification], Field(discriminator="mode"), BeforeValidator(_tag_default("mode", "anonymization"))]
+# Element is the one union here with no discriminator field: a paragraph and a
+# group are told apart by which of `text` and `elements` is present, which the
+# matrix records as the two rows' `variant_when`. `extra="forbid"` on both
+# branches is what makes the plain Union exact rather than permissive - an
+# element carrying both matches neither branch, and one carrying neither fails
+# both branches' required field.
+Element = Annotated[Union[ElementParagraph, ElementGroup], Field(union_mode="left_to_right")]
 CsvSourceSpec = Annotated[Union[CsvSourceSpecCpipes, CsvSourceSpecCsvFile], Field(discriminator="type")]
 FunctionTokenNode = Annotated[Union[FunctionTokenNodeParseDate, FunctionTokenNodeParseDouble, FunctionTokenNodeParseText], Field(discriminator="type")]
 InputChannelConfig = Annotated[Union[InputChannelConfigMemory, InputChannelConfigInput, InputChannelConfigStage, InputChannelConfigGenerator], Field(discriminator="type"), BeforeValidator(_tag_default("type", "memory"))]
@@ -1526,7 +1578,7 @@ PipeSpec = Annotated[Union[PipeSpecFanOut, PipeSpecMergeFiles, PipeSpecSplitter]
 SchemaProviderSpec = Annotated[Union[SchemaProviderSpecDefault, SchemaProviderSpecPipelineCoordinatorMap], Field(discriminator="type")]
 SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Field(discriminator="type"), BeforeValidator(_tag_default("type", "standard"))]
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
-TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer], Field(discriminator="type")]
+TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender], Field(discriminator="type")]
 
 
 # class -> (go_struct, type_token); the reflect direction's key.
@@ -1558,6 +1610,8 @@ _MATRIX_KEYS = {
     "DistinctSpec": ("DistinctSpec", "*"),
     "DomainKeyInfo": ("DomainKeyInfo", "*"),
     "DomainKeysSpec": ("DomainKeysSpec", "*"),
+    "ElementGroup": ("Element", "~group"),
+    "ElementParagraph": ("Element", "~paragraph"),
     "EmbedSpec": ("EmbedSpec", "*"),
     "EntityHint": ("EntityHint", "*"),
     "FieldInfo": ("FieldInfo", "*"),
@@ -1606,6 +1660,7 @@ _MATRIX_KEYS = {
     "PipeSpecSplitter": ("PipeSpec", "splitter"),
     "PromptTemplateSpec": ("PromptTemplateSpec", "*"),
     "RegexNode": ("RegexNode", "*"),
+    "RenderSpec": ("RenderSpec", "*"),
     "ReportCmdSpec": ("ReportCmdSpec", "s3_copy_file"),
     "S3CopyFileSpec": ("S3CopyFileSpec", "*"),
     "SchemaColumnSpec": ("SchemaColumnSpec", "*"),
@@ -1619,6 +1674,7 @@ _MATRIX_KEYS = {
     "TableColumnSpec": ("TableColumnSpec", "*"),
     "TableSpec": ("TableSpec", "*"),
     "TargetColumnsLookupSpec": ("TargetColumnsLookupSpec", "*"),
+    "TextTemplateSpec": ("TextTemplateSpec", "*"),
     "TransformationColumnSpecAvrg": ("TransformationColumnSpec", "avrg"),
     "TransformationColumnSpecCase": ("TransformationColumnSpec", "case"),
     "TransformationColumnSpecCount": ("TransformationColumnSpec", "count"),
@@ -1650,6 +1706,7 @@ _MATRIX_KEYS = {
     "TransformationSpecOllama": ("TransformationSpec", "ollama"),
     "TransformationSpecOverride": ("TransformationSpec", "~override"),
     "TransformationSpecPartitionWriter": ("TransformationSpec", "partition_writer"),
+    "TransformationSpecRender": ("TransformationSpec", "render"),
     "TransformationSpecShuffling": ("TransformationSpec", "shuffling"),
     "TransformationSpecSort": ("TransformationSpec", "sort"),
     "TransformationSpecVllm": ("TransformationSpec", "vllm"),
