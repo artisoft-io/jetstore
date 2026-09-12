@@ -1,19 +1,65 @@
 package main
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// execScript executes an entire init db script as a single multi-statement
+// simple query, deliberately: PostgreSQL is then the only thing that decides
+// where one statement ends and the next begins.
+//
+// This function used to read up to the next `;` byte and execute the text in
+// between. A `;` is an ordinary character inside a `--` comment, a string
+// literal, a quoted identifier or a dollar-quoted body, so any of those split a
+// statement in two and the second fragment was submitted as SQL — which
+// PostgreSQL then reported as a syntax error in text that looked nothing like
+// the cause. A comment in `workspaces/jets_ws` cost a deployment on 2026-09-12,
+// and two walrus client scripts (`ciseit`, `fbin`) carry twelve semicolons
+// inside a multi-line JSON literal and could not be loaded at all.
+//
+// Two properties come with sending the whole file, and both are wanted:
+//
+//   - pgx uses the simple protocol whenever Exec is called with no arguments
+//     (`Conn.exec`, "Always use simple protocol when there are no arguments"),
+//     and PostgreSQL wraps a multi-statement simple query in a single implicit
+//     transaction. The whole script therefore applies or none of it does. These
+//     scripts are written as DELETE followed by INSERT against the same table,
+//     so a failure part-way through used to leave configuration deleted.
+//
+//   - A script that opens its own transaction still behaves as its author wrote
+//     it: an explicit BEGIN supersedes the implicit transaction rather than
+//     conflicting with it, which an explicit transaction opened here would not.
+//     No init db script does this today, but the report scripts under
+//     `reports/` do, and they are read by the same kind of code.
+//
+// The cost is that a failure no longer names the statement. PostgreSQL reports
+// a character position for the errors where that is knowable, so the position
+// is turned back into a file, line and column.
+func execScript(ctx context.Context, dbpool *pgxpool.Pool, sqlFile, script string) error {
+	_, err := dbpool.Exec(ctx, script)
+	if err == nil {
+		return nil
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Position > 0 {
+		if line, col := sqlscript.Locate(script, int(pgErr.Position)); line > 0 {
+			return fmt.Errorf("error while executing %s:%d:%d: %v", sqlFile, line, col, err)
+		}
+	}
+	return fmt.Errorf("error while executing %s: %v", sqlFile, err)
+}
 
 func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 	sqlFile, err := utils.ConfineFilePath(baseDir, fileName)
@@ -21,38 +67,11 @@ func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 		return err
 	}
 	log.Println("Initializing jetsapi db using", sqlFile)
-	file, err := os.Open(sqlFile)
+	script, err := os.ReadFile(sqlFile)
 	if err != nil {
 		return fmt.Errorf("error while opening jetsapi init db file: %v", err)
 	}
-	defer file.Close()
-	// load & exec sql stmts
-	reader := bufio.NewReader(file)
-	isDone := false
-	var stmt string
-	for !isDone {
-		stmt, err = reader.ReadString(';')
-		if err == io.EOF {
-			isDone = true
-			err = nil
-			break
-		} else if err != nil {
-			return fmt.Errorf("error while reading stmt: %v", err)
-		}
-		if len(stmt) == 0 {
-			return fmt.Errorf("error while reading db init, stmt is empty")
-		}
-		stmt = strings.TrimSpace(stmt)
-		// log.Println(stmt)
-		_, err = dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return fmt.Errorf("error while executing: %v", err)
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("error executing the workspace init db path %s: %v", sqlFile, err)
-	}
-	return nil
+	return execScript(context.Background(), dbpool, sqlFile, string(script))
 }
 
 func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
@@ -83,9 +102,16 @@ func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, c
 	return nil
 }
 
+// InitializeJetsapiDb initializes the jetsapi database using all client files
+// in the directory, skipping base__workspace_init_db.sql.
+//
+// Each file is one transaction, not the whole run: a failure at the seventh of
+// eighteen client scripts leaves the first six applied. That is deliberate. The
+// scripts are written to be re-runnable — DELETE followed by INSERT ... ON
+// CONFLICT DO NOTHING throughout — so the repair is to fix the script and run
+// again, and one transaction spanning every client would hold locks on the
+// whole of jetsapi for the length of a deployment.
 func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
-	// initialize jetsapi database using all client files in directory
-	// skipping base__workspace_init_db.sql
 	fileSystem := os.DirFS(*jetsDbInitPath)
 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
@@ -93,39 +119,9 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
 			return err
 		}
 		if info.IsDir() || path == "base__workspace_init_db.sql" {
-			// log.Printf("visiting directory: %+v \n", info.Name())
 			return nil
 		}
-		sqlFile := fmt.Sprintf("%s/%s", *jetsDbInitPath, path)
-		log.Println("Initializing jetsapi db using", sqlFile)
-		file, err := os.Open(sqlFile)
-		if err != nil {
-			return fmt.Errorf("error while opening jetsapi init db file: %v", err)
-		}
-		defer file.Close()
-		// load & exec sql stmts
-		reader := bufio.NewReader(file)
-		isDone := false
-		var stmt string
-		for !isDone {
-			stmt, err = reader.ReadString(';')
-			if err == io.EOF {
-				isDone = true
-				break
-			} else if err != nil {
-				return fmt.Errorf("error while reading stmt: %v", err)
-			}
-			if len(stmt) == 0 {
-				return fmt.Errorf("error while reading db init, stmt is empty")
-			}
-			stmt = strings.TrimSpace(stmt)
-			// log.Println(stmt)
-			_, err = dbpool.Exec(context.Background(), stmt)
-			if err != nil {
-				return fmt.Errorf("error while executing: %v", err)
-			}
-		}
-		return nil
+		return loadConfig(dbpool, *jetsDbInitPath, path)
 	})
 	if err != nil {
 		return fmt.Errorf("error walking the workspace init db path %s: %v", *jetsDbInitPath, err)
