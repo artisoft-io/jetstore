@@ -57,12 +57,9 @@ import (
 // changes elsewhere, both of them assumptions nobody had had reason to write
 // down.
 //
-// **`.jr.sql` also matches this row.** There is no such file in any of the four
-// workspaces or anywhere in this repository, and nothing but the section filter
-// at `wsfile/sections.go:101` mentions the suffix, so what one would contain is
-// unknown rather than known-compatible. If one turns out not to be a PostgreSQL
-// script, the longest-match rule in `validatorFor` is where it is excluded —
-// which is the fifth file type's argument reaching its first real use.
+// **Nothing else in the workspace tree ends `.sql`, and that took a deletion to
+// become true** — see the `jet_rules` row in `wsfile/sections.go`, which
+// filtered on a second `.sql` suffix this row would have matched.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -81,8 +78,9 @@ var workspaceFileValidators = []struct {
 // `HasSuffix(ToUpper(fileName), ".JSON")`, so `.uf.json` already matches it and
 // so will `.pc.json`; a naive dispatch would either double-validate or shadow.
 // The JSON suffixes are mutually exclusive, so longest-match still costs
-// nothing — it is the rule that keeps a later file type honest, and `.sql`
-// against a future `.jr.sql` is the first case where it would decide something.
+// nothing — it is the rule that keeps a later file type honest. It has still
+// never decided anything: the one case that nearly did was settled by deleting
+// a file type rather than by adding a row (`wsfile/sections.go`, `jet_rules`).
 //
 // Matching is case-insensitive, like the JSON check beside it. A workspace file
 // named `Foo.UF.JSON` is the same file type as `foo.uf.json`, and the file

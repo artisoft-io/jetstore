@@ -31,16 +31,10 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		// checkWorkspaceFile. TestSaveCheckValidatesSqlFiles is what asserts it
 		// is reached; this only asserts the dispatch.
 		"process_config/base__workspace_init_db.sql": true,
-		"reports/CM.sql": true,
-		"reports/CM.SQL": true,
-		// Matches the `.sql` row today, deliberately recorded rather than
-		// asserted away: no such file exists in any workspace or in this
-		// repository, so whether it is a PostgreSQL script is unknown. If it is
-		// not, a `.jr.sql` row is what excludes it and longest-match is what
-		// makes that work.
-		"jet_rules/mapping.jr.sql": true,
-		"jet_rules/mapping.jr":     false,
-		"reports/CM.sql.backup":    false,
+		"reports/CM.sql":        true,
+		"reports/CM.SQL":        true,
+		"jet_rules/mapping.jr":  false,
+		"reports/CM.sql.backup": false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {

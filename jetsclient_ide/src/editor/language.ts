@@ -2,9 +2,13 @@
  * Picks a CodeMirror language from a file name.
  *
  * The extensions here are the ones the workspace tree actually serves — the Go
- * visitor filters to `.jr`, `.jr.sql`, `.csv`, plus the pipeline configs — so this
- * is a closed set rather than a general-purpose registry. `.jr.sql` has to be
- * tested before `.sql`, and both before the bare-extension fallback.
+ * visitor filters to `.jr`, `.csv`, the pipeline configs, and the `.sql` under
+ * `process_config/` and `reports/` — so this is a closed set rather than a
+ * general-purpose registry.
+ *
+ * A `.jr.sql` arm sat at the top of this until 2026-09-12, deleted with the
+ * file type it served — and it was redundant as well as unused. See the
+ * `jet_rules` row in the Go visitor's `wsfile/sections.go` for why.
  */
 
 import type { Extension } from "@codemirror/state";
@@ -16,9 +20,6 @@ export type LanguageName = "jetrules" | "json" | "sql" | "plain";
 
 export function languageNameFor(fileName: string): LanguageName {
   const name = fileName.toLowerCase();
-  // `.jr.sql` is a JetRules-flavoured sql file; sql highlighting is the better fit
-  // for its body, and it must not fall through to the `.jr` branch.
-  if (name.endsWith(".jr.sql")) return "sql";
   if (name.endsWith(".jr")) return "jetrules";
   if (name.endsWith(".json")) return "json";
   if (name.endsWith(".sql")) return "sql";

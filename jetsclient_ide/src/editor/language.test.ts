@@ -6,13 +6,8 @@ describe("languageNameFor", () => {
     expect(languageNameFor("jet_rules/main/rules.jr")).toBe("jetrules");
     expect(languageNameFor("pipes_config/qc_medicalclaim.pc.json")).toBe("json");
     expect(languageNameFor("data/lookups/uszips.sql")).toBe("sql");
+    expect(languageNameFor("process_config/base__workspace_init_db.sql")).toBe("sql");
     expect(languageNameFor("lookups/drug_info.csv")).toBe("plain");
-  });
-
-  it("reads .jr.sql as sql, not as JetRules", () => {
-    // The Go visitor serves .jr and .jr.sql from the same directory, and the
-    // suffix test has to run in this order or every .jr.sql lands in the .jr arm.
-    expect(languageNameFor("jet_rules/a.jr.sql")).toBe("sql");
   });
 
   it("ignores case", () => {
