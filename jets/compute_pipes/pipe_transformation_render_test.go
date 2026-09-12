@@ -406,11 +406,15 @@ func TestRenderViolationFailsTheRow(t *testing.T) {
 	}
 }
 
-// TestRenderReportsEachViolationSeparately: a violation inside an `each` carries
-// the item index, which is the one piece of context the template's message
-// cannot carry. Collapsing two violations into one row would throw it away.
-func TestRenderReportsEachViolationSeparately(t *testing.T) {
-	tmpl := TextTemplateSpec{
+// renderTwoViolationsTemplate and renderTwoViolationsDoc are one record that
+// fails **twice**: three events, two of them carrying no `code`, against a
+// template whose `each` body requires one. It is the smallest input that
+// separates *per violation* from *per record*, which is the distinction I-721
+// turned out to rest on -- and it is shared by the two tests below because they
+// assert the two halves of what one such record costs: how many error rows it
+// writes, and how many times it is sent.
+func renderTwoViolationsTemplate() TextTemplateSpec {
+	return TextTemplateSpec{
 		Key:   "items",
 		Width: 200,
 		Elements: []*template.Element{
@@ -418,11 +422,22 @@ func TestRenderReportsEachViolationSeparately(t *testing.T) {
 				"{{code require 'an event carries no code'}}{{end}}."},
 		},
 	}
-	doc := map[string]any{"Events": []any{
+}
+
+func renderTwoViolationsDoc() map[string]any {
+	return map[string]any{"Events": []any{
 		map[string]any{"code": "A"},
 		map[string]any{"note": "no code here"},
 		map[string]any{"note": "nor here"},
 	}}
+}
+
+// TestRenderReportsEachViolationSeparately: a violation inside an `each` carries
+// the item index, which is the one piece of context the template's message
+// cannot carry. Collapsing two violations into one row would throw it away.
+func TestRenderReportsEachViolationSeparately(t *testing.T) {
+	tmpl := renderTwoViolationsTemplate()
+	doc := renderTwoViolationsDoc()
 	config := renderTestConfig("items")
 	config.ErrorChannel = renderTestErrorChannel()
 	config.OnError = OnErrorDrop
@@ -436,6 +451,83 @@ func TestRenderReportsEachViolationSeparately(t *testing.T) {
 	second, _ := result.errorRecords[1][5].(string)
 	if !strings.Contains(first, "item 1") || !strings.Contains(second, "item 2") {
 		t.Errorf("the rows do not say which item: %q / %q", first, second)
+	}
+}
+
+// TestRenderSendsAFailedRecordOnce is I-721, and it is the assertion the suite
+// was missing rather than a new requirement.
+//
+// **A record is one record whatever it did wrong.** How many error rows a
+// failure writes is a question about *diagnosis* and the answer is one per
+// violation; how many times the record is forwarded is a question about the
+// *policy* and the answer is whatever the policy says about a record -- once for
+// pass-through, never for drop and for fail. Nothing said so, because the only
+// multi-violation case ran under `drop`, and a policy that emits nothing cannot
+// observe a duplicate.
+//
+// The record below carries two violations, so every count here reads `2` under
+// the defect and the policy's own number after the fix.
+func TestRenderSendsAFailedRecordOnce(t *testing.T) {
+	cases := []struct {
+		onError     string
+		wantOut     int
+		wantErrRows int
+		wantApplyEr int
+	}{
+		{OnErrorPassThrough, 1, 2, 0},
+		{OnErrorDrop, 0, 2, 0},
+		{OnErrorFail, 0, 2, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.onError, func(t *testing.T) {
+			config := renderTestConfig("items")
+			config.ErrorChannel = renderTestErrorChannel()
+			config.OnError = tc.onError
+			result := runRenderTestPipe(t, renderTestCpConfig(renderTwoViolationsTemplate()), config,
+				[][]any{{"member-1", mustJson(t, renderTwoViolationsDoc()), nil}}, nil)
+
+			if len(result.outputRecords) != tc.wantOut {
+				t.Errorf("a record with two violations was sent %d time(s), want %d: "+
+					"the count belongs to the policy, not to the violations",
+					len(result.outputRecords), tc.wantOut)
+			}
+			if len(result.errorRecords) != tc.wantErrRows {
+				t.Errorf("got %d error rows, want %d -- one per violation under every policy",
+					len(result.errorRecords), tc.wantErrRows)
+			}
+			if len(result.applyErrs) != tc.wantApplyEr {
+				t.Errorf("got %d Apply errors, want %d: %v",
+					len(result.applyErrs), tc.wantApplyEr, result.applyErrs)
+			}
+			for _, record := range result.outputRecords {
+				if record[2] != nil {
+					t.Errorf("the output column carries %q; a failed row must not carry a partial "+
+						"briefing under any policy", record[2])
+				}
+			}
+		})
+	}
+}
+
+// TestRenderSendsADecodeFailureOnce is the neighbouring path asserted rather
+// than assumed. A decode failure is one failure per record by construction --
+// `documentOf` returns at the first thing wrong -- so this test would pass
+// against the defect. It is here because I-721's mechanism was *reporting and
+// forwarding sharing a function*, and a path that calls that function once is
+// evidence only while somebody checks that it still does.
+func TestRenderSendsADecodeFailureOnce(t *testing.T) {
+	config := renderTestConfig("briefing")
+	config.ErrorChannel = renderTestErrorChannel()
+	config.OnError = OnErrorPassThrough
+	result := runRenderTestPipe(t, renderTestCpConfig(renderTestTemplate("briefing")), config,
+		[][]any{{"member-1", "this is not json", nil}}, nil)
+
+	if len(result.outputRecords) != 1 {
+		t.Errorf("a record that failed to decode was sent %d time(s), want 1",
+			len(result.outputRecords))
+	}
+	if len(result.errorRecords) != 1 {
+		t.Errorf("got %d error rows, want 1", len(result.errorRecords))
 	}
 }
 
