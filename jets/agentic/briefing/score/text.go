@@ -592,6 +592,22 @@ func firstInt(node any, sel briefing.Selector) (int, bool) {
 	return 0, false
 }
 
+// scalar and asInt are this package's own, and they are **not**
+// [briefing.ValueText] and [briefing.AsInt].
+//
+// `AY.5` unified the three copies `I-643` recorded and left these two, which
+// makes this the place to say why rather than leave the next reader to find a
+// fourth copy and assume it was missed. **The default arm is the difference**:
+// a value that is neither a scalar nor a time reads as `""` here and as
+// `fmt.Sprintf("%v", x)` there, so a map reaching a word count contributes
+// nothing rather than contributing `map[...]`. This package counts words in an
+// artefact and attributes them to drugs; a change that put a Go value's default
+// formatting into that stream would move findings, and a scorer's findings
+// should move on a measurement rather than on a refactor whose subject was
+// duplication elsewhere.
+//
+// The narrower type switches are the same story with a smaller consequence: a
+// fact set comes from a decoded document, where every number is a float64.
 func scalar(v any) string {
 	switch x := v.(type) {
 	case nil:

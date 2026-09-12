@@ -162,7 +162,7 @@ func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []st
 		return nil, refs
 
 	case KindWithinSpan:
-		at, ok := asDate(loc.Value)
+		at, ok := AsDate(loc.Value)
 		if !ok {
 			return fail(CodeUnparseableDate, fmt.Sprintf(
 				"%s is %q and a within_span rule cannot read it as a date", loc.Pointer, fmt.Sprint(loc.Value)))
@@ -171,7 +171,7 @@ func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []st
 		var loRef, hiRef string
 		for _, src := range r.sources {
 			for _, cand := range src.Resolve(entity) {
-				d, ok := asDate(cand.Value)
+				d, ok := AsDate(cand.Value)
 				if !ok {
 					continue
 				}
@@ -199,7 +199,7 @@ func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []st
 		return nil, []string{loRef, hiRef}
 
 	case KindCountOf:
-		want, ok := asNumber(loc.Value)
+		want, ok := AsFloat(loc.Value)
 		if !ok {
 			return fail(CodeNotANumber, fmt.Sprintf(
 				"%s is %q and a count_of rule cannot read it as a number", loc.Pointer, fmt.Sprint(loc.Value)))
@@ -275,56 +275,3 @@ func normalise(v any) string {
 }
 
 func trimNumber(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
-
-func asNumber(v any) (float64, bool) {
-	switch vv := v.(type) {
-	case float64:
-		return vv, true
-	case int:
-		return float64(vv), true
-	case int64:
-		return float64(vv), true
-	case json.Number:
-		f, err := vv.Float64()
-		return f, err == nil
-	case string:
-		f, err := strconv.ParseFloat(strings.TrimSpace(vv), 64)
-		return f, err == nil
-	}
-	return 0, false
-}
-
-const dateOnly = "2006-01-02"
-
-// dateLayouts is what a date can look like on the way in.
-//
-// The padded pair is what the entity writer emits: `EncodeColumnData`
-// (`jets/compute_pipes/jetrules_extract_entity.go:13`) formats a time as
-// `2006-01-02` when it has no clock and `2006-01-02T15:04:05` when it does. The
-// **unpadded** layouts are here because the one worked briefing input in the
-// tree does not use the padded ones - `prompt.md`'s events carry `2025-8-14` and
-// `2025-1-17` - so a checker that accepted only what the writer emits would fail
-// every date in the only sample anybody has.
-var dateLayouts = []string{
-	dateOnly,
-	"2006-01-02T15:04:05",
-	time.RFC3339,
-	"2006-01-02 15:04:05",
-	"2006-1-2",
-	"2006-1-2T15:04:05",
-}
-
-func asDate(v any) (time.Time, bool) {
-	switch vv := v.(type) {
-	case time.Time:
-		return vv, true
-	case string:
-		s := strings.TrimSpace(vv)
-		for _, l := range dateLayouts {
-			if t, err := time.Parse(l, s); err == nil {
-				return t, true
-			}
-		}
-	}
-	return time.Time{}, false
-}
