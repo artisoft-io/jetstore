@@ -373,6 +373,18 @@ func TestCorpusCapReachesOnlyTheSynthesizedOperators(t *testing.T) {
 
 // maxErrorCountOf reads the operator's max_error_count, or 0 where the operator has
 // no config or no such field.
+//
+// **The render arm was missing until 2026-09-11 and the corpus is what found it**
+// (agentic_ai BA.2, I-706). `setDefaultMaxErrorCount` and `setErrorChannelConfig`
+// both name `RenderOperatorType`, so the *production* switch sites were complete
+// when `AZ.1` landed; this helper mirrors the same switch inside the test binary
+// and was not on the list of six. It read 0 for the render operator, which is
+// exactly what an uncapped operator reads, so the first `.pc.json` in the corpus
+// to carry a render step failed this test with a message about the synthesis
+// rather than about the helper. **A switch enumerated over the production sites
+// is not the whole enumeration when a test helper re-states it** -- criterion
+// 86's own wording asks for both switches to be read rather than for one test to
+// pass, and this is a third switch nobody listed.
 func maxErrorCountOf(ts *TransformationSpec) int {
 	switch ts.Type {
 	case "map_record":
@@ -394,6 +406,10 @@ func maxErrorCountOf(ts *TransformationSpec) int {
 	case "vllm":
 		if ts.VllmConfig != nil {
 			return ts.VllmConfig.MaxErrorCount
+		}
+	case RenderOperatorType:
+		if ts.RenderConfig != nil {
+			return ts.RenderConfig.MaxErrorCount
 		}
 	}
 	return 0
