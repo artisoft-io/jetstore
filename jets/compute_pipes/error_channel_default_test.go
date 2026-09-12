@@ -323,7 +323,7 @@ func newFanInFixture(t *testing.T, nbrOperators int) (*ComputePipesConfig, []Pip
 	for i, c := range spec.Columns {
 		columnsMap[c] = i
 	}
-	spec.columnsMap = &columnsMap
+	spec.SetColumnsMap(&columnsMap)
 	reg := &ChannelRegistry{
 		ComputeChannels: make(map[string]*Channel),
 		ClosedChannels:  make(map[string]bool),

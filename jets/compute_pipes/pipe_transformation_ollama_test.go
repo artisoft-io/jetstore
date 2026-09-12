@@ -204,7 +204,8 @@ func TestOllamaResolveTemplate(t *testing.T) {
 
 func TestOllamaValidateChannels(t *testing.T) {
 	columnsMap := ollamaTestColumnsMap()
-	spec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	spec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	spec.SetColumnsMap(&columnsMap)
 	source := &InputChannel{Name: "claims.in", Columns: &columnsMap, Config: spec}
 	// Same spec instance: the normal case, both channels use the same channel_spec_name
 	if err := validateInferChannels(source, &OutputChannel{Name: "claims.out", Config: spec}, "ollama operator"); err != nil {
@@ -341,12 +342,14 @@ func runOllamaTestPipe(t *testing.T, serverUrl string, config *OllamaSpec, spec 
 	t.Helper()
 
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	peColumnsMap := make(map[string]int, len(ollamaProcessErrorColumns))
 	for i, c := range ollamaProcessErrorColumns {
 		peColumnsMap[c] = i
 	}
-	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns, columnsMap: &peColumnsMap}
+	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns}
+	peSpec.SetColumnsMap(&peColumnsMap)
 
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
@@ -807,7 +810,8 @@ func TestOllamaTemplateEnvVarSubstitution(t *testing.T) {
 	server, prompts := ollamaTestServer(t, []ollamaTestResponse{{body: `{"category":"dental"}`}})
 
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
 			"claims.out": {Name: "claims.out", Channel: make(chan []any), Columns: &columnsMap, Config: channelSpec},
