@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"reflect"
 )
 
@@ -9,24 +10,9 @@ import (
 // calculate a domain key as a composite key with pre-processing function.
 // See ParsePreprocessingExpressions for available functions for preprocessing input column.
 
-// DomainKeysSpec contains the overall information, with overriding hashing method.
-// The hashing method is applicable to all object types.
-// DomainKeys is a map keyed by the object type.
-type DomainKeysSpec struct {
-	HashingOverride string                   `json:"hashing_override,omitempty"`
-	DomainKeys      map[string]*DomainKeyInfo `json:"domain_keys_info,omitempty"`
-}
+type DomainKeysSpec = pipesmodel.DomainKeysSpec
 
-// DomainKeyInfo associates a domain hashed key made as a composide domain
-// key with an optional prep-processing function on each of the column making the key.
-// KeyExpr is the original function(column) expression.
-// Columns: list of input column name making the domain key
-// PreprocessFnc: list of pre-processing functions for the input column (one per column)
-// ObjectType: Object type associated with the Domain Key
-type DomainKeyInfo struct {
-	KeyExpr       []string `json:"key_expr,omitempty"`
-	ObjectType    string   `json:"object_type,omitempty"`
-}
+type DomainKeyInfo = pipesmodel.DomainKeyInfo
 
 // Parse domain key configuration info from [domainKeys], supporting 3 use cases:
 // in json format:

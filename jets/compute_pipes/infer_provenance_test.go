@@ -102,12 +102,13 @@ func briefingTestChannelSpec(encodings ...*ColumnEncodingSpec) *ChannelSpec {
 		}
 	}
 	columnsMap := briefingTestColumnsMap()
-	return &ChannelSpec{
+	spec := &ChannelSpec{
 		Name:            "briefing",
 		Columns:         briefingTestColumns,
-		columnsMap:      &columnsMap,
 		ColumnEncodings: encodings,
 	}
+	spec.SetColumnsMap(&columnsMap)
+	return spec
 }
 
 func briefingTestSource(spec *ChannelSpec) *InputChannel {
@@ -313,7 +314,8 @@ func runBriefingTestPipe(t *testing.T, serverUrl string, config *OllamaSpec,
 	for i, c := range ollamaProcessErrorColumns {
 		peColumnsMap[c] = i
 	}
-	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns, columnsMap: &peColumnsMap}
+	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns}
+	peSpec.SetColumnsMap(&peColumnsMap)
 
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{

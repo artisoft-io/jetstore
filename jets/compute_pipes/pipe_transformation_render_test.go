@@ -65,12 +65,14 @@ func runRenderTestPipe(t *testing.T, cpConfig *ComputePipesConfig, config *Rende
 		columnsMap[c] = i
 	}
 	channelSpec := &ChannelSpec{Name: "briefings", Columns: renderTestColumns,
-		columnsMap: &columnsMap, ColumnEncodings: encodings}
+		ColumnEncodings: encodings}
+	channelSpec.SetColumnsMap(&columnsMap)
 	peColumnsMap := make(map[string]int, len(renderProcessErrorColumns))
 	for i, c := range renderProcessErrorColumns {
 		peColumnsMap[c] = i
 	}
-	peSpec := &ChannelSpec{Name: "process_errors", Columns: renderProcessErrorColumns, columnsMap: &peColumnsMap}
+	peSpec := &ChannelSpec{Name: "process_errors", Columns: renderProcessErrorColumns}
+	peSpec.SetColumnsMap(&peColumnsMap)
 
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
@@ -576,7 +578,8 @@ func buildRenderPipe(t *testing.T, cpConfig *ComputePipesConfig, config *RenderS
 		columnsMap[c] = i
 	}
 	channelSpec := &ChannelSpec{Name: "briefings", Columns: renderTestColumns,
-		columnsMap: &columnsMap, ColumnEncodings: encodings}
+		ColumnEncodings: encodings}
+	channelSpec.SetColumnsMap(&columnsMap)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
 			"briefings.out": {Name: "briefings.out", Channel: make(chan []any),
@@ -693,8 +696,10 @@ func renderTestConfigWithEncoding(name, encoding string) *RenderSpec {
 func TestRenderRefusesMismatchedChannels(t *testing.T) {
 	inColumns := map[string]int{"member_key": 0, "briefing_input": 1, "briefing": 2}
 	outColumns := map[string]int{"member_key": 0, "briefing": 1}
-	inSpec := &ChannelSpec{Name: "briefings", Columns: renderTestColumns, columnsMap: &inColumns}
-	outSpec := &ChannelSpec{Name: "other", Columns: []string{"member_key", "briefing"}, columnsMap: &outColumns}
+	inSpec := &ChannelSpec{Name: "briefings", Columns: renderTestColumns}
+	inSpec.SetColumnsMap(&inColumns)
+	outSpec := &ChannelSpec{Name: "other", Columns: []string{"member_key", "briefing"}}
+	outSpec.SetColumnsMap(&outColumns)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
 			"other.out": {Name: "other.out", Channel: make(chan []any), Columns: &outColumns, Config: outSpec},

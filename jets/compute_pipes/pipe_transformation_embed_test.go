@@ -95,12 +95,14 @@ func runEmbedTestPipe(t *testing.T, serverUrl string, config *EmbedSpec, spec *T
 	t.Helper()
 
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	peColumnsMap := make(map[string]int, len(ollamaProcessErrorColumns))
 	for i, c := range ollamaProcessErrorColumns {
 		peColumnsMap[c] = i
 	}
-	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns, columnsMap: &peColumnsMap}
+	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns}
+	peSpec.SetColumnsMap(&peColumnsMap)
 
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
@@ -493,7 +495,8 @@ func TestEmbedPreservesOrderWithSingleWorker(t *testing.T) {
 func buildEmbedPipe(t *testing.T, config *EmbedSpec) error {
 	t.Helper()
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
 			"claims.out": {Name: "claims.out", Channel: make(chan []any),

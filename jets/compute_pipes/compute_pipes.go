@@ -163,7 +163,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		for j, c := range chSpec.Columns {
 			cm[c] = j
 		}
-		chSpec.columnsMap = &cm
+		chSpec.SetColumnsMap(&cm)
 		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = chSpec
 		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = chSpec
 	}
@@ -184,8 +184,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			Columns:        mainInput.InputColumns,
 			ClassName:      mainInput.DomainClass,
 			DomainKeysInfo: mainInput.DomainKeys,
-			columnsMap:     &headersPosMap,
 		}
+		inputRowChSpec.SetColumnsMap(&headersPosMap)
 		inputRowChannel = &InputChannel{
 			Name:           "input_row",
 			Channel:        computePipesInputCh,
@@ -269,7 +269,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		channelRegistry.ComputeChannels[name] = &Channel{
 			Name:          name,
 			Channel:       make(chan []any),
-			Columns:       spec.columnsMap,
+			Columns:       spec.ColumnsMap(),
 			DomainKeySpec: spec.DomainKeysInfo,
 			Config:        spec,
 		}

@@ -3,8 +3,8 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"regexp"
-	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/template"
 )
@@ -258,46 +258,9 @@ type CsvSourceSpec struct {
 	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found,omitzero"`
 }
 
-// ChannelSpec specifies the columns of a channel and other properties.
-// The columns can be obtained from a domain class from the
-// local workspace using class_name.
-// In that case, the columns
-// that are specified in the slice, are added to the columns of
-// the domain class.
-// When direct_properties_only is true, only take the data properties
-// of the class, not including the properties of the parent classes.
-// ClassName is used to get the columns from the local workspace, and get domain key from registry, and is optional.
-// Env variables (from mainInputSchemaProvider.Env) can be used in the class_name, e.g., hc:${ENTITY}.
-// DomainKeys provide the ability to configure the domain keys in the cpipes config document.
-// DomainKeysInfo is obtained from the domain_keys_registry table or derived from DomainKeys - the latter takes precedence when both are available.
-// columnsMap is added in StartComputePipes
-type ChannelSpec struct {
-	Comment              string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	Name                 string                `json:"name"`
-	Columns              []string              `json:"columns"`
-	ClassName            string                `json:"class_name,omitempty"`
-	DirectPropertiesOnly bool                  `json:"direct_properties_only,omitzero"`
-	HasDynamicColumns    bool                  `json:"has_dynamic_columns,omitzero"`
-	SameColumnsAsInput   bool                  `json:"same_columns_as_input,omitzero"`
-	DomainKeys           map[string]any        `json:"domain_keys,omitempty"`
-	DomainKeysInfo       *DomainKeysSpec       `json:"domain_keys_spec,omitzero"`
-	ColumnEncodings      []*ColumnEncodingSpec `json:"column_encodings,omitzero"`
-	columnsMap           *map[string]int
-}
+type ChannelSpec = pipesmodel.ChannelSpec
 
-// ColumnEncodingSpec is used to specify special encoding for a channel column, e.g., toon or json
-// Column is the column name to which the special encoding applies, this is required.
-// EntityEncoding is used to specify the encoding of the column: range values: json, toon, briefing_prose (default is json).
-// RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (any prefix up to the character ':').
-// ExcludeProperties is used to specify the properties to exclude from the output, e.g., jets:key, rdf:type, etc.
-// This is used to exclude properties from the json or toon output.
-type ColumnEncodingSpec struct {
-	Comment             string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	Column              string   `json:"column"`
-	EntityEncoding      string   `json:"entity_encoding,omitempty"`
-	RemoveModelPrefixes bool     `json:"remove_model_prefixes,omitzero"`
-	ExcludeProperties   []string `json:"exclude_properties,omitempty"`
-}
+type ColumnEncodingSpec = pipesmodel.ColumnEncodingSpec
 
 type ContextSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
@@ -1465,154 +1428,17 @@ type TargetColumnsLookupSpec struct {
 	Column2ClassificationValues []string `json:"column2_classification_values,omitempty"`
 }
 
-type TransformationColumnSpec struct {
-	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Type range: select, multi_select, value, eval, map, hash
-	// count, distinct_count, sum, min, max, avrg, case,
-	// map_reduce, lookup
-	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
-	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
-	// MaxEnvVarSubstitution applies to expr with env var substitution: select, multi_select, value, lookup
-	Name                  string                      `json:"name"`
-	Type                  string                      `json:"type"`
-	Expr                  *string                     `json:"expr,omitempty"`
-	ExprArray             []string                    `json:"expr_array,omitempty"`
-	MapExpr               *MapExpression              `json:"map_expr,omitzero"`
-	EvalExpr              *ExpressionNode             `json:"eval_expr,omitzero"`
-	HashExpr              *HashExpression             `json:"hash_expr,omitzero"`
-	Where                 *ExpressionNode             `json:"where,omitzero"`
-	CaseExpr              []CaseExpression            `json:"case_expr,omitempty"` // case operator
-	ElseExpr              []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
-	MapOn                 *string                     `json:"map_on,omitzero"`
-	AlternateMapOn        []string                    `json:"alternate_map_on,omitempty"`
-	ApplyMap              []TransformationColumnSpec  `json:"apply_map,omitempty"`
-	ApplyReduce           []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
-	LookupName            *string                     `json:"lookup_name,omitzero"`
-	LookupKey             []LookupColumnSpec          `json:"key,omitempty"`
-	LookupValues          []LookupColumnSpec          `json:"values,omitempty"`
-	MaxEnvVarSubstitution int                         `json:"max_env_var_substitution,omitzero"`
-	AsRdfType             string                      `json:"as_rdf_type,omitempty"`
-}
+type TransformationColumnSpec = pipesmodel.TransformationColumnSpec
 
-type LookupColumnSpec struct {
-	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Type range: select, value
-	// MaxEnvVarSubstitution applies to expr with env var substitution: value
-	Name                  string  `json:"name,omitempty"`
-	Type                  string  `json:"type,omitempty"`
-	Expr                  *string `json:"expr,omitzero"`
-	MaxEnvVarSubstitution int     `json:"max_env_var_substitution,omitzero"`
-}
+type LookupColumnSpec = pipesmodel.LookupColumnSpec
 
-// Hash using values from columns.
-// Case single column, use Expr.
-// Case multi column, use CompositeExpr.
-// Expr takes precedence if both are populated.
-// DomainKey is specified as an object_type. DomainKeysJson provides the
-// mapping between domain keys and columns.
-// AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
-// MultiStepShardingMode values: 'limited_range', 'full_range' or empty.
-// NoPartitions indicated not to assign the hash to a partition (no modulo operation).
-// NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false.
-// MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false.
-// NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided.
-// ComputeDomainKey flag indicate to compute the domain key rather than a simple hash.
-// This consider the hashing algo used and delimitor between the key components.
-type HashExpression struct {
-	Comment                 string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	Expr                    string   `json:"expr,omitempty"`
-	CompositeExpr           []string `json:"composite_expr,omitempty"`
-	DomainKey               string   `json:"domain_key,omitempty"`
-	NbrJetsPartitionsAny    any      `json:"nbr_jets_partitions,omitzero"`
-	MaxNbrJetsPartitionsAny any      `json:"max_nbr_jets_partitions,omitzero"`
-	MultiStepShardingMode   string   `json:"multi_step_sharding_mode,omitempty"`
-	AlternateCompositeExpr  []string `json:"alternate_composite_expr,omitempty"`
-	NoPartitions            bool     `json:"no_partitions,omitzero"`
-	ComputeDomainKey        bool     `json:"compute_domain_key,omitzero"`
-}
+type HashExpression = pipesmodel.HashExpression
 
-func (h *HashExpression) String() string {
-	var b strings.Builder
-	b.WriteString("HashExpression(")
-	if h.Expr != "" {
-		fmt.Fprintf(&b, "Expr: %s, ", h.Expr)
-	}
-	if len(h.CompositeExpr) > 0 {
-		fmt.Fprintf(&b, "CompositeExpr: %v, ", h.CompositeExpr)
-	}
-	if h.DomainKey != "" {
-		fmt.Fprintf(&b, "DomainKey: %s, ", h.DomainKey)
-	}
-	if h.MultiStepShardingMode != "" {
-		fmt.Fprintf(&b, "MultiStepShardingMode: %s, ", h.MultiStepShardingMode)
-	}
-	if len(h.AlternateCompositeExpr) > 0 {
-		fmt.Fprintf(&b, "AlternateCompositeExpr: %v, ", h.AlternateCompositeExpr)
-	}
-	if h.NoPartitions {
-		b.WriteString("NoPartitions: true, ")
-	}
-	if h.ComputeDomainKey {
-		b.WriteString("ComputeDomainKey: true")
-	}
-	b.WriteString(")")
-	return b.String()
-}
+type MapExpression = pipesmodel.MapExpression
 
-type MapExpression struct {
-	Comment           string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	CleansingFunction string            `json:"cleansing_function,omitempty"`
-	Argument          string            `json:"argument,omitempty"`
-	Default           string            `json:"default,omitempty"`
-	ErrMsg            string            `json:"err_msg,omitempty"`
-	CodeValueMapping  map[string]string `json:"code_value_mapping,omitempty"`
-	RdfType           string            `json:"rdf_type,omitempty"`
-}
+type ExpressionNode = pipesmodel.ExpressionNode
 
-type ExpressionNode struct {
-	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Name is for the special case CaseEnvExpression
-	// Type is for leaf nodes: select, value, expr_proxy, function
-	// Expr is for leaf nodes, the expression to evaluate:
-	// - for Type: select, it is the column name to select or substitute with env var
-	//   substitution if it contains the char '$'.
-	// - for Type: value, it is the value to use or substitute with env var
-	//   substitution if it contains the char '$'.
-	// ExprPos is for leaf nodes for Type select, it is the 0-based column position to select,
-	// it is an alternative to Expr which is the column name.
-	// ExprList is for leaf nodes with multiple values, used for the `in`` operator.
-	// MaxEnvVarSubstitution indicates how many loop of env substitution to do for
-	// Expr containinng the char '$', default to 3.
-	// For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc.
-	// Special case for type: expr_proxy, it indicates that the expression is a proxy
-	// for another expression, the actual expression is specified by one of:
-	// - ExprEnvVarProxy: the expression is specified by an env var, the value of
-	//   the env var is the actual expression as a json string to evaluate.
-	// (more to come)
-	// Special case for type: function, it indicates that the expression is a function call,
-	// the actual function is specified by Expr, and the arguments are specified by Farg.
-	// Default value to use when the evaluation returns error
-	Name                  string           `json:"name,omitempty"`
-	Type                  string           `json:"type,omitempty"`
-	Expr                  string           `json:"expr,omitempty"`
-	ExprPos               *int             `json:"expr_pos,omitempty"`
-	ExprList              []string         `json:"expr_list,omitempty"`
-	MaxEnvVarSubstitution int              `json:"max_env_var_substitution,omitzero"`
-	AsRdfType             string           `json:"as_rdf_type,omitempty"`
-	Arg                   *ExpressionNode  `json:"arg,omitzero"`
-	Lhs                   *ExpressionNode  `json:"lhs,omitzero"`
-	Op                    string           `json:"op,omitempty"`
-	Rhs                   *ExpressionNode  `json:"rhs,omitzero"`
-	ExprEnvVarProxy       string           `json:"expr_env_var_proxy,omitempty"`
-	Farg                  []ExpressionNode `json:"function_arguments,omitzero"`
-	Default               *ExpressionNode  `json:"default,omitzero"`
-}
-
-type CaseExpression struct {
-	Comment string                      `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	When    ExpressionNode              `json:"when"`
-	Then    []*TransformationColumnSpec `json:"then"`
-}
+type CaseExpression = pipesmodel.CaseExpression
 
 // EmbedSpec is the configuration of the embed transformation operator: it renders
 // one text per record from the record's columns and calls the infer server's

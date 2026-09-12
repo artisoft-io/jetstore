@@ -169,7 +169,8 @@ func avTimeOnePass(t *testing.T, label, backend, url string, cpConfig *ComputePi
 	for i, c := range columns {
 		columnsMap[c] = i
 	}
-	channelSpec := &ChannelSpec{Name: avChannelName, Columns: columns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: avChannelName, Columns: columns}
+	channelSpec.SetColumnsMap(&columnsMap)
 
 	outName := avChannelName + ".out"
 	registry := &ChannelRegistry{

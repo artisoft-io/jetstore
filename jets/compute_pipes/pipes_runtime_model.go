@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"log"
 	"sync"
 
@@ -108,20 +109,8 @@ type Channel struct {
 	DomainKeySpec *DomainKeysSpec
 	Config        *ChannelSpec
 }
-type InputChannel struct {
-	Name           string
-	Channel        <-chan []any
-	Columns        *map[string]int
-	DomainKeySpec  *DomainKeysSpec
-	Config         *ChannelSpec
-	HasGroupedRows bool
-}
-type OutputChannel struct {
-	Name    string
-	Channel chan<- []any
-	Columns *map[string]int
-	Config  *ChannelSpec
-}
+type InputChannel = pipesmodel.InputChannel
+type OutputChannel = pipesmodel.OutputChannel
 
 type BuilderContext struct {
 	dbpool             *pgxpool.Pool
@@ -166,11 +155,7 @@ func (ctx *BuilderContext) parseValue(expr *string, maxSubstitutions int) (any, 
 	return ExprBuilderContext(ctx.env).parseValue(expr, maxSubstitutions)
 }
 
-type PipeTransformationEvaluator interface {
-	Apply(input *[]any) error
-	Done() error
-	Finally()
-}
+type PipeTransformationEvaluator = pipesmodel.PipeTransformationEvaluator
 
 // Initialize and Done are intended for aggregate transformations column evaluators
 type TransformationColumnEvaluator interface {

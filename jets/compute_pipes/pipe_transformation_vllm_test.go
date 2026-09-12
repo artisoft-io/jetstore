@@ -120,12 +120,14 @@ func runVllmTestPipe(t *testing.T, serverUrl string, config *VllmSpec, records [
 	t.Helper()
 
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	peColumnsMap := make(map[string]int, len(ollamaProcessErrorColumns))
 	for i, c := range ollamaProcessErrorColumns {
 		peColumnsMap[c] = i
 	}
-	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns, columnsMap: &peColumnsMap}
+	peSpec := &ChannelSpec{Name: "process_errors", Columns: ollamaProcessErrorColumns}
+	peSpec.SetColumnsMap(&peColumnsMap)
 
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
@@ -616,7 +618,8 @@ func TestVllm404ExplainsTheUrl(t *testing.T) {
 func buildVllmPipe(t *testing.T, config *VllmSpec) error {
 	t.Helper()
 	columnsMap := ollamaTestColumnsMap()
-	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
+	channelSpec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns}
+	channelSpec.SetColumnsMap(&columnsMap)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
 			"claims.out": {Name: "claims.out", Channel: make(chan []any),
