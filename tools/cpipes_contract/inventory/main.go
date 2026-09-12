@@ -29,12 +29,30 @@ func typeName(t reflect.Type) string {
 	return strings.ReplaceAll(t.String(), "compute_pipes.", "")
 }
 
+// inScope says whether a struct the walk reached is one the matrix is expected
+// to carry rows for.
+//
+// **It is two packages rather than one, and the second arrived with the render
+// operator.** `TextTemplateSpec.Elements` is `[]*template.Element` -- the
+// notation's own type, declared in `jets/agentic/template` so that the engine
+// and the configuration share one definition rather than two that drift. The
+// matrix carries `Element/*` because `check` refuses a `ref_struct` with no
+// types row, so a reflector scoped to `compute_pipes` would report that row as
+// unreachable and the drift check would be red for a row that is correct. The
+// alternative -- excluding out-of-package structs on the python side -- carves
+// an exception where this carves a scope, and leaves the notation's field
+// inventory guarded by nothing.
+func inScope(t reflect.Type) bool {
+	pkg := t.PkgPath()
+	return strings.Contains(pkg, "compute_pipes") || strings.Contains(pkg, "jets/agentic/template")
+}
+
 func namedStructs(t reflect.Type, out map[reflect.Type]bool) {
 	switch t.Kind() {
 	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
 		namedStructs(t.Elem(), out)
 	case reflect.Struct:
-		if t.Name() != "" && strings.Contains(t.PkgPath(), "compute_pipes") {
+		if t.Name() != "" && inScope(t) {
 			out[t] = true
 		}
 	}

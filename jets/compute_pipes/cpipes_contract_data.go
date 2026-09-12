@@ -206,6 +206,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"prompt_templates":         {},
 		"reducing_pipes_config":    {},
 		"schema_providers":         {},
+		"text_templates":           {},
 	},
 	"ConditionalEnvVariable/*": {
 		"case_expr": {},
@@ -285,6 +286,17 @@ var CpipesContract = map[string]map[string]ContractField{
 	"DomainKeysSpec/*": {
 		"domain_keys_info": {Required: true},
 		"hashing_override": {Values: []string{"none", "sha1", "md5"}},
+	},
+	"Element/~group": {
+		"comment":  {},
+		"elements": {Required: true},
+		"empty":    {},
+		"when":     {},
+	},
+	"Element/~paragraph": {
+		"comment": {},
+		"text":    {Required: true},
+		"when":    {},
 	},
 	"EmbedSpec/*": {
 		"comment":              {},
@@ -901,6 +913,17 @@ var CpipesContract = map[string]map[string]ContractField{
 		"re":                 {},
 		"use_scrubbed_value": {},
 	},
+	"RenderSpec/*": {
+		"comment":         {},
+		"error_channel":   {},
+		"input_column":    {Required: true},
+		"input_encoding":  {Values: []string{"json", "toon"}},
+		"max_error_count": {},
+		"on_error":        {Values: []string{"pass_through", "drop", "fail"}},
+		"output_column":   {Required: true},
+		"row_key_column":  {},
+		"template_name":   {Required: true},
+	},
 	"ReportCmdSpec/s3_copy_file": {
 		"comment":             {},
 		"s3_copy_file_config": {Required: true},
@@ -1046,6 +1069,13 @@ var CpipesContract = map[string]map[string]ContractField{
 		"comment":                       {},
 		"data_classification_column":    {Required: true},
 		"lookup_name":                   {Required: true},
+	},
+	"TextTemplateSpec/*": {
+		"comment":  {},
+		"elements": {Required: true},
+		"empty":    {},
+		"key":      {Required: true},
+		"width":    {Required: true},
 	},
 	"TransformationColumnSpec/avrg": {
 		"as_rdf_type": {},
@@ -1297,6 +1327,14 @@ var CpipesContract = map[string]map[string]ContractField{
 		"partition_writer_config": {Required: true},
 		"type":                    {Required: true},
 		"when":                    {},
+	},
+	"TransformationSpec/render": {
+		"comment":            {},
+		"conditional_config": {},
+		"output_channel":     {Required: true},
+		"render_config":      {Required: true},
+		"type":               {Required: true},
+		"when":               {},
 	},
 	"TransformationSpec/shuffling": {
 		"comment":            {},

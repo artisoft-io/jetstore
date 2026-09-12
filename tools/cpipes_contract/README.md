@@ -19,7 +19,10 @@ cpipes_contract/        the schema as Pydantic models, the checks, the corpus wa
 harness/                the Go runner: feeds synthesized configs through ValidatePipeSpecConfig
 ```
 
-The corpus is `workspaces/*/pipes_config/**` - 49 files. The `.pc.json` under `workspaces/*/data/`
+The corpus is `workspaces/*/pipes_config/**` minus what each directory's
+`jets_assets_manifest.json` names - **42 files, measured 2026-09-11**; 49 was the count here
+before the 2026-09-08 sharpening, which stopped counting the JetStore-owned assets
+`install_workspace_assets` puts into a workspace. The `.pc.json` under `workspaces/*/data/`
 are developer reference material JetStore never loads, and counting them manufactures contradictions
 with the validator; see `cpipes_contract/corpus.py`.
 

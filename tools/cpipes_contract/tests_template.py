@@ -453,14 +453,22 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     """
     good, _ = validate_fixtures(load(FIXTURES), SCHEMA)
     cov = coverage(good, LIBRARY, HERE / "matrix")
-    # **25 when F.2b pinned it, 27 on 2026-08-31.** The contract gained two types
-    # the library cannot illustrate; the fixtures still fill exactly the same two.
-    # Re-pinned rather than loosened, because the number is the population and the
-    # claim is the pair: what A§6.1 rests on is that the fixtures concentrate where
-    # the corpus is thin, and a growing `empty` makes that claim *stronger* rather
-    # than stale. The reason this went unnoticed for eleven days is the runner —
+    # **25 when F.2b pinned it, 27 on 2026-08-31, 36 on 2026-09-11.** The contract
+    # gained types the library cannot illustrate; the fixtures still fill exactly the
+    # same two. Re-pinned rather than loosened, because the number is the population
+    # and the claim is the pair: what A§6.1 rests on is that the fixtures concentrate
+    # where the corpus is thin, and a growing `empty` makes that claim *stronger*
+    # rather than stale. The reason this went unnoticed for eleven days is the runner —
     # see the note at the foot of this file.
-    assert len(cov["empty"]) == 27
+    #
+    # **Of the nine added since 2026-08-31, five are BB.1's and four were already
+    # here when it arrived** — `ElementParagraph`, `ElementGroup`, `RenderSpec`,
+    # `TextTemplateSpec` and `TransformationSpecRender` are the render operator's,
+    # and the assertion was already failing at 31 against a pin of 27 before this
+    # task touched the matrix. Recorded rather than absorbed silently: re-pinning is
+    # what this comment asks for, and it is also how a number drifts four types at a
+    # time with nobody named.
+    assert len(cov["empty"]) == 36
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
 
 
