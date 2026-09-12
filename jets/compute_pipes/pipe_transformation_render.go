@@ -71,6 +71,13 @@ package compute_pipes
 // reaches nobody under any of the three policies. An author who wants the row
 // gone rather than merely un-enriched writes `drop`; one who wants the run
 // stopped writes `fail`.
+//
+// **And it forwards the record once, which nobody specified and which was wrong
+// until 2026-09-11** (I-721, raised by `BB.2`). A failure writes one error row
+// per `Violation` and the record continues once: the row count belongs to
+// diagnosis and the send count belongs to the policy. They were the same
+// function, so a record with two violations arrived twice on the output channel
+// -- see `reportError` for the mechanism and the repair.
 
 import (
 	"database/sql"
@@ -152,14 +159,18 @@ func (ctx *RenderTransformationPipe) Apply(input *[]any) error {
 		// one piece of context the message cannot carry because the message is a
 		// constant of the template and the iteration is not. Collapsing them
 		// into one row would throw away exactly that.
-		var last error
+		//
+		// **And one *record* per record whatever it did wrong**, which is I-721:
+		// reporting is per violation and the policy is per record, so the loop
+		// reports and `applyOnError` runs once after it. See `reportError`.
+		var first error
 		for i := range violations {
-			last = ctx.failedRecord(input, fmt.Errorf("%s", violations[i].String()))
-			if last != nil {
-				return last
+			err := ctx.reportError(input, fmt.Errorf("%s", violations[i].String()))
+			if first == nil {
+				first = err
 			}
 		}
-		return nil
+		return ctx.applyOnError(input, first)
 	}
 
 	// Augment the record in place. A short record is legitimate (see
@@ -248,13 +259,36 @@ func decodeRenderToon(column string) func(string) (map[string]any, error) {
 	}
 }
 
-// failedRecord reports a row-level failure and applies the on_error policy.
-// It returns a non-nil error only for `on_error: fail`, which is `map_record`'s
-// shape (`MapRecordTransformationPipe.Apply`,
-// `jets/compute_pipes/pipe_transformation_map_record.go:85`) rather than the
-// infer operators' -- this operator is synchronous, so failing the pipeline is
-// returning an error from Apply rather than interrupting a pool.
+// failedRecord reports one row-level failure and applies the on_error policy.
+// It is the one-failure case of the pair below, and every path that can fail a
+// record for exactly one reason -- the input column is missing, null, not text,
+// blank, or does not decode -- goes through it.
 func (ctx *RenderTransformationPipe) failedRecord(input *[]any, err error) error {
+	return ctx.applyOnError(input, ctx.reportError(input, err))
+}
+
+// reportError writes one row to the error channel and counts one error against
+// `max_error_count`. **It applies no policy**, and that separation is I-721.
+//
+// The two were one function until 2026-09-11, which was correct for the failures
+// that fail a record once and wrong for the one that does not: `Apply` calls it
+// once per `Violation`, so a record with two violations was forwarded twice
+// under the default `pass_through` -- two error rows, which is right, and two
+// identical output records, which nothing had ever specified and which is wrong
+// under any reading. **How many rows a failure writes is a question about
+// diagnosis; how many times the record is sent is a question about the policy**,
+// and a single function answering both made the second follow the first.
+//
+// `max_error_count` therefore counts **errors and not records** -- a record with
+// three violations spends three of the budget -- which is `map_record`'s
+// behaviour too, its own count being per column evaluator rather than per record
+// (`MapRecordTransformationPipe.Apply`,
+// `jets/compute_pipes/pipe_transformation_map_record.go:70`). It is a cap on what
+// reaches the error channel and on nothing else.
+//
+// The returned error is the one to fail the pipeline with, already carrying the
+// operator and template prefix.
+func (ctx *RenderTransformationPipe) reportError(input *[]any, err error) error {
 	err = fmt.Errorf("render operator (template '%s'): %v", ctx.tmpl.Key(), err)
 	ctx.errorCount++
 	switch {
@@ -273,7 +307,18 @@ func (ctx *RenderTransformationPipe) failedRecord(input *[]any, err error) error
 	case ctx.errorCount == ctx.maxErrorCount+1:
 		log.Printf("render: reached max_error_count (%d), stop reporting errors", ctx.maxErrorCount)
 	}
+	return err
+}
 
+// applyOnError is what a failed record costs, and it is called **once per
+// record** however many times it failed.
+//
+// It returns a non-nil error only for `on_error: fail`, which is `map_record`'s
+// shape (`MapRecordTransformationPipe.Apply`,
+// `jets/compute_pipes/pipe_transformation_map_record.go:86`) rather than the
+// infer operators' -- this operator is synchronous, so failing the pipeline is
+// returning an error from Apply rather than interrupting a pool.
+func (ctx *RenderTransformationPipe) applyOnError(input *[]any, err error) error {
 	switch ctx.onError {
 	case OnErrorDrop:
 		return nil

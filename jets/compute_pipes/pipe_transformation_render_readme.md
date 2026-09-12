@@ -16,7 +16,7 @@ from the wrong directory should find out immediately:
 | a **text** template that turns a record into prose | this page |
 
 The token is `render` and not `template` for exactly that reason (`RenderOperatorType`,
-`pipe_transformation_render.go:94`). The array is `text_templates` and not `templates` because
+`pipe_transformation_render.go:101`). The array is `text_templates` and not `templates` because
 `prompt_templates` is already qualified (`TextTemplates`, `pipes_model.go:23`) — a bare `templates`
 would have been the one unqualified template array in the configuration, and the one that collides.
 `template` keeps meaning the artefact and `render` names the act, so neither word does two jobs.
@@ -35,11 +35,11 @@ would have been the one unqualified template array in the configuration, and the
 For each record arriving on the input channel:
 
 1. Read the input column and decode it — json or toon — to a `map[string]any` (`documentOf`,
-   `pipe_transformation_render.go:187`).
+   `pipe_transformation_render.go:198`).
 2. Render the compiled template against that document (`Render`,
    `jets/agentic/template/render.go:66`).
 3. Write the text to the output column of **the same record** and forward it (`Apply`,
-   `pipe_transformation_render.go:137`).
+   `pipe_transformation_render.go:144`).
 
 **This is the augmentation pattern, so the input and output channels must share one `ChannelSpec`**,
 and the operator checks it with the infer operators' own function and their own message
@@ -92,7 +92,7 @@ comparison between a model arm and a template arm mean anything.
 | `input_encoding` | the channel's, else `json` | `json` or `toon`. An **override**, not the answer — §2.3 |
 | `row_key_column` | — | Identifies the record on an error row. Absent means the error row carries no `row_jets_key` |
 | `on_error` | `pass_through` | `pass_through`, `drop` or `fail`. **What pass-through means here is not obvious — read §4.4** |
-| `max_error_count` | 20 | Caps what reaches the log and the error channel. A count below 1 is replaced by the default |
+| `max_error_count` | 20 | Caps what reaches the log and the error channel, counted per **error** rather than per record. A count below 1 is replaced by the default |
 | `error_channel` | synthesised | `{name, channel_spec_name}`. A step that names none gets one from the default synthesis (`reportsRowLevelFailures`, `error_channel_default.go:330`), so the absence of this key is not the absence of error reporting |
 
 **`output_column` may not equal `input_column`**, and the refusal is worth a line because the
@@ -118,7 +118,7 @@ convenience: a named document at the configuration root can be shared by several
 and a name that is not there fails at build time rather than on a node.
 
 **Every declared document is compiled at startup, whether or not a step names it**
-(`validateTextTemplates`, `pipe_transformation_render.go:504`). The operator alone would leave a
+(`validateTextTemplates`, `pipe_transformation_render.go:549`). The operator alone would leave a
 hole: a second entry carrying an unclosed `each` would sit in the configuration unexamined until
 somebody pointed a step at it, which is a different day and a different pull request. A template
 document is a constant of the configuration, so every one of them is answerable before a record
@@ -130,7 +130,7 @@ The column the operator reads was written by a `column_encodings` entry on the c
 already says whether it is json or toon (`ColumnEncodingSpec`, `pipes_model.go:294`). **So the
 operator reads it off the channel and `input_encoding` is an override** for the case where nothing
 says — a column arriving from a file, or from a `map_record` (`resolveRenderInputEncoding`,
-`pipe_transformation_render.go:551`).
+`pipe_transformation_render.go:596`).
 
 Asking an author to declare it on the step as well would be two declarations that can disagree.
 Where both are present and do disagree, **the build fails**, both being constants of the
@@ -514,7 +514,7 @@ one comparison. Numbering them here would invent identifiers the plan that owns 
 have.
 
 C13 is checked in **two** places — at startup over every declared document, and again in the
-operator (`resolveRenderTemplate`, `pipe_transformation_render.go:448`). That is deliberate
+operator (`resolveRenderTemplate`, `pipe_transformation_render.go:493`). That is deliberate
 redundancy rather than an oversight: a configuration that reaches a node by some path the startup
 validation did not cover still may not silently pick one of two documents.
 
@@ -580,8 +580,8 @@ third option — write the rendered text anyway and report beside it — is the 
 artefact its author declared invalid reaches a reader, which is why it is refused rather than offered
 as a setting.
 
-A failed row is reported on the error channel and then governed by `on_error` (`failedRecord`,
-`pipe_transformation_render.go:257`), which is `map_record`'s vocabulary and shape:
+A failed row is reported on the error channel and then governed by `on_error` (`reportError`, `pipe_transformation_render.go:291`, then `applyOnError`,
+`pipe_transformation_render.go:321`), which is `map_record`'s vocabulary and shape:
 
 | `on_error` | What happens to the record |
 |---|---|
@@ -620,17 +620,39 @@ error_message  render operator (template 'member_briefing'): the input column 'b
 
 **Errors are logged whether or not an error channel is configured**, and `max_error_count` caps both.
 One row per **violation** rather than one per record, so an `each` over ten items that all fail says
-which ten.
+which ten. **`max_error_count` counts those rows and not the records that wrote them**, so that
+record spends ten of the budget — which is `map_record`'s behaviour as well, its own count being per
+column evaluator. It caps reporting and nothing else: the eleventh failed record is still dropped,
+passed through or fatal exactly as `on_error` says, silently.
 
-**And that last sentence has a defect behind it, found by writing this page and reported rather than
-described as behaviour.** `Apply` calls the reporting path once per violation, and that path is also
-where `pass_through` forwards the record — so **a record carrying two violations is forwarded twice**
-under the default policy, and one input record leaves the step as two. Measured, not reasoned: a
-two-item `each` whose items both violate produces 2 error rows and **2 identical output records**.
-`drop` and `fail` are unaffected, the first forwarding nothing and the second returning on the first
-violation. It is `agentic_ai`'s **I-721**, raised against the operator rather than repaired here;
-until it is fixed, **a template with more than one `require` on a path a record can miss should run
-under `drop` or `fail`**, not under the default.
+**The record itself is forwarded once, whatever it did wrong** — which is the other count, and it is
+the one that belongs to the policy rather than to the diagnosis. A record with two violations writes
+two error rows and continues **once** under `pass_through`, nothing under `drop`, and nothing under
+`fail`, which returns. **One input record leaves the step as at most one output record, under every
+policy.**
+
+**~~And that last sentence has a defect behind it~~ It had one, and this paragraph now describes the
+repair rather than the workaround.** Written on 2026-09-11 while this page was being drafted, it read:
+*`Apply` calls the reporting path once per violation, and that path is also where `pass_through`
+forwards the record — so a record carrying two violations is forwarded twice under the default
+policy*. Measured, not reasoned: a two-item `each` whose items both violate produced 2 error rows and
+**2 identical output records**. It was raised as `agentic_ai`'s **I-721** rather than repaired on the
+spot, and the advice was to run such a template under `drop` or `fail` until it was fixed.
+
+**Fixed the same day.** Reporting and policy were one function; they are two now — `reportError`
+writes the row and counts it, `applyOnError` decides what the record costs, and `Apply` calls the
+first once per violation and the second once per record. **The workaround is retired: the default is
+safe for a template with any number of `require`s.** The regression test is
+`TestRenderSendsAFailedRecordOnce`, which asserts the send count and the row count for all three
+policies against a record that fails twice — the case the suite could not see before, because its only
+multi-violation test ran under `drop`, and **a policy that forwards nothing cannot observe a
+duplicate**.
+
+**The fix corrected a second count in the same place, and it is worth naming because it moved in the
+opposite direction.** Under `fail` the old loop returned at the first violation, so a record that
+failed three ways reported **one** row before stopping the run; it now reports all three and then
+fails. *One row per violation* had been a claim about `pass_through` and `drop` only, and nothing said
+so.
 
 ---
 
