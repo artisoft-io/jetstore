@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
+	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/userflow"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
@@ -36,6 +37,29 @@ import (
 // for exactly this reason. **This is the second extension by a party that did
 // not write the table**, after ui_refresh's `.tc.json`, and the first by the
 // stream the table's comment was addressed to.
+//
+// `.sql` is the sixth (2026-09-12) and **it is the first row that is not a row
+// and nothing else**, which is worth saying because five predecessors had made
+// "adding a row is the whole of adding a file type" a measured claim. It is the
+// first non-JSON file type, and two things in this file were written around
+// JSON in ways the table itself did not record:
+//
+//   - `checkWorkspaceFile` returned early for any name not ending `.json`, so a
+//     `.sql` row would have been dispatched to by `validatorFor` and never
+//     reached. The gate is now the JSON *precondition* it always was, applied
+//     to the names that need it, instead of a filter on the whole check.
+//   - `wsvalidate.Finding` carried a JSON Pointer and no line, and a lexical
+//     finding in a SQL file has a line and no pointer. `Finding.Line` was added
+//     with this row.
+//
+// So the claim survives with its scope named: adding a row is the whole of
+// adding a *JSON* file type. The first one from outside that set cost two
+// changes elsewhere, both of them assumptions nobody had had reason to write
+// down.
+//
+// **Nothing else in the workspace tree ends `.sql`, and that took a deletion to
+// become true** — see the `jet_rules` row in `wsfile/sections.go`, which
+// filtered on a second `.sql` suffix this row would have matched.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -45,17 +69,20 @@ var workspaceFileValidators = []struct {
 	{".form.json", userflow.ValidateFormDocument},
 	{".tc.json", userflow.ValidateTableDocument},
 	{briefing.DocumentSuffix, briefing.ValidateProvenanceDocument},
+	{".sql", sqlscript.ValidateScript},
 }
 
 // validatorFor returns the most specific match, or nil.
 //
-// **"Most specific" is not decoration.** The existing well-formedness check is
+// **"Most specific" is not decoration.** The JSON well-formedness check is
 // `HasSuffix(ToUpper(fileName), ".JSON")`, so `.uf.json` already matches it and
 // so will `.pc.json`; a naive dispatch would either double-validate or shadow.
-// The four specific suffixes are mutually exclusive, so longest-match still
-// costs nothing — it is the rule that keeps a fifth file type honest.
+// The JSON suffixes are mutually exclusive, so longest-match still costs
+// nothing — it is the rule that keeps a later file type honest. It has still
+// never decided anything: the one case that nearly did was settled by deleting
+// a file type rather than by adding a row (`wsfile/sections.go`, `jet_rules`).
 //
-// Matching is case-insensitive, like the check it sits behind. A workspace file
+// Matching is case-insensitive, like the JSON check beside it. A workspace file
 // named `Foo.UF.JSON` is the same file type as `foo.uf.json`, and the file
 // system it lives on may or may not agree.
 func validatorFor(fileName string) wsvalidate.Validator {
@@ -86,12 +113,18 @@ func ValidateFlowDocumentForTest(content string) []wsvalidate.Finding {
 //
 // Returns nil when the file may be written.
 func checkWorkspaceFile(fileName, content string) error {
-	if !strings.HasSuffix(strings.ToUpper(fileName), ".JSON") {
-		return nil
-	}
-	var m map[string]any
-	if err := json.Unmarshal([]byte(content), &m); err != nil {
-		return fmt.Errorf("the file is not a valid json file: %v", err)
+	// The JSON well-formedness check is a precondition of the JSON validators
+	// and applies to every `.json` file, row or no row — a malformed one is
+	// refused whatever its suffix. **It used to be the gate on the whole
+	// function**, which meant a validator for any other file type would have
+	// been dispatched to by `validatorFor` and never called; the `.sql` row
+	// found that on 2026-09-12. Non-JSON validators are handed raw text and own
+	// their own well-formedness, which `wsvalidate.Validator` now says.
+	if strings.HasSuffix(strings.ToUpper(fileName), ".JSON") {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(content), &m); err != nil {
+			return fmt.Errorf("the file is not a valid json file: %v", err)
+		}
 	}
 	validate := validatorFor(fileName)
 	if validate == nil {
@@ -105,18 +138,27 @@ func checkWorkspaceFile(fileName, content string) error {
 
 // describeFindings renders the errors for the http response.
 //
-// Every finding carries a JSON Pointer where it has one, because the editor
+// Every finding carries its coordinate where it has one, because the editor
 // showing this message is the one that could put a cursor on the offence — and
 // because the agentic_ai stream's repair prompts need *where* rather than only
-// *what*.
+// *what*. A JSON Pointer for a document, a line for a file whose positions are
+// lines; a finding carrying both would print `/a/b:12`, which no validator
+// produces today and which reads correctly if one ever does.
 func describeFindings(fileName string, findings []wsvalidate.Finding) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s cannot be saved:", fileName)
 	for _, f := range findings {
-		if f.Path == "" {
+		where := f.Path
+		switch {
+		case f.Line > 0 && where != "":
+			where = fmt.Sprintf("%s:%d", where, f.Line)
+		case f.Line > 0:
+			where = fmt.Sprintf("line %d", f.Line)
+		}
+		if where == "" {
 			fmt.Fprintf(&b, "\n  %s", f.Message)
 		} else {
-			fmt.Fprintf(&b, "\n  %s: %s", f.Path, f.Message)
+			fmt.Fprintf(&b, "\n  %s: %s", where, f.Message)
 		}
 	}
 	return fmt.Errorf("%s", b.String())

@@ -208,9 +208,15 @@ A stream tokeniser, not a Lezer grammar, because highlighting is all this needs
 today. Folding by rule, structural selection and go-to-definition all want a real
 tree; that is the point to invest in Lezer, and this cannot give them one.
 
-`.jr.sql` is checked before `.jr` and reads as SQL — the Go visitor serves both
+~~`.jr.sql` is checked before `.jr` and reads as SQL — the Go visitor serves both
 from the same directories, and the wrong order sends every `.jr.sql` down the
-JetRules branch.
+JetRules branch.~~
+
+**There is no `.jr.sql`** — an abandoned experiment, deleted from the Go visitor
+and from `language.ts` on 2026-09-12. The struck claim was also false:
+`"a.jr.sql".endsWith(".jr")` is `false`, so such a name reached the `.sql` arm and
+got the same answer the special case gave it. The reasoning is recorded once, on
+the `jet_rules` row in `wsfile/sections.go`.
 
 ## ~~Getting here from the Flutter app~~
 

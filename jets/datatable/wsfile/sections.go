@@ -97,8 +97,19 @@ var WorkspaceSections = []Section{
 		Filters: []string{".jr", ".csv", ".meta.json", ".schema.json"}, CompiledView: DataModelView,
 	},
 	{
+		// **`.jr.sql` was a second filter here until 2026-09-12**, deleted with
+		// the experiment it served: no file of that suffix existed in any of
+		// the four workspaces or in `workspace_assets`, and nothing but this
+		// row and the IDE's language map named it. It surfaced because the
+		// save path's new `.sql` validator row matched it — a suffix that
+		// exists only in a filter list is a file type the next reader has to
+		// rule out. **The IDE had a `.jr.sql` arm, a test and a README
+		// paragraph all asserting it must be matched before `.jr` or it "lands
+		// in the .jr arm"; `"a.jr.sql".endsWith(".jr")` is false**, so the
+		// special case only ever returned what the `.sql` arm would have. This
+		// is the one home for that; the other sites point here.
 		Dir: "jet_rules", Label: "Jets Rules",
-		Filters: []string{".jr", ".jr.sql"}, CompiledView: JetRulesView,
+		Filters: []string{".jr"}, CompiledView: JetRulesView,
 	},
 	{
 		// Declared here, and not built in the Flutter client. That is the state

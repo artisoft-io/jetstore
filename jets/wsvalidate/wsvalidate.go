@@ -45,11 +45,22 @@ const (
 // can contain "/" or "~" must escape them per RFC 6901 §3 at the point of
 // construction, because only the validator knows whether its own identifiers
 // can.
+//
+// Line is the 1-based line of a finding in a file whose coordinates are lines
+// rather than a JSON Pointer, and 0 when there is none. **It is the same
+// argument as Path, for the first file type Path cannot serve** — added
+// 2026-09-12 with the `.sql` row, whose findings are lexical and land on a
+// line. Writing the line into Message instead would have been the thing I-21
+// asked Path to fix, one file type later: prose an editor cannot jump to.
+//
+// A finding may carry both, neither, or either. Every validator that predates
+// this field leaves it 0.
 type Finding struct {
 	Severity Severity `json:"severity"`
 	Code     string   `json:"code"`
 	Message  string   `json:"message"`
 	Path     string   `json:"path,omitempty"`
+	Line     int      `json:"line,omitempty"`
 }
 
 // Validator checks the content of one workspace file.
@@ -59,10 +70,15 @@ type Finding struct {
 // config and mutates it while applying defaults. One shared parsed value would
 // have to be re-marshalled or would be quietly mutated.
 //
-// A validator may assume the content is well-formed JSON — the save path checks
-// that first, for every file ending .json, because it is a precondition for
-// every structured check and doing it once keeps one bad file from producing two
-// different complaints.
+// A validator for a `.json` file may assume the content is well-formed JSON —
+// the save path checks that first, for every file ending .json, because it is a
+// precondition for every structured check and doing it once keeps one bad file
+// from producing two different complaints.
+//
+// **That precondition is per-suffix and not universal**, which this comment
+// asserted until the `.sql` row arrived on 2026-09-12. The save path runs the
+// JSON check only for a name ending `.json`; a validator for any other suffix
+// is handed raw text and owns its own well-formedness.
 type Validator func(content string) []Finding
 
 // ErrorsOnly is what a save-time check acts on; warnings travel alongside.
