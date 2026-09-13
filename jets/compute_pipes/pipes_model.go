@@ -604,9 +604,48 @@ type TransformationSpec struct {
 	RenderConfig          *RenderSpec                      `json:"render_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
+	SiteConfig            *SiteOperatorSpec                `json:"site_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 	When                  *ExpressionNode                  `json:"when,omitzero"`
+}
+
+// SiteOperatorSpec is the configuration of an operator this deployment supplies.
+//
+// **One field on the union for all of them rather than one per operator**, which
+// is the whole difference between this and the eighteen `*_config` pointers
+// above: which operators a site has is not JetStore's business, and a union
+// branch per site token would make it so.
+//
+// It exists because a site operator is not merely inconvenient to configure
+// without it -- it is unconfigurable, and silently so. The cpipes document
+// crosses a process boundary as JSON twice, the starter marshalling it into
+// `jetsapi.cpipes_execution_status` and the node reading it back through
+// UnmarshalComputePipesConfig, which is a plain json.Unmarshal with no
+// DisallowUnknownFields anywhere in this package. A configuration block that is
+// not a JSON-tagged field of TransformationSpec is dropped with no error and no
+// log line (`I-777`).
+//
+// The error channel is a *named field* rather than something the site buries
+// inside Config, and that is not a style preference: errorChannelConfig is the
+// single point that makes an error channel exist -- the channel registry
+// construction registers it, SynthesizeDefaultErrorChannels reserves its name
+// against collision, and warnMissingErrorChannelDiscriminators warns about it.
+// All three run in processes where no operator registry is present, so all three
+// have to be able to read the channel off the document.
+type SiteOperatorSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// ErrorChannel is where the operator reports a row-level failure, typically
+	// the process_errors table. Unlike the six built-ins that report row-level
+	// failures, a site operator is never given a synthesised one: JetStore
+	// cannot know whether an operator it knows nothing about will ever write a
+	// bad record, and its author is the only party who does.
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	// Config is the site's own configuration, verbatim. JetStore does not decode
+	// it, validate it or know its schema; it reaches the site's factory as
+	// json.RawMessage for the factory to unmarshal into whatever type it likes.
+	Config json.RawMessage `json:"config,omitempty"`
 }
 
 // This type is to provide conditional TransformationSpec

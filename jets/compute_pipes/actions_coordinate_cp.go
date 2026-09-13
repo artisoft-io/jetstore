@@ -21,8 +21,16 @@ func getTotNbrFileKeys(fileKeys [][]*FileKeyInfo) int {
 	return nbrFileKeys
 }
 
-func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jrProxy JetRulesProxy) error {
+// CoordinateComputePipes runs one compute pipes node.
+//
+// The opts are variadic so that a deployment adding its own operators does it
+// with one extra argument and every existing caller compiles unchanged -- the
+// two lambda entries, the two task entries and the local test driver's two
+// calls. See WithOperators.
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool,
+	jrProxy JetRulesProxy, opts ...CPOption) error {
 	var cpErr, err error
+	cpOpts := applyCPOptions(opts)
 	var didSync bool
 	var inFolderPath []string
 	var cpContext *ComputePipesContext
@@ -183,6 +191,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		SchemaManager:      schemaManager,
 		InputFileKeys:      fileKeys,
 		JetRules:           jrProxy,
+		SiteOperators:      cpOpts.siteOperators,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),

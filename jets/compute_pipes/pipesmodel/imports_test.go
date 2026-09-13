@@ -55,27 +55,57 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 	}
 }
 
-// The surface is 13 named types, and the number is load-bearing rather than
+// The surface is 17 named types, and the number is load-bearing rather than
 // decorative: each one is a commitment to whoever writes a site operator, and
 // R-149 says a public surface is hard to shrink. A type arriving here should be
 // a decision somebody took, not a field somebody added to a struct that already
 // crossed.
-func TestSurfaceIsThirteenTypes(t *testing.T) {
-	src, err := os.ReadFile("model.go")
-	if err != nil {
-		t.Fatal(err)
+//
+// **Thirteen until `BD.2`**, which added the four the operator contract needs:
+// OperatorEnv, OperatorArgs, SiteOperatorFactory, and
+// TransformationColumnEvaluator, the last moving out of `compute_pipes` because
+// it is OperatorEnv.ColumnEvaluator's return type. The name carries the count on
+// purpose -- editing a literal is a smaller act than renaming a test, and the
+// point of the number is that moving it should feel like a decision.
+//
+// **It reads every non-test file in the package, and it read `model.go` alone
+// until `BD.2`.** That was a file-scoped assertion wearing a package-scoped
+// name: `operator.go` would have added four types to the surface with the test
+// still green and still reporting thirteen. Found by writing the second file,
+// which is the only way a single-file corpus ever finds it.
+func TestSurfaceIsSeventeenTypes(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("globbing the package: %v", err)
 	}
 	got := map[string]bool{}
-	for _, line := range strings.Split(string(src), "\n") {
-		if strings.HasPrefix(line, "type ") {
-			got[strings.Fields(line)[1]] = true
+	scanned := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
 		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		scanned++
+		for _, line := range strings.Split(string(src), "\n") {
+			// Column zero only: a type declared inside a function body is not
+			// part of the package's surface.
+			if strings.HasPrefix(line, "type ") {
+				got[strings.Fields(line)[1]] = true
+			}
+		}
+	}
+	if scanned < 2 {
+		t.Fatalf("scanned %d file(s); the package has more than one and this test is meant to read them all", scanned)
 	}
 	want := []string{
 		"CaseExpression", "ChannelSpec", "ColumnEncodingSpec", "DomainKeyInfo",
 		"DomainKeysSpec", "ExpressionNode", "HashExpression", "InputChannel",
-		"LookupColumnSpec", "MapExpression", "OutputChannel",
-		"PipeTransformationEvaluator", "TransformationColumnSpec",
+		"LookupColumnSpec", "MapExpression", "OperatorArgs", "OperatorEnv",
+		"OutputChannel", "PipeTransformationEvaluator", "SiteOperatorFactory",
+		"TransformationColumnEvaluator", "TransformationColumnSpec",
 	}
 	if len(got) != len(want) {
 		t.Errorf("surface is %d types, want %d: %v", len(got), len(want), got)

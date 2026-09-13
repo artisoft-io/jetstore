@@ -249,6 +249,9 @@ type ComputePipesContext struct {
 	JetStoreTempFolder    string
 	InputFileKeys         [][]*FileKeyInfo
 	JetRules              JetRulesProxy
+	// SiteOperators is this deployment's own operators, from WithOperators. Nil
+	// in every stock build, and it travels exactly the route JetRules does.
+	SiteOperators         map[string]SiteOperatorFactory
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	MainMergeDone         *chan struct{}
