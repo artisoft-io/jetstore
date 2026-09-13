@@ -1150,6 +1150,14 @@ class ShufflingSpec(_Base):
     pad_short_rows_with_nulls: bool | None = Field(default=None, description="Pad short rows with nulls to the schema length.")
 
 
+class SiteOperatorSpec(_Base):
+    """Configuration of a site-supplied operator: the error channel it reports row-level failures on, the cap on those reports, and its own configuration document."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    config: Any | None = Field(default=None, description="The site's own configuration, carried verbatim: JetStore does not decode it, validate it or know its schema.")
+    error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where the operator reports row-level errors.")
+    max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel.")
+
+
 class SortSpec(_Base):
     """Specify the composite key for sorting rows: using the domain key of the input channel class or by column names."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -1531,6 +1539,18 @@ class TransformationSpecOverride(_Base):
     sort_config: SortSpec | None = Field(default=None, description="Configuration of the sort operator.")
 
 
+class TransformationSpecSite(_Base):
+    """An operator this deployment supplies rather than JetStore: its type names none of the built-in operators and the builder's dispatch resolves it through the site operator registry."""
+    columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations, handed to the factory as specs; the operator builds evaluators from them through OperatorEnv.ColumnEvaluator.")
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    conditional_config: list[ConditionalTransformationSpec] | None = Field(default=None, description="Conditions that override fields of this operator or replace it altogether.")
+    new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
+    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+    site_config: SiteOperatorSpec | None = Field(default=None, description="Configuration of the site-supplied operator: its error channel, its error cap, and its own configuration document.")
+    type: str = Field(description="The operator, naming none of the built-in operators: an unrecognised type is what sends the builder's dispatch to the site operator registry.", json_schema_extra={"minLength": 1, "not": {"enum": ["ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render"]}})
+    when: ExpressionNode | None = Field(default=None, description="Guard: the transformation is applied only when this evaluates true.")
+
+
 class VllmSpec(_Base):
     """Configuration of the vllm transformation operator: model, route, guided decoding, the prompt and response mapping, and the request policy."""
     api: Literal["chat", "completions"] | None = Field(default=None, description="The OpenAI-compatible route to call: chat (/v1/chat/completions) or completions (/v1/completions). Engine default: chat (builder).")
@@ -1667,6 +1687,7 @@ _MATRIX_KEYS = {
     "SchemaProviderSpecDefault": ("SchemaProviderSpec", "default"),
     "SchemaProviderSpecPipelineCoordinatorMap": ("SchemaProviderSpec", "pipeline_coordinator_map"),
     "ShufflingSpec": ("ShufflingSpec", "*"),
+    "SiteOperatorSpec": ("SiteOperatorSpec", "*"),
     "SortSpec": ("SortSpec", "*"),
     "SourcesConfigSpec": ("SourcesConfigSpec", "*"),
     "SplitterSpecExtCount": ("SplitterSpec", "ext_count"),
@@ -1708,6 +1729,7 @@ _MATRIX_KEYS = {
     "TransformationSpecPartitionWriter": ("TransformationSpec", "partition_writer"),
     "TransformationSpecRender": ("TransformationSpec", "render"),
     "TransformationSpecShuffling": ("TransformationSpec", "shuffling"),
+    "TransformationSpecSite": ("TransformationSpec", "~site"),
     "TransformationSpecSort": ("TransformationSpec", "sort"),
     "TransformationSpecVllm": ("TransformationSpec", "vllm"),
     "VllmSpec": ("VllmSpec", "*"),

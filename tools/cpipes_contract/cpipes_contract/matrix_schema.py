@@ -28,7 +28,7 @@ import csv
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Iterable, Literal, Sequence, TypeVar
+from typing import Annotated, Collection, Iterable, Literal, Sequence, TypeVar
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, model_validator
 
@@ -74,7 +74,22 @@ _VIRTUAL_TOKEN = re.compile(r"^~[a-z][a-z0-9_]*$")
 # The membership predicate of a virtual token. `present(k)` means the json key k is
 # set and not null; `absent(k)` means it is missing, null or the empty string - the
 # reading Go gives an omitted `string` field.
-_VARIANT_WHEN = re.compile(r"^(present|absent)\(([a-z_][a-z0-9_]*)\)$")
+#
+# **`unlisted(k)` is the third, added 2026-09-13 for gap 2b, and it is a different
+# kind of membership from the other two.** `present` and `absent` read the *shape*
+# of the node; `unlisted` reads the discriminator and asks whether its value is one
+# this struct has a row for. It is the matrix's spelling of a `default:` branch, and
+# it exists because `BuildPipeTransformationEvaluator` has one
+# (`pipes_runtime_model.go:332`): a `TransformationSpec` whose `type` names none of
+# the eighteen built-ins is dispatched to the site operator registry, so the
+# variant's membership is the *complement* of the recorded token vocabulary and no
+# key's presence decides it.
+#
+# **An absent discriminator is not unlisted.** A missing key is the defaulted-token
+# case (the 90 `standard` splitters that write no `type`), which the walker settles
+# from the field row's `default`, so `unlisted` requires a value and is deliberately
+# indifferent to row order against an `absent(...)` sibling.
+_VARIANT_WHEN = re.compile(r"^(present|absent|unlisted)\(([a-z_][a-z0-9_]*)\)$")
 
 
 def parse_variant_when(cell: str) -> tuple[str, str]:
@@ -85,12 +100,28 @@ def parse_variant_when(cell: str) -> tuple[str, str]:
     return match.group(1), match.group(2)
 
 
-def variant_matches(cell: str, node: dict) -> bool:
-    """Does this node satisfy a virtual token's membership predicate?"""
+def variant_matches(
+    cell: str, node: dict, value_tokens: Collection[str] | None = None
+) -> bool:
+    """Does this node satisfy a virtual token's membership predicate?
+
+    `value_tokens` is the struct's recorded value vocabulary, which only
+    `unlisted(k)` needs. It is required rather than defaulted to empty: a caller
+    that has not got the sibling rows in hand would otherwise read every token as
+    unlisted, which is the quietest possible way to type every node as the site
+    variant.
+    """
     kind, key = parse_variant_when(cell)
     value = node.get(key)
     if kind == "present":
         return value is not None
+    if kind == "unlisted":
+        if value_tokens is None:
+            raise ValueError(
+                f"variant_matches({cell!r}) needs the struct's value tokens to "
+                "decide what is unlisted"
+            )
+        return isinstance(value, str) and value != "" and value not in value_tokens
     return value is None or value == ""
 
 

@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 from collections import defaultdict
+from pathlib import Path
 
 from .matrix_schema import Matrix
 
@@ -27,9 +29,80 @@ _CANON = {
     "byte": "uint8",
 }
 
+# The package whose alias declarations decide the matrix's unqualified spellings:
+# `inventory/main.go`'s typeName strips `compute_pipes.` and nothing else, so an
+# unqualified name in `go_type` is a name that resolves inside this package.
+ALIAS_PACKAGE = Path("jets") / "compute_pipes"
 
-def canon(go_type: str) -> str:
-    return _CANON.get(go_type, go_type)
+# `type Local = pkg.Name`, standalone or inside a `type ( ... )` block. Only the
+# alias form (`=`) is read: `type Local pkg.Name` declares a *distinct* type,
+# which reflection reports as `compute_pipes.Local` anyway and which nothing here
+# needs to rewrite.
+_ALIAS_DECL = re.compile(r"^([A-Z]\w*)\s*=\s*([a-z]\w*)\.([A-Z]\w*)\s*(?://.*)?$")
+
+
+def alias_map(code_root: Path) -> dict[str, str]:
+    """Qualified spelling -> the local alias, read from the Go source.
+
+    **Reflection cannot see an alias, and that is the whole reason this exists.**
+    A Go type alias is not a distinct type at runtime, so `reflect.Type` reports
+    the *declaring* package: after `BC.2` split the operator contract into
+    `jets/compute_pipes/pipesmodel`, the runner says `pipesmodel.ExpressionNode`
+    while `pipes_model.go` still declares the field as `*ExpressionNode`, through
+    `type ExpressionNode = pipesmodel.ExpressionNode`. Both spellings are correct
+    about different things, and 34 of the 35 differences the check reported on
+    2026-09-12 were exactly this and nothing else - stripping the qualifier left
+    zero residue on all 34.
+
+    **It is derived rather than listed, and the difference is what happens when
+    an alias goes away.** A hard-coded set would keep normalising a qualifier
+    after the alias that justified it had been deleted, leaving the check silent
+    while the matrix's spelling no longer matched any name the package has.
+    Reading the declarations means the normalisation lasts exactly as long as the
+    aliases do, and a genuinely different package - one nothing aliases in - stays
+    qualified on the reflected side and still drifts. That is the property worth
+    protecting: this must not become "strip any package qualifier".
+    """
+    aliases: dict[str, str] = {}
+    directory = code_root / ALIAS_PACKAGE
+    in_block = False
+    for path in sorted(directory.glob("*.go")):
+        if path.name.endswith("_test.go"):
+            continue
+        for line in path.read_text().splitlines():
+            stripped = line.strip()
+            if in_block:
+                if stripped == ")":
+                    in_block = False
+                    continue
+            elif stripped == "type (":
+                in_block = True
+                continue
+            elif stripped.startswith("type "):
+                stripped = stripped[len("type "):].strip()
+            else:
+                continue
+            match = _ALIAS_DECL.match(stripped)
+            if match is not None:
+                local, package, name = match.groups()
+                aliases[f"{package}.{name}"] = local
+    return aliases
+
+
+def canon(go_type: str, aliases: dict[str, str]) -> str:
+    """One spelling for one type, so the two sides can be compared.
+
+    `_CANON` settles the spellings of the same builtin (`any` / `interface {}`);
+    `aliases` settles a qualified name against the local alias it is reachable by.
+    Applied to *both* sides, so the matrix may record either spelling of an
+    aliased type - the same latitude `_CANON` already gives `any`.
+    """
+    go_type = _CANON.get(go_type, go_type)
+    for qualified, local in aliases.items():
+        # Bounded by a word boundary on the right so `pipesmodel.Map` cannot
+        # rewrite the head of `pipesmodel.MapExpression`.
+        go_type = re.sub(rf"\b{re.escape(qualified)}\b", local, go_type)
+    return go_type
 
 
 def run(args: argparse.Namespace, matrix: Matrix) -> int:
@@ -46,6 +119,7 @@ def run(args: argparse.Namespace, matrix: Matrix) -> int:
         struct: {f["json"]: f for f in fields}
         for struct, fields in json.loads(proc.stdout).items()
     }
+    aliases = alias_map(Path(args.code))
 
     recorded: dict[str, dict[str, tuple[str, str]]] = defaultdict(dict)
     for f in matrix.fields_:
@@ -67,7 +141,7 @@ def run(args: argparse.Namespace, matrix: Matrix) -> int:
                 drifts.append(
                     f"{struct}.{key}: Go name {got[key]['name']!r} vs matrix {name!r}"
                 )
-            if canon(go_type) != canon(got[key]["type"]):
+            if canon(go_type, aliases) != canon(got[key]["type"], aliases):
                 drifts.append(
                     f"{struct}.{key}: Go type {got[key]['type']!r} vs matrix {go_type!r}"
                 )

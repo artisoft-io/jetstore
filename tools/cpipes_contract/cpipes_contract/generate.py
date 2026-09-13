@@ -41,6 +41,7 @@ from .matrix_schema import (
     Required,
     TypeRow,
     YesNo,
+    parse_variant_when,
 )
 
 # Structs emitted as one merged class instead of a discriminated union: the
@@ -239,6 +240,32 @@ class Emitter:
             return f"    {name}: {typ}"
         return f"    {name}: {typ} | None = None"
 
+    def complement_field_line(self, row: FieldRow, value_tokens: list[str]) -> str:
+        """The discriminator of an `unlisted(...)` token: a string that is none of them.
+
+        A Pydantic `Literal` cannot say *any token but these*, so the constraint
+        is carried as `json_schema_extra` and appears in the emitted schema as
+        `"not": {"enum": [...]}`. The list is the struct's own value tokens read
+        off `types.csv`, so the branch is the exact complement of the union's
+        other branches rather than a second list of them - which is the mistake
+        `builtinOperatorTypes` and `reportsRowLevelFailures` each have a test
+        against on the Go side.
+
+        **`minLength` is half the constraint and is not padding.** `not: enum`
+        admits the empty string, which is not an unlisted token: an empty `type`
+        is the `~override` shape, and in an `apply` position it reaches
+        `buildSiteOperator`, which cannot find it - `WithOperators` refuses to
+        register an empty name at all (`site_operators.go:64`). Without this the
+        negative suite's own case validated.
+        """
+        desc = (row.description or "").strip()
+        desc = desc.replace("\\", "\\\\").replace('"', '\\"')
+        enum = ", ".join(f'"{token}"' for token in value_tokens)
+        extra = f'json_schema_extra={{"minLength": 1, "not": {{"enum": [{enum}]}}}}'
+        parts = [f'description="{desc}"'] if desc else []
+        parts.append(extra)
+        return f"    {row.json_key}: str = Field({', '.join(parts)})"
+
     # -- class emission -----------------------------------------------------
 
     def signature(self, row: FieldRow) -> tuple:
@@ -269,28 +296,42 @@ class Emitter:
                 if f.applicable is YesNo.YES and f.json_key != disc
             }
         common: list[str] = []
-        first = per_token[real[0].type_token]
-        for key, row in first.items():
-            sig = self.signature(row)
-            if all(
-                key in per_token[t.type_token]
-                and self.signature(per_token[t.type_token][key]) == sig
-                for t in real[1:]
-            ):
-                common.append(key)
+        # **A union may have no value token at all, and this raised IndexError on
+        # `real[0]` until 2026-09-13.** `Element` is the case: a paragraph and a
+        # group are told apart by which of `text` and `elements` is present, so
+        # both of its rows are `~virtual` and there is no real token to take the
+        # common fields from. The bootstrap has been unrunnable since that row
+        # landed on 2026-09-11 and nothing said so, because `generate` is the one
+        # command the working loop never runs - the model is the source of truth
+        # and `reflect` is what checks it. Found here only because gap 2b needed
+        # the bootstrap to verify a class it was about to write by hand.
+        first: dict[str, FieldRow] = {}
+        if real:
+            first = per_token[real[0].type_token]
+            for key, row in first.items():
+                sig = self.signature(row)
+                if all(
+                    key in per_token[t.type_token]
+                    and self.signature(per_token[t.type_token][key]) == sig
+                    for t in real[1:]
+                ):
+                    common.append(key)
 
-        base_name = struct + "Base"
-        out.append(f"class {base_name}(_Base):")
-        doc = self.type_doc(tokens[0], base=True)
-        if doc:
-            out.append(f'    """{doc}"""')
-        base_rows = [first[k] for k in common]
-        if not base_rows and not doc:
-            out.append("    pass")
-        for row in sorted(base_rows, key=lambda r: r.json_key):
-            out.append(self.field_line(row))
-        out.append("")
-        out.append("")
+        # A base class with no value token under it would be a class nothing
+        # inherits: the virtual subclasses deliberately descend from `_Base`.
+        if real:
+            base_name = struct + "Base"
+            out.append(f"class {base_name}(_Base):")
+            doc = self.type_doc(tokens[0], base=True)
+            if doc:
+                out.append(f'    """{doc}"""')
+            base_rows = [first[k] for k in common]
+            if not base_rows and not doc:
+                out.append("    pass")
+            for row in sorted(base_rows, key=lambda r: r.json_key):
+                out.append(self.field_line(row))
+            out.append("")
+            out.append("")
 
         for t in real:
             cname = self.class_name(struct, t.type_token)
@@ -321,15 +362,33 @@ class Emitter:
             doc = self.type_doc(t)
             if doc:
                 out.append(f'    """{doc}"""')
+            # **A complement token keeps its discriminator, and it is the only
+            # kind of virtual token that does.** `~override` is selected by the
+            # discriminator being *absent*, so carrying it would contradict the
+            # membership; `~site` is selected by its value being one no row of
+            # this struct claims, so the key is not merely present but required,
+            # and the branch is nothing without it. `unlisted(...)` is what
+            # tells the two apart.
+            when_kind, when_key = (
+                parse_variant_when(t.variant_when)
+                if t.variant_when not in (NONE, None)
+                else ("", "")
+            )
+            complement = when_kind == "unlisted" and when_key == disc
             rows = [
                 f
                 for f in self.fields[(struct, t.type_token)]
-                if f.applicable is YesNo.YES and f.json_key != disc
+                if f.applicable is YesNo.YES
+                and (f.json_key != disc or complement)
             ]
             if not rows and not doc:
                 out.append("    pass")
+            value_tokens = [r.type_token for r in real]
             for row in sorted(rows, key=lambda r: r.json_key):
-                out.append(self.field_line(row))
+                if complement and row.json_key == disc:
+                    out.append(self.complement_field_line(row, value_tokens))
+                else:
+                    out.append(self.field_line(row))
             out.append("")
             out.append("")
 
@@ -408,6 +467,20 @@ class Emitter:
         tokens = self.types[struct]
         disc = tokens[0].discriminator
         real = [t for t in tokens if not t.type_token.startswith(VIRTUAL_PREFIX)]
+        if not real:
+            # Shape-selected all the way down: there is no discriminator field to
+            # tag a branch with, so the union is ordered rather than tagged and
+            # `extra="forbid"` on both branches is what makes it exact. This is
+            # the shape `Element` already has in the model, by hand.
+            members = ", ".join(
+                self.class_name(struct, t.type_token)
+                for t in tokens
+                if t.type_token.startswith(VIRTUAL_PREFIX)
+            )
+            out.append(
+                f'{struct} = Annotated[Union[{members}], Field(union_mode="left_to_right")]'
+            )
+            return
         members = ", ".join(self.class_name(struct, t.type_token) for t in real)
         default_tag = None
         for t in real:

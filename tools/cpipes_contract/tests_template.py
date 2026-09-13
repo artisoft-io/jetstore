@@ -468,7 +468,14 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # task touched the matrix. Recorded rather than absorbed silently: re-pinning is
     # what this comment asks for, and it is also how a number drifts four types at a
     # time with nobody named.
-    assert len(cov["empty"]) == 36
+    #
+    # **38 on 2026-09-13**, the two being gap 2b's `TransformationSpecSite` and
+    # `SiteOperatorSpec`. Neither can ever have a library part, and that is a
+    # property of the type rather than a gap in the library: a site operator's
+    # shape belongs to whichever deployment wrote it, so there is no exemplar
+    # this repository could hold up and no corpus instance it could measure one
+    # from. It is the `empty` population's first permanent member.
+    assert len(cov["empty"]) == 38
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
 
 

@@ -14,10 +14,53 @@
       "config": {"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}
     },
     {
-      "name": "unknown operator type",
-      "class": "unknown-type",
+      "name": "unknown operator type missing output_channel",
+      "class": "missing-required",
+      "comment": "This was `unknown operator type`, in the `unknown-type` class, until 2026-09-13. Gap 2b made an unknown token the site-operator branch, so the token alone is no longer a violation - and the case went on passing, for the reason it does not name: the missing output_channel, which validateOutputChConfig requires of every transformation. Reclassified rather than deleted, and joined by the five below, which are what a site operator actually cannot do. A negative that passes for the wrong reason is the hole this suite exists to find.",
       "expect": "invalid",
       "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "no_such_operator"}]}]}]}
+    },
+    {
+      "name": "site operator",
+      "class": "sanity",
+      "comment": "The whole of gap 2b's I-778: a token no built-in claims is the site-operator branch, and a client config authoring one validates.",
+      "expect": "valid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "site operator carrying site_config",
+      "class": "sanity",
+      "comment": "site_config is optional on purpose: siteOperatorArgs early-returns on a nil SiteConfig, so an operator needing no configuration is a shape the engine builds. Both arms are exercised, this one and the case above.",
+      "expect": "valid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "site_config": {"error_channel": {"type": "sql", "output_table_key": "e"}, "max_error_count": 10, "config": {"policy": "strict", "columns": ["member_id"]}}}]}]}]}
+    },
+    {
+      "name": "site_config on a built-in token",
+      "class": "inapplicable-field",
+      "comment": "What validateSiteOperatorSpec refuses (site_operators.go:134). The site branch excludes the built-in tokens by `not: enum`, and the built-in branches have no site_config property, so neither arm accepts it.",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}, "site_config": {"max_error_count": 10}}]}]}]}
+    },
+    {
+      "name": "site operator carrying a built-in's config",
+      "class": "inapplicable-field",
+      "comment": "siteOperatorArgs hands the factory Type, Comment, NewRecord, Columns, the resolved channels and SiteConfig, and reads none of the eighteen config pointers - so a site operator with a map_record_config is configuring nothing.",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "map_record_config": {}}]}]}]}
+    },
+    {
+      "name": "site_config in a conditional override",
+      "class": "inapplicable-field",
+      "comment": "MergeTransformationSpec has no site_config arm, so an override cannot reach a site operator's configuration - the same reason ollama_config and render_config are inapplicable at conditional_config.N.then.",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}, "conditional_config": [{"when": {"type": "value", "expr": "1"}, "then": {"site_config": {"max_error_count": 10}}}]}]}]}]}
+    },
+    {
+      "name": "site operator with an empty type",
+      "class": "wrong-discriminator",
+      "comment": "`unlisted(type)` requires a value, and an empty string is the ~override shape rather than an unlisted token - the reading Go gives an omitted string field (actions_start_common.go:727). Neither branch takes it: ~override is position-bound to conditional_config.N.then.",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
     {
       "name": "unknown pipe type",

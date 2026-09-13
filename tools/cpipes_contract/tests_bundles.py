@@ -115,6 +115,95 @@ def test_every_admitted_operator_has_a_bundle():
     assert admitted - bundled == set(), f"operators in no bundle: {sorted(admitted - bundled)}"
 
 
+def _complement_rows():
+    return [r for r in _rows("types.csv") if r["variant_when"].startswith("unlisted(")]
+
+
+def test_the_complement_branch_excludes_exactly_its_union_s_own_tokens():
+    """The site branch is the complement of the union, not a second list of it.
+
+    `TransformationSpecSite` says `type` is a string that is `not` one of the
+    nineteen built-in tokens. That enum and the union's own branches are the same
+    fact written twice, which is the shape `builtinOperatorTypes` and
+    `reportsRowLevelFailures` each already have a Go test against - and the cost
+    of their drifting here is worse than a wrong warning: a token in the union
+    and missing from the enum matches *two* `oneOf` branches, so the union stops
+    being exclusive and a document that should be one operator is neither.
+
+    The emitter derives the enum from `types.csv`, so this holds by construction
+    today. It is asserted anyway because "by construction" is a property of one
+    revision of one function.
+    """
+    rows = _complement_rows()
+    assert rows, "no complement token in types.csv; this test asserted nothing"
+    for row in rows:
+        struct, defs_name = row["go_struct"], row["defs_name"]
+        excluded = DEFS[defs_name]["properties"][row["discriminator"]]["not"]["enum"]
+        admitted = set(DEFS[struct]["discriminator"]["mapping"])
+        assert set(excluded) == admitted, (
+            f"{defs_name}: excludes {sorted(set(excluded) ^ admitted)} "
+            f"more or less than {struct} admits"
+        )
+        assert len(excluded) == len(set(excluded)), f"{defs_name}: duplicate tokens"
+
+
+def test_the_complement_branch_joins_every_occurrence_of_its_union():
+    """Pydantic inlines an `Annotated[Union[...]]` at each use site.
+
+    So `$defs/TransformationSpec` is one occurrence among several - the three
+    `PipeSpec*.apply` arrays carry their own copy - and splicing only the named
+    entry produces a schema whose addressable entry admits a site operator while
+    no document containing one validates. Counting the occurrences is the cheap
+    way to say that the walk in `schema.py` still reaches all of them.
+    """
+    for row in _complement_rows():
+        branch = {"$ref": f"#/$defs/{row['defs_name']}"}
+        tokens = set(DEFS[row["go_struct"]]["discriminator"]["mapping"])
+        with_branch = without = 0
+
+        def walk(node):
+            nonlocal with_branch, without
+            if isinstance(node, dict):
+                one_of = node.get("oneOf")
+                mapping = (node.get("discriminator") or {}).get("mapping")
+                if isinstance(one_of, list) and mapping and set(mapping) == tokens:
+                    if branch in one_of:
+                        with_branch += 1
+                    else:
+                        without += 1
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(DEFS)
+        assert with_branch > 1, (
+            f"{row['defs_name']}: spliced into {with_branch} occurrence(s); the named "
+            f"$defs entry alone is the failure this test exists for"
+        )
+        assert without == 0, (
+            f"{row['defs_name']}: {without} occurrence(s) of the {row['go_struct']} "
+            f"union do not carry the complement branch"
+        )
+
+
+def test_a_complement_token_is_in_no_bundle_and_that_is_deliberate():
+    """A bundle groups operators by what they are *for*, and nobody here knows.
+
+    `test_every_admitted_operator_has_a_bundle` reads the discriminator mapping,
+    which a complement token is absent from by construction, so that rule stays
+    silent here rather than being satisfied. Saying so is the point: the silence
+    is a decision - a site operator's meaning belongs to the deployment that
+    wrote it, so no bundle in this repository can describe one - and not an
+    omission for someone to tidy up.
+    """
+    bundled = {r["type_token"] for r in _rows("bundle_members.csv")}
+    for row in _complement_rows():
+        assert row["type_token"] not in bundled
+        assert row["type_token"] not in DEFS[row["go_struct"]]["discriminator"]["mapping"]
+
+
 def test_every_bundle_admits_exactly_its_own_operator():
     """A pipe bundle names one operator, so its discriminator is that token alone."""
     kind = {r["bundle"]: r["applies_to"] for r in _rows("bundles.csv")}

@@ -1023,6 +1023,12 @@ var CpipesContract = map[string]map[string]ContractField{
 		"output_sample_size":        {},
 		"pad_short_rows_with_nulls": {},
 	},
+	"SiteOperatorSpec/*": {
+		"comment":         {},
+		"config":          {},
+		"error_channel":   {},
+		"max_error_count": {},
+	},
 	"SortSpec/*": {
 		"comment":    {},
 		"domain_key": {RequiredWhen: "absent(sort_by)"},
@@ -1377,6 +1383,16 @@ var CpipesContract = map[string]map[string]ContractField{
 		"partition_writer_config": {},
 		"shuffling_config":        {},
 		"sort_config":             {},
+	},
+	"TransformationSpec/~site": {
+		"columns":            {},
+		"comment":            {},
+		"conditional_config": {},
+		"new_record":         {},
+		"output_channel":     {Required: true},
+		"site_config":        {},
+		"type":               {Required: true},
+		"when":               {},
 	},
 	"VllmSpec/*": {
 		"api":                       {Values: []string{"chat", "completions"}},

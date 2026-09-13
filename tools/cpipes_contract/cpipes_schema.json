@@ -12791,6 +12791,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecSite"
                   }
                 ]
               },
@@ -13023,6 +13026,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecSite"
                   }
                 ]
               },
@@ -14821,6 +14827,86 @@
         }
       },
       "title": "ShufflingSpec",
+      "type": "object"
+    },
+    "SiteOperatorSpec": {
+      "additionalProperties": false,
+      "description": "Configuration of a site-supplied operator: the error channel it reports row-level failures on, the cap on those reports, and its own configuration document.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "config": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The site's own configuration, carried verbatim: JetStore does not decode it, validate it or know its schema.",
+          "title": "Config"
+        },
+        "error_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Channel where the operator reports row-level errors.",
+          "title": "Error Channel"
+        },
+        "max_error_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cap on the records reported to the error channel.",
+          "title": "Max Error Count"
+        }
+      },
+      "title": "SiteOperatorSpec",
       "type": "object"
     },
     "SortPipe": {
@@ -17117,6 +17203,9 @@
         },
         {
           "$ref": "#/$defs/TransformationSpecRender"
+        },
+        {
+          "$ref": "#/$defs/TransformationSpecSite"
         }
       ]
     },
@@ -21433,6 +21522,222 @@
         "shuffling_config"
       ],
       "title": "TransformationSpecShuffling",
+      "type": "object"
+    },
+    "TransformationSpecSite": {
+      "additionalProperties": false,
+      "description": "An operator this deployment supplies rather than JetStore: its type names none of the built-in operators and the builder's dispatch resolves it through the site operator registry.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "discriminator": {
+                  "mapping": {
+                    "avrg": "#/$defs/TransformationColumnSpecAvrg",
+                    "case": "#/$defs/TransformationColumnSpecCase",
+                    "count": "#/$defs/TransformationColumnSpecCount",
+                    "distinct_count": "#/$defs/TransformationColumnSpecDistinctCount",
+                    "eval": "#/$defs/TransformationColumnSpecEval",
+                    "hash": "#/$defs/TransformationColumnSpecHash",
+                    "lookup": "#/$defs/TransformationColumnSpecLookup",
+                    "map": "#/$defs/TransformationColumnSpecMap",
+                    "map_reduce": "#/$defs/TransformationColumnSpecMapReduce",
+                    "max": "#/$defs/TransformationColumnSpecMax",
+                    "min": "#/$defs/TransformationColumnSpecMin",
+                    "multi_select": "#/$defs/TransformationColumnSpecMultiSelect",
+                    "select": "#/$defs/TransformationColumnSpecSelect",
+                    "sum": "#/$defs/TransformationColumnSpecSum",
+                    "value": "#/$defs/TransformationColumnSpecValue"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecAvrg"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecCase"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecCount"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecDistinctCount"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecEval"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecHash"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecLookup"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMap"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMapReduce"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMax"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMin"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMultiSelect"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecSelect"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecSum"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecValue"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The column transformations, handed to the factory as specs; the operator builds evaluators from them through OperatorEnv.ColumnEvaluator.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "new_record": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Emit a new record rather than augmenting the input one.",
+          "title": "New Record"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "site_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SiteOperatorSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Configuration of the site-supplied operator: its error channel, its error cap, and its own configuration document."
+        },
+        "type": {
+          "description": "The operator, naming none of the built-in operators: an unrecognised type is what sends the builder's dispatch to the site operator registry.",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "ollama",
+              "embed",
+              "vllm",
+              "partition_writer",
+              "map_record",
+              "aggregate",
+              "analyze",
+              "high_freq",
+              "anonymize",
+              "distinct",
+              "shuffling",
+              "group_by",
+              "filter",
+              "sort",
+              "merge",
+              "jetrules",
+              "clustering",
+              "infer",
+              "render"
+            ]
+          },
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "output_channel",
+        "type"
+      ],
+      "title": "TransformationSpecSite",
       "type": "object"
     },
     "TransformationSpecSort": {

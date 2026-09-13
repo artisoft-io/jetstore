@@ -395,7 +395,13 @@ def check_exemplars(matrix: Matrix, corpus_root: Path) -> list[str]:
             )
             continue
         if t.type_token.startswith(VIRTUAL_PREFIX):
-            if not variant_matches(t.variant_when, node):
+            value_tokens = {
+                r.type_token
+                for r in matrix.types
+                if r.go_struct == t.go_struct
+                and not r.type_token.startswith(VIRTUAL_PREFIX)
+            }
+            if not variant_matches(t.variant_when, node, value_tokens):
                 problems.append(
                     f"types {_key(t)}: exemplar does not satisfy {t.variant_when}: "
                     f"{t.exemplar_file}#{t.exemplar_path}"
