@@ -1,0 +1,97 @@
+# The cpipes builder, plus one workspace's Go module, composed into a Go
+# workspace so that a site-specific task binary can be built against JetStore.
+#
+# **Why a second image rather than a change to Dockerfile.cpipes_builder.** A
+# docker build has one build context, and the two trees this needs live in two
+# repositories: JetStore (the context Dockerfile.cpipes_builder already takes,
+# `.` at JETSTORE_REPO) and the client workspace (the context
+# Dockerfile.compile_ws already takes, WORKSPACES_REPO/WORKSPACE). Merging them
+# into one staged context would mean copying ~340MB of JetStore beside the
+# workspace on every build; a BuildKit named context (`--build-context`) would
+# add a `COPY --from=` line to Dockerfile.cpipes_builder that fails whenever that
+# context is not supplied, and a docker build has no conditional COPY.
+#
+# Deriving instead costs nothing and keeps the no-site-operator build **bit for
+# bit** what it is today: Dockerfile.cpipes_builder is not edited, the six paths
+# it copies do not include dockerfiles/, and nothing here runs unless a build
+# script asks for it. That is exit criterion 98, and it is met by construction
+# rather than by comparison.
+#
+# **This is Dockerfile.compile_ws's shape and not its reason.** compile_ws is
+# also FROM cpipes_builder with the workspace tree as its whole context, so the
+# shape transfers. What does not transfer is the staging in
+# build_workspace.sh: that exists so a *real* gitdir reaches the runtime image,
+# because the apiserver runs git in the deployed workspace. Nothing here runs
+# git, and no tree copied in here reaches a runtime image -- this stage produces
+# a binary and is discarded. So this build takes the workspace directory as it
+# lies, submodule pointer file and all, and needs no staged copy.
+FROM cpipes_builder:latest
+
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+ENV WORKSPACES_REPO=/workspaces
+
+# Fail here rather than copying the tree to `/workspaces//` and puzzling over it
+# later. Dockerfile.compile_ws has the same exposure and does not take it; this
+# one is new and can.
+RUN test -n "${WORKSPACE}" || (echo "WORKSPACE build arg is required" >&2; exit 1)
+
+# The workspace tree, from the build context. Whole tree rather than the Go
+# source alone: the module root is the *workspace* root (cedargate_ws/go.mod,
+# module github.com/artisoft-io/cedargate_ws, with the source under go/), so
+# copying only go/ would leave the module without its go.mod.
+#
+# No `chmod -R a+rX` here, and its absence is deliberate rather than an
+# oversight -- Dockerfile.compile_ws needs it because ensureLocalRepoSeeded
+# copies that tree back out of the image as the lambda handler's identity. This
+# tree is read by `go build` as root in this stage and then thrown away.
+COPY . ${WORKSPACES_REPO}/${WORKSPACE}/
+
+# Compose the two modules into a Go workspace.
+#
+# **At `/`, and the placement is the whole of why this works.** `go env GOWORK`
+# walks up from the *working directory* and stops at the first go.work, so a file
+# at /app/go.work would govern a build run in the JetStore tree and be invisible
+# to one run in the workspace tree. `/` is the first directory above both.
+# Measured 2026-09-12: with /go.work in place, `go env GOWORK` reports /go.work
+# from /app and from /workspaces/<ws> alike.
+#
+# **Guarded on the workspace having a go.mod, because two of the four workspaces
+# in this checkout do not** (jets_ws and walrus_ws, 2026-09-12). A `use`
+# directive naming a directory with no go.mod is not ignored -- every subsequent
+# go command in the image fails with `cannot load module /<dir> listed in go.work
+# file`, including the ones that have nothing to do with the workspace. So a
+# workspace with no Go module leaves this image in plain module mode, identical
+# to its parent, which is also the right answer: it has no site operator to
+# build.
+#
+# `go work init <dir> <dir>` rather than a written-out file, so the `go` line is
+# whatever this image's toolchain is rather than a number to keep in step.
+RUN set -eu; \
+  ws_dir="${WORKSPACES_REPO}/${WORKSPACE}"; \
+  if [ -f "${ws_dir}/go.mod" ]; then \
+    cd / && go work init "${JETS_SOURCE_DIR}" "${ws_dir}"; \
+    echo "--- /go.work ---"; cat /go.work; \
+  else \
+    echo "--- ${ws_dir} has no go.mod: no go.work, plain module mode ---"; \
+  fi
+
+# Assert the composition still compiles the stock task entry, and produce
+# nothing.
+#
+# This is where `BF.1` stops. It establishes that adding the workspace module to
+# the build list does not break the build that Dockerfile.cpipes ships;
+# **`BF.2`** replaces this step with an ARG-selected entry and a real output
+# path, and `Dockerfile.cpipes` then takes its `FROM ... AS builder` from an ARG
+# so it can copy the site binary out of this image instead of the stock one.
+#
+# Measured 2026-09-12, on cedargate_ws against jets_ai @ af6a6b4b: the stock
+# cpipes_native_server built under the composition is **byte for byte** the one
+# built without it (sha256 2467182ccf955b938a3fe465b17e3a071fea447d956957e5595a86690fc70af0
+# both ways). That is a stronger result than criterion 98 needs -- it says the
+# composition is inert for the binaries the site image does not replace, not
+# only for the image that never sees it.
+RUN cd ${JETS_SOURCE_DIR} \
+  && echo "GOWORK=$(go env GOWORK)" \
+  && go build -ldflags="-w -s" -o /dev/null ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server \
+  && echo "composition builds the stock task entry"
