@@ -27,8 +27,18 @@ Run from **this directory**. Go stops at the first `go.work` walking up, which i
 run the same command from the parent `jetstore_agentic_ai` checkout and you get a different workspace
 with the CDK modules dropped out. See the *Go* note in the repo-root `CLAUDE.md`.
 
-**There are no tests.** `jetstore_one_test.go` is the CDK scaffold's example, entirely commented out.
-`ctest` and `go test ./...` from the repo root do not reach anything here.
+**There is one test file, and it is new.** `jetstore_one_test.go` is still the CDK scaffold's
+example, entirely commented out; `stack/build_cpipes_lambdas_test.go` (2026-09-12) is real and holds
+one claim — that the cpipes node Lambda's entry, with `JETS_CPIPES_NODE_LAMBDA_ENTRY` unset,
+resolves to the literal the property carried before the variable existed. It is a pure string test
+and synthesises nothing, so it runs in milliseconds and needs no environment.
+
+**A test here cannot mean "the stack is unchanged", and that is why there is only one.** What
+decides the deployed stack is the synthesised template, and reaching it means running the whole app
+with the full environment exported. The A/B synth that established the claim above — stash the
+change, synthesise, compare — lives in the pull request that added it rather than in a test, because
+it takes a minute and a set of plausible account values. `go test ./...` from the repo root still
+does not reach this directory; `go test ./stack/` from here does.
 
 ### Synth and deploy
 
@@ -121,6 +131,20 @@ unset: `JETS_API_GATEWAY_LAMBDA_ENTRY` (`build_api_lambdas.go:25`),
 directory — typically a client workspace repo's `go/lambdas/` — which is what the root `go.work`
 including `cedargate_ws` is for. So the API Gateway, the SQS trigger path and the cpipes run-reports
 step are all deployment-conditional, and a stack without them is normal rather than broken.
+
+**A fourth variable names an entry and is not one of those three** (2026-09-12).
+`JETS_CPIPES_NODE_LAMBDA_ENTRY` (`stack/build_cpipes_lambdas.go`, `lambdaEntryOrDefault` in
+`stack/stack_model.go`) **defaults** rather than gates: unset means `lambdas/compute_pipes/cp_node`,
+the literal the property carried before, so no deployment changes. The three above name a component
+only a site has; this one names an alternative source for a component every deployment runs, and the
+difference in form follows from that rather than from taste.
+
+**The other three cpipes Lambdas deliberately do not take one.** `CpipesNativeNodeLambda` is a
+`NewDockerImageFunction` reading an image out of ECR — `DockerImageFunctionProps` has no `Entry` to
+redirect, and its binary is built under `CGO_ENABLED=1` against a `libjets.so` that exists only
+inside that image (`dockerfiles/Dockerfile.cpipes_builder:23`, `:66`). The two starters call
+`StartShardingComputePipes` / `StartReducingComputePipes`, which plan a run rather than build a pipe
+graph: neither constructs a `BuilderContext`, so neither has anywhere to put a site operator.
 
 ## Guarded resources
 

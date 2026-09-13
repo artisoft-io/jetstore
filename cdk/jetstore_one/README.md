@@ -292,6 +292,14 @@ Installation-specific ingest from an SQS queue.
   `CPIPES_LAMBDA_ECR_REPO_ARN` + `CPIPES_IMAGE_TAG`, not a Go bundle.
   `JETS_CPIPES_LAMBDA_MEM_LIMIT_MB` sizes them; `CPIPES_DB_POOL_SIZE` and `TASK_MAX_CONCURRENCY`
   tune them.
+- **Site entry**: `JETS_CPIPES_NODE_LAMBDA_ENTRY` points `CpipesNodeLambda` at a site main —
+  the stock one plus a `compute_pipes` operator registration — and **defaults to
+  `lambdas/compute_pipes/cp_node`**, so a stack that does not set it synthesises the template
+  it synthesised before (verified 2026-09-12 by an A/B synth: the CloudFormation template is
+  byte-identical with the variable unset, with `DEPLOY_CPIPES_NATIVE` off and on).
+  `CpipesNativeNodeLambda` takes no such variable because a container-image function has no
+  `Entry`; the other two plan a run rather than build a pipe graph, so there is nothing for a
+  site operator to register in them.
 - **IAM / SG**: `LambdaExecutionRole`; `VpcEndpointsSg` + `RdsAccessSg` + `InternetAccessSg`;
   isolated subnets; 15-minute timeout.
 - **Security**: `InternetAccessSg` is present because notification endpoints may be external — this
