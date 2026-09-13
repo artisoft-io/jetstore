@@ -131,15 +131,19 @@ class _Walker:
         if not rows:
             self.out.unreachable[(ref_struct, "?")] += 1
             return None
-        if isinstance(node, dict):
-            for t in rows:
-                if t.type_token.startswith(VIRTUAL_PREFIX) and variant_matches(
-                    t.variant_when, node
-                ):
-                    return (ref_struct, t.type_token)
         value_rows = [
             t for t in rows if not t.type_token.startswith(VIRTUAL_PREFIX)
         ]
+        # The struct's recorded value vocabulary, which `unlisted(k)` is the
+        # complement of. Computed before the virtual pass rather than inside it,
+        # since that is the pass that needs it.
+        value_tokens = {t.type_token for t in value_rows}
+        if isinstance(node, dict):
+            for t in rows:
+                if t.type_token.startswith(VIRTUAL_PREFIX) and variant_matches(
+                    t.variant_when, node, value_tokens
+                ):
+                    return (ref_struct, t.type_token)
         if not value_rows:
             self.out.unreachable[(ref_struct, "!no value token matched")] += 1
             return None

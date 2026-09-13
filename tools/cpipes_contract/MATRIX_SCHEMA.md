@@ -97,6 +97,26 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   the matrix emits: a union with virtual members is not a plain discriminated union — the JSON
   Schema branches become `if`/`then` overlays on key presence, and the Pydantic side needs a
   pre-validator rather than a discriminator field.
+- **`unlisted(key)` is the third predicate, added 2026-09-13 for gap 2b, and it is a different kind
+  of membership from the other two.** `present` and `absent` read the *shape* of the node;
+  `unlisted` reads the discriminator and asks whether its value is one this struct has a row for.
+  It is the matrix's spelling of a `default:` branch, and it exists because the engine has one:
+  `BuildPipeTransformationEvaluator` (`pipes_runtime_model.go:332`) sends a `TransformationSpec`
+  whose `type` names none of the built-in operators to the site operator registry, so the variant's
+  membership is the **complement of the recorded token vocabulary** and no key's presence decides
+  it. `TransformationSpec/~site` is the case and is the only one today.
+  **Three consequences, each of which had to be built rather than inherited.**
+  An `unlisted` row **keeps its discriminator field**, alone among virtual rows — `~override` is
+  selected by `type` being absent, so carrying it would contradict the membership, while `~site` is
+  nothing without it, and the field is `required=yes`. It **joins its union's `oneOf`**, which no
+  other virtual token does, as a branch whose discriminator is a string with
+  `"not": {"enum": [the value tokens]}` and `"minLength": 1`; the enum is derived from `types.csv`
+  rather than listed, so the branch is the exact complement of the union's other branches and
+  cannot drift from them. And an **absent** discriminator is *not* unlisted: a missing key is the
+  defaulted-token case (the 90 `standard` splitters that write no `type`), which the walker settles
+  from the field row's `default`, so `unlisted` requires a value and is deliberately indifferent to
+  row order against an `absent(...)` sibling. The empty string is likewise not unlisted — it is the
+  `~override` shape, and `WithOperators` refuses to register an operator under an empty name.
 - **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
   `jets/compute_pipes/pipes_model.go:1152`. One extension, added for B.5: **a citation beginning with
   `workspaces/` resolves against the repo holding the corpus** — the parent of the code root — because
@@ -133,7 +153,7 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
 | `type_token` | One value of that struct's discriminator, `*` when it has none, or a `~virtual` token (see *Conventions*). |
 | `defs_name` | Mechanical: `CamelCase(type_token) + go_struct`, or `go_struct` when the token is `*`. `OllamaTransformationSpec`, `MergeFilesPipeSpec`, `StageInputChannelConfig`. A virtual token drops its `~` first; hyphens split like underscores (`de-identification` → `DeIdentificationAnonymizeSpec`). Where the token repeats a word of the struct the name stutters — `OutputOutputChannelConfig`, `SqlLookupLookupSpec` — and the stutter stands: it is the price of a rule under which no hand-picked pair of names can collide. The check enforces the rule and also that every `defs_name` is unique, so the `$defs` key, the Pydantic class name and the fragment-library entry are one name rather than three conventions. |
 | `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. Virtual rows carry it too, so all rows of one struct can be checked to agree on it — **except where a struct discriminates only by shape, and then every row carries `-`** (2026-09-11). `Element` is the case: a paragraph and a group are told apart by which of `text` and `elements` is present and by nothing else, so there is no key to name, and `variant_when` is where the membership is written. The rule the check enforces is *`-` exactly when the token is `*` or the struct's variants are all `~virtual`*; it read *exactly when the token is `*`* until then, which conflated *this struct has variants* with *this struct has a discriminating key*. The two virtual tokens that existed before — `ExpressionNode`'s and `TransformationSpec`'s — both sit on structs that also carry a value discriminator, so the conflation cost nothing and was never tested. |
-| `variant_when` | The membership predicate of a `~virtual` token — `present(key)` or `absent(key)` — and `-` on every other row. The corpus walker and the emitted schema both read it. |
+| `variant_when` | The membership predicate of a `~virtual` token — `present(key)`, `absent(key)` or `unlisted(key)` — and `-` on every other row. The corpus walker and the emitted schema both read it. `unlisted` names the struct's own discriminator and means *a value no row of this struct claims*; see *Conventions* for what it costs the emitter. |
 | `embeds` | Structs embedded anonymously, whose fields are promoted onto this type on the wire. `InputChannelConfig` embeds `FileConfig`. |
 | `fragment` | Whether this type can be authored and validated standing alone (plan criteria 6 and 7). Expected to be `yes` almost everywhere; a `no` must say why in `notes`. |
 | `deprecated` | Superseded but still valid; as in `fields.csv`. |
@@ -381,6 +401,59 @@ carries the dispatch precedence. `TransformationSpec/~override` is **absence-sel
 value token is *also* legal at that position, and the schema for `then` is the whole union rather
 than one branch. Neither case is the defaulted-discriminator shape of the third finding above:
 there, an absent key still means one value token; here, absence or presence *is* the discrimination.
+
+## A seventh, from gap 2b: a discrimination that is a complement — 2026-09-13
+
+**Added for `I-778`, and it is the first union member this file has had to describe as *everything
+else*.** Phase 9 gave the engine a site operator registry: `BuildPipeTransformationEvaluator`'s
+`default:` branch (`pipes_runtime_model.go:332`) hands a `type` that names no built-in to a factory
+the deployment registered with `WithOperators`, and `TransformationSpec` gained a `site_config`
+field to configure it (`pipes_model.go:607`). The emitted contract refused all of it: a `oneOf` over
+nineteen `"type": {"const": …}` branches with `additionalProperties: false` matches no site token,
+and refuses `site_config` on every branch even if one did match. So JetStore accepted a shape the
+schema called invalid, and the first client `.pc.json` authoring one would have turned
+`cpipes-contract validate` red.
+
+**The membership predicate is `unlisted(type)` and not `present(site_config)`**, which is what the
+task that found this proposed. Three measurements decided it, all taken 2026-09-13 against
+`jets_ai` at `82a5dd4a`:
+
+- **`site_config` does not select the variant.** `siteOperatorArgs` early-returns on a nil
+  `SiteConfig` (`site_operators.go:238`), so an operator needing no configuration is a shape the
+  engine builds and runs. A branch keyed on the field's presence would refuse it.
+- **It is not even *evidence* of the variant.** `validateSiteOperatorSpec` (`site_operators.go:128`)
+  refuses a `site_config` on a built-in token, so its presence and the operator's identity are
+  separate claims that the engine checks against each other.
+- **The `oneOf` stays exclusive without it.** A built-in token matches its own branch and fails the
+  site branch's `not: enum`; anything else matches the site branch alone. Requiring `site_config`
+  to keep the union exclusive would therefore have been unnecessary as well as wrong.
+
+**The enum is derived from `types.csv`, and that is the whole of why this is safe to leave.** The
+tokens the site branch excludes and the tokens the union's other branches carry are the same fact,
+and a second list of a fact is how `builtinOperatorTypes` and `reportsRowLevelFailures` could have
+drifted apart on the Go side — which is why each of those has a test. This one has
+`test_the_complement_branch_excludes_exactly_its_union_s_own_tokens`. A token in the union and
+missing from the enum would match **two** branches, so the union would stop being exclusive and a
+document that should be one operator would be neither.
+
+**`infer` is in the enum and is not in Go's `builtinOperatorTypes`, and the two are right.** That
+map is *the tokens the dispatch handles*, and `ResolveInferBackend` rewrites `infer` into `ollama`
+or `vllm` before the validator or the dispatch ever sees it (`actions_start_sharding_cp.go:132`). So
+an authored `{"type": "infer", "site_config": …}` is rewritten into a built-in carrying a
+`site_config` and refused — the schema excluding `infer` agrees with the engine rather than
+overreaching, and it is the *authored* vocabulary the schema describes.
+
+**What the schema now says, and what it still cannot.** A site operator's `output_channel` is
+required, because `validateOutputChConfig` runs for every transformation outside the operator switch
+(`actions_start_common.go:1158`). Its eighteen built-in config pointers are inapplicable, because
+`siteOperatorArgs` reads none of them. `site_config` is inapplicable at `conditional_config.N.then`,
+because `MergeTransformationSpec` has no arm for it. What the schema cannot say is anything at all
+about the *contents* of `site_config.config`: it is `json.RawMessage`, JetStore does not know its
+schema, and that is the design rather than a gap.
+
+**Every row added here is `unreviewed` and none of the 2,102 existing rows moved** — the diff is 52
+insertions and no deletions, `stamp` reports `0 stamped, 0 cleared, 0 restamped`, and the review
+these rows are waiting for is a human's.
 
 ## The harness
 
