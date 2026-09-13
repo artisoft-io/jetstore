@@ -11,20 +11,27 @@
 # add a `COPY --from=` line to Dockerfile.cpipes_builder that fails whenever that
 # context is not supplied, and a docker build has no conditional COPY.
 #
-# Deriving instead costs nothing and keeps the no-site-operator build **bit for
-# bit** what it is today: Dockerfile.cpipes_builder is not edited, the six paths
-# it copies do not include dockerfiles/, and nothing here runs unless a build
-# script asks for it. That is exit criterion 98, and it is met by construction
-# rather than by comparison.
+# Deriving instead costs nothing and keeps the no-site-operator build what it is
+# today: Dockerfile.cpipes_builder is not edited, the six paths it copies do not
+# include dockerfiles/, and nothing here runs unless a build script asks for it.
+#
+# **That sentence read `bit for bit ... met by construction rather than by
+# comparison` when `BF.1` wrote it, and `BF.2` is why it no longer can.**
+# Selecting this image needs one line in Dockerfile.cpipes -- an ARG whose
+# default is the literal that line used to carry -- so exit criterion 98 is now
+# met by a default rather than by an absence. It was also measured, 2026-09-12:
+# Dockerfile.cpipes rebuilt with no --build-arg is a total cache hit and writes
+# sha256:9a946a08870d, the id of the cpipes:latest built before the change.
 #
 # **This is Dockerfile.compile_ws's shape and not its reason.** compile_ws is
 # also FROM cpipes_builder with the workspace tree as its whole context, so the
 # shape transfers. What does not transfer is the staging in
 # build_workspace.sh: that exists so a *real* gitdir reaches the runtime image,
 # because the apiserver runs git in the deployed workspace. Nothing here runs
-# git, and no tree copied in here reaches a runtime image -- this stage produces
-# a binary and is discarded. So this build takes the workspace directory as it
-# lies, submodule pointer file and all, and needs no staged copy.
+# git, and no tree copied in here reaches a runtime image -- this is a builder
+# stage, Dockerfile.cpipes copies one binary out of it, and nothing else in it
+# is ever shipped. So this build takes the workspace directory as it lies,
+# submodule pointer file and all, and needs no staged copy.
 FROM cpipes_builder:latest
 
 ARG WORKSPACE
@@ -56,42 +63,103 @@ COPY . ${WORKSPACES_REPO}/${WORKSPACE}/
 # Measured 2026-09-12: with /go.work in place, `go env GOWORK` reports /go.work
 # from /app and from /workspaces/<ws> alike.
 #
-# **Guarded on the workspace having a go.mod, because two of the four workspaces
-# in this checkout do not** (jets_ws and walrus_ws, 2026-09-12). A `use`
-# directive naming a directory with no go.mod is not ignored -- every subsequent
-# go command in the image fails with `cannot load module /<dir> listed in go.work
-# file`, including the ones that have nothing to do with the workspace. So a
-# workspace with no Go module leaves this image in plain module mode, identical
-# to its parent, which is also the right answer: it has no site operator to
-# build.
+# **A workspace with no go.mod is refused here, and `BF.1` skipped instead.**
+# The measurement behind the guard is unchanged and is the reason it exists: a
+# `use` directive naming a directory with no go.mod is not ignored, and every
+# subsequent go command in the image then fails with `cannot load module /<dir>
+# listed in go.work file`, including the ones that have nothing to do with the
+# workspace. Two of the four workspaces in this checkout have no go.mod
+# (jets_ws and walrus_ws, 2026-09-12). What changed is the right *response*: in
+# `BF.1` this image had no output, so falling back to plain module mode was
+# harmless; it now exists only to build the site task entry below, and that
+# entry cannot resolve JetStore without the composition. Failing here names the
+# cause; falling through would fail one layer later with `go build` complaining
+# about a directory outside any module.
 #
 # `go work init <dir> <dir>` rather than a written-out file, so the `go` line is
 # whatever this image's toolchain is rather than a number to keep in step.
 RUN set -eu; \
   ws_dir="${WORKSPACES_REPO}/${WORKSPACE}"; \
-  if [ -f "${ws_dir}/go.mod" ]; then \
-    cd / && go work init "${JETS_SOURCE_DIR}" "${ws_dir}"; \
-    echo "--- /go.work ---"; cat /go.work; \
-  else \
-    echo "--- ${ws_dir} has no go.mod: no go.work, plain module mode ---"; \
-  fi
+  if [ ! -f "${ws_dir}/go.mod" ]; then \
+    echo "${WORKSPACE} has no go.mod: a site compute pipes task entry needs a Go module at the workspace root" >&2; \
+    exit 1; \
+  fi; \
+  cd / && go work init "${JETS_SOURCE_DIR}" "${ws_dir}"; \
+  echo "--- /go.work ---"; cat /go.work
 
-# Assert the composition still compiles the stock task entry, and produce
-# nothing.
+# The site's own task entry, selected by build arg, written over the stock
+# binary's path.
 #
-# This is where `BF.1` stops. It establishes that adding the workspace module to
-# the build list does not break the build that Dockerfile.cpipes ships;
-# **`BF.2`** replaces this step with an ARG-selected entry and a real output
-# path, and `Dockerfile.cpipes` then takes its `FROM ... AS builder` from an ARG
-# so it can copy the site binary out of this image instead of the stock one.
+# **JETS_CPIPES_TASK_ENTRY names a package directory relative to the workspace
+# root** -- `go/cpipes_native_server`, not an import path and not an absolute
+# path. Relative because the same string has to be right in two places: the
+# build script reads it on the host, where the workspace is at
+# $WORKSPACES_REPO/$WORKSPACE with WORKSPACES_REPO a host directory, and this
+# image reads it at /workspaces/<ws>. An import path would work here and would
+# duplicate the module path that go.mod already carries, which is one more
+# thing to keep in step for nothing.
 #
-# Measured 2026-09-12, on cedargate_ws against jets_ai @ af6a6b4b: the stock
-# cpipes_native_server built under the composition is **byte for byte** the one
-# built without it (sha256 2467182ccf955b938a3fe465b17e3a071fea447d956957e5595a86690fc70af0
-# both ways). That is a stronger result than criterion 98 needs -- it says the
-# composition is inert for the binaries the site image does not replace, not
-# only for the image that never sees it.
-RUN cd ${JETS_SOURCE_DIR} \
-  && echo "GOWORK=$(go env GOWORK)" \
-  && go build -ldflags="-w -s" -o /dev/null ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server \
-  && echo "composition builds the stock task entry"
+# **Written to ${JETS_SOURCE_DIR}/cpipes_native_server, over the stock binary
+# this image inherits from cpipes_builder.** The name is not a choice: the ECS
+# task's entry point is `cbooter cpipes_native_server`
+# (`build_ecs_tasks.go:150`), cbooter refuses any command outside its allowlist
+# (`allowedCommands`, `jets/cmds/cbooter/main.go:63`) and execs it by PATH
+# lookup (`runCommandAsJsuser`). Keeping the path as well as the name is what
+# lets Dockerfile.cpipes select this image with one ARG and leave its eight
+# `COPY --from=builder` lines alone.
+#
+# The flags are the stock build's, `-ldflags="-w -s"`
+# (Dockerfile.cpipes_builder:67); CGO_ENABLED, GOOS and GOARCH are inherited
+# ENV from the same image (`:23`-`:25`).
+#
+# `go version -m` is printed rather than asserted, and it is the provenance
+# record this image otherwise has none of: it names the main package and the
+# module the binary was built from, so a build log says which
+# cpipes_native_server an image carries. `-w -s` strips DWARF and leaves build
+# info alone.
+#
+# The ldd line **warns** and does not fail. A site main that reaches the native
+# rule engine links libjets.so through jets/bridge, which is every main built
+# from the stock one; a site main that used the Go adaptor alone would not, and
+# refusing that would be this file inventing a requirement the runtime does not
+# have -- Dockerfile.cpipes copies libjets.so in either way. **Expect ldd to
+# print `libjets.so => not found` here** and read it as the answer rather than
+# as a fault: what is being checked is the binary's NEEDED list, and the library
+# itself is at $JETS_BUILD_DIR/jets while this stage's LD_LIBRARY_PATH is
+# /usr/local/lib64. The runtime image is where it resolves, and Dockerfile.cpipes
+# is what puts it on the path.
+#
+# **The JetStore this builds against is the one baked into cpipes_builder, not
+# the one in the checkout that ran the build.** cpipes_builder copies the source
+# at the time *it* was built and build_cpipes.sh rebuilds it only on a y/N
+# prompt, so a site operator written against a JetStore API newer than that
+# image fails here with `no required module provides package ...`. Measured
+# 2026-09-12: a site operator importing jets/compute_pipes/pipesmodel, which
+# Phase 9's BC.2 added at 039a7b72, fails against a cpipes_builder built from
+# f84301fc -- eight commits and a few hours earlier. Answering the prompt with
+# `y` is the whole of the fix.
+ARG JETS_CPIPES_TASK_ENTRY
+RUN set -eu; \
+  ws_dir="${WORKSPACES_REPO}/${WORKSPACE}"; \
+  entry="${JETS_CPIPES_TASK_ENTRY:-}"; \
+  entry="${entry#./}"; \
+  if [ -z "${entry}" ]; then \
+    echo "JETS_CPIPES_TASK_ENTRY build arg is required: the package directory of the site task entry, relative to the ${WORKSPACE} root" >&2; \
+    exit 1; \
+  fi; \
+  case "${entry}" in \
+    /*) echo "JETS_CPIPES_TASK_ENTRY must be relative to the ${WORKSPACE} root, got '${entry}'" >&2; exit 1 ;; \
+  esac; \
+  if [ ! -d "${ws_dir}/${entry}" ]; then \
+    echo "JETS_CPIPES_TASK_ENTRY '${entry}' is not a directory in ${WORKSPACE} (looked for ${ws_dir}/${entry})" >&2; \
+    exit 1; \
+  fi; \
+  echo "--- building the site task entry ${WORKSPACE}/${entry} ---"; \
+  cd "${ws_dir}"; \
+  go build -ldflags="-w -s" -o "${JETS_SOURCE_DIR}/cpipes_native_server" "./${entry}"; \
+  echo "--- go version -m ${JETS_SOURCE_DIR}/cpipes_native_server ---"; \
+  go version -m "${JETS_SOURCE_DIR}/cpipes_native_server" | head -5; \
+  echo "--- ldd ---"; \
+  ldd "${JETS_SOURCE_DIR}/cpipes_native_server" || true; \
+  ldd "${JETS_SOURCE_DIR}/cpipes_native_server" 2>/dev/null | grep -q libjets.so \
+    || echo "WARNING: the site task entry does not link libjets.so; it reaches no native rule engine"

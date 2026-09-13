@@ -1,4 +1,31 @@
-FROM cpipes_builder:latest AS builder
+# The builder stage this image copies its binaries out of.
+#
+# **The default is the stock builder, and that default is exit criterion 98.** A
+# build that passes no --build-arg resolves to `cpipes_builder:latest`, which is
+# the literal this line carried before the ARG existed, so a deployment with no
+# site operators builds from the same stage, with the same inputs, and the eight
+# COPY --from=builder lines below are unchanged.
+#
+# A site that ships its own compute_pipes operators passes
+# CPIPES_BUILDER_IMAGE=cpipes_builder_ws:latest -- Dockerfile.cpipes_builder_ws,
+# which is `FROM cpipes_builder` plus one binary. Its cpipes_native_server is
+# built from the site's own main package, and everything else copied below
+# (cbooter, run_reports, libjets.so and the four system libraries) is the parent
+# image's, byte for byte, because nothing in that Dockerfile rebuilds them.
+#
+# **The site binary keeps the stock name, and that is forced rather than
+# chosen.** The ECS task's entry point is `cbooter cpipes_native_server`
+# (`build_ecs_tasks.go:150`); cbooter refuses any command outside its allowlist
+# (`allowedCommands`, `jets/cmds/cbooter/main.go:63`) and execs it by PATH
+# lookup (`runCommandAsJsuser`). A site task binary under any other name would
+# need a stack change and a cbooter change; one written over the stock path
+# needs neither.
+#
+# An ARG before the first FROM is a global ARG -- in scope for FROM lines and
+# out of scope inside every stage, which is why the stages below re-declare the
+# ARGs they use.
+ARG CPIPES_BUILDER_IMAGE=cpipes_builder:latest
+FROM ${CPIPES_BUILDER_IMAGE} AS builder
 
 # RUN \
 #     echo "/usr/local/lib64/ DIRECTORY Contains" \
