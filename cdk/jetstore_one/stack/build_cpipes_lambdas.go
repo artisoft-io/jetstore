@@ -19,6 +19,22 @@ import (
 	jsii "github.com/aws/jsii-runtime-go"
 )
 
+// cpipesNodeLambdaDefaultEntry is the cpipes node Lambda's source path when
+// JETS_CPIPES_NODE_LAMBDA_ENTRY is unset, and is the literal this property carried before
+// the variable existed. A stack that has never heard of the variable therefore synthesises
+// the Lambda it synthesised before, byte for byte: the resolved string is the only input to
+// the construct that this change can move.
+//
+// The variable exists so a site can point the node Lambda at its own main -- the stock one
+// plus a compute_pipes operator registration -- without forking the stack. The path is
+// resolved against the process working directory, which cdk must be run from
+// (cdk/jetstore_one), and awslambdago finds the module by walking up from it, so a path into
+// a client workspace repo builds under the superproject's go.work with no GOWORK set.
+//
+// It covers the node Lambda and nothing else, and that is a finding rather than a scope
+// choice; see BuildCpipesLambdas.
+const cpipesNodeLambdaDefaultEntry = "lambdas/compute_pipes/cp_node"
+
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 
 	// Build lambdas used by cpipesSM and cpipesNativeSM:
@@ -26,6 +42,23 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	//  - CpipesNativeNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
+	//
+	// Only CpipesNodeLambda takes its entry from the environment, and the other three each
+	// decline it for their own reason (measured 2026-09-12):
+	//
+	//   - CpipesNativeNodeLambda is a NewDockerImageFunction reading an image out of ECR,
+	//     not a NewGoFunction, so DockerImageFunctionProps has no Entry to redirect. Its
+	//     binary is the `bootstrap` built by dockerfiles/Dockerfile.cpipes_builder:66 from
+	//     cdk/jetstore_one/lambdas/compute_pipes/cp_node_native, under CGO_ENABLED=1
+	//     (Dockerfile.cpipes_builder:23) and linked against the libjets.so built in that
+	//     same image. A host-built binary cannot be copied in, so pointing this one at a
+	//     site main is an image concern rather than a synth concern.
+	//   - CpipesStartShardingLambda and CpipesStartReducingLambda call
+	//     StartShardingComputePipes / StartReducingComputePipes, which plan a run and write
+	//     its configuration. Neither constructs a BuilderContext, so neither reaches
+	//     BuildPipeTransformationEvaluator (pipes_runtime_model.go:240) and neither has
+	//     anywhere to put a site operator. Giving them the variable would say the extension
+	//     point is read somewhere it is not.
 	// --------------------------------------------------------------------------------------------------------------
 
 	var memLimit float64
@@ -48,7 +81,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.CpipesNodeLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesNodeLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore Lambda function cpipes execution"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/compute_pipes/cp_node"),
+		Entry:       jsii.String(lambdaEntryOrDefault("JETS_CPIPES_NODE_LAMBDA_ENTRY", cpipesNodeLambdaDefaultEntry)),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},

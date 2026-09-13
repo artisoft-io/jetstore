@@ -522,6 +522,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
+//
+//	JETS_CPIPES_NODE_LAMBDA_ENTRY (optional, path to handler code for the cpipes execution
+//	node lambda, default lambdas/compute_pipes/cp_node) Points the node lambda at a site
+//	main -- the stock one plus a compute_pipes operator registration -- typically in a
+//	client workspace repo's go/lambdas/. Unlike the three JETS_*_LAMBDA_ENTRY variables
+//	below, leaving this unset does not skip a lambda: it builds the stock entry, so a stack
+//	that never sets it synthesises what it synthesised before. See
+//	stack/build_cpipes_lambdas.go and cpipesNodeLambdaDefaultEntry there.
+//
 // JETS_CPIPES_SM_TIMEOUT_MIN (optional) state machine timeout for CPIPES_SM, default 60 min
 // JETS_TEMP_DATA (optional) JetStore temp directory for containers, default /jetsdata
 // TMPDIR (optional) temp directory for containers, default ${JETS_TEMP_DATA}/tmp
@@ -690,6 +699,7 @@ func main() {
 	log.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
 	log.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	log.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
+	log.Println("env JETS_CPIPES_NODE_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_NODE_LAMBDA_ENTRY"))
 	log.Println("env JETS_CPIPES_SM_TIMEOUT_MIN:", os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
 	log.Println("env JETS_TEMP_DATA:", os.Getenv("JETS_TEMP_DATA"))
 	log.Println("env TMPDIR:", os.Getenv("TMPDIR"))

@@ -177,6 +177,28 @@ func GetS3SchemaTriggersPrefix() string {
 	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/schema_triggers", 1)
 }
 
+// lambdaEntryOrDefault resolves a Lambda source path from the synth environment, falling
+// back to the entry baked into the stack when the variable is unset or empty.
+//
+// It is the *defaulting* form, and the three JETS_*_LAMBDA_ENTRY variables that predate it
+// are not: JETS_API_GATEWAY_LAMBDA_ENTRY (build_api_lambdas.go:25),
+// JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (build_registerkey_lambdas.go:107) and
+// JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (build_lambdas.go:227) each gate a Lambda that is
+// not built at all when the variable is absent. Those three name a component that only a
+// site has; this one names an alternative source for a component every deployment already
+// runs, so absent has to mean "the stock entry" rather than "nothing".
+//
+// Empty is treated as unset, matching the len(...) == 0 test all three above use, so that
+// `export JETS_CPIPES_NODE_LAMBDA_ENTRY=` in a deploy script means the same thing as never
+// having written the line. Nothing here trims: a path with a stray space is a path, and
+// silently repairing one would hide the typo until bundling failed.
+func lambdaEntryOrDefault(name, defaultEntry string) string {
+	if entry := os.Getenv(name); entry != "" {
+		return entry
+	}
+	return defaultEntry
+}
+
 func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	var jetsTempData string
 	jetsTempData = os.Getenv("JETS_TEMP_DATA")
