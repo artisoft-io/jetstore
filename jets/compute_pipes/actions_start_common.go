@@ -983,6 +983,10 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := cpConfig.GetSchemaProviderSpec(outputChConfig.SchemaProvider)
 
+			if err := validateSiteOperatorSpec(transformationConfig); err != nil {
+				return err
+			}
+
 			// validate transformation pipe config
 			//TODO: Add other transformation pipe config validations for the other types, see above
 			switch transformationConfig.Type {
@@ -1170,7 +1174,32 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 // errorChannelConfig returns the error channel of a transformation, nil when it has none.
 // These are the operators that report row level errors, typically to the process_errors
 // table.
+//
+// **A site-supplied operator is answered from site_config rather than from the
+// type**, and that is the one arm here that is not keyed on the token. It has to
+// be: the three callers that make an error channel exist -- the channel registry
+// construction, SynthesizeDefaultErrorChannels and
+// warnMissingErrorChannelDiscriminators -- run in processes with no operator
+// registry, so which site tokens exist is not knowable to them and only the
+// document can say.
+//
+// It also makes this function and reportsRowLevelFailures deliberately
+// asymmetric for the first time, which the tests assert rather than tolerate: a
+// site operator carrying an error channel gets one here and gets `false` there,
+// so it keeps the channel it authored and is never given a synthesised one.
 func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannelConfig {
+	if transformationConfig.SiteConfig != nil && !builtinOperatorTypes[transformationConfig.Type] {
+		// A site operator reports row-level failures iff it configured a channel
+		// to report them on; nil here is the author's choice rather than an
+		// omission JetStore should fill in.
+		//
+		// The built-in guard is not defensive padding. A `site_config` on a
+		// built-in token is a configuration error -- validateSiteOperatorSpec
+		// refuses it -- and without the guard this function would answer for an
+		// operator the dispatch is never going to build, which is the quietest
+		// possible way to send an error row to the wrong channel.
+		return transformationConfig.SiteConfig.ErrorChannel
+	}
 	switch transformationConfig.Type {
 	case "map_record":
 		if transformationConfig.MapRecordConfig != nil {
