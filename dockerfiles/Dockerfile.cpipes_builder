@@ -12,7 +12,32 @@ RUN mkdir -p ${JETS_BUILD_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
 
 # Copy source files
-COPY .git                ${JETS_SOURCE_DIR}/.git
+#
+# **There is deliberately no `COPY .git` here, and this comment is what stops it
+# coming back.** One was carried until 2026-09-13 and nothing in the image ever
+# read it: this Dockerfile runs no git, `CMakeLists.txt` has no `git`,
+# `FetchContent` or `GIT_REPOSITORY`, the built binaries carry no `vcs.*` stamps,
+# and no runtime stage copies `.git` out of this one. The single
+# `exec.Command("git", ...)` in the repository is `runGit`
+# (`jets/datatable/git/workspace_git.go:79`), and every caller sets `cmd.Dir` to a
+# `WORKSPACES_HOME/<workspace>` path -- never to JETS_SOURCE_DIR.
+#
+# **The fact the image actually needs is the commit, and it arrives as a build
+# arg**: `JETS_GIT_SHA=${branch}-${sha}`, computed on the host in
+# `build_cpipes.sh` and passed with `--build-arg`. Supplying the fact is what the
+# copy was reaching for.
+#
+# **It failed differently in the two checkouts and neither was visible.** From a
+# plain clone `.git` is a real tree that changes on every commit, so the COPY
+# busted the cache here and forced `go mod tidy`, `go get all` and the whole C++
+# build to re-run -- most of this image, on every commit. From a superproject
+# checkout, where jetstore is a submodule, `.git` is a 36-byte pointer file, so
+# the image got `gitdir: ../.git/modules/jetstore_ai` pointing at nothing and
+# `git rev-parse` inside /app failed outright. Cheap and broken, or expensive and
+# unused, depending on how the tree was obtained.
+#
+# `git` the binary is still required and still installed: `go mod download` uses
+# it to fetch modules. What is not required is a `.git` directory of our own.
 COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
