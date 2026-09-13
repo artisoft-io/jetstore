@@ -87,47 +87,81 @@ RUN set -eu; \
   cd / && go work init "${JETS_SOURCE_DIR}" "${ws_dir}"; \
   echo "--- /go.work ---"; cat /go.work
 
-# The site's own task entry, selected by build arg, written over the stock
+# The site's own entries, selected by build arg, each written over the stock
 # binary's path.
 #
-# **JETS_CPIPES_TASK_ENTRY names a package directory relative to the workspace
-# root** -- `go/cpipes_native_server`, not an import path and not an absolute
-# path. Relative because the same string has to be right in two places: the
-# build script reads it on the host, where the workspace is at
+# **Two entries, and this image refuses to build one without the other.** The
+# task entry becomes cpipes_native_server, which Dockerfile.cpipes copies; the
+# native lambda entry becomes bootstrap, which Dockerfile.cpipes_native_lambda
+# copies. `BF.2` built the first alone and recorded the second as I-820 on the
+# grounds that a knob with no consumer is a row pointing at nothing. What the
+# state machine turned out to say is that these are not two knobs: both cpipes
+# state machines are built from the same ECS task definition and differ only in
+# their node Lambda (`buildCpipesSMInternal`, `build_cpipes_sm.go:21` and
+# `:25`), sharding always runs on the node Lambda (`runSharingNodeTask`, `:71`),
+# and each reducing iteration runs on the Lambda or on the ECS task as
+# `$.useECSReducingTask` decides at run time (`ecsOrLambdaChoice`, `:208`) from
+# the pipeline's own `use_ecs_tasks` / `use_ecs_tasks_when` (`EvalUseEcsTask`,
+# `actions_start_common.go:1918`). **So a site operator in one binary and not
+# the other fails a step rather than a deployment**, inside a running worker,
+# as a function of a field in the .pc.json -- which is worse than a deployment
+# that extended neither. Refusing here costs a site the second main; that main
+# is the stock cp_node_native plus one argument to CoordinateComputePipes.
+#
+# **Both variables name a package directory relative to the workspace root** --
+# `go/cpipes_native_server`, `go/cp_node_native` -- not an import path and not
+# an absolute path. Relative because the same string has to be right in two
+# places: the build script reads it on the host, where the workspace is at
 # $WORKSPACES_REPO/$WORKSPACE with WORKSPACES_REPO a host directory, and this
 # image reads it at /workspaces/<ws>. An import path would work here and would
 # duplicate the module path that go.mod already carries, which is one more
 # thing to keep in step for nothing.
 #
-# **Written to ${JETS_SOURCE_DIR}/cpipes_native_server, over the stock binary
-# this image inherits from cpipes_builder.** The name is not a choice: the ECS
-# task's entry point is `cbooter cpipes_native_server`
-# (`build_ecs_tasks.go:150`), cbooter refuses any command outside its allowlist
-# (`allowedCommands`, `jets/cmds/cbooter/main.go:63`) and execs it by PATH
-# lookup (`runCommandAsJsuser`). Keeping the path as well as the name is what
-# lets Dockerfile.cpipes select this image with one ARG and leave its eight
-# `COPY --from=builder` lines alone.
+# **JETS_CPIPES_NATIVE_LAMBDA_ENTRY is one word from JETS_CPIPES_NODE_LAMBDA_ENTRY
+# and they are different things.** That one is read by the CDK at synth time for
+# CpipesNodeLambda, the host-bundled Go function, and its path is resolved
+# against cdk/jetstore_one (`lambdaEntryOrDefault`, `stack_model.go:195`). This
+# one is a docker build arg resolved against the workspace root, for the
+# container-image function. A deployment with site operators wants both, plus
+# the task entry; nothing checks that it set all three, and build_cpipes.sh
+# warns about the one it cannot build.
+#
+# **Written over the stock binaries this image inherits from cpipes_builder, and
+# both names are forced rather than chosen.** The ECS task's entry point is
+# `cbooter cpipes_native_server` (`build_ecs_tasks.go:150`), cbooter refuses any
+# command outside its allowlist (`allowedCommands`,
+# `jets/cmds/cbooter/main.go:63`) and execs it by PATH lookup
+# (`runCommandAsJsuser`). CpipesNativeNodeLambda is a container-image function
+# with `Cmd: bootstrap` (`build_cpipes_lambdas.go:144`) and
+# DockerImageFunctionProps has no Entry property, so nothing at synth can name a
+# different binary. Keeping both paths is what lets Dockerfile.cpipes and
+# Dockerfile.cpipes_native_lambda each select this image with one ARG and leave
+# their COPY --from=builder lines alone.
 #
 # The flags are the stock build's, `-ldflags="-w -s"`
-# (Dockerfile.cpipes_builder:67); CGO_ENABLED, GOOS and GOARCH are inherited
-# ENV from the same image (`:23`-`:25`).
+# (Dockerfile.cpipes_builder:66 for bootstrap, `:67` for cpipes_native_server);
+# CGO_ENABLED, GOOS and GOARCH are inherited ENV from the same image
+# (`:23`-`:25`).
 #
 # `go version -m` is printed rather than asserted, and it is the provenance
 # record this image otherwise has none of: it names the main package and the
-# module the binary was built from, so a build log says which
-# cpipes_native_server an image carries. `-w -s` strips DWARF and leaves build
-# info alone.
+# module the binary was built from, so a build log says which binaries an image
+# carries. `-w -s` strips DWARF and leaves build info alone.
 #
 # The ldd line **warns** and does not fail. A site main that reaches the native
 # rule engine links libjets.so through jets/bridge, which is every main built
 # from the stock one; a site main that used the Go adaptor alone would not, and
 # refusing that would be this file inventing a requirement the runtime does not
-# have -- Dockerfile.cpipes copies libjets.so in either way. **Expect ldd to
-# print `libjets.so => not found` here** and read it as the answer rather than
-# as a fault: what is being checked is the binary's NEEDED list, and the library
-# itself is at $JETS_BUILD_DIR/jets while this stage's LD_LIBRARY_PATH is
-# /usr/local/lib64. The runtime image is where it resolves, and Dockerfile.cpipes
-# is what puts it on the path.
+# have -- both consuming Dockerfiles copy libjets.so in either way. **Expect ldd
+# to print `libjets.so => not found` here** and read it as the answer rather
+# than as a fault: what is being checked is the binary's NEEDED list, and the
+# library itself is at $JETS_BUILD_DIR/jets while this stage's LD_LIBRARY_PATH
+# is /usr/local/lib64. The runtime images are where it resolves.
+#
+# **One RUN rather than two, and the validation happens before either build.**
+# Both-or-neither is only worth stating if it is decided before anything is
+# produced; two RUNs would build the task binary and then discover the lambda
+# entry missing, leaving a layer nobody wants in the cache.
 #
 # **The JetStore this builds against is the one baked into cpipes_builder, not
 # the one in the checkout that ran the build.** cpipes_builder copies the source
@@ -139,27 +173,37 @@ RUN set -eu; \
 # f84301fc -- eight commits and a few hours earlier. Answering the prompt with
 # `y` is the whole of the fix.
 ARG JETS_CPIPES_TASK_ENTRY
+ARG JETS_CPIPES_NATIVE_LAMBDA_ENTRY
 RUN set -eu; \
   ws_dir="${WORKSPACES_REPO}/${WORKSPACE}"; \
-  entry="${JETS_CPIPES_TASK_ENTRY:-}"; \
-  entry="${entry#./}"; \
-  if [ -z "${entry}" ]; then \
-    echo "JETS_CPIPES_TASK_ENTRY build arg is required: the package directory of the site task entry, relative to the ${WORKSPACE} root" >&2; \
-    exit 1; \
-  fi; \
-  case "${entry}" in \
-    /*) echo "JETS_CPIPES_TASK_ENTRY must be relative to the ${WORKSPACE} root, got '${entry}'" >&2; exit 1 ;; \
-  esac; \
-  if [ ! -d "${ws_dir}/${entry}" ]; then \
-    echo "JETS_CPIPES_TASK_ENTRY '${entry}' is not a directory in ${WORKSPACE} (looked for ${ws_dir}/${entry})" >&2; \
-    exit 1; \
-  fi; \
-  echo "--- building the site task entry ${WORKSPACE}/${entry} ---"; \
-  cd "${ws_dir}"; \
-  go build -ldflags="-w -s" -o "${JETS_SOURCE_DIR}/cpipes_native_server" "./${entry}"; \
-  echo "--- go version -m ${JETS_SOURCE_DIR}/cpipes_native_server ---"; \
-  go version -m "${JETS_SOURCE_DIR}/cpipes_native_server" | head -5; \
-  echo "--- ldd ---"; \
-  ldd "${JETS_SOURCE_DIR}/cpipes_native_server" || true; \
-  ldd "${JETS_SOURCE_DIR}/cpipes_native_server" 2>/dev/null | grep -q libjets.so \
-    || echo "WARNING: the site task entry does not link libjets.so; it reaches no native rule engine"
+  check_entry() { \
+    name="$1"; entry="$2"; what="$3"; \
+    if [ -z "${entry}" ]; then \
+      echo "${name} build arg is required: the package directory of the ${what}, relative to the ${WORKSPACE} root" >&2; \
+      exit 1; \
+    fi; \
+    case "${entry}" in \
+      /*) echo "${name} must be relative to the ${WORKSPACE} root, got '${entry}'" >&2; exit 1 ;; \
+    esac; \
+    if [ ! -d "${ws_dir}/${entry}" ]; then \
+      echo "${name} '${entry}' is not a directory in ${WORKSPACE} (looked for ${ws_dir}/${entry})" >&2; \
+      exit 1; \
+    fi; \
+  }; \
+  build_entry() { \
+    name="$1"; entry="$2"; out="$3"; \
+    echo "--- building ${name}: ${WORKSPACE}/${entry} -> ${JETS_SOURCE_DIR}/${out} ---"; \
+    ( cd "${ws_dir}" && go build -ldflags="-w -s" -o "${JETS_SOURCE_DIR}/${out}" "./${entry}" ); \
+    echo "--- go version -m ${JETS_SOURCE_DIR}/${out} ---"; \
+    go version -m "${JETS_SOURCE_DIR}/${out}" | head -5; \
+    echo "--- ldd ${out} ---"; \
+    ldd "${JETS_SOURCE_DIR}/${out}" || true; \
+    ldd "${JETS_SOURCE_DIR}/${out}" 2>/dev/null | grep -q libjets.so \
+      || echo "WARNING: ${out} does not link libjets.so; it reaches no native rule engine"; \
+  }; \
+  task_entry="${JETS_CPIPES_TASK_ENTRY:-}"; task_entry="${task_entry#./}"; \
+  lambda_entry="${JETS_CPIPES_NATIVE_LAMBDA_ENTRY:-}"; lambda_entry="${lambda_entry#./}"; \
+  check_entry JETS_CPIPES_TASK_ENTRY "${task_entry}" "site task entry"; \
+  check_entry JETS_CPIPES_NATIVE_LAMBDA_ENTRY "${lambda_entry}" "site native node lambda entry"; \
+  build_entry JETS_CPIPES_TASK_ENTRY "${task_entry}" cpipes_native_server; \
+  build_entry JETS_CPIPES_NATIVE_LAMBDA_ENTRY "${lambda_entry}" bootstrap

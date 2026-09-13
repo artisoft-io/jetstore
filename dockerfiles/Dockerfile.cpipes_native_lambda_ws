@@ -1,5 +1,19 @@
 FROM compile_ws:latest AS builder
 
+# **This image needs no builder selection of its own, and that is worth stating
+# rather than leaving to be rechecked.** It derives from cpipes_native_lambda,
+# which is built earlier in the same run of build_cpipes.sh and already carries
+# whichever bootstrap that build selected -- so a site's own cp_node_native
+# arrives here by inheritance. Dockerfile.cpipes_ws stands in the same relation
+# to Dockerfile.cpipes for the same reason.
+#
+# cpipes_native_lambda:latest has exactly one consumer, this line (grepped
+# across dockerfiles/ and the build scripts, 2026-09-13), and the image that is
+# pushed is per workspace: build_workspace.sh tags this one into
+# $CPIPES_LAMBDA_ECR_REPOSITORY, which the deploy scripts set to
+# 'cpipes_lambda_'${WORKSPACE}. That is the lambda-side mirror of what Q-150
+# settled for cpipes:latest, and it is why there is nowhere for a second,
+# stock-entry lambda image to go.
 FROM cpipes_native_lambda:latest
 
 # Copy the compiled workspace to make a workspace-specific image

@@ -1,5 +1,46 @@
 # Multi-stage build for Go Lambda with C++ library
-FROM cpipes_builder:latest AS builder
+#
+# The builder stage this image copies `bootstrap` out of.
+#
+# **The default is the stock builder, and that default is exit criterion 98.** A
+# build that passes no --build-arg resolves to `cpipes_builder:latest`, which is
+# the literal this line carried before the ARG existed, so a deployment with no
+# site operators builds from the same stage, with the same inputs, and the six
+# COPY --from=builder lines below are unchanged.
+#
+# **This is Dockerfile.cpipes's mechanism, applied here because the two images
+# are two halves of one executor set rather than two deployment options.** Both
+# cpipes state machines are built from the same ECS task definition and differ
+# only in their node Lambda (`buildCpipesSMInternal`, `build_cpipes_sm.go:21`
+# and `:25`). Inside one execution of either, sharding always runs on the node
+# Lambda (`runSharingNodeTask`, `build_cpipes_sm.go:71`) while each reducing
+# iteration runs on the Lambda or on the ECS task, chosen at run time by
+# `$.useECSReducingTask` (`ecsOrLambdaChoice`, `build_cpipes_sm.go:208`) from
+# the pipeline's own `use_ecs_tasks` / `use_ecs_tasks_when`
+# (`EvalUseEcsTask`, `actions_start_common.go:1918`). So a site operator present
+# in cpipes_native_server and absent from this bootstrap does not fail a
+# deployment: it fails a step, as a function of a field in the .pc.json, inside
+# a running worker. That is why selecting the builder here is not optional once
+# Dockerfile.cpipes selects one, and why Dockerfile.cpipes_builder_ws refuses to
+# build one site entry without the other.
+#
+# A site that ships its own compute_pipes operators passes
+# CPIPES_BUILDER_IMAGE=cpipes_builder_ws:latest, whose bootstrap is built from
+# the site's own cp_node_native main package over the stock binary's path.
+# Everything else copied below -- libjets.so and the four system libraries -- is
+# the parent image's, byte for byte, because nothing in that Dockerfile rebuilds
+# them.
+#
+# **The name is forced rather than chosen, for the same kind of reason the task
+# binary's is.** CpipesNativeNodeLambda is a container-image function with
+# `Cmd: bootstrap` (`build_cpipes_lambdas.go:144`), and DockerImageFunctionProps
+# has no Entry property, so nothing at synth time can name a different binary.
+#
+# An ARG before the first FROM is a global ARG -- in scope for FROM lines and
+# out of scope inside every stage, which is why the stage below re-declares the
+# ARGs it uses.
+ARG CPIPES_BUILDER_IMAGE=cpipes_builder:latest
+FROM ${CPIPES_BUILDER_IMAGE} AS builder
 
 # RUN \
 #     echo "/usr/local/lib64/ DIRECTORY Contains" \
