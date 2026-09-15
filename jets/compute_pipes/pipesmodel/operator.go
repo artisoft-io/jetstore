@@ -25,21 +25,30 @@ type TransformationColumnEvaluator interface {
 // # What is deliberately absent, and how to read that
 //
 // `BuilderContext` has 18 fields and the operator constructors reach into them
-// freely. Six of those reaches are here; the rest are withheld with a named
-// reader and a stated reason in Phase 9 §12.6 of the `agentic_ai` plan. The
-// short form: the channel registry is withheld because an operator that can name
-// any channel can read from or write into one it does not own -- the one use it
-// genuinely needs, the error channel, is resolved by the builder and handed over
-// on OperatorArgs; the pgx pool and the S3 device manager are withheld because
-// admitting them would put those dependencies back into a package whose whole
-// purpose is not to have them.
+// freely. Five of the six original methods are one of those reaches each; the
+// rest are withheld with a named reader and a stated reason in Phase 9 §12.6 of
+// the `agentic_ai` plan. The short form: the channel registry is withheld
+// because an operator that can name any channel can read from or write into one
+// it does not own -- the one use it genuinely needs, the error channel, is
+// resolved by the builder and handed over on OperatorArgs; the pgx pool and the
+// S3 device manager are withheld because admitting them would put those
+// dependencies back into a package whose whole purpose is not to have them.
+//
+// **The seventh method, ReportError, is of a different kind and §22 is where it
+// was decided.** The six are accessors; this one is a service. It reads four
+// withheld fields -- `peKey`, `nodeId`, `sessionId` and the step id off
+// `cpConfig` -- and exposes none of them, which is what lets a site operator
+// write a row that joins to its worker row without being handed the node's
+// identity to reason about. Widening the interface was the cheaper of the two
+// shapes offered: an accessor for `nodeId` would have fixed one column of the
+// row and left the site assembling the other eleven.
 //
 // # Writing a test double
 //
 // A site that consumes this interface is not broken by a method being added; a
 // site that *implements* one is, and a test double is an implementation. **Embed
 // OperatorEnv in the fake and override only what the test needs**, so that a
-// seventh method compiles and panics on use rather than failing the build
+// method added later compiles and panics on use rather than failing the build
 // (`I-781`).
 //
 //	type fakeEnv struct {
@@ -75,6 +84,58 @@ type OperatorEnv interface {
 
 	// IsDebugMode reports whether the deployment asked for verbose logging.
 	IsDebugMode() bool
+
+	// ReportError writes one row-level failure to an error channel, filling the
+	// columns that identify the run: the pipeline execution key, the session id,
+	// the shard, the step and the operator type.
+	//
+	// **It does not fail the pipeline.** An operator fails the node by returning
+	// an error from Apply; this reports a record the operator could not handle
+	// while the pipeline carries on, which is what map_record, jetrules, render
+	// and the inference operators do on their own error channels.
+	//
+	// ch is nil when the step authored no error channel, and nil is a no-op: the
+	// absence is the author's choice (see OperatorArgs.ErrorChannel), so a site
+	// operator calls this unconditionally rather than guarding it.
+	//
+	// **It does not count, and does not enforce OperatorArgs.MaxErrorCount.**
+	// Every built-in counts its own errors, because the same cap governs the
+	// operator's log line as well as its rows and the count belongs where the
+	// operator's other state is -- per pipe for map_record and render, shared
+	// atomically across a pool for the inference operators. A helper that
+	// silently stopped writing at a threshold its caller could not observe would
+	// be a worse trap than the one it removes. See the field's own comment.
+	ReportError(ch *OutputChannel, e RowLevelError)
+}
+
+// RowLevelError is the per-record half of an error row: what this operator could
+// not do with this record. The rest of the row -- which run, which shard, which
+// step, which operator, which channel -- is JetStore's and is filled by
+// OperatorEnv.ReportError.
+//
+// **The three fields are the ones JetStore's own operators set**, measured
+// against every caller of NewProcessError on 2026-09-15: ErrorMessage at all
+// eight sites, InputColumn and RowJetsKey at three each (render, and the two
+// inference paths). Two further columns of jetsapi.process_errors are
+// deliberately absent. `grouping_key` is set by **no** caller, so admitting it
+// would be a field offered on nobody's evidence; `rete_session_saved` and
+// `rete_session_triples` are the rules engine's, set from inside a RETE session
+// that no site operator has.
+//
+// An empty string is written as SQL NULL, which is what the built-ins do by
+// setting the column only when they have a value for it.
+type RowLevelError struct {
+	// ErrorMessage is what went wrong, and is the only field a caller must set.
+	ErrorMessage string
+
+	// InputColumn is the column the failure is about, when the failure is about
+	// one. render names its configured input column; the inference operators
+	// name the column they were reading.
+	InputColumn string
+
+	// RowJetsKey is the record's own key, so a triage query can find the record
+	// the row is about rather than only the step it failed in.
+	RowJetsKey string
 }
 
 // OperatorArgs is what the builder hands a site factory: the common fields of the
@@ -112,7 +173,26 @@ type OperatorArgs struct {
 	// failures; it cannot do that for an operator whose failure modes it knows
 	// nothing about, so for a site operator the absence of this channel is the
 	// author's choice rather than an oversight.
-	ErrorChannel  *OutputChannel
+	//
+	// Write to it with OperatorEnv.ReportError rather than by assembling a row:
+	// the columns that identify the run are not reachable from this package, and
+	// a hand-assembled row is missing them silently.
+	ErrorChannel *OutputChannel
+
+	// MaxErrorCount is the cap the step authored, and **counting against it is
+	// the operator's own job**. ReportError does not count; an operator that
+	// wants the built-ins' behaviour reports while its own count is at or below
+	// this number, says once that it has reached it, and keeps counting so the
+	// summary it logs at Done is the true total.
+	//
+	// **It is zero when the step named none, and zero means none.** That is the
+	// one asymmetry with the built-ins worth knowing before authoring a step.
+	// Each of the four built-ins that report row-level failures substitutes its
+	// own default for a missing or non-positive value -- 20 for map_record,
+	// jetrules and render, 50 for the inference operators, measured 2026-09-15 --
+	// and a site operator has none, because JetStore does not know how often an
+	// operator it knows nothing about will write a row. **So author a
+	// max_error_count beside the error_channel**, or the step reports nothing.
 	MaxErrorCount int
 
 	// Config is the site's own configuration, verbatim, for the factory to

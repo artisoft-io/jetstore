@@ -10,6 +10,12 @@ import (
 // Criterion 93: OperatorEnv exposes exactly the list `BD.1` decided, and this
 // test fails if it grows.
 //
+// **Six until `Q-148` on 2026-09-15, seven since**, and the growth is the point
+// rather than an exception to it. The seventh is ReportError, and the test is
+// what made adding it a decision somebody took: the list was edited in the same
+// commit as the interface, with plan §22 as the argument. A method that arrives
+// without this test going red is a method nobody weighed.
+//
 // **It pins full method signatures rather than method names**, and the
 // difference is the whole reason it is written with reflection instead of the
 // source parse its sibling in imports_test.go uses. A name list catches a method
@@ -46,6 +52,7 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 			"*pipesmodel.TransformationColumnSpec) (pipesmodel.TransformationColumnEvaluator, error)",
 		"SessionId":   "func() string",
 		"IsDebugMode": "func() bool",
+		"ReportError": "func(*pipesmodel.OutputChannel, pipesmodel.RowLevelError)",
 	}
 
 	for name, wantSig := range want {
@@ -177,4 +184,42 @@ func TestEmbeddingFakeSatisfiesOperatorEnv(t *testing.T) {
 		}
 	}()
 	_ = env.SessionId()
+}
+
+// RowLevelError is written by the site and read by JetStore, which is the
+// reverse of OperatorArgs -- so *removing* a field here breaks a site and adding
+// one does not, and the pinning is against silent shrinkage as much as growth.
+//
+// The three are what JetStore's own operators set on a ProcessError, measured
+// against every caller of NewProcessError on 2026-09-15. Two columns of
+// jetsapi.process_errors are deliberately not fields: `grouping_key`, which no
+// caller sets, and the two rete_session columns, which belong to a rules session
+// no site operator has.
+func TestRowLevelErrorCarriesExactlyTheDecidedFields(t *testing.T) {
+	typ := reflect.TypeOf(RowLevelError{})
+	got := map[string]string{}
+	for i := range typ.NumField() {
+		f := typ.Field(i)
+		got[f.Name] = f.Type.String()
+	}
+	want := map[string]string{
+		"ErrorMessage": "string",
+		"InputColumn":  "string",
+		"RowJetsKey":   "string",
+	}
+	for name, wantType := range want {
+		gotType, ok := got[name]
+		switch {
+		case !ok:
+			t.Errorf("RowLevelError has lost %s; a site that set it no longer compiles", name)
+		case gotType != wantType:
+			t.Errorf("RowLevelError.%s is %s, want %s", name, gotType, wantType)
+		}
+	}
+	for name, gotType := range got {
+		if _, ok := want[name]; !ok {
+			t.Errorf("RowLevelError has gained %s %s; a column offered to a site operator is a "+
+				"decision to record rather than a field to add", name, gotType)
+		}
+	}
 }

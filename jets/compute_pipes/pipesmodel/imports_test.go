@@ -55,11 +55,17 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 	}
 }
 
-// The surface is 17 named types, and the number is load-bearing rather than
+// The surface is 18 named types, and the number is load-bearing rather than
 // decorative: each one is a commitment to whoever writes a site operator, and
 // R-149 says a public surface is hard to shrink. A type arriving here should be
 // a decision somebody took, not a field somebody added to a struct that already
 // crossed.
+//
+// **Eighteen since `Q-148` on 2026-09-15**, which added RowLevelError: the
+// per-record half of an error row, which a site fills and OperatorEnv.ReportError
+// completes. It is three strings and it is on the surface because a site names it
+// at every call site -- the alternative shapes, a parameter list or an `error`,
+// were weighed in plan §22 and neither survives a fourth column.
 //
 // **Thirteen until `BD.2`**, which added the four the operator contract needs:
 // OperatorEnv, OperatorArgs, SiteOperatorFactory, and
@@ -73,7 +79,7 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 // name: `operator.go` would have added four types to the surface with the test
 // still green and still reporting thirteen. Found by writing the second file,
 // which is the only way a single-file corpus ever finds it.
-func TestSurfaceIsSeventeenTypes(t *testing.T) {
+func TestSurfaceIsEighteenTypes(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("globbing the package: %v", err)
@@ -104,8 +110,9 @@ func TestSurfaceIsSeventeenTypes(t *testing.T) {
 		"CaseExpression", "ChannelSpec", "ColumnEncodingSpec", "DomainKeyInfo",
 		"DomainKeysSpec", "ExpressionNode", "HashExpression", "InputChannel",
 		"LookupColumnSpec", "MapExpression", "OperatorArgs", "OperatorEnv",
-		"OutputChannel", "PipeTransformationEvaluator", "SiteOperatorFactory",
-		"TransformationColumnEvaluator", "TransformationColumnSpec",
+		"OutputChannel", "PipeTransformationEvaluator", "RowLevelError",
+		"SiteOperatorFactory", "TransformationColumnEvaluator",
+		"TransformationColumnSpec",
 	}
 	if len(got) != len(want) {
 		t.Errorf("surface is %d types, want %d: %v", len(got), len(want), got)

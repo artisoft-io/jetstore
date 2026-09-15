@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 
@@ -9,7 +10,7 @@ import (
 )
 
 // Site-supplied operators: the registry, the option that carries it in, and the
-// adapter that turns a *BuilderContext into the six methods a site sees.
+// adapter that turns a *BuilderContext into the seven methods a site sees.
 //
 // The registry stays in `compute_pipes` rather than in `pipesmodel`, and the
 // reason is narrower than it looks: a site `main` imports `compute_pipes`
@@ -21,9 +22,10 @@ import (
 // SiteOperatorFactory is re-exported so a site names one package rather than two.
 type SiteOperatorFactory = pipesmodel.SiteOperatorFactory
 
-// OperatorEnv and OperatorArgs likewise.
+// OperatorEnv, OperatorArgs and RowLevelError likewise.
 type OperatorEnv = pipesmodel.OperatorEnv
 type OperatorArgs = pipesmodel.OperatorArgs
+type RowLevelError = pipesmodel.RowLevelError
 
 // CPOption configures a compute pipes node. It is variadic on
 // CoordinateComputePipes so that the six existing call sites -- two lambdas, two
@@ -168,17 +170,24 @@ func validateSiteOperatorSpec(transformationConfig *TransformationSpec) error {
 	return nil
 }
 
-// operatorEnv adapts a *BuilderContext to the six methods a site operator sees.
+// operatorEnv adapts a *BuilderContext to the seven methods a site operator sees.
 //
 // It is a separate unexported type rather than a set of methods on
 // *BuilderContext, and that is load-bearing rather than tidiness. Were
 // *BuilderContext to satisfy OperatorEnv directly, a site operator could recover
 // it -- `env.(interface{ FileKey() string })` needs no exported type name -- and
 // reach every exported method the builder has. The withheld list of §12.6 would
-// then be a convention rather than a boundary. This type has exactly the six
+// then be a convention rather than a boundary. This type has exactly the seven
 // methods and nothing else to assert down to.
+//
+// It is built once per step, in buildSiteOperator, which is why it can carry the
+// operator's type: `operator_type` is a triage discriminator on an error row and
+// it is filled from the authored spec rather than from anything the site passes,
+// so a site operator cannot report a row under another operator's name.
 type operatorEnv struct {
 	ctx *BuilderContext
+	// operatorType is spec.Type, for the error rows ReportError writes.
+	operatorType string
 }
 
 var _ OperatorEnv = operatorEnv{}
@@ -221,6 +230,38 @@ func (e operatorEnv) IsDebugMode() bool {
 	return e.ctx.cpConfig.ClusterConfig.IsDebugMode
 }
 
+// ReportError writes one row-level failure to ch, filling from the builder the
+// five columns a site operator cannot reach: the pipeline execution key, the
+// session id, the shard (ctx.nodeId), the operator type and the step id. It is
+// NewProcessError and write2Chan, which are a method on *BuilderContext and an
+// unexported method respectively, reached through the one door a site has.
+//
+// **Three nils are absorbed rather than guarded by the caller**, and they are not
+// the same nil. ch is nil when the step authored no error channel, which is the
+// author's choice; ch.Config is what write2Chan sizes the row from; ch.Columns is
+// what it places columns by. The first site operator written against this
+// interface guarded all three by hand, and that guard is the measurable half of
+// what this method removes -- the other half is the copy of setColumn it had to
+// make, whose comma-ok form is what keeps the discriminator columns additive.
+//
+// It does not count. See OperatorArgs.MaxErrorCount.
+func (e operatorEnv) ReportError(ch *OutputChannel, rowErr RowLevelError) {
+	if ch == nil || ch.Config == nil || ch.Columns == nil {
+		return
+	}
+	peRow := e.ctx.NewProcessError(e.operatorType)
+	peRow.ErrorMessage = rowErr.ErrorMessage
+	// An empty string is written as NULL, which is what the built-ins do by
+	// setting these columns only when they have a value for them.
+	if len(rowErr.InputColumn) > 0 {
+		peRow.InputColumn = sql.NullString{String: rowErr.InputColumn, Valid: true}
+	}
+	if len(rowErr.RowJetsKey) > 0 {
+		peRow.RowJetsKey = sql.NullString{String: rowErr.RowJetsKey, Valid: true}
+	}
+	peRow.write2Chan(ch, e.ctx.done)
+}
+
 // buildSiteOperator is the `default:` branch of BuildPipeTransformationEvaluator.
 //
 // It reports whether the token was a registered site operator at all, so that an
@@ -237,7 +278,7 @@ func (ctx *BuilderContext) buildSiteOperator(source *InputChannel, outCh *Output
 	if err != nil {
 		return nil, true, err
 	}
-	pipe, err = factory(operatorEnv{ctx: ctx}, args)
+	pipe, err = factory(operatorEnv{ctx: ctx, operatorType: spec.Type}, args)
 	if err != nil {
 		return nil, true, fmt.Errorf("while building site operator '%s': %v", spec.Type, err)
 	}
