@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 )
@@ -759,5 +761,177 @@ func TestReservedOperatorTypesCoversTheResolvedAway(t *testing.T) {
 			t.Errorf("reservedOperatorTypes names %q, which is neither dispatched nor a known "+
 				"resolved-away token; add it to this test's list with the pass that consumes it", token)
 		}
+	}
+}
+
+// `Q-148`: the error-row helper fills the five columns a site operator cannot
+// reach, and the test reads them off a real *BuilderContext* rather than a
+// fixture that agrees with the assertion.
+//
+// **This assertion moved here from the site**, which is the second-order
+// consequence of choosing the helper over a `NodeId()` accessor and is worth a
+// line. `demo_observe` used to assemble the row itself and assert its columns in
+// `jets_ws`; a site test can now only assert that the operator *called*
+// ReportError, because what lands in the row is JetStore's. So the column
+// assertion belongs where the behaviour is, and a site operator that never
+// touches a row is no longer evidence about whether a row is correct.
+func TestReportErrorFillsTheColumnsASiteCannotReach(t *testing.T) {
+	columns := append(append([]string{}, legacyProcessErrorColumns...), ProcessErrorDiscriminatorColumns...)
+	outCh, ch := newTestErrorChannel("site.errors", columns)
+
+	ctx := &BuilderContext{
+		peKey:     4242,
+		sessionId: "session-1",
+		nodeId:    3,
+		done:      make(chan struct{}),
+		cpConfig: &ComputePipesConfig{
+			CommonRuntimeArgs: &ComputePipesCommonArgs{MainInputStepId: "reducing02"},
+		},
+	}
+	env := operatorEnv{ctx: ctx, operatorType: "demo_observe"}
+	env.ReportError(outCh, RowLevelError{
+		ErrorMessage: "value is not an int",
+		InputColumn:  "amount",
+		RowJetsKey:   "row-7",
+	})
+
+	row := <-ch
+	got := map[string]any{}
+	for name, pos := range *outCh.Columns {
+		got[name] = row[pos]
+	}
+	// The five JetStore fills. shard_id and pipeline_execution_status_key are
+	// `I-807` and `I-808`: NOT NULL and unreachable, and nullable and orphaned.
+	if got["shard_id"] != 3 {
+		t.Errorf("shard_id: got %v, want 3 -- a site operator used to write a placeholder 0 here", got["shard_id"])
+	}
+	if got["pipeline_execution_status_key"] != int64(4242) {
+		t.Errorf("pipeline_execution_status_key: got %v, want 4242 -- the row joins to its run through this",
+			got["pipeline_execution_status_key"])
+	}
+	if got["cpipes_step_id"] != "reducing02" {
+		t.Errorf("cpipes_step_id: got %v, want reducing02", got["cpipes_step_id"])
+	}
+	if got["session_id"] != "session-1" {
+		t.Errorf("session_id: got %v", got["session_id"])
+	}
+	// operator_type comes off the authored spec rather than off anything the
+	// site passes, so a site operator cannot report under another name.
+	if got["operator_type"] != "demo_observe" {
+		t.Errorf("operator_type: got %v, want demo_observe", got["operator_type"])
+	}
+	if got["error_channel"] != "site.errors" {
+		t.Errorf("error_channel: got %v", got["error_channel"])
+	}
+
+	// The three the site fills, two of them as sql.NullString.
+	if got["error_message"] != "value is not an int" {
+		t.Errorf("error_message: got %v", got["error_message"])
+	}
+	if v, ok := got["input_column"].(sql.NullString); !ok || !v.Valid || v.String != "amount" {
+		t.Errorf("input_column: got %v", got["input_column"])
+	}
+	if v, ok := got["row_jets_key"].(sql.NullString); !ok || !v.Valid || v.String != "row-7" {
+		t.Errorf("row_jets_key: got %v", got["row_jets_key"])
+	}
+	// And the rete columns, which no site operator has a session for.
+	if v, ok := got["rete_session_triples"].(sql.NullString); !ok || v.Valid {
+		t.Errorf("rete_session_triples should be NULL for a site operator, got %v", got["rete_session_triples"])
+	}
+}
+
+// An unset field is SQL NULL rather than the empty string, which is what the
+// built-ins do by setting a column only when they have a value for it. A triage
+// query filtering on `input_column is not null` must not match every site row.
+func TestReportErrorLeavesUnsetFieldsNull(t *testing.T) {
+	columns := append(append([]string{}, legacyProcessErrorColumns...), ProcessErrorDiscriminatorColumns...)
+	outCh, ch := newTestErrorChannel("site.errors", columns)
+	env := operatorEnv{ctx: &BuilderContext{done: make(chan struct{})}, operatorType: "demo_observe"}
+	env.ReportError(outCh, RowLevelError{ErrorMessage: "boom"})
+
+	row := <-ch
+	for _, name := range []string{"input_column", "row_jets_key", "grouping_key"} {
+		v, ok := row[(*outCh.Columns)[name]].(sql.NullString)
+		if !ok || v.Valid {
+			t.Errorf("%s: got %v, want an invalid sql.NullString", name, row[(*outCh.Columns)[name]])
+		}
+	}
+}
+
+// **The nil channel is the half a `NodeId()` accessor could not have absorbed.**
+// ErrorChannel is nil when the step authored none, which is documented and
+// legitimate, so a site operator calls this unconditionally. All three nils are
+// absorbed: the channel itself, its spec (which sizes the row) and its column
+// map (which places the columns).
+func TestReportErrorOnAnUnauthoredChannelIsANoOp(t *testing.T) {
+	env := operatorEnv{ctx: &BuilderContext{done: make(chan struct{})}, operatorType: "demo_observe"}
+	columns := map[string]int{"error_message": 0}
+	for _, c := range []struct {
+		name string
+		ch   *OutputChannel
+	}{
+		{"nil channel", nil},
+		{"nil spec", &OutputChannel{Name: "x", Channel: make(chan []any, 1), Columns: &columns}},
+		{"nil columns", &OutputChannel{Name: "x", Channel: make(chan []any, 1),
+			Config: &ChannelSpec{Name: "x", Columns: []string{"error_message"}}}},
+	} {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("%s: ReportError panicked: %v", c.name, r)
+				}
+			}()
+			env.ReportError(c.ch, RowLevelError{ErrorMessage: "boom"})
+		}()
+	}
+}
+
+// A channel spec written before the discriminator columns existed still gets a
+// row, and the columns it does not declare are dropped rather than written over
+// column zero. That is `setColumn`'s comma-ok form, and reimplementing it is
+// what a site operator no longer has to do.
+func TestReportErrorIsAdditiveOverAnOlderChannelSpec(t *testing.T) {
+	outCh, ch := newTestErrorChannel("site.errors", legacyProcessErrorColumns)
+	env := operatorEnv{ctx: &BuilderContext{nodeId: 2, done: make(chan struct{})},
+		operatorType: "demo_observe"}
+	env.ReportError(outCh, RowLevelError{ErrorMessage: "boom"})
+
+	row := <-ch
+	if len(row) != len(legacyProcessErrorColumns) {
+		t.Fatalf("row is %d wide, want %d", len(row), len(legacyProcessErrorColumns))
+	}
+	if row[0] != int64(0) {
+		t.Errorf("pipeline_execution_status_key at column 0 is %v; an unguarded map lookup "+
+			"would have written the undeclared discriminators over it", row[0])
+	}
+	if row[(*outCh.Columns)["error_message"]] != "boom" {
+		t.Errorf("error_message: got %v", row[(*outCh.Columns)["error_message"]])
+	}
+}
+
+// The helper selects on the builder's done channel, so an operator reporting an
+// error into a full channel during shutdown does not block the shutdown it is
+// being asked to take part in. The site no longer writes that select itself.
+func TestReportErrorIsInterruptedByDone(t *testing.T) {
+	columns := []string{"error_message"}
+	columnsMap := map[string]int{"error_message": 0}
+	done := make(chan struct{})
+	outCh := &OutputChannel{
+		Name:    "site.errors",
+		Channel: make(chan []any), // unbuffered and undrained
+		Columns: &columnsMap,
+		Config:  &ChannelSpec{Name: "site.errors", Columns: columns},
+	}
+	env := operatorEnv{ctx: &BuilderContext{done: done}, operatorType: "demo_observe"}
+	close(done)
+	returned := make(chan struct{})
+	go func() {
+		env.ReportError(outCh, RowLevelError{ErrorMessage: "boom"})
+		close(returned)
+	}()
+	select {
+	case <-returned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ReportError blocked on an undrained channel with done closed")
 	}
 }
