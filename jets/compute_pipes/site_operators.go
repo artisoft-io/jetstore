@@ -66,7 +66,7 @@ func WithOperators(operators map[string]SiteOperatorFactory) CPOption {
 			case factory == nil:
 				log.Printf("WARNING: WithOperators: operator %q registered with a nil factory; ignored", name)
 				continue
-			case builtinOperatorTypes[name]:
+			case reservedOperatorTypes[name]:
 				log.Printf(
 					"WARNING: WithOperators: %q is a built-in compute pipes operator; the built-in wins and this factory will never be called",
 					name)
@@ -114,6 +114,36 @@ var builtinOperatorTypes = map[string]bool{
 	RenderOperatorType: true,
 }
 
+// reservedOperatorTypes is the set of tokens a deployment may not register an
+// operator under. It is `builtinOperatorTypes` plus the tokens that are resolved
+// away *before* the dispatch ever sees them, and the distinction is the whole
+// reason it is a second map rather than an entry in the first.
+//
+// `builtinOperatorTypes` means "what BuildPipeTransformationEvaluator dispatches
+// on", and TestBuiltinOperatorTypesMatchesTheDispatch asserts that in both
+// directions against the parsed switch. `infer` is not in that switch and must
+// not be added to it: ResolveInferBackend rewrites every `type: infer` into
+// `ollama` or `vllm` before the graph is built, deliberately, so that nothing
+// downstream knows the abstract type exists.
+//
+// **But a site cannot have the token either**, and the failure if it does is the
+// quiet kind: a factory registered as "infer" is never called and no collision
+// warning fires, because the rewrite happens first and the graph the dispatch
+// sees contains no such operator. The author gets an ollama step and no message.
+// So the collision check and the `site_config` refusal below read this set, and
+// the dispatch-matching test keeps reading the narrower one.
+//
+// A token belongs here when it is a legal `type` in an authored `.pc.json` that
+// some earlier pass consumes. There is one today.
+var reservedOperatorTypes = func() map[string]bool {
+	m := make(map[string]bool, len(builtinOperatorTypes)+1)
+	for k := range builtinOperatorTypes {
+		m[k] = true
+	}
+	m["infer"] = true
+	return m
+}()
+
 // validateSiteOperatorSpec is what a *starter* can say about a site operator
 // without an operator registry, which is not much and is worth having.
 //
@@ -129,7 +159,7 @@ func validateSiteOperatorSpec(transformationConfig *TransformationSpec) error {
 	if transformationConfig.SiteConfig == nil {
 		return nil
 	}
-	if builtinOperatorTypes[transformationConfig.Type] {
+	if reservedOperatorTypes[transformationConfig.Type] {
 		return fmt.Errorf(
 			"configuration error: operator '%s' is a built-in and cannot carry a 'site_config'; "+
 				"use its own '%s_config' instead",
