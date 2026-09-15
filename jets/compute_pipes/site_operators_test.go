@@ -722,3 +722,42 @@ func TestSiteConfigIsAbsentFromADocumentThatNamesNone(t *testing.T) {
 		t.Errorf("a step naming no site_config marshals as %s", encoded)
 	}
 }
+
+// TestReservedOperatorTypesCoversTheResolvedAway pins the relationship between
+// the two sets rather than their contents.
+//
+// `builtinOperatorTypes` is checked against the dispatch by
+// TestBuiltinOperatorTypesMatchesTheDispatch, and that test is why `infer` cannot
+// simply be added to it: `infer` is not a dispatch case and must not become one,
+// because ResolveInferBackend rewrites it away before the graph is built.
+//
+// What this asserts is the containment and the reason for the gap. If a future
+// token is resolved away the same way, the second loop fails until it is added to
+// reservedOperatorTypes -- which is the point, since the failure it prevents is
+// silent: a site factory registered under a rewritten token is never called and
+// no collision warning fires.
+func TestReservedOperatorTypesCoversTheResolvedAway(t *testing.T) {
+	for token := range builtinOperatorTypes {
+		if !reservedOperatorTypes[token] {
+			t.Errorf("builtinOperatorTypes names %q and reservedOperatorTypes does not; "+
+				"a site could register a built-in's token without a warning", token)
+		}
+	}
+	if !reservedOperatorTypes["infer"] {
+		t.Error(`reservedOperatorTypes does not name "infer"; ResolveInferBackend rewrites ` +
+			`that token before the dispatch sees it, so a site operator registered under it ` +
+			`is silently never called`)
+	}
+	if builtinOperatorTypes["infer"] {
+		t.Error(`builtinOperatorTypes names "infer", but the dispatch has no such case; ` +
+			`TestBuiltinOperatorTypesMatchesTheDispatch should already be failing`)
+	}
+	// The set difference is the resolved-away tokens, and there is one today. A
+	// bare count would be a literal to keep in step; this names what it expects.
+	for token := range reservedOperatorTypes {
+		if !builtinOperatorTypes[token] && token != "infer" {
+			t.Errorf("reservedOperatorTypes names %q, which is neither dispatched nor a known "+
+				"resolved-away token; add it to this test's list with the pass that consumes it", token)
+		}
+	}
+}

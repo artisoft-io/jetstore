@@ -1188,7 +1188,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 // site operator carrying an error channel gets one here and gets `false` there,
 // so it keeps the channel it authored and is never given a synthesised one.
 func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannelConfig {
-	if transformationConfig.SiteConfig != nil && !builtinOperatorTypes[transformationConfig.Type] {
+	if transformationConfig.SiteConfig != nil && !reservedOperatorTypes[transformationConfig.Type] {
 		// A site operator reports row-level failures iff it configured a channel
 		// to report them on; nil here is the author's choice rather than an
 		// omission JetStore should fill in.
