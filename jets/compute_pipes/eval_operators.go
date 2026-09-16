@@ -56,6 +56,14 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 		return &opIn{
 			noCase: true,
 		}, nil
+	// String operators: CONTAINS and CONTAINS_NO_CASE, mirroring the rules engine's ContainsOp
+	// (jets/jetrules/rete/expr_operator_str_contains.go)
+	case "CONTAINS":
+		return &opContains{}, nil
+	case "CONTAINS_NO_CASE":
+		return &opContains{
+			noCase: true,
+		}, nil
 	case "LENGTH":
 		return &opLength{}, nil
 	case "NEW_UUID":
