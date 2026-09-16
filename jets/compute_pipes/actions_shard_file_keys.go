@@ -55,6 +55,11 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 			return
 		}
+		// Prune the file keys the schema provider asks to ignore (see pruneIgnoredFileKeys).
+		// The input folder is the only place a client writes files, so this applies to the
+		// "input" channel type only; the stage folder below is JetStore's own.
+		ignoredFileKeys, _ := envSettings["${JETS_IGNORE_FILE}"].(string)
+		s3Objects = pruneIgnoredFileKeys(s3Objects, ignoredFileKeys)
 
 	case "stage":
 		// Input from s3 stage folder based on inputChannelConfig.FileKey
@@ -445,4 +450,46 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 		ShardMaxSizeBy:   clusterConfig.DefaultShardMaxSizeBy,
 		MaxConcurrency:   clusterConfig.DefaultMaxConcurrency,
 	}
+}
+
+// pruneIgnoredFileKeys removes from s3Objects every object whose key ends with one of
+// the path suffixes listed in ignore, which is the value of the schema provider's
+// ${JETS_IGNORE_FILE} env var: a '|'-delimited list of path suffixes, extension
+// included (e.g. "test_harness_filters.txt|notes/readme.txt").
+//
+// The match is strings.HasSuffix against the whole object key, so an entry may carry a
+// path portion. An empty or absent ignore prunes nothing, and so does an empty entry
+// within the list - an empty suffix matches every key, and pruning the whole folder is
+// never what an unset value means.
+//
+// Note there is deliberately no '/' path boundary on the match: a configured value of
+// ".txt" prunes every text file in the folder, and "filters.txt" also prunes
+// "monthly_filters.txt". This is accepted because the value is site-configured - it is
+// set by the schema event the producing lambda builds, not by anything found in the
+// input folder - so a bad value is a configuration defect rather than untrusted input.
+// If ${JETS_IGNORE_FILE} ever becomes client-supplied, the match needs a '/' boundary.
+func pruneIgnoredFileKeys(s3Objects []*awsi.S3Object, ignore string) []*awsi.S3Object {
+	if len(ignore) == 0 {
+		return s3Objects
+	}
+	ignoredSuffixes := make([]string, 0, 4)
+	for _, suffix := range strings.Split(ignore, "|") {
+		if len(suffix) > 0 {
+			ignoredSuffixes = append(ignoredSuffixes, suffix)
+		}
+	}
+	if len(ignoredSuffixes) == 0 {
+		return s3Objects
+	}
+	keptObjects := make([]*awsi.S3Object, 0, len(s3Objects))
+	for _, obj := range s3Objects {
+		if obj != nil && slices.ContainsFunc(ignoredSuffixes, func(suffix string) bool {
+			return strings.HasSuffix(obj.Key, suffix)
+		}) {
+			log.Printf("Ignoring input file key %s, matching ${JETS_IGNORE_FILE}", obj.Key)
+			continue
+		}
+		keptObjects = append(keptObjects, obj)
+	}
+	return keptObjects
 }
