@@ -252,7 +252,11 @@ func (op *opIn) Eval(lhs any, rhs any) (any, error) {
 // is deliberate; note that it also means the expression node's default does not fire, since that is
 // reached on an error (eval_expression.go, expressionNodeEvaluator.Eval). A nil is false to ToBool,
 // so a when clause of a case_expr does not take the branch.
-// noCase upper-cases both sides before comparing, the way opIn does.
+// noCase upper-cases both sides here, in Eval, and that is deliberately not what opIn does: opIn's
+// case-insensitivity is split, upper-casing the lhs in Eval and relying on the builder having
+// upper-cased its static_list already (the IN_NO_CASE branch of BuildExprNodeEvaluator in
+// eval_expression.go). A contains rhs is an ordinary expression rather than a static list, so nothing
+// normalises it at build time and both sides have to be done here.
 type opContains struct {
 	noCase bool
 }
