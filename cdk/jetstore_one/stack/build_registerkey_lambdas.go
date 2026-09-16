@@ -23,11 +23,36 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	registerKeyV2LambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("RegisterKeyV2LambdaLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,
 	})
+	// The register-key Lambda's source path is overridable, so that a site can deploy a handler of
+	// its own -- the stock one plus site-specific logic -- without forking this file.
+	//
+	// It is the *defaulting* form, and the three JETS_*_LAMBDA_ENTRY variables that predate it are
+	// not: JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (further down this file),
+	// JETS_API_GATEWAY_LAMBDA_ENTRY (build_api_lambdas.go:25) and
+	// JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (build_lambdas.go:227) each gate a Lambda that is not
+	// built at all when the variable is absent. Those three name a component that only a site has;
+	// this one names an alternative source for the main ingest path, which every deployment runs,
+	// so absent has to mean "the stock entry" rather than "nothing".
+	//
+	// Empty is treated as unset, matching the len(...) == 0 test all three above use, so that
+	// `export JETS_REGISTER_KEY_LAMBDA_ENTRY=` in a deploy script means the same thing as never
+	// having written the line. Nothing here trims: a path with a stray space is a path, and
+	// silently repairing one would hide the typo until bundling failed.
+	//
+	// The default is inlined rather than factored into a helper deliberately. The jets_ai branch
+	// carries lambdaEntryOrDefault in stack/stack_model.go, which does exactly this, inside a
+	// 99-line divergence in that file; a second definition of that name here would not compile
+	// after the release merge. Collapsing this onto that helper is the right move once the two
+	// branches meet, and not before.
+	registerKeyLambdaEntry := os.Getenv("JETS_REGISTER_KEY_LAMBDA_ENTRY")
+	if registerKeyLambdaEntry == "" {
+		registerKeyLambdaEntry = "lambdas/register_keys/register_keys_v2"
+	}
 	// Define the lambda
 	jsComp.RegisterKeyV2Lambda = awslambdago.NewGoFunction(stack, jsii.String("registerKeyV2"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db, v2"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/register_keys/register_keys_v2"),
+		Entry:       jsii.String(registerKeyLambdaEntry),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},

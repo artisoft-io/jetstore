@@ -59,6 +59,15 @@ Key integrations include:
 - RDS Postgres database
 - S3 bucket for workspace files
 
+`JETS_REGISTER_KEY_LAMBDA_ENTRY` (optional) points this lambda at a site handler — the stock one
+plus site-specific logic before registration — typically in a client workspace repository's
+`go/lambdas/`. It **defaults** to `lambdas/register_keys/register_keys_v2`, and that is the
+difference between it and the three other `JETS_*_LAMBDA_ENTRY` variables in this app: those gate a
+lambda that is not built at all when they are unset, while this one names an alternative source for
+the main ingest path, which every deployment runs. So absent means the stock entry rather than no
+lambda, and a stack that has never heard of the variable synthesises what it synthesised before.
+Empty counts as unset.
+
 ### sqs register keys
 
 An AWS Lambda function that processes SQS messages for file key registration.
