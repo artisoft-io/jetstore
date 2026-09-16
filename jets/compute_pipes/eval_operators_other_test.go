@@ -127,3 +127,113 @@ func TestOpToDate(t *testing.T) {
 		})
 	}
 }
+// TestOpContains pins the semantics opContains copies from the rules engine's ContainsOp
+// (jets/jetrules/rete/expr_operator_str_contains.go): 1 when lhs contains rhs, 0 when it does not,
+// and nil when either operand is not a string.
+//
+// The four non-string rows are deliberate. Returning nil rather than an error for a non-string
+// operand reads oddly in isolation -- every other operator in this file either coerces or returns an
+// error -- and it is the behaviour the rules engine has, which is the whole point of copying it: the
+// same expression written in a .jr file and in a .pc.json must mean the same thing. These rows exist
+// so that a later reader who finds the behaviour surprising finds it asserted rather than accidental.
+//
+// Each row is driven through both opContains{} and opContains{noCase: true}, so that
+// contains_no_case differing from contains on case and agreeing on everything else is a property of
+// the table rather than of a reader comparing two lists. differsOnCase says which rows are the ones
+// allowed to differ.
+func TestOpContains(t *testing.T) {
+
+	tests := []struct {
+		name          string
+		lhs           any
+		rhs           any
+		want          any
+		wantNoCase    any
+		differsOnCase bool
+		wantErr       bool
+	}{
+		{"substring present", "S1-Hedis-E01", "Hedis", 1, 1, false, false},
+		{"substring absent", "S1-E01", "Hedis", 0, 0, false, false},
+		{"substring absent, other discriminator", "S1-HCC-M02", "Hedis", 0, 0, false, false},
+		{"empty rhs", "S1-E01", "", 1, 1, false, false},
+		{"empty lhs, empty rhs", "", "", 1, 1, false, false},
+		{"empty lhs, non-empty rhs", "", "HCC", 0, 0, false, false},
+		{"identical strings", "HCC", "HCC", 1, 1, false, false},
+		{"rhs longer than lhs", "HCC", "S1-HCC-M02", 0, 0, false, false},
+		{"case difference in lhs", "S1-hedis-E01", "Hedis", 0, 1, true, false},
+		{"case difference in rhs", "S1-HCC-M02", "hcc", 0, 1, true, false},
+		{"case difference both sides", "s1-hedis-e01", "HEDIS", 0, 1, true, false},
+		{"nil lhs", nil, "Hedis", nil, nil, false, false},
+		{"nil rhs", "S1-Hedis-E01", nil, nil, nil, false, false},
+		{"both nil", nil, nil, nil, nil, false, false},
+		// Non-string operands: nil on each side, deliberately, per ContainsOp.
+		{"non-string lhs", 42, "4", nil, nil, false, false},
+		{"non-string rhs", "42", 4, nil, nil, false, false},
+		{"non-string both sides", 42, 42, nil, nil, false, false},
+		{"bool lhs", true, "true", nil, nil, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if (tt.want != tt.wantNoCase) != tt.differsOnCase {
+				t.Errorf("table row %q: want %v and wantNoCase %v, differsOnCase %v -- the row contradicts itself",
+					tt.name, tt.want, tt.wantNoCase, tt.differsOnCase)
+			}
+			for _, c := range []struct {
+				noCase bool
+				want   any
+			}{{false, tt.want}, {true, tt.wantNoCase}} {
+				op := &opContains{noCase: c.noCase}
+				got, err := op.Eval(tt.lhs, tt.rhs)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("opContains{noCase:%v}.Eval() error = %v, wantErr %v", c.noCase, err, tt.wantErr)
+					return
+				}
+				if got != c.want {
+					t.Errorf("opContains{noCase:%v}.Eval() = %v, want %v", c.noCase, got, c.want)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildEvalOperatorContains demonstrates that contains is registered and that an unknown
+// operator still is not. BuildEvalOperator upper-cases before dispatching, so the .pc.json may
+// spell the operator in any case; the lower-case spellings are the ones the workspace configs use.
+func TestBuildEvalOperatorContains(t *testing.T) {
+
+	tests := []struct {
+		name       string
+		op         string
+		wantNoCase bool
+		wantErr    bool
+	}{
+		{"contains, as a .pc.json spells it", "contains", false, false},
+		{"contains, upper case", "CONTAINS", false, false},
+		{"contains_no_case, as a .pc.json spells it", "contains_no_case", true, false},
+		{"contains_no_case, upper case", "CONTAINS_NO_CASE", true, false},
+		{"unknown operator still fails", "icontains", false, true},
+		{"unknown operator still fails, empty", "", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BuildEvalOperator(tt.op)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildEvalOperator(%q) error = %v, wantErr %v", tt.op, err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			op, ok := got.(*opContains)
+			if !ok {
+				t.Errorf("BuildEvalOperator(%q) = %T, want *opContains", tt.op, got)
+				return
+			}
+			if op.noCase != tt.wantNoCase {
+				t.Errorf("BuildEvalOperator(%q) noCase = %v, want %v", tt.op, op.noCase, tt.wantNoCase)
+			}
+		})
+	}
+}
