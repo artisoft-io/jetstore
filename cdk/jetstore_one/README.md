@@ -263,6 +263,18 @@ Turns S3 object-created events into pipeline executions. The main ingest path.
 - **Deployment**: always built. Event filters use `JETS_s3_INPUT_PREFIX` and, when set,
   `JETS_SENTINEL_FILE_NAME` as a suffix filter; a second notification covers the schema-triggers
   prefix.
+- **Site entry**: `JETS_REGISTER_KEY_LAMBDA_ENTRY` points this Lambda at a site handler — the stock
+  one plus site-specific logic before registration — typically in a client workspace repository's
+  `go/lambdas/`, and it **defaults to `lambdas/register_keys/register_keys_v2`**, so a stack that has
+  never heard of the variable synthesises what it synthesised before (verified 2026-09-16 by an A/B
+  synth: `JetstoreOneStack.template.json` and `.assets.json` are byte-identical with the variable
+  unset, and setting it moves exactly four lines — `registerKeyV2`'s `aws:asset:path` and `S3Key`).
+  Empty counts as unset. **It defaults rather than gates, and it is the second of the two that do**,
+  the other being `JETS_CPIPES_NODE_LAMBDA_ENTRY` in §5.7; the three that gate a whole Lambda are
+  `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (§5.6), `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (§5.9) and
+  `JETS_API_GATEWAY_LAMBDA_ENTRY` (§5.12). The form follows from what the variable names: those three
+  name a component only some sites deploy, and an absent entry here cannot mean "no register-key
+  Lambda" because this is the main ingest path that every deployment runs.
 - **IAM / SG**: **own generated role** with explicit `RdsSecret.GrantRead`,
   `SourceBucket.GrantReadWrite`, external-KMS grant, and `states:StartExecution` on `*`.
   `VpcEndpointsSg` + `RdsAccessSg`, private subnets. 256 MB / 30 s.

@@ -585,6 +585,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	jets/datatable/git/no_git_access.go. Distinct from JETS_GIT_ACCESS above, which is a
 //	synth-time network control the runtime cannot read.
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
+//
+//	JETS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for the register key
+//	lambda, default lambdas/register_keys/register_keys_v2) Points registerKeyV2 at a site
+//	main -- the stock handler plus site-specific logic before registration -- typically in a
+//	client workspace repo's go/lambdas/. Unlike the three other JETS_*_LAMBDA_ENTRY
+//	variables, leaving this unset does not skip a lambda: it builds the stock entry, so a
+//	stack that never sets it synthesises what it synthesised before. Empty counts as unset.
+//	See stack/build_registerkey_lambdas.go.
+//
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // JETS_s3_STAGE_PREFIX (optional) required for cpipes, default replace '/input' with '/stage' in JETS_s3_INPUT_PREFIX
@@ -733,6 +742,7 @@ func main() {
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
 	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
+	log.Println("env JETS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_REGISTER_KEY_LAMBDA_ENTRY"))
 	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	log.Println("env JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))
