@@ -20,7 +20,7 @@ func getGithubIps() *[]*string {
 	// Issue an HTTP GET request
 	resp, err := http.Get("https://api.github.com/meta")
 	if err != nil {
-		panic(fmt.Errorf("while http GET to https://api.github.com/meta:%v", err))
+		panic(fmt.Errorf("while http GET to https://api.github.com/meta: %v", err))
 	}
 	defer resp.Body.Close()
 
@@ -36,16 +36,20 @@ func getGithubIps() *[]*string {
 		if err != nil {
 			log.Fatalf("Error decoding body of https://api.github.com/meta: %v", err)
 		}
-		// do stuff with "jsonObject"...
+		// The "git" key holds the CIDRs for git over https.
 		for _, ipi := range bodyData["git"].([]interface{}) {
 			ip := ipi.(string)
 			// check for ip v6
 			if !strings.Contains(ip, ":") {
 				ipList = append(ipList, ip)
 			}
+			if len(ipList) > 50 {
+				log.Println("More than 50 GitHub IPs retrieved, stopping early")
+				break
+			}
 		}
 	}
-	fmt.Println("Done getting github ip for git integration")
+	fmt.Println("Done getting github ips for git integration")
 	results := jsii.Strings(ipList...)
 	return results
 }
@@ -71,15 +75,15 @@ func NewGitAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.IVpc) awsec2.Secur
 	gitScm := os.Getenv("JETS_GIT_ACCESS")
 	if strings.Contains(gitScm, "github") {
 		fmt.Println("Providing access to github for git integration")
-		for _, cdr := range *getGithubIps() {
-			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)),
+		for _, cidr := range *getGithubIps() {
+			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cidr), awsec2.Port_Tcp(jsii.Number(443)),
 				jsii.String("allow https access to github repository"), jsii.Bool(false))
 		}
 	}
 	if strings.Contains(gitScm, "bitbucket") {
 		fmt.Println("Providing access to bitbucket for git integration")
-		for _, cdr := range *getBitbucketIps() {
-			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)),
+		for _, cidr := range *getBitbucketIps() {
+			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cidr), awsec2.Port_Tcp(jsii.Number(443)),
 				jsii.String("allow https access to bitbucket repository"), jsii.Bool(false))
 		}
 	}
