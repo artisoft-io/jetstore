@@ -65,6 +65,12 @@
       "schema_ref": "MapRecordPipe",
       "repeat_over": "emitters",
       "prompt": "Emit one report row per metric: its display name, its id, and its numerator."
+    },
+    {
+      "name": "status_filter_clauses",
+      "schema_ref": "CaseExpression",
+      "repeat_over": "status_filters",
+      "prompt": "A test-harness filter: force `status` to 'pass' for every field_id containing a substring, when the deployment's `${calculate*}` environment variable says that family of metrics was not calculated. Repeats over as many filters as the report carries, and over none at all when it carries none."
     }
   ],
   "body": {
@@ -797,6 +803,47 @@
                 {
                   "type": "case",
                   "case_expr": [
+                    {
+                      "$hole": "status_filter_clauses",
+                      "$body": {
+                        "when": {
+                          "lhs": {
+                            "lhs": {
+                              "type": "value",
+                              "expr": {
+                                "$item": "env_key"
+                              }
+                            },
+                            "op": "==",
+                            "rhs": {
+                              "type": "value",
+                              "expr": "'FALSE'"
+                            }
+                          },
+                          "op": "and",
+                          "rhs": {
+                            "lhs": {
+                              "type": "select",
+                              "expr": "field_id"
+                            },
+                            "op": "contains",
+                            "rhs": {
+                              "type": "value",
+                              "expr": {
+                                "$item": "substring"
+                              }
+                            }
+                          }
+                        },
+                        "then": [
+                          {
+                            "name": "status",
+                            "type": "value",
+                            "expr": "'pass'"
+                          }
+                        ]
+                      }
+                    },
                     {
                       "when": {
                         "lhs": {

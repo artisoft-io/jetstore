@@ -346,6 +346,12 @@ def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
 
     **This proves placement, not authoring** - §5.3.9's third qualification, unchanged.
     `derive` reads the target.
+
+    **`qc_eligibility` is the arm that carries the status filters (2026-09-17).** Of the
+    five, it is the only one whose `case_expr` is eight legs rather than four, so it is
+    what says the `status_filter_clauses` hole reproduces a filter *and* that the other
+    four reproduce when it repeats zero times - the two halves of `AH.6`, in one
+    assertion each way round.
     """
     for name in QC_EXACT:
         target, cfg, bad = _qc(name)
@@ -379,6 +385,19 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
     a whole `output_tables` section. None of them is a varying skeleton, and none needs
     anything the hole model cannot express. The test pins the *size* of what is left so
     that it cannot quietly grow.
+
+    **Re-measured 2026-09-17 against `workspaces/cedargate_ws` at `cgt_ai` `7c26793`: 9,
+    33 and 10, unchanged.** The figures are dated because they are measured from a
+    repository this one does not control, and that afternoon they moved and came back.
+    `cgt_test_harness_filters`' `AG.1` added four status filters to three of the eight
+    `qc_*` configs, taking `qc_pharmacyclaim` to 128, `qc_medicalclaim` to 105 and
+    `qc_eligibility` out of the exact set at 95 - the filters being a skeleton that
+    varies per config, which is the one thing this budget was written to say was absent.
+    `AH.6` made them one repeating hole over `(env_key, substring)` pairs and all four
+    figures returned to what they had been, so what this test asserts survived a change
+    to its corpus rather than being refitted to it. **`qc_biometric`'s 9 is the arm to
+    read as independent**: it carries no filter, so it is what says the repair moved
+    nothing it should not have.
     """
     def leaves(o, p=""):
         if isinstance(o, dict):
@@ -397,6 +416,63 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
         a, b = dict(leaves(cfg)), dict(leaves(target))
         n = len(set(a) ^ set(b)) + sum(1 for k in set(a) & set(b) if a[k] != b[k])
         assert n <= budget[name], f"{name}: {n} differing leaves, was {budget[name]}"
+
+
+def _status_case(cfg):
+    return cfg["reducing_pipes_config"][3][1]["apply"][0]["columns"][9]["case_expr"]
+
+
+def test_a_repeating_hole_bound_to_no_items_leaves_its_list_as_written():
+    """Q-19, tested rather than argued: a hole can repeat zero times.
+
+    `AH.6` turned the status filters into one repeating hole, and five of the eight
+    reports carry no filter — so the whole repair rests on an empty binding splicing
+    away and leaving the surrounding list untouched rather than, say, leaving a null in
+    it. **Bound to `[]`, not omitted**: an omitted name raises, which
+    `test_an_unbound_repeat_over_raises` holds for the other template. The two
+    together are the answer to Q-19 in both directions.
+    """
+    target, cfg, bad = _qc("qc_participation")
+    assert bad == []
+    legs = _status_case(cfg)
+    assert len(legs) == 4, legs
+    assert legs == _status_case(target)
+    assert all(isinstance(leg, dict) and "when" in leg for leg in legs)
+
+
+def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
+    """F21's trap, pinned against a hand-written binding rather than against the corpus.
+
+    Two of the four filters test `contains 'HCC'` from *different* environment
+    variables, because `${calculateCMSHCC}` and `${calculateHHSHCC}` are two
+    calculations writing into one family of field ids. So a hole parameterised by the
+    variable name alone — deriving `Hedis` from `calculateHedis`, which works — would
+    emit `'CMSHCC'` and `'HHSHCC'` and match nothing. The pair travels as a pair.
+
+    **The binding here is written out rather than read from `workspaces/`**, so this
+    asserts a property of the template and not a count in a repository this one does not
+    control; `test_criterion_23_two_of_the_five_non_exact_reproduce_exactly` is where the
+    live configs have their say.
+    """
+    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    context = derive(target)
+    context["status_filters"] = [
+        {"env_key": "${calculateCMSHCC}", "substring": "'HCC'"},
+        {"env_key": "${calculateHHSHCC}", "substring": "'HCC'"},
+    ]
+    cfg, bad = expand(QC_TEMPLATE, context, lambda h, c: {"$UNFILLED": h.name}, SCHEMA)
+    assert bad == [], bad
+    legs = _status_case(cfg)
+    assert len(legs) == 6, "the two filters lead and the four ratio legs follow"
+    keys = [leg["when"]["lhs"]["lhs"]["expr"] for leg in legs[:2]]
+    subs = [leg["when"]["rhs"]["rhs"]["expr"] for leg in legs[:2]]
+    assert keys == ["${calculateCMSHCC}", "${calculateHHSHCC}"]
+    assert subs == ["'HCC'", "'HCC'"], "one substring, two variables — F21"
+    # And the filters must precede the ratio legs: `caseExprEvaluator.Update` returns on
+    # the first match, so a filter after them would never fire (`Update`,
+    # `jets/compute_pipes/column_evaluators_case_expr.go:24`; the test is at `:36` and
+    # its `return nil` at `:43`).
+    assert legs[2:] == _status_case(target)
 
 
 # --- F.2b: A§6.1 source 2, measured -----------------------------------------------

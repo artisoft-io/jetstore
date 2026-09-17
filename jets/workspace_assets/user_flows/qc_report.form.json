@@ -643,6 +643,12 @@
               }
             ]
           }
+        ],
+        [
+          {
+            "field": "label",
+            "text": "Status filters \u2014 not editable here. Its 0 entries decide how many steps this wizard has, and a flow cannot make a state; changing that means editing the bindings and generating again."
+          }
         ]
       ],
       "actions": [

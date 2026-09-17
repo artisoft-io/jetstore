@@ -15,6 +15,8 @@ running it over the whole family a test of the template rather than a demonstrat
 
 from __future__ import annotations
 
+from itertools import takewhile
+
 
 def derive(config: dict) -> dict:
     """The bindings that expand `qc_report` back into `config`."""
@@ -32,6 +34,44 @@ def derive(config: dict) -> dict:
         return [c for c in metrics if c.get("type") == kind]
 
     emitters = rpc[2][2]["apply"]
+
+    # The status column's `case_expr` opens with zero or more test-harness filters,
+    # each forcing `status` to 'pass' for a family of metrics the deployment did not
+    # calculate, and ends with the ratio-threshold legs the template carries literally.
+    # Three of the eight configs carry four filters and the other five carry none, which
+    # is the same 0-or-n positional shape as the optional remap pipe above.
+    #
+    # **The leading run is taken by shape rather than by slicing the literal tail off.**
+    # `case_expr[:-4]` gives the same answer today and couples this file to a count of
+    # legs that lives in the template - two files agreeing by a constant neither
+    # mentions. Testing the leg instead makes them agree by construction, and it fails
+    # in the right direction: a filter written *after* the ratio legs is not recovered,
+    # and must not be, because `caseExprEvaluator.Update` returns on the first match
+    # (`Update`, `jets/compute_pipes/column_evaluators_case_expr.go:24`; the first-match
+    # test is at `:36` and its `return nil` at `:43`).
+    #
+    # **The pair is recovered as a pair, and that is not a stylistic choice.** Deriving
+    # the substring from the environment variable's name works for `calculateHedis` ->
+    # 'Hedis' and breaks on the HCC pair: `${calculateCMSHCC}` and `${calculateHHSHCC}`
+    # both test `contains 'HCC'`, because the two calculations write into one family of
+    # field ids. So `env_key` and `substring` travel together, read off the leg.
+    def is_status_filter(leg: dict) -> bool:
+        when = leg.get("when") or {}
+        lhs, rhs = when.get("lhs") or {}, when.get("rhs") or {}
+        return (
+            when.get("op") == "and"
+            and lhs.get("op") == "=="
+            and rhs.get("op") == "contains"
+            and (rhs.get("lhs") or {}).get("expr") == "field_id"
+        )
+
+    status_case = rpc[3][1]["apply"][0]["columns"][9]["case_expr"]
+    status_filters = [
+        {"env_key": leg["when"]["lhs"]["lhs"]["expr"],
+         "substring": leg["when"]["rhs"]["rhs"]["expr"]}
+        for leg in takewhile(is_status_filter, status_case)
+    ]
+
     return {
         # **The template model has no globals**, so the values that vary per config but
         # not per item ride on the top-level `$item`. See I-43.
@@ -74,4 +114,8 @@ def derive(config: dict) -> dict:
             for e in emitters
         ],
         "all_metrics": [{"name": c["name"]} for c in rpc[2][0]["apply"][0]["columns"][1:]],
+        # Empty for the five reports that carry no filter, which the expander splices
+        # away. It has to be **bound to the empty list rather than omitted**: an unbound
+        # `repeat_over` raises `ExpansionError` (`expand`, `expand.py:138`).
+        "status_filters": status_filters,
     }
