@@ -142,12 +142,22 @@ def test_a_refusal_is_visible():
 
 
 def test_the_bindings_walk_agrees_with_the_M1_census():
-    """1/3/21 scalar sites and 0/0/8 object sites, counted by hand at M.1.
+    """1/3/~~21~~ 22 scalar sites and 0/0/8 object sites, counted by hand at M.1.
 
     **A traversal is worth what a second count says it is.** M.2's first corpus walk
     handled one level of list nesting, silently skipped `reducing_pipes_config`, and
     reported zero `where` clauses where `grep -c` finds 136 — a plausible small number,
     which is worse than an obviously odd one.
+
+    **`qc_report` moved from 21 to 22 on 2026-09-17**, when the status filters became a
+    repeating hole (`cgt_test_harness_filters` `AH.6`). `status_filters` is `[]` in these
+    bindings — `qc_participation` carries no filter — and `_walk_bindings` counts a list
+    whose members are all scalars as one scalar site, which an empty list vacuously is.
+    So the three sites that were already empty lists here (`stage1_map_pipes`,
+    `sum_metrics`, `map_reduce_metrics`) are its precedent rather than a discrepancy, and
+    the count of a *binding site* is what this asserts, not a count of anything authored.
+    `sizing` is what keeps a repeat binding out of the offered fields, which the sibling
+    test below holds.
     """
     import re
 
@@ -157,7 +167,7 @@ def test_the_bindings_walk_agrees_with_the_M1_census():
     expected = {
         "map_claim_load_stages": (1, 0),
         "qc_metrics": (3, 0),
-        "qc_report": (21, 8),
+        "qc_report": (22, 8),
     }
     for name, (n_scalar, n_object) in expected.items():
         context = json.loads((HERE / "templates" / f"{name}.bindings.json").read_text())
