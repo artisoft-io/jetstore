@@ -469,7 +469,9 @@ def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
     assert keys == ["${calculateCMSHCC}", "${calculateHHSHCC}"]
     assert subs == ["'HCC'", "'HCC'"], "one substring, two variables — F21"
     # And the filters must precede the ratio legs: `caseExprEvaluator.Update` returns on
-    # the first match, so a filter after them would never fire.
+    # the first match, so a filter after them would never fire (`Update`,
+    # `jets/compute_pipes/column_evaluators_case_expr.go:24`; the test is at `:36` and
+    # its `return nil` at `:43`).
     assert legs[2:] == _status_case(target)
 
 

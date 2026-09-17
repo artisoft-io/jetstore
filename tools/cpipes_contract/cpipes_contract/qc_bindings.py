@@ -46,7 +46,9 @@ def derive(config: dict) -> dict:
     # legs that lives in the template - two files agreeing by a constant neither
     # mentions. Testing the leg instead makes them agree by construction, and it fails
     # in the right direction: a filter written *after* the ratio legs is not recovered,
-    # and must not be, because `caseExprEvaluator.Update` returns on the first match.
+    # and must not be, because `caseExprEvaluator.Update` returns on the first match
+    # (`Update`, `jets/compute_pipes/column_evaluators_case_expr.go:24`; the first-match
+    # test is at `:36` and its `return nil` at `:43`).
     #
     # **The pair is recovered as a pair, and that is not a stylistic choice.** Deriving
     # the substring from the environment variable's name works for `calculateHedis` ->
