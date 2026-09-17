@@ -18,6 +18,21 @@ import (
 	jsii "github.com/aws/jsii-runtime-go"
 )
 
+// registerKeyLambdaDefaultEntry is the register-key Lambda's source path when
+// JETS_REGISTER_KEY_LAMBDA_ENTRY is unset, and is the literal this property carried before the
+// variable existed. A stack that has never heard of the variable therefore synthesises the Lambda
+// it synthesised before, byte for byte -- measured 2026-09-16 by an A/B cdk synth over the same
+// tree, which gives an identical template and assets manifest with the variable unset and moves
+// exactly four lines when it is set: registerKeyV2's aws:asset:path and S3Key.
+//
+// The variable exists so a site can point the register-key Lambda at a handler of its own -- the
+// stock one plus site-specific logic before registration, via registerkey.Hook -- without forking
+// this file. It resolves through lambdaEntryOrDefault (stack_model.go), the *defaulting* form,
+// which is the second of that helper's two callers; see its doc comment for why the three
+// JETS_*_LAMBDA_ENTRY variables that predate it gate instead. Absent here cannot mean "no
+// register-key Lambda": this is the main ingest path and every deployment runs it.
+const registerKeyLambdaDefaultEntry = "lambdas/register_keys/register_keys_v2"
+
 func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// Define the log group
 	registerKeyV2LambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("RegisterKeyV2LambdaLogGroup"), &awslogs.LogGroupProps{
@@ -27,7 +42,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	jsComp.RegisterKeyV2Lambda = awslambdago.NewGoFunction(stack, jsii.String("registerKeyV2"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db, v2"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/register_keys/register_keys_v2"),
+		Entry:       jsii.String(lambdaEntryOrDefault("JETS_REGISTER_KEY_LAMBDA_ENTRY", registerKeyLambdaDefaultEntry)),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},

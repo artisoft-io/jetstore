@@ -203,7 +203,15 @@ NextKey:
 		var inputRegistryKey int
 		var domainKeys []string
 
-		fileKey := fileKeyObject["file_key"].(string)
+		// Defence in depth: an absent or empty file_key skips the row rather than
+		// panicking on the type assertion. A schema event carries file_key from
+		// SchemaProviderSpec.FileKey, which is omitempty, so an unset one is absent
+		// from the map and an empty one would register the bucket root.
+		fileKey, hasFileKey := fileKeyObject["file_key"].(string)
+		if !hasFileKey || len(fileKey) == 0 {
+			log.Println("***while RegisterFileKeys: skipping file key with no file_key:", fileKeyObject)
+			continue NextKey
+		}
 		stmt = "SELECT table_name, is_part_files, domain_keys FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
 		allOk = true
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
@@ -212,7 +220,12 @@ NextKey:
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
-				size := fileKeyObject["file_size"].(int64)
+				// Defence in depth: an absent file_size is 0 rather than a panic. The
+				// copying switch above writes file_size from a size entry only, and a
+				// schema event has none: SchemaProviderSpec.FileSize serialises as
+				// file_size, which that switch has no case for. A 0 here takes the
+				// sentinel branch, which is what a schema event wants anyway.
+				size, _ := fileKeyObject["file_size"].(int64)
 				if size > 1 {
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					continue NextKey

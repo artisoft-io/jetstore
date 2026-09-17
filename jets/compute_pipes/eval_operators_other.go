@@ -242,3 +242,43 @@ func (op *opIn) Eval(lhs any, rhs any) (any, error) {
 	}
 	return v, nil
 }
+
+// Operator CONTAINS / CONTAINS_NO_CASE -- binary operator, true when lhs contains rhs as a substring.
+// The semantics are copied from the rules engine's ContainsOp
+// (jets/jetrules/rete/expr_operator_str_contains.go) rather than re-derived, so that a workspace
+// author who knows contains from a .jr file finds the same operator in a .pc.json: 1 when lhs
+// contains rhs, 0 when it does not, and nil when either operand is not a string -- a nil operand
+// included. Returning nil rather than an error for a non-string operand reads oddly in isolation and
+// is deliberate; note that it also means the expression node's default does not fire, since that is
+// reached on an error (eval_expression.go, expressionNodeEvaluator.Eval). A nil is false to ToBool,
+// so a when clause of a case_expr does not take the branch.
+// noCase upper-cases both sides here, in Eval, and that is deliberately not what opIn does: opIn's
+// case-insensitivity is split, upper-casing the lhs in Eval and relying on the builder having
+// upper-cased its static_list already (the IN_NO_CASE branch of BuildExprNodeEvaluator in
+// eval_expression.go). A contains rhs is an ordinary expression rather than a static list, so nothing
+// normalises it at build time and both sides have to be done here.
+type opContains struct {
+	noCase bool
+}
+
+func (op *opContains) Eval(lhs any, rhs any) (any, error) {
+	if lhs == nil || rhs == nil {
+		return nil, nil
+	}
+	lhsv, ok := lhs.(string)
+	if !ok {
+		return nil, nil
+	}
+	rhsv, ok := rhs.(string)
+	if !ok {
+		return nil, nil
+	}
+	if op.noCase {
+		lhsv = strings.ToUpper(lhsv)
+		rhsv = strings.ToUpper(rhsv)
+	}
+	if strings.Contains(lhsv, rhsv) {
+		return 1, nil
+	}
+	return 0, nil
+}

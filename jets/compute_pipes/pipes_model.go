@@ -365,6 +365,22 @@ type SchemaProviderSpec struct {
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// RequestID is used for logging and tracking purpose.
+	// Env: env variables of this schema provider, substituted into file keys and other
+	// configuration values (see utils.ReplaceEnvVars). ${MONTH_PERIOD}, ${WEEK_PERIOD},
+	// ${DAY_PERIOD}, ${TABLE_NAME} and ${SOURCE_TYPE} are put there by the cpipes start up
+	// (actions_start_common.go) and a schema event may carry any others. One key is read by
+	// JetStore rather than substituted:
+	// ${JETS_IGNORE_FILE}: a '|'-delimited list of path suffixes, extension included
+	// (e.g. "test_harness_filters.txt|notes/readme.txt"), excluded from the input folder
+	// listing by ShardFileKeys so that a control or property file dropped beside the data is
+	// neither loaded nor counted towards the sharding tier. It applies to the "input"
+	// channel type only, the stage folder being JetStore's own, and absent or empty
+	// excludes nothing. The match is strings.HasSuffix against the whole object key with no
+	// '/' boundary, so a value of ".csv" would exclude every data file in the folder; that
+	// is accepted rather than defended against because the value is site-configured - set by
+	// the schema event the producing lambda builds, not by anything found in the input
+	// folder - so a bad value is a configuration defect rather than untrusted input. See
+	// pruneIgnoredFileKeys in actions_shard_file_keys.go.
 	// Contains properties to register FileKey with input_registry table:
 	// Client, Vendor, ObjectType, FileDate (does not apply to Jets_Loader).
 	// NotifyApiGatewayOverride: values: no_notifications, failure_only, start_only, completion_and_failure_only, default (same as empty).

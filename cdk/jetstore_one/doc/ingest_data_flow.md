@@ -47,7 +47,7 @@ Code paths are in `jets/`, not in this directory — the Lambda handler is
 ## Step by step
 
 **1 — The S3 notification.** **Two** notifications are registered on the bucket, both on
-`OBJECT_CREATED` (`build_registerkey_lambdas.go:90`): one on `JETS_s3_INPUT_PREFIX` — carrying
+`OBJECT_CREATED` (`AddEventNotification`, `build_registerkey_lambdas.go:105`): one on `JETS_s3_INPUT_PREFIX` — carrying
 `JETS_SENTINEL_FILE_NAME` as a **suffix** filter when that is set — and one on the schema-triggers
 prefix. The Lambda is invoked directly by S3; there is no queue in front of it. Both filter the same
 event type, which is why two stacks sharing a bucket need non-overlapping prefixes; see
@@ -82,6 +82,48 @@ parts rather than one file:
 
 So for a multi-part source the pipeline is triggered by the sentinel, and the size that throttling
 later sees is the whole folder's.
+
+**A schema event takes the same gate and reaches the sentinel branch by a different route** (added
+2026-09-16, `cgt_test_harness_filters`). `doFileSchema`'s registration sets
+`RegisterFileKeyAction.IsSchemaEvent` (`register_file_key_action.go:24`) and the three bullets above
+then behave like this:
+
+| | An S3 object event | A schema event |
+|---|---|---|
+| `file_size` | comes from the event's `size` entry | **absent** — `SchemaProviderSpec.FileSize` serialises as `file_size` (`pipes_model.go:400`) and the copying switch that builds the map has no case for that name, so the assertion yields `0` and the sentinel branch is taken |
+| the suffix test | a 0-byte file whose key does not end with `JETS_SENTINEL_FILE_NAME` is skipped | **exempt** — `!registerFileKeyAction.IsSchemaEvent` short-circuits the test (`register_file_key_action.go:234`), because the event names a folder rather than a sentinel object and there is no file name to match |
+| the folder size | listed from S3 after the sentinel name is stripped | **the same listing**, and it is the only source of the size: nothing on the event carries one |
+
+**The size therefore comes from the folder listing rather than from the event, and the listing is
+allowed to fail.** A failure logs `Warning, got error while getting s3 folder size`
+(`register_file_key_action.go:256`) and leaves `file_size` at whatever the caller supplied — `0` for a
+schema event — so the row is still written and the pipeline still starts. That is deliberate and is
+worth knowing before reading step 11: a schema-event registration whose listing failed is throttled as
+a 0-byte pipeline.
+
+**Two type assertions on this path were unchecked until 2026-09-16 and a schema event is what reached
+them.** `fileKeyObject["file_size"].(int64)` (`:228`) and `fileKeyObject["file_key"].(string)` (`:210`)
+both panicked on a nil map value — *interface conversion: interface {} is nil, not int64* and *… not
+string* — from inside `RegisterFileKeys` against an `is_part_files = 1` source. Both now use the
+two-result form: an absent `file_size` is `0`, which is the sentinel branch and is what a schema event
+wants anyway, and an absent or empty `file_key` **skips the row** with a log line rather than
+registering the bucket root (`hasFileKey`, `:210`–`:211`). Reproduced and tested against real
+PostgreSQL rather than reasoned about.
+
+**The `file_key` guard is not only about schema events**, which is why it skips rather than defaults.
+`DoRegisterFileKeyAction` (`jets/apiserver/api_filekey.go:48`) unmarshals a request body straight into
+`RegisterFileKeyAction` and dispatches `register_keys` to `RegisterFileKeys` (`:104`), and nothing
+validates `Data`, so an authenticated `{"action":"register_keys","data":[{}]}` reached the same
+assertion. The other two callers cannot: `SyncFileKeys` sets `file_key` from the S3 key
+(`register_file_key_action.go:356`, the assignment at `:409`) and `doFileSchema` from the spec.
+
+**A site handler runs before all of this.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a
+site main built on `registerkey.Run` with a `registerkey.Hook`, whose `BeforeRegister` is called after
+the action is built and before `RegisterFileKeys` is called — so a hook sees the components in whatever
+case the client wrote them into the path. `updateFileKeyComponentCase` (`register_file_key_action.go:50`)
+normalises `client`, `org` and `object_type` against the registry tables *inside* `RegisterFileKeys`,
+which is **after** the hook returns; a hook matching any of the three must fold case itself. See
+README §5.5 and `cdk/jetstore_one/CLAUDE.md`.
 
 **6 — Staging and session.** The row goes into `jetsapi.file_key_staging`. If any required column is
 missing from the parsed key the row is skipped entirely (`allOk`) — the second silent acceptance

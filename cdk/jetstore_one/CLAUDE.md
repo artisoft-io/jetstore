@@ -59,7 +59,7 @@ process working directory. From anywhere else, bundling fails at synth.
 There is no CDK context or config file driving composition — `os.Getenv` at synth time decides what
 gets built and what goes into every container and Lambda environment. Consequences:
 
-- **The authoritative list is the comment block at [jetstore_one.go:505](jetstore_one.go:505) onward**,
+- **The authoritative list is the comment block at [jetstore_one.go:506](jetstore_one.go:506) onward**,
   and `main` logs every value at synth. **Adding a toggle means three edits**: read it where it is used,
   add a line to that comment block, add a `log.Println` in `main`. Skipping either of the last two is
   how a variable becomes undiscoverable.
@@ -124,20 +124,52 @@ the cpipes container and the cpipes node Lambdas. Its *absence* is meaningful �
 `Runtime_PROVIDED_AL2023` — Go source in this repo, compiled at synth, not a prebuilt artifact.
 `lambdas/dbc` is the shared credential-refreshing pgx pool the handlers use.
 
-**Three Lambdas take their source path from the environment** and are *not built at all* when it is
-unset: `JETS_API_GATEWAY_LAMBDA_ENTRY` (`build_api_lambdas.go:25`),
-`JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (`build_registerkey_lambdas.go:107`) and
+**Five variables name a Lambda's source path, and the split is three that gate and two that
+default.** The distinction is the thing to read before adding a sixth, because the two forms fail
+differently when an operator forgets the variable.
+
+**Three gate: the Lambda is *not built at all* when the variable is unset.**
+`JETS_API_GATEWAY_LAMBDA_ENTRY` (`build_api_lambdas.go:25`),
+`JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (`build_registerkey_lambdas.go:122`) and
 `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (`build_lambdas.go:227`). The path points outside this
 directory — typically a client workspace repo's `go/lambdas/` — which is what the root `go.work`
 including `cedargate_ws` is for. So the API Gateway, the SQS trigger path and the cpipes run-reports
 step are all deployment-conditional, and a stack without them is normal rather than broken.
 
-**A fourth variable names an entry and is not one of those three** (2026-09-12).
-`JETS_CPIPES_NODE_LAMBDA_ENTRY` (`stack/build_cpipes_lambdas.go`, `lambdaEntryOrDefault` in
-`stack/stack_model.go`) **defaults** rather than gates: unset means `lambdas/compute_pipes/cp_node`,
-the literal the property carried before, so no deployment changes. The three above name a component
-only a site has; this one names an alternative source for a component every deployment runs, and the
-difference in form follows from that rather than from taste.
+**Two default: unset means the stock entry, not no Lambda.** Both resolve through
+`lambdaEntryOrDefault` (`stack/stack_model.go:202`), which treats empty as unset and does not trim.
+
+| Variable | Default entry | Added |
+|---|---|---|
+| `JETS_CPIPES_NODE_LAMBDA_ENTRY` (`cpipesNodeLambdaDefaultEntry`, `stack/build_cpipes_lambdas.go:36`) | `lambdas/compute_pipes/cp_node` | 2026-09-12 |
+| `JETS_REGISTER_KEY_LAMBDA_ENTRY` (`registerKeyLambdaDefaultEntry`, `stack/build_registerkey_lambdas.go:34`) | `lambdas/register_keys/register_keys_v2` | 2026-09-16 |
+
+**Which form a variable takes follows from what it names, not from taste.** The three gating ones name
+a component only some sites deploy. These two name an *alternative source* for a component every
+deployment already runs — the cpipes node Lambda and the main ingest path — so absent has to mean
+"the stock entry" rather than "nothing". Reading the gating pattern as the model to copy for either of
+them would produce a stack with no ingest, which is why both say so in their doc comments and in
+`jetstore_one.go`'s variable block.
+
+**Neither is visible in the synthesised template when it is unset**, unlike the three gating ones,
+whose absence removes a resource. So the deploy log is the only place an operator can see which entry
+was built, and `main`'s `log.Println` for each is load-bearing rather than decorative — that is the
+third of the three edits the *Adding a toggle* rule above asks for, and for a defaulting variable it
+is the only one a reader of the stack can observe.
+
+**Both claims that unset changes nothing were measured by A/B synth rather than argued**: the same
+tree synthesised before and after each change, with the variable unset, gives a byte-identical
+`JetstoreOneStack.template.json` and `.assets.json` (2026-09-12 for the cpipes node Lambda, with
+`DEPLOY_CPIPES_NATIVE` off and on; 2026-09-16 for the register-key Lambda, where setting the variable
+moves exactly four lines — `registerKeyV2`'s `aws:asset:path` and `S3Key`, which is the control that
+makes the null result mean something rather than mean disconnected plumbing).
+
+**`JETS_REGISTER_KEY_LAMBDA_ENTRY` arrived on `main` with its default written inline and was collapsed
+onto `lambdaEntryOrDefault` here.** It was built for the `cgt_test_harness_filters` project, whose
+changes land on `main` ahead of the release merge; a second definition of `lambdaEntryOrDefault` on
+that branch would not have compiled once the branches met, and `stack_model.go` diverges by 99 lines.
+The collapse is what makes this branch strictly newer on `build_registerkey_lambdas.go`, so the
+eventual release merge takes it one-sided.
 
 **The other three cpipes Lambdas deliberately do not take one.** `CpipesNativeNodeLambda` is a
 `NewDockerImageFunction` reading an image out of ECR — `DockerImageFunctionProps` has no `Entry` to
