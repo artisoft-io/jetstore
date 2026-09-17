@@ -487,3 +487,65 @@ func TestBuildExprNodeEvaluator10(t *testing.T) {
 		t.Errorf("error: expecting 77, got %v", value)
 	}
 }
+
+// TestBuildExprNodeEvaluatorContains drives the contains operator through the whole expression
+// layer, in the exact shape a .pc.json writes it:
+//
+//	{"lhs": {"type":"select","expr":"field_id"}, "op":"contains", "rhs": {"type":"value","expr":"'Hedis'"}}
+//
+// TestBuildEvalOperatorContains covers the registration; this one covers what a configuration author
+// actually writes -- the select by column name, the quoted string literal on the rhs, and the
+// operator name spelled in lower case, which BuildEvalOperator upper-cases before dispatching.
+func TestBuildExprNodeEvaluatorContains(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		op      string
+		rhs     string
+		fieldId string
+		want    bool
+	}{
+		{"contains, discriminator present", "contains", "'Hedis'", "S1-Hedis-E01", true},
+		{"contains, discriminator absent", "contains", "'Hedis'", "S1-E01", false},
+		{"contains, HCC discriminator", "contains", "'HCC'", "S1-HCC-M02", true},
+		{"contains is case sensitive", "contains", "'Hedis'", "S1-HEDIS-E01", false},
+		{"contains_no_case is not", "contains_no_case", "'Hedis'", "S1-HEDIS-E01", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := &ExpressionNode{
+				Lhs: &ExpressionNode{
+					Type: "select",
+					Expr: "field_id",
+				},
+				Op: tt.op,
+				Rhs: &ExpressionNode{
+					Type: "value",
+					Expr: tt.rhs,
+				},
+			}
+			// Round-trip through json, the way a .pc.json reaches the builder.
+			b, err := json.Marshal(spec)
+			if err != nil {
+				t.Fatalf("error marshalling the expression: %v", err)
+			}
+			var parsed ExpressionNode
+			if err = json.Unmarshal(b, &parsed); err != nil {
+				t.Fatalf("error unmarshalling the expression: %v", err)
+			}
+			ctx := ExprBuilderContext(make(map[string]any))
+			eval, err := ctx.BuildExprNodeEvaluator("qc_metrics.mapped", map[string]int{"field_id": 0}, &parsed)
+			if err != nil {
+				t.Fatalf("error building the expression evaluator: %v", err)
+			}
+			value, err := eval.Eval([]any{tt.fieldId})
+			if err != nil {
+				t.Fatalf("error evaluating the expression: %v", err)
+			}
+			if ToBool(value) != tt.want {
+				t.Errorf("%s contains %s with field_id %q = %v, want %v", tt.op, tt.rhs, tt.fieldId, value, tt.want)
+			}
+		})
+	}
+}
