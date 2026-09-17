@@ -43,6 +43,10 @@ func getGithubIps() *[]*string {
 			if !strings.Contains(ip, ":") {
 				ipList = append(ipList, ip)
 			}
+			if len(ipList) > 50 {
+				log.Println("More than 50 GitHub IPs retrieved, stopping early")
+				break
+			}
 		}
 	}
 	fmt.Println("Done getting github ip for git integration")
