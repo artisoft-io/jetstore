@@ -21,7 +21,7 @@ from conftest import (
     runtime_document,
     site_step,
 )
-from cpipes_node import contract, main
+from cpipes_node import contract, main, scope
 from cpipes_node.args import NodeArgs
 from cpipes_node.config import FileConfigSource, parse_config
 from cpipes_node.errors import (
@@ -198,13 +198,48 @@ def test_an_invalid_mode_is_refused_with_the_go_node_s_message(tmp_path: Path):
 
 
 def test_the_scope_command_prints_the_declaration(capsys):
+    """Every declared token is printed, and an owed marker appears for exactly
+    those the registry reports unimplemented — **derived from the registry, never
+    listed**.
+
+    This test pinned a list twice and was wrong twice, each time correctly about
+    its own branch: it asserted `partition_writer` owed by P9-T07 until P9-T07
+    built it, and `merge_files` owed by P9-T08 until P9-T08 built it. **The two
+    repairs were on branches that could not see each other**, so each passed alone
+    and the merged state failed (P7-I87). A list of who owes what is P3-I20's
+    shape — omission and completion print the same thing — so the subject is now
+    the registry's own answer and this test needs no edit when the next token
+    lands.
+
+    **As of the merge of P9-T06/T07 and P9-T08/T09 nothing is owed**: all seven
+    declared tokens are built. That is asserted as a consequence of the derivation
+    rather than written down, so it stops being true the moment somebody declares
+    an eighth.
+    """
     assert main.main(["scope"]) == main.EXIT_OK
     out = capsys.readouterr().out
-    # `partition_writer` is declared *and* built since P9-T07, so the owed-by
-    # marker is no longer printed beside it; what the command must still print is
-    # every declared token and, for the one that is still owed, its owner.
-    assert "partition_writer" in out
-    assert "merge_files" in out and "P9-T08" in out
+    # **`scope.declarations()` is the registry itself** — one class per declared
+    # token — so the subject is the producer and not a list beside it.
+    for operator in scope.declarations():
+        token = operator.token
+        assert token in out, f"{token} is declared and unprinted"
+        line = _line_for(out, token)
+        if operator.implemented():
+            assert "owed by" not in line, (
+                f"{token} is built and still prints an owed marker"
+            )
+        else:
+            assert "owed by" in line and operator.owed_by in line, (
+                f"{token} is owed and prints no owner"
+            )
+
+
+def _line_for(out: str, token: str) -> str:
+    """The one line of the rendered scope that names `token`."""
+    for line in out.splitlines():
+        if line.strip().startswith(token):
+            return line
+    raise AssertionError(f"no line of the rendered scope names {token}")
 
 
 def test_the_check_command_separates_the_two_failures(

@@ -293,7 +293,7 @@ against the contract's own index so a sixteenth type is refused by existing.
 ## Checks
 
 ```
-$ python -m pytest -q          # MEASURED_COLLECT tests
+$ python -m pytest -q          # 458 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```

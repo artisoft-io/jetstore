@@ -46,6 +46,7 @@ from cpipes_node.runtime import (
     ResolvedChannelSpec,
 )
 from cpipes_node.scope import TokenKind, declaration
+from cpipes_node.side_effects import PROCESS_ERROR_COLUMNS
 from cpipes_node.site import Registry
 from cpipes_node.store import Local
 from cpipes_node.writers import WriterUnsupported
@@ -339,7 +340,16 @@ def test_the_error_ladder_reports_up_to_the_cap_and_then_stops():
     errors across every operator writing to it. So the cap is this object's and
     the rows on the channel are what shows it.
     """
-    errors = channel("errors", tuple(f"c{i}" for i in range(8)))
+    # **The columns are `process_errors`' own names, not eight placeholders.**
+    # This line read `tuple(f"c{i}" for i in range(8))` on this branch alone, and
+    # the assertion below indexed the message at 5 — both correct against a
+    # `report_error` that placed eight values positionally. P9-T08/T09 measured
+    # `write2Chan` and found it places **up to twelve by name**, sizing from the
+    # channel's own width, so the positional shape was wrong three ways. **Neither
+    # branch could see the other**: this test passed on one and that repair passed
+    # on the other, and only the merged state fails (P7-I87). Resolved towards the
+    # measurement, and asserted **by name** so a reordering cannot break it again.
+    errors = channel("errors", PROCESS_ERROR_COLUMNS)
     pipe = MapRecord.build(
         env(),
         args_for(
@@ -353,7 +363,8 @@ def test_the_error_ladder_reports_up_to_the_cap_and_then_stops():
         pipe.apply(["p", "q"])
     assert pipe.error_count == 5
     assert len(errors.channel.records) == 2
-    assert errors.channel.records[0][5].startswith("error selectColumnEval")
+    message_at = PROCESS_ERROR_COLUMNS.index("error_message")
+    assert errors.channel.records[0][message_at].startswith("error selectColumnEval")
 
 
 def test_an_operator_with_no_error_channel_still_counts_and_does_not_raise():
