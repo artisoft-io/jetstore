@@ -29,6 +29,7 @@ from pydantic import BaseModel, ValidationError
 from . import contract
 from .errors import ConfigInvalid, ConfigNotFound
 from .scope import FindingKind, ScopeReport, TokenKind, classify
+from .scope import declaration as declaration_for
 from .site import EMPTY, SiteOperatorRegistry
 
 #: The statement `CoordinateComputePipes` runs, parameterised rather than
@@ -116,7 +117,7 @@ def parse_config(config_json: str) -> Any:
     except ValidationError as exc:
         raise ConfigInvalid(f"pipeline configuration is not valid:\n{exc}") from exc
 
-    for obj, where in _walk(config):
+    for obj, where, _parent in _walk(config):
         if not isinstance(obj, contract.TransformationSpecSite):
             continue
         if obj.type not in contract.contract_tokens("transformation"):
@@ -145,23 +146,55 @@ def _validate_as_builtin(obj: Any) -> None:
     )
 
 
-def _walk(obj: Any, where: str = "$") -> Iterator[tuple[Any, str]]:
-    """Every model instance in the tree, with a JSON-ish path.
+def _walk(
+    obj: Any, where: str = "$", parent: Any = None
+) -> Iterator[tuple[Any, str, Any]]:
+    """Every model instance in the tree, with a JSON-ish path and its parent.
 
     Depth-first in field-declaration order, which is Pydantic's own and is
     stable across runs — the findings a gate reports are in document order and
     not in whatever order a set happened to yield.
+
+    **The parent is the nearest enclosing model instance**, skipping the lists
+    and dicts in between, which is what a caller asking "whose input channel is
+    this?" wants. It is carried because one judgement genuinely depends on it:
+    a `merge_files` pipe fixes its input channel's type rather than choosing it
+    (D-224), and the only way to know which pipe an `InputChannelConfig` belongs
+    to is to have been told on the way down. Deriving it afterwards from the
+    `where` string would be parsing a path this function built, which is two
+    spellings of one structure.
     """
     if isinstance(obj, BaseModel):
-        yield obj, where
+        yield obj, where, parent
         for name in type(obj).model_fields:
-            yield from _walk(getattr(obj, name, None), f"{where}.{name}")
+            yield from _walk(getattr(obj, name, None), f"{where}.{name}", obj)
     elif isinstance(obj, (list, tuple)):
         for i, item in enumerate(obj):
-            yield from _walk(item, f"{where}[{i}]")
+            yield from _walk(item, f"{where}[{i}]", parent)
     elif isinstance(obj, dict):
         for key in obj:
-            yield from _walk(obj[key], f"{where}.{key}")
+            yield from _walk(obj[key], f"{where}.{key}", parent)
+
+
+def _fixed_input_channel_type(kind: TokenKind, parent: Any) -> str | None:
+    """The input-channel type the enclosing pipe fixes, or None if it fixes none.
+
+    Read off the *pipe's own declaration* — `operators.pipes.Pipe
+    .fixed_input_channel_type` — so there is no list of pipe kinds here for an
+    edit to widen, and a pipe kind added with a fixed channel type is covered by
+    its class being written (P3-I20). The pipe's token is the parent's `type`,
+    which is the same string the gate would have classified one iteration
+    earlier.
+    """
+    if kind is not TokenKind.INPUT_CHANNEL or parent is None:
+        return None
+    parent_kind = contract.spec_kind(parent)
+    if parent_kind != TokenKind.PIPE.value:
+        return None
+    declaration = declaration_for(TokenKind.PIPE, getattr(parent, "type", "") or "")
+    if declaration is None:
+        return None
+    return getattr(declaration, "fixed_input_channel_type", "") or None
 
 
 def check_scope(
@@ -177,7 +210,7 @@ def check_scope(
     """
     report = ScopeReport()
     site_tokens = site_operators.tokens()
-    for obj, where in _walk(config):
+    for obj, where, parent in _walk(config):
         kind_name = contract.spec_kind(obj)
         if kind_name is None:
             continue
@@ -185,6 +218,21 @@ def check_scope(
         if not isinstance(token, str):
             continue
         kind = TokenKind(kind_name)
+        fixed = _fixed_input_channel_type(kind, parent)
+        if fixed is not None:
+            # D-224: this channel's type is fixed by JetStore's own validator
+            # rather than chosen, so it is asserted and no token is classified.
+            # Strictly narrower than classifying it — the fixed value is
+            # accepted here and nowhere else in the document.
+            if token != fixed:
+                raise ConfigInvalid(
+                    f"{where}: configuration error: {parent.type} must read from "
+                    f"input_channel of type {fixed!r} (this one reads {token!r}). "
+                    "The type is fixed by ValidatePipeSpecConfig rather than "
+                    "chosen, so it is not a scope question."
+                )
+            report.accepted.append((kind, token, where))
+            continue
         finding = classify(
             kind,
             token,

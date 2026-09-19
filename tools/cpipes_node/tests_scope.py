@@ -166,10 +166,16 @@ def test_implementedness_is_derived_and_not_declared():
             implemented.append(cls.token)
         else:
             assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
-    # P9-T04's three: the two input-channel types and the one pipe kind the
-    # graph runs. `merge_files` is P9-T08's and the three transformations are
-    # P9-T06's and P9-T07's.
-    assert sorted(implemented) == ["fan_out", "generator", "memory"]
+    # P9-T04's three — the two input-channel types and the one pipe kind the
+    # graph runs — **and `merge_files`, which P9-T08 added**. The three
+    # transformations are P9-T06's and P9-T07's.
+    #
+    # This line read `["fan_out", "generator", "memory"]` until P9-T08 landed,
+    # and it is **inverted rather than loosened**: the census is the assertion,
+    # so the day a token gains an implementation this test goes red and somebody
+    # states the new census. Relaxing it to a subset check would have gone green
+    # over P9-T08 and over every task after it.
+    assert sorted(implemented) == ["fan_out", "generator", "memory", "merge_files"]
 
 
 def test_the_base_build_refuses_and_names_the_task():

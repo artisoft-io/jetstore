@@ -36,17 +36,21 @@ the criterion X6 states.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import graph
+from . import graph, merge
 from .args import NodeArgs
 from .config import ConfigSource, check_scope, parse_config
 from .errors import StartupError
+from .merge import Prefixes
 from .scope import ScopeReport
 from .settings import Settings
 from .site import EMPTY, SiteOperatorRegistry
 from .store import ObjectStore
+
+log = logging.getLogger(__name__)
 
 #: The two values `CommonRuntimeArgs.CpipesMode` may take. A third is refused
 #: with the Go node's own message, because a `.pc.json` that reached this node
@@ -77,6 +81,11 @@ class NodeContext:
     store: ObjectStore | None
     env: dict[str, Any] = field(default_factory=dict)
     input_file_keys: tuple[str, ...] = ()
+    #: The four S3 areas, as `awsi.init()` reads them from the environment. On
+    #: the context rather than inside the merge because they are a property of
+    #: the deployment and not of one step, and because a local run states them
+    #: the way it states its store.
+    prefixes: Prefixes = field(default_factory=Prefixes)
 
     @property
     def jets_partition_label(self) -> str:
@@ -153,24 +162,37 @@ def first_pipe(config: Any) -> Any:
     raise StartupError("the pipeline configuration declares no pipes")
 
 
-def _file_keys(config: Any, args: NodeArgs) -> tuple[str, ...]:
+def _file_keys(
+    config: Any,
+    args: NodeArgs,
+    store: ObjectStore | None = None,
+    prefixes: Prefixes | None = None,
+) -> tuple[str, ...]:
     """What this node's first pipe reads, by mode.
 
-    `CoordinateComputePipes` has three arms and this has three, and **the two
-    that are not the generator's are refused rather than implemented**. The
-    argument is not that they are hard; it is that no document this node accepts
-    can reach them, and writing a path no document can take is the class this
-    repository has recorded thirty-seven times — a component whose own tests
-    pass and which reaches no working path (P4-I43).
+    `CoordinateComputePipes` has three arms and this has three, and **one of
+    the two that are not the generator's is now implemented for one pipe kind
+    alone**. The argument for refusing the rest is unchanged: no document this
+    node accepts can reach them, and writing a path no document can take is the
+    class this repository has recorded thirty-seven times — a component whose own
+    tests pass and which reaches no working path (P4-I43).
 
-    Where each Go arm goes, and why it is unreachable here:
+    Where each Go arm goes:
 
-    - **`reducing` with a non-generator channel** reads the stage area with
-      `GetS3FileKeys`. Such a channel is typed `stage` or `input`, and neither is
-      in this node's declared scope (`cpipes_node.operators.channels` declares
-      `generator` and `memory`), so `config.check_scope` has already aborted on
-      the token. Implementing the branch would mean implementing S3 listing for a
-      channel type X6 refuses.
+    - **`reducing` with a `stage` channel on a `merge_files` pipe** reads the
+      stage area with `GetS3FileKeys`, and that is implemented, because a merge
+      is exactly a step whose input is a set of part files. It is reachable for
+      this pipe kind and no other, which is D-224's second limb: `stage` is not
+      a declared channel type, and the type is asserted rather than classified
+      because `ValidatePipeSpecConfig` fixes it for a merge.
+
+    - **`reducing` with any other non-generator channel** reads the same area
+      and is refused. Such a channel is typed `stage` or `input` on a `fan_out`,
+      and neither is in this node's declared scope
+      (`cpipes_node.operators.channels` declares `generator` and `memory`), so
+      `config.check_scope` has already aborted on the token. Implementing the
+      branch would mean implementing a record parser for a channel type X6
+      refuses.
 
     - **`sharding`** reads `jetsapi.compute_pipes_shard_registry`, a database
       table, for shards a sharding starter wrote. A sharding step's main input is
@@ -188,10 +210,13 @@ def _file_keys(config: Any, args: NodeArgs) -> tuple[str, ...]:
     mode = getattr(config.common_runtime_args, "cpipes_mode", "") or ""
     if mode not in CPIPES_MODES:
         raise StartupError(f"error: invalid cpipesMode in coordinate: {mode}")
-    channel = first_pipe(config).input_channel
+    pipe = first_pipe(config)
+    channel = pipe.input_channel
     channel_type = getattr(channel, "type", None)
     if mode == "reducing" and channel_type == "generator":
         return (GENERATOR_FILE_PROXY,)
+    if mode == "reducing" and not graph.drives_channel_graph(pipe):
+        return _stage_file_keys(config, args, pipe, store, prefixes)
     if channel_type == "generator":
         raise StartupError(
             f"error: a generator input channel in cpipes_mode {mode!r}: the Go "
@@ -215,6 +240,75 @@ def _file_keys(config: Any, args: NodeArgs) -> tuple[str, ...]:
     )
 
 
+def _stage_file_keys(
+    config: Any,
+    args: NodeArgs,
+    pipe: Any,
+    store: ObjectStore | None,
+    prefixes: Prefixes | None,
+) -> tuple[str, ...]:
+    """`GetS3FileKeys`' main-input arm, for a node-mode pipe reading `stage`.
+
+    **Zero-byte objects are dropped**, which is the one filter `GetS3FileKeys`
+    applies — `if allS3Objects[i][j].Size > 0` — and it matters for a merge: an
+    empty part file concatenated under `skip_input_headers` contributes nothing
+    and under `write_headers` it is harmless, but an empty *first* part is where
+    Go would have taken the header line from, so keeping it would produce a
+    merged file whose header is a blank line.
+
+    `merge_channels` is refused by name. It is the multi-source merge
+    (`GetS3FileKeys`' second loop), which produces a *list of lists* of file
+    keys; a node that flattened them would merge several sources into one file
+    with nothing saying it had, and the shape this function returns has no room
+    for the distinction.
+    """
+    if getattr(pipe.input_channel, "merge_channels", None):
+        raise StartupError(
+            "the merge pipe's input channel declares merge_channels, which "
+            "resolves a list of file keys per source (GetS3FileKeys' second "
+            "loop). This node resolves one source; flattening them would merge "
+            "several sources into one file with nothing recording it."
+        )
+    if store is None:
+        raise StartupError(
+            f"the step's first pipe is a '{pipe.type}', which reads part files "
+            "from the stage area, and this node was given no object store; pass "
+            "`store=` to coordinate (Local for a run with no AWS)."
+        )
+    common = config.common_runtime_args
+    prefix = merge.stage_prefix_for(
+        process_name=str(getattr(common, "process_name", "") or ""),
+        session_id=str(getattr(common, "session_id", "") or ""),
+        step_id=str(getattr(common, "read_step_id", "") or ""),
+        jets_partition_label=args.jets_partition_label_or_default(),
+        input_channel=pipe.input_channel,
+        prefixes=prefixes or Prefixes(),
+        env=environment(config, args),
+    )
+    keys = tuple(k for k in store.list(prefix) if _has_bytes(store, k))
+    log.info(
+        "node %d %s got %d file key(s) from the stage area under '%s'",
+        args.node_id,
+        getattr(common, "read_step_id", "") or "",
+        len(keys),
+        prefix,
+    )
+    return keys
+
+
+def _has_bytes(store: ObjectStore, key: str) -> bool:
+    """Whether an object has a size above zero, `GetS3FileKeys`' own filter.
+
+    Asked through `get` rather than through a size call, because `ObjectStore`
+    has no `size()` and adding one for this would put a method on the seam that
+    only this function uses. The cost is that the object is read twice on the
+    merge path; it is stated rather than hidden, and what would remove it is a
+    listing that carried sizes — which is P9-T07's writer's question as much as
+    this one's.
+    """
+    return len(store.get(key)) > 0
+
+
 def coordinate(
     args: NodeArgs,
     config_source: ConfigSource,
@@ -222,6 +316,7 @@ def coordinate(
     store: ObjectStore | None = None,
     settings: Settings | None = None,
     site_operators: SiteOperatorRegistry = EMPTY,
+    prefixes: Prefixes | None = None,
 ) -> Any:
     """Run one compute pipes node.
 
@@ -243,6 +338,7 @@ def coordinate(
         site_operators=site_operators,
         store=store,
         env=environment(config, args),
+        prefixes=prefixes or Prefixes.from_env(),
     )
-    ctx.input_file_keys = _file_keys(config, args)
+    ctx.input_file_keys = _file_keys(config, args, store, ctx.prefixes)
     return graph.run(ctx)
