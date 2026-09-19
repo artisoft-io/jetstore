@@ -36,6 +36,65 @@ import (
 // and payable "when the Flutter app retires", which is this task.
 const appAssetPrefix = "/"
 
+// assetPathPrefix is the url space vite writes content-hashed files into. It is
+// the *address* the policy below is derived from, never a directory listing and
+// never a file extension: the hash is in the name, so the url is the only place
+// the "these bytes can never change" claim is legible.
+const assetPathPrefix = "/assets/"
+
+// indexFileName is the html shell — the one file in the bundle that carries no
+// content hash, because it is what names the hashed ones.
+const indexFileName = "index.html"
+
+// The two halves of the cache policy, and they are each other's inverse.
+//
+//   - immutableCachePolicy is safe only because the name carries a content hash.
+//     Applied to anything unhashed it is close to unrecoverable: a browser
+//     holding an immutable index.html cannot be told about a new deploy at all,
+//     short of the user clearing site data.
+//   - revalidateCachePolicy is `no-cache`, which does *not* mean "do not cache".
+//     It caches and forces a conditional request, so an unchanged shell still
+//     costs one 304 rather than 2KB. `no-store` would be wrong here — it throws
+//     away a working conditional request and buys nothing.
+//
+// The failure this exists to prevent is silent in one direction only. With no
+// directive at all a browser applies *heuristic* freshness and may answer a
+// reload entirely from disk cache: the request never leaves the browser, so the
+// server cannot log it, and the symptom is a blank screen beside a completely
+// still log while curl from the same machine works perfectly.
+const (
+	immutableCachePolicy  = "public, max-age=31536000, immutable"
+	revalidateCachePolicy = "no-cache"
+)
+
+// cachePolicyFor returns the Cache-Control value for bytes addressed by clean.
+//
+// clean is a cleaned url path, and deriving the policy from it is the whole
+// design: a hand-kept list of asset directories is a second spelling of the
+// build's output layout, and it goes stale on the day that layout changes —
+// silently, and in the dangerous direction, because the fallback arm of such a
+// list is the one that hands out `immutable`.
+func cachePolicyFor(clean string) string {
+	if strings.HasPrefix(clean, assetPathPrefix) {
+		return immutableCachePolicy
+	}
+	return revalidateCachePolicy
+}
+
+// serveWithCachePolicy is the only way bytes leave this file.
+//
+// clean is the address of *the bytes being served*, which is not always the
+// request path: the SPA fallback answers /whatever with index.html and must ask
+// about index.html. Two ServeFile calls each setting their own header is exactly
+// how this defect comes back — a policy applied at one of them and not the other
+// — so the header and the send are one call, and
+// TestEveryServeFileGoesThroughTheCachePolicy reads this file's syntax tree to
+// keep it that way.
+func serveWithCachePolicy(w http.ResponseWriter, r *http.Request, clean, file string) {
+	w.Header().Set("Cache-Control", cachePolicyFor(clean))
+	http.ServeFile(w, r, file)
+}
+
 // appHandler serves a single-page app from dir.
 //
 // Requests resolve to a file when one exists; anything else falls back to
@@ -54,29 +113,28 @@ func appHandler(prefix, dir string) http.Handler {
 		if info, err := os.Stat(target); err == nil && !info.IsDir() {
 			// Hashed asset names change whenever the content does, so they can be
 			// cached hard. index.html carries no hash and must not be.
-			if strings.HasPrefix(clean, "/assets/") {
-				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else {
-				w.Header().Set("Cache-Control", "no-cache")
-			}
-			http.ServeFile(w, r, target)
+			serveWithCachePolicy(w, r, clean, target)
 			return
 		}
 
 		// A missing asset must 404 rather than silently returning the html shell:
 		// handing index.html to a request for a .js file produces a console error
 		// about an unexpected '<' that says nothing about the real cause.
-		if strings.HasPrefix(clean, "/assets/") {
+		if strings.HasPrefix(clean, assetPathPrefix) {
 			http.NotFound(w, r)
 			return
 		}
 
-		index := filepath.Join(dir, "index.html")
+		index := filepath.Join(dir, indexFileName)
 		if _, err := os.Stat(index); err != nil {
 			http.Error(w, "Workspace IDE is not deployed on this server", http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-cache")
-		http.ServeFile(w, r, index)
+		// The address asked about is index.html's own, not the request's. These
+		// are the same bytes as `GET /` and must carry the same policy whatever
+		// url reached them — and asking about `clean` would make the fallback's
+		// policy a function of the caller's path, so removing the /assets/ 404
+		// above would quietly start serving the html shell as `immutable`.
+		serveWithCachePolicy(w, r, "/"+indexFileName, index)
 	})
 }
