@@ -222,11 +222,7 @@ def header_plan(
             "only one input file and format is csv, will copy input file with "
             "it's headers in merged file",
         )
-    if (
-        output_format == "csv"
-        and input_format == "csv"
-        and first_partition_has_headers
-    ):
+    if output_format == "csv" and input_format == "csv" and first_partition_has_headers:
         return HeaderPlan(
             False,
             False,
@@ -418,7 +414,11 @@ def destination_key(
         folder = f"{prefixes.for_location(location)}/{expressions.substitute(key_prefix, env)}"
     else:
         folder = _do_substitution(
-            key_prefix or "$PATH_FILE_KEY", jets_partition_label, location, prefixes, env
+            key_prefix or "$PATH_FILE_KEY",
+            jets_partition_label,
+            location,
+            prefixes,
+            env,
         )
     return f"{folder}/{file_name}".lstrip("/")
 
@@ -468,10 +468,9 @@ def merged_headers(config: Any, out_spec: Any, input_channel: Any) -> tuple[str,
     if authored:
         return authored
 
-    in_provider = _schema_provider(
-        config, getattr(input_channel, "schema_provider", None)
+    provider_columns = _provider_column_names(
+        _schema_provider(config, getattr(input_channel, "schema_provider", None))
     )
-    provider_columns = tuple(getattr(in_provider, "columns", None) or ())
     if provider_columns:
         return provider_columns
 
@@ -491,6 +490,24 @@ def merged_headers(config: Any, out_spec: Any, input_channel: Any) -> tuple[str,
         if getattr(spec, "name", None) == name:
             return tuple(getattr(spec, "columns", None) or ())
     return ()
+
+
+def _provider_column_names(provider: Any) -> tuple[str, ...]:
+    """`DefaultSchemaProvider.ColumnNames()`: the `columns` names, else `headers`.
+
+    Two spellings of one thing on the Go side and **the contract types them
+    differently**: `columns` is a list of `SchemaColumnSpec` objects carrying a
+    `name` and `headers` is a list of strings. Reading `columns` as strings is
+    the shape this function exists to prevent, and the contract model is what
+    caught it — a document whose provider declared string columns was refused by
+    `PipesConfig.model_validate` before it reached the merge.
+    """
+    if provider is None:
+        return ()
+    columns = tuple(getattr(provider, "columns", None) or ())
+    if columns:
+        return tuple(str(getattr(c, "name", "") or "") for c in columns)
+    return tuple(getattr(provider, "headers", None) or ())
 
 
 def package_headers(
@@ -582,7 +599,11 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
         in_format,
         len(input_keys),
         bool(
-            getattr(getattr(spec, "merge_file_config", None), "first_partition_has_headers", False)
+            getattr(
+                getattr(spec, "merge_file_config", None),
+                "first_partition_has_headers",
+                False,
+            )
         ),
     )
     log.info(
@@ -657,7 +678,7 @@ def _refuse_what_cannot_be_merged(
             "(MergeParquetPartitions), not a concatenation, and the library for "
             "it arrives with the partition writer (P9-T07). A single parquet "
             "part is a copy and is supported — which is Go's own condition, "
-            "`inputFormat == \"parquet\" && nbrFiles > 1`."
+            '`inputFormat == "parquet" && nbrFiles > 1`.'
         )
     if in_format.startswith("xlsx"):
         raise MergeRefused(

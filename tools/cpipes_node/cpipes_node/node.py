@@ -275,6 +275,25 @@ def _stage_file_keys(
             "from the stage area, and this node was given no object store; pass "
             "`store=` to coordinate (Local for a run with no AWS)."
         )
+    resolved = prefixes or Prefixes()
+    if not resolved.stage:
+        # **A named divergence rather than conformance, and it is P9-I66.** With
+        # `JETS_s3_STAGE_PREFIX` unset Go lists a prefix beginning with `/`,
+        # matches no object — S3 keys under JetStore's layout carry no leading
+        # slash — and merges nothing: an empty output file for a parquet merge
+        # and the header switch's `default:` error for a csv one. Refused here
+        # instead, because the empty output file is the one outcome a reader
+        # cannot tell from a step that legitimately wrote nothing, and because
+        # a deployment with that variable unset is misconfigured rather than
+        # exercising a feature.
+        raise StartupError(
+            f"the step's first pipe is a '{pipe.type}', which lists its part "
+            "files under the stage area, and $JETS_s3_STAGE_PREFIX is unset. The "
+            "Go node lists a prefix beginning with '/', matches nothing and "
+            "merges an empty file; refused here rather than mirrored, because an "
+            "empty merged file is indistinguishable from a step whose partition "
+            "wrote nothing."
+        )
     common = config.common_runtime_args
     prefix = merge.stage_prefix_for(
         process_name=str(getattr(common, "process_name", "") or ""),
@@ -282,7 +301,7 @@ def _stage_file_keys(
         step_id=str(getattr(common, "read_step_id", "") or ""),
         jets_partition_label=args.jets_partition_label_or_default(),
         input_channel=pipe.input_channel,
-        prefixes=prefixes or Prefixes(),
+        prefixes=resolved,
         env=environment(config, args),
     )
     keys = tuple(k for k in store.list(prefix) if _has_bytes(store, k))
