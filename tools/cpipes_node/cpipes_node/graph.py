@@ -597,20 +597,7 @@ def build_pipe_transformation_evaluator(
         return None
 
     token = spec.type
-    factory = ctx.site_operators.factory(token)
-    if factory is None:
-        # Unreachable: `config.check_scope` refuses a token that is neither a
-        # declared built-in nor a registered site operator, and every declared
-        # built-in transformation is owed by a later task, so it refuses those
-        # too. Kept as a named refusal rather than an assert, because "kept for
-        # a case that cannot happen" is how a case that can happen goes
-        # unhandled.
-        raise GraphNotBuilt(
-            f"no builder for transformation '{token}': it is a declared built-in "
-            "this node has not implemented (see cpipes_node.scope for the task "
-            "that owes it) and no deployment registered it as a site operator. "
-            "The scope gate should have refused this document at startup."
-        )
+    factory = _transformation_factory(ctx, token)
 
     args = _site_operator_args(ctx, registry, source, out_ch, spec)
     env = GraphOperatorEnv(
@@ -636,6 +623,49 @@ def build_pipe_transformation_evaluator(
                 "apply, done and finally_"
             )
     return evaluator
+
+
+def _transformation_factory(ctx: NodeContext, token: str) -> Any:
+    """A built-in first, then the deployment's registry — Go's order exactly.
+
+    `BuildPipeTransformationEvaluator` tries its eighteen cases and reaches
+    `buildSiteOperator` only in the `default:` branch, which is what makes a site
+    token unable to shadow a built-in (Q-140). Here the declaration registry is
+    asked first for the same reason, and `scope.classify` already asks in that
+    order at startup, so the gate and the dispatch agree by construction.
+
+    **A built-in transformation's `build` has a site factory's signature**, which
+    is a small departure from Go worth naming: there a built-in constructor takes
+    `(source, outCh, spec)` and a site factory takes `(env, args)`. Unifying them
+    means P9-T06 and P9-T07 add a `build` to their classes and touch nothing in
+    this module, and it costs nothing in conformance, which compares behaviour and
+    not constructor shapes. What it does mean is that a built-in reads its own
+    configuration off `args`: `args.columns` for the authored columns, and the
+    step's `*_config` block through the spec the factory is free to keep.
+    """
+    declaration = scope.declaration(TokenKind.TRANSFORMATION, token)
+    if declaration is not None:
+        if not declaration.implemented():
+            raise GraphNotBuilt(
+                f"the transformation '{token}' is declared and not built; owed by "
+                f"{declaration.owed_by or 'nobody — which is itself the defect'}. "
+                "The scope gate should have refused this document at startup."
+            )
+        return declaration.build
+    factory = ctx.site_operators.factory(token)
+    if factory is None:
+        # Unreachable through `coordinate`: `config.check_scope` refuses a token
+        # that is neither a declared built-in nor a registered site operator.
+        # Named rather than asserted, because `run` can be called directly and
+        # because a branch kept "for a case that cannot happen" is how a case
+        # that can happen goes unhandled.
+        raise GraphNotBuilt(
+            f"no builder for transformation '{token}': it is neither a token this "
+            "node declares (see cpipes_node.scope) nor one a deployment "
+            "registered. The scope gate should have refused this document at "
+            "startup."
+        )
+    return factory
 
 
 def _site_operator_args(

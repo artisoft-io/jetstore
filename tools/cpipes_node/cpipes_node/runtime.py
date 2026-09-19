@@ -275,6 +275,27 @@ class PipeTransformationEvaluator(Protocol):
     def finally_(self) -> None: ...
 
 
+@runtime_checkable
+class TransformationColumnEvaluator(Protocol):
+    """`pipesmodel.TransformationColumnEvaluator`: one column of an output record.
+
+    Two methods, and `done` is there for the aggregating case: `update` folds one
+    input record into the row being built and `done` closes it. It is
+    `OperatorEnv.column_evaluator`'s return type, so a site operator that honours
+    its step's authored `columns` has to be able to name what it gets back — which
+    is why the protocol lives here and not inside whatever builds one.
+
+    **Nothing builds one yet.** The authored column vocabulary is P9-T06's, and
+    `GraphOperatorEnv.column_evaluator` refuses by name rather than returning
+    something that evaluates to null. This declaration is the target that task
+    implements against.
+    """
+
+    def update(self, current_value: list[Any], record: list[Any]) -> None: ...
+
+    def done(self, current_value: list[Any]) -> None: ...
+
+
 @dataclass(frozen=True)
 class RowLevelError:
     """`pipesmodel.RowLevelError`: the per-record half of an error row.

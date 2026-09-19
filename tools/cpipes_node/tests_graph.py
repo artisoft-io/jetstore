@@ -863,3 +863,43 @@ def test_the_site_config_field_name_is_the_one_the_contract_declares():
     # on the contract's side would make every site step reach the graph with no
     # declared channels and no config — silently.
     assert graph.SITE_CONFIG in contract.TransformationSpecSite.model_fields
+
+
+def test_a_builtin_transformation_wins_over_a_registration(monkeypatch, tmp_path: Path):
+    """Go's order: the built-in cases first, the registry in `default:` (Q-140).
+
+    A site token cannot shadow a built-in, so a deployment registering
+    `map_record` never has its factory called. Asserted by implementing the
+    built-in and registering a competitor under the same name, which is the only
+    way to see which one the dispatch reaches.
+    """
+    from cpipes_node.operators.transformations import MapRecord
+
+    reached: list[str] = []
+
+    def builtin(env, args):
+        reached.append("builtin")
+        return Recorder(env, args)
+
+    monkeypatch.setattr(
+        MapRecord, "build", classmethod(lambda cls, env, args: builtin(env, args))
+    )
+    doc = runtime_document(
+        [{"type": "map_record", "output_channel": memory_channel("out"), "columns": []}]
+    )
+    run_document(
+        doc,
+        {"map_record": lambda e, a: reached.append("site") or Recorder(e, a)},
+        tmp_path=tmp_path,
+    )
+    assert reached == ["builtin"]
+
+
+def test_an_unimplemented_builtin_names_the_task_that_owes_it(tmp_path: Path):
+    doc = runtime_document(
+        [{"type": "map_record", "output_channel": memory_channel("out"), "columns": []}]
+    )
+    # The scope gate refuses it first, which is the earlier and better refusal;
+    # the graph's own arm says the same thing and is reachable from `run`.
+    with pytest.raises(Exception, match="P9-T06"):
+        run_document(doc, {}, tmp_path=tmp_path)
