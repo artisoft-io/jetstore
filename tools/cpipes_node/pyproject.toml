@@ -1,0 +1,32 @@
+[project]
+name = "cpipes_node"
+version = "0.1.0"
+description = "A Python compute pipes node: the entry, the config load, and the declared operator scope."
+requires-python = ">=3.12"
+dependencies = [
+    "cpipes_contract",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+# boto3 is an extra rather than a dependency because the local driver is the
+# path every test takes, and a node that cannot be exercised without the AWS
+# SDK installed is a node that cannot be exercised without AWS.
+s3 = ["boto3>=1.34"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+cpipes-node = "cpipes_node.main:main"
+
+[tool.uv.sources]
+cpipes_contract = { path = "../cpipes_contract", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cpipes_node"]
+
+[tool.pytest.ini_options]
+python_files = ["tests_*.py"]
