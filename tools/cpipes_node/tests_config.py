@@ -150,9 +150,20 @@ def test_the_authored_corpus_validates_through_both_models():
     checks becoming authored QC pipelines). **So a merge in one repository turned a
     test red in another**, on a branch that did not cause it — which is P9-I10's
     shape at the level of a count, recorded there as **P9-I71**.
+
+    **50 -> 51 the same day, and the second move is the interesting one: P9-I71
+    predicted its own recurrence and nothing prevented it.** `healthcare_corpus`'s
+    P9-T18 authored `healthcare_corpus.pc.json` into `jets_ws`, and merging it
+    turned this red again -- found by an agent whose branch did not cause it, on
+    a baseline it measured before editing anything. **Two merges, two repositories,
+    one direction, and no instrument connects them**: nothing in `jets_ws` runs
+    this suite and nothing here watches that workspace. Recording the recurrence
+    rather than widening the pin, because the pin is what made both visible at
+    all -- a `>=` would have made the corpus able to shrink in silence, which is
+    the class this docstring opens by naming.
     """
     corpus = pipes_config_corpus()
-    assert len(corpus) == 50, "the authored corpus moved; re-derive the count"
+    assert len(corpus) == 51, "the authored corpus moved; re-derive the count"
     for path in corpus:
         doc = json.loads(path.read_text())
         contract.ComputePipesConfig.model_validate(doc)
