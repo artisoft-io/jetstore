@@ -207,19 +207,25 @@ def test_both_readers_refuse_the_same_documents(step, why):
         model.ComputePipesConfig.model_validate(doc)
 
 
-def test_the_models_refusal_of_a_builtin_name_is_the_schemas_not_enum():
-    """One list, two readers, asserted to be one list.
+def test_the_model_refuses_every_token_the_schemas_not_enum_excludes():
+    """The branch's membership, at validation time rather than in the schema.
 
-    `_unlisted` and the branch's `json_schema_extra` both take
-    `_TRANSFORMATION_SPEC_TOKENS`, and this is the assertion that they are the
-    same tokens as the union's own members — the drift `builtinOperatorTypes`
-    and `reportsRowLevelFailures` each have a test against on the Go side.
+    That the enum and the union's own branches are one list is
+    `tests_bundles.test_the_complement_branch_excludes_exactly_its_union_s_own_tokens`
+    and is deliberately not re-asserted here — what is new is that the *model*
+    refuses each of them. `json_schema_extra` is read by the emitted schema and
+    by nothing in Pydantic, so before `_unlisted` every one of these
+    constructed happily and a malformed built-in could wear a built-in's name
+    on the site branch.
+
+    Driven off the schema's list rather than off `_TRANSFORMATION_SPEC_TOKENS`,
+    so the two artefacts are compared instead of one being read twice.
     """
     schema = json.loads(COMMITTED)
-    site = schema["$defs"]["TransformationSpecSite"]["properties"]["type"]
-    excluded = site["not"]["enum"]
-    mapping = schema["$defs"]["TransformationSpec"]["discriminator"]["mapping"]
-    assert sorted(excluded) == sorted(mapping)
+    excluded = schema["$defs"]["TransformationSpecSite"]["properties"]["type"]["not"][
+        "enum"
+    ]
+    assert len(excluded) == 19, "the built-in vocabulary moved; re-derive"
     for token in excluded:
         with pytest.raises(ValidationError, match="is a built-in operator"):
             model.TransformationSpecSite.model_validate(
