@@ -31,8 +31,9 @@ built (P9-T04)               `graph`, `runtime`, `expressions`, and `build`
 the column evaluators        `operators/transformations.py` — P9-T06,
                              reached at `OperatorEnv.column_evaluator`
 the partition writer         `operators/transformations.py` — P9-T07
-`merge_files`                `operators/pipes.py` — P9-T08
-the six side-effect tables   not started — P9-T09
+built (P9-T08)               `merge`, and `build` on `merge_files`
+built (P9-T09)               `side_effects` — the node's **four** DB writes,
+                             the metrics reporter and the process-error row
 the site operator itself     the deployment's, registered — P9-T05
 ===========================  =============================================
 

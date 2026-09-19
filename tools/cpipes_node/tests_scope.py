@@ -176,12 +176,24 @@ def test_implementedness_is_derived_and_not_declared():
             implemented.append(cls.token)
         else:
             assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
+    # **Measured over the merged state rather than taken from either branch**
+    # (P7-I62). P9-T04 implemented the two input-channel types and `fan_out`;
+    # P9-T08 added `merge_files`; P9-T06 and P9-T07 added the three
+    # transformations. Neither branch could see the other's four, and each was
+    # correct about its own — so the union is the only right answer and it was
+    # re-derived here rather than reasoned about.
+    #
+    # **Inverted rather than loosened**: the census is the assertion, so the day
+    # a token gains an implementation this goes red and somebody states the new
+    # census. A subset check would have gone green over both branches and over
+    # every task after them.
     assert sorted(implemented) == [
         "fan_out",
         "filter",
         "generator",
         "map_record",
         "memory",
+        "merge_files",
         "partition_writer",
     ]
 
