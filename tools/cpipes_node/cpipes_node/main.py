@@ -28,6 +28,15 @@ Three subcommands:
 `check` is the one to hang X6's evidence on: exit 0 clean, exit 1 out of scope,
 exit 2 declared and not implemented. Two exit codes rather than one, for the
 reason `errors.py` gives.
+
+**`run` registers no site operators** — `site.EMPTY` — and every built-in
+transformation is still owed, so as it stands it can refuse a document and cannot
+complete one. That is deliberate rather than an oversight: a registry is a
+deployment's, and a flag naming an importable factory would make this package
+able to load a customer's code, which is the one thing its own docstring says it
+must never learn to do. **A driver that runs the corpus pipeline composes
+`coordinate` with its own registry**, the way `awslambda.Node` does; that driver
+is P9-T19's and this subcommand is what it copies.
 """
 
 from __future__ import annotations

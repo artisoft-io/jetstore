@@ -25,14 +25,23 @@ What is built, and what is a seam:
 built (P9-T03)               `args`, `settings`, `contract`, `config`,
                              `scope`, `operators`, `site`, `store`, `node`,
                              `main`
-the channel graph            `graph.run` — P9-T04
+built (P9-T04)               `graph`, `runtime`, `expressions`, and `build`
+                             on `generator`, `memory` and `fan_out`
 `map_record`, `filter`,
-the column evaluators        `operators/transformations.py` — P9-T06
+the column evaluators        `operators/transformations.py` — P9-T06,
+                             reached at `OperatorEnv.column_evaluator`
 the partition writer         `operators/transformations.py` — P9-T07
 `merge_files`                `operators/pipes.py` — P9-T08
 the six side-effect tables   not started — P9-T09
 the site operator itself     the deployment's, registered — P9-T05
 ===========================  =============================================
+
+**A deployment's own operator is written against `runtime`**, which is
+`pipesmodel/operator.go`'s Python half: an evaluator is the three of `apply`,
+`done` and `finally_`, and a factory is
+`(OperatorEnv, OperatorArgs) -> PipeTransformationEvaluator`. Nothing in
+`runtime` reaches the channel registry, which is §12.6's line drawn in Python —
+an operator is handed the channels its own step declared and can name no other.
 """
 
 from __future__ import annotations
@@ -47,22 +56,45 @@ from .errors import (
     ScopeError,
     StartupError,
 )
+from .runtime import (
+    Done,
+    InputChannel,
+    Lookup,
+    NullOperatorEnv,
+    OperatorArgs,
+    OperatorEnv,
+    OutputChannel,
+    PipeTransformationEvaluator,
+    RowLevelError,
+)
 from .scope import Operator, ScopeReport, TokenKind, declared_scope
 from .site import Registry
 from .store import S3, Local, ObjectStore
 
+#: What a deployment imports. The nine names from `runtime` are the operator
+#: contract — an author of a site operator needs all of them and nothing else, so
+#: they are exported here rather than reached through a submodule path.
 __all__ = [
     "S3",
     "ConfigInvalid",
     "ConfigNotFound",
+    "Done",
+    "InputChannel",
     "Local",
+    "Lookup",
     "NodeArgs",
     "NodeError",
+    "NullOperatorEnv",
     "ObjectStore",
     "Operator",
+    "OperatorArgs",
+    "OperatorEnv",
     "OperatorNotImplemented",
     "OperatorOutOfScope",
+    "OutputChannel",
+    "PipeTransformationEvaluator",
     "Registry",
+    "RowLevelError",
     "ScopeError",
     "ScopeReport",
     "StartupError",
