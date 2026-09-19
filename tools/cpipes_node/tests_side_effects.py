@@ -265,6 +265,42 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
     }
 
 
+def test_domain_keys_registry_is_neither_the_nodes_nor_the_starters():
+    """The assessment lists the node as participating; the measurements note said
+    the INSERT is the starter's. **Both are wrong, and the grep is why.**
+
+    The one occurrence of an INSERT into that table under `jets/compute_pipes/`
+    is a *commented example* inside `shardingInitializeCpipes`, explaining how the
+    table is populated. The real INSERT is in a workspace's own
+    `base__workspace_init_db.sql`, run by workspace init — and `compute_pipes`
+    only SELECTs the table, in the starter.
+
+    So the assessment's six tables are three for this node, and this is one of
+    the three reasons. Asserted in both directions, because the day the engine
+    starts writing it this node owes a fourth table.
+    """
+    from pathlib import Path
+
+    from conftest import JETSTORE_ROOT
+
+    source = go_source("jets/compute_pipes/actions_start_common.go")
+    lines = [
+        line
+        for line in source.splitlines()
+        if "INSERT INTO jetsapi.domain_keys_registry" in line
+    ]
+    assert len(lines) == 1
+    assert lines[0].strip().startswith("//"), "the example stopped being a comment"
+    # And the table is read, not written, by the engine.
+    assert "SELECT entity_rdf_type, object_types, domain_keys_json" in source
+    # The real writer is a workspace's own SQL seed.
+    seeds = list(Path(JETSTORE_ROOT).rglob("base__workspace_init_db.sql"))
+    assert seeds, "no workspace SQL seed found to hold the real INSERT"
+    assert any(
+        "INSERT INTO jetsapi.domain_keys_registry" in seed.read_text() for seed in seeds
+    )
+
+
 def test_cpipes_results_is_written_by_nothing_and_so_this_node_writes_it_too():
     """**P9-I62.** `SaveResultsContext.Save` is reached from nowhere.
 

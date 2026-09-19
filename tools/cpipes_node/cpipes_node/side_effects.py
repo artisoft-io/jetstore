@@ -8,7 +8,12 @@ was enumerated and **each site was then read to decide whether it is reachable
 and whose it is** — which is the step that changes the answer, and the step the
 assessment's list of six had not taken.
 
-# The measurement: four writes, not five and not six
+# The measurement: three tables over four statements
+
+**Two counts and two subjects, kept apart deliberately.** The assessment counts
+six *tables* and §3 of the measurements counts five; this node writes **three
+tables** through **four statements**, and a sentence carrying one of those
+numbers without saying which is the defect P4-I40 records one repository over.
 
 | table | op | where | when |
 |---|---|---|---|
@@ -17,6 +22,14 @@ assessment's list of six had not taken.
 | `pipeline_execution_channel_details` | INSERT ×N | `compute_pipes_results.go:271` | every node, after the UPDATE |
 | `cpipes_metrics` | INSERT ×N | `runtime_metrics.go:10` | only with a `metrics_config` interval |
 | `process_errors` | — | not a direct write | through a `sql` **output channel** |
+
+**How six became three, and it is three separate findings rather than one.**
+`domain_keys_registry` is neither the node's nor the starter's — §3 read a grep
+hit as an INSERT and it is a *commented example*; the real INSERT is in a
+workspace's own `base__workspace_init_db.sql`, run by workspace init, and
+`compute_pipes` only SELECTs it (in the starter). `cpipes_results` is written by
+nothing at all. And `cpipes_execution_status` is behind a guard no document this
+node accepts can pass. Each is below with its own citation.
 
 **`cpipes_results` is written by nothing.** Its only INSERT is in
 `SaveResultsContext.Save` (`compute_pipes_results.go:136`), and every call site

@@ -198,9 +198,12 @@ merge does not support either.
 
 ## The node's side effects
 
-**Four DB writes, not five and not six.** The set was measured by enumerating
-every `INSERT INTO jetsapi.` / `UPDATE jetsapi.` under `jets/compute_pipes/` and
-then **reading each site**, which is the step that moved the answer:
+**Three tables through four statements**, where the assessment counts six tables
+and the phase's measurements note counts five. Two counts, two subjects — a
+sentence carrying one without saying which is what P4-I40 is about. The set was
+measured by enumerating every `INSERT INTO jetsapi.` / `UPDATE jetsapi.` under
+`jets/compute_pipes/` and then **reading each site**, which is the step that
+moved the answer:
 
 | table | when |
 |---|---|
@@ -211,6 +214,12 @@ then **reading each site**, which is the step that moved the answer:
 
 `process_errors` is not a direct write — it is reached through a `sql` output
 channel, which is why `OperatorEnv.report_error` exists.
+
+**`domain_keys_registry` is neither the node's nor the starter's.** The
+measurements note read a grep hit in `actions_start_common.go` as an INSERT; that
+line is a *commented example*. The real INSERT is in a workspace's own
+`base__workspace_init_db.sql`, run by workspace init, and `compute_pipes` only
+SELECTs the table — in the starter.
 
 **`cpipes_results` is written by nothing.** Its only INSERT is in
 `SaveResultsContext.Save`, and all five call sites are commented out in
@@ -236,12 +245,12 @@ deployment and a local run take the same path with one branch fewer.
 ## Checks
 
 ```
-$ python -m pytest -q          # 276 tests
+$ python -m pytest -q          # 277 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-Twenty-two tests read Go source as their oracle rather than transcribing it — the
+**Twenty-six** tests read Go source as their oracle rather than transcribing it — the
 argument struct's json tags, the `ComputePipesConfig` struct's tags, the config
 `SELECT`, the authored `.pc.json` corpus, the `OperatorEnv` interface, the
 `OperatorArgs` / `RowLevelError` / `Lookup` structs, the operator table, the
