@@ -46,6 +46,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			if len(spec.Apply[i].OutputChannel.Name) > 0 {
 				oc[spec.Apply[i].OutputChannel.Name] = true
 			}
+			// A site operator's `site_config.output_channels`. StartFanOutPipe's arm
+			// verbatim, reading the same function for the same reason: a channel
+			// declared there is registered and resolved, and without this it is
+			// closed by nothing (P9-I13). Outside the switch because a site token is
+			// none of the cases below, and it answers nil for every document that
+			// declares no site output channels, so such a document takes exactly the
+			// path it took before.
+			for _, siteChannel := range siteOutputChannelConfigs(&spec.Apply[i]) {
+				if len(siteChannel.Name) > 0 {
+					oc[siteChannel.Name] = true
+				}
+			}
 			switch spec.Apply[i].Type {
 			case "jetrules":
 				// Get the output channels of jetrules
