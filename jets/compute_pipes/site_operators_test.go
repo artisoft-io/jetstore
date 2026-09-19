@@ -1234,11 +1234,12 @@ func TestSiteOutputChannelConfigsReadsTheDocument(t *testing.T) {
 // of them has to know about a site step's. A fourth such place added later joins
 // this test by existing.
 //
-// It is deliberately not satisfied by the two pipe executors today, and that is
-// the finding rather than the test being wrong: closing a channel is P9-T04's,
-// and until it lands a declared channel is registered and resolved and closed by
-// nothing. The test therefore asserts what P9-T01 owns -- that the *registering*
-// pass reads the same function -- and names the rest.
+// **It was deliberately not satisfied by the two pipe executors when P9-T01
+// wrote it**, and it said so by logging rather than failing. P9-T04 added the
+// arm to both, so the report becomes the assertion: every file in the derived
+// set must read the function. The count is asserted as well as the membership,
+// because a glob that matched nothing and a package that satisfied everything
+// produce the same silence.
 func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 	fset := token.NewFileSet()
 	files, err := filepath.Glob("*.go")
@@ -1266,6 +1267,16 @@ func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 	if len(plural) == 0 {
 		t.Fatal("no file mentions JetrulesConfig.OutputChannels; this test asserted nothing")
 	}
+	// The subject is three files: the validator's outputChannelConfigs and the two
+	// pipe executors' close passes. Predicted at three and asserted, so that a
+	// fourth place arriving is a failure here rather than a silence -- joining the
+	// set is what a new plural-channel reader does, and this number is the only
+	// thing that says somebody looked.
+	if len(plural) != 3 {
+		t.Errorf("the derived subject is %d file(s) %v, and it was three when this "+
+			"assertion was written; a file joining or leaving the set has to be "+
+			"reckoned with rather than absorbed", len(plural), sortedKeys(plural))
+	}
 	// What P9-T01 owns: the pass that registers channels.
 	if !reads["compute_pipes.go"] {
 		t.Error("the channel registry construction does not read siteOutputChannelConfigs; " +
@@ -1275,13 +1286,15 @@ func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 		t.Error("outputChannelConfigs does not read siteOutputChannelConfigs; " +
 			"the validator would not see a site operator's declared channels")
 	}
-	// What P9-T04 owns, reported rather than asserted: the two executors close
-	// the channels a step writes, and they do not yet know about these.
-	for f := range plural {
+	// What P9-T04 added: the two executors' close passes. Derived rather than
+	// named, so the pair is not a list here -- a file that learns about jetrules'
+	// plural channels has to learn about a site step's, and joins this demand by
+	// existing.
+	for _, f := range sortedKeys(plural) {
 		if !reads[f] {
-			t.Logf("P9-I13: %s knows jetrules' plural output channels and not a site step's; "+
-				"until P9-T04 adds the arm, a channel declared in site_config.output_channels "+
-				"is closed by nothing", f)
+			t.Errorf("P9-I13: %s knows jetrules' plural output channels and not a site "+
+				"step's; a channel declared in site_config.output_channels is registered "+
+				"and resolved and closed by nothing, so its reader never sees EOF", f)
 		}
 	}
 	// Keep the parser import honest: the glob above is the subject and a parse

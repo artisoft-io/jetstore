@@ -28,6 +28,15 @@ Three subcommands:
 `check` is the one to hang X6's evidence on: exit 0 clean, exit 1 out of scope,
 exit 2 declared and not implemented. Two exit codes rather than one, for the
 reason `errors.py` gives.
+
+**`run` registers no site operators** — `site.EMPTY` — and every built-in
+transformation is still owed, so as it stands it can refuse a document and cannot
+complete one. That is deliberate rather than an oversight: a registry is a
+deployment's, and a flag naming an importable factory would make this package
+able to load a customer's code, which is the one thing its own docstring says it
+must never learn to do. **A driver that runs the corpus pipeline composes
+`coordinate` with its own registry**, the way `awslambda.Node` does; that driver
+is P9-T19's and this subcommand is what it copies.
 """
 
 from __future__ import annotations
@@ -69,6 +78,35 @@ def render_declared_scope() -> str:
         "Anything else aborts at startup naming the token. Whether the subset "
         "is permanent is P9-I04 / D-206."
     )
+    return "\n".join(lines)
+
+
+def render_run_result(result) -> str:  # type: ignore[no-untyped-def]
+    """What one node's run did, **per channel rather than as a total**.
+
+    A total is satisfied by the right number of rows in the wrong channels, which
+    is exactly the failure a twelve-output step can have, so the per-channel
+    figures are the ones printed and a reader adding them up is doing so on
+    purpose.
+    """
+    lines = [
+        f"source rows: {result.source_rows}",
+        (
+            f"channels: {len(result.channel_rows)}, "
+            f"closed: {len(result.closed_channels)}, "
+            f"rows written: {result.total_rows()}"
+        ),
+    ]
+    for name, rows in result.channel_rows.items():
+        closed = "" if name in result.closed_channels else "  [NOT CLOSED]"
+        lines.append(f"  {name}: {rows}{closed}")
+    for index, token in result.skipped:
+        lines.append(f"  pipe {index}: '{token}' skipped, its `when` was false")
+    if result.conditional_overrides:
+        lines.append(
+            f"conditional_config applied {result.conditional_overrides} override(s): "
+            "this document had not been through a starter"
+        )
     return "\n".join(lines)
 
 
@@ -122,12 +160,13 @@ def main(argv: list[str] | None = None) -> int:
 
         from .node import coordinate
 
-        coordinate(
+        result = coordinate(
             NodeArgs(id=args.id, jp=args.jp, pe=args.pe),
             FileConfigSource(args.config),
             store=Local(args.store),
             site_operators=EMPTY,
         )
+        print(render_run_result(result))
     except NodeError as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return EXIT_REFUSED

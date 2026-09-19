@@ -23,14 +23,33 @@ class Generator(InputChannel):
 
     It is why this phase exists in the shape it does — a corpus generator is
     exactly a source with no input, and without this channel type the
-    integration would have had to add one to JetStore. It is **refused in
-    sharding mode by name**, so a pipeline built on it is a reducing pipeline,
-    which is a constraint on the authored `.pc.json` rather than on this node.
+    integration would have had to add one to JetStore. A pipeline built on it is
+    a **reducing** pipeline: `CoordinateComputePipes` special-cases `generator`
+    under reducing alone, and in sharding mode it resolves its file keys from the
+    shard registry, finds none, and never reaches the generator — so
+    `node._file_keys` refuses that combination by name rather than writing
+    nothing and exiting 0.
     """
 
     token = "generator"
     owed_by = "P9-T04"
     summary = "source with no input: nbr_nodes partitions of nbr_rows empty records"
+
+    @classmethod
+    def build(cls, env: object, spec: object) -> object:
+        """The source `graph._drive` pushes records from.
+
+        Returning the handler rather than an object is what `build` means for a
+        channel type: there is no per-step runtime object for a source, and the
+        graph owns the width and the termination signal. **The point of routing
+        through here is that `graph.py` contains no `if type == "generator"`** —
+        the dispatch is the declaration, so a channel type this node grows is
+        reached by the class being written and not by an `if` being remembered
+        (P3-I20).
+        """
+        from .. import graph
+
+        return graph.generator_records
 
 
 class Memory(InputChannel):
@@ -45,3 +64,15 @@ class Memory(InputChannel):
     token = "memory"
     owed_by = "P9-T04"
     summary = "an in-process channel a previous step of this node wrote"
+
+    @classmethod
+    def build(cls, env: object, spec: object) -> object:
+        """No source: a memory channel is fed by another pipe of this node.
+
+        `None` is the answer and it is a real one rather than a stub. The graph
+        asks for a source only for the pipe it feeds itself, so a `memory`
+        channel there is a document whose first pipe waits on records nothing in
+        this node produces — and the graph refuses it naming the channel, which
+        is the same refusal `execution_order` makes for any unwritten source.
+        """
+        return None

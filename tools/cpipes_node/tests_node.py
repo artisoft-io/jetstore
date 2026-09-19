@@ -29,7 +29,6 @@ from cpipes_node.errors import (
     OperatorOutOfScope,
     StartupError,
 )
-from cpipes_node.graph import GraphNotBuilt
 from cpipes_node.node import GENERATOR_FILE_PROXY, coordinate, environment
 from cpipes_node.settings import MINIMUM_DB_POOL_SIZE, Settings
 from cpipes_node.site import Registry
@@ -121,32 +120,54 @@ def test_a_declared_but_unbuilt_token_aborts_distinguishably(tmp_path: Path):
     assert "P9-T06" in str(exc.value)
 
 
-def test_a_clean_document_reaches_the_graph_seam(tmp_path: Path, monkeypatch):
-    # Every token in scope and built: the node gets as far as the channel
-    # graph, which is P9-T04's. Reaching it is the deliverable of this task.
-    from cpipes_node import scope
-    from cpipes_node.scope import TokenKind
+def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path):
+    """Every token in scope and built: the node runs the document end to end.
 
-    built = {}
-    for kind, token in (
-        (TokenKind.INPUT_CHANNEL, "generator"),
-        (TokenKind.PIPE, "fan_out"),
-    ):
-        cls = scope.declaration(kind, token)
-        built[(kind, token)] = cls
-        monkeypatch.setattr(cls, "build", classmethod(lambda c, e, s: None))
+    **This test asserted the opposite until P9-T04**: it required
+    `GraphNotBuilt` naming the task, because reaching the seam was P9-T03's whole
+    deliverable. Inverted rather than deleted, so the property it stood for — the
+    scope gate passes a clean document *through* — is still checked by something,
+    and by something that now goes red if the graph stops running.
+
+    **It also monkeypatched `build` onto `generator` and `fan_out`** to get past
+    the scope gate, both being declared and owed by this task at the time. Both
+    now carry one, so the patching is gone and the gate is satisfied by the tree
+    rather than by the test.
+
+    The site factory is the smallest recognisable operator: it counts what it is
+    given and writes nothing, so what is asserted is the graph's arithmetic
+    rather than an operator's.
+    """
+    applied: list[list] = []
+
+    class Counting:
+        def apply(self, record):
+            applied.append(record)
+
+        def done(self):
+            pass
+
+        def finally_(self):
+            pass
 
     doc = runtime_document([site_step("hc_corpus")])
-    with pytest.raises(GraphNotBuilt) as exc:
-        coordinate(
-            NodeArgs(id=3, pe=1),
-            _source(tmp_path, doc),
-            store=Local(tmp_path),
-            site_operators=Registry().with_operators({"hc_corpus": lambda e, s: None}),
-        )
-    assert "P9-T04" in str(exc.value)
-    assert "0003P" in str(exc.value)
-    assert "reducing" in str(exc.value)
+    result = coordinate(
+        NodeArgs(id=3, pe=1),
+        _source(tmp_path, doc),
+        store=Local(tmp_path),
+        site_operators=Registry().with_operators(
+            {"hc_corpus": lambda e, s: Counting()}
+        ),
+    )
+    # `nbr_rows` is 10 in the fixture, and the record's width is the main
+    # input's one column — both asserted, because a source that generated ten
+    # records of no width would satisfy a count alone.
+    assert result.source_rows == 10
+    assert len(applied) == 10
+    assert applied[0] == [None]
+    # And the channel the step declared is closed, which is what a reader of it
+    # would otherwise wait on forever.
+    assert "out" in result.closed_channels
 
 
 def test_a_generator_in_reducing_mode_gets_the_proxy_marker(

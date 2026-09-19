@@ -148,12 +148,28 @@ def test_an_implemented_declaration_passes(monkeypatch):
 
 
 def test_implementedness_is_derived_and_not_declared():
-    # Nothing carries a flag, so a stub cannot claim to be finished and a
-    # finished operator cannot be left marked as a stub.
+    """Nothing carries a flag, so the two cannot disagree.
+
+    The first half is the derivation and holds for every declaration. The second
+    was `assert not cls.implemented()` with the note *update this file when the
+    first one lands*, and P9-T04 is when: `generator`, `memory` and `fan_out` have
+    a `build` and the other five do not. **The census is asserted rather than the
+    absence**, so a token gaining or losing an implementation is a failure here
+    and not a silence — and every unimplemented one still has to name its owner,
+    which is the half that was always about the declaration rather than about
+    progress.
+    """
+    implemented: list[str] = []
     for cls in scope.declarations():
         assert cls.implemented() == ("build" in cls.__dict__)
-        assert not cls.implemented(), "update this file when the first one lands"
-        assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
+        if cls.implemented():
+            implemented.append(cls.token)
+        else:
+            assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
+    # P9-T04's three: the two input-channel types and the one pipe kind the
+    # graph runs. `merge_files` is P9-T08's and the three transformations are
+    # P9-T06's and P9-T07's.
+    assert sorted(implemented) == ["fan_out", "generator", "memory"]
 
 
 def test_the_base_build_refuses_and_names_the_task():
