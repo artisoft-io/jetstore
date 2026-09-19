@@ -266,17 +266,21 @@ package** — held by a test that walks every module's imports. `side_effects.NO
 is what a run with no database *is*, and it is the default on `coordinate`, so a
 deployment and a local run take the same path with one branch fewer.
 
-## The transformations, and the seam they are missing
+## The transformations, and the seam they needed
 
-`map_record` and `filter` are built entire and reachable from a document.
-`partition_writer`'s policy and its two device encoders are built and its
-`build()` **refuses**, because `graph._site_operator_args` hands a built-in
-neither its own `*_config` block nor the object store — in Go a built-in is
-constructed by the `BuilderContext` and a site factory is not, and unifying the
-two signatures took the built-in's access away. That is **P9-I55**; the repair
-needs no new field, since a transformation's block is `f"{spec.type}_config"` for
-every contract token that has one. `PartitionWriter.build_from` is the whole
-construction and is exercised against a real store.
+All three — `map_record`, `filter`, `partition_writer` — are built entire and
+reachable from a document. The third was not until **P9-I55**'s repair:
+`graph._site_operator_args` handed a built-in neither its own `*_config` block
+nor the object store, so a `filter` with `max_output_records: 4` passed all ten
+of its records and a `partition_writer` could not be built at all.
+
+**The repair is the asymmetry Go already has** (**D-226**): a built-in is
+constructed by the `BuilderContext` and a site factory is not. Here a built-in
+is handed `runtime.BuilderEnv` — the node context, the channel registry and the
+authored spec — where a site factory is handed `GraphOperatorEnv`, which carries
+none of them. The call shape stays `factory(env, args)` for both, and the block
+a built-in reads needs no new field: it is `f"{spec.type}_config"` for every
+contract token that has one, 17 of 19, the two exceptions carrying no block.
 
 **CSV and Parquet come from one column list and one text encoder**, which is what
 makes X3 provable rather than merely true: the column list is the resolved output

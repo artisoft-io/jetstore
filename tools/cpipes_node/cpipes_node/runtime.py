@@ -532,3 +532,65 @@ class GraphOperatorEnv:
 
     def session_id(self) -> str:
         return self.session_id_value
+
+
+@dataclass
+class BuilderEnv(GraphOperatorEnv):
+    """`BuilderContext`: the env a **built-in** transformation is built with.
+
+    **The asymmetry Go already has, restored** (P9-I55, D-226). In Go a built-in
+    is constructed by a method on `*BuilderContext` and can reach the channel
+    registry, the S3 device manager and the node's own identity; a site factory
+    is handed `OperatorEnv` and `OperatorArgs` precisely so that it cannot.
+    `graph._transformation_factory` unified the two call shapes — both are
+    `factory(env, args)` — and the cost was measurable rather than stylistic:
+    `partition_writer` writes files and nothing it was handed reached the object
+    store, so it could not be reached from a `.pc.json` at all.
+
+    **The asymmetry is in the type of `env` rather than in the number of
+    arguments**, which is what Go's own shape is: the call is the same, the
+    receiver is richer. A site factory is handed `GraphOperatorEnv` and can
+    reach nothing here — not by discipline but because the object it holds has
+    no such attribute. Adding these three fields to `GraphOperatorEnv` instead
+    would hand every site operator the node's store, which is the one thing
+    §12.6 is about withholding.
+
+    Three fields and no more, each answering something a Go built-in reads off
+    its receiver:
+
+    * `node` — the `NodeContext`, and through it the object store
+      (`ctx.s3DeviceManager`), the node's prefixes and the run's config.
+    * `registry` — the `ChannelRegistry` (`ctx.channelRegistry`), which is how a
+      built-in resolves an error channel its own config block names.
+    * `spec` — the authored transformation spec. A Go built-in constructor takes
+      `spec` as an argument; `OperatorArgs` carries the *resolved* channel and
+      not the spec that configured it, and `OperatorArgs` may not grow a field
+      because it mirrors `pipesmodel.OperatorArgs` name for name.
+    """
+
+    #: `NodeContext`. Typed `Any` because `node.py` imports this module.
+    node: Any = None
+    registry: ChannelRegistry | None = None
+    spec: Any = None
+
+    def __post_init__(self) -> None:
+        missing = [
+            name for name in ("node", "registry", "spec") if getattr(self, name) is None
+        ]
+        if missing:
+            raise NodeError(
+                f"a BuilderEnv was constructed without {', '.join(missing)}; it "
+                "is the whole of what a built-in transformation may read beyond "
+                "OperatorEnv, and a half-filled one would fail at the operator "
+                "that needed the missing half rather than here"
+            )
+
+    @property
+    def store(self) -> Any:
+        """The node's object store, or `None` when the run was given none."""
+        return getattr(self.node, "store", None)
+
+    @property
+    def node_id(self) -> int:
+        """`ctx.nodeId`. The same number as `shard_id`, named as Go names it."""
+        return self.shard_id

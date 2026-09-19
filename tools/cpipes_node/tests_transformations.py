@@ -1,18 +1,22 @@
 """The three built transformations: `map_record`, `filter`, `partition_writer`.
 
-**Two of the three run a document end to end**, through `coordinate` and the
-real contract model, and that is deliberate rather than thorough: a component
-whose own tests pass and which is absent from the path a run takes is the class
-this repository has recorded thirty-seven times (P4-I43). So `map_record` and
-`filter` are exercised from the `.pc.json` down, and what cannot be is stated
-rather than implied.
+**All three run a document end to end**, through `coordinate` and the real
+contract model, and that is deliberate rather than thorough: a component whose
+own tests pass and which is absent from the path a run takes is the class this
+repository has recorded thirty-seven times (P4-I43).
 
-**`partition_writer` cannot be reached from a document and the reason is
-P9-I55**, not this task: `graph._site_operator_args` hands a built-in neither its
-own `*_config` block nor the object store. Its refusal is asserted, the absence
-that causes it is *pinned* — `test_the_seam_is_not_wired_yet` goes red the day
-the repair lands — and the whole construction is exercised through `build_from`
-against a real store, so what is missing is three assignments and not a writer.
+**`partition_writer` joined them with P9-I55's repair.** It could not be reached
+from a document at all before it: `graph._site_operator_args` handed a built-in
+neither its own `*_config` block nor the object store, and the contract makes
+`partition_writer_config` required, so `args.config is None` was provably the
+dispatch. `graph._builtin_config` now fills the block and a built-in is handed a
+`BuilderEnv` carrying the node context (D-226).
+
+`test_the_seam_is_wired` is what `test_the_seam_is_not_wired_yet` became.
+**Inverted rather than deleted**: a test that pinned an absence and is deleted
+when the absence is filled leaves the filling unchecked, and the two things it
+asserts — that a built-in's block reaches `args.config`, and that the block's
+name is derived from the token — are the repair's whole subject.
 """
 
 from __future__ import annotations
@@ -27,16 +31,18 @@ from cpipes_node import contract, graph
 from cpipes_node.args import NodeArgs
 from cpipes_node.columns import ColumnFailed
 from cpipes_node.config import FileConfigSource
-from cpipes_node.errors import StartupError
+from cpipes_node.errors import NodeError, StartupError
 from cpipes_node.node import coordinate
 from cpipes_node.operators.transformations import (
     MAP_RECORD_DEFAULT_MAX_ERROR_COUNT,
     Filter,
+    FilterPipe,
     MapRecord,
     PartitionWriter,
     SeamNotWired,
 )
 from cpipes_node.runtime import (
+    BuilderEnv,
     Channel,
     Done,
     GraphOperatorEnv,
@@ -94,9 +100,18 @@ def args_for(
     new_record: bool = False,
     config: object = None,
     error_channel: OutputChannel | None = None,
+    max_error_count: int = 0,
     class_name: str = "",
     grouped: bool = False,
 ) -> OperatorArgs:
+    """`OperatorArgs` as the graph assembles it.
+
+    `config`, `error_channel` and `max_error_count` are separate parameters
+    because on a built-in the graph fills all three from the **one** authored
+    `{type}_config` block (P9-I55) and on a site operator they come from
+    `site_config`. A test that set the cap only inside `config` would be
+    describing a call the graph never makes.
+    """
     return OperatorArgs(
         type="t",
         new_record=new_record,
@@ -105,6 +120,7 @@ def args_for(
         output=channel("out", output_columns, class_name),
         config=config,
         error_channel=error_channel,
+        max_error_count=max_error_count,
     )
 
 
@@ -173,8 +189,8 @@ def test_each_build_returns_the_three_calls_a_pipe_evaluator_is(cls):
     """The contract is `apply` / `done` / `finally_`, and the graph checks it too.
 
     Asserted on the *classes* the builds return rather than through the graph,
-    because `PartitionWriter.build` refuses and its runtime object still has to
-    satisfy the protocol.
+    because the graph checks the protocol on an instance and this checks that
+    every class the three builds can return satisfies it at all.
     """
     runtime = {
         MapRecord: "MapRecordPipe",
@@ -356,6 +372,7 @@ def test_the_error_ladder_reports_up_to_the_cap_and_then_stops():
             source_columns=("a", "b", "c"),
             columns=(failing_column(),),
             config=Cfg(max_error_count=2),
+            max_error_count=2,
             error_channel=errors,
         ),
     )
@@ -455,11 +472,11 @@ def test_filter_runs_through_a_whole_document(tmp_path: Path):
     )
     result = run(doc, tmp_path)
     assert result.source_rows == 10
-    # **The cap is not honoured, and that is P9-I55 rather than a defect here**:
-    # `filter_config` does not reach the operator, so the run passes all ten. The
-    # assertion is the *measurement* of the seam's cost, and it inverts the day
-    # the three assignments land.
-    assert result.channel_rows["out"] == 10
+    # **The cap is honoured, and that is P9-I55's repair measured**: this read
+    # `== 10` while `filter_config` could not reach the operator, and it is the
+    # one assertion in this file that states the seam's cost in records rather
+    # than in an object's identity.
+    assert result.channel_rows["out"] == 4
 
 
 def test_filter_applies_its_columns_to_the_records_it_keeps():
@@ -473,14 +490,18 @@ def test_filter_applies_its_columns_to_the_records_it_keeps():
 # --- the seam ---------------------------------------------------------------
 
 
-def test_the_seam_is_not_wired_yet(tmp_path: Path):
-    """**P9-I55, pinned from the graph's side.**
+def test_the_seam_is_wired(tmp_path: Path):
+    """**P9-I55, from the graph's side. `test_the_seam_is_not_wired_yet` was
+    this test asserting the opposite.**
 
-    A built-in reaches its factory with `args.config is None` whatever its step
-    authored, because `graph._site_operator_args` returns before setting it for a
-    spec carrying no `site_config`. This asserts that, so the day the repair
-    lands it goes red — and the two operators above whose configuration is
-    optional stop being unable to tell an authored block from an unreachable one.
+    A built-in used to reach its factory with `args.config is None` whatever its
+    step authored, because `graph._site_operator_args` returned before setting
+    it for a spec carrying no `site_config`. It now reaches it with the step's
+    own block, and the two operators whose configuration is optional can tell an
+    authored block from an unreachable one.
+
+    Inverted rather than deleted: the absence it pinned is filled, and a deleted
+    test leaves the filling unchecked.
     """
     seen: list[object] = []
 
@@ -504,33 +525,162 @@ def test_the_seam_is_not_wired_yet(tmp_path: Path):
         run(doc, tmp_path)
     finally:
         Filter.build = classmethod(original)
-    assert seen == [None]
+    assert [getattr(c, "max_output_records", None) for c in seen] == [4]
 
-    # And the repair needs no new field: the block's name is derived from the
-    # token, which holds for every contract transformation that has one.
+    # And it needed no new field: the block's name is derived from the token,
+    # which holds for every contract transformation that has one.
     config = contract.PipesConfig.model_validate(doc)
     spec = graph.selected_pipes(config)[0].apply[0]
-    assert getattr(spec, f"{spec.type}_config").max_output_records == 4
+    assert getattr(spec, f"{spec.type}{graph.CONFIG_SUFFIX}").max_output_records == 4
 
 
-def test_the_partition_writer_refusal_says_it_is_the_dispatch_and_not_the_document():
+def test_a_builtin_is_handed_the_builder_env_and_a_site_operator_is_not(
+    tmp_path: Path,
+):
+    """D-226's whole substance, asserted on both halves of the dispatch.
+
+    The negative half matters more than the positive one: a site factory
+    reaching the node's store would make §12.6's withholding a convention
+    rather than a property of what it was handed.
+    """
+    seen: dict[str, object] = {}
+
+    doc = two_column_document([{"type": "filter", "output_channel": memory_channel()}])
+    original = Filter.build.__func__
+
+    def capture(cls, operator_env, operator_args):
+        seen["builtin"] = operator_env
+        return original(cls, operator_env, operator_args)
+
+    Filter.build = classmethod(capture)
+    try:
+        run(doc, tmp_path)
+    finally:
+        Filter.build = classmethod(original)
+
+    builtin_env = seen["builtin"]
+    assert isinstance(builtin_env, BuilderEnv)
+    assert builtin_env.store is not None
+    assert builtin_env.spec.type == "filter"
+    assert builtin_env.registry is not None
+
+    site_doc = two_column_document(
+        [{"type": "hc_corpus", "output_channel": memory_channel()}]
+    )
+
+    def site_factory(operator_env, operator_args):
+        seen["site"] = operator_env
+        return FilterPipe(
+            source=operator_args.source,
+            output=operator_args.output,
+            evaluators=(),
+            new_record=False,
+            done_signal=operator_env.done(),
+        )
+
+    path = tmp_path / "site.pc.json"
+    path.write_text(json.dumps(site_doc))
+    coordinate(
+        NodeArgs(id=0, pe=1),
+        FileConfigSource(path),
+        store=Local(tmp_path),
+        site_operators=Registry().with_operators({"hc_corpus": site_factory}),
+    )
+    site_env = seen["site"]
+    assert not isinstance(site_env, BuilderEnv)
+    assert isinstance(site_env, GraphOperatorEnv)
+    for withheld in ("node", "store", "registry", "spec"):
+        assert not hasattr(site_env, withheld), withheld
+
+
+def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
+    """The convention is the contract's, and this derives it rather than listing.
+
+    17 of the 19 transformation tokens name their block `{type}_config`; the two
+    that do not — `aggregate` and `high_freq` — carry no block at all, which is
+    why `getattr(..., None)` is the whole of the rule. Measured over the union's
+    own members, so a twentieth token joins the count by existing.
+    """
+    import typing
+
+    # `TransformationSpec` is `Annotated[Union[...], Field(discriminator=...)]`,
+    # so the members are one unwrapping in. The site spec is not among them,
+    # which is P9-I29 and is not this test's subject: a site operator reads its
+    # `site_config` and never a `{type}_config` block.
+    members = typing.get_args(typing.get_args(contract.model.TransformationSpec)[0])
+    tokens = {}
+    for member in members:
+        token = typing.get_args(member.model_fields["type"].annotation)[0]
+        tokens[token] = f"{token}{graph.CONFIG_SUFFIX}" in member.model_fields
+    assert len(tokens) == 19
+    assert sorted(t for t, has in tokens.items() if not has) == [
+        "aggregate",
+        "high_freq",
+    ]
+    assert sum(tokens.values()) == 17
+
+
+def test_the_partition_writer_refuses_an_env_it_cannot_read_the_store_from():
+    """What the seam refusal is *about* since the repair.
+
+    Not a document and not a missing block: an operator built outside the graph,
+    which is the only way a built-in meets a plain `GraphOperatorEnv` now.
+    """
     with pytest.raises(SeamNotWired) as exc:
         PartitionWriter.build(env(), args_for())
     message = str(exc.value)
-    assert "P9-I55" in message
-    assert "required field" in message
-    assert "build_from" in message
+    assert "BuilderEnv" in message
+    assert "D-226" in message
 
 
-def test_the_partition_writer_still_refuses_once_it_has_its_configuration():
-    with pytest.raises(SeamNotWired, match="object store"):
+def test_the_partition_writer_refuses_a_node_with_no_object_store(tmp_path: Path):
+    """Go's `ctx.s3DeviceManager == nil`, which `NodeContext.store` can be."""
+    from cpipes_node.node import NodeContext
+    from cpipes_node.scope import ScopeReport
+
+    doc = two_column_document([])
+    config = contract.PipesConfig.model_validate(doc)
+    node = NodeContext(
+        args=NodeArgs(id=0, pe=1),
+        settings=None,
+        config=config,
+        scope_report=ScopeReport(),
+        site_operators=Registry(),
+        store=None,
+    )
+    builder = BuilderEnv(
+        env={},
+        done_signal=Done(),
+        session_id_value="s1",
+        debug=False,
+        operator_type="partition_writer",
+        node=node,
+        registry=object(),
+        spec=Cfg(type="partition_writer", output_channel=stage_channel()),
+    )
+    with pytest.raises(SeamNotWired, match="no object store"):
         PartitionWriter.build(
-            env(), args_for(config=Cfg(device_writer_type="csv_writer"))
+            builder, args_for(config=Cfg(device_writer_type="csv_writer"))
+        )
+
+
+def test_a_builder_env_refuses_to_be_half_filled():
+    """Each of the three answers something a Go built-in reads off its receiver,
+    so a missing one would fail at the operator that needed it rather than here.
+    """
+    with pytest.raises(NodeError, match="registry, spec"):
+        BuilderEnv(
+            env={},
+            done_signal=Done(),
+            session_id_value="s1",
+            debug=False,
+            operator_type="partition_writer",
+            node=object(),
         )
 
 
 def test_partition_writer_config_is_required_by_the_contract():
-    """What makes the refusal above correct for ever rather than provisional."""
+    """Why `args.config is None` can never mean "the author wrote no block"."""
     field = contract.model.TransformationSpecPartitionWriter.model_fields[
         "partition_writer_config"
     ]
@@ -795,3 +945,214 @@ def test_the_env_reaches_a_column_transformation_through_the_operator_env():
     )
     pipe.apply([None, None])
     assert list(pipe.output.channel.records) == [[4, None]]
+
+
+# --- partition_writer, through a whole document ------------------------------
+#
+# **The anti-P4-I43 assertion for the third operator.** Before P9-I55's repair
+# none of these could exist: the operator refused at build time whatever the
+# document said, so every check on it went through `build_from` and the dispatch
+# was exercised by nothing.
+
+
+def partition_writer_document(output_channel: dict, **config: object) -> dict:
+    doc = two_column_document(
+        [
+            {
+                "type": "partition_writer",
+                "output_channel": output_channel,
+                "partition_writer_config": {
+                    "device_writer_type": "csv_writer",
+                    **config,
+                },
+            }
+        ]
+    )
+    doc["channels"] = [
+        {"name": "in", "columns": ["a", "b"]},
+        {"name": "out", "columns": ["a", "b"]},
+    ]
+    return doc
+
+
+def run_writer(doc: dict, tmp_path: Path, node_id: int = 0, **kwargs: object):
+    path = tmp_path / "pw.pc.json"
+    path.write_text(json.dumps(doc))
+    store = Local(tmp_path)
+    result = coordinate(
+        NodeArgs(id=node_id, pe=1),
+        FileConfigSource(path),
+        store=store,
+        site_operators=Registry(),
+        **kwargs,
+    )
+    return result, store
+
+
+def test_a_partition_writer_writes_files_from_a_document(tmp_path: Path):
+    """Ten generated records into one part file, reached from the `.pc.json`."""
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "output",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "key_prefix": "corpus/$JETS_PARTITION_LABEL",
+        }
+    )
+    result, store = run_writer(doc, tmp_path)
+    assert result.source_rows == 10
+    # The records leave the DAG at the writer, so the channel counts none — the
+    # property `PartitionWriterPipe`'s own docstring states.
+    assert result.channel_rows["out"] == 0
+    keys = store.list("corpus/")
+    assert len(keys) == 1
+    assert keys[0].startswith("corpus/0000P/")
+    # A header line and ten records: `format: "csv"` writes headers where
+    # `headerless_csv` does not, and the count says which was honoured.
+    assert store.get(keys[0]).decode().splitlines() == ["a,b"] + [","] * 10
+
+
+def test_the_key_a_partition_file_lands_under_carries_the_node(tmp_path: Path):
+    """`$JETS_PARTITION_LABEL` is `%04dP` of the node id, and it is in the path.
+
+    Which is what keeps two nodes of one run from writing the same key — the
+    property X2 rests on, asserted here at the one place the key is formed.
+    """
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "output",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "key_prefix": "corpus/$JETS_PARTITION_LABEL",
+        }
+    )
+    _, store = run_writer(doc, tmp_path, node_id=7)
+    assert [k.split("/")[1] for k in store.list("corpus/")] == ["0007P"]
+
+
+def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
+    """The other arm of the destination switch, and the one a merge reads.
+
+    `<stage>/process_name=<p>/session_id=<s>/step_id=<w>/jets_partition=<label>`
+    is `NewPartitionWriterTransformationPipe`'s first case verbatim, and
+    `merge_files` assembles exactly that shape.
+    """
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+            "write_step_id": "reduce01",
+        }
+    )
+    doc["common_runtime_args"]["process_name"] = "CorpusProcess"
+    _, store = run_writer(doc, tmp_path, prefixes=Prefixes(stage="stage"))
+    assert store.list("stage/")[0].startswith(
+        "stage/process_name=CorpusProcess/session_id=s1/step_id=reduce01/"
+        "jets_partition=0000P/"
+    )
+
+
+def test_a_stage_channel_naming_neither_step_nor_file_key_is_refused(tmp_path: Path):
+    """Go's own message, and the one refusal in the switch that is the author's."""
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+        }
+    )
+    with pytest.raises(StartupError, match="WriteStepId or FileKey"):
+        run_writer(doc, tmp_path, prefixes=Prefixes(stage="stage"))
+
+
+def test_the_partition_size_a_document_authors_reaches_the_writer(tmp_path: Path):
+    """The seam measured in files rather than in an object's identity.
+
+    `partition_size: 4` over ten records is three parts; before the repair the
+    block did not reach the operator and the run wrote one.
+    """
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "output",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "key_prefix": "corpus",
+        },
+        partition_size=4,
+    )
+    _, store = run_writer(doc, tmp_path)
+    assert len(store.list("corpus/")) == 3
+
+
+def failing_column_document(config: dict) -> dict:
+    """A runnable document whose mapping fails on every record.
+
+    `failing_column`'s shape at document scale: the input channel declares a
+    third column and the main input sends two, so the select resolves at build
+    time and fails at update time on every record.
+    """
+    doc = two_column_document(
+        [
+            {
+                "type": "map_record",
+                "output_channel": memory_channel(),
+                "columns": [select("x", "c")],
+                "map_record_config": config,
+            }
+        ]
+    )
+    doc["channels"][0] = {"name": "in", "columns": ["a", "b", "c"]}
+    return doc
+
+
+def test_a_map_record_error_channel_a_document_authors_reaches_the_operator(
+    tmp_path: Path,
+):
+    """The half of P9-I55 that is not about files.
+
+    `map_record_config.error_channel` is resolved by the graph through the same
+    registry path `site_config.error_channel` takes, so a built-in that reports
+    a row-level failure reaches a channel rather than a `None`. Before the
+    repair `args.error_channel` was `None` on every built-in and
+    `OperatorEnv.report_error` returned at its first line — **silently**, which
+    is its documented behaviour for a step that authored no channel.
+    """
+    doc = failing_column_document(
+        {
+            "error_channel": {
+                "name": "errors",
+                "type": "memory",
+                "channel_spec_name": "errors",
+            }
+        }
+    )
+    doc["channels"].append({"name": "errors", "columns": list(PROCESS_ERROR_COLUMNS)})
+    result = run(doc, tmp_path)
+    assert result.channel_rows["errors"] == 10
+
+
+def test_an_authored_on_error_fail_is_distinguishable_from_an_unreachable_one(
+    tmp_path: Path,
+):
+    """What the seam's cost was, stated as the thing it made impossible.
+
+    `on_error: fail` stops the run at the first failing record. While the block
+    could not reach the operator the policy was always `pass_through`, so an
+    authored `fail` and an unreachable one produced the same corpus and nothing
+    could tell them apart.
+    """
+    doc = failing_column_document({"on_error": "fail"})
+    with pytest.raises(ColumnFailed):
+        run(doc, tmp_path)
