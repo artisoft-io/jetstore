@@ -919,3 +919,28 @@ def test_an_unset_stage_prefix_is_refused_rather_than_merging_nothing(tmp_path):
             {"p0": b"a,b\n1,2\n"},
             prefixes=Prefixes(output="jetstore/output"),
         )
+
+
+def test_a_merge_step_is_validated_to_run_on_exactly_one_partition():
+    """**P9-I68's premise, asserted against the Go source.**
+
+    The argument that Phase 8's harness should read the tree rather than a merged
+    directory rests on this and on nothing softer: a merge step's partition set
+    must be of size one, and that set is *derived* by listing the previous step's
+    stage prefix. So a merge can only see part files one partition wrote, and
+    merging a forty-node corpus means funnelling it through one node first.
+
+    Read off the source because the whole value of the finding is that it is a
+    property of the engine rather than a preference — and because the day that
+    validation is relaxed, the argument changes and this goes red.
+    """
+    reducing = go_source("jets/compute_pipes/actions_start_reducing_cp.go")
+    block = reducing[reducing.index('if pipeConfig[0].Type == "merge_files"') :][:600]
+    assert "if len(partitions) != 1 {" in block
+    assert "requires a single partition" in block
+    # And the partition set is derived from the previous step's stage listing.
+    utils = go_source("jets/compute_pipes/s3_utils.go")
+    assert "func (cpipesStartup *CpipesStartup) GetComputePipesPartitions" in utils
+    assert "ExtractPartitionLabelFromS3Key" in utils
+    # The merge's own listing is partition-scoped, which is the other half.
+    assert "jets_partition=%s" in go_source("jets/compute_pipes/actions_s3_utils.go")

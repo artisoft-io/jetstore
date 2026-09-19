@@ -196,6 +196,18 @@ Three inputs are refused by name: snappy compression, more than one parquet part
 (a single one is a copy, which is Go's own condition), and xlsx — which the Go
 merge does not support either.
 
+**And building the bridge produced the argument for the other answer to P9-I09**
+(recorded as P9-I68). A merge step is validated to run on exactly **one**
+partition, and that partition set is derived by listing the previous step's stage
+prefix — so a merge can only see part files one partition wrote. Merging a corpus
+a forty-node run wrote therefore means funnelling the whole corpus through one
+node first, which is the memory concentration household partitioning was
+chartered to remove. The case for merging is the consumer's (X5's *same finding
+set*, and a customer wanting one file per table); the case against is the
+producer's, and it is the one that scales with `nbr_nodes`. What would settle it
+is a peak-memory measurement of that single-partition step at the authored cohort
+size, which nobody has.
+
 ## The node's side effects
 
 **Three tables through four statements**, where the assessment counts six tables
@@ -245,7 +257,7 @@ deployment and a local run take the same path with one branch fewer.
 ## Checks
 
 ```
-$ python -m pytest -q          # 277 tests
+$ python -m pytest -q          # 278 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```

@@ -45,6 +45,42 @@ Three inputs are refused rather than approximated, each naming what it needs:
   faithfully rather than widened.
 - **xlsx**, which Go itself carries as `//*TODO Add support for xlsx`.
 
+# P9-I09: the bridge is built, and the argument is that the harness should read
+# the tree instead
+
+**P9-I09 asks whether Phase 8's harness should read the partitioned tree rather
+than a merged directory, and building the bridge is what produced the argument
+for the other answer.** It is not an opinion about tidiness; it is a property of
+the engine, measured from its own source, and it is recorded as **P9-I68**.
+
+**A merge step runs on exactly one partition, by validation.**
+`actions_start_reducing_cp.go:190-196` refuses a `merge_files` step whose
+partition set is not of size one, and that set is *derived* — for a `stage`
+channel `GetComputePipesPartitions` lists the previous step's stage prefix and
+extracts the `jets_partition=` labels (`s3_utils.go:145-170`). The merge's own
+listing is partition-scoped too: `GetS3FileKeys` includes
+`/jets_partition=<the merge node's label>`. Put together: **a merge can only see
+part files the step before it wrote under one partition label.**
+
+So merging a corpus a forty-node run wrote requires the whole corpus to funnel
+through a single partition first — one node reading everything — which is exactly
+the memory concentration household partitioning was chartered to remove
+(healthcare_corpus P6-I27, the row Phase 9's charter says this phase answers).
+Twelve tables do not soften it: one node writing twelve single-partition stage
+channels is still one node holding the run.
+
+**The case for merging anyway, which is real and is why the bridge is built.**
+X5 asks that the harness report *the same finding set* over a partitioned corpus
+as over a single-process one, and that proposition is easiest to hold when the
+input shape is identical — changing the reader changes the instrument. And a
+customer taking delivery of a corpus wants one file per table rather than forty.
+Both are about the consumer; the argument above is about the producer, and the
+producer's is the one that scales with `nbr_nodes`.
+
+**What would settle it** is a measurement nobody has: the peak memory of the
+single-partition step at the authored cohort size. Until then the bridge exists,
+the cost is written down, and P9-I09 is a live question rather than a closed one.
+
 # The one Go-side disagreement this module had to choose between
 
 The file keys a merge reads are resolved twice in Go, and the two do not agree.
