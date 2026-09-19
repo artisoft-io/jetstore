@@ -159,8 +159,8 @@ def test_the_gate_examines_the_corpus_rather_than_passing_over_it():
     assert examined > 400, examined
 
 
-def test_the_gate_reports_all_three_kinds():
-    doc = document([map_record_step(), site_step("hc_corpus")])
+def test_the_gate_reports_all_three_kinds(declared_and_unbuilt):
+    doc = document([out_of_scope_step(), site_step("hc_corpus")])
     report = check_scope(
         contract.PipesConfig.model_validate(doc),
         site_operators=Registry().with_operators({"hc_corpus": lambda e, s: None}),
@@ -170,17 +170,20 @@ def test_the_gate_reports_all_three_kinds():
     }
     assert kinds == set(TokenKind)
     # The site operator is accepted, and so are `fan_out` and `generator` since
-    # P9-T04 gave both a `build`; `map_record` is declared and not built. The
-    # order is the model's field order and not the JSON's — `PipeSpecFanOut`
+    # P9-T04 gave both a `build`; the fixture's token is declared and not built.
+    # The order is the model's field order and not the JSON's — `PipeSpecFanOut`
     # declares `apply` before `input_channel` — which is stable and is what
     # "deterministic" has to mean here; it is asserted rather than described so
     # that a walk that started yielding in set order would be caught.
     #
     # **The unimplemented list read `["fan_out", "map_record", "generator"]`
-    # until P9-T04.** Two tokens moved from that list to the accepted one, and
-    # the ordering claim is what survives the move: `fan_out` still precedes
-    # `map_record`, which still precedes `generator`, wherever each one lands.
-    assert [f.token for f in report.unimplemented] == ["map_record"]
+    # until P9-T04 and `["map_record"]` until P9-T06.** Tokens keep moving from
+    # that list to the accepted one, and the ordering claim is what survives
+    # every move: the transformation still precedes `generator`, wherever each
+    # one lands. The unimplemented exemplar is now a declaration the fixture
+    # makes, because a test whose subject is the unfinished token has a subject
+    # that empties.
+    assert [f.token for f in report.unimplemented] == ["aggregate"]
     assert report.out_of_scope == []
     assert [t for _, t, _ in report.accepted] == ["fan_out", "hc_corpus", "generator"]
 

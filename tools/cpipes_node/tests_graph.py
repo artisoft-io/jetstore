@@ -895,11 +895,25 @@ def test_a_builtin_transformation_wins_over_a_registration(monkeypatch, tmp_path
     assert reached == ["builtin"]
 
 
-def test_an_unimplemented_builtin_names_the_task_that_owes_it(tmp_path: Path):
+def test_an_unimplemented_builtin_names_the_task_that_owes_it(
+    tmp_path: Path, declared_and_unbuilt
+):
+    """It named `map_record` until P9-T06 built it; see the fixture's docstring.
+
+    `aggregate` is a token the contract declares, so the document validates, and
+    the fixture makes it a declaration with no `build` — which is the state this
+    refusal is about.
+    """
     doc = runtime_document(
-        [{"type": "map_record", "output_channel": memory_channel("out"), "columns": []}]
+        [
+            {
+                "type": "aggregate",
+                "output_channel": memory_channel("out"),
+                "new_record": True,
+            }
+        ]
     )
     # The scope gate refuses it first, which is the earlier and better refusal;
     # the graph's own arm says the same thing and is reachable from `run`.
-    with pytest.raises(Exception, match="P9-T06"):
+    with pytest.raises(Exception, match=declared_and_unbuilt.owed_by):
         run_document(doc, {}, tmp_path=tmp_path)

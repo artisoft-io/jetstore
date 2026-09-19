@@ -116,11 +116,17 @@ def test_a_twenty_ninth_operator_that_did_not_join_the_scope_fails_loudly():
     assert "the scope searched" in str(exc.value)
 
 
-def test_a_declared_token_with_no_build_is_a_different_refusal():
-    finding = scope.classify(TokenKind.TRANSFORMATION, "map_record", "$")
+def test_a_declared_token_with_no_build_is_a_different_refusal(declared_and_unbuilt):
+    """The subject is a declaration this test makes, not a token that is behind.
+
+    It named `map_record` until P9-T06 built it. The *mechanism* is what the test
+    is about, so the fixture declares a token with no `build` and this keeps
+    working once every real declaration has one — see the fixture's docstring.
+    """
+    finding = scope.classify(TokenKind.TRANSFORMATION, "aggregate", "$")
     assert finding is not None
     assert finding.category is FindingKind.UNIMPLEMENTED
-    assert "P9-T06" in finding.reason
+    assert declared_and_unbuilt.owed_by in finding.reason
     report = scope.ScopeReport(unimplemented=[finding])
     with pytest.raises(OperatorNotImplemented):
         report.raise_if_unimplemented()
@@ -152,12 +158,16 @@ def test_implementedness_is_derived_and_not_declared():
 
     The first half is the derivation and holds for every declaration. The second
     was `assert not cls.implemented()` with the note *update this file when the
-    first one lands*, and P9-T04 is when: `generator`, `memory` and `fan_out` have
-    a `build` and the other five do not. **The census is asserted rather than the
-    absence**, so a token gaining or losing an implementation is a failure here
-    and not a silence — and every unimplemented one still has to name its owner,
-    which is the half that was always about the declaration rather than about
-    progress.
+    first one lands*, then P9-T04's three, and **P9-T06 and P9-T07 take it to
+    seven of eight**: the three transformations now carry a `build` and
+    `merge_files` is P9-T08's. **The census is asserted rather than the absence**,
+    so a token gaining or losing an implementation is a failure here and not a
+    silence — and every unimplemented one still has to name its owner, which is
+    the half that was always about the declaration rather than about progress.
+
+    *This literal is the one line of this file two concurrent branches both
+    move, which is P7-I62's shape: re-measure it at the merge rather than taking
+    either branch's count.*
     """
     implemented: list[str] = []
     for cls in scope.declarations():
@@ -166,19 +176,28 @@ def test_implementedness_is_derived_and_not_declared():
             implemented.append(cls.token)
         else:
             assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
-    # P9-T04's three: the two input-channel types and the one pipe kind the
-    # graph runs. `merge_files` is P9-T08's and the three transformations are
-    # P9-T06's and P9-T07's.
-    assert sorted(implemented) == ["fan_out", "generator", "memory"]
+    assert sorted(implemented) == [
+        "fan_out",
+        "filter",
+        "generator",
+        "map_record",
+        "memory",
+        "partition_writer",
+    ]
 
 
-def test_the_base_build_refuses_and_names_the_task():
-    from cpipes_node.operators.transformations import PartitionWriter
+def test_the_base_build_refuses_and_names_the_task(declared_and_unbuilt):
+    """`Operator.build`'s own refusal, over a declaration that defines none.
 
+    It named `PartitionWriter` until P9-T07 gave that class a `build` of its
+    own — whose refusal is a different one, about the seam rather than about the
+    task (`transformations.SeamNotWired`). The base method is what this test is
+    about, so its subject is now a declaration with no `build` at all.
+    """
     with pytest.raises(OperatorNotImplemented) as exc:
-        PartitionWriter.build(None, None)
-    assert "partition_writer" in str(exc.value)
-    assert "P9-T07" in str(exc.value)
+        declared_and_unbuilt.build(None, None)
+    assert "aggregate" in str(exc.value)
+    assert declared_and_unbuilt.owed_by in str(exc.value)
 
 
 def test_two_classes_cannot_claim_one_token():
@@ -249,10 +268,21 @@ def test_a_site_operator_cannot_shadow_a_declared_built_in(caplog):
     assert "map_record" in registry.tokens()
     assert any("built-in" in r.getMessage() for r in caplog.records)
     # The built-in still wins: `classify` asks the declaration registry first.
-    finding = scope.classify(
-        TokenKind.TRANSFORMATION, "map_record", "$", site_tokens=registry.tokens()
+    # **The assertion inverted at P9-T06** — it read `UNIMPLEMENTED`, because the
+    # built-in was declared and unbuilt and the registration did not change that.
+    # Now the built-in is built, so the same registration is shadowed by a token
+    # that is *in scope and finished*: `classify` answers None, which is the same
+    # claim (the registry never wins) over a stronger fact.
+    assert (
+        scope.classify(
+            TokenKind.TRANSFORMATION, "map_record", "$", site_tokens=registry.tokens()
+        )
+        is None
     )
-    assert finding is not None and finding.category is FindingKind.UNIMPLEMENTED
+    # And the shadowing is asserted at the dispatch as well as at the gate, which
+    # is where it would actually be observed: `tests_graph.py`'s
+    # `test_a_builtin_transformation_wins_over_a_registration` runs a document.
+    assert scope.declaration(TokenKind.TRANSFORMATION, "map_record") is not None
 
 
 def test_an_unreachable_registration_is_dropped(caplog):

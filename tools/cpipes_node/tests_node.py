@@ -113,11 +113,14 @@ def test_an_out_of_scope_token_aborts_before_anything_else(tmp_path: Path):
     assert "the scope searched" in str(exc.value)
 
 
-def test_a_declared_but_unbuilt_token_aborts_distinguishably(tmp_path: Path):
-    doc = runtime_document([map_record_step()])
+def test_a_declared_but_unbuilt_token_aborts_distinguishably(
+    tmp_path: Path, declared_and_unbuilt
+):
+    """It named `map_record` until P9-T06 built it; see the fixture's docstring."""
+    doc = runtime_document([out_of_scope_step()])
     with pytest.raises(OperatorNotImplemented) as exc:
         coordinate(NodeArgs(id=0, pe=1), _source(tmp_path, doc), store=Local(tmp_path))
-    assert "P9-T06" in str(exc.value)
+    assert declared_and_unbuilt.owed_by in str(exc.value)
 
 
 def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path):
@@ -197,16 +200,26 @@ def test_an_invalid_mode_is_refused_with_the_go_node_s_message(tmp_path: Path):
 def test_the_scope_command_prints_the_declaration(capsys):
     assert main.main(["scope"]) == main.EXIT_OK
     out = capsys.readouterr().out
-    assert "partition_writer" in out and "P9-T07" in out
+    # `partition_writer` is declared *and* built since P9-T07, so the owed-by
+    # marker is no longer printed beside it; what the command must still print is
+    # every declared token and, for the one that is still owed, its owner.
+    assert "partition_writer" in out
+    assert "merge_files" in out and "P9-T08" in out
 
 
-def test_the_check_command_separates_the_two_failures(tmp_path: Path, capsys):
+def test_the_check_command_separates_the_two_failures(
+    tmp_path: Path, capsys, declared_and_unbuilt
+):
+    # The fixture makes `aggregate` *declared*, so it is the unimplemented
+    # exemplar below and cannot also be the out-of-scope one. A token nothing
+    # declares at all is a site token with no registry behind it, which is the
+    # honest out-of-scope case anyway.
     out_of_scope = tmp_path / "bad.pc.json"
-    out_of_scope.write_text(json.dumps(document([out_of_scope_step()])))
+    out_of_scope.write_text(json.dumps(document([site_step("transmogrify")])))
     assert main.main(["check", "--config", str(out_of_scope)]) == main.EXIT_OUT_OF_SCOPE
 
     declared = tmp_path / "ok.pc.json"
-    declared.write_text(json.dumps(document([map_record_step()])))
+    declared.write_text(json.dumps(document([out_of_scope_step()])))
     assert main.main(["check", "--config", str(declared)]) == main.EXIT_NOT_IMPLEMENTED
     assert "examined and accepted" in capsys.readouterr().out
 
@@ -222,9 +235,18 @@ def test_the_check_command_is_deterministic(tmp_path: Path, capsys):
     assert len({r.err for r in runs}) == 1
 
 
-def test_the_run_command_refuses_and_says_why(tmp_path: Path, capsys):
+def test_the_run_command_refuses_and_says_why(
+    tmp_path: Path, capsys, declared_and_unbuilt
+):
+    """It ran `map_record` until P9-T06 built it, and then exited 0.
+
+    Inverted rather than deleted: the refusal path is still the subject, so the
+    exemplar is the fixture's declared-and-unbuilt token — and the *other*
+    direction is asserted by `test_the_run_command_runs_a_built_document` below,
+    which is new and is the evidence that this operator reaches a row.
+    """
     path = tmp_path / "p.pc.json"
-    path.write_text(json.dumps(runtime_document([map_record_step()])))
+    path.write_text(json.dumps(runtime_document([out_of_scope_step()])))
     code = main.main(
         [
             "run",
