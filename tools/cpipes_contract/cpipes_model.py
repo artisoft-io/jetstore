@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
 
 
 def _tag_default(key: str, default: str):
@@ -33,6 +33,44 @@ def _tag_default(key: str, default: str):
         return value
 
     return inject
+
+
+def _unlisted(tokens: tuple[str, ...]):
+    """Refuse a discriminator value that is one of the union's own tokens, or
+    empty - the two halves of a complement branch's membership.
+
+    The branch states both in `json_schema_extra` (`"not": {"enum": [...]}`
+    and `"minLength": 1`) and states them to the *schema*: Pydantic never
+    reads that dict while validating. Without this the emitted JSON Schema and
+    this model disagree about one rule, and they disagree in the direction
+    that hurts - a malformed built-in fails its own tagged branch, satisfies
+    the complement branch whose `type` is a bare `str`, and is reported as an
+    unknown site operator rather than as the malformed built-in it is. The
+    engine's counterpart is `validateSiteOperatorSpec`
+    (`jets/compute_pipes/site_operators.go`), which refuses a `site_config` on
+    a token the dispatch handles itself.
+
+    The empty string is the second half and is not padding: `not: enum`
+    admits it, an empty `type` is the `~override` shape, and in an `apply`
+    position it reaches `buildSiteOperator`, which cannot find it -
+    `WithOperators` refuses to register an empty name at all.
+    """
+
+    def check(value: str) -> str:
+        if value in tokens:
+            raise ValueError(
+                f"'{value}' is a built-in operator, dispatched by name, and cannot "
+                "be a site operator. If it is meant to be the built-in, its own "
+                "configuration is what failed to validate."
+            )
+        if not value:
+            raise ValueError(
+                "a site operator's type is the name it is registered under and "
+                "cannot be empty"
+            )
+        return value
+
+    return check
 
 
 class _Base(BaseModel):
@@ -1541,6 +1579,9 @@ class TransformationSpecOverride(_Base):
     sort_config: SortSpec | None = Field(default=None, description="Configuration of the sort operator.")
 
 
+_TRANSFORMATION_SPEC_TOKENS = ("ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render")
+
+
 class TransformationSpecSite(_Base):
     """An operator this deployment supplies rather than JetStore: its type names none of the built-in operators and the builder's dispatch resolves it through the site operator registry."""
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations, handed to the factory as specs; the operator builds evaluators from them through OperatorEnv.ColumnEvaluator.")
@@ -1549,7 +1590,7 @@ class TransformationSpecSite(_Base):
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     site_config: SiteOperatorSpec | None = Field(default=None, description="Configuration of the site-supplied operator: its error channel, its error cap, and its own configuration document.")
-    type: str = Field(description="The operator, naming none of the built-in operators: an unrecognised type is what sends the builder's dispatch to the site operator registry.", json_schema_extra={"minLength": 1, "not": {"enum": ["ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render"]}})
+    type: Annotated[str, AfterValidator(_unlisted(_TRANSFORMATION_SPEC_TOKENS))] = Field(description="The operator, naming none of the built-in operators: an unrecognised type is what sends the builder's dispatch to the site operator registry.", json_schema_extra={"minLength": 1, "not": {"enum": list(_TRANSFORMATION_SPEC_TOKENS)}})
     when: ExpressionNode | None = Field(default=None, description="Guard: the transformation is applied only when this evaluates true.")
 
 
@@ -1600,7 +1641,13 @@ PipeSpec = Annotated[Union[PipeSpecFanOut, PipeSpecMergeFiles, PipeSpecSplitter]
 SchemaProviderSpec = Annotated[Union[SchemaProviderSpecDefault, SchemaProviderSpecPipelineCoordinatorMap], Field(discriminator="type")]
 SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Field(discriminator="type"), BeforeValidator(_tag_default("type", "standard"))]
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
-TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender], Field(discriminator="type")]
+TransformationSpec = Annotated[
+    Union[
+        Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender], Field(discriminator="type")],
+        TransformationSpecSite,
+    ],
+    Field(union_mode="left_to_right"),
+]
 
 
 # class -> (go_struct, type_token); the reflect direction's key.

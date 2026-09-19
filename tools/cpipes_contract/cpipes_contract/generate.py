@@ -30,6 +30,7 @@ the source of truth to the Python model and regenerates the CSV from it.
 from __future__ import annotations
 
 import argparse
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -118,7 +119,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
 
 
 def _tag_default(key: str, default: str):
@@ -134,6 +135,44 @@ def _tag_default(key: str, default: str):
     return inject
 
 
+def _unlisted(tokens: tuple[str, ...]):
+    """Refuse a discriminator value that is one of the union's own tokens, or
+    empty - the two halves of a complement branch's membership.
+
+    The branch states both in `json_schema_extra` (`"not": {"enum": [...]}`
+    and `"minLength": 1`) and states them to the *schema*: Pydantic never
+    reads that dict while validating. Without this the emitted JSON Schema and
+    this model disagree about one rule, and they disagree in the direction
+    that hurts - a malformed built-in fails its own tagged branch, satisfies
+    the complement branch whose `type` is a bare `str`, and is reported as an
+    unknown site operator rather than as the malformed built-in it is. The
+    engine's counterpart is `validateSiteOperatorSpec`
+    (`jets/compute_pipes/site_operators.go`), which refuses a `site_config` on
+    a token the dispatch handles itself.
+
+    The empty string is the second half and is not padding: `not: enum`
+    admits it, an empty `type` is the `~override` shape, and in an `apply`
+    position it reaches `buildSiteOperator`, which cannot find it -
+    `WithOperators` refuses to register an empty name at all.
+    """
+
+    def check(value: str) -> str:
+        if value in tokens:
+            raise ValueError(
+                f"'{value}' is a built-in operator, dispatched by name, and cannot "
+                "be a site operator. If it is meant to be the built-in, its own "
+                "configuration is what failed to validate."
+            )
+        if not value:
+            raise ValueError(
+                "a site operator's type is the name it is registered under and "
+                "cannot be empty"
+            )
+        return value
+
+    return check
+
+
 class _Base(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -143,6 +182,12 @@ class _Base(BaseModel):
 def camel(token: str) -> str:
     parts = token.lstrip(VIRTUAL_PREFIX).replace("-", "_").split("_")
     return "".join(p[:1].upper() + p[1:] for p in parts if p)
+
+
+def complement_tokens_name(struct: str) -> str:
+    """`TransformationSpec` -> `_TRANSFORMATION_SPEC_TOKENS`."""
+    snake = re.sub(r"(?<!^)(?=[A-Z])", "_", struct).upper()
+    return f"_{snake}_TOKENS"
 
 
 class Emitter:
@@ -240,16 +285,23 @@ class Emitter:
             return f"    {name}: {typ}"
         return f"    {name}: {typ} | None = None"
 
-    def complement_field_line(self, row: FieldRow, value_tokens: list[str]) -> str:
+    def complement_field_line(self, row: FieldRow, struct: str) -> str:
         """The discriminator of an `unlisted(...)` token: a string that is none of them.
 
         A Pydantic `Literal` cannot say *any token but these*, so the constraint
-        is carried as `json_schema_extra` and appears in the emitted schema as
-        `"not": {"enum": [...]}`. The list is the struct's own value tokens read
-        off `types.csv`, so the branch is the exact complement of the union's
-        other branches rather than a second list of them - which is the mistake
-        `builtinOperatorTypes` and `reportsRowLevelFailures` each have a test
-        against on the Go side.
+        reaches the emitted schema as `json_schema_extra` — `"not": {"enum":
+        [...]}`— and reaches *validation* through `AfterValidator(_unlisted(...))`,
+        because `json_schema_extra` is schema-only and a model that merely
+        described the rule would disagree with the schema the same emitter
+        writes. `_unlisted`'s docstring carries which direction that disagreement
+        runs in.
+
+        **Both readers take the tuple emitted by `complement_tokens_line`**, so
+        the enum and the refusal are one list rather than two copies of one —
+        which is the mistake `builtinOperatorTypes` and `reportsRowLevelFailures`
+        each have a test against on the Go side. The tuple itself is the struct's
+        own value tokens read off `types.csv`, so the branch is the exact
+        complement of the union's other branches.
 
         **`minLength` is half the constraint and is not padding.** `not: enum`
         admits the empty string, which is not an unlisted token: an empty `type`
@@ -260,11 +312,27 @@ class Emitter:
         """
         desc = (row.description or "").strip()
         desc = desc.replace("\\", "\\\\").replace('"', '\\"')
-        enum = ", ".join(f'"{token}"' for token in value_tokens)
-        extra = f'json_schema_extra={{"minLength": 1, "not": {{"enum": [{enum}]}}}}'
+        const = complement_tokens_name(struct)
+        extra = (
+            f'json_schema_extra={{"minLength": 1, "not": {{"enum": list({const})}}}}'
+        )
         parts = [f'description="{desc}"'] if desc else []
         parts.append(extra)
-        return f"    {row.json_key}: str = Field({', '.join(parts)})"
+        return (
+            f"    {row.json_key}: Annotated[str, AfterValidator(_unlisted({const}))]"
+            f" = Field({', '.join(parts)})"
+        )
+
+    def complement_tokens_line(self, struct: str, value_tokens: list[str]) -> str:
+        """The union's own value tokens, named once and read twice.
+
+        Emitted immediately above the complement class, because a class body
+        evaluates its `json_schema_extra` at definition time.
+        """
+        tokens = ", ".join(f'"{token}"' for token in value_tokens)
+        if len(value_tokens) == 1:
+            tokens += ","
+        return f"{complement_tokens_name(struct)} = ({tokens})"
 
     # -- class emission -----------------------------------------------------
 
@@ -358,10 +426,6 @@ class Emitter:
             # surface is its own (the matrix rules `when`/`conditional_config`
             # off the ~override shape, which the base would smuggle back in).
             cname = self.class_name(struct, t.type_token)
-            out.append(f"class {cname}(_Base):")
-            doc = self.type_doc(t)
-            if doc:
-                out.append(f'    """{doc}"""')
             # **A complement token keeps its discriminator, and it is the only
             # kind of virtual token that does.** `~override` is selected by the
             # discriminator being *absent*, so carrying it would contradict the
@@ -375,6 +439,15 @@ class Emitter:
                 else ("", "")
             )
             complement = when_kind == "unlisted" and when_key == disc
+            value_tokens = [r.type_token for r in real]
+            if complement:
+                out.append(self.complement_tokens_line(struct, value_tokens))
+                out.append("")
+                out.append("")
+            out.append(f"class {cname}(_Base):")
+            doc = self.type_doc(t)
+            if doc:
+                out.append(f'    """{doc}"""')
             rows = [
                 f
                 for f in self.fields[(struct, t.type_token)]
@@ -383,10 +456,9 @@ class Emitter:
             ]
             if not rows and not doc:
                 out.append("    pass")
-            value_tokens = [r.type_token for r in real]
             for row in sorted(rows, key=lambda r: r.json_key):
                 if complement and row.json_key == disc:
-                    out.append(self.complement_field_line(row, value_tokens))
+                    out.append(self.complement_field_line(row, struct))
                 else:
                     out.append(self.field_line(row))
             out.append("")
@@ -493,7 +565,57 @@ class Emitter:
         parts = [f"Union[{members}]", f'Field(discriminator="{disc}")']
         if default_tag is not None:
             parts.append(f'BeforeValidator(_tag_default("{disc}", "{default_tag}"))')
-        out.append(f"{struct} = Annotated[{', '.join(parts)}]")
+        tagged = f"Annotated[{', '.join(parts)}]"
+
+        complement = self.complement_token(struct)
+        if complement is None:
+            out.append(f"{struct} = {tagged}")
+            return
+
+        # **The complement branch joins the alias, and it cannot join the tagged
+        # union.** `Field(discriminator=...)` keys its members by literal, and a
+        # branch whose token is *any string but* those has no literal to be keyed
+        # by - which is why the emitted JSON Schema gets this member by a splice
+        # (`schema.py`) rather than from Pydantic. What Pydantic *can* do is hold
+        # the tagged union and the complement branch in one ordered union, and
+        # that is what the engine's dispatch is: `BuildPipeTransformationEvaluator`
+        # tries the built-in tokens and falls through to the site registry.
+        #
+        # **Left-to-right and not `smart`**, because the order is the rule rather
+        # than a preference: the complement branch's discriminator is a bare `str`
+        # and would otherwise be a candidate for every token, built-ins included.
+        # The second half of that guarantee is `_unlisted`, which refuses a
+        # built-in token on the complement branch outright - so a *malformed*
+        # built-in fails both branches and is reported against its own.
+        #
+        # **Emitting this changed no byte of `cpipes_schema.json`.** Pydantic
+        # writes the widened alias as `anyOf: [<tagged oneOf>, <branch>]`, which
+        # `schema.splice_complement_branches` flattens back into the single
+        # discriminated `oneOf` the schema has always had; that function's
+        # docstring carries the argument.
+        branch = self.class_name(struct, complement.type_token)
+        out.append(f"{struct} = Annotated[")
+        out.append("    Union[")
+        out.append(f"        {tagged},")
+        out.append(f"        {branch},")
+        out.append("    ],")
+        out.append('    Field(union_mode="left_to_right"),')
+        out.append("]")
+
+    def complement_token(self, struct: str) -> TypeRow | None:
+        """The struct's `unlisted(<discriminator>)` token, or None.
+
+        One row at most: two complement branches on one union would be two
+        branches claiming the same membership, which `check` refuses.
+        """
+        disc = self.types[struct][0].discriminator
+        for t in self.types[struct]:
+            if t.variant_when in (NONE, None):
+                continue
+            when_kind, when_key = parse_variant_when(t.variant_when)
+            if when_kind == "unlisted" and when_key == disc:
+                return t
+        return None
 
     # -- driver -------------------------------------------------------------
 

@@ -455,6 +455,40 @@ schema, and that is the design rather than a gap.
 insertions and no deletions, `stamp` reports `0 stamped, 0 cleared, 0 restamped`, and the review
 these rows are waiting for is a human's.
 
+### What gap 2b left behind, and it was half the contract — 2026-09-19
+
+**The emitter change reached the JSON Schema and not the Pydantic model.** `generate.py` builds a
+union alias from the struct's *real* rows and emits virtual tokens as free-standing classes, so
+`TransformationSpec` stayed a nineteen-member tagged union and
+`ComputePipesConfig.model_validate` refused every document naming a site operator — while
+`cpipes_schema.json`, which gets the branch by a splice, validated the same document at 0 errors.
+Two readers of one contract, disagreeing, and the section above predicted the symptom exactly one
+artefact over: *the first client `.pc.json` authoring one would have turned `cpipes-contract
+validate` red*. What it actually turned red was `cpipes_node`'s corpus test, six days later, on
+`workspaces/jets_ws/pipes_config/healthcare_corpus.pc.json` — the first authored document in
+JetStore's own corpus to contain a site operator.
+
+**A union with a complement token is now emitted as an ordered union**:
+`Annotated[Union[<the tagged nineteen>, <the branch>], union_mode="left_to_right"]`. Left-to-right
+is the rule and not a preference — the branch's discriminator is a bare `str`, so under any other
+ordering it is a candidate for every token, the built-ins included. That is the model's spelling of
+`BuildPipeTransformationEvaluator`'s `default:` branch, which is what the predicate names.
+
+**And the complement's `type` refuses a built-in token at validation, not only in the schema.**
+`json_schema_extra` is read when the schema is emitted and by nothing in Pydantic, so an ordered
+union alone would have left the model admitting on the site branch exactly what the schema refuses
+by `not: enum` — and the direction of that disagreement is the harmful one: a *malformed* built-in
+fails its own tagged branch, satisfies the site branch, and is reported as an unknown site operator
+rather than as the malformed built-in it is. `_unlisted` closes it, taking the same emitted tuple
+the `not: enum` takes, so the two remain one list. The empty string is refused with it, for the
+reason F1528 gives.
+
+**The emitted `cpipes_schema.json` did not move by a byte.** Pydantic writes the widened alias as
+`anyOf: [<tagged oneOf>, <branch>]`, and `splice_complement_branches` — which used to *add* the
+branch — now *folds* that back into the single discriminated `oneOf`. Measured against the committed
+file and asserted on every run by `tests_schema.py`, which is also the first thing in this package
+to check that the committed schema is what the current model emits at all.
+
 ## The harness
 
 B.7, built before the review rather than after it, so that reviewing a row means reading what the

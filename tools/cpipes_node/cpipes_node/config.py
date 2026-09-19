@@ -100,50 +100,29 @@ class ExecutionStatusConfigSource:
 def parse_config(config_json: str) -> Any:
     """Validate the document against the contract model.
 
-    Refuses on arrival the one thing the site-operator widening makes possible
-    and JetStore refuses too: a built-in token carrying a `site_config`. In Go
-    that is `validateSiteOperatorSpec`, and the message it gives is better than
-    the one this node would otherwise give, because the widened union lets a
-    *malformed* built-in fall through to the site branch and be reported as an
-    unknown operator. Re-validating the offending node against the contract's
-    own union is what recovers the real error.
+    **This carried a post-walk refusal until 2026-09-19 and no longer does.**
+    While the site branch lived in this package's own widening, its `type` was
+    a bare `str` and a *malformed* built-in could fail its own tagged branch,
+    satisfy the site branch and arrive as an unknown site operator; the walk
+    caught that on arrival and re-raised the built-in's own error. The contract
+    model now refuses a built-in token on the complement branch outright
+    (`_unlisted`, `cpipes_model.py`), which is JetStore's `validateSiteOperatorSpec`
+    rule moved to where the document is read rather than repeated after it — so
+    such a document fails `model_validate` with both branches' errors, the
+    built-in's own among them, and the walk could no longer fire. A check that
+    cannot fire reports a clean result over a subject it can no longer see, so
+    it is deleted rather than kept for reassurance.
+    `tests_config.test_a_malformed_builtin_is_reported_against_its_own_branch`
+    is what holds the replacement to the same promise.
     """
     try:
         document = json.loads(config_json)
     except json.JSONDecodeError as exc:
         raise ConfigInvalid(f"pipeline configuration is not JSON: {exc}") from exc
     try:
-        config = contract.PipesConfig.model_validate(document)
+        return contract.PipesConfig.model_validate(document)
     except ValidationError as exc:
         raise ConfigInvalid(f"pipeline configuration is not valid:\n{exc}") from exc
-
-    for obj, where, _parent in _walk(config):
-        if not isinstance(obj, contract.TransformationSpecSite):
-            continue
-        if obj.type not in contract.contract_tokens("transformation"):
-            continue
-        # A built-in reached the site branch, which happens exactly when its
-        # own configuration failed. Say which, and say it in the built-in's
-        # own words.
-        detail = ""
-        try:
-            _validate_as_builtin(obj)
-        except ValidationError as exc:
-            detail = f"\n{exc}"
-        raise ConfigInvalid(
-            f"{where}: '{obj.type}' is a built-in operator and cannot be "
-            "configured as a site operator; either its own configuration is "
-            f"invalid or it carries a site_config.{detail}"
-        )
-    return config
-
-
-def _validate_as_builtin(obj: Any) -> None:
-    from pydantic import TypeAdapter
-
-    TypeAdapter(contract.TransformationSpec).validate_python(
-        obj.model_dump(exclude_none=True)
-    )
 
 
 def _walk(

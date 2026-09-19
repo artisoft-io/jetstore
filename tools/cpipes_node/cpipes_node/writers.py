@@ -70,7 +70,7 @@ import math
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
-from typing import Any
+from typing import IO, Any
 
 from .errors import NodeError
 
@@ -214,25 +214,53 @@ def write_csv(
     produces a file with more fields than columns, and the flag exists for
     downstream consumers that cannot parse quotes at all.
     """
+    sink = io.BytesIO()
+    write_csv_to(
+        sink,
+        columns,
+        rows,
+        header=header,
+        delimiter=delimiter,
+        quote_all=quote_all,
+        no_quotes=no_quotes,
+        use_crlf=use_crlf,
+    )
+    return sink.getvalue()
+
+
+def write_csv_to(
+    sink: IO[bytes],
+    columns: Sequence[str],
+    rows: Iterable[Sequence[Any]],
+    *,
+    header: bool = True,
+    delimiter: str = ",",
+    quote_all: bool = False,
+    no_quotes: bool = False,
+    use_crlf: bool = False,
+) -> None:
+    """The same file, written into `sink` one record at a time.
+
+    `write_csv` is this over a `BytesIO`, so there is **one** csv encoder and
+    `stream_data_out` selects where the bytes land rather than how they are
+    made. Two encoders would be two chances to disagree about the quoting rule
+    X7 compares bytes against (D-222).
+    """
     if len(delimiter) != 1:
         raise WriterError(f"the csv delimiter must be one character, not {delimiter!r}")
-    out = io.StringIO()
     newline = "\r\n" if use_crlf else "\n"
     if header:
-        out.write(_csv_record(columns, delimiter, quote_all, no_quotes, use_crlf))
-        out.write(newline)
+        line = _csv_record(columns, delimiter, quote_all, no_quotes, use_crlf)
+        sink.write((line + newline).encode("utf-8"))
     for row in rows:
-        out.write(
-            _csv_record(
-                [encode_rdf_type_to_txt(cell) for cell in row],
-                delimiter,
-                quote_all,
-                no_quotes,
-                use_crlf,
-            )
+        line = _csv_record(
+            [encode_rdf_type_to_txt(cell) for cell in row],
+            delimiter,
+            quote_all,
+            no_quotes,
+            use_crlf,
         )
-        out.write(newline)
-    return out.getvalue().encode("utf-8")
+        sink.write((line + newline).encode("utf-8"))
 
 
 def _csv_record(
@@ -281,6 +309,28 @@ def write_parquet(
     `batch_size` is `output_channel.nbr_rows_in_record`, defaulting to the Go
     writer's 1024, which fixes the row-group length.
     """
+    sink = io.BytesIO()
+    write_parquet_to(sink, columns, rows, batch_size=batch_size)
+    return sink.getvalue()
+
+
+def write_parquet_to(
+    sink: IO[bytes],
+    columns: Sequence[str],
+    rows: Iterable[Sequence[Any]],
+    *,
+    batch_size: int = 0,
+) -> None:
+    """The same file, written into `sink`.
+
+    **Parquet streams less than csv does and the difference is the format's, not
+    this node's**: the schema's footer is written last and the whole table is
+    built before `write_table` is called, so `stream_data_out` over parquet
+    bounds what the *store* holds and not what the encoder holds. Go has the same
+    property — `WriteParquetPartitionV3` accumulates a row group at a time and
+    the arrow writer's footer is still last — and saying so here is cheaper than
+    a later measurement wondering why the memory did not fall.
+    """
     pa, pq = _pyarrow()
     if batch_size <= 0:
         batch_size = PARQUET_DEFAULT_BATCH_SIZE
@@ -298,14 +348,12 @@ def write_parquet(
     table = pa.Table.from_arrays(
         [pa.array(column, type=pa.string()) for column in cells], schema=schema
     )
-    sink = io.BytesIO()
     pq.write_table(
         table,
         sink,
         compression="snappy",
         row_group_size=batch_size,
     )
-    return sink.getvalue()
 
 
 #: `WriteParquetPartitionV3`'s own default when `nbr_rows_in_record` is absent.
@@ -444,11 +492,49 @@ def write_partition(
     `parquet` carries its schema instead. `put_headers_on_first_partition` is
     the caller's, because it needs the node id.
     """
+    sink = io.BytesIO()
+    write_partition_to(
+        sink,
+        device_writer_type,
+        columns,
+        rows,
+        output_format=output_format,
+        compression=compression,
+        delimiter=delimiter,
+        quote_all=quote_all,
+        no_quotes=no_quotes,
+        batch_size=batch_size,
+    )
+    return sink.getvalue()
+
+
+def write_partition_to(
+    sink: IO[bytes],
+    device_writer_type: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+    *,
+    output_format: str,
+    compression: str = "none",
+    delimiter: str = ",",
+    quote_all: bool = False,
+    no_quotes: bool = False,
+    batch_size: int = 0,
+) -> None:
+    """One partition into `sink`, by writer type. **The one branch on the type.**
+
+    `write_partition` is this over a `BytesIO`, so the dispatch is not duplicated
+    and `stream_data_out` cannot select a different encoder by accident — which
+    is the failure mode a second copy of this switch would have, silently, in
+    the one place X7 compares bytes.
+    """
     check_device_writer(device_writer_type, output_format)
     if device_writer_type == "parquet_writer":
-        return write_parquet(columns, rows, batch_size=batch_size)
+        write_parquet_to(sink, columns, rows, batch_size=batch_size)
+        return
     check_compression(compression)
-    return write_csv(
+    write_csv_to(
+        sink,
         columns,
         rows,
         header=output_format == "csv",

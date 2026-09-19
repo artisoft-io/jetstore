@@ -56,7 +56,7 @@ from pathlib import Path
 
 from .args import NodeArgs
 from .config import FileConfigSource, check_scope, parse_config
-from .errors import NodeError
+from .errors import ConfigInvalid, NodeError
 from .scope import declarations, declared_scope
 from .site import EMPTY
 from .store import Local
@@ -184,7 +184,6 @@ def main(argv: list[str] | None = None) -> int:
 
     check = sub.add_parser("check", help="run the scope gate over a .pc.json")
     check.add_argument("--config", type=Path, required=True)
-
     run = sub.add_parser("run", help="run the node against a local store")
     run.add_argument("--config", type=Path, required=True)
     run.add_argument("--id", type=int, default=0, help="node id ($SHARD_ID)")
@@ -192,6 +191,17 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--pe", type=int, default=0, help="pipeline execution key")
     run.add_argument(
         "--store", type=Path, required=True, help="directory standing in for the bucket"
+    )
+    run.add_argument(
+        "--bucket",
+        action="append",
+        default=[],
+        metavar="NAME=DIR",
+        help=(
+            "a directory standing in for an external bucket a document names "
+            "in output_channel.bucket; repeatable. Without it such a document "
+            "is refused rather than written under --store (D-242)."
+        ),
     )
 
     args = parser.parse_args(argv)
@@ -212,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
         result = coordinate(
             NodeArgs(id=args.id, jp=args.jp, pe=args.pe),
             FileConfigSource(args.config),
-            store=Local(args.store),
+            store=Local(args.store, buckets=_bucket_map(args.bucket)),
             site_operators=EMPTY,
         )
         print(render(result))
@@ -220,6 +230,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     return EXIT_OK
+
+
+def _bucket_map(pairs: list[str]) -> dict[str, Path]:
+    """`--bucket NAME=DIR`, repeated, into `Local.buckets`.
+
+    A malformed pair is refused rather than skipped, and a repeated name is
+    refused rather than resolved by order: a local run whose destination map
+    depended on argument order would be exactly the ambiguity D-242 exists to
+    remove, one layer out.
+    """
+    mapping: dict[str, Path] = {}
+    for pair in pairs:
+        name, sep, directory = pair.partition("=")
+        if not sep or not name or not directory:
+            raise ConfigInvalid(f"--bucket wants NAME=DIR, got {pair!r}")
+        if name in mapping:
+            raise ConfigInvalid(f"--bucket names {name!r} twice")
+        mapping[name] = Path(directory)
+    return mapping
 
 
 if __name__ == "__main__":  # pragma: no cover

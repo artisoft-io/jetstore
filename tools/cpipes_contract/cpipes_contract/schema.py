@@ -32,20 +32,35 @@ REF_TEMPLATE = "#/$defs/{model}"
 
 
 def splice_complement_branches(defs: dict, types_csv: Path) -> None:
-    """Add each `unlisted(...)` token to its union's `oneOf`, everywhere it occurs.
+    """Fold each `unlisted(...)` token into its union's `oneOf`, everywhere it occurs.
 
-    **Pydantic cannot emit this branch and cannot be made to.**
-    `Field(discriminator="type")` builds a `oneOf` of literal-tagged members with
-    a `discriminator.mapping` keyed by those literals; a variant whose token is
-    *any string but* those has no literal to be keyed by. So the branch is
-    spliced here, from `types.csv`, which is where the token is recorded.
+    **Pydantic cannot emit this branch *inside the tagged union* and cannot be
+    made to.** `Field(discriminator="type")` builds a `oneOf` of literal-tagged
+    members with a `discriminator.mapping` keyed by those literals; a variant
+    whose token is *any string but* those has no literal to be keyed by. What
+    the model does instead is hold the tagged union and the complement branch in
+    one ordered union (`generate.emit_union_alias`), which is how it *validates*
+    a site operator - and Pydantic writes that as
+    `anyOf: [<tagged oneOf>, <branch>]`. This function folds that two-member
+    `anyOf` back into the single discriminated `oneOf` the schema has carried
+    since gap 2b, so the emitted document is unchanged by the model gaining the
+    branch. **Measured: byte-identical**, which is the check
+    `tests_schema.py::test_the_committed_schema_is_what_the_current_model_emits`
+    makes on every run.
+
+    Until 2026-09-19 this *added* the branch to a union that did not contain it,
+    because the model's alias carried only the nineteen tagged members and
+    `ComputePipesConfig.model_validate` refused every document naming a site
+    operator. That is the half of `I-778` gap 2b left behind: the schema said
+    yes and the model said no, and the first authored `.pc.json` to contain a
+    site operator made the two disagree out loud.
 
     **It is every occurrence rather than the named entry, and that distinction
     cost an hour.** `TransformationSpec` is an `Annotated[Union[...]]` alias
-    rather than a model, so Pydantic *inlines* it at each use site - the three
-    `PipeSpec*.apply` arrays carry their own copy of the whole `oneOf`, and
+    rather than a model, so Pydantic *inlines* it at each use site - the
+    `PipeSpec*.apply` arrays carry their own copy, and
     `$defs/TransformationSpec` is a separate entry this module builds for
-    addressability. Splicing the named entry alone leaves a schema where
+    addressability. Folding the named entry alone leaves a schema where
     `#/$defs/TransformationSpec` admits a site operator and no document
     containing one validates, which is the worst of both: the addressable entry
     a typed hole binds says yes and the corpus gate says no.
@@ -64,19 +79,21 @@ def splice_complement_branches(defs: dict, types_csv: Path) -> None:
         ]
     for row in complements:
         union = defs.get(row["go_struct"])
-        if union is None or "oneOf" not in union:
-            raise ValueError(
-                f"{row['go_struct']}/{row['type_token']} is a complement token of a "
-                f"$defs entry that is not a oneOf union"
-            )
         branch = {"$ref": REF_TEMPLATE.format(model=row["defs_name"])}
-        signature = json.dumps(union["oneOf"], sort_keys=True)
+        if union is None or not _is_widened(union, branch):
+            raise ValueError(
+                f"{row['go_struct']}/{row['type_token']} is a complement token and "
+                f"the {row['go_struct']} $defs entry is not the two-member anyOf the "
+                "model's widened alias emits; see generate.emit_union_alias"
+            )
+        tagged = union["anyOf"][0]
+        signature = json.dumps(union["anyOf"], sort_keys=True)
         targets: list[dict] = []
 
         def find(node) -> None:
             if isinstance(node, dict):
-                one_of = node.get("oneOf")
-                if isinstance(one_of, list) and json.dumps(one_of, sort_keys=True) == signature:
+                any_of = node.get("anyOf")
+                if isinstance(any_of, list) and json.dumps(any_of, sort_keys=True) == signature:
                     targets.append(node)
                 for value in node.values():
                     find(value)
@@ -88,10 +105,25 @@ def splice_complement_branches(defs: dict, types_csv: Path) -> None:
         if not targets:
             raise ValueError(
                 f"{row['go_struct']}/{row['type_token']}: no occurrence of the "
-                f"{row['go_struct']} union to splice into"
+                f"{row['go_struct']} union to fold"
             )
         for node in targets:
-            node["oneOf"] = [*node["oneOf"], branch]
+            node.pop("anyOf")
+            node.update(tagged)
+            node["oneOf"] = [*tagged["oneOf"], branch]
+
+
+def _is_widened(union: dict, branch: dict) -> bool:
+    """The shape `generate.emit_union_alias` emits for a union with a complement
+    token: an ordered two-member union of the tagged `oneOf` and the branch."""
+    any_of = union.get("anyOf")
+    return (
+        isinstance(any_of, list)
+        and len(any_of) == 2
+        and isinstance(any_of[0], dict)
+        and "oneOf" in any_of[0]
+        and any_of[1] == branch
+    )
 
 
 def emit(module, types_csv: Path) -> dict:

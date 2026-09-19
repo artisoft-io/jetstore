@@ -20,9 +20,11 @@ harness/                the Go runner: feeds synthesized configs through Validat
 ```
 
 The corpus is `workspaces/*/pipes_config/**` minus what each directory's
-`jets_assets_manifest.json` names - **42 files, measured 2026-09-11**; 49 was the count here
-before the 2026-09-08 sharpening, which stopped counting the JetStore-owned assets
-`install_workspace_assets` puts into a workspace. The `.pc.json` under `workspaces/*/data/`
+`jets_assets_manifest.json` names - **53 files, measured 2026-09-19**; it read 42 on 2026-09-11 and
+49 before the 2026-09-08 sharpening, which stopped counting the JetStore-owned assets
+`install_workspace_assets` puts into a workspace. The rise since is authored documents landing in
+`jets_ws` from *another repository* — `healthcare_corpus`'s Phase 9 — which is why a count here goes
+stale without anything in this repository changing. The `.pc.json` under `workspaces/*/data/`
 are developer reference material JetStore never loads, and counting them manufactures contradictions
 with the validator; see `cpipes_contract/corpus.py`.
 
@@ -38,6 +40,20 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/cpipes-contract harness --code ../..                   # every row becomes a test result
 .venv/bin/cpipes-contract stamp                                  # certify what the review marked
 ```
+
+The test suite is `tests_*.py` and needs that pattern declared, which `pyproject.toml` now does —
+`pytest` here collected **nothing** and exited 0 until 2026-09-19. Run it with
+`uv run --extra dev pytest -q`.
+
+**The two artefacts this package emits are two readers of one contract, and `tests_schema.py` is
+where they are held to each other.** `cpipes_model.py` is the Pydantic model and the source of truth
+for the claims; `cpipes_schema.json` is the projection a Go consumer and every typed hole reads. They
+can disagree silently, and did: gap 2b (`I-778`) put the `~site` complement branch into the schema
+and not into the model's `TransformationSpec` alias, and no document asked both until one naming a
+site operator was authored. A union carrying an `unlisted(...)` token is now emitted as an ordered
+union of the tagged members and that branch, and `schema.splice_complement_branches` folds Pydantic's
+`anyOf` rendering of it back into the single discriminated `oneOf` — so the emitted file is
+byte-identical and the model validates what the schema accepts.
 
 The matrix is extracted (B.2) and under review; the harness (B.7) turns its rows into test results
 so the review reads what the validator actually did. The plan it executes is

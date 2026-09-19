@@ -63,12 +63,14 @@ or when the run was given no object store at all.
 
 from __future__ import annotations
 
+import io
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import IO, Any
 
 from .. import columns as column_vocabulary
 from .. import expressions, merge, writers
+from .. import store as store_module
 from ..errors import StartupError
 from ..runtime import (
     BuilderEnv,
@@ -79,7 +81,7 @@ from ..runtime import (
     OutputChannel,
     RowLevelError,
 )
-from ..scope import Operator, TokenKind
+from ..scope import Operator, TokenKind, declaration
 from ..store import ObjectStore
 
 #: `map_record_config.on_error`'s three values, and the default the Go builder
@@ -345,6 +347,15 @@ class PartitionWriterPipe:
     The volume this operator moved is `total_rows` and `parts` on this object,
     which is the pair the Go engine reports through `ComputePipesResult`'s
     `CopyRowCount` and `PartsCount` — a different path, and P9-T09's.
+
+    **`store` is already bound to the destination bucket** (D-242). The Go
+    writer holds an `externalBucket` string and names it on every upload; here
+    the resolution happens once, where the destination is computed, so there is
+    no second place for a key and a bucket to be paired. `bucket` beside it is
+    the *resolved external* name — Go's `externalBucket` field — and is empty, or
+    Go's `jetstore_bucket` sentinel, when the destination is the node's own. It
+    is kept for the record and for an assertion and is never consulted when
+    writing.
     """
 
     columns: tuple[str, ...]
@@ -354,6 +365,8 @@ class PartitionWriterPipe:
     key_prefix: str
     node_id: int
     done_signal: Done
+    bucket: str = ""
+    stream_data_out: bool = False
     evaluators: tuple[column_vocabulary.ColumnEvaluator, ...] = ()
     new_record: bool = False
     has_grouped_rows: bool = False
@@ -421,29 +434,46 @@ class PartitionWriterPipe:
         A partition with no rows writes no file, which is the Go writer's shape
         too: `currentDeviceCh` is opened on the first record of a partition, so
         an empty partition never starts one.
+
+        **`stream_data_out` decides where the encoder's bytes land** and nothing
+        else (D-243). `S3DeviceWriter.WritePartition` branches on the same flag
+        at `s3_device_writter.go:40`, and the two arms there produce the same
+        object at the same key in the same bucket — which is why the assertion
+        that matters is not about bytes: it is that the streaming arm never
+        materialises the whole part. Both arms call `writers.write_partition_to`
+        with one sink or the other, so the encoder cannot differ between them.
         """
         if not self.rows:
             return
         self.parts += 1
-        data = writers.write_partition(
-            self.device_writer_type,
-            self.columns,
-            self.rows,
-            output_format=self.output_format,
-            compression=self.compression,
-            delimiter=self.delimiter,
-            quote_all=self.quote_all,
-            no_quotes=self.no_quotes,
-            batch_size=self.batch_size,
-        )
+        rows, self.rows = self.rows, []
         name = self.file_name or writers.partition_file_name(
             self.node_id, self.parts, self.device_writer_type
         )
         key = f"{self.key_prefix.rstrip('/')}/{name}"
-        self.store.put(key, data)
+
+        def encode(sink: IO[bytes]) -> None:
+            writers.write_partition_to(
+                sink,
+                self.device_writer_type,
+                self.columns,
+                rows,
+                output_format=self.output_format,
+                compression=self.compression,
+                delimiter=self.delimiter,
+                quote_all=self.quote_all,
+                no_quotes=self.no_quotes,
+                batch_size=self.batch_size,
+            )
+
+        if self.stream_data_out:
+            self.store.put_stream(key, encode)
+        else:
+            buffer = io.BytesIO()
+            encode(buffer)
+            self.store.put(key, buffer.getvalue())
         self.keys_written.append(key)
-        self.total_rows += len(self.rows)
-        self.rows = []
+        self.total_rows += len(rows)
 
     def done(self) -> None:
         """Nothing, as in Go: the flush is `Finally`'s, on both paths."""
@@ -500,7 +530,7 @@ class PartitionWriter(Transformation):
                 "bucket nor a local directory was named."
             )
         output_channel = getattr(builder.spec, "output_channel", None)
-        key_prefix, file_name = _partition_destination(builder, output_channel)
+        key_prefix, file_name, bucket = _partition_destination(builder, output_channel)
         return cls.build_from(
             env,
             args,
@@ -510,6 +540,7 @@ class PartitionWriter(Transformation):
             node_id=builder.node_id,
             output_channel=output_channel,
             file_name=file_name,
+            bucket=bucket,
         )
 
     @classmethod
@@ -524,6 +555,7 @@ class PartitionWriter(Transformation):
         node_id: int,
         output_channel: Any = None,
         file_name: str = "",
+        bucket: str = "",  # already resolved by `_partition_destination`
     ) -> PartitionWriterPipe:
         """The construction, with the two things the dispatch cannot pass.
 
@@ -559,11 +591,15 @@ class PartitionWriter(Transformation):
                 "this node reads none."
             )
         writers.check_device_writer(device, settings["format"])
+        stream_data_out = bool(getattr(config, "stream_data_out", False))
+        _refuse_streaming_beside_a_splitter(stream_data_out)
         return PartitionWriterPipe(
             columns=tuple(out.config.columns),
             device_writer_type=device,
             output_format=settings["format"],
-            store=store,
+            store=store.for_bucket(bucket or None),
+            bucket=bucket,
+            stream_data_out=stream_data_out,
             key_prefix=key_prefix,
             node_id=node_id,
             done_signal=env.done(),
@@ -582,11 +618,44 @@ class PartitionWriter(Transformation):
         )
 
 
-def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]:
+def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str, str]:
     """`NewPartitionWriterTransformationPipe`'s destination switch, verbatim.
 
-    Returns the key prefix a partition file is written under and the file name
-    a custom output location carried, which is empty in every other arm.
+    Returns the key prefix a partition file is written under, the file name a
+    custom output location carried — empty in every other arm — and **the
+    external bucket**, empty when the destination is the node's own.
+
+    # The bucket, and the three arms that never look at it (D-242)
+
+    Go resolves the bucket in **one** place, and it is not the top of this
+    switch: it is inside `case "output":`, inside that case's `default:` arm
+    (`pipe_transformation_partition_writer.go:485`). So
+
+    * a `stage` channel,
+    * an `output` channel whose location is `jetstore_s3_schema_events`,
+
+    reach the upload with `externalBucket` empty **however the document spells
+    `bucket`** — and the upload then substitutes the node's own
+    (`awsi.go:598`, `s3_device_worker.go:63`). An authored bucket on either is
+    accepted, ignored, and lands the file in the wrong account's bucket with
+    every row correct.
+
+    **This node refuses that rather than reproducing the silence.** The refusal
+    is narrower than Go and is the same judgement D-224 already made one pipe
+    kind over: a document Go runs is refused here, at startup, by name. Measured
+    over the 51 authored `.pc.json` in `workspaces/` on 2026-09-19, **no
+    partition writer authors a bucket on a `stage` channel**, so the refusal
+    costs nothing today and fires on the first document that makes the mistake.
+    The rejected alternative is to mirror Go's silence, and its argument is real
+    — conformance is this package's whole claim, and a node that refuses what
+    the engine accepts is a node a document cannot be portable across. It loses
+    to the direction of the failure: a refusal is read by whoever wrote the
+    document, and a corpus in another account's bucket is read by nobody.
+
+    The second arm of Go's bucket switch — a schema provider's bucket when the
+    location is `jetstore_s3_input` — is **unreachable here**, because this node
+    reads no schema provider. It is refused by name for the same reason rather
+    than passed over.
 
     Two channel types reach here — `stage` and `output` — because
     `_output_channel_settings` has already refused `memory` (no format at all)
@@ -609,6 +678,9 @@ def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]
         getattr(output_channel, "write_step_id", None) or "", env
     )
     if kind == "stage":
+        _refuse_an_unreachable_bucket(
+            output_channel, "an output channel of type 'stage'"
+        )
         stage = _area(prefixes, "jetstore_s3_stage")
         file_key = getattr(output_channel, "file_key", None) or ""
         if write_step_id:
@@ -617,13 +689,13 @@ def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]
                 f"/session_id={node.session_id}"
                 f"/step_id={write_step_id}/jets_partition={label}"
             )
-            return path, ""
+            return path, "", ""
         if file_key:
             path = (
                 f"{stage}/{expressions.substitute(file_key, env)}"
                 f"/jets_partition={label}"
             )
-            return path, ""
+            return path, "", ""
         raise StartupError(
             "error: for output channel of type 'stage' either WriteStepId or "
             "FileKey must be specified in the output channel config"
@@ -637,12 +709,16 @@ def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]
         )
     location = expressions.substitute(_output_location(output_channel), env)
     if location == "jetstore_s3_schema_events":
+        _refuse_an_unreachable_bucket(
+            output_channel, "an output location of 'jetstore_s3_schema_events'"
+        )
         path = (
             f"{_area(prefixes, location)}/process_name={_process_name(node)}"
             f"/session_id={node.session_id}"
             f"/step_id={write_step_id}/jets_partition={label}"
         )
-        return path, ""
+        return path, "", ""
+    bucket = _external_bucket(output_channel, location, env)
     key_prefix = getattr(output_channel, "key_prefix", None) or ""
     file_name = ""
     if location and not location.startswith("jetstore_s3_"):
@@ -663,6 +739,114 @@ def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]
             env,
         ),
         file_name,
+        bucket,
+    )
+
+
+def _external_bucket(output_channel: Any, location: str, env: Any) -> str:
+    """Go's two-case bucket switch, and the arm this node cannot take.
+
+    `pipe_transformation_partition_writer.go:485`:
+
+        switch {
+        case len(spec.OutputChannel.Bucket) > 0:
+            if spec.OutputChannel.Bucket != "jetstore_bucket" { ... }
+        case sp != nil && outLoc == "jetstore_s3_input":
+            externalBucket = sp.Bucket()
+        }
+        if len(externalBucket) > 0 { externalBucket = ReplaceEnvVars(...) }
+
+    Two things a reader would otherwise get wrong. The first case **wins even
+    when it assigns nothing** — an authored `jetstore_bucket` stops the switch,
+    so a channel that names it *and* a schema provider takes the node's own
+    bucket rather than the provider's. The second reads a schema provider this
+    node does not have, so it is refused by name.
+
+    The substitution is applied only to a non-empty value, which is Go's own
+    guard and matters because `ReplaceEnvVars` over `""` is `""` either way —
+    the guard is kept so the two read the same rather than because it changes
+    anything.
+    """
+    authored = str(getattr(output_channel, "bucket", None) or "")
+    if authored:
+        if authored == store_module.JETSTORE_BUCKET:
+            return ""
+        return expressions.substitute(authored, env)
+    provider = getattr(output_channel, "schema_provider", None)
+    if location == "jetstore_s3_input" and provider:
+        raise writers.WriterUnsupported(
+            "this output channel names schema provider "
+            f"{provider!r} with output_location "
+            "'jetstore_s3_input' and no 'bucket'. The Go builder takes the "
+            "destination bucket from the schema provider there "
+            "(`sp.Bucket()`, pipe_transformation_partition_writer.go:488) and "
+            "this node reads no schema provider, so it would write to its own "
+            "bucket instead — the same file, the wrong account. Name the bucket "
+            "on the output channel, which is the arm this node does implement."
+        )
+    return ""
+
+
+#: The pipe kind `stream_data_out` may not be paired with, and the kind it is:
+#: `PipeSpecSplitter`'s own `type` literal in the contract model. Named here so
+#: the guard below and the test that proves it fires say the same word once.
+SPLITTER_PIPE_TOKEN = "splitter"
+
+
+def _refuse_streaming_beside_a_splitter(stream_data_out: bool) -> None:
+    """Refuse `stream_data_out` under a splitter — the pairing, not the flag.
+
+    **Michel's ruling of 2026-09-19**: `stream_data_out` works *except* in
+    conjunction with a splitter, because each branch of the splitter holds its
+    own connection to S3 and a run exhausts them. The hazard is a property of
+    the pairing and of neither half: a splitter starts one handler and one
+    evaluator set per split key, the split key's cardinality is **data**, and a
+    document that is valid and bounded on one input exhausts connections on
+    another. So a document cannot be inspected for it, and the ceiling it runs
+    into is measured in the AWS SDK's HTTP transport rather than in anything the
+    contract says.
+
+    **The subject is derived rather than listed** (P3-I20). This node declares no
+    splitter — `declared_scope()[PIPE]` is `fan_out` and `merge_files` — so a
+    document pairing the two cannot be authored here at all today and this guard
+    cannot fire. It is written anyway, against the operator registry the
+    `Operator` subclasses put themselves into, so the day somebody adds a
+    `Splitter(Pipe)` class the pairing fails loudly instead of being remembered.
+    A comment saying *do not do this* is what stopped nobody before (P7-I88).
+
+    **It is a `StartupError` and never a warning**, for `enforce`'s own reason:
+    a run that half-writes a corpus and then exhausts its connections leaves
+    files that load, join and say nothing about having failed.
+    """
+    if not stream_data_out:
+        return
+    if declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None:
+        return
+    raise StartupError(
+        "this partition_writer sets stream_data_out and this node now declares "
+        f"the '{SPLITTER_PIPE_TOKEN}' pipe kind. The two may not be paired: a "
+        "splitter runs one branch per split key and each streaming branch holds "
+        "its own connection to S3, so a run exhausts them — and the branch count "
+        "is the cardinality of the split key, which is data and therefore "
+        "unbounded at authoring time. Set stream_data_out to false under a "
+        "splitter, or partition first and stream from a step with one branch. "
+        "(Michel's ruling of 2026-09-19; D-243.)"
+    )
+
+
+def _refuse_an_unreachable_bucket(output_channel: Any, where: str) -> None:
+    """Refuse a `bucket` on a destination arm Go never reads it on (D-242)."""
+    authored = str(getattr(output_channel, "bucket", None) or "")
+    if store_module.is_own_bucket(authored):
+        return
+    raise writers.WriterUnsupported(
+        f"this partition writer authors bucket {authored!r} on {where}. The Go "
+        'builder resolves an external bucket only under `case "output":` and '
+        "only when the output location is not 'jetstore_s3_schema_events' "
+        "(pipe_transformation_partition_writer.go:485), so the file would be "
+        "written to the node's own bucket and nothing would report it. Refused "
+        "rather than ignored: use an output channel of type 'output' with a "
+        "custom output_location if the destination is another bucket."
     )
 
 

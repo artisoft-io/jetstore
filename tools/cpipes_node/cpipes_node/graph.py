@@ -223,7 +223,7 @@ def _replace_spec(host: Any, override: Any) -> Any:
     # `tests_graph.py` asserts that absence, so this path becomes reachable and
     # this comment goes stale in the same commit that fixes the model.
     try:
-        return TypeAdapter(contract.TransformationSpecOrSite).validate_python(payload)
+        return TypeAdapter(contract.TransformationSpec).validate_python(payload)
     except ValidationError as exc:
         raise StartupError(
             f"a conditional_config replaced a '{getattr(host, 'type', '?')}' step "

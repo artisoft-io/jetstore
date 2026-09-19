@@ -35,11 +35,13 @@ from cpipes_node.errors import NodeError, StartupError
 from cpipes_node.node import coordinate
 from cpipes_node.operators.transformations import (
     MAP_RECORD_DEFAULT_MAX_ERROR_COUNT,
+    SPLITTER_PIPE_TOKEN,
     Filter,
     FilterPipe,
     MapRecord,
     PartitionWriter,
     SeamNotWired,
+    _external_bucket,
 )
 from cpipes_node.runtime import (
     BuilderEnv,
@@ -51,7 +53,7 @@ from cpipes_node.runtime import (
     OutputChannel,
     ResolvedChannelSpec,
 )
-from cpipes_node.scope import TokenKind, declaration
+from cpipes_node.scope import TokenKind, declaration, declared_scope
 from cpipes_node.side_effects import PROCESS_ERROR_COLUMNS
 from cpipes_node.site import Registry
 from cpipes_node.store import Local
@@ -603,11 +605,13 @@ def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     """
     import typing
 
-    # `TransformationSpec` is `Annotated[Union[...], Field(discriminator=...)]`,
-    # so the members are one unwrapping in. The site spec is not among them,
-    # which is P9-I29 and is not this test's subject: a site operator reads its
-    # `site_config` and never a `{type}_config` block.
-    members = typing.get_args(typing.get_args(contract.model.TransformationSpec)[0])
+    # Taken from `contract.py`, which is this package's one reader of the
+    # model's shape. It used to be unwrapped here, and that hand-written
+    # unwrap is what went red when `TransformationSpec` gained its complement
+    # branch on 2026-09-19 — a second reader of one rule, found by the rule
+    # changing. The site spec is deliberately not among the members: a site
+    # operator reads its `site_config` and never a `{type}_config` block.
+    members = contract.builtin_transformation_members()
     tokens = {}
     for member in members:
         token = typing.get_args(member.model_fields["type"].annotation)[0]
@@ -1156,3 +1160,386 @@ def test_an_authored_on_error_fail_is_distinguishable_from_an_unreachable_one(
     doc = failing_column_document({"on_error": "fail"})
     with pytest.raises(ColumnFailed):
         run(doc, tmp_path)
+
+
+# --- the destination bucket, through a whole document (D-242) ----------------
+#
+# **This is the gap the wave was sent for.** `output_channel.bucket` is a field
+# of the contract model and was read by nothing: a document naming a bucket had
+# it accepted and ignored, and the file landed in the node's own bucket with
+# every row correct and nothing reporting it. The assertions below are the
+# literal key and the literal bucket, in both directions, because a destination
+# asserted as "somewhere" is a destination nothing checks.
+
+
+def output_channel_block(**overrides: object) -> dict:
+    block = {
+        "name": "out",
+        "type": "output",
+        "channel_spec_name": "out",
+        "format": "csv",
+        "key_prefix": "corpus/$JETS_PARTITION_LABEL",
+    }
+    block.update(overrides)
+    return block
+
+
+def test_a_document_naming_no_bucket_writes_to_the_nodes_own(tmp_path: Path):
+    """The default, and the case that was correct by accident before.
+
+    It is asserted as a literal key under the node's own root, so a change that
+    started resolving a bucket where Go resolves none fails here.
+    """
+    doc = partition_writer_document(output_channel_block())
+    _, store = run_writer(doc, tmp_path)
+    assert store.list("corpus/") == ("corpus/0000P/part0000-0000001.csv",)
+
+
+def test_a_document_naming_a_bucket_writes_to_that_bucket(tmp_path: Path):
+    """`pipe_transformation_partition_writer.go:486`, end to end.
+
+    The positive half is the literal key in the *other* directory; the negative
+    half is that the node's own root is empty, which is the assertion that would
+    have failed before this wave with the positive one passing.
+    """
+    own, other = tmp_path / "own", tmp_path / "other"
+    doc = partition_writer_document(output_channel_block(bucket="corpus-out"))
+    path = tmp_path / "pw.pc.json"
+    path.write_text(json.dumps(doc))
+    store = Local(own, buckets={"corpus-out": other})
+    coordinate(
+        NodeArgs(id=0, pe=1),
+        FileConfigSource(path),
+        store=store,
+        site_operators=Registry(),
+    )
+    assert Local(other).list("") == ("corpus/0000P/part0000-0000001.csv",)
+    assert Local(own).list("") == ()
+
+
+def test_a_bucket_naming_the_jetstore_sentinel_is_the_nodes_own(tmp_path: Path):
+    """Go's `if spec.OutputChannel.Bucket != "jetstore_bucket"`, verbatim.
+
+    The literal stops the switch *and assigns nothing*, so the destination is
+    the node's own bucket — and a local store that had been asked for a bucket
+    called `jetstore_bucket` would have refused, which is what makes this
+    assertion able to fail.
+    """
+    doc = partition_writer_document(output_channel_block(bucket="jetstore_bucket"))
+    _, store = run_writer(doc, tmp_path)
+    assert store.list("corpus/") == ("corpus/0000P/part0000-0000001.csv",)
+
+
+def test_an_env_variable_in_the_bucket_is_substituted(tmp_path: Path):
+    """`ReplaceEnvVars(externalBucket, ctx.env)`, which is how D-234 spells it.
+
+    Michel's wording is `${CORPUS_OUT_BUCKET}`, so the substitution is on the
+    path a corpus actually takes and not a nicety.
+    """
+    own, other = tmp_path / "own", tmp_path / "other"
+    doc = partition_writer_document(output_channel_block(bucket="$CORPUS_OUT_BUCKET"))
+    # The env is the main_input schema provider's, which is where a deployment
+    # sets `$CORPUS_OUT_BUCKET` — `node.environment`, mirroring the Go node.
+    doc["schema_providers"][0]["env"] = {"$CORPUS_OUT_BUCKET": "corpus-out"}
+    path = tmp_path / "pw.pc.json"
+    path.write_text(json.dumps(doc))
+    coordinate(
+        NodeArgs(id=0, pe=1),
+        FileConfigSource(path),
+        store=Local(own, buckets={"corpus-out": other}),
+        site_operators=Registry(),
+    )
+    assert Local(other).list("") == ("corpus/0000P/part0000-0000001.csv",)
+
+
+def test_a_bucket_on_a_stage_channel_is_refused(tmp_path: Path):
+    """D-242's refusal, on the arm Go never consults a bucket on.
+
+    Measured over the 51 authored `.pc.json` on 2026-09-19: **no partition
+    writer authors a bucket on a stage channel**, so this refuses nothing that
+    exists and fires on the first document that makes the mistake — which is
+    the corpus document, whose thirteen partition writers are all `stage`.
+    """
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+            "write_step_id": "reduce01",
+            "bucket": "corpus-out",
+        }
+    )
+    with pytest.raises(WriterUnsupported, match="corpus-out"):
+        run_writer(doc, tmp_path, prefixes=Prefixes(stage="stage"))
+
+
+def test_the_sentinel_on_a_stage_channel_is_not_refused(tmp_path: Path):
+    """The refusal is about a *different* destination and not about the field.
+
+    `jetstore_bucket` on a stage channel names the bucket the stage arm writes
+    to anyway, so refusing it would be refusing a document that is right.
+    """
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+            "write_step_id": "reduce01",
+            "bucket": "jetstore_bucket",
+        }
+    )
+    _, store = run_writer(doc, tmp_path, prefixes=Prefixes(stage="stage"))
+    assert len(store.list("stage/")) == 1
+
+
+def test_a_bucket_on_a_schema_events_channel_is_refused(tmp_path: Path):
+    """The second arm Go returns from before its bucket switch."""
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        output_channel_block(
+            output_location="jetstore_s3_schema_events",
+            write_step_id="reduce01",
+            bucket="corpus-out",
+        )
+    )
+    doc["common_runtime_args"]["process_name"] = "CorpusProcess"
+    with pytest.raises(WriterUnsupported, match="jetstore_s3_schema_events"):
+        run_writer(doc, tmp_path, prefixes=Prefixes(schema_events="events"))
+
+
+def test_a_schema_provider_bucket_is_refused_by_name(tmp_path: Path):
+    """Go's other bucket arm, which this node cannot take.
+
+    `sp.Bucket()` with `output_location: jetstore_s3_input` is a destination
+    this node reads nothing to resolve. Refused rather than resolved to the
+    node's own, which is the same file in the wrong account.
+    """
+    doc = partition_writer_document(
+        output_channel_block(
+            output_location="jetstore_s3_input",
+            schema_provider="main_sp",
+            key_prefix="corpus",
+        )
+    )
+    with pytest.raises(WriterUnsupported, match="main_sp"):
+        run_writer(doc, tmp_path)
+
+
+def test_a_bucket_beside_a_schema_provider_wins(tmp_path: Path):
+    """Go's switch takes the first case, so an authored bucket is not refused.
+
+    Written because the refusal above is an easy over-reach: a node that
+    refused whenever a schema provider appeared would refuse the one authored
+    document in `workspaces/` that names a partition writer's bucket.
+    """
+    own, other = tmp_path / "own", tmp_path / "other"
+    doc = partition_writer_document(
+        output_channel_block(
+            output_location="jetstore_s3_input",
+            schema_provider="main_sp",
+            key_prefix="corpus",
+            bucket="corpus-out",
+        )
+    )
+    path = tmp_path / "pw.pc.json"
+    path.write_text(json.dumps(doc))
+    coordinate(
+        NodeArgs(id=0, pe=1),
+        FileConfigSource(path),
+        store=Local(own, buckets={"corpus-out": other}),
+        site_operators=Registry(),
+    )
+    assert Local(other).list("") == ("corpus/part0000-0000001.csv",)
+
+
+def test_the_bucket_switch_is_gos_two_cases_and_its_order():
+    """`_external_bucket` on its own, asserted as literal strings.
+
+    The document tests above prove the destination; this proves the *switch*,
+    including the ordering that makes an authored `jetstore_bucket` stop it
+    without assigning anything — which no end-to-end assertion can separate
+    from "no bucket was authored".
+    """
+    env = {"$CORPUS_OUT_BUCKET": "corpus-out"}
+    assert _external_bucket(Cfg(bucket="corpus-out"), "", env) == "corpus-out"
+    assert _external_bucket(Cfg(bucket="$CORPUS_OUT_BUCKET"), "", env) == "corpus-out"
+    assert _external_bucket(Cfg(bucket="jetstore_bucket"), "", env) == ""
+    assert _external_bucket(Cfg(), "", env) == ""
+    # The first case wins even where the second would have answered.
+    assert (
+        _external_bucket(
+            Cfg(bucket="corpus-out", schema_provider="sp"), "jetstore_s3_input", env
+        )
+        == "corpus-out"
+    )
+
+
+def test_a_writer_built_with_a_bucket_binds_its_store_to_it(tmp_path: Path):
+    """The binding step: `build_from` is handed the resolved name and uses it.
+
+    Asserted in both directions — the writer's store is the *other* directory
+    and its `bucket` field is the literal Go would put in `externalBucket`.
+    """
+    other = tmp_path / "other"
+    store = Local(tmp_path, buckets={"corpus-out": other})
+    writer = PartitionWriter.build_from(
+        env(),
+        args_for(),
+        Cfg(device_writer_type="csv_writer"),
+        store,
+        key_prefix="corpus/jets_partition=0000P",
+        node_id=0,
+        output_channel=Cfg(type="output", format="csv"),
+        bucket="corpus-out",
+    )
+    assert writer.bucket == "corpus-out"
+    assert writer.store == Local(other)
+    assert (
+        build_writer(store, output_channel=Cfg(type="output", format="csv")).store
+        is store
+    )
+
+
+# --- stream_data_out (D-243) -------------------------------------------------
+
+
+def test_stream_data_out_writes_the_same_object(tmp_path: Path):
+    """The flag chooses the path and never the bytes.
+
+    Both arms go through `writers.write_partition_to`, so this is a theorem
+    about the module rather than a coincidence — and it is asserted anyway,
+    because a second encoder is exactly what a later change would add.
+    """
+    buffered = partition_writer_document(output_channel_block())
+    streamed = partition_writer_document(output_channel_block(), stream_data_out=True)
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    _, a = run_writer(buffered, tmp_path / "a")
+    _, b = run_writer(streamed, tmp_path / "b")
+    key = "corpus/0000P/part0000-0000001.csv"
+    assert a.list("corpus/") == b.list("corpus/") == (key,)
+    assert a.get(key) == b.get(key)
+
+
+def test_stream_data_out_reaches_the_stores_streaming_put(tmp_path: Path):
+    """The flag is load-bearing, measured at the seam it selects.
+
+    Before this wave the flag had **zero references** in this package: a
+    document setting it was accepted and the whole part was buffered anyway.
+    The negative half — that `put` is not called — is what makes the assertion
+    able to fail.
+    """
+    store = Local(tmp_path)
+    calls: list[str] = []
+    writer = build_writer(
+        store,
+        config=Cfg(device_writer_type="csv_writer", stream_data_out=True),
+        output_channel=Cfg(type="output", format="csv"),
+    )
+    writer.store = _RecordingStore(store, calls)
+    writer.apply(["1", "2"])
+    writer.finally_()
+    assert calls == ["put_stream"]
+
+    plain = build_writer(store, output_channel=Cfg(type="output", format="csv"))
+    plain.store = _RecordingStore(store, calls := [])
+    plain.apply(["1", "2"])
+    plain.finally_()
+    assert calls == ["put"]
+
+
+class _RecordingStore:
+    """A store that says which of the two puts it was asked for."""
+
+    def __init__(self, inner: Local, calls: list[str]) -> None:
+        self._inner, self._calls = inner, calls
+
+    def put(self, key, data):
+        self._calls.append("put")
+        self._inner.put(key, data)
+
+    def put_stream(self, key, write):
+        self._calls.append("put_stream")
+        self._inner.put_stream(key, write)
+
+    def for_bucket(self, bucket):
+        return self
+
+
+def test_stream_data_out_over_parquet_writes_a_readable_file(tmp_path: Path):
+    """The format whose footer is written last, through the streaming sink.
+
+    Parquet is the arm a push sink could plausibly break — pyarrow is handed a
+    file object and reads `tell` and `closed` off it — so it is exercised rather
+    than reasoned about.
+    """
+    doc = partition_writer_document(
+        output_channel_block(format="parquet"), stream_data_out=True
+    )
+    doc["pipes_config"][0]["apply"][0]["partition_writer_config"][
+        "device_writer_type"
+    ] = "parquet_writer"
+    _, store = run_writer(doc, tmp_path)
+    key = "corpus/0000P/part0000-0000001.parquet"
+    assert store.list("corpus/") == (key,)
+    assert store.get(key)[:4] == b"PAR1"
+
+
+# --- the pairing this node cannot author, guarded anyway (D-243) -------------
+
+
+def test_this_node_declares_no_splitter_pipe_kind():
+    """The premise the guard below rests on, derived rather than assumed.
+
+    `stream_data_out` beside a splitter exhausts S3 connections — one per split
+    branch, and the branch count is the split key's cardinality, which is data.
+    That pairing is unauthorable here *because* no splitter is declared, and
+    this asserts the premise so the guard's silence is a measurement.
+    """
+    assert declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None
+    assert declared_scope()[TokenKind.PIPE] == ("fan_out", "merge_files")
+
+
+def test_streaming_under_a_declared_splitter_is_refused(tmp_path: Path):
+    """The guard fires the day the scope grows, and it is made to fire here.
+
+    A guard that cannot be shown to fire is a guard nobody can distinguish from
+    an empty branch (P7-I88). A splitter pipe kind is registered for the length
+    of this test and removed after it, and the same `build_from` that passes
+    above is asserted to refuse.
+    """
+    import cpipes_node.scope as scope_module
+    from cpipes_node.operators.pipes import Pipe
+
+    key = (TokenKind.PIPE, SPLITTER_PIPE_TOKEN)
+    assert key not in scope_module._REGISTRY
+
+    class _Splitter(Pipe):
+        token = SPLITTER_PIPE_TOKEN
+        owed_by = "nobody — registered by a test"
+        summary = "a splitter, for the length of one test"
+
+    try:
+        assert scope_module._REGISTRY[key] is _Splitter
+        with pytest.raises(StartupError, match="splitter"):
+            build_writer(
+                Local(tmp_path),
+                config=Cfg(device_writer_type="csv_writer", stream_data_out=True),
+                output_channel=Cfg(type="output", format="csv"),
+            )
+        # And the flag unset is still built: the refusal is the pairing.
+        assert build_writer(
+            Local(tmp_path), output_channel=Cfg(type="output", format="csv")
+        )
+    finally:
+        del scope_module._REGISTRY[key]
+    assert declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None

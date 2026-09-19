@@ -340,3 +340,35 @@ def test_a_node_with_no_connection_refuses_at_invocation():
     node = Node(settings=Settings.from_env(ENV))
     with pytest.raises(StartupError, match="no database connection"):
         node.handler({"id": 0, "pe": 1})
+
+
+# --- the local driver's bucket map (D-242) ----------------------------------
+
+
+def test_the_bucket_map_reads_name_equals_dir():
+    from cpipes_node.main import _bucket_map
+
+    assert _bucket_map(["corpus-out=/tmp/a", "other=/tmp/b"]) == {
+        "corpus-out": Path("/tmp/a"),
+        "other": Path("/tmp/b"),
+    }
+    assert _bucket_map([]) == {}
+
+
+@pytest.mark.parametrize("pair", ["corpus-out", "=dir", "name=", ""])
+def test_a_malformed_bucket_pair_is_refused(pair):
+    """Refused rather than skipped: a skipped pair is a wrong destination."""
+    from cpipes_node.errors import ConfigInvalid
+    from cpipes_node.main import _bucket_map
+
+    with pytest.raises(ConfigInvalid, match="--bucket"):
+        _bucket_map([pair])
+
+
+def test_a_bucket_named_twice_is_refused():
+    """Never resolved by argument order, which is the ambiguity D-242 removes."""
+    from cpipes_node.errors import ConfigInvalid
+    from cpipes_node.main import _bucket_map
+
+    with pytest.raises(ConfigInvalid, match="twice"):
+        _bucket_map(["b=/tmp/a", "b=/tmp/c"])

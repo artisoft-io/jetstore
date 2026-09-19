@@ -12,7 +12,15 @@ from pathlib import Path
 from cpipes_contract.template import Template, check
 
 
-class Pending(Exception):
+try:  # pytest is a dev extra; this module also runs standalone under `__main__`.
+    from pytest import skip as _skip
+
+    _PendingBase = _skip.Exception
+except ImportError:  # pragma: no cover - the standalone path
+    _PendingBase = Exception
+
+
+class Pending(_PendingBase):
     """A check that cannot be run here, with what would let it run.
 
     Distinct from a failure on purpose. A red suite is a suite people stop reading,
@@ -20,9 +28,39 @@ class Pending(Exception):
     defect anybody here can fix — but silently deleting it, or widening its
     tolerance until it passes, loses the drift it exists to report. The runner
     prints these and does not fail on them.
+
+    **And pytest did not, until 2026-09-19.** This module's own header offers
+    both runners and only `__main__` knew about `Pending`; under pytest it was
+    an ordinary error. That was invisible while `pytest` in this directory
+    collected nothing at all (P9-I128). Derived from pytest's own skip
+    exception when pytest is importable, so the reason is printed by `-rs` and
+    the epsilon the raise site forbids widening is untouched.
     """
 
 HERE = Path(__file__).parent
+
+
+def _superproject() -> Path:
+    """The checkout holding `workspaces/`, found by walking up.
+
+    Not a fixed three-parent hop from this file: in a git worktree the
+    submodule's root sits four directories below the superproject rather than
+    one, so the hop that is right in a normal checkout lands inside the
+    worktree and every corpus path below it is a `FileNotFoundError`. That is
+    the rule `cpipes_node/conftest.py` states and the reason it states it;
+    copied here on 2026-09-19 after eight of this module's tests failed in a
+    worktree for no reason of their own.
+    """
+    for candidate in (HERE, *HERE.parents):
+        if any((candidate / "workspaces").glob("*/pipes_config")):
+            return candidate
+    raise AssertionError(
+        f"no workspaces/*/pipes_config above {HERE}; the corpus these tests "
+        "read is not reachable from this checkout"
+    )
+
+
+SUPERPROJECT = _superproject()
 SCHEMA = json.loads((HERE / "cpipes_schema.json").read_text())
 BASE = json.loads((HERE / "templates" / "qc_metrics.template.json").read_text())
 
@@ -181,7 +219,7 @@ def test_a_bad_fragment_is_reported_and_still_spliced():
 from cpipes_contract.expand import from_target  # noqa: E402
 
 TARGET_PATH = (
-    HERE / ".." / ".." / ".." / "workspaces" / "walrus_ws" / "pipes_config" / "map_claim.pc.json"
+    SUPERPROJECT / "workspaces" / "walrus_ws" / "pipes_config" / "map_claim.pc.json"
 )
 
 
@@ -317,7 +355,7 @@ def test_every_bundle_is_authorable():
 
 from cpipes_contract.qc_bindings import derive  # noqa: E402
 
-QC = HERE / ".." / ".." / ".." / "workspaces" / "cedargate_ws" / "pipes_config"
+QC = SUPERPROJECT / "workspaces" / "cedargate_ws" / "pipes_config"
 QC_TEMPLATE = Template.model_validate(
     json.loads((HERE / "templates" / "qc_report.template.json").read_text())
 )

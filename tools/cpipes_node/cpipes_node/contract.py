@@ -35,27 +35,40 @@ using `ComputePipesCommonArgs`, which the model already defines and nothing
 references, and the pipe union. `tests_config.py` derives the pair by parsing
 the Go struct's tags rather than repeating this paragraph.
 
-**The union omits the site operator.** `TransformationSpecSite` exists in the
-model, carries the right fields and is keyed `("TransformationSpec", "~site")`
-in `_MATRIX_KEYS` — and the emitted `TransformationSpec` union contains only
-the nineteen *real* tokens, because `generate.py` builds the union from the
-real rows and emits virtual tokens as free-standing classes. The consequence is
-sharp and it is not this package's alone: **`ComputePipesConfig.model_validate`
-refuses any document containing a site operator**, which is every document a
-deployment with its own operator will ever author, this phase's included. The
-widening below composes the contract's *own two classes* into the union the
-contract does not emit; it invents no field and no shape. `tests_config.py`
-derives the set of classes that must be widened from the model by reflection,
-so a pipe kind that gains an `apply` list is not silently missed.
+**The union omitted the site operator, and that half is closed upstream as of
+2026-09-19.** `TransformationSpecSite` existed in the model, carried the right
+fields and was keyed `("TransformationSpec", "~site")` in `_MATRIX_KEYS`, and
+the emitted `TransformationSpec` union carried only the nineteen *real* tokens
+— so `ComputePipesConfig.model_validate` refused any document containing a
+site operator. This module carried a three-class widening for it
+(`FanOutWithSite`, `SplitterWithSite`, `ConditionalPipeSpecWithSite`), which
+was the "second reader of one rule" the first paragraph refuses, and it is
+**deleted** rather than kept: `generate.emit_union_alias` now emits the
+complement branch into the alias itself, so every carrier of a transformation
+list gets the branch by being generated rather than by being listed here. The
+widening's own retirement test — `tests_config
+.test_the_contract_model_refuses_a_site_operator` — is what went red and said
+which classes to delete, the same shape as `_load_contract_model`'s guard.
+
+**What the upstream repair adds beyond the union is the part to carry
+forward.** `TransformationSpecSite.type` now refuses a built-in token at
+*validation* rather than only in `json_schema_extra`, so the residual hazard
+of the local widening — a malformed built-in failing its own branch and
+arriving as an unknown site operator — is unrepresentable: such a document
+fails both branches and is reported against its own. `config.parse_config`
+carried a post-walk refusal for exactly that hazard and it is deleted with the
+widening, because a check that cannot fire reports a clean result over a
+subject it can no longer see.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import sys
+import typing
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated, Any
+from typing import Any
 
 from pydantic import Field
 
@@ -137,10 +150,7 @@ model = _load_contract_model()
 
 ComputePipesConfig = model.ComputePipesConfig
 ComputePipesCommonArgs = model.ComputePipesCommonArgs
-ConditionalPipeSpec = model.ConditionalPipeSpec
-PipeSpecFanOut = model.PipeSpecFanOut
-PipeSpecMergeFiles = model.PipeSpecMergeFiles
-PipeSpecSplitter = model.PipeSpecSplitter
+PipeSpec = model.PipeSpec
 TransformationSpec = model.TransformationSpec
 TransformationSpecSite = model.TransformationSpecSite
 SchemaProviderSpecDefault = model.SchemaProviderSpecDefault
@@ -148,59 +158,22 @@ SchemaProviderSpecDefault = model.SchemaProviderSpecDefault
 
 # --- the widening -----------------------------------------------------------
 #
-# `union_mode="left_to_right"` and not a discriminated union, because the two
-# branches cannot share a discriminator: the left one is keyed on nineteen
-# literals and the right one's key is `str`. Left-to-right is what makes a
-# built-in token reach its own branch — `TransformationSpecSite.type` is a bare
-# `str` and would otherwise swallow every token including the built-ins.
-#
-# The residual hazard is worth stating, because it is the price of the shim: a
-# *malformed* built-in fails the left branch and can then satisfy the right
-# one, arriving as a site operator under a built-in's name. `config.py` refuses
-# that on arrival and re-raises the left branch's error, so the author is told
-# their `map_record` is malformed rather than that their site operator is
-# unknown.
-#
-# **Every `valid-type` ignore below is the first finding's cost, not a second
-# one.** `cpipes_model` is loaded through `importlib` because it is not
-# importable, so a static checker sees `TransformationSpec` as a module
-# attribute rather than as a type. Pydantic resolves them at
-# `model_rebuild()`, and `tests_config.py` exercises every one of these classes
-# against the real documents — so the types are checked, by running rather than
-# by reading. Moving `cpipes_model.py` into its package removes all four.
-TransformationSpecOrSite = Annotated[
-    TransformationSpec | TransformationSpecSite,  # type: ignore[valid-type]
-    Field(union_mode="left_to_right"),
-]
-
-
-class FanOutWithSite(PipeSpecFanOut):  # type: ignore[misc, valid-type]
-    apply: list[TransformationSpecOrSite] | None = Field(default=None)
-
-
-class SplitterWithSite(PipeSpecSplitter):  # type: ignore[misc, valid-type]
-    apply: list[TransformationSpecOrSite] | None = Field(default=None)
-
-
-PipeSpecWithSite = Annotated[
-    FanOutWithSite | PipeSpecMergeFiles | SplitterWithSite,  # type: ignore[valid-type]
-    Field(discriminator="type"),
-]
-
-
-class ConditionalPipeSpecWithSite(ConditionalPipeSpec):  # type: ignore[misc, valid-type]
-    pipes_config: list[PipeSpecWithSite] = Field()
-
-
+# One widening remains and it is the runtime-fields one. The `valid-type`
+# ignores are the first finding's cost, not a second one: `cpipes_model` is
+# loaded through `importlib` because it is not importable, so a static checker
+# sees `PipeSpec` as a module attribute rather than as a type. Pydantic
+# resolves them at `model_rebuild()`, and `tests_config.py` exercises this
+# class against the real documents — so the types are checked, by running
+# rather than by reading. Moving `cpipes_model.py` into its package removes
+# them.
 class PipesConfig(ComputePipesConfig):  # type: ignore[misc, valid-type]
     """The document a node is actually handed.
 
-    Three widenings, each composed from the contract's own classes: the site
-    operator the transformation union omits, and the two fields a starter fills
-    in that the authored-document model does not carry. Nothing else differs,
-    and `tests_config.py` asserts that by validating all of JetStore's own
-    `.pc.json` corpus through this class and through the contract's, requiring
-    both to accept every one of them.
+    One widening, composed from the contract's own classes: the two fields a
+    starter fills in that the authored-document model does not carry. Nothing
+    else differs, and `tests_config.py` asserts that by validating all of
+    JetStore's own `.pc.json` corpus through this class and through the
+    contract's, requiring both to accept every one of them.
     """
 
     #: Filled by the starters; read by `CoordinateComputePipes` for the mode,
@@ -210,30 +183,33 @@ class PipesConfig(ComputePipesConfig):  # type: ignore[misc, valid-type]
     #: `conditional_pipes_config`, so a node's document has the steps already
     #: chosen — which is why `when` on a *step* is the starter's to evaluate
     #: and `when` on an *operator* is the node's (P9-T04).
-    pipes_config: list[PipeSpecWithSite] | None = Field(default=None)
-    conditional_pipes_config: list[ConditionalPipeSpecWithSite] | None = Field(
-        default=None
-    )
-    reducing_pipes_config: list[list[PipeSpecWithSite]] | None = Field(default=None)
+    pipes_config: list[PipeSpec] | None = Field(default=None)  # type: ignore[valid-type]
 
 
-for _cls in (
-    FanOutWithSite,
-    SplitterWithSite,
-    ConditionalPipeSpecWithSite,
-    PipesConfig,
-):
-    _cls.model_rebuild(_types_namespace={**vars(model), **globals()})
+PipesConfig.model_rebuild(_types_namespace={**vars(model), **globals()})
 
 
-# The classes above are the widened ones; the test that the set is complete
-# reads this tuple and the model, never a sentence in a docstring.
-WIDENED_CLASSES: tuple[type, ...] = (
-    FanOutWithSite,
-    SplitterWithSite,
-    ConditionalPipeSpecWithSite,
-    PipesConfig,
-)
+# The class above is the widened one; the test that the set is complete reads
+# this tuple and the model, never a sentence in a docstring.
+WIDENED_CLASSES: tuple[type, ...] = (PipesConfig,)
+
+
+def builtin_transformation_members() -> tuple[type, ...]:
+    """The tagged members of the transformation union — the built-ins.
+
+    The union is `Annotated[Union[Annotated[Union[<19 tagged>], ...],
+    TransformationSpecSite], ...]` since the complement branch joined it, so
+    reaching the built-ins is two unwrappings rather than one. It is here
+    rather than in the one test that wants it because this module is the one
+    place that reaches the model's shape, and a second unwrap written in a test
+    is a second reader of that shape — which is what went red when the alias
+    gained its branch.
+    """
+    outer = typing.get_args(typing.get_args(TransformationSpec)[0])
+    tagged = [m for m in outer if m is not TransformationSpecSite]
+    if len(tagged) != 1:  # pragma: no cover - the alias stopped being widened
+        return tuple(outer)
+    return tuple(typing.get_args(typing.get_args(tagged[0])[0]))
 
 
 def contract_tokens(kind: str) -> tuple[str, ...]:
@@ -285,8 +261,9 @@ def spec_kind(obj: Any) -> str | None:
 
     Derived from `_MATRIX_KEYS` by class name, so the walk in `config.py` has
     no list of field paths to go stale: it walks *objects* and asks each one
-    what it is. `FanOutWithSite` and `SplitterWithSite` answer through their
-    bases, which is why the lookup climbs the MRO.
+    what it is. The lookup climbs the MRO because this package's own subclasses
+    of contract classes — `PipesConfig` today, three more until the site
+    widening retired — answer through their bases.
     """
     keys: dict[str, tuple[str, str]] = model._MATRIX_KEYS
     for cls in type(obj).__mro__:

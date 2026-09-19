@@ -119,6 +119,20 @@ def document(apply: list[dict[str, Any]], channel_type: str = "generator") -> di
     }
 
 
+def authored_document(apply: list[dict[str, Any]]) -> dict:
+    """`document()` minus the one field a *starter* fills in.
+
+    The contract's own `ComputePipesConfig` forbids `common_runtime_args` —
+    that is the first of this package's widenings and has nothing to do with
+    the second — so a test whose subject is what the authored-document model
+    accepts has to hand it an authored document, or it gets a refusal about the
+    wrong field and passes for the wrong reason.
+    """
+    doc = document(apply)
+    doc.pop("common_runtime_args")
+    return doc
+
+
 def runtime_document(apply: list[dict[str, Any]], mode: str = "reducing") -> dict:
     """What a starter writes into `cpipes_execution_status`.
 
