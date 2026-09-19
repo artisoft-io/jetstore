@@ -147,7 +147,15 @@ makes a local measurement evidence about a deployed run.
 
 ```
 $ cpipes-node run --config pipeline.pc.json --store ./bucket --id 0 --pe 1
+$ cpipes-node run ... --bucket corpus-out=./other-bucket   # repeatable
 ```
+
+`--bucket NAME=DIR` is a directory standing in for an **external** bucket, the
+one a document names in `output_channel.bucket`. It is separate from `--store`
+and not a default for it, because a local run that quietly wrote another
+account's bucket under this one would pass every byte comparison while hiding
+the single thing a deployed run gets wrong (D-242). A document naming a bucket
+with no mapping for it is **refused**, naming the bucket and the mapping.
 
 It prints the run's figures **per channel rather than as a total**, because a
 total is satisfied by the right number of rows in the wrong channels — which is
@@ -207,6 +215,99 @@ set*, and a customer wanting one file per table); the case against is the
 producer's, and it is the one that scales with `nbr_nodes`. What would settle it
 is a peak-memory measurement of that single-partition step at the authored cohort
 size, which nobody has.
+
+## Where a partition file actually lands
+
+**The bucket was a field the contract carried and nothing read** — `store.S3`
+held one bucket and `transformations.py` never looked at
+`output_channel.bucket` — so a document naming a bucket had it accepted and
+ignored and the file landed in the node's own. That is the **dangerous**
+direction: correct by accident for a deployment that names none, and silently
+wrong for one that does, with every row correct and nothing reporting it.
+**D-242** fixes it by reproducing Go's resolution rather than inventing one, and
+the resolution is narrower than it looks.
+
+Go resolves the bucket in **one** place, and it is not the top of the
+destination switch: it is inside `case "output":`, inside that case's
+`default:` arm (`pipe_transformation_partition_writer.go:485`). So
+
+| output channel | authored `bucket` | where the file lands |
+|---|---|---|
+| `type: "stage"` | anything | **the node's own bucket** — Go never reads the field |
+| `type: "output"`, `output_location: "jetstore_s3_schema_events"` | anything | **the node's own bucket** — the arm returns first |
+| `type: "output"`, any other location | unset or `jetstore_bucket` | the node's own bucket |
+| `type: "output"`, any other location | a name | that bucket, after `ReplaceEnvVars` |
+| `type: "output"`, `output_location: "jetstore_s3_input"`, no bucket | — | the **schema provider's** bucket, which this node does not read |
+
+The sentinel is spelled twice in Go — once in the builder's
+`Bucket != "jetstore_bucket"` guard and again at the upload
+(`awsi.go:598`, `s3_device_worker.go:63`) — so an empty value and the literal
+both mean *the node's own*, and `store.is_own_bucket` honours both.
+
+**The first two rows are refused here rather than reproduced.** A document Go
+runs is refused at this node's startup, by name, which is the judgement D-224
+already made one pipe kind over. Measured over the **51** authored `.pc.json` in
+`workspaces/` on 2026-09-19, **no partition writer authors a bucket on a `stage`
+channel**, so the refusal costs nothing today. The rejected alternative — mirror
+Go's silence, because conformance is this package's whole claim — loses to the
+direction of the failure: a refusal is read by whoever wrote the document, and a
+corpus in another account's bucket is read by nobody. The last row is refused for
+the same reason and a different cause: this node reads no schema provider, so it
+would resolve to its own bucket where Go resolves to somebody else's.
+
+**The consequence a deployment has to know, and it is not a defect in this
+package.** The corpus pipeline's **thirteen** partition writers all write to
+`stage` channels, and `stage` never consults a bucket. So a corpus cannot be
+sent to `${CORPUS_OUT_BUCKET}` by naming it on those channels; the document has
+to use `type: "output"` with a custom `output_location`. Measured, not reasoned:
+of the 51 authored documents, exactly **one** partition writer anywhere names a
+bucket, and it is an `output` channel.
+
+## `stream_data_out`
+
+**Also accepted and ignored** — zero references in this package — where Go
+branches on it at `s3_device_writter.go:40`, piping the encoder straight to S3
+instead of writing a local temp file first. **D-243** implements it: the flag
+selects `ObjectStore.put` or `ObjectStore.put_stream`, and **one encoder feeds
+both**, so it cannot change a byte.
+
+`put_stream` is **push**-shaped — the caller is handed a sink — where Go bridges
+push to pull with `io.Pipe` and a goroutine. The bridge is what this node's
+execution model exists to avoid, and a multipart upload takes bytes as they
+arrive, so `S3.put_stream` needs no concurrency at all. It costs throughput
+against Go's `Concurrency = 10`, and nothing else: the object, the key and the
+bucket are identical.
+
+**Two things it does not buy, stated so a later measurement is not a surprise.**
+`PartitionWriterPipe` holds a partition's **rows** before it encodes them, which
+streaming does not touch; and parquet's footer is written last, so over parquet
+the flag bounds what the *store* holds and not what the encoder holds. What it
+does buy is that the encoded part is never materialised, which the non-streaming
+path here does in memory where Go does it on disk — a divergence in Go's
+*non*-streaming arm, recorded as **P9-I122**.
+
+**The pairing Michel ruled on, guarded although it cannot happen.** His ruling of
+2026-09-19: `stream_data_out` works *except* in conjunction with a splitter,
+because each branch holds its own connection to S3 and a run exhausts them. The
+hazard belongs to the pairing and to neither half, and the branch count is the
+split key's **cardinality** — data, and therefore unbounded at authoring time, so
+no document can be inspected for it. This node declares `fan_out` and
+`merge_files` and **no splitter**, so the pairing is unauthorable here; the guard
+is written anyway, against the operator registry the `Operator` subclasses put
+themselves into rather than against a list of pipe kinds, and a test registers a
+splitter for its own length to prove it fires. A comment saying *do not do this*
+is what stopped nobody before (P7-I88).
+
+**The ceiling is not JetStore's to state and is the AWS SDK's.** `NewS3Client`
+(`awsi.go:301`) sets no HTTP client and no connection limits, so the transport is
+the SDK's default: with `aws-sdk-go-v2 v1.43.7` (`go.mod:6`) that is
+`MaxIdleConnsPerHost = 10`, `MaxConnsPerHost = 2048` and `MaxIdleConns = 100`
+(`aws/transport/http/client.go:19`), and each streaming upload adds a
+`transfermanager` with `Concurrency = 10`. So the arithmetic is *branches × 10*
+in-flight part uploads against a 2048 per-host ceiling, plus whatever the Lambda
+or ECS task's own file-descriptor limit is — which is a deployment setting this
+repository does not carry. **Nobody has measured where it actually breaks**, and
+the ruling is a report from a deployment rather than a number derived here.
 
 ## The node's side effects
 
@@ -297,26 +398,39 @@ against the contract's own index so a sixteenth type is refused by existing.
 ## Checks
 
 ```
-$ python -m pytest -q          # 458 tests
+$ python -m pytest -q          # 507 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-**Thirty-seven** tests read Go source as their oracle rather than transcribing it — the argument
+**468 → 507 on 2026-09-19**, the whole of the difference being D-242's and D-243's **thirty-five new
+test functions**, thirty-nine collected: two are parametrised, three ways and four ways.
+
+**Thirty-nine** tests read Go source as their oracle rather than transcribing it — the argument
 struct's json tags, the `ComputePipesConfig` struct's tags, the config `SELECT`, the authored
 `.pc.json` corpus, the `OperatorEnv` interface, the `OperatorArgs` / `RowLevelError` / `Lookup`
 structs, the operator table, the expression leaf-type switch, the csv quoting rule's clauses, the
 all-string parquet schema, the parquet batch size, the writer-to-format pairs, the partition file
 name, the header condition, the snappy framing wrapper, the midnight date arm, the merge's six-arm
 header switch, the four SQL statements, the three statuses, the sink kinds, the twelve process-error
-columns and the two conditions guarding the `cpipes_execution_status` update — so a rename on the
-other side of the seam is caught here rather than at a deployment.
+columns, the two conditions guarding the `cpipes_execution_status` update, **the `jetstore_bucket`
+sentinel and the upload's part size** — so a rename on the other side of the seam is caught here
+rather than at a deployment.
 
 **This number was measured over the merged tree and is neither branch's.** P9-T06/T07 counted
 seventeen and P9-T08/T09 counted twenty-six, each correct about its own additions and neither able to
 see the other's; the sets overlap by six, so the union is thirty-seven and the sum, forty-three, is
 wrong. **It is prose that nothing asserts**, which is exactly why it conflicted and why neither figure
 was checkable — the count belongs in a test that derives it (P9-I69).
+
+**P9-I69 got its first measurement on 2026-09-19 and it is not reassuring.** Derived by walking every
+`test_*` function and asking which call `conftest.go_source`, the answer is **37 — including this
+wave's two**, so it was **35** before them where this paragraph said thirty-seven. The two figures are
+not comparable rather than one being wrong: the enumeration above includes at least one oracle that is
+not a Go *source* file (the authored `.pc.json` corpus), so the prose set is wider than the derived
+one by an amount nobody can now recover. **Thirty-nine is thirty-seven plus two and inherits whatever
+the thirty-seven was**, which is the honest way to say it and is exactly why the count belongs in a
+test.
 
 **One of them is asserted against a Go test that fails**, deliberately: `TestEncodeRdfTypeToTxt`
 expects `2006-01-02T00:00:00` where `encodeRdfTypeToTxt` returns `2006-01-02`, so the *test* is stale
