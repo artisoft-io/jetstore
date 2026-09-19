@@ -137,8 +137,22 @@ def test_a_malformed_builtin_does_not_arrive_as_a_site_operator():
 
 
 def test_the_authored_corpus_validates_through_both_models():
+    """Every authored `.pc.json` in `workspaces/` validates through both models.
+
+    **The count is pinned and the pin is the point**: a corpus that quietly
+    shrank would make this pass over fewer documents, which is the standing class
+    this repository names oftenest. So the number is re-derived when it moves and
+    the move is explained, never widened to a `>=`.
+
+    **48 -> 50 on 2026-09-19**, and the cause is worth recording because it is not
+    this repository's: `healthcare_corpus`'s Phase 9 authored `qc_denial_share.pc.json`
+    and `qc_succession.pc.json` into `jets_ws` (its P9-T12, D-203's two population
+    checks becoming authored QC pipelines). **So a merge in one repository turned a
+    test red in another**, on a branch that did not cause it — which is P9-I10's
+    shape at the level of a count, recorded there as **P9-I71**.
+    """
     corpus = pipes_config_corpus()
-    assert len(corpus) == 48, "the authored corpus moved; re-derive the count"
+    assert len(corpus) == 50, "the authored corpus moved; re-derive the count"
     for path in corpus:
         doc = json.loads(path.read_text())
         contract.ComputePipesConfig.model_validate(doc)
