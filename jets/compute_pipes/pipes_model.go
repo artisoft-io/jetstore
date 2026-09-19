@@ -682,6 +682,26 @@ type SiteOperatorSpec struct {
 	// block. See OperatorArgs.Outputs for which is which, and for what
 	// declaring both means.
 	OutputChannels []OutputChannelConfig `json:"output_channels,omitempty"`
+	// Lookups names the document's own `lookup_tables` entries this operator
+	// reads, by their `key`. The builder resolves each one to the loaded table
+	// and hands them over on OperatorArgs.Lookups, which is OutputChannels' move
+	// on the other field §12.6 withholds: `lookupTableManager` stays out of
+	// OperatorEnv and the operator names no table its own step did not.
+	//
+	// **Declaring one is what makes it load, and that is this field's first
+	// job.** SelectActiveLookupTable prunes `lookup_tables` to the entries some
+	// step references and runs in the *starter*, where no operator registry
+	// exists, so a table nothing references is never loaded. Without this list a
+	// site operator's reference would be invisible to that pass, and the table
+	// it needs would be pruned away -- a failure whose cause is two processes
+	// from its symptom.
+	//
+	// **Bare keys rather than objects**, because a lookup reference *is* its
+	// key: that is how `map_record`'s lookup columns, `anonymize`, `shuffling`
+	// and `clustering` each name one. An output channel reference carries a name
+	// and a channel spec name and is an object for that reason; this carries one
+	// fact and is a string.
+	Lookups []string `json:"lookups,omitempty"`
 	// Config is the site's own configuration, verbatim. JetStore does not decode
 	// it, validate it or know its schema; it reaches the site's factory as
 	// json.RawMessage for the factory to unmarshal into whatever type it likes.

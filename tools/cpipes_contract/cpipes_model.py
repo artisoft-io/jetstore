@@ -1157,6 +1157,7 @@ class SiteOperatorSpec(_Base):
     error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where the operator reports row-level errors.")
     max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel.")
     output_channels: list[OutputChannelConfig] | None = Field(default=None, description="Channels this operator writes beyond the step's own output_channel. The builder resolves each one and hands the resolved channels to the factory, so the operator names nothing its own step did not declare.")
+    lookups: list[str] | None = Field(default=None, description="Keys of the document's own lookup_tables entries this operator reads. Declaring one is what keeps the table from being pruned before it is loaded; the builder resolves each key to the loaded table and hands them to the factory.")
 
 
 class SortSpec(_Base):

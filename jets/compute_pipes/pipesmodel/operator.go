@@ -16,6 +16,69 @@ type TransformationColumnEvaluator interface {
 	Done(currentValue *[]any) error
 }
 
+// LookupTable is one loaded lookup table, read-only and keyed.
+//
+// It lived in `compute_pipes/lookup_table_manager.go` until Phase 9's P9-T02 and
+// moved here for TransformationColumnEvaluator's reason one field over: it is
+// what OperatorArgs.Lookups hands across, so a site operator has to be able to
+// name what it is given. `compute_pipes` keeps a type alias, so `LookupTableS3`,
+// `LookupTableSql` and every built-in that holds one are untouched, and **a site
+// operator is handed the same object a built-in gets** rather than a second
+// interface built for it.
+//
+// **It crosses without dragging anything**, which is the fact that made the move
+// cheap rather than a question: every method takes and returns standard library
+// shapes, so the package's standard-library-only property is unaffected. The
+// *implementations* reach S3 and pgx; the contract does not, which is the same
+// split that lets an operator package inherit none of them.
+//
+// **Growing it is a breaking change and the asymmetry is worth stating**, since
+// it is the opposite of OperatorArgs': a site that writes a test double
+// *implements* this, so a method added here breaks it. Embed the interface in a
+// double and override what the test needs, the way OperatorEnv's own doc block
+// recommends and for the same reason.
+type LookupTable interface {
+	// Lookup returns the row associated with key, or nil when the table has no
+	// such key. A nil key is an error rather than a miss.
+	Lookup(key *string) (*[]any, error)
+	// LookupValue returns one column's value out of a row Lookup returned.
+	LookupValue(row *[]any, columnName string) (any, error)
+	// ColumnMap is the mapping of lookup column name to its position in a
+	// returned row, empty when the table is empty.
+	ColumnMap() map[string]int
+	// IsEmptyTable reports whether the table loaded no rows, which a lookup
+	// configured with make_empty_source_when_no_files_found can legitimately be.
+	IsEmptyTable() bool
+	// Size is the number of rows loaded.
+	Size() int64
+}
+
+// Lookup is one entry of OperatorArgs.Lookups: a loaded table beside the key its
+// step named it by.
+//
+// **The key travels with the table because the table does not carry it.**
+// LookupTable is the object the built-ins hold and it has no accessor for its own
+// name -- a built-in never needs one, because it reaches into the manager's map
+// by a name it already has. A site operator handed a bare list could not tell one
+// table from another, so the pair is the smallest thing that makes the list
+// usable without widening the interface every implementation would have to grow.
+//
+// **A slice of pairs rather than a map, and the reason is order** (D-209). A
+// map's range order is unspecified, so an operator that iterated its lookups
+// would do so differently from run to run -- which is invisible in a keyed read
+// and fatal to anything downstream that must be a pure function of its inputs.
+// A slice preserves what the step authored. The cost is that a lookup by key is
+// a scan of a list whose length is what one step declared, and a site that wants
+// a map builds one in three lines from a shape that told it the truth about
+// ordering.
+type Lookup struct {
+	// Key is the name the step declared and the document's `lookup_tables`
+	// entry carries, so an operator can find the one it means.
+	Key string
+	// Table is the loaded table itself, the same object the built-ins are given.
+	Table LookupTable
+}
+
 // OperatorEnv is what a site-supplied operator is given while it is being built.
 //
 // It is an interface JetStore implements and a site consumes, which is what makes
@@ -210,6 +273,42 @@ type OperatorArgs struct {
 	// OperatorEnv.Done, which is the only termination signal this package hands
 	// over, the way every built-in does in Apply.
 	Outputs []*OutputChannel
+
+	// Lookups are the loaded lookup tables the step's `site_config.lookups`
+	// named, in the order they were authored. It is nil when the step named
+	// none.
+	//
+	// **Outputs' move on the other withheld field, and the same argument
+	// carries it.** §12.6 withholds `lookupTableManager` beside
+	// `channelRegistry`; the reason is weaker for a lookup than for its
+	// neighbours in that row -- a lookup is a read-only keyed table with no
+	// write side and no effect on the graph -- but it is the same remedy
+	// either way: the builder resolves what the step itself declared and hands
+	// the result over, so the manager stays unreachable and the operator names
+	// no table its own step did not.
+	//
+	// **What arrives is the object a built-in gets**, not a view built for a
+	// site: `map_record`'s lookup column evaluator, `anonymize` and `shuffling`
+	// all hold this same LookupTable. A second interface would have been a
+	// second implementation of a keyed read, and two readers of one rule are
+	// two chances to disagree silently.
+	//
+	// **Declaring one is what makes it load.** `SelectActiveLookupTable` prunes
+	// the document's `lookup_tables` to those some step references, in the
+	// starter, before the node exists -- so a table nothing references is never
+	// loaded, and a site step's `lookups` list is how a site operator's
+	// reference becomes visible to a pass that knows nothing about site
+	// operators. A name that no `lookup_tables` entry defines is refused there,
+	// by name, the way every other operator's reference is.
+	//
+	// **It is built for the contract rather than for its first consumer**
+	// (D-202). The corpus generator that motivated the operator contract does
+	// not use this field: it keeps its own reference-table package, because a
+	// generic keyed map gives neither per-table declared key normalisation nor
+	// the refusals that make a table which quietly lost rows visible. An
+	// extension built for the contract's sake is better shaped than one bent
+	// toward one caller.
+	Lookups []*Lookup
 
 	// ErrorChannel is resolved, and nil when the step configured none. An
 	// operator that writes a record here is reporting a row-level failure the

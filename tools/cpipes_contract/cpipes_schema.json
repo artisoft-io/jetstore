@@ -14892,6 +14892,22 @@
           "description": "Channel where the operator reports row-level errors.",
           "title": "Error Channel"
         },
+        "lookups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Keys of the document's own lookup_tables entries this operator reads. Declaring one is what keeps the table from being pruned before it is loaded; the builder resolves each key to the loaded table and hands them to the factory.",
+          "title": "Lookups"
+        },
         "max_error_count": {
           "anyOf": [
             {

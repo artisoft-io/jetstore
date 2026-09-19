@@ -1354,3 +1354,286 @@ func TestSiteOutputChannelsSurviveTheDocumentRoundTrip(t *testing.T) {
 		t.Errorf("a site_config naming no output_channels marshals as %s", bare)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// P9-T02: `site_config.lookups` and OperatorArgs.Lookups.
+//
+// Built for the contract rather than for this corpus (D-202), so its first
+// consumer is these tests: the corpus operator keeps its own reference-table
+// package and does not use the extension. That makes the tests the only thing
+// standing between the field and P4-I43's class -- a component whose own tests
+// pass and which nothing on a run's path ever reaches -- so they exercise both
+// ends: the starter pass that decides a table is loaded at all, and the builder
+// pass that hands it over.
+// ---------------------------------------------------------------------------
+
+// siteLookupTableFake is the smallest thing that is a LookupTable. It exists to be
+// handed over and recognised, which is all these tests ask of it.
+type siteLookupTableFake struct {
+	name string
+	rows map[string]*[]any
+}
+
+func (t *siteLookupTableFake) Lookup(key *string) (*[]any, error) {
+	if key == nil {
+		return nil, fmt.Errorf("nil key")
+	}
+	return t.rows[*key], nil
+}
+func (t *siteLookupTableFake) LookupValue(row *[]any, columnName string) (any, error) {
+	if row == nil || len(*row) == 0 {
+		return nil, nil
+	}
+	return (*row)[0], nil
+}
+func (t *siteLookupTableFake) ColumnMap() map[string]int { return map[string]int{"value": 0} }
+func (t *siteLookupTableFake) IsEmptyTable() bool        { return len(t.rows) == 0 }
+func (t *siteLookupTableFake) Size() int64               { return int64(len(t.rows)) }
+
+// withLookups gives the rig a lookup table manager holding the named tables.
+func (r *siteTestRig) withLookups(names ...string) *siteTestRig {
+	mgr := NewLookupTableManager(nil, nil, false)
+	for _, name := range names {
+		mgr.LookupTableMap[name] = &siteLookupTableFake{
+			name: name, rows: map[string]*[]any{"k": {name}}}
+	}
+	r.ctx.lookupTableManager = mgr
+	return r
+}
+
+func siteLookupsSpec(keys ...string) *TransformationSpec {
+	return &TransformationSpec{
+		Type:          "site_double",
+		OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+		SiteConfig:    &SiteOperatorSpec{Lookups: keys},
+	}
+}
+
+// The declared tables are resolved and handed over, in the order authored, and
+// what arrives is the manager's own table rather than a copy or a view.
+func TestSiteLookupsAreResolvedAtBuildTime(t *testing.T) {
+	var captured *pipesmodel.OperatorArgs
+	rig := newSiteTestRig(t).withLookups("zip_to_state", "codes", "unused").
+		withOperators(map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+
+	spec := siteLookupsSpec("codes", "zip_to_state")
+	if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if captured == nil {
+		t.Fatal("the factory was never called")
+	}
+	if len(captured.Lookups) != 2 {
+		t.Fatalf("Lookups has %d entries, want 2", len(captured.Lookups))
+	}
+	for i, want := range []string{"codes", "zip_to_state"} {
+		got := captured.Lookups[i]
+		if got == nil || got.Key != want {
+			t.Fatalf("Lookups[%d] is %v, want key %q (authored order is the operator's handle)", i, got, want)
+		}
+		if got.Table != rig.ctx.lookupTableManager.LookupTableMap[want] {
+			t.Errorf("Lookups[%d] is not the manager's own table for %q", i, want)
+		}
+		// And it reads: the site gets the object a built-in gets, so the keyed
+		// read is the same keyed read.
+		key := "k"
+		row, err := got.Table.Lookup(&key)
+		if err != nil || row == nil {
+			t.Fatalf("Lookups[%d].Table.Lookup: %v, %v", i, row, err)
+		}
+		if value, err := got.Table.LookupValue(row, "value"); err != nil || value != want {
+			t.Errorf("Lookups[%d] resolved to table %v, want %q", i, value, want)
+		}
+	}
+	// A table the step did not name is not handed over, even though it is loaded.
+	for _, l := range captured.Lookups {
+		if l.Key == "unused" {
+			t.Error("the operator was handed a table its step did not declare")
+		}
+	}
+}
+
+// The refusals. The miss is the one that differs from what the built-ins do, and
+// the comment on resolveSiteLookups says why: a nil LookupTable would turn a
+// load failure into a nil dereference inside site code.
+func TestSiteLookupsRefuseWhatCannotWork(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		keys        []string
+		withManager bool
+		want        string
+	}{
+		{"empty key", []string{""}, true, "cannot be empty"},
+		{"repeated key", []string{"codes", "codes"}, true, "twice"},
+		{"not loaded", []string{"nowhere"}, true, "is not loaded"},
+		{"no manager at all", []string{"codes"}, false, "prepared none"},
+	} {
+		rig := newSiteTestRig(t).withOperators(
+			map[string]SiteOperatorFactory{"site_double": newDoublingOperator})
+		if tc.withManager {
+			rig = rig.withLookups("codes")
+		}
+		_, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, siteLookupsSpec(tc.keys...))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v, want an error mentioning %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// A step declaring no lookups is handed exactly what it was handed before the
+// field existed -- including when the node prepared no lookup tables at all,
+// which is every pipeline in the corpus that uses none.
+func TestSiteLookupsAreAbsentWhenNoneAreDeclared(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		siteConfig *SiteOperatorSpec
+		manager    bool
+	}{
+		{"no site_config at all", nil, false},
+		{"a site_config naming none", &SiteOperatorSpec{MaxErrorCount: 3}, false},
+		{"an empty list", &SiteOperatorSpec{Lookups: []string{}}, false},
+		{"none declared, tables loaded", &SiteOperatorSpec{}, true},
+	} {
+		var captured *pipesmodel.OperatorArgs
+		rig := newSiteTestRig(t).withOperators(
+			map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+		if tc.manager {
+			rig = rig.withLookups("codes")
+		}
+		spec := &TransformationSpec{Type: "site_double",
+			OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+			SiteConfig:    tc.siteConfig}
+		if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if captured == nil {
+			t.Fatalf("%s: the factory was never called", tc.name)
+		}
+		if captured.Lookups != nil {
+			t.Errorf("%s: Lookups is %v, want nil", tc.name, captured.Lookups)
+		}
+	}
+}
+
+// The starter half, and the half the resolution cannot stand without.
+//
+// SelectActiveLookupTable prunes `lookup_tables` to what some step references,
+// in a process that knows nothing about site operators. A site operator's
+// declared lookup survives that pruning, an undefined one is refused there by
+// name, and a step declaring none prunes exactly as it did before -- which is
+// the assertion that keeps this additive.
+func TestSelectActiveLookupTableKeepsASiteOperatorsLookups(t *testing.T) {
+	lookupConfig := []*LookupSpec{
+		{Key: "zip_to_state", Type: "s3_csv_lookup"},
+		{Key: "codes", Type: "s3_csv_lookup"},
+		{Key: "unreferenced", Type: "s3_csv_lookup"},
+	}
+	siteStep := func(keys ...string) []PipeSpec {
+		return []PipeSpec{{Apply: []TransformationSpec{{
+			Type: "hc_generator", SiteConfig: &SiteOperatorSpec{Lookups: keys}}}}}
+	}
+
+	active, err := SelectActiveLookupTable(lookupConfig, siteStep("codes", "zip_to_state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(active))
+	for _, spec := range active {
+		got = append(got, spec.Key)
+	}
+	if strings.Join(got, ",") != "codes,zip_to_state" {
+		t.Errorf("active lookups are %v, want [codes zip_to_state]", got)
+	}
+
+	// An undefined name is refused here, by name, the way every other operator's
+	// reference is -- rather than surfacing as a nil table two processes later.
+	if _, err := SelectActiveLookupTable(lookupConfig, siteStep("nowhere")); err == nil ||
+		!strings.Contains(err.Error(), "nowhere") {
+		t.Errorf("an undefined site lookup gave %v, want an error naming it", err)
+	}
+
+	// A step declaring none prunes as it always did: nothing active.
+	none, err := SelectActiveLookupTable(lookupConfig, siteStep())
+	if err != nil || len(none) != 0 {
+		t.Errorf("a site step declaring no lookups made %d table(s) active (%v)", len(none), err)
+	}
+
+	// And the built-in guard: a site_config on a built-in token answers nothing
+	// here, because validateSiteOperatorSpec refuses that document and the
+	// dispatch will never build it.
+	builtin := []PipeSpec{{Apply: []TransformationSpec{{
+		Type: "map_record", SiteConfig: &SiteOperatorSpec{Lookups: []string{"codes"}}}}}}
+	active, err = SelectActiveLookupTable(lookupConfig, builtin)
+	if err != nil || len(active) != 0 {
+		t.Errorf("a built-in carrying a site_config made %d table(s) active (%v)", len(active), err)
+	}
+}
+
+// The document's two JSON hops, where a block that is not a JSON-tagged field is
+// dropped silently (I-777).
+func TestSiteLookupsSurviveTheDocumentRoundTrip(t *testing.T) {
+	const authored = `{
+	  "cluster_config": {},
+	  "lookup_tables": [{"key": "zip_to_state", "type": "s3_csv_lookup"}],
+	  "pipes_config": [{
+	    "type": "fan_out",
+	    "input_channel": {"name": "input_row"},
+	    "apply": [{
+	      "type": "cgt_scrub",
+	      "output_channel": {"name": "scrubbed", "channel_spec_name": "claim_row"},
+	      "site_config": {"lookups": ["zip_to_state", "codes"]}
+	    }]
+	  }]
+	}`
+	first, err := UnmarshalComputePipesConfig(&[]string{authored}[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTripped := string(encoded)
+	cpConfig, err := UnmarshalComputePipesConfig(&roundTripped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := &cpConfig.PipesConfig[0].Apply[0]
+	if spec.SiteConfig == nil {
+		t.Fatal("site_config was dropped by the round trip")
+	}
+	if strings.Join(spec.SiteConfig.Lookups, ",") != "zip_to_state,codes" {
+		t.Errorf("lookups after the round trip are %v", spec.SiteConfig.Lookups)
+	}
+	bare, err := json.Marshal(SiteOperatorSpec{MaxErrorCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(bare), "lookups") {
+		t.Errorf("a site_config naming no lookups marshals as %s", bare)
+	}
+}
+
+// siteLookupKeys, and the built-in guard it carries for siteOutputChannelConfigs'
+// reason.
+func TestSiteLookupKeysReadsTheDocument(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		spec *TransformationSpec
+		want string
+	}{
+		{"a site token with a list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a", "b"}}}, "a,b"},
+		{"a site token with no list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{}}, ""},
+		{"no site_config", &TransformationSpec{Type: "site_double"}, ""},
+		{"a built-in carrying a site_config", &TransformationSpec{Type: "anonymize",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a"}}}, ""},
+		{"the resolved-away token", &TransformationSpec{Type: "infer",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a"}}}, ""},
+	} {
+		if got := strings.Join(siteLookupKeys(tc.spec), ","); got != tc.want {
+			t.Errorf("%s: %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

@@ -613,6 +613,21 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					activeTables = append(activeTables, spec)
 				}
 			}
+			// A site operator's declared lookups. Before the switch and outside
+			// it on purpose: a site token is by construction none of the cases
+			// below, and this pass runs in the starter where no operator
+			// registry exists -- so the document is the only thing that can say
+			// a site operator reads a table, and a table nothing says is read is
+			// pruned away and never loaded.
+			for _, key := range siteLookupKeys(transformationSpec) {
+				spec := lookupMap[key]
+				if spec == nil {
+					return nil, fmt.Errorf(
+						"error: lookup table '%s' declared in site_config.lookups of operator '%s' is not defined "+
+							"in lookup_tables, please verify the configuration", key, transformationSpec.Type)
+				}
+				activeTables = append(activeTables, spec)
+			}
 			switch transformationSpec.Type {
 			case "analyze":
 				// Check for Analyze transformation using lookup tables
@@ -1258,6 +1273,24 @@ func siteOutputChannelConfigs(transformationConfig *TransformationSpec) []*Outpu
 		configs = append(configs, &channels[i])
 	}
 	return configs
+}
+
+// siteLookupKeys returns the `lookup_tables` keys a *site* operator's step
+// declared in `site_config.lookups`. Nil when there is no site_config, no list,
+// or the token is one the dispatch handles itself.
+//
+// siteOutputChannelConfigs' shape one field over, with the same built-in guard
+// for the same reason: a `site_config` on a built-in token is a configuration
+// error validateSiteOperatorSpec refuses, and answering for it here would keep a
+// lookup table loaded for a step the dispatch is never going to build.
+func siteLookupKeys(transformationConfig *TransformationSpec) []string {
+	if transformationConfig.SiteConfig == nil || reservedOperatorTypes[transformationConfig.Type] {
+		return nil
+	}
+	if len(transformationConfig.SiteConfig.Lookups) == 0 {
+		return nil
+	}
+	return transformationConfig.SiteConfig.Lookups
 }
 
 // outputChannelConfigs returns the channels a transformation writes its results

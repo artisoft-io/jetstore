@@ -1027,6 +1027,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"comment":         {},
 		"config":          {},
 		"error_channel":   {},
+		"lookups":         {},
 		"max_error_count": {},
 		"output_channels": {},
 	},
