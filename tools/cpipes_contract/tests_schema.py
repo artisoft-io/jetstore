@@ -81,8 +81,8 @@ def test_the_committed_schema_is_what_the_current_model_emits():
     assert emitted() == COMMITTED
 
 
-def test_folding_the_complement_branch_changes_no_byte_of_the_schema():
-    """The claim the model's widening rests on.
+def test_the_folded_union_is_a_single_discriminated_one_of():
+    """The *shape* the fold restores, which is what consumers read.
 
     The alias is `Annotated[Union[<tagged>, <branch>], left_to_right]`, which
     Pydantic writes as a two-member `anyOf`;
@@ -92,9 +92,11 @@ def test_folding_the_complement_branch_changes_no_byte_of_the_schema():
     the model stood still — which is the disagreement this module exists to
     prevent, in the other direction.
 
-    Asserted against the *committed* bytes rather than against a recomputation,
-    so the property is "the schema did not move", not "the emitter agrees with
-    itself".
+    **The byte claim is the previous test's and not this one's**, deliberately:
+    this reads the committed file, so it can say what shape is in the tree and
+    cannot say that the emitter still produces it. Mutating the fold to emit
+    the branch twice is caught there and not here, which is how the division
+    was checked rather than assumed.
     """
     schema = json.loads(COMMITTED)
     union = schema["$defs"]["TransformationSpec"]
@@ -108,9 +110,11 @@ def test_the_fold_refuses_a_union_that_is_not_widened():
 
     Before 2026-09-19 this function *added* the branch to a tagged union, so an
     un-widened alias was its normal input and it could not tell the two apart.
-    It now refuses, which is what makes `test_..._changes_no_byte_...` evidence
-    rather than a coincidence — a fold that silently accepted both shapes would
-    pass whether or not the model carried the branch.
+    It now refuses, which is what makes
+    `test_the_committed_schema_is_what_the_current_model_emits` evidence about
+    the model rather than a coincidence — a fold that silently accepted both
+    shapes would emit the same bytes whether or not the model carried the
+    branch, and the schema would go on saying yes while the model said no.
     """
     from cpipes_contract.schema import splice_complement_branches
 

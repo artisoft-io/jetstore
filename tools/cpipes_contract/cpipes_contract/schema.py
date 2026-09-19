@@ -45,7 +45,7 @@ def splice_complement_branches(defs: dict, types_csv: Path) -> None:
     `anyOf` back into the single discriminated `oneOf` the schema has carried
     since gap 2b, so the emitted document is unchanged by the model gaining the
     branch. **Measured: byte-identical**, which is the check
-    `tests_schema.py::test_folding_the_complement_branch_changes_no_byte_of_the_schema`
+    `tests_schema.py::test_the_committed_schema_is_what_the_current_model_emits`
     makes on every run.
 
     Until 2026-09-19 this *added* the branch to a union that did not contain it,
