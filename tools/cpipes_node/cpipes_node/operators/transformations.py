@@ -555,7 +555,7 @@ class PartitionWriter(Transformation):
         node_id: int,
         output_channel: Any = None,
         file_name: str = "",
-        bucket: str = "",
+        bucket: str = "",  # already resolved by `_partition_destination`
     ) -> PartitionWriterPipe:
         """The construction, with the two things the dispatch cannot pass.
 
