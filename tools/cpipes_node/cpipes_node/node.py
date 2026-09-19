@@ -156,21 +156,56 @@ def first_pipe(config: Any) -> Any:
 def _file_keys(config: Any, args: NodeArgs) -> tuple[str, ...]:
     """What this node's first pipe reads, by mode.
 
-    The two S3-reading branches are the graph's (P9-T04) and are refused here
-    rather than returned empty, because an empty file-key list is what "no
-    files found" looks like and a node that returned one would produce an empty
-    partition instead of an error.
+    `CoordinateComputePipes` has three arms and this has three, and **the two
+    that are not the generator's are refused rather than implemented**. The
+    argument is not that they are hard; it is that no document this node accepts
+    can reach them, and writing a path no document can take is the class this
+    repository has recorded thirty-seven times — a component whose own tests
+    pass and which reaches no working path (P4-I43).
+
+    Where each Go arm goes, and why it is unreachable here:
+
+    - **`reducing` with a non-generator channel** reads the stage area with
+      `GetS3FileKeys`. Such a channel is typed `stage` or `input`, and neither is
+      in this node's declared scope (`cpipes_node.operators.channels` declares
+      `generator` and `memory`), so `config.check_scope` has already aborted on
+      the token. Implementing the branch would mean implementing S3 listing for a
+      channel type X6 refuses.
+
+    - **`sharding`** reads `jetsapi.compute_pipes_shard_registry`, a database
+      table, for shards a sharding starter wrote. A sharding step's main input is
+      an `input` channel, so the same refusal applies — **and a generator in
+      sharding mode is worse than unsupported in Go**: the mode switch sends it
+      to the shard registry, which holds nothing for it, and `LoadMainInput`'s
+      loop over an empty file-key list never reaches the generator arm, so the
+      node writes nothing and exits 0. Refusing it by name cannot mask anything
+      a run would otherwise have produced.
+
+    The refusal is a `StartupError` and not `GraphNotBuilt`: nothing is owed, and
+    a message naming a task would send the next reader looking for work nobody
+    has to do.
     """
     mode = getattr(config.common_runtime_args, "cpipes_mode", "") or ""
     if mode not in CPIPES_MODES:
         raise StartupError(f"error: invalid cpipesMode in coordinate: {mode}")
     channel = first_pipe(config).input_channel
-    if mode == "reducing" and getattr(channel, "type", None) == "generator":
+    channel_type = getattr(channel, "type", None)
+    if mode == "reducing" and channel_type == "generator":
         return (GENERATOR_FILE_PROXY,)
-    raise graph.GraphNotBuilt(
-        f"acquiring input file keys for cpipes_mode {mode!r} with an input "
-        f"channel of type {getattr(channel, 'type', None)!r} is P9-T04's; "
-        "this node builds the generator source first (charter WS1)."
+    if channel_type == "generator":
+        raise StartupError(
+            f"error: a generator input channel in cpipes_mode {mode!r}: the Go "
+            "node resolves its file keys from jetsapi.compute_pipes_shard_registry, "
+            "finds none, and never reaches the generator — writing nothing and "
+            "exiting 0. A generator pipeline is a reducing pipeline."
+        )
+    raise StartupError(
+        f"error: an input channel of type {channel_type!r} in cpipes_mode "
+        f"{mode!r} is read from S3 or from the shard registry, and this node's "
+        "declared scope covers the 'generator' and 'memory' channel types only "
+        "(see cpipes_node.operators.channels). The scope gate refuses the token "
+        "before this point; reaching here means the scope grew and this arm did "
+        "not."
     )
 
 

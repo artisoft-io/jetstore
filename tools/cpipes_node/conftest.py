@@ -57,6 +57,22 @@ def pipes_config_corpus() -> tuple[Path, ...]:
 
 MEMORY_CHANNEL = {"name": "out", "type": "memory", "channel_spec_name": "out"}
 
+#: The generator's record width, and the columns a channel declaring
+#: `same_columns_as_input` takes. `LoadMainInput` sends
+#: `make([]any, len(mainInput.InputColumns))` per generated row, so a document
+#: with no main-input columns generates rows of no width — which is why both
+#: fixtures below carry it and why `graph._main_input_columns` refuses its
+#: absence rather than defaulting it.
+MAIN_INPUT_COLUMNS = ["a"]
+
+#: The channel spec the generator's own input channel takes its shape from. Its
+#: columns are `MAIN_INPUT_COLUMNS` deliberately: a generator step whose channel
+#: declares more columns than the main input hands every downstream reader a
+#: record shorter than its own column map.
+GENERATOR_CHANNEL_SPEC = {"name": "in", "columns": MAIN_INPUT_COLUMNS}
+
+_SOURCES_CONFIG = {"main_input": {"input_columns": MAIN_INPUT_COLUMNS}}
+
 
 def document(apply: list[dict[str, Any]], channel_type: str = "generator") -> dict:
     """A minimal authored document with one step and one pipe.
@@ -64,9 +80,19 @@ def document(apply: list[dict[str, Any]], channel_type: str = "generator") -> di
     Deliberately minimal: every test that wants a token in a particular place
     builds its own `apply`, and a shared fixture carrying six operators would
     make a test that meant to examine one of them pass on another.
+
+    **Minimal and runnable, which it was not until P9-T04.** It grew the
+    generator channel's own spec and `common_runtime_args`, because a document
+    that stops at the scope gate needs neither and one that runs needs both — and
+    a fixture that cannot run is a fixture that can only ever test a refusal.
     """
     return {
-        "channels": [{"name": "out", "columns": ["a"]}],
+        "common_runtime_args": {
+            "cpipes_mode": "reducing",
+            "session_id": "s1",
+            "sources_config": _SOURCES_CONFIG,
+        },
+        "channels": [GENERATOR_CHANNEL_SPEC, {"name": "out", "columns": ["a"]}],
         "schema_providers": [
             {"type": "default", "key": "main", "source_type": "main_input"}
         ],
@@ -97,11 +123,16 @@ def runtime_document(apply: list[dict[str, Any]], mode: str = "reducing") -> dic
     """What a starter writes into `cpipes_execution_status`.
 
     `common_runtime_args` and a flat `pipes_config`, which is the pair the
-    contract's own model does not carry.
+    contract's own model does not carry. `sources_config` is inside the first of
+    those and is what the generator's record width comes from.
     """
     return {
-        "common_runtime_args": {"cpipes_mode": mode, "session_id": "s1"},
-        "channels": [{"name": "out", "columns": ["a"]}],
+        "common_runtime_args": {
+            "cpipes_mode": mode,
+            "session_id": "s1",
+            "sources_config": _SOURCES_CONFIG,
+        },
+        "channels": [GENERATOR_CHANNEL_SPEC, {"name": "out", "columns": ["a"]}],
         "schema_providers": [
             {"type": "default", "key": "main", "source_type": "main_input"}
         ],
