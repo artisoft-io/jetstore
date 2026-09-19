@@ -403,8 +403,10 @@ $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-**468 → 507 on 2026-09-19**, the whole of the difference being D-242's and D-243's **thirty-five new
-test functions**, thirty-nine collected: two are parametrised, three ways and four ways.
+**468 → 507 on 2026-09-19**, the whole of the difference being D-242's and D-243's **thirty-four new
+test functions**, thirty-nine collected: two are parametrised, three ways and four ways. The figure
+was predicted at twenty before it was written and the miss is the finding — every refusal arm turned
+out to need its paired negative, without which the refusal is indistinguishable from an over-reach.
 
 **Thirty-nine** tests read Go source as their oracle rather than transcribing it — the argument
 struct's json tags, the `ComputePipesConfig` struct's tags, the config `SELECT`, the authored
