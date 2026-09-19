@@ -48,7 +48,7 @@ import io
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import IO, Any, Protocol, runtime_checkable
+from typing import IO, Any, Protocol, cast, runtime_checkable
 
 from .errors import ObjectNotFound, ObjectStoreError
 
@@ -287,7 +287,10 @@ class S3:
         upload_id = started["UploadId"]
         sink = _MultipartSink(client, self.bucket, key, upload_id)
         try:
-            write(sink)
+            # `io.RawIOBase` is a binary file object and is not `IO[bytes]` in
+            # typeshed; the cast says so once rather than widening the seam's
+            # own type, which is what every other implementation satisfies.
+            write(cast("IO[bytes]", sink))
             parts = sink.finish()
         except BaseException:
             client.abort_multipart_upload(  # type: ignore[attr-defined]
