@@ -1,0 +1,151 @@
+# The Python compute pipes node, as a container-image Lambda.
+#
+# Built with the repository root as its context, as every other Dockerfile here
+# is:
+#
+#   docker build --progress=plain \
+#     --build-arg "JETS_VERSION=$JETS_VERSION" \
+#     --build-arg "JETS_GIT_SHA=$JETS_GIT_SHA" \
+#     -t cpipes_python_lambda:latest \
+#     -f dockerfiles/Dockerfile.cpipes_python_lambda .
+#
+# **Why a container and not a zip.** A zip-packaged Lambda is capped at 250 MB
+# unpacked, and the interpreter is not inside that budget on a zip deployment;
+# the node's own closure -- pydantic, jsonschema, boto3 and a Postgres driver --
+# does not fit beside one, and a site operator bringing pyarrow (~120 MB) would
+# not come close. A container-image function is capped at 10 GB.
+#
+# **Measured 2026-09-18, and the partition is the argument rather than the
+# total: 571.7 MB, of which the base image is 517.0 MB and everything this file
+# adds is 54.7 MB** -- 46.2 MB of installed distributions, 8.3 MB of the two
+# source trees and 0.3 MB of handler, checks and version stamp. So the
+# interpreter base alone is 2.07x the zip cap, before a line of this node exists:
+# the container is not a convenience taken to leave headroom, it is the only
+# packaging in which the node fits. Against the container limit the image is 5.7%
+# of 10 GB. The number that decides whether the lambda arm is *usable* is not
+# this one but the per-invocation reference load, which is P9-T16's to measure
+# (P9-I03, P9-R04).
+#
+# **It is the Dockerfile.cpipes_native_lambda set's pattern with one structural
+# difference, and the difference is an absence worth stating.** That set is two
+# files: a base image copying `bootstrap` out of a builder stage, and a `_ws`
+# sibling adding the compiled workspace. There is no `_ws` sibling here, and it
+# is measured rather than forgotten:
+#
+#   - the compiled workspace is read by the jetrules engine, and this node
+#     declares no jetrules token at all (`cpipes-node scope`), so baking
+#     `/workspaces/<ws>` in would assert a need that does not exist;
+#   - the per-workspace content a Python node wants is the site's own operator
+#     package and the module registering it, which is a pip requirement and a
+#     handler module rather than a directory copied out of `compile_ws`.
+#
+# So the site half of the pattern is a site-authored Dockerfile deriving
+# `FROM cpipes_python_lambda:latest`, installing its own distribution and
+# shipping its own handler. **Writing that file before a site distribution
+# exists would be a knob with no consumer**, which is the shape `I-820`'s own
+# argument refuses. §20.4's rule -- a `_ws` image inherits the selection its
+# parent made, and only the image naming the source needs the ARG -- holds here
+# with the source being a pip requirement.
+#
+# **The handler is named at synth and not baked here.** `DockerImageCode_FromEcr`
+# sets `Cmd` (`build_cpipes_lambdas.go`), exactly as it overrides the native
+# image's to `bootstrap`, so which module a deployment runs is visible in the
+# synthesised template. The CMD below is the default for a bare `docker run` of
+# this image and for the Runtime Interface Emulator.
+#
+# **Exercised through the runtime, not only through the build.** The base image carries
+# `aws-lambda-rie`, so the deployed entry is reachable on a workstation:
+#
+#   docker run -d -p 9321:8080 -e JETS_BUCKET=x -e JETS_REGION=us-east-1 \
+#     -e JETS_DSN_SECRET=x cpipes_python_lambda:latest handler.lambda_handler
+#   curl -XPOST localhost:9321/2015-03-31/functions/function/invocations \
+#     -d '{"id":0,"jp":"","pe":1}'
+#
+# Measured 2026-09-18: `INIT RTDONE(status: success)` -- so `Settings.from_env` and the `Node`
+# composed at import -- then the event reaching `lambda_handler`, `NodeArgs(**event)` accepting
+# the three fields, and the invocation failing at `get_secret_value` with `NoCredentialsError`
+# on a machine that has no AWS. That is the whole chain from the runtime interface into the
+# package, and the first thing missing is the account rather than anything in the image.
+#
+# **What this image is not: reproducible.** Criterion 98's instrument for the Go
+# images is a rebuild that is a total cache hit writing the same image id, and
+# that claim rests on `go.sum`. There is no lock file for these two Python
+# distributions, so `pip install` resolves pydantic, jsonschema, boto3 and
+# psycopg afresh at every cold build and two builds a month apart are not the
+# same image. The mitigation here is disclosure rather than a pin: `pip freeze`
+# is written into /VERSION.txt, so a deployed image can be asked what it
+# contains. A constraints file is the repair and it belongs with the packaging
+# rather than with the image (P9-I53).
+
+FROM public.ecr.aws/lambda/python:3.12
+
+# JETS_VERSION is the build's timestamp, stamped identically into every image of
+# a build run, and JETS_GIT_SHA is the branch and commit. Same shape and same
+# file as Dockerfile.cpipes_native_lambda writes, so
+# `docker run --entrypoint cat <img> /VERSION.txt` answers the same question
+# about either image.
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+ARG JETS_GIT_SHA
+ENV JETS_GIT_SHA=${JETS_GIT_SHA}
+RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
+    echo "----------------*********************-------------" >> /VERSION.txt
+
+# The two source trees, copied whole.
+#
+# **`cpipes_contract` ships as a tree and not as a wheel alone, and that is
+# P9-I27 rather than a preference.** `cpipes_model.py` -- the Pydantic model that
+# is the source of truth for the whole `.pc.json` -- is a *sibling file* of the
+# `cpipes_contract` package, and that package's wheel declares
+# `packages = ["cpipes_contract"]`, so an installed wheel does not carry the
+# model at all. `cpipes_contract.reflect` loads it through
+# `importlib.util.spec_from_file_location` and so does `cpipes_node/contract.py`,
+# whose second searched path is `<site-packages>/cpipes_model.py`. The `cp` below
+# puts it exactly there, which also makes it a plain importable module, and
+# `image_check.py` asserts both.
+#
+# **The repair belongs on the other side of the seam**: moving the file into its
+# package costs one default path in `cpipes_contract/main.py` and deletes this
+# copy, the four `type: ignore[valid-type]` comments in `contract.py` and that
+# module's own retiring guard. Until then this is what makes the node able to
+# read a `.pc.json` at all.
+COPY tools/cpipes_contract /src/cpipes_contract
+COPY tools/cpipes_node     /src/cpipes_node
+
+# psycopg is the image's, not the package's. `cpipes_node` imports no database
+# driver by design (`awslambda.Node.connect`), and the default handler this image
+# ships is where the Go main's `dbc.NewDbConnection` lands.
+#
+# boto3 is in the Lambda Python base image already; `cpipes_node[s3]` names it
+# anyway, so the dependency is declared where it is used rather than inherited
+# from a base image that could drop it.
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir \
+        /src/cpipes_contract \
+        "/src/cpipes_node[s3]" \
+        "psycopg[binary]>=3.1" \
+    && SITE="$(python -c 'import cpipes_contract, pathlib; print(pathlib.Path(cpipes_contract.__file__).resolve().parent.parent)')" \
+    && cp /src/cpipes_contract/cpipes_model.py "$SITE/cpipes_model.py" \
+    && echo "----------------Python-distributions--------------" >> /VERSION.txt \
+    && python -m pip freeze                                      >> /VERSION.txt \
+    && echo "----------------*********************-------------" >> /VERSION.txt
+
+COPY dockerfiles/cpipes_node_lambda/handler.py     ${LAMBDA_TASK_ROOT}/handler.py
+COPY dockerfiles/cpipes_node_lambda/image_check.py /image_check.py
+
+# The build-time checks. See image_check.py for what each one is for; the three
+# variables are `cpipes_node.settings.REQUIRED`, with values that are obviously
+# not a deployment's.
+RUN JETS_BUCKET=layout-check JETS_REGION=layout-check JETS_DSN_SECRET=layout-check \
+    python /image_check.py
+
+# **`/src` is kept rather than removed, because removing it buys nothing.** A
+# `RUN rm -rf /src` deletes the files in a new layer and leaves the two COPY
+# layers exactly where they were, so the line would cost a layer and reclaim no
+# bytes while reading as if it had. What the trees earn in place is P9-I27's
+# requirement read literally: a reader of a deployed image can see the model file
+# the node loads and the sibling-file layout that makes the `cp` necessary.
+
+CMD [ "handler.lambda_handler" ]

@@ -65,6 +65,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
 		DeployCpipesNative: strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1",
+		// Read through a function rather than inline, so that the unset case -- which is the
+		// whole of exit criterion 96 for the Python arm -- is reachable by a test in the stack
+		// package. See DeployCpipesPythonFromEnv.
+		DeployCpipesPython: jetstorestack.DeployCpipesPythonFromEnv(),
+	}
+	if jsComp.DeployCpipesPython {
+		log.Println("Deploying CPIPES Python Node Image")
 	}
 	if jsComp.DeployCpipesNative {
 		log.Println("Deploying CPIPES Native Image")
@@ -571,6 +578,25 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
 // DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
+// DEPLOY_CPIPES_PYTHON (optional, values: TRUE, 1, case-insensitive; anything else including
+//
+//	unset and empty leaves it off) builds the Python compute pipes node -- the
+//	container-image Lambda CpipesPythonNodeLambda, from
+//	dockerfiles/Dockerfile.cpipes_python_lambda -- and adds the third arm of
+//	ecsOrLambdaChoice that routes a reducing iteration to it, in **both** cpipes state
+//	machines. Requires CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN and CPIPES_PYTHON_IMAGE_TAG.
+//	**With it unset nothing changes**: the two blocks it gates are the whole of the change,
+//	so the synthesised template is the one a deployment gets today (exit criterion 96,
+//	measured as a byte comparison rather than claimed). It is a separate gate from
+//	DEPLOY_CPIPES_NATIVE and not a value of one selector, because the two are not
+//	alternatives -- a deployment can want the native node for jetrules steps and the Python
+//	node for its own operators.
+//
+// CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN (required when DEPLOY_CPIPES_PYTHON, the ECR repository
+//
+//	holding the cpipes_python_lambda image)
+//
+// CPIPES_PYTHON_IMAGE_TAG (required when DEPLOY_CPIPES_PYTHON, the tag or digest of that image)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
@@ -745,6 +771,9 @@ func main() {
 	log.Println("**** env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
 	log.Println("env CPIPES_IMAGE_TAG:", os.Getenv("CPIPES_IMAGE_TAG"))
 	log.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))
+	log.Println("env DEPLOY_CPIPES_PYTHON:", os.Getenv("DEPLOY_CPIPES_PYTHON"))
+	log.Println("env CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))
+	log.Println("env CPIPES_PYTHON_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_IMAGE_TAG"))
 	log.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	log.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
