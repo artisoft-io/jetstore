@@ -10,3 +10,20 @@ jetstore.egg-info
 # installs its own from package-lock.json. dist is rebuilt in the image too.
 jetsclient_ide/node_modules/
 jetsclient_ide/dist/
+
+# Python virtual environments and tool caches under tools/. **The same argument
+# as node_modules above, and it was measured rather than predicted** (P9-I61):
+# `Dockerfile.cpipes_python_lambda` copies `tools/cpipes_node` whole, and on a
+# checkout where anybody has run `uv run` that directory holds a `.venv` of the
+# developer's own wheels — 173 MB once pyarrow is a dependency, with
+# platform-native extension modules in it. Measured: the image built to
+# **916.8 MB** against **572.1 MB** from a clean checkout, the whole of the
+# difference being that venv and the caches beside it. The image installs its own
+# distributions from the source tree, so nothing here is needed at build time and
+# what it would ship is one machine's binaries.
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/*.egg-info/
