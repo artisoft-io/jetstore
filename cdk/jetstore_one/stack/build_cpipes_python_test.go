@@ -10,13 +10,34 @@ import (
 // deployment that has never heard of the variable synthesises the stack it synthesises today.
 //
 // **This file is the weaker of the two instruments and knows it.** What decides the stack is
-// the synthesised template, and reaching it means running the whole CDK app; the byte
-// comparison of two synth runs is what establishes criterion 96 and it is recorded in the
-// task's report, not here. These tests are kept for the reason §13.4 keeps their sibling: they
-// run in milliseconds, and the regression they catch -- somebody changing the predicate or the
-// flag literal -- is exactly what a string test catches and what nobody will re-run a
-// fifty-second synth to notice. The division is: the tests hold the constants, the synth held
-// the claim.
+// the synthesised template, and reaching it means running the whole CDK app. The byte
+// comparison of two synth runs is what establishes criterion 96, and it was run on §13.3's
+// instrument -- measured 2026-09-18 on placeholder account 111111111111 in us-east-1, sixteen
+// seconds a run:
+//
+//	JetstoreOneStack.template.json   with the variable unset   md5 fe3b1c485063e21a169aa291159bcec9
+//	                                 at the base commit        md5 fe3b1c485063e21a169aa291159bcec9
+//	with DEPLOY_CPIPES_NATIVE=1      unset / base              md5 474b40978dc7328e059705dae487cf3b, both
+//
+// identical in both branches, along with assets.json, manifest.json, cdk.out,
+// validation-report.json and all ten locally bundled Lambda zips. metadata.json and tree.json
+// differ, and a control run of the base commit against itself reproduces the same two files
+// and the same 118-line difference -- jsii temp-directory paths inside stack traces -- which is
+// what separates noise from consequence. With DEPLOY_CPIPES_PYTHON=1 the template md5 moves and
+// the delta is exactly two added resources (the function and its log group), the two state
+// machines, and their two role policies; EcsOrLambdaChoice goes from two Choices to three with
+// the Python arm first, in **both** machines, off **one** function.
+//
+// **The A/B must be run from one directory**, which cost this task a false positive: run from
+// two worktrees at different paths, six of the ten Lambda zips differ, because `go build`
+// embeds absolute source paths and neither `-buildvcs=false` nor `-ldflags "-s -w"` removes
+// them. Same tree, two checkouts, is the only form of this comparison that means anything
+// (P9-I50).
+//
+// These tests are kept for the reason §13.4 keeps their sibling: they run in milliseconds, and
+// the regression they catch -- somebody changing the predicate or the flag literal -- is what a
+// string test catches and what nobody will re-run a synth to notice. The division is: the tests
+// hold the constants, the synth held the claim.
 //
 // unsetEnv is build_cpipes_lambdas_test.go's, in this same package.
 
