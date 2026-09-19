@@ -1028,6 +1028,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"config":          {},
 		"error_channel":   {},
 		"max_error_count": {},
+		"output_channels": {},
 	},
 	"SortSpec/*": {
 		"comment":    {},

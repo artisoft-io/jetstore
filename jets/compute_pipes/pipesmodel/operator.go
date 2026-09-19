@@ -164,6 +164,53 @@ type OperatorArgs struct {
 	Source *InputChannel
 	Output *OutputChannel
 
+	// Outputs are the channels the step's `site_config.output_channels`
+	// declared, resolved by the builder and handed over in the order they were
+	// authored. It is nil when the step declared none.
+	//
+	// **This is ErrorChannel's move pluralised, and it preserves the same
+	// argument.** §12.6 withholds `channelRegistry` because an operator that can
+	// name any channel can read from or write into one it does not own. An
+	// operator handed the channels *its own step* declared can name nothing
+	// else: the registry is still unreachable, and what arrives here is a
+	// function of the document rather than of anything the operator says at run
+	// time. The list is resolved once, in siteOperatorArgs, which is the rule
+	// the eighteen built-ins follow.
+	//
+	// # Choosing between output_channel and output_channels
+	//
+	// They are different containers and both may be declared. `output_channel`
+	// is a field of the *step*, shared with every built-in; the builder resolves
+	// it before a factory can be reached and it arrives as Output. `output_channels`
+	// is a field of `site_config`, so it exists only for a site operator, and it
+	// arrives here. **Outputs never contains Output.**
+	//
+	// Author `output_channel` alone for the ordinary shape -- one operator, one
+	// stream of records. Author `output_channels` when one input fans out into
+	// several differently-shaped streams, which is what an operator emitting a
+	// dozen tables from one row needs.
+	//
+	// **Declaring both is admitted rather than refused, and the built-ins are
+	// the reason.** `clustering` writes its step's output channel and a
+	// correlation channel named in its own config; `anonymize` writes its step's
+	// output channel and a keys channel named in its own. A rule refusing the
+	// pair would be one JetStore's own operators break. What is refused instead
+	// is the thing that is never meaningful: **a name repeated inside
+	// `output_channels`**, which hands the operator one channel at two indices
+	// with nothing to tell them apart. Naming the step's own `output_channel` in
+	// the list as well is *not* refused -- that is an author deliberately
+	// unifying two containers so that one loop covers them -- and it hands over
+	// the same *OutputChannel the registry holds rather than a second one.
+	//
+	// # Closing them is not the operator's job
+	//
+	// The graph closes a channel, not the operator that writes it:
+	// ChannelRegistry.CloseChannel is on the far side of §12.6's line for the
+	// same reason naming is. Write records and return; select every send against
+	// OperatorEnv.Done, which is the only termination signal this package hands
+	// over, the way every built-in does in Apply.
+	Outputs []*OutputChannel
+
 	// ErrorChannel is resolved, and nil when the step configured none. An
 	// operator that writes a record here is reporting a row-level failure the
 	// way map_record, jetrules and render do.

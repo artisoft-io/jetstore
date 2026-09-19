@@ -87,6 +87,15 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 // The three that are deliberately absent are the load-bearing part: `when` and
 // `conditional_config` are consumed before a factory can be reached, and
 // `*TransformationSpec` itself never crosses.
+//
+// **Nine until Phase 9's P9-T01, ten since.** `Outputs` is the first of the two
+// extensions D-202 rules, and it is ErrorChannel's move repeated: the builder
+// resolves what the step itself declared and hands the result over, so §12.6's
+// argument is intact -- the operator still cannot reach `channelRegistry` and
+// still names nothing its own step did not. That it arrives as a *field* here
+// rather than as a method on OperatorEnv is the whole of the shape: this struct
+// is written by JetStore and read by a site, so widening it breaks nobody, and
+// the interface is not.
 func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 	typ := reflect.TypeOf(OperatorArgs{})
 	got := map[string]string{}
@@ -101,6 +110,7 @@ func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 		"Columns":       "[]pipesmodel.TransformationColumnSpec",
 		"Source":        "*pipesmodel.InputChannel",
 		"Output":        "*pipesmodel.OutputChannel",
+		"Outputs":       "[]*pipesmodel.OutputChannel",
 		"ErrorChannel":  "*pipesmodel.OutputChannel",
 		"MaxErrorCount": "int",
 		"Config":        "json.RawMessage",

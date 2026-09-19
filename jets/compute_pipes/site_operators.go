@@ -329,5 +329,59 @@ func (ctx *BuilderContext) siteOperatorArgs(source *InputChannel, outCh *OutputC
 		}
 		args.ErrorChannel = errorCh
 	}
+	if err := ctx.resolveSiteOutputChannels(args, siteConfig, spec.Type); err != nil {
+		return nil, err
+	}
 	return args, nil
+}
+
+// resolveSiteOutputChannels turns `site_config.output_channels` into
+// OperatorArgs.Outputs.
+//
+// It is the error channel's resolution pluralised -- the same two emptiness
+// checks per entry, then the same GetOutputChannel -- and the same argument
+// carries it: the builder owns the registry, resolves what the step named, and
+// hands over the result, so the operator can name nothing else (§12.6).
+//
+// **Authored order is preserved and is the operator's only handle on which is
+// which**, since a resolved channel carries its own name and the operator reads
+// it off `Config.Name` or off the position it authored. That is why a repeated
+// name is refused: it puts one channel at two indices with nothing to tell them
+// apart, which is a typo in every case anyone has been able to construct. The
+// step's own `output_channel` appearing in the list is deliberately *not*
+// refused -- see OperatorArgs.Outputs for why -- and yields the same pointer the
+// registry holds, so the operator writing through either sees one channel.
+func (ctx *BuilderContext) resolveSiteOutputChannels(args *OperatorArgs,
+	siteConfig *SiteOperatorSpec, operatorType string) error {
+	if len(siteConfig.OutputChannels) == 0 {
+		return nil
+	}
+	outputs := make([]*OutputChannel, 0, len(siteConfig.OutputChannels))
+	declared := make(map[string]int, len(siteConfig.OutputChannels))
+	for i := range siteConfig.OutputChannels {
+		channelConfig := &siteConfig.OutputChannels[i]
+		if len(channelConfig.Name) == 0 {
+			return fmt.Errorf("error: site_config.output_channels[%d] name cannot be empty (operator '%s')",
+				i, operatorType)
+		}
+		if len(channelConfig.SpecName) == 0 {
+			return fmt.Errorf("error: site_config.output_channels[%d] ('%s') spec name cannot be empty (operator '%s')",
+				i, channelConfig.Name, operatorType)
+		}
+		if first, ok := declared[channelConfig.Name]; ok {
+			return fmt.Errorf(
+				"error: site_config.output_channels names '%s' twice, at [%d] and [%d]; the operator would be "+
+					"handed one channel at two indices with nothing to tell them apart (operator '%s')",
+				channelConfig.Name, first, i, operatorType)
+		}
+		declared[channelConfig.Name] = i
+		outputCh, err := ctx.channelRegistry.GetOutputChannel(channelConfig.Name)
+		if err != nil {
+			return fmt.Errorf("while resolving output channel '%s' of site operator '%s': %v",
+				channelConfig.Name, operatorType, err)
+		}
+		outputs = append(outputs, outputCh)
+	}
+	args.Outputs = outputs
+	return nil
 }
