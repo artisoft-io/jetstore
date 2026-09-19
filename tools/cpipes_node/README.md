@@ -55,6 +55,20 @@ The same shape as Go's `WithOperators`, and the same three rules — a built-in
 wins, a colliding registration is kept and logged rather than refused, and an
 unreachable registration is dropped:
 
+The deployed entry is `awslambda.Node`, composed rather than imported ready
+made, so that a deployment's operators reach the node the way Go's do — as an
+argument:
+
+```python
+from cpipes_node import Registry
+from cpipes_node.awslambda import Node
+
+node = Node(site_operators=Registry().with_operators({"my_operator": my_factory}))
+handler = node.handler
+```
+
+and the same call, spelled out:
+
 ```python
 from cpipes_node import NodeArgs, Registry
 from cpipes_node.config import ExecutionStatusConfigSource
@@ -91,7 +105,7 @@ machine's Map over partitions, and the six side-effect tables (P9-T09).
 ## Checks
 
 ```
-$ python -m pytest -q          # 73 tests
+$ python -m pytest -q          # 75 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```

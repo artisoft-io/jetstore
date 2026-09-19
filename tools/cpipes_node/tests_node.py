@@ -219,3 +219,46 @@ def test_the_run_command_refuses_and_says_why(tmp_path: Path, capsys):
     )
     assert code == main.EXIT_REFUSED
     assert "OperatorNotImplemented" in capsys.readouterr().err
+
+
+# --- the lambda entry -------------------------------------------------------
+
+
+def test_the_lambda_handler_takes_the_go_entry_s_event(tmp_path: Path):
+    # `handler(ctx, arg ComputePipesNodeArgs)` in Python. The event is the
+    # same three fields, and the scope gate is reached through it — which is
+    # the assertion: the deployed path and the local path are one `coordinate`.
+    from cpipes_node.awslambda import Node
+
+    doc = runtime_document([out_of_scope_step()])
+
+    class _Cur:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, sql, params):
+            pass
+
+        def fetchone(self):
+            return (json.dumps(doc),)
+
+    class _Conn:
+        def cursor(self):
+            return _Cur()
+
+    node = Node(settings=Settings.from_env(ENV), connect=lambda s: _Conn())
+    with pytest.raises(OperatorOutOfScope, match="aggregate"):
+        node.handler({"id": 0, "jp": "0000P", "pe": 9})
+
+
+def test_a_node_with_no_connection_refuses_at_invocation():
+    # Not at import: a cold start that succeeded and an invocation that cannot
+    # read its configuration are different things to see in a log.
+    from cpipes_node.awslambda import Node
+
+    node = Node(settings=Settings.from_env(ENV))
+    with pytest.raises(StartupError, match="no database connection"):
+        node.handler({"id": 0, "pe": 1})
