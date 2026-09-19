@@ -218,9 +218,7 @@ def build_record_expression(
     if leaf == "VALUE":
         if not expr:
             raise ColumnError("error: Type value must have Expr != nil")
-        return expressions._Value(
-            expressions.parse_value_with_env(expr, env, max_subs)
-        )
+        return expressions._Value(expressions.parse_value_with_env(expr, env, max_subs))
 
     if leaf == "SELECT":
         if not expr and getattr(spec, "expr_pos", None) is None:
@@ -573,7 +571,9 @@ def _build_select(
     if getattr(spec, "as_rdf_type", None):
         raise ColumnUnsupported(_CAST_REFUSAL)
     if expr not in source_columns:
-        raise ColumnError(f"error column {expr} not found in input source {source_name}")
+        raise ColumnError(
+            f"error column {expr} not found in input source {source_name}"
+        )
     return SelectColumn(source_columns[expr], _output_pos(spec, output_columns))
 
 
@@ -690,9 +690,14 @@ _CAST_REFUSAL = (
     "a column transformation declares as_rdf_type, which casts through "
     "CastToRdfType. It is refused rather than ignored: a declared cast that "
     "silently did not happen writes an uncast value into a column the author "
-    "said was cast. Nothing this phase authors needs one, because both device "
-    "writers encode every cell as text (writers.encode_rdf_type_to_txt), so a "
-    "cast changes what is written only where it fails."
+    "said was cast. Both device writers encode every cell as text "
+    "(writers.encode_rdf_type_to_txt), so a cast changes what is *written* only "
+    "where it fails — **but it changes what an aggregate can add**: `add`'s "
+    "switch has no string case on the left, so a `sum` over a column of numeric "
+    "text errors on its second record in either engine unless the cast makes the "
+    "running total a number. A QC pipeline summing a money column off a stage "
+    "file therefore needs the numeric arms of CastToRdfType, which is P9-I60 and "
+    "is P9-T12's to meet."
 )
 
 #: The builder registry, which is also the declaration of what is implemented.

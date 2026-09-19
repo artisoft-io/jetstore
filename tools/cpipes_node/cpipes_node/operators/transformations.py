@@ -167,9 +167,7 @@ class MapRecordPipe:
             return
         if self.env is None or self.error_channel is None:
             return
-        self.env.report_error(
-            self.error_channel, RowLevelError(error_message=str(exc))
-        )
+        self.env.report_error(self.error_channel, RowLevelError(error_message=str(exc)))
 
     def done(self) -> None:
         return None
@@ -433,7 +431,6 @@ class PartitionWriterPipe:
 
     def done(self) -> None:
         """Nothing, as in Go: the flush is `Finally`'s, on both paths."""
-        return None
 
     def finally_(self) -> None:
         self._flush()

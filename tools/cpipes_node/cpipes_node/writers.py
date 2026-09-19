@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import io
+import math
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
@@ -150,7 +151,7 @@ def encode_rdf_type_to_txt(value: Any) -> str:
 
 def _format_float(value: float) -> str:
     """`strconv.FormatFloat(v, 'f', -1, 64)`: no exponent, shortest round-trip."""
-    if value != value or value in (float("inf"), float("-inf")):
+    if math.isnan(value) or math.isinf(value):
         # Go prints NaN / +Inf / -Inf; Python prints nan / inf / -inf.
         return {"nan": "NaN", "inf": "+Inf", "-inf": "-Inf"}[str(value)]
     text = repr(value)
@@ -177,7 +178,7 @@ def field_needs_quotes(field: str, delimiter: str) -> bool:
         return False
     if field == POSTGRES_TERMINATOR:
         return True
-    if any(c in ('\n', '\r', '"', delimiter) for c in field):
+    if any(c in ("\n", "\r", '"', delimiter) for c in field):
         return True
     return _is_go_space(field[0])
 
@@ -286,7 +287,6 @@ def write_parquet(
     schema = pa.schema([pa.field(name, pa.string(), nullable=True) for name in columns])
     width = len(columns)
     cells: list[list[str | None]] = [[] for _ in range(width)]
-    count = 0
     for row in rows:
         if len(row) != width:
             raise WriterError(
@@ -295,7 +295,6 @@ def write_parquet(
             )
         for i, cell in enumerate(row):
             cells[i].append(None if cell is None else encode_rdf_type_to_txt(cell))
-        count += 1
     table = pa.Table.from_arrays(
         [pa.array(column, type=pa.string()) for column in cells], schema=schema
     )
@@ -422,7 +421,7 @@ def check_compression(compression: str) -> None:
         "(snappy.NewBufferedWriter) and a raw-snappy stand-in would be a file "
         "the Go reader cannot open, which is worse than a refusal (P9-I59). "
         "Note that a 'stage' output channel's compression defaults to 'snappy', "
-        "so an authored document must set \"compression\": \"none\"."
+        'so an authored document must set "compression": "none".'
     )
 
 
