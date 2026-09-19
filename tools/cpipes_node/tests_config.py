@@ -169,19 +169,20 @@ def test_the_gate_reports_all_three_kinds():
         f.kind for f in report.out_of_scope + report.unimplemented
     }
     assert kinds == set(TokenKind)
-    # The site operator is accepted; the generator, the fan_out and the
-    # map_record are declared and not built. The order is the model's field
-    # order and not the JSON's — `PipeSpecFanOut` declares `apply` before
-    # `input_channel` — which is stable and is what "deterministic" has to mean
-    # here; it is asserted rather than described so that a walk that started
-    # yielding in set order would be caught.
-    assert [f.token for f in report.unimplemented] == [
-        "fan_out",
-        "map_record",
-        "generator",
-    ]
+    # The site operator is accepted, and so are `fan_out` and `generator` since
+    # P9-T04 gave both a `build`; `map_record` is declared and not built. The
+    # order is the model's field order and not the JSON's — `PipeSpecFanOut`
+    # declares `apply` before `input_channel` — which is stable and is what
+    # "deterministic" has to mean here; it is asserted rather than described so
+    # that a walk that started yielding in set order would be caught.
+    #
+    # **The unimplemented list read `["fan_out", "map_record", "generator"]`
+    # until P9-T04.** Two tokens moved from that list to the accepted one, and
+    # the ordering claim is what survives the move: `fan_out` still precedes
+    # `map_record`, which still precedes `generator`, wherever each one lands.
+    assert [f.token for f in report.unimplemented] == ["map_record"]
     assert report.out_of_scope == []
-    assert [t for _, t, _ in report.accepted] == ["hc_corpus"]
+    assert [t for _, t, _ in report.accepted] == ["fan_out", "hc_corpus", "generator"]
 
 
 def test_an_out_of_scope_token_is_located_in_the_document():

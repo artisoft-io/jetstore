@@ -30,6 +30,28 @@ class FanOut(Pipe):
     owed_by = "P9-T04"
     summary = "apply each transformation to every record of one input channel"
 
+    @classmethod
+    def build(cls, env: object, spec: object) -> object:
+        """The pipe executor: `StartFanOutPipe`'s counterpart.
+
+        Returns the handler rather than an object, which is what `build` means
+        for a *pipe* type — the graph owns the registry, the termination signal
+        and the pipe's index, and a pipe is not a per-record object the way a
+        transformation is. Dispatching through here is what keeps
+        `graph.py` free of an `if spec.type == "fan_out"` (P3-I20): a pipe kind
+        this node grows is reached by its class being written.
+
+        **This method is the only thing P9-T04 added to this file**, and it is
+        added rather than handed over because without it no document runs: the
+        scope gate refuses `fan_out` as declared-and-not-implemented, so the
+        whole graph would be reachable from tests alone — a component whose own
+        tests pass and which reaches no working path (P4-I43). `MergeFiles`
+        below is untouched and is P9-T08's.
+        """
+        from .. import graph
+
+        return graph.fan_out_pipe
+
 
 class MergeFiles(Pipe):
     """Concatenate a stage channel's partition files into one output file.

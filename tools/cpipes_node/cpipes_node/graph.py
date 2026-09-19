@@ -79,7 +79,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from . import expressions
+from . import expressions, scope
 from .errors import NodeError, StartupError
 from .runtime import (
     ChannelRegistry,
@@ -92,6 +92,7 @@ from .runtime import (
     PipeTransformationEvaluator,
     ResolvedChannelSpec,
 )
+from .scope import TokenKind
 
 if TYPE_CHECKING:  # pragma: no cover
     from .node import NodeContext
@@ -786,6 +787,72 @@ def execution_order(pipes: list[Any]) -> tuple[int, ...]:
 # --- the run ----------------------------------------------------------------
 
 
+def _handler(kind: TokenKind, token: str, env: dict[str, Any], spec: Any) -> Any:
+    """The runtime handler a declaration names for one token.
+
+    **The dispatch is the declaration**, which is why there is no
+    `if spec.type == "fan_out"` anywhere in this module: `Operator.build` is what
+    makes a token implemented (`scope.Operator.implemented` derives that from the
+    method existing), so a channel type or pipe kind this node grows is reached
+    by its class being written and by nothing being remembered here (P3-I20).
+
+    Every refusal below is unreachable through `coordinate`, because
+    `config.check_scope` has already judged every token the document names. They
+    are named refusals rather than asserts for the reason `errors.py` gives: a
+    branch kept "for a case that cannot happen" is how a case that can happen
+    goes unhandled, and this one is reachable from `run` called directly.
+    """
+    declaration = scope.declaration(kind, token)
+    if declaration is None:
+        raise GraphInvalid(
+            f"the document names the {kind} '{token}', which this node does not "
+            "declare. The scope gate should have refused it at startup."
+        )
+    if not declaration.implemented():
+        raise GraphNotBuilt(
+            f"the {kind} '{token}' is declared and not built; owed by "
+            f"{declaration.owed_by or 'nobody — which is itself the defect'}. "
+            "The scope gate should have refused this document at startup."
+        )
+    return declaration.build(env, spec)
+
+
+def fan_out_pipe(
+    ctx: NodeContext,
+    registry: ChannelRegistry,
+    done: Done,
+    index: int,
+    spec: Any,
+) -> BuiltPipe:
+    """Build one `fan_out` pipe: its source and one evaluator per `apply` entry.
+
+    `StartFanOutPipe` builds every evaluator before reading a record, and the
+    order is kept: a document naming a channel that does not resolve fails before
+    the first row rather than after some of them.
+    """
+    source = registry.get_input_channel(
+        spec.input_channel.name,
+        bool(getattr(spec.input_channel, "has_grouped_rows", False)),
+    )
+    evaluators: list[PipeTransformationEvaluator | None] = []
+    skipped: list[str] = []
+    for step in spec.apply or ():
+        evaluator = build_pipe_transformation_evaluator(
+            ctx, registry, done, source, step
+        )
+        evaluators.append(evaluator)
+        if evaluator is None:
+            skipped.append(step.type)
+    return BuiltPipe(
+        index=index,
+        spec=spec,
+        source=source,
+        evaluators=evaluators,
+        closes=_closable_channel_names(spec),
+        skipped=tuple(skipped),
+    )
+
+
 @dataclass
 class RunResult:
     """What one node's graph did, in figures a check can assert against.
@@ -828,36 +895,8 @@ def run(ctx: NodeContext) -> RunResult:
     built: list[BuiltPipe] = []
     for index in order:
         spec = pipes[index]
-        if spec.type != "fan_out":
-            raise GraphNotBuilt(
-                f"pipe {index} is a '{spec.type}', and this node builds 'fan_out' "
-                "only: 'merge_files' is owed by P9-T08 and 'splitter' is outside "
-                "the declared scope. The scope gate should have refused this "
-                "document at startup."
-            )
-        channel_source = registry.get_input_channel(
-            spec.input_channel.name,
-            bool(getattr(spec.input_channel, "has_grouped_rows", False)),
-        )
-        evaluators: list[PipeTransformationEvaluator | None] = []
-        skipped: list[str] = []
-        for step in spec.apply or ():
-            evaluator = build_pipe_transformation_evaluator(
-                ctx, registry, done, channel_source, step
-            )
-            evaluators.append(evaluator)
-            if evaluator is None:
-                skipped.append(step.type)
-        built.append(
-            BuiltPipe(
-                index=index,
-                spec=spec,
-                source=channel_source,
-                evaluators=evaluators,
-                closes=_closable_channel_names(spec),
-                skipped=tuple(skipped),
-            )
-        )
+        executor = _handler(TokenKind.PIPE, spec.type, ctx.env, spec)
+        built.append(executor(ctx, registry, done, index, spec))
 
     result = RunResult(conditional_overrides=overrides)
     try:
@@ -902,13 +941,14 @@ def _drive(
     drain of the graph between two rows.
     """
     first = source_row.channel
-    if getattr(channel_config, "type", None) != "generator":
+    channel_type = getattr(channel_config, "type", None) or ""
+    source = _handler(TokenKind.INPUT_CHANNEL, channel_type, ctx.env, channel_config)
+    if source is None:
         raise GraphInvalid(
-            "this node's source is the 'generator' input channel and the "
-            f"document's first pipe reads a {getattr(channel_config, 'type', None)!r} "
-            "channel. `input` and `stage` are outside this node's declared scope "
-            "(see cpipes_node.operators.channels), so the scope gate should have "
-            "refused this document at startup."
+            f"the document's first pipe reads a {channel_type!r} channel, which "
+            "this node feeds from nothing: a memory channel carries what another "
+            "pipe of this node wrote, and the first pipe has none before it. Only "
+            "the 'generator' channel type is a source here."
         )
     if ctx.input_file_keys != (_generator_proxy(),):
         raise GraphInvalid(
@@ -919,7 +959,7 @@ def _drive(
     width = len(_main_input_columns(ctx.config))
     _warn_on_width_mismatch(source_row, width)
 
-    for record in generator_records(channel_config, ctx.env, width, done):
+    for record in source(channel_config, ctx.env, width, done):
         first.records.append(record)
         first.written += 1
         _drain(built, done)

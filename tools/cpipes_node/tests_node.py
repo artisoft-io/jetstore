@@ -120,7 +120,7 @@ def test_a_declared_but_unbuilt_token_aborts_distinguishably(tmp_path: Path):
     assert "P9-T06" in str(exc.value)
 
 
-def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path, monkeypatch):
+def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path):
     """Every token in scope and built: the node runs the document end to end.
 
     **This test asserted the opposite until P9-T04**: it required
@@ -129,20 +129,15 @@ def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path, monkeypatch
     scope gate passes a clean document *through* — is still checked by something,
     and by something that now goes red if the graph stops running.
 
+    **It also monkeypatched `build` onto `generator` and `fan_out`** to get past
+    the scope gate, both being declared and owed by this task at the time. Both
+    now carry one, so the patching is gone and the gate is satisfied by the tree
+    rather than by the test.
+
     The site factory is the smallest recognisable operator: it counts what it is
     given and writes nothing, so what is asserted is the graph's arithmetic
     rather than an operator's.
     """
-    from cpipes_node import scope
-    from cpipes_node.scope import TokenKind
-
-    for kind, token in (
-        (TokenKind.INPUT_CHANNEL, "generator"),
-        (TokenKind.PIPE, "fan_out"),
-    ):
-        cls = scope.declaration(kind, token)
-        monkeypatch.setattr(cls, "build", classmethod(lambda c, e, s: None))
-
     applied: list[list] = []
 
     class Counting:
