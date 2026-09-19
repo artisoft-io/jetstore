@@ -166,3 +166,30 @@ func TestRootIs404WithoutABundle(t *testing.T) {
 		t.Fatalf("GET / with no bundle: got %d, want 404", res.Code)
 	}
 }
+
+// TestTheApiRoutesCarryNoCachePolicy is the other end of the catch-all question.
+//
+// The tests above ask whether the app steals an api route's *path*. This asks
+// whether it could ever steal an api route's *headers*, and the answer must stay
+// no by construction: the policy is set inside the static handler, which is
+// registered last and GET-only, so nothing an api route returns can pass through
+// it. Move that Set into a middleware — the obvious refactor the day a second
+// static tree appears — and this goes red.
+//
+// The direction that matters is not the slow one. An api response marked
+// `immutable` is a client that will not re-read a table for a year and cannot be
+// told otherwise; it is a far worse bug than the one the policy was added to fix.
+func TestTheApiRoutesCarryNoCachePolicy(t *testing.T) {
+	r := routerLikeServer(t, buildAppDir(t))
+
+	if res := get(t, r, "/healthcheck/status"); res.Header().Get("Cache-Control") != "" {
+		t.Errorf("GET /healthcheck/status carries Cache-Control %q; the static policy has reached an api response",
+			res.Header().Get("Cache-Control"))
+	}
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/login", nil))
+	if cc := rec.Header().Get("Cache-Control"); cc != "" {
+		t.Errorf("POST /login carries Cache-Control %q; the static policy has reached an api response", cc)
+	}
+}
