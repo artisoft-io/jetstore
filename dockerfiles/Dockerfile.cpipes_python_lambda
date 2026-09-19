@@ -53,6 +53,20 @@
 # synthesised template. The CMD below is the default for a bare `docker run` of
 # this image and for the Runtime Interface Emulator.
 #
+# **Exercised through the runtime, not only through the build.** The base image carries
+# `aws-lambda-rie`, so the deployed entry is reachable on a workstation:
+#
+#   docker run -d -p 9321:8080 -e JETS_BUCKET=x -e JETS_REGION=us-east-1 \
+#     -e JETS_DSN_SECRET=x cpipes_python_lambda:latest handler.lambda_handler
+#   curl -XPOST localhost:9321/2015-03-31/functions/function/invocations \
+#     -d '{"id":0,"jp":"","pe":1}'
+#
+# Measured 2026-09-18: `INIT RTDONE(status: success)` -- so `Settings.from_env` and the `Node`
+# composed at import -- then the event reaching `lambda_handler`, `NodeArgs(**event)` accepting
+# the three fields, and the invocation failing at `get_secret_value` with `NoCredentialsError`
+# on a machine that has no AWS. That is the whole chain from the runtime interface into the
+# package, and the first thing missing is the account rather than anything in the image.
+#
 # **What this image is not: reproducible.** Criterion 98's instrument for the Go
 # images is a rebuild that is a total cache hit writing the same image id, and
 # that claim rests on `go.sum`. There is no lock file for these two Python

@@ -280,6 +280,8 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(ecsOrLambdaChoice)
 
 	// The Python arm comes first, and the order is the substance rather than the placement.
+	// That is **D-221**, taken in this task: a first-match-wins array is ordered by which way
+	// its failures point, and the two mistakes are not symmetrical.
 	//
 	// The two flags are evaluated per reducing step and a pipeline can author both. When it
 	// does, the Python worker has to win: a step naming an operator only the Python node
