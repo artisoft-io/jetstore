@@ -5,3 +5,9 @@ venv/
 *.egg-info/
 build/
 dist/
+.pytest_cache/
+
+# `uv run` writes this, and it is deliberately not committed, for the reason
+# `cpipes_node/.gitignore` gives at length: it pins a *dev* environment and
+# nothing reads it at build time.
+uv.lock

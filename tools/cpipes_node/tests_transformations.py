@@ -605,11 +605,13 @@ def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     """
     import typing
 
-    # `TransformationSpec` is `Annotated[Union[...], Field(discriminator=...)]`,
-    # so the members are one unwrapping in. The site spec is not among them,
-    # which is P9-I29 and is not this test's subject: a site operator reads its
-    # `site_config` and never a `{type}_config` block.
-    members = typing.get_args(typing.get_args(contract.model.TransformationSpec)[0])
+    # Taken from `contract.py`, which is this package's one reader of the
+    # model's shape. It used to be unwrapped here, and that hand-written
+    # unwrap is what went red when `TransformationSpec` gained its complement
+    # branch on 2026-09-19 — a second reader of one rule, found by the rule
+    # changing. The site spec is deliberately not among the members: a site
+    # operator reads its `site_config` and never a `{type}_config` block.
+    members = contract.builtin_transformation_members()
     tokens = {}
     for member in members:
         token = typing.get_args(member.model_fields["type"].annotation)[0]

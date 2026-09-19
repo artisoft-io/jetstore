@@ -8,6 +8,9 @@ dependencies = [
     "jsonschema>=4.21",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 cpipes-contract = "cpipes_contract.main:main"
 
@@ -17,3 +20,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cpipes_contract"]
+
+[tool.pytest.ini_options]
+# The suite here is `tests_*.py`, which pytest's default `test_*.py` pattern
+# does not match — so `pytest` run in this directory collected **nothing** and
+# exited 0: a green result over an empty subject, which is the class this
+# project names oftenest, inside the package that exists to police the
+# contract. `cpipes_node/pyproject.toml` has carried this line since it was
+# written. Added 2026-09-19 (P9-I128).
+python_files = ["tests_*.py"]

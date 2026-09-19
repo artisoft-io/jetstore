@@ -18,6 +18,7 @@ from pydantic import BaseModel, ValidationError
 
 from conftest import (
     MEMORY_CHANNEL,
+    authored_document,
     document,
     go_source,
     map_record_step,
@@ -78,13 +79,23 @@ def test_the_contract_model_refuses_the_document_a_node_is_handed():
     assert contract.PipesConfig.model_validate(doc).common_runtime_args is not None
 
 
-def test_the_contract_model_refuses_a_site_operator():
-    # The second widening's cause. When this goes red the contract's union
-    # gained `~site`: delete `TransformationSpecOrSite` and the two pipe
-    # subclasses in contract.py.
-    doc = document([site_step("healthcare_corpus")])
-    with pytest.raises(ValidationError, match="union_tag_invalid"):
-        contract.ComputePipesConfig.model_validate(doc)
+def test_the_contract_model_accepts_a_site_operator():
+    """The second widening's cause, inverted on 2026-09-19 rather than deleted.
+
+    It read `test_the_contract_model_refuses_a_site_operator` and expected a
+    `union_tag_invalid`, with a comment naming the three classes to delete when
+    it went red. It went red, they were deleted, and what is left is the claim
+    the deletion rests on: the *contract's own* `ComputePipesConfig` — no
+    subclass of this package's — validates a document naming a site operator
+    and gives back a `TransformationSpecSite`. Inverted rather than removed,
+    because a widening retired on an untested premise is a widening that comes
+    back.
+    """
+    doc = authored_document([site_step("healthcare_corpus")])
+    config = contract.ComputePipesConfig.model_validate(doc)
+    step = config.conditional_pipes_config[0].pipes_config[0].apply[0]
+    assert isinstance(step, contract.TransformationSpecSite)
+    assert step.type == "healthcare_corpus"
 
 
 def test_a_site_operator_validates_through_the_widened_model():
@@ -95,10 +106,19 @@ def test_a_site_operator_validates_through_the_widened_model():
     assert contract.spec_kind(step) == "transformation"
 
 
-def test_every_class_carrying_a_transformation_list_is_widened():
-    """Derived from the model, so a new pipe kind is not silently missed."""
+def test_every_class_carrying_a_transformation_list_reaches_the_site_branch():
+    """Derived from the model, so a new pipe kind is not silently missed.
+
+    This asserted that every `apply` carrier had a subclass here widening it.
+    Since the branch joined the alias upstream there is nothing per-carrier to
+    widen, and the property worth keeping is the one the widening existed to
+    buy: each carrier *accepts* a site operator. Measured through the carrier
+    itself rather than through a whole document, so a carrier that gained an
+    `apply` list and was missed fails here rather than in whichever document
+    happens to exercise it.
+    """
     carriers = {
-        cls.__name__
+        cls.__name__: cls
         for cls in vars(contract.model).values()
         if isinstance(cls, type)
         and issubclass(cls, BaseModel)
@@ -109,28 +129,84 @@ def test_every_class_carrying_a_transformation_list_is_widened():
             for name, f in cls.model_fields.items()
         )
     }
-    widened_bases = {
-        base.__name__
-        for cls in contract.WIDENED_CLASSES
-        for base in cls.__mro__[1:]
-        if base.__module__ == "cpipes_model"
+    assert set(carriers) == {"PipeSpecFanOut", "PipeSpecSplitter"}
+    extras = {
+        "PipeSpecFanOut": {"type": "fan_out"},
+        "PipeSpecSplitter": {
+            "type": "splitter",
+            "splitter_config": {"column": "a"},
+        },
     }
-    assert carriers == {"PipeSpecFanOut", "PipeSpecSplitter"}
-    assert carriers <= widened_bases
+    for name, cls in carriers.items():
+        pipe = cls.model_validate(
+            {
+                "input_channel": {"name": "in", "type": "memory"},
+                "apply": [site_step("hc_corpus")],
+                **extras[name],
+            }
+        )
+        assert isinstance(pipe.apply[0], contract.TransformationSpecSite), name
 
 
-def test_a_malformed_builtin_does_not_arrive_as_a_site_operator():
-    # The price of a left-to-right union: a built-in that fails its own branch
-    # can satisfy the site branch, whose `type` is a bare `str`. Refused on
-    # arrival, with the built-in's own error attached, which is also JetStore's
-    # rule — `validateSiteOperatorSpec` refuses a `site_config` on a built-in.
+def test_a_malformed_builtin_is_reported_against_its_own_branch():
+    """A built-in that fails its own branch must not surface as an unknown
+    operator — the residual hazard of any ordered union whose last branch keys
+    on a bare `str`.
+
+    Closed in the model rather than after it: `TransformationSpecSite.type`
+    refuses a built-in token outright, which is `validateSiteOperatorSpec`'s
+    rule. So the document fails validation naming the *built-in's own* missing
+    field, and `parse_config`'s post-walk refusal — which re-derived that error
+    by re-validating the offending node — is deleted.
+    """
+    doc = document(
+        [{"type": "partition_writer", "output_channel": MEMORY_CHANNEL}]
+    )
+    with pytest.raises(ConfigInvalid) as exc:
+        parse_config(json.dumps(doc))
+    message = str(exc.value)
+    # The built-in's own branch, naming the field it is missing.
+    assert "partition_writer.partition_writer_config" in message
+    assert "Field required" in message
+    # And the site branch refusing it by name rather than accepting it.
+    assert "'partition_writer' is a built-in operator" in message
+
+
+def test_a_builtin_carrying_a_site_config_is_refused():
+    # JetStore's `validateSiteOperatorSpec` refuses a `site_config` on a token
+    # the dispatch handles itself; the model refuses it twice over — the
+    # built-in's branch forbids the extra key and the site branch forbids the
+    # built-in token.
     doc = document(
         [{"type": "map_record", "output_channel": MEMORY_CHANNEL, "site_config": {}}]
     )
     with pytest.raises(ConfigInvalid) as exc:
         parse_config(json.dumps(doc))
-    assert "map_record" in str(exc.value)
-    assert "built-in" in str(exc.value)
+    message = str(exc.value)
+    assert "map_record.site_config" in message
+    assert "Extra inputs are not permitted" in message
+    assert "'map_record' is a built-in operator" in message
+
+
+def test_a_site_operator_may_not_take_a_builtin_name():
+    # The complement branch's membership, asserted on the branch itself: a
+    # `json_schema_extra` `not: enum` is read by the emitted JSON Schema and by
+    # nothing in Pydantic, so without `_unlisted` this passes.
+    for token in contract.contract_tokens("transformation"):
+        with pytest.raises(ValidationError, match="is a built-in operator"):
+            contract.TransformationSpecSite.model_validate(
+                {"type": token, "output_channel": MEMORY_CHANNEL}
+            )
+
+
+def test_a_site_operator_may_not_be_nameless():
+    # `not: enum` admits the empty string and `WithOperators` refuses to
+    # register an empty name, so the branch carries `minLength: 1` beside it;
+    # this is that half at validation time.
+    with pytest.raises(ValidationError, match="cannot be empty"):
+        contract.TransformationSpecSite.model_validate(
+            {"type": "", "output_channel": MEMORY_CHANNEL}
+        )
 
 
 # --- the corpus -------------------------------------------------------------
