@@ -215,6 +215,12 @@ def _replace_spec(host: Any, override: Any) -> Any:
     from . import contract
 
     payload = override.model_dump(exclude_none=True)
+    # Unreachable through a validated document today, and that is a finding
+    # rather than a property: `TransformationSpecOverride` declares no `type`
+    # field with `extra="forbid"`, so the contract model refuses the very
+    # document `ApplyAllConditionalTransformationSpec`'s first branch exists for.
+    # `tests_graph.py` asserts that absence, so this path becomes reachable and
+    # this comment goes stale in the same commit that fixes the model.
     try:
         return TypeAdapter(contract.TransformationSpecOrSite).validate_python(payload)
     except ValidationError as exc:
@@ -748,6 +754,18 @@ def execution_order(pipes: list[Any]) -> tuple[int, ...]:
     channel, and both are the same act as X6's abort: *never silently skip, and
     never wait forever either*.
     """
+    if pipes and pipes[0].input_channel.name != INPUT_ROW:
+        # `_input_row_channel` renames the first pipe's channel to `input_row`,
+        # the way `StartComputePipes` does, and this function's whole notion of a
+        # *satisfied* channel starts from that name. Asserted rather than
+        # depended on silently: called in the other order, every pipe would look
+        # like a reader of a channel nobody writes, and the message would name the
+        # source channel as the defect.
+        raise GraphInvalid(
+            f"execution_order was asked about a pipeline whose first pipe reads "
+            f"'{pipes[0].input_channel.name}': _input_row_channel renames it to "
+            f"'{INPUT_ROW}' and must run first."
+        )
     writers: dict[str, list[int]] = {}
     for i, pipe in enumerate(pipes):
         for name in _closable_channel_names(pipe):

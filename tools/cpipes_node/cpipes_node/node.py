@@ -199,13 +199,19 @@ def _file_keys(config: Any, args: NodeArgs) -> tuple[str, ...]:
             "finds none, and never reaches the generator — writing nothing and "
             "exiting 0. A generator pipeline is a reducing pipeline."
         )
+    where = (
+        "jetsapi.compute_pipes_shard_registry"
+        if mode == "sharding"
+        else "the S3 stage area"
+    )
     raise StartupError(
-        f"error: an input channel of type {channel_type!r} in cpipes_mode "
-        f"{mode!r} is read from S3 or from the shard registry, and this node's "
-        "declared scope covers the 'generator' and 'memory' channel types only "
-        "(see cpipes_node.operators.channels). The scope gate refuses the token "
-        "before this point; reaching here means the scope grew and this arm did "
-        "not."
+        f"error: the first pipe reads an input channel of type {channel_type!r}, "
+        f"and in cpipes_mode {mode!r} the Go node resolves its file keys from "
+        f"{where} — which it does for *every* non-generator channel type, "
+        f"{channel_type!r} included. This node's source is the 'generator' "
+        "channel and nothing else: 'input' and 'stage' are outside its declared "
+        "scope (see cpipes_node.operators.channels) and a 'memory' channel is "
+        "fed by another pipe of this node rather than from a file."
     )
 
 
