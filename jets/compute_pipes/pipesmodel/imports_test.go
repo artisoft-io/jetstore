@@ -55,11 +55,22 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 	}
 }
 
-// The surface is 18 named types, and the number is load-bearing rather than
+// The surface is 20 named types, and the number is load-bearing rather than
 // decorative: each one is a commitment to whoever writes a site operator, and
 // R-149 says a public surface is hard to shrink. A type arriving here should be
 // a decision somebody took, not a field somebody added to a struct that already
 // crossed.
+//
+// **Twenty since Phase 9's P9-T02**, which added LookupTable and Lookup: the
+// second of the two extensions D-202 rules. LookupTable *moved* here rather than
+// arriving -- `compute_pipes` keeps an alias -- for the reason
+// TransformationColumnEvaluator moved at `BD.2`: it is what OperatorArgs.Lookups
+// hands across, so the contract package has to be able to name it. It crosses
+// clean because every method of it takes and returns standard library shapes;
+// the S3 and pgx reaches are in the *implementations*, which stayed put. Lookup
+// is the pair that carries a table's key beside it, since LookupTable has no
+// accessor for its own name and a site handed a bare list could not tell one
+// table from another (D-209).
 //
 // **Eighteen since `Q-148` on 2026-09-15**, which added RowLevelError: the
 // per-record half of an error row, which a site fills and OperatorEnv.ReportError
@@ -79,7 +90,7 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 // name: `operator.go` would have added four types to the surface with the test
 // still green and still reporting thirteen. Found by writing the second file,
 // which is the only way a single-file corpus ever finds it.
-func TestSurfaceIsEighteenTypes(t *testing.T) {
+func TestSurfaceIsTwentyTypes(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("globbing the package: %v", err)
@@ -109,7 +120,8 @@ func TestSurfaceIsEighteenTypes(t *testing.T) {
 	want := []string{
 		"CaseExpression", "ChannelSpec", "ColumnEncodingSpec", "DomainKeyInfo",
 		"DomainKeysSpec", "ExpressionNode", "HashExpression", "InputChannel",
-		"LookupColumnSpec", "MapExpression", "OperatorArgs", "OperatorEnv",
+		"Lookup", "LookupColumnSpec", "LookupTable", "MapExpression",
+		"OperatorArgs", "OperatorEnv",
 		"OutputChannel", "PipeTransformationEvaluator", "RowLevelError",
 		"SiteOperatorFactory", "TransformationColumnEvaluator",
 		"TransformationColumnSpec",

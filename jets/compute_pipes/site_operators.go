@@ -329,5 +329,117 @@ func (ctx *BuilderContext) siteOperatorArgs(source *InputChannel, outCh *OutputC
 		}
 		args.ErrorChannel = errorCh
 	}
+	if err := ctx.resolveSiteOutputChannels(args, siteConfig, spec.Type); err != nil {
+		return nil, err
+	}
+	if err := ctx.resolveSiteLookups(args, siteConfig, spec.Type); err != nil {
+		return nil, err
+	}
 	return args, nil
+}
+
+// resolveSiteOutputChannels turns `site_config.output_channels` into
+// OperatorArgs.Outputs.
+//
+// It is the error channel's resolution pluralised -- the same two emptiness
+// checks per entry, then the same GetOutputChannel -- and the same argument
+// carries it: the builder owns the registry, resolves what the step named, and
+// hands over the result, so the operator can name nothing else (§12.6).
+//
+// **Authored order is preserved and is the operator's only handle on which is
+// which**, since a resolved channel carries its own name and the operator reads
+// it off `Config.Name` or off the position it authored. That is why a repeated
+// name is refused: it puts one channel at two indices with nothing to tell them
+// apart, which is a typo in every case anyone has been able to construct. The
+// step's own `output_channel` appearing in the list is deliberately *not*
+// refused -- see OperatorArgs.Outputs for why -- and yields the same pointer the
+// registry holds, so the operator writing through either sees one channel.
+func (ctx *BuilderContext) resolveSiteOutputChannels(args *OperatorArgs,
+	siteConfig *SiteOperatorSpec, operatorType string) error {
+	if len(siteConfig.OutputChannels) == 0 {
+		return nil
+	}
+	outputs := make([]*OutputChannel, 0, len(siteConfig.OutputChannels))
+	declared := make(map[string]int, len(siteConfig.OutputChannels))
+	for i := range siteConfig.OutputChannels {
+		channelConfig := &siteConfig.OutputChannels[i]
+		if len(channelConfig.Name) == 0 {
+			return fmt.Errorf("error: site_config.output_channels[%d] name cannot be empty (operator '%s')",
+				i, operatorType)
+		}
+		if len(channelConfig.SpecName) == 0 {
+			return fmt.Errorf("error: site_config.output_channels[%d] ('%s') spec name cannot be empty (operator '%s')",
+				i, channelConfig.Name, operatorType)
+		}
+		if first, ok := declared[channelConfig.Name]; ok {
+			return fmt.Errorf(
+				"error: site_config.output_channels names '%s' twice, at [%d] and [%d]; the operator would be "+
+					"handed one channel at two indices with nothing to tell them apart (operator '%s')",
+				channelConfig.Name, first, i, operatorType)
+		}
+		declared[channelConfig.Name] = i
+		outputCh, err := ctx.channelRegistry.GetOutputChannel(channelConfig.Name)
+		if err != nil {
+			return fmt.Errorf("while resolving output channel '%s' of site operator '%s': %v",
+				channelConfig.Name, operatorType, err)
+		}
+		outputs = append(outputs, outputCh)
+	}
+	args.Outputs = outputs
+	return nil
+}
+
+// resolveSiteLookups turns `site_config.lookups` into OperatorArgs.Lookups.
+//
+// It is resolveSiteOutputChannels on the other withheld field: the builder owns
+// the lookup table manager, resolves the keys the step itself named, and hands
+// the loaded tables over — so the operator reads no table its own step did not
+// declare, and never sees the manager (§12.6).
+//
+// **A miss is an error here rather than a nil table**, and that is the one place
+// this departs from what the built-ins do. `map_record`, `anonymize` and
+// `shuffling` index `LookupTableMap` and mostly do not check, because
+// SelectActiveLookupTable has already refused an undefined name on their behalf
+// in the starter — and it refuses a site operator's too, through siteLookupKeys.
+// What it cannot refuse is a table that was declared, survived the pruning and
+// then failed to load, and handing an operator a nil LookupTable for that would
+// turn a load failure into a nil dereference inside site code.
+//
+// **A nil manager is an error rather than an empty list**, for the same reason
+// one level up: a node whose lookup tables were never prepared cannot honour a
+// step that declared one, and an empty list would say it had none.
+func (ctx *BuilderContext) resolveSiteLookups(args *OperatorArgs,
+	siteConfig *SiteOperatorSpec, operatorType string) error {
+	if len(siteConfig.Lookups) == 0 {
+		return nil
+	}
+	if ctx.lookupTableManager == nil {
+		return fmt.Errorf(
+			"error: site operator '%s' declares %d lookup(s) and this node prepared none",
+			operatorType, len(siteConfig.Lookups))
+	}
+	lookups := make([]*Lookup, 0, len(siteConfig.Lookups))
+	declared := make(map[string]int, len(siteConfig.Lookups))
+	for i, key := range siteConfig.Lookups {
+		if len(key) == 0 {
+			return fmt.Errorf("error: site_config.lookups[%d] cannot be empty (operator '%s')", i, operatorType)
+		}
+		if first, ok := declared[key]; ok {
+			return fmt.Errorf(
+				"error: site_config.lookups names '%s' twice, at [%d] and [%d]; the operator would be handed "+
+					"one table at two indices with nothing to tell them apart (operator '%s')",
+				key, first, i, operatorType)
+		}
+		declared[key] = i
+		table := ctx.lookupTableManager.LookupTableMap[key]
+		if table == nil {
+			return fmt.Errorf(
+				"error: lookup table '%s' declared in site_config.lookups of operator '%s' is not loaded; "+
+					"it must be defined in the document's lookup_tables",
+				key, operatorType)
+		}
+		lookups = append(lookups, &Lookup{Key: key, Table: table})
+	}
+	args.Lookups = lookups
+	return nil
 }

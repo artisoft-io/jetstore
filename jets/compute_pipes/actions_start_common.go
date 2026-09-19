@@ -613,6 +613,21 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					activeTables = append(activeTables, spec)
 				}
 			}
+			// A site operator's declared lookups. Before the switch and outside
+			// it on purpose: a site token is by construction none of the cases
+			// below, and this pass runs in the starter where no operator
+			// registry exists -- so the document is the only thing that can say
+			// a site operator reads a table, and a table nothing says is read is
+			// pruned away and never loaded.
+			for _, key := range siteLookupKeys(transformationSpec) {
+				spec := lookupMap[key]
+				if spec == nil {
+					return nil, fmt.Errorf(
+						"error: lookup table '%s' declared in site_config.lookups of operator '%s' is not defined "+
+							"in lookup_tables, please verify the configuration", key, transformationSpec.Type)
+				}
+				activeTables = append(activeTables, spec)
+			}
 			switch transformationSpec.Type {
 			case "analyze":
 				// Check for Analyze transformation using lookup tables
@@ -1229,11 +1244,64 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 	return nil
 }
 
+// siteOutputChannelConfigs returns the channels a *site* operator's step
+// declared in `site_config.output_channels`, beyond the step's own
+// `output_channel`. Nil when there is no site_config, no list, or the token is
+// one the dispatch handles itself.
+//
+// It is errorChannelConfig's shape one field over and exists for the same
+// reason that one does: the passes that make a channel exist -- the channel
+// registry construction and the executors' close pass -- run in processes where
+// no operator registry is present, so which site tokens exist is not knowable
+// to them and only the document can say.
+//
+// **The built-in guard is not defensive padding**, and the argument is
+// errorChannelConfig's verbatim: a `site_config` on a built-in token is a
+// configuration error that validateSiteOperatorSpec refuses, and without the
+// guard this function would answer for an operator the dispatch is never going
+// to build -- registering channels for a step that will not write them.
+func siteOutputChannelConfigs(transformationConfig *TransformationSpec) []*OutputChannelConfig {
+	if transformationConfig.SiteConfig == nil || reservedOperatorTypes[transformationConfig.Type] {
+		return nil
+	}
+	channels := transformationConfig.SiteConfig.OutputChannels
+	if len(channels) == 0 {
+		return nil
+	}
+	configs := make([]*OutputChannelConfig, 0, len(channels))
+	for i := range channels {
+		configs = append(configs, &channels[i])
+	}
+	return configs
+}
+
+// siteLookupKeys returns the `lookup_tables` keys a *site* operator's step
+// declared in `site_config.lookups`. Nil when there is no site_config, no list,
+// or the token is one the dispatch handles itself.
+//
+// siteOutputChannelConfigs' shape one field over, with the same built-in guard
+// for the same reason: a `site_config` on a built-in token is a configuration
+// error validateSiteOperatorSpec refuses, and answering for it here would keep a
+// lookup table loaded for a step the dispatch is never going to build.
+func siteLookupKeys(transformationConfig *TransformationSpec) []string {
+	if transformationConfig.SiteConfig == nil || reservedOperatorTypes[transformationConfig.Type] {
+		return nil
+	}
+	if len(transformationConfig.SiteConfig.Lookups) == 0 {
+		return nil
+	}
+	return transformationConfig.SiteConfig.Lookups
+}
+
 // outputChannelConfigs returns the channels a transformation writes its results
 // to, excluding its error channel.
 func outputChannelConfigs(transformationConfig *TransformationSpec) []*OutputChannelConfig {
 	configs := make([]*OutputChannelConfig, 0, 2)
 	configs = append(configs, &transformationConfig.OutputChannel)
+	// A site operator's declared channels. Outside the switch on purpose: a site
+	// token is by construction none of the cases below, so a case for it would
+	// be a case no document can reach.
+	configs = append(configs, siteOutputChannelConfigs(transformationConfig)...)
 	switch transformationConfig.Type {
 	case "jetrules":
 		if transformationConfig.JetrulesConfig != nil {

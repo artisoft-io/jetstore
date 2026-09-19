@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,18 +16,17 @@ type LookupTableManager struct {
 	isVerbose      bool
 }
 
-type LookupTable interface {
-	// Returns the lookup row associated with key
-	Lookup(key *string) (*[]any, error)
-	// Returns the row's value associated with the lookup column
-	LookupValue(row *[]any, columnName string) (any, error)
-	// Returns the mapping between column name to pos in the returned row
-	ColumnMap() map[string]int
-	// Return true if the table is empty, ColumnMap is empty as well
-	IsEmptyTable() bool
-	// Return the number of rows in the lookup table
-	Size() int64
-}
+// LookupTable moved to `pipesmodel` with Phase 9's P9-T02, because it is what
+// OperatorArgs.Lookups hands to a site operator: the contract package has to be
+// able to name the type it carries. The alias keeps this package's spelling, so
+// LookupTableS3, LookupTableSql and every built-in that holds one are unchanged
+// — and a site operator is handed the same object a built-in gets rather than a
+// second interface shaped for it.
+type LookupTable = pipesmodel.LookupTable
+
+// Lookup is one entry of OperatorArgs.Lookups: a loaded table beside the key the
+// step named it by. Re-exported so a site names one package rather than two.
+type Lookup = pipesmodel.Lookup
 
 func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]any, isVerbose bool) *LookupTableManager {
 	return &LookupTableManager{

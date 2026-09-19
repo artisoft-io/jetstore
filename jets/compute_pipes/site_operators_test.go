@@ -7,6 +7,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -933,5 +936,704 @@ func TestReportErrorIsInterruptedByDone(t *testing.T) {
 	case <-returned:
 	case <-time.After(2 * time.Second):
 		t.Fatal("ReportError blocked on an undrained channel with done closed")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// P9-T01: `site_config.output_channels` and OperatorArgs.Outputs.
+//
+// The extension is ErrorChannel's move pluralised, so these tests are the
+// error channel's tests pluralised: resolved at build time, refused when it
+// cannot work, absent when nothing is declared, and surviving the document's
+// two JSON hops. The one they add is the §12.6 assertion, which is about what
+// the operator is *not* given.
+// ---------------------------------------------------------------------------
+
+// withChannels adds compute channels to the rig's registry, so a test can
+// declare more output channels than the two every rig starts with.
+func (r *siteTestRig) withChannels(t *testing.T, names ...string) *siteTestRig {
+	t.Helper()
+	columnsMap := make(map[string]int, len(siteTestColumns))
+	for i, c := range siteTestColumns {
+		columnsMap[c] = i
+	}
+	spec := &ChannelSpec{Name: "rows", Columns: siteTestColumns}
+	spec.SetColumnsMap(&columnsMap)
+	for _, name := range names {
+		r.registry.ComputeChannels[name] = &Channel{
+			Name: name, Channel: make(chan []any, 8), Columns: &columnsMap, Config: spec}
+	}
+	return r
+}
+
+// siteOutputsSpec is a site step declaring `output_channels` by name, with the
+// step's own output_channel set to rows.out the way every other test here has it.
+func siteOutputsSpec(names ...string) *TransformationSpec {
+	channels := make([]OutputChannelConfig, 0, len(names))
+	for _, name := range names {
+		channels = append(channels, OutputChannelConfig{Name: name, SpecName: "rows"})
+	}
+	return &TransformationSpec{
+		Type:          "site_double",
+		OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+		SiteConfig:    &SiteOperatorSpec{OutputChannels: channels},
+	}
+}
+
+// capturingFactory records the args it was handed and returns an operator that
+// does nothing, which is all these tests need: what is under test is the
+// assembly, not the operator.
+type capturingOperator struct{ args *pipesmodel.OperatorArgs }
+
+func (op *capturingOperator) Apply(input *[]any) error { return nil }
+func (op *capturingOperator) Done() error              { return nil }
+func (op *capturingOperator) Finally()                 {}
+
+func capturingFactory(captured **pipesmodel.OperatorArgs) SiteOperatorFactory {
+	return func(env pipesmodel.OperatorEnv, args *pipesmodel.OperatorArgs) (pipesmodel.PipeTransformationEvaluator, error) {
+		*captured = args
+		return &capturingOperator{args: args}, nil
+	}
+}
+
+// Criterion: a site step's declared output channels are resolved by the builder
+// and handed over, in the order they were authored.
+//
+// It goes through BuildPipeTransformationEvaluator rather than calling
+// siteOperatorArgs, for the reason TestRegisteredSiteOperatorRuns gives: what is
+// under test is the argument assembly on the path a pipeline actually takes.
+func TestSiteOutputChannelsAreResolvedAtBuildTime(t *testing.T) {
+	var captured *pipesmodel.OperatorArgs
+	rig := newSiteTestRig(t).withChannels(t, "rows.a", "rows.b", "rows.c").
+		withOperators(map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+
+	// Authored out of registry order, so a test that passed by accident of map
+	// iteration would have to pass by accident twice.
+	spec := siteOutputsSpec("rows.c", "rows.a", "rows.b")
+	if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if captured == nil {
+		t.Fatal("the factory was never called")
+	}
+	if len(captured.Outputs) != 3 {
+		t.Fatalf("Outputs has %d channels, want 3", len(captured.Outputs))
+	}
+	for i, want := range []string{"rows.c", "rows.a", "rows.b"} {
+		if captured.Outputs[i] == nil {
+			t.Fatalf("Outputs[%d] is nil", i)
+		}
+		if captured.Outputs[i].Name != want {
+			t.Errorf("Outputs[%d] is %q, want %q (authored order is the operator's handle)",
+				i, captured.Outputs[i].Name, want)
+		}
+		// The registry's own channel, not a copy: a copy would give the operator
+		// a channel nothing else reads from.
+		registered, err := rig.registry.GetOutputChannel(want)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if captured.Outputs[i].Channel != registered.Channel {
+			t.Errorf("Outputs[%d] is not the registry's channel for %q", i, want)
+		}
+	}
+	// The step's own output_channel is untouched and is not in the list.
+	if captured.Output == nil || captured.Output.Name != "rows.out" {
+		t.Errorf("Output is %v, want the step's own rows.out", captured.Output)
+	}
+	for i, out := range captured.Outputs {
+		if out.Name == "rows.out" {
+			t.Errorf("Outputs[%d] is the step's own output_channel; Outputs never contains Output", i)
+		}
+	}
+}
+
+// The refusals, each with the message that names what the author has to fix.
+// The duplicate is the one that is not ErrorChannel's: a name repeated inside
+// the list hands the operator one channel at two indices with nothing to tell
+// them apart (D-208).
+func TestSiteOutputChannelsRefuseWhatCannotWork(t *testing.T) {
+	rig := newSiteTestRig(t).withChannels(t, "rows.a").
+		withOperators(map[string]SiteOperatorFactory{"site_double": newDoublingOperator})
+	for _, tc := range []struct {
+		name     string
+		channels []OutputChannelConfig
+		want     string
+	}{
+		{"no name", []OutputChannelConfig{{SpecName: "rows"}}, "name cannot be empty"},
+		{"no spec name", []OutputChannelConfig{{Name: "rows.a"}}, "spec name cannot be empty"},
+		{"unregistered", []OutputChannelConfig{{Name: "nowhere", SpecName: "rows"}}, "nowhere"},
+		{"repeated", []OutputChannelConfig{
+			{Name: "rows.a", SpecName: "rows"},
+			{Name: "rows.a", SpecName: "rows"}}, "twice"},
+	} {
+		spec := &TransformationSpec{Type: "site_double",
+			OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+			SiteConfig:    &SiteOperatorSpec{OutputChannels: tc.channels}}
+		_, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v, want an error mentioning %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// The other half of the additive claim, asserted rather than assumed: a step
+// declaring no output_channels is handed exactly what it was handed before the
+// field existed. A nil Outputs rather than an empty slice, because the two mean
+// different things to a `for range` reader only by accident and to a `== nil`
+// reader on purpose.
+func TestSiteOutputChannelsAreAbsentWhenNoneAreDeclared(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		siteConfig *SiteOperatorSpec
+	}{
+		{"no site_config at all", nil},
+		{"a site_config naming none", &SiteOperatorSpec{MaxErrorCount: 3}},
+		{"an empty list", &SiteOperatorSpec{OutputChannels: []OutputChannelConfig{}}},
+	} {
+		var captured *pipesmodel.OperatorArgs
+		rig := newSiteTestRig(t).withOperators(
+			map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+		spec := &TransformationSpec{Type: "site_double",
+			OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+			SiteConfig:    tc.siteConfig}
+		if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if captured == nil {
+			t.Fatalf("%s: the factory was never called", tc.name)
+		}
+		if captured.Outputs != nil {
+			t.Errorf("%s: Outputs is %v, want nil", tc.name, captured.Outputs)
+		}
+		if captured.Output == nil || captured.Output.Name != "rows.out" {
+			t.Errorf("%s: Output is %v, want the step's own rows.out", tc.name, captured.Output)
+		}
+	}
+}
+
+// §12.6's argument, asserted: an operator receives what its own step declared
+// and can name nothing else.
+//
+// **Both halves are derived rather than listed.** The registry half is measured
+// against the registry itself -- whatever channels the rig holds, the operator
+// holds only the ones its step named -- so it stays true as the rig grows. The
+// interface half is reflected off OperatorEnv rather than read: no method of it
+// returns a channel or a registry, under any name, which is the property that
+// would have to break for an operator to reach one. A list of method names
+// would pass the day somebody adds `Channel(name string)`.
+func TestSiteOperatorIsGivenNoWayToNameAnotherChannel(t *testing.T) {
+	var captured *pipesmodel.OperatorArgs
+	rig := newSiteTestRig(t).withChannels(t, "rows.a", "rows.b", "rows.secret").
+		withOperators(map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+	spec := siteOutputsSpec("rows.a")
+	if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if captured == nil {
+		t.Fatal("the factory was never called")
+	}
+	declared := map[string]bool{"rows.a": true, "rows.out": true, "rows.errors": true}
+	reachable := map[string]bool{}
+	for _, out := range captured.Outputs {
+		reachable[out.Name] = true
+	}
+	if captured.Output != nil {
+		reachable[captured.Output.Name] = true
+	}
+	if captured.ErrorChannel != nil {
+		reachable[captured.ErrorChannel.Name] = true
+	}
+	if len(rig.registry.ComputeChannels) <= len(reachable) {
+		t.Fatalf("the registry holds %d channels and the operator reaches %d; this test asserts nothing "+
+			"unless the registry holds channels the step did not declare",
+			len(rig.registry.ComputeChannels), len(reachable))
+	}
+	for name := range reachable {
+		if !declared[name] {
+			t.Errorf("the operator reaches channel %q, which its step did not declare", name)
+		}
+	}
+	// And nothing on the interface would let it ask for one.
+	envType := reflect.TypeOf((*pipesmodel.OperatorEnv)(nil)).Elem()
+	for i := range envType.NumMethod() {
+		m := envType.Method(i)
+		for j := range m.Type.NumOut() {
+			out := m.Type.Out(j)
+			name := out.String()
+			if strings.Contains(name, "OutputChannel") || strings.Contains(name, "ChannelRegistry") {
+				t.Errorf("OperatorEnv.%s returns %s; §12.6 withholds the registry precisely so an "+
+					"operator cannot name a channel its step did not declare", m.Name, name)
+			}
+		}
+	}
+}
+
+// siteOutputChannelConfigs is the one function that reads the declared channels
+// off the document, and the three passes that make a channel exist read it. This
+// is that function: what it answers for a site token, and the built-in guard it
+// carries for errorChannelConfig's reason.
+func TestSiteOutputChannelConfigsReadsTheDocument(t *testing.T) {
+	declared := []OutputChannelConfig{
+		{Name: "rows.a", SpecName: "rows"}, {Name: "rows.b", SpecName: "rows"}}
+	for _, tc := range []struct {
+		name string
+		spec *TransformationSpec
+		want []string
+	}{
+		{"a site token with a list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{OutputChannels: declared}}, []string{"rows.a", "rows.b"}},
+		{"a site token with no list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{}}, nil},
+		{"no site_config", &TransformationSpec{Type: "site_double"}, nil},
+		// The guard: validateSiteOperatorSpec refuses this document, and until it
+		// does, answering for it would register channels for a step the dispatch
+		// is never going to build.
+		{"a built-in carrying a site_config", &TransformationSpec{Type: "map_record",
+			SiteConfig: &SiteOperatorSpec{OutputChannels: declared}}, nil},
+		{"the resolved-away token", &TransformationSpec{Type: "infer",
+			SiteConfig: &SiteOperatorSpec{OutputChannels: declared}}, nil},
+	} {
+		got := siteOutputChannelConfigs(tc.spec)
+		names := make([]string, 0, len(got))
+		for _, ch := range got {
+			names = append(names, ch.Name)
+		}
+		if strings.Join(names, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("%s: %v, want %v", tc.name, names, tc.want)
+		}
+	}
+	// And it yields the document's own configs rather than copies, which is what
+	// the registry construction needs: it registers what it is handed.
+	spec := &TransformationSpec{Type: "site_double",
+		SiteConfig: &SiteOperatorSpec{OutputChannels: []OutputChannelConfig{{Name: "rows.a", SpecName: "rows"}}}}
+	got := siteOutputChannelConfigs(spec)
+	if len(got) != 1 || got[0] != &spec.SiteConfig.OutputChannels[0] {
+		t.Error("siteOutputChannelConfigs returned a copy rather than the document's own config")
+	}
+	// outputChannelConfigs carries them, which is how the validator sees them.
+	all := outputChannelConfigs(spec)
+	found := false
+	for _, ch := range all {
+		if ch.Name == "rows.a" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("outputChannelConfigs does not carry a site operator's declared channels")
+	}
+}
+
+// A channel exists because some pass reads it off the document, and the passes
+// that do are exactly the ones that already know jetrules writes channels its
+// step's `output_channel` does not name.
+//
+// **The subject is derived from that fact rather than kept as a list here**
+// (P3-I20): every non-test file mentioning `JetrulesConfig.OutputChannels` is a
+// file that has to reckon with a plural output-channel declaration, so every one
+// of them has to know about a site step's. A fourth such place added later joins
+// this test by existing.
+//
+// It is deliberately not satisfied by the two pipe executors today, and that is
+// the finding rather than the test being wrong: closing a channel is P9-T04's,
+// and until it lands a declared channel is registered and resolved and closed by
+// nothing. The test therefore asserts what P9-T01 owns -- that the *registering*
+// pass reads the same function -- and names the rest.
+func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
+	fset := token.NewFileSet()
+	files, err := filepath.Glob("*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("globbing the package: %v", err)
+	}
+	plural := map[string]bool{}
+	reads := map[string]bool{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(src)
+		if strings.Contains(text, "JetrulesConfig.OutputChannels") {
+			plural[f] = true
+		}
+		if strings.Contains(text, "siteOutputChannelConfigs(") {
+			reads[f] = true
+		}
+	}
+	if len(plural) == 0 {
+		t.Fatal("no file mentions JetrulesConfig.OutputChannels; this test asserted nothing")
+	}
+	// What P9-T01 owns: the pass that registers channels.
+	if !reads["compute_pipes.go"] {
+		t.Error("the channel registry construction does not read siteOutputChannelConfigs; " +
+			"a channel declared in site_config.output_channels would fail to resolve")
+	}
+	if !reads["actions_start_common.go"] {
+		t.Error("outputChannelConfigs does not read siteOutputChannelConfigs; " +
+			"the validator would not see a site operator's declared channels")
+	}
+	// What P9-T04 owns, reported rather than asserted: the two executors close
+	// the channels a step writes, and they do not yet know about these.
+	for f := range plural {
+		if !reads[f] {
+			t.Logf("P9-I13: %s knows jetrules' plural output channels and not a site step's; "+
+				"until P9-T04 adds the arm, a channel declared in site_config.output_channels "+
+				"is closed by nothing", f)
+		}
+	}
+	// Keep the parser import honest: the glob above is the subject and a parse
+	// failure would mean the file set is not what this test thinks it is.
+	for f := range plural {
+		if _, err := parser.ParseFile(fset, f, nil, parser.ImportsOnly); err != nil {
+			t.Errorf("parsing %s: %v", f, err)
+		}
+	}
+}
+
+// The document's two JSON hops, which is where a configuration block that is not
+// a JSON-tagged field is dropped silently (I-777). The pair is
+// TestSiteConfigSurvivesTheDocumentRoundTrip's, one field over.
+func TestSiteOutputChannelsSurviveTheDocumentRoundTrip(t *testing.T) {
+	const authored = `{
+	  "cluster_config": {},
+	  "pipes_config": [{
+	    "type": "fan_out",
+	    "input_channel": {"name": "input_row"},
+	    "apply": [{
+	      "type": "hc_generator",
+	      "output_channel": {"name": "member", "channel_spec_name": "member_row"},
+	      "site_config": {
+	        "output_channels": [
+	          {"name": "eligibility", "channel_spec_name": "eligibility_row"},
+	          {"name": "claim_pharmacy", "channel_spec_name": "pharmacy_row"}
+	        ]
+	      }
+	    }]
+	  }]
+	}`
+	first, err := UnmarshalComputePipesConfig(&[]string{authored}[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTripped := string(encoded)
+	cpConfig, err := UnmarshalComputePipesConfig(&roundTripped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := &cpConfig.PipesConfig[0].Apply[0]
+	if spec.SiteConfig == nil {
+		t.Fatal("site_config was dropped by the round trip")
+	}
+	if len(spec.SiteConfig.OutputChannels) != 2 {
+		t.Fatalf("output_channels has %d entries after the round trip, want 2",
+			len(spec.SiteConfig.OutputChannels))
+	}
+	for i, want := range []struct{ name, specName string }{
+		{"eligibility", "eligibility_row"}, {"claim_pharmacy", "pharmacy_row"},
+	} {
+		got := spec.SiteConfig.OutputChannels[i]
+		if got.Name != want.name || got.SpecName != want.specName {
+			t.Errorf("output_channels[%d] is %s/%s, want %s/%s",
+				i, got.Name, got.SpecName, want.name, want.specName)
+		}
+	}
+	// And a site_config naming none does not grow the key, which is what
+	// omitempty buys and is worth asserting rather than assuming.
+	bare, err := json.Marshal(SiteOperatorSpec{MaxErrorCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(bare), "output_channels") {
+		t.Errorf("a site_config naming no output_channels marshals as %s", bare)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// P9-T02: `site_config.lookups` and OperatorArgs.Lookups.
+//
+// Built for the contract rather than for this corpus (D-202), so its first
+// consumer is these tests: the corpus operator keeps its own reference-table
+// package and does not use the extension. That makes the tests the only thing
+// standing between the field and P4-I43's class -- a component whose own tests
+// pass and which nothing on a run's path ever reaches -- so they exercise both
+// ends: the starter pass that decides a table is loaded at all, and the builder
+// pass that hands it over.
+// ---------------------------------------------------------------------------
+
+// siteLookupTableFake is the smallest thing that is a LookupTable. It exists to be
+// handed over and recognised, which is all these tests ask of it.
+type siteLookupTableFake struct {
+	name string
+	rows map[string]*[]any
+}
+
+func (t *siteLookupTableFake) Lookup(key *string) (*[]any, error) {
+	if key == nil {
+		return nil, fmt.Errorf("nil key")
+	}
+	return t.rows[*key], nil
+}
+func (t *siteLookupTableFake) LookupValue(row *[]any, columnName string) (any, error) {
+	if row == nil || len(*row) == 0 {
+		return nil, nil
+	}
+	return (*row)[0], nil
+}
+func (t *siteLookupTableFake) ColumnMap() map[string]int { return map[string]int{"value": 0} }
+func (t *siteLookupTableFake) IsEmptyTable() bool        { return len(t.rows) == 0 }
+func (t *siteLookupTableFake) Size() int64               { return int64(len(t.rows)) }
+
+// withLookups gives the rig a lookup table manager holding the named tables.
+func (r *siteTestRig) withLookups(names ...string) *siteTestRig {
+	mgr := NewLookupTableManager(nil, nil, false)
+	for _, name := range names {
+		mgr.LookupTableMap[name] = &siteLookupTableFake{
+			name: name, rows: map[string]*[]any{"k": {name}}}
+	}
+	r.ctx.lookupTableManager = mgr
+	return r
+}
+
+func siteLookupsSpec(keys ...string) *TransformationSpec {
+	return &TransformationSpec{
+		Type:          "site_double",
+		OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+		SiteConfig:    &SiteOperatorSpec{Lookups: keys},
+	}
+}
+
+// The declared tables are resolved and handed over, in the order authored, and
+// what arrives is the manager's own table rather than a copy or a view.
+func TestSiteLookupsAreResolvedAtBuildTime(t *testing.T) {
+	var captured *pipesmodel.OperatorArgs
+	rig := newSiteTestRig(t).withLookups("zip_to_state", "codes", "unused").
+		withOperators(map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+
+	spec := siteLookupsSpec("codes", "zip_to_state")
+	if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if captured == nil {
+		t.Fatal("the factory was never called")
+	}
+	if len(captured.Lookups) != 2 {
+		t.Fatalf("Lookups has %d entries, want 2", len(captured.Lookups))
+	}
+	for i, want := range []string{"codes", "zip_to_state"} {
+		got := captured.Lookups[i]
+		if got == nil || got.Key != want {
+			t.Fatalf("Lookups[%d] is %v, want key %q (authored order is the operator's handle)", i, got, want)
+		}
+		if got.Table != rig.ctx.lookupTableManager.LookupTableMap[want] {
+			t.Errorf("Lookups[%d] is not the manager's own table for %q", i, want)
+		}
+		// And it reads: the site gets the object a built-in gets, so the keyed
+		// read is the same keyed read.
+		key := "k"
+		row, err := got.Table.Lookup(&key)
+		if err != nil || row == nil {
+			t.Fatalf("Lookups[%d].Table.Lookup: %v, %v", i, row, err)
+		}
+		if value, err := got.Table.LookupValue(row, "value"); err != nil || value != want {
+			t.Errorf("Lookups[%d] resolved to table %v, want %q", i, value, want)
+		}
+	}
+	// A table the step did not name is not handed over, even though it is loaded.
+	for _, l := range captured.Lookups {
+		if l.Key == "unused" {
+			t.Error("the operator was handed a table its step did not declare")
+		}
+	}
+}
+
+// The refusals. The miss is the one that differs from what the built-ins do, and
+// the comment on resolveSiteLookups says why: a nil LookupTable would turn a
+// load failure into a nil dereference inside site code.
+func TestSiteLookupsRefuseWhatCannotWork(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		keys        []string
+		withManager bool
+		want        string
+	}{
+		{"empty key", []string{""}, true, "cannot be empty"},
+		{"repeated key", []string{"codes", "codes"}, true, "twice"},
+		{"not loaded", []string{"nowhere"}, true, "is not loaded"},
+		{"no manager at all", []string{"codes"}, false, "prepared none"},
+	} {
+		rig := newSiteTestRig(t).withOperators(
+			map[string]SiteOperatorFactory{"site_double": newDoublingOperator})
+		if tc.withManager {
+			rig = rig.withLookups("codes")
+		}
+		_, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, siteLookupsSpec(tc.keys...))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v, want an error mentioning %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// A step declaring no lookups is handed exactly what it was handed before the
+// field existed -- including when the node prepared no lookup tables at all,
+// which is every pipeline in the corpus that uses none.
+func TestSiteLookupsAreAbsentWhenNoneAreDeclared(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		siteConfig *SiteOperatorSpec
+		manager    bool
+	}{
+		{"no site_config at all", nil, false},
+		{"a site_config naming none", &SiteOperatorSpec{MaxErrorCount: 3}, false},
+		{"an empty list", &SiteOperatorSpec{Lookups: []string{}}, false},
+		{"none declared, tables loaded", &SiteOperatorSpec{}, true},
+	} {
+		var captured *pipesmodel.OperatorArgs
+		rig := newSiteTestRig(t).withOperators(
+			map[string]SiteOperatorFactory{"site_double": capturingFactory(&captured)})
+		if tc.manager {
+			rig = rig.withLookups("codes")
+		}
+		spec := &TransformationSpec{Type: "site_double",
+			OutputChannel: OutputChannelConfig{Name: "rows.out", SpecName: "rows"},
+			SiteConfig:    tc.siteConfig}
+		if _, err := rig.ctx.BuildPipeTransformationEvaluator(rig.source, nil, nil, spec); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if captured == nil {
+			t.Fatalf("%s: the factory was never called", tc.name)
+		}
+		if captured.Lookups != nil {
+			t.Errorf("%s: Lookups is %v, want nil", tc.name, captured.Lookups)
+		}
+	}
+}
+
+// The starter half, and the half the resolution cannot stand without.
+//
+// SelectActiveLookupTable prunes `lookup_tables` to what some step references,
+// in a process that knows nothing about site operators. A site operator's
+// declared lookup survives that pruning, an undefined one is refused there by
+// name, and a step declaring none prunes exactly as it did before -- which is
+// the assertion that keeps this additive.
+func TestSelectActiveLookupTableKeepsASiteOperatorsLookups(t *testing.T) {
+	lookupConfig := []*LookupSpec{
+		{Key: "zip_to_state", Type: "s3_csv_lookup"},
+		{Key: "codes", Type: "s3_csv_lookup"},
+		{Key: "unreferenced", Type: "s3_csv_lookup"},
+	}
+	siteStep := func(keys ...string) []PipeSpec {
+		return []PipeSpec{{Apply: []TransformationSpec{{
+			Type: "hc_generator", SiteConfig: &SiteOperatorSpec{Lookups: keys}}}}}
+	}
+
+	active, err := SelectActiveLookupTable(lookupConfig, siteStep("codes", "zip_to_state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(active))
+	for _, spec := range active {
+		got = append(got, spec.Key)
+	}
+	if strings.Join(got, ",") != "codes,zip_to_state" {
+		t.Errorf("active lookups are %v, want [codes zip_to_state]", got)
+	}
+
+	// An undefined name is refused here, by name, the way every other operator's
+	// reference is -- rather than surfacing as a nil table two processes later.
+	if _, err := SelectActiveLookupTable(lookupConfig, siteStep("nowhere")); err == nil ||
+		!strings.Contains(err.Error(), "nowhere") {
+		t.Errorf("an undefined site lookup gave %v, want an error naming it", err)
+	}
+
+	// A step declaring none prunes as it always did: nothing active.
+	none, err := SelectActiveLookupTable(lookupConfig, siteStep())
+	if err != nil || len(none) != 0 {
+		t.Errorf("a site step declaring no lookups made %d table(s) active (%v)", len(none), err)
+	}
+
+	// And the built-in guard: a site_config on a built-in token answers nothing
+	// here, because validateSiteOperatorSpec refuses that document and the
+	// dispatch will never build it.
+	builtin := []PipeSpec{{Apply: []TransformationSpec{{
+		Type: "map_record", SiteConfig: &SiteOperatorSpec{Lookups: []string{"codes"}}}}}}
+	active, err = SelectActiveLookupTable(lookupConfig, builtin)
+	if err != nil || len(active) != 0 {
+		t.Errorf("a built-in carrying a site_config made %d table(s) active (%v)", len(active), err)
+	}
+}
+
+// The document's two JSON hops, where a block that is not a JSON-tagged field is
+// dropped silently (I-777).
+func TestSiteLookupsSurviveTheDocumentRoundTrip(t *testing.T) {
+	const authored = `{
+	  "cluster_config": {},
+	  "lookup_tables": [{"key": "zip_to_state", "type": "s3_csv_lookup"}],
+	  "pipes_config": [{
+	    "type": "fan_out",
+	    "input_channel": {"name": "input_row"},
+	    "apply": [{
+	      "type": "cgt_scrub",
+	      "output_channel": {"name": "scrubbed", "channel_spec_name": "claim_row"},
+	      "site_config": {"lookups": ["zip_to_state", "codes"]}
+	    }]
+	  }]
+	}`
+	first, err := UnmarshalComputePipesConfig(&[]string{authored}[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTripped := string(encoded)
+	cpConfig, err := UnmarshalComputePipesConfig(&roundTripped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := &cpConfig.PipesConfig[0].Apply[0]
+	if spec.SiteConfig == nil {
+		t.Fatal("site_config was dropped by the round trip")
+	}
+	if strings.Join(spec.SiteConfig.Lookups, ",") != "zip_to_state,codes" {
+		t.Errorf("lookups after the round trip are %v", spec.SiteConfig.Lookups)
+	}
+	bare, err := json.Marshal(SiteOperatorSpec{MaxErrorCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(bare), "lookups") {
+		t.Errorf("a site_config naming no lookups marshals as %s", bare)
+	}
+}
+
+// siteLookupKeys, and the built-in guard it carries for siteOutputChannelConfigs'
+// reason.
+func TestSiteLookupKeysReadsTheDocument(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		spec *TransformationSpec
+		want string
+	}{
+		{"a site token with a list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a", "b"}}}, "a,b"},
+		{"a site token with no list", &TransformationSpec{Type: "site_double",
+			SiteConfig: &SiteOperatorSpec{}}, ""},
+		{"no site_config", &TransformationSpec{Type: "site_double"}, ""},
+		{"a built-in carrying a site_config", &TransformationSpec{Type: "anonymize",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a"}}}, ""},
+		{"the resolved-away token", &TransformationSpec{Type: "infer",
+			SiteConfig: &SiteOperatorSpec{Lookups: []string{"a"}}}, ""},
+	} {
+		if got := strings.Join(siteLookupKeys(tc.spec), ","); got != tc.want {
+			t.Errorf("%s: %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

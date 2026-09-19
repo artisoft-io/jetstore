@@ -658,6 +658,50 @@ type SiteOperatorSpec struct {
 	// bad record, and its author is the only party who does.
 	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
 	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	// OutputChannels are the channels this operator writes beyond the step's own
+	// `output_channel`. The builder resolves each one and hands the resolved
+	// channels over on OperatorArgs.Outputs, which is the move ErrorChannel
+	// makes one field up and is made for the same reason: the channel registry
+	// is withheld from OperatorEnv because an operator that can name any channel
+	// can read from or write into one it does not own, and an operator that is
+	// *handed* what its own step declared can name nothing else.
+	//
+	// **A named field rather than something the site buries in `config`**, on
+	// the same argument this struct's own doc block makes: a channel exists
+	// because some pass reads it off the document. The channel registry
+	// construction registers it (compute_pipes.go) and the pipe executors close
+	// it, and both run in processes where no operator registry is present -- so
+	// a channel named only inside `config` would be a channel nothing creates.
+	// `outputChannelConfigs` is the one function that reads them, which is why
+	// the validator sees them too.
+	//
+	// **It neither replaces `output_channel` nor contains it.** The two are
+	// different containers on different parts of the step, and the built-ins'
+	// own shape is the precedent: `clustering` and `anonymize` each write their
+	// step's `output_channel` *and* a second channel named in their own config
+	// block. See OperatorArgs.Outputs for which is which, and for what
+	// declaring both means.
+	OutputChannels []OutputChannelConfig `json:"output_channels,omitempty"`
+	// Lookups names the document's own `lookup_tables` entries this operator
+	// reads, by their `key`. The builder resolves each one to the loaded table
+	// and hands them over on OperatorArgs.Lookups, which is OutputChannels' move
+	// on the other field §12.6 withholds: `lookupTableManager` stays out of
+	// OperatorEnv and the operator names no table its own step did not.
+	//
+	// **Declaring one is what makes it load, and that is this field's first
+	// job.** SelectActiveLookupTable prunes `lookup_tables` to the entries some
+	// step references and runs in the *starter*, where no operator registry
+	// exists, so a table nothing references is never loaded. Without this list a
+	// site operator's reference would be invisible to that pass, and the table
+	// it needs would be pruned away -- a failure whose cause is two processes
+	// from its symptom.
+	//
+	// **Bare keys rather than objects**, because a lookup reference *is* its
+	// key: that is how `map_record`'s lookup columns, `anonymize`, `shuffling`
+	// and `clustering` each name one. An output channel reference carries a name
+	// and a channel spec name and is an object for that reason; this carries one
+	// fact and is a string.
+	Lookups []string `json:"lookups,omitempty"`
 	// Config is the site's own configuration, verbatim. JetStore does not decode
 	// it, validate it or know its schema; it reaches the site's factory as
 	// json.RawMessage for the factory to unmarshal into whatever type it likes.

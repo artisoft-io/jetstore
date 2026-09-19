@@ -245,6 +245,16 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			if errorChannel != nil && len(errorChannel.Name) > 0 {
 				outputChannels = append(outputChannels, errorChannel)
 			}
+			// A site operator's `site_config.output_channels`, for the same reason and
+			// through the same door: the builder resolves them out of this registry and
+			// hands them to the factory on OperatorArgs.Outputs, so a channel declared
+			// there and not registered here fails the resolution rather than the write.
+			// The default: branch above has already taken the step's own output_channel.
+			for _, siteChannel := range siteOutputChannelConfigs(transformationConfig) {
+				if len(siteChannel.Name) > 0 {
+					outputChannels = append(outputChannels, siteChannel)
+				}
+			}
 		}
 	}
 	// Prepare the channels in use

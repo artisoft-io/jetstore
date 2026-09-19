@@ -87,6 +87,17 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 // The three that are deliberately absent are the load-bearing part: `when` and
 // `conditional_config` are consumed before a factory can be reached, and
 // `*TransformationSpec` itself never crosses.
+//
+// **Nine until Phase 9, eleven since.** `Outputs` (P9-T01) and `Lookups`
+// (P9-T02) are the two extensions D-202 rules, and each is ErrorChannel's move
+// repeated on one of the two things §12.6 withholds -- `channelRegistry` and
+// `lookupTableManager`. The builder
+// resolves what the step itself declared and hands the result over, so §12.6's
+// argument is intact -- the operator still cannot reach `channelRegistry` and
+// still names nothing its own step did not. That it arrives as a *field* here
+// rather than as a method on OperatorEnv is the whole of the shape: this struct
+// is written by JetStore and read by a site, so widening it breaks nobody, and
+// the interface is not.
 func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 	typ := reflect.TypeOf(OperatorArgs{})
 	got := map[string]string{}
@@ -101,6 +112,8 @@ func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 		"Columns":       "[]pipesmodel.TransformationColumnSpec",
 		"Source":        "*pipesmodel.InputChannel",
 		"Output":        "*pipesmodel.OutputChannel",
+		"Outputs":       "[]*pipesmodel.OutputChannel",
+		"Lookups":       "[]*pipesmodel.Lookup",
 		"ErrorChannel":  "*pipesmodel.OutputChannel",
 		"MaxErrorCount": "int",
 		"Config":        "json.RawMessage",
@@ -221,5 +234,63 @@ func TestRowLevelErrorCarriesExactlyTheDecidedFields(t *testing.T) {
 			t.Errorf("RowLevelError has gained %s %s; a column offered to a site operator is a "+
 				"decision to record rather than a field to add", name, gotType)
 		}
+	}
+}
+
+// Lookup is written by JetStore and read by a site, like OperatorArgs, so the
+// pin is against the same invisible widening -- and against the shape question
+// D-209 settled, which no compiler checks: the key travels *with* the table
+// because LookupTable has no accessor for its own name, and the container is a
+// slice rather than a map because a map's range order is unspecified and an
+// operator that iterated its lookups would do so differently from run to run.
+//
+// The second half is the one worth pinning: a field renamed or a Table typed as
+// something other than the interface the built-ins hold would hand a site a
+// second implementation of a keyed read.
+func TestLookupCarriesItsKeyBesideTheTableTheBuiltinsHold(t *testing.T) {
+	typ := reflect.TypeOf(Lookup{})
+	got := map[string]string{}
+	for i := range typ.NumField() {
+		f := typ.Field(i)
+		got[f.Name] = f.Type.String()
+	}
+	want := map[string]string{
+		"Key":   "string",
+		"Table": "pipesmodel.LookupTable",
+	}
+	for name, wantType := range want {
+		gotType, ok := got[name]
+		switch {
+		case !ok:
+			t.Errorf("Lookup has lost %s", name)
+		case gotType != wantType:
+			t.Errorf("Lookup.%s is %s, want %s", name, gotType, wantType)
+		}
+	}
+	for name, gotType := range got {
+		if _, ok := want[name]; !ok {
+			t.Errorf("Lookup has gained %s %s; record the decision", name, gotType)
+		}
+	}
+	// The container is a slice, so the order a step authored is the order the
+	// operator sees. A map here would compile and would be nondeterministic.
+	args := reflect.TypeOf(OperatorArgs{})
+	field, ok := args.FieldByName("Lookups")
+	if !ok {
+		t.Fatal("OperatorArgs has no Lookups field")
+	}
+	if field.Type.Kind() != reflect.Slice {
+		t.Errorf("OperatorArgs.Lookups is a %s; D-209 rules it a slice, because a map's "+
+			"range order is unspecified and authored order is the operator's only handle",
+			field.Type.Kind())
+	}
+	// And LookupTable is an interface: a site writes a double by embedding it.
+	tableType := reflect.TypeOf((*LookupTable)(nil)).Elem()
+	if tableType.Kind() != reflect.Interface {
+		t.Errorf("LookupTable is a %s, not an interface", tableType.Kind())
+	}
+	if tableType.NumMethod() != 5 {
+		t.Errorf("LookupTable has %d methods, want the 5 the built-ins' tables implement; "+
+			"growing it breaks every site that wrote a double", tableType.NumMethod())
 	}
 }
