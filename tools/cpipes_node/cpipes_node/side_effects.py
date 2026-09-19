@@ -380,10 +380,27 @@ def aggregate_channel_results(
 #: - `nbr_gc` — completed cyclic collections summed over generations, which is
 #:   `MemStats.NumGC` in kind.
 #:
-#: **This is a judgement about an observability table and it is recorded as
-#: P9-I65 rather than taken silently.** The alternative — refusing a
-#: `metrics_config` outright — would make a pipeline that runs on Go fail on
-#: Python, which is a conformance failure over a table nobody joins on.
+#: **This is D-225 and its cost is P9-I65**, recorded rather than taken silently.
+#: Three alternatives were rejected and each is a real argument:
+#:
+#: - **Refuse a `metrics_config` outright.** It would make a pipeline that runs
+#:   on Go fail on Python, which is a conformance failure over a table nobody
+#:   joins on — the worst trade available.
+#: - **Write Python's nearest equivalent under the same name.** `ru_maxrss` is
+#:   *peak* RSS where `MemStats.Sys` is current, and a peak written into a
+#:   current column is a wrong measurement rather than a missing one. Two rows
+#:   under one name meaning two things is the defect D-200 names one repository
+#:   over.
+#: - **Start `tracemalloc` to publish a live heap.** It changes the thing being
+#:   measured and taxes every allocation, so the gauge would be reporting the
+#:   cost of the gauge.
+#:
+#: What the ruling costs is that a `metrics_config` naming all four gets two rows
+#: from this node and four from Go, and **nothing in the row says which runtime
+#: wrote it** — the table has `session_id`, `jets_partition`, `node_id`,
+#: `category`, `name`, `value` and `units` and no engine column. So a consumer
+#: comparing the two runtimes cannot tell a metric this node declined to measure
+#: from one it measured as zero. That is P9-I65 and it is not closed by D-225.
 MEASURABLE_METRICS = ("sys_mb", "nbr_gc")
 UNMEASURABLE_METRICS = ("alloc_mb", "total_alloc_mb")
 METRIC_UNITS = {"sys_mb": "MiB", "nbr_gc": "Count"}
@@ -605,7 +622,8 @@ class SideEffects:
                     if value is None:
                         log.info(
                             "metric %r is not measurable in this runtime and is "
-                            "not written; see MEASURABLE_METRICS and P9-I65",
+                            "not written; see MEASURABLE_METRICS, D-225 and "
+                            "P9-I65",
                             name,
                         )
                         continue

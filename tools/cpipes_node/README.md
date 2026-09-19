@@ -249,6 +249,18 @@ the Go write — implementing it would be a path no document can take.
 `//*TODO insert error in pipeline_execution_details`. Filling it in would diverge
 in the direction that looks like an improvement.
 
+**D-225: a metric this runtime cannot measure is omitted and its name logged,
+never substituted.** Go's four names are `runtime.MemStats` fields; CPython
+publishes neither a live heap nor a cumulative allocation counter without
+`tracemalloc`, and starting `tracemalloc` changes the thing being measured. So
+`sys_mb` and `nbr_gc` are written — from `/proc/self/statm` and `gc.get_stats()`,
+which match `MemStats.Sys` and `.NumGC` in kind — and `alloc_mb` and
+`total_alloc_mb` are not. Refusing the whole `metrics_config` and substituting a
+near-equivalent were both rejected with their arguments in `side_effects.py`. The
+cost is **P9-I65**, which D-225 does not close: the row has no engine column, so
+a consumer cannot tell a metric this node declined to measure from one it
+measured as zero.
+
 The seam is a DB-API connection and **no driver is imported anywhere in this
 package** — held by a test that walks every module's imports. `side_effects.NONE`
 is what a run with no database *is*, and it is the default on `coordinate`, so a
@@ -257,7 +269,7 @@ deployment and a local run take the same path with one branch fewer.
 ## Checks
 
 ```
-$ python -m pytest -q          # 278 tests
+$ python -m pytest -q          # 279 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```

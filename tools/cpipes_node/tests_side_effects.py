@@ -761,7 +761,8 @@ def test_the_four_metric_names_are_the_go_switchs_own():
 
 
 def test_a_metric_this_runtime_cannot_measure_is_not_written(caplog):
-    """**P9-I65**, and the direction is `RowCountUnknown`'s argument one table over.
+    """**D-225**, whose cost is P9-I65, and the direction is `RowCountUnknown`'s
+    argument one table over.
 
     `alloc_mb` is the live heap and `total_alloc_mb` is cumulative-ever-allocated;
     CPython publishes neither without `tracemalloc`, and starting `tracemalloc`
@@ -771,6 +772,19 @@ def test_a_metric_this_runtime_cannot_measure_is_not_written(caplog):
     """
     for name in side_effects.UNMEASURABLE_METRICS:
         assert side_effects.runtime_metric(name) is None
+
+
+def test_nothing_in_the_metric_row_says_which_runtime_wrote_it():
+    """**P9-I65, which D-225 does not close.**
+
+    The table is `(session_id, jets_partition, node_id, category, name, value,
+    units)` and there is no engine column, so a consumer comparing a Go row with
+    a Python one cannot tell a metric this node declined to measure from one it
+    measured as zero. Asserted against the statement rather than asserted in
+    prose, so a column added for it would make this red and the row could close.
+    """
+    for column in ("engine", "runtime", "language"):
+        assert column not in side_effects.INSERT_METRIC
 
 
 def test_the_two_measurable_metrics_answer_and_carry_their_units():
