@@ -16,11 +16,10 @@ import re
 import pytest
 
 from conftest import go_source
-from cpipes_node import runtime
+from cpipes_node import runtime, side_effects
 from cpipes_node.errors import OperatorNotImplemented
 from cpipes_node.runtime import (
     ChannelClosed,
-    ChannelError,
     ChannelNotFound,
     ChannelRegistry,
     Done,
@@ -143,22 +142,75 @@ def test_the_environment_substitutes_and_reads():
 
 
 def test_report_error_fills_the_columns_a_site_cannot_reach():
+    """The five a site cannot reach, **placed by name** (P9-T09).
+
+    This test read the row positionally and asserted five values at indices 0-4.
+    It went red when P9-T09 replaced the positional row with `write2Chan`'s
+    name-based placement, and it is rewritten rather than re-indexed: the whole
+    point of the change is that a column's position is the *channel's* and not
+    the writer's, so a test that knew the positions would be asserting the thing
+    the repair removed.
+    """
     registry = _registry("rows.errors", columns=runtime.ERROR_ROW_COLUMNS)
     channel = registry.get_output_channel("rows.errors")
     _env().report_error(channel, RowLevelError("bad value", input_column="value"))
     row = channel.channel.records[0]
-    assert row[: len(runtime.ERROR_ROW_COLUMNS) - 3] == [
-        11,
-        "s1",
-        3,
-        "reducing01",
-        "hc_corpus",
-    ]
-    assert row[5] == "bad value"
-    assert row[6] == "value"
+    by_name = dict(zip(runtime.ERROR_ROW_COLUMNS, row, strict=True))
+    assert by_name["pipeline_execution_status_key"] == 11
+    assert by_name["session_id"] == "s1"
+    assert by_name["shard_id"] == 3
+    assert by_name["cpipes_step_id"] == "reducing01"
+    assert by_name["operator_type"] == "hc_corpus"
+    assert by_name["error_message"] == "bad value"
+    assert by_name["input_column"] == "value"
+    assert by_name["rete_session_saved"] == "N"
+    # The channel the row is going to names itself, which is why that column
+    # needs no plumbing.
+    assert by_name["error_channel"] == "rows.errors"
     # An unset field is written as NULL, which is what the built-ins do by
     # setting the column only when they have a value for it.
-    assert row[7] is None
+    assert by_name["row_jets_key"] is None
+    assert by_name["grouping_key"] is None
+    assert by_name["rete_session_triples"] is None
+
+
+def test_the_row_is_sized_from_the_channel_and_placed_by_name():
+    """A column order this writer has never seen, and a column it cannot fill.
+
+    The assertion the positional row could not make: the channel decides where
+    each value goes, so a spec that lists the columns in another order gets them
+    in that order, and a spec naming a column no operator fills gets NULL rather
+    than a shifted row.
+    """
+    registry = _registry(
+        "e", columns=("operator_type", "error_message", "shard_id", "made_up")
+    )
+    channel = registry.get_output_channel("e")
+    _env().report_error(channel, RowLevelError("boom"))
+    assert channel.channel.records[0] == ["hc_corpus", "boom", 3, None]
+
+
+def test_an_older_channel_spec_is_additive_rather_than_refused():
+    """Ten authored specs declare nine columns and none of the three triage ones.
+
+    The width refusal this replaced would have refused every one of them, which
+    is the defect: `write2Chan` places what the channel declares and drops the
+    rest, so a spec written before the columns existed keeps working and gets
+    NULLs for them.
+    """
+    nine = tuple(
+        c
+        for c in runtime.ERROR_ROW_COLUMNS
+        if c not in side_effects.PROCESS_ERROR_DISCRIMINATOR_COLUMNS
+    )
+    assert len(nine) == 9
+    registry = _registry("e", columns=nine)
+    channel = registry.get_output_channel("e")
+    _env().report_error(channel, RowLevelError("boom"))
+    row = dict(zip(nine, channel.channel.records[0], strict=True))
+    assert row["error_message"] == "boom"
+    assert row["shard_id"] == 3
+    assert "operator_type" not in row
 
 
 def test_report_error_on_an_unauthored_channel_is_a_no_op():
@@ -177,11 +229,23 @@ def test_report_error_stops_when_the_node_is_terminating():
     assert not channel.channel.records
 
 
-def test_an_error_channel_of_the_wrong_width_is_refused_naming_the_owner():
+def test_an_error_channel_of_an_unexpected_width_is_not_refused(tmp_path=None):
+    """**Inverted by P9-T09**, and the inversion is the repair.
+
+    This asserted that a channel declaring anything but the eight columns the
+    positional row carried was refused with a `ChannelError` naming P9-T09. It
+    is refused no longer, because refusing was the defect: the eight were not
+    the table's columns and no authored spec declares eight. A channel declaring
+    two columns that name nothing gets two NULLs, which is `setColumn`'s comma-ok
+    behaviour — the row is written and carries what the channel could hold.
+
+    It is inverted rather than deleted so that the ruling stays checked by
+    something: if a width refusal is ever reinstated, this goes red.
+    """
     registry = _registry("rows.errors", columns=("only", "two"))
     channel = registry.get_output_channel("rows.errors")
-    with pytest.raises(ChannelError, match="P9-T09"):
-        _env().report_error(channel, RowLevelError("bad"))
+    _env().report_error(channel, RowLevelError("bad"))
+    assert channel.channel.records[0] == [None, None]
 
 
 def test_the_column_vocabulary_is_refused_by_name_and_not_defaulted():

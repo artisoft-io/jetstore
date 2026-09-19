@@ -21,7 +21,7 @@ from conftest import (
     runtime_document,
     site_step,
 )
-from cpipes_node import contract, main
+from cpipes_node import contract, main, scope
 from cpipes_node.args import NodeArgs
 from cpipes_node.config import FileConfigSource, parse_config
 from cpipes_node.errors import (
@@ -113,11 +113,14 @@ def test_an_out_of_scope_token_aborts_before_anything_else(tmp_path: Path):
     assert "the scope searched" in str(exc.value)
 
 
-def test_a_declared_but_unbuilt_token_aborts_distinguishably(tmp_path: Path):
-    doc = runtime_document([map_record_step()])
+def test_a_declared_but_unbuilt_token_aborts_distinguishably(
+    tmp_path: Path, declared_and_unbuilt
+):
+    """It named `map_record` until P9-T06 built it; see the fixture's docstring."""
+    doc = runtime_document([out_of_scope_step()])
     with pytest.raises(OperatorNotImplemented) as exc:
         coordinate(NodeArgs(id=0, pe=1), _source(tmp_path, doc), store=Local(tmp_path))
-    assert "P9-T06" in str(exc.value)
+    assert declared_and_unbuilt.owed_by in str(exc.value)
 
 
 def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path):
@@ -195,18 +198,63 @@ def test_an_invalid_mode_is_refused_with_the_go_node_s_message(tmp_path: Path):
 
 
 def test_the_scope_command_prints_the_declaration(capsys):
+    """Every declared token is printed, and an owed marker appears for exactly
+    those the registry reports unimplemented — **derived from the registry, never
+    listed**.
+
+    This test pinned a list twice and was wrong twice, each time correctly about
+    its own branch: it asserted `partition_writer` owed by P9-T07 until P9-T07
+    built it, and `merge_files` owed by P9-T08 until P9-T08 built it. **The two
+    repairs were on branches that could not see each other**, so each passed alone
+    and the merged state failed (P7-I87). A list of who owes what is P3-I20's
+    shape — omission and completion print the same thing — so the subject is now
+    the registry's own answer and this test needs no edit when the next token
+    lands.
+
+    **As of the merge of P9-T06/T07 and P9-T08/T09 nothing is owed**: all seven
+    declared tokens are built. That is asserted as a consequence of the derivation
+    rather than written down, so it stops being true the moment somebody declares
+    an eighth.
+    """
     assert main.main(["scope"]) == main.EXIT_OK
     out = capsys.readouterr().out
-    assert "partition_writer" in out and "P9-T07" in out
+    # **`scope.declarations()` is the registry itself** — one class per declared
+    # token — so the subject is the producer and not a list beside it.
+    for operator in scope.declarations():
+        token = operator.token
+        assert token in out, f"{token} is declared and unprinted"
+        line = _line_for(out, token)
+        if operator.implemented():
+            assert "owed by" not in line, (
+                f"{token} is built and still prints an owed marker"
+            )
+        else:
+            assert "owed by" in line and operator.owed_by in line, (
+                f"{token} is owed and prints no owner"
+            )
 
 
-def test_the_check_command_separates_the_two_failures(tmp_path: Path, capsys):
+def _line_for(out: str, token: str) -> str:
+    """The one line of the rendered scope that names `token`."""
+    for line in out.splitlines():
+        if line.strip().startswith(token):
+            return line
+    raise AssertionError(f"no line of the rendered scope names {token}")
+
+
+def test_the_check_command_separates_the_two_failures(
+    tmp_path: Path, capsys, declared_and_unbuilt
+):
+    # The fixture makes `aggregate` *declared*, so it is the unimplemented
+    # exemplar below and cannot also be the out-of-scope one. A token nothing
+    # declares at all is a site token with no registry behind it, which is the
+    # honest out-of-scope case anyway.
     out_of_scope = tmp_path / "bad.pc.json"
-    out_of_scope.write_text(json.dumps(document([out_of_scope_step()])))
+    out_of_scope.write_text(json.dumps(document([site_step("transmogrify")])))
     assert main.main(["check", "--config", str(out_of_scope)]) == main.EXIT_OUT_OF_SCOPE
 
     declared = tmp_path / "ok.pc.json"
-    declared.write_text(json.dumps(document([map_record_step()])))
+    declared.write_text(json.dumps(document([out_of_scope_step()])))
     assert main.main(["check", "--config", str(declared)]) == main.EXIT_NOT_IMPLEMENTED
     assert "examined and accepted" in capsys.readouterr().out
 
@@ -222,9 +270,18 @@ def test_the_check_command_is_deterministic(tmp_path: Path, capsys):
     assert len({r.err for r in runs}) == 1
 
 
-def test_the_run_command_refuses_and_says_why(tmp_path: Path, capsys):
+def test_the_run_command_refuses_and_says_why(
+    tmp_path: Path, capsys, declared_and_unbuilt
+):
+    """It ran `map_record` until P9-T06 built it, and then exited 0.
+
+    Inverted rather than deleted: the refusal path is still the subject, so the
+    exemplar is the fixture's declared-and-unbuilt token — and the *other*
+    direction is asserted by `test_the_run_command_runs_a_built_document` below,
+    which is new and is the evidence that this operator reaches a row.
+    """
     path = tmp_path / "p.pc.json"
-    path.write_text(json.dumps(runtime_document([map_record_step()])))
+    path.write_text(json.dumps(runtime_document([out_of_scope_step()])))
     code = main.main(
         [
             "run",

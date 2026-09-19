@@ -924,8 +924,37 @@ class RunResult:
         return sum(self.channel_rows.values())
 
 
-def run(ctx: NodeContext) -> RunResult:
-    """Build the channel graph for one node and run it to completion."""
+def drives_channel_graph(spec: Any) -> bool:
+    """Whether one pipe spec is a pipe of the channel graph.
+
+    **Read off the pipe's own declaration and never off its token** — the
+    attribute is `operators.pipes.Pipe.drives_channel_graph`, declared on the
+    base so every pipe kind carries it, and `tests_merge.py` asserts that every
+    PIPE declaration does. The `True` default covers only a declaration that is
+    not a `Pipe` subclass, which nothing in this package is and which the same
+    test refuses.
+
+    This is the whole of the `merge_files` arm in this module: Go's two paths
+    are `LoadFiles` and `StartMergeFiles`, chosen in
+    `ProcessFilesAndReportStatus` before `StartComputePipes` is entered, and the
+    branch below is that choice made from the declaration rather than from an
+    `if` (D-224, P3-I20).
+    """
+    declaration = scope.declaration(TokenKind.PIPE, getattr(spec, "type", "") or "")
+    if declaration is None:
+        return True
+    return bool(getattr(declaration, "drives_channel_graph", True))
+
+
+def run(ctx: NodeContext) -> Any:
+    """Run one node: the channel graph, or the node mode its first pipe names.
+
+    Returns a `RunResult` for a graph run and a `merge.MergeResult` for a merge,
+    which are two different records because the two paths report two different
+    things — a merge opens no channel and counts no row, and a per-channel figure
+    of zero would read as an edge nothing crossed rather than as an edge that
+    does not exist.
+    """
     config = ctx.config
     pipes = selected_pipes(config)
     done = Done()
@@ -934,6 +963,24 @@ def run(ctx: NodeContext) -> RunResult:
     if not _starter_has_run(config):
         # The node standing in for a starter; see D-219 and the module docstring.
         overrides = apply_conditional_config(pipes, ctx.env)
+
+    if not drives_channel_graph(pipes[0]):
+        # A node mode rather than a graph: nothing below this line runs, because
+        # none of it is meaningful for a step that opens no channel — there is no
+        # `input_row` to rename, no width to warn about and no order to derive.
+        # A document mixing a node-mode pipe with others is refused rather than
+        # half-run: Go's merge reads `PipesConfig[0]` and ignores the rest, which
+        # would drop authored work silently.
+        if len(pipes) != 1:
+            raise GraphInvalid(
+                f"the step's first pipe is a '{pipes[0].type}', which is a node "
+                f"mode rather than a pipe of the channel graph, and the step "
+                f"declares {len(pipes)} pipes. The Go merge reads PipesConfig[0] "
+                "and never looks at the others, so running this would drop the "
+                f"remaining {len(pipes) - 1} silently."
+            )
+        executor = _handler(TokenKind.PIPE, pipes[0].type, ctx.env, pipes[0])
+        return executor(ctx, pipes[0])
 
     input_columns = _main_input_columns(config)
     registry = build_registry(config, pipes, input_columns, ctx.env)

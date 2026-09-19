@@ -21,10 +21,30 @@
 # source trees and 0.3 MB of handler, checks and version stamp. So the
 # interpreter base alone is 2.07x the zip cap, before a line of this node exists:
 # the container is not a convenience taken to leave headroom, it is the only
-# packaging in which the node fits. Against the container limit the image is 5.7%
+# packaging in which the node fits. Against the container limit the image was 5.7%
 # of 10 GB. The number that decides whether the lambda arm is *usable* is not
 # this one but the per-invocation reference load, which is P9-T16's to measure
 # (P9-I03, P9-R04).
+#
+# **Re-measured 2026-09-19 at P9-T07: 735.0 MB, and the whole of the 163.0 MB
+# rise is pyarrow.** The install layer goes 46.2 MB -> 208 MB and no other layer
+# moves; the image is 7.35% of the 10 GB limit where it was 5.7%. pyarrow is
+# `cpipes_node`'s parquet device writer and is a dependency rather than an extra,
+# because X3 asks for every table in CSV *and* Parquet by changing
+# `device_writer_type` alone, and a format that works only where somebody
+# remembered an extra makes an exit criterion a function of the install. The
+# runtime check below was re-run on that image and is unchanged: INIT success, the
+# event accepted, and the first thing missing still the AWS account.
+#
+# **A second measurement the same day, and it is a finding rather than a figure**
+# (P9-I61): this file copies `tools/cpipes_node` **whole**, and the root
+# `.dockerignore` did not exclude a virtual environment. On a checkout where
+# anybody had run `uv run`, that COPY layer was **183 MB** of the developer's own
+# wheels -- platform-native extension modules included -- and the image built to
+# **916.8 MB**. It is this file's own argument about `jetsclient_ide/node_modules`
+# one tree over, and it was invisible because the first measurement was taken on a
+# clean checkout. `.dockerignore` now excludes `**/.venv/` and the tool caches,
+# and the COPY layer is 1.4 MB.
 #
 # **It is the Dockerfile.cpipes_native_lambda set's pattern with one structural
 # difference, and the difference is an absence worth stating.** That set is two

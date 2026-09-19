@@ -15,8 +15,9 @@ deployed one.
 crossing a process boundary, no `cpipes_execution_status` read and so no proof
 the query is right, no S3 and so no proof of the stage layout or the KMS
 settings, no state machine and so no proof that a Map step fans out to the
-partitions the pipeline declares, and none of the six side-effect tables
-(P9-T09). A local run is evidence about the *pipeline*; X1 asks about the
+partitions the pipeline declares, and **no side-effect row at all** — `run`
+passes no connection, so `side_effects.NONE` is what records the run and it
+records nothing. A local run is evidence about the *pipeline*; X1 asks about the
 *integration*, and the reading is Michel's.
 
 Three subcommands:
@@ -28,6 +29,14 @@ Three subcommands:
 `check` is the one to hang X6's evidence on: exit 0 clean, exit 1 out of scope,
 exit 2 declared and not implemented. Two exit codes rather than one, for the
 reason `errors.py` gives.
+
+**A local merge needs the four S3-area variables in the environment.**
+`JETS_s3_STAGE_PREFIX` and its three siblings are read the way `awsi.init()`
+reads them, because the keys a merge lists and writes are built from them — so a
+local run against a directory has to state the same layout the deployment
+states. They are not flags: four flags here would be a second spelling of a
+deployment's own configuration, and a local run whose layout differed from the
+deployed one would be evidence about nothing.
 
 **`run` registers no site operators** — `site.EMPTY` — and every built-in
 transformation is still owed, so as it stands it can refuse a document and cannot
@@ -110,6 +119,46 @@ def render_run_result(result) -> str:  # type: ignore[no-untyped-def]
     return "\n".join(lines)
 
 
+def render_merge_result(result) -> str:  # type: ignore[no-untyped-def]
+    """What one merge did. **No row count, and that is the point.**
+
+    A merge parses no record, so there is no number to print and `0` would read
+    as a collapse. What it prints instead is the part count, the destination and
+    which arm of the header switch ran — the last being what a merged file with a
+    header line in the middle is diagnosed by, and the one thing no downstream
+    reader can tell you.
+    """
+    lines = [
+        f"merged {len(result.input_keys)} part file(s) -> {result.output_location}",
+        f"bytes written: {result.bytes_written}",
+        "row count: not a measurement (the merge moves bytes and parses no record)",
+    ]
+    if result.header_plan is not None:
+        lines.append(
+            f"headers: write={result.header_plan.write_headers} "
+            f"skip_input={result.header_plan.skip_input_headers} "
+            f"({result.header_plan.reason})"
+        )
+    for key in result.input_keys:
+        lines.append(f"  {key}")
+    return "\n".join(lines)
+
+
+def render(result) -> str:  # type: ignore[no-untyped-def]
+    """Whichever of the two results `coordinate` returned.
+
+    Dispatched on the type and not on a field, because the two records differ in
+    what they can say rather than in one value: a graph run has per-channel row
+    counts and a merge has none, and a renderer that fell back to zeros would
+    print an edge nothing crossed where there is no edge at all.
+    """
+    from .merge import MergeResult
+
+    if isinstance(result, MergeResult):
+        return render_merge_result(result)
+    return render_run_result(result)
+
+
 def _report(report) -> int:  # type: ignore[no-untyped-def]
     for finding in report.out_of_scope:
         print(f"out of scope: {finding}", file=sys.stderr)
@@ -166,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             store=Local(args.store),
             site_operators=EMPTY,
         )
-        print(render_run_result(result))
+        print(render(result))
     except NodeError as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return EXIT_REFUSED

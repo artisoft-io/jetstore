@@ -259,6 +259,27 @@ def contract_token_census() -> dict[str, tuple[str, ...]]:
     return {kind: contract_tokens(kind) for kind in sorted(set(TOKEN_STRUCTS.values()))}
 
 
+def column_types() -> tuple[str, ...]:
+    """Every `TransformationColumnSpec` type the contract declares, sorted.
+
+    Not a `TokenKind`: a column type is not something the node *dispatches* on
+    the way it dispatches an operator, so it has no place in `TOKEN_STRUCTS`.
+    It is read off the same index for the same reason — `columns.py` implements
+    a subset and refuses the rest, and the universe it is a subset **of** has to
+    be the contract's own or the two lists can drift with nothing going red
+    (P3-I20).
+    """
+    keys: dict[str, tuple[str, str]] = model._MATRIX_KEYS
+    return tuple(
+        sorted(
+            token
+            for _cls, (struct, token) in keys.items()
+            if struct == "TransformationColumnSpec"
+            and not token.startswith(VIRTUAL_TOKEN_PREFIX)
+        )
+    )
+
+
 def spec_kind(obj: Any) -> str | None:
     """The kind of a validated model instance, or None if it names no token.
 

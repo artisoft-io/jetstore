@@ -181,6 +181,39 @@ def out_of_scope_step() -> dict:
 
 
 @pytest.fixture
+def declared_and_unbuilt():
+    """Make `aggregate` a declaration with no `build`, for the length of one test.
+
+    **Every test of the declared-and-not-implemented refusal named a real token,
+    and P9-T06 is when that stopped working**: `map_record`, `filter` and
+    `partition_writer` all carry a `build` now, and the one declaration still
+    without one is `merge_files`, which P9-T08 is landing. A test whose subject is
+    *which token happens to be unfinished* has a subject that empties as the
+    phase progresses — so the subject is a declaration the test makes itself, and
+    the refusal stays exercised when the scope is complete.
+
+    `aggregate` is the token because `out_of_scope_step()` already builds a valid
+    one: it is the only contract transformation this node does not declare that
+    validates with no operator-specific config block, which that function's own
+    docstring measured.
+    """
+    from cpipes_node.scope import _REGISTRY, Operator, TokenKind
+
+    key = (TokenKind.TRANSFORMATION, "aggregate")
+    assert key not in _REGISTRY, "aggregate is declared now; pick another token"
+
+    class Unbuilt(Operator):
+        kind = TokenKind.TRANSFORMATION
+        token = "aggregate"
+        owed_by = "a test of the unimplemented refusal"
+
+    try:
+        yield Unbuilt
+    finally:
+        del _REGISTRY[key]
+
+
+@pytest.fixture
 def config_file(tmp_path: Path):
     def write(doc: dict) -> Path:
         path = tmp_path / "pipeline.pc.json"
