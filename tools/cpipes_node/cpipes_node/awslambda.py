@@ -22,11 +22,16 @@ the composition invisible:
 **The pool is not opened here and that is deliberate.** The Go main opens one
 at cold start through `dbc.NewDbConnection`, which reads the secret, and this
 package imports no database driver at all — `ExecutionStatusConfigSource` takes
-a connection. `Node.connect` is where a deployment supplies one, and P9-T09
-owns what the node then writes through it. Until that lands, a `Node` without a
-`connect` refuses at invocation rather than at import, which is the right
-moment: a cold start that succeeded and an invocation that cannot read its
+a connection. `Node.connect` is where a deployment supplies one. A `Node`
+without a `connect` refuses at invocation rather than at import, which is the
+right moment: a cold start that succeeded and an invocation that cannot read its
 configuration are different things to see in a log.
+
+**The one connection does both jobs.** It reads `cpipes_execution_status` and it
+carries the node's four side-effect writes (`side_effects.py`), because the Go
+node is handed one `*pgxpool.Pool` for both — and a second connection here would
+let a node read a document through one and record itself through another, which
+nothing would notice until the two pointed at different databases.
 """
 
 from __future__ import annotations
@@ -72,9 +77,10 @@ class Node:
         `NodeArgs` forbids an unknown field, so an event shaped for a future
         Go entry is refused here rather than half-understood.
         """
+        connection = self.connection()
         return coordinate(
             NodeArgs(**event),
-            ExecutionStatusConfigSource(self.connection()),
+            ExecutionStatusConfigSource(connection),
             store=S3(
                 bucket=self.settings.bucket,
                 region=self.settings.region,
@@ -82,4 +88,7 @@ class Node:
             ),
             settings=self.settings,
             site_operators=self.site_operators,
+            # The same connection: one pool for the document and for the four
+            # side-effect rows, which is what the Go entry is handed.
+            connection=connection,
         )

@@ -35,7 +35,7 @@ The subset is:
 | kind | tokens |
 |---|---|
 | input channel | `generator` ✓, `memory` ✓ |
-| pipe | `fan_out` ✓, `merge_files` |
+| pipe | `fan_out` ✓, `merge_files` ✓ |
 | transformation | `map_record`, `filter`, `partition_writer` |
 | transformation, by registration | whatever a deployment registers |
 
@@ -161,22 +161,95 @@ handed a registry; that is P9-T19's, and the composition to copy is the
 
 What a local run does **not** cover: the lambda invocation, the
 `cpipes_execution_status` read, S3 itself and its KMS settings, the state
-machine's Map over partitions, and the six side-effect tables (P9-T09).
+machine's Map over partitions, and **any side-effect row**: `run` passes no
+connection, so `side_effects.NONE` records the run and records nothing.
+
+## `merge_files`
+
+A merge is **a node mode and not a pipe of the channel graph**, which is the
+shape Go has: `ProcessFilesAndReportStatus` branches on
+`ComputePipesArgs.MergeFiles` before `StartComputePipes` is reached and calls
+`StartMergeFiles` instead of `LoadFiles`, so a merge registers no channel, builds
+no evaluator and sees no record. `Pipe.drives_channel_graph` carries that per
+pipe kind and `graph.run` reads it off the declaration, so there is no
+`if spec.type == "merge_files"` anywhere in that module.
+
+Its input channel is typed `stage`, and **`stage` is not a channel type this node
+declares** — a `fan_out` reading one would need an S3 reader and a record parser
+this node has not got. The type is not an author's choice either:
+`ValidatePipeSpecConfig` refuses a merge reading anything else. So the scope gate
+asserts the fixed type for this pipe kind instead of classifying a token, which
+is strictly narrower than classifying it — and a merge reading `memory` is
+refused at *this node's* startup, where Go refuses it only in the starter. That
+is D-224.
+
+`header_plan` is `StartMergeFiles`' six-case switch arm for arm and **in its
+order**, because the arms are not disjoint as predicates and Go's `switch` takes
+the first: a single csv part with `first_partition_has_headers` satisfies two of
+them. The order is also what makes this node's single path faithful — whenever
+`write_headers` and `skip_input_headers` are both false the merged file is the
+part files unchanged, which is exactly what Go's S3 multipart copy produces.
+Getting it wrong produces a merged CSV with a header line in the middle, which
+every downstream reader accepts.
+
+Three inputs are refused by name: snappy compression, more than one parquet part
+(a single one is a copy, which is Go's own condition), and xlsx — which the Go
+merge does not support either.
+
+## The node's side effects
+
+**Four DB writes, not five and not six.** The set was measured by enumerating
+every `INSERT INTO jetsapi.` / `UPDATE jetsapi.` under `jets/compute_pipes/` and
+then **reading each site**, which is the step that moved the answer:
+
+| table | when |
+|---|---|
+| `pipeline_execution_details` INSERT … RETURNING key | every node, before any work |
+| `pipeline_execution_details` UPDATE | every node, in a `finally` |
+| `pipeline_execution_channel_details` INSERT ×N | after the UPDATE, additive |
+| `cpipes_metrics` INSERT ×N | only with a positive `report_interval_sec` |
+
+`process_errors` is not a direct write — it is reached through a `sql` output
+channel, which is why `OperatorEnv.report_error` exists.
+
+**`cpipes_results` is written by nothing.** Its only INSERT is in
+`SaveResultsContext.Save`, and all five call sites are commented out in
+`actions_process_file.go` — since 2024-07-18. Writing it here would be an
+addition rather than conformance.
+
+**`cpipes_execution_status` is not reachable, and the guard is two conditions.**
+`if cpCtx.NodeId == 0` is the inner one; it sits inside `if inputSchemaCh != nil`,
+and `inputSchemaCh` is non-nil only when the input format is parquet **and** the
+mode is `sharding`. This node refuses both, so no document it accepts can reach
+the Go write — implementing it would be a path no document can take.
+
+**The error path writes nothing and is left writing nothing.**
+`CoordinateComputePipes`' `gotError:` carries
+`//*TODO insert error in pipeline_execution_details`. Filling it in would diverge
+in the direction that looks like an improvement.
+
+The seam is a DB-API connection and **no driver is imported anywhere in this
+package** — held by a test that walks every module's imports. `side_effects.NONE`
+is what a run with no database *is*, and it is the default on `coordinate`, so a
+deployment and a local run take the same path with one branch fewer.
 
 ## Checks
 
 ```
-$ python -m pytest -q          # 162 tests
+$ python -m pytest -q          # 276 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-Ten tests read Go source as their oracle rather than transcribing it — the
+Twenty-two tests read Go source as their oracle rather than transcribing it — the
 argument struct's json tags, the `ComputePipesConfig` struct's tags, the config
 `SELECT`, the authored `.pc.json` corpus, the `OperatorEnv` interface, the
-`OperatorArgs` / `RowLevelError` / `Lookup` structs, the operator table and the
-expression leaf-type switch — so a rename on the other side of the seam is
-caught here rather than at a deployment.
+`OperatorArgs` / `RowLevelError` / `Lookup` structs, the operator table, the
+expression leaf-type switch, **the merge's six-arm header switch, the four SQL
+statements, the three statuses, the sink kinds, the twelve process-error columns
+and the two conditions guarding the `cpipes_execution_status` update** — so a
+rename on the other side of the seam is caught here rather than at a
+deployment.
 
 Developer tooling status: nothing on the cpipes runtime path depends on this
 package, and the Go engine is untouched by it. It becomes a deployment's runtime

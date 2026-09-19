@@ -15,8 +15,9 @@ deployed one.
 crossing a process boundary, no `cpipes_execution_status` read and so no proof
 the query is right, no S3 and so no proof of the stage layout or the KMS
 settings, no state machine and so no proof that a Map step fans out to the
-partitions the pipeline declares, and none of the six side-effect tables
-(P9-T09). A local run is evidence about the *pipeline*; X1 asks about the
+partitions the pipeline declares, and **no side-effect row at all** — `run`
+passes no connection, so `side_effects.NONE` is what records the run and it
+records nothing. A local run is evidence about the *pipeline*; X1 asks about the
 *integration*, and the reading is Michel's.
 
 Three subcommands:

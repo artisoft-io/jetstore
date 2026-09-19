@@ -40,7 +40,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import graph, merge
+from . import graph, merge, side_effects
 from .args import NodeArgs
 from .config import ConfigSource, check_scope, parse_config
 from .errors import StartupError
@@ -328,6 +328,81 @@ def _has_bytes(store: ObjectStore, key: str) -> bool:
     return len(store.get(key)) > 0
 
 
+def side_effects_for(
+    config: Any,
+    args: NodeArgs,
+    connection: Any,
+) -> Any:
+    """The four writes this node makes, with the run's identity filled from the
+    document.
+
+    Every field comes from `common_runtime_args`, which is where
+    `ComputePipesContext` gets them: the INSERT's ten parameters are the worker's
+    identity and none of them is this node's to invent. A missing one is written
+    as its zero rather than refused, because that is what the Go node does with
+    an absent optional field and because the row exists to be joined to rather
+    than to be complete.
+
+    `NoSideEffects` when there is no connection — see `side_effects.NONE`, which
+    is what a run with no database *is* rather than a double for one.
+    """
+    if connection is None:
+        return side_effects.NONE
+    common = config.common_runtime_args
+    return side_effects.SideEffects(
+        connection=connection,
+        pipeline_config_key=int(getattr(common, "pipeline_config_key", 0) or 0),
+        pipeline_execution_key=args.pipeline_execution_key,
+        client=str(getattr(common, "client", "") or ""),
+        process_name=str(getattr(common, "process_name", "") or ""),
+        input_session_id=str(getattr(common, "input_session_id", "") or ""),
+        session_id=str(getattr(common, "session_id", "") or ""),
+        source_period_key=int(getattr(common, "source_period_key", 0) or 0),
+        node_id=args.node_id,
+        jets_partition_label=args.jets_partition_label_or_default(),
+        user_email=str(getattr(common, "user_email", "") or ""),
+    )
+
+
+def _writer_results(result: Any) -> tuple[Any, ...]:
+    """The edges one run reports, as `WriterResult`s.
+
+    **A merge's edge is synthesised and a graph run's are not yet reported at
+    all.** `StartMergeFiles` returns its own `ComputePipesResult` because a merge
+    runs in the main thread and reports through none of the result channels, so
+    without it a merge worker writes no child row and zero in every count. That
+    one is available here.
+
+    A graph run's writers are the `partition_writer` and table writers, and
+    **none of them exists yet** (P9-T07). So a graph run reports no edge, and
+    that is a hole with an owner rather than a decision: the parent row's
+    `output_records_count` is correspondingly 0, and `sum(child) != parent` — the
+    check `InsertChannelExecutionDetails` names — is satisfied at 0 on both
+    sides. Recorded as **P9-I67**: the first writer to land owes its
+    `WriterResult`, and nothing here can assert the absence away.
+    """
+    from .merge import MergeResult
+
+    if isinstance(result, MergeResult):
+        return (
+            side_effects.WriterResult(
+                type=side_effects.SINK_OUTPUT_FILE,
+                input_channel=result.input_channel,
+                output_channel=result.output_channel,
+                # Empty and meaningful: an `OutputFileSpec` carries no
+                # `channel_spec_name`, and the file is named by the output
+                # channel already. `compute_pipes_results.go` says so of its own
+                # row.
+                output_channel_spec="",
+                entity_name="",
+                output_location=result.output_location,
+                parts_count=result.parts_count,
+                row_count_unknown=result.row_count_unknown,
+            ),
+        )
+    return ()
+
+
 def coordinate(
     args: NodeArgs,
     config_source: ConfigSource,
@@ -336,12 +411,22 @@ def coordinate(
     settings: Settings | None = None,
     site_operators: SiteOperatorRegistry = EMPTY,
     prefixes: Prefixes | None = None,
+    connection: Any = None,
 ) -> Any:
-    """Run one compute pipes node.
+    """Run one compute pipes node, and record what it did.
 
     Raises before doing any work when the document names an operator outside
     the declared scope (X6), and again — distinguishably — when it names one
     this node declares and has not built.
+
+    **The side-effect rows bracket the run and the order is Go's.**
+    `ProcessFilesAndReportStatus` inserts the `in progress` row *before* any
+    work and updates it with a status afterwards whether the work succeeded or
+    not, so a node that crashed is a `failed` row rather than an `in progress`
+    one nothing ever closes. Everything the scope gate refuses happens **before**
+    the INSERT, which is deliberate: a document this node will not run is a run
+    that never started, and a `pipeline_execution_details` row for it would say
+    otherwise.
     """
     config = parse_config(config_source.config_json(args.pipeline_execution_key))
 
@@ -360,4 +445,46 @@ def coordinate(
         prefixes=prefixes or Prefixes.from_env(),
     )
     ctx.input_file_keys = _file_keys(config, args, store, ctx.prefixes)
-    return graph.run(ctx)
+
+    effects = side_effects_for(config, args, connection)
+    effects.begin()
+    reporter = side_effects.MetricsReporter.for_config(effects, config)
+    error: BaseException | None = None
+    result: Any = None
+    try:
+        if reporter is None:
+            result = graph.run(ctx)
+        else:
+            with reporter:
+                result = graph.run(ctx)
+    except BaseException as exc:
+        error = exc
+        raise
+    finally:
+        writer_results = _writer_results(result)
+        # In a `finally` so a crashed node closes its own row. Go reaches
+        # `UpdatePipelineExecutionStatus` on every path out of
+        # ProcessFilesAndReportStatus, including the error one, and a row left
+        # reading `in progress` is a worker the state machine waits on forever.
+        effects.finish(
+            status=side_effects.status_for(error),
+            error_message="" if error is None else str(error),
+            cpipes_step_id=str(
+                getattr(config.common_runtime_args, "read_step_id", "") or ""
+            ),
+            # **The sum over the *writers* and not over the channels.** Go's
+            # `outputRowCount` adds up `copy2DbResult.CopyRowCount` and
+            # `partitionWriterResult.CopyRowCount` — rows that left the node —
+            # where `RunResult.total_rows()` sums every compute channel including
+            # the input row's. The two differ by the whole of the graph's internal
+            # traffic, and a test that read `total_rows()` measured 10 where the
+            # writers had written nothing at all. So the parent's count is derived
+            # from the same results the child rows are, which is also what makes
+            # `sum(child) == parent` a real check rather than two spellings.
+            output_records_count=sum(
+                0 if edge.row_count_unknown else edge.row_count
+                for edge in writer_results
+            ),
+            channel_results=writer_results,
+        )
+    return result

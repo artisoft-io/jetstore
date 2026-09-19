@@ -56,6 +56,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from . import expressions
 from .errors import NodeError
+from .side_effects import PROCESS_ERROR_COLUMNS, process_error_row
 
 
 class ChannelError(NodeError):
@@ -420,21 +421,26 @@ class NullOperatorEnv:
         raise self._unimplemented("report_error")
 
 
-#: The columns `OperatorEnv.report_error` fills, in order, beside the three the
-#: caller supplies. It is the shape of a `jetsapi.process_errors` row as the Go
-#: `operatorEnv.ReportError` assembles it, and it is declared here rather than
-#: built inline so that P9-T09 — which owns the error channel's *sink* — has one
-#: place to read it from and no second spelling to keep in step.
-ERROR_ROW_COLUMNS: tuple[str, ...] = (
-    "pipeline_execution_status_key",
-    "session_id",
-    "shard_id",
-    "step_id",
-    "operator",
-    "error_message",
-    "input_column",
-    "row_jets_key",
-)
+#: The columns a `jetsapi.process_errors` row may carry. **Re-exported from
+#: `side_effects`, which owns the shape, and the shape changed in P9-T09.**
+#:
+#: This tuple was eight names in a fixed order and the row was built
+#: positionally. It is now twelve and the row is placed **by name** — which is
+#: what `write2Chan` does (`jetsrules_process_error.go:113`): `setColumn` looks
+#: each name up in the channel's own column map, writes nothing when the channel
+#: does not declare it, and sizes the row from the channel's declared width.
+#:
+#: The positional shape was wrong three ways, and only the third was visible
+#: from here. Two of its names are not the table's — `step_id` and `operator`
+#: where the columns are `cpipes_step_id` and `operator_type`. It omitted four
+#: columns the table has. And it made `report_error` **refuse** any error channel
+#: whose width was not eight, which is every width JetStore actually authors: the
+#: synthesised spec declares twelve (`DefaultProcessErrorColumns`) and ten
+#: hand-written specs across two workspace repositories declare nine.
+#:
+#: Kept as a name here because it was exported and read, and because a reader
+#: holding the old shape should find the new one where the old one was.
+ERROR_ROW_COLUMNS = PROCESS_ERROR_COLUMNS
 
 
 @dataclass
@@ -502,27 +508,27 @@ class GraphOperatorEnv:
             return
         if self.done_signal.is_set():
             return
-        row: list[Any] = [
-            self.pipeline_execution_key,
-            self.session_id_value,
-            self.shard_id,
-            self.step_id,
-            self.operator_type,
-            err.error_message or None,
-            err.input_column or None,
-            err.row_jets_key or None,
-        ]
-        # The channel's own width wins: the sink's columns are the authored
-        # channel spec's, and a row longer than the channel is a writer that
-        # would put a value in a column the consumer named something else.
-        width = len(ch.columns)
-        if width and width != len(row):
-            raise ChannelError(
-                f"the error channel '{ch.name}' declares {width} column(s) and "
-                f"an error row carries {len(row)}: {ERROR_ROW_COLUMNS}. P9-T09 "
-                "owns the error channel's sink and its authored width."
+        # **Placed by name and sized from the channel** — `write2Chan`'s two
+        # properties, and the pair is what makes the table's three triage columns
+        # additive: a channel spec written before `cpipes_step_id`,
+        # `error_channel` and `operator_type` existed still works and gets NULLs
+        # for them. The width refusal this replaced would have refused every one
+        # of those specs.
+        ch.send(
+            process_error_row(
+                ch.columns,
+                len(ch.config.columns),
+                channel_name=ch.name,
+                pipeline_execution_key=self.pipeline_execution_key,
+                session_id=self.session_id_value,
+                shard_id=self.shard_id,
+                cpipes_step_id=self.step_id,
+                operator_type=self.operator_type,
+                error_message=err.error_message,
+                input_column=err.input_column,
+                row_jets_key=err.row_jets_key,
             )
-        ch.send(row)
+        )
 
     def session_id(self) -> str:
         return self.session_id_value
