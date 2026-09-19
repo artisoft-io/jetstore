@@ -19,44 +19,46 @@ column vocabulary is `columns.py`, for the same reason: it is shared by all
 three of these operators and by `OperatorEnv.column_evaluator`, which a site
 operator reaches.
 
-# The seam a built-in needs and does not get (P9-I55)
+# The seam a built-in needs, and how it got it (P9-I55, D-226)
 
-`graph._transformation_factory` gives a built-in transformation **a site
-factory's signature** — `factory(env, args)` — and says so deliberately, on the
-ground that unifying the two costs nothing in conformance. It costs something
-here, and the cost is measurable rather than stylistic: in Go a built-in is
-constructed by a `BuilderContext` method and can see the whole context, where a
-site factory is handed `OperatorEnv` and `OperatorArgs` precisely so that it
-cannot. Unifying them takes the built-in's access away.
+`graph._transformation_factory` gave a built-in transformation **a site
+factory's signature** — `factory(env, args)` — deliberately, on the ground that
+unifying the two costs nothing in conformance. It cost something, and the cost
+was measurable rather than stylistic: in Go a built-in is constructed by a
+`BuilderContext` method and can see the whole context, where a site factory is
+handed `OperatorEnv` and `OperatorArgs` precisely so that it cannot. Unifying
+them took the built-in's access away, and two things went missing with it —
+`graph._site_operator_args` returned before setting either for any spec carrying
+no `site_config`:
 
-Two things are missing as a result, and `graph._site_operator_args` returns
-before either is set for any spec carrying no `site_config`:
-
-1. **The operator's own configuration block.** `args.config` is
-   `site_config.config` and is `None` for every built-in, so
-   `partition_writer_config`, `map_record_config` and `filter_config` are
-   unreachable. The repair needs **no new field**: the block's name is derived
-   from the token, `f"{spec.type}_config"`, which holds for 17 of the contract's
-   19 transformation tokens and is absent on exactly the two that have no block
-   (`aggregate`, `high_freq`) — so one line sets it and nothing has to be
-   remembered. `args.max_error_count` and `args.error_channel` already exist and
-   want the same treatment.
+1. **The operator's own configuration block.** `args.config` was
+   `site_config.config` and `None` for every built-in, so
+   `partition_writer_config`, `map_record_config` and `filter_config` were
+   unreachable. A `filter` with `max_output_records: 4` passed all ten of its
+   records, and `map_record` could not tell an authored `on_error: fail` from an
+   unreachable one. The repair needed **no new field**: the block's name is
+   derived from the token, `f"{spec.type}_config"`, which holds for 17 of the
+   contract's 19 transformation tokens and is absent on exactly the two that
+   have no block (`aggregate`, `high_freq`). `max_error_count` and
+   `error_channel` are filled from the same block, resolved through the one
+   registry path both halves of the dispatch use.
 2. **The object store.** A partition writer writes files; in Go that is
    `ctx.s3DeviceManager`, reached from the `BuilderContext`. Nothing on
-   `OperatorEnv` or `OperatorArgs` reaches `NodeContext.store`, and adding it to
+   `OperatorEnv` or `OperatorArgs` reached `NodeContext.store`, and adding it to
    `OperatorEnv` would hand **every site operator** the node's store, which is
-   the one thing §12.6 is about withholding. So the repair is the Go asymmetry
-   restored: a built-in's factory is handed the context, a site factory is not.
+   the one thing §12.6 is about withholding. So `partition_writer` could not be
+   reached from a `.pc.json` at all.
 
-Until that lands, `PartitionWriter.build` refuses — and the refusal is
-**provably about the seam and not about a document**, because the contract makes
-`partition_writer_config` a *required* field, so `args.config is None` on a
-`partition_writer` cannot mean "the author wrote none". `MapRecord.build` and
-`Filter.build` do run, because their blocks are optional and the engine's own
-defaults are defined; what they cannot do is tell an authored block from an
-unreachable one, and that is P9-I55's cost rather than a choice made here.
-`tests_transformations.py` pins the absence, so the day the seam lands something
-goes red rather than the ambiguity persisting unnoticed.
+**The repair is the Go asymmetry restored, in the type of `env` rather than in
+the number of arguments** (D-226): a built-in is handed `runtime.BuilderEnv`,
+which carries the node context, the channel registry and the authored spec, and
+a site factory is handed `GraphOperatorEnv`, which carries none of them. The
+call shape stays `factory(env, args)` for both, so a token added later still
+needs nothing but a class with a `build`.
+
+`SeamNotWired` survives the repair with a live subject: it is what a built-in
+raises when it is handed a plain `GraphOperatorEnv` — built outside the graph —
+or when the run was given no object store at all.
 """
 
 from __future__ import annotations
@@ -66,9 +68,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .. import columns as column_vocabulary
-from .. import writers
+from .. import expressions, merge, writers
 from ..errors import StartupError
 from ..runtime import (
+    BuilderEnv,
     Done,
     InputChannel,
     OperatorArgs,
@@ -97,10 +100,13 @@ class SeamNotWired(StartupError):
     """A built-in transformation needs something the dispatch does not pass.
 
     A `StartupError` because it happens while the graph is built and before a
-    record moves, and a class of its own because the repair is neither in the
-    authored document nor in this module: it is P9-I55's three assignments in
-    `graph.py`. A caller that could not tell it from `ConfigInvalid` would send
-    the reader to the `.pc.json`.
+    record moves, and a class of its own because the repair is never in the
+    authored document: a caller that could not tell it from `ConfigInvalid`
+    would send the reader to the `.pc.json`.
+
+    Two subjects since P9-I55's repair, and both are about how the operator was
+    *built* rather than about what it was asked to do: an env that is not a
+    `BuilderEnv`, and a node with no object store.
     """
 
 
@@ -185,13 +191,23 @@ class MapRecord(Transformation):
 
     @classmethod
     def build(cls, env: Any, args: Any) -> Any:
+        """`NewMapRecordTransformationPipe`.
+
+        **The cap is read off `args` and not off the block** (P9-I55): the two
+        carry the same number for a built-in, because `graph._builtin_config`
+        fills `args.max_error_count` from `map_record_config.max_error_count` —
+        and reading it here is what gives the field a reader in this node rather
+        than leaving it set for nobody. The engine's own default of 20 applies
+        when the block states none, which is Go's order: zero on `OperatorArgs`
+        means *none stated*, and for a **site** operator it means *no cap*.
+        """
         config = args.config
         on_error = ON_ERROR_PASS_THROUGH
         max_error_count = MAP_RECORD_DEFAULT_MAX_ERROR_COUNT
         if config is not None:
             on_error = _on_error(config)
-            if getattr(config, "max_error_count", 0):
-                max_error_count = int(config.max_error_count)
+            if args.max_error_count:
+                max_error_count = int(args.max_error_count)
         return MapRecordPipe(
             source=_source(args, "map_record"),
             output=_output(args, "map_record"),
@@ -450,38 +466,50 @@ class PartitionWriter(Transformation):
 
     @classmethod
     def build(cls, env: Any, args: Any) -> Any:
-        """Refused until P9-I55's three assignments land, and provably so.
+        """`NewPartitionWriterTransformationPipe`, through the builder env.
 
-        `partition_writer_config` is a **required** field of the contract's
-        `TransformationSpecPartitionWriter`, so `args.config is None` here cannot
-        mean the author wrote no block: it can only mean the block did not reach
-        the operator. That is what makes this refusal correct for ever rather
-        than something to relax later.
+        **Reachable from a `.pc.json` since P9-I55's repair.** The two things it
+        needs beyond `OperatorEnv` are the ones Go reads off `BuilderContext`:
+        `config` — now `args.config`, filled by `graph._builtin_config` from the
+        step's own `partition_writer_config` — and the object store, which is
+        `ctx.s3DeviceManager` there and `BuilderEnv.store` here.
 
-        `build_from` below is the whole construction, and it is exercised by
-        `tests_transformations.py` against a real store — so what is missing is
-        the wiring and not the writer.
+        The refusal when `args.config` is `None` is **kept and is still about
+        the dispatch**: `partition_writer_config` is a required field of the
+        contract's `TransformationSpecPartitionWriter`, so an absent block can
+        only mean the block did not reach the operator. It is unreachable
+        through `graph.run` today and named rather than asserted, for
+        `errors.py`'s reason.
         """
+        builder = _builder(env, "partition_writer")
         if args.config is None:
             raise SeamNotWired(
                 "partition_writer cannot be built: its partition_writer_config "
-                "did not reach the operator. `graph._site_operator_args` returns "
-                "before setting `args.config` for any spec carrying no "
-                "`site_config`, and the contract makes partition_writer_config a "
+                "did not reach the operator, and the contract makes it a "
                 "required field — so this is the dispatch and never the "
-                "document. It also needs the object store, which nothing on "
-                "OperatorEnv or OperatorArgs reaches. Both halves are P9-I55; "
-                "the repair is `args.config = getattr(spec, f'{spec.type}_config', "
-                "None)` plus handing a built-in's factory the NodeContext, which "
-                "is the asymmetry Go already has. `PartitionWriter.build_from` is "
-                "the construction and is complete."
+                "document. `graph._builtin_config` fills `args.config` from the "
+                "step's own `{type}_config` block (P9-I55)."
             )
-        raise SeamNotWired(
-            "partition_writer has its configuration and not the object store: "
-            "nothing on OperatorEnv or OperatorArgs reaches NodeContext.store, "
-            "and putting it on OperatorEnv would hand every site operator the "
-            "node's store, which is what §12.6 withholds. Call "
-            "PartitionWriter.build_from with the store (P9-I55)."
+        store = builder.store
+        if store is None:
+            raise SeamNotWired(
+                "error: the run was given no object store, and a "
+                "partition_writer writes files. This is Go's "
+                "`ctx.s3DeviceManager == nil` refusal: the node was built with "
+                "`store=None`, which `cpipes-node run` does only when neither a "
+                "bucket nor a local directory was named."
+            )
+        output_channel = getattr(builder.spec, "output_channel", None)
+        key_prefix, file_name = _partition_destination(builder, output_channel)
+        return cls.build_from(
+            env,
+            args,
+            args.config,
+            store,
+            key_prefix=key_prefix,
+            node_id=builder.node_id,
+            output_channel=output_channel,
+            file_name=file_name,
         )
 
     @classmethod
@@ -495,6 +523,7 @@ class PartitionWriter(Transformation):
         key_prefix: str,
         node_id: int,
         output_channel: Any = None,
+        file_name: str = "",
     ) -> PartitionWriterPipe:
         """The construction, with the two things the dispatch cannot pass.
 
@@ -503,6 +532,13 @@ class PartitionWriter(Transformation):
         It is a parameter rather than read off `args` for the same reason as the
         config block: `OperatorArgs` carries the *resolved* channel and not the
         spec that configured it.
+
+        `file_name` overrides the block's own, and exists for one arm of Go's
+        destination switch: a custom output location ending in a file name has
+        that name *cut off the location and written onto the spec*
+        (`spec.OutputChannel.FileName = outputLocation[pos+1:]`). Passing it
+        rather than mutating the document is the same effect without the
+        document changing under a later reader.
 
         **The starter's defaults are applied here and applying them twice is
         harmless**, which is why no discriminator is needed. `validateOutput
@@ -542,8 +578,138 @@ class PartitionWriter(Transformation):
             quote_all=settings["quote_all"],
             no_quotes=settings["no_quotes"],
             batch_size=settings["batch_size"],
-            file_name=settings["file_name"],
+            file_name=file_name or settings["file_name"],
         )
+
+
+def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str]:
+    """`NewPartitionWriterTransformationPipe`'s destination switch, verbatim.
+
+    Returns the key prefix a partition file is written under and the file name
+    a custom output location carried, which is empty in every other arm.
+
+    Two channel types reach here — `stage` and `output` — because
+    `_output_channel_settings` has already refused `memory` (no format at all)
+    and `sql` (no format either, and it is a table rather than a file). Go's own
+    switch has no arm for those two and leaves the path empty, which is a write
+    to `"/<name>"`; refusing by name is the same decision made loudly.
+
+    The label a path is partitioned by is **the node's**, `%04dP`, which is what
+    `MakeJetsPartitionLabel` yields for a reducing node with no jets partition
+    key of its own. A run that reduces a real jets partition carries the key on
+    `NodeArgs.jp` and `jets_partition_label_or_default` returns that instead, so
+    the same expression covers both.
+    """
+    kind = getattr(output_channel, "type", None) or "memory"
+    node = builder.node
+    env = builder.env
+    prefixes = getattr(node, "prefixes", None)
+    label = node.jets_partition_label
+    write_step_id = expressions.substitute(
+        getattr(output_channel, "write_step_id", None) or "", env
+    )
+    if kind == "stage":
+        stage = _area(prefixes, "jetstore_s3_stage")
+        file_key = getattr(output_channel, "file_key", None) or ""
+        if write_step_id:
+            path = (
+                f"{stage}/process_name={_process_name(node)}"
+                f"/session_id={node.session_id}"
+                f"/step_id={write_step_id}/jets_partition={label}"
+            )
+            return path, ""
+        if file_key:
+            path = (
+                f"{stage}/{expressions.substitute(file_key, env)}"
+                f"/jets_partition={label}"
+            )
+            return path, ""
+        raise StartupError(
+            "error: for output channel of type 'stage' either WriteStepId or "
+            "FileKey must be specified in the output channel config"
+        )
+    if kind != "output":
+        raise writers.WriterUnsupported(
+            f"a partition_writer's output channel is of type {kind!r}; the Go "
+            "engine's destination switch has arms for 'stage' and 'output' "
+            "only, and any other type leaves the path empty rather than saying "
+            "so."
+        )
+    location = expressions.substitute(_output_location(output_channel), env)
+    if location == "jetstore_s3_schema_events":
+        path = (
+            f"{_area(prefixes, location)}/process_name={_process_name(node)}"
+            f"/session_id={node.session_id}"
+            f"/step_id={write_step_id}/jets_partition={label}"
+        )
+        return path, ""
+    key_prefix = getattr(output_channel, "key_prefix", None) or ""
+    file_name = ""
+    if location and not location.startswith("jetstore_s3_"):
+        # A custom location replaces the key prefix, and its last segment is the
+        # file name unless it ends in a separator.
+        if location.endswith("/"):
+            key_prefix = location[:-1]
+        elif "/" in location:
+            key_prefix, _, file_name = location.rpartition("/")
+        else:
+            key_prefix = location
+    return (
+        merge.do_substitution(
+            key_prefix or "$PATH_FILE_KEY",
+            label,
+            location,
+            prefixes if prefixes is not None else merge.Prefixes(),
+            env,
+        ),
+        file_name,
+    )
+
+
+def _output_location(output_channel: Any) -> str:
+    """`OutputChannelConfig.OutputLocation()`: `output_location`, then `file_key`.
+
+    Two JSON names for one concept, and the Go accessor is the only place that
+    says which wins. Reading either one alone would make a document that sets
+    the other write somewhere else with nothing reporting it.
+    """
+    return str(
+        getattr(output_channel, "output_location", None)
+        or getattr(output_channel, "file_key", None)
+        or ""
+    )
+
+
+def _area(prefixes: Any, location: str) -> str:
+    if prefixes is None:
+        return merge.Prefixes().for_location(location)
+    return str(prefixes.for_location(location))
+
+
+def _process_name(node: Any) -> str:
+    args = getattr(getattr(node, "config", None), "common_runtime_args", None)
+    return str(getattr(args, "process_name", None) or "")
+
+
+def _builder(env: Any, token: str) -> Any:
+    """The builder env, or the refusal that says what was handed over instead.
+
+    A built-in is handed `BuilderEnv` by `graph.build_pipe_transformation_
+    evaluator` and a site operator is handed `GraphOperatorEnv`; this is what a
+    built-in calls when it needs the half a site operator may not have. Named
+    rather than an `AttributeError` two frames later, because the fix differs:
+    an operator reaching here with a plain env was built outside the graph.
+    """
+    if not isinstance(env, BuilderEnv):
+        raise SeamNotWired(
+            f"the '{token}' operator was built with "
+            f"{type(env).__name__} rather than BuilderEnv, so it can reach "
+            "neither the node's object store nor the authored spec. A built-in "
+            "is handed the builder context and a site factory is not (D-226); "
+            "outside `graph.run`, build it with `BuilderEnv(...)` or call "
+            "`build_from` with the store directly."
+        )
+    return env
 
 
 def _output_channel_settings(output_channel: Any) -> dict[str, Any]:

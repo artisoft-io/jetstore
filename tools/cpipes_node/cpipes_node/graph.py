@@ -82,6 +82,7 @@ from typing import TYPE_CHECKING, Any
 from . import expressions, scope
 from .errors import NodeError, StartupError
 from .runtime import (
+    BuilderEnv,
     ChannelRegistry,
     Done,
     GraphOperatorEnv,
@@ -597,18 +598,27 @@ def build_pipe_transformation_evaluator(
         return None
 
     token = spec.type
-    factory = _transformation_factory(ctx, token)
+    factory, is_builtin = _transformation_factory(ctx, token)
 
     args = _site_operator_args(ctx, registry, source, out_ch, spec)
-    env = GraphOperatorEnv(
-        env=ctx.env,
-        done_signal=done,
-        session_id_value=ctx.session_id,
-        debug=_is_debug_mode(ctx.config),
-        operator_type=token,
-        pipeline_execution_key=ctx.args.pipeline_execution_key,
-        shard_id=ctx.args.node_id,
-        step_id=_step_id(ctx.config),
+    fields: dict[str, Any] = {
+        "env": ctx.env,
+        "done_signal": done,
+        "session_id_value": ctx.session_id,
+        "debug": _is_debug_mode(ctx.config),
+        "operator_type": token,
+        "pipeline_execution_key": ctx.args.pipeline_execution_key,
+        "shard_id": ctx.args.node_id,
+        "step_id": _step_id(ctx.config),
+    }
+    # **A built-in is handed the builder context and a site factory is not**
+    # (D-226, P9-I55). The call shape stays one and the receiver differs, which
+    # is Go's own asymmetry: a built-in is a `*BuilderContext` method where a
+    # site factory takes `(OperatorEnv, OperatorArgs)`.
+    env: GraphOperatorEnv = (
+        BuilderEnv(node=ctx, registry=registry, spec=spec, **fields)
+        if is_builtin
+        else GraphOperatorEnv(**fields)
     )
     evaluator = factory(env, args)
     if evaluator is None:
@@ -625,7 +635,7 @@ def build_pipe_transformation_evaluator(
     return evaluator
 
 
-def _transformation_factory(ctx: NodeContext, token: str) -> Any:
+def _transformation_factory(ctx: NodeContext, token: str) -> tuple[Any, bool]:
     """A built-in first, then the deployment's registry — Go's order exactly.
 
     `BuildPipeTransformationEvaluator` tries its eighteen cases and reaches
@@ -634,14 +644,21 @@ def _transformation_factory(ctx: NodeContext, token: str) -> Any:
     asked first for the same reason, and `scope.classify` already asks in that
     order at startup, so the gate and the dispatch agree by construction.
 
-    **A built-in transformation's `build` has a site factory's signature**, which
-    is a small departure from Go worth naming: there a built-in constructor takes
-    `(source, outCh, spec)` and a site factory takes `(env, args)`. Unifying them
-    means P9-T06 and P9-T07 add a `build` to their classes and touch nothing in
-    this module, and it costs nothing in conformance, which compares behaviour and
-    not constructor shapes. What it does mean is that a built-in reads its own
-    configuration off `args`: `args.columns` for the authored columns, and the
-    step's `*_config` block through the spec the factory is free to keep.
+    **Returns the factory and whether it is a built-in**, because that is what
+    decides which env it is handed (D-226). The call shape is one —
+    `factory(env, args)` for both — and the *receiver* differs: a built-in gets
+    `BuilderEnv`, which carries the node context, the channel registry and the
+    authored spec, and a site factory gets `GraphOperatorEnv`, which carries
+    none of them. That is Go's asymmetry, where a built-in constructor is a
+    `*BuilderContext` method and a site factory takes `(env, args)`.
+
+    Unifying the two *call shapes* still costs nothing in conformance and still
+    means P9-T06 and P9-T07 add a `build` to their classes and touch nothing
+    here. What P9-I55 measured is that unifying the two *contexts* cost
+    something real: `partition_writer` writes files, nothing it was handed
+    reached the object store, and the operator could not be reached from a
+    `.pc.json` at all. A built-in reads its own configuration off `args.config`,
+    which `_site_operator_args` now fills from the step's own `*_config` block.
     """
     declaration = scope.declaration(TokenKind.TRANSFORMATION, token)
     if declaration is not None:
@@ -651,7 +668,7 @@ def _transformation_factory(ctx: NodeContext, token: str) -> Any:
                 f"{declaration.owed_by or 'nobody — which is itself the defect'}. "
                 "The scope gate should have refused this document at startup."
             )
-        return declaration.build
+        return declaration.build, True
     factory = ctx.site_operators.factory(token)
     if factory is None:
         # Unreachable through `coordinate`: `config.check_scope` refuses a token
@@ -665,7 +682,7 @@ def _transformation_factory(ctx: NodeContext, token: str) -> Any:
             "registered. The scope gate should have refused this document at "
             "startup."
         )
-    return factory
+    return factory, False
 
 
 def _site_operator_args(
@@ -682,6 +699,19 @@ def _site_operator_args(
     name repeated inside `output_channels` is refused because it hands the
     operator one channel at two indices with nothing to tell them apart. Both
     messages are the Go function's.
+
+    **A built-in's own `*_config` block is filled here too** (P9-I55). This
+    function used to return before setting anything for a spec carrying no
+    `site_config`, so every built-in reached its factory with `args.config`
+    `None` whatever its step authored — a `filter` with `max_output_records: 4`
+    passed every record, and `partition_writer` could not be built at all. The
+    block's name is derived from the token, `f"{spec.type}_config"`, which is
+    the contract's own convention rather than a list kept here: it holds for 17
+    of the 19 transformation tokens and is absent on exactly the two that carry
+    no block (`aggregate`, `high_freq`), where `getattr` answers `None` and the
+    operator's own default applies. `tests_graph.py` derives that partition
+    from the contract model rather than restating it, so a twentieth token joins
+    the convention by existing.
     """
     args = OperatorArgs(
         type=spec.type,
@@ -693,7 +723,7 @@ def _site_operator_args(
     )
     site = getattr(spec, SITE_CONFIG, None)
     if site is None:
-        return args
+        return _builtin_config(registry, args, spec)
     args.config = site.config
     args.max_error_count = site.max_error_count or 0
     if site.error_channel is not None:
@@ -718,6 +748,48 @@ def _site_operator_args(
         )
     args.outputs = tuple(outputs)
     args.lookups = _resolve_lookups(ctx, site, spec.type)
+    return args
+
+
+#: The suffix a transformation's own configuration block is named with.
+#:
+#: The contract's convention rather than a list: `{token}_config`. Kept as a
+#: constant so the one place that derives a block name says what it is deriving.
+CONFIG_SUFFIX = "_config"
+
+
+def _builtin_config(
+    registry: ChannelRegistry, args: OperatorArgs, spec: Any
+) -> OperatorArgs:
+    """A built-in's `{type}_config` block, and the two fields a site reads off
+    `site_config`.
+
+    `max_error_count` and `error_channel` get the same treatment as
+    `config` because a built-in carries them *inside* its own block where a site
+    operator carries them beside its own: `map_record_config.error_channel` is
+    resolved by `NewMapRecordTransformationPipe` off `ctx.channelRegistry`, with
+    the same two refusals `_resolve_declared` makes. Filling them here rather
+    than in the operator is what keeps one resolution path over both halves of
+    the dispatch — two would be two chances to disagree about which channel a
+    name means.
+
+    A block that carries neither leaves both at their defaults, which is not the
+    same as zero meaning *none*: `MapRecord` applies the engine's own default of
+    20 when the block states nothing, and that default is the operator's to
+    apply rather than this function's to guess.
+    """
+    args.config = getattr(spec, f"{spec.type}{CONFIG_SUFFIX}", None)
+    if args.config is None:
+        return args
+    args.max_error_count = int(getattr(args.config, "max_error_count", 0) or 0)
+    channel = getattr(args.config, "error_channel", None)
+    if channel is not None:
+        args.error_channel = _resolve_declared(
+            registry,
+            channel,
+            spec.type,
+            f"{spec.type}{CONFIG_SUFFIX}.error_channel",
+        )
     return args
 
 

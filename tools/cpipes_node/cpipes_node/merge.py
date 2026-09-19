@@ -449,7 +449,7 @@ def destination_key(
     if location in ("jetstore_s3_stage", "jetstore_s3_schema_events"):
         folder = f"{prefixes.for_location(location)}/{expressions.substitute(key_prefix, env)}"
     else:
-        folder = _do_substitution(
+        folder = do_substitution(
             key_prefix or "$PATH_FILE_KEY",
             jets_partition_label,
             location,
@@ -459,7 +459,7 @@ def destination_key(
     return f"{folder}/{file_name}".lstrip("/")
 
 
-def _do_substitution(
+def do_substitution(
     value: str,
     jets_partition_label: str,
     location: str,
