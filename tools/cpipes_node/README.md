@@ -11,8 +11,13 @@ engine would not be: what must hold is the contract and the side effects.
 
 The contract model is not re-derived. `tools/cpipes_contract/cpipes_model.py`
 is the source of truth for the whole `.pc.json` and has a drift guard behind
-it; this package imports it. See `cpipes_node/contract.py` for the three places
-that model had to be widened and for what each widening is asserted against.
+it; this package imports it. See `cpipes_node/contract.py` for the one place
+that model still has to be widened — the two fields a *starter* fills in — and
+for what that widening is asserted against. There were three more, for the site
+operator the contract's transformation union omitted, and they were deleted on
+2026-09-19 when the omission was closed upstream: a widening here is a second
+reader of one rule, so the test pinning each of them was written to go red and
+name what to delete, and that is how they went.
 
 ## The declared scope
 
