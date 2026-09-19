@@ -16,6 +16,7 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awskms"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -109,6 +110,24 @@ type JetStoreStackComponents struct {
 
 	DeployCpipesNative bool
 
+	// DeployCpipesPython gates the Python compute pipes node: the container-image Lambda
+	// built by dockerfiles/Dockerfile.cpipes_python_lambda, and the third arm of
+	// ecsOrLambdaChoice that routes a reducing iteration to it.
+	//
+	// **Unset means the stack that is deployed today, and that is the whole of exit
+	// criterion 96 for this change.** Nothing outside the two `if jsComp.DeployCpipesPython`
+	// blocks (build_cpipes_lambdas.go, build_cpipes_sm.go) moves, so a deployment that has
+	// never heard of DEPLOY_CPIPES_PYTHON synthesises the template it synthesises now --
+	// measured as a byte comparison of the synthesised output rather than claimed; see
+	// build_cpipes_python_test.go for what the unit test does and does not establish.
+	//
+	// It is a separate gate from DeployCpipesNative rather than a value of one selector,
+	// because the two are not alternatives: a deployment may want the native node Lambda for
+	// its jetrules steps and the Python node for its own operators, and both state machines
+	// get the Python arm when this is on (buildCpipesSMInternal is shared, which is F1536's
+	// reason for the ECS half being in both).
+	DeployCpipesPython bool
+
 	// Lambdas Execution Role
 	// applicable to: StatusUpdateLambda, RunReportsLambda, CpipesRunReportsLambda, CpipesNodeLambda,
 	// CpipesNativeNodeLambda, CpipesStartShardingLambda, CpipesStartReducingLambda, SqsRegisterKeyLambda,
@@ -117,13 +136,20 @@ type JetStoreStackComponents struct {
 	// and get a CDK-generated one each, with permissions granted individually.
 	LambdaExecutionRole awsiam.Role
 
-	StatusUpdateLambda        awslambdago.GoFunction
-	SecretRotationLambda      awslambdago.GoFunction
-	RunReportsLambda          awslambdago.GoFunction
-	CpipesRunReportsLambda    awslambdago.GoFunction
-	PurgeDataLambda           awslambdago.GoFunction
-	CpipesNodeLambda          awslambdago.GoFunction
-	CpipesNativeNodeLambda    awslambdago.GoFunction
+	StatusUpdateLambda     awslambdago.GoFunction
+	SecretRotationLambda   awslambdago.GoFunction
+	RunReportsLambda       awslambdago.GoFunction
+	CpipesRunReportsLambda awslambdago.GoFunction
+	PurgeDataLambda        awslambdago.GoFunction
+	CpipesNodeLambda       awslambdago.GoFunction
+	CpipesNativeNodeLambda awslambdago.GoFunction
+	// CpipesPythonNodeLambda is nil unless DeployCpipesPython. Typed as the construct it is
+	// -- a DockerImageFunction -- rather than as awslambdago.GoFunction, which is what
+	// CpipesNativeNodeLambda above is declared as while being assigned a DockerImageFunction
+	// too. That compiles because the jsii binding's GoFunction interface adds nothing over
+	// Function, so the declaration says something about the field that is not true of its
+	// value; a new field has no reason to copy it.
+	CpipesPythonNodeLambda    awslambda.DockerImageFunction
 	CpipesStartShardingLambda awslambdago.GoFunction
 	CpipesStartReducingLambda awslambdago.GoFunction
 	RegisterKeyV2Lambda       awslambdago.GoFunction
@@ -152,6 +178,25 @@ func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
 		return false
 	}
 	return true
+}
+
+// DeployCpipesPythonFromEnv reads DEPLOY_CPIPES_PYTHON, the gate on the Python compute
+// pipes node and on the third arm of ecsOrLambdaChoice that reaches it.
+//
+// **A function rather than an expression at the call site, so that the unset case is
+// testable.** DeployCpipesNative is computed inline in jetstore_one.go (package main), which
+// is why no test holds it; the claim that matters here -- unset synthesises the stack
+// deployed today -- is exactly a claim about this function's zero case, so it lives where a
+// test in this package can reach it.
+//
+// The accepted values are DEPLOY_CPIPES_NATIVE's, character for character: upper-cased and
+// compared against "TRUE" and "1". Nothing is trimmed, which matches that predicate too --
+// and "true" works because of the upper-casing while " 1" does not, which is a property of
+// the shape being copied rather than one chosen here. Two gates a deployment sets together
+// should not disagree about what "on" looks like.
+func DeployCpipesPythonFromEnv() bool {
+	v := strings.ToUpper(os.Getenv("DEPLOY_CPIPES_PYTHON"))
+	return v == "TRUE" || v == "1"
 }
 
 func MkCatchProps() *sfn.CatchProps {

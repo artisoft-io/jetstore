@@ -40,6 +40,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	// Build lambdas used by cpipesSM and cpipesNativeSM:
 	//	- CpipesNodeLambda
 	//  - CpipesNativeNodeLambda
+	//  - CpipesPythonNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
 	//
@@ -59,6 +60,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	//     BuildPipeTransformationEvaluator (pipes_runtime_model.go:240) and neither has
 	//     anywhere to put a site operator. Giving them the variable would say the extension
 	//     point is read somewhere it is not.
+	//   - CpipesPythonNodeLambda is a NewDockerImageFunction too, for the same reason as the
+	//     native one and a starker version of it: the image carries a Python interpreter, and
+	//     the entry it runs is a *module name* handed to the runtime interface client rather
+	//     than a source path bundled at synth. A site redirects it by deriving from the image
+	//     and changing the Cmd, not by naming a directory here.
 	// --------------------------------------------------------------------------------------------------------------
 
 	var memLimit float64
@@ -198,6 +204,75 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		}
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesNativeNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes native execution"), nil)
+		}
+	}
+	if jsComp.DeployCpipesPython {
+
+		// Define the Python cpipes node lambda (P9-T14, P9-T15)
+		//
+		// The container image built by dockerfiles/Dockerfile.cpipes_python_lambda, reached
+		// from ECR the way CpipesNativeNodeLambda is and for the same reason: a Python
+		// interpreter plus the node's closure is 572 MB, which no zip-packaged function can
+		// carry -- the 250 MB cap is exceeded by the base image alone, 517 MB of it.
+		//
+		// **The Cmd is the handler module, and the image's own CMD is the same string.** As
+		// with the native image's `bootstrap`, setting it here is what makes the module a
+		// deployment runs visible in the synthesised template rather than only in a layer --
+		// which is how a site shipping its own operators points this function at its own
+		// handler without a new construct.
+		cpipesPythonLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesPythonLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		jsComp.CpipesPythonNodeLambda = awslambda.NewDockerImageFunction(stack, jsii.String("CpipesPythonNodeLambda"), &awslambda.DockerImageFunctionProps{
+			Code: awslambda.DockerImageCode_FromEcr(awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-python-image-lambda"),
+				jsii.String(os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))), &awslambda.EcrImageCodeProps{
+				Cmd:         jsii.Strings("handler.lambda_handler"),
+				Entrypoint:  jsii.Strings("/lambda-entrypoint.sh"),
+				TagOrDigest: jsii.String(os.Getenv("CPIPES_PYTHON_IMAGE_TAG")),
+			}),
+			Description: jsii.String("JetStore Lambda function cpipes python execution"),
+			MemorySize:  jsii.Number(memLimit),
+			// **This map is six entries where the two Go node lambdas carry twenty-five, and
+			// the difference is derived rather than trimmed.** `cpipes_node/settings.py` is
+			// the only module in that package that reads the environment at all (measured
+			// 2026-09-18: no other os.environ or os.getenv anywhere under
+			// tools/cpipes_node/cpipes_node/), and it names five variables -- three required
+			// and two optional, mirroring what cp_node/main.go checks before lambda.Start.
+			// LOG_LEVEL is the sixth and is the *handler's* rather than the package's
+			// (dockerfiles/cpipes_node_lambda/handler.py).
+			//
+			// Every one of the other twenty is read by Go code this node does not have: the
+			// jetrules adaptor's workspace, the domain-key algorithms, the notification
+			// endpoints, the sentinel file, the s3 prefixes the Go channel implementations
+			// resolve. Carrying them would say the switch is read somewhere it is not, which
+			// is the rule the start-sharding lambda's own comment block states about
+			// JETS_DEFAULT_ERROR_REPORTING and INFER_BACKEND. A Python operator needing one
+			// of them receives it as a `site_config` on its own step (I-766), not as an
+			// environment variable on a shared function.
+			Environment: &map[string]*string{
+				"JETS_BUCKET":         jsComp.SourceBucket.BucketName(),
+				"JETS_DSN_SECRET":     jsComp.RdsSecret.SecretName(),
+				"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
+				"CPIPES_DB_POOL_SIZE": jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
+				"JETS_S3_KMS_KEY_ARN": jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
+				"LOG_LEVEL":           jsii.String("INFO"),
+			},
+			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
+			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+			Role:                 jsComp.LambdaExecutionRole,
+			Vpc:                  jsComp.Vpc,
+			VpcSubnets:           jsComp.IsolatedSubnetSelection,
+			SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
+			LogGroup:             cpipesPythonLambdaLogGroup,
+		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesPythonNodeLambda).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesPythonNodeLambda).Add(piiTagName, jsii.String("true"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesPythonNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes python execution"), nil)
 		}
 	}
 	// CpipesStartShardingLambda

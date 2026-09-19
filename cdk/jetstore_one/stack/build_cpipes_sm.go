@@ -25,6 +25,26 @@ func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Cons
 	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props, jsComp.CpipesNativeNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesNativeSM", "Native")
 }
 
+// cpipesPythonReducingFlag is the field of ComputePipesRun that selects the Python worker for
+// one reducing iteration, in the shape useECSReducingTask and noMoreTask have.
+//
+// **Nothing produces it yet, and that is P9-I49 rather than an oversight here.** The two
+// existing flags are fields of `ComputePipesRun` (jets/compute_pipes/actions_common_model.go)
+// with no `omitempty`, so the reducing starter's JSON always carries them; the ECS one is
+// computed per step by `EvalUseEcsTask` from the pipeline's own `use_ecs_tasks` /
+// `use_ecs_tasks_when`. A Python counterpart wants the same two things -- a field on that
+// struct and an evaluator beside that one -- and both live in `jets/compute_pipes/`, which is
+// outside this task's surface. Until they exist the arm below is *offered and unselected*:
+// the state machine carries the branch and no run takes it.
+//
+// **Which is why the condition is guarded by IsPresent.** A Choice comparison against a
+// JSONPath that is not in the state's input is a runtime error rather than a non-match, so an
+// unguarded arm on a field nothing writes would break every reducing iteration of a
+// deployment that turned the Python node on -- a gate whose only effect would be to break the
+// pipeline. The guard is right permanently too: this is the one of the three flags that a
+// deployment running an older starter can legitimately lack.
+const cpipesPythonReducingFlag = "$.usePythonReducingTask"
+
 // internal function to build the cpipes state machine
 // Expecting tag to be empty or Native.
 func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack, props *JetstoreOneStackProps,
@@ -166,6 +186,40 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
+	// Python Node Option
+	// ----------------
+	// The third executor for a reducing iteration, built only when the Python node is deployed.
+	// Its shape is runReducingNodeTask's and runReducingMap's exactly -- the same InputPath, the
+	// same discarded result, the same items path and concurrency path -- because what differs
+	// between the two is which function receives the identical event and not what the event is.
+	// A node reads {id, jp, pe} and takes everything else out of jetsapi.cpipes_execution_status,
+	// so the Python worker and the Go worker are handed the same three fields.
+	//
+	// **Both state machines get it, because buildCpipesSMInternal is shared.** That is F1536's
+	// reason for the ECS half being in both: the machines differ only in their node Lambda, and a
+	// deployment running the native machine and owning Python operators wants them on the same
+	// reducing iterations it would want them on in the other one.
+	//
+	// The chaining is at the bottom with the rest, because it needs the error-status task and the
+	// iteration choice, which are built below.
+	var runReducingPythonNodeTask sfntask.LambdaInvoke
+	var runReducingPythonMap sfn.Map
+	if jsComp.CpipesPythonNodeLambda != nil {
+		runReducingPythonNodeTask = sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingPythonNode"+suffix), &sfntask.LambdaInvokeProps{
+			Comment:                  jsii.String("Lambda Task to reduce the sharded data using the Python node"),
+			LambdaFunction:           jsComp.CpipesPythonNodeLambda,
+			InputPath:                jsii.String("$"),
+			ResultPath:               sfn.JsonPath_DISCARD(),
+			RetryOnServiceExceptions: jsii.Bool(false),
+		})
+		runReducingPythonMap = sfn.NewMap(stack, jsii.String("run-reducing-python-map"+sfx), &sfn.MapProps{
+			Comment:            jsii.String("Run JetStore Reducing Python Node Task"),
+			ItemsPath:          sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+			MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+			ResultPath:         sfn.JsonPath_DISCARD(),
+		})
+	}
+
 	// 5) Run Reports Task
 	// ----------------------
 	lambdaFnc := jsComp.RunReportsLambda
@@ -225,6 +279,26 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 
 	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(ecsOrLambdaChoice)
 
+	// The Python arm comes first, and the order is the substance rather than the placement.
+	//
+	// The two flags are evaluated per reducing step and a pipeline can author both. When it
+	// does, the Python worker has to win: a step naming an operator only the Python node
+	// implements cannot run on the Go ECS task, and the failure it would get is §20.1's --
+	// inside a running worker, on a pipeline that looked correct. The reverse mistake is
+	// recoverable, since a step the Python node cannot serve aborts at startup naming the token
+	// (`cpipes-node check`). Ordering a choice by which way its failures point is what a
+	// first-match-wins array is for.
+	//
+	// It costs the unset case nothing: with the Python node not deployed this When is not added
+	// at all, so the Choices array is the array it is today, in today's order.
+	if runReducingPythonMap != nil {
+		ecsOrLambdaChoice.When(sfn.Condition_And(
+			sfn.Condition_IsPresent(jsii.String(cpipesPythonReducingFlag)),
+			sfn.Condition_BooleanEquals(jsii.String(cpipesPythonReducingFlag), jsii.Bool(true)),
+		), runReducingPythonMap, &sfn.ChoiceTransitionOptions{
+			Comment: jsii.String("When usePythonReducingTask is true, use the Python node Lambda for Reducing"),
+		})
+	}
 	ecsOrLambdaChoice.When(sfn.Condition_BooleanEquals(jsii.String("$.useECSReducingTask"),
 		jsii.Bool(true)), runReducingECSMap, &sfn.ChoiceTransitionOptions{
 		Comment: jsii.String("When useECSReducingTask is true, use ECS Task for Reducing"),
@@ -237,6 +311,11 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 
 	runReducingECSMap.ItemProcessor(runReducingECSTask, &sfn.ProcessorConfig{}).AddCatch(
 		runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+
+	if runReducingPythonMap != nil {
+		runReducingPythonMap.ItemProcessor(runReducingPythonNodeTask, &sfn.ProcessorConfig{}).AddCatch(
+			runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+	}
 
 	runReducingMap.ItemProcessor(
 		runReducingNodeTask, &sfn.ProcessorConfig{},
