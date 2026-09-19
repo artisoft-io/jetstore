@@ -36,7 +36,7 @@ The subset is:
 |---|---|
 | input channel | `generator` ✓, `memory` ✓ |
 | pipe | `fan_out` ✓, `merge_files` |
-| transformation | `map_record`, `filter`, `partition_writer` |
+| transformation | `map_record` ✓, `filter` ✓, `partition_writer` ✓ |
 | transformation, by registration | whatever a deployment registers |
 
 ✓ is implemented; the rest are declared and owed, and `cpipes-node scope` prints
@@ -153,30 +153,64 @@ It prints the run's figures **per channel rather than as a total**, because a
 total is satisfied by the right number of rows in the wrong channels — which is
 exactly the failure a twelve-output step can have.
 
-**The `run` subcommand registers no site operators** (`site.EMPTY`), and every
-built-in transformation is still owed, so today it can only *refuse* a document
-rather than complete one. A driver that can run the corpus pipeline has to be
-handed a registry; that is P9-T19's, and the composition to copy is the
-`coordinate(...)` call above.
+**The `run` subcommand registers no site operators** (`site.EMPTY`), so a
+document naming a deployment's own operator can only be *refused*. Since P9-T06 a
+document made of `map_record` and `filter` runs to completion through it. A driver
+that can run the corpus pipeline has to be handed a registry; that is P9-T19's,
+and the composition to copy is the `coordinate(...)` call above.
 
 What a local run does **not** cover: the lambda invocation, the
 `cpipes_execution_status` read, S3 itself and its KMS settings, the state
 machine's Map over partitions, and the six side-effect tables (P9-T09).
 
+## The transformations, and the seam they are missing
+
+`map_record` and `filter` are built entire and reachable from a document.
+`partition_writer`'s policy and its two device encoders are built and its
+`build()` **refuses**, because `graph._site_operator_args` hands a built-in
+neither its own `*_config` block nor the object store — in Go a built-in is
+constructed by the `BuilderContext` and a site factory is not, and unifying the
+two signatures took the built-in's access away. That is **P9-I55**; the repair
+needs no new field, since a transformation's block is `f"{spec.type}_config"` for
+every contract token that has one. `PartitionWriter.build_from` is the whole
+construction and is exercised against a real store.
+
+**CSV and Parquet come from one column list and one text encoder**, which is what
+makes X3 provable rather than merely true: the column list is the resolved output
+channel's, and `writers.py` holds no column list at all. The csv quoting rule is
+transcribed from `jets/csv/writer.go` rather than delegated to a library, because
+two of its four clauses — a leading unicode space and the Postgres terminator
+`\.` — are in no library's rule and X7 compares bytes (**D-222**).
+
+The authored column vocabulary is **six of the contract's fifteen types**:
+`select`, `value`, `eval`, `case`, `count`, `sum`. The other nine are refused by
+name with the reason and the owner, and the union of the two sets is asserted
+against the contract's own index so a sixteenth type is refused by existing.
+
 ## Checks
 
 ```
-$ python -m pytest -q          # 162 tests
+$ python -m pytest -q          # 343 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-Ten tests read Go source as their oracle rather than transcribing it — the
+Seventeen tests read Go source as their oracle rather than transcribing it — the
 argument struct's json tags, the `ComputePipesConfig` struct's tags, the config
 `SELECT`, the authored `.pc.json` corpus, the `OperatorEnv` interface, the
-`OperatorArgs` / `RowLevelError` / `Lookup` structs, the operator table and the
-expression leaf-type switch — so a rename on the other side of the seam is
-caught here rather than at a deployment.
+`OperatorArgs` / `RowLevelError` / `Lookup` structs, the operator table, the
+expression leaf-type switch, and P9-T07's eight: the csv quoting rule's five
+clauses, the all-string parquet schema, the parquet batch size, the
+writer-to-format pairs, the partition file name, the header condition, the snappy
+framing wrapper and the midnight date arm — so a rename on the other side of the
+seam is caught here rather than at a deployment.
+
+**One of those eight is asserted against a Go test that fails**, and deliberately:
+`TestEncodeRdfTypeToTxt` expects `2006-01-02T00:00:00` where the function returns
+`2006-01-02`, so the *test* is stale about the *function*. The function is what
+the engine runs and is what this node mirrors; the disagreement is pinned from
+both sides, so whichever one somebody repairs, this goes red saying which
+(P9-I58).
 
 Developer tooling status: nothing on the cpipes runtime path depends on this
 package, and the Go engine is untouched by it. It becomes a deployment's runtime
