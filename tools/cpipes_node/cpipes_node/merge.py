@@ -108,6 +108,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import expressions
+from . import store as store_module
 from .errors import NodeError, StartupError
 from .store import ObjectStore
 
@@ -143,6 +144,14 @@ MERGE_INPUT_CHANNEL_TYPE = "stage"
 #: The default field delimiter, as `NewMergeFileReader`'s caller computes it:
 #: a comma unless the input channel states a code point.
 DEFAULT_DELIMITER = ","
+
+#: The `jetsPartitionLabel` `StartMergeFiles` hands `doSubstitution`, which is
+#: the **empty string** at both of its call sites — so `$CURRENT_PARTITION_LABEL`
+#: in a merge's `key_prefix` resolves to nothing in Go, where the same token in a
+#: partition writer's resolves to that writer's label. A named constant rather
+#: than a bare `""` because the two call sites are eight lines apart in Go and a
+#: reader has to be able to see that the difference is deliberate (P9-I147).
+MERGE_PARTITION_LABEL = ""
 
 
 class MergeRefused(StartupError):
@@ -340,6 +349,50 @@ def _schema_provider(config: Any, key: str | None) -> Any:
     return None
 
 
+def output_file_name(out_spec: Any) -> str:
+    """`OutputFileSpec.Name()` (`pipes_model.go:518`): `name`, then `file_name`.
+
+    **Two JSON names for one concept, and the accessor is the only place that
+    says which wins** — `FileName2` is tagged `name`, and `FileName`, inherited
+    from `FileConfig`, is tagged `file_name`; `Name()` returns the first when it
+    is non-empty and the second otherwise. `StartMergeFiles` reads the
+    *accessor* and never the field.
+
+    This function exists because reading one of the pair alone is not a near
+    miss, it is a **destination** defect, and it fails in the silent direction
+    (**P9-I133**). Measured over the corpus document on 2026-09-19: its twelve
+    `output_files` entries all spell `name`, the field alone resolved none of
+    them, all twelve merges fell through to `$NAME_FILE_KEY` and wrote **one**
+    key — `corpus/out/$SESSIONID/trigger.json` — each overwriting the last, so
+    **eleven tables were destroyed and the twelfth was byte-correct and
+    mis-named**, every merge logging success and the run exiting 0.
+
+    The same pair for the output *location* is `output_location` / `file_key`,
+    and `_output_location` in `operators/transformations.py` already reads it
+    through the accessor for an `OutputChannelConfig`. `output_file_location`
+    below is that rule for *this* model, so the node has one reading of Go's
+    accessors rather than a per-call-site one.
+    """
+    return str(getattr(out_spec, "name", None) or "") or str(
+        getattr(out_spec, "file_name", None) or ""
+    )
+
+
+def output_file_location(out_spec: Any) -> str:
+    """`OutputFileSpec.OutputLocation()` (`pipes_model.go:507`).
+
+    `output_location` (`FileKey2`) when set, else `file_key` (`FileConfig.FileKey`),
+    whose own contract description says *on output configs this is the output
+    location*. The same accessor rule as `output_file_name`, one field over —
+    and kept beside it deliberately, because a repair that honoured one of Go's
+    two `OutputFileSpec` accessors and not the other would leave the identical
+    defect live on the field nobody had happened to author yet.
+    """
+    return str(getattr(out_spec, "output_location", None) or "") or str(
+        getattr(out_spec, "file_key", None) or ""
+    )
+
+
 def output_file_spec(config: Any, key: str) -> Any:
     """`GetOutputFileConfig`: the `output_files` entry a merge pipe names."""
     for spec in getattr(config, "output_files", None) or ():
@@ -405,11 +458,69 @@ def stage_prefix_for(
     )
 
 
+def stage_parent_prefix(
+    process_name: str,
+    session_id: str,
+    step_id: str,
+    input_channel: Any,
+    prefixes: Prefixes,
+    env: Mapping[str, Any],
+) -> str | None:
+    """The prefix `GetComputePipesPartitions` lists, or `None` where it cannot.
+
+    `stage_prefix_for` without its `/jets_partition=<label>` segment, which is
+    exactly the folder the starter enumerates to decide how many partitions a
+    reducing step has (`s3_utils.go:178`). `None` for the `file_key` arm, and
+    that is not a gap: in that arm `stage_prefix_for` **already returns the
+    parent**, so the merge reads every partition under it and none can be lost.
+    A caller that got `None` and refused anyway would refuse a document that
+    cannot exhibit the defect.
+    """
+    if getattr(input_channel, "file_key", None):
+        return None
+    return (
+        f"{prefixes.stage}/process_name={process_name}"
+        f"/session_id={session_id}/step_id={step_id}/"
+    )
+
+
+#: `jetPartitionRe` (`s3_utils.go:21`), transcribed with its non-greedy body and
+#: its trailing `/`. The label is whatever lies between them, so a label
+#: containing a `/` is truncated in Go and is truncated here — the point is to
+#: read the same set of partitions the starter reads, not a better one.
+_PARTITION_MARKER = "jets_partition="
+
+
+def partitions_under(store: ObjectStore, prefix: str) -> tuple[str, ...]:
+    """The distinct `jets_partition=` labels below `prefix`, sorted.
+
+    `GetComputePipesPartitions`' own act, over this node's store: list, pull the
+    label out of each key, and keep the set. Zero-byte objects are skipped by Go
+    (`if s3Objects[i].Size > 0`) and are not skipped here, deliberately — the
+    only consumer is a **count**, and reading every object to size it would
+    double the cost of the listing to make a set smaller in a case where a
+    partition wrote a part file with nothing in it. That difference can only
+    ever make this node's count *larger* than the starter's, so it is stated
+    rather than hidden (**P9-I149**).
+    """
+    found: set[str] = set()
+    for key in store.list(prefix):
+        rest = key.removeprefix(prefix)
+        index = rest.find(_PARTITION_MARKER)
+        if index < 0:
+            continue
+        tail = rest[index + len(_PARTITION_MARKER) :]
+        end = tail.find("/")
+        if end < 0:
+            continue
+        found.add(tail[:end])
+    return tuple(sorted(found))
+
+
 def destination_key(
     out_spec: Any,
     prefixes: Prefixes,
     env: Mapping[str, Any],
-    jets_partition_label: str,
 ) -> str:
     """`StartMergeFiles`' destination switch: the object key the merge writes.
 
@@ -419,12 +530,26 @@ def destination_key(
     location is defaulted to `jetstore_s3_output` first, as the Go function does
     before it switches.
 
+    Both halves of the switch go through Go's accessors — `output_file_location`
+    and `output_file_name` — rather than through the fields, which is the whole
+    of **P9-I133**: a document spelling `name` resolved to nothing and every
+    merge of a twelve-table run landed on one key.
+
     `$NAME_FILE_KEY` is the default file name and is left to substitution: it is
     an env key a starter fills, so a document relying on it in a run that has no
     such key gets the refusal below rather than a file called
     `$NAME_FILE_KEY`.
+
+    **No partition label reaches `do_substitution` here, and that is Go's.**
+    `StartMergeFiles` passes the empty string — `doSubstitution(KeyPrefix, "",
+    …)`, twice — where the partition writer passes its own label, so a
+    `$CURRENT_PARTITION_LABEL` in a merge's `key_prefix` resolves to nothing in
+    Go. This function took the node's `jp` instead, which is a destination
+    divergence on a key no authored document reaches today (**P9-I147**); the
+    parameter is removed rather than passed empty, so there is no argument left
+    for a caller to get wrong.
     """
-    location = str(getattr(out_spec, "output_location", None) or "")
+    location = output_file_location(out_spec)
     location = expressions.substitute(location, env) if location else ""
     if not location:
         location = DEFAULT_OUTPUT_LOCATION
@@ -432,8 +557,9 @@ def destination_key(
         # A custom file path: it replaces KeyPrefix and Name.
         return location.lstrip("/")
 
-    name = str(getattr(out_spec, "file_name", None) or "")
-    file_name = expressions.substitute(name or "$NAME_FILE_KEY", env)
+    file_name = expressions.substitute(
+        output_file_name(out_spec) or "$NAME_FILE_KEY", env
+    )
     if not file_name or "$" in file_name:
         raise MergeInvalid(
             "error: OutputFile config is missing file_name in StartMergeFile"
@@ -451,7 +577,7 @@ def destination_key(
     else:
         folder = do_substitution(
             key_prefix or "$PATH_FILE_KEY",
-            jets_partition_label,
+            MERGE_PARTITION_LABEL,
             location,
             prefixes,
             env,
@@ -624,8 +750,15 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
 
     out_spec = output_file_spec(config, spec.output_file)
     prefixes = ctx.prefixes
-    key = destination_key(out_spec, prefixes, ctx.env, ctx.jets_partition_label)
-    bucket = _bucket(out_spec, ctx)
+    key = destination_key(out_spec, prefixes, ctx.env)
+    external = external_bucket(out_spec, ctx.env)
+    bucket = _reported_bucket(external, ctx)
+    # **The store is bound here and the write below uses nothing else** (D-253).
+    # `for_bucket` returns `self` for the node's own bucket, so the ordinary
+    # case allocates nothing; what it removes is the state this repair was for,
+    # where the bucket was resolved for the log and the payload went to
+    # `ctx.store` regardless (P9-I134).
+    destination = store.for_bucket(external or None)
     input_keys = tuple(ctx.input_file_keys)
 
     out_format = merged_format(config, out_spec, input_channel)
@@ -673,24 +806,80 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
             key,
         )
 
+    # **The parts are read from the node's own store and the merged object is
+    # written to the destination one.** The two are different objects whenever
+    # the entry names an external bucket, and they are different in Go too: the
+    # main input is *always* read from the JetStore stage area — Go says so in
+    # terms, *sourceBucket is empty since we are always reading from the
+    # jetstore_bucket stage folder* — while the upload takes `externalBucket`.
     payload = _merge_text(store, input_keys, plan, config, out_spec, input_channel)
-    store.put(key, payload)
+    destination.put(key, payload)
     result.bytes_written = len(payload)
     return result
 
 
-def _bucket(out_spec: Any, ctx: Any) -> str:
-    """Where the merged file goes: the entry's bucket, or JetStore's own.
+def external_bucket(out_spec: Any, env: Mapping[str, Any]) -> str:
+    """`StartMergeFiles`' two-case bucket switch — Go's `externalBucket`.
 
-    `StartMergeFiles` treats the literal `jetstore_bucket` as *this* bucket
-    rather than as an external one, which is the same reading
-    `validateOutputChannel` gives it, and an empty bucket means the same thing.
+    Empty means *the node's own bucket*, which is what Go's own variable means
+    and what `awsi.UploadToS3FromReader` substitutes for at the write
+    (`awsi.go:598`). The two cases, at `pipe_executor_merge_files.go:128`:
+
+        switch {
+        case len(outputFileConfig.Bucket) > 0:
+            if outputFileConfig.Bucket != "jetstore_bucket" { externalBucket = … }
+        case inputSp != nil && OutputLocation() == "jetstore_s3_input":
+            externalBucket = inputSp.Bucket()
+        }
+
+    It is `_external_bucket` in `operators/transformations.py` one model over,
+    down to the arm this node cannot take, and the two read the same way for the
+    same reason: **the first case wins even when it assigns nothing**, so an
+    authored `jetstore_bucket` beside a schema provider takes the node's own
+    bucket rather than the provider's.
+
+    The second case is refused by name rather than passed over, because this
+    node reads no schema provider and would resolve to its own bucket where Go
+    resolves to somebody else's — the same file, the wrong account, and nothing
+    reporting it. That is D-242's judgement one pipe kind over.
     """
     declared = str(getattr(out_spec, "bucket", None) or "")
-    if declared and declared != "jetstore_bucket":
-        return expressions.substitute(declared, ctx.env)
+    if declared:
+        if declared == store_module.JETSTORE_BUCKET:
+            return ""
+        return expressions.substitute(declared, env)
+    provider = getattr(out_spec, "schema_provider", None)
+    if provider and output_file_location(out_spec) == "jetstore_s3_input":
+        raise MergeRefused(
+            f"this output_files entry names schema provider {provider!r} with "
+            "output_location 'jetstore_s3_input' and no 'bucket'. "
+            "StartMergeFiles takes the destination bucket from the *input* "
+            "schema provider there (`inputSp.Bucket()`, "
+            "pipe_executor_merge_files.go:131) and this node reads no schema "
+            "provider, so it would write to its own bucket instead — the same "
+            "file, the wrong account. Name the bucket on the output_files "
+            "entry, which is the arm this node does implement."
+        )
+    return ""
+
+
+def _reported_bucket(external: str, ctx: Any) -> str:
+    """The bucket name a log line and `output_location` say, never a destination.
+
+    `StartMergeFiles` computes exactly this and for exactly this purpose —
+    `bucket := externalBucket; if bucket == "" || bucket == "jetstore_bucket" {
+    bucket = awsi.JetStoreBucket() }` — and then uploads to `externalBucket`
+    rather than to it. **Keeping the two apart is the whole of P9-I134**: this
+    function's result was being computed, printed, and then *not written to*,
+    so the log asserted `s3://demo-corpus-bucket/…` over a run that put every
+    merged object in the node's own store and left that bucket holding zero
+    files. A name that is only ever rendered is safe; the repair is that
+    nothing reads it to decide where bytes go.
+    """
+    if external:
+        return external
     settings = getattr(ctx, "settings", None)
-    return str(getattr(settings, "bucket", "") or "jetstore_bucket")
+    return str(getattr(settings, "bucket", "") or store_module.JETSTORE_BUCKET)
 
 
 def _refuse_what_cannot_be_merged(
@@ -834,11 +1023,16 @@ __all__ = [
     "NodeError",
     "Prefixes",
     "destination_key",
+    "external_bucket",
     "header_plan",
     "merged_format",
     "merged_headers",
+    "output_file_location",
+    "output_file_name",
     "output_file_spec",
     "package_headers",
+    "partitions_under",
     "run_merge",
+    "stage_parent_prefix",
     "stage_prefix_for",
 ]
