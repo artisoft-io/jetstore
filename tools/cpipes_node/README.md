@@ -314,7 +314,7 @@ message — or when the single one is not the label this node was told to read,
 which a JetStore starter cannot produce and a driver can. It is strictly
 narrower than Go's refusal: no document the starter passes is refused here.
 
-**And `put_headers_on_first_partition` had zero references too** (**P9-I151**),
+**And `put_headers_on_first_partition` had zero references too** (**P9-I117**),
 which is the same shape in the same operator. Go writes a csv header when
 `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`
 (`s3_device_writter.go:148`); this node wrote one on every node's first part, so
@@ -500,7 +500,7 @@ $ mypy cpipes_node --ignore-missing-imports
 
 **510 → 533 on 2026-09-19**, the whole of the difference being the four destination defects
 P9-T19's corpus run found: **23 new test functions**, twenty for P9-I132, P9-I133, P9-I134 and
-P9-I147 and three for P9-I151. Predicted at 529 and measured at 530 for the first twenty — the miss
+P9-I147 and three for P9-I117. Predicted at 529 and measured at 530 for the first twenty — the miss
 being a Go-oracle test written while writing the others — then predicted at 533 and measured at 533.
 *The 510 is the merged tree's; this paragraph read 507 on the branch that measured it, which is
 P9-I69's subject one figure over.*

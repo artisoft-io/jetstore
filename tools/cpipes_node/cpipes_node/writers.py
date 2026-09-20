@@ -492,7 +492,7 @@ def write_partition(
     exactly `csv`, so `headerless_csv` has none and `parquet` carries its schema
     instead — **and** when `headers_on_this_node`, which is
     `put_headers_on_first_partition` resolved against the node id by the caller,
-    because only the caller has it. See `write_partition_to` and P9-I151.
+    because only the caller has it. See `write_partition_to` and P9-I117.
     """
     sink = io.BytesIO()
     write_partition_to(
@@ -538,7 +538,7 @@ def write_partition_to(
     property of the channel and the node id is a property of the run, so only
     the caller can answer it. `write_partition`'s docstring said exactly that
     before any caller did it, and **nothing in the package read
-    `put_headers_on_first_partition` at all** (P9-I151): measured over the
+    `put_headers_on_first_partition` at all** (P9-I117): measured over the
     corpus document at four nodes, every node wrote a header on its own first
     part and the merged `member` carried **four** header lines over 200 rows
     where Go writes one.

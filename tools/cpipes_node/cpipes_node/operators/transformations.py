@@ -383,7 +383,7 @@ class PartitionWriterPipe:
     batch_size: int = 0
     file_name: str = ""
     #: `put_headers_on_first_partition` resolved against this node's id; see
-    #: `headers_on_this_node` and P9-I151. `True` is the ordinary case — every
+    #: `headers_on_this_node` and P9-I117. `True` is the ordinary case — every
     #: part carries its own header — and is the Go writer's default too.
     headers_on_this_node: bool = True
     rows: list[list[Any]] = field(default_factory=list)
@@ -637,7 +637,7 @@ def headers_on_this_node(output_channel: Any, node_id: int) -> bool:
     what this returns: with the flag set, only node 0 writes a header; with it
     unset, every part carries one, which is what a partition-aware reader wants.
 
-    **The flag had zero references in this package** (**P9-I151**), which is the
+    **The flag had zero references in this package** (**P9-I117**), which is the
     same shape as `jets_partition_key` (P9-I132) in the same operator and was
     found by the same run: at four nodes the merged `member` carried **four**
     header lines over 200 rows where Go writes one, and a csv reader takes the

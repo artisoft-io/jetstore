@@ -1650,7 +1650,7 @@ def test_streaming_under_a_declared_splitter_is_refused(tmp_path: Path):
     assert declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None
 
 
-# --- put_headers_on_first_partition (P9-I151) -------------------------------
+# --- put_headers_on_first_partition (P9-I117) -------------------------------
 
 
 def _part_bytes(tmp_path: Path, node_id: int, **channel: object) -> bytes:
@@ -1678,7 +1678,7 @@ def _part_bytes(tmp_path: Path, node_id: int, **channel: object) -> bytes:
 
 
 def test_put_headers_on_first_partition_puts_them_on_node_zero_alone(tmp_path: Path):
-    """Go's header condition, whose second half nothing here read (P9-I151).
+    """Go's header condition, whose second half nothing here read (P9-I117).
 
     `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`. Both
     nodes are asserted and the assertion is on the **first line's bytes**: node
@@ -1698,9 +1698,11 @@ def test_put_headers_on_first_partition_puts_them_on_node_zero_alone(tmp_path: P
 def test_without_the_flag_every_node_writes_its_own_header(tmp_path: Path):
     """**The negative half.** Unset, every part carries a header, in Go and here.
 
-    That is what a partition-aware reader wants and is the setting on which the
-    two engines have always agreed (P9-I117), so the repair must not have moved
-    it.
+    That is what a partition-aware reader wants, and it is the setting on which
+    the two engines agree even while the flag is unread -- which is why P9-T19's
+    four-node byte comparison was valid. **P9-I117 is the other half**: with the
+    flag *set* the two engines diverged, and the repair must not move this one
+    while fixing that one.
     """
     first = _part_bytes(tmp_path / "n0", 0)
     other = _part_bytes(tmp_path / "n1", 1)
