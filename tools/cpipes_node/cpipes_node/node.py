@@ -295,14 +295,31 @@ def _stage_file_keys(
             "wrote nothing."
         )
     common = config.common_runtime_args
+    label = args.jets_partition_label_or_default()
+    process_name = str(getattr(common, "process_name", "") or "")
+    session_id = str(getattr(common, "session_id", "") or "")
+    step_id = str(getattr(common, "read_step_id", "") or "")
     prefix = merge.stage_prefix_for(
-        process_name=str(getattr(common, "process_name", "") or ""),
-        session_id=str(getattr(common, "session_id", "") or ""),
-        step_id=str(getattr(common, "read_step_id", "") or ""),
-        jets_partition_label=args.jets_partition_label_or_default(),
+        process_name=process_name,
+        session_id=session_id,
+        step_id=step_id,
+        jets_partition_label=label,
         input_channel=pipe.input_channel,
         prefixes=resolved,
         env=environment(config, args),
+    )
+    _refuse_a_partition_this_node_cannot_be_reading(
+        store=store,
+        parent=merge.stage_parent_prefix(
+            process_name=process_name,
+            session_id=session_id,
+            step_id=step_id,
+            input_channel=pipe.input_channel,
+            prefixes=resolved,
+            env=environment(config, args),
+        ),
+        label=label,
+        step_id=step_id,
     )
     keys = tuple(k for k in store.list(prefix) if _has_bytes(store, k))
     log.info(
@@ -313,6 +330,76 @@ def _stage_file_keys(
         prefix,
     )
     return keys
+
+
+def _refuse_a_partition_this_node_cannot_be_reading(
+    store: ObjectStore,
+    parent: str | None,
+    label: str,
+    step_id: str,
+) -> None:
+    """Refuse a merge that would read one partition of several, or none of one.
+
+    # Where this refusal belongs, and why it is here rather than at build time
+
+    Go refuses the first of the two states, and it refuses it in the **starter**:
+    `actions_start_reducing_cp.go:190-197` lists the previous step's stage prefix,
+    counts the `jets_partition=` labels under it, and returns *last step of type
+    'merge_files' requires a single partition, currently has N partitons*. This
+    node is not a starter and **nothing in either repository is** (P9-I136), so
+    a refusal that lives only in a starter is a refusal this node's deployments
+    do not have. A build-time refusal is not available either: a partition
+    writer cannot know how many partitions the step after it will see, and by
+    the time a merge could ask, the writing has happened.
+
+    So the refusal is made where the evidence is — at the merge, from the same
+    listing, by the same rule. **It is strictly narrower than Go's**: the prefix
+    is the one `GetComputePipesPartitions` lists and the label extraction is
+    `jetPartitionRe`, so any document the starter passes this node also passes,
+    and the only documents refused are ones the starter would already have
+    refused. That is the judgement D-224 made for the merge's channel type and
+    D-242 made for a partition writer's bucket, taken a third time.
+
+    **The second state is this node's addition and needs its own argument.**
+    When exactly one partition exists and it is not the one this node was told
+    to read, Go cannot reach the state — its starter passes the label it has
+    just listed — and this node can, because the thing that invoked it may be a
+    driver rather than a JetStore starter. The outcome without a refusal is an
+    **empty merged object**, which is the one result a reader cannot tell from a
+    partition that legitimately wrote nothing; that is `_stage_file_keys`' own
+    reason for refusing an unset stage prefix (P9-I66), one condition over.
+
+    **Nothing is refused when no partition exists at all.** A step whose
+    partition wrote nothing writes no directory, so the set is empty, and
+    `run_merge` already says out loud that it is writing an empty object. A
+    refusal there would turn a legitimate state into a crashed run.
+    """
+    if parent is None:
+        return
+    partitions = merge.partitions_under(store, parent)
+    if not partitions or partitions == (label,):
+        return
+    if len(partitions) > 1:
+        raise StartupError(
+            "error: last step of type 'merge_files' requires a single partition, "
+            f"currently has {len(partitions)} partitons -- {list(partitions)} "
+            f"under '{parent}'. This node was told to read "
+            f"'jets_partition={label}', so it would merge one partition of "
+            f"{len(partitions)} and write 1/{len(partitions)} of "
+            f"{step_id or 'the table'} with nothing in the output saying so. "
+            "The step's partition writers must all write under one label: "
+            "author partition_writer_config.jets_partition_key on each of them "
+            "(actions_start_reducing_cp.go:190)."
+        )
+    raise StartupError(
+        f"error: this merge_files node was told to read 'jets_partition={label}' "
+        f"and the only partition under '{parent}' is "
+        f"'jets_partition={partitions[0]}'. A JetStore starter passes the label "
+        "it has just listed, so whatever invoked this node did not; merging "
+        "would write an empty object, which is indistinguishable from a step "
+        "whose partition legitimately wrote nothing. Pass the label on the "
+        "node's `jp` argument."
+    )
 
 
 def _has_bytes(store: ObjectStore, key: str) -> bool:

@@ -159,9 +159,7 @@ def test_a_malformed_builtin_is_reported_against_its_own_branch():
     field, and `parse_config`'s post-walk refusal — which re-derived that error
     by re-validating the offending node — is deleted.
     """
-    doc = document(
-        [{"type": "partition_writer", "output_channel": MEMORY_CHANNEL}]
-    )
+    doc = document([{"type": "partition_writer", "output_channel": MEMORY_CHANNEL}])
     with pytest.raises(ConfigInvalid) as exc:
         parse_config(json.dumps(doc))
     message = str(exc.value)

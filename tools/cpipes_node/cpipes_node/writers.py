@@ -484,13 +484,15 @@ def write_partition(
     quote_all: bool = False,
     no_quotes: bool = False,
     batch_size: int = 0,
+    headers_on_this_node: bool = True,
 ) -> bytes:
     """One partition's bytes, by writer type. **The one branch on the type.**
 
-    The header rule is the Go writer's and is not a parameter: a header is
-    written when the format is exactly `csv`, so `headerless_csv` has none and
-    `parquet` carries its schema instead. `put_headers_on_first_partition` is
-    the caller's, because it needs the node id.
+    The header rule is the Go writer's: a header is written when the format is
+    exactly `csv`, so `headerless_csv` has none and `parquet` carries its schema
+    instead — **and** when `headers_on_this_node`, which is
+    `put_headers_on_first_partition` resolved against the node id by the caller,
+    because only the caller has it. See `write_partition_to` and P9-I117.
     """
     sink = io.BytesIO()
     write_partition_to(
@@ -504,6 +506,7 @@ def write_partition(
         quote_all=quote_all,
         no_quotes=no_quotes,
         batch_size=batch_size,
+        headers_on_this_node=headers_on_this_node,
     )
     return sink.getvalue()
 
@@ -520,6 +523,7 @@ def write_partition_to(
     quote_all: bool = False,
     no_quotes: bool = False,
     batch_size: int = 0,
+    headers_on_this_node: bool = True,
 ) -> None:
     """One partition into `sink`, by writer type. **The one branch on the type.**
 
@@ -527,6 +531,17 @@ def write_partition_to(
     and `stream_data_out` cannot select a different encoder by accident — which
     is the failure mode a second copy of this switch would have, silently, in
     the one place X7 compares bytes.
+
+    `headers_on_this_node` is the second half of Go's header condition —
+    `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`
+    (`s3_device_writter.go:148`). It is a parameter because the format is a
+    property of the channel and the node id is a property of the run, so only
+    the caller can answer it. `write_partition`'s docstring said exactly that
+    before any caller did it, and **nothing in the package read
+    `put_headers_on_first_partition` at all** (P9-I117): measured over the
+    corpus document at four nodes, every node wrote a header on its own first
+    part and the merged `member` carried **four** header lines over 200 rows
+    where Go writes one.
     """
     check_device_writer(device_writer_type, output_format)
     if device_writer_type == "parquet_writer":
@@ -537,7 +552,7 @@ def write_partition_to(
         sink,
         columns,
         rows,
-        header=output_format == "csv",
+        header=output_format == "csv" and headers_on_this_node,
         delimiter=delimiter,
         quote_all=quote_all,
         no_quotes=no_quotes,

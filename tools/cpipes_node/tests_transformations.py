@@ -1042,6 +1042,12 @@ def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
     `<stage>/process_name=<p>/session_id=<s>/step_id=<w>/jets_partition=<label>`
     is `NewPartitionWriterTransformationPipe`'s first case verbatim, and
     `merge_files` assembles exactly that shape.
+
+    The document authors `jets_partition_key: "$JETS_PARTITION_LABEL"` because
+    that is what **53 of the 74 authored keys** in `workspaces/` spell and it is
+    the one that resolves to the node's own label. Before P9-I132's repair this
+    test passed over a document authoring *no* key, which is why it could not
+    tell the key being honoured from the key being ignored.
     """
     from cpipes_node.merge import Prefixes
 
@@ -1053,7 +1059,8 @@ def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
             "format": "csv",
             "compression": "none",
             "write_step_id": "reduce01",
-        }
+        },
+        jets_partition_key="$JETS_PARTITION_LABEL",
     )
     doc["common_runtime_args"]["process_name"] = "CorpusProcess"
     _, store = run_writer(doc, tmp_path, prefixes=Prefixes(stage="stage"))
@@ -1061,6 +1068,104 @@ def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
         "stage/process_name=CorpusProcess/session_id=s1/step_id=reduce01/"
         "jets_partition=0000P/"
     )
+
+
+# --- jets_partition_key (P9-I132, D-250) ------------------------------------
+
+
+def _stage_keys(tmp_path: Path, node_id: int, **config: object) -> list[str]:
+    """One node's stage keys under an authored (or absent) partition key."""
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+            "write_step_id": "reduce01",
+        },
+        **config,
+    )
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    _, store = run_writer(
+        doc, tmp_path, node_id=node_id, prefixes=Prefixes(stage="stage")
+    )
+    return list(store.list("stage/"))
+
+
+def test_an_authored_jets_partition_key_is_the_label_every_node_writes_under(
+    tmp_path: Path,
+):
+    """The defect, from the direction that loses data (P9-I132).
+
+    A key naming a fixed label makes **every** node write one partition, which
+    is what the step after it needs: `actions_start_reducing_cp.go:190` refuses
+    a merge whose input resolves to more than one. Two nodes, two roots, and the
+    assertion is that the two roots are the **same literal** — asserting only
+    that each contains `member_parts` would pass over a node that appended its
+    own id.
+    """
+    first = _stage_keys(tmp_path / "n0", 0, jets_partition_key="member_parts")
+    second = _stage_keys(tmp_path / "n1", 1, jets_partition_key="member_parts")
+    root = (
+        "stage/process_name=/session_id=s1/step_id=reduce01/jets_partition=member_parts"
+    )
+    assert [k.rsplit("/", 1)[0] for k in first] == [root]
+    assert [k.rsplit("/", 1)[0] for k in second] == [root]
+
+
+def test_without_a_key_two_nodes_write_two_partitions_and_the_label_is_gos(
+    tmp_path: Path,
+):
+    """The negative half, and it is the one that pins a divergence shut.
+
+    With no key Go renders the nil one — `fmt.Sprintf("%vP", nil)` — so the
+    label is `<nil>P` at **every** node. That is ugly, constant, and what Go
+    writes; the node wrote `%04dP` of its own id instead, which is N partitions
+    where Go has one. Both nodes are asserted, because a label that were still
+    per-node would satisfy an assertion made at one.
+    """
+    first = _stage_keys(tmp_path / "n0", 0)
+    second = _stage_keys(tmp_path / "n1", 3)
+    assert "jets_partition=<nil>P/" in first[0]
+    assert "jets_partition=<nil>P/" in second[0]
+    assert "0000P" not in first[0]
+    assert "0003P" not in second[0]
+
+
+def test_make_jets_partition_label_is_gos_switch_arm_for_arm():
+    """`MakeJetsPartitionLabel` (`pipe_transformation_partition_writer.go:66`).
+
+    The six integer arms collapse to one in Python and are asserted through the
+    format rather than through a literal, so a change to the `%04dP` width fails
+    here. `True` is asserted apart: Go has no `bool` arm, and Python's `bool`
+    is an `int`, so without the exclusion `True` would render `0001P`.
+    """
+    from cpipes_node.operators.transformations import (
+        NIL_PARTITION_LABEL,
+        make_jets_partition_label,
+    )
+
+    assert make_jets_partition_label(7) == "0007P"
+    assert make_jets_partition_label(12345) == "12345P"
+    assert make_jets_partition_label("member_parts") == "member_parts"
+    assert make_jets_partition_label("") == ""
+    assert make_jets_partition_label(None) == NIL_PARTITION_LABEL == "<nil>P"
+    assert make_jets_partition_label(True) == "TrueP"
+
+
+def test_a_jets_partition_key_is_environment_substituted(tmp_path: Path):
+    """`ReplaceEnvVars(*config.JetsPartitionKey, ctx.env)`, before the label.
+
+    Asserted through `$JETS_PARTITION_LABEL`, which is the key 53 authored
+    writers spell and the one whose substitution makes the repaired node agree
+    with the old hard-coded behaviour — so this is the test that says the 53
+    did not regress.
+    """
+    keys = _stage_keys(tmp_path, 5, jets_partition_key="$JETS_PARTITION_LABEL")
+    assert "jets_partition=0005P/" in keys[0]
 
 
 def test_a_stage_channel_naming_neither_step_nor_file_key_is_refused(tmp_path: Path):
@@ -1543,3 +1648,80 @@ def test_streaming_under_a_declared_splitter_is_refused(tmp_path: Path):
     finally:
         del scope_module._REGISTRY[key]
     assert declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None
+
+
+# --- put_headers_on_first_partition (P9-I117) -------------------------------
+
+
+def _part_bytes(tmp_path: Path, node_id: int, **channel: object) -> bytes:
+    from cpipes_node.merge import Prefixes
+
+    doc = partition_writer_document(
+        {
+            "name": "out",
+            "type": "stage",
+            "channel_spec_name": "out",
+            "format": "csv",
+            "compression": "none",
+            "write_step_id": "reduce01",
+            **channel,
+        },
+        jets_partition_key="shared",
+    )
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    _, store = run_writer(
+        doc, tmp_path, node_id=node_id, prefixes=Prefixes(stage="stage")
+    )
+    keys = store.list("stage/")
+    assert len(keys) == 1
+    return store.get(keys[0])
+
+
+def test_put_headers_on_first_partition_puts_them_on_node_zero_alone(tmp_path: Path):
+    """Go's header condition, whose second half nothing here read (P9-I117).
+
+    `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`. Both
+    nodes are asserted and the assertion is on the **first line's bytes**: node
+    0's part opens with the header and node 1's opens with a data row. Measured
+    before the repair over the corpus document at four nodes, the merged
+    `member` carried four header lines over 200 rows, and a csv reader takes
+    three of them as data.
+    """
+    first = _part_bytes(tmp_path / "n0", 0, put_headers_on_first_partition=True)
+    other = _part_bytes(tmp_path / "n1", 1, put_headers_on_first_partition=True)
+    assert first.splitlines()[0] == b"a,b"
+    assert other.splitlines()[0] == b","
+    # Same row count either way: the flag moves a header line and no data.
+    assert len(first.splitlines()) == len(other.splitlines()) + 1
+
+
+def test_without_the_flag_every_node_writes_its_own_header(tmp_path: Path):
+    """**The negative half.** Unset, every part carries a header, in Go and here.
+
+    That is what a partition-aware reader wants, and it is the setting on which
+    the two engines agree even while the flag is unread -- which is why P9-T19's
+    four-node byte comparison was valid. **P9-I117 is the other half**: with the
+    flag *set* the two engines diverged, and the repair must not move this one
+    while fixing that one.
+    """
+    first = _part_bytes(tmp_path / "n0", 0)
+    other = _part_bytes(tmp_path / "n1", 1)
+    assert first.splitlines()[0] == b"a,b"
+    assert other.splitlines()[0] == b"a,b"
+
+
+def test_the_go_header_condition_is_still_the_one_this_node_mirrors():
+    """The oracle: the condition read off `s3_device_writter.go`.
+
+    Transcribing a two-clause condition is only safe while the condition exists,
+    and this one is a *silent* divergence when it drifts: a header line in the
+    middle of a merged csv is accepted by every downstream reader.
+    """
+    from conftest import go_source
+
+    source = go_source("jets/compute_pipes/s3_device_writter.go")
+    assert 'if ctx.spec.OutputChannel.Format == "csv" &&' in source
+    assert (
+        "(!ctx.spec.OutputChannel.PutHeadersOnFirstPartition || ctx.nodeId == 0)"
+        in source
+    )

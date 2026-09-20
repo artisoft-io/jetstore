@@ -33,6 +33,7 @@ from cpipes_node.merge import HeaderPlan, MergeInvalid, MergeRefused, Prefixes
 from cpipes_node.node import coordinate
 from cpipes_node.scope import TokenKind, declaration, declarations
 from cpipes_node.store import Local
+from cpipes_node.writers import WriterUnsupported
 
 MERGE_GO = "jets/compute_pipes/pipe_executor_merge_files.go"
 
@@ -111,7 +112,13 @@ def stage_key(name: str, label: str = "0000P") -> str:
 
 
 def run_merge(
-    tmp_path: Path, document: dict, parts: dict[str, bytes], sub: str = "bucket", **kw
+    tmp_path: Path,
+    document: dict,
+    parts: dict[str, bytes],
+    sub: str = "bucket",
+    buckets: dict[str, Path] | None = None,
+    env_extra: dict[str, object] | None = None,
+    **kw,
 ):
     """Run one merge through `coordinate`, against a directory for a bucket.
 
@@ -119,8 +126,18 @@ def run_merge(
     thing under test includes the scope gate accepting a `stage` channel on this
     pipe kind and `_file_keys` resolving the listing — both of which a direct
     call would skip, and both of which are D-224.
+
+    `buckets` maps an **external** bucket name to the directory standing in for
+    it, which is `Local.buckets` and is the seam D-242 put there: a local run
+    that quietly wrote another account's bucket under this one would pass every
+    byte comparison while hiding the destination a deployed run gets wrong.
+    `env_extra` goes on the main-input schema provider's `env`, which is where
+    `node.environment` reads a run's environment from.
     """
-    store = Local(tmp_path / sub)
+    if env_extra:
+        provider = document["schema_providers"][0]
+        provider["env"] = {**(provider.get("env") or {}), **env_extra}
+    store = Local(tmp_path / sub, buckets=buckets or {})
     for name, data in parts.items():
         store.put(stage_key(name), data)
     config = tmp_path / f"{sub}.pc.json"
@@ -388,7 +405,7 @@ def test_a_non_comma_delimiter_is_a_code_point_in_the_document():
 def test_the_destination_is_the_key_prefix_and_the_file_name():
     config = _parsed(merge_document())
     assert (
-        merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+        merge.destination_key(config.output_files[0], PREFIXES, {})
         == "assembled/member.csv"
     )
 
@@ -404,7 +421,7 @@ def test_an_output_location_jetstore_s3_output_rewrites_an_input_area_prefix():
         merge_document(output_file={"key_prefix": "jetstore/input/client=x"})
     )
     assert (
-        merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+        merge.destination_key(config.output_files[0], PREFIXES, {})
         == "jetstore/output/client=x/member.csv"
     )
 
@@ -416,7 +433,7 @@ def test_the_stage_and_schema_event_areas_prefix_the_key_rather_than_rewrite_it(
     ):
         config = _parsed(merge_document(output_file={"output_location": location}))
         assert (
-            merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+            merge.destination_key(config.output_files[0], PREFIXES, {})
             == f"{prefix}/assembled/member.csv"
         )
 
@@ -426,7 +443,7 @@ def test_a_custom_output_location_replaces_the_prefix_and_the_file_name():
         merge_document(output_file={"output_location": "elsewhere/whole.csv"})
     )
     assert (
-        merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+        merge.destination_key(config.output_files[0], PREFIXES, {})
         == "elsewhere/whole.csv"
     )
 
@@ -436,12 +453,25 @@ def test_an_empty_output_location_defaults_to_the_output_area():
     del document["output_files"][0]["output_location"]
     config = _parsed(document)
     assert (
-        merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+        merge.destination_key(config.output_files[0], PREFIXES, {})
         == "assembled/member.csv"
     )
 
 
-def test_the_current_partition_label_and_the_environment_both_substitute():
+def test_the_environment_substitutes_and_the_partition_label_is_empty():
+    """`StartMergeFiles` passes the **empty** label to `doSubstitution`, twice.
+
+    `doSubstitution(outputFileConfig.KeyPrefix, "", …)` and
+    `doSubstitution("$PATH_FILE_KEY", "", …)` — where the partition writer
+    passes its own label (`pipe_transformation_partition_writer.go:495`). So
+    `$CURRENT_PARTITION_LABEL` in a merge's `key_prefix` resolves to nothing in
+    Go, and this node was resolving it to the merge node's `jp`: a destination
+    divergence on a key no authored document reaches today (P9-I147).
+
+    Asserted as the literal key, both halves — the environment reference
+    substitutes and the partition reference does not — because asserting only
+    the first would pass with either reading.
+    """
     config = _parsed(
         merge_document(
             output_file={
@@ -452,9 +482,10 @@ def test_the_current_partition_label_and_the_environment_both_substitute():
     )
     env = {"$PATH_FILE_KEY": "client=x", "$ENTITY": "member"}
     assert (
-        merge.destination_key(config.output_files[0], PREFIXES, env, "0007P")
-        == "client=x/0007P/member.csv"
+        merge.destination_key(config.output_files[0], PREFIXES, env)
+        == "client=x//member.csv"
     )
+    assert merge.MERGE_PARTITION_LABEL == ""
 
 
 def test_an_unresolved_file_name_is_refused_rather_than_written_literally():
@@ -467,7 +498,7 @@ def test_an_unresolved_file_name_is_refused_rather_than_written_literally():
     del document["output_files"][0]["file_name"]
     config = _parsed(document)
     with pytest.raises(MergeInvalid, match="missing file_name"):
-        merge.destination_key(config.output_files[0], PREFIXES, {}, "0000P")
+        merge.destination_key(config.output_files[0], PREFIXES, {})
 
 
 def test_an_output_files_entry_the_pipe_does_not_name_is_refused():
@@ -944,3 +975,357 @@ def test_a_merge_step_is_validated_to_run_on_exactly_one_partition():
     assert "ExtractPartitionLabelFromS3Key" in utils
     # The merge's own listing is partition-scoped, which is the other half.
     assert "jets_partition=%s" in go_source("jets/compute_pipes/actions_s3_utils.go")
+
+
+# --- the destination's two accessors (P9-I133, D-252) -----------------------
+
+
+def test_the_file_name_comes_from_name_when_the_document_spells_name():
+    """`OutputFileSpec.Name()`: `name` (`FileName2`) wins over `file_name`.
+
+    The **literal key** is asserted and not a substring, because the defect this
+    is about resolved to a *different* literal key and every reader accepted it.
+    Measured over the corpus document on 2026-09-19: its twelve `output_files`
+    entries all spell `name`, `file_name` alone resolved none of them, all
+    twelve merges landed on `$NAME_FILE_KEY`, and eleven tables were destroyed.
+    """
+    document = merge_document()
+    del document["output_files"][0]["file_name"]
+    document["output_files"][0]["name"] = "member"
+    config = _parsed(document)
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+        == "assembled/member"
+    )
+
+
+def test_name_wins_over_file_name_when_a_document_carries_both():
+    """Go's accessor returns `FileName2` whenever it is non-empty, and stops."""
+    document = merge_document(output_file={"name": "chosen.csv"})
+    config = _parsed(document)
+    assert document["output_files"][0]["file_name"] == "member.csv"
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+        == "assembled/chosen.csv"
+    )
+
+
+def test_a_document_spelling_file_name_alone_still_resolves_to_file_name():
+    """**The negative half**, without which the repair is an over-reach.
+
+    `merge_document`'s own fixture spells `file_name` — which is why nothing in
+    this module could see P9-I133 — so this is the assertion that honouring
+    `name` did not stop honouring the field Go falls back to.
+    """
+    config = _parsed(merge_document())
+    assert merge.output_file_name(config.output_files[0]) == "member.csv"
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+        == "assembled/member.csv"
+    )
+
+
+def test_the_output_location_comes_from_file_key_when_output_location_is_absent():
+    """`OutputFileSpec.OutputLocation()`: `output_location`, then `file_key`.
+
+    The same accessor one field over, and asserted in both directions: a
+    document spelling `file_key` reaches the custom-location arm, and one
+    spelling both takes `output_location`.
+    """
+    document = merge_document()
+    del document["output_files"][0]["output_location"]
+    document["output_files"][0]["file_key"] = "elsewhere/whole.csv"
+    config = _parsed(document)
+    assert merge.output_file_location(config.output_files[0]) == "elsewhere/whole.csv"
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+        == "elsewhere/whole.csv"
+    )
+
+    both = merge_document(output_file={"file_key": "elsewhere/whole.csv"})
+    config = _parsed(both)
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+        == "assembled/member.csv"
+    )
+
+
+def test_the_go_accessors_this_node_mirrors_are_still_a_pair_of_two_json_names():
+    """The oracle: `Name()` and `OutputLocation()` read off `pipes_model.go`.
+
+    Transcribing an accessor is only safe while the accessor exists. This reads
+    the Go source's own struct tags and its two two-line bodies, so a rename or
+    a third alias on the other side of the seam goes red here.
+    """
+    model = go_source("jets/compute_pipes/pipes_model.go")
+    block = model[model.index("type OutputFileSpec struct") :][:2000]
+    assert 'FileName2          string   `json:"name,omitempty"`' in block
+    assert 'FileKey2           string   `json:"output_location,omitempty"`' in block
+    assert (
+        "if len(r.FileName2) > 0 {\n\t\treturn r.FileName2\n\t}\n\treturn r.FileName"
+        in block
+    )
+    assert (
+        "if len(r.FileKey2) > 0 {\n\t\treturn r.FileKey2\n\t}\n\treturn r.FileKey"
+        in block
+    )
+
+
+# --- the bucket the merged object lands in (P9-I134, D-253) -----------------
+
+
+def test_the_merged_object_lands_in_the_external_bucket_the_entry_names(
+    tmp_path: Path,
+):
+    """The defect, measured: the log said one bucket and the bytes went to another.
+
+    Both halves asserted, and both as **literals**: the object is in the external
+    directory at the resolved key, and the node's own store holds nothing but the
+    part file it read. Before the repair the run logged
+    `s3://demo-corpus-bucket/…` over a corpus in which that bucket held **zero**
+    files and every merged object sat in the node's own store.
+    """
+    other = tmp_path / "other"
+    document = merge_document(output_file={"bucket": "${OUT}"})
+    store, _ = run_merge(
+        tmp_path,
+        document,
+        {"p0": b"a,b\n1,2\n"},
+        buckets={"corpus-out": other},
+        env_extra={"${OUT}": "corpus-out"},
+    )
+    assert Local(other).list("") == ("assembled/member.csv",)
+    assert Local(other).get("assembled/member.csv") == b"a,b\n1,2\n"
+    assert "assembled/member.csv" not in store.list("")
+
+
+def test_an_entry_naming_no_bucket_writes_to_the_nodes_own_store(tmp_path: Path):
+    """**The negative half.** An absent bucket is the node's own, in Go and here."""
+    other = tmp_path / "other"
+    store, _ = run_merge(
+        tmp_path, merge_document(), {"p0": b"a,b\n1,2\n"}, buckets={"corpus-out": other}
+    )
+    assert "assembled/member.csv" in store.list("")
+    assert Local(other).list("") == ()
+
+
+def test_the_jetstore_bucket_sentinel_is_the_nodes_own_store(tmp_path: Path):
+    """The second spelling of *the node's own*, honoured as Go honours it.
+
+    `case len(Bucket) > 0:` wins the switch and then assigns nothing, so a
+    document naming `jetstore_bucket` takes the node's own bucket — and a node
+    that read the field without the sentinel would write to a bucket *called*
+    `jetstore_bucket`.
+    """
+    other = tmp_path / "other"
+    document = merge_document(output_file={"bucket": "jetstore_bucket"})
+    store, _ = run_merge(
+        tmp_path, document, {"p0": b"a,b\n1,2\n"}, buckets={"corpus-out": other}
+    )
+    assert "assembled/member.csv" in store.list("")
+    assert Local(other).list("") == ()
+
+
+def test_a_bucket_the_local_store_does_not_stand_in_for_is_refused(tmp_path: Path):
+    """A local run may not quietly write another account's bucket under this one."""
+    from cpipes_node.errors import ObjectStoreError
+
+    document = merge_document(output_file={"bucket": "somebody-elses"})
+    with pytest.raises(ObjectStoreError, match="somebody-elses"):
+        run_merge(tmp_path, document, {"p0": b"a,b\n1,2\n"})
+
+
+def test_the_schema_providers_bucket_arm_is_refused_by_name(tmp_path: Path):
+    """Go's second bucket case reads a schema provider this node does not have.
+
+    Refused rather than resolved to the node's own bucket, which would be the
+    same file in the wrong account with nothing reporting it — D-242's judgement
+    one pipe kind over.
+    """
+    document = merge_document(
+        output_file={"output_location": "jetstore_s3_input", "schema_provider": "main"}
+    )
+    assert "bucket" not in document["output_files"][0]
+    with pytest.raises(MergeRefused, match="schema provider"):
+        run_merge(tmp_path, document, {"p0": b"a,b\n1,2\n"})
+
+
+def test_the_two_readings_of_gos_bucket_switch_agree_on_every_input():
+    """One Go switch, two models, and an instrument that holds them together.
+
+    `merge.external_bucket` reads an `OutputFileSpec` and
+    `transformations._external_bucket` reads an `OutputChannelConfig`; they are
+    the same six lines of `pipe_transformation_partition_writer.go:485` and
+    `pipe_executor_merge_files.go:128`. Two transcriptions are two chances to
+    disagree, so this drives both over the same table and asserts they answer
+    the same thing — including that both *refuse* the schema-provider arm rather
+    than one refusing and one resolving.
+    """
+    from cpipes_node.operators.transformations import _external_bucket
+
+    class Spec:
+        def __init__(self, bucket=None, schema_provider=None, location=None):
+            self.bucket = bucket
+            self.schema_provider = schema_provider
+            self.output_location = location
+            self.file_key = None
+            self.file_name = None
+            self.name = None
+
+    environment = {"${OUT}": "resolved-bucket"}
+    table = [
+        (None, None, "jetstore_s3_output"),
+        ("", None, "jetstore_s3_output"),
+        ("jetstore_bucket", None, "jetstore_s3_output"),
+        ("jetstore_bucket", "main", "jetstore_s3_input"),
+        ("named", None, "jetstore_s3_output"),
+        ("${OUT}", None, "jetstore_s3_output"),
+        ("${OUT}", "main", "jetstore_s3_input"),
+        (None, "main", "jetstore_s3_output"),
+        (None, None, "jetstore_s3_input"),
+        (None, "main", "jetstore_s3_input"),
+    ]
+    refused = 0
+    for bucket, provider, location in table:
+        spec = Spec(bucket, provider, location)
+        try:
+            mine = merge.external_bucket(spec, environment)
+        except MergeRefused:
+            mine = "<refused>"
+        try:
+            theirs = _external_bucket(spec, location, environment)
+        except WriterUnsupported:  # the same arm, the other model's error class
+            theirs = "<refused>"
+        assert mine == theirs, (bucket, provider, location, mine, theirs)
+        refused += mine == "<refused>"
+    # The table must actually reach the refusing arm, or this proves nothing:
+    # one row does -- a schema provider, `jetstore_s3_input`, and no bucket.
+    assert refused == 1
+
+
+# --- the partition a merge is reading (P9-I132, D-251) ----------------------
+
+
+def test_a_merge_over_more_than_one_partition_is_refused_with_gos_message(
+    tmp_path: Path,
+):
+    """`actions_start_reducing_cp.go:190-197`, made where the evidence is.
+
+    Four partitions under the step's prefix and this node reading one of them is
+    the state P9-I132 produced at four nodes: it merged 1/4 of every table, said
+    *merged 1 part file(s)*, and exited 0. Go's starter refuses it; this node is
+    not a starter and nothing in either repository is (P9-I136), so the refusal
+    is made here from the same listing.
+    """
+    store = Local(tmp_path / "bucket")
+    for label in ("0000P", "0001P", "0002P", "0003P"):
+        store.put(stage_key("p0", label), b"a,b\n1,2\n")
+    config = tmp_path / "m.pc.json"
+    config.write_text(json.dumps(merge_document()))
+    with pytest.raises(StartupError, match="requires a single partition"):
+        coordinate(
+            NodeArgs(id=0, pe=1),
+            FileConfigSource(config),
+            store=store,
+            prefixes=PREFIXES,
+        )
+
+
+def test_one_partition_that_is_not_this_nodes_is_refused_rather_than_merged_empty(
+    tmp_path: Path,
+):
+    """The state a starter cannot reach and a driver can.
+
+    Every node wrote under `member_parts` and this node was told to read
+    `0000P`: Go's starter would have passed the label it listed, so the only way
+    here is an invoker that did not. Merging would write an **empty** object,
+    which is exactly what a step whose partition wrote nothing writes — the
+    distinction `_stage_file_keys` already refuses to lose (P9-I66).
+    """
+    store = Local(tmp_path / "bucket")
+    store.put(stage_key("p0", "member_parts"), b"a,b\n1,2\n")
+    config = tmp_path / "m.pc.json"
+    config.write_text(json.dumps(merge_document()))
+    with pytest.raises(StartupError, match="member_parts"):
+        coordinate(
+            NodeArgs(id=0, pe=1),
+            FileConfigSource(config),
+            store=store,
+            prefixes=PREFIXES,
+        )
+
+
+def test_the_partition_this_node_was_told_to_read_is_merged_without_complaint(
+    tmp_path: Path,
+):
+    """**The negative half**: one partition, and it is this node's.
+
+    Asserted by the bytes rather than by the absence of an exception, so a
+    refusal that fired and was swallowed could not pass.
+    """
+    store = Local(tmp_path / "bucket")
+    store.put(stage_key("p0", "member_parts"), b"a,b\n1,2\n")
+    config = tmp_path / "m.pc.json"
+    config.write_text(json.dumps(merge_document()))
+    coordinate(
+        NodeArgs(id=0, jp="member_parts", pe=1),
+        FileConfigSource(config),
+        store=store,
+        prefixes=PREFIXES,
+    )
+    assert store.get("assembled/member.csv") == b"a,b\n1,2\n"
+
+
+def test_no_partition_at_all_is_not_this_refusal(tmp_path: Path):
+    """A step whose partition wrote nothing writes no directory, so the set is empty.
+
+    The partition check does **not** fire there, and refusing would turn a
+    legitimate state into a crashed run (P5-I19's lesson in the
+    healthcare_corpus register). What does fire over a zero-part csv merge is
+    Go's own header switch, whose six arms all require at least one file and
+    whose `default:` is the message asserted here — so this pins *which* refusal
+    a caller gets, which is the whole point: a test asserting only that
+    something was raised would pass if the partition check had fired instead.
+    """
+    with pytest.raises(MergeInvalid, match="unexpected case when determining"):
+        run_merge(tmp_path, merge_document(), {})
+
+
+def test_the_file_key_arm_is_never_refused_because_it_reads_every_partition(
+    tmp_path: Path,
+):
+    """`stage_parent_prefix` returns `None` there, and that is not a gap.
+
+    With a `file_key` on the input channel `GetS3FileKeys` lists
+    `<stage>/<file_key>` — the parent — so the merge already reads every
+    partition under it and none can be lost. A refusal there would refuse a
+    document that cannot exhibit the defect.
+    """
+    store = Local(tmp_path / "bucket")
+    store.put(f"{PREFIXES.stage}/shared/jets_partition=0000P/p0", b"a,b\n1,2\n")
+    store.put(f"{PREFIXES.stage}/shared/jets_partition=0001P/p0", b"a,b\n3,4\n")
+    document = merge_document(channel_extra={"file_key": "shared"})
+    config = tmp_path / "m.pc.json"
+    config.write_text(json.dumps(document))
+    coordinate(
+        NodeArgs(id=0, pe=1),
+        FileConfigSource(config),
+        store=store,
+        prefixes=PREFIXES,
+    )
+    merged = store.get("assembled/member.csv")
+    # Two csv parts, so the header switch writes the header line once and skips
+    # each part's own -- which is the arm being exercised incidentally here, and
+    # is why the merged bytes are not the two parts concatenated.
+    assert merged == b"a,b\n1,2\n3,4\n"
+    assert (
+        merge.stage_parent_prefix(
+            process_name="corpus",
+            session_id="s1",
+            step_id="writers01",
+            input_channel=_parsed(document).pipes_config[0].input_channel,
+            prefixes=PREFIXES,
+            env={},
+        )
+        is None
+    )

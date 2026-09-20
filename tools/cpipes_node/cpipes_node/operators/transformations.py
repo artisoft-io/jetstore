@@ -64,6 +64,7 @@ or when the run was given no object store at all.
 from __future__ import annotations
 
 import io
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import IO, Any
@@ -83,6 +84,8 @@ from ..runtime import (
 )
 from ..scope import Operator, TokenKind, declaration
 from ..store import ObjectStore
+
+log = logging.getLogger(__name__)
 
 #: `map_record_config.on_error`'s three values, and the default the Go builder
 #: applies. `fail_on_error` is the legacy spelling of `fail` and is honoured only
@@ -379,6 +382,10 @@ class PartitionWriterPipe:
     no_quotes: bool = False
     batch_size: int = 0
     file_name: str = ""
+    #: `put_headers_on_first_partition` resolved against this node's id; see
+    #: `headers_on_this_node` and P9-I117. `True` is the ordinary case — every
+    #: part carries its own header — and is the Go writer's default too.
+    headers_on_this_node: bool = True
     rows: list[list[Any]] = field(default_factory=list)
     keys_written: list[str] = field(default_factory=list)
     total_rows: int = 0
@@ -464,6 +471,7 @@ class PartitionWriterPipe:
                 quote_all=self.quote_all,
                 no_quotes=self.no_quotes,
                 batch_size=self.batch_size,
+                headers_on_this_node=self.headers_on_this_node,
             )
 
         if self.stream_data_out:
@@ -530,7 +538,9 @@ class PartitionWriter(Transformation):
                 "bucket nor a local directory was named."
             )
         output_channel = getattr(builder.spec, "output_channel", None)
-        key_prefix, file_name, bucket = _partition_destination(builder, output_channel)
+        key_prefix, file_name, bucket = _partition_destination(
+            builder, output_channel, args.config
+        )
         return cls.build_from(
             env,
             args,
@@ -615,10 +625,167 @@ class PartitionWriter(Transformation):
             no_quotes=settings["no_quotes"],
             batch_size=settings["batch_size"],
             file_name=file_name or settings["file_name"],
+            headers_on_this_node=headers_on_this_node(output_channel, node_id),
         )
 
 
-def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str, str]:
+def headers_on_this_node(output_channel: Any, node_id: int) -> bool:
+    """`put_headers_on_first_partition` resolved against the node id.
+
+    Go's condition is one line — `Format == "csv" && (!PutHeadersOnFirstPartition
+    || nodeId == 0)` (`s3_device_writter.go:148`) — and the second half of it is
+    what this returns: with the flag set, only node 0 writes a header; with it
+    unset, every part carries one, which is what a partition-aware reader wants.
+
+    **The flag had zero references in this package** (**P9-I117**), which is the
+    same shape as `jets_partition_key` (P9-I132) in the same operator and was
+    found by the same run: at four nodes the merged `member` carried **four**
+    header lines over 200 rows where Go writes one, and a csv reader takes the
+    other three as data. The document that authors the flag is the one that then
+    merges with `first_partition_has_headers`, so the two go wrong together —
+    the merge's header switch takes the *copy the parts as they are* arm
+    precisely **because** the document promised only the first would have a
+    header.
+
+    Only the caller can answer this, which `write_partition`'s docstring said
+    before any caller did it: the format is a property of the channel and the
+    node id is a property of the run.
+    """
+    if not getattr(output_channel, "put_headers_on_first_partition", False):
+        return True
+    return node_id == 0
+
+
+#: `MakeJetsPartitionLabel`'s `%04dP` format, which the integer arms of its
+#: switch share (`pipe_transformation_partition_writer.go:66`). It is the
+#: `jets_partition=NNNNP` path segment a partitioned output is written under, so
+#: it is a destination and not a display format.
+PARTITION_LABEL_FORMAT = "{:04d}P"
+
+#: What `fmt.Sprintf("%vP", nil)` renders, which is the label
+#: `MakeJetsPartitionLabel`'s `default:` arm returns when no jets partition key
+#: reached it. Transcribed rather than invented — see `make_jets_partition_label`.
+NIL_PARTITION_LABEL = "<nil>P"
+
+
+def make_jets_partition_label(jets_partition_key: Any) -> str:
+    """`MakeJetsPartitionLabel` (`pipe_transformation_partition_writer.go:66`).
+
+    Six integer kinds format `%04dP`, a string is itself, and anything else —
+    `nil` included — is `%vP`. Python has one integer type, so the six arms are
+    one; `bool` is excluded because Go has no arm for it and `True` would
+    otherwise render `0001P`.
+    """
+    if isinstance(jets_partition_key, bool):
+        return f"{jets_partition_key}P"
+    if isinstance(jets_partition_key, int):
+        return PARTITION_LABEL_FORMAT.format(jets_partition_key)
+    if isinstance(jets_partition_key, str):
+        return jets_partition_key
+    if jets_partition_key is None:
+        return NIL_PARTITION_LABEL
+    return f"{jets_partition_key}P"
+
+
+def partition_label(builder: Any, config: Any) -> str:
+    """The `jets_partition=` segment this writer writes under.
+
+    # What was here before, and what it cost
+
+    This node read `node.jets_partition_label` — the node's own `jp`, defaulted
+    to `%04dP` of the node id — and **`jets_partition_key` had zero references in
+    the package** (**P9-I132**). That is right for the 53 authored writers that
+    spell the key `$JETS_PARTITION_LABEL`, because substitution resolves it to
+    exactly that value, and wrong for every other document: a key naming a fixed
+    label makes all N nodes write under **one** partition, and the node wrote
+    under N instead. Measured at four nodes on the corpus document: four
+    partitions where Go has one, so the merge that follows read one of them and
+    wrote **1/N of every household-scoped table** — `member` 10,926 bytes of
+    45,604 — logging *merged 1 part file(s)* and exiting 0.
+
+    # The resolution, which is Go's two lines
+
+        if jetsPartitionKey == nil && config.JetsPartitionKey != nil {
+            *config.JetsPartitionKey = ReplaceEnvVars(*config.JetsPartitionKey, ctx.env)
+            jetsPartitionKey = *config.JetsPartitionKey
+        }
+        jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
+
+    **The incoming key is always `nil` here, and that is derived rather than
+    assumed.** It is an argument of `BuildPipeTransformationEvaluator`, and of
+    its two callers `pipe_executor_fan_out.go:117` passes `nil` literally while
+    `pipe_executor_splitter.go:330` passes the split key. This node declares
+    `fan_out` and `merge_files` and **no splitter** (`declared_scope()[PIPE]`),
+    so the splitter arm is unauthorable here; the guard below says so against
+    the registry rather than against a comment, so the day a `Splitter(Pipe)`
+    class is written this fails loudly instead of quietly writing every branch
+    under one label.
+
+    # `<nil>P`, and why it is mirrored rather than refused
+
+    With no key authored, Go's `default:` arm renders the nil key and the label
+    is literally `<nil>P`. It looks like a defect and is not one that matters:
+    it is **constant across nodes**, which is the only property the next step
+    needs, and a document that wants a chosen label authors one.
+
+    Refusing a keyless writer was considered and rejected on a measurement. Over
+    the **53** authored `.pc.json` in `workspaces/` on 2026-09-19 there are 121
+    partition writers; 44 sit under a splitter and take the split key, 63 author
+    a key, and the **14** that are keyless and not under a splitter are all in
+    `healthcare_corpus.pc.json` — twelve writing to `output` channels whose key
+    prefix never references `$CURRENT_PARTITION_LABEL`, so the label reaches no
+    key at all. Refusing would therefore refuse a document Go runs and runs
+    **correctly**, which is the one thing this package's divergences are not
+    allowed to do. It is logged instead, at the moment it is resolved.
+    """
+    key = getattr(config, "jets_partition_key", None) if config is not None else None
+    if key is None:
+        _refuse_a_splitter_supplied_partition_key()
+        log.info(
+            "partition_writer authors no jets_partition_key; writing under %r, "
+            "which is MakeJetsPartitionLabel's default arm over a nil key. "
+            "Author partition_writer_config.jets_partition_key to choose one "
+            "($JETS_PARTITION_LABEL is this node's own partition).",
+            NIL_PARTITION_LABEL,
+        )
+        return make_jets_partition_label(None)
+    resolved = make_jets_partition_label(expressions.substitute(str(key), builder.env))
+    log.info(
+        "partition_writer jets_partition_key %r resolves to jets_partition=%s",
+        key,
+        resolved,
+    )
+    return resolved
+
+
+def _refuse_a_splitter_supplied_partition_key() -> None:
+    """Refuse the case this node's `nil` assumption would silently get wrong.
+
+    `partition_label` takes the incoming `jetsPartitionKey` to be `nil` because
+    `fan_out` is the only caller that can reach a partition writer here. Under a
+    splitter Go passes the split key instead — and it *wins over* the authored
+    default, so every branch of a splitter would otherwise be written under one
+    label and collapse into one partition. The subject is derived from the
+    operator registry rather than listed, which is the same shape as
+    `_refuse_streaming_beside_a_splitter` and for the same reason (P7-I88).
+    """
+    if declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None:
+        return
+    raise StartupError(
+        f"this node now declares the '{SPLITTER_PIPE_TOKEN}' pipe kind, and "
+        "`partition_label` resolves a partition_writer's label as though the "
+        "incoming jetsPartitionKey were always nil — which is true of a fan_out "
+        "(pipe_executor_fan_out.go:117) and false of a splitter, which passes "
+        "the split key and whose key *wins* over the authored default "
+        "(pipe_transformation_partition_writer.go:334). Left as is, every branch "
+        "of a splitter would be written under one label and collapse into one "
+        "partition. Thread the split key through to `partition_label`."
+    )
+
+
+def _partition_destination(
+    builder: Any, output_channel: Any, config: Any = None
+) -> tuple[str, str, str]:
     """`NewPartitionWriterTransformationPipe`'s destination switch, verbatim.
 
     Returns the key prefix a partition file is written under, the file name a
@@ -663,17 +830,18 @@ def _partition_destination(builder: Any, output_channel: Any) -> tuple[str, str,
     switch has no arm for those two and leaves the path empty, which is a write
     to `"/<name>"`; refusing by name is the same decision made loudly.
 
-    The label a path is partitioned by is **the node's**, `%04dP`, which is what
-    `MakeJetsPartitionLabel` yields for a reducing node with no jets partition
-    key of its own. A run that reduces a real jets partition carries the key on
-    `NodeArgs.jp` and `jets_partition_label_or_default` returns that instead, so
-    the same expression covers both.
+    The label a path is partitioned by is **`partition_label`'s**, which
+    resolves `partition_writer_config.jets_partition_key` the way
+    `NewPartitionWriterTransformationPipe` does. It was `node.jets_partition_label`
+    — the node's own `jp` — until 2026-09-19, which agrees with Go exactly when
+    the document spells the key `$JETS_PARTITION_LABEL` and diverges on every
+    other document by writing N partitions where Go writes one (**P9-I132**).
     """
     kind = getattr(output_channel, "type", None) or "memory"
     node = builder.node
     env = builder.env
     prefixes = getattr(node, "prefixes", None)
-    label = node.jets_partition_label
+    label = partition_label(builder, config)
     write_step_id = expressions.substitute(
         getattr(output_channel, "write_step_id", None) or "", env
     )
