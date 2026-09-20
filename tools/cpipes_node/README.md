@@ -268,6 +268,96 @@ to use `type: "output"` with a custom `output_location`. Measured, not reasoned:
 of the 51 authored documents, exactly **one** partition writer anywhere names a
 bucket, and it is an `output` channel.
 
+## Which partition a writer writes under, and the label that says so
+
+**`jets_partition_key` had zero references in this package** until 2026-09-19,
+and every partition writer wrote under the node's own `%04dP`. That agrees with
+Go for the **53** authored writers in `workspaces/` that spell the key
+`$JETS_PARTITION_LABEL` — substitution resolves it to exactly that value — and
+diverges on every other document, in the direction that loses data: a key naming
+a fixed label makes all N nodes write **one** partition and this node wrote N.
+`actions_start_reducing_cp.go:190` then refuses a merge over more than one, so a
+run either stopped or, where nothing refused, merged **1/N of every table and
+exited 0**. That is **P9-I132**, and it was found by running the corpus.
+
+`partition_label` resolves it the way `NewPartitionWriterTransformationPipe`
+does, and `make_jets_partition_label` is `MakeJetsPartitionLabel` arm for arm:
+
+| authored `jets_partition_key` | label |
+|---|---|
+| `"member_parts"` | `member_parts` — every node writes that one partition |
+| `"$JETS_PARTITION_LABEL"` | the node's own `%04dP`, which is the old behaviour |
+| absent | **`<nil>P`**, which is `fmt.Sprintf("%vP", nil)` and is Go's |
+
+**The `<nil>P` arm is mirrored rather than refused, on a measurement.** Of the
+121 partition writers in the 53 authored documents, 44 sit under a splitter and
+take the split key, 63 author a key, and the **14** that are keyless and not
+under a splitter are all in `healthcare_corpus.pc.json` — twelve on `output`
+channels whose key prefix never mentions `$CURRENT_PARTITION_LABEL`, so the
+label reaches no key at all. Refusing would refuse a document Go runs and runs
+*correctly*, which is the one thing a divergence here may not do. It is logged
+where it is resolved instead.
+
+The incoming key is `nil` here because `fan_out` is the only caller that reaches
+a partition writer (`pipe_executor_fan_out.go:117` passes `nil`; the splitter
+passes the split key, and this node declares no splitter). That assumption is
+guarded against the operator registry rather than left in a comment, so a
+`Splitter(Pipe)` class fails loudly instead of collapsing every branch into one
+partition.
+
+**A merge refuses the bad state rather than merging a fraction of it** (D-251).
+Go makes that check in the starter and **nothing in either repository is a
+starter** (P9-I136), so it is made where the evidence is: the merge lists the
+same prefix `GetComputePipesPartitions` lists, extracts the same
+`jets_partition=` labels, and refuses when there is more than one — Go's own
+message — or when the single one is not the label this node was told to read,
+which a JetStore starter cannot produce and a driver can. It is strictly
+narrower than Go's refusal: no document the starter passes is refused here.
+
+**And `put_headers_on_first_partition` had zero references too** (**P9-I151**),
+which is the same shape in the same operator. Go writes a csv header when
+`Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`
+(`s3_device_writter.go:148`); this node wrote one on every node's first part, so
+a four-node run's merged `member` carried **four** header lines over 200 rows
+and a csv reader takes three of them as data. `write_partition`'s own docstring
+had said the flag was *the caller's, because it needs the node id* — and no
+caller did it.
+
+**Measured over the corpus document with all four repairs in**: a four-node run
+and a one-node run produce **byte-identical** merged output, 12 of 12 tables,
+200 `member` rows either way. Before them the four-node run wrote a quarter of
+every household-scoped table, into a single overwritten file, in the node's own
+bucket rather than the one the log named.
+
+## Where a merged file lands, and under what name
+
+`merge.destination_key` read `file_name` where `StartMergeFiles` reads
+`OutputFileSpec.Name()` — an accessor returning the JSON key **`name`**
+(`FileName2`) when it is set and falling back to `file_name`
+(`pipes_model.go:518`). The corpus document's twelve `output_files` entries all
+spell `name`, so **all twelve merges resolved to the same default key**,
+`$NAME_FILE_KEY`, and each overwrote the last: eleven tables destroyed and the
+twelfth byte-correct under the wrong name, with every merge logging success and
+the run exiting 0. That is **P9-I133**. Both of Go's `OutputFileSpec` accessors
+are mirrored now — `output_location`/`file_key` beside `name`/`file_name` —
+because honouring one and not the other leaves the identical defect live on the
+field nobody has happened to author yet.
+
+`run_merge` also **computed the external bucket and never wrote to it**
+(**P9-I134**): it resolved the name, logged `s3://<bucket>/<key>`, and then put
+the payload on `ctx.store`. Measured, the external bucket directory held **zero**
+files while every result line named it. It binds the store with
+`ObjectStore.for_bucket` now and writes there — D-242's seam one pipe kind over,
+and the reason that seam exists rather than a string field. The bucket *name* is
+still computed for the log and for `output_location`, as `StartMergeFiles`
+computes it, and nothing reads it to decide where bytes go.
+
+One divergence was found in passing and closed (**P9-I147**): `destination_key`
+passed the node's partition label to `do_substitution` where `StartMergeFiles`
+passes the **empty string**, so `$CURRENT_PARTITION_LABEL` in a merge's
+`key_prefix` resolved to the node's `jp` here and to nothing in Go. No authored
+document reaches that key today.
+
 ## `stream_data_out`
 
 **Also accepted and ignored** — zero references in this package — where Go
@@ -403,15 +493,17 @@ against the contract's own index so a sixteenth type is refused by existing.
 ## Checks
 
 ```
-$ python -m pytest -q          # 507 tests
+$ python -m pytest -q          # 533 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
 
-**468 → 507 on 2026-09-19**, the whole of the difference being D-242's and D-243's **thirty-four new
-test functions**, thirty-nine collected: two are parametrised, three ways and four ways. The figure
-was predicted at twenty before it was written and the miss is the finding — every refusal arm turned
-out to need its paired negative, without which the refusal is indistinguishable from an over-reach.
+**510 → 533 on 2026-09-19**, the whole of the difference being the four destination defects
+P9-T19's corpus run found: **23 new test functions**, twenty for P9-I132, P9-I133, P9-I134 and
+P9-I147 and three for P9-I151. Predicted at 529 and measured at 530 for the first twenty — the miss
+being a Go-oracle test written while writing the others — then predicted at 533 and measured at 533.
+*The 510 is the merged tree's; this paragraph read 507 on the branch that measured it, which is
+P9-I69's subject one figure over.*
 
 **Thirty-nine** tests read Go source as their oracle rather than transcribing it — the argument
 struct's json tags, the `ComputePipesConfig` struct's tags, the config `SELECT`, the authored
@@ -420,9 +512,10 @@ structs, the operator table, the expression leaf-type switch, the csv quoting ru
 all-string parquet schema, the parquet batch size, the writer-to-format pairs, the partition file
 name, the header condition, the snappy framing wrapper, the midnight date arm, the merge's six-arm
 header switch, the four SQL statements, the three statuses, the sink kinds, the twelve process-error
-columns, the two conditions guarding the `cpipes_execution_status` update, **the `jetstore_bucket`
-sentinel and the upload's part size** — so a rename on the other side of the seam is caught here
-rather than at a deployment.
+columns, the two conditions guarding the `cpipes_execution_status` update, the `jetstore_bucket`
+sentinel and the upload's part size, **`OutputFileSpec`'s two accessors and their four json tags, and
+the csv writer's two-clause header condition** — so a rename on the other side of the seam is caught
+here rather than at a deployment.
 
 **This number was measured over the merged tree and is neither branch's.** P9-T06/T07 counted
 seventeen and P9-T08/T09 counted twenty-six, each correct about its own additions and neither able to
@@ -438,6 +531,12 @@ not a Go *source* file (the authored `.pc.json` corpus), so the prose set is wid
 one by an amount nobody can now recover. **Thirty-nine is thirty-seven plus two and inherits whatever
 the thirty-seven was**, which is the honest way to say it and is exactly why the count belongs in a
 test.
+
+**And the derived figure has now caught the prose one up, which is a coincidence and not a
+confirmation.** P9-T19 added two Go-oracle tests, so the *derived* count went **37 → 39** and the
+prose sentence above still reads thirty-nine because it always did. Re-derived on 2026-09-19 by the
+same walk, at `jets_ai` and at this branch. Two figures that agree for unrelated reasons are exactly
+what a count in prose looks like the moment before it goes wrong again (P9-I69, still open).
 
 **One of them is asserted against a Go test that fails**, deliberately: `TestEncodeRdfTypeToTxt`
 expects `2006-01-02T00:00:00` where `encodeRdfTypeToTxt` returns `2006-01-02`, so the *test* is stale
