@@ -382,6 +382,10 @@ class PartitionWriterPipe:
     no_quotes: bool = False
     batch_size: int = 0
     file_name: str = ""
+    #: `put_headers_on_first_partition` resolved against this node's id; see
+    #: `headers_on_this_node` and P9-I151. `True` is the ordinary case — every
+    #: part carries its own header — and is the Go writer's default too.
+    headers_on_this_node: bool = True
     rows: list[list[Any]] = field(default_factory=list)
     keys_written: list[str] = field(default_factory=list)
     total_rows: int = 0
@@ -467,6 +471,7 @@ class PartitionWriterPipe:
                 quote_all=self.quote_all,
                 no_quotes=self.no_quotes,
                 batch_size=self.batch_size,
+                headers_on_this_node=self.headers_on_this_node,
             )
 
         if self.stream_data_out:
@@ -620,7 +625,35 @@ class PartitionWriter(Transformation):
             no_quotes=settings["no_quotes"],
             batch_size=settings["batch_size"],
             file_name=file_name or settings["file_name"],
+            headers_on_this_node=headers_on_this_node(output_channel, node_id),
         )
+
+
+def headers_on_this_node(output_channel: Any, node_id: int) -> bool:
+    """`put_headers_on_first_partition` resolved against the node id.
+
+    Go's condition is one line — `Format == "csv" && (!PutHeadersOnFirstPartition
+    || nodeId == 0)` (`s3_device_writter.go:148`) — and the second half of it is
+    what this returns: with the flag set, only node 0 writes a header; with it
+    unset, every part carries one, which is what a partition-aware reader wants.
+
+    **The flag had zero references in this package** (**P9-I151**), which is the
+    same shape as `jets_partition_key` (P9-I132) in the same operator and was
+    found by the same run: at four nodes the merged `member` carried **four**
+    header lines over 200 rows where Go writes one, and a csv reader takes the
+    other three as data. The document that authors the flag is the one that then
+    merges with `first_partition_has_headers`, so the two go wrong together —
+    the merge's header switch takes the *copy the parts as they are* arm
+    precisely **because** the document promised only the first would have a
+    header.
+
+    Only the caller can answer this, which `write_partition`'s docstring said
+    before any caller did it: the format is a property of the channel and the
+    node id is a property of the run.
+    """
+    if not getattr(output_channel, "put_headers_on_first_partition", False):
+        return True
+    return node_id == 0
 
 
 #: `MakeJetsPartitionLabel`'s `%04dP` format, which the integer arms of its
