@@ -69,13 +69,27 @@ func ClassifyBucket(bucket string) (BucketKind, error) {
 // IsUnresolvedBucket reports whether a bucket name still carries a variable
 // reference rather than being a name.
 //
-// Two forms are refused: "${NAME}" anywhere in the string, which is the shell
-// and cpipes substitution form, and a leading "$", which is the bare form. A
-// dollar sign elsewhere in the name is left alone — S3 bucket names cannot
-// contain one, so a name carrying one mid-string is already invalid and is the
-// bucket API's complaint to make rather than this function's.
+// The rule is any dollar sign at all, and that is a widening of what this
+// function first did. It refused "${NAME}" anywhere and a leading "$", and left
+// a dollar mid-name alone on the ground that S3 bucket names cannot contain one
+// "so it is the bucket API's complaint to make rather than this function's".
+//
+// That premise is right and the conclusion drawn from it was the wrong way
+// round. A complaint the bucket API makes is a complaint made at the write, and
+// moving the complaint off the write is the whole point of the gate this
+// function was written for — so deferring to the API there gives back exactly
+// what the rest of the design buys. And because a bucket name can never
+// legitimately contain a dollar, the wider rule trades nothing for it: there is
+// no name it refuses that was ever a name.
+//
+// The case that made this concrete is the ordinary one rather than an exotic
+// one. prepareCpipesEnv writes ten env keys and nine of them are bare-dollar —
+// $FILE_KEY, $SESSIONID, $PATH_FILE_KEY, $SHARD_ID and the rest — so a document
+// parameterising a bucket writes "corpus-out-$CLIENT" far more naturally than
+// it writes the braced form, and "corpus-out-$CLIENT" is the one spelling the
+// original two tests both missed.
 func IsUnresolvedBucket(bucket string) bool {
-	return strings.Contains(bucket, "${") || strings.HasPrefix(bucket, "$")
+	return strings.ContainsRune(bucket, '$')
 }
 
 // ResolveBucket returns the bucket to address, substituting the deployment's

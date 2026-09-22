@@ -4077,6 +4077,7 @@
           "anyOf": [
             {
               "enum": [
+                "default_value",
                 "file_key_component",
                 "partfile_key_component",
                 "value"
@@ -4088,7 +4089,7 @@
             }
           ],
           "default": null,
-          "description": "The node shape; unary and binary operator nodes carry no type.",
+          "description": "How the value is sourced. Range: default_value, file_key_component, partfile_key_component, value. default_value assigns only when the env does not already carry the key; the other three assign unconditionally and so override the schema provider.",
           "title": "Type"
         }
       },

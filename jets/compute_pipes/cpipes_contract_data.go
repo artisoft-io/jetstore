@@ -229,6 +229,12 @@ var CpipesContract = map[string]map[string]ContractField{
 		"then":    {},
 		"when":    {Required: true},
 	},
+	"ContextSpec/default_value": {
+		"comment": {},
+		"expr":    {},
+		"key":     {},
+		"type":    {},
+	},
 	"ContextSpec/file_key_component": {
 		"comment": {},
 		"expr":    {},

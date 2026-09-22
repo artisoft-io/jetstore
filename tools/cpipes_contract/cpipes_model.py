@@ -321,7 +321,7 @@ class ContextSpec(_Base):
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     expr: str | None = Field(default=None, description="The extraction pattern (expr=value) or the literal value.")
     key: str | None = Field(default=None, description="The env var name to define.")
-    type: Literal["file_key_component", "partfile_key_component", "value"] | None = Field(default=None, description="The node shape; unary and binary operator nodes carry no type.")
+    type: Literal["default_value", "file_key_component", "partfile_key_component", "value"] | None = Field(default=None, description="How the value is sourced. Range: default_value, file_key_component, partfile_key_component, value. default_value assigns only when the env does not already carry the key; the other three assign unconditionally and so override the schema provider.")
 
 
 class CsvSourceSpecBase(_Base):
