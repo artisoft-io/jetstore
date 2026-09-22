@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -230,23 +231,35 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return err
 	}
+	// runStatus is the status this function computed and recorded, which is not
+	// always ca.Status: the "interrupted" arm below records "interrupted" and
+	// leaves ca.Status holding whatever the state machine passed in, which on
+	// the success path is "completed". Anything reading ca.Status after this
+	// switch is therefore reading the caller's claim on that one arm rather
+	// than the run's outcome. The manifest branch reads runStatus.
+	var runStatus string
 	switch {
 	case ca.Status == "failed":
+		runStatus = "failed"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", ca.failureInfo())
 
 	case statusCountMap["interrupted"] > 0:
+		runStatus = "interrupted"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", ca.failureInfo())
 
 	case statusCountMap["failed"] > 0:
 		ca.Status = "recovered"
+		runStatus = "recovered"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", ca.failureInfo())
 
 	case statusCountMap["errors"] > 0:
 		ca.Status = "errors"
+		runStatus = "errors"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 
 	default:
 		ca.Status = "completed"
+		runStatus = "completed"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
@@ -254,6 +267,37 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		log.Printf("%s %s\n", sessionId, err)
 		return err
 	}
+
+	// The run manifest: what the run's document declared, and what the run
+	// wrote for each declaration. D-255.
+	//
+	// **The branch is here, immediately after the status was computed, and
+	// that placement is the whole of the guard.** This Lambda is invoked on the
+	// error path as well as the success path -- runErrorStatusLambdaTask and
+	// runSuccessStatusLambdaTask are the same object (build_cpipes_sm.go) -- so
+	// a producer that writes before branching writes a manifest for a run that
+	// failed, which is the one outcome a manifest exists to make impossible.
+	// Four of the five statuses this switch computes leave no manifest at all,
+	// "recovered" among them: a recovered run is one where a worker failed and
+	// the state machine took the success path anyway, which is exactly the
+	// half-written prefix the manifest is meant to make detectable.
+	//
+	// **Additive, in InsertChannelExecutionDetails' own shape**: the error is
+	// logged and the run is not failed for it, because a pipeline that ran
+	// correctly must not be reported failed because an observability write did
+	// not land. One difference is worth naming and is why the log line says so:
+	// a missing channel detail row is detectable by arithmetic downstream
+	// (sum(child) != parent), and a missing manifest is indistinguishable from
+	// a run that never completed. **The log line is the whole of the signal.**
+	if ca.CpipesMode && runStatus == "completed" {
+		if err := compute_pipes.WriteRunManifest(context.Background(), ca.Dbpool, sessionId,
+			runStatus); err != nil {
+			log.Printf("%s NO RUN MANIFEST was written for this completed run, and nothing downstream "+
+				"can tell that from a run that did not complete -- this log line is the only signal: %v\n",
+				sessionId, err)
+		}
+	}
+
 	var isJetsLoader bool
 
 	if ca.CpipesMode {

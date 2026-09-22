@@ -327,6 +327,12 @@ Terminal state reporting for every state machine.
   `VpcEndpointsSg` + `RdsAccessSg` + `InternetAccessSg`; private subnets.
 - **Security**: the `*` on `StartExecution` is a documented circular-dependency workaround.
 - **Integrations**: Aurora, S3, Step Functions, notification endpoints.
+- **Run manifest**: this Lambda is also where the run manifest is produced, for a compute pipes
+  run that completed and for no other terminal status. It is written to
+  `<stage>/process_name=<p>/session_id=<s>/run_manifest.json` and to
+  `jetsapi.cpipes_execution_status.run_manifest_json`. **The document is a published contract and
+  is specified in `jets/compute_pipes/run_manifest_readme.md`** — including what an absent
+  manifest means, which is the part a consumer gets wrong.
 
 ### 5.9 Run Reports Lambdas
 

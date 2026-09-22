@@ -2127,6 +2127,11 @@
         "default": "'{}'"
       },
       {
+        "columnName": "run_manifest_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
         "columnName": "sharding_config_json",
         "dataType": "text",
         "isNotNull": true,
