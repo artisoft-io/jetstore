@@ -128,6 +128,15 @@ startStepId:
 		return result, err
 	}
 
+	// Refuse a step whose document names a bucket that substitution did not reach,
+	// here rather than at the write: the write succeeds into a bucket literally
+	// named ${SOMETHING} and nothing reports it. After ValidatePipeSpecConfig,
+	// which normalises the stage channels onto jetstore_bucket.
+	err = ValidateResolvedBuckets(&cpipesStartup.CpConfig, pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, err
+	}
+
 	// Get the input channel config
 	inputChannelConfig := &pipeConfig[0].InputChannel
 	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)

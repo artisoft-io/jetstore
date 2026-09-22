@@ -264,7 +264,7 @@ type ColumnEncodingSpec = pipesmodel.ColumnEncodingSpec
 
 type ContextSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Type range: file_key_component, partfile_key_component, value
+	// Type range: default_value, file_key_component, partfile_key_component, value
 	Type string `json:"type,omitempty"`
 	Key  string `json:"key,omitempty"`
 	Expr string `json:"expr,omitempty"`

@@ -1963,13 +1963,27 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 	envSettings["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
 	envSettings["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
 
-	// Add to envSettings based on compute pipe config
+	// Add to envSettings based on compute pipe config.
+	//
+	// These run after the main schema provider's Env has become envSettings, so
+	// file_key_component and value both *overwrite* what the schema event set.
+	// That is their behaviour and it is unchanged; default_value is the arm that
+	// fills in behind instead, on the same rule as $DATE_FILE_KEY above.
 	for _, contextSpec := range cpConfig.Context {
 		switch contextSpec.Type {
 		case "file_key_component":
 			envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
 		case "value":
 			envSettings[contextSpec.Key] = contextSpec.Expr
+		case "default_value":
+			// Don't override with the document's literal if already set via
+			// schema provider: the deployment's own value wins, and this
+			// supplies one only when the deployment named none. Same guard as
+			// $DATE_FILE_KEY above, and the same meaning for a key present
+			// with a nil value -- absent.
+			if envSettings[contextSpec.Key] == nil {
+				envSettings[contextSpec.Key] = contextSpec.Expr
+			}
 		case "partfile_key_component":
 		default:
 			return nil, fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)

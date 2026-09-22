@@ -19,7 +19,12 @@ func TestClassifyBucket(t *testing.T) {
 		{"a braced reference is unresolved", "${CORPUS_OUT_BUCKET}", JetStoreBucket, true},
 		{"a braced reference inside a name is unresolved", "prefix-${ENV}-suffix", JetStoreBucket, true},
 		{"a bare leading dollar is unresolved", "$CORPUS_OUT_BUCKET", JetStoreBucket, true},
-		{"a dollar mid-name is not this function's complaint", "weird$name", ExternalBucket, false},
+		// Reversed from the first version of this table, which read "a dollar
+		// mid-name is not this function's complaint" and expected
+		// ExternalBucket. The complaint it deferred to is the bucket API's,
+		// which makes it at the write -- see IsUnresolvedBucket.
+		{"a dollar mid-name is unresolved too", "corpus-out-$CLIENT", JetStoreBucket, true},
+		{"a dollar is never part of a bucket name", "weird$name", JetStoreBucket, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
