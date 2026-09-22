@@ -228,10 +228,20 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
     measured once and a later one is a conformance failure rather than a feature
     request.
 
-    Six statements over five tables, of which this node writes four: the two
-    `cpipes_execution_status` ones are a *starter*'s and a branch this node
-    cannot reach (see the two tests below), and `cpipes_results` is reached from
-    nowhere at all.
+    Seven statements over five tables, of which this node writes four: the four
+    `cpipes_execution_status` ones are a *starter*'s, a branch this node cannot
+    reach (see the two tests below) and the run manifest's, and `cpipes_results`
+    is reached from nowhere at all.
+
+    **The manifest write is the first time this guard has fired, 2026-09-21, and
+    it fired correctly.** `jetstore_maintenance_01`'s track `AC` built `D-255`'s
+    run manifest, whose UPDATE lands in `run_manifest.go`. It is not this node's
+    for the same reason the starters' are not: it is written from
+    `StatusUpdate.CoordinateWork`, once per run, after the run's five-way status
+    has been computed, by something that knows every node finished. A worker
+    node has no such vantage and must not have one -- a manifest written by a
+    node would describe the prefix that node could see, which is the half-written
+    document the manifest exists to make detectable.
     """
     from pathlib import Path
 
@@ -262,6 +272,11 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
         "actions_start_reducing_cp.go",
         "actions_start_sharding_cp.go",
         "compute_pipes.go",
+        # The run manifest (D-255), written from StatusUpdate.CoordinateWork
+        # rather than from a worker. Added 2026-09-21 when this assertion went
+        # red on jetstore_maintenance_01's track AC -- the guard working, not a
+        # guard being widened to keep quiet.
+        "run_manifest.go",
     }
 
 
