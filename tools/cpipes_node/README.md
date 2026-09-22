@@ -59,6 +59,104 @@ Whether the subset is ever a parity commitment is not settled here. It is
 `P9-I04`, the decision number reserved for it is `D-206`, and the phase charter
 says in terms that it is not this phase's to answer.
 
+## The token diff, and the baseline that makes it able to go red
+
+**JetStore adds a built-in; this node does not have it, and nothing says so.**
+That is `P9-I02`, and the cheap half of it is a set subtraction: both sides
+enumerate their tokens in one place each — JetStore in
+`jets/compute_pipes/cpipes_contract_data.go`, this node in `scope._REGISTRY` —
+so the difference is measurable today, before either engine is deployed
+anywhere.
+
+```
+$ cd tools/cpipes_node && uv run cpipes-node tokens            # the three sets
+$ cd tools/cpipes_node && uv run cpipes-node tokens --check    # ...against the baseline
+```
+
+One command, no arguments: the JetStore tree is found from this package's own
+location, and the baseline ships beside the code at
+`cpipes_node/token_diff_baseline.json`. Exit **0** clean, **4** when the
+difference has moved, **3** when the instrument could not measure — three codes
+and not two, because a parser that stopped matching returns empty sets that look
+exactly like JetStore having dropped every token it has, and that must not read
+as drift.
+
+| kind | JetStore only | node only | both |
+|---|---|---|---|
+| input channel | 2 | 0 | 2 |
+| pipe | 1 | 0 | 2 |
+| transformation | **16** | **0** | **3** |
+
+*Measured 2026-09-21 against this tree. The table is documentation; the
+baseline file is the assertion.*
+
+**It lives here rather than in `cpipes_contract` because of the dependency
+direction.** The subtraction needs both sides in one process: JetStore's
+enumeration, which `cpipes_contract` can reach, and this node's registry, which
+it cannot — `cpipes_node` depends on `cpipes_contract` and the reverse would
+make the contract tooling need this node installed in order to run at all. So
+this side of that arrow is the only place the measurement can be made.
+
+**The posture is baseline-pinned, and neither of the two obvious postures
+works.** A check that failed on any difference would be red on its first run
+over a gap of sixteen that `D-206` makes deliberate — *a gate nobody can run
+green*, which is `P9-I17` reproduced exactly. A check that only reports never
+sees the risk `P9-I02` actually names, which is not the gap but the gap
+*growing*. So the difference is pinned and `--check` fails only when it moves
+without the baseline moving with it. The pattern is
+`MISSING_GLYPH_BASELINE`'s, whose argument is that *a build that is red every
+day for a known reason is a build people stop reading*.
+
+**The baseline is a set and not a count**, which is where it departs from
+`MISSING_GLYPH_BASELINE` deliberately. A count moves in one direction and can be
+satisfied by the wrong token — `aggregate` leaving JetStore on the day
+`transmogrify` joined it nets to zero. A set moves in both directions and the
+failure can name what moved, which is the only thing a reader can act on. The
+message is correspondingly a **routing warning** rather than an assertion:
+
+```
+  transformation: `transmogrify` entered `JetStore only`
+      JetStore declares it and this node does not. A step naming it must not
+      be routed to the Python node: a `use_python_node_when` expression that
+      evaluates true over such a step aborts the run at startup (X6), naming
+      the token. Either take it on -- one Operator subclass under
+      cpipes_node/operators/ -- or keep it out of the Python arm's `when`
+      expression.
+```
+
+Moving it is a deliberate act — `--write-baseline YYYY-MM-DD`, with the reason
+in the commit message.
+
+**What it does not cover is printed on every run**, by `token_diff.coverage()`,
+and that is the design rather than an apology. A named mitigation is a claim
+about what a test detects, and this one's claim is narrow: it compares token
+*names*, and says nothing about whether two implementations of one token agree.
+`P9-I117` is the worked example — both engines implement `partition_writer` and
+they wrote different bytes for one document. Whoever reads a green result is
+exactly the person who needs to know that, and they are not reading this file at
+that moment. **So `P9-I02` is narrowed by this instrument and not closed**: the
+byte-for-byte differential harness is `healthcare_corpus`'s `X7`, and it is a
+project rather than a check — two engines, one document, a deployed run and a
+diff of what each wrote.
+
+**Two further limits worth knowing before trusting a green run.** The JetStore
+side is the *contract's* universe — what an author may write — which is one
+token wider than the engine's dispatch: `infer` is rewritten to `ollama` or
+`vllm` by `ResolveInferBackend` before the graph is built, so no dispatch case
+exists for it, and that the dispatch and the contract agree on the rest is
+JetStore's own `TestBuiltinOperatorTypesMatchesTheDispatch` rather than this.
+And a site operator is in scope by registration on both sides, so it appears
+here on neither.
+
+**The mutation tests are the point of `tests_token_diff.py`.** A baseline check
+that has never been seen to fail is a claim about what it would detect. So a
+token is added to a copy of the Go enumeration, a token is removed, a token in
+`both` is removed, and this node is made to take one on — four movements in
+three directions, each asserted to name what moved. Three more assert that a
+token *count* is insensitive to the two things other tracks are doing to the
+same file: adding field keys to another struct's entry, removing the
+`CsvSourceSpec/csv_file` discriminator, and gofmt re-padding a field block.
+
 ## A deployment's own operator
 
 The same shape as Go's `WithOperators`, and the same three rules — a built-in
@@ -493,7 +591,7 @@ against the contract's own index so a sixteenth type is refused by existing.
 ## Checks
 
 ```
-$ python -m pytest -q          # 533 tests
+$ python -m pytest -q          # 555 tests
 $ ruff check . && ruff format --check .
 $ mypy cpipes_node --ignore-missing-imports
 ```
@@ -543,6 +641,13 @@ expects `2006-01-02T00:00:00` where `encodeRdfTypeToTxt` returns `2006-01-02`, s
 about the *function*. The function is what the engine runs and is what this node mirrors; the
 disagreement is pinned from both sides, so whichever one somebody repairs, this goes red saying which
 (P9-I58).
+
+**533 -> 555 on 2026-09-21**, the twenty-two being the token diff's
+(`jetstore_maintenance_01` `AG`). Fifteen of them are mutation or failure-mode
+tests over a fixture and only two assert today's measurement, which is the ratio
+a baseline check ought to have: a check that has never been seen to fail is a
+claim about what it would detect. *And this figure is prose that nothing
+asserts, which is P9-I69 and is why it conflicted twice above.*
 
 Developer tooling status: nothing on the cpipes runtime path depends on this
 package, and the Go engine is untouched by it. It becomes a deployment's runtime
