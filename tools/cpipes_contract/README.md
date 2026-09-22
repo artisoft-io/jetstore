@@ -45,6 +45,28 @@ The test suite is `tests_*.py` and needs that pattern declared, which `pyproject
 `pytest` here collected **nothing** and exited 0 until 2026-09-19. Run it with
 `uv run --extra dev pytest -q`.
 
+**The model is two projections, and only one of them is the schema.** `ComputePipesConfig` is the
+*authored* document - what an author writes and what `check --corpus` walks - and
+`ComputePipesRuntimeConfig` is what a worker node is handed: the same fields plus
+`common_runtime_args` and `pipes_config`, which the starters fill in and no author writes. The
+matrix carries both as rows of one `go_struct` and marks the second pair `applicable=no`, because
+`pipes_model.go` has one struct for both shapes; the emitted schema is the authored projection only,
+and `negative_suite.json`'s *root pipes_config (I-14 runtime shape)* case is what holds it to that.
+
+**Measured by enumeration on 2026-09-21 at `d1df2e9f`: 15 json tags on the Go struct, 13 fields on
+`ComputePipesConfig`, 15 on `ComputePipesRuntimeConfig`.** It is the fourth independent measurement
+of the first two numbers and the first of the third. The numbers are a property of a struct under
+active development, so `tests_runtime_document.py` asserts the *relation* - every json tag is a
+runtime field, and what the runtime model adds is what the matrix calls inapplicable - and this
+paragraph records the measurement with its date rather than standing in for the check.
+
+**Until 2026-09-21 no class here accepted a runtime document at all**, which is
+`healthcare_corpus`'s `P9-I28` (read 2026-09-20): `extra="forbid"` refused every document a node
+has ever been given, and the corpus walk could not see it because a node is never handed an
+authored document. `tools/cpipes_node` carried a local widening for it, and that widening is now
+retired. **A green check over the wrong half of a document space is the failure to take from this**,
+not a two-field oversight.
+
 **The two artefacts this package emits are two readers of one contract, and `tests_schema.py` is
 where they are held to each other.** `cpipes_model.py` is the Pydantic model and the source of truth
 for the claims; `cpipes_schema.json` is the projection a Go consumer and every typed hole reads. They

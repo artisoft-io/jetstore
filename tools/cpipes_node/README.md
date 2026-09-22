@@ -11,13 +11,20 @@ engine would not be: what must hold is the contract and the side effects.
 
 The contract model is not re-derived. `tools/cpipes_contract/cpipes_model.py`
 is the source of truth for the whole `.pc.json` and has a drift guard behind
-it; this package imports it. See `cpipes_node/contract.py` for the one place
-that model still has to be widened — the two fields a *starter* fills in — and
-for what that widening is asserted against. There were three more, for the site
-operator the contract's transformation union omitted, and they were deleted on
-2026-09-19 when the omission was closed upstream: a widening here is a second
-reader of one rule, so the test pinning each of them was written to go red and
-name what to delete, and that is how they went.
+it; this package imports it. **It no longer widens it anywhere.** There were
+four widenings: three for the site operator the contract's transformation union
+omitted, deleted on 2026-09-19 when the omission was closed upstream, and one
+for the two fields a *starter* fills in, retired on 2026-09-21 when the
+contract gained `ComputePipesRuntimeConfig`. A widening here is a second reader
+of one rule, so the test pinning each was written to go red and name what to
+delete.
+
+**Three went that way and the fourth did not**, which `cpipes_node/contract.py`
+and `tests_config.py` both record: the runtime-fields guard pinned the
+*difference* between the two models, and the repair keeps that difference on
+purpose, so the guard stayed green through the change it was written to
+announce. It is renamed and now asserts the ownership rather than the
+difference. A guard is worth the cause it names.
 
 ## The declared scope
 

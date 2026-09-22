@@ -20,20 +20,30 @@ default path in `cpipes_contract/main.py`, and until that happens a container
 image for this node (P9-T14) must ship the contract tree and not only its
 wheel.
 
-**The model describes the authored document and the node reads the runtime
-one.** `pipes_model.go`'s `ComputePipesConfig` carries fifteen json tags and
-the generated `ComputePipesConfig` carries thirteen: `common_runtime_args` and
-`pipes_config` are missing, and they are precisely the two a *starter* fills
-in. `actions_start_reducing_cp.go` builds the literal that becomes
-`cpipes_config_json` with `CommonRuntimeArgs` set and `PipesConfig` set to the
-step's pipes, and `CoordinateComputePipes` reads both. With `extra="forbid"`
-on every class, the consequence is flat: **the contract model refuses every
-document a node has ever been given.** That is invisible to
-`cpipes-contract check --corpus`, whose corpus is `pipes_config/**` — authored
-documents, all 48 of which validate. The widening below adds the two fields
-using `ComputePipesCommonArgs`, which the model already defines and nothing
-references, and the pipe union. `tests_config.py` derives the pair by parsing
-the Go struct's tags rather than repeating this paragraph.
+**The model described the authored document and the node reads the runtime
+one; that half is closed upstream as of 2026-09-21.** `pipes_model.go`'s
+`ComputePipesConfig` carries fifteen json tags and the contract's
+`ComputePipesConfig` carries thirteen: `common_runtime_args` and `pipes_config`
+are absent from it, and they are precisely the two a *starter* fills in. Both
+starters build the literal that becomes `cpipes_config_json` with
+`CommonRuntimeArgs` set and `PipesConfig` set to the step's pipes —
+`actions_start_reducing_cp.go` and `actions_start_sharding_cp.go` alike — and
+`CoordinateComputePipes` reads both. With `extra="forbid"` on every class the
+consequence was flat: **the contract model refused every document a node has
+ever been given.** That was invisible to `cpipes-contract check --corpus`,
+whose corpus is `pipes_config/**` — authored documents, every one of which
+validates.
+
+**The repair is a second projection in the contract rather than a wider first
+one**, and `PipesConfig` below is now an alias for it. The two fields stay
+`applicable=no` in the matrix and stay out of the emitted schema, because an
+authored schema admitting a runtime document is what `negative_suite.json`'s
+*root pipes_config (I-14 runtime shape)* case exists to refuse. So the
+thirteen-against-fifteen difference was never the defect on its own; the
+absence of any class on the runtime side of it was. `tests_config.py` derives
+the pair by parsing the Go struct's tags rather than repeating this paragraph.
+(`jetstore_maintenance_01` Phase 1 `AD`, closing `healthcare_corpus`'s
+`P9-I28`, read 2026-09-20.)
 
 **The union omitted the site operator, and that half is closed upstream as of
 2026-09-19.** `TransformationSpecSite` existed in the model, carried the right
@@ -69,8 +79,6 @@ import typing
 from pathlib import Path
 from types import ModuleType
 from typing import Any
-
-from pydantic import Field
 
 from .errors import ContractModelNotFound
 
@@ -156,42 +164,42 @@ TransformationSpecSite = model.TransformationSpecSite
 SchemaProviderSpecDefault = model.SchemaProviderSpecDefault
 
 
-# --- the widening -----------------------------------------------------------
+# --- the widenings, both retired --------------------------------------------
 #
-# One widening remains and it is the runtime-fields one. The `valid-type`
-# ignores are the first finding's cost, not a second one: `cpipes_model` is
-# loaded through `importlib` because it is not importable, so a static checker
-# sees `PipeSpec` as a module attribute rather than as a type. Pydantic
-# resolves them at `model_rebuild()`, and `tests_config.py` exercises this
-# class against the real documents — so the types are checked, by running
-# rather than by reading. Moving `cpipes_model.py` into its package removes
-# them.
-class PipesConfig(ComputePipesConfig):  # type: ignore[misc, valid-type]
-    """The document a node is actually handed.
+# Nothing here widens the contract any more. The site widening went the way it
+# was designed to go: its guard turned red, named the three classes, and they
+# were deleted. **The runtime-fields widening did not, and that is worth the
+# paragraph.** Its guard —
+# `tests_config.test_the_runtime_only_fields_are_exactly_the_two_widened` —
+# compared `PipesConfig.model_fields` against `ComputePipesConfig.model_fields`
+# and asserted the difference was the two. That difference is the same whether
+# `PipesConfig` is a subclass declared here or the contract's own
+# `ComputePipesRuntimeConfig`, so the guard stayed green across the very change
+# it was written to detect: **it pinned the difference and the thing that moved
+# was the ownership.** Retired guards are written against a *cause*, and this
+# one was written against a *symptom* that the repair preserves on purpose.
+#
+# So it is renamed and given the assertion it was missing — that the runtime
+# model is the contract's and this package declares no subclass of it — rather
+# than deleted, because a widening retired on an untested premise is a widening
+# that comes back.
 
-    One widening, composed from the contract's own classes: the two fields a
-    starter fills in that the authored-document model does not carry. Nothing
-    else differs, and `tests_config.py` asserts that by validating all of
-    JetStore's own `.pc.json` corpus through this class and through the
-    contract's, requiring both to accept every one of them.
-    """
-
-    #: Filled by the starters; read by `CoordinateComputePipes` for the mode,
-    #: the session, the step id and the file key.
-    common_runtime_args: ComputePipesCommonArgs | None = Field(default=None)  # type: ignore[valid-type]
-    #: The current step's pipes. The reducing starter writes this and not
-    #: `conditional_pipes_config`, so a node's document has the steps already
-    #: chosen — which is why `when` on a *step* is the starter's to evaluate
-    #: and `when` on an *operator* is the node's (P9-T04).
-    pipes_config: list[PipeSpec] | None = Field(default=None)  # type: ignore[valid-type]
-
-
-PipesConfig.model_rebuild(_types_namespace={**vars(model), **globals()})
+#: The document a node is actually handed. An **alias**, deliberately: the name
+#: is what every call site in this package spells, so the move out of here cost
+#: no call site and the next reader finds the shape under the name they already
+#: know. The current step's pipes arrive under `pipes_config` and not under
+#: `conditional_pipes_config`, which is why `when` on a *step* is the starter's
+#: to evaluate and `when` on an *operator* is the node's (P9-T04).
+PipesConfig = model.ComputePipesRuntimeConfig
 
 
-# The class above is the widened one; the test that the set is complete reads
-# this tuple and the model, never a sentence in a docstring.
-WIDENED_CLASSES: tuple[type, ...] = (PipesConfig,)
+# Empty, and kept rather than deleted: it is the inventory a future widening
+# would join, and an empty tuple states *none* where a deleted name states
+# nothing. **Nothing reads it today** — the comment it carried claimed a test
+# did, and no test ever has, which is recorded rather than quietly repaired
+# because a comment asserting a check that does not exist is exactly what this
+# package spends its own tests refusing.
+WIDENED_CLASSES: tuple[type, ...] = ()
 
 
 def builtin_transformation_members() -> tuple[type, ...]:
@@ -261,9 +269,9 @@ def spec_kind(obj: Any) -> str | None:
 
     Derived from `_MATRIX_KEYS` by class name, so the walk in `config.py` has
     no list of field paths to go stale: it walks *objects* and asks each one
-    what it is. The lookup climbs the MRO because this package's own subclasses
-    of contract classes — `PipesConfig` today, three more until the site
-    widening retired — answer through their bases.
+    what it is. The lookup still climbs the MRO: this package subclasses nothing
+    now, but `ComputePipesRuntimeConfig` is itself a subclass of a class the
+    matrix keys, so the climb is what makes a runtime document answer at all.
     """
     keys: dict[str, tuple[str, str]] = model._MATRIX_KEYS
     for cls in type(obj).__mro__:
