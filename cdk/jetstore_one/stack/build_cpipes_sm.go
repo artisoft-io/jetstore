@@ -293,6 +293,34 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	//
 	// It costs the unset case nothing: with the Python node not deployed this When is not added
 	// at all, so the Choices array is the array it is today, in today's order.
+	//
+	// The two flags are two axes and not two points on one, which is what the array's shape
+	// hides. use_ecs_tasks_when picks **where** a reducing step runs -- an ECS Fargate task
+	// rather than a Lambda -- and use_python_node_when picks **which engine** runs it -- the
+	// Python cp_node rather than the Go worker. Each is evaluated per reducing step by its own
+	// Eval* function, so a pipeline authoring both describes a point in a 2x2:
+	//
+	//                    | Go worker                | Python cp_node
+	//     ---------------+--------------------------+-----------------------
+	//      Lambda        | runReducingMap           | runReducingPythonMap
+	//                    | (Otherwise, the default) | (this When)
+	//     ---------------+--------------------------+-----------------------
+	//      ECS Fargate   | runReducingECSMap        | not built
+	//                    | (the next When)          |
+	//
+	// Three quadrants exist and the fourth -- a Python cp_node on an ECS task -- is not asked
+	// for. It is named here so that building it later is an **arm rather than a redesign**:
+	// the two flags are already independent, both already travel on ComputePipesRun, and both
+	// are already computed per step. Adding the quadrant is one more When at the head of this
+	// array, conjoining the two flags, plus the map state it targets -- not a change to how the
+	// choice is made. What would make it a redesign is collapsing the two into one enum now,
+	// on the grounds that only three of the four values are reachable; that would have to be
+	// unpicked by whoever needs the fourth.
+	//
+	// Read the array's order with that in mind: it is first-match-wins over three of four
+	// quadrants, so the Python When must test the Python flag alone only for as long as the
+	// fourth quadrant is empty. The moment it is built, this When becomes
+	// (python && !ecs) and the new one (python && ecs), and the ECS When below is unchanged.
 	if runReducingPythonMap != nil {
 		ecsOrLambdaChoice.When(sfn.Condition_And(
 			sfn.Condition_IsPresent(jsii.String(cpipesPythonReducingFlag)),

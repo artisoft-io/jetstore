@@ -3186,6 +3186,31 @@
           "default": null,
           "description": "Use_ecs_tasks_when is an expression as the when property."
         },
+        "use_python_node": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use_python_node is true to use the python cp_node rather than the go one",
+          "title": "Use Python Node"
+        },
+        "use_python_node_when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use_python_node_when is an expression as the when property."
+        },
         "when": {
           "anyOf": [
             {

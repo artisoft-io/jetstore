@@ -2004,6 +2004,33 @@ func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {
 	return result, nil
 }
 
+// EvalUsePythonNode reports whether the reducing step stepId is to run on the Python cp_node
+// rather than the Go worker. It is EvalUseEcsTask's shape applied to the other axis: the
+// use_python_node bool is the default and a non-nil use_python_node_when expression overrides it,
+// in both directions. A step spec shorter than stepId yields false, and an expression that fails
+// to build or to evaluate returns the error rather than a silent false -- a misconfigured
+// expression must not look like "run this on Go".
+func (cpipesStartup *CpipesStartup) EvalUsePythonNode(stepId int) (bool, error) {
+	pipeSpec := cpipesStartup.CpConfig.ConditionalPipesConfig
+	result := false
+	if len(pipeSpec) > stepId {
+		result = pipeSpec[stepId].UsePythonNode
+		if pipeSpec[stepId].UsePythonNodeWhen != nil {
+			builderContext := ExprBuilderContext(cpipesStartup.EnvSettings)
+			evaluator, err := builderContext.BuildExprNodeEvaluator("use_python_node", nil, pipeSpec[stepId].UsePythonNodeWhen)
+			if err != nil {
+				return false, err
+			}
+			v, err := evaluator.Eval(cpipesStartup.EnvSettings)
+			if err != nil {
+				return false, err
+			}
+			return ToBool(v), nil
+		}
+	}
+	return result, nil
+}
+
 // Function to get the column to add to the input file(s),
 // these columns are added to the input_row channel.
 // They are taken from the channel config with name input_row.

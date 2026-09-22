@@ -559,14 +559,18 @@ type MergeFileSpec struct {
 // nbr_partitions as int (used for hashing purpose)
 // use_ecs_tasks is true to use ecs fargate task
 // use_ecs_tasks_when is an expression as the when property.
+// use_python_node is true to use the python cp_node rather than the go one
+// use_python_node_when is an expression as the when property.
 type ConditionalPipeSpec struct {
-	Comment         string                   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	StepName        string                   `json:"step_name,omitempty"`
-	UseEcsTasks     bool                     `json:"use_ecs_tasks,omitzero"`
-	UseEcsTasksWhen *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
-	PipesConfig     []PipeSpec               `json:"pipes_config"`
-	When            *ExpressionNode          `json:"when,omitzero"`
-	AddlEnv         []ConditionalEnvVariable `json:"addl_env,omitempty"`
+	Comment           string                   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	StepName          string                   `json:"step_name,omitempty"`
+	UseEcsTasks       bool                     `json:"use_ecs_tasks,omitzero"`
+	UseEcsTasksWhen   *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
+	UsePythonNode     bool                     `json:"use_python_node,omitzero"`
+	UsePythonNodeWhen *ExpressionNode          `json:"use_python_node_when,omitzero"`
+	PipesConfig       []PipeSpec               `json:"pipes_config"`
+	When              *ExpressionNode          `json:"when,omitzero"`
+	AddlEnv           []ConditionalEnvVariable `json:"addl_env,omitempty"`
 }
 
 type ConditionalEnvVariable struct {
