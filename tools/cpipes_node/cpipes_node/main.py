@@ -20,15 +20,26 @@ passes no connection, so `side_effects.NONE` is what records the run and it
 records nothing. A local run is evidence about the *pipeline*; X1 asks about the
 *integration*, and the reading is Michel's.
 
-Three subcommands:
+Four subcommands:
 
     cpipes-node scope                 print the declared scope
     cpipes-node check --config FILE   run the scope gate alone
     cpipes-node run --config FILE ... run the node against a local store
+    cpipes-node tokens [--check]      JetStore's tokens against this node's scope
 
 `check` is the one to hang X6's evidence on: exit 0 clean, exit 1 out of scope,
 exit 2 declared and not implemented. Two exit codes rather than one, for the
 reason `errors.py` gives.
+
+**`tokens` is the conformance instrument and it lives here rather than in
+`cpipes_contract` because of the dependency direction.** It needs both sides in
+one process: JetStore's enumeration, which `cpipes_contract` can reach, and
+this node's registry, which it cannot -- `cpipes_node` depends on
+`cpipes_contract` and the reverse would make the contract tooling need the node
+installed to run at all. So the only place the subtraction can be made is this
+side of that arrow. `--check` pins the difference to a declared baseline and
+exits 4 when it moves, which is a different code from the 3 a failure to
+*measure* gets: a parser that stopped matching must not look like drift.
 
 **A local merge needs the four S3-area variables in the environment.**
 `JETS_s3_STAGE_PREFIX` and its three siblings are read the way `awsi.init()`
@@ -60,11 +71,26 @@ from .errors import ConfigInvalid, NodeError
 from .scope import declarations, declared_scope
 from .site import EMPTY
 from .store import Local
+from .token_diff import (
+    BASELINE_PATH,
+    TokenDiffError,
+    compute,
+    load_baseline,
+    movements,
+    render_baseline,
+    render_check_failure,
+)
+from .token_diff import render as render_token_diff
 
 EXIT_OK = 0
 EXIT_OUT_OF_SCOPE = 1
 EXIT_NOT_IMPLEMENTED = 2
 EXIT_REFUSED = 3
+#: `tokens --check` found the difference somewhere other than where the
+#: baseline says it is. Distinct from EXIT_REFUSED so that a CI step can tell
+#: *the gap moved* from *the instrument could not measure*, which a shared code
+#: would merge into one red.
+EXIT_BASELINE_MOVED = 4
 
 
 def render_declared_scope() -> str:
@@ -184,6 +210,49 @@ def main(argv: list[str] | None = None) -> int:
 
     check = sub.add_parser("check", help="run the scope gate over a .pc.json")
     check.add_argument("--config", type=Path, required=True)
+    tokens = sub.add_parser(
+        "tokens",
+        help="JetStore's operator tokens against this node's declared scope",
+    )
+    tokens.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "exit 4 if the difference has moved from the declared baseline, "
+            "naming the tokens that moved"
+        ),
+    )
+    tokens.add_argument(
+        "--jetstore",
+        type=Path,
+        default=None,
+        help="the JetStore checkout to read; defaults to the one this tree is in",
+    )
+    tokens.add_argument(
+        "--go-contract",
+        type=Path,
+        default=None,
+        help=(
+            "cpipes_contract_data.go itself, overriding --jetstore. This is what "
+            "the mutation proof points at a fixture."
+        ),
+    )
+    tokens.add_argument(
+        "--baseline",
+        type=Path,
+        default=BASELINE_PATH,
+        help="the declared baseline to check against",
+    )
+    tokens.add_argument(
+        "--write-baseline",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help=(
+            "rewrite the baseline from what is measured now, dated. A deliberate "
+            "act: say in the commit message why the gap changed."
+        ),
+    )
+
     run = sub.add_parser("run", help="run the node against a local store")
     run.add_argument("--config", type=Path, required=True)
     run.add_argument("--id", type=int, default=0, help="node id ($SHARD_ID)")
@@ -210,6 +279,9 @@ def main(argv: list[str] | None = None) -> int:
         print(render_declared_scope())
         return EXIT_OK
 
+    if args.command == "tokens":
+        return _tokens(args)
+
     try:
         if args.command == "check":
             # Through the source rather than `read_text`, so a missing file is
@@ -229,6 +301,74 @@ def main(argv: list[str] | None = None) -> int:
     except NodeError as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+    return EXIT_OK
+
+
+def _tokens(args) -> int:  # type: ignore[no-untyped-def]
+    """`cpipes-node tokens`, and the whole of AG.
+
+    The three sets and the coverage statement print on every path, `--check`
+    included, because whoever reads a green result is the person who needs to
+    know how narrow the claim is (`AG.2`).
+    """
+    try:
+        diff = compute(go_contract=args.go_contract, jetstore=args.jetstore)
+    except TokenDiffError as exc:
+        print(f"token diff: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+
+    print(render_token_diff(diff))
+
+    if args.write_baseline:
+        args.baseline.write_text(
+            render_baseline(diff, args.write_baseline), encoding="utf-8"
+        )
+        print(f"\nbaseline written to {args.baseline}, dated {args.write_baseline}")
+        return EXIT_OK
+
+    if not args.check:
+        return EXIT_OK
+
+    try:
+        baseline = load_baseline(args.baseline)
+        moved = movements(diff, baseline)
+    except TokenDiffError as exc:
+        print(f"token diff: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+
+    # The movements print first and the staleness note second, in both orders
+    # of severity. A reader who has a token named at them can act on it; a
+    # reader told only "your generated file is stale" has to go and find out
+    # what changed, which is the work this instrument exists to do for them.
+    if moved:
+        print(file=sys.stderr)
+        print(render_check_failure(diff, baseline, moved), file=sys.stderr)
+
+    if diff.disagreements:
+        # Exit 3 rather than 4 even when tokens moved: the JetStore side was
+        # read off a file that disagrees with the model it is generated from,
+        # so *which* way the difference moved is not established. The tokens
+        # above are still named, because they are the lead.
+        print(file=sys.stderr)
+        print(
+            "token diff: the generated Go file disagrees with cpipes_model.py for "
+            f"{', '.join(diff.disagreements)}.\n"
+            "  cpipes_model.py is the source of truth for the contract and the Go "
+            "file is generated from the matrix,\n"
+            "  so the sets above were read off a stale or hand-edited artefact and "
+            "are not a measurement.\n"
+            "  Run `cpipes-contract gofile` and re-run this.",
+            file=sys.stderr,
+        )
+        return EXIT_REFUSED
+
+    if moved:
+        return EXIT_BASELINE_MOVED
+
+    print(
+        f"\nThe difference is where the baseline says it is "
+        f"(declared {baseline.get('measured', 'undated')})."
+    )
     return EXIT_OK
 
 

@@ -1,0 +1,53 @@
+{
+  "measured": "2026-09-21",
+  "note": "Declared, not computed. Moving a set here is an act somebody takes on purpose and explains in the commit message; see R10 and Q-3 in projects/jetstore_maintenance_01.",
+  "kinds": {
+    "input_channel": {
+      "go_only": [
+        "input",
+        "stage"
+      ],
+      "node_only": [],
+      "both": [
+        "generator",
+        "memory"
+      ]
+    },
+    "pipe": {
+      "go_only": [
+        "splitter"
+      ],
+      "node_only": [],
+      "both": [
+        "fan_out",
+        "merge_files"
+      ]
+    },
+    "transformation": {
+      "go_only": [
+        "aggregate",
+        "analyze",
+        "anonymize",
+        "clustering",
+        "distinct",
+        "embed",
+        "group_by",
+        "high_freq",
+        "infer",
+        "jetrules",
+        "merge",
+        "ollama",
+        "render",
+        "shuffling",
+        "sort",
+        "vllm"
+      ],
+      "node_only": [],
+      "both": [
+        "filter",
+        "map_record",
+        "partition_writer"
+      ]
+    }
+  }
+}
