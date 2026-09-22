@@ -304,6 +304,8 @@ class ConditionalPipeSpec(_Base):
     step_name: str | None = Field(default=None, description="Name of the step, used in the stage location path.")
     use_ecs_tasks: bool | None = Field(default=None, description="Use_ecs_tasks is true to use ecs fargate task")
     use_ecs_tasks_when: ExpressionNode | None = Field(default=None, description="Use_ecs_tasks_when is an expression as the when property.")
+    use_python_node: bool | None = Field(default=None, description="Use_python_node is true to use the python cp_node rather than the go one")
+    use_python_node_when: ExpressionNode | None = Field(default=None, description="Use_python_node_when is an expression as the when property.")
     when: ExpressionNode | None = Field(default=None, description="Condition deciding whether the step executes.")
 
 

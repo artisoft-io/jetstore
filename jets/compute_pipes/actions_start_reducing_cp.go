@@ -222,6 +222,15 @@ startStepId:
 		return result, fmt.Errorf("while calling UseECSReducingTask: %v", err)
 	}
 
+	// Determine if using the Python cp_node for this stepId.
+	// This is the only live call site: the sharding starter's ECS sibling below is commented out,
+	// and a generator step cannot run in sharding mode anyway (ShardFileKeys refuses one), so the
+	// corpus's step 0 is the Go worker's by construction rather than by this choice.
+	result.UsePythonReducingTask, err = cpipesStartup.EvalUsePythonNode(stepId)
+	if err != nil {
+		return result, fmt.Errorf("while calling UsePythonReducingTask: %v", err)
+	}
+
 	// Set the nbr of concurrent map tasks
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
