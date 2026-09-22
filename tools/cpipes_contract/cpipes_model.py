@@ -1787,3 +1787,41 @@ _MATRIX_KEYS = {
 _MODELS = [v for v in list(globals().values()) if isinstance(v, type) and issubclass(v, BaseModel) and v is not BaseModel]
 for _m in _MODELS:
     _m.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# The runtime document (AD.1, jetstore_maintenance_01 Phase 1)
+# ---------------------------------------------------------------------------
+#
+# `ComputePipesConfig` above is the **authored** document: the shape an author
+# writes into a `.pc.json` and the shape `cpipes-contract check --corpus`
+# walks. `pipes_model.go`'s struct of the same name is *both* shapes at once -
+# fifteen json tags, of which two are never authored - and the matrix records
+# that split as `applicable=no` on `common_runtime_args` and `pipes_config`.
+#
+# **The consequence is that no class here accepted the document a worker node
+# is actually handed**, which is `healthcare_corpus`'s `P9-I28` (read
+# 2026-09-20): a starter marshals a `ComputePipesConfig` with both fields set
+# into `cpipes_execution_status.cpipes_config_json`, and `extra="forbid"`
+# refused every one of them. That was invisible to the corpus walk, because a
+# node never sees an authored document.
+#
+# **The repair is a second projection rather than a wider first one.** Adding
+# the two fields to `ComputePipesConfig` would have reversed a reviewed
+# contract decision and made `negative_suite.json`'s *root pipes_config (I-14
+# runtime shape)* case - which expects `invalid` - start passing: the authored
+# schema would then admit a runtime document, which is the one thing the
+# `applicable=no` rows exist to prevent.
+#
+# **This class is deliberately defined after `_MODELS`**, so it is not part of
+# the emitted `cpipes_schema.json`. The schema is the authored projection and
+# regenerating it across this change produces no diff;
+# `tests_runtime_document.py` asserts both halves rather than leaving the
+# placement to be noticed.
+class ComputePipesRuntimeConfig(ComputePipesConfig):
+    """The document a worker node is handed: the authored one plus what a starter fills in."""
+    common_runtime_args: ComputePipesCommonArgs | None = Field(default=None, description="Runtime arguments for the worker nodes; internal to JetStore. Written by the sharding and reducing starters, read by CoordinateComputePipes for the mode, the session, the step id and the file key.")
+    pipes_config: list[PipeSpec] | None = Field(default=None, description="The per-step pipes JetStore writes for itself; never authored. The starter marshals the selected step's pipes here, so a node's document has its step already chosen.")
+
+
+ComputePipesRuntimeConfig.model_rebuild()

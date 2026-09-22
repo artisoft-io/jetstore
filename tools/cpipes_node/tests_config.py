@@ -1,10 +1,16 @@
-"""The config load, and the three places the contract model had to be widened.
+"""The config load, and the four widenings the contract model no longer needs.
 
-Every widening is asserted against the thing that caused it, so that none of
-them can outlive its cause: the runtime fields against the Go struct's tags,
+Every widening was asserted against the thing that caused it, so that none of
+them could outlive its cause: the runtime fields against the Go struct's tags,
 the site union against the contract's own refusal, and the set of classes
-carrying a transformation list against the model by reflection. When JetStore
-closes one of these, the test that pins it goes red and says what to delete.
+carrying a transformation list against the model by reflection. Three went the
+way that was designed — the guard turned red and named what to delete.
+
+**The fourth did not, and the tests below keep the account rather than tidy it
+away.** The runtime-fields guard compared a difference that the repair keeps on
+purpose, so it stayed green through its own retirement; it is renamed and given
+the assertion about *ownership* it was missing. A guard is only as good as the
+cause it names, and a difference is a symptom.
 """
 
 from __future__ import annotations
@@ -55,7 +61,26 @@ def test_the_contract_model_is_still_not_importable():
         __import__("cpipes_contract.cpipes_model")
 
 
-def test_the_runtime_only_fields_are_exactly_the_two_widened():
+def test_the_runtime_fields_come_from_the_contract_and_not_from_here():
+    """What was `..._are_exactly_the_two_widened`, renamed 2026-09-21 and given
+    the assertion it was missing.
+
+    **It was a retirement guard that could not see its own retirement.** It
+    compared `PipesConfig.model_fields` against `ComputePipesConfig.model_fields`
+    and required the difference to be the two runtime fields — and that
+    difference is identical whether `PipesConfig` is a subclass declared in
+    `contract.py` or an alias for the contract's `ComputePipesRuntimeConfig`.
+    So when `AD.1` moved the runtime projection upstream, which is exactly the
+    event the guard existed to announce, it stayed green.
+
+    The lesson is narrow and transferable: **a guard written against a symptom
+    the repair preserves on purpose cannot fire.** The widening's symptom was
+    a two-field difference, and the repair keeps that difference deliberately —
+    the authored model must go on refusing a runtime document
+    (`negative_suite.json`'s *root pipes_config (I-14 runtime shape)*). What
+    the repair changed was *who owns the class*, so that is what the last two
+    assertions read.
+    """
     src = go_source("jets/compute_pipes/pipes_model.go")
     body = re.search(r"type ComputePipesConfig struct \{(.*?)\n\}", src, re.DOTALL)
     assert body is not None
@@ -64,9 +89,14 @@ def test_the_runtime_only_fields_are_exactly_the_two_widened():
     runtime_only = go_tags - authored
     added = set(contract.PipesConfig.model_fields) - authored
     assert runtime_only == added == {"common_runtime_args", "pipes_config"}
-    # And the model carries nothing the Go struct does not, so the widening is
-    # the whole of the difference in both directions.
+    # And the authored model carries nothing the Go struct does not, so the
+    # runtime projection is the whole of the difference in both directions.
     assert authored - go_tags == set()
+    # The half the original could not see: the runtime model is the contract's
+    # own, and this package declares no subclass of a contract class. When that
+    # stops holding, a widening has come back and this names it.
+    assert contract.PipesConfig is contract.model.ComputePipesRuntimeConfig
+    assert contract.WIDENED_CLASSES == ()
 
 
 def test_the_contract_model_refuses_the_document_a_node_is_handed():
