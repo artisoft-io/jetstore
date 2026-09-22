@@ -238,7 +238,7 @@ type CsvSourceSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// This is used for lookup tables and loading metadata in jetrules.
 	// This is a single file source, the first file found is taken.
-	// Type range: cpipes, csv_file (future)
+	// Type range: cpipes (located from a stage step), csv_file (named by csv_source_file_key)
 	// Default values are taken from current pipeline
 	// Format: csv, headerless_csv
 	// Compression: none, snappy

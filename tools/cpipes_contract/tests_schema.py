@@ -241,3 +241,78 @@ def test_a_site_operator_carrying_a_builtins_config_block_is_refused():
     assert _schema_errors(doc)
     with pytest.raises(ValidationError):
         model.ComputePipesConfig.model_validate(doc)
+
+
+# --- the `csv_file` discriminator, against the engine -----------------------
+#
+# `CsvSourceSpec/csv_file` is the worked example of the failure this module is
+# about, arriving from the third side. Both readers here accepted it, the Go
+# contract table carried the token, and `NewCsvSourceS3` had no arm for it, so a
+# document declaring it passed every static gate and failed inside a running
+# worker when the lookup table was built. The engine's half is now
+# `TestCsvSourceTokensAreTheBuilderArms` in `jets/compute_pipes`; this is the
+# gates' half, and it exists so that removing the token from one artefact is a
+# red test rather than a silent narrowing.
+
+CSV_FILE_LOOKUP = {
+    "key": "thresholds",
+    "type": "s3_csv_lookup",
+    "csv_source": {
+        "type": "csv_file",
+        "csv_source_file_key": "$SESSIONID/thresholds.csv",
+        "format": "csv",
+        "compression": "none",
+    },
+    "lookup_key": ["field_id"],
+    "lookup_values": ["authored_rate"],
+}
+
+
+def _with_lookup(lookup: dict) -> dict:
+    doc = document(
+        {"type": "map_record", "output_channel": MEMORY_CHANNEL}
+    )
+    doc["lookup_tables"] = [lookup]
+    return doc
+
+
+def test_both_readers_accept_a_csv_file_source():
+    doc = _with_lookup(CSV_FILE_LOOKUP)
+    assert _schema_errors(doc) == []
+    config = model.ComputePipesConfig.model_validate(doc)
+    source = config.lookup_tables[0].csv_source
+    assert isinstance(source, model.CsvSourceSpecCsvFile)
+    assert source.csv_source_file_key == "$SESSIONID/thresholds.csv"
+
+
+def test_both_readers_refuse_a_csv_file_source_with_no_file_key():
+    """`csv_source_file_key` is the token's one required field.
+
+    The engine refuses it too (`TestCsvSourceCsvFileRequiresItsFileKey`), which
+    is the point: a required field only means something when the two agree, and
+    before the arm existed the engine refused every `csv_file` source for the
+    same reason regardless of what it carried.
+    """
+    lookup = {**CSV_FILE_LOOKUP, "csv_source": {"type": "csv_file"}}
+    doc = _with_lookup(lookup)
+    assert _schema_errors(doc)
+    with pytest.raises(ValidationError):
+        model.ComputePipesConfig.model_validate(doc)
+
+
+def test_both_readers_refuse_a_csv_source_token_the_builder_has_no_arm_for():
+    """The closed range is what keeps the two sides enumerable.
+
+    `NewCsvSourceS3` returns *unknown CsvSourceS3 type* for anything outside its
+    switch, and the discriminated union is what stops such a document being
+    authored at all. A union that admitted an unknown tag would push the
+    refusal back into the run, which is the whole failure.
+    """
+    lookup = {
+        **CSV_FILE_LOOKUP,
+        "csv_source": {"type": "parquet_file", "csv_source_file_key": "a/b.parquet"},
+    }
+    doc = _with_lookup(lookup)
+    assert _schema_errors(doc)
+    with pytest.raises(ValidationError):
+        model.ComputePipesConfig.model_validate(doc)
