@@ -228,7 +228,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				jsii.String(os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))), &awslambda.EcrImageCodeProps{
 				Cmd:         jsii.Strings("handler.lambda_handler"),
 				Entrypoint:  jsii.Strings("/lambda-entrypoint.sh"),
-				TagOrDigest: jsii.String(os.Getenv("CPIPES_PYTHON_IMAGE_TAG")),
+				TagOrDigest: jsii.String(os.Getenv("CPIPES_PYTHON_LAMBDA_IMAGE_TAG")),
 			}),
 			Description: jsii.String("JetStore Lambda function cpipes python execution"),
 			MemorySize:  jsii.Number(memLimit),

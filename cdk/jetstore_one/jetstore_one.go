@@ -584,7 +584,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	container-image Lambda CpipesPythonNodeLambda, from
 //	dockerfiles/Dockerfile.cpipes_python_lambda -- and adds the third arm of
 //	ecsOrLambdaChoice that routes a reducing iteration to it, in **both** cpipes state
-//	machines. Requires CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN and CPIPES_PYTHON_IMAGE_TAG.
+//	machines. Requires CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN and CPIPES_PYTHON_LAMBDA_IMAGE_TAG.
 //	**With it unset nothing changes**: the two blocks it gates are the whole of the change,
 //	so the synthesised template is the one a deployment gets today (exit criterion 96,
 //	measured as a byte comparison rather than claimed). It is a separate gate from
@@ -596,7 +596,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //
 //	holding the cpipes_python_lambda image)
 //
-// CPIPES_PYTHON_IMAGE_TAG (required when DEPLOY_CPIPES_PYTHON, the tag or digest of that image)
+// CPIPES_PYTHON_LAMBDA_IMAGE_TAG (required when DEPLOY_CPIPES_PYTHON, the tag or digest of
+//
+//	that image). Named for the lambda, as CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN above is:
+//	the two describe one image and are read together, so they carry one prefix.
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
@@ -773,7 +776,7 @@ func main() {
 	log.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))
 	log.Println("env DEPLOY_CPIPES_PYTHON:", os.Getenv("DEPLOY_CPIPES_PYTHON"))
 	log.Println("env CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))
-	log.Println("env CPIPES_PYTHON_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_IMAGE_TAG"))
+	log.Println("env CPIPES_PYTHON_LAMBDA_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_LAMBDA_IMAGE_TAG"))
 	log.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	log.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
