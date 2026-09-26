@@ -106,23 +106,35 @@ const FILE_TYPE_PROJECTION: Record<
   string,
   { clear: readonly string[]; blank: readonly string[]; as?: string }
 > = {
-  xlsx: { clear: ["input_columns_json", "input_columns_positions_csv"], blank: [] },
-  headerless_xlsx: { clear: ["input_columns_positions_csv"], blank: [] },
+  xlsx: {
+    clear: ["input_columns_json", "input_columns_positions_csv"],
+    blank: [],
+    as: "xlsx",
+  },
+  headerless_xlsx: {
+    clear: ["input_columns_positions_csv"],
+    blank: [],
+    as: "headerless_xlsx",
+  },
   csv: {
     clear: ["input_columns_json", "input_columns_positions_csv"],
     blank: ["input_format_data_json"],
+    as: "csv",
   },
   parquet: {
     clear: ["input_columns_json", "input_columns_positions_csv"],
     blank: ["input_format_data_json"],
+    as: "parquet",
   },
   headerless_csv: {
     clear: ["input_columns_positions_csv"],
     blank: ["input_format_data_json"],
+    as: "headerless_csv",
   },
   parquet_select: {
     clear: ["input_columns_positions_csv"],
     blank: ["input_format_data_json"],
+    as: "parquet_select",
   },
   headerless_csv_with_schema_provider: {
     clear: ["input_columns_json", "input_columns_positions_csv"],
@@ -132,6 +144,7 @@ const FILE_TYPE_PROJECTION: Record<
   fixed_width: {
     clear: ["input_columns_json"],
     blank: ["input_format_data_json"],
+    as: "fixed_width",
   },
   fixed_width_with_schema_provider: {
     clear: ["input_columns_positions_csv", "input_columns_json"],
@@ -174,6 +187,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
   const partFiles = PART_FILES[scalar(row["scSingleOrMultiPartFileOption"]) ?? ""];
   if (partFiles === undefined) return "error";
   row["is_part_files"] = partFiles;
+  row["user_email"] = host.userEmail();
 
   const table = row["key"] == null ? "source_config" : "update/source_config";
   const result = await host.post({
