@@ -135,13 +135,17 @@ ON CONFLICT DO NOTHING
 
 -- Define the ObjectType used by the platform
 -- 'Any' is used to kick off the loader pipeline for any object type
-DELETE FROM jetsapi.object_type_registry WHERE object_type IN ('Any', 'jetsa:EmbeddedData');
+DELETE FROM jetsapi.object_type_registry WHERE object_type IN ('Any', 'Trigger_File', 'jetsa:EmbeddedData');
 INSERT INTO jetsapi.object_type_registry (
    object_type, entity_rdf_type,   domain_key_object_types, details) VALUES
   ('Any', -- object_type
   'owl:Thing', -- entity_rdf_type
   '{Any}', -- domain_key_object_types
   'Any object'), -- details
+  ('Trigger_File', -- object_type
+  'owl:Thing', -- entity_rdf_type
+  '{Trigger_File}', -- domain_key_object_types
+  'Generic trigger file'), -- details
   ('jetsa:EmbeddedData', -- object_type
   'owl:Thing', -- entity_rdf_type
   '{jetsa:EmbeddedData}', -- domain_key_object_types
