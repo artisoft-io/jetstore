@@ -26,11 +26,22 @@ inventing a DSN**:
     jets/awsi/awsi.go                                 GetDsnFromJson
 
 which reads the secret named by `JETS_DSN_SECRET`, parses it as JSON and builds
-`postgresql://<username>:<escaped password>@<host>:<port>/postgres` with
-`pool_max_conns` set to the pool size. `USING_SSH_TUNNEL`, when present in the
-environment, replaces the host with `localhost` — the same rule on the same
-variable as the Go path, which is what lets a local run against the ssh tunnel
-reach the database the deployed node reaches.
+`postgresql://<username>:<escaped password>@<host>:<port>/postgres`.
+`USING_SSH_TUNNEL`, when present in the environment, replaces the host with
+`localhost` — the same rule on the same variable as the Go path, which is what
+lets a local run against the ssh tunnel reach the database the deployed node
+reaches.
+
+**The one thing not mirrored is the Go DSN's `?pool_max_conns=<pool size>`, and
+mirroring it was a defect.** That parameter is pgx's: `pgxpool.ParseConfig`
+consumes it before the rest of the string reaches the driver. libpq has no such
+keyword and rejects the URI outright — psycopg raises `ProgrammingError: invalid
+URI query parameter: "pool_max_conns"` before any network traffic — so a node
+built with it could never open a connection. Found on the first deployed run,
+2026-09-24; the build-time check had asserted the string rather than parsed it,
+which is why it passed. There is nothing to carry it over *to*, either:
+`connect` below opens one connection, not a pool, so a pool size means nothing
+on this path.
 
 **The escaping is `quote_plus` because the Go original is `url.QueryEscape`, and
 that is a mirror of something this repository should probably change.**
@@ -73,14 +84,15 @@ log = logging.getLogger(__name__)
 logging.getLogger().setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
-def dsn_from_secret_json(secret_json: str, pool_size: int) -> str:
-    """`awsi.GetDsnFromJson`, in Python.
+def dsn_from_secret_json(secret_json: str) -> str:
+    """`awsi.GetDsnFromJson`, in Python, less the pgx-only pool parameter.
 
     A free function taking the secret's *text* so that it is exercisable without
     Secrets Manager: the only thing the AWS call contributes is that string. The
     image's build runs it against a fixed input and asserts the result, which is
     the only test this file can have — nothing under `dockerfiles/` is collected
-    by a test runner, and the image is the artefact that ships it.
+    by a test runner, and the image is the artefact that ships it. It takes no
+    pool size; the module docstring says why.
     """
     m = json.loads(secret_json)
     host = m["host"]
@@ -89,7 +101,7 @@ def dsn_from_secret_json(secret_json: str, pool_size: int) -> str:
         log.info("LOCAL TESTING using ssh tunnel (expecting ssh tunnel open)")
     return (
         f"postgresql://{m['username']}:{quote_plus(str(m['password']))}"
-        f"@{host}:{int(m['port'])}/postgres?pool_max_conns={pool_size}"
+        f"@{host}:{int(m['port'])}/postgres"
     )
 
 
@@ -100,7 +112,7 @@ def connect(settings: Settings) -> Any:
 
     client = boto3.client("secretsmanager", region_name=settings.region)
     secret = client.get_secret_value(SecretId=settings.dsn_secret)["SecretString"]
-    return psycopg.connect(dsn_from_secret_json(secret, settings.db_pool_size))
+    return psycopg.connect(dsn_from_secret_json(secret))
 
 
 #: One per cold start, exactly as the Go main's package-level `dbConnection` is.
