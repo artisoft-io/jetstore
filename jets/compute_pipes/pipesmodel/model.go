@@ -102,7 +102,7 @@ type PipeTransformationEvaluator interface {
 type ChannelSpec struct {
 	Comment              string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name                 string                `json:"name"`
-	Columns              []string              `json:"columns"`
+	Columns              []string              `json:"columns,omitzero"`
 	ClassName            string                `json:"class_name,omitempty"`
 	DirectPropertiesOnly bool                  `json:"direct_properties_only,omitzero"`
 	HasDynamicColumns    bool                  `json:"has_dynamic_columns,omitzero"`
@@ -156,7 +156,7 @@ type TransformationColumnSpec struct {
 	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
 	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
 	// MaxEnvVarSubstitution applies to expr with env var substitution: select, multi_select, value, lookup
-	Name                  string                      `json:"name"`
+	Name                  string                      `json:"name,omitempty"`
 	Type                  string                      `json:"type"`
 	Expr                  *string                     `json:"expr,omitempty"`
 	ExprArray             []string                    `json:"expr_array,omitempty"`

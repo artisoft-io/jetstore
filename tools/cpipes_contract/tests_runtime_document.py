@@ -70,15 +70,23 @@ def runtime_document() -> dict:
 
     `common_runtime_args` and a **flat** `pipes_config`: the step is already
     chosen by the time a node reads it, which is why the two fields are the
-    pair and not either one alone.
+    pair and not either one alone. **And `cluster_config.sharding_info`**, which
+    every starter sets and which this fixture left out until the first deployed
+    Python run was refused on it, 2026-09-27: a fixture carrying only the
+    fields somebody remembered is how the model passed its own tests and
+    refused every real document.
     """
     return {
+        "cluster_config": {
+            "sharding_info": {"total_file_size": 127, "max_nbr_partitions": 1,
+                              "nbr_partitions": 1, "multi_step_sharding": 0},
+        },
         "common_runtime_args": {"cpipes_mode": "reducing", "session_id": "s1"},
         "pipes_config": [PIPE],
     }
 
 
-def go_json_tags(struct: str) -> set[str]:
+def go_json_tags(struct: str, source: str = "pipes_model.go") -> set[str]:
     """The json tags of one struct in `pipes_model.go` - the producing shape.
 
     Parsed rather than listed, so this file holds no copy of the inventory it
@@ -86,9 +94,9 @@ def go_json_tags(struct: str) -> set[str]:
     struct is *both* shapes at once, which is the fact the split exists to
     express.
     """
-    src = (JETSTORE_ROOT / "jets" / "compute_pipes" / "pipes_model.go").read_text()
+    src = (JETSTORE_ROOT / "jets" / "compute_pipes" / source).read_text()
     body = re.search(rf"type {struct} struct \{{(.*?)\n\}}", src, re.DOTALL)
-    assert body is not None, f"{struct} is no longer declared in pipes_model.go"
+    assert body is not None, f"{struct} is no longer declared in {source}"
     return set(re.findall(r'json:"([A-Za-z0-9_]+)', body.group(1)))
 
 
@@ -141,6 +149,20 @@ def test_the_runtime_model_accepts_the_document_a_node_is_handed():
     assert config.common_runtime_args.cpipes_mode == "reducing"
     assert config.pipes_config is not None
     assert config.pipes_config[0].type == "fan_out"
+    assert config.cluster_config.sharding_info.total_file_size == 127
+
+
+def test_sharding_info_carries_exactly_what_the_go_struct_marshals():
+    """The one runtime field below the root, derived from its producer.
+
+    `ClusterShardingInfo` is declared in `actions_common_model.go`, not
+    `pipes_model.go`, and its tags carry no `omitempty` - so every key is always
+    written, and a field added there must be a field the model accepts.
+    """
+    tags = go_json_tags("ClusterShardingInfo", "actions_common_model.go")
+    assert set(model.ClusterShardingInfo.model_fields) == tags
+    assert model.ClusterSpecRuntime.model_fields["sharding_info"] is not None
+    assert "sharding_info" not in model.ClusterSpec.model_fields
 
 
 def test_the_runtime_model_still_accepts_an_authored_document():
@@ -160,14 +182,14 @@ def test_the_runtime_model_still_accepts_an_authored_document():
 def test_the_authored_model_goes_on_refusing_the_runtime_document():
     """The half a wider `ComputePipesConfig` would have destroyed.
 
-    Both keys are named in the refusal, because the pair is what a starter
-    writes and a model that refused only one of them would still accept a
-    half-runtime document nothing produces.
+    Every runtime key is named in the refusal, because that set is what a
+    starter writes and a model that refused only some of them would still
+    accept a half-runtime document nothing produces.
     """
     with pytest.raises(ValidationError) as excinfo:
         model.ComputePipesConfig.model_validate(runtime_document())
-    refused = {e["loc"][0] for e in excinfo.value.errors()}
-    assert refused == {"common_runtime_args", "pipes_config"}
+    refused = {".".join(str(x) for x in e["loc"]) for e in excinfo.value.errors()}
+    assert refused == {"common_runtime_args", "pipes_config", "cluster_config.sharding_info"}
 
 
 def test_the_emitted_schema_goes_on_refusing_the_runtime_shape():
@@ -185,3 +207,5 @@ def test_the_emitted_schema_goes_on_refusing_the_runtime_shape():
     assert "common_runtime_args" not in root["properties"]
     assert "pipes_config" not in root["properties"]
     assert "ComputePipesRuntimeConfig" not in schema["$defs"]
+    assert "ClusterSpecRuntime" not in schema["$defs"]
+    assert "sharding_info" not in schema["$defs"]["ClusterSpec"]["properties"]

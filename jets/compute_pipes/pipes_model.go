@@ -539,7 +539,7 @@ type PipeSpec struct {
 	InputChannel    InputChannelConfig   `json:"input_channel"`
 	SplitterConfig  *SplitterSpec        `json:"splitter_config,omitzero"`
 	MergeFileConfig *MergeFileSpec       `json:"merge_file_config,omitzero"`
-	Apply           []TransformationSpec `json:"apply"`
+	Apply           []TransformationSpec `json:"apply,omitzero"`
 	OutputFile      *string              `json:"output_file,omitzero"` // for merge_files
 }
 
@@ -603,7 +603,7 @@ type TransformationSpec struct {
 	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
 	// embed, vllm, render
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
-	Type                  string                           `json:"type"`
+	Type                  string                           `json:"type,omitempty"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
 	Columns               []TransformationColumnSpec       `json:"columns,omitempty"`
 	MapRecordConfig       *MapRecordSpec                   `json:"map_record_config,omitzero"`
@@ -625,7 +625,7 @@ type TransformationSpec struct {
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	SiteConfig            *SiteOperatorSpec                `json:"site_config,omitzero"`
-	OutputChannel         OutputChannelConfig              `json:"output_channel"`
+	OutputChannel         OutputChannelConfig              `json:"output_channel,omitzero"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 	When                  *ExpressionNode                  `json:"when,omitzero"`
 }
@@ -844,7 +844,7 @@ type InputChannelConfig struct {
 	// NbrNodesAny and NbrRowsAny are used for Type = "generator" to specify the number
 	// of nodes and rows to generate, they can be int or string (with env var substitution).
 	FileConfig
-	Type                 string               `json:"type"`
+	Type                 string               `json:"type,omitempty"`
 	Name                 string               `json:"name"`
 	SchemaProvider       string               `json:"schema_provider,omitempty"`
 	ReadSessionId        string               `json:"read_session_id,omitempty"`
@@ -902,8 +902,8 @@ type OutputChannelConfig struct {
 	// $SHARD_ID current node id.
 	// $JETS_PARTITION_LABEL current node partition label.
 	FileConfig
-	Type                  string `json:"type"`
-	Name                  string `json:"name"`
+	Type                  string `json:"type,omitempty"`
+	Name                  string `json:"name,omitempty"`
 	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type stage,output — see doc block above
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
@@ -1143,7 +1143,7 @@ type AnonymizeSpec struct {
 	AdjustFieldWidthOnFW        bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
 	OmitPrefixOnFW              bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
 	AnonymizedColumnsOutputFile *ColumnFileSpec      `json:"anonymized_columns_output_file,omitzero"`
-	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel"`
+	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel,omitzero"`
 }
 
 type DistinctSpec struct {
