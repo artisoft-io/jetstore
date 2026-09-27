@@ -68,13 +68,28 @@ assert callable(handler.lambda_handler), "handler.lambda_handler is not callable
 # a space, a slash and a colon each escape differently, and the space is the one
 # that distinguishes `url.QueryEscape` (`+`, which is what Go writes and what
 # this mirrors) from `quote(safe="")` (`%20`).
+#
+# **Comparing the string is not enough, and the parse below is the check that
+# matters.** Until 2026-09-24 this block asserted a DSN ending in
+# `?pool_max_conns=7` — a faithful mirror of the Go string, and one libpq
+# rejects, so the check certified a handler that could not connect. psycopg is
+# on this image, and `conninfo_to_dict` is the exact call `psycopg.connect`
+# makes first, so it refuses at build time what the deployed node would refuse
+# at its first invocation. It opens no connection.
+from psycopg.conninfo import conninfo_to_dict  # noqa: E402
+
 SECRET = '{"username": "jets", "password": "p a/s:s", "host": "db.example", "port": 5432}'
-WANT = "postgresql://jets:p+a%2Fs%3As@db.example:5432/postgres?pool_max_conns=7"
-got = handler.dsn_from_secret_json(SECRET, 7)
+WANT = "postgresql://jets:p+a%2Fs%3As@db.example:5432/postgres"
+got = handler.dsn_from_secret_json(SECRET)
 assert got == WANT, f"dsn_from_secret_json gave\n  {got}\nwant\n  {WANT}"
+parsed = conninfo_to_dict(got)
+assert parsed == {
+    "user": "jets", "password": "p+a/s:s", "host": "db.example",
+    "port": "5432", "dbname": "postgres",
+}, f"libpq read the DSN as {parsed}"
 
 os.environ["USING_SSH_TUNNEL"] = "1"
-tunnelled = handler.dsn_from_secret_json(SECRET, 7)
+tunnelled = handler.dsn_from_secret_json(SECRET)
 del os.environ["USING_SSH_TUNNEL"]
 assert "@localhost:5432/" in tunnelled, (
     f"USING_SSH_TUNNEL did not redirect the host: {tunnelled}"
