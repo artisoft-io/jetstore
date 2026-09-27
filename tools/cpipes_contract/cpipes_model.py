@@ -1820,10 +1820,24 @@ for _m in _MODELS:
 # regenerating it across this change produces no diff;
 # `tests_runtime_document.py` asserts both halves rather than leaving the
 # placement to be noticed.
+#
+# **The split is not only at the root, and the first deployed Python run found
+# the one level down.** `ClusterSpec.sharding_info` is the third field no author
+# writes - the matrix marks it `applicable=no` on a `*` row, as it does the two
+# above - and every starter sets it, so a node refused every document it was
+# handed on that key alone (2026-09-27). It is admitted the same way: a runtime
+# projection of the one struct that carries it, and nothing wider.
+class ClusterSpecRuntime(ClusterSpec):
+    """The cluster configuration a worker node is handed: the authored one plus the sharding result."""
+    sharding_info: ClusterShardingInfo | None = Field(default=None, description="Calculated from the input files by the sharding starter; never authored.")
+
+
 class ComputePipesRuntimeConfig(ComputePipesConfig):
     """The document a worker node is handed: the authored one plus what a starter fills in."""
+    cluster_config: ClusterSpecRuntime | None = Field(default=None, description="Execution sizing of the pipeline, with the sharding result a starter adds.")
     common_runtime_args: ComputePipesCommonArgs | None = Field(default=None, description="Runtime arguments for the worker nodes; internal to JetStore. Written by the sharding and reducing starters, read by CoordinateComputePipes for the mode, the session, the step id and the file key.")
     pipes_config: list[PipeSpec] | None = Field(default=None, description="The per-step pipes JetStore writes for itself; never authored. The starter marshals the selected step's pipes here, so a node's document has its step already chosen.")
 
 
+ClusterSpecRuntime.model_rebuild()
 ComputePipesRuntimeConfig.model_rebuild()
