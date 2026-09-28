@@ -484,9 +484,24 @@ class PartitionWriterPipe:
         self.total_rows += len(rows)
 
     def done(self) -> None:
-        """Nothing, as in Go: the flush is `Finally`'s, on both paths."""
+        """The last partition's upload, on the success path.
+
+        **This was a no-op, with the flush in `finally_` alone, and that lost
+        data silently** (first deployed run, 2026-09-27): the graph isolates
+        `finally_` and only logs what it raises, so an upload that failed there
+        left a run reporting success with the partition missing. Go's
+        `Finally()` does not upload - it closes the device channel, and the
+        write happens in the S3 device manager, whose errors fail the run. So
+        the upload belongs here, where a raise is the run's error.
+        """
+        self._flush()
 
     def finally_(self) -> None:
+        """What `done` did not reach: the error path's partial partition.
+
+        On the success path `done` has already flushed and this writes nothing,
+        because `_flush` takes the buffered rows before it uploads.
+        """
         self._flush()
 
 

@@ -232,14 +232,21 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			}),
 			Description: jsii.String("JetStore Lambda function cpipes python execution"),
 			MemorySize:  jsii.Number(memLimit),
-			// **This map is six entries where the two Go node lambdas carry twenty-five, and
-			// the difference is derived rather than trimmed.** `cpipes_node/settings.py` is
-			// the only module in that package that reads the environment at all (measured
-			// 2026-09-18: no other os.environ or os.getenv anywhere under
-			// tools/cpipes_node/cpipes_node/), and it names five variables -- three required
-			// and two optional, mirroring what cp_node/main.go checks before lambda.Start.
-			// LOG_LEVEL is the sixth and is the *handler's* rather than the package's
-			// (dockerfiles/cpipes_node_lambda/handler.py).
+			// **This map is ten entries where the two Go node lambdas carry twenty-five, and
+			// the difference is derived rather than trimmed.** Two modules of `cpipes_node`
+			// read the environment: `settings.py`, five variables -- three required and two
+			// optional, mirroring what cp_node/main.go checks before lambda.Start -- and
+			// `merge.py`, the four S3 area prefixes `awsi.init()` reads, from which every
+			// stage and output key is built. LOG_LEVEL is the tenth and is the *handler's*
+			// rather than the package's (dockerfiles/cpipes_node_lambda/handler.py).
+			//
+			// **It was six until 2026-09-27, measured 2026-09-18 when `settings.py` was the
+			// only reader.** `merge.py` added the prefixes afterwards and this map did not
+			// follow, so the first deployed run built every stage key from an empty prefix
+			// -- `/process_name=...` -- and the object store refused it. The map is now
+			// checked against the package's own constants by `cpipes_node`'s
+			// `tests_deployment.py`, so a module that starts reading a variable fails there
+			// rather than on a deployed run.
 			//
 			// Every one of the other twenty is read by Go code this node does not have: the
 			// jetrules adaptor's workspace, the domain-key algorithms, the notification
@@ -255,7 +262,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
 				"CPIPES_DB_POOL_SIZE": jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
 				"JETS_S3_KMS_KEY_ARN": jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
-				"LOG_LEVEL":           jsii.String("INFO"),
+				// The four S3 areas, from the same sources as the Go node lambdas above.
+				"JETS_s3_INPUT_PREFIX":    jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+				"JETS_s3_OUTPUT_PREFIX":   jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+				"JETS_s3_STAGE_PREFIX":    jsii.String(GetS3StagePrefix()),
+				"JETS_s3_SCHEMA_TRIGGERS": jsii.String(GetS3SchemaTriggersPrefix()),
+				"LOG_LEVEL":               jsii.String("INFO"),
 			},
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),

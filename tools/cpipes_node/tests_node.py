@@ -332,6 +332,28 @@ def test_the_lambda_handler_takes_the_go_entry_s_event(tmp_path: Path):
         node.handler({"id": 0, "jp": "0000P", "pe": 9})
 
 
+def test_the_handler_returns_what_the_lambda_runtime_can_serialise(
+    monkeypatch, caplog
+):
+    """The first deployed run did all its work and then failed with
+    `Runtime.MarshalError`, because the handler returned a `RunResult`. The
+    runtime `json.dumps` the return value, so that is the assertion."""
+    from cpipes_node import awslambda
+    from cpipes_node.graph import RunResult
+
+    monkeypatch.setattr(
+        awslambda,
+        "coordinate",
+        lambda *a, **k: RunResult(source_rows=3, channel_rows={"m": 3}, pipe_rows={0: 3}),
+    )
+    node = awslambda.Node(settings=Settings.from_env(ENV), connect=lambda s: object())
+    with caplog.at_level("INFO", logger="cpipes_node.awslambda"):
+        returned = node.handler({"id": 0, "jp": "0000P", "pe": 9})
+    json.dumps(returned)
+    assert returned is None
+    assert '"channel_rows": {"m": 3}' in caplog.text
+
+
 def test_a_node_with_no_connection_refuses_at_invocation():
     # Not at import: a cold start that succeeded and an invocation that cannot
     # read its configuration are different things to see in a log.
