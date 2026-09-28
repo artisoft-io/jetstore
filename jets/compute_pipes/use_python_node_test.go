@@ -29,7 +29,7 @@ func boolExpr(v bool) *ExpressionNode {
 }
 
 // envExpr compares an env var against a literal, which is the shape the corpus actually
-// authors for use_ecs_tasks_when ($TOTAL_FILE_SIZE_GB > 30.0). With columns == nil the
+// authors for use_ecs_tasks_when (${TOTAL_FILE_SIZE_GB} > 30.0). With columns == nil the
 // select leaf reads its Expr as a key into EnvSettings at Eval time.
 func envExpr(key, want string) *ExpressionNode {
 	return &ExpressionNode{
