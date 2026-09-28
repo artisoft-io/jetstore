@@ -36,6 +36,9 @@ nothing would notice until the two pointed at different databases.
 
 from __future__ import annotations
 
+import dataclasses
+import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -47,6 +50,8 @@ from .node import coordinate
 from .settings import Settings
 from .site import EMPTY, SiteOperatorRegistry
 from .store import S3
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -71,14 +76,22 @@ class Node:
             self._connection = self.connect(self.settings)
         return self._connection
 
-    def handler(self, event: dict[str, Any], context: Any = None) -> Any:
+    def handler(self, event: dict[str, Any], context: Any = None) -> None:
         """`func handler(ctx, arg ComputePipesNodeArgs) error`, in Python.
 
         `NodeArgs` forbids an unknown field, so an event shaped for a future
         Go entry is refused here rather than half-understood.
+
+        **It returns nothing, as the Go handler returns only an error.** It
+        returned `coordinate`'s `RunResult` until the first deployed run
+        (2026-09-27), which did all its work and then failed with
+        `Runtime.MarshalError`: the Lambda runtime serialises a handler's return
+        value as JSON and a dataclass is not JSON. The state machine discards
+        the result anyway (`ResultPath: DISCARD`, `build_cpipes_sm.go`), so the
+        figures go to the log, which is where a reader of a run looks.
         """
         connection = self.connection()
-        return coordinate(
+        result = coordinate(
             NodeArgs(**event),
             ExecutionStatusConfigSource(connection),
             store=S3(
@@ -92,3 +105,7 @@ class Node:
             # side-effect rows, which is what the Go entry is handed.
             connection=connection,
         )
+        if dataclasses.is_dataclass(result):
+            log.info("node %s done: %s", event.get("id"),
+                     json.dumps(dataclasses.asdict(result), default=str))
+        return None

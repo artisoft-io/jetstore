@@ -757,6 +757,52 @@ def test_a_writer_that_received_nothing_writes_no_file(tmp_path: Path):
     assert store.list("") == ()
 
 
+class _RefusingStore(Local):
+    """A bucket that refuses every write, as S3 did on 2026-09-27."""
+
+    def put(self, key, data):
+        raise OSError(f"refused: {key}")
+
+    def put_stream(self, key, encode):
+        raise OSError(f"refused: {key}")
+
+
+def test_done_writes_the_last_partition_and_finally_does_not_write_it_again(
+    tmp_path: Path,
+):
+    store = Local(tmp_path)
+    writer = build_writer(store)
+    for i in range(3):
+        writer.apply([f"r{i}", i])
+    writer.done()
+    assert writer.parts == 1
+    writer.finally_()
+    assert writer.parts == 1
+    assert store.list("out/") == ("out/jets_partition=0000P/part0000-0000001.csv",)
+
+
+def test_a_failed_upload_raises_from_done(tmp_path: Path):
+    writer = build_writer(_RefusingStore(tmp_path))
+    writer.apply(["r0", 0])
+    with pytest.raises(OSError, match="refused"):
+        writer.done()
+
+
+def test_a_failed_upload_fails_the_run_rather_than_being_logged(tmp_path: Path):
+    """The first deployed run's shape: the upload raised, `_finally` logged it,
+    and the run went on to report success with the partition missing. Through
+    `_finish` - the executor's own order - the raise now reaches the caller."""
+    from types import SimpleNamespace
+
+    writer = build_writer(_RefusingStore(tmp_path))
+    writer.apply(["r0", 0])
+    pipe = SimpleNamespace(
+        evaluators=[writer], spec=SimpleNamespace(type="fan_out"), closes=[]
+    )
+    with pytest.raises(OSError, match="refused"):
+        graph._finish(pipe, registry=None, done=None)
+
+
 def test_the_writer_sends_nothing_to_its_output_channel(tmp_path: Path):
     """The faithful reading, and the figure a reader has to know about.
 
