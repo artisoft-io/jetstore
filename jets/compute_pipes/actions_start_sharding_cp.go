@@ -101,7 +101,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = shardResult.clusterShardingInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = shardResult.clusterShardingInfo.MultiStepSharding
-	cpipesStartup.EnvSettings["total_file_size"] = shardResult.clusterShardingInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_bytes"] = shardResult.clusterShardingInfo.TotalFileSize
 	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE}"] = shardResult.clusterShardingInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(shardResult.clusterShardingInfo.TotalFileSize) / 1024 / 1024 / 1024
 	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE_GB}"] = cpipesStartup.EnvSettings["total_file_size_gb"]
