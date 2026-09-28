@@ -83,7 +83,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 			// Check if condition is met
 			// Available expr variables:
 			// multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
-			// total_file_size in bytes
+			// total_file_size_bytes in bytes
 			// total_file_size_gb in GiB
 			// nbr_partitions as int (assuming each sharding step has the same nbr of partitions?)
 			builderContext := ExprBuilderContext(env)
@@ -555,7 +555,7 @@ type MergeFileSpec struct {
 // When the key "when" is nil, the pipes_config are always executed.
 // Available expr variables as main schema provider env var (see above):
 // multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
-// total_file_size in bytes
+// total_file_size_bytes in bytes
 // nbr_partitions as int (used for hashing purpose)
 // use_ecs_tasks is true to use ecs fargate task
 // use_ecs_tasks_when is an expression as the when property.

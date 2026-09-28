@@ -14,6 +14,13 @@ package compute_pipes
 // the env outright; the keys are `${TOTAL_FILE_SIZE}` and
 // `${TOTAL_FILE_SIZE_GB}` since, and the closing brace is what makes them
 // prefix-free.
+//
+// **It covers every key, not only the `$` ones.** ReplaceEnvVars replaces every
+// key of the map, whatever it looks like, and the Python node checks all of
+// them. This test first matched `$` keys only - the same scope as the sweep
+// that found the pair above - and so passed while `total_file_size` was a
+// prefix of `total_file_size_gb`, which the next deployed run refused
+// (2026-09-27). The bytes key is `total_file_size_bytes` since.
 
 import (
 	"os"
@@ -25,8 +32,9 @@ import (
 )
 
 // Literal env keys assigned anywhere in this package, e.g.
-// `EnvSettings["${TOTAL_FILE_SIZE}"] = ...` or `envSettings["$SHARD_ID"] = ...`.
-var envKeyAssignment = regexp.MustCompile(`[eE]nv(?:Settings)?\[\s*"(\$[^"]+)"\s*\]\s*=`)
+// `EnvSettings["${TOTAL_FILE_SIZE}"] = ...`, `envSettings["$SHARD_ID"] = ...`
+// or `EnvSettings["nbr_partitions"] = ...`.
+var envKeyAssignment = regexp.MustCompile(`[eE]nv(?:Settings)?\[\s*"([^"]+)"\s*\]\s*=`)
 
 func TestEnvKeysAssignedByThisPackageArePrefixFree(t *testing.T) {
 	files, err := filepath.Glob("*.go")
@@ -73,7 +81,7 @@ func TestTotalFileSizeGbResolvesToGbEveryTime(t *testing.T) {
 	env := ExprBuilderContext{
 		"${TOTAL_FILE_SIZE}":    bytes,
 		"${TOTAL_FILE_SIZE_GB}": gb,
-		"total_file_size":       bytes,
+		"total_file_size_bytes": bytes,
 		"total_file_size_gb":    gb,
 	}
 	for i := 0; i < 500; i++ {

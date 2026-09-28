@@ -71,7 +71,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	log.Printf("Main input row count is %d\n", args.MainInputRowCount)
 	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = args.ClusterInfo.MultiStepSharding
-	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_bytes"] = args.ClusterInfo.TotalFileSize
 	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE}"] = args.ClusterInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(args.ClusterInfo.TotalFileSize) / 1024 / 1024 / 1024
 	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE_GB}"] = cpipesStartup.EnvSettings["total_file_size_gb"]

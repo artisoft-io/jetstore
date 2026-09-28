@@ -47,13 +47,13 @@ type caseOut struct {
 // the wrong thing.
 func evalEnv() map[string]any {
 	env := map[string]any{
-		"multi_step_sharding": 0,
-		"total_file_size":     1024,
-		"total_file_size_gb":  float64(1024) / 1024 / 1024 / 1024,
-		"nbr_partitions":      1,
+		"multi_step_sharding":   0,
+		"total_file_size_bytes": 1024,
+		"total_file_size_gb":    float64(1024) / 1024 / 1024 / 1024,
+		"nbr_partitions":        1,
 	}
 	env["$MULTI_STEP_SHARDING"] = env["multi_step_sharding"]
-	env["${TOTAL_FILE_SIZE}"] = env["total_file_size"]
+	env["${TOTAL_FILE_SIZE}"] = env["total_file_size_bytes"]
 	env["${TOTAL_FILE_SIZE_GB}"] = env["total_file_size_gb"]
 	env["$NBR_PARTITIONS"] = env["nbr_partitions"]
 	return env
