@@ -32,6 +32,9 @@ import (
 // JETS_S3_KMS_KEY_ARN
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
 // DEPLOY_CPIPES_NATIVE Use the native jetrules engine
+//
+// A use_python_node step runs on a Python cp_node served over HTTP; pass its
+// URL with -python_node_url. README.md has the docker run command.
 var pipelineExecKey = flag.Int("pipeline_execution_key", -1, "Pipeline execution key (required)")
 var fileKey = flag.String("file_key", "", "the input file_key (required)")
 var sessionId = flag.String("session_id", "", "Pipeline session ID (required)")
@@ -236,10 +239,22 @@ func main() {
 			// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 			// }
 			cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
+			// The state machine's choice, made the same way: the reducing starter
+			// sets UsePythonReducingTask from the step's use_python_node, and the
+			// Python arm is taken on it. Refused rather than run on the Go node,
+			// which would fail later on an operator it does not have.
+			if cpReducingRun.UsePythonReducingTask && *pythonNodeURL == "" {
+				log.Fatalf("reducing iteration %d is a use_python_node step and -python_node_url is not set; see local_test_driver/README.md", iter-1)
+			}
 			for i := range cpipesCommands {
 				cpipesCommand := cpipesCommands[i]
-				fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
-				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
+				if cpReducingRun.UsePythonReducingTask {
+					fmt.Println("## Reducing Node", i, "Calling the Python node at", *pythonNodeURL)
+					err = invokePythonNode(ctx, *pythonNodeURL, cpipesCommand)
+				} else {
+					fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
+					err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
+				}
 				if err != nil {
 					log.Fatalf("while reducing node %d: %v", i, err)
 				}
