@@ -1771,3 +1771,34 @@ def test_the_go_header_condition_is_still_the_one_this_node_mirrors():
         "(!ctx.spec.OutputChannel.PutHeadersOnFirstPartition || ctx.nodeId == 0)"
         in source
     )
+
+
+def test_the_run_result_reports_what_each_writer_uploaded(tmp_path: Path):
+    """`channel_rows` reads 0 for every `.out`, which is right and says nothing
+    about the store; `RunResult.writers` is the figure that does. Keyed by the
+    output channel, skipping a step whose `when` was false (a `None` evaluator)
+    and a step that is not a writer."""
+    from types import SimpleNamespace
+
+    store = Local(tmp_path)
+    first = build_writer(store, config=Cfg(device_writer_type="csv_writer", partition_size=2))
+    for i in range(3):
+        first.apply([f"r{i}", i])
+    first.done()
+    idle = build_writer(store)
+    idle.done()
+
+    def step(name):
+        return SimpleNamespace(output_channel=SimpleNamespace(name=name))
+
+    built = [
+        SimpleNamespace(
+            spec=SimpleNamespace(apply=[step("a.out"), step("skipped.out"), step("m.out")]),
+            evaluators=[first, None, object()],
+        ),
+        SimpleNamespace(spec=SimpleNamespace(apply=[step("idle.out")]), evaluators=[idle]),
+    ]
+    assert graph._writer_figures(built) == {
+        "a.out": {"rows": 3, "parts": 2, "prefix": "out/jets_partition=0000P"},
+        "idle.out": {"rows": 0, "parts": 0, "prefix": "out/jets_partition=0000P"},
+    }
