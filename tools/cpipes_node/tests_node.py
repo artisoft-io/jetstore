@@ -344,7 +344,10 @@ def test_the_handler_returns_what_the_lambda_runtime_can_serialise(
     monkeypatch.setattr(
         awslambda,
         "coordinate",
-        lambda *a, **k: RunResult(source_rows=3, channel_rows={"m": 3}, pipe_rows={0: 3}),
+        lambda *a, **k: RunResult(
+            source_rows=3, channel_rows={"m": 3}, pipe_rows={0: 3},
+            writers={"m.out": {"rows": 3, "parts": 1, "prefix": "p"}},
+        ),
     )
     node = awslambda.Node(settings=Settings.from_env(ENV), connect=lambda s: object())
     with caplog.at_level("INFO", logger="cpipes_node.awslambda"):
@@ -352,6 +355,7 @@ def test_the_handler_returns_what_the_lambda_runtime_can_serialise(
     json.dumps(returned)
     assert returned is None
     assert '"channel_rows": {"m": 3}' in caplog.text
+    assert '"writers": {"m.out": {"rows": 3, "parts": 1, "prefix": "p"}}' in caplog.text
 
 
 def test_a_node_with_no_connection_refuses_at_invocation():

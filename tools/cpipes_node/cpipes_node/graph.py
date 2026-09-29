@@ -991,6 +991,13 @@ class RunResult:
     skipped: tuple[tuple[int, str], ...] = ()
     closed_channels: tuple[str, ...] = ()
     conditional_overrides: int = 0
+    #: output channel name -> what its partition writer uploaded: `rows`,
+    #: `parts`, the key `prefix` and, for an external destination, the `bucket`.
+    #: **A writer sends nothing down its output channel**, so `channel_rows`
+    #: reports 0 for every `.out` and says nothing about what reached the store;
+    #: this is the figure that does, and it is what the first deployed runs'
+    #: logs could not show (2026-09-29).
+    writers: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def total_rows(self) -> int:
         return sum(self.channel_rows.values())
@@ -1087,8 +1094,36 @@ def run(ctx: NodeContext) -> Any:
         (pipe.index, token) for pipe in built for token in pipe.skipped
     )
     result.closed_channels = tuple(sorted(registry.closed_channels))
+    result.writers = _writer_figures(built)
     _assert_every_source_closed(registry, built)
     return result
+
+
+def _writer_figures(built: list[BuiltPipe]) -> dict[str, dict[str, Any]]:
+    """What each partition writer uploaded, by its output channel's name.
+
+    `spec.apply[i]` and `evaluators[i]` are read together, as `BuiltPipe` keeps
+    them aligned; a `None` evaluator is a step whose `when` was false and wrote
+    nothing. A writer is recognised by the figures it carries rather than by
+    importing its class, which would make this module depend on the operators
+    package it dispatches to.
+    """
+    figures: dict[str, dict[str, Any]] = {}
+    for pipe in built:
+        for step, evaluator in zip(pipe.spec.apply, pipe.evaluators):
+            if evaluator is None or not all(
+                hasattr(evaluator, a) for a in ("total_rows", "parts", "key_prefix")
+            ):
+                continue
+            entry: dict[str, Any] = {
+                "rows": evaluator.total_rows,
+                "parts": evaluator.parts,
+                "prefix": evaluator.key_prefix,
+            }
+            if getattr(evaluator, "bucket", ""):
+                entry["bucket"] = evaluator.bucket
+            figures[step.output_channel.name] = entry
+    return dict(sorted(figures.items()))
 
 
 def _drive(
