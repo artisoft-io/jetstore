@@ -107,7 +107,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import expressions
+from . import expressions, writers
 from . import store as store_module
 from .errors import NodeError, StartupError
 from .store import ObjectStore
@@ -521,6 +521,7 @@ def destination_key(
     out_spec: Any,
     prefixes: Prefixes,
     env: Mapping[str, Any],
+    output_format: str | None = None,
 ) -> str:
     """`StartMergeFiles`' destination switch: the object key the merge writes.
 
@@ -548,6 +549,12 @@ def destination_key(
     divergence on a key no authored document reaches today (**P9-I147**); the
     parameter is removed rather than passed empty, so there is no argument left
     for a caller to get wrong.
+
+    **`${FILE_EXTENSION}` in the name is the merged file's format's extension**
+    (`MergedFileName`, `pipe_executor_merge_files.go`), resolved before the
+    environment and never through it. `output_format` is the format the merge
+    writes; a name that uses the variable with no format, or with a format no
+    device writer accepts, is refused rather than named without one.
     """
     location = output_file_location(out_spec)
     location = expressions.substitute(location, env) if location else ""
@@ -558,7 +565,8 @@ def destination_key(
         return location.lstrip("/")
 
     file_name = expressions.substitute(
-        output_file_name(out_spec) or "$NAME_FILE_KEY", env
+        merged_file_name(output_file_name(out_spec) or "$NAME_FILE_KEY", output_format),
+        env,
     )
     if not file_name or "$" in file_name:
         raise MergeInvalid(
@@ -583,6 +591,38 @@ def destination_key(
             env,
         )
     return f"{folder}/{file_name}".lstrip("/")
+
+
+#: The substitution a merge's output file `name` may carry for the extension of
+#: the format it writes (`FileExtensionVariable` in Go).
+FILE_EXTENSION_VARIABLE = "${FILE_EXTENSION}"
+
+
+def merged_file_extension(output_format: str) -> str | None:
+    """The extension a merged file of this format takes, or ``None``.
+
+    The partition writer's rule, one step removed: a part is named for its device
+    writer (`writers.FILE_EXTENSIONS`), and a format belongs to the device writer
+    that accepts it (`writers.SUPPORTED_FORMATS`). Derived from those two rather
+    than listed, so a part and a merged file of one format cannot disagree.
+    """
+    for writer, formats in writers.SUPPORTED_FORMATS.items():
+        if output_format in formats:
+            return writers.FILE_EXTENSIONS.get(writer)
+    return None
+
+
+def merged_file_name(name: str, output_format: str | None) -> str:
+    """`MergedFileName`'s first half: `${FILE_EXTENSION}`, before the environment."""
+    if FILE_EXTENSION_VARIABLE not in name:
+        return name
+    extension = merged_file_extension(output_format) if output_format else None
+    if not extension:
+        raise MergeInvalid(
+            f"error: output file name {name!r} uses {FILE_EXTENSION_VARIABLE} and "
+            f"format {output_format!r} has no file extension"
+        )
+    return name.replace(FILE_EXTENSION_VARIABLE, extension)
 
 
 def do_substitution(
@@ -750,7 +790,10 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
 
     out_spec = output_file_spec(config, spec.output_file)
     prefixes = ctx.prefixes
-    key = destination_key(out_spec, prefixes, ctx.env)
+    # The format first: it decides the header plan below and resolves
+    # ${FILE_EXTENSION} in the destination's name, which is Go's order too.
+    out_format = merged_format(config, out_spec, input_channel)
+    key = destination_key(out_spec, prefixes, ctx.env, out_format)
     external = external_bucket(out_spec, ctx.env)
     bucket = _reported_bucket(external, ctx)
     # **The store is bound here and the write below uses nothing else** (D-253).
@@ -761,7 +804,6 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
     destination = store.for_bucket(external or None)
     input_keys = tuple(ctx.input_file_keys)
 
-    out_format = merged_format(config, out_spec, input_channel)
     in_format = str(getattr(input_channel, "format", None) or "")
     plan = header_plan(
         out_format,
@@ -1025,6 +1067,8 @@ __all__ = [
     "destination_key",
     "external_bucket",
     "header_plan",
+    "merged_file_extension",
+    "merged_file_name",
     "merged_format",
     "merged_headers",
     "output_file_location",
