@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -93,5 +95,20 @@ func TestAGoStepRunsInProcessUnlessGoNodeURLIsGiven(t *testing.T) {
 	}
 	if got, err := nodeTarget(false, "http://py", "http://go"); err != nil || got != "http://go" {
 		t.Fatalf("got %q, %v", got, err)
+	}
+}
+
+// The apiserver's dev mode passes no flags, only its environment, so the
+// defaults must be read from it. Checked through a fresh FlagSet built the way
+// the package-level flags are, since those are fixed at init.
+func TestTheNodeURLsDefaultToTheEnvironment(t *testing.T) {
+	t.Setenv(pythonNodeURLEnv, "http://py-from-env")
+	fs := flag.NewFlagSet("t", flag.ContinueOnError)
+	py := fs.String("python_node_url", os.Getenv(pythonNodeURLEnv), "")
+	if err := fs.Parse(nil); err != nil || *py != "http://py-from-env" {
+		t.Fatalf("got %q, %v", *py, err)
+	}
+	if err := fs.Parse([]string{"-python_node_url", "http://py-from-flag"}); err != nil || *py != "http://py-from-flag" {
+		t.Fatalf("a flag must win over the environment: got %q, %v", *py, err)
 	}
 }

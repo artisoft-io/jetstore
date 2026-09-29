@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -19,20 +20,33 @@ import (
 // over HTTP by the Lambda Runtime Interface Emulator that every AWS Lambda base
 // image carries -- normally the site image itself, run with `docker run`, so the
 // run exercises the artefact a deployment ships. See README.md.
-var pythonNodeURL = flag.String("python_node_url", "",
+var pythonNodeURL = flag.String("python_node_url", os.Getenv(pythonNodeURLEnv),
 	"invocation URL of a Python cp_node served by the Lambda RIE, e.g. "+
 		"http://localhost:9123/2015-03-31/functions/function/invocations; "+
-		"required when a step has use_python_node")
+		"required when a step has use_python_node; defaults to $"+pythonNodeURLEnv)
 
 // Every other node runs in this process unless -go_node_url is given, in which
 // case it goes to the native node Lambda image served the same way. In-process
 // is the default because it is the debugging loop; the image is the check that
 // what ships -- its libjets.so, its bootstrap, its workspace -- behaves as the
 // working tree does. See README.md.
-var goNodeURL = flag.String("go_node_url", "",
+var goNodeURL = flag.String("go_node_url", os.Getenv(goNodeURLEnv),
 	"invocation URL of the native Go cp_node image served by the Lambda RIE, e.g. "+
 		"http://localhost:9124/2015-03-31/functions/function/invocations; "+
-		"when empty, Go nodes run in this process")
+		"when empty, Go nodes run in this process; defaults to $"+goNodeURLEnv)
+
+// **The two URLs default to environment variables because the apiserver's dev
+// mode cannot pass flags.** It runs this driver with the execution key, file
+// key and session id and nothing else (datatable/pipeline_execution.go), but
+// it hands the driver its own environment - so a URL exported where the
+// apiserver is started reaches the driver with no apiserver change. Run
+// 2422 (2026-09-29) is what that looked like without it: the Python step was
+// refused because no flag could be given. A flag on the command line still
+// wins.
+const (
+	pythonNodeURLEnv = "CPIPES_PYTHON_NODE_URL"
+	goNodeURLEnv     = "CPIPES_GO_NODE_URL"
+)
 
 // nodeTarget says where one node runs: the URL of an emulated Lambda, or "" for
 // this process. usePython is the reducing starter's UsePythonReducingTask, the

@@ -12,6 +12,13 @@ is listed at the head of `main.go`.
 | any other | **this process** (the default, and the debugging loop) | — |
 | any other, with the flag | the native Go node **image** served by the Lambda emulator | `-go_node_url` |
 
+**Both URLs default to environment variables, `CPIPES_PYTHON_NODE_URL` and `CPIPES_GO_NODE_URL`,
+and that is what makes the apiserver's dev mode work.** In dev mode the apiserver runs this driver
+itself (`datatable/pipeline_execution.go`, `run_cpipes_only`) with only the execution key, file key
+and session id, so no flag can be given — but it passes its own environment, so a URL exported where
+the apiserver is started reaches the driver. Without it the Python step is refused, which is what run
+2422 was (2026-09-29). A flag on the command line wins over the variable.
+
 ## Steps that run on the Python node
 
 A step with `use_python_node` cannot run in this process: the Python `cp_node` is a separate
@@ -51,6 +58,10 @@ and run the driver with
 ```bash
 -python_node_url http://localhost:9123/2015-03-31/functions/function/invocations
 ```
+
+or export `CPIPES_PYTHON_NODE_URL` with that value, which is the route for runs started from a
+dev-mode apiserver. On the machine this was written for, `build_jetstore_scripts/run_pynode.sh` runs
+this container in the foreground and `internal/run_env.sh` exports the variable.
 
 Why each non-obvious part is there:
 
