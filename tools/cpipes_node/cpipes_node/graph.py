@@ -992,7 +992,10 @@ class RunResult:
     closed_channels: tuple[str, ...] = ()
     conditional_overrides: int = 0
     #: output channel name -> what its partition writer uploaded: `rows`,
-    #: `parts`, the key `prefix` and, for an external destination, the `bucket`.
+    #: `parts`, the key `prefix` and, for an external destination, the `bucket`;
+    #: plus what Go reports the writer as - `entity` (the partition label),
+    #: `input_channel`, `output_channel_spec` and `output_location` - which the
+    #: node's execution rows are written from (`node._writer_results`).
     #: **A writer sends nothing down its output channel**, so `channel_rows`
     #: reports 0 for every `.out` and says nothing about what reached the store;
     #: this is the figure that does, and it is what the first deployed runs'
@@ -1122,6 +1125,13 @@ def _writer_figures(built: list[BuiltPipe]) -> dict[str, dict[str, Any]]:
             }
             if getattr(evaluator, "bucket", ""):
                 entry["bucket"] = evaluator.bucket
+            for key, attr in (
+                ("entity", "jets_partition_label"),
+                ("input_channel", "input_channel"),
+                ("output_channel_spec", "output_channel_spec"),
+                ("output_location", "output_location"),
+            ):
+                entry[key] = getattr(evaluator, attr, "")
             figures[step.output_channel.name] = entry
     return dict(sorted(figures.items()))
 

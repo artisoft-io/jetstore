@@ -1798,7 +1798,38 @@ def test_the_run_result_reports_what_each_writer_uploaded(tmp_path: Path):
         ),
         SimpleNamespace(spec=SimpleNamespace(apply=[step("idle.out")]), evaluators=[idle]),
     ]
-    assert graph._writer_figures(built) == {
-        "a.out": {"rows": 3, "parts": 2, "prefix": "out/jets_partition=0000P"},
-        "idle.out": {"rows": 0, "parts": 0, "prefix": "out/jets_partition=0000P"},
+    first.jets_partition_label = "0000P"
+    figures = graph._writer_figures(built)
+    assert list(figures) == ["a.out", "idle.out"]
+    assert figures["a.out"] == {
+        "rows": 3,
+        "parts": 2,
+        "prefix": "out/jets_partition=0000P",
+        "entity": "0000P",
+        "input_channel": first.input_channel,
+        "output_channel_spec": first.output_channel_spec,
+        # A local store has no bucket, so no s3:// location, as Go leaves it empty.
+        "output_location": "",
     }
+    assert (figures["idle.out"]["rows"], figures["idle.out"]["parts"]) == (0, 0)
+
+
+def test_partition_path_prefix_is_gos_three_cases():
+    from cpipes_node.operators.transformations import partition_path_prefix
+
+    assert partition_path_prefix("a/b/jets_partition=0001P", "0001P") == "a/b"
+    assert partition_path_prefix("a/b", "") == "a/b"
+    assert partition_path_prefix("a/0001P/c", "0001P") == "a/"
+    assert partition_path_prefix("a/b", "0001P") == "a/b"
+
+
+def test_the_output_location_is_the_s3_prefix_above_the_partition(tmp_path: Path):
+    """Go's `outputLocation`, which every node of a step reports identically."""
+    from types import SimpleNamespace
+
+    writer = build_writer(Local(tmp_path))
+    writer.jets_partition_label = "0000P"
+    writer.store = SimpleNamespace(bucket="the-bucket")
+    assert writer.output_location == "s3://the-bucket/out"
+    writer.store = SimpleNamespace(bucket="corpus-out")  # an external destination
+    assert writer.output_location == "s3://corpus-out/out"
