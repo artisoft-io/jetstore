@@ -28,7 +28,7 @@ var node = compute_pipes.ComputePipesNodeArgs{NodeId: 2, JetsPartitionLabel: "00
 func TestTheNodeIsHandedExactlyTheThreeFieldsTheStateMachinePasses(t *testing.T) {
 	var sent string
 	url := emulator(t, 200, "null", &sent)
-	if err := invokePythonNode(context.Background(), url, node); err != nil {
+	if err := invokeLambdaNode(context.Background(), url, node); err != nil {
 		t.Fatal(err)
 	}
 	// NodeArgs refuses an unknown field, so anything more would fail the node.
@@ -44,7 +44,7 @@ func TestAHandlerErrorReturnedWithStatus200IsAnError(t *testing.T) {
 	var sent string
 	url := emulator(t, 200, `{"errorMessage": "no secret", "errorType": "ClientError",
 		"requestId": "r", "stackTrace": ["  File \"/var/task/handler.py\", line 138\n"]}`, &sent)
-	err := invokePythonNode(context.Background(), url, node)
+	err := invokeLambdaNode(context.Background(), url, node)
 	if err == nil || !strings.Contains(err.Error(), "ClientError: no secret") ||
 		!strings.Contains(err.Error(), "handler.py") {
 		t.Fatalf("got %v", err)
@@ -54,15 +54,44 @@ func TestAHandlerErrorReturnedWithStatus200IsAnError(t *testing.T) {
 func TestANon200ResponseIsAnError(t *testing.T) {
 	var sent string
 	url := emulator(t, 502, "bad gateway", &sent)
-	if err := invokePythonNode(context.Background(), url, node); err == nil ||
+	if err := invokeLambdaNode(context.Background(), url, node); err == nil ||
 		!strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("got %v", err)
 	}
 }
 
 func TestNoEmulatorListeningIsAnErrorNamingTheURL(t *testing.T) {
-	err := invokePythonNode(context.Background(), "http://127.0.0.1:1/x", node)
+	err := invokeLambdaNode(context.Background(), "http://127.0.0.1:1/x", node)
 	if err == nil || !strings.Contains(err.Error(), "127.0.0.1:1") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// The Go node's usual failure before it serves anything: main() panics, the
+// runtime exits, and the emulator answers 502 with nothing in the body.
+func TestAnEmptyBodied502PointsAtTheContainerLog(t *testing.T) {
+	var sent string
+	url := emulator(t, 502, "", &sent)
+	err := invokeLambdaNode(context.Background(), url, node)
+	if err == nil || !strings.Contains(err.Error(), "docker logs") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestAPythonStepGoesToThePythonNodeAndNeedsItsURL(t *testing.T) {
+	if got, err := nodeTarget(true, "http://py", "http://go"); err != nil || got != "http://py" {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	if _, err := nodeTarget(true, "", "http://go"); err == nil {
+		t.Fatal("a use_python_node step with no -python_node_url must be refused, not run on the Go node")
+	}
+}
+
+func TestAGoStepRunsInProcessUnlessGoNodeURLIsGiven(t *testing.T) {
+	if got, err := nodeTarget(false, "http://py", ""); err != nil || got != "" {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	if got, err := nodeTarget(false, "http://py", "http://go"); err != nil || got != "http://go" {
+		t.Fatalf("got %q, %v", got, err)
 	}
 }
