@@ -68,7 +68,7 @@ func (dbc *DbConnection) GetConnection() (*pgxpool.Pool, error) {
 
 func (dbc *DbConnection) openDbConnection() error {
 	// Get the dsn from the aws secret
-	dsn, err := awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), false, dbc.dbPoolSize)
+	dsn, err := awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), usingSshTunnel(), dbc.dbPoolSize)
 	if err != nil {
 		return fmt.Errorf("while getting dsn from aws secret: %v", err)
 	}
@@ -87,4 +87,16 @@ func (dbc *DbConnection) ReleaseConnection() {
 		dbc.dbpool.Close()
 		dbc.dbpool = nil
 	}
+}
+
+// usingSshTunnel is the rule the local test driver and the Python node's handler
+// already apply: when USING_SSH_TUNNEL is present the database is reached on
+// localhost, through the tunnel, rather than at the host the secret names. No
+// deployed function sets it, so a Lambda is unaffected; it is what lets the node
+// image run on a workstation behind the Lambda Runtime Interface Emulator
+// (jets/compute_pipes/local_test_driver/README.md), where the RDS host is not
+// reachable. Previously this was , so such a node could not connect.
+func usingSshTunnel() bool {
+	_, ok := os.LookupEnv("USING_SSH_TUNNEL")
+	return ok
 }

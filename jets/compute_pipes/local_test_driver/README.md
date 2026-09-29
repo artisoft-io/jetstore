@@ -1,8 +1,23 @@
 # local_test_driver
 
 Runs a pipeline end to end from a workstation: the real sharding and reducing starters against the
-database (through the ssh tunnel), then every node of every step, in order, in this process. The
-environment it needs is listed at the head of `main.go`.
+database (through the ssh tunnel), then every node of every step, in order. The environment it needs
+is listed at the head of `main.go`.
+
+**Where a node runs** is decided per step, the way the state machine decides it:
+
+| Step | Runs on | Flag |
+|---|---|---|
+| `use_python_node` | a Python node served by the Lambda emulator — required | `-python_node_url` |
+| any other | **this process** (the default, and the debugging loop) | — |
+| any other, with the flag | the native Go node **image** served by the Lambda emulator | `-go_node_url` |
+
+**Both URLs default to environment variables, `CPIPES_PYTHON_NODE_URL` and `CPIPES_GO_NODE_URL`,
+and that is what makes the apiserver's dev mode work.** In dev mode the apiserver runs this driver
+itself (`datatable/pipeline_execution.go`, `run_cpipes_only`) with only the execution key, file key
+and session id, so no flag can be given — but it passes its own environment, so a URL exported where
+the apiserver is started reaches the driver. Without it the Python step is refused, which is what run
+2422 was (2026-09-29). A flag on the command line wins over the variable.
 
 ## Steps that run on the Python node
 
@@ -44,6 +59,10 @@ and run the driver with
 -python_node_url http://localhost:9123/2015-03-31/functions/function/invocations
 ```
 
+or export `CPIPES_PYTHON_NODE_URL` with that value, which is the route for runs started from a
+dev-mode apiserver. On the machine this was written for, `build_jetstore_scripts/run_pynode.sh` runs
+this container in the foreground and `internal/run_env.sh` exports the variable.
+
 Why each non-obvious part is there:
 
 - **`--network host`** — the handler, given `USING_SSH_TUNNEL`, connects to the database on
@@ -79,5 +98,69 @@ has a `Map` with its own concurrency.
 ### How a node failure is reported
 
 **The emulator returns HTTP 200 when the handler raises**, with `errorType`, `errorMessage` and
-`stackTrace` in the body and no error header — measured 2026-09-28. `invokePythonNode` reads the body
+`stackTrace` in the body and no error header — measured 2026-09-28. `invokeLambdaNode` reads the body
 for that reason and fails the run with the node's own message and stack, as a Go node's error would.
+
+## Go nodes on the native node image
+
+**In-process is the default and should stay the one you develop against**: breakpoints, a rebuild in
+seconds, one process. `-go_node_url` exists for the check before a deploy — that the artefact that
+ships behaves as the working tree does. The in-process run cannot see three ways the two differ:
+
+- **`libjets.so`.** The driver links whichever one is in `/usr/local/lib`, from whichever of the two
+  CMake trees last installed it; the image carries its own builder stage's, `ldd`-checked at build.
+  This is the one that matters most, and the reason the flag targets the **native** image.
+- **The environment.** The node Lambda carries the variables in its CDK block; the driver has what
+  `run_env.sh` exported.
+- **The image's contents** — its `bootstrap` and the workspace it carries.
+
+Only the native node is an image; the Go-rules node Lambda is a zip bundle, so it has no container to
+run and is what the in-process default already exercises.
+
+### Start it
+
+Build it the way `jets_ws_1.sh` does — locally it is tagged `cpipes_lambda_<workspace>:latest`. Then,
+with the driver's environment exported and the tunnel open:
+
+```bash
+eval "$(aws configure export-credentials --format env)"
+NODE_ENV="JETS_BUCKET JETS_DSN_SECRET JETS_INVALID_CODE CPIPES_DB_POOL_SIZE JETS_REGION
+  JETS_PIVOT_YEAR_TIME_PARSING JETS_s3_INPUT_PREFIX JETS_s3_OUTPUT_PREFIX JETS_s3_STAGE_PREFIX
+  JETS_s3_SCHEMA_TRIGGERS JETS_S3_KMS_KEY_ARN JETS_SENTINEL_FILE_NAME TASK_MAX_CONCURRENCY ENVIRONMENT
+  JETS_DOMAIN_KEY_SEPARATOR JETS_DOMAIN_KEY_HASH_ALGO JETS_DOMAIN_KEY_HASH_SEED
+  JETS_INPUT_ROW_JETS_KEY_ALGO WORKSPACE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+  AWS_REGION"
+docker run --rm --name cpipes-go-node --network host \
+  $(for v in $NODE_ENV; do printf -- '-e %s ' "$v"; done) \
+  -e USING_SSH_TUNNEL=1 -e DEPLOY_CPIPES_NATIVE=1 \
+  -e WORKSPACES_HOME=/tmp/workspaces -e LD_LIBRARY_PATH=/usr/local/lib \
+  --entrypoint /usr/local/bin/aws-lambda-rie \
+  cpipes_lambda_jets_ws:latest \
+  --runtime-interface-emulator-address 0.0.0.0:9124 /var/runtime/bootstrap
+```
+
+and add to the driver
+
+```bash
+-go_node_url http://localhost:9124/2015-03-31/functions/function/invocations
+```
+
+`NODE_ENV` is the node Lambda's CDK block (`CpipesNativeNodeLambda`, `build_cpipes_lambdas.go`) less
+the notification endpoints, which a local run should not fire, and less the four values set literally
+on the command line — those are the CDK's own literals. `-e NAME` with no value forwards what the
+driver's shell has, so there is no second copy of the environment to keep in step. Port `9124` so it
+can run beside the Python node on `9123`.
+
+**`USING_SSH_TUNNEL` is honoured by the node image only from 2026-09-28.** Before that,
+`lambdas/dbc`'s `openDbConnection` passed `false` for it, so the node dialled the RDS host named in the
+secret — unreachable from a workstation. An image built before then fails at start-up however it is
+run.
+
+### How its failure looks
+
+**Not like the Python node's.** The Go node connects to the database in `main()`, before
+`lambda.Start`, and panics when it cannot; the runtime exits and the emulator answers **502 with an
+empty body**. The driver reports that as "the runtime exited before the handler returned", and the
+panic itself is in `docker logs cpipes-go-node`. An error *inside* the handler comes back the Python
+way: HTTP 200 with `errorType` and `errorMessage`. Both measured 2026-09-28 against
+`cpipes_lambda_jets_ws`.
