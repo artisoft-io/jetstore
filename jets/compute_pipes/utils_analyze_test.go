@@ -3,8 +3,24 @@ package compute_pipes
 // Testing analyze operator
 
 import (
+	"strings"
 	"testing"
 )
+
+func TestMultiTokenMatches2(t *testing.T) {
+	splitValues := strings.FieldsFunc("some input string", func(r rune) bool {
+		return multiTokenSpacers[r]
+	})
+	if len(splitValues) != 3 {
+		t.Errorf("splitValues does not have 3 elements")
+	}
+	splitValues = strings.FieldsFunc("some,input,string", func(r rune) bool {
+		return multiTokenSpacers[r]
+	})
+	if len(splitValues) != 3 {
+		t.Errorf("splitValues does not have 3 elements")
+	}
+}
 
 func TestParseDoubleMatchFunction1(t *testing.T) {
 	fspec := &FunctionTokenNode{

@@ -115,6 +115,9 @@ func (state *LookupTokensState) LookupValue(value *string) ([]string, error) {
 	}
 	return tokens, nil
 }
+
+var multiTokenSpacers = map[rune]bool{'\t': true, '\n': true, '\v': true, '\f': true, '\r': true, ' ': true, ',': true}
+
 func (state *LookupTokensState) NewValue(value *string) error {
 	var tokens []string
 	var err error
@@ -145,7 +148,9 @@ func (state *LookupTokensState) NewValue(value *string) error {
 	if len(state.MultiTokensMatch) == 0 {
 		return nil
 	}
-	splitValues := strings.Fields(*value)
+	splitValues := strings.FieldsFunc(*value, func(r rune) bool {
+		return multiTokenSpacers[r]
+	})
 	if len(splitValues) < 2 {
 		return nil
 	}
