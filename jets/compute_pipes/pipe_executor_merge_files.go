@@ -84,6 +84,20 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 	if outputFileConfig.OutputLocation() == "" {
 		outputFileConfig.SetOutputLocation("jetstore_s3_output")
 	}
+	// Determine the merged file's format, which decides the header row below and
+	// resolves ${FILE_EXTENSION} in the file name.
+	inputChannel := pipeSpec.InputChannel
+	format := "csv"
+	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
+	switch {
+	case outputSp != nil && outputSp.Format() != "":
+		format = outputSp.Format()
+	case outputFileConfig.Format != "":
+		format = outputFileConfig.Format
+	case inputChannel.Format != "":
+		format = inputChannel.Format
+	}
+
 	var fileFolder, fileName, outputS3FileKey string
 	inputFileKeys := cpCtx.InputFileKeys[0]
 	nbrFiles := len(inputFileKeys)
@@ -91,7 +105,12 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage", "jetstore_s3_schema_events":
 		if len(outputFileConfig.Name()) > 0 {
-			fileName = utils.ReplaceEnvVars(outputFileConfig.Name(), cpCtx.EnvSettings)
+			var err error
+			fileName, err = MergedFileName(outputFileConfig.Name(), format, cpCtx.EnvSettings)
+			if err != nil {
+				cpErr = err
+				return
+			}
 		} else {
 			fileName = utils.ReplaceEnvVars("$NAME_FILE_KEY", cpCtx.EnvSettings)
 		}
@@ -124,7 +143,6 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 	}
 
 	// Create a reader if stream the data to s3
-	inputChannel := pipeSpec.InputChannel
 	compression := inputChannel.Compression
 	inputSp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
 
@@ -142,17 +160,8 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 		externalBucket = utils.ReplaceEnvVars(externalBucket, cpCtx.EnvSettings)
 	}
 
-	// Determine if we put a header row
-	format := "csv"
-	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
-	switch {
-	case outputSp != nil && outputSp.Format() != "":
-		format = outputSp.Format()
-	case outputFileConfig.Format != "":
-		format = outputFileConfig.Format
-	case inputChannel.Format != "":
-		format = inputChannel.Format
-	}
+	// The format was determined before the destination, above, because the
+	// file name may carry ${FILE_EXTENSION}, which is the format's.
 
 	log.Printf("%s node %d merging %d files to '%s' in bucket '%s' with format %s and compression %s",
 		cpCtx.SessionId, cpCtx.NodeId, nbrFiles, outputS3FileKey, externalBucket, format, compression)
@@ -570,4 +579,46 @@ func packageHeaders(outputSp SchemaProvider, headers []string, delimiter rune) (
 	}
 	w.Flush()
 	return buf.Bytes(), nil
+}
+
+// FileExtensionVariable is the substitution a merge's output file `name` may
+// carry for the extension of the format it writes, so a merged file's name
+// follows the run's format rather than being fixed when the document is
+// written. A partition takes its extension from its device writer when its
+// output channel names no file (pipe_transformation_partition_writer.go); a
+// merged file's `name` is otherwise literal, so a document choosing its format
+// at run time had no way to name the file for it.
+const FileExtensionVariable = "${FILE_EXTENSION}"
+
+// MergedFileExtension is the extension a merged file of this format takes: the
+// extension the partition writer gives a part of the same format, by the device
+// writer that accepts it. False for a format no device writer accepts.
+func MergedFileExtension(format string) (string, bool) {
+	switch format {
+	case "csv", "headerless_csv", "xlsx", "headerless_xlsx":
+		return "csv", true
+	case "parquet", "parquet_select":
+		return "parquet", true
+	case "fixed_width":
+		return "fixed_width", true
+	}
+	return "", false
+}
+
+// MergedFileName resolves a merge's output file name: FileExtensionVariable
+// first, from the format being written, then the environment. It is replaced
+// directly rather than put in the environment because ReplaceEnvVars ranges over
+// a map, and a name should not depend on the order of that range. A name that
+// asks for the extension of a format with none is refused rather than named
+// without one.
+func MergedFileName(name, format string, env map[string]any) (string, error) {
+	if strings.Contains(name, FileExtensionVariable) {
+		ext, ok := MergedFileExtension(format)
+		if !ok {
+			return "", fmt.Errorf("error: output file name %q uses %s and format %q has no file extension",
+				name, FileExtensionVariable, format)
+		}
+		name = strings.ReplaceAll(name, FileExtensionVariable, ext)
+	}
+	return utils.ReplaceEnvVars(name, env), nil
 }

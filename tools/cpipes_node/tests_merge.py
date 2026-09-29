@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from conftest import go_source
-from cpipes_node import merge
+from cpipes_node import merge, writers
 from cpipes_node.args import NodeArgs
 from cpipes_node.config import FileConfigSource
 from cpipes_node.errors import ConfigInvalid, StartupError
@@ -408,6 +408,51 @@ def test_the_destination_is_the_key_prefix_and_the_file_name():
         merge.destination_key(config.output_files[0], PREFIXES, {})
         == "assembled/member.csv"
     )
+
+
+@pytest.mark.parametrize(
+    ("output_format", "expected"),
+    [
+        ("csv", "assembled/member.csv"),
+        ("headerless_csv", "assembled/member.csv"),
+        ("parquet", "assembled/member.parquet"),
+        ("parquet_select", "assembled/member.parquet"),
+    ],
+)
+def test_a_file_extension_in_the_name_is_the_merged_formats(output_format, expected):
+    """`MergedFileName`: `${FILE_EXTENSION}` follows the format the merge writes.
+
+    So a document that chooses its format at run time can name its merged file for
+    it, as a part is already named for its device writer.
+    """
+    config = _parsed(
+        merge_document(output_file={"file_name": "member.${FILE_EXTENSION}"})
+    )
+    assert (
+        merge.destination_key(config.output_files[0], PREFIXES, {}, output_format)
+        == expected
+    )
+
+
+def test_a_file_extension_the_format_does_not_have_is_refused():
+    """Refused rather than named `member.` or `member.${FILE_EXTENSION}`."""
+    config = _parsed(
+        merge_document(output_file={"file_name": "member.${FILE_EXTENSION}"})
+    )
+    with pytest.raises(MergeInvalid, match="has no file extension"):
+        merge.destination_key(config.output_files[0], PREFIXES, {}, "json")
+    with pytest.raises(MergeInvalid, match="has no file extension"):
+        merge.destination_key(config.output_files[0], PREFIXES, {})
+
+
+def test_a_merged_file_and_a_part_of_one_format_take_one_extension():
+    """Derived from the partition writer's own tables, so the two cannot drift."""
+    for writer, formats in writers.SUPPORTED_FORMATS.items():
+        for output_format in formats:
+            assert (
+                merge.merged_file_extension(output_format)
+                == writers.FILE_EXTENSIONS[writer]
+            )
 
 
 def test_an_output_location_jetstore_s3_output_rewrites_an_input_area_prefix():
