@@ -1038,30 +1038,57 @@ def test_a_merge_reports_its_synthetic_edge_as_a_child_row(tmp_path):
     assert parameters[9] is None
 
 
-def test_a_graph_run_reports_no_edge_yet_and_that_is_p9_i67(tmp_path):
-    """**The hole, asserted rather than left silent.**
+def test_a_graph_run_reports_each_writer_as_an_edge(tmp_path):
+    """**P9-I67's hole, closed.** This test asserted that a graph run reported
+    no edge, and said it would go red "when the first writer lands owing its
+    `WriterResult`". The writer landed and the test stayed green, because its
+    document had no writer in it - and the first completed deployed run (2423,
+    2026-09-29) wrote `pipeline_execution_details` rows reading 0 input and 0
+    output records, so the execution stats screen showed the step as zeros.
 
-    A graph run's writers are the `partition_writer` and the table writers, and
-    none of them exists yet (P9-T07). So the parent row's
-    `output_records_count` is 0 and there are no child rows, and
-    `coalesce(sum(child), 0) != parent` — the check
-    `InsertChannelExecutionDetails` names — is satisfied at 0 on both sides.
-    **This test is what goes red when the first writer lands owing its
-    `WriterResult`.**
+    Now with a writer: the parent row carries the rows the source produced and
+    the rows the writer uploaded, and the writer is one child row, named the
+    way Go's `Finally()` names it, so `sum(child) == parent`.
     """
     from cpipes_node.config import FileConfigSource
     from cpipes_node.node import coordinate
+    from cpipes_node.store import Local
+    from tests_merge import PREFIXES
 
+    writer = {
+        "type": "partition_writer",
+        "partition_writer_config": {
+            "device_writer_type": "csv_writer",
+            "jets_partition_key": "$JETS_PARTITION_LABEL",
+        },
+        "output_channel": {
+            "type": "stage",
+            "name": "out",
+            "channel_spec_name": "out",
+            "write_step_id": "w",
+            "compression": "none",
+        },
+    }
     connection = FakeConnection()
     config = tmp_path / "pipeline.pc.json"
-    config.write_text(_json(runtime_document([])))
+    config.write_text(_json(runtime_document([writer])))
     coordinate(
         NodeArgs(id=0, pe=1),
         FileConfigSource(config),
+        store=Local(tmp_path / "bucket"),
+        prefixes=PREFIXES,
         connection=connection,
     )
-    assert not [s for s in connection.statements() if "channel_details" in s]
-    assert connection.parameters_for("UPDATE jetsapi")[8] == 0
+    update = connection.parameters_for("UPDATE jetsapi")
+    assert update[3] == 10, "input_records_count: the generator's rows"
+    assert update[8] == 10, "output_records_count: the rows the writer uploaded"
+    child = connection.parameters_for("pipeline_execution_channel_details")
+    # `input_row` is the main input channel's name, as it is in Go; the location
+    # is empty because a local store has no bucket to put in an s3:// URL.
+    assert tuple(child[2:8]) == (
+        "input_row", "out", "out", side_effects.SINK_JETS_PARTITION, "0000P", ""
+    )
+    assert child[9] == 10 and child[10] == 1
 
 
 # --- helpers ----------------------------------------------------------------

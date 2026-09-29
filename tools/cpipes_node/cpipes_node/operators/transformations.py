@@ -386,11 +386,33 @@ class PartitionWriterPipe:
     #: `headers_on_this_node` and P9-I117. `True` is the ordinary case — every
     #: part carries its own header — and is the Go writer's default too.
     headers_on_this_node: bool = True
+    #: What Go's `Finally()` reports this writer as, in its `ComputePipesResult`
+    #: (`pipe_transformation_partition_writer.go`): the partition label as the
+    #: entity, the two channel names, and the channel spec. Carried so the node's
+    #: execution rows name the edge the way a Go node's do.
+    jets_partition_label: str = ""
+    input_channel: str = ""
+    output_channel_name: str = ""
+    output_channel_spec: str = ""
     rows: list[list[Any]] = field(default_factory=list)
     keys_written: list[str] = field(default_factory=list)
     total_rows: int = 0
     parts: int = 0
     sampling_count: int = 0
+
+    @property
+    def output_location(self) -> str:
+        """Go's `outputLocation`: `s3://<bucket>/<prefix>`, the prefix without
+        its own `/jets_partition=<label>` segment, so every node of a step reports
+        one location. The bucket is the one `store` is bound to - the external
+        bucket when there is one, else the node's own, which is Go's
+        `JetStoreBucket()` fallback. Empty for a store with no bucket (a local
+        run) and for an empty prefix, as Go leaves it empty rather than report
+        `s3://<bucket>/`."""
+        bucket = getattr(self.store, "bucket", "")
+        if not bucket or not self.key_prefix:
+            return ""
+        return f"s3://{bucket}/{partition_path_prefix(self.key_prefix, self.jets_partition_label)}"
 
     def apply(self, record: list[Any]) -> None:
         """`Apply`, which delegates per row when the input carries bundles."""
@@ -553,7 +575,7 @@ class PartitionWriter(Transformation):
                 "bucket nor a local directory was named."
             )
         output_channel = getattr(builder.spec, "output_channel", None)
-        key_prefix, file_name, bucket = _partition_destination(
+        key_prefix, file_name, bucket, label = _partition_destination(
             builder, output_channel, args.config
         )
         return cls.build_from(
@@ -566,6 +588,7 @@ class PartitionWriter(Transformation):
             output_channel=output_channel,
             file_name=file_name,
             bucket=bucket,
+            jets_partition_label=label,
         )
 
     @classmethod
@@ -581,6 +604,7 @@ class PartitionWriter(Transformation):
         output_channel: Any = None,
         file_name: str = "",
         bucket: str = "",  # already resolved by `_partition_destination`
+        jets_partition_label: str = "",
     ) -> PartitionWriterPipe:
         """The construction, with the two things the dispatch cannot pass.
 
@@ -641,7 +665,24 @@ class PartitionWriter(Transformation):
             batch_size=settings["batch_size"],
             file_name=file_name or settings["file_name"],
             headers_on_this_node=headers_on_this_node(output_channel, node_id),
+            jets_partition_label=jets_partition_label,
+            input_channel=source.name,
+            output_channel_name=out.name,
+            output_channel_spec=out.config.name,
         )
+
+
+def partition_path_prefix(base_path: str, jets_partition_label: str) -> str:
+    """`partitionPathPrefix`, verbatim: the key prefix above the partition."""
+    if not jets_partition_label:
+        return base_path
+    seg = "/jets_partition=" + jets_partition_label
+    if base_path.endswith(seg):
+        return base_path[: -len(seg)]
+    i = base_path.find(jets_partition_label)
+    if i >= 0:
+        return base_path[:i]
+    return base_path
 
 
 def headers_on_this_node(output_channel: Any, node_id: int) -> bool:
@@ -800,12 +841,14 @@ def _refuse_a_splitter_supplied_partition_key() -> None:
 
 def _partition_destination(
     builder: Any, output_channel: Any, config: Any = None
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str]:
     """`NewPartitionWriterTransformationPipe`'s destination switch, verbatim.
 
     Returns the key prefix a partition file is written under, the file name a
-    custom output location carried — empty in every other arm — and **the
-    external bucket**, empty when the destination is the node's own.
+    custom output location carried — empty in every other arm — **the
+    external bucket**, empty when the destination is the node's own, and the
+    partition label, returned rather than recomputed by the caller because
+    resolving it logs.
 
     # The bucket, and the three arms that never look at it (D-242)
 
@@ -872,13 +915,13 @@ def _partition_destination(
                 f"/session_id={node.session_id}"
                 f"/step_id={write_step_id}/jets_partition={label}"
             )
-            return path, "", ""
+            return path, "", "", label
         if file_key:
             path = (
                 f"{stage}/{expressions.substitute(file_key, env)}"
                 f"/jets_partition={label}"
             )
-            return path, "", ""
+            return path, "", "", label
         raise StartupError(
             "error: for output channel of type 'stage' either WriteStepId or "
             "FileKey must be specified in the output channel config"
@@ -900,7 +943,7 @@ def _partition_destination(
             f"/session_id={node.session_id}"
             f"/step_id={write_step_id}/jets_partition={label}"
         )
-        return path, "", ""
+        return path, "", "", label
     bucket = _external_bucket(output_channel, location, env)
     key_prefix = getattr(output_channel, "key_prefix", None) or ""
     file_name = ""
@@ -923,6 +966,7 @@ def _partition_destination(
         ),
         file_name,
         bucket,
+        label,
     )
 
 

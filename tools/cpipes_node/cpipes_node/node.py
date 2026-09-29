@@ -454,19 +454,24 @@ def side_effects_for(
 def _writer_results(result: Any) -> tuple[Any, ...]:
     """The edges one run reports, as `WriterResult`s.
 
-    **A merge's edge is synthesised and a graph run's are not yet reported at
-    all.** `StartMergeFiles` returns its own `ComputePipesResult` because a merge
-    runs in the main thread and reports through none of the result channels, so
-    without it a merge worker writes no child row and zero in every count. That
-    one is available here.
+    **A merge's edge is synthesised**: `StartMergeFiles` returns its own
+    `ComputePipesResult` because a merge runs in the main thread and reports
+    through none of the result channels.
 
-    A graph run's writers are the `partition_writer` and table writers, and
-    **none of them exists yet** (P9-T07). So a graph run reports no edge, and
-    that is a hole with an owner rather than a decision: the parent row's
-    `output_records_count` is correspondingly 0, and `sum(child) != parent` — the
-    check `InsertChannelExecutionDetails` names — is satisfied at 0 on both
-    sides. Recorded as **P9-I67**: the first writer to land owes its
-    `WriterResult`, and nothing here can assert the absence away.
+    **A graph run's edges are its partition writers', one each**, built from
+    `RunResult.writers` with the fields Go's writer reports in `Finally()`: type
+    `jets_partition`, the partition label as the entity, both channel names, the
+    channel spec, the `s3://` location, and the rows and parts it uploaded. Every
+    writer is reported, including one that wrote nothing, as Go's `Finally()`
+    reports on every path.
+
+    **Until 2026-09-29 a graph run reported no edge at all**, which this
+    docstring called a hole with an owner (P9-I67) - the writer had not been
+    built. The writer was built and the hole stayed: the first completed deployed
+    run (2423) wrote four `pipeline_execution_details` rows with
+    `output_records_count` 0, so the execution stats screen showed the corpus
+    step as zeros. The parent's count is the sum over these edges, so
+    `sum(child) == parent` stays a real check.
     """
     from .merge import MergeResult
 
@@ -487,7 +492,19 @@ def _writer_results(result: Any) -> tuple[Any, ...]:
                 row_count_unknown=result.row_count_unknown,
             ),
         )
-    return ()
+    return tuple(
+        side_effects.WriterResult(
+            type=side_effects.SINK_JETS_PARTITION,
+            entity_name=figures.get("entity", ""),
+            input_channel=figures.get("input_channel", ""),
+            output_channel=name,
+            output_channel_spec=figures.get("output_channel_spec", ""),
+            output_location=figures.get("output_location", ""),
+            row_count=figures["rows"],
+            parts_count=figures["parts"],
+        )
+        for name, figures in (getattr(result, "writers", None) or {}).items()
+    )
 
 
 def coordinate(
@@ -572,6 +589,10 @@ def coordinate(
                 0 if edge.row_count_unknown else edge.row_count
                 for edge in writer_results
             ),
+            # The rows the node's source produced, as Go's `loadedRowCount` is
+            # the rows its main input loaded. It was not passed, so every Python
+            # node's row read 0 input records (run 2423, 2026-09-29).
+            input_records_count=int(getattr(result, "source_rows", 0) or 0),
             channel_results=writer_results,
         )
     return result
