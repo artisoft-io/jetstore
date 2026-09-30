@@ -911,6 +911,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateTextTemplates(cpConfig); err != nil {
 		return err
 	}
+	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
+		return err
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
@@ -1421,6 +1424,58 @@ func validateOriginalHeadersStagePath(cpConfig *ComputePipesConfig, pipeConfig [
 	return nil
 }
 
+// inputChannelWriterFields names the FileConfig settings that govern how a file is
+// written. They belong on output channels and schema providers; on an input channel no
+// reader consults them.
+func inputChannelWriterFields(ic *InputChannelConfig) []string {
+	fields := make([]string, 0)
+	if ic.NbrRowsInRecord != 0 {
+		fields = append(fields, "nbr_rows_in_record")
+	}
+	if ic.PutHeadersOnFirstPartition {
+		fields = append(fields, "put_headers_on_first_partition")
+	}
+	if ic.QuoteAllRecords {
+		fields = append(fields, "quote_all_records")
+	}
+	if ic.WriteDateLayout != "" {
+		fields = append(fields, "write_date_layout")
+	}
+	return fields
+}
+
+// validateInputChannelsCarryNoWriterFields refuses an input channel, or one of its
+// merge_channels, that sets a writer setting: nbr_rows_in_record,
+// put_headers_on_first_partition, quote_all_records or write_date_layout.
+//
+// No reader consults them on an input channel, so authoring one there is a setting that
+// does nothing, and it used to leak through syncInputChannelWithSchemaProvider onto the
+// shared schema provider and from there onto output channels. The sync no longer carries
+// them onto input channels; this keeps an authored one from reintroducing the leak.
+//
+// Every step of the document is checked, not only the one starting, so a document
+// carrying one fails when its first step starts rather than part way through a run.
+func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) error {
+	for stepId, step := range allComputePipesSteps(cpConfig) {
+		for i := range step {
+			channels := []*InputChannelConfig{&step[i].InputChannel}
+			for j := range step[i].InputChannel.MergeChannels {
+				channels = append(channels, &step[i].InputChannel.MergeChannels[j])
+			}
+			for _, ic := range channels {
+				if fields := inputChannelWriterFields(ic); len(fields) > 0 {
+					return fmt.Errorf(
+						"configuration error: input_channel '%s' (step %d, pipe %d) sets %s, which "+
+							"govern how a file is written and belong on an output channel or a "+
+							"schema_provider; no reader consults them on an input channel",
+						ic.Name, stepId, i, strings.Join(fields, ", "))
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // validateErrorChannels checks that an error channel has a single writer:
 //   - no two operators of the step may declare the same error channel;
 //   - an error channel may not also be the output channel of an operator.
@@ -1484,10 +1539,8 @@ func validateErrorChannels(pipeConfig []PipeSpec) error {
 //   - EnforceRowMinLength
 //   - Format
 //   - IsPartFiles
-//   - NbrRowsInRecord
 //   - NoQuotes
 //   - ParquetSchema
-//   - QuoteAllRecords
 //   - ReadBatchSize
 //   - ReadDateLayout
 //   - ReorderColumnsOnRead
@@ -1495,10 +1548,17 @@ func validateErrorChannels(pipeConfig []PipeSpec) error {
 //   - UseLazyQuotes
 //   - UseLazyQuotesSpecial
 //   - VariableFieldsPerRecord
-//   - WriteDateLayout
 //
 // Priority: inputChannelConfig, mainInputSchemaProvider, and then source_config table (which served
 // as defaults to mainInputSchemaProvider)
+//
+// The writer settings of FileConfig -- NbrRowsInRecord, PutHeadersOnFirstPartition,
+// QuoteAllRecords and WriteDateLayout -- are deliberately NOT synced here. They govern how a
+// file is written, no reader consults them on an input channel, and syncOutputChannelWithSchemaProvider
+// carries them to the output channels that use them. Copying them onto an input channel put them in
+// the runtime document a starter hands a worker, where the Python cp_node's contract refuses them on
+// a stage input channel: the first Python merge_files step failed on exactly that. An input channel
+// that authors one is refused by validateInputChannelsCarryNoWriterFields.
 func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProviderSpec) {
 	if ic.BlankFieldMarkers == nil {
 		ic.BlankFieldMarkers = sp.BlankFieldMarkers
@@ -1584,12 +1644,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.IsPartFiles = ic.IsPartFiles
 	}
 
-	if ic.NbrRowsInRecord == 0 {
-		ic.NbrRowsInRecord = sp.NbrRowsInRecord
-	} else {
-		sp.NbrRowsInRecord = ic.NbrRowsInRecord
-	}
-
 	if ic.MultiColumnsInput {
 		sp.MultiColumnsInput = true
 	} else {
@@ -1606,18 +1660,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.ParquetSchema = sp.ParquetSchema
 	} else {
 		sp.ParquetSchema = ic.ParquetSchema
-	}
-
-	if !ic.PutHeadersOnFirstPartition {
-		ic.PutHeadersOnFirstPartition = sp.PutHeadersOnFirstPartition
-	} else {
-		sp.PutHeadersOnFirstPartition = ic.PutHeadersOnFirstPartition
-	}
-
-	if !ic.QuoteAllRecords {
-		ic.QuoteAllRecords = sp.QuoteAllRecords
-	} else {
-		sp.QuoteAllRecords = ic.QuoteAllRecords
 	}
 
 	if ic.ReadBatchSize == 0 {
@@ -1660,12 +1702,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.VariableFieldsPerRecord = sp.VariableFieldsPerRecord
 	} else {
 		sp.VariableFieldsPerRecord = ic.VariableFieldsPerRecord
-	}
-
-	if ic.WriteDateLayout == "" {
-		ic.WriteDateLayout = sp.WriteDateLayout
-	} else {
-		sp.WriteDateLayout = ic.WriteDateLayout
 	}
 }
 
