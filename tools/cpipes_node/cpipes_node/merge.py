@@ -639,14 +639,25 @@ def do_substitution(
     is the one thing about it that is not substitution: under
     `jetstore_s3_output` an input-area prefix is replaced by the output area, so
     a key authored against the input layout lands in the output one.
+
+    **A key under the stage area is moved too** (Go's `toOutputArea`). A pipeline
+    whose main input is a part-file folder on stage has ``$PATH_FILE_KEY`` under
+    stage, and its default output folder used to stay there, beside the files it
+    read -- where the next run over that folder would read its own report back as
+    input. Only a leading stage prefix moves, so a stage path named inside a key
+    elsewhere is left alone.
     """
     for _ in range(5):
         if "$" not in value:
             break
         value = expressions.substitute(value, env)
         value = value.replace("$CURRENT_PARTITION_LABEL", jets_partition_label)
-    if location == "jetstore_s3_output" and prefixes.input:
-        value = value.replace(prefixes.input, prefixes.output)
+    if location == "jetstore_s3_output":
+        if prefixes.input:
+            value = value.replace(prefixes.input, prefixes.output)
+        stage = prefixes.stage
+        if stage and (value == stage or value.startswith(stage + "/")):
+            value = prefixes.output + value[len(stage) :]
     return value
 
 

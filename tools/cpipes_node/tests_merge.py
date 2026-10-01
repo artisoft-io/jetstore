@@ -1374,3 +1374,54 @@ def test_the_file_key_arm_is_never_refused_because_it_reads_every_partition(
         )
         is None
     )
+
+
+# --- the output area -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (
+            "jetstore/stage/process_name=P/session_id=1/step_id=x",
+            "jetstore/output/process_name=P/session_id=1/step_id=x",
+        ),
+        ("jetstore/stage", "jetstore/output"),
+        (
+            "jetstore/input/client=C/object_type=T",
+            "jetstore/output/client=C/object_type=T",
+        ),
+        ("custom/jetstore/stage/x", "custom/jetstore/stage/x"),
+        ("jetstore/stage_archive/x", "jetstore/stage_archive/x"),
+        ("jetstore/output/x", "jetstore/output/x"),
+    ],
+)
+def test_the_output_location_moves_a_stage_or_input_key_into_the_output_area(
+    value, expected
+):
+    """Go's `toOutputArea`, case for case (`output_area_test.go`).
+
+    A pipeline whose main input is a part-file folder on stage has
+    ``$PATH_FILE_KEY`` under stage; under `jetstore_s3_output` its default output
+    folder must move to the output area, or the report lands beside the files it
+    read and the next run over that folder reads it back as input.
+    """
+    assert (
+        merge.do_substitution(value, "", "jetstore_s3_output", PREFIXES, {}) == expected
+    )
+
+
+def test_empty_prefixes_move_nothing():
+    assert (
+        merge.do_substitution(
+            "a/b", "", "jetstore_s3_output", Prefixes(output="jetstore/output"), {}
+        )
+        == "a/b"
+    )
+
+
+def test_the_go_rule_moves_a_leading_stage_prefix():
+    """The Python rule above is a transcription; this holds it to the Go source."""
+    source = go_source("jets/compute_pipes/pipe_transformation_partition_writer.go")
+    assert "func toOutputArea(" in source
+    assert 'strings.HasPrefix(value, stagePrefix+"/")' in source

@@ -598,7 +598,29 @@ func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
 	}
 
 	if s3OutputLocation == "jetstore_s3_output" {
-		value = strings.ReplaceAll(value, awsi.JetStoreInputPrefix(), awsi.JetStoreOutputPrefix())
+		value = toOutputArea(value, awsi.JetStoreInputPrefix(), awsi.JetStoreStagePrefix(), awsi.JetStoreOutputPrefix())
+	}
+	return value
+}
+
+// toOutputArea moves a key into the output area, for the jetstore_s3_output location.
+//
+// An input-area prefix is replaced by the output prefix, as it always was. A key that
+// starts with the stage prefix is moved too: a pipeline whose main input is read from
+// stage (a part-file folder another pipeline wrote) has $PATH_FILE_KEY under stage, and
+// without this its default output folder stayed there, beside the files it read -- where
+// the next run over that folder would read its own report back as input.
+//
+// The prefixes are arguments rather than reads of awsi so the rule can be tested: awsi
+// reads them from the environment once, when the package is initialised. An empty
+// prefix moves nothing, where strings.ReplaceAll with an empty old string would insert
+// the output prefix between every character.
+func toOutputArea(value, inputPrefix, stagePrefix, outputPrefix string) string {
+	if inputPrefix != "" {
+		value = strings.ReplaceAll(value, inputPrefix, outputPrefix)
+	}
+	if stagePrefix != "" && (value == stagePrefix || strings.HasPrefix(value, stagePrefix+"/")) {
+		value = outputPrefix + strings.TrimPrefix(value, stagePrefix)
 	}
 	return value
 }
