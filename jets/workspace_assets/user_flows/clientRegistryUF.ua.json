@@ -32,7 +32,8 @@
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/client",
           "data": { "rows": "wholeState" } },
         { "do": "clearSelection", "key": "client" },
-        { "do": "remove", "keys": ["client", "details", "ufVendorDetails", "ufClientDetails", "org"] }
+        { "do": "remove", "keys": ["client", "details", "ufVendorDetails", "ufClientDetails", "org"] },
+        { "do": "notify", "level": "info", "message": "Client deleted" }
       ]
     },
     "deleteOrgAction": {
