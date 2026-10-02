@@ -590,6 +590,62 @@ body {
 .uf-form__table { flex-basis: 100%; min-width: 0; }
 .uf-form__actions { display: flex; gap: 8px; margin-top: 14px; }
 
+/* ---------- dialogs (jetstore_maintenance_02 AB.1, D08) ---------- */
+/*
+  **Every dialog in the app, and before 2026-10-01 nothing sized one.** A modal
+  `<dialog>` with no rule is as wide as its content, and a text box with no width
+  is the browser's twenty columns — so the failure viewer, one twenty-line text
+  box, measured 225 px wide and 453 px tall in Chromium (D08). Every dialog is a
+  `.uf-dialog` because every dialog is mounted by `ModalDialog` in
+  `userflow/FormDialog.tsx`; that is the one place to keep it true.
+
+   - **Width follows the viewport, from a floor.** 60vw, never below 480 px —
+     the failure viewer's own height rounded up, which is the report's *as wide
+     as it is tall* taken as a floor rather than a target, since a stack trace
+     wants more when the window has it — and never above 1200 px, where a
+     confirmation would become a banner.
+   - **Never wider or taller than the viewport less a 16 px margin.** The
+     dialog scrolls inside itself (`overflow: auto`) rather than off the page;
+     a text box scrolls inside itself before that.
+   - **Full screen below 600 px**, the phone breakpoint, because a floor of
+     480 px on a 390 px phone is a dialog clipped by its own margin.
+
+  The colours are the theme's. The browser's own `dialog` rule is `Canvas` and
+  `CanvasText`, which nothing here sets, so without these a dialog in the dark
+  theme is a white card whose labels are light grey.
+*/
+.uf-dialog {
+  width: clamp(480px, 60vw, 1200px);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 16px 20px;
+  border: 1px solid var(--rule-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 25%);
+}
+.uf-dialog::backdrop { background: rgb(0 0 0 / 35%); }
+/* Text boxes use the width the dialog now has. The field is already a flex
+   column, so this is the explicit form of what stretching gives a textarea, and
+   the whole of it for an input. */
+.uf-dialog .field input,
+.uf-dialog .field textarea { width: 100%; }
+@media (max-width: 600px) {
+  .uf-dialog {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 /* ---------- ordinary screens (track C) ---------- */
 /*
   Three classes the flow runner did not need, shared by the screens that are not
