@@ -288,7 +288,23 @@ const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
  * of what the Dart held. Removing the entry would falsify the measurement without
  * un-pinning anything the move above has not already un-pinned.
  */
-const HAND_MAINTAINED_KEYS = ["pipelineExecStatusTable"] as const;
+/**
+ * **Three more on 2026-10-01, and they came from the other fixture.** `client`,
+ * `scSourceConfigKey` and `pcPipelineConfigTable` are the tables the *Clients &
+ * Vendors*, *Source Configuration* and *Pipeline Configuration* flows now open on
+ * (`jetstore_maintenance_02` `AF.1`, defect `D06`), and each is about to gain a
+ * button no Dart configuration had. Unlike `pipelineExecStatusTable` they were
+ * translated from `fixtures/table_configs.json`, which is this test's own source
+ * and the authoring surface `I-299` names — so their entries there **are**
+ * deleted: leaving them would keep a second copy that nothing compares and that
+ * says the opposite of the document the moment the document is edited.
+ */
+const HAND_MAINTAINED_KEYS = [
+  "pipelineExecStatusTable",
+  "client",
+  "scSourceConfigKey",
+  "pcPipelineConfigTable",
+] as const;
 
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
@@ -396,7 +412,7 @@ describe("the emitted JSON Schema", () => {
   });
 });
 
-describe("the 37 shipping configurations", () => {
+describe("the 34 configurations still translated from the flow fixture", () => {
   it("all translate, and the twenty-seven non-flow tables so far make 64", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
@@ -407,10 +423,13 @@ describe("the 37 shipping configurations", () => {
     // **59 translated since 2026-10-01**, when `pipelineExecStatusTable` left the
     // emitted set for `HAND_MAINTAINED_KEYS` (`jetstore_maintenance_02` `AD.2`);
     // the total is unchanged because the document did not go anywhere.
-    expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(59);
+    // **34 flow documents and 56 translated since the same day**, when `client`,
+    // `scSourceConfigKey` and `pcPipelineConfigTable` followed it (`AF.1`, `D06`);
+    // the total is unchanged again, for the same reason.
+    expect(Object.keys(flowDocuments).length).toBe(34);
+    expect(Object.keys(translated).length).toBe(56);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(handMaintained).length).toBe(1);
+    expect(Object.keys(handMaintained).length).toBe(4);
     expect(Object.keys(documents).length).toBe(64);
   });
 
@@ -486,7 +505,9 @@ describe("the 37 shipping configurations", () => {
     }
   });
 
-  it("split nine static and 28 query, as the corpus does", () => {
+  // **28 query until 2026-10-01**: the three tables `AF.1` moved out are all query
+  // tables.
+  it("split nine static and 25 query, as the corpus does", () => {
     // Derived from the documents; checked against a count taken from the corpus
     // a different way — `apiPath` being empty is how the Dart says "static", and
     // the discriminant is this schema's invention.
@@ -495,11 +516,11 @@ describe("the 37 shipping configurations", () => {
       {},
     );
     const fromCorpus = Object.values(tables).filter((t) => t.apiPath === "").length;
-    expect(byKind).toEqual({ static: 9, query: 28 });
+    expect(byKind).toEqual({ static: 9, query: 25 });
     expect(fromCorpus).toBe(9);
   });
 
-  it("carry the corpus's 275 columns, 27 actions and 49 where clauses", () => {
+  it("carry the corpus's 241 columns, 23 actions and 48 where clauses", () => {
     /*
       **25 until D.10, and the two it gained are the first configuration in this
       corpus with no Dart original** — `fmInputSourceMappingUF`'s *Load Data* and
@@ -514,7 +535,10 @@ describe("the 37 shipping configurations", () => {
       columns: count((d) => d.columns.length),
       actions: count((d) => (d.source === "query" ? (d.actions ?? []).length : 0)),
       where: count((d) => (d.source === "query" ? (d.where ?? []).length : 0)),
-    }).toEqual({ columns: 275, actions: 27, where: 49 });
+      // **275, 27 and 49 until 2026-10-01**, when `AF.1` took `client` (3
+      // columns, 1 action), `scSourceConfigKey` (15, 2) and `pcPipelineConfigTable`
+      // (16, 1, and the one where clause, its join) out of the fixture.
+    }).toEqual({ columns: 241, actions: 23, where: 48 });
   });
 
   it("name two escapes between them, not six", () => {
@@ -526,9 +550,12 @@ describe("the 37 shipping configurations", () => {
     expect([...names].sort()).toEqual(["fileKeyLabel", "hasDataRegistryFilters"]);
   });
 
-  it("name eleven action-document entries", () => {
+  // **Eleven until 2026-10-01**: `deleteClientAction`, `dropTable`,
+  // `deleteSourceConfig` and `deletePipelineConfig` are named by the three tables
+  // `AF.1` moved out of the fixture.
+  it("name seven action-document entries", () => {
     const names = new Set(Object.values(flowDocuments).flatMap((d) => actionNamesOf(d)));
-    expect(names.size).toBe(11);
+    expect(names.size).toBe(7);
   });
 
   it("put every table configuration under table_configs/", () => {

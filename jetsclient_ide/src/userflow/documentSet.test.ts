@@ -187,7 +187,7 @@ describe("a field taking its items from a query the form does not declare", () =
 });
 
 describe("the corpus the narrow rule was chosen from", () => {
-  it("has ten end states, and one of them does not use ufCompleted", () => {
+  it("has seven end states, and one of them does not use ufCompleted", () => {
     // Measured rather than asserted from memory: the Dart's form configs give
     // `ufCompleted` to nine of the eleven, and `rfkSubmitSchemaEvent` and
     // `fmMappingFormUF` finish another way. A future tightening to "an end state
@@ -201,7 +201,10 @@ describe("the corpus the narrow rule was chosen from", () => {
     const endStates = Object.values(flows).flatMap((flow) =>
       Object.entries(flow.states).filter(([, state]) => state.isEnd === true),
     );
-    expect(endStates.length).toBe(10);
+    // **Seven the same day**, once `clientRegistryUF`, `sourceConfigUF` and
+    // `pipelineConfigUF` left the fixture to be written by hand (`AF.1`, `D06`).
+    // All three of theirs used `ufCompleted`, so the one exception is unchanged.
+    expect(endStates.length).toBe(7);
   });
 });
 

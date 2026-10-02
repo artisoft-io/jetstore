@@ -129,10 +129,13 @@ export const flowTitles: Record<string, string> = {
   // them here changes both the menu entry and the heading of the flow it opens
   // — which is the point of the map and is why `App.tsx`'s `FLOW_MENU` was
   // changed in the same commit rather than left to drift.
-  clientRegistryUF: "Clients & Vendors",
-  sourceConfigUF: "Source Configuration",
+  //
+  // **`clientRegistryUF` (*Clients & Vendors*), `sourceConfigUF` (*Source
+  // Configuration*) and `pipelineConfigUF` (*Pipeline Configuration*) were here
+  // until 2026-10-01**, when they left the fixture to be written by hand
+  // (`jetstore_maintenance_02` `AF.1`, `D06`). Their documents carry the same
+  // titles, which is the rule the paragraph above states for a twelfth flow.
   fileMappingUF: "Source Mapping",
-  pipelineConfigUF: "Pipeline Configuration",
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadConfigUF: "Load Client Configurations",
@@ -183,8 +186,11 @@ export const actionTransitions: Record<string, string[]> = {
   //
   // The two buttons — "Add Data Source to Merge" and "Add Data Source for
   // Historical Data" — that S.1 could not see, and reported as dead states.
-  "pipelineConfigUF.view_merge_process_inputs": ["add_merge_process_inputs"],
-  "pipelineConfigUF.view_injected_process_inputs": ["add_injected_process_inputs"],
+  //
+  // **Both entries left on 2026-10-01 with `pipelineConfigUF` itself**, which is
+  // written by hand from then on (`jetstore_maintenance_02` `AF.1`, `D06`); the two
+  // `goToStates` they produced are in that document, unchanged, and this table is
+  // empty because no flow left in the fixture has an action-driven jump.
 };
 
 function assertDeadNextState(choice: CorpusChoice): void {

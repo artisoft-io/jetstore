@@ -45,13 +45,19 @@ function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
 }
 
 describe("the corpus this task owns", () => {
-  it("is 23 of the 27 configurations, the other four being the widget's", () => {
+  it("is 19 of the 23 configurations, the other four being the widget's", () => {
     // **25 and 21 until D.10**, which added `fmInputSourceMappingUF`'s two
     // `showScreen` buttons (**I-260**) — the first configuration in this corpus
     // with no Dart original. The widget's four are unchanged, which is the half
     // worth asserting: this test is about the split rather than about the size.
-    expect(allActions).toHaveLength(27);
-    expect(barActions).toHaveLength(23);
+    // **27 and 23 until 2026-10-01**, when `client`, `scSourceConfigKey` and
+    // `pcPipelineConfigTable` left this fixture to be maintained by hand
+    // (`jetstore_maintenance_02` `AF.1`, `D06`), taking four bar actions with
+    // them: `deleteClient`, `dropStagingTable`, `deleteSourceConfig` and
+    // `deletePipelineConfig`. `lfSourceConfigTable` keeps its own
+    // `dropStagingTable`.
+    expect(allActions).toHaveLength(23);
+    expect(barActions).toHaveLength(19);
     expect(allActions.length - barActions.length).toBe(4);
   });
 
@@ -141,8 +147,10 @@ describe("the corpus this task owns", () => {
 describe("availability", () => {
   const find = (key: string) => barActions.find((a) => a.key === key)!;
 
+  // `deleteOrg` rather than `deleteClient` since 2026-10-01: the `client` table
+  // left this fixture (`AF.1`), and `deleteOrg` carries the same three gates.
   it("disables a selection-gated action until a row is selected", () => {
-    const action = find("deleteClient");
+    const action = find("deleteOrg");
     expect(action.isEnabledWhenHavingSelectedRows).toBe(true);
     expect(availability(action, makeContext({ selectedRowCount: 0 })).enabled).toBe(false);
     expect(availability(action, makeContext()).enabled).toBe(true);
@@ -182,7 +190,7 @@ describe("availability", () => {
   });
 
   it("composes gates as an and, not an or", () => {
-    const action = find("deleteClient");
+    const action = find("deleteOrg");
     const both = availability(
       action,
       makeContext({ selectedRowCount: 0, whereClauseSatisfied: false }),
