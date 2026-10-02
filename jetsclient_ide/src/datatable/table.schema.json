@@ -106,6 +106,13 @@
             "$ref": "#/$defs/TableAction"
           }
         },
+        "thirdRowActions": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          }
+        },
         "refreshOnKeyUpdateEvent": {
           "minItems": 1,
           "type": "array",

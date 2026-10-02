@@ -123,7 +123,9 @@ describe("every committed table document's isEnabled", () => {
   // rather than `readdirSync`, because this file runs under jsdom, where
   // `import.meta.url` is not a `file:` URL (`routes.test.ts` does the same).
   type ActionDoc = { key: string; isEnabled?: string };
-  type Doc = { default: { actions?: ActionDoc[]; secondRowActions?: ActionDoc[] } };
+  type Doc = {
+    default: { actions?: ActionDoc[]; secondRowActions?: ActionDoc[]; thirdRowActions?: ActionDoc[] };
+  };
   const documents = {
     ...(import.meta.glob("./tables/*.tc.json", { eager: true }) as Record<string, Doc>),
     ...(import.meta.glob("../../../jets/workspace_assets/table_configs/*.tc.json", {
@@ -133,7 +135,10 @@ describe("every committed table document's isEnabled", () => {
 
   const sites = Object.entries(documents).flatMap(([path, { default: doc }]) => {
     const key = path.slice(path.lastIndexOf("/") + 1, -".tc.json".length);
-    return [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])]
+    // Every row, the third (`D04`, `AE.1`) included: a hand-authored button there
+    // naming a predicate the derivation would not choose is exactly the drift
+    // this test exists for.
+    return [...(doc.actions ?? []), ...(doc.secondRowActions ?? []), ...(doc.thirdRowActions ?? [])]
       .filter((a) => a.isEnabled !== undefined)
       .map((a) => ({ table: key, action: a.key, authored: a.isEnabled! }));
   });

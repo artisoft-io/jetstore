@@ -112,8 +112,11 @@ export function TableView({
    * out as a line of its own and needs to know where one row ends. It is also
    * the extension point for `D04`'s third row: that is one more entry here, and
    * nothing in `DataTable` or the stylesheet changes.
+   *
+   * **And it was** (`AE.1`, 2026-10-01): `thirdRowActions` is the third entry, and
+   * this diff is the whole of what drawing it cost.
    */
-  const actionRows = [config.actions, config.secondRowActions].map((actions, row) => (
+  const actionRows = [config.actions, config.secondRowActions, config.thirdRowActions].map((actions, row) => (
     <ActionBar
       key={row}
       actions={actions}
