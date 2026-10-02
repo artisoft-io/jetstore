@@ -48,21 +48,16 @@
 /*
  * The stop confirmation.
  *
- * `styles.css` declares `.banner-error` and `.banner-ok` and no warning variant;
- * this one is scoped here rather than adding a third to the shared sheet for a
- * single screen. The tokens are the shared ones, so it follows the theme.
+ * ~~`styles.css` declares `.banner-error` and `.banner-ok` and no warning
+ * variant; this one is scoped here rather than adding a third to the shared
+ * sheet for a single screen.~~ **A modal dialog since 2026-10-01**
+ * (jetstore_maintenance_02 `AB.2`, D07): the panel this styled sat below a
+ * full-height form, so it needed a banner's colours to be noticed once found.
+ * Inside a dialog it is the only thing on screen, and the dialog's own size and
+ * colours are `.uf-dialog`'s in `styles.css`. What is left is the warning tone
+ * on the sentence, in the shared tokens so it follows the theme.
  */
-.infer-admin__confirm {
-  background: var(--warn-bg);
-  color: var(--warn);
-  border-bottom: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
 .infer-admin__confirm p {
   margin: 0;
-  flex: 1 1 auto;
+  color: var(--warn);
 }
