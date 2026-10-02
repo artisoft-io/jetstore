@@ -27,6 +27,7 @@ import { isServerValidatedJson, languageNameFor } from "../editor/language";
 import { BuildInfoText, useBuildInfoInScreenBar } from "../shell/buildInfoFooter";
 import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import { CompiledView } from "./CompiledView";
 import { WorkspaceChanges } from "./WorkspaceChanges";
 import { compiledViewFor, compiledViews } from "./sectionContract";
@@ -75,6 +76,7 @@ function isDirty(tab: Tab): boolean {
 export function WorkspaceIde({ api }: { api: ApiClient }) {
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
   /**
    * The workspace named by the route, when there is one. Task C.3.
    *
@@ -270,10 +272,12 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   );
 
   const closeTab = useCallback(
-    (key: string) => {
+    async (key: string) => {
       const tab = tabs.find((t) => tabKey(t) === key);
       if (tab && isDirty(tab)) {
-        const ok = window.confirm(`${tab.label} has unsaved changes. Close it anyway?`);
+        // The app's own confirmation (jetstore_maintenance_02 `I-39`,
+        // 2026-10-02): the browser's is never shown in the embedded pane.
+        const ok = await prompts.confirm(`${tab.label} has unsaved changes. Close it anyway?`);
         if (!ok) return;
       }
       setTabs((prev) => {
@@ -284,7 +288,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
         return next;
       });
     },
-    [tabs],
+    [prompts, tabs],
   );
 
   const save = useCallback(() => {
@@ -393,7 +397,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
                   <button
                     type="button"
                     className="tab-close"
-                    onClick={() => closeTab(key)}
+                    onClick={() => void closeTab(key)}
                     aria-label={`Close ${t.label}`}
                   >
                     ×

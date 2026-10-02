@@ -33,6 +33,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerPrompt } from "../shell/promptsTesting";
 import { resetHomeFilters, updateHomeFilters } from "../actions/homeFilters";
 import { FormState } from "../datatable/formState";
 import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
@@ -190,13 +192,15 @@ async function mount() {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={["/home"]}>
-          <Routes>
-            <Route path="/home" element={<Home api={api} />} />
-            <Route path="/executionStatusDetails/:session_id" element={<div>details screen</div>} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={["/home"]}>
+            <Routes>
+              <Route path="/home" element={<Home api={api} />} />
+              <Route path="/executionStatusDetails/:session_id" element={<div>details screen</div>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -558,10 +562,13 @@ describe("the table's buttons", () => {
   it("asks for a session id list with a prompt, and filters on the answer", async () => {
     // I-102 decision 4: a request kind, not a dialog, and never blocked on the
     // dialog host. `showGetInputDialog` is one `TextField` with CANCEL and OK.
-    const prompt = vi.spyOn(window, "prompt").mockReturnValue("sess-1, sess-2");
+    // Since I-39 (2026-10-02) the app's own prompt rather than `window.prompt`,
+    // which the embedded browser pane never shows: it typed nothing and the
+    // filter never moved. Typed into here, and Enter is *OK*.
     const { posts } = await mount();
     await openTab("Pipelines Status", "00:01:12");
     fireEvent.click(button("Set Session Id"));
+    expect(await answerPrompt("sess-1, sess-2")).toBe("Enter session IDs comma separated to filter");
     await waitFor(() => {
       const where = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as Record<
         string,
@@ -573,17 +580,15 @@ describe("the table's buttons", () => {
         values: ["sess-1", "sess-2"],
       });
     });
-    prompt.mockRestore();
   });
 
   it("does nothing when the prompt is cancelled", async () => {
-    const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
     const { posts } = await mount();
     await openTab("Pipelines Status", "00:01:12");
     const before = readsOf(posts, "pipeline_execution_status").length;
     fireEvent.click(button("Set Session Id"));
+    await answerPrompt(null);
     expect(readsOf(posts, "pipeline_execution_status")).toHaveLength(before);
-    prompt.mockRestore();
   });
 
   it("opens the failure-details dialog over the screen, seeded from the selected row", async () => {

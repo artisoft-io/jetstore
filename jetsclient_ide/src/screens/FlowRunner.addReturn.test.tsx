@@ -26,6 +26,7 @@ import { ApiClient } from "../api/client";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
 import clientTable from "../../../jets/workspace_assets/table_configs/client.tc.json";
 import orgTable from "../../../jets/workspace_assets/table_configs/org.tc.json";
 import scSourceConfigKey from "../../../jets/workspace_assets/table_configs/scSourceConfigKey.tc.json";
@@ -230,19 +231,21 @@ async function mount(
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={[`/flow/${flowKey}${search}`]}>
-          <LocationProbe />
-          {menu !== undefined && <MenuLink to={menu} />}
-          <Routes>
-            {/* `App.tsx`'s element when a case opens a menu, the bare runner otherwise. */}
-            <Route
-              path="/flow/:key"
-              element={menu !== undefined ? <FlowRoute api={api} /> : <FlowRunner api={api} />}
-            />
-            <Route path="/home" element={<p>the home screen</p>} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={[`/flow/${flowKey}${search}`]}>
+            <LocationProbe />
+            {menu !== undefined && <MenuLink to={menu} />}
+            <Routes>
+              {/* `App.tsx`'s element when a case opens a menu, the bare runner otherwise. */}
+              <Route
+                path="/flow/:key"
+                element={menu !== undefined ? <FlowRoute api={api} /> : <FlowRunner api={api} />}
+              />
+              <Route path="/home" element={<p>the home screen</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );

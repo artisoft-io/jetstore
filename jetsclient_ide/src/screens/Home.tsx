@@ -79,6 +79,7 @@ import {
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
@@ -262,6 +263,7 @@ export function Home({ api }: { api: ApiClient }) {
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
 
   const [tab, setTab] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -432,7 +434,7 @@ export function Home({ api }: { api: ApiClient }) {
         setErrors(found);
         return found.length === 0;
       },
-      confirm: async (message: string) => window.confirm(message),
+      confirm: (message: string) => prompts.confirm(message),
       post: async (request): Promise<PostResult> => {
         try {
           await api.endpoint(request.endpoint, request.body);
@@ -473,7 +475,7 @@ export function Home({ api }: { api: ApiClient }) {
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, queryPost, setError, setStatus, dialog.close],
+    [api, currentForm, formState, queryPost, setError, setStatus, dialog.close, prompts],
   );
 
   /**
@@ -588,12 +590,16 @@ export function Home({ api }: { api: ApiClient }) {
               return;
             }
             case "promptFilter": {
-              // **`window.prompt`, which is what the Dart's `showGetInputDialog`
-              // is** — one `TextField` with CANCEL and OK
+              // ~~**`window.prompt`, which is what the Dart's `showGetInputDialog`
+              // is**~~ — one `TextField` with CANCEL and OK
               // (`jetsclient/lib/components/dialogs.dart`, `showGetInputDialog`).
               // I-102 decision 4: these are a request kind rather than a dialog,
               // and they were never blocked on the dialog host.
-              const answer = window.prompt(request.prompt);
+              // **Corrected 2026-10-02 (jetstore_maintenance_02 `I-39`): the app's
+              // own prompt, not the browser's**, which the embedded browser pane
+              // never displays — `window.prompt` returned null there and the
+              // button did nothing. Same contract: null is Cancel.
+              const answer = await prompts.prompt(request.prompt);
               if (answer === null) return;
               setIdFilter(request.column, answer);
               formState.notifyListeners();
@@ -609,7 +615,7 @@ export function Home({ api }: { api: ApiClient }) {
       })();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dialog, formState, host, navigate, runNamedAction, setError, JSON.stringify(customButtons)],
+    [dialog, formState, host, navigate, prompts, runNamedAction, setError, JSON.stringify(customButtons)],
   );
 
   const onFormAction = useCallback(

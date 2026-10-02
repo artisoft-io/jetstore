@@ -26,6 +26,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerConfirm } from "../shell/promptsTesting";
 import { setActiveWorkspace } from "../actions/registry";
 import { WorkspaceRegistry, documentFindings } from "./WorkspaceRegistry";
 
@@ -123,16 +125,18 @@ async function mount(active?: { name: string; branch: string; uri: string }) {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={["/workspaces"]}>
-          {/* Surfaces the in-app location so the Open button's destination can be
-              asserted rather than inferred from a banner (C.3). */}
-          <LocationProbe />
-          <Routes>
-            <Route path="/workspaces" element={<WorkspaceRegistry api={api} />} />
-            <Route path="/workspaces/:workspace_name/home" element={<p>workspace home</p>} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={["/workspaces"]}>
+            {/* Surfaces the in-app location so the Open button's destination can be
+                asserted rather than inferred from a banner (C.3). */}
+            <LocationProbe />
+            <Routes>
+              <Route path="/workspaces" element={<WorkspaceRegistry api={api} />} />
+              <Route path="/workspaces/:workspace_name/home" element={<p>workspace home</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -458,28 +462,27 @@ describe("the actions that are not dialogs", () => {
 
   it("asks before deleting, and posts nothing when refused", async () => {
     const { posts } = await mount();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     await selectRow("old_ws");
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Delete"));
-    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    await answerConfirm("Cancel");
     expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(0);
-    confirm.mockRestore();
   });
 
   it("deletes when confirmed", async () => {
     const { posts } = await mount();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await selectRow("old_ws");
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Delete"));
+    await screen.findByRole("dialog");
+    expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(0);
+    await answerConfirm("OK");
     await waitFor(() =>
       expect(posts.some((p) => p.body["action"] === "workspace_insert_rows")).toBe(true),
     );
     expect(posts.find((p) => p.body["action"] === "workspace_insert_rows")!.body["fromClauses"]).toEqual(
       [{ table: "delete_workspace" }],
     );
-    confirm.mockRestore();
   });
 
   /**

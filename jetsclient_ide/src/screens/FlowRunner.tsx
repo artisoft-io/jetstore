@@ -82,6 +82,7 @@ import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useDocumentTitleDetail } from "../shell/documentTitle";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import {
   FLOW_EXIT_FALLBACK,
   RETURN_TO,
@@ -147,6 +148,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [loadFindings, setLoadFindings] = useState<string[] | null>(null);
@@ -542,7 +544,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         return found.length === 0;
       },
       confirm: async (message: string) => {
-        const agreed = window.confirm(message);
+        const agreed = await prompts.confirm(message);
         if (!agreed) haltedByUser.current = true;
         return agreed;
       },
@@ -628,7 +630,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       userEmail: () => api.currentUser?.email ?? "",
       now: () => Date.now(),
     }),
-    [api, closeDialog, currentForm, dialogForm, dialogOpen, exit, formState, loaded, onTopState, queryPost, setError, setStatus, validator],
+    [api, closeDialog, currentForm, dialogForm, dialogOpen, exit, formState, loaded, onTopState, queryPost, setError, setStatus, validator, prompts],
   );
 
   /** Runs a named action against `state` — the flow's, or a dialog's. */
@@ -786,17 +788,22 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         }
         case "promptFilter": {
-          // **`window.prompt` rather than a dialog, and that is faithful rather
-          // than a shortcut.** The Dart's `showGetInputDialog` is one `TextField`
+          // ~~**`window.prompt` rather than a dialog, and that is faithful rather
+          // than a shortcut.**~~ The Dart's `showGetInputDialog` is one `TextField`
           // with CANCEL and OK (`jetsclient/lib/components/dialogs.dart`,
           // `showGetInputDialog`), which is what a prompt is; `host.confirm`
           // already maps the same way. Cancel yields null and the Dart's
           // `if (sessionIds != null)` guard is the same check.
-          const answer = window.prompt(request.prompt);
-          if (answer === null) return;
-          setIdFilter(request.column, answer);
-          formState.notifyListeners();
-          formState.requestRefresh();
+          // **Corrected 2026-10-02 (jetstore_maintenance_02 `I-39`): the app's
+          // own prompt rather than the browser's**, which the embedded browser
+          // pane never displays, so the button did nothing there. The contract
+          // is the native one, so the rest is unchanged.
+          void prompts.prompt(request.prompt).then((answer) => {
+            if (answer === null) return;
+            setIdFilter(request.column, answer);
+            formState.notifyListeners();
+            formState.requestRefresh();
+          });
           return;
         }
         case "openDialog":
@@ -815,7 +822,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [press, formState, loaded, setError, host, openFlowDialog, JSON.stringify(customButtons)],
+    [press, formState, loaded, setError, host, openFlowDialog, prompts, JSON.stringify(customButtons)],
   );
 
   /**

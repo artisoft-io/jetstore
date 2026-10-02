@@ -111,6 +111,7 @@ import { fromDocument } from "../datatable/tableTranslate";
 import type { ActionConfig, JetsRow } from "../datatable/types";
 import { useDataTable } from "../datatable/useDataTable";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
@@ -341,6 +342,7 @@ function BoundTabPanel({
 export function CompiledView({ api, document, workspaceName, onFilesChanged }: CompiledViewProps) {
   const [active, setActive] = useState(0);
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
 
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -389,7 +391,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
         return found.length === 0;
       },
       confirm: async (message: string) => {
-        const agreed = window.confirm(message);
+        const agreed = await prompts.confirm(message);
         if (!agreed) haltedByUser.current = true;
         return agreed;
       },
@@ -426,7 +428,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, setError, setStatus, dialog.close],
+    [api, currentForm, formState, setError, setStatus, dialog.close, prompts],
   );
 
   const runNamedAction = useCallback(

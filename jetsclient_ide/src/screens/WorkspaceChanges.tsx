@@ -45,6 +45,7 @@ import { fromDocument } from "../datatable/tableTranslate";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 
 import actionsJson from "./documents/workspaceHome.ua.json";
 import tableJson from "../datatable/tables/workspaceChangesTable.tc.json";
@@ -63,6 +64,7 @@ export interface WorkspaceChangesProps {
 
 export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
   const [error, setLocalError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const haltedByUser = useRef(false);
@@ -115,7 +117,7 @@ export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
       },
       userEmail: () => api.currentUser?.email ?? "",
       confirm: async (message: string) => {
-        const agreed = window.confirm(message);
+        const agreed = await prompts.confirm(message);
         if (!agreed) haltedByUser.current = true;
         return agreed;
       },
@@ -135,7 +137,7 @@ export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
       close: () => {},
       download: () => {},
     }),
-    [api, setError, setStatus],
+    [api, setError, setStatus, prompts],
   );
 
   const runNamedAction = useCallback(

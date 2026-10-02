@@ -9,11 +9,13 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerConfirm } from "../shell/promptsTesting";
 import { WorkspaceChanges } from "./WorkspaceChanges";
 
 interface Posted {
@@ -56,7 +58,9 @@ async function mount(workspace = "ws1") {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <WorkspaceChanges api={api} workspace={workspace} />
+        <PromptsProvider>
+          <WorkspaceChanges api={api} workspace={workspace} />
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -69,9 +73,6 @@ const actionsOf = (posts: Posted[], action: string) =>
   posts.filter((p) => p.body["action"] === action);
 
 afterEach(cleanup);
-beforeEach(() => {
-  vi.spyOn(window, "confirm").mockReturnValue(true);
-});
 
 describe("the workspace home's changes table", () => {
   it("filters by the workspace it was given, which is the whole mechanism", async () => {
@@ -98,6 +99,7 @@ describe("the workspace home's changes table", () => {
     const { posts } = await mount();
     fireEvent.click(await screen.findByLabelText("Select row 1"));
     fireEvent.click(screen.getByRole("button", { name: "Delete/Revert Changes" }));
+    await answerConfirm("OK");
     await waitFor(() => expect(actionsOf(posts, "delete_workspace_changes").length).toBe(1));
     const body = actionsOf(posts, "delete_workspace_changes")[0]!.body;
     expect(body["workspaceName"]).toBe("ws1");
@@ -108,17 +110,19 @@ describe("the workspace home's changes table", () => {
   });
 
   it("asks before reverting, and sends nothing when refused", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     const { posts } = await mount();
     fireEvent.click(await screen.findByLabelText("Select row 1"));
     fireEvent.click(screen.getByRole("button", { name: "Delete/Revert Changes" }));
-    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    await screen.findByRole("dialog");
+    expect(actionsOf(posts, "delete_workspace_changes")).toEqual([]);
+    await answerConfirm("Cancel");
     expect(actionsOf(posts, "delete_workspace_changes")).toEqual([]);
   });
 
   it("reverts every change with the workspace alone", async () => {
     const { posts } = await mount();
     fireEvent.click(screen.getByRole("button", { name: "Delete/Revert ALL Changes" }));
+    await answerConfirm("OK");
     await waitFor(() => expect(actionsOf(posts, "delete_all_workspace_changes").length).toBe(1));
     // The handler reads only the workspace off the envelope; there is no
     // selection to send and the button is not gated on one.

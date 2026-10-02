@@ -35,6 +35,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import type { JetsRow } from "../datatable/types";
 import { AppShell } from "../shell/AppShell";
+import { answerConfirm } from "../shell/promptsTesting";
 import { compiledViews, SERVER_SECTION_DECLARATION } from "./sectionContract";
 import { WorkspaceIde, WORKSPACE_IDE } from "./WorkspaceIde";
 
@@ -551,67 +552,58 @@ describe("the two tabs that write workspace files", () => {
   });
 
   it("posts one delete row per selected file, and re-reads the tree without closing the tab", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    try {
-      const { posts } = await openFilesTab();
-      await screen.findByText("data_model/FilesRow.jr");
-      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
-      await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false),
-      );
+    const { posts } = await openFilesTab();
+    await screen.findByText("data_model/FilesRow.jr");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false),
+    );
 
-      const treeReadsBefore = posts.filter((p) => p.action === "workspace_query_structure").length;
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    const treeReadsBefore = posts.filter((p) => p.action === "workspace_query_structure").length;
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-      const deletes = () => posts.filter((p) => p.action === "delete_workspace_files");
-      await waitFor(() => expect(deletes().length).toBe(1));
-      expect(confirm).toHaveBeenCalledWith(
-        "Are you sure you want to delete the selected file(s)?",
-      );
-      const sent = deletes()[0]!;
-      expect(sent.workspaceName).toBe("ws");
-      // One row, naming the file itself rather than its key: the handler reads
-      // `request["source_file_name"]` (`DeleteWorkspaceFile`).
-      expect(sent.body["data"]).toEqual([
-        { source_file_name: "data_model/FilesRow.jr", user_email: "michel@artisoft.io" },
-      ]);
+    const deletes = () => posts.filter((p) => p.action === "delete_workspace_files");
+    // Asked in the app's own dialog (I-39), and nothing is sent until it is answered.
+    await screen.findByRole("dialog");
+    expect(deletes()).toEqual([]);
+    expect(await answerConfirm("OK")).toBe("Are you sure you want to delete the selected file(s)?");
+    await waitFor(() => expect(deletes().length).toBe(1));
+    const sent = deletes()[0]!;
+    expect(sent.workspaceName).toBe("ws");
+    // One row, naming the file itself rather than its key: the handler reads
+    // `request["source_file_name"]` (`DeleteWorkspaceFile`).
+    expect(sent.body["data"]).toEqual([
+      { source_file_name: "data_model/FilesRow.jr", user_email: "michel@artisoft.io" },
+    ]);
 
-      // The tree is re-read, and the view tab is still open — see the header.
-      await waitFor(() =>
-        expect(posts.filter((p) => p.action === "workspace_query_structure").length).toBe(
-          treeReadsBefore + 1,
-        ),
-      );
-      expect(screen.getByRole("tab", { name: "Data Model Files" })).toBeTruthy();
-    } finally {
-      confirm.mockRestore();
-    }
+    // The tree is re-read, and the view tab is still open — see the header.
+    await waitFor(() =>
+      expect(posts.filter((p) => p.action === "workspace_query_structure").length).toBe(
+        treeReadsBefore + 1,
+      ),
+    );
+    expect(screen.getByRole("tab", { name: "Data Model Files" })).toBeTruthy();
   });
 
   it("sends nothing when the confirmation is refused", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    try {
-      const { posts } = await openFilesTab();
-      await screen.findByText("data_model/FilesRow.jr");
-      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
-      await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false),
-      );
-      const treeReadsBefore = posts.filter((p) => p.action === "workspace_query_structure").length;
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-      await waitFor(() => expect(confirm).toHaveBeenCalled());
+    const { posts } = await openFilesTab();
+    await screen.findByText("data_model/FilesRow.jr");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false),
+    );
+    const treeReadsBefore = posts.filter((p) => p.action === "workspace_query_structure").length;
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await answerConfirm("Cancel");
 
-      expect(posts.filter((p) => p.action === "delete_workspace_files")).toEqual([]);
-      // And the tree is not re-read: a refused confirmation changed nothing, so
-      // a round trip here would be work done for a user who said no.
-      expect(posts.filter((p) => p.action === "workspace_query_structure").length).toBe(
-        treeReadsBefore,
-      );
-      // The selection survives, because the rows it names are still there.
-      expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false);
-    } finally {
-      confirm.mockRestore();
-    }
+    expect(posts.filter((p) => p.action === "delete_workspace_files")).toEqual([]);
+    // And the tree is not re-read: a refused confirmation changed nothing, so
+    // a round trip here would be work done for a user who said no.
+    expect(posts.filter((p) => p.action === "workspace_query_structure").length).toBe(
+      treeReadsBefore,
+    );
+    // The selection survives, because the rows it names are still there.
+    expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(false);
   });
 
   it("opens Add File seeded with the section prefix and creates the file", async () => {
