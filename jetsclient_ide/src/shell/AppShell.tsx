@@ -35,13 +35,15 @@
  * nothing.
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { BASENAME } from "../base";
 import { Login } from "../components/Login";
 import { withReturnTo } from "../screens/routes";
+import { formatBuildInfo } from "./buildInfo";
+import { BuildInfoFooter, BuildInfoProvider, type BuildInfoSlot } from "./buildInfoFooter";
 import { ApiProvider, useCan } from "./capabilities";
 import { RouteTitle } from "./documentTitle";
 import { RouteFavicon } from "./favicon";
@@ -328,6 +330,25 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
 
   useEffect(() => api.subscribe(setUser), [api]);
 
+  /*
+    The build information, D05 (jetstore_maintenance_02 AC.3). Above the
+    session gate because hooks may not follow an early return; there is no user
+    before sign-in, and the login screen shows no version (`version=""` below)
+    because the value arrives with the login response.
+  */
+  const gitSha = user?.jetstoreGitSha ?? "";
+  const version = user?.jetstoreVersion ?? "";
+  const buildInfo = useMemo(() => formatBuildInfo(gitSha, version), [gitSha, version]);
+  const [footerClaims, setFooterClaims] = useState(0);
+  const claimFooter = useCallback(() => {
+    setFooterClaims((n) => n + 1);
+    return () => setFooterClaims((n) => n - 1);
+  }, []);
+  const buildInfoSlot = useMemo<BuildInfoSlot>(
+    () => ({ info: buildInfo, claim: claimFooter }),
+    [buildInfo, claimFooter],
+  );
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_KEY, theme);
@@ -417,7 +438,15 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
         </div>
       )}
 
-      <Outlet />
+      {/* The provider wraps only the routed screen: it is the screen that may
+          claim the build information for a bar of its own. */}
+      <BuildInfoProvider slot={buildInfoSlot}>
+        <Outlet />
+      </BuildInfoProvider>
+
+      {/* Bottom left, after the screen; a screen with its own bottom bar takes
+          the text into it instead. See `buildInfoFooter.tsx`. */}
+      {buildInfo !== null && footerClaims === 0 && <BuildInfoFooter info={buildInfo} />}
     </div>
   );
 }

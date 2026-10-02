@@ -24,6 +24,7 @@ import { WorkspaceApi, fileNameOf, type WorkspaceNode, type WorkspaceSummary } f
 import { FileTree } from "../components/FileTree";
 import { Editor } from "../editor/Editor";
 import { isServerValidatedJson, languageNameFor } from "../editor/language";
+import { BuildInfoText, useBuildInfoInScreenBar } from "../shell/buildInfoFooter";
 import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
 import { CompiledView } from "./CompiledView";
@@ -93,6 +94,8 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The shell's footer text, drawn in this screen's status bar instead (D05). */
+  const buildInfo = useBuildInfoInScreenBar();
 
   const canEdit = api.can(WORKSPACE_IDE);
   const activeTab = useMemo(
@@ -408,23 +411,14 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               onFilesChanged={refreshTree}
             />
           ) : activeTab ? (
-            <>
-              <Editor
-                docKey={activeTab.fileName}
-                fileName={activeTab.label}
-                content={activeTab.saved}
-                readOnly={!canEdit}
-                onChange={onChange}
-                onSave={save}
-              />
-              <footer className="statusbar">
-                <span title={activeTab.label}>{activeTab.label}</span>
-                <span className="spacer" />
-                <span>{languageNameFor(activeTab.label)}</span>
-                <span>{activeTab.current.length.toLocaleString()} chars</span>
-                <span>{activeTab.current !== activeTab.saved ? "Modified" : "Saved"}</span>
-              </footer>
-            </>
+            <Editor
+              docKey={activeTab.fileName}
+              fileName={activeTab.label}
+              content={activeTab.saved}
+              readOnly={!canEdit}
+              onChange={onChange}
+              onSave={save}
+            />
           ) : (
             /*
               **The base content, not a placeholder.** The Flutter workspace home
@@ -449,6 +443,31 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
                 </p>
               </div>
             )
+          )}
+
+          {/*
+            The status bar, and since D05 (jetstore_maintenance_02 AC.3) the
+            build information as its last entry: this screen claims the shell's
+            footer, so it has one bottom bar rather than two. **It is drawn
+            whatever the tab**, where it used to follow the editor only, because
+            the build line has to be somewhere on a compiled view and on the
+            changes table too — the file's own entries are what stay conditional.
+          */}
+          {(activeTab?.kind === "file" || buildInfo !== null) && (
+            <footer className="statusbar">
+              {activeTab?.kind === "file" ? (
+                <>
+                  <span title={activeTab.label}>{activeTab.label}</span>
+                  <span className="spacer" />
+                  <span>{languageNameFor(activeTab.label)}</span>
+                  <span>{activeTab.current.length.toLocaleString()} chars</span>
+                  <span>{activeTab.current !== activeTab.saved ? "Modified" : "Saved"}</span>
+                </>
+              ) : (
+                <span className="spacer" />
+              )}
+              {buildInfo !== null && <BuildInfoText info={buildInfo} />}
+            </footer>
           )}
         </main>
       </div>

@@ -455,6 +455,28 @@ body {
 }
 .statusbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- build information (D05, jetstore_maintenance_02 AC.3) ----------
+   The shell's footer: the last item of `.app`'s column, pushed to the bottom by
+   `margin-top: auto` on screens shorter than the window, text at the left. The
+   Workspace IDE draws the same text in its status bar instead, and that bar now
+   follows every tab rather than only the editor, so it takes the same push. */
+.app-footer {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 3px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.main > .statusbar { margin-top: auto; }
+.build-info { cursor: default; }
+
 .empty {
   flex: 1 1 auto;
   display: flex;
