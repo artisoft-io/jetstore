@@ -233,6 +233,32 @@ describe("the origin a flow url carries", () => {
     );
   });
 
+  it("carries the origin over, rather than nesting, when reopening the flow it is in", () => {
+    // `jetstore_maintenance_02` Phase 2, 2026-10-01: the menu entry of the
+    // current flow set `returnTo` to the flow itself, so *Close* took two presses.
+    const here = "/flow/clientRegistryUF?returnTo=%2Fhome";
+    expect(withReturnTo("/flow/clientRegistryUF", here)).toBe("/flow/clientRegistryUF?returnTo=%2Fhome");
+    // Which is the url the user is already on, so the menu link is a same-url
+    // navigation — `App.tsx`'s `FlowRoute` is what makes that restart the flow.
+    expect(withReturnTo("/flow/clientRegistryUF", here)).toBe(here);
+    // The flow's own arguments still travel; only the origin is carried over.
+    const to = withReturnTo("/flow/homeFiltersUF?startAt=view_status", "/flow/homeFiltersUF?returnTo=%2Fworkspaces");
+    const params = new URLSearchParams(to.split("?")[1]);
+    expect(params.get("startAt")).toBe("view_status");
+    expect(returnToPath(params)).toBe("/workspaces");
+  });
+
+  it("carries no origin over when the flow it reopens had none, or a refused one", () => {
+    expect(withReturnTo("/flow/clientRegistryUF", "/flow/clientRegistryUF")).toBe("/flow/clientRegistryUF");
+    expect(
+      withReturnTo("/flow/clientRegistryUF", "/flow/clientRegistryUF?returnTo=%2F%2Fevil.example.com"),
+    ).toBe("/flow/clientRegistryUF");
+    // A different flow is an ordinary launch, and nests as it always did.
+    expect(withReturnTo("/flow/loadFilesUF", "/flow/clientRegistryUF?returnTo=%2Fhome")).toBe(
+      `/flow/loadFilesUF?returnTo=${encodeURIComponent("/flow/clientRegistryUF?returnTo=%2Fhome")}`,
+    );
+  });
+
   it("refuses anything that is not a path inside this app", () => {
     // A protocol-relative url passes `startsWith("/")` and is followed off-site
     // by a browser, which is the case worth naming: the parameter is written by

@@ -43,8 +43,9 @@
       ]
     },
     "pcCancelToList": {
-      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the pipeline config table rather than leaving the flow",
+      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the pipeline config table rather than leaving the flow. The selection is cleared first, so Edit needs a row ticked again, which publishes it afresh from the table rather than reopening the abandoned values",
       "steps": [
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
         { "do": "goToState", "state": "select_pipeline_config" }
       ]
     },
@@ -146,7 +147,7 @@
       ]
     },
     "pcSavePipelineConfigUF": {
-      "description": "Save the pipeline configuration, inserting a new row or updating the selected one",
+      "description": "Save the pipeline configuration, inserting a new row or updating the selected one, then clear the table's selection as Cancel does",
       "steps": [
         { "do": "validate" },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "pipeline_config",
@@ -193,7 +194,8 @@
               "merged_process_input_keys": { "pgArrayFromKey": "merged_process_input_keys" },
               "injected_process_input_keys": { "pgArrayFromKey": "injected_process_input_keys" }
             }
-          } }
+          } },
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" }
       ]
     },
     "pcSetProcessInputRegistryKey": {

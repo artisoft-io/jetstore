@@ -606,10 +606,20 @@ describe("client_registry, end to end", () => {
     expect(h.formState.getValue(0, "client")).toBe("ACME");
   });
 
-  it("ends on show_org, which offers no advancing button", () => {
+  it("ends on show_org, which offers Previous only", async () => {
+    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // decision, as for `fileMappingUF`'s `file_mapping`). It was `ufCompleted`,
+    // which left the flow for `returnTo`; *Previous* goes back to the client
+    // table, and *Close* there leaves the flow. The state stays `isEnd`.
     const h = setup();
     expect(h.flow.states["show_org"]!.isEnd).toBe(true);
-    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious", "ufCompleted"]);
+    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious"]);
+    h.formState.setValue(0, "client", ["ACME"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("show_org");
+    expect(await h.press("ufPrevious")).toBeNull();
+    expect(h.at()).toBe("select_client");
+    expect(h.events).not.toContain("exit");
   });
 
   it("deletes the client it posted, not the one it has just cleared", async () => {
@@ -1198,6 +1208,25 @@ describe("pipeline_config, end to end", () => {
     await h.press("ufNext");
     expect(h.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/pipeline_config" }]]);
     expect(h.at()).toBe("select_pipeline_config");
+    // The save clears the table's selection, as Cancel does (below).
+    expect(h.formState.getValue(0, "pcPipelineConfigTable") ?? null).toBeNull();
+  });
+
+  it("clears the table's selection on Cancel from an edit, so Edit needs a fresh tick", async () => {
+    // `jetstore_maintenance_02` Phase 2, 2026-10-01: a bare `goToState` left the
+    // edited record selected in form state, and the table re-publishes it only
+    // when it is on the page the table reads (`FlowRunner.addReturn.test.tsx`).
+    const h = setup();
+    h.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    h.formState.setValue(0, "main_process_input_key", ["pi-1"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_main_process_input");
+    expect(await h.press("pcCancelToList")).toBeNull();
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(h.formState.getValue(0, "pcPipelineConfigTable") ?? null).toBeNull();
+    // And *Edit* is refused until a row is ticked again.
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_pipeline_config");
   });
 
   it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
@@ -1592,13 +1621,26 @@ describe("file_mapping, end to end", () => {
     }
   });
 
-  it("ends on file_mapping, which offers no advancing button", () => {
+  it("ends on file_mapping, which offers Previous only", () => {
+    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // decision). It was `ufCompleted`, which left the flow for `returnTo`; the way
+    // back is *Previous* to the source table, and *Close* there leaves the flow.
+    // The state stays `isEnd`: an end state need not offer `ufCompleted`
+    // (`mapFileUF`'s `fmMappingFormUF` does not either), while a non-end one must
+    // declare a `defaultNextState` no button would use.
     const h = setup();
     expect(h.flow.states["file_mapping"]!.isEnd).toBe(true);
-    expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual([
-      "ufPrevious",
-      "ufCompleted",
-    ]);
+    expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual(["ufPrevious"]);
+  });
+
+  it("goes back from file_mapping to the source table, and does not exit", async () => {
+    const h = setup();
+    selectSource(h);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("file_mapping");
+    expect(await h.press("ufPrevious")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
+    expect(h.events).not.toContain("exit");
   });
 
   it("downloads the mapping as a csv, quoting every cell and skipping nulls", async () => {
@@ -1826,6 +1868,8 @@ describe("configure_files, end to end", () => {
     await edit.press("ufNext");
     await walk(edit);
     expect(edit.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/source_config" }]]);
+    // The save clears the table's selection, as Cancel does (below).
+    expect(edit.formState.getValue(0, "scSourceConfigKey") ?? null).toBeNull();
   });
 
   it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
@@ -1836,6 +1880,12 @@ describe("configure_files, end to end", () => {
     expect(await h.press("scCancelToList")).toBeNull();
     expect(h.at()).toBe("select_source_config");
     expect(h.events).not.toContain("exit");
+    // The edited record is no longer selected (`jetstore_maintenance_02` Phase 2,
+    // 2026-10-01; `FlowRunner.addReturn.test.tsx` has why), so *Edit* is refused
+    // until a row is ticked again.
+    expect(h.formState.getValue(0, "scSourceConfigKey") ?? null).toBeNull();
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_source_config");
     for (const [key, state] of Object.entries(h.flow.states)) {
       const actions = h.forms.forms[state.formConfig]!.actions.map((a) => a.action);
       if (key === "select_source_config") expect(actions).not.toContain("scCancelToList");

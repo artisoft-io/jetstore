@@ -59,7 +59,13 @@ const PROJECTED = ["map_claim_load_stages", "qc_metrics", "qc_report"];
  * path, and `shippingFlows.test.ts`'s cross-document set check over every flow in
  * the directory.
  */
-const HAND_AUTHORED = ["clientRegistryUF", "pipelineConfigUF", "sourceConfigUF"];
+const HAND_AUTHORED = [
+  "clientRegistryUF",
+  "fileMappingUF",
+  "pipelineConfigUF",
+  "sourceConfigUF",
+  "startPipelineUF",
+];
 const flows = toUserFlows(corpus as unknown as Corpus);
 /** The hand-authored flows as committed — the thing that ships, so the thing checked. */
 const handAuthored: Record<string, UserFlow> = Object.fromEntries(
@@ -134,7 +140,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the shipping corpus", () => {
-  it("is the seven flows and 19 states still translated from the fixture", () => {
+  it("is the five flows and 13 states still translated from the fixture", () => {
     // Eleven, not the nine the documents said: `workspace_pull/` defines two
     // flows and `file_mapping/` defines two.
     //
@@ -144,8 +150,13 @@ describe("the shipping corpus", () => {
     // **Seven and 19 the same day**, when `clientRegistryUF` (4 states),
     // `sourceConfigUF` (12) and `pipelineConfigUF` (10) left the fixture for
     // `HAND_AUTHORED` (`AF.1`, `D06`).
-    expect(Object.keys(flows)).toHaveLength(7);
-    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(19);
+    // **Six and 17 the same day again**, when `fileMappingUF` (2 states) left
+    // for `HAND_AUTHORED` so that its *Done* could return to its start table
+    // (`jetstore_maintenance_02` Phase 2).
+    // **Five and 13 on 2026-10-02**, when `startPipelineUF` (4 states) left too,
+    // so that it could always end on Home (same phase, Michel's decision).
+    expect(Object.keys(flows)).toHaveLength(5);
+    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(13);
   });
 
   it.each(Object.keys(flows))("%s validates against the schema", (key) => {
@@ -175,7 +186,11 @@ describe("the shipping corpus", () => {
   // them on the add-or-edit steps `D06` deletes. `equals` is still the operator
   // most of the *shipping* choices use — see `HAND_AUTHORED` — it is only this
   // fixture that no longer carries one.
-  it("uses three of the seven condition forms, and one operator", () => {
+  //
+  // **One form since 2026-10-02**: `not` and `isNullOrEmpty` were the nested
+  // choice in `startPipelineUF`, which left this fixture for `HAND_AUTHORED`
+  // (`jetstore_maintenance_02` Phase 2) and still carries it on disk.
+  it("uses one of the seven condition forms, and one operator", () => {
     // The other three are carried for the reason A.3 carried its unused text
     // options: two lines each, and their absence is a silent behaviour change
     // the first time a flow wants one.
@@ -194,7 +209,7 @@ describe("the shipping corpus", () => {
         if ("choices" in state && state.choices) state.choices.forEach((c) => walk(c.when));
       }
     }
-    expect([...ops].sort()).toEqual(["contains", "isNullOrEmpty", "not"]);
+    expect([...ops].sort()).toEqual(["contains"]);
   });
 
   it("carries every literal comparison as `value`, never as a state key", () => {
@@ -319,7 +334,11 @@ describe("the reference checks the schema cannot express", () => {
     // fixture's one flow left with a state that has both a choice and a default,
     // so it is the one that can still show all three shapes. Go's twin,
     // `TestFindingsCarryAPath`, moved with it.
-    const flow = structuredClone(flows["startPipelineUF"]!);
+    //
+    // **Read off disk since 2026-10-02**, when `startPipelineUF` itself left the
+    // fixture (`jetstore_maintenance_02` Phase 2) — which is what Go's twin always
+    // read.
+    const flow = structuredClone(handAuthored["startPipelineUF"]!);
     const branch = flow.states["select_main_data_source"]! as { choices: { nextState: string }[] };
     branch.choices[0]!.nextState = "typoInChoice";
     // The State union does not promise `defaultNextState` on every branch, and

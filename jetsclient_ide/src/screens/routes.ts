@@ -113,6 +113,14 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
    * the same and always will be.
    */
   "/fileLoaderStatus": { reactPath: "/fileLoaderStatus" },
+  /**
+   * **The second key with no Flutter predecessor.** Flutter's home was `/`; this
+   * app's index has been `/home` since X.1 and `/` only redirects to it. Added for
+   * `startPipelineUF`'s `exitScreenPath` (`jetstore_maintenance_02` Phase 2,
+   * 2026-10-02: *Start Pipeline* always ends on Home), because an `exitScreenPath`
+   * resolves through this table and a path not in it falls through to `returnTo`.
+   */
+  "/home": { reactPath: "/home" },
 };
 
 /**
@@ -245,13 +253,23 @@ export function isInAppPath(path: string): boolean {
  * `inAppPath` result may be an ordinary screen, and a `returnTo` on one of those
  * would be a parameter nothing consumes. An existing `returnTo` is left alone so
  * that a launcher which has already decided beats this default.
+ *
+ * **Reopening the flow you are in carries its own origin over rather than
+ * nesting it** (`jetstore_maintenance_02` Phase 2, 2026-10-01). Opening
+ * `clientRegistryUF` from its own menu entry used to set `returnTo` to the
+ * flow itself, so *Close* had to be pressed twice. The flow restarts (`App.tsx`,
+ * `FlowRoute`) and leaves for wherever it was first opened from, or for the
+ * fallback when that was nowhere.
  */
 export function withReturnTo(to: string, from: string): string {
   if (!to.startsWith("/flow/") || !isInAppPath(from)) return to;
   const [path, query = ""] = to.split("?", 2);
   const search = new URLSearchParams(query);
   if (search.has(RETURN_TO)) return to;
-  search.set(RETURN_TO, from);
+  const [fromPath, fromQuery = ""] = from.split("?", 2);
+  const origin = fromPath === path ? returnToPath(new URLSearchParams(fromQuery)) : from;
+  if (origin === null) return to;
+  search.set(RETURN_TO, origin);
   return `${path}?${search.toString()}`;
 }
 
