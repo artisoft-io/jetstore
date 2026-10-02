@@ -15,6 +15,7 @@ WORKDIR ${JETS_SOURCE_DIR}
 COPY .git                ${JETS_SOURCE_DIR}/.git
 COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY go.sum              ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 COPY jetsclient          ${JETS_SOURCE_DIR}/jetsclient
 COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
