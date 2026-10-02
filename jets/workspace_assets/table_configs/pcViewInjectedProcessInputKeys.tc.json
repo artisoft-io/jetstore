@@ -80,7 +80,7 @@
       "key": "toggleRowSelection",
       "label": "Show/Hide Select Row",
       "action": "toggleCheckboxVisible",
-      "style": "primary"
+      "style": "secondary"
     },
     {
       "key": "removeInjectedProcessInput",
