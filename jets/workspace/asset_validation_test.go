@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -254,7 +255,10 @@ func TestRealValidatorOverTheShippingAssets(t *testing.T) {
 	if !errors.Is(err, ErrAssetValidation) {
 		t.Fatalf("a broken reference passed validation:\n%s", out)
 	}
-	if !strings.Contains(out, "table_configs/client.tc.json#/actions/0/actionName") {
+	// The file and the pointer's shape, not the button's index: D06 put *+ Add*
+	// ahead of *Delete* on 2026-10-01 and moved it from /actions/0 to /actions/1,
+	// which this test -- skipped wherever the bundle is unbuilt -- did not see.
+	if !regexp.MustCompile(`table_configs/client\.tc\.json#/actions/\d+/actionName`).MatchString(out) {
 		t.Errorf("the finding does not name the file and pointer:\n%s", out)
 	}
 }
