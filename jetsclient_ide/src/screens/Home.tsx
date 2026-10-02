@@ -84,6 +84,13 @@ import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialo
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
 import { cellFiltersOf } from "../actions/cellFilters";
+import { customButtonAction, customButtonFor, customButtonSpec } from "../actions/customButtons";
+import {
+  browserWriteClipboard,
+  fetchStageFileThrough,
+  runStageClipboard,
+} from "../actions/stageClipboard";
+import { TextDialog } from "../components/TextDialog";
 import { validateAllGroups, type FieldError } from "../userflow/validateForm";
 import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 
@@ -267,6 +274,13 @@ export function Home({ api }: { api: ApiClient }) {
 
   const formState = useMemo(() => new FormState(), []);
   const dialog = useFormDialog();
+  /**
+   * The text a refused clipboard write fell back to (`R-2`), or null. D04's
+   * clipboard buttons hand it to the host's `showText`; `TextDialog` shows it.
+   */
+  const [shownText, setShownText] = useState<{ title: string; text: string } | null>(null);
+  /** The deployment's custom buttons, from sign-in (`AE.8`). */
+  const customButtons = api.currentUser?.customButtons ?? [];
 
   /**
    * The one table this screen reads from the workspace, and its failure.
@@ -345,10 +359,18 @@ export function Home({ api }: { api: ApiClient }) {
       tablesWith(workspaceTable).reduce<Record<string, TableConfig>>((acc, table) => {
         if (!table.result.success) return acc;
         const caption = TABS.find((t) => t.key === table.key)?.caption ?? null;
-        const config = fromDocument(table.key, table.result.data);
+        const translated = fromDocument(table.key, table.result.data);
+        // **The custom buttons are added here and nowhere else**: Pipeline Status
+        // is the one table Flutter drew them on and the one the report names, and
+        // the document cannot carry them (`D04`, `AE.8`).
+        const config =
+          table.key === WORKSPACE_TABLE && customButtons.length > 0
+            ? { ...translated, fromConfigRowActions: customButtons.map(customButtonAction) }
+            : translated;
         return { ...acc, [table.key]: caption === null ? config : { ...config, label: caption } };
       }, {}),
-    [workspaceTable],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workspaceTable, JSON.stringify(customButtons)],
   );
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
@@ -436,6 +458,11 @@ export function Home({ api }: { api: ApiClient }) {
           return null;
         }
       },
+      // D04's clipboard buttons (`AE.3`, `AE.4`): the file comes back through the
+      // API client because `post` above keeps only the status.
+      fetchStageFile: fetchStageFileThrough(api),
+      writeClipboard: browserWriteClipboard,
+      showText: (title, text) => setShownText({ title, text }),
       download: (fileName, content) => {
         const url = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
         const anchor = document.createElement("a");
@@ -490,6 +517,20 @@ export function Home({ api }: { api: ApiClient }) {
       void (async () => {
         setError(null);
         try {
+          // A deployment's custom button names no entry in this screen's action
+          // document — it is not authored anywhere — so it runs the clipboard
+          // mechanism directly with its own spec (`AE.8`).
+          const custom = customButtonFor(customButtons, action);
+          if (custom !== undefined) {
+            setBusy(true);
+            const outcome = await runStageClipboard(
+              customButtonSpec(custom),
+              { formState, group: GROUP, flowKey: SCREEN_KEY },
+              host,
+            );
+            if (outcome !== null) setError(outcome);
+            return;
+          }
           switch (request.kind) {
             case "runAction": {
               setBusy(true);
@@ -574,7 +615,8 @@ export function Home({ api }: { api: ApiClient }) {
         }
       })();
     },
-    [dialog, formState, host, navigate, runNamedAction, setError],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dialog, formState, host, navigate, runNamedAction, setError, JSON.stringify(customButtons)],
   );
 
   const onFormAction = useCallback(
@@ -697,6 +739,10 @@ export function Home({ api }: { api: ApiClient }) {
           />
         )}
       </div>
+
+      {shownText !== null && (
+        <TextDialog title={shownText.title} text={shownText.text} onClose={() => setShownText(null)} />
+      )}
 
       {currentForm !== null && (
         <FormDialog

@@ -128,6 +128,10 @@
       {
         "stateKey": "failure_details",
         "columnIdx": 13
+      },
+      {
+        "stateKey": "main_input_registry_key",
+        "columnIdx": 14
       }
     ]
   },
@@ -254,6 +258,35 @@
       "actionName": "resubmitPipeline",
       "capability": "run_pipelines",
       "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ],
+  "thirdRowActions": [
+    {
+      "key": "getRunManifest",
+      "label": "Get Run Manifest",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "getRunManifest",
+      "capability": "jetstore_read",
+      "isEnabledWhenHavingSelectedRows": true,
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "equals",
+            "value": "completed"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "getSchemaEvent",
+      "label": "Get Schema Event",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "getSchemaEvent",
+      "capability": "jetstore_read",
       "isEnabledWhenHavingSelectedRows": true
     }
   ]

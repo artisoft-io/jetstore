@@ -627,7 +627,11 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     // `showFailureDetailsDialog` its only table-opened form, and **both are on the
     // second row**. Before F.5 `actionNamesOf` and `validateTableActions` walked
     // the first row alone, so this table would have reported no references at all.
-    expect(actionNamesOf(doc)).toEqual(["resubmitPipeline"]);
+    //
+    // **Three since 2026-10-01**: the third row's *Get Run Manifest* and *Get
+    // Schema Event* (`jetstore_maintenance_02` `D04`, `AE.4`, `AE.5`) run actions
+    // too, and `actionNamesOf` reads them through `actionRowsOf` (`AE.1`).
+    expect(actionNamesOf(doc)).toEqual(["getRunManifest", "getSchemaEvent", "resubmitPipeline"]);
     if (doc.source !== "query") return;
     expect((doc.secondRowActions ?? []).find((a) => a.action === "showDialog")?.configForm).toBe(
       "showFailureDetailsDialog",

@@ -48,6 +48,29 @@
         { "do": "notify", "level": "info", "message": "Schema event saved as jetstore_ui_event.json" },
         { "do": "close" }
       ]
+    },
+    "getRunManifest": {
+      "description": "Copy the selected run's manifest from the stage to the clipboard",
+      "steps": [
+        {
+          "do": "set",
+          "key": "stage_clipboard.file_path",
+          "value": { "literal": "process_name={{process_name}}/session_id={{session_id}}/run_manifest.json" }
+        },
+        { "do": "set", "key": "stage_clipboard.label", "value": { "literal": "Run manifest" } },
+        {
+          "do": "set",
+          "key": "stage_clipboard.missing_message",
+          "value": {
+            "literal": "There is no manifest for this run: one is written only when a cpipes run completes."
+          }
+        },
+        { "do": "escape", "name": "fetchStageToClipboard" }
+      ]
+    },
+    "getSchemaEvent": {
+      "description": "Copy the schema event of the selected run's input registration to the clipboard",
+      "steps": [{ "do": "escape", "name": "copySchemaEvent" }]
     }
   }
 }
