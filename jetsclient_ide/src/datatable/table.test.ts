@@ -539,8 +539,12 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     expect(doc.where).toEqual([{ column: "source_period_key", joinWith: "source_period.key" }]);
   });
 
-  it("keeps the six action-bar buttons in order and the five row buttons apart", () => {
+  it("keeps the seven action-bar buttons in order and the five row buttons apart", () => {
     if (doc.source !== "query") return;
+    // **Seven since 2026-10-01**: `putSchemaEvent` is appended after
+    // `clearHomeFilters`, which is "right of Clear Filters" in the report's words
+    // (`jetstore_maintenance_02` `D01`, task `AD.3`). The document is
+    // hand-maintained since `AD.2`, so this is an edit rather than a translation.
     expect((doc.actions ?? []).map((a) => [a.key, a.action])).toEqual([
       ["startPipeline", "showScreen"],
       ["refreshTable", "refreshTable"],
@@ -548,6 +552,7 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
       ["setSessionIdFilters", "setSessionIdFilter"],
       ["setRequestIdFilters", "setRequestIdFilter"],
       ["clearHomeFilters", "clearHomeFilters"],
+      ["putSchemaEvent", "showDialog"],
     ]);
     expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
       "viewStatusDetails",

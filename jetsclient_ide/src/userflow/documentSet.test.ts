@@ -318,8 +318,14 @@ describe("a table action naming something the set does not define", () => {
       structuredClone(execStatusTable),
     ) as TableConfigDocument;
     if (execStatus.source !== "query") throw new Error("pipelineExecStatusTable is a query table");
-    // Nothing on the first row names either document.
-    expect(execStatus.actions!.filter((a) => a.actionName ?? a.configForm)).toEqual([]);
+    // **One first-row reference since 2026-10-01**: `jetstore_maintenance_02`'s
+    // *Put Schema Event* (`D01`, task `AD.3`) opens `putSchemaEventDialog`. It is
+    // taken off the clone so that what follows is still about the second row
+    // alone, which is this case's subject; the first-row walk is the case above.
+    expect(execStatus.actions!.filter((a) => a.actionName ?? a.configForm).map((a) => a.configForm)).toEqual([
+      "putSchemaEventDialog",
+    ]);
+    execStatus.actions = execStatus.actions!.filter((a) => !(a.actionName ?? a.configForm));
 
     const actions = ActionDocumentSchema.parse({
       schemaVersion: 1,

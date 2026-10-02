@@ -56,7 +56,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
-import { runAction, type ActionHost, type PostResult } from "../actions/interpret";
+import { runAction, type ActionHost, type ActionResult, type PostResult } from "../actions/interpret";
 import { productionRegistry } from "../actions/registry";
 import {
   currentDataRegistryFilters,
@@ -458,20 +458,30 @@ export function Home({ api }: { api: ApiClient }) {
     [api, currentForm, formState, queryPost, setError, setStatus, dialog.close],
   );
 
+  /**
+   * **The whole `ActionResult`, not only its message, since 2026-10-01**
+   * (`jetstore_maintenance_02` `D01`, task `AD.3`). Until then this screen's one
+   * dialog was a viewer, and `message === null` could only mean the action ran.
+   * *Put Schema Event* opens with a `validate` step, and a failed validation also
+   * returns a null message — with `completed: false`. Reading the message alone
+   * closed the dialog over the field errors it had just drawn, which is I-186 as
+   * `WorkspaceRegistry.tsx` met it; that screen remembers the halt in a ref, and
+   * this one can read it off the result because the result is in hand.
+   */
   const runNamedAction = useCallback(
-    async (name: string): Promise<string | null> => {
+    async (name: string): Promise<ActionResult> => {
       const action = actions[name];
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this screen's action document`);
       }
-      return (await runAction({
+      return runAction({
         action,
         host,
         formState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: SCREEN_KEY,
-      })).message;
+      });
     },
     [actions, host, formState],
   );
@@ -484,7 +494,7 @@ export function Home({ api }: { api: ApiClient }) {
           switch (request.kind) {
             case "runAction": {
               setBusy(true);
-              const outcome = await runNamedAction(request.name);
+              const outcome = (await runNamedAction(request.name)).message;
               if (outcome !== null) setError(outcome);
               formState.requestRefresh();
               return;
@@ -523,7 +533,9 @@ export function Home({ api }: { api: ApiClient }) {
               // **No refresh on close.** `showFailureDetailsDialog` is a viewer
               // with one Close button and no action document entry, so nothing
               // it does can have changed a row. C.2b refreshes on `ok` because
-              // its seven dialogs write.
+              // its seven dialogs write. *Put Schema Event* (2026-10-01) writes,
+              // and still needs nothing here: its `post` step requests the
+              // refresh itself on a 200, and the run it starts is asynchronous.
               return;
             }
             case "runActionThenDialog":
@@ -570,6 +582,9 @@ export function Home({ api }: { api: ApiClient }) {
     (action: FormAction) => {
       // Every button of this screen's one dialog is the standard Close, whose
       // key is `dialogCancel` — the dialog's, not the action document's.
+      // **Two dialogs since 2026-10-01**: *Put Schema Event*'s Save runs
+      // `putSchemaEvent` from the action document, and its Cancel is the same
+      // `dialogCancel` (`jetstore_maintenance_02` `AD.3`).
       if (isDialogCancel(action)) {
         dialog.close("cancel");
         return;
@@ -577,12 +592,15 @@ export function Home({ api }: { api: ApiClient }) {
       void (async () => {
         setBusy(true);
         try {
-          const outcome = await runNamedAction(action.action);
+          const { message: outcome, completed } = await runNamedAction(action.action);
           if (outcome !== null) {
             setError(outcome);
             dialog.close("failed");
             return;
           }
+          // Stopped by the user — a failed `validate` — so the form and its field
+          // errors stay on screen to be corrected. See `runNamedAction`.
+          if (!completed) return;
           dialog.close("ok");
         } catch (error) {
           setError(error instanceof Error ? error.message : String(error));

@@ -286,6 +286,10 @@ describe("homeFiltersUF against the shipping registry", () => {
       "hfSelectStatusUF",
       "hfSelectTimeWindowUF",
       "hfViewStatusTableUF",
+      // `pipelineExecStatusTable`'s *Put Schema Event* opens it, so every set
+      // that draws the table carries it (`jetstore_maintenance_02` `AD.3`,
+      // 2026-10-01). Like `showFailureDetailsDialog`, no state names it.
+      "putSchemaEventDialog",
       "showFailureDetailsDialog",
     ]);
     // Four tables, and the fourth is the one registered on the non-flow side

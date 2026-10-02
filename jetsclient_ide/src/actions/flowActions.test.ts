@@ -213,10 +213,15 @@ describe("the flows' action documents", () => {
     // `rfkSubmitSchemaEventUF` and its own `dialogCancel` (`jetstore_maintenance_02`
     // `AD.4`); its schema event is posted from the Pipeline Status table's dialog
     // now, which is a Home-screen action document and not one of these.
+    //
+    // **53 the same day**: `homeFiltersUF` gained `putSchemaEvent`, an arm with no
+    // Dart original, because its table's first row opens a dialog whose Save
+    // button runs it (`AD.3`). The I-114 shape — an arm a flow needs that the
+    // delegates never declared — arriving from the port's own work.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(52);
+    expect(names).toHaveLength(53);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -390,7 +395,7 @@ describe("the flows' action documents", () => {
     ]);
   });
 
-  it("holds homeFiltersUF's four state actions plus the two its table reaches", () => {
+  it("holds homeFiltersUF's four state actions plus the three its table reaches", () => {
     // F.5. `home_filters/form_action_delegates.dart` declares six `case` labels
     // in one switch — four `hf*` state actions falling through to one body,
     // `resubmitPipeline` and `dialogCancel`. All six are reachable and all six
@@ -398,12 +403,19 @@ describe("the flows' action documents", () => {
     // both an action and a form: `pipelineExecStatusTable`'s second row carries
     // `resubmitPipeline` and opens `showFailureDetailsDialog`, whose only button
     // is `dialogCancel`.
+    //
+    // **Seven since 2026-10-01, and the seventh has no Dart `case` at all.**
+    // `putSchemaEvent` is the Save button of `putSchemaEventDialog`, which the same
+    // table's first row now opens (`jetstore_maintenance_02` `D01`, task `AD.3`);
+    // the flow carries it because it draws the table, as it carries
+    // `resubmitPipeline`.
     expect(Object.keys((homeFilters as ActionDocument).actions).sort()).toEqual([
       "dialogCancel",
       "hfSelectFileKeyFilterUF",
       "hfSelectProcessUF",
       "hfSelectStatusUF",
       "hfSelectTimeWindowUF",
+      "putSchemaEvent",
       "resubmitPipeline",
     ]);
     // The plan's *Actions* column reads 4 and counts `stateAction` declarations,

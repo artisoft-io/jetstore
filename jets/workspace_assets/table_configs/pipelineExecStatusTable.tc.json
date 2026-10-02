@@ -190,6 +190,14 @@
       "action": "clearHomeFilters",
       "style": "primary",
       "isEnabled": "hasHomeFilters"
+    },
+    {
+      "key": "putSchemaEvent",
+      "label": "Put Schema Event",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "putSchemaEventDialog",
+      "capability": "run_pipelines"
     }
   ],
   "secondRowActions": [
