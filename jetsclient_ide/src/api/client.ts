@@ -101,6 +101,13 @@ export interface User {
   isAdmin: boolean;
   capabilities: string[];
   jetstoreVersion: string;
+  /**
+   * The image's `<branch>-<sha>`, from `JETS_GIT_SHA` (`jets/apiserver/api_users.go`,
+   * the `"jetstore_git_sha"` entry of the login `data` map). Empty on a
+   * workstation, where nothing sets it. Rendered with `jetstoreVersion` by
+   * `formatBuildInfo` (`shell/buildInfo.ts`) — jetstore_maintenance_02, D05.
+   */
+  jetstoreGitSha: string;
   devMode: boolean;
   /**
    * The git identity, for the git profile screen. Task C.14.
@@ -123,6 +130,7 @@ interface LoginResponse {
   token?: string;
   dev_mode?: string;
   jetstore_version?: string;
+  jetstore_git_sha?: string;
   /**
    * The git profile, from `jetsUser.UserGitProfile` (`jets/apiserver/api_users.go`,
    * the `"gitProfile"` entry of the login `data` map).
@@ -243,6 +251,7 @@ export class ApiClient {
       isAdmin: body.is_admin === true,
       capabilities: body.capabilities ?? [],
       jetstoreVersion: body.jetstore_version ?? "",
+      jetstoreGitSha: body.jetstore_git_sha ?? "",
       devMode: body.dev_mode === "true",
       gitProfile: {
         gitName: body.gitProfile?.git_name ?? "",

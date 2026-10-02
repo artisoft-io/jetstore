@@ -67,6 +67,28 @@ describe("ApiClient", () => {
     });
   });
 
+  it("carries both build values from the login response (D05)", async () => {
+    // `jetstore_version` and `jetstore_git_sha` are the keys `Login` writes
+    // (jets/apiserver/api_users.go); the footer formats the pair.
+    const { impl } = stubFetch([
+      {
+        status: 200,
+        body: { ...LOGIN_OK.body, jetstore_version: "1759338000", jetstore_git_sha: "jets_ai-6aeb790" },
+      },
+    ]);
+    const api = new ApiClient("", impl);
+    await api.login("ada@example.com", "pw");
+    expect(api.currentUser?.jetstoreVersion).toBe("1759338000");
+    expect(api.currentUser?.jetstoreGitSha).toBe("jets_ai-6aeb790");
+  });
+
+  it("reads a login response without a commit as an empty one", async () => {
+    // An apiserver older than D05 sends no `jetstore_git_sha`; the footer then
+    // shows the date alone rather than the word `undefined`.
+    const { api } = await signedIn([]);
+    expect(api.currentUser?.jetstoreGitSha).toBe("");
+  });
+
   it("rejects a login that returns no token", async () => {
     const { impl } = stubFetch([{ status: 200, body: { user_email: "a@b.c" } }]);
     const api = new ApiClient("", impl);

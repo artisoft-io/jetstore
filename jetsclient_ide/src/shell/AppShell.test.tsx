@@ -24,7 +24,10 @@ afterEach(() => {
 });
 
 /** An ApiClient with a live session, without touching the network. */
-async function signedIn(capabilities: string[] = ["workspace_ide"]): Promise<ApiClient> {
+async function signedIn(
+  capabilities: string[] = ["workspace_ide"],
+  build: { jetstore_version?: string; jetstore_git_sha?: string } = {},
+): Promise<ApiClient> {
   const fetchImpl = vi.fn(async () =>
     new Response(
       JSON.stringify({
@@ -33,6 +36,7 @@ async function signedIn(capabilities: string[] = ["workspace_ide"]): Promise<Api
         user_email: "michel@artisoft.io",
         is_admin: false,
         capabilities,
+        ...build,
       }),
       { status: 200 },
     ),
@@ -184,6 +188,28 @@ describe("AppShell", () => {
     renderShell(api, nav);
     await screen.findByText("screen: workspace");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("shows the build information at the foot of the screen (D05)", async () => {
+    renderShell(
+      await signedIn(["workspace_ide"], { jetstore_version: "1759338000", jetstore_git_sha: "jets_ai-6aeb790" }),
+      nav,
+    );
+    await screen.findByText("screen: workspace");
+
+    const footer = screen.getByRole("contentinfo", { name: "Build information" });
+    expect(footer.textContent).toBe("jets_ai-6aeb790 \u00b7 built 2025-10-01");
+    // The raw JETS_VERSION is the tooltip, so the number the date came from is
+    // one hover away.
+    expect(footer.querySelector("[title]")?.getAttribute("title")).toBe("1759338000");
+    // After the routed screen, which is what puts it at the bottom of the column.
+    expect(footer.parentElement?.lastElementChild).toBe(footer);
+  });
+
+  it("draws no footer when the login carried no build information", async () => {
+    renderShell(await signedIn(), nav);
+    await screen.findByText("screen: workspace");
+    expect(screen.queryByRole("contentinfo", { name: "Build information" })).toBeNull();
   });
 
   it("resolves routes under the mount prefix, not the root", async () => {
