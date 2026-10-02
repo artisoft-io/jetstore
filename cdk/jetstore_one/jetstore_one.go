@@ -551,6 +551,21 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // CPIPES_COMPLETED_NOTIFICATION_JSON template for the cpipes completed notification
 // CPIPES_FAILED_NOTIFICATION_JSON template for the cpipes failed notification
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_CUSTOM_BUTTONS_CONFIG_JSON (optional) the deployment's own buttons on the UI's Pipeline
+//	Status table, as a JSON array in the shape the Flutter UI read: each entry has a type
+//	(fetch_stage_to_clipboard), a key, a label, fsk_params, a file_path under the stage prefix
+//	with {{column}} placeholders, and an optional replace_text/replace_with pair. Passed through
+//	unchanged to the UI service's environment, where the apiserver serves it to a signed-in user
+//	and the React app appends the buttons to the table's last action row. It is a deployment
+//	setting rather than a workspace one on purpose: a workspace document cannot name these
+//	buttons (fromConfigRowActions is unauthorable), so a workspace file cannot configure a
+//	deployment. Unset, or empty, means no custom buttons. A value that is not valid JSON is
+//	reported below as a warning and still passed through; the apiserver is the party that
+//	refuses it, by serving no buttons rather than failing the login.
+//	Until 2026-10-01 nothing read this variable: it was a compile-time constant of the Flutter
+//	app, and its Docker build argument was removed with that app. This synth-time half landed
+//	first; the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
+//	until they land the entry reaches the container and nothing there reads it.
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
@@ -755,6 +770,7 @@ func main() {
 	log.Println("env CPIPES_COMPLETED_NOTIFICATION_JSON:", os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON"))
 	log.Println("env CPIPES_FAILED_NOTIFICATION_JSON:", os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON"))
 	log.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
+	log.Println("env JETS_CUSTOM_BUTTONS_CONFIG_JSON:", os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON"))
 	log.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
 	log.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
 	log.Println("env JETS_DB_VERSION:", os.Getenv("JETS_DB_VERSION"))
@@ -888,6 +904,12 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' and 'JETS_IMAGE_TAG' are required.")
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' is the jetstore image with the workspace.")
+	}
+	// A warning rather than an error: the value only decorates the UI, and the apiserver
+	// already serves no buttons for a value it cannot parse. Saying so here is what lets the
+	// operator find out at synth rather than by the button not appearing after a deploy.
+	if v := os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON"); v != "" && !json.Valid([]byte(v)) {
+		log.Println("Warning: env var JETS_CUSTOM_BUTTONS_CONFIG_JSON is not valid JSON; it is passed to the UI service unchanged and the apiserver will serve no custom buttons")
 	}
 	if os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO") == "" && os.Getenv("JETS_DOMAIN_KEY_HASH_SEED") == "" {
 		log.Println("Warning: env var JETS_DOMAIN_KEY_HASH_ALGO and JETS_DOMAIN_KEY_HASH_SEED not provided, no hashing of the domain keys will be applied")
