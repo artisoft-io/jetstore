@@ -83,6 +83,12 @@ RUN \
   echo "Installing JetStore-owned assets into $WORKSPACES_REPO/$WORKSPACE" \
   && WORKSPACES_HOME=${WORKSPACES_REPO} /app/install_workspace_assets -w=${WORKSPACE}
 
+# **The compile validates the workspace's user_flows/ and table_configs/ first,
+# and an invalid document fails this build** (jetstore_maintenance_02 AG.4,
+# 2026-10-01; jets/workspace/asset_validation.go). Nothing here sets that up: the
+# script is /app/jets_validate_workspace.mjs beside /app/compile_workspace and node
+# is on PATH, both inherited from cpipes_builder. The findings print with file and
+# JSON Pointer in the build log, above the error.
 RUN \
   echo "Compiling workspace in $WORKSPACES_REPO/$WORKSPACE" \
   && rm -rf $WORKSPACES_REPO/$WORKSPACE/cdk/jetstore_one/cdk.out/* \  

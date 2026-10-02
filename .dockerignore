@@ -10,6 +10,9 @@ jetstore.egg-info
 # installs its own from package-lock.json. dist is rebuilt in the image too.
 jetsclient_ide/node_modules/
 jetsclient_ide/dist/
+# The workspace validator bundle (`npm run build:validator`), likewise rebuilt in
+# Dockerfile.cpipes_builder; a local copy would be stale at best.
+jetsclient_ide/dist-validator/
 
 # Python virtual environments and tool caches under tools/. **The same argument
 # as node_modules above, and it was measured rather than predicted** (P9-I61):

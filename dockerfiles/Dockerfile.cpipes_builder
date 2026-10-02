@@ -94,6 +94,38 @@ RUN go build -ldflags="-w -s" -o apiserver            ${JETS_SOURCE_DIR}/jets/ap
 RUN go build -ldflags="-w -s" -o run_reports          ${JETS_SOURCE_DIR}/jets/run_reports
 RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/update_db
 
+# The workspace document validator -- jetstore_maintenance_02 AG.3 (R12).
+#
+# `CompileWorkspace` runs `node jets_validate_workspace.mjs <workspace>` over the
+# workspace's user_flows/ and table_configs/ before compiling, and fails when it
+# cannot (jets/workspace/asset_validation.go). The script is the TypeScript
+# cross-document checks bundled into one ES module with no node_modules beside
+# it (jetsclient_ide/vite.validator.config.ts).
+#
+# **Built once, here, and inherited -- not built in each image that needs it.**
+# This is the one image with both the React source (COPY jetsclient_ide above)
+# and Node (cpipes_base_builder), and every image that compiles descends from it:
+# compile_ws is FROM this image and finds the script beside /app/compile_workspace
+# with node already on PATH; ui_service copies it out of this image as `builder`.
+# Building it in each would be two `npm ci`s producing what should be the same
+# bytes, and the place they could differ is exactly what a validator must not.
+#
+# Written to /app beside the binaries because that is where the Go side looks when
+# JETS_WORKSPACE_VALIDATOR is unset: beside the running executable.
+# node_modules is removed in the same layer -- the bundle needs none of it, and
+# Dockerfile.ui_service_ws runs its own `npm ci`, which would delete it anyway.
+#
+# The last command runs the script over the assets this build embeds, so an image
+# whose own shipping documents do not validate fails here rather than at the first
+# compile that uses it.
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient_ide
+RUN npm ci \
+  && npm run build:validator \
+  && cp dist-validator/jets_validate_workspace.mjs ${JETS_SOURCE_DIR}/jets_validate_workspace.mjs \
+  && rm -rf node_modules dist-validator \
+  && node ${JETS_SOURCE_DIR}/jets_validate_workspace.mjs ${JETS_SOURCE_DIR}/jets/workspace_assets
+WORKDIR ${JETS_SOURCE_DIR}
+
 # Copy workspace db schema for compile_workspace utility 
 # Copy programs resources
 RUN cp ${JETS_SOURCE_DIR}/jets/jets_schema.json       /usr/local/bin/jets_schema.json
