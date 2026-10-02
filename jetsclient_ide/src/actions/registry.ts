@@ -90,6 +90,7 @@ import {
 import { openWorkspace } from "./workspaceRegistry";
 import { loadReteSession, seedInputRecordsRow } from "./processErrors";
 import { resolveProcessConfigKey } from "./ruleConfig";
+import { fetchStageToClipboard } from "./stageClipboard";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -326,6 +327,12 @@ export const productionRegistry: EscapeRegistry = {
     // `ruleConfig.ts` for why a sixth `ValueSchema` member was the alternative and
     // was declined.
     resolveProcessConfigKey,
+    // **Eleven as of 2026-10-01** (jetstore_maintenance_02, `D04`, task AE.3), and
+    // the reason is F.8's first one again: the grammar's `post` keeps a status and
+    // drops the body, and this escape's whole point is the body — a file out of the
+    // S3 stage, onto the clipboard. *Get Run Manifest* and a deployment's custom
+    // buttons are both instances of it. See `stageClipboard.ts`.
+    fetchStageToClipboard,
   },
   initializers: { seedFromHomeFilters },
   // **Two as of C.9, and the second is the first outside a flow.** F.1 built the

@@ -162,6 +162,9 @@ describe("the production registry", () => {
       "clearHomeFilters",
       "cpipesTemplateApply",
       "downloadMapping",
+      // **Eleven as of 2026-10-01** (jetstore_maintenance_02 AE.3): a clipboard
+      // button needs the response body, which a grammar `post` drops.
+      "fetchStageToClipboard",
       "loadRawRows",
       "loadReteSession",
       "openWorkspace",

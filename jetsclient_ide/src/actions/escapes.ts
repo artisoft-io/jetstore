@@ -139,7 +139,54 @@ export interface EscapeHost {
    * host; a body is part of an action.
    */
   download(fileName: string, content: string): void;
+  /**
+   * Reads one object out of the S3 stage, by the path under `JETS_s3_STAGE_PREFIX`.
+   * jetstore_maintenance_02 task AE.3, 2026-10-01.
+   *
+   * **A third read, because neither of the two above can carry the answer.**
+   * `fetch_file_from_stage` answers `{file_content}` (`jets/apiserver/api_tables.go`,
+   * the `fetch_file_from_stage` case): `post` keeps only the status — Home's host
+   * returns `{statusCode: 200}` and drops the body, which is why a grammar `post`
+   * cannot be a clipboard button — and `read` keeps only `rows`, which this
+   * response has none of. So a host that can reach the API client implements it
+   * with `fetchStageFileThrough` (`stageClipboard.ts`) and every other host omits it.
+   *
+   * **The answer is three-way rather than content-or-null**, and the third arm is
+   * the reason the method exists rather than a generic body-returning `post`:
+   * *there is no such object* is an outcome a caller reports as a fact — a run
+   * manifest exists for completed cpipes runs only — and *the read failed* is one
+   * it reports as an error. Telling them apart is done once, there.
+   *
+   * Optional, on `navigate`'s terms: an implementor that predates it is unaffected,
+   * and an escape that wants it says what it does without it.
+   */
+  fetchStageFile?(path: string): Promise<StageFetchResult>;
+  /**
+   * Puts text on the system clipboard. **Rejects when the browser refuses**,
+   * which it may: the write follows an awaited fetch and can lose the user gesture
+   * that permitted it, and `navigator.clipboard` does not exist at all outside a
+   * secure context (`R-2`). A caller falls back to `showText` rather than failing.
+   */
+  writeClipboard?(text: string): Promise<void>;
+  /**
+   * Shows text in a modal the user can select and copy from, for when
+   * `writeClipboard` is refused. On the host for `download`'s reason: a DOM call
+   * inside `actions/` would make the escape untestable outside a browser.
+   */
+  showText?(title: string, text: string): void;
 }
+
+/**
+ * What `EscapeHost.fetchStageFile` answers. jetstore_maintenance_02 AE.3.
+ *
+ * `missing` carries the path that was asked for, because the message a caller
+ * shows is about *that* object; `error` carries the server's text, because the
+ * cause of an unexpected failure is the server's to say.
+ */
+export type StageFetchResult =
+  | { kind: "content"; content: string }
+  | { kind: "missing"; path: string }
+  | { kind: "error"; message: string };
 
 /**
  * An action body that could not be expressed as steps. **Six of these exist**,
