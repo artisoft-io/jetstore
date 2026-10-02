@@ -10,6 +10,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FormState } from "../datatable/formState";
+import { clearHomeFilters, resetHomeFilters, updateHomeFilters } from "./homeFilters";
 import { emptyRegistry, resolveEscapes } from "./escapes";
 import {
   fileKeyLabel,
@@ -62,11 +63,37 @@ describe("fileKeyLabel", () => {
 });
 
 describe("hasDataRegistryFilters", () => {
-  it("is false, because this app has nowhere to set the filters yet", () => {
-    // `JetsRouterDelegate().dataRegistryFilters` is router state set by the data
-    // registry screens, which are track C's. A registered `false` renders the
-    // `clearFilters` button correctly disabled — *nothing to clear* — where an
-    // unregistered name would refuse the whole flow at load.
+  afterEach(resetHomeFilters);
+
+  /*
+    ~~"is false, because this app has nowhere to set the filters yet"~~ — that was
+    this case's name until 2026-10-01, and it asserted the hard-coded `false`.
+    The filters had a home by then (`homeFilters.ts`'s store), so the case was
+    pinning a defect: three *Clear Filters* buttons that could never enable
+    (`jetstore_maintenance_02`, `F8`, `F33`). It now asserts the Dart's body,
+    `dataRegistryFilters != null && …isNotEmpty`, across the store's three states.
+  */
+  const applied = (answers: Record<string, string | string[]>) => {
+    const formState = new FormState();
+    for (const [key, value] of Object.entries(answers)) formState.setValue(0, key, value);
+    void updateHomeFilters({ formState, group: 0, flowKey: "homeFiltersUF" });
+  };
+
+  it("is false before any filter has been applied", () => {
+    expect(hasDataRegistryFilters(new FormState(), 0)).toBe(false);
+  });
+
+  it("is false when the applied filters narrow Pipeline Status only", () => {
+    applied({ status: ["failed"] });
+    expect(hasDataRegistryFilters(new FormState(), 0)).toBe(false);
+  });
+
+  it("is true once a filter narrows the data registry, and false again after a clear", async () => {
+    applied({ hfStartOffset: "3 days" });
+    expect(hasDataRegistryFilters(new FormState(), 0)).toBe(true);
+    // Empty rather than null is what a clear leaves, which is why the body tests
+    // emptiness and not only nullity.
+    await clearHomeFilters({ formState: new FormState(), group: 0, flowKey: "homeFiltersUF" });
     expect(hasDataRegistryFilters(new FormState(), 0)).toBe(false);
   });
 });

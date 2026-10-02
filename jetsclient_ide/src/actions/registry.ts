@@ -68,6 +68,7 @@ import {
 import {
   alwaysEnabled,
   clearHomeFilters,
+  currentDataRegistryFilters,
   hasHomeFilters,
   homeFiltersFormValidator,
   seedFromHomeFilters,
@@ -170,19 +171,34 @@ export const errorMessageLabel = (value: string | null): string | null =>
  * Whether the data-registry filters are set.
  *
  * `JetsRouterDelegate().dataRegistryFilters != null && …isNotEmpty`, the gate on
- * the three `clearFilters` buttons (I-54). **In this app the answer is always
+ * the three `clearFilters` buttons (I-54). ~~**In this app the answer is always
  * false, and the honest thing is to say so here rather than to leave the name
- * unregistered.**
+ * unregistered.**~~
  *
  * The filters are router state in the Flutter app —
  * `jets_router_delegate.dart:36` declares `List<WhereClause>? dataRegistryFilters`
- * — set by the data-registry screens, which are track C's and not ported. So the
- * button correctly renders disabled: there is nothing to clear. When C ports
+ * — ~~set by the data-registry screens, which are track C's and not ported. So the
+ * button correctly renders disabled: there is nothing to clear.~~ When C ports
  * those screens the filters acquire a home and this body reads it; until then a
  * registered `false` is a working button in its empty state, and an unregistered
  * name is a flow that will not load.
+ *
+ * **Corrected 2026-10-01 (`jetstore_maintenance_02`, `D02`'s neighbour): the
+ * trigger this paragraph names had fired, and nothing re-read it.** The filters
+ * acquired their home when Home was ported — `homeFilters.ts`'s store, written
+ * by `updateHomeFilters`, `setIdFilter` and `clearHomeFilters` and read by
+ * `currentDataRegistryFilters` — so the registered `false` stopped being a
+ * button in its empty state and became three buttons that could never enable:
+ * Data Registry's, and one on each *Start Pipeline* input picker
+ * (`main_input_registry_key`, `merged_input_registry_keys`). The body is now the
+ * one described above, the same test `hasHomeFilters` makes of its own list:
+ * non-null and non-empty. **Empty, not null, is what a clear leaves**, so a
+ * cleared store disables the button again.
  */
-export const hasDataRegistryFilters = (_formState: FormState, _group: number): boolean => false;
+export const hasDataRegistryFilters = (_formState: FormState, _group: number): boolean => {
+  const filters = currentDataRegistryFilters();
+  return filters !== null && filters.length > 0;
+};
 
 /**
  * The deployment's active workspace, once the screen that needs it has asked.

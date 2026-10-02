@@ -66,21 +66,54 @@
  * under the key's name and reported as a missing predicate. Renaming the map's
  * value is the whole fix and keeps one name for one function.
  *
- * **The residual wart, stated rather than fixed.** This map is still consulted by
+ * ~~**The residual wart, stated rather than fixed.** This map is still consulted by
  * action *key*, so a `.tc.json` that named some other predicate on a `clearFilters`
- * button would be ignored in favour of this entry. Carrying the authored name on
+ * button would be ignored in favour of this entry.~~ Carrying the authored name on
  * `ActionConfig` was tried and reverted: `fromDocument` restoring a field the
  * corpus cannot express breaks the round-trip invariant that the translation
  * loses nothing (`table.test.ts`), which is a more valuable property than a
  * flexibility no configuration uses. Recorded as I-66.
+ *
+ * **Corrected 2026-10-01 (`jetstore_maintenance_02`, `D02`): the wart was not
+ * the harmless one this paragraph predicted, and the map is gone.** It named the
+ * input nobody would write — a `clearFilters` button naming another predicate —
+ * and missed the one the next table did: Pipeline Status's *Clear Filters* has
+ * the key `clearHomeFilters`, the map had no entry for it, and a key with no
+ * entry was **no gate at all**, so the button was always enabled. The lookup
+ * is now `isEnabledEscapeFor(tableKey, actionKey)` — the function the emitter
+ * already used to write `isEnabled` into every document — so there is one
+ * definition of the mapping rather than a whole one and a partial copy.
+ * **I-66's invariant is kept**: `ActionConfig` gained no field, and the table
+ * key reaches the gate on `ActionContext` instead. **What is left of the wart is
+ * narrower and is stated here for the same reason the original was**: the
+ * runtime still *derives* the name rather than reading the authored one, so a
+ * document naming a predicate the derivation would not choose is overridden
+ * silently. Every committed document agrees with the derivation — six sites
+ * across the two directories on 2026-10-01 — and `clearFiltersGate.test.tsx`
+ * fails if one stops; a document authored in a workspace is not checked by
+ * anything (`jetstore_maintenance_02`'s I-11).
  */
 
-import { DATA_REGISTRY_FILTERS_ESCAPE } from "./tableTranslate";
+import { isEnabledEscapeFor } from "./tableTranslate";
 import type { FormState } from "./formState";
 import type { ActionConfig, JetsRow } from "./types";
 
 /** What the bar knows about the table underneath it when it decides. */
 export interface ActionContext {
+  /**
+   * The key of the table the bar sits on — `TableConfig.key`. 2026-10-01,
+   * `jetstore_maintenance_02`'s `AA.1`.
+   *
+   * **Which predicate an `isEnabled` action names is a fact about the table as
+   * well as the action**: `clearHomeFilters` on `pipelineExecStatusTable` is
+   * gated on the home filters and the two filter prompts beside it on nothing,
+   * while every other closure-bearing action tests the data-registry filters
+   * (`isEnabledEscapeFor`). The action alone cannot answer it, which is how
+   * Pipeline Status's *Clear Filters* went ungated (`D02`). **Required rather
+   * than optional**, because a missing key would fall through to the
+   * data-registry default and gate a button on the wrong store with no error.
+   */
+  tableKey: string;
   /** How many rows are selected right now. */
   selectedRowCount: number;
   /**
@@ -119,22 +152,6 @@ export interface ActionAvailability {
   enabled: boolean;
   reason?: string;
 }
-
-/**
- * The predicate an `isEnabledFnc` becomes.
- *
- * One name today. It is a *name in the config* rather than an inferred default
- * because the corpus cannot carry a closure at all — `hasIsEnabledFnc` is a
- * boolean, so which predicate an action wants is a fact only the Dart source
- * has. Recording the mapping here keeps that reading in one place.
- *
- * The value must be the name the authored document uses, which is what the
- * header above explains; `DATA_REGISTRY_FILTERS_ESCAPE` in `tableTranslate.ts`
- * is the one definition of it, and `actions/registry.ts` is where it resolves.
- */
-export const enabledPredicateFor: Record<string, string> = {
-  clearFilters: DATA_REGISTRY_FILTERS_ESCAPE,
-};
 
 /**
  * One criterion against the selected row. `isCriteriaMet`, ported whole.
@@ -239,16 +256,18 @@ export function availability(
   }
 
   if (action.hasIsEnabledFnc) {
-    const name = enabledPredicateFor[action.key];
-    // An action whose closure was `(state) => true` has no entry, and no gate.
-    if (name !== undefined) {
-      const predicate = context.predicates[name];
-      if (predicate === undefined) {
-        return { visible: true, enabled: false, reason: `Missing predicate "${name}"` };
-      }
-      if (!predicate(context.formState, action.stateGroup)) {
-        return { visible: true, enabled: false, reason: "Nothing to clear" };
-      }
+    // Resolved by table *and* action, through the emitter's own mapping — see
+    // the header's 2026-10-01 correction. An action whose closure was
+    // `(state) => true` resolves to `alwaysEnabled`, which is registered and
+    // returns true; it used to have no entry here, which was equivalent for
+    // those two buttons and was also how `clearHomeFilters` got no gate.
+    const name = isEnabledEscapeFor(context.tableKey, action.key);
+    const predicate = context.predicates[name];
+    if (predicate === undefined) {
+      return { visible: true, enabled: false, reason: `Missing predicate "${name}"` };
+    }
+    if (!predicate(context.formState, action.stateGroup)) {
+      return { visible: true, enabled: false, reason: "Nothing to clear" };
     }
   }
 

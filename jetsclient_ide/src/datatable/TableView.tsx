@@ -84,6 +84,9 @@ export function TableView({
   };
 
   const barContext = {
+    // Which predicate an `isEnabled` action names depends on the table as well
+    // as the action — `actionBarModel.ts`'s `ActionContext.tableKey`, `D02`.
+    tableKey: config.key,
     selectedRowCount,
     checkboxVisible: binding.modes.checkboxVisible,
     // `blocked` is `hasBlockingFilter`, which is this predicate inverted —
