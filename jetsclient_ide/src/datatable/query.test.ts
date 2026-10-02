@@ -444,9 +444,14 @@ describe("the whole corpus", () => {
   const keys = Object.keys(tables);
   const querying = keys.filter((k) => tables[k]!.apiPath === "/dataTable");
 
-  it("is the 37 user flow tables, 28 of which query", () => {
-    expect(keys).toHaveLength(37);
-    expect(querying).toHaveLength(28);
+  it("is the 34 user flow tables still in the fixture, 25 of which query", () => {
+    // **37 and 28 until 2026-10-01**, when `client`, `scSourceConfigKey` and
+    // `pcPipelineConfigTable` — three query tables — left the fixture to be
+    // maintained by hand (`jetstore_maintenance_02` `AF.1`, `D06`). Their payloads
+    // are no longer built here; their documents are checked by the schema, the
+    // Go save path and the cross-document set test instead.
+    expect(keys).toHaveLength(34);
+    expect(querying).toHaveLength(25);
   });
 
   it.each(querying)("builds a well-formed payload for %s", (key) => {

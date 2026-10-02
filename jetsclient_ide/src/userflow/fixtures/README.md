@@ -22,6 +22,24 @@ Nine is the number of *directories* under `jetsclient/lib/modules/user_flows/`;
 `UserFlowKeys` (`jetsclient/lib/utils/constants.dart:762`) declares eleven and
 `jets_routes_app.dart` mounts eleven.
 
+## Three flows left on 2026-10-01
+
+**`clientRegistryUF`, `sourceConfigUF` and `pipelineConfigUF` are no longer in
+this file.** `jetstore_maintenance_02` Phase 1 (task `AF.1`, defect `D06`) makes
+the three open on their table, and Michel's answer to that project's `Q-5` is
+that a document this repository edits leaves the emitted set the first time it is
+touched rather than being edited here. They are hand-authored in
+`jets/workspace_assets/user_flows/` and listed in `../schema.test.ts` as
+`HAND_AUTHORED`; `ui_refresh`'s **I-299** is the question this answers one flow at
+a time.
+
+**The aggregate figures at the top of the file were recomputed from the flows
+that remain**, so the file stays internally consistent — 7 flows, 19 states, 19
+form keys, after `registerFileKeyUF`'s retirement the same day — and they no longer describe the Flutter app as a whole. The
+statements about them below are about the Dart corpus as measured and are kept as
+history: `rhsKindCounts` was 17 literals there and is 1 here, and every `equals`
+the fixture held belonged to one of the three.
+
 ## Regenerating
 
 ```bash

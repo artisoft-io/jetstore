@@ -32,6 +32,14 @@ guard that keeps 63 documents agreeing with one another.
 departure; a reader who does not know which rows are the Dart's and which are
 ours has a fixture that measures nothing.
 
+**Three tables left on 2026-10-01**: `client`, `scSourceConfigKey` and
+`pcPipelineConfigTable`, which the *Clients & Vendors*, *Source Configuration* and
+*Pipeline Configuration* flows now open on (`jetstore_maintenance_02` `AF.1`,
+defect `D06`). They are maintained by hand in `jets/workspace_assets/table_configs/`
+and listed in `../table.test.ts` as `HAND_MAINTAINED_KEYS`; `tableCount` was
+recomputed. **The figures in the paragraph below are the Flutter measurement and
+are kept as such** — the file now holds 34.
+
 It holds the 37 `TableConfig` objects the nine user flows define — 28 that query
 `/dataTable` and 9 static ones — serialised by
 `jetsclient/test/table_config_corpus_test.dart`. The React query builder

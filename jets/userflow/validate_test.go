@@ -116,25 +116,29 @@ func TestGoToStatesCountAsReaching(t *testing.T) {
 // TestFindingsCarryAPath pins the JSON Pointer the agentic_ai stream asked for.
 // The three transition shapes produce three different paths, and a document-wide
 // finding still points at the field that caused it rather than at nothing.
+//
+// On startPipelineUF since 2026-10-01, and on clientRegistryUF until then:
+// jetstore_maintenance_02's D06 removed the two-way choice this test broke (task
+// AF.1/AF.2), and startPipelineUF is the shipping flow left with a state that has
+// both a choice and a default. Its TypeScript twin in schema.test.ts moved with it.
 func TestFindingsCarryAPath(t *testing.T) {
-	flow := readFlow(t, "clientRegistryUF")
+	flow := readFlow(t, "startPipelineUF")
 
-	start := flow.States[flow.StartAtKey]
-	start.Choices[1].NextState = "typoInChoice"
-	flow.States[flow.StartAtKey] = start
+	branch := flow.States["select_main_data_source"]
+	branch.Choices[0].NextState = "typoInChoice"
+	flow.States["select_main_data_source"] = branch
 
-	create := flow.States["create_client"]
-	create.DefaultNextState = "typoInDefault"
-	create.GoToStates = []string{"typoInGoTo"}
-	flow.States["create_client"] = create
+	merged := flow.States["select_merged_data_sources"]
+	merged.DefaultNextState = "typoInDefault"
+	merged.GoToStates = []string{"typoInGoTo"}
+	flow.States["select_merged_data_sources"] = merged
 
 	want := []Finding{
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "create_client" transitions to "typoInDefault", which is not a state`, Path: "/states/create_client/defaultNextState"},
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "create_client" transitions to "typoInGoTo", which is not a state`, Path: "/states/create_client/goToStates/0"},
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_client_vendor" transitions to "typoInChoice", which is not a state`, Path: "/states/select_client_vendor/choices/1/nextState"},
-		// One typo really does strand two states; that is the walk working.
-		{Severity: Warning, Code: CodeUnreachableState, Message: `state "select_client" is not reachable from "select_client_vendor"`, Path: "/states/select_client"},
-		{Severity: Warning, Code: CodeUnreachableState, Message: `state "show_org" is not reachable from "select_client_vendor"`, Path: "/states/show_org"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_main_data_source" transitions to "typoInChoice", which is not a state`, Path: "/states/select_main_data_source/choices/0/nextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_merged_data_sources" transitions to "typoInDefault", which is not a state`, Path: "/states/select_merged_data_sources/defaultNextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_merged_data_sources" transitions to "typoInGoTo", which is not a state`, Path: "/states/select_merged_data_sources/goToStates/0"},
+		// Breaking the choice strands the state it led to; that is the walk working.
+		{Severity: Warning, Code: CodeUnreachableState, Message: `state "select_merged_data_sources" is not reachable from "select_pipeline_config"`, Path: "/states/select_merged_data_sources"},
 	}
 	got := ValidateFlow(flow, DefaultPolicy())
 	if len(got) != len(want) {
