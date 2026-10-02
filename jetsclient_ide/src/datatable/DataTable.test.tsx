@@ -183,17 +183,23 @@ describe("DataTable", () => {
   });
 
   it("blanks the column header of a one-column table that already has a caption", async () => {
-    // **D.11.** `ufClientOrVendorOption` captions itself *Select one of the
-    // following options:* and its single column header reads *Select one of the
+    // **D.11.** `ufClientOrVendorOption` captioned itself *Select one of the
+    // following options:* and its single column header read *Select one of the
     // following option* — the same sentence, one letter shorter. **9 of the 35
-    // installed documents have exactly one visible column and the header is
+    // installed documents had exactly one visible column and the header was
     // redundant in all 9**; comparing the two strings catches only 5 of them,
     // which is why the test is structural.
-    const config = tables["ufClientOrVendorOption"]!;
-    render(<Harness config={config} fetcher={respondWith([["Create a client and add vendors"]], 1)} />);
-    await screen.findByText("Create a client and add vendors");
-    // The caption survives; the header does not repeat it.
-    expect(screen.getByText("Select one of the following options:")).toBeTruthy();
+    //
+    // **On `input_format` since 2026-10-01**, which carries the same column
+    // header under a different caption: `ufClientOrVendorOption` was retired with
+    // the step that drew it (`jetstore_maintenance_02` `AF.2`, `D06`). The
+    // structural rule is what is under test, so a caption that does *not* repeat
+    // the header is the stronger case rather than a weaker one.
+    const config = tables["input_format"]!;
+    render(<Harness config={config} fetcher={respondWith([["CSV file with headers (most common)"]], 1)} />);
+    await screen.findByText("CSV file with headers (most common)");
+    // The caption survives; the header does not appear.
+    expect(screen.getByText("Select one of the following file type option:")).toBeTruthy();
     expect(screen.queryByText("Select one of the following option")).toBeNull();
     // The row is still there, so the cells still have a `<th scope="col">`.
     expect(document.querySelectorAll("thead th").length).toBeGreaterThan(0);

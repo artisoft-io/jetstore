@@ -76,7 +76,9 @@ describe("useTableModes", () => {
     // effect was to withhold the toggle button. Asserted here so that a later
     // reader does not restore a gate the corpus never exercised.
     const setters = Object.values(tables).filter((t) => t.noCopy2Clipboard === true);
-    expect(setters).toHaveLength(11);
+    // **Eight in the fixture since 2026-10-01**: the three add-or-edit option
+    // tables `D06` retired set it too (`jetstore_maintenance_02` `AF.2`–`AF.4`).
+    expect(setters).toHaveLength(8);
     expect(setters.every((t) => t.isCheckboxVisible)).toBe(true);
     expect(runHook({ isCheckboxVisible: true, noCopy2Clipboard: true } as TableConfig))
       .toMatchObject({ checkboxVisible: true });

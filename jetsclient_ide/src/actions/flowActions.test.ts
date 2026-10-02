@@ -225,7 +225,13 @@ describe("the flows' action documents", () => {
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(55);
+    //
+    // **59 the same day, and the last four are `D06`'s** (`jetstore_maintenance_02`
+    // `AF.3`, `AF.4`): each wizard gained a *+ Add* arm that clears the edit
+    // path's keys and jumps to the add page, and a *Cancel* arm that returns to
+    // the table. `clientRegistryUF` swapped `crAddClientUF` for the dialog's
+    // `crAddClientOk` (`AF.2`), one for one.
+    expect(names).toHaveLength(59);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -241,12 +247,18 @@ describe("the flows' action documents", () => {
     // (`configure_files/data_table_config.dart`). The eleven other forms take
     // `standardActions` and `scSummaryUF` takes Previous / Cancel / Completed, so
     // no form contributes an arm.
+    //
+    // **Two more since 2026-10-01** (`jetstore_maintenance_02` `AF.3`, `D06`):
+    // `scGoToAddSourceConfig` is the table's *+ Add*, and `scCancelToList` is every
+    // wizard page's *Cancel*, which returns to the table rather than leaving.
     expect(Object.keys((sourceConfig as ActionDocument).actions).sort()).toEqual([
       "addSourceConfig.ok",
       "deleteSourceConfig",
       "dropTable",
       "scAddSourceConfigUF",
+      "scCancelToList",
       "scEditXlsxOptionsUF",
+      "scGoToAddSourceConfig",
       "scSelectSourceConfigUF",
     ]);
   });
@@ -309,6 +321,10 @@ describe("the flows' action documents", () => {
     // flow rather than one per delegate, so the dialog's Cancel resolves here.
     // `addProcessInputOk` is its neighbour in that same switch and is the arm the
     // 58 never counted.
+    //
+    // **Two more since 2026-10-01** (`jetstore_maintenance_02` `AF.4`, `D06`):
+    // `pcGoToAddPipelineConfig` is the table's *+ Add* and `pcCancelToList` every
+    // wizard page's *Cancel*.
     expect(Object.keys((pipelineConfig as ActionDocument).actions).sort()).toEqual([
       "addProcessInputOk",
       "deletePipelineConfig",
@@ -316,6 +332,8 @@ describe("the flows' action documents", () => {
       "pcAddInjectedProcessInputUF",
       "pcAddMergeProcessInputUF",
       "pcAddPipelineConfigUF",
+      "pcCancelToList",
+      "pcGoToAddPipelineConfig",
       "pcGotToAddInjectedProcessInputUF",
       "pcGotToAddMergeProcessInputUF",
       "pcPrepareSummaryUF",
@@ -389,8 +407,13 @@ describe("the flows' action documents", () => {
     // `ufVendor` dialog offers `crAddVendorOk` and `dialogCancel`, and
     // `client`/`org` offer `deleteClientAction` and `deleteOrgAction`
     // (`data_table_config.dart`). Nothing names `crShowVendorUF`.
+    //
+    // **`crAddClientUF` became `crAddClientOk` on 2026-10-01**
+    // (`jetstore_maintenance_02` `AF.2`, `D06`): the `create_client` state it was
+    // the action of is gone, and the client is added from an *Add Client* dialog
+    // on the `client` table, as a vendor is from the `org` table's.
     expect(Object.keys((clientRegistry as ActionDocument).actions).sort()).toEqual([
-      "crAddClientUF",
+      "crAddClientOk",
       "crAddVendorOk",
       "crSelectClientUF",
       "deleteClientAction",
@@ -733,6 +756,23 @@ describe("every form-state key is a declared constant's value", () => {
     "stage_clipboard.file_path",
     "stage_clipboard.label",
     "stage_clipboard.missing_message",
+    /**
+     * **Two keys `D06` brought, both deliberate.** `jetstore_maintenance_02`
+     * `AF.2`/`AF.4`, 2026-10-01 — and both are the *new key* reading of a failure
+     * here, not the name-for-value one.
+     *
+     * `ufNewClient` is the *Add Client* dialog's name field. It cannot be
+     * `client`, which is what the Dart's create step used: the dialog shares the
+     * flow's form state, and `client` there is the client table's selection, so
+     * the field would open pre-filled with the selected client.
+     *
+     * `serverError` is where the interpreter records an `insertRows` post's
+     * failure (`interpret.ts`, the `post` step). `pcGoToAddPipelineConfig`
+     * removes it because the process-input dialog's failure would otherwise
+     * survive into the next *+ Add*.
+     */
+    "ufNewClient",
+    "serverError",
   ]);
 
   it("reads the constants file it depends on", () => {

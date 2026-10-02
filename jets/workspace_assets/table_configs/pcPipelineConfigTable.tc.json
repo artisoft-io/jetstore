@@ -195,6 +195,14 @@
   ],
   "actions": [
     {
+      "key": "addPipelineConfig",
+      "label": "+ Add",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "pcGoToAddPipelineConfig",
+      "capability": "client_config"
+    },
+    {
       "key": "deletePipelineConfig",
       "label": "Delete",
       "action": "doAction",

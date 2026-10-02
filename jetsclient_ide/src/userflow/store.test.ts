@@ -31,7 +31,6 @@ import homeFiltersForms from "../../../jets/workspace_assets/user_flows/homeFilt
 import pipelineConfigForms from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.form.json";
 import fileMappingForms from "../../../jets/workspace_assets/user_flows/fileMappingUF.form.json";
 import sourceConfigForms from "../../../jets/workspace_assets/user_flows/sourceConfigUF.form.json";
-import pcAddOrEditOption from "../../../jets/workspace_assets/table_configs/pcAddOrEditPipelineConfigOption.tc.json";
 import pcPipelineConfigTable from "../../../jets/workspace_assets/table_configs/pcPipelineConfigTable.tc.json";
 import pcMainProcessInputKey from "../../../jets/workspace_assets/table_configs/pcMainProcessInputKey.tc.json";
 import pcViewMerged from "../../../jets/workspace_assets/table_configs/pcViewMergedProcessInputKeys.tc.json";
@@ -43,7 +42,6 @@ import pcProcessInputRegistry from "../../../jets/workspace_assets/table_configs
 import pcProcessInputRegistry4MI from "../../../jets/workspace_assets/table_configs/pcProcessInputRegistry4MI.tc.json";
 import fmInputSourceMapping from "../../../jets/workspace_assets/table_configs/fmInputSourceMappingUF.tc.json";
 import fmFileMappingTable from "../../../jets/workspace_assets/table_configs/fmFileMappingTableUF.tc.json";
-import scAddOrEditOption from "../../../jets/workspace_assets/table_configs/scAddOrEditSourceConfigOption.tc.json";
 import scSourceConfigKey from "../../../jets/workspace_assets/table_configs/scSourceConfigKey.tc.json";
 import scSingleOrMultiPart from "../../../jets/workspace_assets/table_configs/scSingleOrMultiPartFileOption.tc.json";
 import inputFormatTable from "../../../jets/workspace_assets/table_configs/input_format.tc.json";
@@ -323,7 +321,11 @@ describe("homeFiltersUF against the shipping registry", () => {
 });
 
 /**
- * `pipelineConfigUF`'s ten tables, which is every table its twelve forms name.
+ * `pipelineConfigUF`'s nine tables, which is every table its eleven forms name.
+ *
+ * **Ten and twelve until 2026-10-01**, when `D06` removed the add-or-edit step,
+ * its form and its option table (`jetstore_maintenance_02` `AF.4`): the flow opens
+ * on `pcPipelineConfigTable` and adds from a button on it.
  *
  * **Two of the ten are named by no state's form at all** —
  * `pcProcessInputRegistry` and `pcProcessInputRegistry4MI` are inside the two
@@ -334,7 +336,6 @@ describe("homeFiltersUF against the shipping registry", () => {
  */
 const pipelineConfigWorkspace = () => ({
   ...workspace("pipelineConfigUF", pipelineConfigFlow, pipelineConfigActions, pipelineConfigForms),
-  [tablePath("pcAddOrEditPipelineConfigOption")]: serialise(pcAddOrEditOption),
   [tablePath("pcPipelineConfigTable")]: serialise(pcPipelineConfigTable),
   [tablePath("pcMainProcessInputKey")]: serialise(pcMainProcessInputKey),
   [tablePath("pcViewMergedProcessInputKeys")]: serialise(pcViewMerged),
@@ -347,14 +348,14 @@ const pipelineConfigWorkspace = () => ({
 });
 
 describe("pipelineConfigUF against the shipping registry", () => {
-  it("loads twelve forms and ten tables, and resolves its registered query", async () => {
+  it("loads eleven forms and nine tables, and resolves its registered query", async () => {
     const { store } = storeFor(pipelineConfigWorkspace(), productionRegistry);
     const loaded = await store.load("pipelineConfigUF");
     // Ten states and twelve forms: I-89's two dialogs are the difference, and
     // "one form per state" would have been short by exactly them.
-    expect(Object.keys(loaded.flow.states)).toHaveLength(10);
-    expect(Object.keys(loaded.forms.forms)).toHaveLength(12);
-    expect(Object.keys(loaded.tables)).toHaveLength(10);
+    expect(Object.keys(loaded.flow.states)).toHaveLength(9);
+    expect(Object.keys(loaded.forms.forms)).toHaveLength(11);
+    expect(Object.keys(loaded.tables)).toHaveLength(9);
     // F.6's seventh escape namespace, resolved through the same pass as the other
     // six: `pcAddPipelineConfigUF` names `processInputRdfTypes` and this build
     // registers it (`actions/queries.ts`).
@@ -678,28 +679,27 @@ describe("fileMappingUF against the shipping registry", () => {
  * `sourceConfigUF` against the registry this build ships. Task F.7, and the last.
  *
  * **Twelve states and four tables, which is the widest load the store has been
- * asked for** — and the first whose form document declares a query with `params`,
+ * asked for** — eleven and three since 2026-10-01, when `D06` removed the
+ * add-or-edit step and its option table (`jetstore_maintenance_02` `AF.3`) — — and the first whose form document declares a query with `params`,
  * the port's spelling of `stateKeyPredicates`.
  */
 const sourceConfigWorkspace = () => ({
   ...workspace("sourceConfigUF", sourceConfigFlow, sourceConfigActions, sourceConfigForms),
-  [tablePath("scAddOrEditSourceConfigOption")]: serialise(scAddOrEditOption),
   [tablePath("scSourceConfigKey")]: serialise(scSourceConfigKey),
   [tablePath("scSingleOrMultiPartFileOption")]: serialise(scSingleOrMultiPart),
   [tablePath("input_format")]: serialise(inputFormatTable),
 });
 
 describe("sourceConfigUF against the shipping registry", () => {
-  it("loads twelve forms for twelve states, and all four of its tables", async () => {
+  it("loads eleven forms for eleven states, and all three of its tables", async () => {
     const { store } = storeFor(sourceConfigWorkspace(), productionRegistry);
     const loaded = await store.load("sourceConfigUF");
-    expect(Object.keys(loaded.flow.states)).toHaveLength(12);
-    // Twelve for twelve: every form is named by a state and the flow owes no
+    expect(Object.keys(loaded.flow.states)).toHaveLength(11);
+    // Eleven for eleven: every form is named by a state and the flow owes no
     // dialog form, which is why `dialogCancel` is not one of its arms.
-    expect(Object.keys(loaded.forms.forms)).toHaveLength(12);
+    expect(Object.keys(loaded.forms.forms)).toHaveLength(11);
     expect(Object.keys(loaded.tables).sort()).toEqual([
       "input_format",
-      "scAddOrEditSourceConfigOption",
       "scSingleOrMultiPartFileOption",
       "scSourceConfigKey",
     ]);

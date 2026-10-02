@@ -33,6 +33,14 @@
   ],
   "actions": [
     {
+      "key": "addClientDialog",
+      "label": "+ Add",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "ufAddClient",
+      "capability": "client_config"
+    },
+    {
       "key": "deleteClient",
       "label": "Delete Client",
       "action": "doAction",

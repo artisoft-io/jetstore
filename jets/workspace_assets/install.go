@@ -287,6 +287,12 @@ var RetiredAssets = []RetiredAsset{
 	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
+	// jetstore_maintenance_02, tasks AF.2 to AF.4. The three option tables of the
+	// add-or-edit steps D06 removed: Clients & Vendors, Source Configuration and
+	// Pipeline Configuration open on their table now, with a + Add button on it.
+	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01, D06: Clients & Vendors opens on the client table"},
+	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01, D06: Source Configuration opens on its table"},
+	{Dir: "table_configs", Name: "pcAddOrEditPipelineConfigOption.tc.json", Why: "2026-10-01, D06: Pipeline Configuration opens on its table"},
 }
 
 // Result reports the disposition of one asset.

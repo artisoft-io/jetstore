@@ -1,9 +1,31 @@
 {
   "schemaVersion": 1,
   "actions": {
+    "scGoToAddSourceConfig": {
+      "description": "+ Add on the source config table: clear every key the edit path sets, so an add after an edit inserts rather than updating the record just edited (saveSourceConfigForFileType updates whenever key is set), then open the add page. The list is in actions.md",
+      "steps": [
+        { "do": "clearSelection", "key": "scSourceConfigKey" },
+        { "do": "clearSelection", "key": "input_format" },
+        { "do": "clearSelection", "key": "scSingleOrMultiPartFileOption" },
+        { "do": "remove", "keys": [
+          "scSourceConfigKey", "key", "client", "org", "object_type", "automated", "table_name",
+          "domain_keys_json", "code_values_mapping_json", "input_columns_json",
+          "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json",
+          "schema_provider_json", "scSingleOrMultiPartFileOption", "currentSheet"
+        ] },
+        { "do": "goToState", "state": "add_source_config" }
+      ]
+    },
+    "scCancelToList": {
+      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the source config table rather than leaving the flow",
+      "steps": [
+        { "do": "goToState", "state": "select_source_config" }
+      ]
+    },
     "scSelectSourceConfigUF": {
       "description": "Load the selected file configuration, inferring the file type for records written before the schema-provider options existed",
       "steps": [
+        { "do": "remove", "keys": ["currentSheet", "scSingleOrMultiPartFileOption"] },
         { "do": "set", "key": "key", "value": { "fromKey": "key" } },
         { "do": "set", "key": "client", "value": { "fromKey": "client" } },
         { "do": "set", "key": "org", "value": { "fromKey": "org" } },

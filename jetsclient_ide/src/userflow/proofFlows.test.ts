@@ -105,6 +105,15 @@ function harness(
   const events: string[] = [];
   const downloads: { fileName: string; content: string }[] = [];
 
+  /**
+   * The jump an action asked for, applied after the press as `FlowRunner` applies
+   * it (`press`, *An action's `goToState` is applied last*). Added 2026-10-01 for
+   * `D06` (`jetstore_maintenance_02` `AF.7`): until then no flow this harness
+   * drove *depended* on a jump landing — the two `pc*GotTo*` arms were pressed and
+   * their event asserted — and the *+ Add* and *Cancel* arms are jumps that the
+   * rest of a walk has to start from.
+   */
+  let jump: string | null = null;
   const host: ActionHost = {
     validate: () => true,
     confirm: async () => true,
@@ -117,7 +126,10 @@ function harness(
     download: (fileName, content) => downloads.push({ fileName, content }),
     notify: (level, message) => events.push(`notify:${level}:${message}`),
     setBusy: (b) => events.push(b ? "busy" : "idle"),
-    goToState: (s) => events.push(`goToState:${s}`),
+    goToState: (s) => {
+      events.push(`goToState:${s}`);
+      jump = s;
+    },
     close: () => events.push("close"),
     userEmail: () => "michel@artisoft.io",
     now: () => 1_700_000_000_000,
@@ -127,6 +139,15 @@ function harness(
   const formFor = (key: string) => forms.forms[flow.states[key]!.formConfig]!;
 
   const press = async (action: string) => {
+    const outcome = await pressOnly(action);
+    if (jump !== null) {
+      position = advance(position, jump);
+      jump = null;
+    }
+    return outcome;
+  };
+
+  const pressOnly = async (action: string) => {
     if (!isStandardAction(action)) {
       // A form button naming an entry in the action document. Its *message* is
       // what a caller here asserts on, the same thing `step` returns for a
@@ -517,55 +538,67 @@ describe("pull_workspace, end to end", () => {
 describe("client_registry, end to end", () => {
   const setup = () => harness(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc);
 
-  it("refuses to advance until an option is chosen", async () => {
+  /**
+   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.2`): the flow opens on
+   * the client table rather than on *Create a client* / *Add vendors*. A client is
+   * added from an *Add Client* dialog on that table, as a vendor already was from
+   * the `org` table, and lands on the client list (that project's `Q-3`). The three
+   * cases this replaces walked the option step and the `create_client` state, both
+   * gone.
+   */
+  it("opens on the client table and refuses to advance until a client is selected", async () => {
     const h = setup();
-    expect(h.at()).toBe("select_client_vendor");
-    expect(validateForm(h.formFor("select_client_vendor"), h.formState, 0).map((e) => e.message))
-      .toEqual(["An option must be selected."]);
+    expect(h.at()).toBe("select_client");
+    expect(validateForm(h.formFor("select_client"), h.formState, 0).map((e) => e.message))
+      .toEqual(["Client name is required."]);
     expect(await h.press("ufNext")).toBeNull();
-    expect(h.at()).toBe("select_client_vendor");
+    expect(h.at()).toBe("select_client");
   });
 
-  it("branches to create_client or select_client on the chosen option", async () => {
-    const create = setup();
-    create.formState.setValue(0, "ufClientOrVendorOption", ["ufClientOption"]);
-    expect(await create.press("ufNext")).toBeNull();
-    expect(create.at()).toBe("create_client");
-
-    const select = setup();
-    select.formState.setValue(0, "ufClientOrVendorOption", ["ufVendorOption"]);
-    expect(await select.press("ufNext")).toBeNull();
-    expect(select.at()).toBe("select_client");
-  });
-
-  it("creates a client, sending ufClientDetails as details and dropping both after", async () => {
+  it("leaves from the table with Close, which does not validate, and offers no Previous", async () => {
+    // `ufCompleted` would validate a table that requires a selection, so a user
+    // who opened the flow to look could not leave it (`AF.6`). `ufPrevious` is
+    // refused on a first page anyway, so it is not offered.
     const h = setup();
-    h.formState.setValue(0, "ufClientOrVendorOption", ["ufClientOption"]);
-    await h.press("ufNext");
-    h.formState.setValue(0, "client", "ACME");
+    expect(h.formFor("select_client").actions.map((a) => a.action)).toEqual(["ufCancel", "ufNext"]);
+    expect(await h.press("ufCancel")).toBeNull();
+    expect(h.events).toContain("exit");
+  });
+
+  it("adds a client through the dialog, closing it and keeping the selection", async () => {
+    const h = setup();
+    // A client already selected in the table: the dialog must not post it.
+    h.formState.setValue(0, "client", ["GLOBEX"]);
+    h.formState.setValue(0, "ufNewClient", "ACME");
     h.formState.setValue(0, "ufClientDetails", "a note");
-    expect(await h.press("ufNext")).toBeNull();
-    expect(h.at()).toBe("show_org");
+    expect(await h.press("crAddClientOk")).toBeNull();
 
     const body = h.posts[0]!.body as Record<string, unknown>;
     expect(body["action"]).toBe("insert_rows");
     expect(body["fromClauses"]).toEqual([{ table: "client_registry" }]);
-    const row = (body["data"] as Record<string, unknown>[])[0]!;
-    expect(row["client"]).toBe("ACME");
-    expect(row["details"]).toBe("a note");
-    // **The Dart sends `ufClientDetails` too**, because the removes are below
-    // the encode. The coverage document had `omit: ["ufClientDetails"]`, which is
-    // inert — the server projects a row through `ColumnKeys` — and says
-    // something about the payload that is not true.
-    expect(row["ufClientDetails"]).toBe("a note");
-    expect(h.formState.getValue(0, "details")).toBeUndefined();
+    // Exactly the two columns `client_registry` takes (`sql_stmts.go`), named
+    // rather than `wholeState`, so nothing of the flow's state rides along.
+    expect(body["data"]).toEqual([{ client: "ACME", details: "a note" }]);
+    // `transport: "insertRows"` closes the dialog on the response.
+    expect(h.events).toContain("close");
+    expect(h.formState.getValue(0, "ufNewClient")).toBeUndefined();
     expect(h.formState.getValue(0, "ufClientDetails")).toBeUndefined();
+    // The table's selection is the user's, and adding a client does not touch it.
+    expect(h.formState.getValue(0, "client")).toEqual(["GLOBEX"]);
+    // And the flow has not moved: the new client lands on the client list.
+    expect(h.at()).toBe("select_client");
   });
 
+  it("names a dialog field of its own rather than the table's selection key", () => {
+    // The dialog shares the flow's form state, and `client` there is the client
+    // table's selection — so a field keyed `client`, as the Dart's create step
+    // was, would open pre-filled with the selected client.
+    const fields = setup().forms.forms["ufAddClient"]!.rows.flat();
+    const keys = fields.flatMap((f) => ("key" in f ? [f.key] : []));
+    expect(keys).toEqual(["ufNewClient", "ufClientDetails"]);
+  });
   it("unpacks the selected client so the org table can filter on it", async () => {
     const h = setup();
-    h.formState.setValue(0, "ufClientOrVendorOption", ["ufVendorOption"]);
-    await h.press("ufNext");
     h.formState.setValue(0, "client", ["ACME"]);
     expect(await h.press("ufNext")).toBeNull();
     expect(h.at()).toBe("show_org");
@@ -666,6 +699,10 @@ describe("client_registry, end to end", () => {
     const stateForms = new Set(Object.values(setup().flow.states).map((s) => s.formConfig));
     expect(stateForms.has("ufVendor")).toBe(false);
     expect(Object.keys(setup().forms.forms)).toContain("ufVendor");
+    // `ufAddClient` is the second, since `D06` (2026-10-01): the `client` table's
+    // *+ Add* opens it.
+    expect(stateForms.has("ufAddClient")).toBe(false);
+    expect(Object.keys(setup().forms.forms)).toContain("ufAddClient");
   });
 });
 
@@ -1096,12 +1133,19 @@ describe("pipeline_config, end to end", () => {
     h.formState.setValue(0, "process_name", ["loadFile"]);
   };
 
-  it("takes the add branch and walks the seven states of it", async () => {
+  /**
+   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.4`): the flow opens on
+   * the pipeline configuration table, *+ Add* jumps to the add page, and *Save*
+   * on the summary returns to the table rather than leaving the flow — for an
+   * edit as well as an add (`Q-4`). The two branch cases this replaces walked the
+   * add-or-edit option step, which is gone.
+   */
+  it("adds from the table, walks the wizard, and saves back onto the table", async () => {
     const h = setup();
-    expect(h.at()).toBe("select_add_or_edit");
-    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
-    await h.press("ufNext");
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(await h.press("pcGoToAddPipelineConfig")).toBeNull();
     expect(h.at()).toBe("add_pipeline_config");
+    expect(h.visited()).toEqual(["select_pipeline_config", "add_pipeline_config"]);
 
     fillAddForm(h);
     await h.press("ufNext");
@@ -1120,13 +1164,123 @@ describe("pipeline_config, end to end", () => {
     h.formState.setValue(0, "rule_config_json", ["[]"]);
     await h.press("ufNext");
     expect(h.at()).toBe("summaryUF");
+
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "pipeline_config" }]]);
+    // Back on the table, with the page stack unwound rather than grown, so
+    // *Previous* there is refused as it is on any first page.
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(h.visited()).toEqual(["select_pipeline_config"]);
+    expect(h.events).not.toContain("exit");
   });
 
-  it("takes the edit branch on the other option", async () => {
+  it("edits from the table and saves back onto it, as an update", async () => {
     const h = setup();
-    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufEditOption"]);
+    h.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    h.formState.setValue(0, "main_process_input_key", ["pi-1"]);
+    h.formState.setValue(0, "merged_process_input_keys", ["{}"]);
+    h.formState.setValue(0, "injected_process_input_keys", ["{}"]);
+    h.formState.setValue(0, "client", ["acme"]);
+    h.formState.setValue(0, "process_name", ["loadFile"]);
+    h.formState.setValue(0, "source_period_type", ["month_period"]);
+    h.formState.setValue(0, "automated", ["1"]);
+    h.formState.setValue(0, "rule_config_json", ["[]"]);
+    expect(h.formFor("select_pipeline_config").actions.map((a) => [a.action, a.label])).toEqual([
+      ["ufCancel", "Close"],
+      ["ufNext", "Edit"],
+    ]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_main_process_input");
+    for (const state of ["view_merge_process_inputs", "view_injected_process_inputs", "set_pipeline_automation", "summaryUF"]) {
+      await h.press("ufNext");
+      expect(h.at()).toBe(state);
+    }
+    await h.press("ufNext");
+    expect(h.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/pipeline_config" }]]);
+    expect(h.at()).toBe("select_pipeline_config");
+  });
+
+  it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
+    const h = setup();
+    await h.press("pcGoToAddPipelineConfig");
+    fillAddForm(h);
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcMainProcessInputKey", ["pi-1"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("view_merge_process_inputs");
+    expect(await h.press("pcCancelToList")).toBeNull();
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(h.posts).toEqual([]);
+    expect(h.events).not.toContain("exit");
+    // Every page past the table offers it in Cancel's place.
+    for (const [key, state] of Object.entries(h.flow.states)) {
+      const actions = h.forms.forms[state.formConfig]!.actions.map((a) => a.action);
+      if (key === "select_pipeline_config") expect(actions).not.toContain("pcCancelToList");
+      else expect([key, actions.includes("pcCancelToList")]).toEqual([key, true]);
+      expect([key, actions.includes("ufCompleted")]).toEqual([key, false]);
+    }
+  });
+
+  it("starts + Add empty after an edit, so the save inserts (R-1)", async () => {
+    // **`jetstore_maintenance_02` `R-1` and `AF.5`.** `pcSavePipelineConfigUF`
+    // updates whenever `pcPipelineConfigTable` holds a key, and a flow run holds
+    // one form state, so *edit → back to the table → + Add → Save* would update
+    // the configuration just edited. Walked here through every page the edit path
+    // can write to, the dialog's keys included, and then *+ Add* must leave
+    // nothing behind — not "the key that decides insert or update", **nothing**,
+    // which is the claim the clear-state list makes.
+    const h = setup();
+    h.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    for (const key of ["key", "process_config_key", "main_object_type", "main_source_type", "description",
+      "max_rete_sessions_saved", "entity_rdf_type"]) h.formState.setValue(0, key, [`${key}-9`]);
+    h.formState.setValue(0, "client", ["acme"]);
+    h.formState.setValue(0, "process_name", ["loadFile"]);
+    h.formState.setValue(0, "main_process_input_key", ["pi-1"]);
+    h.formState.setValue(0, "merged_process_input_keys", ["{5}"]);
+    h.formState.setValue(0, "injected_process_input_keys", ["{6}"]);
+    h.formState.setValue(0, "source_period_type", ["month_period"]);
+    h.formState.setValue(0, "automated", ["1"]);
+    h.formState.setValue(0, "rule_config_json", ["[]"]);
+    h.formState.addSelectedRow(0, "pcPipelineConfigTable", "cfg-9", ["cfg-9"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcMainProcessInputKey", ["pi-1"]);
+    h.formState.addSelectedRow(0, "pcMainProcessInputKey", "pi-1", ["pi-1"]);
+    // The process-input dialog, opened from the main-input table on the edit path.
+    for (const key of ["org", "object_type", "source_type", "table_name", "lookback_periods",
+      "user_email", "serverError", "pcProcessInputRegistry", "pcProcessInputRegistry4MI"]) {
+      h.formState.setValue(0, key, `${key}-dialog`);
+    }
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcViewMergedProcessInputKeys", ["5"]);
+    h.formState.setValue(0, "pcMergedProcessInputKeys", ["7"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcViewInjectedProcessInputKeys", ["6"]);
+    h.formState.setValue(0, "pcInjectedProcessInputKeys", ["8"]);
+    await h.press("ufNext");
+    await h.press("ufNext");
+    expect(h.at()).toBe("summaryUF");
+    h.formState.setValue(0, "pcSummaryProcessInputs", ["5"]);
     await h.press("ufNext");
     expect(h.at()).toBe("select_pipeline_config");
+    expect(h.posts.at(-1)!.body["fromClauses"]).toEqual([{ table: "update/pipeline_config" }]);
+
+    await h.press("pcGoToAddPipelineConfig");
+    expect(h.at()).toBe("add_pipeline_config");
+    expect(h.formState.snapshot(0)).toEqual({});
+    expect(h.formState.selectedRows(0, "pcPipelineConfigTable")).toEqual([]);
+    expect(h.formState.selectedRows(0, "pcMainProcessInputKey")).toEqual([]);
+
+    fillAddForm(h);
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcMainProcessInputKey", ["pi-2"]);
+    for (let i = 0; i < 4; i += 1) await h.press("ufNext");
+    h.formState.setValue(0, "source_period_type", ["month_period"]);
+    h.formState.setValue(0, "automated", ["0"]);
+    h.formState.setValue(0, "rule_config_json", ["[]"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("summaryUF");
+    await h.press("ufNext");
+    expect(h.posts.at(-1)!.body["fromClauses"]).toEqual([{ table: "pipeline_config" }]);
   });
 
   it("initialises the two key lists to empty and reads the query by column name", async () => {
@@ -1134,8 +1288,7 @@ describe("pipeline_config, end to end", () => {
     // of one arm. Both lists must be *present and empty*, because the arms that
     // grow them are the flow's whole middle.
     const h = setup();
-    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
-    await h.press("ufNext");
+    await h.press("pcGoToAddPipelineConfig");
     fillAddForm(h);
     await h.press("ufNext");
 
@@ -1176,8 +1329,7 @@ describe("pipeline_config, end to end", () => {
 
   it("jumps to the add page and comes back, which is the edge that caused I-18", async () => {
     const h = setup();
-    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
-    await h.press("ufNext");
+    await h.press("pcGoToAddPipelineConfig");
     fillAddForm(h);
     await h.press("ufNext");
     h.formState.setValue(0, "pcMainProcessInputKey", ["pi-1"]);
@@ -1345,13 +1497,20 @@ describe("pipeline_config, end to end", () => {
     expect(partial.formState.getValue(0, "pcProcessInputRegistry4MI")).toBeUndefined();
   });
 
-  it("ends on a form that cannot advance, and carries the two options I-62 left", () => {
+  it("saves on Next from the summary and returns to the table, and carries the two options I-62 left", () => {
+    // **Until 2026-10-01 the summary was the flow's end state**, with *Save &
+    // Done* as `ufCompleted`; `D06` makes it return to the table, and the schema
+    // forbids a transition on an end state, so it is an ordinary state whose
+    // default is the table (`AF.4`).
     const summary = pipelineConfigFormsDoc.forms.pcSummaryUF;
-    expect(summary.actions.map((a) => a.action)).toEqual([
-      "ufPrevious",
-      "ufCancel",
-      "ufCompleted",
+    expect(summary.actions.map((a) => [a.action, a.label])).toEqual([
+      ["ufPrevious", "Previous"],
+      ["pcCancelToList", "Cancel"],
+      ["ufNext", "Save"],
     ]);
+    const state = setup().flow.states["summaryUF"]!;
+    expect("isEnd" in state && state.isEnd).toBeFalsy();
+    expect("defaultNextState" in state && state.defaultNextState).toBe("select_pipeline_config");
     // I-62's second half, built here because this flow is its only consumer: four
     // `defaultValue` sites in the 50-form corpus and two `digitsOnly`, all six on
     // these twelve forms.
@@ -1610,17 +1769,137 @@ describe("configure_files, end to end", () => {
     }
   };
 
-  it("branches to add or to edit on the first state's option", async () => {
+  /**
+   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.3`): the flow opens on
+   * the source configuration table, *+ Add* jumps to the add page, *Edit* is the
+   * table page's Next, and *Save* on the summary returns to the table (`Q-4`).
+   * Every case below that walked the add-or-edit option step starts from the
+   * table instead.
+   */
+  it("opens on the table, where + Add goes to the add page and Edit to the file type", async () => {
     const h = setup();
-    expect(h.at()).toBe("select_add_or_edit");
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
-    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
+    expect(h.formFor("select_source_config").actions.map((a) => [a.action, a.label])).toEqual([
+      ["ufCancel", "Close"],
+      ["ufNext", "Edit"],
+    ]);
+    expect(await h.press("scGoToAddSourceConfig")).toBeNull();
     expect(h.at()).toBe("add_source_config");
+    // *Previous* from the add page is the table, which is what a jump to a page
+    // the stack has not visited records.
+    expect(await h.press("ufPrevious")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
 
     const g = setup();
-    g.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
+    selectExisting(g);
     expect(await g.press("ufNext")).toBeNull();
-    expect(g.at()).toBe("select_source_config");
+    expect(g.at()).toBe("select_file_type_option");
+  });
+
+  it("saves from the summary back onto the table, for an add and for an edit", async () => {
+    const walk = async (h: ReturnType<typeof setup>) => {
+      h.formState.setValue(0, "input_format", ["csv"]);
+      await h.press("ufNext");
+      expect(h.at()).toBe("select_single_or_multi_part_file");
+      h.formState.setValue(0, "scSingleOrMultiPartFileOption", ["scSingleFileOption"]);
+      for (const state of ["edit_domain_keys", "edit_code_value_mapping", "add_schema_provider_json", "confirm_state"]) {
+        await h.press("ufNext");
+        expect(h.at()).toBe(state);
+      }
+      expect(await h.press("ufNext")).toBeNull();
+      expect(h.at()).toBe("select_source_config");
+      expect(h.visited()).toEqual(["select_source_config"]);
+      expect(h.events).not.toContain("exit");
+    };
+
+    const add = setup();
+    await add.press("scGoToAddSourceConfig");
+    add.formState.setValue(0, "client", "ACME");
+    add.formState.setValue(0, "org", "EAST");
+    add.formState.setValue(0, "object_type", "claim");
+    await add.press("ufNext");
+    await walk(add);
+    expect(add.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "source_config" }]]);
+
+    const edit = setup();
+    selectExisting(edit);
+    await edit.press("ufNext");
+    await walk(edit);
+    expect(edit.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/source_config" }]]);
+  });
+
+  it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
+    const h = setup();
+    selectExisting(h);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_file_type_option");
+    expect(await h.press("scCancelToList")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
+    expect(h.events).not.toContain("exit");
+    for (const [key, state] of Object.entries(h.flow.states)) {
+      const actions = h.forms.forms[state.formConfig]!.actions.map((a) => a.action);
+      if (key === "select_source_config") expect(actions).not.toContain("scCancelToList");
+      else expect([key, actions.includes("scCancelToList")]).toEqual([key, true]);
+      expect([key, actions.includes("ufCompleted")]).toEqual([key, false]);
+    }
+  });
+
+  it("starts + Add empty after an edit, so the save inserts (R-1)", async () => {
+    // **`jetstore_maintenance_02` `R-1` and `AF.5`.** `saveSourceConfigForFileType`
+    // updates whenever `key` is set, and a flow run holds one form state, so
+    // *edit → back to the table → + Add → Save* would update the record just
+    // edited. Every page the edit path can write to is filled in below; *+ Add*
+    // must then leave **nothing** behind, which is the claim the clear-state list
+    // makes — not merely that `key` is gone.
+    const h = setup();
+    selectExisting(h, {
+      input_format: "xlsx",
+      input_format_data_json: '{"currentSheet": "Sheet2"}',
+      domain_keys_json: '{"member":["id"]}',
+      code_values_mapping_json: "{}",
+      schema_provider_json: "{}",
+    });
+    h.formState.addSelectedRow(0, "scSourceConfigKey", "42", ["42"]);
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "currentSheet")).toBe("Sheet2");
+    h.formState.setValue(0, "input_format", ["xlsx"]);
+    h.formState.addSelectedRow(0, "input_format", "xlsx", ["xlsx"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("edit_xlsx_options");
+    await h.press("ufNext");
+    h.formState.setValue(0, "scSingleOrMultiPartFileOption", ["scSingleFileOption"]);
+    h.formState.addSelectedRow(0, "scSingleOrMultiPartFileOption", "scSingleFileOption", ["s"]);
+    h.formState.setValue(0, "input_columns_json", '["a"]');
+    h.formState.setValue(0, "input_columns_positions_csv", "a,0,3");
+    for (let i = 0; i < 4; i += 1) await h.press("ufNext");
+    expect(h.at()).toBe("confirm_state");
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_source_config");
+    expect(h.posts.at(-1)!.body["fromClauses"]).toEqual([{ table: "update/source_config" }]);
+
+    await h.press("scGoToAddSourceConfig");
+    expect(h.at()).toBe("add_source_config");
+    expect(h.formState.snapshot(0)).toEqual({});
+    for (const table of ["scSourceConfigKey", "input_format", "scSingleOrMultiPartFileOption"]) {
+      expect([table, h.formState.selectedRows(0, table)]).toEqual([table, []]);
+    }
+
+    h.formState.setValue(0, "client", "ACME");
+    h.formState.setValue(0, "org", "WEST");
+    h.formState.setValue(0, "object_type", "claim");
+    await h.press("ufNext");
+    h.formState.setValue(0, "input_format", ["csv"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "scSingleOrMultiPartFileOption", ["scSingleFileOption"]);
+    for (let i = 0; i < 5; i += 1) await h.press("ufNext");
+    expect(h.at()).toBe("select_source_config");
+    const inserted = h.posts.at(-1)!.body;
+    expect(inserted["fromClauses"]).toEqual([{ table: "source_config" }]);
+    const row = (inserted["data"] as Record<string, unknown>[])[0]!;
+    // Nothing of the edited record rides along into the new one.
+    for (const key of ["key", "domain_keys_json", "code_values_mapping_json", "schema_provider_json", "currentSheet"]) {
+      expect([key, row[key]]).toEqual([key, undefined]);
+    }
   });
 
   it("routes each of the nine file types to the page it needs", async () => {
@@ -1636,12 +1915,11 @@ describe("configure_files, end to end", () => {
       ["parquet_select", "edit_csv_headers"],
     ] as const) {
       const h = setup();
-      h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+      await h.press("scGoToAddSourceConfig");
+      expect(h.at()).toBe("add_source_config");
       h.formState.setValue(0, "client", "ACME");
       h.formState.setValue(0, "org", "EAST");
       h.formState.setValue(0, "object_type", "claim");
-      await h.press("ufNext");
-      expect(h.at()).toBe("add_source_config");
       await h.press("ufNext");
       expect(h.at()).toBe("select_file_type_option");
       h.formState.setValue(0, "input_format", [fileType]);
@@ -1657,28 +1935,24 @@ describe("configure_files, end to end", () => {
     // so a *No Organization* data source would have been staged into
     // `acme__claim`.
     const withOrg = setup();
-    withOrg.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    await withOrg.press("scGoToAddSourceConfig");
     withOrg.formState.setValue(0, "client", "ACME");
     withOrg.formState.setValue(0, "org", "EAST");
     withOrg.formState.setValue(0, "object_type", "claim");
     await withOrg.press("ufNext");
-    await withOrg.press("ufNext");
     expect(withOrg.formState.getValue(0, "table_name")).toBe("ACME_EAST_claim");
 
     const without = setup();
-    without.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    await without.press("scGoToAddSourceConfig");
     without.formState.setValue(0, "client", "ACME");
     without.formState.setValue(0, "org", "");
     without.formState.setValue(0, "object_type", "claim");
-    await without.press("ufNext");
     await without.press("ufNext");
     expect(without.formState.getValue(0, "table_name")).toBe("ACME_claim");
   });
 
   it("unpacks the selected record and maps its part-file flag", async () => {
     const h = setup();
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-    await h.press("ufNext");
     expect(h.at()).toBe("select_source_config");
     selectExisting(h, { is_part_files: "1" });
     expect(await h.press("ufNext")).toBeNull();
@@ -1717,8 +1991,6 @@ describe("configure_files, end to end", () => {
       // if/else-if chain because each branch writes a value the later guards do
       // not match — which is the property this table exists to hold.
       const h = setup();
-      h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-      await h.press("ufNext");
       selectExisting(h, {
         input_format: format,
         input_columns_json: columns,
@@ -1731,8 +2003,6 @@ describe("configure_files, end to end", () => {
 
   it("lifts currentSheet out of the record's format options, for xlsx only", async () => {
     const h = setup();
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-    await h.press("ufNext");
     selectExisting(h, {
       input_format: "headerless_xlsx",
       input_format_data_json: '{"currentSheet": "Sheet2"}',
@@ -1744,8 +2014,6 @@ describe("configure_files, end to end", () => {
     // The same blob on a csv record is carried through and not decoded — the
     // `when` guard on the escape step, which is the Dart's `if`.
     const csv = setup();
-    csv.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-    await csv.press("ufNext");
     selectExisting(csv, { input_format_data_json: '{"currentSheet": "Sheet2"}' });
     await csv.press("ufNext");
     expect(csv.formState.getValue(0, "currentSheet")).toBeUndefined();
@@ -1753,8 +2021,6 @@ describe("configure_files, end to end", () => {
 
   it("says the options blob is not json rather than throwing", async () => {
     const h = setup();
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-    await h.press("ufNext");
     selectExisting(h, { input_format: "xlsx", input_format_data_json: "{not json" });
     const before = h.at();
     const outcome = await h.press("ufNext");
@@ -1781,11 +2047,10 @@ describe("configure_files, end to end", () => {
 
   it("writes the sheet back as the record's format options", async () => {
     const h = setup();
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufAddOption"]);
+    await h.press("scGoToAddSourceConfig");
     h.formState.setValue(0, "client", "ACME");
     h.formState.setValue(0, "org", "EAST");
     h.formState.setValue(0, "object_type", "claim");
-    await h.press("ufNext");
     await h.press("ufNext");
     h.formState.setValue(0, "input_format", ["xlsx"]);
     await h.press("ufNext");
@@ -1795,15 +2060,21 @@ describe("configure_files, end to end", () => {
     expect(h.formState.getValue(0, "input_format_data_json")).toBe('{"currentSheet": "2"}');
   });
 
-  it("ends on the summary, which offers no advancing button", () => {
+  it("saves on Next from the summary, which is no longer an end state", () => {
+    // **Until 2026-10-01 `confirm_state` was the flow's end**, with *Save & Done*
+    // as `ufCompleted`; `D06` returns it to the table (`AF.3`), and an end state
+    // cannot transition, so it is an ordinary state whose default is the table.
     const h = setup();
-    expect(h.flow.states["confirm_state"]!.isEnd).toBe(true);
-    expect(h.formFor("confirm_state").actions.map((a) => a.action)).toEqual([
-      "ufPrevious",
-      "ufCancel",
-      "ufCompleted",
+    const state = h.flow.states["confirm_state"]!;
+    expect("isEnd" in state && state.isEnd).toBeFalsy();
+    expect("defaultNextState" in state && state.defaultNextState).toBe("select_source_config");
+    expect(h.formFor("confirm_state").actions.map((a) => [a.action, a.label])).toEqual([
+      ["ufPrevious", "Previous"],
+      ["scCancelToList", "Cancel"],
+      ["ufNext", "Save"],
     ]);
   });
+
 
   it.each([
     ["xlsx", { input_columns_json: null, input_columns_positions_csv: null }],
@@ -1891,8 +2162,6 @@ describe("configure_files, end to end", () => {
     // record and the state is empty afterwards — thirteen keys, not the six the
     // coverage document listed.
     const h = setup();
-    h.formState.setValue(0, "scAddOrEditSourceConfigOption", ["ufEditOption"]);
-    await h.press("ufNext");
     selectExisting(h, { domain_keys_json: '{"member":["id"]}', schema_provider_json: "{}" });
 
     expect(await h.press("deleteSourceConfig")).toBeNull();

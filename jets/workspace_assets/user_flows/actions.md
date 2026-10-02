@@ -40,6 +40,65 @@ went.
 by the first task that had a reason to open it. F.6 had one — it is the ninth
 document — and the numbers below are now the ones a check would produce.
 
+## The two clear-state lists, and why each key is on them
+
+**Added 2026-10-01 by `jetstore_maintenance_02` (`D06`, tasks `AF.3`–`AF.5`, risk
+`R-1`).** *Source Configuration* and *Pipeline Configuration* now open on their table
+and return to it after *Save*, for an edit as well as an add. Both wizards decide
+insert-or-update from what is in form state — `saveSourceConfigForFileType` updates
+whenever `key` is set (`jetsclient_ide/src/actions/sourceConfig.ts`), and
+`pcSavePipelineConfigUF` updates whenever `pcPipelineConfigTable` is — and a flow run
+holds one form state. So *edit → back to the table → + Add → Save* would update the
+record just edited. **The *+ Add* arm removes every key the edit path can set**, and
+these lists were enumerated from the documents before the arms were written, which is
+what `R-1` asked for. The documents cannot carry the reasoning — every object is
+closed — so it is here.
+
+**`scGoToAddSourceConfig`** clears the selection of three tables and removes seventeen
+keys:
+
+| Key | Set on the edit path by |
+|---|---|
+| `scSourceConfigKey` (and its selection) | the table's own widget key |
+| `key` | the table's `formStateBinding`, then `scSelectSourceConfigUF` — **the key that decides insert or update** |
+| `client`, `org`, `object_type`, `automated`, `table_name` | the binding, then `scSelectSourceConfigUF` (which also writes `automated` as `'0'`) |
+| `domain_keys_json`, `code_values_mapping_json`, `schema_provider_json` | the binding and the select action; their own pages after |
+| `input_columns_json`, `input_columns_positions_csv` | the binding and the select action; the headers and fixed-width pages |
+| `input_format` (and its selection) | the binding, the select action's inference, then the file-type table |
+| `is_part_files` | the binding |
+| `input_format_data_json` | the binding and the select action; `scEditXlsxOptionsUF` |
+| `scSingleOrMultiPartFileOption` (and its selection) | the select action from `is_part_files`; the single-or-multi-part table |
+| `currentSheet` | the `readXlsxSheetOption` escape; the xlsx options page |
+
+**`pcGoToAddPipelineConfig`** clears the selection of nine tables and removes
+thirty-two keys. The first seventeen are what the plan estimated, and are what the
+selection and `pcSelectPipelineConfigUF` write; the other fifteen are written further
+in, and are listed because *starts empty* is the requirement, not *does not update*:
+
+| Key | Set on the edit path by |
+|---|---|
+| `pcPipelineConfigTable` (and its selection) | the table's own widget key, and `pcSelectPipelineConfigUF` — **the key that decides insert or update** |
+| `key`, `client`, `process_name`, `process_config_key`, `main_process_input_key`, `merged_process_input_keys`, `main_object_type`, `main_source_type`, `source_period_type`, `automated`, `description`, `max_rete_sessions_saved`, `injected_process_input_keys`, `rule_config_json`, `entity_rdf_type` | the table's `formStateBinding` (fifteen columns), most of them again by `pcSelectPipelineConfigUF` |
+| `pcMainProcessInputKey` (and its selection) | `pcSelectPipelineConfigUF`, then the main-input table |
+| `pcViewMergedProcessInputKeys`, `pcMergedProcessInputKeys`, `pcViewInjectedProcessInputKeys`, `pcInjectedProcessInputKeys` (and their selections) | the four merge and injection tables |
+| `ufAllProcessInputKeys` | `pcPrepareSummaryUF` |
+| `pcSummaryProcessInputs` (and its selection) | the summary's table |
+| `pcProcessInputRegistry`, `pcProcessInputRegistry4MI` (and their selections) | `pcSetProcessInputRegistryKey` and the process-input dialogs' tables |
+| `org`, `object_type`, `source_type`, `table_name`, `lookback_periods`, `user_email` | the process-input dialogs and `addProcessInputOk` |
+| `serverError` | the interpreter, when the dialog's `insertRows` post fails |
+
+**Both are tested as *empty*, not as *inserts*.** `proofFlows.test.ts` walks every page
+the edit path writes to and asserts that `formState.snapshot(0)` is `{}` after *+ Add*;
+`FlowRunner.addReturn.test.tsx` drives *edit → back → + Add → Save* through the screen
+and asserts the second save is an insert. **Taking `key` out of the first list turns
+that save into `update/source_config` and both tests red** — measured 2026-10-01.
+
+**What the lists do not cover is an edit after an edit**, which `D06` also made
+possible. The selection rewrites every key the binding publishes, and
+`scSelectSourceConfigUF` now begins by removing the two it does not always rewrite —
+`currentSheet` and `scSingleOrMultiPartFileOption` — so a non-xlsx record does not
+open on the previous record's sheet.
+
 ## Field order is the Dart's, and that is on purpose
 
 Inside a `fields` map the order is the order the Dart constructs the row in, so a

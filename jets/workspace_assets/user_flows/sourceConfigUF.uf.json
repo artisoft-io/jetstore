@@ -1,45 +1,32 @@
 {
   "schemaVersion": 1,
   "title": "Source Configuration",
-  "startAtKey": "select_add_or_edit",
+  "startAtKey": "select_source_config",
   "states": {
-    "select_add_or_edit": {
-      "description": "Select between add or edit source_config",
-      "formConfig": "scAddOrEditSourceConfigUF",
-      "choices": [
-        {
-          "when": {
-            "op": "equals",
-            "key": "scAddOrEditSourceConfigOption",
-            "value": "ufAddOption"
-          },
-          "nextState": "add_source_config"
-        },
-        {
-          "when": {
-            "op": "equals",
-            "key": "scAddOrEditSourceConfigOption",
-            "value": "ufEditOption"
-          },
-          "nextState": "select_source_config"
-        }
-      ]
+    "select_source_config": {
+      "description": "Select a Source Config to edit, or add one",
+      "formConfig": "scSelectSourceConfigUF",
+      "stateAction": "scSelectSourceConfigUF",
+      "goToStates": [
+        "add_source_config"
+      ],
+      "defaultNextState": "select_file_type_option"
     },
     "add_source_config": {
       "description": "Add Source Config",
       "formConfig": "scAddSourceConfigUF",
       "stateAction": "scAddSourceConfigUF",
-      "defaultNextState": "select_file_type_option"
-    },
-    "select_source_config": {
-      "description": "Select an existing Source Config",
-      "formConfig": "scSelectSourceConfigUF",
-      "stateAction": "scSelectSourceConfigUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "select_file_type_option"
     },
     "select_file_type_option": {
       "description": "Select file type: csv, parquet, fixed-width, etc.",
       "formConfig": "scSourceConfigTypeUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "choices": [
         {
           "when": {
@@ -119,6 +106,9 @@
       "description": "Specify additional options for xlsx files",
       "formConfig": "scEditXlsxOptionsUF",
       "stateAction": "scEditXlsxOptionsUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "choices": [
         {
           "when": {
@@ -134,38 +124,59 @@
     "edit_csv_headers": {
       "description": "Specify Headers for Headerless CSV/XLSX or Parquet Select Options",
       "formConfig": "scEditFileHeadersUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "select_single_or_multi_part_file"
     },
     "edit_fixed_width_layout": {
       "description": "Edit Source Config Fixed Width Layout",
       "formConfig": "scEditFixedWidthLayoutUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "select_single_or_multi_part_file"
     },
     "select_single_or_multi_part_file": {
       "description": "Select between single file or multi-part files",
       "formConfig": "scSelectSingleOrMultiPartFileUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "edit_domain_keys"
     },
     "edit_domain_keys": {
       "description": "Edit Source Config Domain Keys",
       "formConfig": "scEditDomainKeysUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "edit_code_value_mapping"
     },
     "edit_code_value_mapping": {
       "description": "Edit Code Value Mapping",
       "formConfig": "scEditCodeValueMappingUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "add_schema_provider_json"
     },
     "add_schema_provider_json": {
       "description": "Add Schema Provider JSON",
       "formConfig": "scAddSchemaProviderJsonUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "confirm_state"
     },
     "confirm_state": {
       "description": "Confirm changes",
       "formConfig": "scSummaryUF",
       "stateAction": "addSourceConfig.ok",
-      "isEnd": true
+      "goToStates": [
+        "select_source_config"
+      ],
+      "defaultNextState": "select_source_config"
     }
   }
 }

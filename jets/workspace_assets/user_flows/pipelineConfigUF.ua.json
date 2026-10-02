@@ -14,6 +14,40 @@
           "into": { "process_config_key": "key", "entity_rdf_type": "input_rdf_types" } }
       ]
     },
+    "pcGoToAddPipelineConfig": {
+      "description": "+ Add on the pipeline config table: clear every key the edit path sets, so an add after an edit inserts rather than updating the configuration just edited (pcSavePipelineConfigUF updates whenever pcPipelineConfigTable is set), then open the add page. The list is in actions.md",
+      "steps": [
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
+        { "do": "clearSelection", "key": "pcMainProcessInputKey" },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcMergedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcInjectedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcSummaryProcessInputs" },
+        { "do": "clearSelection", "key": "pcProcessInputRegistry" },
+        { "do": "clearSelection", "key": "pcProcessInputRegistry4MI" },
+        { "do": "remove", "keys": [
+          "pcPipelineConfigTable", "key", "client", "process_name", "process_config_key",
+          "main_process_input_key", "merged_process_input_keys", "main_object_type",
+          "main_source_type", "source_period_type", "automated", "description",
+          "max_rete_sessions_saved", "injected_process_input_keys", "rule_config_json",
+          "entity_rdf_type", "pcMainProcessInputKey",
+          "pcViewMergedProcessInputKeys", "pcMergedProcessInputKeys",
+          "pcViewInjectedProcessInputKeys", "pcInjectedProcessInputKeys",
+          "ufAllProcessInputKeys", "pcSummaryProcessInputs",
+          "pcProcessInputRegistry", "pcProcessInputRegistry4MI",
+          "org", "object_type", "source_type", "table_name", "lookback_periods",
+          "user_email", "serverError"
+        ] },
+        { "do": "goToState", "state": "add_pipeline_config" }
+      ]
+    },
+    "pcCancelToList": {
+      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the pipeline config table rather than leaving the flow",
+      "steps": [
+        { "do": "goToState", "state": "select_pipeline_config" }
+      ]
+    },
     "pcSelectPipelineConfigUF": {
       "description": "Load the selected pipeline configuration into the form",
       "steps": [

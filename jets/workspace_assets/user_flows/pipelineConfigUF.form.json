@@ -1,24 +1,6 @@
 {
   "schemaVersion": 1,
   "forms": {
-    "pcAddOrEditPipelineConfigUF": {
-      "rows": [
-        [{ "field": "spacer" }],
-        [
-          {
-            "field": "dataTable",
-            "key": "pcAddOrEditPipelineConfigOption",
-            "table": "pcAddOrEditPipelineConfigOption",
-            "rules": [{ "rule": "required", "message": "Please select an option." }]
-          }
-        ]
-      ],
-      "actions": [
-        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufNext", "label": "Next", "style": "secondary" }
-      ]
-    },
     "pcAddPipelineConfigUF": {
       "queries": {
         "clients": {
@@ -65,7 +47,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -81,9 +63,8 @@
         ]
       ],
       "actions": [
-        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufNext", "label": "Next", "style": "secondary" }
+        { "action": "ufCancel", "label": "Close", "style": "primary" },
+        { "action": "ufNext", "label": "Edit", "style": "secondary" }
       ]
     },
     "pcSelectMainProcessInputUF": {
@@ -99,7 +80,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -125,7 +106,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -152,7 +133,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -169,7 +150,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -186,7 +167,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -241,7 +222,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -325,8 +306,8 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+        { "action": "pcCancelToList", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Save", "style": "secondary" }
       ]
     },
     "pcNewProcessInputDialog": {

@@ -1,14 +1,20 @@
 {
   "schemaVersion": 1,
   "actions": {
-    "crAddClientUF": {
-      "description": "Create a client",
+    "crAddClientOk": {
+      "description": "Create a client from the Add Client dialog, which closes on the response; the client list re-reads, so the new client appears on it",
       "steps": [
         { "do": "validate" },
-        { "do": "set", "key": "details", "value": { "fromKey": "ufClientDetails" } },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "client_registry",
-          "data": { "rows": "wholeState" } },
-        { "do": "remove", "keys": ["details", "ufClientDetails"] }
+          "transport": "insertRows",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "client": { "fromKey": "ufNewClient" },
+              "details": { "fromKey": "ufClientDetails" }
+            }
+          } },
+        { "do": "remove", "keys": ["ufNewClient", "ufClientDetails"] }
       ]
     },
     "crSelectClientUF": {
