@@ -410,7 +410,8 @@
           "enum": [
             "primary",
             "secondary",
-            "danger"
+            "danger",
+            "add"
           ],
           "type": "string"
         }

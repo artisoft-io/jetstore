@@ -36,7 +36,7 @@
       "key": "addClientDialog",
       "label": "+ Add",
       "action": "showDialog",
-      "style": "secondary",
+      "style": "add",
       "configForm": "ufAddClient",
       "capability": "client_config"
     },
