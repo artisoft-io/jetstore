@@ -284,6 +284,10 @@ export const FLOW_EXIT_FALLBACK = "/home";
  * those documents are workspace configuration rather than code — `workspaceRegistryTable`'s
  * *Load Client Config* and *Pull Workspace* buttons name two of these.
  *
+ * **Ten since 2026-10-01**, when `/registerFileKeyUF` went with its flow
+ * (`jetstore_maintenance_02` `AD.4`); a row leaves this map when its flow is
+ * retired, and is never added for a flow that has no Flutter route.
+ *
  * **Four of the eleven have a route that disagrees with their key**, which is the
  * whole reason this is a map rather than a string operation: `mapFileUF`'s leading
  * segment is `fileMappingUF`, `homeFiltersUF`'s is `configureHomeFiltersUF`,
@@ -304,7 +308,6 @@ export const FLOW_ROUTES: Readonly<Record<string, { flowKey: string; parameters:
   "/loadFilesUF": { flowKey: "loadFilesUF", parameters: [] },
   "/pipelineConfigUF": { flowKey: "pipelineConfigUF", parameters: [] },
   "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"] },
-  "/registerFileKeyUF": { flowKey: "registerFileKeyUF", parameters: [] },
   "/sourceConfigUF/:startAtKey": { flowKey: "sourceConfigUF", parameters: ["startAtKey"] },
   "/startPipelineUF": { flowKey: "startPipelineUF", parameters: [] },
   "/workspaces/loadConfigUF/:workspace_name": { flowKey: "loadConfigUF", parameters: ["workspace_name"] },
@@ -360,7 +363,8 @@ export function reactFlowRoute(
  * ## Why a second map rather than a row in `FLOW_ROUTES`
  *
  * `FLOW_ROUTES` is the port of `userFlowRoutes` and its rows are **the eleven
- * Flutter route templates** — `routes.test.ts` asserts the count for that reason.
+ * Flutter route templates** (ten since one was retired on 2026-10-01) —
+ * `routes.test.ts` asserts the count for that reason.
  * A row here is not one of those: Flutter had no way to enter a flow partway, so
  * `/loadFilesUF/select_file_keys` is a template this app invents. Putting it in
  * the legacy map would make that map's own header false, and the header is the

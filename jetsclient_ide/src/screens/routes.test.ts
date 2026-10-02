@@ -187,7 +187,9 @@ describe("the served-screen map", () => {
 
     // The eleven, which is the whole corpus (`user_flows/` holds eleven `.uf.json`
     // plus three projections, and a projection has no Flutter route).
-    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
+    // **Ten since 2026-10-01**: `/registerFileKeyUF` went with its flow
+    // (`jetstore_maintenance_02` `AD.4`), and `user_flows/` holds ten.
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(10);
   });
 
   it("carries a flow's parameters as a query string, and refuses a partial one", () => {
@@ -262,14 +264,15 @@ describe("the origin a flow url carries", () => {
  * Task D.10, from **I-260**.
  */
 describe("the flow entry points", () => {
-  it("is a separate map from FLOW_ROUTES, which stays the eleven Flutter routes", () => {
+  it("is a separate map from FLOW_ROUTES, which stays the Flutter routes", () => {
     // **The reason this is a second map.** `FLOW_ROUTES` is the port of
     // `userFlowRoutes`; Flutter had no way to enter a flow partway, so a row
     // here is not one of those and putting it there would make that map's own
     // header false.
     const inBoth = Object.keys(FLOW_ENTRY_POINTS).filter((t) => FLOW_ROUTES[t] !== undefined);
     expect(inBoth).toEqual([]);
-    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
+    // Eleven until `registerFileKeyUF` was retired, 2026-10-01.
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(10);
   });
 
   it("carries the state key and the arguments the state needs", () => {

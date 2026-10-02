@@ -2,6 +2,14 @@
 
 Generated from the running Flutter app. **Do not edit it by hand.**
 
+**Except once, and it is recorded here: ten flows since 2026-10-01.** `registerFileKeyUF`
+was retired by `jetstore_maintenance_02` (`Q-6`, task `AD.4`), and under that project's
+`Q-5` a document leaves this fixture rather than being changed in it. Its `flows` entry
+was deleted and the four aggregates it contributed to — `flowCount`, `stateCount`,
+`distinctFormKeys` and `formKeys` — were reduced to match, so the file stays internally
+consistent. Everything else is the app's, as generated, and the prose below describes
+the eleven it was generated with.
+
 It holds every `UserFlowConfig` the app registers, serialised by
 `jetsclient/test/user_flow_corpus_test.dart`. The schema in `../schema.ts` is
 argued from it, and `../schema.test.ts` converts all eleven and asserts they

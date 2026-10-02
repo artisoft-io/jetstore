@@ -72,7 +72,10 @@ const ADVANCING_ACTIONS = new Set(["ufNext", "ufStartFlow"]);
  * states declare `ufCompleted`; the other two finish through a *custom* action —
  * `rfkSubmitSchemaEvent` offers `rfkSubmitSchemaEventUF` and `dialogCancel`, and
  * `fmMappingFormUF` offers no `uf*` action at all. Requiring `ufCompleted` would
- * reject two shipping forms. **All eleven satisfy "no `ufNext`".**
+ * reject two shipping forms. **All eleven satisfy "no `ufNext`".** (Ten end
+ * states and one custom finisher, `fmMappingFormUF`, since `registerFileKeyUF`
+ * was retired on 2026-10-01 by `jetstore_maintenance_02` `AD.4`; the argument
+ * stands on the one.)
  *
  * **The hazard is inherited, not introduced.** The Dart's `standardActions` —
  * the default button set a UserFlow form gets — is Previous / Cancel / **Next**

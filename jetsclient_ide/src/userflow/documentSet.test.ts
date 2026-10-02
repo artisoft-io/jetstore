@@ -10,7 +10,8 @@
  *    invented to make it fire.
  * 3. **The end-state rule is the narrow one.** Requiring `ufCompleted` would
  *    reject two of the eleven shipping end states, and the test says so by name
- *    so that a later tightening has to argue with the evidence.
+ *    so that a later tightening has to argue with the evidence. (One of ten since
+ *    `registerFileKeyUF` was retired, 2026-10-01.)
  */
 
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,7 @@ import { describe, expect, it } from "vitest";
 import clientRegistryActionsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.ua.json";
 import loadConfigActionsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
-import registerFileKeyActionsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
+import mapFileActionsDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientTable from "../../../jets/workspace_assets/table_configs/client.tc.json";
 import orgTable from "../../../jets/workspace_assets/table_configs/org.tc.json";
@@ -28,12 +29,12 @@ import corpus from "./fixtures/user_flows.json";
 import clientRegistryFlowDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.uf.json";
 import loadConfigFlowDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
-import registerFileKeyFlowDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.uf.json";
+import mapFileFlowDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.uf.json";
 import { FormDocumentSchema, type FormDocument } from "./form";
 import clientRegistryFormsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.form.json";
 import loadConfigFormsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.form.json";
 import loadFilesFormsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
-import registerFileKeyFormsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.form.json";
+import mapFileFormsDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.form.json";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { validateDocumentSet, validateTableActions, type DocumentSet } from "./documentSet";
 
@@ -44,7 +45,12 @@ const parse = (flowDoc: unknown, actionsDoc: unknown, formsDoc: unknown): Docume
 });
 
 const sets: [string, DocumentSet][] = [
-  ["registerFileKeyUF", parse(registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc)],
+  // **`mapFileUF` since 2026-10-01**, in the slot `registerFileKeyUF` held until
+  // `jetstore_maintenance_02` retired that flow (`Q-6`, task `AD.4`). It takes the
+  // slot because it is the corpus's other end state that finishes without
+  // `ufCompleted` (`fmMappingFormUF`), which is what the end-state case below
+  // reads `sets[0]` for; the indices of the others are unchanged.
+  ["mapFileUF", parse(mapFileFlowDoc, mapFileActionsDoc, mapFileFormsDoc)],
   ["loadFilesUF", parse(loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc)],
   // F.2's, and the only set so far whose form carries a button outside the
   // action bar — which is what makes the two cases at the bottom of this file
@@ -126,9 +132,11 @@ describe("an end state whose form tries to advance", () => {
   });
 
   it("is not reported for an end state that finishes with a custom action", () => {
-    // `registerFileKeyUF`'s only state is an end state and its form offers
-    // `rfkSubmitSchemaEventUF` and `ufCancel` — no `ufCompleted` at all. This is
-    // why the rule is "must not advance" rather than "must offer ufCompleted".
+    // `mapFileUF`'s only state is an end state and its form offers `mapperOk`,
+    // `mapperDraft` and `dialogCancel` — no `uf*` action at all. This is why the
+    // rule is "must not advance" rather than "must offer ufCompleted".
+    // (`registerFileKeyUF`'s `rfkSubmitSchemaEvent` was the example here until it
+    // was retired on 2026-10-01.)
     expect(validateDocumentSet(sets[0]![1])).toEqual([]);
   });
 });
@@ -172,22 +180,28 @@ describe("a field taking its items from a query the form does not declare", () =
   });
 
   it("is not reported for a form with no queries and no item sources", () => {
-    expect(validateDocumentSet(sets[0]![1])).toEqual([]);
+    // `loadFilesUF` since 2026-10-01: `sets[0]` is `mapFileUF` now, whose form
+    // declares both, and the retired `registerFileKeyUF` declared neither.
+    expect(validateDocumentSet(sets[1]![1])).toEqual([]);
   });
 });
 
 describe("the corpus the narrow rule was chosen from", () => {
-  it("has eleven end states, and two of them do not use ufCompleted", () => {
+  it("has ten end states, and one of them does not use ufCompleted", () => {
     // Measured rather than asserted from memory: the Dart's form configs give
     // `ufCompleted` to nine of the eleven, and `rfkSubmitSchemaEvent` and
     // `fmMappingFormUF` finish another way. A future tightening to "an end state
     // must offer ufCompleted" has to deal with those two, so the count is pinned
     // here where such a change would be made.
+    //
+    // **Ten and one since 2026-10-01**: `registerFileKeyUF`'s end state left the
+    // fixture when the flow was retired (`jetstore_maintenance_02` `AD.4`), and
+    // `fmMappingFormUF` is the one left.
     const flows = (corpus as { flows: Record<string, { states: Record<string, { isEnd?: boolean }> }> }).flows;
     const endStates = Object.values(flows).flatMap((flow) =>
       Object.entries(flow.states).filter(([, state]) => state.isEnd === true),
     );
-    expect(endStates.length).toBe(11);
+    expect(endStates.length).toBe(10);
   });
 });
 

@@ -138,7 +138,6 @@ export const flowTitles: Record<string, string> = {
   loadConfigUF: "Load Client Configurations",
   loadFilesUF: "Load Files",
   mapFileUF: "File Mapping Configuration",
-  registerFileKeyUF: "Submit Schema Event (Register File Key)",
   startPipelineUF: "Start Pipeline",
   workspacePullUF: "Pull Workspace Changes",
 };

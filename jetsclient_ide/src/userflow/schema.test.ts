@@ -106,11 +106,15 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the shipping corpus", () => {
-  it("is the eleven flows and 46 states the app registers", () => {
+  it("is the ten flows and 45 states the app registered, less the one retired", () => {
     // Eleven, not the nine the documents said: `workspace_pull/` defines two
     // flows and `file_mapping/` defines two.
-    expect(Object.keys(flows)).toHaveLength(11);
-    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(46);
+    //
+    // **Ten and 45 since 2026-10-01**: `registerFileKeyUF`, one state, was retired
+    // by `jetstore_maintenance_02` (`Q-6`, `AD.4`) and its fixture entry deleted
+    // with it. The Dart registered eleven; the count here is what is emitted.
+    expect(Object.keys(flows)).toHaveLength(10);
+    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(45);
   });
 
   it.each(Object.keys(flows))("%s validates against the schema", (key) => {

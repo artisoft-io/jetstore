@@ -11,7 +11,10 @@ import { describe, expect, it } from "vitest";
 
 import { appForFlow, flutterFlowPath, handoffFor, reactFlowPath } from "./routing";
 
-const migrated = new Set(["loadFilesUF", "registerFileKeyUF"]);
+// `homeFiltersUF` replaced `registerFileKeyUF` here on 2026-10-01, when that flow
+// was retired (`jetstore_maintenance_02` `AD.4`); the set only needs two members
+// that are not `pipelineConfigUF`.
+const migrated = new Set(["loadFilesUF", "homeFiltersUF"]);
 
 describe("which app owns a flow", () => {
   it("follows the workspace, not a compiled list", () => {

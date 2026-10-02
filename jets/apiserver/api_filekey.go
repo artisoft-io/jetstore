@@ -26,6 +26,15 @@ import (
 // "load files & execute pipelines", which is exactly what registering a file key
 // starts.
 //
+// **Corrected 2026-10-01: registerFileKeyUF is retired** (jetstore_maintenance_02,
+// Q-6 and task AD.4). Its successor as put_schema_event_to_s3's human caller is
+// the Pipeline Status table's *Put Schema Event* dialog on the Home screen (D01),
+// added by task AD.3 of the same phase, which sends no file_key and lets
+// PutSchemaEventToS3 name the object (AD.1). The argument above is unchanged by
+// it: the caller is still an ops screen, and the capability it needs is still
+// this one, which the retired flow's Save button had declared as client_config
+// instead (that project's I-2).
+//
 // **A system-only capability was proposed and declined, and the reason is worth
 // keeping.** The register_keys action is issued by the RegisterFileKeyV2 lambda
 // under the seeded `system` account, which suggests gating this endpoint on
