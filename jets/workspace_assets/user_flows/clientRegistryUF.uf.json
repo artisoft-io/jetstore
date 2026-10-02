@@ -12,7 +12,7 @@
     "show_org": {
       "description": "Create org/vendor of client",
       "formConfig": "ufShowVendor",
-      "defaultNextState": "select_client"
+      "isEnd": true
     }
   }
 }

@@ -606,20 +606,18 @@ describe("client_registry, end to end", () => {
     expect(h.formState.getValue(0, "client")).toBe("ACME");
   });
 
-  it("returns from show_org to the client table on Done, and does not exit", async () => {
-    // **Not an end state since 2026-10-01** (`jetstore_maintenance_02` Phase 2,
-    // Michel: *return to the starting table of the user flow*). *Done* was
-    // `ufCompleted`, which left the flow for `returnTo`; it is `ufNext` now, over
-    // a `defaultNextState` back to `select_client`. The flow has no end state,
-    // as `sourceConfigUF` and `pipelineConfigUF` have none; *Close* on the table
-    // is the way out.
+  it("ends on show_org, which offers Previous only", async () => {
+    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // decision, as for `fileMappingUF`'s `file_mapping`). It was `ufCompleted`,
+    // which left the flow for `returnTo`; *Previous* goes back to the client
+    // table, and *Close* there leaves the flow. The state stays `isEnd`.
     const h = setup();
-    expect(h.flow.states["show_org"]!.isEnd).toBeUndefined();
-    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious", "ufNext"]);
+    expect(h.flow.states["show_org"]!.isEnd).toBe(true);
+    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious"]);
     h.formState.setValue(0, "client", ["ACME"]);
     expect(await h.press("ufNext")).toBeNull();
     expect(h.at()).toBe("show_org");
-    expect(await h.press("ufNext")).toBeNull();
+    expect(await h.press("ufPrevious")).toBeNull();
     expect(h.at()).toBe("select_client");
     expect(h.events).not.toContain("exit");
   });

@@ -20,8 +20,7 @@
     "ufShowVendor": {
       "rows": [[{ "field": "dataTable", "key": "org", "table": "org" }]],
       "actions": [
-        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufNext", "label": "Done", "style": "secondary" }
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" }
       ]
     },
     "ufAddClient": {
