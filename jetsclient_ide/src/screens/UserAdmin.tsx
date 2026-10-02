@@ -75,6 +75,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
@@ -181,6 +182,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
   const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
 
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -327,7 +329,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
         return found.length === 0;
       },
       confirm: async (message: string) => {
-        const agreed = window.confirm(message);
+        const agreed = await prompts.confirm(message);
         if (!agreed) haltedByUser.current = true;
         return agreed;
       },
@@ -357,7 +359,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, activeState, queryPost, setError, setStatus, dialog.close],
+    [api, currentForm, activeState, queryPost, setError, setStatus, dialog.close, prompts],
   );
 
   const runNamedAction = useCallback(

@@ -32,6 +32,8 @@ import execStatusTable from "../../../jets/workspace_assets/table_configs/pipeli
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerPrompt } from "../shell/promptsTesting";
 import { resetHomeFilters } from "../actions/homeFilters";
 import homeFiltersActions from "../../../jets/workspace_assets/user_flows/homeFiltersUF.ua.json";
 import loadConfigActions from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
@@ -320,24 +322,26 @@ async function mount(
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        {/* **The harness renders the banners**, as `Home.test.tsx`'s does and for
-            the same reason: `AppShell` draws them and this tree does not, so a
-            case asserting a refusal would otherwise find nothing and have no way
-            to tell "refused" from "did nothing". Added at D.10 for the entry
-            point's `ufPrevious`. */}
-        <Banners />
-        <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
-          <Routes>
-            <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-            {/* The three destinations a flow can leave for (D.8): the app's
-                index, an origin the url named, and the editor — which is where
-                every flow used to land regardless. All three are stubbed so
-                that a wrong exit fails by naming the screen it reached. */}
-            <Route path="/home" element={<p>the home screen</p>} />
-            <Route path="/workspaces" element={<p>the workspace registry</p>} />
-            <Route path="/workspace" element={<p>the workspace ide</p>} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          {/* **The harness renders the banners**, as `Home.test.tsx`'s does and for
+              the same reason: `AppShell` draws them and this tree does not, so a
+              case asserting a refusal would otherwise find nothing and have no way
+              to tell "refused" from "did nothing". Added at D.10 for the entry
+              point's `ufPrevious`. */}
+          <Banners />
+          <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
+            <Routes>
+              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+              {/* The three destinations a flow can leave for (D.8): the app's
+                  index, an origin the url named, and the editor — which is where
+                  every flow used to land regardless. All three are stubbed so
+                  that a wrong exit fails by naming the screen it reached. */}
+              <Route path="/home" element={<p>the home screen</p>} />
+              <Route path="/workspaces" element={<p>the workspace registry</p>} />
+              <Route path="/workspace" element={<p>the workspace ide</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -1096,6 +1100,28 @@ describe("home_filters in the app", () => {
     // A string, not `["sess-1"]`. `jets/apiserver/api_tables.go`'s
     // `resubmit_pipeline` type-asserts it and answers 400 for a list.
     expect(rows[0]!["session_id"]).toBe("sess-1");
+  });
+
+  it("asks for a request id list in the app's own prompt, and filters on the answer", async () => {
+    // jetstore_maintenance_02 `I-39` (2026-10-02): `window.prompt` until then,
+    // which the embedded browser pane never shows, so the button did nothing.
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+    const statusReads = () =>
+      posts.filter(
+        (p) =>
+          p.body["action"] === "read" &&
+          (p.body["fromClauses"] as { table: string }[])[0]!.table === "pipeline_execution_status",
+      );
+    fireEvent.click(screen.getByRole("button", { name: "Set Request Id" }));
+    expect(await answerPrompt("req-9")).toBe("Enter request IDs comma separated to filter");
+    await waitFor(() =>
+      expect(statusReads().at(-1)!.body["whereClauses"]).toContainEqual({
+        table: "pipeline_execution_status",
+        column: "request_id",
+        values: ["req-9"],
+      }),
+    );
   });
 
   /**

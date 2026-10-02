@@ -25,6 +25,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerConfirm } from "../shell/promptsTesting";
 import { RuleConfig, documentFindings } from "./RuleConfig";
 
 afterEach(() => {
@@ -115,12 +117,14 @@ async function mount(options: { conflict?: boolean } = {}) {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={["/ruleConfig"]}>
-          <Routes>
-            <Route path="/ruleConfig" element={<RuleConfig api={api} />} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={["/ruleConfig"]}>
+            <Routes>
+              <Route path="/ruleConfig" element={<RuleConfig api={api} />} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -246,12 +250,14 @@ describe("the dialog", () => {
 
 describe("deleting a configuration", () => {
   it("asks first, then posts the selected key", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
     const { posts } = await mount();
     await selectRow();
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Delete"));
 
+    await screen.findByRole("dialog");
+    expect(inserts(posts, "delete/rule_configv2")).toEqual([]);
+    expect(await answerConfirm("OK")).not.toBe("");
     await waitFor(() => expect(inserts(posts, "delete/rule_configv2")).toHaveLength(1));
     const row = (inserts(posts, "delete/rule_configv2")[0]!["data"] as Record<string, unknown>[])[0]!;
     expect(row["key"]).toBe("7");
@@ -259,13 +265,12 @@ describe("deleting a configuration", () => {
   });
 
   it("sends nothing when the confirmation is refused", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => false));
     const { posts } = await mount();
     await selectRow();
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
     const before = posts.length;
     fireEvent.click(button("Delete"));
-    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    await answerConfirm("Cancel");
     expect(posts.length).toBe(before);
   });
 });

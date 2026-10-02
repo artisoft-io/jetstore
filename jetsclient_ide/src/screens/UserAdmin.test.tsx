@@ -21,6 +21,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerConfirm } from "../shell/promptsTesting";
 import { UserAdmin, documentFindings } from "./UserAdmin";
 import { ActionDocumentSchema } from "../actions/schema";
 import actionsJson from "./documents/userAdmin.ua.json";
@@ -107,12 +109,14 @@ async function mount(options: { isAdmin?: boolean; capabilities?: string[] } = {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={["/userAdmin"]}>
-          <Routes>
-            <Route path="/userAdmin" element={<UserAdmin api={api} />} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={["/userAdmin"]}>
+            <Routes>
+              <Route path="/userAdmin" element={<UserAdmin api={api} />} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -263,16 +267,15 @@ describe("the edit dialog", () => {
 
 describe("deleting a user", () => {
   it("asks first, and sends one row per selected account", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
     const { posts } = await mount();
     await selectUser("ada@example.com");
     await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Delete User"));
 
+    await screen.findByRole("dialog");
+    expect(inserts(posts, "delete/users")).toEqual([]);
+    expect(await answerConfirm("OK")).toBe("Are you sure you want to delete the selected user(s)?");
     await waitFor(() => expect(inserts(posts, "delete/users")).toHaveLength(1));
-    expect(window.confirm).toHaveBeenCalledWith(
-      "Are you sure you want to delete the selected user(s)?",
-    );
     const sent = inserts(posts, "delete/users")[0]!;
     // `fanOut` over the table's published selection: the Dart walks
     // `formState.getValue(0, DTKeys.usersTable)` and builds one `{user_email}` per
@@ -308,7 +311,6 @@ describe("deleting a user", () => {
    * because it holds however the document is spelled.
    */
   it("replaces the selection rather than adding to it, so a delete is always one row", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
     const { posts } = await mount();
     await selectUser("ada@example.com");
     await selectUser("grace@example.com");
@@ -318,6 +320,7 @@ describe("deleting a user", () => {
     expect(boxes.filter((b) => b.checked)).toHaveLength(1);
 
     fireEvent.click(button("Delete User"));
+    await answerConfirm("OK");
     await waitFor(() => expect(inserts(posts, "delete/users")).toHaveLength(1));
     expect(inserts(posts, "delete/users")[0]!["data"]).toEqual([
       { user_email: "grace@example.com" },
@@ -340,13 +343,12 @@ describe("deleting a user", () => {
   });
 
   it("sends nothing when the confirmation is refused", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => false));
     const { posts } = await mount();
     await selectUser("ada@example.com");
     await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
     const before = posts.length;
     fireEvent.click(button("Delete User"));
-    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    await answerConfirm("Cancel");
     expect(inserts(posts, "delete/users")).toEqual([]);
     // **And it does not refresh either.** Re-reading after a refusal is harmless
     // and says the opposite of what happened — a table that flickers is a table

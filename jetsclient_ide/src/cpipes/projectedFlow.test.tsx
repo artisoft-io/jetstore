@@ -58,6 +58,7 @@ import { queryEscape, WorkspaceApi } from "../api/workspace";
 import { FlowRunner } from "../screens/FlowRunner";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
 import { FlowStore } from "../userflow/store";
 import { valueFieldsOf, type Form } from "../userflow/form";
 import { configPath } from "./templateApply";
@@ -237,21 +238,23 @@ describe("the runner drives one, in a DOM, against the real client", () => {
     render(
       <ApiProvider api={api}>
         <NotificationsProvider>
-          <MemoryRouter initialEntries={["/flow/qc_report"]}>
-            <Routes>
-              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-              {/* Where a finished flow lands. **`/home` since D.8, and it was
-                  `/workspace` until then** — a flow declaring no `exitScreenPath`,
-                  which a projected one does not, used to exit to the Workspace IDE
-                  wherever it began (I-265). It now returns to the `returnTo` its
-                  url carries, and to the app's index when it carries none, which
-                  is this case. Stubbed so that "the flow completed" is observable
-                  rather than a router warning. Changed by the ui_refresh session
-                  that made it, per the cross-project rule in the root `CLAUDE.md`:
-                  the editor fixes the call site rather than handing it over. */}
-              <Route path="/home" element={<p>Home</p>} />
-            </Routes>
-          </MemoryRouter>
+          <PromptsProvider>
+            <MemoryRouter initialEntries={["/flow/qc_report"]}>
+              <Routes>
+                <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+                {/* Where a finished flow lands. **`/home` since D.8, and it was
+                    `/workspace` until then** — a flow declaring no `exitScreenPath`,
+                    which a projected one does not, used to exit to the Workspace IDE
+                    wherever it began (I-265). It now returns to the `returnTo` its
+                    url carries, and to the app's index when it carries none, which
+                    is this case. Stubbed so that "the flow completed" is observable
+                    rather than a router warning. Changed by the ui_refresh session
+                    that made it, per the cross-project rule in the root `CLAUDE.md`:
+                    the editor fixes the call site rather than handing it over. */}
+                <Route path="/home" element={<p>Home</p>} />
+              </Routes>
+            </MemoryRouter>
+          </PromptsProvider>
         </NotificationsProvider>
       </ApiProvider>,
     );
@@ -308,11 +311,13 @@ describe("the runner drives one, in a DOM, against the real client", () => {
     render(
       <ApiProvider api={api}>
         <NotificationsProvider>
-          <MemoryRouter initialEntries={["/flow/qc_report"]}>
-            <Routes>
-              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-            </Routes>
-          </MemoryRouter>
+          <PromptsProvider>
+            <MemoryRouter initialEntries={["/flow/qc_report"]}>
+              <Routes>
+                <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+              </Routes>
+            </MemoryRouter>
+          </PromptsProvider>
         </NotificationsProvider>
       </ApiProvider>,
     );

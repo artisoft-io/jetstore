@@ -71,6 +71,7 @@ import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/t
 import type { DataTableFetcher } from "../datatable/useDataTable";
 import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
+import { usePrompts } from "../shell/prompts";
 import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
@@ -186,6 +187,7 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
   const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
   const { setError, setStatus } = useNotifications();
+  const prompts = usePrompts();
 
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -320,7 +322,7 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
         setErrors(found);
         return found.length === 0;
       },
-      confirm: async (message: string) => window.confirm(message),
+      confirm: (message: string) => prompts.confirm(message),
       post: async (request): Promise<PostResult> => {
         try {
           await api.endpoint(request.endpoint, request.body);
@@ -347,7 +349,7 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, activeState, queryPost, setError, setStatus, dialog.close],
+    [api, currentForm, activeState, queryPost, setError, setStatus, dialog.close, prompts],
   );
 
   const runNamedAction = useCallback(

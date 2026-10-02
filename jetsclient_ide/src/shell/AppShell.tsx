@@ -48,6 +48,7 @@ import { ApiProvider, useCan } from "./capabilities";
 import { RouteTitle } from "./documentTitle";
 import { RouteFavicon } from "./favicon";
 import { NotificationsProvider, useNotifications } from "./notifications";
+import { PromptsProvider } from "./prompts";
 import {
   CLIENT_LIST_QUERY,
   clientList,
@@ -128,7 +129,12 @@ export function AppShell(props: AppShellProps) {
         <RouteFavicon />
         {/* D.10, from **I-272** — the same shape one element over. */}
         <RouteTitle />
-        <ShellChrome {...props} />
+        {/* I-39 (jetstore_maintenance_02, 2026-10-02): the app's own `confirm`
+            and `prompt`, which every screen asks instead of the browser's. See
+            `prompts.tsx`. */}
+        <PromptsProvider>
+          <ShellChrome {...props} />
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>
   );

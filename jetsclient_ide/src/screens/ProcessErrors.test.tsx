@@ -31,6 +31,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
 import { ProcessErrors, documentFindings } from "./ProcessErrors";
 
 afterEach(cleanup);
@@ -168,12 +169,14 @@ async function mount(options: { session?: string; reteCell?: string | null } = {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={[`/processErrors/${options.session ?? "sess-1"}`]}>
-          <Routes>
-            <Route path="/processErrors/:session_id" element={<ProcessErrors api={api} />} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={[`/processErrors/${options.session ?? "sess-1"}`]}>
+            <Routes>
+              <Route path="/processErrors/:session_id" element={<ProcessErrors api={api} />} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );

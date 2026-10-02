@@ -664,6 +664,9 @@ body {
    `AE.3`): the file a browser refused to copy, in the mono face so a manifest's or
    a CSV's columns line up. Not a `.field`, so the rule above does not reach it. */
 .text-dialog__text { width: 100%; box-sizing: border-box; font-family: var(--mono); }
+/* The app's own `confirm` and `prompt` (`shell/prompts.tsx`, jetstore_maintenance_02
+   `I-39`). `pre-wrap` because a native prompt keeps the message's line breaks. */
+.prompt-dialog__message { margin: 0; white-space: pre-wrap; }
 @media (max-width: 600px) {
   .uf-dialog {
     width: 100%;

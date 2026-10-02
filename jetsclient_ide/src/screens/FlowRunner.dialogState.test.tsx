@@ -28,6 +28,8 @@ import { ApiClient } from "../api/client";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerConfirm } from "../shell/promptsTesting";
 import { FlowRunner } from "./FlowRunner";
 
 afterEach(cleanup);
@@ -137,13 +139,15 @@ async function mount(flowKey: string) {
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <Banners />
-        <MemoryRouter initialEntries={[`/flow/${flowKey}`]}>
-          <Routes>
-            <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-            <Route path="/home" element={<p>the home screen</p>} />
-          </Routes>
-        </MemoryRouter>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={[`/flow/${flowKey}`]}>
+            <Routes>
+              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+              <Route path="/home" element={<p>the home screen</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
   );
@@ -375,14 +379,25 @@ describe("Delete Client", () => {
     const { posts } = await mount("clientRegistryUF");
     await screen.findByText("the client");
     tick("the client");
-    vi.stubGlobal("confirm", () => true);
-    try {
-      fireEvent.click(button("Delete Client"));
-      await waitFor(() => expect(writes(posts)).toEqual([{ table: "delete/client", row: { client: "ACME" } }]));
-      expect((await screen.findByRole("status")).textContent).toBe("Client deleted");
-      expect(screen.queryByRole("alert")).toBeNull();
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    fireEvent.click(button("Delete Client"));
+    // Asked in the app's own dialog (jetstore_maintenance_02 `I-39`): the
+    // embedded browser pane never shows `window.confirm`, which answered false
+    // there, so the button did nothing. Nothing is posted until *OK*.
+    await screen.findByRole("dialog");
+    expect(writes(posts)).toEqual([]);
+    await answerConfirm("OK");
+    await waitFor(() => expect(writes(posts)).toEqual([{ table: "delete/client", row: { client: "ACME" } }]));
+    expect((await screen.findByRole("status")).textContent).toBe("Client deleted");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("posts nothing when the confirmation is cancelled", async () => {
+    const { posts } = await mount("clientRegistryUF");
+    await screen.findByText("the client");
+    tick("the client");
+    fireEvent.click(button("Delete Client"));
+    await answerConfirm("Cancel");
+    expect(writes(posts)).toEqual([]);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
