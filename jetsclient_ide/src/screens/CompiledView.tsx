@@ -105,7 +105,7 @@ import type { ActionRequest } from "../datatable/actionDispatch";
 import { DataTable } from "../datatable/DataTable";
 import { FormState } from "../datatable/formState";
 import type { TableConfigDocument } from "../datatable/table";
-import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/table";
+import { TableConfigDocumentSchema, actionRowsOf, tableEscapeReferences } from "../datatable/table";
 import { TableView } from "../datatable/TableView";
 import { fromDocument } from "../datatable/tableTranslate";
 import type { ActionConfig, JetsRow } from "../datatable/types";
@@ -179,7 +179,8 @@ const WORKSPACE_NAME_KEY = "workspace_name";
 /** Whether a table document declares an action, which is what decides how a tab is drawn. */
 export function hasActionBar(document: TableConfigDocument): boolean {
   if (document.source !== "query") return false;
-  return (document.actions?.length ?? 0) > 0 || (document.secondRowActions?.length ?? 0) > 0;
+  // Any row, the third included (`AE.1`, 2026-10-01).
+  return actionRowsOf(document).some(([, actions]) => actions.length > 0);
 }
 
 /**

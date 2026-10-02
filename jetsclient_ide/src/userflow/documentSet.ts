@@ -31,7 +31,7 @@
 
 import { isStandardAction } from "./engine";
 import type { ActionDocument } from "../actions/schema";
-import type { TableAction, TableConfigDocument } from "../datatable/table";
+import { actionRowsOf, type TableAction, type TableConfigDocument } from "../datatable/table";
 import { buttonsOf, itemSourcesOf, type FormDocument, type Form } from "./form";
 import type { UserFlow } from "./schema";
 
@@ -270,14 +270,13 @@ export function validateTableActions(
     // guard `actionNamesOf` opens with and is exact rather than a narrowing
     // convenience.
     if (table.source !== "query") continue;
-    // The pointer keeps the two rows apart — `/actions/3` and
+    // The pointer keeps the rows apart — `/actions/3` and
     // `/secondRowActions/3` are different buttons — so the finding names the
     // property an author would edit rather than an index into a flattened list.
-    const rows: [string, TableAction[]][] = [
-      ["actions", table.actions ?? []],
-      ["secondRowActions", table.secondRowActions ?? []],
-    ];
-    for (const [row, list] of rows) {
+    // **Every row through `actionRowsOf` as of `AE.1`** (jetstore_maintenance_02,
+    // 2026-10-01): this listed two rows by name, so a third would have been drawn
+    // and never checked.
+    for (const [row, list] of actionRowsOf(table)) {
       list.forEach((action: TableAction, index: number) => {
         const name = action.actionName;
         if (

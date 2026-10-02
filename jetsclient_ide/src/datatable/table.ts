@@ -947,6 +947,26 @@ export const TableConfigDocumentSchema = z
        * form and an action, which is every cross-document reference this table has.
        */
       secondRowActions: z.array(TableActionSchema).min(1).optional(),
+      /**
+       * A third row of buttons. jetstore_maintenance_02, `D04`, task `AE.1`
+       * (2026-10-01).
+       *
+       * **The first row no Dart configuration had.** `pipelineExecStatusTable`
+       * puts *Get Run Manifest* and *Get Schema Event* here, under the report's
+       * three-line layout, and the deployment's custom buttons are appended to it
+       * at run time — which is Flutter's `fromConfigRowActions` row, filled from the
+       * apiserver rather than from this document. **That field stays out of the
+       * schema** (`ui_refresh` `I-102`): a strict object refuses it, so no
+       * `.tc.json` can name a deployment's buttons, and the authored row beside it
+       * is this one.
+       *
+       * Same element type as the other two rows, for `secondRowActions`' reason,
+       * and a third row rather than a per-action `row` field (the assessment's
+       * `R5`): a field on every action would make a button's position a property
+       * of two places. Every walk over a table's buttons reads the rows through
+       * `actionRowsOf` below, so this row needed no walk of its own.
+       */
+      thirdRowActions: z.array(TableActionSchema).min(1).optional(),
       /** Re-query when one of these form-state keys changes. Two tables use it. */
       refreshOnKeyUpdateEvent: z.array(Identifier).min(1).optional(),
     }),
@@ -1053,9 +1073,33 @@ export const tablePath = (key: string): string => `${TABLE_DIR}/${key}.tc.json`;
  * for rather than the fix that makes today's tests pass.
  */
 function actionsOf(table: TableConfigDocument): TableAction[] {
+  return actionRowsOf(table).flatMap(([, actions]) => actions);
+}
+
+/** The property names of a table's action rows, top to bottom. */
+export const ACTION_ROWS = ["actions", "secondRowActions", "thirdRowActions"] as const;
+export type ActionRowName = (typeof ACTION_ROWS)[number];
+
+/**
+ * Every action row a table declares, named, top to bottom — empty rows included.
+ * jetstore_maintenance_02 `AE.1`, 2026-10-01.
+ *
+ * **Written when the third row arrived, because six walks each spelled out two
+ * rows.** `actionsOf` and `tableEscapeReferences` here, `validateTableActions`
+ * (`userflow/documentSet.ts`), Home's `documentFindings`, `CompiledView`'s
+ * `hasActionBar` and the translator each listed `actions` and `secondRowActions`
+ * by name, so a third row would have been drawn and validated by none of them
+ * until each was found. The name travels with the row because a finding's
+ * pointer names the property an author edits (`/thirdRowActions/0/...`); the
+ * fourth row, if there is one, is an entry in `ACTION_ROWS`.
+ *
+ * A static table has no rows; a `formState` table has the first only, which is
+ * the union's own rule (C.9).
+ */
+export function actionRowsOf(table: TableConfigDocument): [ActionRowName, TableAction[]][] {
   if (table.source === "static") return [];
-  if (table.source === "formState") return table.actions ?? [];
-  return [...(table.actions ?? []), ...(table.secondRowActions ?? [])];
+  if (table.source === "formState") return [["actions", table.actions ?? []]];
+  return ACTION_ROWS.map((row) => [row, table[row] ?? []]);
 }
 
 export function escapeNamesOf(table: TableConfigDocument): string[] {
@@ -1095,21 +1139,12 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
   // `workspaceRegistryTable` puts eight of thirteen buttons on the second row and
   // gates all eight on criteria rather than on a predicate — which is why it went
   // unnoticed rather than why it was harmless.
-  if (table.source !== "static") {
-    (table.actions ?? []).forEach((action, index) => {
+  // **Every row through `actionRowsOf` as of `AE.1`** (2026-10-01), which is the
+  // same fix this paragraph records one row earlier.
+  for (const [row, actions] of actionRowsOf(table)) {
+    actions.forEach((action, index) => {
       if (action.isEnabled) {
-        references.push({ kind: "predicates", name: action.isEnabled, at: `/actions/${index}/isEnabled` });
-      }
-    });
-  }
-  if (table.source === "query") {
-    (table.secondRowActions ?? []).forEach((action, index) => {
-      if (action.isEnabled) {
-        references.push({
-          kind: "predicates",
-          name: action.isEnabled,
-          at: `/secondRowActions/${index}/isEnabled`,
-        });
+        references.push({ kind: "predicates", name: action.isEnabled, at: `/${row}/${index}/isEnabled` });
       }
     });
   }

@@ -428,7 +428,11 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (where.orWith) walkWhere(where.orWith);
   };
   for (const where of config.whereClauses) walkWhere(where);
-  for (const action of [...config.actions, ...config.secondRowActions]) {
+  // `thirdRowActions` is read as possibly absent: no Dart configuration has a third
+  // row, so the corpus fixtures this function translates do not carry the field
+  // (`AE.1`, 2026-10-01).
+  const thirdRow = config.thirdRowActions ?? [];
+  for (const action of [...config.actions, ...config.secondRowActions, ...thirdRow]) {
     if (action.stateGroup !== 0) refuse(`action ${action.key}: stateGroup`);
     if (action.hasActionDelegate) refuse(`action ${action.key}: actionDelegate`);
   }
@@ -477,6 +481,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (config.whereClauses.length > 0) refuse("a static table with whereClauses");
     if (config.actions.length > 0) refuse("a static table with actions");
     if (config.secondRowActions.length > 0) refuse("a static table with secondRowActions");
+    if (thirdRow.length > 0) refuse("a static table with thirdRowActions");
     if (config.refreshOnKeyUpdateEvent.length > 0) refuse("a static table with refreshOnKeyUpdateEvent");
     // Required here and optional on the query arm: a static table's rows are
     // compiled in, so nothing can supply columns it does not declare.
@@ -496,6 +501,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     if (config.fromClauses.length > 0) refuse("a form-state table with fromClauses");
     if (config.withClauses.length > 0) refuse("a form-state table with withClauses");
     if (config.secondRowActions.length > 0) refuse("a form-state table with secondRowActions");
+    if (thirdRow.length > 0) refuse("a form-state table with thirdRowActions");
     if (config.refreshOnKeyUpdateEvent.length > 0) refuse("a form-state table with refreshOnKeyUpdateEvent");
     if (config.requestColumnDef) refuse("a form-state table with requestColumnDef");
     if (config.apiAction !== DEFAULT_API_ACTION) refuse(`a form-state table with apiAction ${config.apiAction}`);
@@ -550,6 +556,9 @@ export function toDocument(config: TableConfig): TableConfigDocument {
             translateAction(config.key, a, config.columns, refuse),
           ),
         }
+      : {}),
+    ...(thirdRow.length > 0
+      ? { thirdRowActions: thirdRow.map((a) => translateAction(config.key, a, config.columns, refuse)) }
       : {}),
     ...(config.refreshOnKeyUpdateEvent.length > 0
       ? { refreshOnKeyUpdateEvent: config.refreshOnKeyUpdateEvent }
@@ -637,6 +646,8 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     doc.source === "static" ? [] : (doc.actions ?? []).map(restoreAction);
   const secondRowActions: ActionConfig[] =
     doc.source === "query" ? (doc.secondRowActions ?? []).map(restoreAction) : [];
+  const thirdRowActions: ActionConfig[] =
+    doc.source === "query" ? (doc.thirdRowActions ?? []).map(restoreAction) : [];
 
   const restoreWhere = (where: WhereClauseDocument): WhereClause => ({
     table: where.table,
@@ -678,6 +689,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     showSelectedOnly: doc.showSelectedOnly ?? false,
     actions,
     secondRowActions,
+    thirdRowActions,
     fromConfigRowActions: [],
     columns,
     defaultToAllRows: false,

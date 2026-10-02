@@ -71,6 +71,7 @@ import { TableView } from "../datatable/TableView";
 import { fromDocument } from "../datatable/tableTranslate";
 import {
   TableConfigDocumentSchema,
+  actionRowsOf,
   tableEscapeReferences,
   tablePath,
   type TableConfigDocument,
@@ -234,10 +235,8 @@ export function documentFindings(workspaceTable: TableConfigDocument | null = nu
   for (const table of tables) {
     const document = table.result.data as TableConfigDocument;
     if (document.source !== "query") continue;
-    for (const [row, actions] of [
-      ["actions", document.actions ?? []],
-      ["secondRowActions", document.secondRowActions ?? []],
-    ] as const) {
+    // Every row, the third (`D04`) included — `actionRowsOf`, `AE.1`.
+    for (const [row, actions] of actionRowsOf(document)) {
       actions.forEach((action, index) => {
         if (action.action === "doAction" && !declared.has(action.actionName ?? "")) {
           findings.push(

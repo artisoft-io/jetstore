@@ -628,6 +628,13 @@
           "const": "query",
           "type": "string"
         },
+        "thirdRowActions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
         "where": {
           "items": {
             "$ref": "#/$defs/WhereClause"

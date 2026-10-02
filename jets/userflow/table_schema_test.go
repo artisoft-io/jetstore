@@ -207,6 +207,22 @@ func TestTableSchemaRejects(t *testing.T) {
 			"actions":[{"key":"k","label":"L","action":"exec_ddl","style":"primary"}]}`,
 		"no source at all": `{"schemaVersion":1,"label":"L","columns":[{"name":"a","label":"A"}],
 			"sortColumn":"a","rowsPerPage":10}`,
+		// jetstore_maintenance_02 criterion 15 (2026-10-01): no document names a
+		// deployment's custom buttons. They come from JETS_CUSTOM_BUTTONS_CONFIG_JSON
+		// at run time, which is ui_refresh I-102's objection kept -- a workspace file
+		// must not be a second way to configure a deployment.
+		"fromConfigRowActions on a query table": `{"schemaVersion":1,"source":"query","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
+			"from":[{"schema":"jetsapi","table":"t"}],
+			"fromConfigRowActions":[{"key":"k","label":"L","action":"doAction","actionName":"x","style":"secondary"}]}`,
+		// The third row (AE.1) is on the query arm only, and absent is how a
+		// document says it has none.
+		"thirdRowActions on a static table": `{"schemaVersion":1,"source":"static","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],
+			"thirdRowActions":[{"key":"k","label":"L","action":"doAction","actionName":"x","style":"secondary"}]}`,
+		"an empty thirdRowActions": `{"schemaVersion":1,"source":"query","label":"L",
+			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
+			"from":[{"schema":"jetsapi","table":"t"}],"thirdRowActions":[]}`,
 	}
 	for name, doc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -226,6 +242,20 @@ func TestValidTableDocumentIsAccepted(t *testing.T) {
 		"from":[{"schema":"jetsapi","table":"t"}]}`
 	if findings := ValidateTableDocument(doc); len(findings) > 0 {
 		t.Errorf("rejected a valid document: %v", findings)
+	}
+}
+
+// TestThirdRowActionsIsAccepted states AE.2 positively (jetstore_maintenance_02,
+// D04, 2026-10-01): the Go copy of the table schema admits the row the
+// TypeScript schema gained, so a hand-authored pipelineExecStatusTable.tc.json
+// carrying it passes the save check and the corpus test. A rejection-only suite
+// would pass if the copy had never been regenerated.
+func TestThirdRowActionsIsAccepted(t *testing.T) {
+	const doc = `{"schemaVersion":1,"source":"query","label":"L","columns":[{"name":"a","label":"A"}],
+		"sortColumn":"a","rowsPerPage":10,"from":[{"schema":"jetsapi","table":"t"}],
+		"thirdRowActions":[{"key":"k","label":"L","action":"doAction","actionName":"x","style":"secondary"}]}`
+	if findings := ValidateTableDocument(doc); len(findings) > 0 {
+		t.Errorf("rejected a third action row: %v", findings)
 	}
 }
 

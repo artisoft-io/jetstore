@@ -125,6 +125,12 @@ export interface TableConfig {
   showSelectedOnly: boolean;
   actions: ActionConfig[];
   secondRowActions: ActionConfig[];
+  /**
+   * The third authored row (`table.ts`, `thirdRowActions`). jetstore_maintenance_02
+   * `AE.1`, 2026-10-01. No Dart configuration has one, so the corpus fixtures do
+   * not carry the field and the translator reads it as possibly absent.
+   */
+  thirdRowActions: ActionConfig[];
   fromConfigRowActions: ActionConfig[];
   columns: ColumnConfig[];
   defaultToAllRows: boolean;

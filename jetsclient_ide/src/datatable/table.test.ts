@@ -25,11 +25,15 @@ import screenCorpus from "../screens/fixtures/screen_configs.json";
 import {
   TableConfigDocumentSchema,
   actionNamesOf,
+  actionRowsOf,
   emitJsonSchema,
   escapeNamesOf,
+  tableEscapeReferences,
   tablePath,
+  type TableAction,
   type TableConfigDocument,
 } from "./table";
+import { validateTableActions } from "../userflow/documentSet";
 import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments,
   CORPUS_CORRECTIONS,
 } from "./tableTranslate";
@@ -308,6 +312,20 @@ const documents: Record<string, TableConfigDocument> = {
   ...handMaintained,
 };
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
+/**
+ * A corpus configuration as the model restores it: with `thirdRowActions` empty.
+ *
+ * jetstore_maintenance_02 `AE.1` (2026-10-01) gave `TableConfig` a third authored
+ * row that no Dart configuration had, so the corpus fixtures lack the field and
+ * `fromDocument` restores it as `[]`. That is the same fact spelled two ways — no
+ * third row — rather than a loss, so the comparisons below add it to the corpus
+ * side instead of dropping it from the restored side, which keeps a restore that
+ * invented a third row out of nothing a failure.
+ */
+const asRestored = (config: TableConfig): TableConfig => ({
+  ...config,
+  thirdRowActions: (config.thirdRowActions as TableConfig["thirdRowActions"] | undefined) ?? [],
+});
 const documentOf = (key: string) => `${JSON.stringify(documents[key], null, 2)}\n`;
 
 describe("the emitted JSON Schema", () => {
@@ -434,7 +452,7 @@ describe("the 37 shipping configurations", () => {
       // should ship. Listing the divergence here keeps every other field of that
       // configuration compared, which excusing the key would not.
       const expected = {
-        ...configOf(key),
+        ...asRestored(configOf(key)),
         ...(key in ROWS_PER_PAGE ? { rowsPerPage: ROWS_PER_PAGE[key]! } : {}),
         ...(CORPUS_CORRECTIONS[key] ?? {}),
       };
@@ -464,7 +482,7 @@ describe("the 37 shipping configurations", () => {
       });
       const { hasModelStateHandler: corpusFlag, ...corpus } = screenTables[key]!;
       expect({ key, corpusFlag }).toEqual({ key, corpusFlag: true });
-      expect({ [key]: restored }).toEqual({ [key]: corpus });
+      expect({ [key]: restored }).toEqual({ [key]: asRestored(corpus as TableConfig) });
     }
   });
 
@@ -599,7 +617,7 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     ]);
   });
 
-  it("has no fromConfigRowActions, and that is a decision rather than an omission", () => {
+  it("has no fromConfigRowActions in its document, and that is a decision rather than an omission", () => {
     // `AppConfig.getConfigurableActionConfig()` builds them from `BUTTON_CFG_JSON`,
     // a `String.fromEnvironment` constant (`jetsclient/lib/button_config.dart`,
     // `buttonsConfigJson`). They are per-deployment buttons, not table
@@ -607,8 +625,18 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     // naming one would be a second way to configure a deployment. The corpus
     // records the list empty because the corpus was generated without the variable
     // set, which is the same reason it cannot be measured from here (**I-102**).
+    //
+    // **Reworded 2026-10-01 (jetstore_maintenance_02 `D04`), not reversed.** The
+    // buttons are back, and still not here: `JETS_CUSTOM_BUTTONS_CONFIG_JSON` is
+    // a deployment variable the CDK puts in the apiserver's environment and the
+    // apiserver serves at login, and the React app fills `fromConfigRowActions` at
+    // run time (`AE.6` to `AE.8`). What this pins is the half of I-102 that
+    // survives — the *document* never names them, and the schema refuses a
+    // document that tries (`the schema rejects`, below). The *model's* field is
+    // empty after translation because translation reads only the document.
     expect(configOf("pipelineExecStatusTable").fromConfigRowActions).toEqual([]);
     expect(Object.keys(doc)).not.toContain("fromConfigRowActions");
+    expect(fromDocument("pipelineExecStatusTable", doc).fromConfigRowActions).toEqual([]);
   });
 });
 
@@ -952,7 +980,7 @@ describe("queryToolResultSetTable, the /queryTool screen's result table", () => 
     expect(restored.sortColumnName).toBe("");
     expect(restored.whereClauses[0]!.column).toBe("");
     expect(restored.requestColumnDef).toBe(true);
-    expect(restored).toEqual(config);
+    expect(restored).toEqual(asRestored(config));
   });
 });
 
@@ -1132,11 +1160,90 @@ describe("the schema rejects", () => {
     rejects({ ...base(), defaultToAllRows: true });
   });
 
+  it("fromConfigRowActions on any arm, so no document can name a deployment's buttons", () => {
+    // Criterion 15 of jetstore_maintenance_02 Phase 1, and `ui_refresh` I-102's
+    // objection made a property of the schema rather than of a convention: the
+    // custom buttons come from `JETS_CUSTOM_BUTTONS_CONFIG_JSON` at run time.
+    // `jets/userflow/table_schema_test.go` asserts the same of the Go copy.
+    const button = { key: "k", label: "L", action: "doAction", actionName: "a", style: "secondary" };
+    rejects({ ...base(), fromConfigRowActions: [button] });
+    rejects({ ...staticBase(), fromConfigRowActions: [button] });
+  });
+
+  it("an empty thirdRowActions, and one on a static table", () => {
+    // Absent is how a document says it has no third row, as for the second.
+    rejects({ ...base(), thirdRowActions: [] });
+    const button = { key: "k", label: "L", action: "doAction", actionName: "a", style: "secondary" };
+    rejects({ ...staticBase(), thirdRowActions: [button] });
+  });
+
   it("a negative keyColumnIdx", () => {
     rejects({ ...base(), formStateBinding: { keyColumnIdx: -1 } });
   });
 
   it("a schemaVersion other than 1", () => {
     rejects({ ...base(), schemaVersion: 2 });
+  });
+});
+
+/**
+ * The third action row. jetstore_maintenance_02, `D04`, task `AE.1` (2026-10-01).
+ *
+ * No Dart configuration had one, so nothing in the round trip above exercises it;
+ * these build one on `pipelineExecStatusTable`, the table that gets it, and follow
+ * it through every walk `actionRowsOf` now feeds.
+ */
+describe("thirdRowActions", () => {
+  const third: TableAction = {
+    key: "getRunManifest",
+    label: "Get Run Manifest",
+    action: "doAction",
+    actionName: "getRunManifest",
+    style: "secondary",
+    isEnabled: "alwaysEnabled",
+  } as TableAction;
+  const withThird = (): TableConfigDocument =>
+    ({ ...structuredClone(documents["pipelineExecStatusTable"]!), thirdRowActions: [third] }) as TableConfigDocument;
+
+  it("is accepted on a query table", () => {
+    expect(TableConfigDocumentSchema.safeParse(withThird()).success).toBe(true);
+  });
+
+  it("survives the translation to the model and back, in its own row", () => {
+    const config = fromDocument("pipelineExecStatusTable", withThird());
+    expect(config.thirdRowActions.map((a) => a.key)).toEqual(["getRunManifest"]);
+    expect(config.secondRowActions.map((a) => a.key)).not.toContain("getRunManifest");
+    const back = toDocument(config);
+    expect(back.source === "query" ? back.thirdRowActions?.map((a) => a.key) : undefined).toEqual([
+      "getRunManifest",
+    ]);
+  });
+
+  it("is the third of the rows actionRowsOf names, after the other two", () => {
+    expect(actionRowsOf(withThird()).map(([row]) => row)).toEqual([
+      "actions",
+      "secondRowActions",
+      "thirdRowActions",
+    ]);
+  });
+
+  it("is read by every walk: action names, escape names and escape references", () => {
+    const doc = withThird();
+    expect(actionNamesOf(doc)).toContain("getRunManifest");
+    expect(escapeNamesOf(doc)).toContain("alwaysEnabled");
+    expect(tableEscapeReferences(doc)).toContainEqual({
+      kind: "predicates",
+      name: "alwaysEnabled",
+      at: "/thirdRowActions/0/isEnabled",
+    });
+  });
+
+  it("is checked against the action document, with a pointer into its own row", () => {
+    const findings = validateTableActions(
+      { schemaVersion: 1, actions: {} } as never,
+      { schemaVersion: 1, forms: { showFailureDetailsDialog: {} } } as never,
+      { pipelineExecStatusTable: withThird() },
+    );
+    expect(findings.map((f) => f.path)).toContain("/pipelineExecStatusTable/thirdRowActions/0/actionName");
   });
 });
