@@ -72,7 +72,6 @@ import registerFileKeyFlowDoc from "../../../jets/workspace_assets/user_flows/re
 import sourceConfigFlowDoc from "../../../jets/workspace_assets/user_flows/sourceConfigUF.uf.json";
 import startPipelineFlowDoc from "../../../jets/workspace_assets/user_flows/startPipelineUF.uf.json";
 import workspacePullFlowDoc from "../../../jets/workspace_assets/user_flows/workspacePullUF.uf.json";
-import { validateDocumentSet } from "./documentSet";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { isFormValid, validateForm } from "./validateForm";
 
@@ -182,34 +181,11 @@ function harness(
   };
 }
 
-describe("the documents are complete and consistent", () => {
-  // **Moved to `documentSet.ts` rather than kept here.** These two checks were
-  // written in this file because it was the only place holding a whole set, and
-  // that is exactly why nothing else got them: a generator producing a set had
-  // no way to run them, and `store.ts` did not either. They are one exported
-  // function now, and this test is the corpus half of it — `documentSet.test.ts`
-  // carries the cases that make each check fire.
-  it.each([
-    ["registerFileKeyUF", registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc],
-    ["loadFilesUF", loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc],
-    ["loadConfigUF", loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc],
-    ["workspacePullUF", workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc],
-    ["clientRegistryUF", clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc],
-    ["startPipelineUF", startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc],
-    ["homeFiltersUF", homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc],
-    ["pipelineConfigUF", pipelineConfigFlowDoc, pipelineConfigActionsDoc, pipelineConfigFormsDoc],
-    ["fileMappingUF", fileMappingFlowDoc, fileMappingActionsDoc, fileMappingFormsDoc],
-    ["sourceConfigUF", sourceConfigFlowDoc, sourceConfigActionsDoc, sourceConfigFormsDoc],
-  ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
-    expect(
-      validateDocumentSet({
-        flow: UserFlowSchema.parse(flowDoc) as UserFlow,
-        actions: ActionDocumentSchema.parse(actionsDoc) as ActionDocument,
-        forms: FormDocumentSchema.parse(formsDoc) as FormDocument,
-      }),
-    ).toEqual([]);
-  });
-});
+// **The corpus half of `validateDocumentSet` moved to `shippingFlows.test.ts`**
+// (`jetstore_maintenance_02` AG.1, 2026-10-01). It was an `it.each` here over
+// ten flows named by hand, against fourteen on disk; it now walks the directory,
+// so a flow added there is set-checked without anybody listing it.
+// `documentSet.test.ts` still carries the cases that make each check fire.
 
 describe("register_file_key, end to end", () => {
   const setup = () => harness(registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc);
