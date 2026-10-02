@@ -306,6 +306,10 @@ const HAND_MAINTAINED_KEYS = [
   "pcPipelineConfigTable",
   // Its label repeated the screen title above it (Michel, 2026-10-01).
   "workspaceRegistryTable",
+  // A plain Show/Hide Select Row, and org's + Add (Michel, 2026-10-02).
+  "org",
+  "pcViewInjectedProcessInputKeys",
+  "pcViewMergedProcessInputKeys",
 ] as const;
 
 const flowDocuments = toDocuments(tables);
@@ -438,7 +442,11 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     expect(Object.keys(flowDocuments).length).toBe(31);
     expect(Object.keys(translated).length).toBe(52);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(handMaintained).length).toBe(5);
+    // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
+    // their fixture entry as the Flutter record other tests use as material —
+    // the on-disk document overrides the translation in `documents`, so the total
+    // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
+    expect(Object.keys(handMaintained).length).toBe(8);
     expect(Object.keys(documents).length).toBe(61);
   });
 
