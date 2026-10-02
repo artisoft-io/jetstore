@@ -96,37 +96,41 @@ export function TableView({
     predicates,
   };
 
+  /**
+   * The action rows, top to bottom — **a list, so a row is one entry**.
+   *
+   * **The second row is F.5's.** `ActionBar` renders nothing for an empty list,
+   * so it costs one element on the 37 flow tables and draws five buttons on
+   * `pipelineExecStatusTable` and eight on `workspaceRegistryTable`. Separate
+   * bars rather than one concatenated list because the Dart draws two
+   * (`components/data_table.dart`), and because concatenating would make a
+   * `secondRowActions` index unreachable from a finding pointer that names the
+   * row.
+   *
+   * **A list rather than two hard-coded bars since 2026-10-01**
+   * (`jetstore_maintenance_02`, `D03`), because `DataTable` now lays each entry
+   * out as a line of its own and needs to know where one row ends. It is also
+   * the extension point for `D04`'s third row: that is one more entry here, and
+   * nothing in `DataTable` or the stylesheet changes.
+   */
+  const actionRows = [config.actions, config.secondRowActions].map((actions, row) => (
+    <ActionBar
+      key={row}
+      actions={actions}
+      context={barContext}
+      widget={widget}
+      {...(selectedRow !== undefined ? { selectedRow } : {})}
+      onAction={onAction}
+    />
+  ));
+
   return (
     <DataTable
       config={config}
       state={binding}
       modes={binding.modes}
       cellFilters={cellFilters}
-      actions={
-        <>
-          <ActionBar
-            actions={config.actions}
-            context={barContext}
-            widget={widget}
-            {...(selectedRow !== undefined ? { selectedRow } : {})}
-            onAction={onAction}
-          />
-          {/* **The second row, F.5.** `ActionBar` renders nothing for an empty
-              list, so this costs one element on the 37 flow tables and draws
-              five buttons on `pipelineExecStatusTable` and eight on
-              `workspaceRegistryTable`. Two bars rather than one concatenated
-              list because the Dart draws two (`components/data_table.dart`), and
-              because concatenating would make a `secondRowActions` index
-              unreachable from a finding pointer that names the row. */}
-          <ActionBar
-            actions={config.secondRowActions}
-            context={barContext}
-            widget={widget}
-            {...(selectedRow !== undefined ? { selectedRow } : {})}
-            onAction={onAction}
-          />
-        </>
-      }
+      actionRows={actionRows}
     />
   );
 }
