@@ -564,8 +564,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	refuses it, by serving no buttons rather than failing the login.
 //	Until 2026-10-01 nothing read this variable: it was a compile-time constant of the Flutter
 //	app, and its Docker build argument was removed with that app. This synth-time half landed
-//	first; the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
-//	until they land the entry reaches the container and nothing there reads it.
+//	first; ~~the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
+//	until they land the entry reaches the container and nothing there reads it.~~ The apiserver
+//	serves it at sign-in as of AE.7 (jets/apiserver/custom_buttons.go, 2026-10-01); the React
+//	half is AE.8.
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))

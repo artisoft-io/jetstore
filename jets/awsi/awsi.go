@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -636,6 +637,16 @@ func UploadBufToS3(bucket, objKey string, buf []byte) error {
 }
 
 // download buf from S3, returning the obj
+//
+// **A missing object is answered at once and recognisably** (jetstore_maintenance_02
+// I-23, 2026-10-01). This retried every failure six times, sleeping 0.5 s to 3 s,
+// so a key that does not exist took about 10.5 s to report, and it flattened the
+// SDK's typed error with %v, so nothing upstream could tell "no such object" from
+// "the read failed" except by matching text. A missing key is not transient --
+// S3 answers it definitively -- so it is returned on the first attempt, and every
+// error is wrapped with %w so IsNoSuchKey sees through it. The Pipeline Status
+// screen's Get Run Manifest is the caller that needed it: a manifest exists for
+// completed cpipes runs only, so its absence is an ordinary answer.
 func DownloadBufFromS3(objKey string) ([]byte, error) {
 	s3Client, err := NewS3Client()
 	if err != nil {
@@ -643,32 +654,65 @@ func DownloadBufFromS3(objKey string) ([]byte, error) {
 	}
 	// Download the object
 	downloader := transfermanager.New(s3Client)
-
-	retry := 0
-do_retry:
-	// Download the object
-	// pre-allocate in memory buffer, where n is the object size
-	buf := make([]byte, 2048)
-	// wrap with aws.WriteAtBuffer
-	w := manager.NewWriteAtBuffer(buf)
-	_, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
-		Bucket:   &jetstoreOwnBucket,
-		Key:      &objKey,
-		WriterAt: w,
-	}, func(o *transfermanager.Options) {
-		o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
-		o.Concurrency = 10
-		o.GetObjectType = types.GetObjectParts
-	})
-	if err != nil {
-		if retry < 6 {
-			retry++
-			time.Sleep(time.Duration(500*retry) * time.Millisecond)
-			goto do_retry
+	return downloadWithRetry(func() ([]byte, error) {
+		// pre-allocate in memory buffer, where n is the object size
+		buf := make([]byte, 2048)
+		// wrap with aws.WriteAtBuffer
+		w := manager.NewWriteAtBuffer(buf)
+		_, err := downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+			Bucket:   &jetstoreOwnBucket,
+			Key:      &objKey,
+			WriterAt: w,
+		}, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+			o.Concurrency = 10
+			o.GetObjectType = types.GetObjectParts
+		})
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", jetstoreOwnBucket, objKey, err)
+		return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
+	}, time.Sleep, fmt.Sprintf("s3://%s/%s", jetstoreOwnBucket, objKey))
+}
+
+// downloadWithRetry runs one download attempt up to seven times, sleeping
+// 500 ms x the retry number between them -- the schedule DownloadBufFromS3 always
+// had -- except that a missing object is returned after the first. The attempt
+// and the sleep are parameters so the schedule can be tested without S3.
+func downloadWithRetry(attempt func() ([]byte, error), sleep func(time.Duration), location string) ([]byte, error) {
+	for retry := 0; ; retry++ {
+		buf, err := attempt()
+		if err == nil {
+			return buf, nil
+		}
+		if IsNoSuchKey(err) || retry >= 6 {
+			return nil, fmt.Errorf("failed to download s3 file '%s': %w", location, err)
+		}
+		sleep(time.Duration(500*(retry+1)) * time.Millisecond)
 	}
-	return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
+}
+
+// IsNoSuchKey reports whether err, however wrapped, is S3's answer that the
+// object does not exist: NoSuchKey from GetObject, or NotFound from a HeadObject.
+//
+// It asks for the error code rather than for *s3Types.NoSuchKey, because the
+// transfer manager may reach the object through either call and the two report
+// absence under different types; every SDK API error carries ErrorCode(). An
+// interface target for errors.As needs no import of smithy-go.
+//
+// Only meaningful where the caller may list the bucket: without s3:ListBucket S3
+// reports a missing key as AccessDenied, which this deliberately does not match.
+// The JetStore task role has it (SourceBucket.GrantReadWrite in the CDK).
+func IsNoSuchKey(err error) bool {
+	var apiErr interface{ ErrorCode() string }
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	switch apiErr.ErrorCode() {
+	case "NoSuchKey", "NotFound":
+		return true
+	}
+	return false
 }
 
 func StartExecution(stateMachineARN string, stateMachineInput map[string]any, name string) (string, error) {

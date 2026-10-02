@@ -215,6 +215,7 @@ func main() {
 	// is silent by design afterwards, and a misread switch is indistinguishable
 	// from a correctly read one without this line.
 	git.LogGitAccessMode()
+	logCustomButtons()
 	log.Println("ENV JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("ENV JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	log.Println("ENV JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))
