@@ -84,12 +84,8 @@ import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialo
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
 import { formEscapeReferences } from "../userflow/store";
 import { cellFiltersOf } from "../actions/cellFilters";
-import { customButtonAction, customButtonFor, customButtonSpec } from "../actions/customButtons";
-import {
-  browserWriteClipboard,
-  fetchStageFileThrough,
-  runStageClipboard,
-} from "../actions/stageClipboard";
+import { runCustomButton, withCustomButtons } from "../actions/pipelineStatusButtons";
+import { browserWriteClipboard, fetchStageFileThrough } from "../actions/stageClipboard";
 import { TextDialog } from "../components/TextDialog";
 import { validateAllGroups, type FieldError } from "../userflow/validateForm";
 import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
@@ -359,14 +355,10 @@ export function Home({ api }: { api: ApiClient }) {
       tablesWith(workspaceTable).reduce<Record<string, TableConfig>>((acc, table) => {
         if (!table.result.success) return acc;
         const caption = TABS.find((t) => t.key === table.key)?.caption ?? null;
-        const translated = fromDocument(table.key, table.result.data);
-        // **The custom buttons are added here and nowhere else**: Pipeline Status
-        // is the one table Flutter drew them on and the one the report names, and
-        // the document cannot carry them (`D04`, `AE.8`).
-        const config =
-          table.key === WORKSPACE_TABLE && customButtons.length > 0
-            ? { ...translated, fromConfigRowActions: customButtons.map(customButtonAction) }
-            : translated;
+        // The custom buttons, on Pipeline Status only; the document cannot carry
+        // them (`D04`, `AE.8`). `FlowRunner` does the same through the same helper
+        // (`I-26`), so every screen drawing that table draws them.
+        const config = withCustomButtons(fromDocument(table.key, table.result.data), customButtons);
         return { ...acc, [table.key]: caption === null ? config : { ...config, label: caption } };
       }, {}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -520,14 +512,15 @@ export function Home({ api }: { api: ApiClient }) {
           // A deployment's custom button names no entry in this screen's action
           // document — it is not authored anywhere — so it runs the clipboard
           // mechanism directly with its own spec (`AE.8`).
-          const custom = customButtonFor(customButtons, action);
+          const custom = runCustomButton(
+            customButtons,
+            action,
+            { formState, group: GROUP, flowKey: SCREEN_KEY },
+            host,
+          );
           if (custom !== undefined) {
             setBusy(true);
-            const outcome = await runStageClipboard(
-              customButtonSpec(custom),
-              { formState, group: GROUP, flowKey: SCREEN_KEY },
-              host,
-            );
+            const outcome = await custom;
             if (outcome !== null) setError(outcome);
             return;
           }

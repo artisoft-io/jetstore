@@ -16,8 +16,8 @@
  * as the apiserver's `/dataTable` switch does.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
@@ -172,6 +172,11 @@ interface Posted {
   body: Record<string, unknown>;
 }
 
+/** Added to the login response by a case; the D04 custom-button case sets it. */
+let extraLogin: Record<string, unknown> = {};
+/** The stage, by path, for `fetch_file_from_stage`; a path not here is a 404. */
+let stageFiles: Record<string, string> = {};
+
 /**
  * The apiserver, as much of it as this screen touches.
  *
@@ -198,6 +203,7 @@ function stubServer(overrides: { missing?: string[] } = {}) {
           // `process_mapping` is gated on it server-side (`sql_stmts.go`). A user
           // without it sees the worksheet and cannot save it.
           capabilities: ["workspace_ide", "run_pipelines", "client_config"],
+          ...extraLogin,
         }),
         { status: 200 },
       );
@@ -275,6 +281,13 @@ function stubServer(overrides: { missing?: string[] } = {}) {
       case "insert_rows":
       case "workspace_insert_rows":
         return new Response("{}", { status: 200 });
+
+      case "fetch_file_from_stage": {
+        const stagePath = String((body["data"] as { stage_file_path: string }[])[0]!.stage_file_path);
+        return stagePath in stageFiles
+          ? new Response(JSON.stringify({ file_content: stageFiles[stagePath] }), { status: 200 })
+          : new Response(JSON.stringify({ error: `NoSuchKey: ${stagePath}` }), { status: 404 });
+      }
 
       default:
         return new Response(JSON.stringify({ error: `unexpected action ${String(body["action"])}` }), {
@@ -1083,5 +1096,69 @@ describe("home_filters in the app", () => {
     // A string, not `["sess-1"]`. `jets/apiserver/api_tables.go`'s
     // `resubmit_pipeline` type-asserts it and answers 400 for a list.
     expect(rows[0]!["session_id"]).toBe("sess-1");
+  });
+
+  /**
+   * **The deployment's custom buttons are drawn here too** (jetstore_maintenance_02
+   * `D04`, `I-26`, decided 2026-10-01): wherever Pipeline Status is drawn, not on
+   * Home alone, through the helper Home uses (`actions/pipelineStatusButtons.ts`).
+   */
+  describe("with a deployment's custom button", () => {
+    const ANALYSIS =
+      "process_name=loadFile/session_id=sess-1/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv";
+    let copied: string[] = [];
+
+    beforeEach(() => {
+      copied = [];
+      extraLogin = {
+        capabilities: ["workspace_ide", "run_pipelines", "client_config", "jetstore_read"],
+        custom_buttons: [
+          {
+            type: "fetch_stage_to_clipboard",
+            key: "analysis_report_to_clipboard",
+            label: "Analysis Report",
+            replace_text: "|",
+            replace_with: ",",
+            fsk_params: ["process_name", "session_id"],
+            file_path:
+              "process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv",
+          },
+        ],
+      };
+      stageFiles = { [ANALYSIS]: "a|b" };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: async (text: string) => void copied.push(text) },
+      });
+    });
+
+    afterEach(() => {
+      extraLogin = {};
+      stageFiles = {};
+      Reflect.deleteProperty(navigator, "clipboard");
+    });
+
+    it("draws it last on the table's third row, in the flow's status step", async () => {
+      await walkToTheTable();
+      await screen.findByText("sess-1");
+      const third = screen.getByRole("button", { name: "Get Run Manifest" }).closest(".jets-datatable__header-row")!;
+      expect(
+        within(third as HTMLElement)
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Get Run Manifest", "Get Schema Event", "Analysis Report"]);
+    });
+
+    it("runs the clipboard path when pressed", async () => {
+      const { posts } = await walkToTheTable();
+      await screen.findByText("sess-1");
+      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+      fireEvent.click(screen.getByRole("button", { name: "Analysis Report" }));
+      await screen.findByText("Analysis Report copied to the clipboard.");
+      expect(copied).toEqual(["a,b"]);
+      const fetched = posts.find((p) => p.body["action"] === "fetch_file_from_stage")!;
+      expect(fetched.body["data"]).toEqual([{ stage_file_path: ANALYSIS }]);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
   });
 });

@@ -48,6 +48,7 @@ import { cellFiltersOf, type CellFilters } from "../actions/cellFilters";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
 import { setCpipesWorkspace } from "../cpipes/templateApply";
 import { browserWriteClipboard, fetchStageFileThrough } from "../actions/stageClipboard";
+import { runCustomButton, withCustomButtons } from "../actions/pipelineStatusButtons";
 import { TextDialog } from "../components/TextDialog";
 import {
   currentDataRegistryFilters,
@@ -130,6 +131,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const [loadFindings, setLoadFindings] = useState<string[] | null>(null);
   const [position, setPosition] = useState<FlowPosition | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
+  /** The deployment's custom buttons, from sign-in (`AE.8`, `I-26`). */
+  const customButtons = api.currentUser?.customButtons ?? [];
   /** A refused clipboard write's text (`R-2`); see the host's `showText`. */
   const [shownText, setShownText] = useState<{ title: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -636,6 +639,21 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 
   const onTableAction = useCallback(
     (request: ActionRequest, action: ActionConfig) => {
+      // A deployment's custom button on Pipeline Status, which `homeFiltersUF`
+      // draws (`D04`, `I-26`): authored nowhere, so not a `runAction`.
+      const custom = runCustomButton(
+        customButtons,
+        action,
+        { formState, group: GROUP, flowKey: loaded?.flow.key ?? "" },
+        host,
+      );
+      if (custom !== undefined) {
+        setError(null);
+        void custom.then((outcome) => {
+          if (outcome !== null) setError(outcome);
+        });
+        return;
+      }
       switch (request.kind) {
         case "runAction":
           void press(request.name);
@@ -693,7 +711,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
       }
     },
-    [press, formState, loaded, setError, host, openFlowDialog],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [press, formState, loaded, setError, host, openFlowDialog, JSON.stringify(customButtons)],
   );
 
   /**
@@ -813,7 +832,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
             queryRows: queries.rows,
             queriesLoading: queries.loading,
             groupCount: 1,
-            tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
+            tableConfig: (tableKey) => withCustomButtons(tableConfigOf(loaded.flow, tableKey), customButtons),
             fetcher,
             tableContext,
             predicates: productionRegistry.predicates,
@@ -854,7 +873,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
             currentForm.repeat === undefined
               ? 1
               : Math.min(repeatRows?.length ?? 0, formState.groupCount),
-          tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
+          tableConfig: (tableKey) => withCustomButtons(tableConfigOf(loaded.flow, tableKey), customButtons),
           fetcher,
           tableContext,
           predicates: productionRegistry.predicates,
