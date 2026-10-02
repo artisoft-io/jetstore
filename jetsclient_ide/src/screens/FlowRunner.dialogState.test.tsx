@@ -366,3 +366,23 @@ describe("the other flow dialogs, on their own state", () => {
     });
   });
 });
+
+describe("Delete Client", () => {
+  it("deletes the selected client and says so in the status banner", async () => {
+    // Michel, 2026-10-02: a successful delete showed nothing, so it read as
+    // the button not working. The banner comes after the post, which stops the
+    // action on a failure, so it only ever reports a delete that happened.
+    const { posts } = await mount("clientRegistryUF");
+    await screen.findByText("the client");
+    tick("the client");
+    vi.stubGlobal("confirm", () => true);
+    try {
+      fireEvent.click(button("Delete Client"));
+      await waitFor(() => expect(writes(posts)).toEqual([{ table: "delete/client", row: { client: "ACME" } }]));
+      expect((await screen.findByRole("status")).textContent).toBe("Client deleted");
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
