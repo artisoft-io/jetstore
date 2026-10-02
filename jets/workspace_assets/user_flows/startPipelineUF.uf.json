@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "Start Pipeline",
+  "exitScreenPath": "/home",
   "startAtKey": "select_pipeline_config",
   "states": {
     "select_pipeline_config": {

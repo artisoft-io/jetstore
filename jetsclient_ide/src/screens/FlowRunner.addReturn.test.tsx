@@ -37,6 +37,15 @@ import clientRegistryForms from "../../../jets/workspace_assets/user_flows/clien
 import sourceConfigFlow from "../../../jets/workspace_assets/user_flows/sourceConfigUF.uf.json";
 import sourceConfigActions from "../../../jets/workspace_assets/user_flows/sourceConfigUF.ua.json";
 import sourceConfigForms from "../../../jets/workspace_assets/user_flows/sourceConfigUF.form.json";
+import startPipelineFlow from "../../../jets/workspace_assets/user_flows/startPipelineUF.uf.json";
+import startPipelineActions from "../../../jets/workspace_assets/user_flows/startPipelineUF.ua.json";
+import startPipelineForms from "../../../jets/workspace_assets/user_flows/startPipelineUF.form.json";
+import pipelineConfigKey from "../../../jets/workspace_assets/table_configs/pipeline_config_key.tc.json";
+import mainInputRegistryKey from "../../../jets/workspace_assets/table_configs/main_input_registry_key.tc.json";
+import mergeProcessInputTable from "../../../jets/workspace_assets/table_configs/mergeProcessInputTable.tc.json";
+import mergedInputRegistryKeys from "../../../jets/workspace_assets/table_configs/merged_input_registry_keys.tc.json";
+import spSummaryDataSources from "../../../jets/workspace_assets/table_configs/spSummaryDataSources.tc.json";
+import spInjectedProcessInput from "../../../jets/workspace_assets/table_configs/spInjectedProcessInput.tc.json";
 import { FlowRunner } from "./FlowRunner";
 
 afterEach(cleanup);
@@ -56,6 +65,15 @@ const files: Record<string, string> = {
   "table_configs/scSourceConfigKey.tc.json": serialise(scSourceConfigKey),
   "table_configs/input_format.tc.json": serialise(inputFormatTable),
   "table_configs/scSingleOrMultiPartFileOption.tc.json": serialise(scSingleOrMultiPart),
+  "user_flows/startPipelineUF.uf.json": serialise(startPipelineFlow),
+  "user_flows/startPipelineUF.ua.json": serialise(startPipelineActions),
+  "user_flows/startPipelineUF.form.json": serialise(startPipelineForms),
+  "table_configs/pipeline_config_key.tc.json": serialise(pipelineConfigKey),
+  "table_configs/main_input_registry_key.tc.json": serialise(mainInputRegistryKey),
+  "table_configs/mergeProcessInputTable.tc.json": serialise(mergeProcessInputTable),
+  "table_configs/merged_input_registry_keys.tc.json": serialise(mergedInputRegistryKeys),
+  "table_configs/spSummaryDataSources.tc.json": serialise(spSummaryDataSources),
+  "table_configs/spInjectedProcessInput.tc.json": serialise(spInjectedProcessInput),
 };
 
 /** `source_config`'s fifteen columns, in `scSourceConfigKey.tc.json`'s order. */
@@ -183,7 +201,7 @@ function Banners() {
   );
 }
 
-async function mount(flowKey: string, fillers = 0) {
+async function mount(flowKey: string, fillers = 0, search = "") {
   const server = stubServer(fillers);
   const api = new ApiClient("", server.fetchImpl);
   await api.login("michel@artisoft.io", "pw");
@@ -191,7 +209,7 @@ async function mount(flowKey: string, fillers = 0) {
     <ApiProvider api={api}>
       <NotificationsProvider>
         <Banners />
-        <MemoryRouter initialEntries={[`/flow/${flowKey}`]}>
+        <MemoryRouter initialEntries={[`/flow/${flowKey}${search}`]}>
           <Routes>
             <Route path="/flow/:key" element={<FlowRunner api={api} />} />
             <Route path="/home" element={<p>the home screen</p>} />
@@ -424,6 +442,22 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
     await mount("sourceConfigUF");
     await screen.findByText("GLOBEX_EAST_claim");
     fireEvent.click(button("Close"));
+    expect(await screen.findByText("the home screen")).toBeTruthy();
+  });
+});
+
+describe("Start Pipeline always ends on Home", () => {
+  it("leaves for /home on Cancel even when opened from the status filters flow", async () => {
+    // `jetstore_maintenance_02` Phase 2, Michel's decision of 2026-10-02. Opened
+    // from `homeFiltersUF`'s status step, the url carries `returnTo` naming that
+    // flow, and its *Cancel* and *Start Pipeline & Done* went back to it.
+    // `exitScreenPath` is consulted before `returnTo` (`FlowRunner`, `exit`), and
+    // `/home` resolves because `SERVED_SCREENS` has a row for it. Proved by
+    // mutation: without the `exitScreenPath` this lands on `/flow/homeFiltersUF`,
+    // whose documents the stub does not hold, and the home screen never appears.
+    await mount("startPipelineUF", 0, "?returnTo=%2Fflow%2FhomeFiltersUF");
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Start Pipeline");
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     expect(await screen.findByText("the home screen")).toBeTruthy();
   });
 });

@@ -113,6 +113,14 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
    * the same and always will be.
    */
   "/fileLoaderStatus": { reactPath: "/fileLoaderStatus" },
+  /**
+   * **The second key with no Flutter predecessor.** Flutter's home was `/`; this
+   * app's index has been `/home` since X.1 and `/` only redirects to it. Added for
+   * `startPipelineUF`'s `exitScreenPath` (`jetstore_maintenance_02` Phase 2,
+   * 2026-10-02: *Start Pipeline* always ends on Home), because an `exitScreenPath`
+   * resolves through this table and a path not in it falls through to `returnTo`.
+   */
+  "/home": { reactPath: "/home" },
 };
 
 /**
