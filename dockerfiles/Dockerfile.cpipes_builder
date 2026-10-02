@@ -49,7 +49,10 @@ ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
 RUN go mod tidy
-RUN go get all
+# No `go get all`: it upgrades every dependency to its latest release at build time, so the
+# build is not reproducible and breaks when an upstream release drops a package another
+# dependency imports (golang.org/x/tools v0.51.0 removed internal/aliases, still imported by
+# golang.org/x/tools/godoc via jsii-runtime-go). Versions are pinned by go.mod and go.sum.
 RUN go mod download
 
 # Build the C++ library - native rule engine
