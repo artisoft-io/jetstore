@@ -116,7 +116,16 @@ export function TableView({
    * **And it was** (`AE.1`, 2026-10-01): `thirdRowActions` is the third entry, and
    * this diff is the whole of what drawing it cost.
    */
-  const actionRows = [config.actions, config.secondRowActions, config.thirdRowActions].map((actions, row) => (
+  // **The deployment's custom buttons go at the end of the last row** (`D04`,
+  // `AE.8`, 2026-10-01): `fromConfigRowActions` is never in a document — both
+  // schemas refuse it (`ui_refresh` I-102) — and is filled at run time by the one
+  // screen that has any, after the row's authored buttons, which is where Flutter
+  // drew them and where the report asks for them.
+  const authoredRows = [config.actions, config.secondRowActions, config.thirdRowActions];
+  const lastRow = authoredRows.length - 1;
+  const actionRows = authoredRows.map((authored, row) =>
+    row === lastRow && config.fromConfigRowActions.length > 0 ? [...authored, ...config.fromConfigRowActions] : authored,
+  ).map((actions, row) => (
     <ActionBar
       key={row}
       actions={actions}

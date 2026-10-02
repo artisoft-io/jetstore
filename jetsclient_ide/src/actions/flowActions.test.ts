@@ -218,10 +218,14 @@ describe("the flows' action documents", () => {
     // Dart original, because its table's first row opens a dialog whose Save
     // button runs it (`AD.3`). The I-114 shape — an arm a flow needs that the
     // delegates never declared — arriving from the port's own work.
+    //
+    // **55 the same day again** (`jetstore_maintenance_02` `D04`, `AE.4` and
+    // `AE.5`): the same table's third row gained *Get Run Manifest* and *Get
+    // Schema Event*, two more arms the Dart never declared, for the same reason.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(53);
+    expect(names).toHaveLength(55);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -409,8 +413,13 @@ describe("the flows' action documents", () => {
     // table's first row now opens (`jetstore_maintenance_02` `D01`, task `AD.3`);
     // the flow carries it because it draws the table, as it carries
     // `resubmitPipeline`.
+    //
+    // **Nine, the same day** (`D04`, `AE.4`, `AE.5`): `getRunManifest` and
+    // `getSchemaEvent` are the table's third-row buttons, here for the same reason.
     expect(Object.keys((homeFilters as ActionDocument).actions).sort()).toEqual([
       "dialogCancel",
+      "getRunManifest",
+      "getSchemaEvent",
       "hfSelectFileKeyFilterUF",
       "hfSelectProcessUF",
       "hfSelectStatusUF",
@@ -581,8 +590,15 @@ describe("the flows' action documents", () => {
     // vocabulary nor permission, but that `wholeState`'s `normalise` and `omit`
     // carry no `when`, so the Dart's per-file-type projection of a *copy* of the
     // state has no guarded form. See `sourceConfig.ts`.
+    // **Seven since 2026-10-01** (`jetstore_maintenance_02` `D04`): the Pipeline
+    // Status table's clipboard buttons, which every flow drawing that table runs —
+    // `fetchStageToClipboard` because a `post` drops the body it needs, and
+    // `copySchemaEvent` because it reads one column of a query result. Neither is
+    // a transcription of a Dart arm, so neither is a candidate for becoming grammar.
     expect([...new Set(escapes)].sort()).toEqual([
+      "copySchemaEvent",
       "downloadMapping",
+      "fetchStageToClipboard",
       "loadRawRows",
       "readXlsxSheetOption",
       "saveSourceConfigForFileType",
@@ -707,6 +723,16 @@ describe("every form-state key is a declared constant's value", () => {
      * to say it by F.9.
      */
     "is_part_files",
+    /**
+     * **The clipboard escape's parameters** (`jetstore_maintenance_02` `D04`,
+     * `AE.4`, 2026-10-01). Real form-state keys, written by `set` steps and
+     * consumed by `fetchStageToClipboard` (`stageClipboard.ts`,
+     * `STAGE_CLIPBOARD_KEYS`); new with the port, so no Dart constant declares
+     * them. `main_input_registry_key` needs no entry — it is a declared value.
+     */
+    "stage_clipboard.file_path",
+    "stage_clipboard.label",
+    "stage_clipboard.missing_message",
   ]);
 
   it("reads the constants file it depends on", () => {

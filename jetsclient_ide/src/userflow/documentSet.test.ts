@@ -329,6 +329,14 @@ describe("a table action naming something the set does not define", () => {
       "putSchemaEventDialog",
     ]);
     execStatus.actions = execStatus.actions!.filter((a) => !(a.actionName ?? a.configForm));
+    // **And a third row since the same day** (`D04`, `AE.4`, `AE.5`), taken off for
+    // the same reason; `datatable/table.test.ts`'s `thirdRowActions` block is where
+    // that row's walk is asserted.
+    expect((execStatus.thirdRowActions ?? []).map((a) => a.actionName)).toEqual([
+      "getRunManifest",
+      "getSchemaEvent",
+    ]);
+    delete execStatus.thirdRowActions;
 
     const actions = ActionDocumentSchema.parse({
       schemaVersion: 1,

@@ -160,6 +160,8 @@ describe("the production registry", () => {
     // rule again: this list is an upper bound on what the grammar cannot say.
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
+      // jetstore_maintenance_02 AE.5: Get Schema Event, a read and a clipboard.
+      "copySchemaEvent",
       "cpipesTemplateApply",
       "downloadMapping",
       // **Eleven as of 2026-10-01** (jetstore_maintenance_02 AE.3): a clipboard

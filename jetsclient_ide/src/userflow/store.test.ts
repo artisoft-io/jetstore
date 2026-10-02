@@ -226,9 +226,11 @@ describe("loading", () => {
     expect(error).toBeInstanceOf(FlowLoadError);
     expect(error.message).toContain("updateHomeFilters");
 
+    // The two clipboard escapes since 2026-10-01: the flow draws Pipeline Status,
+    // whose third row runs them (`jetstore_maintenance_02` `D04`).
     const { store: ok } = storeFor(
       workspace("homeFiltersUF", homeFiltersFlow, homeFiltersActions),
-      registryWith(["updateHomeFilters"]),
+      registryWith(["updateHomeFilters", "fetchStageToClipboard", "copySchemaEvent"]),
     );
     await expect(ok.load("homeFiltersUF")).resolves.toBeTruthy();
   });
@@ -754,7 +756,9 @@ describe("escape references", () => {
       { kind: "initializers", name: "seedFromHomeFilters", at: "/formStateInitializer" },
     ]);
     const actions = references.filter((r) => r.kind === "actions");
-    expect(actions).toHaveLength(4);
+    // Four `updateHomeFilters` steps, and since 2026-10-01 the two clipboard
+    // escapes of the table's third row (`D04`).
+    expect(actions).toHaveLength(6);
     expect(actions[0]!.at).toMatch(/^\/actions\/.+\/steps\/\d+$/);
   });
 });

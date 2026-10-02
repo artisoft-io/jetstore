@@ -566,8 +566,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	app, and its Docker build argument was removed with that app. This synth-time half landed
 //	first; ~~the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
 //	until they land the entry reaches the container and nothing there reads it.~~ The apiserver
-//	serves it at sign-in as of AE.7 (jets/apiserver/custom_buttons.go, 2026-10-01); the React
-//	half is AE.8.
+//	serves it at sign-in as of AE.7 (jets/apiserver/custom_buttons.go, 2026-10-01), and the React
+//	app draws the buttons on the Pipeline Status table as of AE.8 the same day
+//	(jetsclient_ide/src/actions/customButtons.ts).
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))

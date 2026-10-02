@@ -90,6 +90,7 @@ import {
 import { openWorkspace } from "./workspaceRegistry";
 import { loadReteSession, seedInputRecordsRow } from "./processErrors";
 import { resolveProcessConfigKey } from "./ruleConfig";
+import { copySchemaEvent } from "./schemaEvent";
 import { fetchStageToClipboard } from "./stageClipboard";
 import type { EscapeRegistry } from "./escapes";
 
@@ -333,6 +334,10 @@ export const productionRegistry: EscapeRegistry = {
     // S3 stage, onto the clipboard. *Get Run Manifest* and a deployment's custom
     // buttons are both instances of it. See `stageClipboard.ts`.
     fetchStageToClipboard,
+    // **Twelve**, the same day and the same table: *Get Schema Event* reads one
+    // column of the registry row the selected run names, which is
+    // `loadReteSession`'s shape, and ends on the same clipboard. See `schemaEvent.ts`.
+    copySchemaEvent,
   },
   initializers: { seedFromHomeFilters },
   // **Two as of C.9, and the second is the first outside a flow.** F.1 built the

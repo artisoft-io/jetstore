@@ -41,6 +41,8 @@
  * which is what keeps I-124's byte-identical refusals intact.
  */
 
+import { parseCustomButtons, type CustomButton } from "../actions/customButtons";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -108,6 +110,13 @@ export interface User {
    * `formatBuildInfo` (`shell/buildInfo.ts`) — jetstore_maintenance_02, D05.
    */
   jetstoreGitSha: string;
+  /**
+   * The deployment's own Pipeline Status buttons, from the login response's
+   * `custom_buttons` (`jets/apiserver/custom_buttons.go`). jetstore_maintenance_02
+   * `D04`, `AE.8`. Empty when the deployment configures none or the value cannot
+   * be used — see `actions/customButtons.ts` for why it is all or nothing.
+   */
+  customButtons: CustomButton[];
   devMode: boolean;
   /**
    * The git identity, for the git profile screen. Task C.14.
@@ -131,6 +140,8 @@ interface LoginResponse {
   dev_mode?: string;
   jetstore_version?: string;
   jetstore_git_sha?: string;
+  /** Served as written by the operator; parsed by `parseCustomButtons`. */
+  custom_buttons?: unknown;
   /**
    * The git profile, from `jetsUser.UserGitProfile` (`jets/apiserver/api_users.go`,
    * the `"gitProfile"` entry of the login `data` map).
@@ -252,6 +263,7 @@ export class ApiClient {
       capabilities: body.capabilities ?? [],
       jetstoreVersion: body.jetstore_version ?? "",
       jetstoreGitSha: body.jetstore_git_sha ?? "",
+      customButtons: parseCustomButtons(body.custom_buttons),
       devMode: body.dev_mode === "true",
       gitProfile: {
         gitName: body.gitProfile?.git_name ?? "",

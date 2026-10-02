@@ -45,6 +45,9 @@ afterEach(() => {
   resetSelectedClient();
   putSchemaEventResponse = { status: 200, body: {} };
   loginCapabilities = ["run_pipelines"];
+  loginCustomButtons = undefined;
+  stageFiles = {};
+  schemaEvents = {};
 });
 
 /**
@@ -82,6 +85,19 @@ let putSchemaEventResponse: { status: number; body: unknown } = { status: 200, b
 /** The signed-in user's capabilities; one case removes `run_pipelines`. */
 let loginCapabilities = ["run_pipelines"];
 
+/** The login response's `custom_buttons` (`D04`, `AE.8`); absent unless a case sets it. */
+let loginCustomButtons: unknown = undefined;
+
+/**
+ * The S3 stage as `fetch_file_from_stage` sees it, by path under the stage
+ * prefix. A path not here is answered 404, which is what the handler says for a
+ * missing object since `I-23`.
+ */
+let stageFiles: Record<string, string> = {};
+
+/** `input_registry.schema_provider_json` by registry key, for *Get Schema Event*. */
+let schemaEvents: Record<string, string | null> = {};
+
 function stubServer() {
   const posts: Posted[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
@@ -97,6 +113,7 @@ function stubServer() {
           user_email: "michel@artisoft.io",
           is_admin: false,
           capabilities: loginCapabilities,
+          ...(loginCustomButtons !== undefined ? { custom_buttons: loginCustomButtons } : {}),
         }),
         { status: 200 },
       );
@@ -121,8 +138,23 @@ function stubServer() {
         const rows = from === "pipeline_execution_status" ? execRows : registryRows;
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
-      case "raw_query":
+      case "raw_query": {
+        // *Get Schema Event*'s read (`AE.5`), told apart from the client picker's
+        // by the column it selects.
+        const query = String(body["query"]);
+        if (query.includes("schema_provider_json")) {
+          const key = /WHERE key = (\d+)/.exec(query)?.[1] ?? "";
+          const rows = key in schemaEvents ? [[schemaEvents[key]]] : [];
+          return new Response(JSON.stringify({ rows }), { status: 200 });
+        }
         return new Response(JSON.stringify({ rows: [["acme"], ["globex"]] }), { status: 200 });
+      }
+      case "fetch_file_from_stage": {
+        const path = String((body["data"] as { stage_file_path: string }[])[0]!.stage_file_path);
+        return path in stageFiles
+          ? new Response(JSON.stringify({ file_content: stageFiles[path] }), { status: 200 })
+          : new Response(JSON.stringify({ error: `NoSuchKey: ${path}` }), { status: 404 });
+      }
       case "resubmit_pipeline":
         return new Response("{}", { status: 200 });
       case "put_schema_event_to_s3":
@@ -745,3 +777,167 @@ async function selectRow(text: string) {
   fireEvent.click(box);
   await waitFor(() => expect(box.checked).toBe(true));
 }
+
+/**
+ * `D04`'s third row: *Get Run Manifest*, *Get Schema Event*, and the deployment's
+ * custom buttons after them. jetstore_maintenance_02 tasks `AE.4`, `AE.5`, `AE.8`
+ * and `AE.9`, 2026-10-01.
+ *
+ * The clipboard is the browser's, so it is stubbed on `navigator`; everything
+ * else is the real screen over a stubbed `fetch`. **The layout half of criterion
+ * 11 is structure, not boxes** — jsdom computes none — so these say which line a
+ * button is on and in what order, and a browser says where the line lands.
+ */
+describe("the third row (D04)", () => {
+  const CEDARGATE = [
+    {
+      type: "fetch_stage_to_clipboard",
+      key: "analysis_report_to_clipboard",
+      description: "Get Analysis Report from JetStore stage s3 location to clipboard",
+      label: "Analysis Report",
+      replace_text: "|",
+      replace_with: ",",
+      fsk_params: ["process_name", "session_id"],
+      file_path:
+        "process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv",
+    },
+  ];
+  const MANIFEST = "process_name=loader/session_id=sess-1/run_manifest.json";
+
+  let copied: string[] = [];
+  let clipboardRefuses = false;
+  const originalStatus = execRows[0]![8];
+
+  function stubClipboard() {
+    copied = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          if (clipboardRefuses) throw new DOMException("Document is not focused.", "NotAllowedError");
+          copied.push(text);
+        },
+      },
+    });
+  }
+
+  afterEach(() => {
+    clipboardRefuses = false;
+    execRows[0]![8] = originalStatus ?? null;
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  /** Signed in with what the buttons need, on Pipeline Status, row selected. */
+  async function onSelectedRun(status = "completed") {
+    loginCapabilities = ["run_pipelines", "jetstore_read"];
+    execRows[0]![8] = status;
+    stubClipboard();
+    const mounted = await mount();
+    await openTab("Pipelines Status", PIPELINES_MARKER);
+    await selectRow(PIPELINES_MARKER);
+    return mounted;
+  }
+
+  const lineOf = (label: string) => button(label).closest(".jets-datatable__header-row");
+  const labelsOn = (line: Element | null) =>
+    within(line as HTMLElement)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+
+  it("draws three action rows in the report's order, the custom buttons last on the third", async () => {
+    // Criterion 11 (the layout half) and 14 (*rendered after the two built-ins*).
+    loginCustomButtons = CEDARGATE;
+    await onSelectedRun();
+    expect(lineOf("Clear Filters")).toBe(lineOf("Start Pipeline"));
+    expect(lineOf("Resubmit")).toBe(lineOf("View Execution Details"));
+    const third = lineOf("Get Run Manifest");
+    expect(third).not.toBe(lineOf("Start Pipeline"));
+    expect(third).not.toBe(lineOf("View Execution Details"));
+    expect(labelsOn(third)).toEqual(["Get Run Manifest", "Get Schema Event", "Analysis Report"]);
+    // And in the DOM's order: first, second, third.
+    const lines = [...document.querySelectorAll(".jets-datatable__header-row")];
+    expect(lines.indexOf(lineOf("Start Pipeline")!)).toBeLessThan(lines.indexOf(lineOf("Resubmit")!));
+    expect(lines.indexOf(lineOf("Resubmit")!)).toBeLessThan(lines.indexOf(third!));
+  });
+
+  it("offers Get Run Manifest on a completed run only", async () => {
+    // A manifest is written for completed cpipes runs only (F20), so the row's
+    // status gates the button (F51); a completed run that was not cpipes is the
+    // next case.
+    await onSelectedRun("failed");
+    expect((button("Get Run Manifest") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("copies a completed run's manifest and says so in the banner", async () => {
+    // Criterion 12, first half. The path is built from the selected row's
+    // process_name and session_id, which the binding publishes as lists (F19).
+    stageFiles = { [MANIFEST]: '{"run":"sess-1"}' };
+    const { posts } = await onSelectedRun();
+    fireEvent.click(button("Get Run Manifest"));
+    await screen.findByText("Run manifest copied to the clipboard.");
+    expect(copied).toEqual(['{"run":"sess-1"}']);
+    expect(posts.map((p) => p.body["action"])).toContain("fetch_file_from_stage");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says plainly when a completed run has no manifest, rather than reporting an error", async () => {
+    // Criterion 12, second half: the handler's 404 (I-23) is an answer here.
+    await onSelectedRun();
+    fireEvent.click(button("Get Run Manifest"));
+    await screen.findByText(
+      "There is no manifest for this run: one is written only when a cpipes run completes.",
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(copied).toEqual([]);
+  });
+
+  it("shows the manifest in a dialog when the browser refuses the clipboard (R-2)", async () => {
+    stageFiles = { [MANIFEST]: '{"run":"sess-1"}' };
+    clipboardRefuses = true;
+    await onSelectedRun();
+    fireEvent.click(button("Get Run Manifest"));
+    const dialog = await screen.findByRole("dialog", { name: "Run manifest" });
+    expect((within(dialog).getByRole("textbox") as HTMLTextAreaElement).value).toBe('{"run":"sess-1"}');
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Run manifest" })).toBeNull());
+  });
+
+  it("copies the schema event of the registry row main_input_registry_key names", async () => {
+    // Criterion 13. Column 14 of the row is 42; the lookup is by that key, not by
+    // `input_session_id`, which can name several rows (F17, R8).
+    schemaEvents = { "42": '{"event":"from registry 42"}' };
+    const { posts } = await onSelectedRun("failed");
+    fireEvent.click(button("Get Schema Event"));
+    await screen.findByText("Schema event copied to the clipboard.");
+    expect(copied).toEqual(['{"event":"from registry 42"}']);
+    const read = posts.find((p) => String(p.body["query"] ?? "").includes("schema_provider_json"));
+    expect(String(read!.body["query"])).toContain("WHERE key = 42");
+  });
+
+  it("runs a custom button: substitutes the row, applies its replacement, copies", async () => {
+    loginCustomButtons = CEDARGATE;
+    stageFiles = {
+      "process_name=loader/session_id=sess-1/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv":
+        "a|b\nc|d",
+    };
+    await onSelectedRun();
+    fireEvent.click(button("Analysis Report"));
+    await screen.findByText("Analysis Report copied to the clipboard.");
+    expect(copied).toEqual(["a,b\nc,d"]);
+  });
+
+  it("draws the custom buttons on Pipeline Status only", async () => {
+    loginCustomButtons = CEDARGATE;
+    await onSelectedRun();
+    expect(button("Analysis Report")).toBeTruthy();
+    await openTab("Data Registry", "claim_staging");
+    expect(screen.queryByRole("button", { name: "Analysis Report" })).toBeNull();
+  });
+
+  it("draws no custom button when the value cannot be used, and keeps the built-ins", async () => {
+    loginCustomButtons = [{ type: "fetch_stage_to_clipboard", key: "x" }]; // no file_path
+    await onSelectedRun();
+    expect(screen.queryByRole("button", { name: "Analysis Report" })).toBeNull();
+    expect(labelsOn(lineOf("Get Run Manifest"))).toEqual(["Get Run Manifest", "Get Schema Event"]);
+  });
+});

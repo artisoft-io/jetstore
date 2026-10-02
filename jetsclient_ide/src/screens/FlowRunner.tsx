@@ -47,6 +47,8 @@ import { runAction, type ActionHost, type ActionResult, type PostResult } from "
 import { cellFiltersOf, type CellFilters } from "../actions/cellFilters";
 import { productionRegistry, setFileKeyLabelPattern } from "../actions/registry";
 import { setCpipesWorkspace } from "../cpipes/templateApply";
+import { browserWriteClipboard, fetchStageFileThrough } from "../actions/stageClipboard";
+import { TextDialog } from "../components/TextDialog";
 import {
   currentDataRegistryFilters,
   currentHomeFilters,
@@ -128,6 +130,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const [loadFindings, setLoadFindings] = useState<string[] | null>(null);
   const [position, setPosition] = useState<FlowPosition | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
+  /** A refused clipboard write's text (`R-2`); see the host's `showText`. */
+  const [shownText, setShownText] = useState<{ title: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   /**
    * Bumped whenever the form state changes, so this screen re-renders with it.
@@ -515,6 +519,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
        * housekeeping**: the object url pins the blob for the document's lifetime,
        * and a mapping export is a megabyte of held memory per press.
        */
+      // The Pipeline Status table's clipboard buttons (`jetstore_maintenance_02`
+      // `D04`): `homeFiltersUF` draws that table, so its third row runs here too,
+      // and needs what Home's host gives it.
+      fetchStageFile: fetchStageFileThrough(api),
+      writeClipboard: browserWriteClipboard,
+      showText: (title, text) => setShownText({ title, text }),
       download: (fileName, content) => {
         const url = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
         const anchor = document.createElement("a");
@@ -787,6 +797,10 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         <h1>{loaded.flow.flow.title ?? key}</h1>
         <p className="uf-runner__state">{state.description}</p>
       </header>
+
+      {shownText !== null && (
+        <TextDialog title={shownText.title} text={shownText.text} onClose={() => setShownText(null)} />
+      )}
 
       {dialogForm !== null && (
         <FormDialog
