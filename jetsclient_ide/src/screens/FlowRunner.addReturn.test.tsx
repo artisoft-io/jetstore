@@ -20,7 +20,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import type { JetsRow } from "../datatable/types";
@@ -46,7 +46,9 @@ import mergeProcessInputTable from "../../../jets/workspace_assets/table_configs
 import mergedInputRegistryKeys from "../../../jets/workspace_assets/table_configs/merged_input_registry_keys.tc.json";
 import spSummaryDataSources from "../../../jets/workspace_assets/table_configs/spSummaryDataSources.tc.json";
 import spInjectedProcessInput from "../../../jets/workspace_assets/table_configs/spInjectedProcessInput.tc.json";
+import { FlowRoute } from "../App";
 import { FlowRunner } from "./FlowRunner";
+import { withReturnTo } from "./routes";
 
 afterEach(cleanup);
 
@@ -201,7 +203,27 @@ function Banners() {
   );
 }
 
-async function mount(flowKey: string, fillers = 0, search = "") {
+/** Every location the router has shown, as `key pathname+search`. */
+const visited: string[] = [];
+
+function LocationProbe() {
+  const location = useLocation();
+  const entry = `${location.key} ${location.pathname}${location.search}`;
+  if (visited.at(-1) !== entry) visited.push(entry);
+  return null;
+}
+
+/** The flow menu's link, written as `AppShell`'s `FlowMenu` writes it. */
+function MenuLink({ to }: { to: string }) {
+  const location = useLocation();
+  return <NavLink to={withReturnTo(to, `${location.pathname}${location.search}`)}>the menu entry</NavLink>;
+}
+
+async function mount(
+  flowKey: string,
+  { fillers = 0, search = "", menu }: { fillers?: number; search?: string; menu?: string } = {},
+) {
+  visited.length = 0;
   const server = stubServer(fillers);
   const api = new ApiClient("", server.fetchImpl);
   await api.login("michel@artisoft.io", "pw");
@@ -210,8 +232,14 @@ async function mount(flowKey: string, fillers = 0, search = "") {
       <NotificationsProvider>
         <Banners />
         <MemoryRouter initialEntries={[`/flow/${flowKey}${search}`]}>
+          <LocationProbe />
+          {menu !== undefined && <MenuLink to={menu} />}
           <Routes>
-            <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+            {/* `App.tsx`'s element when a case opens a menu, the bare runner otherwise. */}
+            <Route
+              path="/flow/:key"
+              element={menu !== undefined ? <FlowRoute api={api} /> : <FlowRunner api={api} />}
+            />
             <Route path="/home" element={<p>the home screen</p>} />
           </Routes>
         </MemoryRouter>
@@ -387,7 +415,7 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
     // it afresh. Proved by mutation: take the `clearSelection` out of
     // `scCancelToList` and the refusal below is never shown — *Edit* opens the
     // wizard instead, with `["abandoned"]` in the domain keys.
-    const { posts, sources } = await mount("sourceConfigUF", 20);
+    const { posts, sources } = await mount("sourceConfigUF", { fillers: 20 });
     await screen.findByText("GLOBEX_ORG0_claim");
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await screen.findByText("GLOBEX_EAST_claim");
@@ -455,9 +483,43 @@ describe("Start Pipeline always ends on Home", () => {
     // `/home` resolves because `SERVED_SCREENS` has a row for it. Proved by
     // mutation: without the `exitScreenPath` this lands on `/flow/homeFiltersUF`,
     // whose documents the stub does not hold, and the home screen never appears.
-    await mount("startPipelineUF", 0, "?returnTo=%2Fflow%2FhomeFiltersUF");
+    await mount("startPipelineUF", { search: "?returnTo=%2Fflow%2FhomeFiltersUF" });
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Start Pipeline");
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("the home screen")).toBeTruthy();
+  });
+});
+
+describe("opening the flow you are already in", () => {
+  it("restarts it on its table, keeps where it came from, and Close leaves in one press", async () => {
+    // `jetstore_maintenance_02` Phase 2, 2026-10-01. The menu entry of the
+    // current flow did nothing — same element, same load effect — and set
+    // `returnTo` to the flow itself. Now `withReturnTo` carries the flow's own
+    // origin over, so the link is the url already showing, and `FlowRoute` keys
+    // the runner on `location.key`, which a same-url navigation still renews.
+    // Mutations, each red on its own: rendering `FlowRunner` without the key
+    // leaves the wizard page on screen and the table never comes back; reverting
+    // `withReturnTo`'s carry-over nests the url, so the second visited url names
+    // the flow inside its own `returnTo`.
+    await mount("sourceConfigUF", { search: "?returnTo=%2Fhome", menu: "/flow/sourceConfigUF" });
+    await screen.findByText("GLOBEX_EAST_claim");
+    tickRow("GLOBEX_EAST_claim");
+    fireEvent.click(button("Edit"));
+    await screen.findByText("CSV file with headers (most common)");
+
+    fireEvent.click(screen.getByRole("link", { name: "the menu entry" }));
+    await screen.findByText("GLOBEX_EAST_claim");
+    expect(button("Edit")).toBeTruthy();
+    expect(screen.queryByText("CSV file with headers (most common)")).toBeNull();
+
+    // The same url, under a new key: that is what the remount is keyed on.
+    expect(visited.map((v) => v.split(" ")[1])).toEqual([
+      "/flow/sourceConfigUF?returnTo=%2Fhome",
+      "/flow/sourceConfigUF?returnTo=%2Fhome",
+    ]);
+    expect(new Set(visited.map((v) => v.split(" ")[0])).size).toBe(2);
+
+    fireEvent.click(button("Close"));
     expect(await screen.findByText("the home screen")).toBeTruthy();
   });
 });

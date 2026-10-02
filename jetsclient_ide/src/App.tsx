@@ -16,7 +16,7 @@
  * 404.
  */
 
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { ApiClient } from "./api/client";
 import { Register } from "./components/Register";
@@ -197,6 +197,23 @@ function RegisterScreen({ api }: { api: ApiClient }) {
   );
 }
 
+/**
+ * `FlowRunner`, remounted on every navigation to it. `jetstore_maintenance_02`
+ * Phase 2, 2026-10-01.
+ *
+ * **Opening the flow you are already in did nothing.** The route has one element
+ * for every `/flow/:key`, and `FlowRunner`'s load effect reruns only when the key,
+ * the workspace or the requested start state changes — so the menu entry of the
+ * current flow, or *Set Filters* inside `homeFiltersUF`, kept the page, the
+ * position and the form state. Every navigation gets a fresh `location.key`, the
+ * same url included, so keying the element on it starts the flow again from its
+ * start table. Exported for `FlowRunner.addReturn.test.tsx`.
+ */
+export function FlowRoute({ api }: { api: ApiClient }) {
+  const location = useLocation();
+  return <FlowRunner key={location.key} api={api} />;
+}
+
 export default function App() {
   return (
     <BrowserRouter basename={BASENAME}>
@@ -280,7 +297,7 @@ export default function App() {
             from a link, and a list of flows is a screen track F has not been
             asked for.
           */}
-          <Route path="flow/:key" element={<FlowRunner api={api} />} />
+          <Route path="flow/:key" element={<FlowRoute api={api} />} />
           {/*
             Task C.14, and it has no nav entry for the same reason the flow
             runner does not: the Flutter screen is reached from the app bar's
