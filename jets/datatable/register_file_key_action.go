@@ -92,19 +92,80 @@ func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[st
 
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 
+// DefaultSchemaEventFileKey is the object name PutSchemaEventToS3 writes under
+// JETS_s3_SCHEMA_TRIGGERS when a request names none. jetstore_maintenance_02,
+// D01 and task AD.1, 2026-10-01.
+//
+// **The name is a deployment convention and belongs beside the prefix, which is
+// already server-side**, rather than in every client. Nothing downstream keys on
+// it: the register-keys lambda is invoked for any object under the prefix and
+// registers what the object's content names, reserving a fresh session per call,
+// so one overwritten name serves every submission. Two submissions inside the
+// lambda's download window can still read the second body (that project's R-3),
+// which a timestamped suffix would remove if it is ever wanted.
+const DefaultSchemaEventFileKey = "jetstore_ui_event.json"
+
+// putSchemaEventUpload is awsi.UploadBufToS3, held in a variable so that a test
+// can observe the key and body without reaching S3.
+var putSchemaEventUpload = awsi.UploadBufToS3
+
+// schemaEventUpload is one row of a put_schema_event_to_s3 request, resolved.
+type schemaEventUpload struct {
+	key  string
+	body []byte
+}
+
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
+//
+// **Until 2026-10-01 a row without both an event and a file_key was skipped and
+// the action returned 200 having written nothing** (jetstore_maintenance_02 F3,
+// I-5). The React *Put Schema Event* dialog sends no file key, by design, so that
+// silence would have been the dialog's normal outcome. Now:
+//
+//   - a missing, null or empty file_key means DefaultSchemaEventFileKey;
+//   - a missing, null, non-string or empty event is a 400, as is a request with no
+//     rows, because there is nothing to submit and saying so is the point;
+//   - every row is checked before any is uploaded, so a 400 never follows a
+//     partial write.
+//
+// The object lands at JETS_s3_SCHEMA_TRIGGERS + "/" + file_key in JETS_BUCKET,
+// which is the prefix the register-keys lambda's notification filters on. An
+// unset prefix is a 500 rather than an upload to "/<file_key>" at the bucket
+// root, which no trigger watches.
 func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
+	if len(action.Data) == 0 {
+		return nil, http.StatusBadRequest, errors.New("put_schema_event_to_s3: the request carries no schema event")
+	}
+	uploads := make([]schemaEventUpload, 0, len(action.Data))
 	for irow := range action.Data {
-		e := action.Data[irow]["event"]
-		key := action.Data[irow]["file_key"]
-		if e != nil && key != nil {
-			schemaProviderJson, ok := e.(string)
-			if ok && len(schemaProviderJson) > 0 {
-				err := awsi.UploadBufToS3("", fmt.Sprintf("%s/%v", jetsS3SchemaTriggers, key), []byte(schemaProviderJson))
-				if err != nil {
-					return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)
-				}
+		schemaProviderJson, _ := action.Data[irow]["event"].(string)
+		if len(strings.TrimSpace(schemaProviderJson)) == 0 {
+			return nil, http.StatusBadRequest,
+				fmt.Errorf("put_schema_event_to_s3: row %d: the schema event is empty", irow)
+		}
+		fileKey := DefaultSchemaEventFileKey
+		switch v := action.Data[irow]["file_key"].(type) {
+		case nil:
+		case string:
+			if len(v) > 0 {
+				fileKey = v
 			}
+		default:
+			return nil, http.StatusBadRequest,
+				fmt.Errorf("put_schema_event_to_s3: row %d: file_key must be a string, got %T", irow, v)
+		}
+		uploads = append(uploads, schemaEventUpload{
+			key:  fmt.Sprintf("%s/%s", jetsS3SchemaTriggers, fileKey),
+			body: []byte(schemaProviderJson),
+		})
+	}
+	if len(jetsS3SchemaTriggers) == 0 {
+		return nil, http.StatusInternalServerError,
+			errors.New("put_schema_event_to_s3: JETS_s3_SCHEMA_TRIGGERS is not set")
+	}
+	for _, u := range uploads {
+		if err := putSchemaEventUpload("", u.key, u.body); err != nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)
 		}
 	}
 	return &map[string]any{}, http.StatusOK, nil
