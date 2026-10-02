@@ -40,6 +40,11 @@ statements about them below are about the Dart corpus as measured and are kept a
 history: `rhsKindCounts` was 17 literals there and is 1 here, and every `equals`
 the fixture held belonged to one of the three.
 
+**`fileMappingUF` followed them the same day** (`jetstore_maintenance_02` Phase 2),
+so that its *Done* could return to its start table. The aggregates were recomputed
+again — 6 flows, 17 states, 17 form keys. The flow has no choices, so no other
+figure moved.
+
 ## Regenerating
 
 ```bash

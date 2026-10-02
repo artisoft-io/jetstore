@@ -59,7 +59,7 @@ const PROJECTED = ["map_claim_load_stages", "qc_metrics", "qc_report"];
  * path, and `shippingFlows.test.ts`'s cross-document set check over every flow in
  * the directory.
  */
-const HAND_AUTHORED = ["clientRegistryUF", "pipelineConfigUF", "sourceConfigUF"];
+const HAND_AUTHORED = ["clientRegistryUF", "fileMappingUF", "pipelineConfigUF", "sourceConfigUF"];
 const flows = toUserFlows(corpus as unknown as Corpus);
 /** The hand-authored flows as committed — the thing that ships, so the thing checked. */
 const handAuthored: Record<string, UserFlow> = Object.fromEntries(
@@ -134,7 +134,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the shipping corpus", () => {
-  it("is the seven flows and 19 states still translated from the fixture", () => {
+  it("is the six flows and 17 states still translated from the fixture", () => {
     // Eleven, not the nine the documents said: `workspace_pull/` defines two
     // flows and `file_mapping/` defines two.
     //
@@ -144,8 +144,11 @@ describe("the shipping corpus", () => {
     // **Seven and 19 the same day**, when `clientRegistryUF` (4 states),
     // `sourceConfigUF` (12) and `pipelineConfigUF` (10) left the fixture for
     // `HAND_AUTHORED` (`AF.1`, `D06`).
-    expect(Object.keys(flows)).toHaveLength(7);
-    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(19);
+    // **Six and 17 the same day again**, when `fileMappingUF` (2 states) left
+    // for `HAND_AUTHORED` so that its *Done* could return to its start table
+    // (`jetstore_maintenance_02` Phase 2).
+    expect(Object.keys(flows)).toHaveLength(6);
+    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(17);
   });
 
   it.each(Object.keys(flows))("%s validates against the schema", (key) => {

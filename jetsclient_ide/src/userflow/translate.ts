@@ -135,7 +135,8 @@ export const flowTitles: Record<string, string> = {
   // until 2026-10-01**, when they left the fixture to be written by hand
   // (`jetstore_maintenance_02` `AF.1`, `D06`). Their documents carry the same
   // titles, which is the rule the paragraph above states for a twelfth flow.
-  fileMappingUF: "Source Mapping",
+  // `fileMappingUF` (*Source Mapping*) followed them the same day
+  // (`jetstore_maintenance_02` Phase 2), on the same terms.
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadConfigUF: "Load Client Configurations",
