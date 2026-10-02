@@ -92,6 +92,9 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		"token":            jetsUser.Token,
 		"gitProfile":       jetsUser.UserGitProfile,
 		"jetstore_version": os.Getenv("JETS_VERSION"),
+		// The image's `<branch>-<sha>`, stamped by the build beside JETS_VERSION
+		// (dockerfiles/Dockerfile.ui_service). The UI footer shows it (D05).
+		"jetstore_git_sha": os.Getenv("JETS_GIT_SHA"),
 	}
 	JSON(w, http.StatusOK, data)
 }
