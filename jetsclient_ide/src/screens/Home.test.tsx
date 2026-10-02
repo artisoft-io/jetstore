@@ -426,6 +426,69 @@ describe("the table's buttons", () => {
     }
   });
 
+  it("puts each action row on a line of its own, the label sharing the first", async () => {
+    /*
+      `jetstore_maintenance_02`, `D03`, 2026-10-01. Until then both bars were
+      flex items of one header row, so the "second row" sat on the first row's
+      line. **This asserts the structure, not the layout** — jsdom computes no
+      boxes — so it catches the rows being merged again and says nothing about
+      where they land on screen; criterion 3 is a browser's. The Data Registry
+      table is used for the label half because Pipeline Status draws no caption
+      on this screen (I-260).
+    */
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    const rowOf = (label: string) => button(label).closest(".jets-datatable__header-row");
+    expect(rowOf("Start Pipeline")).not.toBeNull();
+    expect(rowOf("Clear Filters")).toBe(rowOf("Start Pipeline"));
+    expect(rowOf("View Execution Details")).not.toBe(rowOf("Start Pipeline"));
+    expect(rowOf("Resubmit")).toBe(rowOf("View Execution Details"));
+
+    await openTab("Data Registry", "claim_staging");
+    const heading = screen.getByRole("heading", { name: "File and Domain Table Registry" });
+    expect(heading.closest(".jets-datatable__header-row")).toBe(rowOf("View Loaded Data"));
+  });
+
+  /*
+    **The first assertions anywhere on Clear Filters' enabled state** — the case
+    above checks only that the button exists. `jetstore_maintenance_02`, `D02`,
+    2026-10-01. Pipeline Status's button tests the *home* filters and Data
+    Registry's tests the *data-registry* filters; a status filter sets only the
+    first, which is what tells a gate wired to the wrong store from the right one.
+    The pickers' half is `datatable/clearFiltersGate.test.tsx`.
+  */
+  it("disables Pipeline Status's Clear Filters when no home filter is set", async () => {
+    // **Reverting AA.1 turns this red**: the by-key lookup had no entry for
+    // `clearHomeFilters`, so the button was never gated.
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("enables Pipeline Status's Clear Filters once a home filter is set", async () => {
+    seedStatusFilterOnly();
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("disables Data Registry's Clear Filters when only a home filter is set", async () => {
+    // A status filter narrows Pipeline Status and not this table, so there is
+    // nothing here to clear — and the button beside it is enabled.
+    seedStatusFilterOnly();
+    await mount();
+    await openTab("Data Registry", "claim_staging");
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("enables Data Registry's Clear Filters once a data-registry filter is set", async () => {
+    // **Reverting AA.2 turns this red**: `hasDataRegistryFilters` as `false`.
+    seedHomeFilters();
+    await mount();
+    await openTab("Data Registry", "claim_staging");
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("navigates in-app to a screen this app serves", async () => {
     await mount();
     await openTab("Pipelines Status", "00:01:12");
@@ -528,6 +591,13 @@ function seedHomeFilters() {
   const formState = new FormState();
   formState.setValue(0, "status", ["failed"]);
   formState.setValue(0, "hfStartOffset", "3 days");
+  void updateHomeFilters({ formState, group: 0, flowKey: "homeFiltersUF" });
+}
+
+/** A status filter alone: sets the home filters and leaves the data-registry ones empty. */
+function seedStatusFilterOnly() {
+  const formState = new FormState();
+  formState.setValue(0, "status", ["failed"]);
   void updateHomeFilters({ formState, group: 0, flowKey: "homeFiltersUF" });
 }
 

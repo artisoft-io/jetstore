@@ -14,11 +14,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiProvider } from "../shell/capabilities";
 import { ActionBar } from "./ActionBar";
-import { availability, enabledPredicateFor, type ActionContext } from "./actionBarModel";
+import { availability, type ActionContext } from "./actionBarModel";
 import { UnsupportedActionType, fillPath, requestFor, resolveParams } from "./actionDispatch";
 import corpus from "./fixtures/table_configs.json";
 import screenCorpus from "../screens/fixtures/screen_configs.json";
 import { FormState } from "./formState";
+import { isEnabledEscapeFor } from "./tableTranslate";
 import type { ActionConfig, TableConfig } from "./types";
 
 afterEach(cleanup);
@@ -31,6 +32,9 @@ const barActions = allActions.filter((a) => !widgetOwned.has(a.actionType));
 
 function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
   return {
+    // A flow table's key: every closure-bearing action outside
+    // `pipelineExecStatusTable` resolves to the data-registry predicate.
+    tableKey: "main_input_registry_key",
     selectedRowCount: 1,
     checkboxVisible: true,
     whereClauseSatisfied: true,
@@ -124,7 +128,13 @@ describe("the corpus this task owns", () => {
     // `(state) => true`, which is no gate. Only `clearFilters` has a real one.
     const withFnc = [...new Set(barActions.filter((a) => a.hasIsEnabledFnc).map((a) => a.key))];
     expect(withFnc).toEqual(["clearFilters"]);
-    expect(enabledPredicateFor["clearFilters"]).toBe("hasDataRegistryFilters");
+    // `enabledPredicateFor["clearFilters"]` until 2026-10-01; the runtime now
+    // asks the emitter's own mapping (`jetstore_maintenance_02`, `D02`).
+    for (const [key, table] of Object.entries(tables)) {
+      for (const action of (table.actions ?? []).filter((a) => a.hasIsEnabledFnc)) {
+        expect(isEnabledEscapeFor(key, action.key)).toBe("hasDataRegistryFilters");
+      }
+    }
   });
 });
 

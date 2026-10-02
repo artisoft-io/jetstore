@@ -9,11 +9,28 @@
   font-size: 0.875rem;
 }
 
+/* The header is a column of action rows, the label inline with the first.
+   2026-10-01, `jetstore_maintenance_02`'s `D03`: this was one flex row holding
+   the label and every action bar, so a second row of buttons was laid out on
+   the first row's line rather than beneath it. `DataTable` now renders one
+   `__header-row` per action row. */
 .jets-datatable__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.jets-datatable__header-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.25rem 0.5rem;
+}
+
+/* A row whose bar has nothing visible renders no children; without this it
+   would still take a gap's worth of height. */
+.jets-datatable__header-row:empty {
+  display: none;
 }
 
 .jets-datatable__label {
@@ -22,10 +39,14 @@
   font-weight: 600;
 }
 
+/* Left-justified: the buttons flow straight after the label (`D03`). This rule
+   carried `margin-left: auto` until 2026-10-01, which pushed every table's
+   buttons to the right-hand edge. `flex-wrap` lets a long row wrap within its
+   own line on a narrow window rather than overflowing the header. */
 .jets-datatable__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  margin-left: auto;
 }
 
 .jets-datatable__error {

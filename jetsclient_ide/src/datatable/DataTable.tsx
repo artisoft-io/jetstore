@@ -40,10 +40,20 @@ export interface DataTableProps {
   config: TableConfig;
   state: DataTableState;
   /**
-   * Where S.2's action buttons go. Rendered beside the label, which is where the
-   * Flutter app puts them (`data_table.dart:151`).
+   * Where S.2's action buttons go, **one entry per row, top to bottom**. The
+   * first row is rendered beside the label, which is where the Flutter app puts
+   * them (`data_table.dart:151`); every later row is a line of its own beneath.
+   *
+   * **A list of rows rather than one node since 2026-10-01** (`jetstore_maintenance_02`,
+   * `D03`). This was `actions?: ReactNode`, and `TableView` passed both of its
+   * `ActionBar`s in one fragment, which this component wrapped in a flex row —
+   * so the "second row" was a second flex item on the first row's line, and both
+   * were pushed right by `margin-left: auto`. Rows are a structural fact, so the
+   * header has to know where one ends; a fragment cannot say. A row that renders
+   * nothing (an `ActionBar` with no visible action) leaves an empty line, which
+   * the stylesheet hides with `:empty`.
    */
-  actions?: ReactNode;
+  actionRows?: readonly ReactNode[];
   /**
    * The table's own display mode — the checkbox column — and the configured
    * action that flips it.
@@ -155,7 +165,7 @@ function rowStyle(config: TableConfig): CSSProperties | undefined {
 export function DataTable({
   config,
   state,
-  actions,
+  actionRows = [],
   modes,
   cellFilters,
   blockedMessage = "Make a selection above to see rows.",
@@ -218,9 +228,20 @@ export function DataTable({
 
   return (
     <div className="jets-datatable">
+      {/* A column of action rows, the label inline with the first — `D03`. Each
+          row is its own line; `datatable.css` says why there is no auto margin. */}
       <div className="jets-datatable__header">
-        {state.label !== "" && <h2 className="jets-datatable__label">{state.label}</h2>}
-        {actions != null && <div className="jets-datatable__actions">{actions}</div>}
+        <div className="jets-datatable__header-row">
+          {state.label !== "" && <h2 className="jets-datatable__label">{state.label}</h2>}
+          {actionRows[0]}
+        </div>
+        {actionRows.slice(1).map((row, i) => (
+          // Positional keys are right here: rows are a fixed, ordered list per
+          // table, never reordered or filtered at runtime.
+          <div key={i + 1} className="jets-datatable__header-row">
+            {row}
+          </div>
+        ))}
       </div>
 
       {state.error != null && (

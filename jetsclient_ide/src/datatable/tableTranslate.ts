@@ -138,15 +138,6 @@ export const HOME_FILTERS_ESCAPE = "hasHomeFilters";
 export const ALWAYS_ENABLED_ESCAPE = "alwaysEnabled";
 
 /**
- * Which predicate a closure-bearing action names.
- *
- * **Keyed by table and action rather than assumed**, which is the whole of the
- * F.5 correction: the corpus records only *that* a closure exists, so the
- * mapping is knowledge about the Dart and has to be written down somewhere. It
- * was written as a constant, which read as a fact about closures and was a fact
- * about the 37.
- */
-/**
  * Which display filter a `cellFilter`-bearing column names. Task C.6.
  *
  * **Keyed by table and column for exactly the reason `isEnabledEscapeFor` below
@@ -175,7 +166,31 @@ function cellFilterEscapeFor(tableKey: string, columnName: string): string {
   return FILE_KEY_LABEL_ESCAPE;
 }
 
-function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
+/**
+ * Which predicate a closure-bearing action names.
+ *
+ * **Keyed by table and action rather than assumed**, which is the whole of the
+ * F.5 correction: the corpus records only *that* a closure exists, so the
+ * mapping is knowledge about the Dart and has to be written down somewhere. It
+ * was written as a constant, which read as a fact about closures and was a fact
+ * about the 37.
+ *
+ * *(This comment sat orphaned above `cellFilterEscapeFor` until 2026-10-01, when
+ * it was moved onto the function it describes.)*
+ *
+ * **Two readers since 2026-10-01, and that is the point of exporting it.** The
+ * emitter writes its answer into the document as `isEnabled`; the action bar
+ * (`actionBarModel.ts`, `availability`) asks it the same question at runtime,
+ * because `fromDocument` keeps only the boolean `hasIsEnabledFnc` and so cannot
+ * hand the authored name back (`ui_refresh`'s I-66). Until then the runtime asked
+ * a second, partial copy keyed by action alone — `enabledPredicateFor`, one entry
+ * — and Pipeline Status's *Clear Filters* was never gated, which is
+ * `jetstore_maintenance_02`'s `D02`. One definition now answers both, and
+ * `clearFiltersGate.test.tsx` asserts that every committed document's
+ * `isEnabled` is what this returns, so the two cannot drift for a document in
+ * this repository.
+ */
+export function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
   if (tableKey === "pipelineExecStatusTable") {
     return actionKey === "clearHomeFilters" ? HOME_FILTERS_ESCAPE : ALWAYS_ENABLED_ESCAPE;
   }
