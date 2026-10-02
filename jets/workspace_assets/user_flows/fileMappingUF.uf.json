@@ -12,7 +12,7 @@
     "file_mapping": {
       "description": "File Mapping",
       "formConfig": "fmFileMappingUF",
-      "defaultNextState": "select_source_config"
+      "isEnd": true
     }
   }
 }

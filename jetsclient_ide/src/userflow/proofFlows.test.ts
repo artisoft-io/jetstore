@@ -1623,20 +1623,24 @@ describe("file_mapping, end to end", () => {
     }
   });
 
-  it("returns from file_mapping to the source table on Done, and does not exit", async () => {
-    // **Not an end state since 2026-10-01**, as `show_org` above and for the same
-    // request (`jetstore_maintenance_02` Phase 2): *Done* is `ufNext` over a
-    // `defaultNextState` back to `select_source_config`, where it was `ufCompleted`.
+  it("ends on file_mapping, which offers Previous only", () => {
+    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // decision). It was `ufCompleted`, which left the flow for `returnTo`; the way
+    // back is *Previous* to the source table, and *Close* there leaves the flow.
+    // The state stays `isEnd`: an end state need not offer `ufCompleted`
+    // (`mapFileUF`'s `fmMappingFormUF` does not either), while a non-end one must
+    // declare a `defaultNextState` no button would use.
     const h = setup();
-    expect(h.flow.states["file_mapping"]!.isEnd).toBeUndefined();
-    expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual([
-      "ufPrevious",
-      "ufNext",
-    ]);
+    expect(h.flow.states["file_mapping"]!.isEnd).toBe(true);
+    expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual(["ufPrevious"]);
+  });
+
+  it("goes back from file_mapping to the source table, and does not exit", async () => {
+    const h = setup();
     selectSource(h);
     expect(await h.press("ufNext")).toBeNull();
     expect(h.at()).toBe("file_mapping");
-    expect(await h.press("ufNext")).toBeNull();
+    expect(await h.press("ufPrevious")).toBeNull();
     expect(h.at()).toBe("select_source_config");
     expect(h.events).not.toContain("exit");
   });

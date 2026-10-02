@@ -141,9 +141,10 @@ function dartForms(): Record<string, DartForm> {
  * stay in `form_fields.json`, for the reason given above.
  *
  * **Six the same day again**: `fileMappingUF` left on the same terms
- * (`jetstore_maintenance_02` Phase 2), when its *Done* became `ufNext` back to the
- * source-configuration table rather than the Dart's `ufCompleted`. Its three forms
- * and seven buttons are the whole of the drop from 21 and 60 below.
+ * (`jetstore_maintenance_02` Phase 2), when the Dart's *Done* (`ufCompleted`) was
+ * removed from its mapping page, leaving *Previous* back to the source table. Its
+ * three forms and seven buttons as compared until then are the whole of the drop
+ * from 21 and 60 below.
  */
 const FLOW_DOCUMENTS = [
   "homeFiltersUF",
