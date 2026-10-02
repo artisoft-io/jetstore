@@ -463,7 +463,10 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // The check the schema's cuts have to survive. Each cut in `table.ts` was
     // made because no configuration sets the field; if one does, this fails
     // rather than the document quietly meaning less than the Dart.
-    for (const key of Object.keys({ ...translated, ...handAuthored })) {
+    // Hand-maintained documents are compared with nothing: the three that keep a
+    // fixture entry (2026-10-02) would otherwise be held to the Dart they left.
+    const maintained: readonly string[] = HAND_MAINTAINED_KEYS;
+    for (const key of Object.keys({ ...translated, ...handAuthored }).filter((k) => !maintained.includes(k))) {
       // **`modelSource` is dropped before comparing, and it is the one field in
       // `TableConfig` with no corpus counterpart.** Task C.9. The Dart spells a
       // form-state table's row source as two fields — `modelStateFormKey` and a

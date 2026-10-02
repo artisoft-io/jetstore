@@ -44,9 +44,9 @@
   "actions": [
     {
       "key": "addVendorDialog",
-      "label": "Add Vendor/Org",
+      "label": "+ Add",
       "action": "showDialog",
-      "style": "secondary",
+      "style": "add",
       "configForm": "ufVendor",
       "capability": "client_config",
       "stateFormNavigationParams": {
@@ -57,7 +57,7 @@
       "key": "toggleRowSelection",
       "label": "Show/Hide Select Row",
       "action": "toggleCheckboxVisible",
-      "style": "primary"
+      "style": "secondary"
     },
     {
       "key": "deleteOrg",
