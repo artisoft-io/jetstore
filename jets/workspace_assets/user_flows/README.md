@@ -16,6 +16,13 @@ documents, moved with them.
 
 ## What is here
 
+**Ten since 2026-10-01.** `registerFileKeyUF` was retired by `jetstore_maintenance_02`
+(`Q-6`, task `AD.4`) — its schema event is submitted from the Pipeline Status table's
+*Put Schema Event* dialog now (`D01`) — and an install deletes a workspace's unedited
+copy of a retired document (`RetiredAssets` in `../install.go`). **A flow leaves this
+directory by being added to that list as well as deleted here**, or its installed copy
+stays loadable by URL in every workspace that already has it.
+
 **The eleven ported flows**, three documents each — `<key>.uf.json`, `<key>.ua.json`,
 `<key>.form.json` — keyed by the flow key the React router serves them under and the
 Flutter app hands off to (`jetsclient/lib/routes/migrated_user_flows.dart`). Two of the

@@ -13,7 +13,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FormState } from "../datatable/formState";
 import loadFilesDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
-import registerFileKeyDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
 import { describeUnresolved, emptyRegistry, resolveEscapes, type EscapeRegistry } from "./escapes";
 import { evaluate, runAction, type ActionHost, type PostRequest } from "./interpret";
 import { ActionDocumentSchema, emitJsonSchema, type ActionDocument } from "./schema";
@@ -99,9 +98,15 @@ describe("the emitted JSON Schema", () => {
   });
 });
 
-describe("the two proof flows' documents", () => {
+/**
+ * **One proof flow since 2026-10-01.** `registerFileKeyUF` was the other, and was
+ * retired by `jetstore_maintenance_02` (`Q-6`, task `AD.4`): its schema event is
+ * submitted from the Pipeline Status table's *Put Schema Event* dialog now
+ * (`D01`). The control-flow case below that used its `validate` step uses
+ * `loadFilesUF`'s `lfLoadFilesUF`, which opens the same way.
+ */
+describe("the proof flow's documents", () => {
   it.each([
-    ["registerFileKeyUF", registerFileKeyDoc, 2],
     ["loadFilesUF", loadFilesDoc, 3],
   ])("%s validates and has %i actions", (_name, doc, count) => {
     const result = ActionDocumentSchema.safeParse(doc);
@@ -109,19 +114,11 @@ describe("the two proof flows' documents", () => {
     expect(Object.keys((doc as ActionDocument).actions)).toHaveLength(count);
   });
 
-  it("covers the five arms the two flows define in Dart", () => {
-    // `register_file_key` has 2 `case ActionKeys.` labels and `load_files` 3.
-    const names = [
-      ...Object.keys(registerFileKeyDoc.actions),
-      ...Object.keys(loadFilesDoc.actions),
-    ];
-    expect(names.sort()).toEqual([
-      "dialogCancel",
-      "lfDropTable",
-      "lfLoadFilesUF",
-      "lfSyncFileKey",
-      "rfkSubmitSchemaEventUF",
-    ]);
+  it("covers the three arms load_files defines in Dart", () => {
+    // `load_files` has 3 `case ActionKeys.` labels. Five with `register_file_key`'s
+    // two, until that flow was retired on 2026-10-01.
+    const names = [...Object.keys(loadFilesDoc.actions)];
+    expect(names.sort()).toEqual(["lfDropTable", "lfLoadFilesUF", "lfSyncFileKey"]);
   });
 });
 
@@ -169,14 +166,16 @@ describe("control flow", () => {
     // and an error banner would be wrong.
     const { host, posts } = makeHost({ validate: () => false });
     const result = await runCompleting(
-      registerFileKeyDoc as ActionDocument,
-      "rfkSubmitSchemaEventUF",
+      loadFilesDoc as ActionDocument,
+      "lfLoadFilesUF",
       new FormState(),
       host,
     );
     expect(result.message).toBeNull();
     // **And it says it stopped, which the message cannot** (I-29). This action is
-    // one of eleven in the corpus that opens with a `validate` step; while
+    // one of eleven in the corpus that opens with a `validate` step (fourteen
+    // under `user_flows/` on 2026-10-01, counted after `rfkSubmitSchemaEventUF`,
+    // which this case used until then, was retired with its flow); while
     // `runAction` returned a bare message, the engine could not tell this from a
     // clean run and advanced the flow past a form the user had not filled in.
     expect(result.completed).toBe(false);

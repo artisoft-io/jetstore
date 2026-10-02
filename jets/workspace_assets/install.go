@@ -17,7 +17,7 @@
 // pipes_config/ carries the pipeline configurations JetStore owns — jets_loader,
 // which every workspace had its own identical copy of, and the pipelines the
 // platform itself runs. user_flows/ carries the wizards: the projections a
-// template generates (U.2) and the eleven ported application flows. table_configs/
+// template generates (U.2) and the ported application flows. table_configs/
 // carries the table documents those flows draw.
 //
 // All four are installed the same way and guarded the same way; they differ in
@@ -67,6 +67,27 @@
 // in. A workspace with a good data model and an edited pipeline configuration is
 // no more consistent than one with the reverse, and reporting half of it would
 // invite a second build to discover the other half.
+//
+// # Retirement: the install deletes, on the same evidence it overwrites on
+//
+// **Until 2026-10-01 nothing here deleted a file** (jetstore_maintenance_02 F39),
+// so an asset dropped from the embed stayed installed in every workspace that
+// already had it — and a user flow stays loadable by URL for as long as its
+// documents are on disk. RetiredAssets lists the paths JetStore used to install
+// and no longer ships, and the install treats each the way it treats an update,
+// with absence as the new version:
+//
+//   - not there — nothing to do, and nothing reported;
+//   - there, and matching the hash the last install recorded — stale, not edited,
+//     so it is deleted and its manifest entry goes with it (Removed);
+//   - there, and not what the last install left — someone edited it, or it was
+//     never JetStore's. A conflict, exactly as for an update, and the build stops.
+//
+// The manifest is the whole of the evidence for a retired asset, in every group:
+// its embedded bytes are gone, so there is nothing else to compare against. And
+// a retired path is never removed from RetiredAssets: a workspace not installed
+// since the retirement still holds the file, and the list is the only thing that
+// still knows the path was JetStore's.
 package workspace_assets
 
 import (
@@ -185,7 +206,7 @@ var AssetGroups = []AssetGroup{
 			"--project jets/workspace_assets/user_flows`, so editing one is editing the\n" +
 			"output of a generator: the change is lost at the next regeneration and the\n" +
 			"config the wizard writes stops matching what the template expands to. The\n" +
-			"eleven ported flows are hand-written and have no generator, and they are\n" +
+			"ported flows are hand-written and have no generator, and they are\n" +
 			"still JetStore's — they are the application's own screens expressed as\n" +
 			"documents, and the escape names they use are resolved by the build.\n\n" +
 			"To run a variant of either, author your own flow beside it:\n\n" +
@@ -240,7 +261,33 @@ const (
 	Installed Action = "installed" // the workspace had no copy
 	Updated   Action = "updated"   // the workspace had an older, unedited copy
 	Unchanged Action = "unchanged" // already byte-identical
+	Removed   Action = "removed"   // a retired asset's unedited copy was deleted
 )
+
+// RetiredAsset is a path JetStore used to install and no longer ships. Dir is
+// one of AssetGroups' directories and Name a file in it, as for an asset.
+type RetiredAsset struct {
+	Dir  string
+	Name string
+	// Why is for the reader of this list: when, and what replaced it.
+	Why string
+}
+
+// RetiredAssets are deleted from a workspace when its copy is unedited; see
+// "Retirement" in the package comment. **Append-only**: an entry is what lets an
+// install recognise a stale copy in a workspace that has not been installed
+// since the retirement, and that may be any number of releases later.
+//
+// A name here must not also be embedded — Install refuses to run if it is,
+// because it would install the file and then delete it.
+var RetiredAssets = []RetiredAsset{
+	// jetstore_maintenance_02, Q-6 and task AD.4. The flow submitted a schema
+	// event with a file key the user typed; the Pipeline Status table's *Put
+	// Schema Event* dialog does it now, with the key decided by the server (D01).
+	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
+	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
+	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
+}
 
 // Result reports the disposition of one asset.
 type Result struct {
@@ -346,6 +393,9 @@ func Install(workspaceDir string, opts Options) ([]Result, error) {
 		// been found clean.
 		pending   = map[string]map[string][]byte{}
 		manifests = map[string]manifest{}
+		// removals is what would be deleted, per group: retired assets whose
+		// copy is what the last install left.
+		removals = map[string][]string{}
 	)
 
 	for _, g := range AssetGroups {
@@ -360,6 +410,10 @@ func Install(workspaceDir string, opts Options) ([]Result, error) {
 		}
 		groupPending := map[string][]byte{}
 		next := manifest{Comment: manifestComment, Assets: map[string]string{}}
+		shipped := make(map[string]bool, len(names))
+		for _, name := range names {
+			shipped[name] = true
+		}
 
 		for _, name := range names {
 			want, err := Asset(g.Dir, name)
@@ -394,6 +448,39 @@ func Install(workspaceDir string, opts Options) ([]Result, error) {
 				})
 			}
 		}
+		// Retired assets. `next` is built from the embedded names alone, so a
+		// retired name never reaches the new manifest: deleting the file and
+		// dropping its entry are one decision, and a refused install writes
+		// neither.
+		var groupRemovals []string
+		for _, r := range RetiredAssets {
+			if r.Dir != g.Dir {
+				continue
+			}
+			if shipped[r.Name] {
+				return nil, fmt.Errorf("%s is both shipped and listed in RetiredAssets",
+					filepath.Join(r.Dir, r.Name))
+			}
+			path := filepath.Join(targetDir, r.Name)
+			got, err := os.ReadFile(path)
+			switch {
+			case os.IsNotExist(err):
+				continue
+			case err != nil:
+				return nil, err
+			}
+			recorded := prev.Assets[r.Name]
+			if opts.Force || (recorded != "" && sum(got) == recorded) {
+				groupRemovals = append(groupRemovals, r.Name)
+				results = append(results, Result{g.Dir, r.Name, Removed})
+				continue
+			}
+			conflicts = append(conflicts, Conflict{
+				Dir: g.Dir, Name: r.Name, Path: path,
+				Reason: retiredReason(recorded != ""),
+			})
+		}
+		removals[g.Dir] = groupRemovals
 		pending[g.Dir] = groupPending
 		manifests[g.Dir] = next
 	}
@@ -411,6 +498,11 @@ func Install(workspaceDir string, opts Options) ([]Result, error) {
 		}
 		for name, data := range pending[g.Dir] {
 			if err := os.WriteFile(filepath.Join(targetDir, name), data, 0644); err != nil {
+				return nil, err
+			}
+		}
+		for _, name := range removals[g.Dir] {
+			if err := os.Remove(filepath.Join(targetDir, name)); err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
 		}
@@ -436,6 +528,19 @@ func reason(got []byte, hadManifestEntry bool, tokened bool) string {
 	return "a JetStore-owned file differs from the one being installed, and no " +
 		ManifestName + " entry says what the last install left here"
 }
+
+// retiredReason is reason's counterpart for a path JetStore no longer ships. There is no
+// header to consult — the asset's bytes have left the embed — so the manifest
+// is the only evidence, and the two cases are the two a manifest can tell apart.
+func retiredReason(hadManifestEntry bool) string {
+	if hadManifestEntry {
+		return "a file JetStore has retired has been modified since it was installed, " +
+			"so it is not deleted; move your change to a file of your own and delete this one"
+	}
+	return "a file sits at a path JetStore has retired, and no " + ManifestName +
+		" entry says the last install left it there; if it is yours, rename it"
+}
+
 func sum(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])

@@ -38,7 +38,6 @@ import loadConfig from "../../../jets/workspace_assets/user_flows/loadConfigUF.u
 import loadFiles from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
 import mapFile from "../../../jets/workspace_assets/user_flows/mapFileUF.ua.json";
 import pipelineConfig from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.ua.json";
-import registerFileKey from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
 import sourceConfig from "../../../jets/workspace_assets/user_flows/sourceConfigUF.ua.json";
 import startPipeline from "../../../jets/workspace_assets/user_flows/startPipelineUF.ua.json";
 import workspacePull from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
@@ -47,7 +46,8 @@ import dartConstantValues from "./fixtures/dart_constant_values.json";
 
 const all: Record<string, unknown> = {
   loadFilesUF: loadFiles,
-  registerFileKeyUF: registerFileKey,
+  // `registerFileKeyUF` was here until 2026-10-01, when `jetstore_maintenance_02`
+  // retired it (`Q-6`, task `AD.4`); see the 52 below.
   // F.1's re-partition: `mapperOk`, `mapperDraft` and `dialogCancel` moved here
   // out of `coverage/fileMappingUF.ua.json`, which is F4's rule — a coverage
   // document is partitioned by *delegate file* and a runtime one by *flow*, and
@@ -207,10 +207,16 @@ describe("the flows' action documents", () => {
     // **56 was no more an invariant than 55 and 54 were.** This is a count of
     // reachable arms, and it moves whenever a re-partition finds an arm nothing
     // reaches or a dialog served from outside the flow's directory.
+    //
+    // **52 since 2026-10-01, and the first fall that is a retirement rather than
+    // a re-partition.** `registerFileKeyUF` left with its two arms,
+    // `rfkSubmitSchemaEventUF` and its own `dialogCancel` (`jetstore_maintenance_02`
+    // `AD.4`); its schema event is posted from the Pipeline Status table's dialog
+    // now, which is a Home-screen action document and not one of these.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(54);
+    expect(names).toHaveLength(52);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -669,7 +675,10 @@ describe("every form-state key is a declared constant's value", () => {
     "entity_rdf_type", // query result column
     "process_config_key", // query result column, and a form-state key
     "currentSheet", // read out of the xlsx options blob, and a form-state key
-    "event", // put_schema_event_to_s3 request field
+    // `put_schema_event_to_s3`'s request field. **No document in `all` names it
+    // since 2026-10-01**, when `registerFileKeyUF` was retired; kept because an
+    // unused exemption costs nothing and the field is still the endpoint's.
+    "event",
     /**
      * **A real form-state key the Dart does not name, and the first one.** F.7.
      *

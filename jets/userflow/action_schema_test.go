@@ -66,7 +66,10 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// documents are one `cpipesTemplateApply` step each and are governed by this
 	// same schema, so validating them here is coverage the split would otherwise
 	// have lost — nothing else runs the Go validator over a generated .ua.json.
-	const flowDocuments = 14
+	//
+	// **13 since 2026-10-01**: registerFileKeyUF was retired by
+	// jetstore_maintenance_02 (Q-6, task AD.4), and ten ported flows remain.
+	const flowDocuments = 13
 	if len(names) != flowDocuments {
 		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)
 	}

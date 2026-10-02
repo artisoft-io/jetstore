@@ -94,8 +94,11 @@ func TestShippingFlowsValidate(t *testing.T) {
 	// The app's eleven, plus the three projected templates that share the
 	// directory — see flowsDir. A projection is a UserFlow document and passes the
 	// same schema; the count is of documents, not of migrations.
-	if len(files) != 14 {
-		t.Fatalf("expected the app's eleven flows and three projections, found %d", len(files))
+	//
+	// Ten since 2026-10-01, when registerFileKeyUF was retired by
+	// jetstore_maintenance_02 (Q-6, task AD.4).
+	if len(files) != 13 {
+		t.Fatalf("expected the app's ten remaining flows and three projections, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".uf.json"), func(t *testing.T) {

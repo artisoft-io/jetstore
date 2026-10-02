@@ -22,7 +22,8 @@
  * **147 of 147 buttons match**, across 51 forms in 11 documents: the same key, the
  * same label, the same style, the same capability and the same enablement. The
  * assertions below are that measurement rather than a summary of it — if a number
- * moves, a person reads this file.
+ * moves, a person reads this file. **145 of 145 across 50 forms in 10 since
+ * 2026-10-01**, when `registerFileKeyUF` was retired; see `FLOW_DOCUMENTS`.
  *
  * Three things the comparison had to get right, and each is encoded rather than
  * assumed:
@@ -119,6 +120,15 @@ function dartForms(): Record<string, DartForm> {
   return { ...screens, ...flows };
 }
 
+/**
+ * **Ten since 2026-10-01**: `registerFileKeyUF` was retired by
+ * `jetstore_maintenance_02` (`Q-6`, task `AD.4`), its schema event now submitted
+ * from the Pipeline Status table's *Put Schema Event* dialog (`D01`). Its one form,
+ * `rfkSubmitSchemaEvent`, carried two buttons, which is the whole of the drop from
+ * 147 to 145 and from 51 forms to 50 below. Its Dart record stays in
+ * `form_fields.json`, which is a measurement of the deleted app and not a list of
+ * what ships.
+ */
 const FLOW_DOCUMENTS = [
   "clientRegistryUF",
   "fileMappingUF",
@@ -127,7 +137,6 @@ const FLOW_DOCUMENTS = [
   "loadFilesUF",
   "mapFileUF",
   "pipelineConfigUF",
-  "registerFileKeyUF",
   "sourceConfigUF",
   "startPipelineUF",
   "workspacePullUF",
@@ -236,7 +245,7 @@ describe("the eleven flows' buttons against the Dart", () => {
   // The measurement. It is an equality rather than a lower bound so that adding a
   // form or a button brings somebody back to this file — which is the whole value of
   // a fidelity check that has already passed.
-  it("compares 147 buttons across 51 forms in 11 documents", () => {
+  it("compares 145 buttons across 50 forms in 10 documents", () => {
     const dart = dartForms();
     let forms = 0;
     let buttons = 0;
@@ -248,8 +257,9 @@ describe("the eleven flows' buttons against the Dart", () => {
         docBar(config).length + docInField(config).length,
       );
     }
-    expect(forms).toBe(51);
-    expect(buttons).toBe(147);
+    // 51 and 147 until `registerFileKeyUF` was retired, 2026-10-01.
+    expect(forms).toBe(50);
+    expect(buttons).toBe(145);
   });
 
   it("declares the same buttons, in the same container, in the same order", () => {

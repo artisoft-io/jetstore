@@ -13,7 +13,7 @@
  *
  * | Form | Contents |
  * |---|---|
- * | `rfkSubmitSchemaEvent` | 2 text inputs, 1 label, 3 spacers, 2 actions |
+ * | `rfkSubmitSchemaEvent` | 2 text inputs, 1 label, 3 spacers, 2 actions (retired with its flow, 2026-10-01) |
  * | `lfSelectSourceConfigUF` | 1 data table, the 3 standard actions |
  * | `lfSelectFileKeysUF` | 1 data table, 3 actions (one relabelled) |
  *

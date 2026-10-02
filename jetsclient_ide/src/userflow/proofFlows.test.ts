@@ -45,7 +45,6 @@ import homeFiltersActionsDoc from "../../../jets/workspace_assets/user_flows/hom
 import pipelineConfigActionsDoc from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.ua.json";
 import loadConfigActionsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
-import registerFileKeyActionsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.ua.json";
 import sourceConfigActionsDoc from "../../../jets/workspace_assets/user_flows/sourceConfigUF.ua.json";
 import startPipelineActionsDoc from "../../../jets/workspace_assets/user_flows/startPipelineUF.ua.json";
 import workspacePullActionsDoc from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
@@ -57,7 +56,6 @@ import homeFiltersFormsDoc from "../../../jets/workspace_assets/user_flows/homeF
 import pipelineConfigFormsDoc from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.form.json";
 import loadConfigFormsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.form.json";
 import loadFilesFormsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
-import registerFileKeyFormsDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.form.json";
 import sourceConfigFormsDoc from "../../../jets/workspace_assets/user_flows/sourceConfigUF.form.json";
 import startPipelineFormsDoc from "../../../jets/workspace_assets/user_flows/startPipelineUF.form.json";
 import workspacePullFormsDoc from "../../../jets/workspace_assets/user_flows/workspacePullUF.form.json";
@@ -68,7 +66,6 @@ import homeFiltersFlowDoc from "../../../jets/workspace_assets/user_flows/homeFi
 import pipelineConfigFlowDoc from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.uf.json";
 import loadConfigFlowDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
-import registerFileKeyFlowDoc from "../../../jets/workspace_assets/user_flows/registerFileKeyUF.uf.json";
 import sourceConfigFlowDoc from "../../../jets/workspace_assets/user_flows/sourceConfigUF.uf.json";
 import startPipelineFlowDoc from "../../../jets/workspace_assets/user_flows/startPipelineUF.uf.json";
 import workspacePullFlowDoc from "../../../jets/workspace_assets/user_flows/workspacePullUF.uf.json";
@@ -187,63 +184,13 @@ function harness(
 // so a flow added there is set-checked without anybody listing it.
 // `documentSet.test.ts` still carries the cases that make each check fire.
 
-describe("register_file_key, end to end", () => {
-  const setup = () => harness(registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc);
-
-  it("starts on its only state, which is also its end", () => {
-    const h = setup();
-    expect(h.at()).toBe("submit_schema_event");
-    expect(h.flow.states["submit_schema_event"]!.isEnd).toBe(true);
-  });
-
-  it("refuses to submit an empty form, and says what is missing", () => {
-    const h = setup();
-    const errors = validateForm(h.formFor("submit_schema_event"), h.formState, 0);
-    expect(errors.map((e) => e.message)).toEqual([
-      "Please provide a file key",
-      "Please provide a Schema Event json",
-    ]);
-  });
-
-  it("refuses a schema event that is not json", () => {
-    const h = setup();
-    h.formState.setValue(0, "file_key", "s3://bucket/key.csv");
-    h.formState.setValue(0, "schemaEventJson", "{ not json");
-    const errors = validateForm(h.formFor("submit_schema_event"), h.formState, 0);
-    expect(errors).toHaveLength(1);
-    expect(errors[0]!.message).toContain("Schema Event is not a valid json");
-  });
-
-  it("submits the schema event and closes", async () => {
-    const h = setup();
-    h.formState.setValue(0, "file_key", "s3://bucket/key.csv");
-    h.formState.setValue(0, "schemaEventJson", '{"schema":"v1"}');
-    expect(await h.press("rfkSubmitSchemaEventUF")).toBeNull();
-
-    expect(h.posts).toHaveLength(1);
-    expect(h.posts[0]).toEqual({
-      endpoint: "/registerFileKey",
-      body: {
-        action: "put_schema_event_to_s3",
-        data: [{ file_key: "s3://bucket/key.csv", event: '{"schema":"v1"}' }],
-      },
-    });
-    // Spinner up, request, spinner down, dialog closed — the Dart's order.
-    expect(h.events).toEqual(["busy", "idle", "close"]);
-  });
-
-  it("completing the flow exits without posting twice", async () => {
-    const h = setup();
-    h.formState.setValue(0, "file_key", "k");
-    h.formState.setValue(0, "schemaEventJson", "{}");
-    await h.press("ufCompleted");
-    // `submit_schema_event` carries `stateAction: rfkSubmitSchemaEventUF`, so
-    // Completed runs it once — the same action the Save button runs.
-    expect(h.posts).toHaveLength(1);
-    expect(h.events).toContain("exit");
-  });
-});
-
+/**
+ * **`register_file_key, end to end` stood here until 2026-10-01**, when
+ * `jetstore_maintenance_02` retired `registerFileKeyUF` (`Q-6`, task `AD.4`): its
+ * one state submitted `put_schema_event_to_s3` with a file key the user typed. The
+ * Pipeline Status table's *Put Schema Event* dialog (`D01`) submits it now, with
+ * the file key decided by the server, and is tested with the Home screen.
+ */
 describe("load_files, end to end", () => {
   const setup = () => harness(loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc);
 
