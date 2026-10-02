@@ -184,8 +184,8 @@ const screenTables = (screenCorpus as { tables: Record<string, unknown> }).table
 >;
 const NON_FLOW_KEYS = [
   // `pipelineExecStatusTable` was the first entry here until 2026-10-01; it is
-  // hand-maintained now. See `HAND_MAINTAINED_KEYS`.
-  "workspaceRegistryTable",
+  // hand-maintained now. See `HAND_MAINTAINED_KEYS`. So is `workspaceRegistryTable`,
+  // since the same evening.
   "workspaceChangesTable",
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
@@ -304,6 +304,8 @@ const HAND_MAINTAINED_KEYS = [
   "client",
   "scSourceConfigKey",
   "pcPipelineConfigTable",
+  // Its label repeated the screen title above it (Michel, 2026-10-01).
+  "workspaceRegistryTable",
 ] as const;
 
 const flowDocuments = toDocuments(tables);
@@ -431,11 +433,12 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // the same day**, when `AF.2`–`AF.4` retired `ufClientOrVendorOption`,
     // `scAddOrEditSourceConfigOption` and `pcAddOrEditPipelineConfigOption` with
     // the add-or-edit steps `D06` removed — the first documents to leave this set
-    // by going nowhere.
+    // by going nowhere. **52 and 5 the same evening**, when `workspaceRegistryTable`
+    // left too, to drop a label that repeated its screen title.
     expect(Object.keys(flowDocuments).length).toBe(31);
-    expect(Object.keys(translated).length).toBe(53);
+    expect(Object.keys(translated).length).toBe(52);
     expect(Object.keys(handAuthored).length).toBe(2);
-    expect(Object.keys(handMaintained).length).toBe(4);
+    expect(Object.keys(handMaintained).length).toBe(5);
     expect(Object.keys(documents).length).toBe(61);
   });
 
