@@ -9,19 +9,24 @@
  * all. Failing there would throw away a file the server has just sent, so the
  * escape hands the text to the host's `showText` and the screen renders this.
  *
- * **A native `<dialog>`, on `FormDialog`'s terms** (`userflow/FormDialog.tsx`):
- * `showModal()` gives the top layer, the inert background, the focus trap and
- * Escape-to-dismiss, and in jsdom — which has no `showModal` — the `open`
- * attribute is set instead, which is only reachable where the missing behaviour
- * is unobservable. It carries `uf-dialog` so that whatever width rule the app
- * gives its dialogs (`D08`) reaches this one too.
+ * **Built on `ModalDialog`, which is the one `<dialog>` element in the app**
+ * (`userflow/FormDialog.tsx`, `AB.2`). The first version of this component
+ * rendered its own `<dialog>`; that was a second dialog system the same day `AB.2`
+ * removed the need for one, and `dialogStyles.test.ts` refuses it by name. What
+ * `ModalDialog` carries — `showModal`, the jsdom fallback, Escape as dismissal,
+ * `.uf-dialog` and so the width rule `D08` gave every dialog — this gets for free.
  *
- * Not in `src/userflow/` beside `FormDialog`, because it renders no form
- * document: what put that one there was `FormRenderer`, and this has nothing of
- * the document schema in it.
+ * **It opts into `dismissOnBackdrop`**, which a form dialog does not: nothing is
+ * typed here, so a click outside loses nothing, and a viewer you cannot click
+ * away from is friction for no protection. `ModalDialog` already ignores a click
+ * whose press began inside, so dragging a selection past the edge does not close it.
+ *
+ * Not in `src/userflow/` beside `FormDialog`, because it renders no form document.
  */
 
 import { useEffect, useRef, type ReactNode } from "react";
+
+import { ModalDialog } from "../userflow/FormDialog";
 
 export interface TextDialogProps {
   title: string;
@@ -30,38 +35,21 @@ export interface TextDialogProps {
 }
 
 export function TextDialog({ title, text, onClose }: TextDialogProps): ReactNode {
-  const dialog = useRef<HTMLDialogElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
 
+  // Selected on open, so Ctrl+C is all that is left to do. Two routes because
+  // the order matters: this child effect runs *before* `ModalDialog`'s
+  // `showModal`, while the dialog is still closed and a browser will not focus
+  // into it — so in a browser the selection comes from `onFocus` when
+  // `showModal` focuses the first focusable element, which is the text box; in
+  // jsdom, which has no `showModal`, it comes from here.
   useEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (!element.open) {
-      if (typeof element.showModal === "function") element.showModal();
-      else element.setAttribute("open", "");
-    }
-    // Selected on open, so Ctrl+C is the whole of what is left to do.
     area.current?.focus();
     area.current?.select();
-    return () => {
-      if (element.open) {
-        if (typeof element.close === "function") element.close();
-        else element.removeAttribute("open");
-      }
-    };
   }, []);
 
   return (
-    <dialog
-      ref={dialog}
-      className="uf-dialog text-dialog"
-      aria-label={title}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClose={onClose}
-    >
+    <ModalDialog label={title} onDismiss={onClose} dismissOnBackdrop>
       <h2 className="uf-form__title">{title}</h2>
       <p className="uf-form__label">The browser did not allow copying. Select the text and copy it.</p>
       <textarea
@@ -71,16 +59,13 @@ export function TextDialog({ title, text, onClose }: TextDialogProps): ReactNode
         readOnly
         rows={16}
         value={text}
-        // Inline rather than in `styles.css`, deliberately and for now: two other
-        // tracks of the same phase (`D08`'s dialog width, `D05`'s footer) were
-        // editing that file when this was written. Moving it is one rule.
-        style={{ width: "100%", boxSizing: "border-box", fontFamily: "var(--mono)" }}
+        onFocus={(event) => event.currentTarget.select()}
       />
       <div className="uf-form__actions">
         <button type="button" className="btn btn-primary" onClick={onClose}>
           Close
         </button>
       </div>
-    </dialog>
+    </ModalDialog>
   );
 }

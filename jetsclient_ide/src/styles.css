@@ -655,6 +655,10 @@ body {
    the whole of it for an input. */
 .uf-dialog .field input,
 .uf-dialog .field textarea { width: 100%; }
+/* The clipboard fallback's text (`components/TextDialog.tsx`, jetstore_maintenance_02
+   `AE.3`): the file a browser refused to copy, in the mono face so a manifest's or
+   a CSV's columns line up. Not a `.field`, so the rule above does not reach it. */
+.text-dialog__text { width: 100%; box-sizing: border-box; font-family: var(--mono); }
 @media (max-width: 600px) {
   .uf-dialog {
     width: 100%;

@@ -39,4 +39,15 @@ describe("TextDialog", () => {
     fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("closes on a backdrop click, since nothing typed here can be lost", () => {
+    const onClose = vi.fn();
+    render(<TextDialog title="Run manifest" text="x" onClose={onClose} />);
+    const dialog = screen.getByRole("dialog");
+    // jsdom lays nothing out, so the box is all zeros and a point left of it is
+    // outside — which is what a backdrop press is.
+    fireEvent.mouseDown(dialog, { clientX: -5, clientY: -5 });
+    fireEvent.click(dialog, { clientX: -5, clientY: -5 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
