@@ -40,6 +40,7 @@ WORKDIR ${JETS_SOURCE_DIR}
 # it to fetch modules. What is not required is a `.git` directory of our own.
 COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY go.sum              ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 COPY jetsclient_ide      ${JETS_SOURCE_DIR}/jetsclient_ide
 COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
