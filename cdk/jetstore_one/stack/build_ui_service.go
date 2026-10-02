@@ -102,6 +102,14 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		// string explicitly, so adding this line changes nothing for a deployment that
 		// does not set the variable.
 		"JETS_NO_GIT_ACCESS": jsii.String(os.Getenv("JETS_NO_GIT_ACCESS")),
+		// The deployment's own Pipeline Status buttons, served by the apiserver at login
+		// and rendered by the React app after the built-in buttons of the table's last
+		// row. A deployment setting so that no workspace document can name them; see the
+		// variable's entry in jetstore_one.go. Like every os.Getenv entry above, an unset
+		// variable arrives here present and empty, and the apiserver reads empty as "no
+		// custom buttons". Added 2026-10-01 (jetstore_maintenance_02, D04): nothing had
+		// read the variable since the Flutter app that compiled it in was deleted.
+		"JETS_CUSTOM_BUTTONS_CONFIG_JSON": jsii.String(os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON")),
 	}
 
 	// Identifiers used by awsi.StartInferServer / StopInferServer, which scale the infer
