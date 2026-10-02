@@ -606,10 +606,22 @@ describe("client_registry, end to end", () => {
     expect(h.formState.getValue(0, "client")).toBe("ACME");
   });
 
-  it("ends on show_org, which offers no advancing button", () => {
+  it("returns from show_org to the client table on Done, and does not exit", async () => {
+    // **Not an end state since 2026-10-01** (`jetstore_maintenance_02` Phase 2,
+    // Michel: *return to the starting table of the user flow*). *Done* was
+    // `ufCompleted`, which left the flow for `returnTo`; it is `ufNext` now, over
+    // a `defaultNextState` back to `select_client`. The flow has no end state,
+    // as `sourceConfigUF` and `pipelineConfigUF` have none; *Close* on the table
+    // is the way out.
     const h = setup();
-    expect(h.flow.states["show_org"]!.isEnd).toBe(true);
-    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious", "ufCompleted"]);
+    expect(h.flow.states["show_org"]!.isEnd).toBeUndefined();
+    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious", "ufNext"]);
+    h.formState.setValue(0, "client", ["ACME"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("show_org");
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_client");
+    expect(h.events).not.toContain("exit");
   });
 
   it("deletes the client it posted, not the one it has just cleared", async () => {
@@ -1592,13 +1604,22 @@ describe("file_mapping, end to end", () => {
     }
   });
 
-  it("ends on file_mapping, which offers no advancing button", () => {
+  it("returns from file_mapping to the source table on Done, and does not exit", async () => {
+    // **Not an end state since 2026-10-01**, as `show_org` above and for the same
+    // request (`jetstore_maintenance_02` Phase 2): *Done* is `ufNext` over a
+    // `defaultNextState` back to `select_source_config`, where it was `ufCompleted`.
     const h = setup();
-    expect(h.flow.states["file_mapping"]!.isEnd).toBe(true);
+    expect(h.flow.states["file_mapping"]!.isEnd).toBeUndefined();
     expect(h.formFor("file_mapping").actions.map((a) => a.action)).toEqual([
       "ufPrevious",
-      "ufCompleted",
+      "ufNext",
     ]);
+    selectSource(h);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("file_mapping");
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_source_config");
+    expect(h.events).not.toContain("exit");
   });
 
   it("downloads the mapping as a csv, quoting every cell and skipping nulls", async () => {

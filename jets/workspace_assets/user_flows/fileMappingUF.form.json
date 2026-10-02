@@ -32,7 +32,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCompleted", "label": "Done", "style": "secondary" }
+        { "action": "ufNext", "label": "Done", "style": "secondary" }
       ]
     },
     "loadRawRowsDialog": {
