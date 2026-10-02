@@ -164,7 +164,7 @@
       "key": "addSourceConfig",
       "label": "+ Add",
       "action": "doAction",
-      "style": "secondary",
+      "style": "add",
       "actionName": "scGoToAddSourceConfig",
       "capability": "client_config"
     },

@@ -87,7 +87,9 @@ describe("declared button styles against the stylesheet", () => {
   it("finds the styles the installed documents actually declare", () => {
     // An equality, so that a new style brings somebody back to this file rather
     // than being drawn as the base button and nobody noticing for a phase.
-    expect([...declaredStyles().keys()].sort()).toEqual(["danger", "primary", "secondary"]);
+    // `add` since 2026-10-01: the light-green *+ Add* on the three tables
+    // jetstore_maintenance_02's D06 opens its flows on.
+    expect([...declaredStyles().keys()].sort()).toEqual(["add", "danger", "primary", "secondary"]);
   });
 
   it("gives every declared style a rule, or a reason for having none", () => {

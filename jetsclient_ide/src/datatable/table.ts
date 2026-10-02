@@ -704,7 +704,7 @@ export const TableActionSchema = z
     key: Identifier,
     label: z.string().min(1),
     action: ActionTypeSchema,
-    style: z.enum(["primary", "secondary", "danger"]),
+    style: z.enum(["primary", "secondary", "danger", "add"]),
     /** The action-document entry `doAction` runs. 11 distinct names in the corpus. */
     actionName: Identifier.optional(),
     /** The form a dialog or screen opens. */

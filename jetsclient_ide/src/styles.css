@@ -255,6 +255,11 @@ body {
    is dark and white text still reads. D.11, from the report on the *Start
    Pipeline* button. */
 .btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+/* A table's *+ Add* (jetstore_maintenance_02, D06, 2026-10-01): light green so the
+   one way to create a row stands out at the start of the bar. Hover restates the
+   background for the reason given above. */
+.btn-add { background: var(--good-bg); color: var(--good); border-color: var(--good); font-weight: 600; }
+.btn-add:hover:not(:disabled) { background: var(--good-bg); filter: brightness(0.96); }
 /* `danger` is declared by four Delete actions across the installed table
    documents and had no rule, so a destructive button rendered as a plain one.
    Found at D.4 fixing the class name the action bar emits — the style was never

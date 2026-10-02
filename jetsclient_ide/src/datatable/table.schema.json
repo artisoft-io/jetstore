@@ -642,7 +642,8 @@
           "enum": [
             "primary",
             "secondary",
-            "danger"
+            "danger",
+            "add"
           ]
         },
         "actionName": {

@@ -198,7 +198,7 @@
       "key": "addPipelineConfig",
       "label": "+ Add",
       "action": "doAction",
-      "style": "secondary",
+      "style": "add",
       "actionName": "pcGoToAddPipelineConfig",
       "capability": "client_config"
     },
