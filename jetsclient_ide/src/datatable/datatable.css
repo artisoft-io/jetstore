@@ -23,6 +23,7 @@
 
 .jets-datatable__header-row {
   display: flex;
+  flex-wrap: wrap; /* on a phone the first row's buttons go under the label, not beside it */
   align-items: center;
   gap: 0.75rem;
 }
