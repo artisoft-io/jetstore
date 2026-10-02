@@ -6,7 +6,7 @@
   "description": "JetStore Workspace IDE \u2014 a CodeMirror 6 editor served by the Go apiserver",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run build:validator",
     "build:validator": "vite build --config vite.validator.config.ts",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
