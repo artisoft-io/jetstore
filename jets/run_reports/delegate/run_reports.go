@@ -290,7 +290,16 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 
 		if !ca.SkipCompileWorkspace {
 			version := strconv.FormatInt(time.Now().Unix(), 10)
-			_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
+			// **No asset validation here, by decision rather than by omission**
+			// (jetstore_maintenance_02 Q-9, answered 2026-10-01; task AG.5). This
+			// recompile rebuilds the lookup tables a report has just written and
+			// changes no user-flow or table document, so the documents it would
+			// check are the ones the Docker build's compile and the IDE's compile
+			// already passed. The cpipes image this runs in carries no node, and
+			// CompileWorkspace fails rather than skips when node is missing, so
+			// without this opt-out every lookup-table rebuild would fail.
+			_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version,
+				workspace.SkipAssetValidation("run_reports rebuilds lookup tables after a report and changes no user_flows/ or table_configs/ document; those were validated by the compile that deployed them"))
 			if err != nil {
 				return err
 			}

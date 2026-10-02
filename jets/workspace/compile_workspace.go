@@ -11,8 +11,13 @@ import (
 )
 
 // Workspace compilation function
+//
+// **The workspace's user-flow and table documents are validated first, and an
+// invalid one fails the compile** (jetstore_maintenance_02 AG.4, 2026-10-01): see
+// asset_validation.go. Every caller gets the gate unless it passes
+// SkipAssetValidation with a reason -- run_reports does, and says why.
 
-func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (string, error) {
+func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string, opts ...CompileOption) (string, error) {
 
 	// Load the workspace control file to determine which compiler to use
 	workspaceControl, err := rete.LoadWorkspaceControl(workspaceControlPath)
@@ -20,8 +25,22 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		err = fmt.Errorf("while loading workspace_control.json: %v", err)
 		return err.Error(), err
 	}
+
+	var options compileOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	// The directory compileWorkspaceV2 compiles from, so the documents checked
+	// are the ones beside the rules being compiled.
+	validationLog, err := validateWorkspaceAssets(
+		fmt.Sprintf("%s/%s", workspaceHome, workspaceControl.WorkspaceName), options)
+	if err != nil {
+		return validationLog, err
+	}
+
 	log.Println("Using workspace compiler v2 with WORKSPACE_HOME=", WorkspacesHome())
-	return compileWorkspaceV2(dbpool, workspaceControl, version)
+	compileLog, err := compileWorkspaceV2(dbpool, workspaceControl, version)
+	return validationLog + compileLog, err
 }
 
 func UploadWorkspaceAssets(dbpool *pgxpool.Pool, workspaceName, version string) error {

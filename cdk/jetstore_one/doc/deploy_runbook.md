@@ -228,3 +228,10 @@ its consequences.
 source-control host, which is the deployment it was added for: no `JETS_GIT_ACCESS`, no
 `WORKSPACE_URI`, and a workspace baked into the image with no `.git` in it. Local development is the
 second consumer and the one that reaches a developer's own files.
+
+**And set `JETS_WORKSPACE_VALIDATOR` if the apiserver will compile a workspace** (added
+2026-10-01). Compiling now validates the workspace's flow and table documents with a Node script
+and fails rather than skips when the script or `node` cannot be found; the images put the script
+beside the binaries, which a local build does not. Build it with `npm ci && npm run build:validator`
+in `jetsclient_ide/` and point the variable at `jetsclient_ide/dist-validator/jets_validate_workspace.mjs`
+(`jets/workspace/README.md` has the detail).
