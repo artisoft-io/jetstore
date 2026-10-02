@@ -77,11 +77,19 @@ interface Posted {
  * `update/source_config` replaces the row with that key. Anything else this
  * screen sends and the stub does not expect is a 422, so a wrong request fails
  * by name rather than by an empty table.
+ *
+ * `fillers` puts that many source configurations *before* record 42, so with
+ * twenty of them it is on the table's second page — and a `read` honours the
+ * page's `offset` and `limit`, as the apiserver does.
  */
-function stubServer() {
+function stubServer(fillers = 0) {
   const posts: Posted[] = [];
   const clients: JetsRow[] = [["GLOBEX", "the first client", "2026-09-30"]];
   const sources: JetsRow[] = [
+    ...Array.from({ length: fillers }, (_, i): JetsRow => [
+      String(100 + i), "GLOBEX", `ORG${i}`, "claim", "0", `GLOBEX_ORG${i}_claim`,
+      null, null, null, null, "csv", "0", "", null, "2026-09-30",
+    ]),
     ["42", "GLOBEX", "EAST", "claim", "0", "GLOBEX_EAST_claim", null, null, null, null, "csv", "0", "", null, "2026-09-30"],
   ];
   let nextKey = 43;
@@ -117,7 +125,12 @@ function stubServer() {
 
       case "read":
         if (table === "client_registry") return ok({ rows: clients, totalRowCount: clients.length });
-        if (table === "source_config") return ok({ rows: sources, totalRowCount: sources.length });
+        if (table === "source_config") {
+          const offset = Number(body["offset"] ?? 0);
+          const limit = Number(body["limit"] ?? 0);
+          const page = limit > 0 ? sources.slice(offset, offset + limit) : sources;
+          return ok({ rows: page, totalRowCount: sources.length });
+        }
         return ok({ rows: [], totalRowCount: 0 });
 
       case "raw_query_map": {
@@ -170,8 +183,8 @@ function Banners() {
   );
 }
 
-async function mount(flowKey: string) {
-  const server = stubServer();
+async function mount(flowKey: string, fillers = 0) {
+  const server = stubServer(fillers);
   const api = new ApiClient("", server.fetchImpl);
   await api.login("michel@artisoft.io", "pw");
   render(
@@ -341,6 +354,70 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
     expect(button("+ Add")).toBeTruthy();
     expect(screen.queryByText("the home screen")).toBeNull();
     expect(inserts(posts)).toEqual([]);
+  });
+
+  it("forgets a cancelled edit, so Edit needs a fresh selection and then shows the saved value", async () => {
+    // `jetstore_maintenance_02` Phase 2, 2026-10-01. *Cancel* returned to the
+    // table with a bare `goToState`, leaving the record's selection and every key
+    // the edit had changed in form state. When the table comes back it re-ticks
+    // that record and re-publishes it from the row (`useTableBinding`, the restore
+    // effect) — **but only if the record is on the page it reads**. Record 42 is on
+    // page two here, the table comes back on page one, nothing is re-published, and
+    // *Edit* with no row ticked opened record 42 with the cancelled value in it,
+    // which *Save* would have written. `scCancelToList` now clears the selection
+    // first, so *Edit* is refused until a row is ticked, and ticking one publishes
+    // it afresh. Proved by mutation: take the `clearSelection` out of
+    // `scCancelToList` and the refusal below is never shown — *Edit* opens the
+    // wizard instead, with `["abandoned"]` in the domain keys.
+    const { posts, sources } = await mount("sourceConfigUF", 20);
+    await screen.findByText("GLOBEX_ORG0_claim");
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByText("GLOBEX_EAST_claim");
+    tickRow("GLOBEX_EAST_claim");
+    fireEvent.click(button("Edit"));
+
+    async function toDomainKeys() {
+      await screen.findByText("CSV file with headers (most common)");
+      tickRow("CSV file with headers (most common)");
+      fireEvent.click(button("Next"));
+      await screen.findByText("Data source is a single file (most common)");
+      tickRow("Data source is a single file (most common)");
+      fireEvent.click(button("Next"));
+      return (await screen.findByLabelText("Domain Key(s) (json)")) as HTMLInputElement;
+    }
+
+    let domainKeys = await toDomainKeys();
+    fireEvent.change(domainKeys, { target: { value: '["abandoned"]' } });
+    fireEvent.click(button("Cancel"));
+
+    // Back on the table's first page, where record 42 is not.
+    await screen.findByText("GLOBEX_ORG0_claim");
+    expect(screen.queryByText("GLOBEX_EAST_claim")).toBeNull();
+    fireEvent.click(button("Edit"));
+    expect(await screen.findByText("A file configuration must be selected.")).toBeTruthy();
+    expect(screen.queryByText("CSV file with headers (most common)")).toBeNull();
+
+    // Ticking the record again publishes it from the row: the saved value, not
+    // the cancelled one, and *Save* updates that record.
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByText("GLOBEX_EAST_claim");
+    tickRow("GLOBEX_EAST_claim");
+    fireEvent.click(button("Edit"));
+    domainKeys = await toDomainKeys();
+    expect(domainKeys.value).toBe("");
+
+    fireEvent.click(button("Next"));
+    for (const label of ["Code Values Mapping (csv or json)", "Schema Provider JSON"]) {
+      await screen.findByLabelText(label);
+      fireEvent.click(button("Next"));
+    }
+    await screen.findByText("File Configuration Summary");
+    fireEvent.click(button("Save"));
+    await screen.findByText("GLOBEX_ORG0_claim");
+    expect(inserts(posts)).toEqual(["update/source_config"]);
+    const update = posts.find((p) => p.body["action"] === "insert_rows")!;
+    expect((update.body["data"] as Record<string, unknown>[])[0]!["key"]).toBe("42");
+    expect(sources.find((r) => r[0] === "42")![6]).toBeNull();
   });
 
   it("leaves the flow from the table with Close, which needs no selection", async () => {

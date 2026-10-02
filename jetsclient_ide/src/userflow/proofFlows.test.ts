@@ -1210,6 +1210,25 @@ describe("pipeline_config, end to end", () => {
     await h.press("ufNext");
     expect(h.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/pipeline_config" }]]);
     expect(h.at()).toBe("select_pipeline_config");
+    // The save clears the table's selection, as Cancel does (below).
+    expect(h.formState.getValue(0, "pcPipelineConfigTable") ?? null).toBeNull();
+  });
+
+  it("clears the table's selection on Cancel from an edit, so Edit needs a fresh tick", async () => {
+    // `jetstore_maintenance_02` Phase 2, 2026-10-01: a bare `goToState` left the
+    // edited record selected in form state, and the table re-publishes it only
+    // when it is on the page the table reads (`FlowRunner.addReturn.test.tsx`).
+    const h = setup();
+    h.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    h.formState.setValue(0, "main_process_input_key", ["pi-1"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_main_process_input");
+    expect(await h.press("pcCancelToList")).toBeNull();
+    expect(h.at()).toBe("select_pipeline_config");
+    expect(h.formState.getValue(0, "pcPipelineConfigTable") ?? null).toBeNull();
+    // And *Edit* is refused until a row is ticked again.
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_pipeline_config");
   });
 
   it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
@@ -1847,6 +1866,8 @@ describe("configure_files, end to end", () => {
     await edit.press("ufNext");
     await walk(edit);
     expect(edit.posts.map((p) => p.body["fromClauses"])).toEqual([[{ table: "update/source_config" }]]);
+    // The save clears the table's selection, as Cancel does (below).
+    expect(edit.formState.getValue(0, "scSourceConfigKey") ?? null).toBeNull();
   });
 
   it("cancels from any page of the wizard back to the table, not out of the flow", async () => {
@@ -1857,6 +1878,12 @@ describe("configure_files, end to end", () => {
     expect(await h.press("scCancelToList")).toBeNull();
     expect(h.at()).toBe("select_source_config");
     expect(h.events).not.toContain("exit");
+    // The edited record is no longer selected (`jetstore_maintenance_02` Phase 2,
+    // 2026-10-01; `FlowRunner.addReturn.test.tsx` has why), so *Edit* is refused
+    // until a row is ticked again.
+    expect(h.formState.getValue(0, "scSourceConfigKey") ?? null).toBeNull();
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_source_config");
     for (const [key, state] of Object.entries(h.flow.states)) {
       const actions = h.forms.forms[state.formConfig]!.actions.map((a) => a.action);
       if (key === "select_source_config") expect(actions).not.toContain("scCancelToList");

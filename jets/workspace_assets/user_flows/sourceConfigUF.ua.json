@@ -17,8 +17,9 @@
       ]
     },
     "scCancelToList": {
-      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the source config table rather than leaving the flow",
+      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the source config table rather than leaving the flow. The selection is cleared first, so Edit needs a row ticked again, which publishes it afresh from the table rather than reopening the abandoned values",
       "steps": [
+        { "do": "clearSelection", "key": "scSourceConfigKey" },
         { "do": "goToState", "state": "select_source_config" }
       ]
     },
@@ -96,10 +97,11 @@
       ]
     },
     "addSourceConfig.ok": {
-      "description": "Save the file configuration, nulling the fields its file type does not use",
+      "description": "Save the file configuration, nulling the fields its file type does not use, then clear the table's selection as Cancel does",
       "steps": [
         { "do": "validate" },
-        { "do": "escape", "name": "saveSourceConfigForFileType" }
+        { "do": "escape", "name": "saveSourceConfigForFileType" },
+        { "do": "clearSelection", "key": "scSourceConfigKey" }
       ]
     },
     "deleteSourceConfig": {
