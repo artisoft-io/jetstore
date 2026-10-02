@@ -29,7 +29,7 @@
             }
           }
         },
-        { "do": "notify", "level": "info", "message": "Schema event saved as jetstore_ui_event.json" },
+        { "do": "notify", "level": "info", "message": "Schema event saved to the schema triggers folder" },
         { "do": "close" }
       ]
     },

@@ -635,7 +635,7 @@ describe("the table's buttons", () => {
  *
  * The button opens a dialog with one text box; Save posts `put_schema_event_to_s3`
  * to `/registerFileKey` with **no** `file_key`, because the server names the
- * object (`AD.1`, `DefaultSchemaEventFileKey`), and the outcome reaches the status
+ * object (`AD.1`; a unique `SchemaEventFileKeyStem` name since Phase 2), and the outcome reaches the status
  * banner (`Q-2`). What a browser has to show — the dialog's width, and the banner
  * where a user sees it — is criterion 8's other half and is not asserted here.
  */
@@ -698,7 +698,7 @@ describe("Put Schema Event", () => {
     expect(post!.body).toEqual({ action: "put_schema_event_to_s3", data: [{ event: EVENT }] });
     expect(Object.keys((post!.body["data"] as Record<string, unknown>[])[0]!)).not.toContain("file_key");
 
-    expect((await screen.findByRole("status")).textContent).toBe("Schema event saved as jetstore_ui_event.json");
+    expect((await screen.findByRole("status")).textContent).toBe("Schema event saved to the schema triggers folder");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
   });

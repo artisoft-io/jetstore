@@ -14,6 +14,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -92,18 +93,26 @@ func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[st
 
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 
-// DefaultSchemaEventFileKey is the object name PutSchemaEventToS3 writes under
-// JETS_s3_SCHEMA_TRIGGERS when a request names none. jetstore_maintenance_02,
-// D01 and task AD.1, 2026-10-01.
+// SchemaEventFileKeyStem names the objects PutSchemaEventToS3 writes under
+// JETS_s3_SCHEMA_TRIGGERS when a request names no file_key: the stem, the time
+// in milliseconds and a UUID, e.g. jetstore_ui_event_1790905252288_<uuid>.json.
+// jetstore_maintenance_02, D01 (AD.1, 2026-10-01) and Phase 2 (2026-10-02).
 //
-// **The name is a deployment convention and belongs beside the prefix, which is
-// already server-side**, rather than in every client. Nothing downstream keys on
-// it: the register-keys lambda is invoked for any object under the prefix and
-// registers what the object's content names, reserving a fresh session per call,
-// so one overwritten name serves every submission. Two submissions inside the
-// lambda's download window can still read the second body (that project's R-3),
-// which a timestamped suffix would remove if it is ever wanted.
-const DefaultSchemaEventFileKey = "jetstore_ui_event.json"
+// **Unique per row, and it was one fixed name until 2026-10-02.** Nothing
+// downstream keys on the name -- the register-keys lambda registers what the
+// object's content names -- but it downloads by key, without the version, into a
+// buffer sized from the event: a second submission overwriting the fixed name
+// inside that window registered the second body twice when the sizes matched and
+// failed both when they did not. A unique name gives each notification exactly
+// one body. It costs no storage the fixed name did not already: the bucket is
+// versioned, so every overwrite kept the old body as a noncurrent version.
+const SchemaEventFileKeyStem = "jetstore_ui_event"
+
+// newSchemaEventFileKey makes one default object name; a variable so a test can
+// fix it.
+var newSchemaEventFileKey = func() string {
+	return fmt.Sprintf("%s_%d_%s.json", SchemaEventFileKeyStem, time.Now().UnixMilli(), uuid.NewString())
+}
 
 // putSchemaEventUpload is awsi.UploadBufToS3, held in a variable so that a test
 // can observe the key and body without reaching S3.
@@ -122,7 +131,7 @@ type schemaEventUpload struct {
 // I-5). The React *Put Schema Event* dialog sends no file key, by design, so that
 // silence would have been the dialog's normal outcome. Now:
 //
-//   - a missing, null or empty file_key means DefaultSchemaEventFileKey;
+//   - a missing, null or empty file_key means a new name, newSchemaEventFileKey;
 //   - a missing, null, non-string or empty event is a 400, as is a request with no
 //     rows, because there is nothing to submit and saying so is the point;
 //   - every row is checked before any is uploaded, so a 400 never follows a
@@ -143,7 +152,7 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 			return nil, http.StatusBadRequest,
 				fmt.Errorf("put_schema_event_to_s3: row %d: the schema event is empty", irow)
 		}
-		fileKey := DefaultSchemaEventFileKey
+		fileKey := ""
 		switch v := action.Data[irow]["file_key"].(type) {
 		case nil:
 		case string:
@@ -154,6 +163,9 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 			return nil, http.StatusBadRequest,
 				fmt.Errorf("put_schema_event_to_s3: row %d: file_key must be a string, got %T", irow, v)
 		}
+		if fileKey == "" {
+			fileKey = newSchemaEventFileKey()
+		}
 		uploads = append(uploads, schemaEventUpload{
 			key:  fmt.Sprintf("%s/%s", jetsS3SchemaTriggers, fileKey),
 			body: []byte(schemaProviderJson),
@@ -163,12 +175,15 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 		return nil, http.StatusInternalServerError,
 			errors.New("put_schema_event_to_s3: JETS_s3_SCHEMA_TRIGGERS is not set")
 	}
+	written := make([]string, 0, len(uploads))
 	for _, u := range uploads {
 		if err := putSchemaEventUpload("", u.key, u.body); err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)
 		}
+		log.Printf("put_schema_event_to_s3: wrote %s", u.key)
+		written = append(written, u.key)
 	}
-	return &map[string]any{}, http.StatusOK, nil
+	return &map[string]any{"file_keys": written}, http.StatusOK, nil
 }
 
 // Register file_key with file_key_staging table and handling schema events as well.

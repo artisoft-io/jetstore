@@ -11,6 +11,7 @@ package datatable
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -38,15 +39,23 @@ const testSchemaTriggers = "jetstore/schema_triggers"
 const testEvent = `{"client":"CGT","object_type":"Eligibility","file_key":"client=CGT/x"}`
 
 func putSchemaEvent(rows ...map[string]any) (int, error) {
-	ctx := &DataTableContext{}
-	_, code, err := ctx.PutSchemaEventToS3(&RegisterFileKeyAction{
-		Action: "put_schema_event_to_s3",
-		Data:   rows,
-	}, "")
+	_, code, err := putSchemaEventResult(rows...)
 	return code, err
 }
 
-// The criterion-9 case: no file_key writes the default name under the prefix.
+func putSchemaEventResult(rows ...map[string]any) (*map[string]any, int, error) {
+	ctx := &DataTableContext{}
+	return ctx.PutSchemaEventToS3(&RegisterFileKeyAction{
+		Action: "put_schema_event_to_s3",
+		Data:   rows,
+	}, "")
+}
+
+// defaultName is the shape newSchemaEventFileKey makes (Phase 2, 2026-10-02).
+var defaultName = regexp.MustCompile(`^jetstore/schema_triggers/jetstore_ui_event_\d+_[0-9a-f-]{36}\.json$`)
+
+// The criterion-9 case: no file_key writes a default name under the prefix --
+// unique since 2026-10-02, so two concurrent submissions cannot overwrite each other.
 func TestPutSchemaEventWithoutFileKeyWritesTheDefaultName(t *testing.T) {
 	for name, row := range map[string]map[string]any{
 		"absent": {"event": testEvent},
@@ -59,11 +68,27 @@ func TestPutSchemaEventWithoutFileKeyWritesTheDefaultName(t *testing.T) {
 			if err != nil || code != http.StatusOK {
 				t.Fatalf("got %d, %v; want 200, nil", code, err)
 			}
-			want := recordedUpload{"", testSchemaTriggers + "/jetstore_ui_event.json", testEvent}
-			if len(*got) != 1 || (*got)[0] != want {
-				t.Fatalf("uploads = %+v, want exactly %+v", *got, want)
+			if len(*got) != 1 || !defaultName.MatchString((*got)[0].key) || (*got)[0].body != testEvent {
+				t.Fatalf("uploads = %+v, want one %s with the event", *got, defaultName)
 			}
 		})
+	}
+}
+
+// Two rows with no file_key get two names, and the response lists what was
+// written. With one fixed name the second upload overwrote the first.
+func TestPutSchemaEventNamesEachRowApart(t *testing.T) {
+	got := withRecordedUploads(t, testSchemaTriggers, nil)
+	result, code, err := putSchemaEventResult(map[string]any{"event": testEvent}, map[string]any{"event": testEvent})
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("got %d, %v; want 200, nil", code, err)
+	}
+	if len(*got) != 2 || (*got)[0].key == (*got)[1].key {
+		t.Fatalf("uploads = %+v, want two distinct keys", *got)
+	}
+	keys, _ := (*result)["file_keys"].([]string)
+	if len(keys) != 2 || keys[0] != (*got)[0].key || keys[1] != (*got)[1].key {
+		t.Fatalf("file_keys = %v, want the two keys written", (*result)["file_keys"])
 	}
 }
 
@@ -113,7 +138,7 @@ func TestPutSchemaEventRefusesANonStringFileKey(t *testing.T) {
 	}
 }
 
-// An unset prefix would put the object at "/jetstore_ui_event.json", at the
+// An unset prefix would put the object at "/jetstore_ui_event_<...>.json", at the
 // bucket root, where no notification is watching: a 200 that triggers nothing.
 func TestPutSchemaEventRefusesAnUnsetPrefix(t *testing.T) {
 	got := withRecordedUploads(t, "", nil)

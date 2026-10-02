@@ -29,7 +29,7 @@
         [
           {
             "field": "label",
-            "text": "Paste or enter the schema event as json. It is saved as jetstore_ui_event.json in the schema triggers folder, which registers it."
+            "text": "Paste or enter the schema event as json. It is saved under a unique name in the schema triggers folder, which registers it."
           }
         ],
         [
