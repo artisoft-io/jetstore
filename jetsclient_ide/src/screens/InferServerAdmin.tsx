@@ -51,6 +51,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApiClient } from "../api/client";
 import { FormState } from "../datatable/formState";
 import { productionRegistry } from "../actions/registry";
+import { ModalDialog } from "../userflow/FormDialog";
 import { FormRenderer, type FormHost } from "../userflow/FormRenderer";
 import { FormDocumentSchema, type Form, type FormAction } from "../userflow/form";
 import { validateForm, type FieldError } from "../userflow/validateForm";
@@ -241,10 +242,16 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
         setAndNotify(formState, INFER_REQUEST, pretty(macro));
         return;
       }
-      // The stop confirmation is a render, not an await: the Dart opens a
+      // The stop confirmation is a render, not an await. ~~The Dart opens a
       // danger-zone dialog and this app has no dialog host on `jets_ai` yet
       // (I-68). A panel below the toolbar is the same decision point without
-      // building the second one.
+      // building the second one.~~ **Corrected 2026-10-01
+      // (jetstore_maintenance_02 `AB.3`, its `I-8`): the host exists and the
+      // panel was the defect.** `FormDialog` has opened a native modal
+      // `<dialog>` since C.2b, so I-68's condition was met long before this
+      // comment was re-read, and the panel sat below a form styled to fill the
+      // screen, where the user had to scroll to find it (D07). It is a modal
+      // `ModalDialog` now, the element `FormDialog` itself is built on.
       if (action.action === ACTIONS.stop) {
         setConfirmStop(true);
         return;
@@ -307,28 +314,50 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
     <main className="screen infer-admin">
       <FormRenderer form={FORM} host={host} errors={shownErrors} />
 
+      {/*
+        The stop confirmation, as a modal dialog. jetstore_maintenance_02 `AB.2`
+        (D07), 2026-10-01.
+
+        **Modal because the action terminates a GPU instance.** The panel it
+        replaces was non-modal and rendered after a full-height form, so it was
+        below the fold (assessment F35); a modal `<dialog>` is in the top layer,
+        centred, holds focus and leaves the screen behind it inert.
+
+        **Every way out that is not *Stop it* means *Keep it running***: the
+        button, Escape (the dialog's `cancel`) and a click on the backdrop. The
+        safe button comes first in the DOM so it is where `showModal` puts
+        focus, and *Stop it* keeps its capability gate exactly as the panel had
+        it — `ActionButton` with `INFER_SERVER_ADMIN`, which is presentation; the
+        endpoint is the enforcement point.
+      */}
       {confirmStop && (
-        <div className="banner infer-admin__confirm" role="alertdialog">
-          <p>
-            Stop the Infer Server? The GPU instance is terminated and any loaded model is
-            unloaded.
-          </p>
-          <ActionButton
-            className="btn btn-danger"
-            capability={INFER_SERVER_ADMIN}
-            disabled={busy}
-            onClick={() => {
-              setConfirmStop(false);
-              setBusy(true);
-              void lifecycle(false).finally(() => setBusy(false));
-            }}
-          >
-            Stop it
-          </ActionButton>
-          <ActionButton className="btn btn-secondary" onClick={() => setConfirmStop(false)}>
-            Keep it running
-          </ActionButton>
-        </div>
+        <ModalDialog
+          label="Stop the Infer Server?"
+          onDismiss={() => setConfirmStop(false)}
+          dismissOnBackdrop
+        >
+          <div className="infer-admin__confirm">
+            <h2 className="uf-form__title">Stop the Infer Server?</h2>
+            <p>The GPU instance is terminated and any loaded model is unloaded.</p>
+            <div className="uf-form__actions" role="group" aria-label="Confirm stop">
+              <ActionButton className="btn btn-secondary" onClick={() => setConfirmStop(false)}>
+                Keep it running
+              </ActionButton>
+              <ActionButton
+                className="btn btn-danger"
+                capability={INFER_SERVER_ADMIN}
+                disabled={busy}
+                onClick={() => {
+                  setConfirmStop(false);
+                  setBusy(true);
+                  void lifecycle(false).finally(() => setBusy(false));
+                }}
+              >
+                Stop it
+              </ActionButton>
+            </div>
+          </div>
+        </ModalDialog>
       )}
     </main>
   );

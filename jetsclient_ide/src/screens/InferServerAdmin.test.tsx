@@ -10,7 +10,7 @@
  * below `ApiClient` is real, and the only stub is `fetch`, answering as
  * `jets/apiserver/api_infer_server.go` does.
  *
- * Six cases, each of which would have caught a different real mistake:
+ * Seven cases, each of which would have caught a different real mistake:
  *
  *  - the buttons and fields are on screen at all, and Submit is disabled on an
  *    empty request (`enableOnlyWhenFormValid` against the `required` rule);
@@ -26,10 +26,17 @@
  *    does not reach the proxy;
  *  - every button is inert without the capability. Presentation only — the
  *    endpoint is the enforcement point — but eight buttons naming a capability
- *    is eight chances to omit one.
+ *    is eight chances to omit one;
+ *  - **the stop confirmation is a modal dialog, and only *Stop it* stops.**
+ *    jetstore_maintenance_02 `AB.4` (D07), 2026-10-01. It was a panel below the
+ *    form, exercised only in passing by the gating case; the panel's two clicks
+ *    there now go through the dialog, and the case below is the confirmation's
+ *    own. jsdom has no `showModal`, so `ModalDialog` falls back to the `open`
+ *    attribute and Escape is driven as the `cancel` event the browser would
+ *    fire — the convention `WorkspaceRegistry.test.tsx` set for `FormDialog`.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiClient } from "../api/client";
@@ -148,7 +155,7 @@ describe("the Infer Server Admin screen", () => {
     expect(button("Stop").hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(button("Stop"));
-    fireEvent.click(button("Stop it"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Stop it" }));
 
     // Stopped: the two swap, which is the predicate being re-read on a render
     // the form-state write caused.
@@ -201,5 +208,59 @@ describe("the Infer Server Admin screen", () => {
     for (const label of ["Start", "Stop", "Models", "Pull Model", "Model Details", "Delete", "Refresh", "Submit"]) {
       expect(button(label).hasAttribute("disabled")).toBe(true);
     }
+  });
+
+  it("confirms Stop in a modal dialog, and every way out but Stop it sends nothing", async () => {
+    const { calls, fetchImpl } = server("running");
+    draw(await signedIn(fetchImpl));
+    await waitFor(() => expect(button("Stop").hasAttribute("disabled")).toBe(false));
+    const stops = () => calls.filter((c) => c.action === "stop_server");
+
+    // Nothing is asked until Stop is pressed.
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // *Keep it running* closes it.
+    fireEvent.click(button("Stop"));
+    let dialog = await screen.findByRole("dialog", { name: "Stop the Infer Server?" });
+    expect(dialog.tagName).toBe("DIALOG");
+    expect(dialog.classList.contains("uf-dialog")).toBe(true);
+    // The safe choice first, so it is where `showModal` puts focus.
+    expect(within(dialog).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Keep it running",
+      "Stop it",
+    ]);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep it running" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // Escape closes it. jsdom fires no `cancel` from a keydown, so the event the
+    // browser would fire is dispatched directly.
+    fireEvent.click(button("Stop"));
+    dialog = await screen.findByRole("dialog");
+    dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // A click on the backdrop closes it. The backdrop's clicks land on the
+    // `<dialog>` at a point outside its box; jsdom's box is all zeros, so any
+    // point away from the origin is outside it.
+    fireEvent.click(button("Stop"));
+    dialog = await screen.findByRole("dialog");
+    fireEvent.mouseDown(dialog, { clientX: 400, clientY: 400 });
+    fireEvent.click(dialog, { clientX: 400, clientY: 400 });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // A click on the dialog's own box does not.
+    fireEvent.click(button("Stop"));
+    dialog = await screen.findByRole("dialog");
+    fireEvent.mouseDown(dialog, { clientX: 0, clientY: 0 });
+    fireEvent.click(dialog, { clientX: 0, clientY: 0 });
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+
+    // Three dismissals, no request.
+    expect(stops()).toHaveLength(0);
+
+    // *Stop it* posts the lifecycle action and closes the dialog.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Stop it" }));
+    await waitFor(() => expect(stops()).toHaveLength(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

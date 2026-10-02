@@ -55,7 +55,14 @@
  * selection the table published.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 
 import { FormRenderer, type FormHost } from "./FormRenderer";
 import type { Form, FormAction } from "./form";
@@ -95,7 +102,51 @@ export interface FormDialogProps {
 }
 
 export function FormDialog({ form, host, errors, onDismiss }: FormDialogProps): ReactNode {
+  return (
+    <ModalDialog label={form.title ?? "Dialog"} onDismiss={onDismiss}>
+      <FormRenderer form={form} host={host} errors={errors} />
+    </ModalDialog>
+  );
+}
+
+export interface ModalDialogProps {
+  /** The accessible name. A form dialog passes its title. */
+  label: string;
+  /** Called when the browser dismisses the dialog, and on a backdrop click if asked for. */
+  onDismiss(): void;
+  /**
+   * Whether a click on the backdrop dismisses. **Off unless asked for**, and the
+   * default is what every form dialog has always had rather than a choice made
+   * here — see the note on `onCancel` below.
+   */
+  dismissOnBackdrop?: boolean;
+  children: ReactNode;
+}
+
+/**
+ * The one `<dialog>` element in the app. jetstore_maintenance_02 `AB.2`,
+ * 2026-10-01.
+ *
+ * **Split out of `FormDialog` so a confirmation that is not a form document
+ * does not grow a second dialog system.** The Infer Server Admin screen's stop
+ * confirmation (D07) is two buttons and a sentence, one of them gated on a
+ * capability through `ActionButton`; expressing it as a form document would have
+ * meant a document for a sentence. Everything that made `FormDialog` a modal
+ * lives here unchanged — `showModal`, the jsdom fallback, Escape as dismissal —
+ * and the `.uf-dialog` class that `styles.css` sizes (D08) is set in exactly one
+ * place, which is what lets that rule say it reaches every dialog.
+ */
+export function ModalDialog({
+  label,
+  onDismiss,
+  dismissOnBackdrop = false,
+  children,
+}: ModalDialogProps): ReactNode {
   const ref = useRef<HTMLDialogElement>(null);
+  // Where the press began. A click whose press started inside the dialog — a
+  // text selection dragged past its edge — is not a backdrop click, and the
+  // browser reports it on the dialog element all the same.
+  const pressedOnBackdrop = useRef(false);
 
   useEffect(() => {
     const element = ref.current;
@@ -122,20 +173,54 @@ export function FormDialog({ form, host, errors, onDismiss }: FormDialogProps): 
     };
   }, []);
 
+  /**
+   * A press or click on the backdrop is reported on the `<dialog>` itself, at a
+   * point outside its box; one on the dialog's own padding is on the element
+   * too, inside it. The box test is what tells them apart.
+   */
+  const onBackdrop = (event: { target: EventTarget; clientX: number; clientY: number }) => {
+    const element = ref.current;
+    if (element === null || event.target !== element) return false;
+    const box = element.getBoundingClientRect();
+    return (
+      event.clientX < box.left ||
+      event.clientX > box.right ||
+      event.clientY < box.top ||
+      event.clientY > box.bottom
+    );
+  };
+
   return (
     <dialog
       ref={ref}
       className="uf-dialog"
-      aria-label={form.title ?? "Dialog"}
-      // Escape and a backdrop click both land here. The Dart's barrier is
-      // dismissible and pops with no result, so both are `cancel`.
+      aria-label={label}
+      // Escape lands here. ~~Escape and a backdrop click both land here.~~
+      // **Corrected 2026-10-01 (jetstore_maintenance_02 `AB.2`): a backdrop
+      // click does not.** A modal `<dialog>` with no `closedby` attribute
+      // treats only a close request — Escape, or a phone's back gesture — as
+      // dismissal, and a click on its backdrop does nothing at all. So form
+      // dialogs have never closed on a backdrop click, whatever the Dart's
+      // dismissible barrier did; `dismissOnBackdrop` is how a caller asks.
       onCancel={(event) => {
         event.preventDefault();
         onDismiss();
       }}
       onClose={onDismiss}
+      {...(dismissOnBackdrop
+        ? {
+            onMouseDown: (event: ReactMouseEvent<HTMLDialogElement>) => {
+              pressedOnBackdrop.current = onBackdrop(event);
+            },
+            onClick: (event: ReactMouseEvent<HTMLDialogElement>) => {
+              const fromBackdrop = pressedOnBackdrop.current && onBackdrop(event);
+              pressedOnBackdrop.current = false;
+              if (fromBackdrop) onDismiss();
+            },
+          }
+        : {})}
     >
-      <FormRenderer form={form} host={host} errors={errors} />
+      {children}
     </dialog>
   );
 }
