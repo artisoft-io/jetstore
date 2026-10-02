@@ -142,6 +142,21 @@ const FLOW_DOCUMENTS = [
   "workspacePullUF",
 ] as const;
 
+/**
+ * Forms a flow document carries that **no Dart form was ever transcribed from**,
+ * as `<document>/<form>`, each with the reason. Excluded from every comparison
+ * below, because there is nothing to compare them with — and listed rather than
+ * inferred, so that a transcription which lost its Dart counterpart still fails.
+ *
+ * `homeFiltersUF/putSchemaEventDialog`: `jetstore_maintenance_02` `D01`, task
+ * `AD.3`, 2026-10-01. `pipelineExecStatusTable`'s first row opens it, and every
+ * flow that draws that table must carry the forms its buttons open
+ * (`validateTableActions`). The Flutter app's nearest relative is
+ * `rfkSubmitSchemaEvent`, which had a file-key field and a different capability;
+ * this is a new dialog, not a port of that one.
+ */
+const NO_DART_ORIGINAL = new Set(["homeFiltersUF/putSchemaEventDialog"]);
+
 function documentForms(): Array<{ document: string; form: string; config: DocForm }> {
   const out: Array<{ document: string; form: string; config: DocForm }> = [];
   for (const name of FLOW_DOCUMENTS) {
@@ -149,6 +164,7 @@ function documentForms(): Array<{ document: string; form: string; config: DocFor
       `../../jets/workspace_assets/user_flows/${name}.form.json`,
     );
     for (const [form, config] of Object.entries(doc.forms)) {
+      if (NO_DART_ORIGINAL.has(`${name}/${form}`)) continue;
       out.push({ document: name, form, config });
     }
   }
@@ -230,6 +246,24 @@ describe("the eleven flows' buttons against the Dart", () => {
       .filter(({ form }) => !(form in dart))
       .map(({ document, form }) => `${document}/${form}`);
     expect(missing).toEqual([]);
+  });
+
+  it("excludes only forms that exist and have no Dart counterpart", () => {
+    // The exclusion list cannot go stale silently in either direction: an entry
+    // naming a form that is gone, or one that turns out to have a Dart original,
+    // fails here rather than quietly shrinking the comparison.
+    const dart = dartForms();
+    for (const entry of NO_DART_ORIGINAL) {
+      const [document, form] = entry.split("/") as [string, string];
+      const doc = readJson<{ forms: Record<string, DocForm> }>(
+        `../../jets/workspace_assets/user_flows/${document}.form.json`,
+      );
+      expect({ entry, inDocument: form in doc.forms, inDart: form in dart }).toEqual({
+        entry,
+        inDocument: true,
+        inDart: false,
+      });
+    }
   });
 
   it("draws the two corpora from disjoint form keys, so merging them loses nothing", () => {

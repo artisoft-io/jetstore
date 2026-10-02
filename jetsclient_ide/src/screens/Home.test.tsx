@@ -43,6 +43,8 @@ afterEach(() => {
   cleanup();
   resetHomeFilters();
   resetSelectedClient();
+  putSchemaEventResponse = { status: 200, body: {} };
+  loginCapabilities = ["run_pipelines"];
 });
 
 /**
@@ -67,14 +69,25 @@ const registryRows: (string | null)[][] = [
 
 interface Posted {
   body: Record<string, unknown>;
+  path?: string;
 }
+
+/**
+ * What `/registerFileKey` answers to `put_schema_event_to_s3`. The default is the
+ * server's 200 with an empty body; a case that wants the refusal sets a 400 with
+ * the message `PutSchemaEventToS3` returns for an empty event.
+ */
+let putSchemaEventResponse: { status: number; body: unknown } = { status: 200, body: {} };
+
+/** The signed-in user's capabilities; one case removes `run_pipelines`. */
+let loginCapabilities = ["run_pipelines"];
 
 function stubServer() {
   const posts: Posted[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
     const path = String(url);
     const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
-    posts.push({ body });
+    posts.push({ body, path });
 
     if (path === "/login") {
       return new Response(
@@ -83,7 +96,7 @@ function stubServer() {
           name: "Michel",
           user_email: "michel@artisoft.io",
           is_admin: false,
-          capabilities: ["run_pipelines"],
+          capabilities: loginCapabilities,
         }),
         { status: 200 },
       );
@@ -112,6 +125,10 @@ function stubServer() {
         return new Response(JSON.stringify({ rows: [["acme"], ["globex"]] }), { status: 200 });
       case "resubmit_pipeline":
         return new Response("{}", { status: 200 });
+      case "put_schema_event_to_s3":
+        return new Response(JSON.stringify(putSchemaEventResponse.body), {
+          status: putSchemaEventResponse.status,
+        });
       default:
         return new Response(
           JSON.stringify({ error: `unexpected action ${String(body["action"])}` }),
@@ -404,7 +421,7 @@ describe("the three filters, none of which is visible on the screen", () => {
 });
 
 describe("the table's buttons", () => {
-  it("draws both action rows — six above and five below", async () => {
+  it("draws both action rows — seven above and five below", async () => {
     // I-104's other half: `secondRowActions` was authored and nothing drew it.
     // `TableView` draws both bars, and this table is the reason it has to.
     await mount();
@@ -416,6 +433,7 @@ describe("the table's buttons", () => {
       "Set Session Id",
       "Set Request Id",
       "Clear Filters",
+      "Put Schema Event",
       "View Execution Details",
       "View Process Errors",
       "View Failure Details",
@@ -576,6 +594,125 @@ describe("the table's buttons", () => {
     expect(button("Refresh").hasAttribute("disabled")).toBe(false);
     await selectRow("00:01:12");
     expect(button("View Execution Details").hasAttribute("disabled")).toBe(false);
+  });
+});
+
+/**
+ * *Put Schema Event*. `jetstore_maintenance_02` `D01`, tasks `AD.3` and `AD.6`,
+ * 2026-10-01.
+ *
+ * The button opens a dialog with one text box; Save posts `put_schema_event_to_s3`
+ * to `/registerFileKey` with **no** `file_key`, because the server names the
+ * object (`AD.1`, `DefaultSchemaEventFileKey`), and the outcome reaches the status
+ * banner (`Q-2`). What a browser has to show — the dialog's width, and the banner
+ * where a user sees it — is criterion 8's other half and is not asserted here.
+ */
+describe("Put Schema Event", () => {
+  const EVENT = '{"client":"acme","object_type":"claim","file_key":"client=acme/x.csv"}';
+
+  const putPosts = (posts: Posted[]) =>
+    posts.filter((p) => p.body["action"] === "put_schema_event_to_s3");
+
+  async function openDialog() {
+    const mounted = await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    fireEvent.click(button("Put Schema Event"));
+    const dialog = await screen.findByRole("dialog", { name: "Put Schema Event" });
+    return { ...mounted, dialog };
+  }
+
+  it("sits right of Clear Filters, on the first row", async () => {
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    const put = button("Put Schema Event");
+    const clear = button("Clear Filters");
+    expect(put.closest(".jets-datatable__header-row")).toBe(clear.closest(".jets-datatable__header-row"));
+    // Immediately after it in document order, which is what *right of* is in a
+    // left-to-right row; the layout itself is the browser pass's.
+    const row = Array.from(
+      clear.closest(".jets-datatable__header-row")!.querySelectorAll("button"),
+    ).map((b) => b.textContent);
+    expect(row.indexOf("Put Schema Event")).toBe(row.indexOf("Clear Filters") + 1);
+    // Not row-gated: a schema event names its own file and needs no selection.
+    expect((put as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("is disabled for a user without run_pipelines, which is what the endpoint requires", async () => {
+    // `RegisterFileKeyCapability` (`jets/apiserver/api_filekey.go`) is
+    // `run_pipelines`; the retired flow declared `client_config` (I-2). A.2's
+    // model disables rather than hides.
+    loginCapabilities = [];
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    expect((button("Put Schema Event") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("opens one text box of 51 200 characters, and no file-key field", async () => {
+    const { dialog } = await openDialog();
+    const box = within(dialog).getByLabelText(/Schema Event \(json\)/) as HTMLTextAreaElement;
+    expect(box.maxLength).toBe(51200);
+    expect(within(dialog).queryByLabelText(/File Key/i)).toBeNull();
+    expect(within(dialog).getAllByRole("textbox")).toHaveLength(1);
+  });
+
+  it("posts the event to /registerFileKey with no file_key, and says so in the status banner", async () => {
+    const { dialog, posts } = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Schema Event \(json\)/), { target: { value: EVENT } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putPosts(posts)).toHaveLength(1));
+    const [post] = putPosts(posts);
+    expect(post!.path).toBe("/registerFileKey");
+    expect(post!.body).toEqual({ action: "put_schema_event_to_s3", data: [{ event: EVENT }] });
+    expect(Object.keys((post!.body["data"] as Record<string, unknown>[])[0]!)).not.toContain("file_key");
+
+    expect((await screen.findByRole("status")).textContent).toBe("Schema event saved as jetstore_ui_event.json");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reports the server's 400 in the error banner", async () => {
+    // The refusal `PutSchemaEventToS3` returns for an empty event. The dialog's
+    // own `required` rule means a user cannot send one, so the 400 is stubbed for
+    // a valid body: what is under test is that a refusal reaches the banner.
+    putSchemaEventResponse = {
+      status: 400,
+      body: { error: "put_schema_event_to_s3: row 0: the schema event is empty" },
+    };
+    const { dialog, posts } = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Schema Event \(json\)/), { target: { value: EVENT } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putPosts(posts)).toHaveLength(1));
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "put_schema_event_to_s3: row 0: the schema event is empty",
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps the dialog open over its field error when the box is empty, and posts nothing", async () => {
+    // **Reverting the `completed` check in `Home.tsx`'s `onFormAction` turns this
+    // red**: the dialog closed over the error it had just drawn.
+    const { dialog, posts } = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText(/Please provide a Schema Event json/)).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Put Schema Event" })).toBe(dialog);
+    expect(putPosts(posts)).toHaveLength(0);
+  });
+
+  it("refuses text that is not json, before the server sees it", async () => {
+    const { dialog, posts } = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Schema Event \(json\)/), { target: { value: "{ not json" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText(/Schema Event is not a valid json/)).toBeTruthy();
+    expect(putPosts(posts)).toHaveLength(0);
+  });
+
+  it("closes on Cancel without posting", async () => {
+    const { dialog, posts } = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(putPosts(posts)).toHaveLength(0);
   });
 });
 

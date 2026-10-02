@@ -28,6 +28,26 @@
     "dialogCancel": {
       "description": "Dismiss the dialog",
       "steps": [{ "do": "close" }]
+    },
+    "putSchemaEvent": {
+      "description": "Save the pasted schema event to the schema triggers folder; the server names the file",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "post",
+          "endpoint": "/registerFileKey",
+          "action": "put_schema_event_to_s3",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "event": { "fromKey": "schemaEventJson" }
+            }
+          }
+        },
+        { "do": "notify", "level": "info", "message": "Schema event saved as jetstore_ui_event.json" },
+        { "do": "close" }
+      ]
     }
   }
 }
