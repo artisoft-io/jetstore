@@ -67,6 +67,14 @@ const committedIn = (dir: string): Set<string> =>
  * a rule that returned one directory would delete the other copy on the next
  * regeneration. A key in neither directory is new, and goes where the screens'
  * documents go — the emitter cannot know it is a flow's until a flow names it.
+ *
+ * **Corrected 2026-10-01 (`jetstore_maintenance_02` `AD.2`): no key is committed
+ * in both places any more.** Home stopped keeping its copy at 3dc322d5
+ * (2026-08-26) and reads the installed document, and `sharedTableDocuments.test.ts`
+ * now asserts the two directories share nothing. The reason for reading the
+ * directory off disk survives the example: the rule is still about the consumer.
+ * And `pipelineExecStatusTable` is no longer emitted here at all — see
+ * `HAND_MAINTAINED_KEYS`.
  */
 function dirsFor(key: string): string[] {
   const dirs: string[] = [];
@@ -171,7 +179,8 @@ const screenTables = (screenCorpus as { tables: Record<string, unknown> }).table
   TableConfig
 >;
 const NON_FLOW_KEYS = [
-  "pipelineExecStatusTable",
+  // `pipelineExecStatusTable` was the first entry here until 2026-10-01; it is
+  // hand-maintained now. See `HAND_MAINTAINED_KEYS`.
   "workspaceRegistryTable",
   "workspaceChangesTable",
   "pipelineExecDetailsTable",
@@ -246,6 +255,37 @@ const HAND_AUTHORED_KEYS = ["reteSessionEntityKeyTable", "reteSessionEntityDetai
 /** C.3a's two: no Dart original, checked against `jets/workspace_schema.sql`. */
 const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
 
+/**
+ * Documents that **were** translations and are edited by hand from now on.
+ * `jetstore_maintenance_02` Phase 1, task `AD.2`, 2026-10-01.
+ *
+ * Michel's answer to that project's `Q-5` — *we need to move away from the big
+ * legacy file* — is that a document this repository edits leaves the emitted set
+ * the first time it is touched, rather than being changed by editing a fixture
+ * headed *do not edit by hand*. `ui_refresh`'s **I-299** asked which way; this is
+ * the direction, taken one document at a time.
+ *
+ * **This is a third list rather than an entry in either of the two above, and the
+ * reason is the comment on them.** `HAND_AUTHORED_KEYS` is checked field by field
+ * against the Dart and asserts a model-state handler, so a document put there to be
+ * *edited* would fail the one check that list exists for, the first time it
+ * diverged — and `pipelineExecStatusTable` is about to gain a *Put Schema Event*
+ * button (`D01`) and a third row (`D04`) that no Dart configuration ever had.
+ * `AUTHORED_KEYS` is checked against `jets/workspace_schema.sql`. **These are
+ * checked against neither, deliberately**: they are no longer a measurement of
+ * anything, and what guards them is the schema (`all validate against the
+ * schema`, below), the Go save-path validator, and the cross-document checks.
+ *
+ * **Their Dart record is not deleted, and that is a decision.**
+ * `pipelineExecStatusTable` was translated from `screens/fixtures/screen_configs.json`,
+ * not from `fixtures/table_configs.json`; that file is a measurement of the deleted
+ * Flutter app (its `tableCount`, and the counts in the README beside it) that other
+ * tests read as such — `configOf(...).fromConfigRowActions` below is I-102's record
+ * of what the Dart held. Removing the entry would falsify the measurement without
+ * un-pinning anything the move above has not already un-pinned.
+ */
+const HAND_MAINTAINED_KEYS = ["pipelineExecStatusTable"] as const;
+
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
   ...flowDocuments,
@@ -260,10 +300,12 @@ const readAuthored = (keys: readonly string[]): Record<string, TableConfigDocume
   );
 const handAuthored = readAuthored(HAND_AUTHORED_KEYS);
 const authoredDocuments = readAuthored(AUTHORED_KEYS);
+const handMaintained = readAuthored(HAND_MAINTAINED_KEYS);
 const documents: Record<string, TableConfigDocument> = {
   ...translated,
   ...handAuthored,
   ...authoredDocuments,
+  ...handMaintained,
 };
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 const documentOf = (key: string) => `${JSON.stringify(documents[key], null, 2)}\n`;
@@ -344,9 +386,13 @@ describe("the 37 shipping configurations", () => {
     // three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
+    // **59 translated since 2026-10-01**, when `pipelineExecStatusTable` left the
+    // emitted set for `HAND_MAINTAINED_KEYS` (`jetstore_maintenance_02` `AD.2`);
+    // the total is unchanged because the document did not go anywhere.
     expect(Object.keys(flowDocuments).length).toBe(37);
-    expect(Object.keys(translated).length).toBe(60);
+    expect(Object.keys(translated).length).toBe(59);
     expect(Object.keys(handAuthored).length).toBe(2);
+    expect(Object.keys(handMaintained).length).toBe(1);
     expect(Object.keys(documents).length).toBe(64);
   });
 
@@ -757,12 +803,18 @@ describe("the two execution-detail tables, which are one screen behind two route
     //
     // Two sites, one expression, and the decision is to leave it authored — see
     // the `calculatedAs` note in `table.ts` for why the server is what settles it.
-    const sites = Object.entries(documents).flatMap(([key, doc]) =>
-      doc.columns.filter((c) => c.calculatedAs).map((c) => [key, c.name, c.calculatedAs]),
-    );
+    //
+    // **Sorted since 2026-10-01**: the order was `documents`' insertion order, which
+    // is which list a key is on rather than anything this case asserts, and it
+    // moved when `pipelineExecStatusTable` became hand-maintained (`AD.2`).
+    const sites = Object.entries(documents)
+      .flatMap(([key, doc]) =>
+        doc.columns.filter((c) => c.calculatedAs).map((c) => [key, c.name, c.calculatedAs]),
+      )
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     expect(sites).toEqual([
-      ["pipelineExecStatusTable", "run_duration", "AGE(last_update, start_time)"],
       ["pipelineExecDetailsTable", "run_duration", "AGE(last_update, start_time)"],
+      ["pipelineExecStatusTable", "run_duration", "AGE(last_update, start_time)"],
     ]);
   });
 
