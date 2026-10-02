@@ -80,9 +80,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		obj, err := awsi.DownloadBufFromS3(fmt.Sprintf("%s/%s", stagePrefix, filePath))
 		if err != nil {
+			code := stageFetchStatus(err)
 			err = fmt.Errorf("error: failed to fetch file from stage: %v", err)
 			log.Printf("Error: %v", err)
-			ERROR(w, 400, err)
+			ERROR(w, code, err)
 			return
 		}
 		(*results)["file_content"] = string(obj)
@@ -240,4 +241,21 @@ func addToken(r *http.Request, results *map[string]any) {
 	if ok {
 		(*results)["token"] = token[0]
 	}
+}
+
+// stageFetchStatus is the status fetch_file_from_stage answers a failed download
+// with: 404 when there is no such object, 400 for anything else.
+//
+// jetstore_maintenance_02 I-23, 2026-10-01. Every failure was a 400, so a client
+// could tell "no such object" from "the read failed" only by finding NoSuchKey in
+// the message text. The difference matters to the Pipeline Status screen's Get
+// Run Manifest: a manifest is written for completed cpipes runs only, so its
+// absence is an answer to report plainly rather than an error. The client
+// (jetsclient_ide/src/actions/stageClipboard.ts, isMissingStageObject) reads a
+// 404 as missing and still accepts the old 400-with-NoSuchKey form.
+func stageFetchStatus(err error) int {
+	if awsi.IsNoSuchKey(err) {
+		return http.StatusNotFound
+	}
+	return http.StatusBadRequest
 }
