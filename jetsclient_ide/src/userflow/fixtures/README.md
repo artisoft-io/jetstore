@@ -45,6 +45,14 @@ so that its *Done* could return to its start table. The aggregates were recomput
 again — 6 flows, 17 states, 17 form keys. The flow has no choices, so no other
 figure moved.
 
+**`startPipelineUF` followed on 2026-10-02**, so that it always ends on Home
+(`exitScreenPath`). It took four states, four form keys, the fixture's only nested
+choice and one of the two `formKeyMismatches` with it: 5 flows, 13 states, 13 form
+keys, `choiceTypeCounts` down to one `Expression`, and `nestedChoiceCount` and
+`emptyNestedNextStateCount` both 0. The section below describes the Dart corpus
+as measured and is kept as history; the nested choice it describes is still in the
+shipping document, read off disk by `../schema.test.ts`.
+
 ## Regenerating
 
 ```bash

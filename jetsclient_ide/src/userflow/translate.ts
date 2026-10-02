@@ -142,7 +142,8 @@ export const flowTitles: Record<string, string> = {
   loadConfigUF: "Load Client Configurations",
   loadFilesUF: "Load Files",
   mapFileUF: "File Mapping Configuration",
-  startPipelineUF: "Start Pipeline",
+  // `startPipelineUF` (*Start Pipeline*) left the fixture on 2026-10-02, on the
+  // same terms as `fileMappingUF` above.
   workspacePullUF: "Pull Workspace Changes",
 };
 
