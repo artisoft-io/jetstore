@@ -21,6 +21,13 @@ one in place is the thing the ownership guard exists to catch.
 The 35 tables the eleven flows' forms name, computed from those forms rather than
 chosen — the walk is `tableKeysOf` in `jetsclient_ide/src/userflow/store.ts`.
 
+**32 since 2026-10-01.** `jetstore_maintenance_02`'s `D06` removed the add-or-edit step
+from three flows, and with it the option table each one drew —
+`ufClientOrVendorOption`, `scAddOrEditSourceConfigOption` and
+`pcAddOrEditPipelineConfigOption` (tasks `AF.2`–`AF.4`). They are on `RetiredAssets` in
+`../install.go`, so an install deletes a workspace's unedited copy. **A table leaves this
+directory the way a flow leaves `user_flows/`: deleted here and listed there.**
+
 **The tables a *screen* draws are not here.** They stay in
 `jetsclient_ide/src/datatable/tables/`, imported into the React bundle and never read
 from a workspace. That is 29 documents, and the split is by consumer: a flow reads its

@@ -112,8 +112,10 @@ describe("resolveSortColumn", () => {
     (k) => resolveSortColumn(tables[k]!.columns, tables[k]!.sortColumnName).sortColumnIndex === null,
   );
 
-  it("leaves exactly the nine static tables without a resolvable sort column", () => {
-    expect(unsortable).toHaveLength(9);
+  // **Six since 2026-10-01**: the three add-or-edit option tables were retired
+  // with the steps `D06` removed (`jetstore_maintenance_02` `AF.2`–`AF.4`).
+  it("leaves exactly the six static tables without a resolvable sort column", () => {
+    expect(unsortable).toHaveLength(6);
     for (const key of unsortable) {
       expect(tables[key]!.apiPath).toBe("");
       expect(tables[key]!.sortColumnName).toBe("option_order");

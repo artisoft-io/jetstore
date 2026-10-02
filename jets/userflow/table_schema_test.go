@@ -120,7 +120,12 @@ func TestShippingTablesValidate(t *testing.T) {
 	// third of the three counters `table.test.ts` names, and the one furthest from
 	// the change that moves it: a table added on the TypeScript side fails here, in
 	// Go, with a message that names no table.
-	if len(files) != 64 {
+	//
+	// **64 -> 61 on 2026-10-01**: jetstore_maintenance_02's D06 retired the three
+	// option tables of the add-or-edit steps it removed (ufClientOrVendorOption,
+	// scAddOrEditSourceConfigOption, pcAddOrEditPipelineConfigOption; tasks AF.2 to
+	// AF.4), and install deletes their unedited copies (RetiredAssets).
+	if len(files) != 61 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

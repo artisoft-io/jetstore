@@ -333,9 +333,16 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * A dialog's form has its own `queries`, and running the state's instead would
    * leave a query-backed dropdown in a dialog silently empty — the failure this
    * app refuses everywhere else. `dialogForm` is declared below and is null
-   * whenever no dialog is open, which is every frame of the eleven shipping flows:
+   * whenever no dialog is open. ~~which is every frame of the eleven shipping flows:
    * none of their tables carries a `showDialog` action, which is why F.0a met the
-   * two kinds and did not need them.
+   * two kinds and did not need them.~~ **Not true by 2026-10-01, and corrected
+   * then** (`jetstore_maintenance_02` `AF.2`): `org` (*Add Vendor/Org*),
+   * `fmFileMappingTableUF` and the three process-input tables of
+   * `pipelineConfigUF` open dialogs, and `D06` added `client`'s *Add Client* — the
+   * first whose dialog a test drives through this screen
+   * (`FlowRunner.addReturn.test.tsx`), which is how `host.close` and
+   * `host.validate` below were found reading the state's page rather than the
+   * dialog.
    *
    * **What is *not* switched is `formValid`.** It stays the state's form's, so a
    * dialog button with `enableOnlyWhenFormValid` would read the wrong form. No
@@ -415,6 +422,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentForm, formState, validator, stateVersion]);
 
+  // Read off the dialog hook rather than closed over whole: `useFormDialog`
+  // returns a new object every render, and `host` below should change only when
+  // a dialog opens or closes.
+  const dialogOpen = dialog.request !== null;
+  const closeDialog = dialog.close;
+
   // `goToState` writes through a ref because the interpreter may call it in the
   // middle of an action whose result also moves the flow; the last write wins,
   // and `step` applies it after the action returns.
@@ -467,9 +480,29 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           registered.columns.map((column, index) => [column, first[index] ?? null]),
         );
       },
+      /**
+       * Validates the form **on top** — a dialog's while one is open.
+       * `jetstore_maintenance_02` `AF.2`, 2026-10-01.
+       *
+       * This read the state's form unconditionally, so a `validate` step in a
+       * dialog's action checked the page *under* the dialog: the dialog's own
+       * `required` rules were never enforced, and on a page whose table requires a
+       * selection the action stopped silently with an error on a field the user
+       * could not see. No shipping dialog had a consumer for it until *Add Client*
+       * (`D06`) — `crAddVendorOk` validates over `show_org`, whose form has no
+       * rules, which is why it passed — so the path was wired and unexercised, the
+       * failure `openFlowDialog`'s header warns about.
+       */
       validate: () => {
-        if (currentForm === null) return true;
-        const found = validateAllGroups(currentForm, formState, GROUP, validator);
+        const form = dialogForm ?? currentForm;
+        if (form === null) return true;
+        const formValidator =
+          dialogForm === null
+            ? validator
+            : dialogForm.validator === undefined || loaded === null
+              ? undefined
+              : { validate: productionRegistry.validators[dialogForm.validator]!, flowKey: loaded.flow.key };
+        const found = validateAllGroups(form, formState, GROUP, formValidator);
         setErrors(found);
         if (found.length > 0) haltedByUser.current = true;
         return found.length === 0;
@@ -541,11 +574,27 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       goToState: (state: string) => {
         jumpTo.current = state;
       },
-      close: exit,
+      /**
+       * Closes the dialog when one is open, and leaves the flow otherwise.
+       * `jetstore_maintenance_02` `AF.2`, 2026-10-01.
+       *
+       * **This was `exit` unconditionally**, so a dialog action whose `post` uses
+       * `transport: "insertRows"` — which closes its host on the response, as
+       * `postInsertRows` popped the Flutter dialog — navigated *out of the flow*
+       * rather than closing the dialog. Every screen that hosts a dialog maps
+       * `close` to `dialog.close("ok")` (`Home.tsx`, `WorkspaceRegistry.tsx` and
+       * four more); the flow runner was the one host that did not, and *Add
+       * Vendor/Org* and the process-input dialogs were the unexercised consumers.
+       * `D06`'s *Add Client* is the first a test drives through this screen.
+       */
+      close: () => {
+        if (dialogOpen) closeDialog("ok");
+        else exit();
+      },
       userEmail: () => api.currentUser?.email ?? "",
       now: () => Date.now(),
     }),
-    [api, currentForm, exit, formState, queryPost, setError, setStatus, validator],
+    [api, closeDialog, currentForm, dialogForm, dialogOpen, exit, formState, loaded, queryPost, setError, setStatus, validator],
   );
 
   const runNamedAction = useCallback(

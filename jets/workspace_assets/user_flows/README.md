@@ -31,6 +31,13 @@ writes the `.uf.json` from the Flutter corpus under `UPDATE_SCHEMA=1`, and
 `jetsclient_ide/src/datatable/table.test.ts` writes their tables the same way. The
 `.ua.json` and `.form.json` are authored.
 
+**Three of the `.uf.json` are hand-authored since 2026-10-01** — `clientRegistryUF`,
+`sourceConfigUF` and `pipelineConfigUF`, with their tables `client`, `scSourceConfigKey`
+and `pcPipelineConfigTable` — when `jetstore_maintenance_02`'s `D06` made the three open
+on their table (tasks `AF.1`–`AF.4`). They left the Flutter corpus rather than being
+edited in it, and the two tests list them (`HAND_AUTHORED`, `HAND_MAINTAINED_KEYS`). The
+three option tables of the add-or-edit steps `D06` removed are on `RetiredAssets`.
+
 **The three projected templates**, four documents each.
 `cpipes-contract templates --project jets/workspace_assets/user_flows` emits them from
 the templates in `tools/cpipes_contract/templates/`:

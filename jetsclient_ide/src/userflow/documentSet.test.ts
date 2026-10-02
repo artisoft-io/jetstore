@@ -275,7 +275,9 @@ describe("a table action naming something the set does not define", () => {
     delete set.actions.actions["deleteClientAction"];
     const findings = validateTableActions(set.actions, set.forms, tables());
     expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
-      ["missingAction", "tables", "/client/actions/0/actionName"],
+      // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
+      // first action now (`jetstore_maintenance_02` `AF.2`).
+      ["missingAction", "tables", "/client/actions/1/actionName"],
     ]);
   });
 

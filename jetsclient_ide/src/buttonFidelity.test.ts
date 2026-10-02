@@ -129,15 +129,23 @@ function dartForms(): Record<string, DartForm> {
  * `form_fields.json`, which is a measurement of the deleted app and not a list of
  * what ships.
  */
+/**
+ * **Seven the same day**: `clientRegistryUF`, `pipelineConfigUF` and
+ * `sourceConfigUF` left this comparison when `D06` made them open on their table
+ * (`jetstore_maintenance_02` `AF.2`–`AF.4`). Their add-or-edit forms are gone, the
+ * table pages offer *Close* and *Edit* rather than *Previous*, *Cancel* and *Next*,
+ * *Cancel* in their wizards returns to the table, and the last page saves with
+ * `ufNext` — so they are no longer a measurement of the Dart, and keeping them here
+ * would make this test record the divergence rather than catch drift. They are
+ * hand-authored now (`userflow/schema.test.ts`, `HAND_AUTHORED`). Their Dart forms
+ * stay in `form_fields.json`, for the reason given above.
+ */
 const FLOW_DOCUMENTS = [
-  "clientRegistryUF",
   "fileMappingUF",
   "homeFiltersUF",
   "loadConfigUF",
   "loadFilesUF",
   "mapFileUF",
-  "pipelineConfigUF",
-  "sourceConfigUF",
   "startPipelineUF",
   "workspacePullUF",
 ] as const;
@@ -279,7 +287,7 @@ describe("the eleven flows' buttons against the Dart", () => {
   // The measurement. It is an equality rather than a lower bound so that adding a
   // form or a button brings somebody back to this file — which is the whole value of
   // a fidelity check that has already passed.
-  it("compares 145 buttons across 50 forms in 10 documents", () => {
+  it("compares 60 buttons across 21 forms in 7 documents", () => {
     const dart = dartForms();
     let forms = 0;
     let buttons = 0;
@@ -291,9 +299,11 @@ describe("the eleven flows' buttons against the Dart", () => {
         docBar(config).length + docInField(config).length,
       );
     }
-    // 51 and 147 until `registerFileKeyUF` was retired, 2026-10-01.
-    expect(forms).toBe(50);
-    expect(buttons).toBe(145);
+    // 51 and 147 until `registerFileKeyUF` was retired, 2026-10-01; 50 and 145
+    // until the same day's `AF.2`–`AF.4` took the three `D06` flows out of the
+    // comparison (see `FLOW_DOCUMENTS`).
+    expect(forms).toBe(21);
+    expect(buttons).toBe(60);
   });
 
   it("declares the same buttons, in the same container, in the same order", () => {
@@ -364,7 +374,14 @@ describe("the eleven flows' buttons against the Dart", () => {
     const ambiguous = [...observed].filter(([, v]) => v.size > 1);
     expect(ambiguous.map(([k, v]) => `${k} -> ${[...v]}`)).toEqual([]);
     const asTable = Object.fromEntries([...observed].map(([k, v]) => [k, [...v][0]]));
-    expect(asTable).toEqual(STYLE);
+    // **`predominentInForm` is no longer observed, since 2026-10-01**: its only
+    // buttons were `pipelineConfigUF`'s two inline *Add Data Source* buttons, and
+    // that flow left this comparison (`AF.4`). The mapping is kept in `STYLE`
+    // because it is still what the Dart meant; what changed is that nothing here
+    // measures it.
+    const { predominentInForm, ...measured } = STYLE;
+    void predominentInForm;
+    expect(asTable).toEqual(measured);
   });
 });
 

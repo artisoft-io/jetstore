@@ -1,24 +1,6 @@
 {
   "schemaVersion": 1,
   "forms": {
-    "scAddOrEditSourceConfigUF": {
-      "rows": [
-        [{ "field": "spacer" }],
-        [
-          {
-            "field": "dataTable",
-            "key": "scAddOrEditSourceConfigOption",
-            "table": "scAddOrEditSourceConfigOption",
-            "rules": [{ "rule": "required", "message": "An option must be selected." }]
-          }
-        ]
-      ],
-      "actions": [
-        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufNext", "label": "Next", "style": "secondary" }
-      ]
-    },
     "scAddSourceConfigUF": {
       "queries": {
         "clients": {
@@ -66,7 +48,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -82,9 +64,8 @@
         ]
       ],
       "actions": [
-        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufNext", "label": "Next", "style": "secondary" }
+        { "action": "ufCancel", "label": "Close", "style": "primary" },
+        { "action": "ufNext", "label": "Edit", "style": "secondary" }
       ]
     },
     "scSourceConfigTypeUF": {
@@ -101,7 +82,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -129,7 +110,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -152,7 +133,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -175,7 +156,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -193,7 +174,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -221,7 +202,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -243,7 +224,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -266,7 +247,7 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
@@ -353,8 +334,8 @@
       ],
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
-        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Save", "style": "secondary" }
       ]
     }
   }

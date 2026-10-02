@@ -161,6 +161,14 @@
   ],
   "actions": [
     {
+      "key": "addSourceConfig",
+      "label": "+ Add",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "scGoToAddSourceConfig",
+      "capability": "client_config"
+    },
+    {
       "key": "dropStagingTable",
       "label": "Drop Staging Table",
       "action": "doAction",

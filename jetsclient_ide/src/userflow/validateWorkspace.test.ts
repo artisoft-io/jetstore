@@ -155,7 +155,9 @@ describe("each check fires at the file an author would edit", () => {
     expect(run(files)).toEqual([
       expect.objectContaining({
         file: "table_configs/client.tc.json",
-        pointer: "/actions/0/actionName",
+        // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
+        // first action now (`jetstore_maintenance_02` `AF.2`).
+        pointer: "/actions/1/actionName",
         message: expect.stringContaining('(in flow "clientRegistryUF")'),
       }),
     ]);
@@ -241,7 +243,7 @@ describe("the command", () => {
     const c = capture();
     expect(main([dir], {}, c.o, c.e)).toBe(1);
     expect(c.out).toContain(
-      'ERROR table_configs/client.tc.json#/actions/0/actionName: table "client" action "deleteClient" runs ' +
+      'ERROR table_configs/client.tc.json#/actions/1/actionName: table "client" action "deleteClient" runs ' +
         '"deleteClientAction", which the action document does not define (in flow "clientRegistryUF")',
     );
   });

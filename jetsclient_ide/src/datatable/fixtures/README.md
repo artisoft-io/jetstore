@@ -38,7 +38,11 @@ ours has a fixture that measures nothing.
 defect `D06`). They are maintained by hand in `jets/workspace_assets/table_configs/`
 and listed in `../table.test.ts` as `HAND_MAINTAINED_KEYS`; `tableCount` was
 recomputed. **The figures in the paragraph below are the Flutter measurement and
-are kept as such** — the file now holds 34.
+are kept as such** — the file held 34 after that, and **31 later the same day**, when
+`AF.2`–`AF.4` deleted the option tables of the three add-or-edit steps `D06` removed
+(`ufClientOrVendorOption`, `scAddOrEditSourceConfigOption`,
+`pcAddOrEditPipelineConfigOption`). Those three were retired rather than moved; their
+installed copies are on `RetiredAssets` in `jets/workspace_assets/install.go`.
 
 It holds the 37 `TableConfig` objects the nine user flows define — 28 that query
 `/dataTable` and 9 static ones — serialised by
