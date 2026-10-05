@@ -298,6 +298,27 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	return err
 }
 
+// RegisterNodeError records in pipeline_execution_details a node that failed before
+// processing its files, i.e. before ProcessFilesAndReportStatus registers the node.
+func (args *ComputePipesNodeArgs) RegisterNodeError(dbpool *pgxpool.Pool, commonArgs *ComputePipesCommonArgs, nodeErr error) error {
+	cpCtx := &ComputePipesContext{
+		ComputePipesArgs: ComputePipesArgs{
+			ComputePipesNodeArgs:   *args,
+			ComputePipesCommonArgs: *commonArgs,
+		},
+	}
+	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
+	if err != nil {
+		return fmt.Errorf("while registering node error: %v", err)
+	}
+	err = cpCtx.UpdatePipelineExecutionStatus(dbpool, key, 0, 0, 0, 0, 0, 0,
+		cpCtx.MainInputStepId, "failed", nodeErr.Error())
+	if err != nil {
+		return fmt.Errorf("while registering node error: %v", err)
+	}
+	return nil
+}
+
 // Register the CPIPES execution status details to pipeline_execution_details
 func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.Pool) (int, error) {
 	// log.Printf("Inserting status 'in progress' to pipeline_execution_details table")

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -107,6 +108,51 @@ func GetOutputTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) ([]string, 
 		return nil, fmt.Errorf("while query output_tables from process_config: %v", err)
 	}
 	return outTables, nil
+}
+
+// getNodeErrorMessage returns the error message recorded by the first node that failed,
+// empty when no node recorded one.
+func getNodeErrorMessage(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, error) {
+	var errMessage string
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT error_message FROM jetsapi.pipeline_execution_details
+		 WHERE pipeline_execution_status_key = $1 AND status = 'failed' AND error_message <> ''
+		 ORDER BY last_update, key LIMIT 1`,
+		pipelineExecutionKey).Scan(&errMessage)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("QueryRow on pipeline_execution_details to get the node error message failed: %v", err)
+	}
+	return errMessage, nil
+}
+
+// mergeFailureDetails puts the error recorded by the failed node ahead of the failure details
+// received from the state machine. When the node ran as an ecs task, the state machine only has
+// the task stopped reason, e.g. "Essential container in task exited", not the actual error.
+// When the node ran as a lambda, the failure details already carry the error.
+func mergeFailureDetails(nodeErrMessage, failureDetails string) string {
+	switch {
+	case len(nodeErrMessage) == 0:
+		return failureDetails
+	case len(failureDetails) == 0 || strings.Contains(nodeErrMessage, failureDetails):
+		return nodeErrMessage
+	case strings.Contains(failureDetails, nodeErrMessage):
+		return failureDetails
+	default:
+		return fmt.Sprintf("%s (%s)", nodeErrMessage, failureDetails)
+	}
+}
+
+// applyNodeErrorMessage merges the failed node's error into the failure details,
+// the failure source then says the details are no longer only the decoded text.
+func (ca *StatusUpdate) applyNodeErrorMessage(nodeErrMessage string) {
+	failureDetails := mergeFailureDetails(nodeErrMessage, ca.FailureDetails)
+	if failureDetails != ca.FailureDetails {
+		ca.FailureDetails = failureDetails
+		ca.FailureSource = FailureSourceNodeErrorMessage
+	}
 }
 
 // updateStatus records the run's terminal status and, when the run carries one,
@@ -218,8 +264,19 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				ca.NotifyApiGatewayOverride = override
 		}
 	}
-	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey, 
+	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey,
 		ca.NotifyApiGatewayOverride)
+
+	// Report the error of the failed node rather than only what the state machine got,
+	// before the notification so it carries it as well
+	if ca.Status == "failed" {
+		nodeErrMessage, err := getNodeErrorMessage(ca.Dbpool, ca.PeKey)
+		if err != nil {
+			log.Printf("%s WARNING %v\n", sessionId, err)
+		} else {
+			ca.applyNodeErrorMessage(nodeErrMessage)
+		}
+	}
 
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON

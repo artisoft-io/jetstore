@@ -270,8 +270,18 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	return cpContext.ProcessFilesAndReportStatus(ctx, dbpool)
 
 gotError:
+	if cpConfig == nil || cpConfig.CommonRuntimeArgs == nil {
+		// Without the cpipes config, the error cannot be recorded in pipeline_execution_details
+		log.Println("node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
+		return cpErr
+	}
 	log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
 
-	//*TODO insert error in pipeline_execution_details
+	// Record the error in pipeline_execution_details, the status update reports it from there
+	// since it is not available to the state machine when the node runs as an ecs task
+	err = args.RegisterNodeError(dbpool, cpConfig.CommonRuntimeArgs, cpErr)
+	if err != nil {
+		log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "WARNING", err)
+	}
 	return cpErr
 }

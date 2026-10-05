@@ -49,6 +49,12 @@ const (
 	// FailureSourceUnstructured: no Cause and no StoppedReason; the whole object
 	// is re-serialised, which is what the decoder did before it said so.
 	FailureSourceUnstructured = "unstructured"
+	// FailureSourceNodeErrorMessage: not an arm of the decoder. The status update
+	// put the error_message of the first failed node (pipeline_execution_details)
+	// ahead of the decoded text, which then follows in parentheses when it adds
+	// something. Set when a node running as an ecs task failed: the state machine
+	// only has the task's StoppedReason, not the error (ICPED-180).
+	FailureSourceNodeErrorMessage = "node_error_message"
 )
 
 // FailureInfo is what the record keeps about a failed run: the prose that was
