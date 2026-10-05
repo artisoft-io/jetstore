@@ -155,12 +155,12 @@ func main() {
 		log.Println("Starting apiserver...")
 		err := runCommandAsJsuser("apiserver", cmdArgs)
 		if err != nil {
-			log.Fatalf("Failed to start apiserver: %s", err)
+			log.Fatalf("apiserver failed: %s", err)
 		}
 
 	case "infer_server":
 		if err := startInferServer(); err != nil {
-			log.Fatalf("Failed to start infer_server: %s", err)
+			log.Fatalf("infer_server failed: %s", err)
 		}
 
 	default:
@@ -179,7 +179,7 @@ func main() {
 		log.Printf("Starting %s...", cmd)
 		err = runCommandAsJsuser(cmd, cmdArgs)
 		if err != nil {
-			log.Fatalf("Failed to start %s: %s", cmd, err)
+			log.Fatalf("%s failed: %s", cmd, err)
 		}
 	}
 
@@ -421,7 +421,9 @@ func runCommandAsRoot(command string, args []string) error {
 	cmd.SysProcAttr = rootSysProcAttr
 	// Run the command and capture output
 	output, err := cmd.Output()
-	log.Println(string(output))
+	if len(output) > 0 {
+		log.Println(string(output))
+	}
 	return err
 }
 
@@ -438,6 +440,11 @@ func runCommandAsJsuser(command string, args []string) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// The command started and exited with an error, it logged the error itself
+			return fmt.Errorf("command exited with error: %s", err)
+		}
 		return fmt.Errorf("failed to start command: %s", err)
 	}
 	// This point means the command has exited

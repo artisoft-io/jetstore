@@ -1,12 +1,17 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// jetsLogger is the logger installed by UseJetStoreLogger, nil when not installed (e.g. dev mode)
+var jetsLogger *zap.Logger
 
 // UseJetStoreLogger sets up a zap logger and redirects the standard library log output to it.
 func UseJetStoreLogger() {
@@ -38,6 +43,7 @@ func UseJetStoreLogger() {
 	}
 	logger := zap.Must(cfg.Build())
 	defer logger.Sync()
+	jetsLogger = logger
 	// logger.Info("logger construction succeeded")
 
 	// Replace the system logger with our new logger. This allows us to use the standard library
@@ -46,4 +52,25 @@ func UseJetStoreLogger() {
 	// defer undo()
 
 	log.Print("redirected standard library logging to zap logger")
+}
+
+// LogFatal logs msg and err at error level with the structured logger and exits with status 1.
+// Use it in place of log.Fatal or log.Panic: log.Panic logs at info level and the panic then
+// writes the raw message and a goroutine dump to stderr, bypassing the structured logger.
+func LogFatal(msg string, err error) {
+	if jetsLogger == nil {
+		log.Printf("%s: %v", msg, err)
+		os.Exit(1)
+	}
+	jetsLogger.Error(msg, zap.Error(err))
+	jetsLogger.Sync()
+	os.Exit(1)
+}
+
+// LogPanicAndExit logs a panic with its stack trace using LogFatal.
+// Defer it at the top of main: defer utils.LogPanicAndExit()
+func LogPanicAndExit() {
+	if r := recover(); r != nil {
+		LogFatal("panic", fmt.Errorf("%v\n%s", r, debug.Stack()))
+	}
 }

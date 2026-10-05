@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -52,6 +54,7 @@ func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 
 func main() {
 	utils.UseJetStoreLogger()
+	defer utils.LogPanicAndExit()
 	args := os.Args[1]
 	log.Println("CMD LINE ARGS:", args)
 
@@ -114,7 +117,7 @@ func main() {
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
-		log.Panic("Invalid argument(s)")
+		utils.LogFatal("cpipes_native_server: invalid argument(s)", errors.New(strings.Join(errMsg, "; ")))
 	}
 
 	jrProxy := &JetRulesProxyImpl{
@@ -123,6 +126,6 @@ func main() {
 
 	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrProxy)
 	if err != nil {
-		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
+		utils.LogFatal("cpipes_native_server: while calling CoordinateComputePipes", err)
 	}
 }
