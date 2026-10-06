@@ -1,6 +1,16 @@
 # Dockerfile to run aws cdk commands
 FROM golang:1.26-alpine
 
+# Pinned tool versions, so a new upstream release cannot break the image build.
+# AWS_CDK_VERSION is the CDK CLI. It must understand the cloud assembly schema emitted by the
+# CDK library in go.mod (github.com/aws/aws-cdk-go/awscdk/v2): when you bump that library,
+# bump this to the latest aws-cdk release in the same commit (`npm view aws-cdk version`).
+# A newer CLI works with an older library; an older CLI fails at synth with an error saying
+# it is not compatible with the CDK library and must be upgraded.
+# AWSCLI_VERSION has no such coupling, bump it when a feature or a security finding needs it.
+ARG AWS_CDK_VERSION=2.1144.0
+ARG AWSCLI_VERSION=1.46.1
+
 # Install packages
 RUN apk update && apk add --update --no-cache \
     git \
@@ -25,12 +35,12 @@ RUN apk --no-cache add --virtual builds-deps build-base python3
 RUN python3 -m venv /opt/venv
 RUN source /opt/venv/bin/activate && pip install wheel && \
     pip install "Cython" "pyyaml" --no-build-isolation && \
-    pip3 install awscli
+    pip3 install "awscli==${AWSCLI_VERSION}"
 # Enable the env
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install cdk
-RUN npm install -g aws-cdk
+RUN npm install -g "aws-cdk@${AWS_CDK_VERSION}"
 RUN cdk --version
 RUN source /opt/venv/bin/activate && aws --version
 RUN \
