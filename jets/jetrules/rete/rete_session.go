@@ -65,7 +65,16 @@ func (pq *BetaRowPriorityQueue) Len() int { return len(*pq) }
 
 func (pq *BetaRowPriorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	return (*pq)[i].NdVertex.Salience > (*pq)[j].NdVertex.Salience
+	// At equal salience the lower vertex goes first, as BetaRowPriorityCompare does in the
+	// C++ engine (jets/rete/rete_session.h). Without the tie-break the heap pops a row
+	// just pushed ahead of rows queued earlier at the same salience, so a rule taking an
+	// aggregate (max_of, size_of, ...) could fire before rules compiled ahead of it had
+	// supplied all its values, and the two engines would disagree on the same rules.
+	a, b := (*pq)[i].NdVertex, (*pq)[j].NdVertex
+	if a.Salience == b.Salience {
+		return a.Vertex < b.Vertex
+	}
+	return a.Salience > b.Salience
 }
 
 func (pq *BetaRowPriorityQueue) Swap(i, j int) {
