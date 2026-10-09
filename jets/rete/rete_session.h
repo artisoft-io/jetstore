@@ -63,7 +63,8 @@ class ReteSession {
       pending_compute_consequent_beta_rows_(),
       err_msg_(),
       max_vertex_visit_(0),
-      no_truth_main_on_exist_(0)
+      no_truth_main_on_exist_(0),
+      recording_row_(nullptr)
     {}
 
   inline rdf::RDFSession *
@@ -195,6 +196,21 @@ class ReteSession {
   int
   terminate();
 
+  /**
+   * @brief Insert a triple inferred by `beta_row`'s consequent terms
+   *
+   * When `beta_row` is the row compute_consequent_triples is currently recording
+   * (its vertex is flagged records_consequents), a triple that reached the inferred
+   * graph -- one whose reference count this insert raised -- is also recorded on the
+   * row, so that retracting the row retracts exactly it. Called for the consequent
+   * triple itself and by create_entity for the entity's jets:key triple. Called with
+   * any other row, e.g. a candidate row a filter is evaluated on, it only inserts.
+   *
+   * @return what RDFSession::insert_inferred returns
+   */
+  inline int
+  insert_inferred_for(BetaRow const* beta_row, rdf::Triple const& t3);
+
  protected:
   int
   set_graph_callbacks();
@@ -288,7 +304,27 @@ class ReteSession {
   std::string             err_msg_;
   int                     max_vertex_visit_;
   int                     no_truth_main_on_exist_; // This is temporary until we fix legacy rules
+  BetaRow *               recording_row_;          // row whose inferred triples are being recorded
 };
+
+inline int
+ReteSession::insert_inferred_for(BetaRow const* beta_row, rdf::Triple const& t3)
+{
+  auto * sess = this->rdf_session_;
+  if(not t3.subject or not t3.predicate or not t3.object) {
+    // insert_inferred reports the error
+    return sess->insert_inferred(t3);
+  }
+  // Same test insert_inferred applies: a triple in the meta or asserted graph is not
+  // inserted and its reference count is not raised, so there is nothing to retract.
+  bool counted = not sess->meta_graph()->contains(t3.subject, t3.predicate, t3.object) and
+                 not sess->asserted_graph()->contains(t3.subject, t3.predicate, t3.object);
+  int ret = sess->insert_inferred(t3);
+  if(counted and beta_row and beta_row == this->recording_row_) {
+    this->recording_row_->record_inferred(t3);
+  }
+  return ret;
+}
 
 inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
   rdf::RDFSession * rdf_session)

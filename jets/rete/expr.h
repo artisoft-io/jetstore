@@ -73,6 +73,24 @@ class ExprBase {
   virtual ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
+  /**
+   * @brief True when an operator in the tree mints a resource: create_entity,
+   * create_uuid_resource, range, lookup_rand or multi_lookup_rand.
+   *
+   * Evaluating such an expression a second time gives a different resource, so a
+   * consequent carrying one records the triples it inferred on its beta row, and
+   * retraction replays that record instead of evaluating the expression again (see
+   * ReteSession::compute_consequent_triples). Operators that read the graph -- exist,
+   * size_of, the aggregates -- are deliberately NOT in the set: their consequents are
+   * still recomputed on retraction, which is a known defect that rule sets depend on
+   * (jets/jetrules/rete/README.md, 2026-10-09).
+   */
+  virtual bool
+  mints_resource()const
+  {
+    return false;
+  }
+
   inline bool
   eval_filter(ReteSession * rete_session, BetaRow const* beta_row)const
   {
@@ -92,6 +110,14 @@ inline std::ostream & operator<<(std::ostream & out, ExprBasePtr node)
   }
   return out;
 }
+
+// Marker base for an operator visitor that mints a resource, so evaluating it twice
+// gives two different results. An ExprBinaryOp or ExprUnaryOp over such a visitor
+// reports mints_resource() true.
+struct MintsResource {};
+
+template<class Op>
+inline constexpr bool op_mints_resource = std::is_base_of_v<MintsResource, Op>;
 
 // Utility class for operator visitor that don't need to register callbacks
 // for truth maintenance
@@ -125,6 +151,15 @@ class ExprConjunction: public ExprBase {
       item->register_callback(rete_session, vertex);
     }
     return 0;
+  }
+
+  bool
+  mints_resource()const override
+  {
+    for(auto const& item: this->data_) {
+      if(item->mints_resource()) return true;
+    }
+    return false;
   }
 
   ExprDataType
@@ -170,6 +205,15 @@ class ExprDisjunction: public ExprBase {
       item->register_callback(rete_session, vertex);
     }
     return 0;
+  }
+
+  bool
+  mints_resource()const override
+  {
+    for(auto const& item: this->data_) {
+      if(item->mints_resource()) return true;
+    }
+    return false;
   }
 
   // defined in expr_impl.h
@@ -294,6 +338,12 @@ class ExprBinaryOp: public ExprBase {
       this->rhs_->eval(rete_session, nullptr));
   }
 
+  bool
+  mints_resource()const override
+  {
+    return op_mints_resource<Op> or this->lhs_->mints_resource() or this->rhs_->mints_resource();
+  }
+
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
@@ -331,6 +381,12 @@ class ExprUnaryOp: public ExprBase {
   ExprUnaryOp(int key, ExprBasePtr arg)
     : ExprBase(key), arg_(arg) {}
   virtual ~ExprUnaryOp() {}
+
+  bool
+  mints_resource()const override
+  {
+    return op_mints_resource<Op> or this->arg_->mints_resource();
+  }
 
   // defined in expr_impl.h
   ExprDataType

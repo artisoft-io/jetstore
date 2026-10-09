@@ -243,17 +243,21 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 		if betaRow.IsInserted() {
 			// Infer consequent triples
 			currentVisit.InferCount += 1
+			// A vertex whose consequents mint a resource records what this row infers,
+			// including the jets:key triple create_entity inserts, for retraction to replay.
+			if betaRow.NdVertex.RecordsConsequents {
+				betaRow.startRecording()
+				rs.recordingRow = betaRow
+			}
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
-				// //***
-				// if vertex == 206 {
-				// 	log.Printf("vertex %d: InsertInferred %s", vertex,rdf.ToString(t3))
-				// }
-				_, err := rs.RdfSession.InsertInferred(t3[0], t3[1], t3[2])
+				_, err := rs.InsertInferredFor(betaRow, t3[0], t3[1], t3[2])
 				if err != nil {
+					rs.recordingRow = nil
 					return fmt.Errorf("while calling ReteSession.InsertInferred (ComputeConsequentTriples) @ vertex %d: %v", vertex, err)
 				}
 			}
+			rs.recordingRow = nil
 			// Mark row as Processed
 			betaRow.Status = kProcessed
 		} else {
@@ -263,18 +267,34 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			}
 			// Retract consequent triples
 			currentVisit.RetractCount += 1
-			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
-				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
-				// //***
-				// if vertex == 119 {
-				// 	log.Printf("vertex 119: retracting %s",rdf.ToString(t3))
-				// }
-				_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
-				if err != nil {
-					return fmt.Errorf("while calling ReteSession.Retract (ComputeConsequentTriples): %v", err)
+			if betaRow.isRecording() {
+				// Replay what the row inferred: no expression is evaluated, so no entity
+				// is minted and no jets:key is inserted. The record is emptied, not
+				// released: the row stays in its relation (see below) and can be
+				// retracted again, and must then replay nothing rather than recompute.
+				for _, t3 := range betaRow.takeRecorded() {
+					_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
+					if err != nil {
+						return fmt.Errorf("while calling ReteSession.Retract (ComputeConsequentTriples): %v", err)
+					}
+				}
+			} else {
+				// Consequents that mint nothing are recomputed. For one that reads the
+				// graph (an aggregate, exist, size_of) that is a known defect -- see
+				// README.md, 2026-10-09.
+				for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
+					t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
+					_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
+					if err != nil {
+						return fmt.Errorf("while calling ReteSession.Retract (ComputeConsequentTriples): %v", err)
+					}
 				}
 			}
-			// Remove row from beta node
+			// Remove row from beta node. KNOWN DEFECT, kept deliberately (2026-10-09):
+			// RemoveBetaRow returns at once for a row marked kDeleted -- which this row
+			// is -- so the retracted row stays in the relation as kProcessed and an
+			// equal row inserted later is taken for one already inferred: it never
+			// fires again. usi_ws's rules terminate only because of it; see README.md.
 			betaRelation.RemoveBetaRow(rs, betaRow)
 			betaRow.Status = kProcessed
 		}

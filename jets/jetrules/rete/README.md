@@ -2,6 +2,98 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## A minting consequent is retracted by replay; two retraction defects are kept — 2026-10-08, revised 2026-10-09
+
+Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
+against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
+`jets/rete/rete_session.cc:343`; `ComputeConsequentTriples`, `rete_session_exec_rules.go:212`). Found
+by the `usi_ws` workspace assessment (`jetstore_agentic_ai`,
+`projects/workspace_assessments/02_usi_ws_assessment`, Q-37 and R-13), whose rule `ckd30` was keyed as
+a workaround (artisoft-io/usi_ws#22).
+
+### What is fixed: a consequent that mints a resource
+
+- **`create_entity 0`** minted a second UUID on retraction, inserted a stray `jets:key` triple for
+  it, and retracted a link to it that did not exist, so the real link stayed.
+- **a keyed `create_entity`** re-inserted `jets:key` on every retraction, so its reference count
+  never reached zero.
+
+At rule load a node vertex is flagged when one of its consequent terms mints a resource:
+`create_entity`, `create_uuid_resource`, `range`, `lookup_rand` or `multi_lookup_rand`. C++: the
+`MintsResource` marker on those visitors (`jets/rete/expr.h:117`) and `ExprBase::mints_resource`,
+read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:145`). Go: `expr_mints_resource.go`
+and `AddConsequentTerm` (`node_vertex.go:71`). A row of a flagged vertex records every triple its
+consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
+both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
+`rete_session.go:34`) — and **retraction retracts that record and evaluates nothing**
+(`rete_session.cc:423`, `rete_session_exec_rules.go:270`). The record is emptied rather than
+released, because a withdrawn row stays in its relation (below) and is retracted again on later
+withdrawals; released, the second retraction fell back to recomputing `create_entity` and
+re-inserted `jets:key`. **A keyed entity's `jets:key` goes with its last support** — decided by
+Michel on 2026-10-08 ("retract the keyed entity"). Lookup cache rows and `range` values are not
+recorded and still outlive the row.
+
+### What is kept: two defects, and what depends on them
+
+**The 2026-10-08 version of this entry fixed two more things, and both were reverted on 2026-10-09
+by Michel's decision** ("go with (a), the narrow fix"), because with them `usi_ws`'s rules never
+terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects**, pinned by the
+`LEGACY` cases in `jets/rete/retract_recorded_consequents_test.cc` and
+`retract_recorded_consequents_test.go`:
+
+1. **A consequent that reads the graph is recomputed on retraction** — the aggregates, `exist`,
+   `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
+   and the inferred one stays.
+2. **A withdrawn row never fires again.** After retracting a row's consequents both engines call
+   `remove_beta_row` / `RemoveBetaRow` (`rete_session.cc:447`, `rete_session_exec_rules.go:298`), which
+   returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
+   `kProcessed`, and an equal row arriving later is taken for one already inferred.
+
+**Measured on the assessment's local harness, flag off, against the engine at `45dd7851`:**
+
+- **The loop rules depend on both together.** `MSK_ADJ_LOOP010`/`LOOP020`/`MERGE_010` (MSK),
+  `adj11`/`adj12`/`adj20` (IM) and `mcp1`/`mcp2`/`csc20` (CM) have one shape: an unmerged match is on
+  the priority list, a loop rule guarded by `[exist priorityList]` infers `topMatch` by
+  `sorted_head`, and `topMatch` puts the match on `mergeList`. That is an **odd loop through
+  negation, with no fixed point under correct truth maintenance**. Replaying the `sorted_head`
+  consequent retracts `topMatch` when the list empties, which un-merges, which restores the list,
+  which re-admits the loop rule — and with defect 2 fixed, it fires again. Consequent visits went
+  from tens to millions; the CM test run never finished, IM members ended at the vertex visit limit.
+  Recomputing gave null over the empty list and retracted nothing, and the stale row never
+  re-fired, so the loop ended.
+  `LoopThroughNegationTest` (`jets/rete/loop_through_negation_test.cc`) and
+  `TestLoopControlRulesTerminate` (`loop_through_negation_test.go`) reproduce it in five rule terms
+  and guard that it still terminates.
+- **CM04 `op01` depends on defect 2 alone**, with pure consequents. Its guard
+  `[(?x01 exist_not hc_usi:totalAmountAllowed) and (?x01 exist_not hc_usi:alternateModifier)]`
+  is falsified by its own chain (`cpt01` → `cpt10` → `gz01` → `gz02` → `rt01` infers
+  `totalAmountAllowed`), the row is withdrawn and its consequents retracted, and the guard is true
+  again. With defect 2 fixed it repeats until the vertex visit limit, a million times each on
+  vertexes 57 and 59 of `4_CM04_Orphans_Main1`; on the pin it stops after one swing.
+- **Fixing defect 1 alone** terminates but undoes every merge: all four CM and all four IM members
+  of the test claims changed.
+- **With the flag on**, as USI runs in production, no `exist` callback is registered, none of this
+  happens, and the full fix gave the same member outcomes as the pin.
+
+**The rule language cannot end these loops by itself**: a rule has the properties `o`, `s` and
+`flag`, and nothing that makes a consequent non-retractable. So if a workspace ever needs correct
+truth maintenance on these shapes, the paths are:
+
+- **(b)** put aggregate replay and row erasure behind an opt-in rule-config switch, default off —
+  two code paths, no workspace changing behaviour unless it asks; or
+- **(c)** fix both outright and add an engine primitive making a loop rule's consequents
+  non-retractable, then rewrite the `usi_ws` loop rules and its `exist_not` self-guards (`op01`,
+  `op02` and their like) before running it with the flag off.
+
+**Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
+callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
+so erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle
+tests drive retraction with `insert_inferred` and `retract` instead. And Go `RdfGraph.Retract`
+erases the triple from its `pos` and `osp` indexes even when the `spo` reference count is still
+above zero (`Retract`, `jets/jetrules/rdf/rdf_graph.go:188`), so a triple with two supports that
+loses one should stay `Contains`-true and stop being found by predicate or object — read from the
+code, not measured.
+
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
 C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.

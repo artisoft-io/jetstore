@@ -1,6 +1,8 @@
 package rete
 
 import (
+	"log"
+
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -21,6 +23,17 @@ func (op *CreateEntityOp) RegisterCallback(reteSession *ReteSession, vertex int,
 	return nil
 }
 
+// Eval inserts the entity's jets:key triple through the rete session so that, in a
+// consequent, it is recorded on the beta row with the consequent triple and retracted
+// with it, rather than re-inserted when the row is retracted.
 func (op *CreateEntityOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) *rdf.Node {
-	return rhs.CreateEntity(reteSession.RdfSession)
+	entity, key := rhs.CreateEntityKey(reteSession.RdfSession)
+	if entity == nil {
+		return nil
+	}
+	jetsKey := reteSession.RdfSession.ResourceMgr.JetsResources.Jets__key
+	if _, err := reteSession.InsertInferredFor(row, entity, jetsKey, key); err != nil {
+		log.Panicf("while calling InsertInferred (createEntity operator): %v", err)
+	}
+	return entity
 }

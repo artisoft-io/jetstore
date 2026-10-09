@@ -53,6 +53,12 @@ func (g *RdfGraph) Contains(s, p, o *Node) bool {
 	return g.spoGraph.Contains(s, p, o)
 }
 
+// GetRefCount returns the reference count of triple (s, p, o), 0 when it is not in
+// the graph.
+func (g *RdfGraph) GetRefCount(s, p, o *Node) int {
+	return g.spoGraph.GetRefCount(s, p, o)
+}
+
 func (g *RdfGraph) ContainsSP(s, p *Node) bool {
 	return g.spoGraph.ContainsUV(s, p)
 }

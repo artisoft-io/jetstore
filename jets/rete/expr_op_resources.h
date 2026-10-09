@@ -38,7 +38,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // CreateEntityVisitor
 // --------------------------------------------------------------------------------------
-struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public MintsResource
 {
   CreateEntityVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateEntityVisitor(): rs(nullptr), br(nullptr) {}
@@ -59,7 +59,10 @@ struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCal
     if(key.empty()) key = rdf::create_uuid();
     auto entity = rmgr->create_resource(key);
     auto jets_key = rmgr->jets()->jets__key;
-    sess->insert_inferred(entity, jets_key, rmgr->create_literal(key));
+    // Inserted through the rete session so that, in a consequent, the jets:key
+    // triple is recorded on the beta row with the consequent triple and retracted
+    // with it, rather than re-inserted when the row is retracted.
+    this->rs->insert_inferred_for(this->br, rdf::Triple(entity, jets_key, rmgr->create_literal(key)));
     return key;
   }
 
@@ -105,7 +108,7 @@ struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoC
 
 // CreateUUIDResourceVisitor
 // --------------------------------------------------------------------------------------
-struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public MintsResource
 {
   CreateUUIDResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateUUIDResourceVisitor(): rs(nullptr), br(nullptr) {}

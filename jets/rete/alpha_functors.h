@@ -37,6 +37,9 @@ struct F_binded {
   F_binded(F_binded &&) = default;
   F_binded & operator=(F_binded const&) = default;
 
+  // A functor that is not an expression mints nothing
+  inline bool mints_resource()const { return false; }
+
   inline
   rdf::r_index 
   to_cst()const
@@ -101,6 +104,9 @@ struct F_var {
   F_var(F_var &&) = default;
   F_var & operator=(F_var const&) = default;
 
+  // A functor that is not an expression mints nothing
+  inline bool mints_resource()const { return false; }
+
   inline
   rdf::r_index 
   to_cst()const
@@ -147,6 +153,9 @@ struct F_cst {
   F_cst(F_cst &&) = default;
   F_cst & operator=(F_cst const&) = default;
 
+  // A functor that is not an expression mints nothing
+  inline bool mints_resource()const { return false; }
+
   inline
   rdf::r_index 
   to_cst()const
@@ -192,6 +201,8 @@ struct F_expr {
   F_expr(F_expr const&) = default;
   F_expr(F_expr &&) = default;
   F_expr & operator=(F_expr const&) = default;
+
+  inline bool mints_resource()const { return data->mints_resource(); }
 
   inline
   rdf::r_index 
