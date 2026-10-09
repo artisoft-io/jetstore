@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "JetStore Workspace IDE \u2014 a CodeMirror 6 editor served by the Go apiserver",
+  "description": "JetStore Workspace IDE — a CodeMirror 6 editor served by the Go apiserver",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && npm run build:validator",
@@ -38,7 +38,7 @@
     "jsdom": "27.1.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
-    "vitest": "^3.0.7"
+    "vitest": "^4.1.11"
   },
   "allowScripts": {
     "esbuild@0.25.12": true
