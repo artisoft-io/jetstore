@@ -99,19 +99,23 @@ func LoadJetrulesCaches() {
 	}
 }
 
+// Locked for the whole function, like the three domain caches below. The outer
+// test of the double-checked lock this used to be was an unsynchronised read of
+// the pointer, which `-race` reports when the pool's workers ask together
+// (`TestRuleEngineConfigIsSafeForConcurrentWorkers`). It built into a local and
+// published on success, so it never returned a half-built value; the race was
+// the read itself.
 func GetWorkspaceControl() (*rete.WorkspaceControl, error) {
+	workspaceControlMx.Lock()
+	defer workspaceControlMx.Unlock()
 	if workspaceControl == nil {
-		workspaceControlMx.Lock()
-		defer workspaceControlMx.Unlock()
-		if workspaceControl == nil {
-			fpath := fmt.Sprintf("%s/%s/workspace_control.json", WorkspaceHome(), WorkspacePrefix())
-			log.Println("Loading workspace control from:", fpath)
-			wc, err := rete.LoadWorkspaceControl(fpath)
-			if err != nil {
-				return nil, fmt.Errorf("while loading workspace control from %s: %v", fpath, err)
-			}
-			workspaceControl = wc
+		fpath := fmt.Sprintf("%s/%s/workspace_control.json", WorkspaceHome(), WorkspacePrefix())
+		log.Println("Loading workspace control from:", fpath)
+		wc, err := rete.LoadWorkspaceControl(fpath)
+		if err != nil {
+			return nil, fmt.Errorf("while loading workspace control from %s: %v", fpath, err)
 		}
+		workspaceControl = wc
 	}
 	return workspaceControl, nil
 }
@@ -317,16 +321,11 @@ type RuleEngineConfig struct {
 	JetStoreConfig map[string]string `json:"jetstore_config,omitempty"`
 }
 
-// Function to get domain classes info from the local workspace
+// Read the jetrules .config.json of mainRuleFile and cache its jetstore_config.
+// The caller must hold ruleEngineConfigMx.
 func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 	var err error
 	ruleConfig := &RuleEngineConfig{}
-	ruleEngineConfigMx.Lock()
-	defer ruleEngineConfigMx.Unlock()
-	config, ok := ruleEngineConfig[mainRuleFile]
-	if ok {
-		return config, nil
-	}
 	fileName := strings.TrimSuffix(mainRuleFile, ".jr") + ".config.json"
 	basePath := filepath.Join(WorkspaceHome(), WorkspacePrefix())
 	filePath := filepath.Join("build", fileName)
@@ -352,16 +351,30 @@ func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 	return ruleConfig.JetStoreConfig, nil
 }
 
-// Function to get domain classes info from the local workspace
+// Get a property of the jetrules .config.json of mainRuleFile.
+//
+// **The lock is held across the lookup and the load.** The lookup used to be an
+// unsynchronised read of `ruleEngineConfig` while `loadRuleEngineConfig` wrote
+// it under the lock, so two jetrules pool workers starting together — each reads
+// `$max_looping` before its first rule set (`jetrules_pool_worker.go`) — could
+// read the map while another wrote it, and the Go runtime aborts the process
+// with `fatal error: concurrent map read and map write`. Seen 2026-10-09 on the
+// usi_ws local harness with `pool_size` 10, two runs of six; the traced runs
+// had forced `pool_size` 1, which is why it was not seen before. The inner map
+// is never written once published, so reading `config[property]` after the
+// lock is released is safe.
 func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
+	ruleEngineConfigMx.Lock()
 	config, ok := ruleEngineConfig[mainRuleFile]
 	if !ok {
 		var err error
 		config, err = loadRuleEngineConfig(mainRuleFile)
 		if err != nil {
+			ruleEngineConfigMx.Unlock()
 			return "", err
 		}
 	}
+	ruleEngineConfigMx.Unlock()
 	return config[property], nil
 }
 
