@@ -357,6 +357,9 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 	// Generate the Rete network from the rules
 	l.BuildReteNetwork()
 
+	// An aggregate in a consequent must fire after the rules that feed it
+	l.ValidateAggregateSalience()
+
 	// Delete the temp var nodes created during parsing
 	// Remove from resourceManager.ResourceByKey and jetRuleModel.Resources
 	tempNodes := make(map[int]bool)
