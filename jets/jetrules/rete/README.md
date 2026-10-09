@@ -40,8 +40,9 @@ mints and they are not recorded either, so they still outlive the row — unchan
 
 **A keyed entity's `jets:key` now goes with its last support.** It is recorded like any other
 inferred triple, so when the last row that inferred it is retracted its reference count reaches
-zero and the triple is removed — full truth maintenance. *Decision pending with Michel on
-2026-10-08: the alternative is that the entity persists, i.e. `jets:key` is not recorded.*
+zero and the triple is removed — full truth maintenance. **Decided by Michel on 2026-10-08**
+("retract the keyed entity"), over the alternative that the entity persist, which would have meant
+not recording `jets:key` and letting its count grow by one per re-inference.
 
 **A second defect, older than this one and in both engines, was found by the cycle tests.** After
 retracting a row's consequents, both engines removed the row by calling `remove_beta_row` /
