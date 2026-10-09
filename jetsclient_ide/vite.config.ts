@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+// vitest 4 no longer adds the `test` key below to vite's config type on its own; this reference does.
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
