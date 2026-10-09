@@ -5,6 +5,7 @@
 #include <memory>
 #include <ostream>
 #include <unordered_set>
+#include <vector>
 
 #include "absl/hash/hash.h"
 
@@ -162,6 +163,42 @@ class BetaRow {
   }
 
   // const_iterator used to initialize BetaRow upon row creation
+  // Inferred-triple record, kept only for a row of a vertex flagged
+  // records_consequents (see NodeVertex). Null otherwise, so a row that does not
+  // record pays one pointer.
+  using triple_list = std::vector<rdf::Triple>;
+
+  inline void
+  start_recording()
+  {
+    inferred_ = std::make_unique<triple_list>();
+  }
+
+  inline bool
+  is_recording()const
+  {
+    return inferred_ != nullptr;
+  }
+
+  inline void
+  record_inferred(rdf::Triple const& t3)
+  {
+    if(inferred_) inferred_->push_back(t3);
+  }
+
+  inline triple_list const*
+  get_recorded()const
+  {
+    return inferred_.get();
+  }
+
+  // Hands the record over and leaves the row not recording
+  inline std::unique_ptr<triple_list>
+  take_recorded()
+  {
+    return std::move(inferred_);
+  }
+
   inline const_iterator
   begin()const
   {
@@ -196,6 +233,7 @@ operator==(BetaRow const& rhs)const
   r_index_array   data_;
   int             size_;
   b_index         node_vertex_;
+  std::unique_ptr<triple_list> inferred_;
 };
 
 inline BetaRowPtr create_beta_row(b_index node_vertex, int size)

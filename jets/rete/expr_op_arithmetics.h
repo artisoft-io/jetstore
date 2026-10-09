@@ -418,7 +418,7 @@ registerCallback4MinMaxOf(ReteSession * rs, int vertex, rdf::r_index lhs, rdf::r
   return register_callbacks_for_aggregate(rs, vertex, rhs, true);
 }
 
-struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 {
   MaxOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for max_of: ("<<lhs<<", "<<rhs<<")");};
@@ -447,7 +447,7 @@ struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MinOfVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 {
   MinOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for min_of: ("<<lhs<<", "<<rhs<<")");};
@@ -476,7 +476,7 @@ struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
 
 // SortedHeadVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
+struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 {
   SortedHeadVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for sorted_head: ("<<lhs<<", "<<rhs<<")");};
@@ -599,7 +599,7 @@ struct ApplySumValuesVisitor
 
 // SumValuesVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
+struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 {
   SumValuesVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for sum_values: ("<<lhs<<", "<<rhs<<")");};
@@ -772,7 +772,7 @@ struct ApplyJoinValuesVisitor
 
 // JoinValuesVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>
+struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 {
   JoinValuesVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for join_values: ("<<lhs<<", "<<rhs<<")");};

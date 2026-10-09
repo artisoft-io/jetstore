@@ -73,6 +73,22 @@ class ExprBase {
   virtual ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
+  /**
+   * @brief True when evaluating the expression twice on the same beta row is
+   * guaranteed to give the same value.
+   *
+   * False when an operator in the tree mints a resource (create_entity,
+   * create_uuid_resource, range), reads the graph (exist, size_of, the aggregates)
+   * or reads a lookup table. A consequent carrying such an expression records the
+   * triples it inferred on its beta row, and retraction replays that record instead
+   * of evaluating the expression again (see ReteSession::compute_consequent_triples).
+   */
+  virtual bool
+  is_row_pure()const
+  {
+    return true;
+  }
+
   inline bool
   eval_filter(ReteSession * rete_session, BetaRow const* beta_row)const
   {
@@ -92,6 +108,14 @@ inline std::ostream & operator<<(std::ostream & out, ExprBasePtr node)
   }
   return out;
 }
+
+// Marker base for an operator visitor whose result is NOT a pure function of its
+// arguments: it mints a resource, reads the graph or reads a lookup table. An
+// ExprBinaryOp or ExprUnaryOp over such a visitor reports is_row_pure() false.
+struct NotRowPure {};
+
+template<class Op>
+inline constexpr bool op_is_row_pure = not std::is_base_of_v<NotRowPure, Op>;
 
 // Utility class for operator visitor that don't need to register callbacks
 // for truth maintenance
@@ -125,6 +149,15 @@ class ExprConjunction: public ExprBase {
       item->register_callback(rete_session, vertex);
     }
     return 0;
+  }
+
+  bool
+  is_row_pure()const override
+  {
+    for(auto const& item: this->data_) {
+      if(not item->is_row_pure()) return false;
+    }
+    return true;
   }
 
   ExprDataType
@@ -170,6 +203,15 @@ class ExprDisjunction: public ExprBase {
       item->register_callback(rete_session, vertex);
     }
     return 0;
+  }
+
+  bool
+  is_row_pure()const override
+  {
+    for(auto const& item: this->data_) {
+      if(not item->is_row_pure()) return false;
+    }
+    return true;
   }
 
   // defined in expr_impl.h
@@ -294,6 +336,12 @@ class ExprBinaryOp: public ExprBase {
       this->rhs_->eval(rete_session, nullptr));
   }
 
+  bool
+  is_row_pure()const override
+  {
+    return op_is_row_pure<Op> and this->lhs_->is_row_pure() and this->rhs_->is_row_pure();
+  }
+
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
@@ -331,6 +379,12 @@ class ExprUnaryOp: public ExprBase {
   ExprUnaryOp(int key, ExprBasePtr arg)
     : ExprBase(key), arg_(arg) {}
   virtual ~ExprUnaryOp() {}
+
+  bool
+  is_row_pure()const override
+  {
+    return op_is_row_pure<Op> and this->arg_->is_row_pure();
+  }
 
   // defined in expr_impl.h
   ExprDataType

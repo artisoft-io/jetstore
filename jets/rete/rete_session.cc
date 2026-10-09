@@ -392,11 +392,21 @@ namespace jets::rete {
       if(beta_row->is_inserted()) {
         // Infer consequent triples
         vertex_visits_[meta_node->vertex] = {current_visits.first+1, current_visits.second};
+        // A vertex whose consequents are not row pure records what this row infers,
+        // including the jets:key triple create_entity inserts, for retraction to replay.
+        struct RecordingGuard {
+          BetaRow *& slot;
+          ~RecordingGuard() { slot = nullptr; }
+        } guard{this->recording_row_};
+        if(meta_node->records_consequents) {
+          beta_row->start_recording();
+          this->recording_row_ = beta_row.get();
+        }
         for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
           auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
           auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
           VLOG(35)<<"INFER Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" from row "<<beta_row;
-          this->rdf_session_->insert_inferred(std::move(t3));
+          this->insert_inferred_for(beta_row.get(), t3);
         }
         // Mark row as Processed
         beta_row->set_status(BetaRowStatus::kProcessed);
@@ -410,14 +420,29 @@ namespace jets::rete {
         }
         // Retract consequent triples
         vertex_visits_[meta_node->vertex] = {current_visits.first, current_visits.second+1};
-        for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
-          auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-          auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
-          VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" from row "<<beta_row;
-          this->rdf_session_->retract(std::move(t3));
+        if(beta_row->is_recording()) {
+          // Replay what the row inferred: no expression is evaluated, so no entity
+          // is minted, no jets:key is inserted and no aggregate reads the graph as it
+          // stands now. Retracting the record also releases it.
+          auto recorded = beta_row->take_recorded();
+          for(auto const& t3: *recorded) {
+            VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" (recorded) from row "<<beta_row;
+            this->rdf_session_->retract(t3);
+          }
+        } else {
+          // Row pure consequents: recomputing gives back the triples inferred
+          for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
+            auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
+            auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
+            VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" from row "<<beta_row;
+            this->rdf_session_->retract(std::move(t3));
+          }
         }
-        // Remove row from beta node
-        beta_relation->remove_beta_row(this, beta_row);
+        // Remove row from beta node. This was remove_beta_row, which returns at once
+        // for a row marked kDeleted -- which this row is -- so the retracted row stayed
+        // in the relation as kProcessed and an equal row inserted later was taken for
+        // one already inferred: it never fired again. Fixed 2026-10-08.
+        beta_relation->erase_retracted_beta_row(beta_row);
         beta_row->set_status(BetaRowStatus::kProcessed);
       }
     }

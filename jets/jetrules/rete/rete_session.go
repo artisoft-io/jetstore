@@ -19,6 +19,36 @@ type ReteSession struct {
 	pendingComputeConsequent *BetaRowPriorityQueue
 	maxVertexVisits          int
 	maxVertexVisitReached    bool
+	// recordingRow is the beta row whose inferred triples ComputeConsequentTriples is
+	// recording, nil otherwise
+	recordingRow *BetaRow
+}
+
+// InsertInferredFor inserts a triple inferred by row's consequent terms. When row is
+// the row ComputeConsequentTriples is recording (its vertex is flagged
+// RecordsConsequents), a triple that reached the inferred graph -- one whose reference
+// count this insert raised -- is also recorded on the row, so that retracting the row
+// retracts exactly it. Called for the consequent triple itself and by create_entity for
+// the entity's jets:key triple. Called with any other row, e.g. a candidate row a
+// filter is evaluated on, it only inserts.
+func (rs *ReteSession) InsertInferredFor(row *BetaRow, s, p, o *rdf.Node) (bool, error) {
+	if o == nil {
+		// as RdfSession.InsertInferred does
+		o = rdf.Null()
+	}
+	sess := rs.RdfSession
+	// Same test InsertInferred applies: a triple in the meta or asserted graph is not
+	// inserted and its reference count is not raised, so there is nothing to retract.
+	counted := s != nil && p != nil &&
+		!sess.MetaGraph.Contains(s, p, o) && !sess.AssertedGraph.Contains(s, p, o)
+	inserted, err := sess.InsertInferred(s, p, o)
+	if err != nil {
+		return inserted, err
+	}
+	if counted && row != nil && row == rs.recordingRow {
+		*row.inferred = append(*row.inferred, rdf.Triple{s, p, o})
+	}
+	return inserted, nil
 }
 
 type VisitCount struct {

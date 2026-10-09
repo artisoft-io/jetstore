@@ -2,6 +2,73 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## Retraction replays what a beta row inferred; it used to recompute it — 2026-10-08
+
+Both engines. **Retracting a beta row evaluated its consequent terms a second time, against the
+withdrawn row, and retracted whatever came out** (`ReteSession::compute_consequent_triples`,
+`jets/rete/rete_session.cc:343`; `ComputeConsequentTriples`, `rete_session_exec_rules.go:212`). That
+is right only when a consequent is a pure function of the row. Found by the `usi_ws` workspace
+assessment (`jetstore_agentic_ai`, `projects/workspace_assessments/02_usi_ws_assessment`, Q-37 and
+R-13), whose rule `ckd30` was keyed as a workaround (artisoft-io/usi_ws#22). What it did:
+
+- **`create_entity 0`** minted a second UUID on retraction, inserted a stray `jets:key` triple for
+  it, and retracted a link to it that did not exist — so the real link stayed.
+- **a keyed `create_entity`** re-inserted `jets:key` on every retraction, so its reference count
+  went up by two per assert/retract cycle and never reached zero.
+- **a consequent aggregate** read the graph as it stood at retraction; once its input had moved,
+  the triple retracted was not the triple inferred, and the inferred one stayed.
+
+**The fix records the inferred triples on the row, and only where it has to.** At rule load a node
+vertex is flagged when one of its consequent terms is not *row pure* — an operator in it mints a
+resource (`create_entity`, `create_uuid_resource`, `range`), reads the graph (`exist`, `exist_not`,
+`size_of`, the five aggregates) or reads a lookup table. C++: `NotRowPure` marks the visitors and
+`ExprBase::is_row_pure` composes them (`jets/rete/expr.h`), and `ReteMetaStore::initialize` sets
+`NodeVertex::records_consequents` (`jets/rete/rete_meta_store.h:145`). Go: the `notRowPure` marker
+set and `IsRowPure` live together in `expr_row_purity.go`, and `AddConsequentTerm`
+(`node_vertex.go:71`) sets `RecordsConsequents`. A row of a flagged vertex records every triple its
+consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
+both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
+`rete_session.go:34`) — and **retraction retracts that record and evaluates nothing**
+(`rete_session.cc:423`, `rete_session_exec_rules.go:270`). Every other vertex still recomputes, so a
+row that does not record costs one pointer.
+
+**What is recorded is deliberately narrow.** Only the consequent triple and `jets:key` go on the
+row, not every insert made while the consequent is evaluated: a lookup inserts its cache rows
+(`lookup_sql_helper.cc`, `lookup_table_sqlite3.go`), which other rows share, and retracting them
+with one row would pull data out from under the rest. `range` inserts its values on a blank node it
+mints and they are not recorded either, so they still outlive the row — unchanged, and a follow-up.
+
+**A keyed entity's `jets:key` now goes with its last support.** It is recorded like any other
+inferred triple, so when the last row that inferred it is retracted its reference count reaches
+zero and the triple is removed — full truth maintenance. *Decision pending with Michel on
+2026-10-08: the alternative is that the entity persists, i.e. `jets:key` is not recorded.*
+
+**A second defect, older than this one and in both engines, was found by the cycle tests.** After
+retracting a row's consequents, both engines removed the row by calling `remove_beta_row` /
+`RemoveBetaRow` — which returns at once for a row marked `kDeleted`, which that row is. **So a
+retracted row stayed in its beta relation marked `kProcessed`, and an equal row arriving later was
+taken for one already inferred and never fired.** A rule that lost its support and regained it in
+the same session inferred nothing the second time. Now `erase_retracted_beta_row` /
+`EraseRetractedBetaRow` (`jets/rete/beta_relation.h:138`, `beta_relation.go:140`) erases that
+instance. Measured by mutation: putting the old call back fails exactly the three cycle cases in
+each engine, including `PureConsequentCyclesReinfer`, whose consequent the recording never touches.
+
+**`AggregateInConsequentIsNotMaintained` still passes, and should.** This change makes retraction
+retract what the aggregate inferred; it does not make a consequent aggregate *recompute* when its
+input moves, which is the fifth item of the entry below and is unchanged.
+
+**Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
+callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does — so
+erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle
+tests drive retraction with `insert_inferred` and `retract` instead. And Go `RdfGraph.Retract`
+erases the triple from its `pos` and `osp` indexes even when the `spo` reference count is still
+above zero (`Retract`, `jets/jetrules/rdf/rdf_graph.go:188`), so a triple with two supports that
+loses one should stay `Contains`-true and stop being found by predicate or object — read from the
+code, not measured.
+
+Tests, the same cases in both engines: `jets/rete/retract_recorded_consequents_test.cc` and
+`retract_recorded_consequents_test.go`.
+
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
 C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.

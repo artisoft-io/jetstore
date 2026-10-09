@@ -17,6 +17,11 @@ type NodeVertex struct {
 	RowInitializer       *BetaRowInitializer
 	AntecedentQueryKey   int
 	AssociatedRules      []string
+	// RecordsConsequents is set by AddConsequentTerm when a consequent term is not
+	// row pure (see expr_row_purity.go). A beta row of such a vertex records the
+	// triples it inferred, and retraction replays that record rather than
+	// recomputing the consequents.
+	RecordsConsequents bool
 }
 
 func NewNodeVertex(vertex int, parent *NodeVertex, isNeg bool, salience int,
@@ -65,4 +70,7 @@ func (node *NodeVertex) AddChildAlphaNode(alphaNd *AlphaNode) {
 
 func (node *NodeVertex) AddConsequentTerm(alphaNd *AlphaNode) {
 	node.ConsequentAlphaNodes = append(node.ConsequentAlphaNodes, alphaNd)
+	if !alphaNd.IsRowPure() {
+		node.RecordsConsequents = true
+	}
 }

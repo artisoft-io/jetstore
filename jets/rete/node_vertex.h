@@ -56,7 +56,8 @@ struct NodeVertex {
       filter_expr(),
       normalized_label(),
       beta_row_initializer(),
-      antecedent_query_key(0)
+      antecedent_query_key(0),
+      records_consequents(false)
   {}
 
   NodeVertex(
@@ -79,7 +80,8 @@ struct NodeVertex {
       normalized_label(normalized_label),
       beta_row_initializer(beta_row_initializer),
       antecedent_query_key(0),
-      tid_(0)
+      tid_(0),
+      records_consequents(false)
   {}
 
   inline bool
@@ -131,6 +133,12 @@ struct NodeVertex {
   BetaRowInitializerPtr    beta_row_initializer;
   mutable int              antecedent_query_key;
   mutable int              tid_;
+  // Set by ReteMetaStore::initialize when a consequent term of this vertex is not
+  // row pure (AlphaNode::is_row_pure). A beta row of such a vertex records the
+  // triples it inferred, and retraction replays that record rather than recomputing
+  // the consequents -- recomputing create_entity mints a second entity, and
+  // recomputing an aggregate reads the graph as it is now, not as it was.
+  bool                     records_consequents;
 };
 
 inline std::ostream & operator<<(std::ostream & out, b_index node)

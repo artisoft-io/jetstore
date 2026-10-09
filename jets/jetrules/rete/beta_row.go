@@ -23,6 +23,29 @@ type BetaRow struct {
 	Status   BetaRowStatus
 	Data     []*rdf.Node
 	h        uint64
+	// inferred records the triples the row's consequents inferred, for a row of a
+	// vertex flagged RecordsConsequents; nil otherwise. Retraction replays it.
+	inferred *[]rdf.Triple
+}
+
+// startRecording gives the row an empty inferred-triple record.
+func (row *BetaRow) startRecording() {
+	row.inferred = &[]rdf.Triple{}
+}
+
+// isRecording is true while the row holds an inferred-triple record.
+func (row *BetaRow) isRecording() bool {
+	return row.inferred != nil
+}
+
+// takeRecorded hands the record over and leaves the row not recording.
+func (row *BetaRow) takeRecorded() []rdf.Triple {
+	if row.inferred == nil {
+		return nil
+	}
+	recorded := *row.inferred
+	row.inferred = nil
+	return recorded
 }
 
 func NewBetaRow(vertex *NodeVertex, size int) *BetaRow {

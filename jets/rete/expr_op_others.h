@@ -26,7 +26,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // LookupVisitor
 // --------------------------------------------------------------------------------------
-struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -66,7 +66,7 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
 // LookupRandVisitor
 // --------------------------------------------------------------------------------------
 // Visitor used to lookup table by random key
-struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
 {
   explicit
   LookupRandVisitor(ReteSession * rs, BetaRow const* br): rs(rs){}
@@ -93,7 +93,7 @@ struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
 
 // MultiLookupVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -132,7 +132,7 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
 
 // MultiLookupRandVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupRandVisitor(ReteSession * rs, BetaRow const* ): rs(rs) {}
@@ -459,7 +459,7 @@ struct ToTypeOfOperator
 
 // RangeVisitor
 // --------------------------------------------------------------------------------------
-struct RangeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct RangeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
 {
   // This operator is used as: (start_value range count)
   // It returns an iterator, i.e. it returns the subject (a blank node) of a set of triples:

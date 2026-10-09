@@ -190,6 +190,12 @@ class AlphaNodeImpl: public AlphaNode {
     };
   }
 
+  bool
+  is_row_pure()const override
+  {
+    return fu_.is_row_pure() and fv_.is_row_pure() and fw_.is_row_pure();
+  }
+
   /**
    * @brief Return find statement as a `triple`
    * 
