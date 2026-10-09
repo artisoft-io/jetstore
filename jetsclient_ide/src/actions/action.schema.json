@@ -1,0 +1,1035 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "formStateInitializer": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "description": "A key naming a form-state entry, action, state or table"
+    },
+    "actions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.-]+$",
+        "description": "A key naming a form-state entry, action, state or table"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Action"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "actions"
+  ],
+  "additionalProperties": false,
+  "title": "JetStore UserFlow action document",
+  "description": "The named actions of one user flow, authored as data",
+  "$defs": {
+    "Action": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        }
+      },
+      "required": [
+        "description",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "description": "A named action: a description and its steps"
+    },
+    "Step": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "validate"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "require"
+            },
+            "keys": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "keys",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "confirm"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "set"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "value": {
+              "$ref": "#/$defs/Value"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "remove"
+            },
+            "keys": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "keys"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "clearSelection"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "appendUnique"
+            },
+            "listKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "value": {
+              "$ref": "#/$defs/Value"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "listKey",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "removeFrom"
+            },
+            "listKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "value": {
+              "$ref": "#/$defs/Value"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "listKey",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "post"
+            },
+            "endpoint": {
+              "$ref": "#/$defs/Endpoint"
+            },
+            "action": {
+              "$ref": "#/$defs/ServerAction"
+            },
+            "table": {
+              "$ref": "#/$defs/InsertTarget"
+            },
+            "extras": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/Value"
+              }
+            },
+            "transport": {
+              "type": "string",
+              "enum": [
+                "simple",
+                "insertRows"
+              ]
+            },
+            "spinner": {
+              "type": "boolean"
+            },
+            "onConflict": {
+              "type": "string",
+              "minLength": 1
+            },
+            "data": {
+              "$ref": "#/$defs/Rows"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "endpoint",
+            "action",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "query"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "into": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "name",
+            "into"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "goToState"
+            },
+            "state": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "close"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "notify"
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "info",
+                "error"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "level",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "fail"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "escape"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "when": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "do",
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "One step of an action"
+    },
+    "Condition": {
+      "description": "A predicate over form state, guarding a transition or a step",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "equals"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "equals"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "valueFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "valueFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "contains"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "contains"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "valueFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "valueFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "isNull"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "isNullOrEmpty"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "not"
+            },
+            "condition": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "op",
+            "condition"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "and"
+            },
+            "conditions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "conditions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "or"
+            },
+            "conditions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "conditions"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            }
+          },
+          "required": [
+            "fromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fromKeyList": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            }
+          },
+          "required": [
+            "fromKeyList"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "pgArrayFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            }
+          },
+          "required": [
+            "pgArrayFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "csvFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            }
+          },
+          "required": [
+            "csvFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fromKeyAtIndex": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            }
+          },
+          "required": [
+            "fromKeyAtIndex"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "template": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "template"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "userEmail": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "userEmail"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nowMillis": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "nowMillis"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "A value read from form state, the session, or a literal"
+    },
+    "Endpoint": {
+      "type": "string",
+      "enum": [
+        "/dataTable",
+        "/registerFileKey"
+      ]
+    },
+    "ServerAction": {
+      "type": "string",
+      "enum": [
+        "insert_rows",
+        "workspace_insert_rows",
+        "drop_table",
+        "sync_file_keys",
+        "resubmit_pipeline",
+        "put_schema_event_to_s3",
+        "save_workspace_client_config",
+        "add_workspace_file",
+        "delete_workspace_files",
+        "delete_workspace_changes",
+        "delete_all_workspace_changes"
+      ],
+      "description": "A server action an authored flow may invoke"
+    },
+    "InsertTarget": {
+      "type": "string",
+      "enum": [
+        "client_registry",
+        "client_org_registry",
+        "delete/client",
+        "delete/org",
+        "pipeline_config",
+        "update/pipeline_config",
+        "delete/pipeline_config",
+        "process_input",
+        "update2/process_input",
+        "delete/source_config",
+        "source_config",
+        "update/source_config",
+        "pipeline_execution_status",
+        "input_loader_status",
+        "process_mapping",
+        "delete/process_mapping",
+        "pull_workspace",
+        "load_workspace_config",
+        "update/users",
+        "delete/users",
+        "rule_configv2",
+        "update/rule_configv2",
+        "delete/rule_configv2",
+        "workspace_registry",
+        "update/workspace_registry",
+        "commit_workspace",
+        "push_only_workspace",
+        "compile_workspace",
+        "delete_workspace",
+        "git_command_workspace",
+        "git_status_workspace"
+      ],
+      "description": "A table an authored flow may write to"
+    },
+    "Rows": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "none"
+            }
+          },
+          "required": [
+            "rows"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "fields"
+            },
+            "fields": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/Value"
+              }
+            }
+          },
+          "required": [
+            "rows",
+            "fields"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "wholeState"
+            },
+            "normalise": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+$",
+                    "description": "A key naming a form-state entry, action, state or table"
+                  },
+                  "as": {
+                    "$ref": "#/$defs/Value"
+                  }
+                },
+                "required": [
+                  "key",
+                  "as"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "omit": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            }
+          },
+          "required": [
+            "rows"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "everyGroup"
+            },
+            "normalise": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+$",
+                    "description": "A key naming a form-state entry, action, state or table"
+                  },
+                  "as": {
+                    "$ref": "#/$defs/Value"
+                  }
+                },
+                "required": [
+                  "key",
+                  "as"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "omit": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            }
+          },
+          "required": [
+            "rows"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "fanOut"
+            },
+            "over": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "fields": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/Value"
+              }
+            }
+          },
+          "required": [
+            "rows",
+            "over",
+            "fields"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "How the request's data array is built"
+    }
+  }
+}

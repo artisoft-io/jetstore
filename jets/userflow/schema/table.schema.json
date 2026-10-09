@@ -1,0 +1,850 @@
+{
+  "$comment": "jetstore-owned-asset — DO NOT EDIT. Source: ../../jetsclient_ide/src/datatable/table.schema.json, emitted by `npm run emit-schema` in jetsclient_ide. This copy exists because //go:embed cannot reach outside its own directory; TestSchemaCopiesMatchSource fails if the two drift, so a local edit is caught rather than silently overwritten.",
+  "$defs": {
+    "Column": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "calculatedAs": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "cellFilter": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "columnWidth": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "isHidden": {
+              "type": "boolean"
+            },
+            "isNumeric": {
+              "type": "boolean"
+            },
+            "label": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxLines": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "name": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "table": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "tooltip": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "label"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "calculatedAs": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "cellFilter": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "columnWidth": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "isHidden": {
+              "const": true,
+              "type": "boolean"
+            },
+            "isNumeric": {
+              "type": "boolean"
+            },
+            "label": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxLines": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "name": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "table": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "tooltip": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "isHidden"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "One column of a table configuration"
+    },
+    "EnableCriterion": {
+      "additionalProperties": false,
+      "description": "One test on the selected row",
+      "properties": {
+        "column": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "is": {
+          "enum": [
+            "equals",
+            "notEquals",
+            "contains",
+            "doesNotContain"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "is",
+        "value"
+      ],
+      "type": "object"
+    },
+    "FormStateBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "keyColumnIdx": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "otherColumns": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "columnIdx": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "stateKey": {
+                "description": "A key naming a state, form, action or form-state entry",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "stateKey",
+              "columnIdx"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keyColumnIdx"
+      ],
+      "type": "object"
+    },
+    "FromClause": {
+      "additionalProperties": false,
+      "properties": {
+        "as": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "schema": {
+          "$ref": "#/$defs/SchemaName"
+        },
+        "table": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ModelSource": {
+      "description": "Where a form-state table's rows come from",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "const": "key",
+              "type": "string"
+            },
+            "key": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "const": "map",
+              "type": "string"
+            },
+            "indexBy": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "key": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "key",
+            "indexBy"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "RowHeight": {
+      "additionalProperties": false,
+      "description": "The pixel band a data row is drawn in",
+      "properties": {
+        "max": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "min": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
+    },
+    "SchemaName": {
+      "anyOf": [
+        {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        {
+          "const": "$SCHEMA",
+          "type": "string"
+        }
+      ],
+      "description": "A database schema, or $SCHEMA for the compiled workspace"
+    },
+    "TableAction": {
+      "additionalProperties": false,
+      "description": "One button on a table's action bar",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/TableActionType"
+        },
+        "actionName": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "capability": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "configForm": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "configScreenPath": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "enableWhen": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/EnableCriterion"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "isEnabled": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "isEnabledWhenHavingSelectedRows": {
+          "type": "boolean"
+        },
+        "isEnabledWhenStateHasKeys": {
+          "items": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "isEnabledWhenWhereClauseSatisfied": {
+          "type": "boolean"
+        },
+        "isVisibleWhenCheckboxVisible": {
+          "type": "boolean"
+        },
+        "key": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "navigationParams": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "propertyNames": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "stateFormNavigationParams": {
+          "additionalProperties": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "propertyNames": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "style": {
+          "enum": [
+            "primary",
+            "secondary",
+            "danger",
+            "add"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "action",
+        "style"
+      ],
+      "type": "object"
+    },
+    "TableActionType": {
+      "enum": [
+        "doAction",
+        "doActionShowDialog",
+        "showDialog",
+        "showScreen",
+        "refreshTable",
+        "toggleCheckboxVisible",
+        "clearHomeFilters",
+        "setSessionIdFilter",
+        "setRequestIdFilter"
+      ],
+      "type": "string"
+    },
+    "TableApiAction": {
+      "description": "The server action a query table issues",
+      "enum": [
+        "workspace_read",
+        "preview_file",
+        "raw_query_tool"
+      ],
+      "type": "string"
+    },
+    "WhereClause": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "defaultValue": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "formStateKey": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "joinWith": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "like": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "lookupColumnInFormState": {
+          "const": true,
+          "type": "boolean"
+        },
+        "orWith": {
+          "$ref": "#/$defs/WhereClause"
+        },
+        "table": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "WithClause": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "sql": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "sql"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "One data-table configuration, authored as data",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "type": "array"
+        },
+        "apiAction": {
+          "$ref": "#/$defs/TableApiAction"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "formStateBinding": {
+          "$ref": "#/$defs/FormStateBinding"
+        },
+        "from": {
+          "items": {
+            "$ref": "#/$defs/FromClause"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "isCheckboxSingleSelect": {
+          "type": "boolean"
+        },
+        "isCheckboxVisible": {
+          "type": "boolean"
+        },
+        "isReadOnly": {
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "noCopy2Clipboard": {
+          "type": "boolean"
+        },
+        "noFooter": {
+          "type": "boolean"
+        },
+        "refreshOnKeyUpdateEvent": {
+          "items": {
+            "description": "A key naming a state, form, action or form-state entry",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "requestColumnDef": {
+          "const": true,
+          "type": "boolean"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
+        "rowsPerPage": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "secondRowActions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "showSelectedOnly": {
+          "type": "boolean"
+        },
+        "sortAscending": {
+          "type": "boolean"
+        },
+        "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "source": {
+          "const": "query",
+          "type": "string"
+        },
+        "thirdRowActions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "where": {
+          "items": {
+            "$ref": "#/$defs/WhereClause"
+          },
+          "type": "array"
+        },
+        "with": {
+          "items": {
+            "$ref": "#/$defs/WithClause"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "rowsPerPage",
+        "source",
+        "columns",
+        "from"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "formStateBinding": {
+          "$ref": "#/$defs/FormStateBinding"
+        },
+        "isCheckboxSingleSelect": {
+          "type": "boolean"
+        },
+        "isCheckboxVisible": {
+          "type": "boolean"
+        },
+        "isReadOnly": {
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "noCopy2Clipboard": {
+          "type": "boolean"
+        },
+        "noFooter": {
+          "type": "boolean"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rowsPerPage": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "showSelectedOnly": {
+          "type": "boolean"
+        },
+        "sortAscending": {
+          "type": "boolean"
+        },
+        "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "source": {
+          "const": "static",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "rowsPerPage",
+        "source",
+        "columns",
+        "sortColumn",
+        "rows"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/TableAction"
+          },
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "formStateBinding": {
+          "$ref": "#/$defs/FormStateBinding"
+        },
+        "isCheckboxSingleSelect": {
+          "type": "boolean"
+        },
+        "isCheckboxVisible": {
+          "type": "boolean"
+        },
+        "isReadOnly": {
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSource"
+        },
+        "noCopy2Clipboard": {
+          "type": "boolean"
+        },
+        "noFooter": {
+          "type": "boolean"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/RowHeight"
+        },
+        "rowsPerPage": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "showSelectedOnly": {
+          "type": "boolean"
+        },
+        "sortAscending": {
+          "type": "boolean"
+        },
+        "sortColumn": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "sortColumnTable": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "source": {
+          "const": "formState",
+          "type": "string"
+        },
+        "where": {
+          "items": {
+            "$ref": "#/$defs/WhereClause"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "rowsPerPage",
+        "source",
+        "columns",
+        "sortColumn",
+        "model"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "JetStore table configuration"
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "editUserProfile": {
+      "title": "Update User Profile",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "name",
+            "label": "Name",
+            "hint": "User name",
+            "isReadOnly": true,
+            "maxLength": 80
+          },
+          {
+            "field": "text",
+            "key": "user_email",
+            "label": "Email",
+            "hint": "User email",
+            "isReadOnly": true,
+            "maxLength": 80
+          }
+        ],
+        [
+          {
+            "field": "dropdown",
+            "key": "is_active",
+            "label": "Active User?",
+            "items": [
+              {
+                "label": "Select User Status...",
+                "value": ""
+              },
+              {
+                "label": "Active",
+                "value": "1"
+              },
+              {
+                "label": "Inactive",
+                "value": "0"
+              }
+            ],
+            "defaultItemPos": 0,
+            "rules": [
+              {
+                "rule": "required",
+                "message": "User state Active / Inactive must be selected."
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "spacer"
+          }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "userRolesTable",
+            "table": "userRolesTable"
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "editUserProfile.ok",
+          "label": "Submit",
+          "capability": "user_profile"
+        },
+        {
+          "action": "dialogCancel",
+          "label": "Cancel",
+          "style": "secondary"
+        }
+      ]
+    }
+  }
+}

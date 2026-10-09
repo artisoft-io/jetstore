@@ -61,7 +61,7 @@ func TestLogicAND(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if !F(1).AND(DD("27/07/1962")).Bool() {
+	if !F(1).AND(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -104,7 +104,7 @@ func TestLogicOR(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if !F(1).OR(DD("27/07/1962")).Bool() {
+	if !F(1).OR(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -175,7 +175,7 @@ func TestLogicEQ(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if F(1).EQ(DD("27/07/1962")).Bool() {
+	if F(1).EQ(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -199,7 +199,7 @@ func TestLogicEQ(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if R("N1").EQ(DD("27/07/1962")).Bool() {
+	if R("N1").EQ(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -207,19 +207,19 @@ func TestLogicEQ(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if !DD("27/07/1962").EQ(DD("27/07/1962")).Bool() {
+	if !DD("1962/07/27").EQ(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
-	if DD("27/07/1962").EQ(DD("07/27/1962")).Bool() {
+	if DD("1962/07/27").EQ(DD("07/27/1962")).Bool() {
 		t.Error("operator failed")
 	}
 
-	if DD("27/07/1962").EQ(DDT("27/07/1962")).Bool() {
+	if DD("1962/07/27").EQ(DDT("27/07/1962")).Bool() {
 		t.Error("operator failed")
 	}
 
-	if DDT("27/07/1962").EQ(DD("27/07/1962")).Bool() {
+	if DDT("27/07/1962").EQ(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -239,7 +239,7 @@ func TestLogicEQ(t *testing.T) {
 		t.Error("operator failed")
 	}
 
-	if Null().EQ(DD("27/07/1962")).Bool() {
+	if Null().EQ(DD("1962/07/27")).Bool() {
 		t.Error("operator failed")
 	}
 
@@ -291,7 +291,7 @@ func TestLogicGE(t *testing.T) {
 		t.Error("GE operator failed")
 	}
 
-	if F(1).GE(DD("27/07/1962")).Bool() {
+	if F(1).GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
@@ -319,7 +319,7 @@ func TestLogicGE(t *testing.T) {
 		t.Error("GE operator failed")
 	}
 
-	if R("N1").GE(DD("27/07/1962")).Bool() {
+	if R("N1").GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
@@ -327,23 +327,23 @@ func TestLogicGE(t *testing.T) {
 		t.Error("GE operator failed")
 	}
 
-	if !DD("27/07/1962").GE(DD("27/07/1962")).Bool() {
+	if !DD("1962/07/27").GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
-	if !DD("28/07/1962").GE(DD("27/07/1962")).Bool() {
+	if !DD("28/07/1962").GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
-	if DD("26/07/1962").GE(DD("27/07/1962")).Bool() {
+	if DD("26/07/1962").GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
-	if DD("27/07/1962").GE(DDT("27/07/1962")).Bool() {
+	if DD("1962/07/27").GE(DDT("27/07/1962")).Bool() {
 		t.Error("GE operator failed")
 	}
 
-	if DDT("27/07/1962").GE(DD("27/07/1962")).Bool() {
+	if DDT("27/07/1962").GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
@@ -363,7 +363,7 @@ func TestLogicGE(t *testing.T) {
 		t.Error("GE operator failed")
 	}
 
-	if Null().GE(DD("27/07/1962")).Bool() {
+	if Null().GE(DD("1962/07/27")).Bool() {
 		t.Error("GE operator failed")
 	}
 
@@ -427,7 +427,7 @@ func TestLogicGT(t *testing.T) {
 		t.Error("GT operator failed")
 	}
 
-	if F(1).GT(DD("27/07/1962")).Bool() {
+	if F(1).GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
@@ -455,7 +455,7 @@ func TestLogicGT(t *testing.T) {
 		t.Error("GT operator failed")
 	}
 
-	if R("N1").GT(DD("27/07/1962")).Bool() {
+	if R("N1").GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
@@ -463,23 +463,23 @@ func TestLogicGT(t *testing.T) {
 		t.Error("GT operator failed")
 	}
 
-	if DD("27/07/1962").GT(DD("27/07/1962")).Bool() {
+	if DD("1962/07/27").GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
-	if !DD("28/07/1962").GT(DD("27/07/1962")).Bool() {
+	if !DD("28/07/1962").GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
-	if DD("26/07/1962").GT(DD("27/07/1962")).Bool() {
+	if DD("26/07/1962").GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
-	if DD("27/07/1962").GT(DDT("27/07/1962")).Bool() {
+	if DD("1962/07/27").GT(DDT("27/07/1962")).Bool() {
 		t.Error("GT operator failed")
 	}
 
-	if DDT("27/07/1962").GT(DD("27/07/1962")).Bool() {
+	if DDT("27/07/1962").GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
@@ -495,7 +495,7 @@ func TestLogicGT(t *testing.T) {
 		t.Error("GT operator failed")
 	}
 
-	if Null().GT(DD("27/07/1962")).Bool() {
+	if Null().GT(DD("1962/07/27")).Bool() {
 		t.Error("GT operator failed")
 	}
 
@@ -558,7 +558,7 @@ func TestLogicLE(t *testing.T) {
 		t.Error("LE operator failed")
 	}
 
-	if F(1).LE(DD("27/07/1962")).Bool() {
+	if F(1).LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
@@ -586,7 +586,7 @@ func TestLogicLE(t *testing.T) {
 		t.Error("LE operator failed")
 	}
 
-	if R("N1").LE(DD("27/07/1962")).Bool() {
+	if R("N1").LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
@@ -594,23 +594,23 @@ func TestLogicLE(t *testing.T) {
 		t.Error("LE operator failed")
 	}
 
-	if !DD("27/07/1962").LE(DD("27/07/1962")).Bool() {
+	if !DD("1962/07/27").LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
-	if DD("28/07/1962").LE(DD("27/07/1962")).Bool() {
+	if DD("28/07/1962").LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
-	if !DD("26/07/1962").LE(DD("27/07/1962")).Bool() {
+	if !DD("26/07/1962").LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
-	if DD("27/07/1962").LE(DDT("27/07/1962")).Bool() {
+	if DD("1962/07/27").LE(DDT("27/07/1962")).Bool() {
 		t.Error("LE operator failed")
 	}
 
-	if DDT("27/07/1962").LE(DD("27/07/1962")).Bool() {
+	if DDT("27/07/1962").LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
@@ -626,7 +626,7 @@ func TestLogicLE(t *testing.T) {
 		t.Error("LE operator failed")
 	}
 
-	if Null().LE(DD("27/07/1962")).Bool() {
+	if Null().LE(DD("1962/07/27")).Bool() {
 		t.Error("LE operator failed")
 	}
 
@@ -678,7 +678,7 @@ func TestLogicLT(t *testing.T) {
 		t.Error("LT operator failed")
 	}
 
-	if F(1).LT(DD("27/07/1962")).Bool() {
+	if F(1).LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
@@ -706,7 +706,7 @@ func TestLogicLT(t *testing.T) {
 		t.Error("LT operator failed")
 	}
 
-	if R("N1").LT(DD("27/07/1962")).Bool() {
+	if R("N1").LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
@@ -714,23 +714,23 @@ func TestLogicLT(t *testing.T) {
 		t.Error("LT operator failed")
 	}
 
-	if DD("27/07/1962").LT(DD("27/07/1962")).Bool() {
+	if DD("1962/07/27").LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
-	if DD("28/07/1962").LT(DD("27/07/1962")).Bool() {
+	if DD("28/07/1962").LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
-	if !DD("26/07/1962").LT(DD("27/07/1962")).Bool() {
+	if !DD("26/07/1962").LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
-	if DD("27/07/1962").LT(DDT("27/07/1962")).Bool() {
+	if DD("1962/07/27").LT(DDT("27/07/1962")).Bool() {
 		t.Error("LT operator failed")
 	}
 
-	if DDT("27/07/1962").LT(DD("27/07/1962")).Bool() {
+	if DDT("27/07/1962").LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
@@ -750,7 +750,7 @@ func TestLogicLT(t *testing.T) {
 		t.Error("LT operator failed")
 	}
 
-	if Null().LT(DD("27/07/1962")).Bool() {
+	if Null().LT(DD("1962/07/27")).Bool() {
 		t.Error("LT operator failed")
 	}
 
@@ -805,7 +805,7 @@ func TestLogicNE(t *testing.T) {
 		t.Error("NE operator failed")
 	}
 
-	if !F(1).NE(DD("27/07/1962")).Bool() {
+	if !F(1).NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 
@@ -837,7 +837,7 @@ func TestLogicNE(t *testing.T) {
 		t.Error("NE operator failed")
 	}
 
-	if !BN(10).NE(DD("27/07/1962")).Bool() {
+	if !BN(10).NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 
@@ -845,7 +845,7 @@ func TestLogicNE(t *testing.T) {
 		t.Error("NE operator failed")
 	}
 
-	if !R("N1").NE(DD("27/07/1962")).Bool() {
+	if !R("N1").NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 
@@ -853,19 +853,19 @@ func TestLogicNE(t *testing.T) {
 		t.Error("NE operator failed")
 	}
 
-	if DD("27/07/1962").NE(DD("27/07/1962")).Bool() {
+	if DD("1962/07/27").NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 
-	if !DD("27/07/1962").NE(DD("07/27/1962")).Bool() {
+	if !DD("1962/07/27").NE(DD("07/27/1962")).Bool() {
 		t.Error("NE operator failed")
 	}
 
-	if !DD("27/07/1962").NE(DDT("27/07/1962")).Bool() {
+	if !DD("1962/07/27").NE(DDT("27/07/1962")).Bool() {
 		t.Error("NE operator failed")
 	}
 
-	if !DDT("27/07/1962").NE(DD("27/07/1962")).Bool() {
+	if !DDT("27/07/1962").NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 
@@ -881,7 +881,7 @@ func TestLogicNE(t *testing.T) {
 		t.Error("NE operator failed")
 	}
 
-	if !Null().NE(DD("27/07/1962")).Bool() {
+	if !Null().NE(DD("1962/07/27")).Bool() {
 		t.Error("NE operator failed")
 	}
 

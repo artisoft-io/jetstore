@@ -426,25 +426,147 @@ type SqlInsertDefinition struct {
 	Capability string
 }
 
+// The four errors VerifyUserPermission returns, as values rather than as calls to
+// errors.New, so that a caller can classify one with errors.Is. **The text of each
+// is byte-identical to what it replaced**; nothing on the wire moves because of
+// this declaration, and that is what makes AuthzStatusFor's claim checkable.
+//
+// **Three of the four are refusals and the first is not**, which is the split
+// ui_refresh D.2 added on top of the one below. ErrCapabilityNotConfigured says
+// the server is misconfigured; the other three say something about the caller.
+//
+// **Among the refusals the split that matters is identity against policy, and it
+// is not the split the text makes.** ErrNoUserInfo says we could not establish who
+// is asking -- a deleted user row, an unreachable database. The two below it say we
+// know exactly who is asking and the answer is no. Only the second pair is a 403;
+// see AuthzStatusFor.
+var (
+	// ErrCapabilityNotConfigured is a defect in the *server*, not a refusal of the
+	// caller: a SqlInsertDefinition that names no capability. It answers **500**,
+	// and it is the only one of the four that does; ui_refresh I-241 raised it and
+	// D.2 fixed it.
+	//
+	// **It is unreachable from every caller in this package, re-measured 2026-08-27.**
+	// sqlInsertStmts has 58 entries and 58 non-empty Capability fields
+	// (jets/datatable/sql_stmts.go, sqlInsertStmts); the two reading "none" are both
+	// AdminOnly, so the admin branch decides them. Every ad-hoc definition in this
+	// package names a capability literally except requireCapability's, which passes a
+	// parameter -- and each of its nine call sites passes one of the three
+	// Capability* constants below. So a statement added without a capability is what
+	// reaches this, and nothing else does.
+	//
+	// **The text keeps its "unauthorized" prefix deliberately.** It is pinned by
+	// TestTheFourRefusalTextsAreUnchanged, which exists so C.17's promise that no
+	// message moved stays checkable, and the clause after the comma is the half an
+	// operator needs. Rewording it would spend that guard on a word.
+	ErrCapabilityNotConfigured = errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+	// ErrNoUserInfo is the identity half: we cannot say who is asking.
+	ErrNoUserInfo = errors.New("error: unauthorized, cannot get user info")
+	// ErrAdminOnly and ErrMissingCapability are the policy half: we know who is
+	// asking and they may not do this.
+	ErrAdminOnly         = errors.New("error: unauthorized, only admin can perform statement")
+	ErrMissingCapability = errors.New("error: unauthorized, user do not have required capability")
+)
+
+// AuthzStatusFor maps a VerifyUserPermission error to the status that describes it.
+//
+// **This exists because 401 was answering two questions and could only carry one
+// answer** -- ui_refresh I-189. A client cannot distinguish "your session is over,
+// sign in again" from "you are signed in and may not do this", so the React app
+// signed the user out on both, and a refusal presented as a session failure.
+//
+// **It was answering three, and the third is why 500 is here** -- ui_refresh I-241,
+// fixed at D.2 on 2026-08-27. ErrCapabilityNotConfigured is not an answer about the
+// caller at all: it says a SqlInsertDefinition names no capability, which no request
+// can cause and no request can repair. Left at 401 it signed out a user for the
+// server's mistake, in a corner of exactly the failure I-189 describes. C.17 saw it
+// and declined it on two grounds -- that it was unreachable, which it still is, and
+// that a third status was a decision outside what that task was approved to take.
+// The second ground is what Phase 4 exists to discharge.
+//
+// **One of C.17's grounds has also expired rather than been overruled.** It weighed
+// a third status as "a change on a path both clients use"; track X deleted
+// jetsclient on 2026-08-26, so there is one client, and the cost side of that trade
+// is gone.
+//
+// **Reading the response body could not have fixed it**, which is why this is a
+// status change rather than a client-side one. requireCapability collapses all
+// four errors above into one string, so on /dataTable -- where nearly every post
+// goes -- the body does not separate a dead session from a missing capability. It
+// separates the middleware from the handler, and a handler refusal *includes* the
+// dead-user and database-unavailable cases.
+//
+// **It is not a new oracle**, measured against the reasoning I-124, I-125 and
+// I-126 were resolved on. The four gates in jets/apiserver already return two
+// distinct messages for exactly this distinction, deliberately (jets/apiserver/api_purgedata.go,
+// DoPurgeDataAction, the comment above the IsAdmin check). Splitting the status
+// along the line the message already splits along tells a caller nothing the
+// message did not. And an unauthenticated caller never reaches a handler gate at
+// all, because authh refuses first (jets/apiserver/server.go, authh).
+func AuthzStatusFor(err error) int {
+	switch {
+	case errors.Is(err, ErrCapabilityNotConfigured):
+		return http.StatusInternalServerError
+	case errors.Is(err, ErrAdminOnly), errors.Is(err, ErrMissingCapability):
+		return http.StatusForbidden
+	default:
+		return http.StatusUnauthorized
+	}
+}
+
+// ErrRefused is the one message every gate in this package returns when it refuses
+// a caller. It is unchanged from the errors.New that stood at each of the fourteen
+// sites, and it stays collapsed on purpose: I-124's fix turns on the two gates on
+// the insert_raw_rows path being byte-identical, so that neither becomes an oracle
+// for whether a mapping exists.
+//
+// **The status says more than the message does, and that is the whole of C.17's
+// change.** RefusalFor is the pair, so a handler cannot take one without the other.
+var ErrRefused = errors.New("error: unauthorized, cannot get user info or does not have permission")
+
+// RefusalFor turns a VerifyUserPermission error into the (status, error) a handler
+// returns. Every gate in this package goes through it; write_capability_test.go
+// asserts that none of them hard-codes http.StatusUnauthorized instead, which is
+// the guard against the next handler re-conflating the two.
+//
+// For the three refusals the returned error is ErrRefused rather than the argument,
+// so errors.Is against ErrMissingCapability fails on the *result*. That is
+// deliberate: the classification is for the status line, not for the body.
+//
+// **The configuration error is the exception, and it is the one case where the body
+// moves too** (ui_refresh D.2). Collapsing it into ErrRefused would answer 500 with
+// a sentence asserting the caller is unauthorised -- the misdescription this fix is
+// about, surviving the fix. I-124's argument does not reach it either: that argument
+// is about two gates on one path staying indistinguishable, and both of those gates
+// resolve the *same* SqlInsertDefinition, so a missing capability field is identical
+// at both by construction rather than by collapse. Nobody but the operator who
+// misconfigured the statement can ever read this string, and it names their mistake.
+func RefusalFor(err error) (int, error) {
+	if errors.Is(err, ErrCapabilityNotConfigured) {
+		return http.StatusInternalServerError, ErrCapabilityNotConfigured
+	}
+	return AuthzStatusFor(err), ErrRefused
+}
+
 // Check that the user has the required permission to execute the action
 func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
 	// RBAC check
 	if sqlStmt.Capability == "" {
-		return nil, errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+		return nil, ErrCapabilityNotConfigured
 	}
 	// Get user info
 	user, err := user.GetUserByToken(ctx.Dbpool, token)
 	if err != nil {
 		log.Printf("while GetUserByToken: %v", err)
-		return nil, errors.New("error: unauthorized, cannot get user info")
+		return nil, ErrNoUserInfo
 	}
 	switch {
 	// Check if stmt is reserved for admin only
 	case sqlStmt.AdminOnly && !user.IsAdmin():
-		return nil, errors.New("error: unauthorized, only admin can perform statement")
+		return nil, ErrAdminOnly
 	// user missing capability
 	case !user.HasCapability(sqlStmt.Capability):
-		return nil, errors.New("error: unauthorized, user do not have required capability")
+		return nil, ErrMissingCapability
 	}
 	// All clear, perform action
 	return user, nil
@@ -464,8 +586,18 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+// ExecRawQuery executes the SQL in the request body.
+//
+// **`capability` is a parameter because the two callers are not equally
+// dangerous.** `raw_query` is issued by the UIs on a user's behalf against
+// queries the app composed; `raw_query_tool` is the IDE's free-SQL box, where
+// the statement is whatever the user typed. They shared a case and a capability
+// of none; they now share a case and differ in what they require.
+func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token, capability string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
+	if code, err2 := ctx.requireCapability(capability, token); err2 != nil {
+		return nil, code, err2
+	}
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
 
@@ -487,8 +619,7 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
@@ -510,6 +641,9 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 // ExecRawQueryMap ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
+		return nil, code, err2
+	}
 	// fmt.Println("ExecRawQueryMap:")
 	resultMap := make(map[string]any, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
@@ -618,6 +752,30 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 		// Pre-Processing hook
 		switch requestTable {
 		case "raw_rows/process_mapping":
+			// Authorize before the destructive step, not after it.
+			//
+			// The DELETE below commits, and until 2026-08-24 the only capability
+			// check on this path was the one inside InsertRows, which runs after it.
+			// A caller who failed that check therefore got the mapping deleted and
+			// nothing inserted to replace it -- on a target chosen by the pasted
+			// document, since table_name is derived from its own columns. Ask the
+			// same question first.
+			//
+			// Deliberately the same *SqlInsertDefinition that InsertRows looks up
+			// for the table this arm sets below, so the two cannot drift into
+			// requiring different capabilities. InsertRows keeps its own check;
+			// this is a second gate, not a move.
+			sqlStmt, ok := sqlInsertStmts["process_mapping"]
+			if !ok {
+				httpStatus = http.StatusBadRequest
+				err = errors.New("error: unknown table")
+				return
+			}
+			if _, err2 := ctx.VerifyUserPermission(sqlStmt, token); err2 != nil {
+				log.Printf("while VerifyUserPermission: %v", err2)
+				httpStatus, err = RefusalFor(err2)
+				return
+			}
 			// Put the table name in each row
 			var tableName string
 			client := dataTableAction.Data[irow]["client"]
@@ -678,9 +836,8 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 	}
 	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
 		log.Printf("while VerifyUserPermission: %v", err2)
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 
@@ -917,8 +1074,62 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]any,
 	return &resultRows, &columnDefs, nil
 }
 
+// Capabilities required to read through /dataTable — I-2.
+//
+// **These were already declared and granted; they were simply never checked.**
+// `jets_init_db.sql:48` documents `jetstore_read` as "read data in JetStore" and
+// grants it to `ops_user`, `client_advocate` and `knowledge_engineer` — every
+// human role. The same block documents `workspace_ide` as covering "the query
+// tool", which is what `raw_query_tool` is. So this is not a new policy; it is
+// the policy the seed file states, enforced.
+//
+// `system_role` holds neither, and holds only `run_pipelines`. It appears
+// nowhere in Go and issues no read: `DoReadAction` has one caller
+// (`api_tables.go`), reached from the two web UIs with a human's token.
+const (
+	// CapabilityReadData gates the structured read path and the queries the UIs
+	// issue on a user's behalf.
+	CapabilityReadData = "jetstore_read"
+	// CapabilityQueryTool gates the free-SQL query tool, per the seed file's own
+	// description of workspace_ide.
+	CapabilityQueryTool = "workspace_ide"
+	// CapabilityRunPipelines gates the actions that load files and run pipelines,
+	// and the destruction of what a load produced. It is what
+	// sqlInsertStmts["pipeline_execution_status"] and
+	// sqlInsertStmts["input_loader_status"] already require, named here for the two
+	// paths that reach the same authority without resolving a statement: DropTable
+	// below, and the inline resubmit_pipeline arm in jets/apiserver. I-125.
+	CapabilityRunPipelines = "run_pipelines"
+)
+
+// requireCapability is the read-side counterpart of VerifyUserPermission's use
+// on the write side. It exists so that every read path gates identically and the
+// set of them is greppable.
+func (ctx *DataTableContext) requireCapability(capability, token string) (int, error) {
+	if _, err := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: capability}, token); err != nil {
+		return RefusalFor(err)
+	}
+	return http.StatusOK, nil
+}
+
+// RequireCapability is requireCapability's exported form, for the arms of the
+// /dataTable dispatch that jets/apiserver handles inline rather than through a
+// method on this type. There are two — resubmit_pipeline and
+// fetch_file_from_stage — and both were reachable by any authenticated caller
+// because a watched list of method names could not see them (I-125's sweep).
+//
+// It is a wrapper rather than a rename so that the refusal is byte-identical to
+// the one every gated method in this package returns, and so that the read-side
+// test's grep for the unexported name keeps working.
+func (ctx *DataTableContext) RequireCapability(capability, token string) (int, error) {
+	return ctx.requireCapability(capability, token)
+}
+
 // DoReadAction ------------------------------------------------------
 func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
+	if code, err := ctx.requireCapability(CapabilityReadData, token); err != nil {
+		return nil, code, err
+	}
 
 	// to package up the result
 	results := make(map[string]any)
@@ -1014,6 +1225,9 @@ gotRolesPos:
 
 // DoPreviewFileAction ------------------------------------------------------
 func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
+	if code, err := ctx.requireCapability(CapabilityReadData, token); err != nil {
+		return nil, code, err
+	}
 
 	// Validation
 	if len(dataTableAction.WhereClauses) == 0 ||
@@ -1080,23 +1294,57 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 }
 
 // DropTable ------------------------------------------------------
-// These are queries to load reference data for widget, e.g. dropdown list of items
+// Drop the staging table named in the request. Reached from the Drop Staging
+// Table button of two flows: configureFilesUF
+// (jetsclient/lib/modules/user_flows/configure_files/form_action_delegates.dart,
+// the ActionKeys.dropTable arm) and loadFilesUF (.../load_files/, ActionKeys.lfDropTable).
+//
+// **It took a token and never read it, so every authenticated caller of any role
+// could drop any table.** ui_refresh I-125, fixed 2026-08-25.
+//
+// **On the capability, because it was a choice rather than a lookup.** The two
+// call sites sit beside arms requiring different things -- configure_files writes
+// source_config and delete/source_config, both client_config; load_files writes
+// input_loader_status, which is run_pipelines. run_pipelines is taken, on two
+// grounds. What a staging table holds is *loaded data* rather than client
+// configuration, and run_pipelines is the seed file's own name for the authority
+// that loads it. And every role that reaches either screen already holds it
+// (jets/jets_init_db.sql grants it to all four seeded roles), whereas
+// client_config would take the button away from ops_user, whose role description
+// is "load files and execute pipelines" -- a policy narrowing this change has no
+// mandate for.
+//
+// **What that does and does not buy, stated plainly.** All four seeded roles hold
+// run_pipelines, so the gate refuses none of them today; what it refuses is a role
+// that holds none, and roles are data. The gate closes "any authenticated caller
+// of any role" and it does not make this function safe for a caller who holds
+// run_pipelines, because nothing bounds *which* table may be named -- see the TODO
+// below.
 func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityRunPipelines, token); err2 != nil {
+		return nil, code, err2
+	}
 	//* TODO NEED TO APPLY FILTER ON TABLE NAME
+	// Still open, and now with an owner: the identifiers below are sanitised and
+	// the caller is authorised, so what is left is the policy question of which
+	// tables this action may name at all -- jetsapi.users is as reachable as a
+	// staging table. Recorded as ui_refresh I-137.
 	for ipos := range dataTableAction.Data {
-		tableName := dataTableAction.Data[ipos]["tableName"]
-		schemaName := dataTableAction.Data[ipos]["schemaName"]
-		if tableName == nil {
+		tableName, ok := dataTableAction.Data[ipos]["tableName"].(string)
+		if !ok {
 			httpStatus = http.StatusBadRequest
-			err = fmt.Errorf("error: tableName argument is not provided")
+			err = fmt.Errorf("error: tableName argument is not provided, or is not a string")
 			return
 		}
-		var stmt string
-		if schemaName != nil {
-			stmt = fmt.Sprintf(`DROP TABLE "%s"."%s"`, schemaName.(string), tableName.(string))
-		} else {
-			stmt = fmt.Sprintf(`DROP TABLE public."%s"`, tableName.(string))
+		schemaName, ok := dataTableAction.Data[ipos]["schemaName"].(string)
+		if !ok {
+			// Both call sites send "public" explicitly; the default is kept for a
+			// request that omits it, as the unchecked assertion this replaces did.
+			schemaName = "public"
 		}
+		// Sanitised rather than interpolated, which is what ResetDomainTables
+		// (jets/apiserver/api_purgedata.go) has always done for the same statement.
+		stmt := fmt.Sprintf("DROP TABLE %s", pgx.Identifier{schemaName, tableName}.Sanitize())
 		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
 		if err != nil && !strings.Contains(err.Error(), "does not exist") {
 			httpStatus = http.StatusBadRequest

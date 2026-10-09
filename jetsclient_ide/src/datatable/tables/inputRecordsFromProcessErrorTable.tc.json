@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "label": "Input Records for Process Errors",
+  "columns": [],
+  "rowsPerPage": 50,
+  "source": "query",
+  "with": [
+    {
+      "name": "sessions",
+      "sql": "            SELECT sr.session_id AS sess_id\n            FROM\n              jetsapi.pipeline_execution_status pe,\n              jetsapi.source_period sp,\n              jetsapi.session_registry sr,\n              \"{table_name}\" mc\n            WHERE pe.key = CASE {lookback_periods} WHEN 0 THEN NULL ELSE {pipeline_execution_status_key} END\n              AND pe.source_period_key = sp.key \n              AND sr.session_id = mc.session_id\n              AND sr.month_period >= (sp.month_period - {lookback_periods})\n              AND sr.month_period <= sp.month_period\n            UNION\n            SELECT '{session_id}'",
+      "params": [
+        "pipeline_execution_status_key",
+        "table_name",
+        "lookback_periods",
+        "session_id"
+      ]
+    }
+  ],
+  "from": [
+    {
+      "schema": "public"
+    },
+    {
+      "table": "sessions"
+    }
+  ],
+  "where": [
+    {
+      "column": "session_id",
+      "joinWith": "sessions.sess_id"
+    },
+    {
+      "column": "domainKeyColumn",
+      "formStateKey": "domain_key",
+      "lookupColumnInFormState": true
+    }
+  ]
+}

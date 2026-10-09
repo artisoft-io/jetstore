@@ -64,15 +64,20 @@ func ClearJetrulesCaches() {
 func LoadJetrulesCaches() {
 	c1, err := GetWorkspaceControl()
 	if err != nil {
+		// **Return rather than carry on with a nil `c1`.** The next line indexes
+		// `c1.RuleSets[0]`, so this used to log the error and then panic on the
+		// dereference — turning a readable "could not load workspace control"
+		// into a nil-pointer stack trace from a pre-load nobody is watching.
 		log.Printf("Error while pre-loading workspace control: %v", err)
-	} else {
-		log.Printf("Pre-loaded workspace control with %d rulesets", len(c1.RuleSets))
+		return
 	}
-	_, err = GetRuleEngineConfig(c1.RuleSets[0], "test")
-	if err != nil {
-		log.Printf("Error while pre-loading rule engine config: %v", err)
-	} else {
-		log.Printf("Pre-loaded rule engine config")
+	log.Printf("Pre-loaded workspace control with %d rulesets", len(c1.RuleSets))
+	if len(c1.RuleSets) > 0 {
+		if _, err = GetRuleEngineConfig(c1.RuleSets[0], "test"); err != nil {
+			log.Printf("Error while pre-loading rule engine config: %v", err)
+		} else {
+			log.Printf("Pre-loaded rule engine config")
+		}
 	}
 	c2, err := GetWorkspaceDomainTables()
 	if err != nil {
@@ -94,19 +99,23 @@ func LoadJetrulesCaches() {
 	}
 }
 
+// Locked for the whole function, like the three domain caches below. The outer
+// test of the double-checked lock this used to be was an unsynchronised read of
+// the pointer, which `-race` reports when the pool's workers ask together
+// (`TestRuleEngineConfigIsSafeForConcurrentWorkers`). It built into a local and
+// published on success, so it never returned a half-built value; the race was
+// the read itself.
 func GetWorkspaceControl() (*rete.WorkspaceControl, error) {
+	workspaceControlMx.Lock()
+	defer workspaceControlMx.Unlock()
 	if workspaceControl == nil {
-		workspaceControlMx.Lock()
-		defer workspaceControlMx.Unlock()
-		if workspaceControl == nil {
-			fpath := fmt.Sprintf("%s/%s/workspace_control.json", WorkspaceHome(), WorkspacePrefix())
-			log.Println("Loading workspace control from:", fpath)
-			wc, err := rete.LoadWorkspaceControl(fpath)
-			if err != nil {
-				return nil, fmt.Errorf("while loading workspace control from %s: %v", fpath, err)
-			}
-			workspaceControl = wc
+		fpath := fmt.Sprintf("%s/%s/workspace_control.json", WorkspaceHome(), WorkspacePrefix())
+		log.Println("Loading workspace control from:", fpath)
+		wc, err := rete.LoadWorkspaceControl(fpath)
+		if err != nil {
+			return nil, fmt.Errorf("while loading workspace control from %s: %v", fpath, err)
 		}
+		workspaceControl = wc
 	}
 	return workspaceControl, nil
 }
@@ -312,17 +321,12 @@ type RuleEngineConfig struct {
 	JetStoreConfig map[string]string `json:"jetstore_config,omitempty"`
 }
 
-// Function to get domain classes info from the local workspace
+// Read the jetrules .config.json of mainRuleFile and cache its jetstore_config.
+// The caller must hold ruleEngineConfigMx.
 func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 	var err error
 	ruleConfig := &RuleEngineConfig{}
-	ruleEngineConfigMx.Lock()
-	defer ruleEngineConfigMx.Unlock()
-	config, ok := ruleEngineConfig[mainRuleFile]
-	if ok {
-		return config, nil
-	}
-	fileName := strings.TrimSuffix(mainRuleFile, ".jr")+".config.json"
+	fileName := strings.TrimSuffix(mainRuleFile, ".jr") + ".config.json"
 	basePath := filepath.Join(WorkspaceHome(), WorkspacePrefix())
 	filePath := filepath.Join("build", fileName)
 	filePath, err = utils.ConfineFilePath(basePath, filePath)
@@ -347,98 +351,139 @@ func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 	return ruleConfig.JetStoreConfig, nil
 }
 
-// Function to get domain classes info from the local workspace
+// Get a property of the jetrules .config.json of mainRuleFile.
+//
+// **The lock is held across the lookup and the load.** The lookup used to be an
+// unsynchronised read of `ruleEngineConfig` while `loadRuleEngineConfig` wrote
+// it under the lock, so two jetrules pool workers starting together — each reads
+// `$max_looping` before its first rule set (`jetrules_pool_worker.go`) — could
+// read the map while another wrote it, and the Go runtime aborts the process
+// with `fatal error: concurrent map read and map write`. Seen 2026-10-09 on the
+// usi_ws local harness with `pool_size` 10, two runs of six; the traced runs
+// had forced `pool_size` 1, which is why it was not seen before. The inner map
+// is never written once published, so reading `config[property]` after the
+// lock is released is safe.
 func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
+	ruleEngineConfigMx.Lock()
 	config, ok := ruleEngineConfig[mainRuleFile]
 	if !ok {
 		var err error
 		config, err = loadRuleEngineConfig(mainRuleFile)
 		if err != nil {
+			ruleEngineConfigMx.Unlock()
 			return "", err
 		}
 	}
+	ruleEngineConfigMx.Unlock()
 	return config[property], nil
 }
 
 // Function to get domain classes info from the local workspace
 func GetWorkspaceDomainClasses() (map[string]*rete.ClassNode, error) {
-	if domainClassesMap == nil {
-		domainClassesMx.Lock()
-		defer domainClassesMx.Unlock()
-		if domainClassesMap == nil {
-			log.Println("Load Domain Tables from local Workspace")
-			domainClassesMap = make(map[string]*rete.ClassNode)
-			fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
-			log.Println("Reading Domain Classes definitions from:", fpath)
-			file, err := os.ReadFile(fpath)
-			if err != nil {
-				err = fmt.Errorf("while reading classes.json file (GetWorkspaceDomainClasses):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-			err = json.Unmarshal(file, &domainClassesMap)
-			if err != nil {
-				err = fmt.Errorf("while unmarshaling classes.json (GetWorkspaceDomainClasses):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-		}
+	// Locked for the whole function, and the map published only once it is full.
+	// See the note on GetWorkspaceDomainTables.
+	domainClassesMx.Lock()
+	defer domainClassesMx.Unlock()
+	if domainClassesMap != nil {
+		return domainClassesMap, nil
 	}
+	log.Println("Load Domain Classes from local Workspace")
+	fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
+	log.Println("Reading Domain Classes definitions from:", fpath)
+	loaded := make(map[string]*rete.ClassNode)
+	file, err := os.ReadFile(fpath)
+	if err != nil {
+		err = fmt.Errorf("while reading classes.json file (GetWorkspaceDomainClasses):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	if err = json.Unmarshal(file, &loaded); err != nil {
+		err = fmt.Errorf("while unmarshaling classes.json (GetWorkspaceDomainClasses):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	domainClassesMap = loaded
 	return domainClassesMap, nil
 }
 
 // Function to get domain tables info from the local workspace
+// **The map is published only when it is full, and the whole function holds the
+// lock.** Task: the cold start of 2026-08-31.
+//
+// This was a double-checked lock with the check on the wrong side of the work:
+//
+//	if domainTablesMap == nil {          // unsynchronised read
+//	    mx.Lock(); defer mx.Unlock()
+//	    if domainTablesMap == nil {
+//	        domainTablesMap = make(...)  // PUBLISHED EMPTY, then filled
+//
+// A second goroutine reaching the outer test after that assignment and before
+// the unmarshal sees a non-nil map, never takes the lock, and returns an **empty
+// cache with a nil error** — so the caller reports "not found in the local
+// workspace" about a workspace that is perfectly fine. `GetWorkspaceControl`
+// three functions up has always done it correctly, building into a local and
+// assigning on success; these three did not.
+//
+// **Latent for as long as these caches have existed, and armed by turning on the
+// image-workspace skip.** `actions_coordinate_cp.go` pre-loads all three via
+// `LoadJetrulesCaches` when `didSync` is true, single-threaded, before any worker
+// goroutine exists — and that serialisation is what hid this. The skip path
+// returns `didSync == false` (`SyncComputePipesWorkspace`), so once the lambda
+// started taking its workspace from the image the first load moved into the
+// worker pool and six goroutines raced. The log is unambiguous: pool size 6, and
+// exactly 5 "cache contains 0 entries" — one winner, five losers.
+//
+// Locking the whole function rather than repairing the double check: the load
+// happens once per execution environment and a mutex acquire is nothing against
+// the file read it guards, so the cheap version buys nothing and is what went
+// wrong here.
 func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
-	if domainTablesMap == nil {
-		domainTablesMx.Lock()
-		defer domainTablesMx.Unlock()
-		if domainTablesMap == nil {
-			domainTablesMap = make(map[string]*rete.TableNode)
-			fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
-			// log.Println("*** Loading Domain Tables definitions from:", fpath)
-			file, err := os.ReadFile(fpath)
-			if err != nil {
-				err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-			err = json.Unmarshal(file, &domainTablesMap)
-			if err != nil {
-				err = fmt.Errorf("while unmarshaling tables.json (GetWorkspaceDomainTables):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-			// log.Printf("*** Domain Tables Loaded with %d table definitions", len(domainTablesMap))
-		}
+	domainTablesMx.Lock()
+	defer domainTablesMx.Unlock()
+	if domainTablesMap != nil {
+		return domainTablesMap, nil
 	}
+	loaded := make(map[string]*rete.TableNode)
+	fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
+	// log.Println("*** Loading Domain Tables definitions from:", fpath)
+	file, err := os.ReadFile(fpath)
+	if err != nil {
+		err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	if err = json.Unmarshal(file, &loaded); err != nil {
+		err = fmt.Errorf("while unmarshaling tables.json (GetWorkspaceDomainTables):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	domainTablesMap = loaded
 	return domainTablesMap, nil
 }
 
 // Function to get the domain properties info from the local workspace
 func GetWorkspaceDataProperties() (map[string]*rete.PropertyNode, error) {
-	if dataPropertyInfoMap == nil {
-		dataPropertyInfoMx.Lock()
-		defer dataPropertyInfoMx.Unlock()
-		if dataPropertyInfoMap == nil {
-			// log.Println("*** Load Data Properties from local Workspace")
-			dataPropertyInfoMap = make(map[string]*rete.PropertyNode)
-			fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
-			// log.Println("Reading Data Properties definitions from:", fpath)
-			file, err := os.ReadFile(fpath)
-			if err != nil {
-				err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-			err = json.Unmarshal(file, &dataPropertyInfoMap)
-			if err != nil {
-				err = fmt.Errorf("while unmarshaling properties.json (GetWorkspaceDataProperties):%v", err)
-				log.Println(err)
-				return nil, err
-			}
-			// log.Printf("*** Data Properties Loaded with %d property definitions", len(dataPropertyInfoMap))
-		}
+	dataPropertyInfoMx.Lock()
+	defer dataPropertyInfoMx.Unlock()
+	if dataPropertyInfoMap != nil {
+		return dataPropertyInfoMap, nil
 	}
+	loaded := make(map[string]*rete.PropertyNode)
+	fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
+	// log.Println("Reading Data Properties definitions from:", fpath)
+	file, err := os.ReadFile(fpath)
+	if err != nil {
+		err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	if err = json.Unmarshal(file, &loaded); err != nil {
+		err = fmt.Errorf("while unmarshaling properties.json (GetWorkspaceDataProperties):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	dataPropertyInfoMap = loaded
+	// log.Printf("*** Data Properties Loaded with %d property definitions", len(dataPropertyInfoMap))
 	return dataPropertyInfoMap, nil
 }
 
@@ -454,6 +499,12 @@ func GetMultiValueDataProperties(className string) ([]string, error) {
 	multiValueProperties := make([]string, 0)
 	for i := range tableInfo.Columns {
 		p := tableInfo.Columns[i]
+		// `!p.IsObject` is belt and braces now rather than the rule. It used to
+		// be the only thing standing between an object property and this set,
+		// and it was the wrong thing: excluding a multi-valued object property
+		// here made it look single-valued, and its data was dropped. Object
+		// properties no longer reach a flat record at all
+		// (`GetDomainProperties`), so nothing gets here to be excluded.
 		if p.AsArray && !p.IsObject {
 			multiValueProperties = append(multiValueProperties, p.ColumnName)
 		}
@@ -533,10 +584,32 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 		columns = append(columns, "rdf:type")
 		columns = append(columns, "jets:source_period_sequence")
 		for i := range tableInfo.Columns {
-			p := tableInfo.Columns[i].ColumnName
-			switch p {
-			case "jets:key", "rdf:type", "jets:source_period_sequence":
+			col := &tableInfo.Columns[i]
+			p := col.ColumnName
+			switch {
+			case p == "jets:key" || p == "rdf:type" || p == "jets:source_period_sequence":
 				// skip reserved properties
+			case col.IsObject:
+				// **An object property is graph structure, not a column.** A flat
+				// record carries data properties; the object properties are how
+				// the graph is *traversed* when a channel asks for a serialised
+				// one, and the serialisation lands in a data property — in
+				// `patient_profile.pc.json` the `toon` encoding names
+				// `cintel:Claim_Summary`, which is `type: text`, while the two
+				// object properties are `type: resource`.
+				//
+				// Leaving them in is what produced
+				// `property cintel:has_Medical_Events is not multi-value but has
+				// multiple values ..., setting value to null`: the column reached
+				// `extractLiteralValue`, where `GetMultiValueDataProperties`
+				// excludes object properties from the multi-value set, so a
+				// multi-valued one looked single-valued and its data was dropped.
+				// Both halves date from the commit that introduced object
+				// properties; see jets/compute_pipes/README.md.
+				//
+				// The *derived* list is filtered and `chSpec.Columns` is not — an
+				// explicitly listed column is still honoured, which is the escape
+				// hatch if one is ever wanted materialised.
 			default:
 				columns = append(columns, p)
 			}

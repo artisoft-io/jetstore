@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "label": "Lookup Columns",
+  "columns": [
+    {
+      "name": "name",
+      "label": "Lookup Name",
+      "table": "lookup_tables",
+      "tooltip": "Lookup Table Name as declared in the rule file"
+    },
+    {
+      "name": "name",
+      "label": "Column Name",
+      "table": "lookup_columns",
+      "tooltip": "Lookup Column Name"
+    },
+    {
+      "name": "type",
+      "label": "Data Type",
+      "table": "lookup_columns",
+      "tooltip": "Column data type"
+    },
+    {
+      "name": "as_array",
+      "label": "Is Array?",
+      "table": "lookup_columns",
+      "tooltip": "Is the column multi value?"
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "lookup_tables",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "lookup_columns"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "lookup_tables"
+    }
+  ],
+  "where": [
+    {
+      "column": "lookup_table_key",
+      "table": "lookup_columns",
+      "joinWith": "lookup_tables.key"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+/*
+ * Styles for the supervision screens (task K.3).
+ *
+ * **A file of its own rather than a block in `styles.css`**, which belongs to
+ * the ui_refresh project: it consumes their palette through the cascade — every
+ * colour below is one of their custom properties, so light and dark follow the
+ * app's theme without a second switch — and adds nothing to a stylesheet this
+ * project does not own. The same division `src/cpipes/` established for
+ * behaviour, applied to presentation.
+ *
+ * If these screens are ever restyled by the design pass track C brings, the
+ * right move is to delete this file and use whatever table and definition-list
+ * classes that pass establishes. Nothing here is load-bearing.
+ */
+
+.proposal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.proposal-table th,
+.proposal-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.proposal-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.proposal-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.proposal-table tbody th .pill {
+  margin-left: 6px;
+}
+
+/* A proposal with no generated tests is not an error and is the thing a
+   reviewer most needs to notice before opening it. Coloured, not hidden. */
+.count-zero {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.proposal-detail {
+  overflow: auto;
+  padding: 12px 16px 32px;
+}
+
+.proposal-detail h2 {
+  font-family: var(--mono);
+  font-size: 16px;
+  margin: 4px 0 12px;
+}
+
+.proposal-detail h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin: 22px 0 8px;
+}
+
+.proposal-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.proposal-facts dt {
+  color: var(--ink-3);
+}
+
+.proposal-facts dd {
+  margin: 0;
+}
+
+.proposal-artifact,
+.transcript-payload {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 8px 10px;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.transcript {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.transcript li {
+  border-left: 2px solid var(--rule-2);
+  padding: 0 0 10px 10px;
+  margin: 0 0 4px;
+}
+
+.transcript-head {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-bottom: 4px;
+}

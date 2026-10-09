@@ -1,0 +1,376 @@
+/**
+ * Tests for the document-set layer.
+ *
+ * Three things:
+ *
+ * 1. **The two shipping sets pass.** The rule this project applies everywhere: a
+ *    real configuration that fails means the check is wrong, not the
+ *    configuration.
+ * 2. **Each check fires**, on a mutation of a real set rather than on a fixture
+ *    invented to make it fire.
+ * 3. **The end-state rule is the narrow one.** Requiring `ufCompleted` would
+ *    reject two of the eleven shipping end states, and the test says so by name
+ *    so that a later tightening has to argue with the evidence. (One of ten since
+ *    `registerFileKeyUF` was retired, 2026-10-01.)
+ */
+
+import { describe, expect, it } from "vitest";
+
+import clientRegistryActionsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.ua.json";
+import loadConfigActionsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
+import loadFilesActionsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
+import mapFileActionsDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.ua.json";
+import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
+import clientTable from "../../../jets/workspace_assets/table_configs/client.tc.json";
+import orgTable from "../../../jets/workspace_assets/table_configs/org.tc.json";
+import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
+import { TableConfigDocumentSchema, type TableConfigDocument } from "../datatable/table";
+import corpus from "./fixtures/user_flows.json";
+import clientRegistryFlowDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.uf.json";
+import loadConfigFlowDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.uf.json";
+import loadFilesFlowDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
+import mapFileFlowDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.uf.json";
+import { FormDocumentSchema, type FormDocument } from "./form";
+import clientRegistryFormsDoc from "../../../jets/workspace_assets/user_flows/clientRegistryUF.form.json";
+import loadConfigFormsDoc from "../../../jets/workspace_assets/user_flows/loadConfigUF.form.json";
+import loadFilesFormsDoc from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
+import mapFileFormsDoc from "../../../jets/workspace_assets/user_flows/mapFileUF.form.json";
+import { UserFlowSchema, type UserFlow } from "./schema";
+import { validateDocumentSet, validateTableActions, type DocumentSet } from "./documentSet";
+
+const parse = (flowDoc: unknown, actionsDoc: unknown, formsDoc: unknown): DocumentSet => ({
+  flow: UserFlowSchema.parse(flowDoc) as UserFlow,
+  actions: ActionDocumentSchema.parse(actionsDoc) as ActionDocument,
+  forms: FormDocumentSchema.parse(formsDoc) as FormDocument,
+});
+
+const sets: [string, DocumentSet][] = [
+  // **`mapFileUF` since 2026-10-01**, in the slot `registerFileKeyUF` held until
+  // `jetstore_maintenance_02` retired that flow (`Q-6`, task `AD.4`). It takes the
+  // slot because it is the corpus's other end state that finishes without
+  // `ufCompleted` (`fmMappingFormUF`), which is what the end-state case below
+  // reads `sets[0]` for; the indices of the others are unchanged.
+  ["mapFileUF", parse(mapFileFlowDoc, mapFileActionsDoc, mapFileFormsDoc)],
+  ["loadFilesUF", parse(loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc)],
+  // F.2's, and the only set so far whose form carries a button outside the
+  // action bar — which is what makes the two cases at the bottom of this file
+  // testable against a real configuration rather than an invented one.
+  ["loadConfigUF", parse(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc)],
+  // F.3's, and the first whose form document defines a form no *state* names:
+  // `ufVendor` is a table action's `configForm`, which is why the corpus calls
+  // it unreferenced and why that word does not mean unreachable (I-89).
+  ["clientRegistryUF", parse(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc)],
+];
+
+/** The `loadConfigUF` set, by name rather than by index. */
+const loadConfigSet = (): DocumentSet => clone(sets[2]![1]);
+
+/** A deep copy, so a mutation in one case cannot reach another. */
+const clone = (set: DocumentSet): DocumentSet => structuredClone(set);
+
+describe("the shipping document sets", () => {
+  it.each(sets)("%s is consistent", (_name, set) => {
+    expect(validateDocumentSet(set)).toEqual([]);
+  });
+});
+
+describe("a state naming a form that is not there", () => {
+  it("is reported against the flow", () => {
+    const set = clone(sets[1]![1]);
+    set.flow.states["select_source_config"]!.formConfig = "notAForm";
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document, f.path])).toContainEqual([
+      "missingForm",
+      "flow",
+      "/states/select_source_config/formConfig",
+    ]);
+  });
+});
+
+describe("a name no action document defines", () => {
+  it("is reported when a state names it", () => {
+    const set = clone(sets[1]![1]);
+    set.flow.states["select_file_keys"]!.stateAction = "notAnAction";
+    expect(validateDocumentSet(set).map((f) => f.code)).toContain("missingAction");
+  });
+
+  it("is reported when a form button names it", () => {
+    // The half no per-document check can reach from either side: the name is in
+    // the form, the definitions are in the actions, and neither file mentions
+    // the other.
+    const set = clone(sets[1]![1]);
+    set.forms.forms["lfSelectSourceConfigUF"]!.actions[0]!.action = "notAnAction";
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document])).toContainEqual(["missingAction", "forms"]);
+  });
+
+  it("is not reported for a standard action", () => {
+    const set = clone(sets[1]![1]);
+    set.forms.forms["lfSelectSourceConfigUF"]!.actions[0]!.action = "ufContinueLater";
+    expect(validateDocumentSet(set)).toEqual([]);
+  });
+});
+
+describe("an end state whose form tries to advance", () => {
+  it.each(["ufNext", "ufStartFlow"])("is reported for %s", (action) => {
+    // `select_file_keys` is loadFilesUF's end state. Its form offers
+    // `ufCompleted` today; swapping that for an advancing button is exactly the
+    // defect found on a generated flow, where the state action fires and the
+    // flow then reports no next step (`engine.ts:212`-`:215`).
+    const set = clone(sets[1]![1]);
+    set.forms.forms["lfSelectFileKeysUF"]!.actions[2]!.action = action;
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => f.code)).toContain("advanceFromEndState");
+    expect(findings[0]!.message).toContain("end state");
+  });
+
+  it("is not reported for a non-end state offering ufNext", () => {
+    // The rule must not fire on the ordinary case: `select_source_config` is not
+    // an end state and its form's `ufNext` is how the flow moves.
+    const set = clone(sets[1]![1]);
+    expect(validateDocumentSet(set).map((f) => f.code)).not.toContain("advanceFromEndState");
+  });
+
+  it("is not reported for an end state that finishes with a custom action", () => {
+    // `mapFileUF`'s only state is an end state and its form offers `mapperOk`,
+    // `mapperDraft` and `dialogCancel` — no `uf*` action at all. This is why the
+    // rule is "must not advance" rather than "must offer ufCompleted".
+    // (`registerFileKeyUF`'s `rfkSubmitSchemaEvent` was the example here until it
+    // was retired on 2026-10-01.)
+    expect(validateDocumentSet(sets[0]![1])).toEqual([]);
+  });
+});
+
+describe("a field taking its items from a query the form does not declare", () => {
+  it("is reported against the form", () => {
+    // The relation a schema cannot state: `itemsFrom` is an `Identifier`, and
+    // whether it keys the sibling `queries` object is a fact about two properties
+    // of one form. A `.refine()` would say it in the browser and vanish from the
+    // emitted JSON Schema, so Go would not enforce it.
+    const set = clone(sets[1]![1]);
+    const form = set.forms.forms["lfSelectSourceConfigUF"]!;
+    form.queries = { sourceConfigs: { sql: "SELECT client FROM jetsapi.client_registry" } };
+    form.rows[0]!.push({
+      field: "dropdown",
+      key: "client",
+      label: "Client",
+      items: [{ value: "", label: "Select a Client" }],
+      itemsFrom: "clientsTypo",
+    });
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document, f.path])).toContainEqual([
+      "missingItemSource",
+      "forms",
+      "/forms/lfSelectSourceConfigUF/queries",
+    ]);
+  });
+
+  it("is not reported when the query is declared on the same form", () => {
+    const set = clone(sets[1]![1]);
+    const form = set.forms.forms["lfSelectSourceConfigUF"]!;
+    form.queries = { clients: { sql: "SELECT client FROM jetsapi.client_registry" } };
+    form.rows[0]!.push({
+      field: "dropdown",
+      key: "client",
+      label: "Client",
+      items: [{ value: "", label: "Select a Client" }],
+      itemsFrom: "clients",
+    });
+    expect(validateDocumentSet(set)).toEqual([]);
+  });
+
+  it("is not reported for a form with no queries and no item sources", () => {
+    // `loadFilesUF` since 2026-10-01: `sets[0]` is `mapFileUF` now, whose form
+    // declares both, and the retired `registerFileKeyUF` declared neither.
+    expect(validateDocumentSet(sets[1]![1])).toEqual([]);
+  });
+});
+
+describe("the corpus the narrow rule was chosen from", () => {
+  it("has five end states, and one of them does not use ufCompleted", () => {
+    // Measured rather than asserted from memory: the Dart's form configs give
+    // `ufCompleted` to nine of the eleven, and `rfkSubmitSchemaEvent` and
+    // `fmMappingFormUF` finish another way. A future tightening to "an end state
+    // must offer ufCompleted" has to deal with those two, so the count is pinned
+    // here where such a change would be made.
+    //
+    // **Ten and one since 2026-10-01**: `registerFileKeyUF`'s end state left the
+    // fixture when the flow was retired (`jetstore_maintenance_02` `AD.4`), and
+    // `fmMappingFormUF` is the one left.
+    const flows = (corpus as { flows: Record<string, { states: Record<string, { isEnd?: boolean }> }> }).flows;
+    const endStates = Object.values(flows).flatMap((flow) =>
+      Object.entries(flow.states).filter(([, state]) => state.isEnd === true),
+    );
+    // **Seven the same day**, once `clientRegistryUF`, `sourceConfigUF` and
+    // `pipelineConfigUF` left the fixture to be written by hand (`AF.1`, `D06`).
+    // All three of theirs used `ufCompleted`, so the one exception is unchanged.
+    // **Six the same day again**, when `fileMappingUF` left on the same terms
+    // (`jetstore_maintenance_02` Phase 2); its end state used `ufCompleted` too.
+    // **Five on 2026-10-02**, when `startPipelineUF` followed; its summary page's
+    // *Start Pipeline & Done* is `ufCompleted`, so `fmMappingFormUF` is still the
+    // one exception here.
+    expect(endStates.length).toBe(5);
+  });
+});
+
+/**
+ * An inline `button` field is a button. Task F.2.
+ *
+ * **Both checks had to learn about it and neither would have failed loudly.** A
+ * form's buttons were `form.actions` until F.2 added a field kind that is also a
+ * button; a check reading only the action bar goes on passing and stops seeing
+ * half the form (`form.ts`, `buttonsOf`).
+ */
+describe("a button inside the rows", () => {
+  const inlineOf = (set: DocumentSet) => {
+    const rows = set.forms.forms["wpLoadConfigUF"]!.rows;
+    const field = rows.flat().find((f) => f.field === "button")!;
+    return field as Extract<typeof field, { field: "button" }>;
+  };
+
+  it("is checked against the action document like any other", () => {
+    const set = loadConfigSet();
+    inlineOf(set).action = "notAnAction";
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document, f.path])).toContainEqual([
+      "missingAction",
+      "forms",
+      "/forms/wpLoadConfigUF/rows",
+    ]);
+  });
+
+  it("cannot advance from an end state either", () => {
+    // I-57 on the surface it did not know about. `confirm` is an end state; a
+    // `ufNext` in its rows would fire the state action and then report no next
+    // step, exactly as one in its action bar would.
+    const set = loadConfigSet();
+    set.forms.forms["wpConfirmLoadConfigUF"]!.rows.push([
+      { field: "button", action: "ufNext", label: "Next" },
+    ]);
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => f.code)).toContain("advanceFromEndState");
+  });
+});
+
+/**
+ * The table half, task F.3.
+ *
+ * **The set these fire on is the first that could produce them.** A table's
+ * `doAction` names an entry in the flow's action document and its `showDialog`
+ * names a form in the flow's form document; before `clientRegistryUF` the only
+ * migrated set with table actions was `loadFilesUF`, which happens to define
+ * both of its and offers no dialog at all. So the gap (I-88) had two years of
+ * documents and no way to show.
+ */
+describe("a table action naming something the set does not define", () => {
+  const tables = (): Record<string, TableConfigDocument> => ({
+    client: TableConfigDocumentSchema.parse(structuredClone(clientTable)) as TableConfigDocument,
+    org: TableConfigDocumentSchema.parse(structuredClone(orgTable)) as TableConfigDocument,
+  });
+  /** `clientRegistryUF`'s, by name rather than by index. */
+  const clientRegistrySet = (): DocumentSet => clone(sets[3]![1]);
+
+  it("passes on the shipping set", () => {
+    const set = clientRegistrySet();
+    expect(validateTableActions(set.actions, set.forms, tables())).toEqual([]);
+  });
+
+  it("reports a doAction whose actionName the action document does not define", () => {
+    const set = clientRegistrySet();
+    delete set.actions.actions["deleteClientAction"];
+    const findings = validateTableActions(set.actions, set.forms, tables());
+    expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
+      // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
+      // first action now (`jetstore_maintenance_02` `AF.2`).
+      ["missingAction", "tables", "/client/actions/1/actionName"],
+    ]);
+  });
+
+  it("reports a showDialog whose configForm the form document does not define", () => {
+    const set = clientRegistrySet();
+    delete set.forms.forms["ufVendor"];
+    const findings = validateTableActions(set.actions, set.forms, tables());
+    expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
+      ["missingForm", "tables", "/org/actions/0/configForm"],
+    ]);
+  });
+
+  it("ignores the action kinds that reach neither document", () => {
+    // `toggleCheckboxVisible` is the widget's own (I-19) and `showScreen`
+    // navigates — the latter carries a `configForm` on one corpus table
+    // (`fmFileMappingTableUF`, `configureMappingPage`) that `requestFor` never
+    // reads, so checking it would refuse a document for a field nothing uses.
+    const set = clientRegistrySet();
+    const org = tables()["org"]!;
+    if (org.source !== "query") throw new Error("org.tc.json is a query table");
+    expect(org.actions!.map((a) => a.action)).toEqual([
+      "showDialog",
+      "toggleCheckboxVisible",
+      "doAction",
+    ]);
+    org.actions![1]!.actionName = "notAnAction";
+    org.actions![1]!.configForm = "notAForm";
+    expect(validateTableActions(set.actions, set.forms, { org })).toEqual([]);
+  });
+
+  /**
+   * The second action row, task F.5.
+   *
+   * **The 37 flow tables have no second row, so this check could not have been
+   * written before `pipelineExecStatusTable` was authored** — the same shape as
+   * the paragraph above, one revision later. Both of that table's cross-document
+   * references are on the second row, so a first-row-only walk would have passed
+   * it silently while `resubmitPipeline` and `showFailureDetailsDialog` went
+   * unchecked.
+   */
+  it("reads secondRowActions, where this table's only two references are", () => {
+    const execStatus = TableConfigDocumentSchema.parse(
+      structuredClone(execStatusTable),
+    ) as TableConfigDocument;
+    if (execStatus.source !== "query") throw new Error("pipelineExecStatusTable is a query table");
+    // **One first-row reference since 2026-10-01**: `jetstore_maintenance_02`'s
+    // *Put Schema Event* (`D01`, task `AD.3`) opens `putSchemaEventDialog`. It is
+    // taken off the clone so that what follows is still about the second row
+    // alone, which is this case's subject; the first-row walk is the case above.
+    expect(execStatus.actions!.filter((a) => a.actionName ?? a.configForm).map((a) => a.configForm)).toEqual([
+      "putSchemaEventDialog",
+    ]);
+    execStatus.actions = execStatus.actions!.filter((a) => !(a.actionName ?? a.configForm));
+    // **And a third row since the same day** (`D04`, `AE.4`, `AE.5`), taken off for
+    // the same reason; `datatable/table.test.ts`'s `thirdRowActions` block is where
+    // that row's walk is asserted.
+    expect((execStatus.thirdRowActions ?? []).map((a) => a.actionName)).toEqual([
+      "getRunManifest",
+      "getSchemaEvent",
+    ]);
+    delete execStatus.thirdRowActions;
+
+    const actions = ActionDocumentSchema.parse({
+      schemaVersion: 1,
+      actions: { resubmitPipeline: { description: "d", steps: [{ do: "close" }] } },
+    }) as ActionDocument;
+    const forms = FormDocumentSchema.parse({
+      schemaVersion: 1,
+      forms: {
+        showFailureDetailsDialog: {
+          rows: [[{ field: "label", text: "x" }]],
+          actions: [{ action: "ufCancel", label: "Close" }],
+        },
+      },
+    }) as FormDocument;
+    expect(validateTableActions(actions, forms, { pipelineExecStatusTable: execStatus })).toEqual([]);
+
+    // And it reports, with a pointer naming the row rather than an index into a
+    // list the author cannot see.
+    expect(
+      validateTableActions(
+        ActionDocumentSchema.parse({ schemaVersion: 1, actions: {} }) as ActionDocument,
+        FormDocumentSchema.parse({ schemaVersion: 1, forms: {} }) as FormDocument,
+        { pipelineExecStatusTable: execStatus },
+      ).map((f) => [f.code, f.path]),
+    ).toEqual([
+      ["missingForm", "/pipelineExecStatusTable/secondRowActions/2/configForm"],
+      ["missingAction", "/pipelineExecStatusTable/secondRowActions/4/actionName"],
+    ]);
+  });
+});

@@ -71,10 +71,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	log.Printf("Main input row count is %d\n", args.MainInputRowCount)
 	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = args.ClusterInfo.MultiStepSharding
-	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
-	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE"] = args.ClusterInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_bytes"] = args.ClusterInfo.TotalFileSize
+	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE}"] = args.ClusterInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(args.ClusterInfo.TotalFileSize) / 1024 / 1024 / 1024
-	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE_GB"] = cpipesStartup.EnvSettings["total_file_size_gb"]
+	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE_GB}"] = cpipesStartup.EnvSettings["total_file_size_gb"]
 	cpipesStartup.EnvSettings["nbr_partitions"] = args.ClusterInfo.NbrPartitions
 	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = args.ClusterInfo.NbrPartitions
 	cpipesStartup.EnvSettings["main_input_row_count"] = args.MainInputRowCount
@@ -107,9 +107,32 @@ startStepId:
 		return result, fmt.Errorf("while applying conditional transformation spec: %v", err)
 	}
 
+	// Resolve the abstract infer operator into the concrete backend the deployment
+	// names. After the conditional pass, which may introduce one, and before the
+	// error-channel synthesis, which dispatches on the operator type.
+	err = ResolveInferBackend(pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, fmt.Errorf("while resolving the infer backend: %v", err)
+	}
+
+	// Built-in error reporting: give the operators that report row-level failures and
+	// name no error channel one of their own, with the shared channel spec and table
+	// binding they need. Ahead of both SelectActiveOutputTable and
+	// ValidatePipeSpecConfig, which the two startup paths call in opposite orders.
+	SynthesizeDefaultErrorChannels(&cpipesStartup.CpConfig, pipeConfig)
+
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	// also sync the input and output channels with the associated schema provider.
 	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
+	if err != nil {
+		return result, err
+	}
+
+	// Refuse a step whose document names a bucket that substitution did not reach,
+	// here rather than at the write: the write succeeds into a bucket literally
+	// named ${SOMETHING} and nothing reports it. After ValidatePipeSpecConfig,
+	// which normalises the stage channels onto jetstore_bucket.
+	err = ValidateResolvedBuckets(&cpipesStartup.CpConfig, pipeConfig, cpipesStartup.EnvSettings)
 	if err != nil {
 		return result, err
 	}
@@ -208,6 +231,15 @@ startStepId:
 		return result, fmt.Errorf("while calling UseECSReducingTask: %v", err)
 	}
 
+	// Determine if using the Python cp_node for this stepId.
+	// This is the only live call site: the sharding starter's ECS sibling below is commented out,
+	// and a generator step cannot run in sharding mode anyway (ShardFileKeys refuses one), so the
+	// corpus's step 0 is the Go worker's by construction rather than by this choice.
+	result.UsePythonReducingTask, err = cpipesStartup.EvalUsePythonNode(stepId)
+	if err != nil {
+		return result, fmt.Errorf("while calling UsePythonReducingTask: %v", err)
+	}
+
 	// Set the nbr of concurrent map tasks
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
@@ -260,12 +292,30 @@ startStepId:
 			PipelineConfigKey:     cpipesStartup.PipelineConfigKey,
 			UserEmail:             cpipesStartup.OperatorEmail,
 		},
-		ClusterConfig:   clusterSpec,
-		MetricsConfig:   cpipesStartup.CpConfig.MetricsConfig,
-		OutputTables:    outputTables,
-		OutputFiles:     cpipesStartup.CpConfig.OutputFiles,
-		LookupTables:    lookupTables,
-		Channels:        cpipesStartup.CpConfig.Channels,
+		ClusterConfig: clusterSpec,
+		MetricsConfig: cpipesStartup.CpConfig.MetricsConfig,
+		OutputTables:  outputTables,
+		OutputFiles:   cpipesStartup.CpConfig.OutputFiles,
+		LookupTables:  lookupTables,
+		Channels:      cpipesStartup.CpConfig.Channels,
+		// **Carried because the node resolves a named prompt template, not the
+		// startup.** `resolveInferTemplate` looks `prompt_template_name` up in
+		// `cpConfig.PromptTemplates` at build time on the node
+		// (`pipe_transformation_infer.go`), and this literal is the whole of what a
+		// node sees — so omitting it made every named template resolve to nothing.
+		// An operator with an inline `prompt_template` was unaffected, which is why
+		// this survived until a config used the named form on a live run.
+		PromptTemplates: cpipesStartup.CpConfig.PromptTemplates,
+		// **Carried for the same reason, one element later.** The render
+		// operator resolves `template_name` in `cpConfig.TextTemplates` and
+		// compiles the document at build time *on the node*
+		// (`resolveRenderTemplate`, `jets/compute_pipes/pipe_transformation_render.go`),
+		// so a `text_templates` array that does not reach this literal reaches
+		// no operator. The failure would be a build error on a worker in a
+		// deployed run, which is the most expensive place in this system to find
+		// a configuration bug, and it was named before the operator was written
+		// rather than after -- see TestTextTemplatesReachAWorkerNode.
+		TextTemplates:   cpipesStartup.CpConfig.TextTemplates,
 		Context:         cpipesStartup.CpConfig.Context,
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,

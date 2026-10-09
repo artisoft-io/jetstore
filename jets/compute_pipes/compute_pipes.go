@@ -163,7 +163,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		for j, c := range chSpec.Columns {
 			cm[c] = j
 		}
-		chSpec.columnsMap = &cm
+		chSpec.SetColumnsMap(&cm)
 		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = chSpec
 		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = chSpec
 	}
@@ -184,8 +184,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			Columns:        mainInput.InputColumns,
 			ClassName:      mainInput.DomainClass,
 			DomainKeysInfo: mainInput.DomainKeys,
-			columnsMap:     &headersPosMap,
 		}
+		inputRowChSpec.SetColumnsMap(&headersPosMap)
 		inputRowChannel = &InputChannel{
 			Name:           "input_row",
 			Channel:        computePipesInputCh,
@@ -245,6 +245,16 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			if errorChannel != nil && len(errorChannel.Name) > 0 {
 				outputChannels = append(outputChannels, errorChannel)
 			}
+			// A site operator's `site_config.output_channels`, for the same reason and
+			// through the same door: the builder resolves them out of this registry and
+			// hands them to the factory on OperatorArgs.Outputs, so a channel declared
+			// there and not registered here fails the resolution rather than the write.
+			// The default: branch above has already taken the step's own output_channel.
+			for _, siteChannel := range siteOutputChannelConfigs(transformationConfig) {
+				if len(siteChannel.Name) > 0 {
+					outputChannels = append(outputChannels, siteChannel)
+				}
+			}
 		}
 	}
 	// Prepare the channels in use
@@ -269,7 +279,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		channelRegistry.ComputeChannels[name] = &Channel{
 			Name:          name,
 			Channel:       make(chan []any),
-			Columns:       spec.columnsMap,
+			Columns:       spec.ColumnsMap(),
 			DomainKeySpec: spec.DomainKeysInfo,
 			Config:        spec,
 		}
@@ -325,6 +335,12 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		}
 	}
 
+	// Built-in error reporting: the synthesised error channels are one per operator,
+	// as validateErrorChannels requires, and they share one table writer rather than
+	// taking one pooled connection each. Started before the writers so the sink is
+	// being fed from the moment the writer's CopyFrom begins reading it.
+	startDefaultErrorChannelFanIn(channelRegistry, cpCtx.CpConfig, cpCtx.Done)
+
 	// Prepare the output tables
 	for i := range cpCtx.CpConfig.OutputTables {
 		tableName := cpCtx.CpConfig.OutputTables[i].Name
@@ -350,8 +366,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.Name)
 		}
-		wt = NewWriteTableSource(outChannel.Channel, tableIdentifier, outChannel.Config.Columns, 
-			cpCtx.Done, cpCtx.ErrCh)
+		// The DAG edge this writer is: from the channel named by
+		// channel_spec_name to the output table, named by its key rather than
+		// by tableIdentifier — the table name is env-var substituted and is not
+		// unique across the output_tables entries of a config.
+		wt = NewWriteTableSource(outChannel.Channel, tableIdentifier, outChannel.Config.Columns,
+			cpCtx.CpConfig.OutputTables[i].ChannelSpecName, cpCtx.CpConfig.OutputTables[i].Key,
+			cpCtx.CpConfig.OutputTables[i].ChannelSpecName, cpCtx.Done, cpCtx.ErrCh)
 		table = make(chan ComputePipesResult, 1)
 		cpCtx.ChResults.Copy2DbResultCh <- table
 		go wt.WriteTable(dbpool, cpCtx.Done, table)
@@ -373,6 +394,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		schemaManager:      cpCtx.SchemaManager,
 		inputParquetSchema: inputParquetSchema,
 		jetRules:           cpCtx.JetRules,
+		siteOperators:      cpCtx.SiteOperators,
 		mainMergeDone:      cpCtx.MainMergeDone,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,

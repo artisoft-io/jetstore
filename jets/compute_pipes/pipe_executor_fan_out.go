@@ -39,6 +39,23 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			if len(spec.Apply[i].OutputChannel.Name) > 0 {
 				oc[spec.Apply[i].OutputChannel.Name] = true
 			}
+			// A site operator's `site_config.output_channels`, read through the one
+			// function that knows them. Outside the switch for outputChannelConfigs'
+			// reason: a site token is by construction none of the cases below, so a
+			// case for it would be a case no document can reach.
+			//
+			// Without this arm a channel declared there is registered by
+			// StartComputePipes and resolved onto OperatorArgs.Outputs and then
+			// closed by nothing, so every reader of it blocks on a channel that
+			// never sees EOF (P9-I13). siteOutputChannelConfigs answers nil when
+			// there is no site_config, no list, or the token is a built-in, so a
+			// document declaring none takes exactly the path it took before this
+			// arm existed.
+			for _, siteChannel := range siteOutputChannelConfigs(&spec.Apply[i]) {
+				if len(siteChannel.Name) > 0 {
+					oc[siteChannel.Name] = true
+				}
+			}
 			switch spec.Apply[i].Type {
 			case "jetrules":
 				// Get the output channels of jetrules
@@ -56,6 +73,18 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 				// Get the error output channel of ollama
 				if spec.Apply[i].OllamaConfig != nil && spec.Apply[i].OllamaConfig.ErrorChannel != nil {
 					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
+				}
+
+			case "embed":
+				// Get the error output channel of embed
+				if spec.Apply[i].EmbedConfig != nil && spec.Apply[i].EmbedConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].EmbedConfig.ErrorChannel.Name] = true
+				}
+
+			case "vllm":
+				// Get the error output channel of vllm
+				if spec.Apply[i].VllmConfig != nil && spec.Apply[i].VllmConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].VllmConfig.ErrorChannel.Name] = true
 				}
 
 			case "clustering":

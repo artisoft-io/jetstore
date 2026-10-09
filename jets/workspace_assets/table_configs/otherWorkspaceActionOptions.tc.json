@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "label": "Select any of the following options:",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Select any of the applicable option",
+      "tooltip": "Select all the applicable option"
+    },
+    {
+      "name": "option",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "Compile workspace (when pulling data model, rule, or export/report changes)",
+      "wpCompileWorkspaceOption",
+      "0"
+    ],
+    [
+      "Load ALL client configurations (when pulling client configuration changes)",
+      "wpLoadClientConfgOption",
+      "1"
+    ],
+    [
+      "Load SELECTED client configurations (click next to select the clients)",
+      "wpLoadSelectedClientConfgOption",
+      "2"
+    ]
+  ]
+}

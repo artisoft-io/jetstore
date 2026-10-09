@@ -14,6 +14,11 @@ import (
 func (j *JetRuleListener) LogError(msg string) {
 	j.errorLog.WriteString(msg)
 	j.errorLog.WriteString("\n")
+	// The structured record rides alongside the text rather than replacing it.
+	// These complaints carry no position: they are raised while walking the
+	// tree, from context that knows what is wrong but not where the offending
+	// token was, so they resolve to a file only if one is ever attached here.
+	j.diagnostics.addMessage(msg)
 }
 
 func (j *JetRuleListener) LogParse(msg string) {

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "deleteWorkspaceChanges": {
+      "description": "Revert the selected workspace changes, after confirming",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Are you sure you want to revert the selected change(s)?"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "delete_workspace_changes",
+          "spinner": true,
+          "extras": {
+            "workspaceName": {
+              "fromKey": "workspace_name"
+            }
+          },
+          "data": {
+            "rows": "fanOut",
+            "over": "file_name",
+            "fields": {
+              "file_name": {
+                "fromKey": "file_name"
+              }
+            }
+          }
+        },
+        {
+          "do": "clearSelection",
+          "key": "workspaceChangesTable"
+        }
+      ]
+    },
+    "deleteAllWorkspaceChanges": {
+      "description": "Revert every change in this workspace, after confirming",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Are you sure you want to revert the all changes?"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "delete_all_workspace_changes",
+          "spinner": true,
+          "extras": {
+            "workspaceName": {
+              "fromKey": "workspace_name"
+            }
+          },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              {
+                "key": "user_email",
+                "as": {
+                  "userEmail": true
+                }
+              },
+              {
+                "key": "workspace_name",
+                "as": {
+                  "fromKey": "workspace_name"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "do": "clearSelection",
+          "key": "workspaceChangesTable"
+        }
+      ]
+    }
+  }
+}

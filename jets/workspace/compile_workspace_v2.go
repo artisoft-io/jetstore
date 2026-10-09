@@ -7,12 +7,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/analyzer"
 	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,7 +29,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Make the build directory if not exists
 	buildDir := fmt.Sprintf("%s/%s/build", workspaceHome, workspaceName)
-	err = os.MkdirAll(buildDir, 0770)
+	err = utils.EnsureWorkspaceDir(buildDir)
 	if err != nil {
 		return "", fmt.Errorf("while creating build directory: %v", err)
 	}
@@ -67,8 +69,20 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	var tables []*rete.TableNode
 	var lookupTables []*rete.LookupTableNode
 
-	workspacePath := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
+	// Compile in a fixed order. Ranging over mainRuleFiles put the main files in
+	// map order, which Go randomises, so two compiles of the same workspace
+	// assigned workspace.db keys differently and merged the workspace-wide class
+	// view differently. Neither is a correctness bug on its own, but a build
+	// whose output cannot be compared with the previous one is a build whose
+	// output cannot be reviewed.
+	orderedRuleFiles := make([]string, 0, len(mainRuleFiles))
 	for name := range mainRuleFiles {
+		orderedRuleFiles = append(orderedRuleFiles, name)
+	}
+	sort.Strings(orderedRuleFiles)
+
+	workspacePath := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
+	for _, name := range orderedRuleFiles {
 		// name is the file path relative to workspace home
 		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
@@ -124,7 +138,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
 		// Make sure the directory exists
-		err = os.MkdirAll(filepath.Dir(fpath), 0770)
+		err = utils.EnsureWorkspaceDir(filepath.Dir(fpath))
 		if err != nil {
 			return "", fmt.Errorf("while creating build sub-directory: %v", err)
 		}
@@ -232,13 +246,23 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	buf.WriteString("Workspace reports archived in reports.tgz\n")
 
 	// Save the workspace-wide classes and tables in the workspace build directory
-	// Create a map to save them in a lookup-like structure
+	// Create a map to save them in a lookup-like structure.
+	// A class imported by more than one main rule file is compiled once per main
+	// file, and each of those nodes only knows what its own compilation unit saw -
+	// in particular SubClasses, which is derived from the classes declared in that
+	// unit. Keeping the last node visited would therefore give the workspace-wide
+	// view one main file's answer, chosen by map iteration order. Merge instead.
 	domainClasses := make(map[string]*rete.ClassNode)
 	domainTables := make(map[string]*rete.TableNode)
 	domainProperties := make(map[string]*rete.PropertyNode)
 	for _, cls := range classes {
-		domainClasses[cls.Name] = cls
-		for _, prop := range cls.DataProperties {
+		if existing, ok := domainClasses[cls.Name]; ok {
+			mergeClassNode(existing, cls)
+		} else {
+			domainClasses[cls.Name] = cloneClassNode(cls)
+		}
+		for i := range cls.DataProperties {
+			prop := cls.DataProperties[i]
 			domainProperties[prop.Name] = &prop
 		}
 	}
@@ -282,11 +306,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	file.Close()
 
 	// Archive the build rules and cpipes config
-	inputPath = []string{
-		fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, workspaceName),
-		fmt.Sprintf("%s/%s/build/", workspaceHome, workspaceName),
-		fmt.Sprintf("%s/%s/pipes_config/", workspaceHome, workspaceName),
-	}
+	inputPath = workspaceArchivePaths(workspaceHome, workspaceName)
 	outputPath = fmt.Sprintf("%s/%s/workspace.tgz", workspaceHome, workspaceName)
 	buf.WriteString("\nArchiving the build and cpipes config directories\n")
 	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)

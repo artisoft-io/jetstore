@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"log"
 	"sync"
 
@@ -108,20 +109,8 @@ type Channel struct {
 	DomainKeySpec *DomainKeysSpec
 	Config        *ChannelSpec
 }
-type InputChannel struct {
-	Name           string
-	Channel        <-chan []any
-	Columns        *map[string]int
-	DomainKeySpec  *DomainKeysSpec
-	Config         *ChannelSpec
-	HasGroupedRows bool
-}
-type OutputChannel struct {
-	Name    string
-	Channel chan<- []any
-	Columns *map[string]int
-	Config  *ChannelSpec
-}
+type InputChannel = pipesmodel.InputChannel
+type OutputChannel = pipesmodel.OutputChannel
 
 type BuilderContext struct {
 	dbpool             *pgxpool.Pool
@@ -142,6 +131,10 @@ type BuilderContext struct {
 	env                map[string]any
 	s3DeviceManager    *S3DeviceManager
 	nodeId             int
+	// siteOperators is this deployment's own operators, reaching here the way
+	// jetRules does: an argument to CoordinateComputePipes, carried on
+	// ComputePipesContext, placed on the builder. Nil in every stock build.
+	siteOperators map[string]SiteOperatorFactory
 }
 
 func (ctx *BuilderContext) FileKey() string {
@@ -166,17 +159,12 @@ func (ctx *BuilderContext) parseValue(expr *string, maxSubstitutions int) (any, 
 	return ExprBuilderContext(ctx.env).parseValue(expr, maxSubstitutions)
 }
 
-type PipeTransformationEvaluator interface {
-	Apply(input *[]any) error
-	Done() error
-	Finally()
-}
+type PipeTransformationEvaluator = pipesmodel.PipeTransformationEvaluator
 
-// Initialize and Done are intended for aggregate transformations column evaluators
-type TransformationColumnEvaluator interface {
-	Update(currentValue *[]any, input *[]any) error
-	Done(currentValue *[]any) error
-}
+// Initialize and Done are intended for aggregate transformations column evaluators.
+// The declaration moved to pipesmodel at BD.2: it is OperatorEnv.ColumnEvaluator's
+// return type, so a site operator has to be able to name it.
+type TransformationColumnEvaluator = pipesmodel.TransformationColumnEvaluator
 
 type PipeSet map[*PipeSpec]bool
 type Input2PipeSet map[string]*PipeSet
@@ -320,6 +308,12 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "ollama":
 		return ctx.NewOllamaTransformationPipe(source, outCh, spec)
 
+	case "embed":
+		return ctx.NewEmbedTransformationPipe(source, outCh, spec)
+
+	case "vllm":
+		return ctx.NewVllmTransformationPipe(source, outCh, spec)
+
 	case "analyze":
 		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
 
@@ -335,7 +329,17 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "shuffling":
 		return ctx.NewShufflingTransformationPipe(source, outCh, spec)
 
+	case RenderOperatorType:
+		return ctx.NewRenderTransformationPipe(source, outCh, spec)
+
 	default:
+		// A site-supplied operator is reached here and only here, which is what
+		// makes a site token unable to shadow a built-in: the eighteen cases
+		// above are tried first (Q-140). An unregistered token falls through to
+		// the message it has always produced.
+		if pipe, registered, err := ctx.buildSiteOperator(source, outCh, spec); registered {
+			return pipe, err
+		}
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}
 }

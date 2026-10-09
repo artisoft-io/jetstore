@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "label": "Pipeline Execution Errors",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "process_errors",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true
+    },
+    {
+      "name": "pipeline_execution_status_key",
+      "label": "Process Execution Key",
+      "table": "process_errors",
+      "tooltip": "Key from process_execution_status table",
+      "isNumeric": true
+    },
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "table": "pipeline_execution_status",
+      "tooltip": "Process executed, this resolves to a specific rule set"
+    },
+    {
+      "name": "main_object_type",
+      "label": "Domain Key",
+      "table": "pipeline_execution_status",
+      "tooltip": "Domain Key of the pipeline"
+    },
+    {
+      "name": "grouping_key",
+      "label": "Domain Key",
+      "table": "process_errors",
+      "tooltip": "Domain Key of the associated row"
+    },
+    {
+      "name": "row_jets_key",
+      "label": "Row jets:key",
+      "table": "process_errors",
+      "tooltip": "JetStore rows primary key"
+    },
+    {
+      "name": "input_column",
+      "label": "Input Column",
+      "table": "process_errors",
+      "tooltip": "Input Column of the error, available if error results from mapping"
+    },
+    {
+      "name": "error_message",
+      "label": "Error Message",
+      "table": "process_errors",
+      "tooltip": "Error that occured during execution",
+      "maxLines": 3,
+      "columnWidth": 600
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "table": "process_errors",
+      "tooltip": "Data Pipeline session ID"
+    },
+    {
+      "name": "rete_session_saved",
+      "label": "Rete Triples Saved",
+      "table": "process_errors",
+      "tooltip": "Indicated if the rete triples were saved"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "table": "process_errors",
+      "tooltip": "Indicates when the file was loaded"
+    }
+  ],
+  "sortColumn": "grouping_key",
+  "sortAscending": true,
+  "rowsPerPage": 50,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "pipeline_execution_status_key",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "process_name",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "object_type",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "domain_key",
+        "columnIdx": 4
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_errors"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "pipeline_execution_status"
+    }
+  ],
+  "where": [
+    {
+      "column": "session_id",
+      "table": "process_errors",
+      "formStateKey": "session_id"
+    },
+    {
+      "column": "pipeline_execution_status_key",
+      "joinWith": "pipeline_execution_status.key"
+    }
+  ],
+  "actions": [
+    {
+      "key": "showErrorInputRecords",
+      "label": "View Input Records",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "viewInputRecordsDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "stateFormNavigationParams": {
+        "pipeline_execution_status_key": "pipeline_execution_status_key",
+        "object_type": "object_type",
+        "process_name": "process_name",
+        "domain_key": "domain_key"
+      }
+    },
+    {
+      "key": "showReteTriplesV2",
+      "label": "View Rule Session",
+      "action": "doActionShowDialog",
+      "style": "secondary",
+      "actionName": "reteSession.setupModelV2",
+      "configForm": "viewReteTriplesDialogV2",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "stateFormNavigationParams": {
+        "key": "processErrorsTable"
+      }
+    }
+  ]
+}

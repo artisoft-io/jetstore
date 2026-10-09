@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "hfSelectProcessUF": {
+      "rows": [[{ "field": "dataTable", "key": "hfProcessTableUF", "table": "hfProcessTableUF" }]],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectStatusUF": {
+      "rows": [[{ "field": "dataTable", "key": "hfStatusTableUF", "table": "hfStatusTableUF" }]],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectFileKeyFilterUF": {
+      "validator": "homeFiltersFormValidator",
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "hfFileKeyFilterTypeTableUF",
+            "table": "hfFileKeyFilterTypeTableUF",
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "hfFileKeySubstring",
+            "label": "File Key Extract",
+            "hint": "Enter portion of File Key to retain",
+            "autofocus": true,
+            "maxLength": 80
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfSelectTimeWindowUF": {
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "hfStartTime",
+            "label": "Start Time",
+            "hint": "Start time (format 2025-07-03T15:00:00Z), leave blank for current time",
+            "autofocus": true,
+            "maxLength": 25
+          },
+          {
+            "field": "text",
+            "key": "hfStartOffset",
+            "label": "Start Offset Duration",
+            "hint": "Offset as duration (example: 12 hours, 3 days), or leave blank",
+            "autofocus": true,
+            "maxLength": 25
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "hfEndTime",
+            "label": "End Time",
+            "hint": "End time (format 2025-07-03T15:00:00Z), leave blank for current time",
+            "autofocus": true,
+            "maxLength": 25
+          },
+          {
+            "field": "text",
+            "key": "hfEndOffset",
+            "label": "End Offset Duration",
+            "hint": "Offset as duration (example: 12 hours, 3 days), or leave blank",
+            "autofocus": true,
+            "maxLength": 25
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "hfViewStatusTableUF": {
+      "rows": [
+        [{ "field": "dataTable", "key": "pipelineExecStatusTable", "table": "pipelineExecStatusTable" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+      ]
+    },
+    "showFailureDetailsDialog": {
+      "title": "Pipeline Failure Details",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "failure_details",
+            "label": "Failure Details",
+            "hint": "This is read only",
+            "maxLines": 20,
+            "maxLength": 4000000
+          }
+        ]
+      ],
+      "actions": [{ "action": "dialogCancel", "label": "Close", "style": "primary" }]
+    },
+    "putSchemaEventDialog": {
+      "title": "Put Schema Event",
+      "rows": [
+        [
+          {
+            "field": "label",
+            "text": "Paste or enter the schema event as json. It is saved under a unique name in the schema triggers folder, which registers it."
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "schemaEventJson",
+            "label": "Schema Event (json)",
+            "hint": "Schema event json defines the file schema and the source file location to use as file key",
+            "maxLines": 13,
+            "maxLength": 51200,
+            "autofocus": true,
+            "rules": [
+              { "rule": "required", "message": "Please provide a Schema Event json" },
+              { "rule": "json", "message": "Schema Event is not a valid json" }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "putSchemaEvent",
+          "label": "Save",
+          "style": "primary",
+          "capability": "run_pipelines"
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

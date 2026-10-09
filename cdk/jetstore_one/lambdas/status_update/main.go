@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -103,66 +102,23 @@ func handler(ctx context.Context, arguments map[string]any) (err error) {
 	if ok {
 		ca.CpipesEnv = env
 	}
-	switch failureDetails := arguments["failureDetails"].(type) {
-	case string:
-		ca.FailureDetails = failureDetails
-	case map[string]any:
-		cause, causeOk := failureDetails["Cause"].(string)
-		if causeOk {
-			// Looks like an error in a ecs task or lambda function
-			// see if txt is an embeded json
-			var causeDetails map[string]any
-			err = json.Unmarshal([]byte(cause), &causeDetails)
-			if err == nil {
-				txt2, ok2 := causeDetails["errorMessage"].(string)
-				if ok2 {
-					// got down to the error message, must have been a lambda
-					ca.FailureDetails = txt2
-				} else {
-					// Check if it was an ecs task
-					taskReason, ok3 := causeDetails["StoppedReason"].(string)
-					if ok3 {
-						// Looks like an error in a task container
-						group, ok := causeDetails["Group"].(string)
-						if ok {
-							ca.FailureDetails = fmt.Sprintf("%s from %s", taskReason, group)
-						} else {
-							ca.FailureDetails = taskReason
-						}
-					} else {
-						// unknown error structure, keep the whole thing
-						ca.FailureDetails = cause
-					}
-				}
-			} else {
-				// must have been a simple string
-				ca.FailureDetails = cause
-			}
-		} else {
-			reason, ok := failureDetails["StoppedReason"].(string)
-			if ok {
-				// Looks like an error in a task container
-				group, ok := failureDetails["Group"].(string)
-				if ok {
-					ca.FailureDetails = fmt.Sprintf("%s from %s", reason, group)
-				} else {
-					ca.FailureDetails = reason
-				}
-			} else {
-				// failure details has an unknown structure
-				b, _ := json.MarshalIndent(failureDetails, "", " ")
-				ca.FailureDetails = string(b)
-			}
-		}
-
-	default:
+	// Decode the state machine's failure object. The decoding moved to
+	// datatable.DecodeFailureDetails so it can be tested without a lambda; it also
+	// recovers the two things the arms here were discarding -- the platform's own
+	// error class, and which arm produced the prose.
+	failure := datatable.DecodeFailureDetails(arguments["failureDetails"])
+	if failure.Source == datatable.FailureSourceNone && arguments["failureDetails"] != nil {
 		log.Println("Unknown type for failureDetails")
 	}
+	ca.FailureDetails = failure.Details
+	ca.FailureClass = failure.Class
+	ca.FailureSource = failure.Source
 	fileKey := arguments["file_key"]
 	if fileKey != nil {
 		ca.FileKey = fileKey.(string)
 	}
-	log.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails)
+	log.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails,
+		"failureClass:", ca.FailureClass, "failureSource:", ca.FailureSource)
 
 	// Check if the db credential have been updated
 	ca.Dbpool, err = dbConnection.GetConnection()

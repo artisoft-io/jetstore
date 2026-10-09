@@ -1,0 +1,13 @@
+{
+  "entities": [
+    {
+      "step_name": "Load PharmacyClaim to DB and stage"
+    },
+    {
+      "step_name": "Load MedicalClaim to DB and stage"
+    },
+    {
+      "step_name": "Load Opportunity to DB and stage"
+    }
+  ]
+}

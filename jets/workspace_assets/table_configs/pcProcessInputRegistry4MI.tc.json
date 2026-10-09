@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "columns": [
+    {
+      "name": "key",
+      "isHidden": true
+    },
+    {
+      "name": "org",
+      "label": "Vendor",
+      "tooltip": "Clients vendor the file came from"
+    },
+    {
+      "name": "object_type",
+      "label": "Domain Key",
+      "tooltip": "Pipeline Grouping Domain Key"
+    },
+    {
+      "name": "entity_rdf_type",
+      "label": "Domain Class",
+      "tooltip": "Canonical model for the source data"
+    },
+    {
+      "name": "source_type",
+      "label": "Source Type",
+      "tooltip": "Source of the input data, either File or Domain Table"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the data reside"
+    }
+  ],
+  "sortColumn": "table_name",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "org",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "entity_rdf_type",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "source_type",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "table_name",
+        "columnIdx": 5
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_input_registry"
+    }
+  ],
+  "where": [
+    {
+      "column": "client",
+      "formStateKey": "client",
+      "orWith": {
+        "column": "client",
+        "defaultValue": [
+          ""
+        ]
+      }
+    },
+    {
+      "column": "source_type",
+      "formStateKey": "where.source_type"
+    },
+    {
+      "column": "process_name",
+      "formStateKey": "process_name"
+    },
+    {
+      "column": "object_type",
+      "formStateKey": "object_type"
+    }
+  ]
+}

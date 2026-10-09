@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "title": "Clients & Vendors",
+  "startAtKey": "select_client",
+  "states": {
+    "select_client": {
+      "description": "Select a client to see its vendors, or add a client",
+      "formConfig": "ufSelectClient",
+      "stateAction": "crSelectClientUF",
+      "defaultNextState": "show_org"
+    },
+    "show_org": {
+      "description": "Create org/vendor of client",
+      "formConfig": "ufShowVendor",
+      "isEnd": true
+    }
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "label": "Select File(s) to Load",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Primary Key",
+      "table": "input_registry",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client providing the input files"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization"
+    },
+    {
+      "name": "object_type",
+      "label": "Object Type",
+      "tooltip": "The type of object the file contains"
+    },
+    {
+      "name": "file_key",
+      "label": "File Key",
+      "tooltip": "File key or path"
+    },
+    {
+      "name": "year",
+      "label": "Year",
+      "tooltip": "Year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "tooltip": "Month of the year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "tooltip": "Day of the month the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "day_period",
+      "label": "Day Period",
+      "table": "source_period",
+      "tooltip": "Day Period since begin of epoch"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the file was loaded"
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "tooltip": "Session ID of the file upload"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Update",
+      "tooltip": "When the file was received"
+    },
+    {
+      "name": "source_period_key",
+      "label": "Source Period Key",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "file_key",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "input_registry.session_id",
+        "columnIdx": 10
+      },
+      {
+        "stateKey": "source_period_key",
+        "columnIdx": 12
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "input_registry"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "source_period"
+    }
+  ],
+  "where": [
+    {
+      "column": "table_name",
+      "formStateKey": "table_name"
+    },
+    {
+      "column": "source_period_key",
+      "joinWith": "source_period.key"
+    },
+    {
+      "column": "source_type",
+      "defaultValue": [
+        "file"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "key": "previewInputFile",
+      "label": "Preview File",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/filePreviewPath/:file_key",
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "file_key": 4
+      }
+    },
+    {
+      "key": "syncFileKey",
+      "label": "Sync File Keys",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "lfSyncFileKey",
+      "capability": "run_pipelines"
+    }
+  ]
+}

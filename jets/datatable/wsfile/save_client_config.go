@@ -138,13 +138,14 @@ func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinit
 	tableName, whereColumn, whereValue, orderByClause string, skipKeyColumn, oneLinePerRow bool, buf *strings.Builder) error {
 
 	buf.WriteString(fmt.Sprintf("\n-- Table %s\n", tableName))
-	columnNames, err := getColumns(jetsSchema, skipKeyColumn, tableName)
+	selectList, columnNames, err := getColumns(jetsSchema, skipKeyColumn, tableName)
 	if err != nil {
 		return err
 	}
 	columnNamesStr := strings.Join(columnNames, ",")
 	buf.WriteString(fmt.Sprintf("DELETE FROM jetsapi.\"%s\" WHERE \"%s\" = '%s';\n", tableName, whereColumn, whereValue))
-	stmt := fmt.Sprintf("SELECT %s FROM jetsapi.\"%s\" WHERE \"%s\" = '%s' ORDER BY %s", columnNamesStr, tableName, whereColumn, whereValue, orderByClause)
+	stmt := fmt.Sprintf("SELECT %s FROM jetsapi.\"%s\" WHERE \"%s\" = '%s' ORDER BY %s",
+		strings.Join(selectList, ","), tableName, whereColumn, whereValue, orderByClause)
 	rows, err := dbpool.Query(context.Background(), stmt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -184,22 +185,41 @@ func escapeTics(str string) string {
 	return strings.ReplaceAll(str, "'", "''")
 }
 
-func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn bool, tableName string) ([]string, error) {
-	result := make([]string, 0)
+// getColumns returns the columns of a table twice over: as select expressions,
+// where an array column is cast to text so the export can read it as one value
+// and write it back as an array literal, and as bare column names.
+//
+// **The two lists are not interchangeable, which is the bug this signature
+// exists to prevent.** A cast is legal in a select list and illegal in an
+// INSERT column list, and one list was being used for both — so
+// `SaveClientConfig` emitted
+// `INSERT INTO jetsapi."source_config" (..., domain_keys::text, ...)` and every
+// export of a table with an array column was a script PostgreSQL refuses to
+// parse. It shipped: `workspaces/jets_ws/process_config/ci_workspace_init_db.sql`,
+// generated 2026-08-22, is unloadable at its line 23, and `source_config`'s
+// `domain_keys` is the only array column among the exported tables today.
+//
+// Nothing caught it because a generated init script is not loaded by whoever
+// generates it, and the loader reported it as a syntax error near `::` in a
+// fragment of a 300-line file.
+func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn bool, tableName string) (selectList, columnNames []string, err error) {
 	tableDef, ok := (*jetsSchema)[tableName]
 	if !ok {
-		return nil, fmt.Errorf("table definition not found for table %s", tableName)
+		return nil, nil, fmt.Errorf("table definition not found for table %s", tableName)
 	}
 	for i := range tableDef.Columns {
-		if tableDef.Columns[i].ColumnName != "last_update" && (!skipKeyColumn || tableDef.Columns[i].ColumnName != "key") {
-			if tableDef.Columns[i].IsArray {
-				result = append(result, tableDef.Columns[i].ColumnName+"::text")
-			} else {
-				result = append(result, tableDef.Columns[i].ColumnName)
-			}
+		name := tableDef.Columns[i].ColumnName
+		if name == "last_update" || (skipKeyColumn && name == "key") {
+			continue
+		}
+		columnNames = append(columnNames, name)
+		if tableDef.Columns[i].IsArray {
+			selectList = append(selectList, name+"::text")
+		} else {
+			selectList = append(selectList, name)
 		}
 	}
-	return result, nil
+	return selectList, columnNames, nil
 }
 
 // Prepare the container that will hold a row of values

@@ -134,11 +134,19 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 	// build the key evaluators
 	for i := range spec.LookupKey {
 		columnSpec := &spec.LookupKey[i]
+		if columnSpec.Expr == nil {
+			return nil, fmt.Errorf("error: lookup key for lookup %s must have expr", *spec.LookupName)
+		}
 		switch strings.ToLower(columnSpec.Type) {
 		case "select":
+			inputPos, ok := (*source.Columns)[*columnSpec.Expr]
+			if !ok {
+				return nil, fmt.Errorf("error: lookup key column '%s' is not an input column to %s (lookup %s)",
+					*columnSpec.Expr, source.Name, *spec.LookupName)
+			}
 			keyEvaluator[i] = &lceSelect{
 				lookupName: spec.LookupName,
-				inputPos:   (*source.Columns)[*columnSpec.Expr],
+				inputPos:   inputPos,
 			}
 		case "value":
 			value, err := ctx.parseValue(columnSpec.Expr, columnSpec.MaxEnvVarSubstitution)
@@ -150,6 +158,9 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 				lookupName: spec.LookupName,
 				value:      value,
 			}
+		default:
+			return nil, fmt.Errorf("error: unknown lookup key type '%s' for lookup %s (expecting select or value)",
+				columnSpec.Type, *spec.LookupName)
 		}
 	}
 	lookupTable, ok := ctx.lookupTableManager.LookupTableMap[*spec.LookupName]
@@ -162,6 +173,9 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 		// build the lookup value evaluators
 		for i := range spec.LookupValues {
 			columnSpec := &spec.LookupValues[i]
+			if columnSpec.Expr == nil {
+				return nil, fmt.Errorf("error: lookup value for lookup %s must have expr", *spec.LookupName)
+			}
 			switch strings.ToLower(columnSpec.Type) {
 			case "select":
 				inputPos, ok := lookupTable.ColumnMap()[*columnSpec.Expr]
@@ -195,6 +209,9 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 					value:      value,
 					outputPos:  outputPos,
 				}
+			default:
+				return nil, fmt.Errorf("error: unknown lookup value type '%s' for lookup %s (expecting select or value)",
+					columnSpec.Type, *spec.LookupName)
 			}
 		}
 	}

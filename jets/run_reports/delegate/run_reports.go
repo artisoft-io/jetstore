@@ -1,12 +1,10 @@
 package delegate
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -292,7 +290,16 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 
 		if !ca.SkipCompileWorkspace {
 			version := strconv.FormatInt(time.Now().Unix(), 10)
-			_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
+			// **No asset validation here, by decision rather than by omission**
+			// (jetstore_maintenance_02 Q-9, answered 2026-10-01; task AG.5). This
+			// recompile rebuilds the lookup tables a report has just written and
+			// changes no user-flow or table document, so the documents it would
+			// check are the ones the Docker build's compile and the IDE's compile
+			// already passed. The cpipes image this runs in carries no node, and
+			// CompileWorkspace fails rather than skips when node is missing, so
+			// without this opt-out every lookup-table rebuild would fail.
+			_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version,
+				workspace.SkipAssetValidation("run_reports rebuilds lookup tables after a report and changes no user_flows/ or table_configs/ document; those were validated by the compile that deployed them"))
 			if err != nil {
 				return err
 			}
@@ -339,7 +346,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 // absolute path, stays within the workspace reports directory, mitigating
 // external control of file name or path (CWE-73). The report script names come
 // from the report directives config, which is externally controlled.
-func confineReportPath(reportScriptPath string) (string, error) {	
+func confineReportPath(reportScriptPath string) (string, error) {
 	baseDir := filepath.Join(workspaceHome, wprefix, "reports")
 	filePath, err := utils.ConfineFilePath(baseDir, reportScriptPath)
 	if err != nil {
@@ -402,7 +409,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	}
 
 	// Get the report definitions
-	file, err := os.Open(safePath)
+	script, err := os.ReadFile(safePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Printf("Report definitions file %s (safe path: %s) does not exist, skipping", reportScriptPath, safePath)
@@ -410,39 +417,12 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 		}
 		return fmt.Errorf("error while opening report definitions file %s: %v", reportScriptPath, err)
 	}
-	defer file.Close()
-	reader := bufio.NewReader(file)
-	isDone := false
-	for !isDone {
-		var name, stmt string
-
-		// read the output file name
-		name, err = reader.ReadString(';')
-		if err == io.EOF {
-			isDone = true
-			break
-		} else if err != nil {
-			return fmt.Errorf("error while reading report definitions: %v", err)
-		}
-		name = strings.TrimSpace(name)
-		// remove leading -- and ending ; in name
-		name = name[2 : len(name)-1]
-
-		// read the sql statement
-		stmt, err = reader.ReadString(';')
-		if err == io.EOF {
-			isDone = true
-		} else if err != nil {
-			return fmt.Errorf("error while reading report stmt for report %s: %v", name, err)
-		}
-		if len(stmt) == 0 {
-			return fmt.Errorf("error while reading report definitions, stmt is empty for report: %s", name)
-		}
-		stmt = strings.TrimSpace(stmt)
-		stmt = strings.TrimSuffix(stmt, ";")
-
-		// Do the report
-		s3FileName, err := ca.DoReport(dbpool, tempDir, &name, &stmt)
+	reports, err := parseReportDefinitions(string(script))
+	if err != nil {
+		return fmt.Errorf("error while reading report definitions %s: %v", reportScriptPath, err)
+	}
+	for i := range reports {
+		s3FileName, err := ca.DoReport(dbpool, tempDir, &reports[i].name, &reports[i].stmt)
 		if err != nil {
 			return err
 		}

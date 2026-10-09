@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,7 +43,20 @@ type StatusUpdate struct {
 	Status                   string
 	FileKey                  string
 	FailureDetails           string
+	FailureClass             string
+	FailureSource            string
 	NotifyApiGatewayOverride string
+}
+
+// failureInfo is what updateStatus records about a failure: the prose, the class
+// the platform computed and the decoder arm that produced the prose. See
+// failure_details.go.
+func (ca *StatusUpdate) failureInfo() *FailureInfo {
+	return &FailureInfo{
+		Details: ca.FailureDetails,
+		Class:   ca.FailureClass,
+		Source:  ca.FailureSource,
+	}
 }
 
 // Support Functions
@@ -94,11 +109,69 @@ func GetOutputTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) ([]string, 
 	}
 	return outTables, nil
 }
-func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
+
+// getNodeErrorMessage returns the error message recorded by the first node that failed,
+// empty when no node recorded one.
+func getNodeErrorMessage(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, error) {
+	var errMessage string
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT error_message FROM jetsapi.pipeline_execution_details
+		 WHERE pipeline_execution_status_key = $1 AND status = 'failed' AND error_message <> ''
+		 ORDER BY last_update, key LIMIT 1`,
+		pipelineExecutionKey).Scan(&errMessage)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("QueryRow on pipeline_execution_details to get the node error message failed: %v", err)
+	}
+	return errMessage, nil
+}
+
+// mergeFailureDetails puts the error recorded by the failed node ahead of the failure details
+// received from the state machine. When the node ran as an ecs task, the state machine only has
+// the task stopped reason, e.g. "Essential container in task exited", not the actual error.
+// When the node ran as a lambda, the failure details already carry the error.
+func mergeFailureDetails(nodeErrMessage, failureDetails string) string {
+	switch {
+	case len(nodeErrMessage) == 0:
+		return failureDetails
+	case len(failureDetails) == 0 || strings.Contains(nodeErrMessage, failureDetails):
+		return nodeErrMessage
+	case strings.Contains(failureDetails, nodeErrMessage):
+		return failureDetails
+	default:
+		return fmt.Sprintf("%s (%s)", nodeErrMessage, failureDetails)
+	}
+}
+
+// applyNodeErrorMessage merges the failed node's error into the failure details,
+// the failure source then says the details are no longer only the decoded text.
+func (ca *StatusUpdate) applyNodeErrorMessage(nodeErrMessage string) {
+	failureDetails := mergeFailureDetails(nodeErrMessage, ca.FailureDetails)
+	if failureDetails != ca.FailureDetails {
+		ca.FailureDetails = failureDetails
+		ca.FailureSource = FailureSourceNodeErrorMessage
+	}
+}
+
+// updateStatus records the run's terminal status and, when the run carries one,
+// the failure. failure is nil for the statuses that have none, and the three
+// failure columns are then left null together rather than half written.
+func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failure *FailureInfo) error {
 	// Record the status of the pipeline execution
 	log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
-	stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3"
-	_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, pipelineExecutionKey)
+	var failureDetails, failureClass, failureSource *string
+	if failure != nil {
+		failureDetails = &failure.Details
+		failureClass = &failure.Class
+		failureSource = &failure.Source
+	}
+	stmt := `UPDATE jetsapi.pipeline_execution_status
+		SET (status, failure_details, failure_class, failure_source, last_update) = ($1, $2, $3, $4, DEFAULT)
+		WHERE key = $5`
+	_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, failureClass, failureSource,
+		pipelineExecutionKey)
 	if err != nil {
 		return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 	}
@@ -130,6 +203,8 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: status", ca.Status)
 	log.Println("Got argument: fileKey", ca.FileKey)
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
+	log.Println("Got argument: failureClass", ca.FailureClass)
+	log.Println("Got argument: failureSource", ca.FailureSource)
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
 	log.Println("Got argument: notify_api_gateway_override", ca.NotifyApiGatewayOverride)
@@ -189,8 +264,19 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				ca.NotifyApiGatewayOverride = override
 		}
 	}
-	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey, 
+	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey,
 		ca.NotifyApiGatewayOverride)
+
+	// Report the error of the failed node rather than only what the state machine got,
+	// before the notification so it carries it as well
+	if ca.Status == "failed" {
+		nodeErrMessage, err := getNodeErrorMessage(ca.Dbpool, ca.PeKey)
+		if err != nil {
+			log.Printf("%s WARNING %v\n", sessionId, err)
+		} else {
+			ca.applyNodeErrorMessage(nodeErrMessage)
+		}
+	}
 
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
@@ -202,23 +288,35 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return err
 	}
+	// runStatus is the status this function computed and recorded, which is not
+	// always ca.Status: the "interrupted" arm below records "interrupted" and
+	// leaves ca.Status holding whatever the state machine passed in, which on
+	// the success path is "completed". Anything reading ca.Status after this
+	// switch is therefore reading the caller's claim on that one arm rather
+	// than the run's outcome. The manifest branch reads runStatus.
+	var runStatus string
 	switch {
 	case ca.Status == "failed":
-		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
+		runStatus = "failed"
+		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", ca.failureInfo())
 
 	case statusCountMap["interrupted"] > 0:
-		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", &ca.FailureDetails)
+		runStatus = "interrupted"
+		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", ca.failureInfo())
 
 	case statusCountMap["failed"] > 0:
 		ca.Status = "recovered"
-		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", &ca.FailureDetails)
+		runStatus = "recovered"
+		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", ca.failureInfo())
 
 	case statusCountMap["errors"] > 0:
 		ca.Status = "errors"
+		runStatus = "errors"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 
 	default:
 		ca.Status = "completed"
+		runStatus = "completed"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
@@ -226,6 +324,37 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		log.Printf("%s %s\n", sessionId, err)
 		return err
 	}
+
+	// The run manifest: what the run's document declared, and what the run
+	// wrote for each declaration. D-255.
+	//
+	// **The branch is here, immediately after the status was computed, and
+	// that placement is the whole of the guard.** This Lambda is invoked on the
+	// error path as well as the success path -- runErrorStatusLambdaTask and
+	// runSuccessStatusLambdaTask are the same object (build_cpipes_sm.go) -- so
+	// a producer that writes before branching writes a manifest for a run that
+	// failed, which is the one outcome a manifest exists to make impossible.
+	// Four of the five statuses this switch computes leave no manifest at all,
+	// "recovered" among them: a recovered run is one where a worker failed and
+	// the state machine took the success path anyway, which is exactly the
+	// half-written prefix the manifest is meant to make detectable.
+	//
+	// **Additive, in InsertChannelExecutionDetails' own shape**: the error is
+	// logged and the run is not failed for it, because a pipeline that ran
+	// correctly must not be reported failed because an observability write did
+	// not land. One difference is worth naming and is why the log line says so:
+	// a missing channel detail row is detectable by arithmetic downstream
+	// (sum(child) != parent), and a missing manifest is indistinguishable from
+	// a run that never completed. **The log line is the whole of the signal.**
+	if ca.CpipesMode && runStatus == "completed" {
+		if err := compute_pipes.WriteRunManifest(context.Background(), ca.Dbpool, sessionId,
+			runStatus); err != nil {
+			log.Printf("%s NO RUN MANIFEST was written for this completed run, and nothing downstream "+
+				"can tell that from a run that did not complete -- this log line is the only signal: %v\n",
+				sessionId, err)
+		}
+	}
+
 	var isJetsLoader bool
 
 	if ca.CpipesMode {

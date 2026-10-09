@@ -28,6 +28,7 @@ JetsResources::initialize(RManager * rmgr)
   this->jets__range_value              = rmgr->create_resource("jets:range_value");
   this->jets__replace_chars            = rmgr->create_resource("jets:replace_chars");
   this->jets__replace_with             = rmgr->create_resource("jets:replace_with");
+  this->jets__separator                = rmgr->create_resource("jets:separator");
   this->jets__source_period_sequence   = rmgr->create_resource("jets:source_period_sequence");
   this->jets__state                    = rmgr->create_resource("jets:State");
   this->jets__value_property           = rmgr->create_resource("jets:value_property");

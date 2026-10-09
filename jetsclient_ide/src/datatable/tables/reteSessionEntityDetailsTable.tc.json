@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "label": "Entity Details",
+  "columns": [
+    {
+      "name": "entity_property",
+      "label": "Property",
+      "tooltip": "Property name"
+    },
+    {
+      "name": "entity_value",
+      "label": "Value",
+      "tooltip": "Property value"
+    },
+    {
+      "name": "entity_value_type",
+      "label": "Type",
+      "tooltip": "Value type"
+    }
+  ],
+  "sortColumn": "entity_property",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "entity_property",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "entity_property_value",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "entity_property_value_type",
+        "columnIdx": 2
+      }
+    ]
+  },
+  "source": "formState",
+  "model": {
+    "from": "map",
+    "key": "rete_session.entity_details_by_key",
+    "indexBy": "entity_key"
+  },
+  "where": [
+    {
+      "column": "entity_key",
+      "formStateKey": "entity_key"
+    }
+  ],
+  "actions": [
+    {
+      "key": "visitEntity",
+      "label": "Visit Object Entity",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "reteSession.VisitEntity",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

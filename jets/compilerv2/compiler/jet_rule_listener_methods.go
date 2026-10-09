@@ -105,6 +105,7 @@ func (s *JetRuleListener) ExitDataPropertyDefinitions(ctx *parser.DataPropertyDe
 			Name:      name,
 			ClassName: s.currentClass.Name,
 			AsArray:   ctx.GetArray() != nil,
+			Deleted:   ctx.GetDeleted() != nil,
 		}
 		s.currentClass.DataProperties = append(s.currentClass.DataProperties, dp)
 	}
@@ -121,6 +122,7 @@ func (s *JetRuleListener) ExitObjectPropertyDefinitions(ctx *parser.ObjectProper
 			ClassName: s.currentClass.Name,
 			AsArray:   ctx.GetArray() != nil,
 			IsObject:  true,
+			Deleted:   ctx.GetDeleted() != nil,
 		}
 		s.currentClass.ObjectProperties = append(s.currentClass.ObjectProperties, dp)
 	}

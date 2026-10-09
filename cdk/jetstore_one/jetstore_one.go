@@ -65,6 +65,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
 		DeployCpipesNative: strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1",
+		// Read through a function rather than inline, so that the unset case -- which is the
+		// whole of exit criterion 96 for the Python arm -- is reachable by a test in the stack
+		// package. See DeployCpipesPythonFromEnv.
+		DeployCpipesPython: jetstorestack.DeployCpipesPythonFromEnv(),
+	}
+	if jsComp.DeployCpipesPython {
+		log.Println("Deploying CPIPES Python Node Image")
 	}
 	if jsComp.DeployCpipesNative {
 		log.Println("Deploying CPIPES Native Image")
@@ -522,6 +529,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
+//
+//	JETS_CPIPES_NODE_LAMBDA_ENTRY (optional, path to handler code for the cpipes execution
+//	node lambda, default lambdas/compute_pipes/cp_node) Points the node lambda at a site
+//	main -- the stock one plus a compute_pipes operator registration -- typically in a
+//	client workspace repo's go/lambdas/. Unlike the three JETS_*_LAMBDA_ENTRY variables that
+//	gate a lambda out of the stack altogether, leaving this unset does not skip a lambda: it
+//	builds the stock entry, so a stack that never sets it synthesises what it synthesised
+//	before. It is one of two such defaulting entries as of 2026-09-16, the other being
+//	JETS_REGISTER_KEY_LAMBDA_ENTRY below -- so "the three below" is no longer a way to name
+//	the gating ones, and they are JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY,
+//	JETS_API_GATEWAY_LAMBDA_ENTRY and JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY. See
+//	stack/build_cpipes_lambdas.go and cpipesNodeLambdaDefaultEntry there.
+//
 // JETS_CPIPES_SM_TIMEOUT_MIN (optional) state machine timeout for CPIPES_SM, default 60 min
 // JETS_TEMP_DATA (optional) JetStore temp directory for containers, default /jetsdata
 // TMPDIR (optional) temp directory for containers, default ${JETS_TEMP_DATA}/tmp
@@ -531,33 +551,103 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // CPIPES_COMPLETED_NOTIFICATION_JSON template for the cpipes completed notification
 // CPIPES_FAILED_NOTIFICATION_JSON template for the cpipes failed notification
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_CUSTOM_BUTTONS_CONFIG_JSON (optional) the deployment's own buttons on the UI's Pipeline
+//	Status table, as a JSON array in the shape the Flutter UI read: each entry has a type
+//	(fetch_stage_to_clipboard), a key, a label, fsk_params, a file_path under the stage prefix
+//	with {{column}} placeholders, and an optional replace_text/replace_with pair. Passed through
+//	unchanged to the UI service's environment, where the apiserver serves it to a signed-in user
+//	and the React app appends the buttons to the table's last action row. It is a deployment
+//	setting rather than a workspace one on purpose: a workspace document cannot name these
+//	buttons (fromConfigRowActions is unauthorable), so a workspace file cannot configure a
+//	deployment. Unset, or empty, means no custom buttons. A value that is not valid JSON is
+//	reported below as a warning and still passed through; the apiserver is the party that
+//	refuses it, by serving no buttons rather than failing the login.
+//	Until 2026-10-01 nothing read this variable: it was a compile-time constant of the Flutter
+//	app, and its Docker build argument was removed with that app. This synth-time half landed
+//	first; ~~the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
+//	until they land the entry reaches the container and nothing there reads it.~~ The apiserver
+//	serves it at sign-in as of AE.7 (jets/apiserver/custom_buttons.go, 2026-10-01), and the React
+//	app draws the buttons on the Pipeline Status table as of AE.8 the same day
+//	(jetsclient_ide/src/actions/customButtons.ts).
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
+// JETS_USERFLOW_STRICT_REACHABILITY (optional, values: 1/true/yes/on; anything else, including
+//	unset, is off) refuse to save a .uf.json user flow that contains a state nothing
+//	transitions to, instead of reporting it as a warning. Off by default because the workspace
+//	flows shipped today include one such state; see jets/userflow/validate.go.
 // JETS_ECR_REPO_ARN (required)
 // CPIPES_ECR_REPO_ARN (required for cpipes server)
 // CPIPES_LAMBDA_ECR_REPO_ARN (required for cpipes native lambdas)
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
 // JETS_ELB_MODE (defaults private)
 // JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
-// JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'
+// JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'. **Synth-time only:
+//	no container receives it.** It is read once, by NewGitAccessSecurityGroup
+//	(stack/jetstore_github.go:71), to add egress rules to those providers' address ranges: one
+//	os.Getenv in the whole CDK app besides the synth log below, measured 2026-09-07, and no
+//	task definition's environment map carries the name -- so the apiserver cannot read it and
+//	does not change what it does when it is unset. This is worth stating because "deployed
+//	without JETS_GIT_ACCESS" reads as a statement about the runtime and is a statement about
+//	the network: it decides whether a git operation could reach a host, not whether one is
+//	attempted. The runtime switch is JETS_NO_GIT_ACCESS below.
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
 // DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
+// DEPLOY_CPIPES_PYTHON (optional, values: TRUE, 1, case-insensitive; anything else including
+//
+//	unset and empty leaves it off) builds the Python compute pipes node -- the
+//	container-image Lambda CpipesPythonNodeLambda, from
+//	dockerfiles/Dockerfile.cpipes_python_lambda -- and adds the third arm of
+//	ecsOrLambdaChoice that routes a reducing iteration to it, in **both** cpipes state
+//	machines. Requires CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN and CPIPES_PYTHON_LAMBDA_IMAGE_TAG.
+//	**With it unset nothing changes**: the two blocks it gates are the whole of the change,
+//	so the synthesised template is the one a deployment gets today (exit criterion 96,
+//	measured as a byte comparison rather than claimed). It is a separate gate from
+//	DEPLOY_CPIPES_NATIVE and not a value of one selector, because the two are not
+//	alternatives -- a deployment can want the native node for jetrules steps and the Python
+//	node for its own operators.
+//
+// CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN (required when DEPLOY_CPIPES_PYTHON, the ECR repository
+//
+//	holding the cpipes_python_lambda image)
+//
+// CPIPES_PYTHON_LAMBDA_IMAGE_TAG (required when DEPLOY_CPIPES_PYTHON, the tag or digest of
+//
+//	that image). Named for the lambda, as CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN above is:
+//	the two describe one image and are read together, so they carry one prefix.
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
+// JETS_NO_GIT_ACCESS (optional, values: 1/true/yes/on, case-insensitive and trimmed; anything
+//	else, including unset and including the empty string, leaves git integration on) turns the
+//	workspace's git operations into logged no-ops. The Workspace Registry screen then reports
+//	its status from the file system without shelling out to git, and the update, commit and
+//	push actions return a notice saying which variable produced the silence instead of acting.
+//	Two deployments want it: a site with no route to a source-control host, whose image
+//	carries a workspace with no .git in it, and a developer workstation, where WORKSPACES_HOME
+//	is a tree of submodules of the developer's own checkout and a button in the UI would
+//	otherwise run switch, pull, add -A and push against it.
+//	The value is tested rather than the presence, and that is mechanical rather than a
+//	preference: build_ui_service.go sets this entry from os.Getenv unconditionally, so an
+//	operator who never set it still gets it in the task definition, empty. See
+//	jets/datatable/git/no_git_access.go. Distinct from JETS_GIT_ACCESS above, which is a
+//	synth-time network control the runtime cannot read.
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
 //
 //	JETS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for the register key
 //	lambda, default lambdas/register_keys/register_keys_v2) Points registerKeyV2 at a site
 //	main -- the stock handler plus site-specific logic before registration -- typically in a
-//	client workspace repo's go/lambdas/. Unlike the three other JETS_*_LAMBDA_ENTRY
-//	variables, leaving this unset does not skip a lambda: it builds the stock entry, so a
-//	stack that never sets it synthesises what it synthesised before. Empty counts as unset.
-//	See stack/build_registerkey_lambdas.go.
+//	client workspace repo's go/lambdas/. Leaving this unset does not skip a lambda: it builds
+//	the stock entry, so a stack that never sets it synthesises what it synthesised before.
+//	Empty counts as unset. It is the second of the two defaulting entries, the other being
+//	JETS_CPIPES_NODE_LAMBDA_ENTRY above; the three that gate a lambda out of the stack
+//	altogether are JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY, JETS_API_GATEWAY_LAMBDA_ENTRY and
+//	JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY. Both defaulting variables resolve through
+//	lambdaEntryOrDefault (stack/stack_model.go). See
+//	stack/build_registerkey_lambdas.go and registerKeyLambdaDefaultEntry there.
 //
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
@@ -612,6 +702,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // TASK_MAX_CONCURRENCY (defaults to 1)
+// JETS_DEFAULT_ERROR_REPORTING (optional, defaults to on) false/off/0/no stops giving operators that name no error_channel a default one writing to jetsapi.process_errors; read by the two cpipes starter lambdas only
+// JETS_DEFAULT_ERROR_MAX_COUNT (optional) max_error_count written onto the operators that get a default error channel, bounding what the default costs without turning it off; unset leaves each operator its own (20, or 50 for infer)
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
@@ -626,15 +718,32 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_AMI_ROOT_DEVICE (optional) root device name of the custom AMI, default "/dev/xvda"
 // INFER_ECR_REPO_ARN (required when BUILD_INFER_SERVICE) ECR repo holding the infer image
 // INFER_IMAGE_TAG (required when BUILD_INFER_SERVICE) tag of the infer image
-// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
+// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 51 = 51 GB (80% of g6e.2xlarge's 64 GiB)
 // INFER_DESIRED_COUNT (optional) desired task count for the infer service. Leave unset so a
 // deploy preserves the current scale; set to 0 on the first deploy of a new stack to avoid
 // starting a GPU instance right away
-// INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
+// INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g6e.2xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
 // (optional) Ollama tuning passed through to the infer container, defaults 4 / 1 / 30m / 32768
 // (see infer_server_readme.md before changing the last two — they are GPU-memory bound)
+// INFER_BACKEND (optional) which model server the infer service runs, "ollama" (default) or
+// "vllm". It must agree with the image INFER_IMAGE_TAG names — Dockerfile.infer_service builds
+// the first, Dockerfile.infer_service_vllm the second — and nothing checks that it does.
+// It decides two things and nothing else: the container's environment block and the load
+// balancer's health-check path. The service, the ASG, the capacity provider, the target group,
+// port 11434 and JETS_INFER_URL are the same either way, so switching arms is a task-definition
+// revision rather than a second deployment
+// JETS_INFER_MODEL (required when INFER_BACKEND=vllm) the model vLLM serves. Required because
+// vLLM binds one model at startup where Ollama pulls one per request; changing it is a
+// task-definition revision
+// JETS_INFER_SERVED_MODEL_NAME, JETS_VLLM_MAX_MODEL_LEN, JETS_VLLM_MAX_NUM_SEQS,
+// JETS_VLLM_GPU_MEMORY_UTILIZATION, JETS_VLLM_EXTRA_ARGS (optional, vllm only) passed through to
+// the infer container and turned into `vllm serve` arguments by cbooter. **No defaults**, and
+// deliberately: the OLLAMA_* figures above were measured on this hardware and the vLLM
+// equivalents have not been, so an unset variable means vLLM's own default rather than a number
+// invented here. The middle two are the pair that divides VRAM, as OLLAMA_CONTEXT_LENGTH and
+// OLLAMA_NUM_PARALLEL are
 //XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
@@ -654,6 +763,7 @@ func main() {
 	log.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
 	log.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	log.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
+	log.Println("env JETS_CPIPES_NODE_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_NODE_LAMBDA_ENTRY"))
 	log.Println("env JETS_CPIPES_SM_TIMEOUT_MIN:", os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
 	log.Println("env JETS_TEMP_DATA:", os.Getenv("JETS_TEMP_DATA"))
 	log.Println("env TMPDIR:", os.Getenv("TMPDIR"))
@@ -663,6 +773,7 @@ func main() {
 	log.Println("env CPIPES_COMPLETED_NOTIFICATION_JSON:", os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON"))
 	log.Println("env CPIPES_FAILED_NOTIFICATION_JSON:", os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON"))
 	log.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
+	log.Println("env JETS_CUSTOM_BUTTONS_CONFIG_JSON:", os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON"))
 	log.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
 	log.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
 	log.Println("env JETS_DB_VERSION:", os.Getenv("JETS_DB_VERSION"))
@@ -671,6 +782,7 @@ func main() {
 	log.Println("env JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Println("env JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	log.Println("env JETS_USERFLOW_STRICT_REACHABILITY:", os.Getenv("JETS_USERFLOW_STRICT_REACHABILITY"))
 	log.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
 	log.Println("env CPIPES_ECR_REPO_ARN:", os.Getenv("CPIPES_ECR_REPO_ARN"))
 	log.Println("env CPIPES_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_LAMBDA_ECR_REPO_ARN"))
@@ -681,9 +793,13 @@ func main() {
 	log.Println("**** env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
 	log.Println("env CPIPES_IMAGE_TAG:", os.Getenv("CPIPES_IMAGE_TAG"))
 	log.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))
+	log.Println("env DEPLOY_CPIPES_PYTHON:", os.Getenv("DEPLOY_CPIPES_PYTHON"))
+	log.Println("env CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))
+	log.Println("env CPIPES_PYTHON_LAMBDA_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_LAMBDA_IMAGE_TAG"))
 	log.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	log.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
+	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
 	log.Println("env JETS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_REGISTER_KEY_LAMBDA_ENTRY"))
 	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
@@ -723,6 +839,8 @@ func main() {
 	log.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	log.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
 	log.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
+	log.Println("env JETS_DEFAULT_ERROR_REPORTING:", os.Getenv("JETS_DEFAULT_ERROR_REPORTING"))
+	log.Println("env JETS_DEFAULT_ERROR_MAX_COUNT:", os.Getenv("JETS_DEFAULT_ERROR_MAX_COUNT"))
 	log.Println("env WORKSPACE_BRANCH:", os.Getenv("WORKSPACE_BRANCH"))
 	log.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	log.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
@@ -743,6 +861,13 @@ func main() {
 	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
 	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
 	log.Println("env INFER_ROOT_VOLUME_GB:", os.Getenv("INFER_ROOT_VOLUME_GB"))
+	log.Println("env INFER_BACKEND:", os.Getenv("INFER_BACKEND"))
+	log.Println("env JETS_INFER_MODEL:", os.Getenv("JETS_INFER_MODEL"))
+	log.Println("env JETS_INFER_SERVED_MODEL_NAME:", os.Getenv("JETS_INFER_SERVED_MODEL_NAME"))
+	log.Println("env JETS_VLLM_MAX_MODEL_LEN:", os.Getenv("JETS_VLLM_MAX_MODEL_LEN"))
+	log.Println("env JETS_VLLM_MAX_NUM_SEQS:", os.Getenv("JETS_VLLM_MAX_NUM_SEQS"))
+	log.Println("env JETS_VLLM_GPU_MEMORY_UTILIZATION:", os.Getenv("JETS_VLLM_GPU_MEMORY_UTILIZATION"))
+	log.Println("env JETS_VLLM_EXTRA_ARGS:", os.Getenv("JETS_VLLM_EXTRA_ARGS"))
 	// log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
 
 	// Verify that we have all the required env variables
@@ -782,6 +907,12 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' and 'JETS_IMAGE_TAG' are required.")
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' is the jetstore image with the workspace.")
+	}
+	// A warning rather than an error: the value only decorates the UI, and the apiserver
+	// already serves no buttons for a value it cannot parse. Saying so here is what lets the
+	// operator find out at synth rather than by the button not appearing after a deploy.
+	if v := os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON"); v != "" && !json.Valid([]byte(v)) {
+		log.Println("Warning: env var JETS_CUSTOM_BUTTONS_CONFIG_JSON is not valid JSON; it is passed to the UI service unchanged and the apiserver will serve no custom buttons")
 	}
 	if os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO") == "" && os.Getenv("JETS_DOMAIN_KEY_HASH_SEED") == "" {
 		log.Println("Warning: env var JETS_DOMAIN_KEY_HASH_ALGO and JETS_DOMAIN_KEY_HASH_SEED not provided, no hashing of the domain keys will be applied")

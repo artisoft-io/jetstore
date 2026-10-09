@@ -65,13 +65,71 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 					fileKey: nil,
 					spec:    spec,
 					env:     env,
-				}, nil			
+				}, nil
 			}
 			return nil, fmt.Errorf(
 				"error: no file keys found for CsvSourceS3 of type cpipes, ReadStepId: %s, JetPartitionLabel: %s",
 				spec.ReadStepId, spec.JetsPartitionLabel)
 		}
 		fileKey = fileKeys[0]
+
+	// The `csv_file` arm: the object is named outright by the spec rather than
+	// located from a previous cpipes step's stage output.
+	//
+	// This arm exists to make a static gate mean more rather than to make the
+	// engine do more. `CsvSourceSpec/csv_file` has been a token of the Go
+	// contract table (cpipes_contract_data.go), of the Pydantic model and of the
+	// emitted json schema since the applicability matrix was extracted, and the
+	// matrix names the switch above as its evidence that `type` is required --
+	// while the switch had no arm for the token. So a document declaring
+	// `csv_file` passed every static gate and then failed here, inside a running
+	// worker, for what is a configuration error. Nothing about that failure was
+	// detectable before the run.
+	case "csv_file":
+		if len(spec.CsvSourceFileKey) == 0 {
+			return nil, fmt.Errorf(
+				"error: CsvSourceS3 of type csv_file must have csv_source_file_key provided in the csv source spec")
+		}
+		csvFileKey := utils.ReplaceEnvVars(spec.CsvSourceFileKey, env)
+		if len(csvFileKey) == 0 {
+			return nil, fmt.Errorf(
+				"error: CsvSourceS3 of type csv_file has csv_source_file_key '%s' resolving to an empty key",
+				spec.CsvSourceFileKey)
+		}
+		// Defaults for an object named in full, as against a cpipes stage file:
+		// a csv carrying its header row, uncompressed. The `cpipes` arm above
+		// defaults the same two fields to headerless_csv and snappy for the same
+		// reason in reverse -- that is what a stage file is.
+		if len(spec.Format) == 0 {
+			spec.Format = "csv"
+		}
+		if len(spec.Compression) == 0 {
+			spec.Compression = "none"
+		}
+		// MakeEmptyWhenNoFile is applicable to this token in the contract, so it
+		// has to mean something here. It costs a listing, which is why it is done
+		// only when the flag asks for it: the documented default is to fail when
+		// the file is absent, and the download reports that loudly on its own.
+		if spec.MakeEmptyWhenNoFile {
+			found, err := S3ObjectExists(csvFileKey)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"while looking for the file of a CsvSourceS3 of type csv_file: %v", err)
+			}
+			if !found {
+				log.Printf("No file found for CsvSourceS3 of type csv_file with key %s, making an empty source",
+					csvFileKey)
+				return &CsvSourceS3{
+					fileKey: nil,
+					spec:    spec,
+					env:     env,
+				}, nil
+			}
+		}
+		// FileKeyInfo's byte range applies only when `end > 0` (DownloadS3Object,
+		// actions_s3_utils.go), so the zero value here is a full download.
+		fileKey = &FileKeyInfo{key: csvFileKey}
+
 	default:
 		return nil, fmt.Errorf("error: unknown CsvSourceS3 type: %s", spec.Type)
 	}

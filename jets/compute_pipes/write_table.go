@@ -19,18 +19,50 @@ type WriteTableSource struct {
 	count           int
 	tableIdentifier pgx.Identifier
 	columns         []string
-	errCh           chan error
-	done            chan struct{}
+	// inputChannel is the channel_spec_name feeding the output table and
+	// outputChannel is the output table's key. Both are carried so the result
+	// can name the DAG edge; the table identifier names neither, since two
+	// output_tables entries may write the same table (patient_profile.pc.json)
+	// and a table name is env-var substituted while a key is not.
+	// channelSpec is the output table's channel_spec_name, which is also the
+	// name of the channel feeding it — for an output table those are the same
+	// string, unlike an output_channel where the validator requires them to
+	// differ.
+	inputChannel  string
+	outputChannel string
+	channelSpec   string
+	errCh         chan error
+	done          chan struct{}
 }
 
 func NewWriteTableSource(source <-chan []any, tableIdentifier pgx.Identifier, columns []string,
-	done chan struct{}, errCh chan error) *WriteTableSource {
+	inputChannel, outputChannel, channelSpec string, done chan struct{}, errCh chan error) *WriteTableSource {
 	return &WriteTableSource{
 		source:          source,
 		tableIdentifier: tableIdentifier,
 		columns:         columns,
+		inputChannel:    inputChannel,
+		outputChannel:   outputChannel,
+		channelSpec:     channelSpec,
 		errCh:           errCh,
 		done:            done,
+	}
+}
+
+// result returns the ComputePipesResult for this writer, identifying the DAG
+// edge it is: from its input channel to the output table it writes.
+func (wt *WriteTableSource) result() ComputePipesResult {
+	// The destination is the same runtime value as EntityName: schema-qualified
+	// and with env vars already substituted, which TableSpec.Name is not. So
+	// "sql://" buys notation uniformity with the file sinks rather than
+	// information, and it must be built from here rather than from the config.
+	return ComputePipesResult{
+		Type:              SinkDbTable,
+		EntityName:        wt.tableIdentifier.Sanitize(),
+		InputChannel:      wt.inputChannel,
+		OutputChannel:     wt.outputChannel,
+		OutputChannelSpec: wt.channelSpec,
+		OutputLocation:    "sql://" + wt.tableIdentifier.Sanitize(),
 	}
 }
 
@@ -100,11 +132,15 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 			close(done)
 		}
 		log.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount", recCount)
-		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
+		r := wt.result()
+		r.Err = fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)
+		copy2DbResultCh <- r
 		return
 	}
 	// log.Println("** DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
-	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
+	r := wt.result()
+	r.CopyRowCount = recCount
+	copy2DbResultCh <- r
 }
 
 func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, tableSpec *TableSpec) error {

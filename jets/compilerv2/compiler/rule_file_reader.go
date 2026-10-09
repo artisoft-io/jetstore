@@ -29,6 +29,9 @@ type RuleFileReader struct {
 	importedFileNames map[string]bool
 	importedFileInfo  []*ImportedFileInfo
 	readFile          readFileFunc
+	// The file the last source_file directive named — what the listener will
+	// attribute the next declaration to.
+	currentSourceFile string
 }
 
 func NewRuleFileReader(basePath string, mainFileName string, readFile readFileFunc) *RuleFileReader {
@@ -108,8 +111,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 
 	// Put jet compiler directive to mark the file, this also replace the import statement
 	// so the imported file starts at the next line
-	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
-	r.globalLineNum++
+	r.writeSourceFileDirective(fileName)
 
 	content, err := r.readFile(r.basePath, fileName)
 	if err != nil {
@@ -122,9 +124,14 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 		return nil // empty file
 	}
 
-	// Put the file ImportFileInfo on the stack
-	fileInfo := NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+nbrLines, 0)
-	r.importedFileInfo = append(r.importedFileInfo, fileInfo)
+	// Put the file ImportFileInfo on the stack. A file contributes one segment
+	// per uninterrupted run of its own lines, so a file with N imports produces
+	// up to N+1 of these. EndLine is provisional here and is corrected the
+	// moment the segment stops being filled: it is computed from the file's
+	// line count, which includes the import lines that get replaced rather
+	// than written.
+	segment := NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+nbrLines, 0)
+	r.importedFileInfo = append(r.importedFileInfo, segment)
 	r.importedFileNames[fileName] = true
 
 	for iLine, line := range lines {
@@ -136,8 +143,12 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 			importFileName := extractImportFileName(line)
 			if importFileName != "" {
 
-				// Pause the current file
-				fileInfo.EndLine = r.globalLineNum
+				// Close the segment currently being filled. It must be that
+				// segment and not the first one: with two imports in one file,
+				// re-closing the first would stretch its range over everything
+				// the imports contributed, and GetLocalFileAndLine returns the
+				// first range that matches.
+				segment.EndLine = r.globalLineNum
 				remainingLines := nbrLines - iLine - 1
 
 				// Read the imported file
@@ -146,9 +157,17 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 					return err
 				}
 
-				// Resume the current file
-				r.importedFileInfo = append(r.importedFileInfo,
-					NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+remainingLines, iLine+1))
+				// Resume the current file, re-marking it as the source: the
+				// directive is what the listener attributes declarations to
+				// (currentRuleFileName), so without it everything after an
+				// import in this file would be recorded as belonging to the
+				// file that was imported.
+				if remainingLines > 0 {
+					r.writeSourceFileDirective(fileName)
+				}
+				segment = NewImportedFileInfo(fileName, r.globalLineNum,
+					r.globalLineNum+remainingLines, iLine+1)
+				r.importedFileInfo = append(r.importedFileInfo, segment)
 			}
 		} else {
 			r.combinedContent.WriteString(line + "\n")
@@ -156,7 +175,26 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 		}
 	}
 
+	// Close the final segment at the line actually reached rather than leaving
+	// the provisional estimate, which over-counts by one per import consumed
+	// after this segment began.
+	segment.EndLine = r.globalLineNum
+
 	return nil
+}
+
+// writeSourceFileDirective marks the following lines as belonging to fileName.
+// It occupies one global line, so the caller's line accounting sees it — and it
+// is a no-op when fileName is already the file in effect, which keeps the
+// resume case from emitting a directive for a file whose import was its first
+// line.
+func (r *RuleFileReader) writeSourceFileDirective(fileName string) {
+	if r.currentSourceFile == fileName {
+		return
+	}
+	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
+	r.currentSourceFile = fileName
+	r.globalLineNum++
 }
 
 func splitLines(content string) []string {

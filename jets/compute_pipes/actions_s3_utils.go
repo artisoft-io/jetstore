@@ -373,3 +373,25 @@ func DownloadS3Object(externalBucket string, s3Key *FileKeyInfo, localDir string
 	// log.Println("downloaded", nsz, "bytes for key", s3Key)
 	return inFilePath, nsz, nil
 }
+
+// S3ObjectExists reports whether exactly this key is an object of the JetStore
+// bucket. ListS3Objects matches on prefix, so a key naming one object has to be
+// compared outright: a sibling whose name merely starts the same way is a
+// different file.
+//
+// Appended here rather than written at the call site so that `utils_csv_source.go`
+// needs no new import -- a line added to that file's import block displaces the
+// matrix citation that names its type switch, which is the accretion this
+// repository documents and would have been self-inflicted.
+func S3ObjectExists(key string) (bool, error) {
+	s3Objects, err := awsi.ListS3Objects("", &key)
+	if err != nil {
+		return false, fmt.Errorf("while calling awsi.ListS3Objects for key '%s': %v", key, err)
+	}
+	for _, s3Object := range s3Objects {
+		if s3Object.Key == key {
+			return true, nil
+		}
+	}
+	return false, nil
+}

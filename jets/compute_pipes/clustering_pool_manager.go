@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -25,9 +26,17 @@ type ClusteringPoolManager struct {
 	columnsCorrelation      []*ColumnCorrelation
 	analysisLookup          LookupTable
 	columnClassificationMap map[string]string
-	correlationOutputCh     *OutputChannel
-	poolWg                  *sync.WaitGroup
-	WaitForDone             *sync.WaitGroup
+	// columnMarginal holds one value histogram per participating column, over
+	// every input row on which that column is non-empty. The two marginals of
+	// a pair are the denominators of its uncertainty coefficient; see
+	// computeAssociation for the population approximation they carry. Written
+	// only by the distribution goroutine and read only after
+	// distributionResultCh has closed, which the distribution goroutine's own
+	// deferred close orders after the last write.
+	columnMarginal      map[string]*valueHistogram
+	correlationOutputCh *OutputChannel
+	poolWg              *sync.WaitGroup
+	WaitForDone         *sync.WaitGroup
 }
 
 type ColumnCorrelation struct {
@@ -36,6 +45,12 @@ type ColumnCorrelation struct {
 	distinct1Count   int
 	distinct2Count   int
 	observationCount int
+	// stats and scores carry the evidence the revised association measure is
+	// built on; see clustering_association.go. They are zero on a
+	// ColumnCorrelation built by NewColumnCorrelation, which exists for the
+	// callers that only have the three counts.
+	stats  columnEntropyStats
+	scores AssociationScores
 }
 
 func NewColumnCorrelation(c1, c2 string, dc1, dc2, oc int) *ColumnCorrelation {
@@ -81,6 +96,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		correlationOutputCh:     correlationOutputCh,
 		analysisLookup:          analysisLookup,
 		columnClassificationMap: make(map[string]string),
+		columnMarginal:          make(map[string]*valueHistogram),
 		poolWg:                  new(sync.WaitGroup),
 		WaitForDone:             new(sync.WaitGroup),
 	}
@@ -118,6 +134,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		if tag1map[columnTag] {
 			columns1Pos[column] = len(columns1)
 			columns1 = append(columns1, column)
+			poolMgr.columnMarginal[column] = newValueHistogram()
 			poolMgr.distributors = append(poolMgr.distributors, &ClusteringDistributor{
 				column1:             &column,
 				column1Pos:          (*source.Columns)[column],
@@ -127,7 +144,26 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		if tag2map[columnTag] {
 			columns2Pos[column] = len(columns2)
 			columns2 = append(columns2, column)
+			if poolMgr.columnMarginal[column] == nil {
+				poolMgr.columnMarginal[column] = newValueHistogram()
+			}
 		}
+	}
+	// The name and input-row position of every column that takes part, for the
+	// marginal accumulation below. A column classified into both sets appears
+	// once.
+	marginalColumns := make([]string, 0, len(poolMgr.columnMarginal))
+	for _, c := range columns1 {
+		marginalColumns = append(marginalColumns, c)
+	}
+	for _, c := range columns2 {
+		if !tag1map[poolMgr.columnClassificationMap[c]] {
+			marginalColumns = append(marginalColumns, c)
+		}
+	}
+	marginalSourcePos := make([]int, len(marginalColumns))
+	for i, c := range marginalColumns {
+		marginalSourcePos[i] = (*source.Columns)[c]
 	}
 	if config.IsDebug {
 		log.Printf("Got for column1: %s\n", strings.Join(columns1, ","))
@@ -192,6 +228,11 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				"column_name_2",
 				"distinct_count",
 				"total_non_nil_count",
+				// The group's sum of n*ln(n) over the column2 value counts.
+				// This channel is internal to the operator -- it is built here
+				// rather than declared in a .pc.json -- so adding a column to
+				// it changes no configuration.
+				"joint_n_log_n",
 			},
 		},
 	}
@@ -218,6 +259,23 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}()
 			// Distribute the input rows to the distributors
 			for input := range poolMgr.WorkersTaskCh {
+				// Accumulate the marginal distribution of each participating
+				// column over every row the operator sees. These are the
+				// denominators of the uncertainty coefficient -- the
+				// correction for a column that has few values anyway, which
+				// the bare distinct/observations ratio could not tell apart
+				// from a real dependency.
+				for i, pos := range marginalSourcePos {
+					if pos < len(input) && input[pos] != nil {
+						str, ok := input[pos].(string)
+						if !ok {
+							str = fmt.Sprintf("%v", input[pos])
+						}
+						if len(str) > 0 {
+							poolMgr.columnMarginal[marginalColumns[i]].add(str)
+						}
+					}
+				}
 				for _, distributor := range poolMgr.distributors {
 					if len(input) > distributor.column1Pos {
 						value := input[distributor.column1Pos]
@@ -257,6 +315,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		wName2 := (*workerOutputCh.Columns)["column_name_2"]
 		WCount := (*workerOutputCh.Columns)["distinct_count"]
 		WTotal := (*workerOutputCh.Columns)["total_non_nil_count"]
+		WNLogN := (*workerOutputCh.Columns)["joint_n_log_n"]
 		// Manager's output columns positions
 		col1Pos := (*correlationOutputCh.Columns)["column_name_1"]
 		col2Pos := (*correlationOutputCh.Columns)["column_name_2"]
@@ -280,12 +339,25 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 					correlationresult[wName2].(string), config.MinColumn2NonNilCount)
 				columnCorrelationAccumulator[key] = cc
 			}
-			cc.AddObservation(correlationresult[WCount].(int), correlationresult[WTotal].(int))
+			cc.AddObservation(correlationresult[WCount].(int), correlationresult[WTotal].(int),
+				correlationresult[WNLogN].(float64))
 		}
 
-		// Determine the column correlation
+		// Determine the column correlation.
+		// The accumulator is a map, so walk it in a stable order: the
+		// partition below is sensitive to the order its nodes are first seen
+		// in, and a schema-discovery operator whose output reshuffles between
+		// runs cannot be compared with itself.
+		depPos, hasDep := (*correlationOutputCh.Columns)["normalised_dependency"]
+		suPos, hasSU := (*correlationOutputCh.Columns)["symmetric_uncertainty"]
+		accumulatorKeys := make([]string, 0, len(columnCorrelationAccumulator))
+		for key := range columnCorrelationAccumulator {
+			accumulatorKeys = append(accumulatorKeys, key)
+		}
+		sort.Strings(accumulatorKeys)
 		poolMgr.columnsCorrelation = make([]*ColumnCorrelation, 0, len(columns1)*len(columns2))
-		for _, cc := range columnCorrelationAccumulator {
+		for _, accumulatorKey := range accumulatorKeys {
+			cc := columnCorrelationAccumulator[accumulatorKey]
 			distinctC2Count, totalCount := cc.CumulatedCounts()
 			// Get the column positions in slice columns1
 			column1 := columns1Pos[cc.column1]
@@ -297,6 +369,23 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			correlationresult[distinct1Pos] = distinctC1Count
 			correlationresult[distinct2Pos] = distinctC2Count
 			correlationresult[totalPos] = totalCount
+			// The association measures, computed from the pair's joint
+			// statistics and the two columns' marginals.
+			scores := computeAssociation(cc.stats,
+				poolMgr.columnMarginal[cc.column1].marginal(),
+				poolMgr.columnMarginal[cc.column2].marginal())
+			// Report them on the correlation output channel when the channel
+			// declares a column for them. The five columns the operator has
+			// always required are unchanged, so an existing configuration is
+			// unaffected. normalised_dependency is the measure the clusters
+			// are built from; symmetric_uncertainty is the second opinion, and
+			// its doc comment says why it is not the first.
+			if hasDep {
+				correlationresult[depPos] = scores.NormalisedDependency
+			}
+			if hasSU {
+				correlationresult[suPos] = scores.SymmetricUncertainty
+			}
 			select {
 			case poolMgr.correlationOutputCh.Channel <- correlationresult:
 			case <-ctx.done:
@@ -315,6 +404,8 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 					distinct1Count:   distinctC1Count,
 					distinct2Count:   distinctC2Count,
 					observationCount: totalCount,
+					stats:            cc.stats,
+					scores:           scores,
 				})
 			}
 		}

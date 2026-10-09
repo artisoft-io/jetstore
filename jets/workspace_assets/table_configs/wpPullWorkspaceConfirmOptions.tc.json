@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "label": "The following action will be taken once the workspace is pulled:",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Action to be taken once workspace is refreshed",
+      "tooltip": "Go to previouos page to update the selected actions"
+    },
+    {
+      "name": "option",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isReadOnly": true,
+  "showSelectedOnly": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "Workspace will be compiled",
+      "wpCompileWorkspaceOption",
+      "0"
+    ],
+    [
+      "ALL client configuration will be loaded into database",
+      "wpLoadClientConfgOption",
+      "1"
+    ],
+    [
+      "SELECTED client configuration will be loaded into database",
+      "wpLoadSelectedClientConfgOption",
+      "2"
+    ]
+  ]
+}

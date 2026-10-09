@@ -1,5 +1,25 @@
 package rete
 
+// =====================================================================================
+// !!!  ADDING AN AGGREGATE OPERATOR? UPDATE THE COMPILER CHECK TOO  !!!
+//
+// An aggregate operator reads every value of a property, or of the properties a
+// config names with jets:entity_property / jets:value_property: max_of, min_of,
+// max_head_of, min_head_of, sorted_head, sum_values, join_values, size_of.
+//
+// Every aggregate MUST be listed in consequentAggregateOps in
+//     jets/compilerv2/compiler/jet_rule_listener_aggregate_salience.go
+//
+// Why: an aggregate in a consequent is computed once, when its rule fires; neither
+// engine recomputes a consequent. So the compiler rejects an aggregate whose
+// salience is not below every rule that writes what it reads. An aggregate missing
+// from that list is never checked, and a rule using it can aggregate over part of
+// its values with no error anywhere. Three production rules did exactly that.
+//
+// Add the operator to BOTH engines (jets/rete/expr_operator_factory.h and
+// jets/jetrules/rete/expr_operator_factory.go) and to that list, in the same change.
+// Lines marked AGGREGATE below are the ones the list must cover.
+// =====================================================================================
 // Factory for creating Expression operators
 
 func (ctx *ReteBuilderContext) CreateBinaryOperator(op string) BinaryOperator {
@@ -32,17 +52,19 @@ func (ctx *ReteBuilderContext) CreateBinaryOperator(op string) BinaryOperator {
 	case "*":
 		return NewMultOp()
 	case "min_of":
-		return NewMinMaxOp(true, false)
+		return NewMinMaxOp(true, false) // AGGREGATE: listed in consequentAggregateOps
 	case "max_of":
-		return NewMinMaxOp(false, false)
+		return NewMinMaxOp(false, false) // AGGREGATE: listed in consequentAggregateOps
 	case "min_head_of":
-		return NewMinMaxOp(true, true)
+		return NewMinMaxOp(true, true) // AGGREGATE: listed in consequentAggregateOps
 	case "max_head_of":
-		return NewMinMaxOp(false, true)
+		return NewMinMaxOp(false, true) // AGGREGATE: listed in consequentAggregateOps
 	case "sorted_head":
-		return NewSortedHeadOp()
+		return NewSortedHeadOp() // AGGREGATE: listed in consequentAggregateOps
 	case "sum_values":
-		return NewSumValuesOp()
+		return NewSumValuesOp() // AGGREGATE: listed in consequentAggregateOps
+	case "join_values":
+		return NewJoinValuesOp() // AGGREGATE: listed in consequentAggregateOps
 
 		// String operators
 	case "literal_regex", "apply_regex":
@@ -70,7 +92,7 @@ func (ctx *ReteBuilderContext) CreateBinaryOperator(op string) BinaryOperator {
 	case "exist_not":
 		return NewExistOp(true)
 	case "size_of":
-		return NewSizeOfOp()
+		return NewSizeOfOp() // AGGREGATE: listed in consequentAggregateOps
 
 		// Lookup binary operators
 	case "lookup":

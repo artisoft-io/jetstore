@@ -1,0 +1,964 @@
+{
+  "jetstore-owned-asset": {
+    "name": "data_model/jets_agentic.meta.json",
+    "owner": "jetstore",
+    "do_not_edit": true,
+    "source": "`jets-agentic generate`, from tools/jets_agentic/jets_agentic/model.py.",
+    "note": "Installed into this workspace at image build time and overwritten on every build; a local edit is lost, and the build fails rather than clobbering it silently. Extend the model from your own file that imports this one."
+  },
+  "model": "jets_agentic",
+  "version": "0.1.0",
+  "prefix": "jetsa",
+  "entities": {
+    "jetsa:AgentRun": {
+      "description": "One execution of one agent: the unit the audit store correlates on (\u00a77.2's run_id) and the carrier of the reproducibility fields the proposal's generated_by block names (\u00a7A.2.7).",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:run_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The run identity; agent_audit.run_id correlates to it.",
+          "key": true
+        },
+        "jetsa:agent_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The agent that ran."
+        },
+        "jetsa:agent_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The agent's version, for reproducibility (\u00a7A.2.7 generated_by)."
+        },
+        "jetsa:model_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The model that served the run."
+        },
+        "jetsa:prompt_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The prompt version, for reproducibility."
+        },
+        "jetsa:tier": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The autonomy tier the run executed under, recorded not enforced (\u00a79.1).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:started_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the run started."
+        },
+        "jetsa:ended_at": {
+          "type": "datetime",
+          "array": false,
+          "required": false,
+          "description": "When the run ended; unset while running."
+        },
+        "jetsa:run_status": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The run outcome: succeeded, exhausted, interrupted or failed; unset while running (scoped per F7: status is \u00a7A.2.7's name on Incident). Corrected at D.5: this read 'succeeded, failed, interrupted' while the loop wrote 'exhausted' - the budget running out is not a failure, it is the compile-pass rate's denominator - and never wrote 'interrupted' until the same task gave it a wall-clock cap to distinguish from a caller's cancellation."
+        },
+        "jetsa:triggered_by": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "What started the run: a schedule, an anomaly, a user (scoped per F7: trigger_ref is \u00a7A.2.10's name on ChangeProposal)."
+        },
+        "jetsa:domain_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The domain model version the run reasoned against (\u00a75.3)."
+        },
+        "jetsa:iteration_cap": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "Maximum propose-verify-repair iterations before the run ends as exhausted; the bound \u00a77's Rung 3 asks for without saying by what."
+        },
+        "jetsa:wall_clock_cap_seconds": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "Maximum wall-clock seconds for the whole run, carried on the run's context; the only cap that bounds a call the request timeout missed."
+        },
+        "jetsa:token_spend": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "Total tokens consumed by the run, accumulated from the inference responses; unset while running. Recorded rather than capped in phase 1 - it is what lets the eval harness compare sampling policies at equal spend (\u00a74.3)."
+        }
+      }
+    },
+    "jetsa:ApprovalEvent": {
+      "description": "One human or agent decision on a supervised subject: the supervision seam. Outcomes are appended, never updated \u2014 a decision is a new event referencing the same subject (\u00a77.2).",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:approval_event_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The event identity.",
+          "key": true
+        },
+        "jetsa:run_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The AgentRun this event belongs to (scoped per F7: run_id names the run's own identity)."
+        },
+        "jetsa:subject_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Remediation or ChangeProposal being decided."
+        },
+        "jetsa:from_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The approval state before the decision.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:to_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The approval state after the decision.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:actor": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Who decided: a user_email or an agent identity."
+        },
+        "jetsa:tier_at_event": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The autonomy tier at the time of the event (\u00a77.2; scoped per F7).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:decided_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the decision was made."
+        },
+        "jetsa:decision_rationale": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Why, in the actor's words (scoped per F7: rationale is \u00a7A.2.10's name on ChangeProposal)."
+        }
+      }
+    },
+    "jetsa:ChangeProposal": {
+      "description": "A proposed code or configuration change (\u00a7A.2.10), flattened to scalar and array properties: code_diff, ci_result and impact_analysis are nested objects in the schema and JetRules has no anonymous nested object.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:proposal_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The proposal identity (\u00a7A.2.10: ^chg_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:trigger": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What prompted the proposal (\u00a7A.4 ChangeTrigger vocabulary; carried as text in Phase 0 \u2014 the vocabulary ships with its consumer)."
+        },
+        "jetsa:trigger_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Incident, drift detection, or backlog item."
+        },
+        "jetsa:affected_pipelines": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "The pipelines the change touches (min 1)."
+        },
+        "jetsa:code_diff_repository": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "code_diff.repository of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_branch": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "code_diff.branch of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_files_changed": {
+          "type": "text",
+          "array": true,
+          "required": false,
+          "description": "code_diff.files_changed of \u00a7A.2.10. Corrected at D.7: declared list[str] with default=None, which Pydantic does not validate and which the DDL emitter read as required-and-defaulted-to-null - two claims that cannot both hold. The default says the intent was optional."
+        },
+        "jetsa:code_diff_lines_added": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "code_diff.lines_added of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_lines_removed": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "code_diff.lines_removed of \u00a7A.2.10."
+        },
+        "jetsa:rationale": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Why the change is proposed."
+        },
+        "jetsa:assumptions_made": {
+          "type": "text",
+          "array": true,
+          "required": false,
+          "description": "The assumptions the proposal rests on. Corrected at D.7 with code_diff_files_changed, same defect."
+        },
+        "jetsa:generated_tests": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "The tests generated with the change (min 1)."
+        },
+        "jetsa:ci_result_status": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "ci_result.status: passed, failed, pending."
+        },
+        "jetsa:ci_result_tests_run": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "ci_result.tests_run."
+        },
+        "jetsa:ci_result_tests_failed": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "ci_result.tests_failed."
+        },
+        "jetsa:impact_affected_assets": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "impact_analysis.affected_downstream_assets, as asset refs."
+        },
+        "jetsa:impact_clinical_relevance_touched": {
+          "type": "bool",
+          "array": false,
+          "required": true,
+          "description": "impact_analysis.clinical_relevance_touched \u2014 the flag \u00a710 escalates on."
+        },
+        "jetsa:approval_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the proposal sits in the approval lifecycle.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:proposal_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The domain model version the proposal was generated against (scoped per F7; domain_model_version stays on AgentRun)."
+        }
+      }
+    },
+    "jetsa:Anomaly": {
+      "description": "A deterministic detector's observation (\u00a7A.2.6), widened at N.2 from the skeleton to what phase-3 plan \u00a712.2 says the execution record can actually populate, and made a table. **The field list is derived from \u00a712.2's six derivable rows, not from readability.** Every property below is populated by at least one of them; two of \u00a7A.2.6's optional properties are left out because none of the six can populate them, which is \u00a712's own test applied honestly: - `confidence` \u2014 \u00a7A.2.6 has it optional. All six rows are predicates or windowed aggregates over a relational table (\u00a712.3), so a detector emits a fact and has no calibrated confidence to report. Adding it would invite a constant. **Its consumer is the Observer agent, not a detector.** - `correlation_group_id` \u2014 \u00a7A.2.6 says *\"Assigned by Observer Agent\"*, so by construction no deterministic detector writes it. Clustering anomalies into an Incident is `Incident.hypotheses`' side of the model. Both are recorded as I-126 rather than silently dropped. **Three of \u00a7A.2.6's required properties are optional here**, because \u00a712.2 fixes which rows carry a number: `expected_min`, `expected_max` and `deviation_magnitude` exist for rows 1 and 3, which compare against a history window, and do not exist for rows 2, 4, 5 and 10, which are within-run predicates with no range and no magnitude. Requiring them would force a detector to invent one. Recorded as I-126. **Names are class-scoped per F7 and the plan's instruction to name against the namespace rather than for readability.** `subject_ref` is a hard collision \u2014 it is ApprovalEvent's, declared there first \u2014 and `signal_type`, `observed_value`, `detector_ref` and `session_id` are exactly the generic names a client workspace would want for something else. Each carries its \u00a7A.2.6 name in its description, per the model's documented-against rule.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:anomaly_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The anomaly identity (\u00a7A.2.6: ^anom_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:detected_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the detector emitted it."
+        },
+        "jetsa:anomaly_session_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The pipeline run the observation is drawn from - `session_id` on every table of the execution record, and the key `purge_database` deletes by (\u00a712.1). Scoped per F7, and deliberately not named run_ref: that is ApprovalEvent's and means an AgentRun, which this is not."
+        },
+        "jetsa:anomaly_subject_type": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What the observation is about (\u00a7A.2.6 names it subject_ref.entity_type). \u00a712.2's grain column: worker for rows 1-4, edge for rows 2, 5 and 10.",
+          "vocabulary": "AnomalySubject"
+        },
+        "jetsa:anomaly_subject_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The subject's identity (\u00a7A.2.6 names it subject_ref.entity_id; scoped per F7 against ApprovalEvent's subject_ref, which is a Remediation or ChangeProposal). For a worker, the step label, shard and jets_partition that key the row; for an edge, those plus the input and output channel."
+        },
+        "jetsa:anomaly_signal_type": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Which failure mode was observed (\u00a7A.2.6 names it signal_type). Maps to a \u00a712.2 row: rejection_rate is row 1, volume is rows 2 and 5, step_regression row 3, worker_stall row 4, arrival row 10.",
+          "vocabulary": "SignalType"
+        },
+        "jetsa:anomaly_observed_value": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What was measured (\u00a7A.2.6 names it observed_value). **Text because \u00a7A.2.6 types it [number, string] and JetRules has no union**, and because \u00a712.2's rows genuinely differ: a ratio for row 1, a count for rows 2 and 5, a status for rows 3 and 4, a destination URI for row 10. The trigger property on ChangeProposal is carried as text for the same reason."
+        },
+        "jetsa:anomaly_expected_min": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The low end of what was expected (\u00a7A.2.6 names it expected_range.min; text on the same reasoning as observed_value). Optional rather than required as \u00a7A.2.6 has it: only rows 1 and 3 compare against a range at all."
+        },
+        "jetsa:anomaly_expected_max": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The high end of what was expected (\u00a7A.2.6 names it expected_range.max). Optional, same reasoning as expected_min."
+        },
+        "jetsa:anomaly_expected_basis": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**What the observation was compared against** (\u00a7A.2.6 names it expected_range.basis) - the history window and grouping for rows 1 and 3, the within-run invariant for rows 2, 4 and 5, the claim being checked for row 10. Required, and it is half of what \u00a712.3 says an actionable anomaly must be able to say."
+        },
+        "jetsa:anomaly_deviation_magnitude": {
+          "type": "double",
+          "array": false,
+          "required": false,
+          "description": "How far out, in standard deviations or as a ratio per signal type (\u00a7A.2.6 names it deviation_magnitude). Optional rather than required as \u00a7A.2.6 has it: rows 4, 5 and 10 are boolean predicates with no magnitude to report."
+        },
+        "jetsa:anomaly_confounders": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "**What the detector could not rule out** - the other half of \u00a712.3's test, and the per-observation form of \u00a712.2's *cannot see* column. Required; an empty list asserts that none of the fourteen applies, which is the contradicting_evidence discipline on Hypothesis reused. Has no \u00a7A.2.6 counterpart, because \u00a7A.2.6 was written against a warehouse rather than against this execution record.",
+          "vocabulary": "AnomalyConfounder"
+        },
+        "jetsa:anomaly_detector_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The deterministic detector that emitted this (\u00a7A.2.6 names it detector_ref, optional; required here because \u00a712.2's rows differ in what they can see and an anomaly whose detector is unknown cannot be read against the right row)."
+        }
+      }
+    },
+    "jetsa:Evidence": {
+      "description": "One evidence item of a Hypothesis (\u00a7A.2.8 `$defs`): a value object in working memory, so \u00a7B.3's escalation trigger \u2014 contradictory evidence exceeding supporting \u2014 is a rule-countable fact rather than a JSON blob.",
+      "base": "owl:Thing",
+      "as_table": false,
+      "properties": {
+        "jetsa:statement": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The evidence, in words.",
+          "data_classification": "PHI"
+        },
+        "jetsa:source": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the evidence came from.",
+          "vocabulary": "EvidenceSource"
+        },
+        "jetsa:source_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "A resolvable reference into the source."
+        }
+      }
+    },
+    "jetsa:Hypothesis": {
+      "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output contract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration control, not a documentation nicety (\u00a7A.2.8's own note). **Made a table at AB.1, and it gained exactly one property to be one.** \u00a7A.2.8 nests a hypothesis inside its incident, so nothing in the imported schema names the incident it belongs to \u2014 which is adequate for a JSON document and is not adequate for a row. `hypothesis_incident_ref` is that name and it is **required**: a hypothesis whose incident is unknown cannot be ranked against its siblings, which is what `rank` is for. The departure from \u00a7A.2.8 is stated rather than applied silently, on I-126's precedent (**I-286**). **The parent keeps its object property and the child gains a reference, and both are correct.** `Incident.hypotheses` is what a rule traverses in working memory; `hypothesis_incident_ref` is what a query joins on. The DDL emitter resolves the redundancy in the direction relational modelling already settles \u2014 see `_table_columns`, which omits a column for an object property whose target is itself a table.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:hypothesis_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The hypothesis identity.",
+          "key": true
+        },
+        "jetsa:hypothesis_incident_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Incident this hypothesis is about. Has no \u00a7A.2.8 counterpart, which nests a hypothesis inside its incident rather than keying it; required here because a table needs the join its parent's array gave it for free (AB.1, I-286). Scoped per F7 against Remediation's incident_ref."
+        },
+        "jetsa:cause": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The hypothesised cause (max 500 chars in \u00a7A.2.8)."
+        },
+        "jetsa:cause_category": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The causal taxonomy entry.",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:confidence": {
+          "type": "double",
+          "array": false,
+          "required": true,
+          "description": "The agent's confidence, 0..1."
+        },
+        "jetsa:rank": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "The rank among the incident's hypotheses, 1-based."
+        },
+        "jetsa:supporting_evidence": {
+          "type": "resource",
+          "array": true,
+          "required": true,
+          "description": "The evidence for (min 1).",
+          "entity": "jetsa:Evidence"
+        },
+        "jetsa:contradicting_evidence": {
+          "type": "resource",
+          "array": true,
+          "required": true,
+          "description": "The evidence against \u2014 required; empty only where the agent explicitly asserts none exists (\u00a7A.2.8).",
+          "entity": "jetsa:Evidence"
+        },
+        "jetsa:hypothesis_locus": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**The AC.1 verdict this hypothesis was derived from** - the same nine-value vocabulary Incident.incident_locus is constrained by, deliberately not a second list (F68). Added at AC.3 by the user's answer to Q-46, before the first row was written rather than after. Required: AC.2's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly the failure mode that task discovered, in a form that hides it.",
+          "vocabulary": "IncidentLocus"
+        },
+        "jetsa:basis": {
+          "type": "resource",
+          "array": false,
+          "required": true,
+          "description": "**How the rank was arrived at, as counts** (Q-46). Section 19.7 graded criterion 45's last clause as met for what AC.2 emits and not surviving the write; this is the column that carries it. Required, because a hypothesis whose basis is absent is one nobody can check and the whole argument for the deterministic floor is that its arithmetic is checkable.",
+          "entity": "jetsa:HypothesisBasis"
+        }
+      }
+    },
+    "jetsa:Incident": {
+      "description": "A triaged cluster of anomalies (\u00a7A.2.7), keyed on a session (AB.1). Widened at AB.1 from the skeleton to what phase-4 plan \u00a79's reading of the execution record says an incident can be *about*, and made a table. The first line above is deliberately a complete sentence: the `.jr` emitter takes an entity's class comment from the docstring's first **physical** line, so a sentence that wraps is published half-written (I-288). **The widening is a grain and a locus, and both come from the record rather than from \u00a7A.2.7.** **The grain (\u00a79.6, I-264).** As declared through Phase 3 this entity had six properties \u2014 identity, classification, severity, status, model version and its hypotheses \u2014 and **none of them was a session, a run, a pipeline or a time**, so an incident could not say what it was about. Q-23 asked whether an incident aggregates anomalies or is one per anomaly; the record answers that it aggregates and that the key is `session_id`, because seven tables can carry evidence for an incident and `session_id` is the only key all seven share (F202). `incident_session_id` is therefore required. **The step and shard references are optional and that is the finding, not a hedge**: localisation is a property of an incident and not its identity, evidenced where the locus supplies it and absent where it does not. **The boundary of that answer is worth keeping in view.** *One incident per session* is the grain the record can **evidence**; it is not a claim that a run produces at most one incident. Two anomalies in one session with disjoint loci are arguably two incidents and nothing in the record forbids it. What is settled is that an incident cannot be keyed *below* the session. `AC.1` decides whether to split within one. **The locus (\u00a79.5).** `incident_locus` is required and is typed against `IncidentLocus`, which is what the record actually decides; `classification` stays, typed against the imported `IncidentClassification`, which is what a diagnosis claims. Carrying both is \u00a79.5's recommendation and it is followed here rather than resolved \u2014 see `IncidentLocus`'s docstring for why pruning the imported taxonomy is not this project's call to make. **The one thing \u00a79.5 did not settle is which of the two is required, and the answer follows from its own finding.** `classification` is **optional** (I-289). \u00a79.5 says the record supplies a locus and never a cause and \u00a79.8 puts the step between them in `AC.2`; a required classification would make a deterministic triage step unable to write an incident without inventing a cause, which is R-27's failure compiled into the schema. Optional is not pruning: the property and its ten values both survive, and N.2 has the precedent \u2014 three of \u00a7A.2.6's required properties are optional on `Anomaly` because requiring them would force a detector to invent a number (I-126). **`incident_confounders` reuses `AnomalyConfounder` deliberately.** \u00a79.6 requires an incident that names a step to inherit `step_label_ambiguous`, because `cpipes_step_id` is a stage location rather than a step identity (P3 F52). A second vocabulary saying the same thing one entity over would make a detector's qualifier and a triage step's qualifier incomparable, which is the failure the closed vocabulary was authored to prevent. Required, with an empty list asserting that none of the fourteen applies \u2014 Anomaly's own discipline. **The run reference (AB.4, Q-32), added 2026-09-04 and it is a governance property rather than a localisation one.** Every other reference on this entity says where in the *execution record* the incident sits; `incident_run_ref` says which *agent run* raised it, and it exists because `jetsapi.agent_audit` is keyed on an `AgentRun` by construction. Without it a transition on an incident reached the hash chain only when its own caller named a run, which put the human corrections I-276 exists to capture on the unchained side of the line \u2014 the record of the system's own reclassifications tamper-evident and the record of a person's corrections to them not. The user settled Q-32 on that argument; the alternatives, a chain that accepts a null run and a separate human record, are refused rather than unconsidered. **What it does not do is make the chain unconditional**, and the residue is narrower than what it replaces rather than gone. The condition moves from *the transition names a run* to *the incident names one*, so an incident raised by a deterministic triage step is still outside the chain \u2014 but it is outside it for **every** actor rather than for humans alone, which is the property a governance record needs (R-44). **What is still not here.** \u00a7A.2.7's impact and generated_by blocks, which still have no consumer, and `correlation_group_id`, whose \u00a7A.2.6 counterpart was left off Anomaly for the same reason. The rule is unchanged: a skeleton widens when something can say what its fields are for.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:incident_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The incident identity (\u00a7A.2.7: ^inc_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:incident_session_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The pipeline run the incident is about - `session_id` on every table of the execution record, the only key all seven evidence-bearing tables share (F202), and the key `purge_database` deletes by. Required: Q-23's answer is that an incident aggregates and that it cannot be keyed below the session (\u00a79.6, I-264). Scoped per F7 against Anomaly's anomaly_session_id."
+        },
+        "jetsa:incident_run_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The AgentRun that raised the incident, when one did (AB.4, Q-32). **This is what makes a classification transition chainable** - jetsapi.agent_audit is keyed on an AgentRun by construction (F254), so before this property a transition could reach the hash chain only if its own caller named a run, and the callers least able to name one are the human ones the labelling instrument depends on (I-297, R-34). RecordIncidentTransition now reads this off the row and uses it when the caller supplies none. **Optional, and optional is not a hedge**: AC.1 is deterministic by design and a deterministic triage step is not an AgentRun, so an incident it raises names none and there is no honest value to invent. Scoped per F7 against ApprovalEvent's run_ref, AgentRun's run_id and IncidentEvent's event_run_ref; it is not incident_session_id, which is a *pipeline* session and names no agent (the naming hazard AB.1 refused the name run_ref for)."
+        },
+        "jetsa:incident_detected_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the incident was raised. Scoped per F7 against Anomaly's detected_at, which is when a detector emitted an observation rather than when triage clustered them."
+        },
+        "jetsa:incident_locus": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**Where in the execution record the evidence sits** - \u00a79.4's nine loci, the taxonomy the record can evidence and the one AC.1 classifies deterministically. Required, and carried beside classification rather than instead of it (\u00a79.5): the locus is evidence, the classification is a claim.",
+          "vocabulary": "IncidentLocus"
+        },
+        "jetsa:classification": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The causal classification (\u00a7A.4's ten), kept and unpruned on \u00a79.5's recommendation. **Optional rather than required as \u00a7A.2.7 has it** (I-289): \u00a79.5's finding is that the record supplies a locus and never a cause, and \u00a79.8 puts the step from one to the other in AC.2 rather than AC.1 - so a required classification would force a deterministic triage step to invent one, which is R-27's failure written into the schema. Read with \u00a79.5's table beside it: three of the ten have no substrate in JetStore's record at all and four are evidenced only at a grain coarser than the class name implies (I-262).",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:severity": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The severity.",
+          "vocabulary": "Severity"
+        },
+        "jetsa:status": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the incident sits in \u00a7A.5's state machine.",
+          "vocabulary": "IncidentStatus"
+        },
+        "jetsa:incident_step_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional by construction - four of \u00a79.4's nine loci have no step. An incident that sets it should carry step_label_ambiguous in incident_confounders (F52)."
+        },
+        "jetsa:incident_shard_ref": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "The shard the incident localises to, where the locus supplies one. Optional for the same reason as incident_step_ref, and narrower: `shard_id` is on three of the seven evidence-bearing tables and the edge table reaches it only through its parent (F202)."
+        },
+        "jetsa:incident_confounders": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "**What the incident's evidence could not rule out**, in the same closed vocabulary a detector writes. Required; an empty list asserts that none of the fourteen applies. \u00a79.6 requires step_label_ambiguous whenever incident_step_ref is set.",
+          "vocabulary": "AnomalyConfounder"
+        },
+        "jetsa:hypotheses": {
+          "type": "resource",
+          "array": true,
+          "required": false,
+          "description": "The ranked causal hypotheses. Corrected at AB.1: this was declared list[Hypothesis] with default=None, which Pydantic does not validate and which the sidecar reported as optional while the DDL emitter would have read as required - the same defect D.7 fixed twice on ChangeProposal, found here because tabling the entity is what made a column depend on the answer.",
+          "entity": "jetsa:Hypothesis"
+        },
+        "jetsa:incident_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "\u00a7A.2.7's domain_model_version, scoped per F7: the model version the incident was raised against."
+        }
+      }
+    },
+    "jetsa:Remediation": {
+      "description": "A proposed corrective action (\u00a7A.2.9), tabled at AB.2 and with no executor. The first line above is deliberately one physical line: the `.jr` emitter takes an entity's class comment from the docstring's first line (I-288). **It is a table before it is a writer, and that is the task rather than a shortcut.** Nothing in this phase proposes a remediation, and nothing executes one \u2014 criterion 47 says in terms that nothing acts. What the table buys is that Phase 5's autonomy gate has a subject: \u00a71.4's finding is that autonomy tiers are *recorded, trustworthy, and gate nothing*, and `autonomy_tier_required` is the one property in the model that names the authority an action needs rather than the authority a run had. A tier with nowhere to be written is the shape gap 7b has been in for four phases. **The one field added to the skeleton is `reversibility`, and its consumer is a constraint this task installs rather than a task that might want it.** The model's rule is that a skeleton widens when something can say what its fields are for; \u00a7A.2.9's validator rule says what this one is for, and `remediation_reversibility_ck` is where it is enforced. **That is the only property of a remediation this phase can act on without an executor** \u2014 every other gate reads what the action *does*, and what it does is the executor's to say. **Four of \u00a7A.2.9's nine required properties are deliberately absent, and naming them is cheaper than rediscovering them** (**I-294**): - `action_type` (\u00a7A.4's ten-member `RemediationActionType`) \u2014 the dispatch key. Nothing dispatches, and a tier rule keyed on it (*T2 may rerun a load and may not rotate a credential*) would be this task inventing Phase 5's gate. It is the first widening the executor's task owes. - `proposed_by` \u2014 `$ref Incident#/properties/generated_by`, the block `Incident` also does not carry (AB.1), for the same reason. - `rationale` and `blast_radius` \u2014 both are read by a supervision screen deciding whether to approve, and `AE.1` is read-only this round. **`approver` and `approved_at` are absent for a different reason and it is not deferral.** `ApprovalEvent.subject_ref` is documented as *\"the Remediation or ChangeProposal being decided\"*, so who approved and when are already a row in `jetsapi.approval_event`. Inlining them here would be two writable statements of one fact, which is the rule `_table_columns` already applies to `Incident.hypotheses`. **A.5's Remediation machine and A.4's ApprovalState do not agree, and this entity cannot fix it** (**F252**, **I-295**). \u00a7A.2.9 types `approval_state` against `ApprovalState`; A.5 draws the machine over `proposed`, `awaiting_approval`, `executing`, `succeeded`, `failed`, `rolled_back`, `partial` and `escalated`, of which ApprovalState contains **two**. That is the divergence `lifecycle.go` recorded for ChangeProposal, where four states were missing, arriving an order of magnitude larger. **The schema is followed and the diagram is recorded**, because six of the eight missing states describe an execution this phase does not perform, and widening a controlled vocabulary for an executor that does not exist is how a model acquires fields nobody uses.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:remediation_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The remediation identity (\u00a7A.2.9: ^rem_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:incident_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Incident this remediates (\u00a7A.2.9 names it incident_id; scoped per F7 against Incident's identity)."
+        },
+        "jetsa:autonomy_tier_required": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The tier the action requires (recorded; enforcement is by privilege, \u00a79.1).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:reversibility": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Whether the action can be undone (\u00a7A.2.9's enum, all three values). Required, and the one field AB.2 adds to this skeleton: \u00a7A.2.9's validator rule - no irreversible remediation may be persisted at any tier (\u00a74.3) - is checkable, and remediation_reversibility_ck is where it is checked. The vocabulary keeps the third member because the rule is about it.",
+          "vocabulary": "Reversibility"
+        },
+        "jetsa:remediation_approval_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the remediation sits in the approval lifecycle (\u00a7A.2.9 names it approval_state; scoped per F7 against ChangeProposal's).",
+          "vocabulary": "ApprovalState"
+        }
+      }
+    },
+    "jetsa:DomainModelVersion": {
+      "description": "A released version of the domain model itself (proposal \u00a75.3: identity and intent given, fields ours). Skeleton: the version and when it took effect.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The semantic version of the model release.",
+          "key": true
+        },
+        "jetsa:effective_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When this version became the current one."
+        }
+      }
+    },
+    "jetsa:IncidentEvent": {
+      "description": "One transition of one Incident: who moved it, when, and from what to what. The first line above is deliberately one physical line (I-288). **Ours entirely; the proposal has no counterpart, and A.5 is why it is owed.** A.5's preamble says *\"Every transition records actor, agent version where applicable, and timestamp\"* and then draws four machines and no entity to record any of them. `ApprovalEvent` is that entity for `ChangeProposal`; nothing was it for `Incident`, so a transition on an incident was a mutable `status` column and nothing else (**I-276**). **What that cost is a population rather than an audit trail.** Three of `IncidentStatus`'s eleven values are adjudications rather than progress \u2014 `reclassified`, `verified` and `suppressed_as_benign` \u2014 so an incident's lifecycle already carried the verdicts \u00a711.3.1's four label-bearing metrics need. What it did not carry is who reached them, and **a label the measured system may have written is not a label**. Phase 4 still cannot have a labelled population; this is the instrument that lets Phase 5 accumulate one, which is plan \u00a710.7's argument and is scheduling rather than consolation. **It is a second use of K.1's and K.3's pattern, not a new mechanism.** `jetsapi.agent_audit` already carries an actor; `RecordApproval` already guards a transition on its expected `from_state` and writes the typed row, the chain event and the subject's new state in one transaction; `audit/lifecycle.go` already holds a transition table the server enforces and a screen reads. `audit/incident.go` and `audit/incident_lifecycle.go` are those three things again over this entity. **Three departures from `ApprovalEvent`, each with a reason.** - **`event_actor_kind` is a column, where `ApprovalEvent` leaves human and agent apart by the shape of `actor`.** See `ActorKind` (**I-292**): the metric partitions on kind, and a partition decided by a regular expression over an email address is not a partition. - **`classification_before` and `classification_after` travel on the event.** The incident row is mutable, so a second correction overwrites the first and the pairing \u00a711.3.1 scores is gone. `classification_before` is **read from the row inside the write** rather than accepted from the caller (`RecordIncidentTransition`), which is the handler's *\"checked against the row, not trusted as it\"* rule moved down to where every caller gets it: the party being measured does not get to state what it is being measured against. - **There is no `tier_at_event`.** An approval is an authority-bearing act and an incident transition is not; the tier a *corrective action* requires is `Remediation.autonomy_tier_required`, one entity over. Recorded as **I-296** rather than left as an omission. **~~`event_run_ref` is optional and that is the one weakness worth stating.~~ Half of that weakness is gone as of AB.4 and the half that remains is a different shape.** It read: `agent_audit.run_id` is `AgentRun`'s key, neither a human working a screen nor a deterministic triage step is an `AgentRun`, and `Incident` has no run reference at all where `ChangeProposal.trigger_ref` carries one (**F255**) \u2014 so a transition with no run was durable, attributable and not tamper-evident, and the alternative was refused as deciding `AE.1`'s design from here (**R-34**, **I-297**). **`Incident` now carries `incident_run_ref`** (Q-32, decided by the user 2026-09-04), and `RecordIncidentTransition` reads it off the row when the caller names no run. So this column stays optional and is now **filled from the incident for the transitions that could not fill it themselves** \u2014 a human's correction of an agent-raised incident is chained, which is the row the labelling instrument is for. What survives is that an incident raised by something that is not an `AgentRun` chains nothing, and that residue is uniform across actors rather than aimed at humans (**R-44**).",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:incident_event_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The event identity.",
+          "key": true
+        },
+        "jetsa:event_incident_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Incident this transition moved. Scoped per F7 against Remediation's incident_ref and Hypothesis's hypothesis_incident_ref; the mechanical <class>_incident_ref form would stutter here, this class name already beginning with incident."
+        },
+        "jetsa:from_status": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The status the incident was in. Scoped per F7 against ApprovalEvent's from_state, and named status rather than state because it is IncidentStatus's vocabulary and not ApprovalState's - the two machines share neither members nor shape (A.5).",
+          "vocabulary": "IncidentStatus"
+        },
+        "jetsa:to_status": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The status it moved to.",
+          "vocabulary": "IncidentStatus"
+        },
+        "jetsa:event_actor": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Who moved it: a user_email or an agent identity, as jetsapi.agent_audit.actor and ApprovalEvent.actor carry it (scoped per F7 against the latter)."
+        },
+        "jetsa:event_actor_kind": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "**Whether that actor was a person or the system** - the column I-276 asks for, and the one a label-bearing metric partitions on. Required: a transition whose kind is unknown counts for nothing, so there is no honest default.",
+          "vocabulary": "ActorKind"
+        },
+        "jetsa:transitioned_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the transition was made. Scoped per F7 against ApprovalEvent's decided_at and Incident's incident_detected_at, which is when the incident was raised rather than when it last moved."
+        },
+        "jetsa:event_run_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The AgentRun this transition belongs to, when it has one; the chain event is appended to that run and is omitted when this is unset. **Filled from the caller when it names a run and from Incident.incident_run_ref otherwise** (AB.4), so a human at a screen chains onto the run that raised the incident rather than onto nothing. Still optional, because an incident raised by something that is not an AgentRun supplies none either (R-44). Scoped per F7 against ApprovalEvent's run_ref."
+        },
+        "jetsa:classification_before": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The incident's classification before the transition, read from the row by RecordIncidentTransition rather than supplied by the caller. Null where the incident carried none - which is the ordinary case out of AC.1, since classification is optional and a locus is not a cause (I-289).",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:classification_after": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The classification the transition set, null where it changed none. Required in effect for a reclassification, by incident_event_reclassified_ck rather than by this annotation: A.5 says reclassified returns to triaged *with a new classification and a recorded reason*, and that is a cross-column rule.",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:transition_rationale": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Why, in the actor's words. Optional in general and required for a reclassification by the same CHECK (A.5). Scoped per F7 against ApprovalEvent's decision_rationale."
+        }
+      }
+    },
+    "jetsa:HypothesisBasis": {
+      "description": "How a hypothesis was ranked, as numbers (Q-46, answered by the user 2026-09-04). **Numbers rather than prose, and that is the whole of the shape.** `AC.2` emits a sentence per hypothesis and a sentence per ranking; a sentence cannot be checked against anything, and a count can. `supporting_count` and `contradicting_count` are the lengths of the two evidence arrays on the same row, so a reader \u2014 or a test \u2014 can confirm that the stored confidence is the ratio it claims to be, months after the run and without the run. **Why it is persisted at all, which the question had to settle rather than assume.** *Reconstructable by re-running* is false for the model arm: `AC.2` measured 16 hypotheses on one run and 13 on the next from identical input (\u00a719.6). And the evidence expires while the row persists, on two independent clocks \u2014 `RETENTION_DAYS` with no default and a hard-coded six months on the run header (P3 F54) \u2014 so even the deterministic floor's basis is reconstructable only inside a window nobody has set.",
+      "base": "owl:Thing",
+      "as_table": false,
+      "properties": {
+        "jetsa:supporting_count": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "How many evidence items were for the hypothesis. The length of supporting_evidence on the same row, stored so that the ratio confidence claims can be checked without the run."
+        },
+        "jetsa:contradicting_count": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "How many were against. Zero is a claim the ranker made, not a question it was never asked - contradicting_evidence is required and nil fails validation (F390)."
+        },
+        "jetsa:evidenceability": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What plan section 9.5 says the record can do for this hypothesis's cause class. It is AC.2's primary sort key rather than a gloss: a class the substrate cannot speak to outranks nothing, whatever its counts (I-361).",
+          "vocabulary": "Evidenceability"
+        }
+      }
+    }
+  },
+  "vocabularies": {
+    "AutonomyTier": {
+      "properties": [
+        "jetsa:autonomy_tier_required",
+        "jetsa:tier",
+        "jetsa:tier_at_event"
+      ],
+      "values": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "description": "\u00a7A.4. Lexicographic order is tier order \u2014 the ceiling comparisons of gap 7 work on the text directly, so do not relabel to the \u00a79.2 names and do not exceed T9 (\u00a74)."
+    },
+    "ApprovalState": {
+      "properties": [
+        "jetsa:approval_state",
+        "jetsa:from_state",
+        "jetsa:remediation_approval_state",
+        "jetsa:to_state"
+      ],
+      "values": [
+        "draft",
+        "validated",
+        "agent_reviewed",
+        "awaiting_human_approval",
+        "approved",
+        "approved_with_modification",
+        "rejected",
+        "superseded",
+        "deployed"
+      ],
+      "description": "\u00a7A.4 \u2014 the approval lifecycle (9 values)."
+    },
+    "AnomalySubject": {
+      "properties": [
+        "jetsa:anomaly_subject_type"
+      ],
+      "values": [
+        "feed",
+        "pipeline",
+        "stage",
+        "run",
+        "table",
+        "column",
+        "worker",
+        "edge"
+      ],
+      "description": "\u00a7A.2.6's `subject_ref.entity_type` \u2014 what an anomaly is *about*. **The first six are \u00a7A.2.6's; the last two are \u00a712.2's two grains.** The execution record's rows are per *worker* (run \u00d7 step label \u00d7 shard \u00d7 `jets_partition`) and per *edge* (worker \u00d7 input channel \u00d7 output channel), and neither is one of the six. `stage` is the near miss and is not the same thing: F52 reads `cpipes_step_id` as a stage location, but a worker is finer than a stage by shard and partition, and an edge is finer again. Added at N.2 with the SignalType additions above, on the same terms (I-127)."
+    },
+    "SignalType": {
+      "properties": [
+        "jetsa:anomaly_signal_type"
+      ],
+      "values": [
+        "volume",
+        "freshness",
+        "schema",
+        "distribution",
+        "rule_breach",
+        "cost",
+        "duration",
+        "rejection_rate",
+        "cardinality",
+        "referential",
+        "step_regression",
+        "worker_stall",
+        "arrival"
+      ],
+      "description": "\u00a7A.2.6's `$defs` \u2014 scoped to Anomaly, like EvidenceSource not in \u00a7A.4. **The first ten are \u00a7A.2.6's, verbatim and in its order. The last three are ours**, added at N.2 because the ten do not name three of the six failure modes phase-3 plan \u00a712.2 found derivable from JetStore's execution record, and `signal_type` is required by \u00a7A.2.6 \u2014 so without them an anomaly for those rows is unrepresentable rather than merely unlabelled. The ten were written for a warehouse's data-quality signals (volume, freshness, distribution, cardinality); \u00a712.2's rows are *execution* signals, which is a different substrate rather than a gap in the proposal. Of the ten, \u00a712.2 populates exactly two today: `rejection_rate` is row 1 and `volume` is rows 2 and 5. **N.4 is the party that confirms or overturns the three additions** \u2014 it builds the first two detectors and is the first caller that has to choose a value. Raised as I-127."
+    },
+    "AnomalyConfounder": {
+      "properties": [
+        "jetsa:anomaly_confounders",
+        "jetsa:incident_confounders"
+      ],
+      "values": [
+        "parse_errors_only",
+        "parquet_input",
+        "on_error_drop",
+        "max_input_count",
+        "sampling_cap",
+        "device_writer_output",
+        "merge_row_count_unknown",
+        "step_label_ambiguous",
+        "stall_cause_unknown",
+        "cross_step_join_unavailable",
+        "history_truncated",
+        "no_physical_location",
+        "stage_prefix_reused",
+        "location_aimed_not_reached"
+      ],
+      "description": "**Ours entirely, and it is the vocabulary form of \u00a712.2's *cannot see* column** (14 values). Not in the proposal at any level. Phase-3 plan \u00a712.3 is the reason it exists: *\"every derivable row needs at least one qualifier carried with the anomaly, or it is not actionable \u2026 an `Anomaly` that cannot say what it compared against and what it could not rule out reproduces the signal an operator learns to ignore\"*. `basis` carries the first half; this carries the second. **A member is an alternative explanation the detector could not exclude, or a bound on the comparison it made** \u2014 not a defect, and not a reason to suppress the anomaly. Each is traceable to one cell of \u00a712.2 or to \u00a712.7, named in the comment beside it; **the list is appended to, never renumbered**, on this repository's convention for numbered series. It is deliberately *not* free text. A named `text` literal makes a mistyped value a compile error rather than a comparison that silently never matches (the .jr emitter's own argument), and free text would make two detectors' qualifiers incomparable, which defeats the purpose."
+    },
+    "EvidenceSource": {
+      "properties": [
+        "jetsa:source"
+      ],
+      "values": [
+        "run_telemetry",
+        "lineage",
+        "commit_history",
+        "prior_incident",
+        "infrastructure_log",
+        "source_delivery_history",
+        "dq_result",
+        "code_inspection",
+        "profile",
+        "detector_confounder"
+      ],
+      "description": "\u00a7A.2.8's `$defs` \u2014 scoped to Evidence and deliberately NOT in \u00a7A.4, which is why the emitters discover vocabularies by reachability (10 values, 9 of them \u00a7A.2.8's). **The first nine are \u00a7A.2.8's; the tenth is ours, added at AB.1.** Phase-4 plan \u00a79.7 read all nine against what JetStore actually has: two are unconditional, four are conditional or partial, and **three have no substrate at all** \u2014 `commit_history` (no run names a commit, F196), `infrastructure_log` (what the record holds is a decoded `StoppedReason` string, not a log) and `prior_incident`, the last of which stops being substrate-less the moment `jetsapi.incident` exists, which is this task (I-263). That vocabulary is therefore **too wide** for the record, which is the mirror of I-127, where \u00a7A.2.6's was too narrow; the honest response is to say so rather than to prune an imported model unilaterally, so nothing is removed here. **What is added is a member for evidence that already exists and had nowhere to be filed.** `AnomalyConfounder`'s fourteen members are the record's own statement of what a detector could not rule out, they are a closed vocabulary, and every anomaly N.4's detectors write already carries them. That is contradicting evidence in the record's own words, and \u00a7A.2.8's nine sources have no member for it \u2014 so `AC.2`'s hardest requirement, the contradicting side of a ranked hypothesis, had a populated substrate and no way to name it. `detector_confounder` is that name, and it is an **addition** rather than a re-derivation: the only change this reading asks of an imported vocabulary (\u00a79.8)."
+    },
+    "IncidentClassification": {
+      "properties": [
+        "jetsa:cause_category",
+        "jetsa:classification",
+        "jetsa:classification_after",
+        "jetsa:classification_before"
+      ],
+      "values": [
+        "source_delivery_failure",
+        "source_content_change",
+        "transport_failure",
+        "parse_failure",
+        "validation_breach",
+        "transformation_defect",
+        "infrastructure_failure",
+        "dependency_failure",
+        "capacity_or_cost_deviation",
+        "benign_variation"
+      ],
+      "description": "\u00a7A.4 \u2014 the causal taxonomy of an incident (10 values)."
+    },
+    "IncidentLocus": {
+      "properties": [
+        "jetsa:hypothesis_locus",
+        "jetsa:incident_locus"
+      ],
+      "values": [
+        "run_not_started",
+        "step_never_started",
+        "worker_not_terminated",
+        "worker_failed",
+        "sink_failed_under_completed_worker",
+        "rows_lost_silently",
+        "per_record_failures_reported",
+        "per_record_failures_unreportable",
+        "written_not_arrived"
+      ],
+      "description": "**Ours entirely, and it is the taxonomy phase-4 plan \u00a79.4 derived from the execution record** (9 values). Not in the proposal at any level. **A locus is where in the record a cause would have to have left its evidence; it is not a cause.** \u00a79.5's finding is that the record supports triage and does not support root-cause attribution below the level of a hypothesis. The nine below are mutually distinguishable by predicates over `jetsapi` with no free-text parsing and no join outside it, and eight of the nine are computable in SQL of the shape N.3 decided. **Both vocabularies are carried, which is \u00a79.5's recommendation rather than this task's choice.** `IncidentClassification` above says what *produced* the failure and three of its ten members have no substrate in JetStore at all (I-262); pruning it on this project's authority is the unreviewed extraction gap 2b exists to prevent. So `classification` stays typed against \u00a7A.4's ten and `incident_locus` is added beside it. **The locus is evidence and the classification is a claim**, which is the distinction \u00a712.3 drew between an anomaly's observation and its basis. **R-27 is the risk this vocabulary creates rather than one it inherits**: a nine-member locus taxonomy sitting beside a ten-member cause taxonomy will be read as a second cause taxonomy, and *classified* will be read as *diagnosed*. The member names are written as observations rather than as diagnoses for that reason \u2014 `worker_not_terminated` and not `worker_hung`, `rows_lost_silently` and not `data_dropped`. Ordered as \u00a79.4 orders them: by how early the failure occurs, which is also roughly the order of how little the record retains. Appended to, never renumbered."
+    },
+    "Severity": {
+      "properties": [
+        "jetsa:severity"
+      ],
+      "values": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "\u00a7A.4 (5 values)."
+    },
+    "IncidentStatus": {
+      "properties": [
+        "jetsa:from_status",
+        "jetsa:status",
+        "jetsa:to_status"
+      ],
+      "values": [
+        "detected",
+        "triaged",
+        "diagnosed",
+        "remediation_proposed",
+        "awaiting_approval",
+        "remediating",
+        "resolved",
+        "verified",
+        "closed",
+        "reclassified",
+        "suppressed_as_benign"
+      ],
+      "description": "\u00a7A.4 \u2014 the incident lifecycle (11 values); the state machine is \u00a7A.5's."
+    },
+    "Reversibility": {
+      "properties": [
+        "jetsa:reversibility"
+      ],
+      "values": [
+        "fully_reversible",
+        "reversible_with_backfill",
+        "irreversible"
+      ],
+      "description": "\u00a7A.2.9's `reversibility` enum (3 values), verbatim and in its order. **The DDL accepts two of the three, and that is \u00a7A.2.9's own validator rule rather than a pruning.** The appendix states it in terms: *\"`reversibility: irreversible` is rejected at schema level. No irreversible remediation may be persisted at any tier (Section 4.3).\"* The vocabulary keeps all three \u2014 the third is what the rule is *about*, and a vocabulary that omitted it could not express the rule \u2014 and `remediation_reversibility_ck` is where the refusal happens. This is \u00a711.4's pattern used a second time: a stated invariant that is checkable and left in prose is one that goes quiet the first time nobody re-reads the appendix. The excluded member is read off this enum rather than spelled into the SQL, so a rename moves the rule instead of silently stopping it from firing (AB.2, **I-293**)."
+    },
+    "ActorKind": {
+      "properties": [
+        "jetsa:event_actor_kind"
+      ],
+      "values": [
+        "human",
+        "agent"
+      ],
+      "description": "**Ours entirely** (2 values). Not in the proposal at any level. **Who made a transition, as a column rather than as a spelling convention.** `ApprovalEvent.actor` and `jetsapi.agent_audit.actor` both carry *\"a user_email or an agent identity\"* and leave the two apart by the shape of the string. That is adequate for attribution \u2014 the question those columns were built to answer is *which* actor \u2014 and it is not adequate for the question I-276 asks, which is *which kind*. I-276's sentence is that **a label the measured system may have written is not a label**: \u00a711.3.1's four label-bearing metrics score an agent's classification against a human's correction, so a query that cannot partition the corrections by kind has no denominator. Deciding that by pattern-matching an email address would make the population a property of a regular expression. Two members and no more. `agent` covers a deterministic classifier as well as a model-driven one: the distinction that matters to a metric is whether the transition came from **outside** the system under test, and AC.1 being deterministic does not put it outside (AB.2, **I-292**)."
+    },
+    "Evidenceability": {
+      "properties": [
+        "jetsa:evidenceability"
+      ],
+      "values": [
+        "evidenced",
+        "conditional",
+        "coarse",
+        "asymmetric",
+        "none"
+      ],
+      "description": "**Ours entirely** (5 values), and it is phase-4 plan \u00a79.5's third column reduced to a vocabulary. Not in the proposal at any level. \u00a79.5 asked, per imported cause class, *can the record evidence this class*, and answered in prose per cell. `AC.2`'s ranker reduced those answers to five tiers and **sorts on them as its primary key** \u2014 a class the substrate cannot speak to is not a weak candidate, which is the finding that inverted its first ranking (**I-361**). The tier is therefore an input to a rank rather than a gloss on one, and `AC.3` persists it for that reason (Q-46). The order below is the sort order: better-evidenced first."
+    }
+  }
+}

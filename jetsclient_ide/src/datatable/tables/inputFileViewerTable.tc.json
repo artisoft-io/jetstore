@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "label": "Input File Viewer",
+  "columns": [],
+  "rowsPerPage": 50,
+  "source": "query",
+  "apiAction": "preview_file",
+  "from": [
+    {
+      "schema": "public",
+      "table": "s3"
+    }
+  ],
+  "where": [
+    {
+      "column": "file_key",
+      "formStateKey": "file_key"
+    }
+  ]
+}

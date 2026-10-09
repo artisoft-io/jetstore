@@ -135,7 +135,13 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 		if l > 0 {
 			groupByPos = make([]int, 0, l)
 			for _, name := range config.GroupByName {
-				groupByPos = append(groupByPos, (*source.Columns)[name])
+				pos, ok := (*source.Columns)[name]
+				if !ok {
+					// An unchecked lookup here used to map an unknown name to
+					// position 0, silently grouping by the wrong column.
+					return nil, fmt.Errorf("error: group_by key '%s' is not an input column to %s", name, source.Name)
+				}
+				groupByPos = append(groupByPos, pos)
 			}
 		}
 	}

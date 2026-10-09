@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "resubmitPipeline": {
+      "description": "Resubmit the selected pipeline execution",
+      "steps": [
+        { "do": "set", "key": "session_id", "value": { "fromKey": "session_id" } },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "resubmit_pipeline",
+          "data": { "rows": "wholeState" }
+        }
+      ]
+    },
+    "putSchemaEvent": {
+      "description": "Save the pasted schema event to the schema triggers folder; the server names the file",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "post",
+          "endpoint": "/registerFileKey",
+          "action": "put_schema_event_to_s3",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "event": { "fromKey": "schemaEventJson" }
+            }
+          }
+        },
+        { "do": "notify", "level": "info", "message": "Schema event saved to the schema triggers folder" },
+        { "do": "close" }
+      ]
+    },
+    "getRunManifest": {
+      "description": "Copy the selected run's manifest from the stage to the clipboard",
+      "steps": [
+        {
+          "do": "set",
+          "key": "stage_clipboard.file_path",
+          "value": { "literal": "process_name={{process_name}}/session_id={{session_id}}/run_manifest.json" }
+        },
+        { "do": "set", "key": "stage_clipboard.label", "value": { "literal": "Run manifest" } },
+        {
+          "do": "set",
+          "key": "stage_clipboard.missing_message",
+          "value": {
+            "literal": "There is no manifest for this run: one is written only when a cpipes run completes."
+          }
+        },
+        { "do": "escape", "name": "fetchStageToClipboard" }
+      ]
+    },
+    "getSchemaEvent": {
+      "description": "Copy the schema event of the selected run's input registration to the clipboard",
+      "steps": [{ "do": "escape", "name": "copySchemaEvent" }]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "wpPullWorkspaceConfirmUF": {
+      "description": "Carry the chosen actions to the confirmation page, dropping a client selection the chosen actions no longer use",
+      "steps": [
+        { "do": "set", "key": "wpPullWorkspaceConfirmOptions", "value": { "fromKeyList": "otherWorkspaceActionOptions" } },
+        {
+          "do": "remove",
+          "keys": ["wpClientList", "wpClientListRO"],
+          "when": {
+            "op": "not",
+            "condition": {
+              "op": "contains",
+              "key": "otherWorkspaceActionOptions",
+              "value": "wpLoadSelectedClientConfgOption"
+            }
+          }
+        }
+      ]
+    },
+    "wpLoadConfigConfirmUF": {
+      "description": "Carry the chosen clients to the confirmation page",
+      "steps": [
+        { "do": "set", "key": "wpClientListRO", "value": { "fromKeyList": "wpClientList" } }
+      ]
+    },
+    "wpPullWorkspaceOkUF": {
+      "description": "Pull the workspace and perform the chosen actions",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows", "table": "pull_workspace",
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "onConflict": "Server error, please try again.",
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              { "key": "user_email", "as": { "userEmail": true } },
+              { "key": "key", "as": { "fromKey": "key" } },
+              { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+              { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+              { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+              { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } },
+              { "key": "updateDbClients", "as": { "csvFromKey": "wpClientList" } }
+            ]
+          } }
+      ]
+    }
+  }
+}

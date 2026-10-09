@@ -64,8 +64,8 @@ classStmt
   ;
 
 subClassOfStmt: baseClassName=declIdentifier;
-dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType;
-objectPropertyDefinitions: objectPName=declIdentifier 'as' array=ARRAY? ResourceType;
+dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType deleted=DELETED?;
+objectPropertyDefinitions: objectPName=declIdentifier 'as' array=ARRAY? ResourceType deleted=DELETED?;
 dataPropertyType
   : Int32Type
   | UInt32Type
@@ -280,6 +280,10 @@ AsTable: '$as_table';
 DataProperties: '$data_properties';
 ObjectProperties: '$object_properties';
 ARRAY: 'array of';
+// A tombstone: the property's column is to be dropped from the domain table.
+// See UpdateDomainTableSchema; this is the model's counterpart of the "deleted"
+// flag jets_schema.json carries for the JetStore tables.
+DELETED: 'deleted';
 GroupingProperties: '$grouping_properties';
 
 // JetStore Config

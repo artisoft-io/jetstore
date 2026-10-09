@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "addWorkspaceFileDialog": {
+      "title": "Add Workspace File",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "source_file_name",
+            "label": "File Name",
+            "hint": "Enter file name, keeping the directory prefix",
+            "maxLength": 200,
+            "rules": [
+              {
+                "rule": "extendsKey",
+                "key": "workspace.section",
+                "message": "File name must be entered, preserving the directory prefix."
+              }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "addWorkspaceFileOk",
+          "label": "Add File",
+          "style": "primary",
+          "capability": "workspace_ide"
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

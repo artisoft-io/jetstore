@@ -167,6 +167,13 @@ class RDFGraph {
     return spo_graph_.contains(s, p);
   }
 
+  // reference count of triple (s, p, o), 0 when it is not in the graph
+  inline int
+  get_ref_count(r_index s, r_index p, r_index o) const
+  {
+    return spo_graph_.get_ref_count(s, p, o);
+  }
+
   // find methods
   // ------------------------------------------------------------------------------------
   inline Iterator 

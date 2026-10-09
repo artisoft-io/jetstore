@@ -33,6 +33,22 @@ func buildCopySourceRange(start, partSize, objectSize int64) (bool, string) {
 	return isLastPart, fmt.Sprintf("bytes=%d-%d", start, end)
 }
 
+// newCreateMultipartUploadInput builds the request that starts a multipart copy.
+// The encryption of the destination object is fixed when the upload is created,
+// the parts and the completion inherit it. Without the kms key here, s3 uses the
+// destination bucket's default encryption key, which may not be JETS_S3_KMS_KEY_ARN.
+func newCreateMultipartUploadInput(destBucket, destKey string) *s3.CreateMultipartUploadInput {
+	createInput := &s3.CreateMultipartUploadInput{
+		Bucket: &destBucket,
+		Key:    &destKey,
+	}
+	if len(kmsKeyArn) > 0 {
+		createInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+		createInput.SSEKMSKeyId = &kmsKeyArn
+	}
+	return createInput
+}
+
 // function that starts, perform each part upload, and completes the copy
 func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	srcBucket string, srcKey string, destBucket string, destKey string, debug bool) error {
@@ -121,10 +137,7 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 
 	// Create the multipart upload: get the upload id as it is needed later
 	var uploadId string
-	createOutput, err := svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-		Bucket: &destBucket,
-		Key:    &destKey,
-	})
+	createOutput, err := svc.CreateMultipartUpload(ctx, newCreateMultipartUploadInput(destBucket, destKey))
 	if err != nil {
 		return err
 	}

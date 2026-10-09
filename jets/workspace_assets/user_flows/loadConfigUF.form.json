@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "wpLoadConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "workspace_name",
+            "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true,
+            "maxLength": 60
+          },
+          {
+            "field": "text",
+            "key": "workspace_uri",
+            "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true,
+            "maxLength": 200
+          }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "wpClientList",
+            "table": "wpClientList",
+            "rules": [
+              { "rule": "required", "message": "Select Client to load their configuration" }
+            ]
+          }
+        ],
+        [
+          { "field": "spacer" },
+          { "field": "spacer" },
+          {
+            "field": "button",
+            "action": "wpLoadAllClientConfigUF",
+            "label": "Load All Clients Config",
+            "style": "secondary"
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "wpConfirmLoadConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "workspace_name",
+            "label": "Workspace Name",
+            "hint": "Workspace name is used as the workspace key",
+            "isReadOnly": true,
+            "maxLength": 60
+          },
+          {
+            "field": "text",
+            "key": "workspace_uri",
+            "label": "Worksapce URI",
+            "hint": "Repository where the workspace is versioned",
+            "isReadOnly": true,
+            "maxLength": 200
+          }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "wpClientListRO",
+            "table": "wpClientListRO"
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Comfirm", "style": "secondary" }
+      ]
+    }
+  }
+}

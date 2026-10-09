@@ -32,6 +32,10 @@ import (
 // JETS_S3_KMS_KEY_ARN
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
 // DEPLOY_CPIPES_NATIVE Use the native jetrules engine
+//
+// A use_python_node step runs on a Python cp_node served over HTTP; pass its
+// URL with -python_node_url. Go nodes run in this process, or on the native
+// node image with -go_node_url. README.md has the docker run commands.
 var pipelineExecKey = flag.Int("pipeline_execution_key", -1, "Pipeline execution key (required)")
 var fileKey = flag.String("file_key", "", "the input file_key (required)")
 var sessionId = flag.String("session_id", "", "Pipeline session ID (required)")
@@ -202,8 +206,7 @@ func main() {
 	cpipesCommands := cpShardingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
-		fmt.Println("## Sharding Node", i, "Calling CoordinateComputePipes")
-		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
+		err = runNode(ctx, "Sharding", i, false, cpipesCommand, jrProxy)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
 		}
@@ -236,10 +239,16 @@ func main() {
 			// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 			// }
 			cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
+			// The state machine's choice, made the same way: the reducing starter
+			// sets UsePythonReducingTask from the step's use_python_node, and the
+			// Python arm is taken on it. Refused rather than run on the Go node,
+			// which would fail later on an operator it does not have.
+			if _, err := nodeTarget(cpReducingRun.UsePythonReducingTask, *pythonNodeURL, *goNodeURL); err != nil {
+				log.Fatalf("reducing iteration %d: %v", iter-1, err)
+			}
 			for i := range cpipesCommands {
 				cpipesCommand := cpipesCommands[i]
-				fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
-				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
+				err = runNode(ctx, "Reducing", i, cpReducingRun.UsePythonReducingTask, cpipesCommand, jrProxy)
 				if err != nil {
 					log.Fatalf("while reducing node %d: %v", i, err)
 				}
@@ -252,4 +261,20 @@ func main() {
 	}
 completed:
 	log.Println("That's it folks!")
+}
+
+// runNode runs one node where nodeTarget says: in this process, or on an
+// emulated node Lambda.
+func runNode(ctx context.Context, stage string, i int, usePython bool,
+	cmd compute_pipes.ComputePipesNodeArgs, jrProxy *JetRulesProxyImpl) error {
+	target, err := nodeTarget(usePython, *pythonNodeURL, *goNodeURL)
+	if err != nil {
+		return err
+	}
+	if target != "" {
+		fmt.Println("##", stage, "Node", i, "Calling the node at", target)
+		return invokeLambdaNode(ctx, target, cmd)
+	}
+	fmt.Println("##", stage, "Node", i, "Calling CoordinateComputePipes")
+	return (&cmd).CoordinateComputePipes(ctx, dbpool, jrProxy)
 }

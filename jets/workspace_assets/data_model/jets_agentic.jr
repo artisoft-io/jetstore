@@ -1,0 +1,342 @@
+# =======================================================================================
+# jetstore-owned-asset: data_model/jets_agentic.jr — DO NOT EDIT.
+# Source: `jets-agentic generate`, from tools/jets_agentic/jets_agentic/model.py (model
+# version 0.1.0).
+# Installed into this workspace at image build time and overwritten on every build; a
+# local edit is lost, and the build fails rather than clobbering it silently. Extend the
+# model from your own file that imports this one.
+#   import "data_model/jets_agentic.jr"
+# =======================================================================================
+# The schema-first authoring surface of decision 7: new agentic entities are
+# authored in the Python source; existing data models and all rules stay in .jr.
+
+import "data_model/jets_model.jr"
+
+# One execution of one agent: the unit the audit store correlates on
+class jetsa:AgentRun {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:run_id as text,
+    jetsa:agent_id as text,
+    jetsa:agent_version as text,
+    jetsa:model_id as text,
+    jetsa:prompt_version as text,
+    jetsa:tier as text,
+    jetsa:started_at as datetime,
+    jetsa:ended_at as datetime,
+    jetsa:run_status as text,
+    jetsa:triggered_by as text,
+    jetsa:domain_model_version as text,
+    jetsa:iteration_cap as int,
+    jetsa:wall_clock_cap_seconds as int,
+    jetsa:token_spend as int
+  ],
+  $as_table = true
+};
+
+# One human or agent decision on a supervised subject: the supervision
+class jetsa:ApprovalEvent {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:approval_event_id as text,
+    jetsa:run_ref as text,
+    jetsa:subject_ref as text,
+    jetsa:from_state as text,
+    jetsa:to_state as text,
+    jetsa:actor as text,
+    jetsa:tier_at_event as text,
+    jetsa:decided_at as datetime,
+    jetsa:decision_rationale as text
+  ],
+  $as_table = true
+};
+
+# A proposed code or configuration change (§A.2.10), flattened to scalar
+class jetsa:ChangeProposal {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:proposal_id as text,
+    jetsa:trigger as text,
+    jetsa:trigger_ref as text,
+    jetsa:affected_pipelines as array of text,
+    jetsa:code_diff_repository as text,
+    jetsa:code_diff_branch as text,
+    jetsa:code_diff_files_changed as array of text,
+    jetsa:code_diff_lines_added as int,
+    jetsa:code_diff_lines_removed as int,
+    jetsa:rationale as text,
+    jetsa:assumptions_made as array of text,
+    jetsa:generated_tests as array of text,
+    jetsa:ci_result_status as text,
+    jetsa:ci_result_tests_run as int,
+    jetsa:ci_result_tests_failed as int,
+    jetsa:impact_affected_assets as array of text,
+    jetsa:impact_clinical_relevance_touched as bool,
+    jetsa:approval_state as text,
+    jetsa:proposal_model_version as text
+  ],
+  $as_table = true
+};
+
+# A deterministic detector's observation (§A.2.6), widened at N.2 from the
+class jetsa:Anomaly {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:anomaly_id as text,
+    jetsa:detected_at as datetime,
+    jetsa:anomaly_session_id as text,
+    jetsa:anomaly_subject_type as text,
+    jetsa:anomaly_subject_ref as text,
+    jetsa:anomaly_signal_type as text,
+    jetsa:anomaly_observed_value as text,
+    jetsa:anomaly_expected_min as text,
+    jetsa:anomaly_expected_max as text,
+    jetsa:anomaly_expected_basis as text,
+    jetsa:anomaly_deviation_magnitude as double,
+    jetsa:anomaly_confounders as array of text,
+    jetsa:anomaly_detector_ref as text
+  ],
+  $as_table = true
+};
+
+# One evidence item of a Hypothesis (§A.2.8 `$defs`): a value object in
+class jetsa:Evidence {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jetsa:statement as text,
+    jetsa:source as text,
+    jetsa:source_ref as text
+  ],
+  $as_table = false
+};
+
+# A causal hypothesis for an Incident (§A.2.8): the RCA agent's output
+class jetsa:Hypothesis {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:hypothesis_id as text,
+    jetsa:hypothesis_incident_ref as text,
+    jetsa:cause as text,
+    jetsa:cause_category as text,
+    jetsa:confidence as double,
+    jetsa:rank as int,
+    jetsa:hypothesis_locus as text
+  ],
+  $object_properties = [
+    jetsa:supporting_evidence as array of resource,
+    jetsa:contradicting_evidence as array of resource,
+    jetsa:basis as resource
+  ],
+  $as_table = true
+};
+
+# A triaged cluster of anomalies (§A.2.7), keyed on a session (AB.1).
+class jetsa:Incident {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:incident_id as text,
+    jetsa:incident_session_id as text,
+    jetsa:incident_run_ref as text,
+    jetsa:incident_detected_at as datetime,
+    jetsa:incident_locus as text,
+    jetsa:classification as text,
+    jetsa:severity as text,
+    jetsa:status as text,
+    jetsa:incident_step_ref as text,
+    jetsa:incident_shard_ref as int,
+    jetsa:incident_confounders as array of text,
+    jetsa:incident_model_version as text
+  ],
+  $object_properties = [
+    jetsa:hypotheses as array of resource
+  ],
+  $as_table = true
+};
+
+# A proposed corrective action (§A.2.9), tabled at AB.2 and with no executor.
+class jetsa:Remediation {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:remediation_id as text,
+    jetsa:incident_ref as text,
+    jetsa:autonomy_tier_required as text,
+    jetsa:reversibility as text,
+    jetsa:remediation_approval_state as text
+  ],
+  $as_table = true
+};
+
+# A released version of the domain model itself (proposal §5.3: identity
+class jetsa:DomainModelVersion {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:version as text,
+    jetsa:effective_at as datetime
+  ],
+  $as_table = false
+};
+
+# One transition of one Incident: who moved it, when, and from what to what.
+class jetsa:IncidentEvent {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jetsa:incident_event_id as text,
+    jetsa:event_incident_ref as text,
+    jetsa:from_status as text,
+    jetsa:to_status as text,
+    jetsa:event_actor as text,
+    jetsa:event_actor_kind as text,
+    jetsa:transitioned_at as datetime,
+    jetsa:event_run_ref as text,
+    jetsa:classification_before as text,
+    jetsa:classification_after as text,
+    jetsa:transition_rationale as text
+  ],
+  $as_table = true
+};
+
+# How a hypothesis was ranked, as numbers (Q-46, answered by the user
+class jetsa:HypothesisBasis {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jetsa:supporting_count as int,
+    jetsa:contradicting_count as int,
+    jetsa:evidenceability as text
+  ],
+  $as_table = false
+};
+
+# jetsa:autonomy_tier_required / jetsa:tier / jetsa:tier_at_event enum (AutonomyTier)
+text jetsa:AUTONOMY_TIER_T0 = "T0";
+text jetsa:AUTONOMY_TIER_T1 = "T1";
+text jetsa:AUTONOMY_TIER_T2 = "T2";
+text jetsa:AUTONOMY_TIER_T3 = "T3";
+text jetsa:AUTONOMY_TIER_T4 = "T4";
+
+# jetsa:approval_state / jetsa:from_state / jetsa:remediation_approval_state / jetsa:to_state enum (ApprovalState)
+text jetsa:APPROVAL_STATE_DRAFT = "draft";
+text jetsa:APPROVAL_STATE_VALIDATED = "validated";
+text jetsa:APPROVAL_STATE_AGENT_REVIEWED = "agent_reviewed";
+text jetsa:APPROVAL_STATE_AWAITING_HUMAN_APPROVAL = "awaiting_human_approval";
+text jetsa:APPROVAL_STATE_APPROVED = "approved";
+text jetsa:APPROVAL_STATE_APPROVED_WITH_MODIFICATION = "approved_with_modification";
+text jetsa:APPROVAL_STATE_REJECTED = "rejected";
+text jetsa:APPROVAL_STATE_SUPERSEDED = "superseded";
+text jetsa:APPROVAL_STATE_DEPLOYED = "deployed";
+
+# jetsa:anomaly_subject_type enum (AnomalySubject)
+text jetsa:ANOMALY_SUBJECT_FEED = "feed";
+text jetsa:ANOMALY_SUBJECT_PIPELINE = "pipeline";
+text jetsa:ANOMALY_SUBJECT_STAGE = "stage";
+text jetsa:ANOMALY_SUBJECT_RUN = "run";
+text jetsa:ANOMALY_SUBJECT_TABLE = "table";
+text jetsa:ANOMALY_SUBJECT_COLUMN = "column";
+text jetsa:ANOMALY_SUBJECT_WORKER = "worker";
+text jetsa:ANOMALY_SUBJECT_EDGE = "edge";
+
+# jetsa:anomaly_signal_type enum (SignalType)
+text jetsa:SIGNAL_TYPE_VOLUME = "volume";
+text jetsa:SIGNAL_TYPE_FRESHNESS = "freshness";
+text jetsa:SIGNAL_TYPE_SCHEMA = "schema";
+text jetsa:SIGNAL_TYPE_DISTRIBUTION = "distribution";
+text jetsa:SIGNAL_TYPE_RULE_BREACH = "rule_breach";
+text jetsa:SIGNAL_TYPE_COST = "cost";
+text jetsa:SIGNAL_TYPE_DURATION = "duration";
+text jetsa:SIGNAL_TYPE_REJECTION_RATE = "rejection_rate";
+text jetsa:SIGNAL_TYPE_CARDINALITY = "cardinality";
+text jetsa:SIGNAL_TYPE_REFERENTIAL = "referential";
+text jetsa:SIGNAL_TYPE_STEP_REGRESSION = "step_regression";
+text jetsa:SIGNAL_TYPE_WORKER_STALL = "worker_stall";
+text jetsa:SIGNAL_TYPE_ARRIVAL = "arrival";
+
+# jetsa:anomaly_confounders / jetsa:incident_confounders enum (AnomalyConfounder)
+text jetsa:ANOMALY_CONFOUNDER_PARSE_ERRORS_ONLY = "parse_errors_only";
+text jetsa:ANOMALY_CONFOUNDER_PARQUET_INPUT = "parquet_input";
+text jetsa:ANOMALY_CONFOUNDER_ON_ERROR_DROP = "on_error_drop";
+text jetsa:ANOMALY_CONFOUNDER_MAX_INPUT_COUNT = "max_input_count";
+text jetsa:ANOMALY_CONFOUNDER_SAMPLING_CAP = "sampling_cap";
+text jetsa:ANOMALY_CONFOUNDER_DEVICE_WRITER_OUTPUT = "device_writer_output";
+text jetsa:ANOMALY_CONFOUNDER_MERGE_ROW_COUNT_UNKNOWN = "merge_row_count_unknown";
+text jetsa:ANOMALY_CONFOUNDER_STEP_LABEL_AMBIGUOUS = "step_label_ambiguous";
+text jetsa:ANOMALY_CONFOUNDER_STALL_CAUSE_UNKNOWN = "stall_cause_unknown";
+text jetsa:ANOMALY_CONFOUNDER_CROSS_STEP_JOIN_UNAVAILABLE = "cross_step_join_unavailable";
+text jetsa:ANOMALY_CONFOUNDER_HISTORY_TRUNCATED = "history_truncated";
+text jetsa:ANOMALY_CONFOUNDER_NO_PHYSICAL_LOCATION = "no_physical_location";
+text jetsa:ANOMALY_CONFOUNDER_STAGE_PREFIX_REUSED = "stage_prefix_reused";
+text jetsa:ANOMALY_CONFOUNDER_LOCATION_AIMED_NOT_REACHED = "location_aimed_not_reached";
+
+# jetsa:source enum (EvidenceSource)
+text jetsa:EVIDENCE_SOURCE_RUN_TELEMETRY = "run_telemetry";
+text jetsa:EVIDENCE_SOURCE_LINEAGE = "lineage";
+text jetsa:EVIDENCE_SOURCE_COMMIT_HISTORY = "commit_history";
+text jetsa:EVIDENCE_SOURCE_PRIOR_INCIDENT = "prior_incident";
+text jetsa:EVIDENCE_SOURCE_INFRASTRUCTURE_LOG = "infrastructure_log";
+text jetsa:EVIDENCE_SOURCE_SOURCE_DELIVERY_HISTORY = "source_delivery_history";
+text jetsa:EVIDENCE_SOURCE_DQ_RESULT = "dq_result";
+text jetsa:EVIDENCE_SOURCE_CODE_INSPECTION = "code_inspection";
+text jetsa:EVIDENCE_SOURCE_PROFILE = "profile";
+text jetsa:EVIDENCE_SOURCE_DETECTOR_CONFOUNDER = "detector_confounder";
+
+# jetsa:cause_category / jetsa:classification / jetsa:classification_after / jetsa:classification_before enum (IncidentClassification)
+text jetsa:INCIDENT_CLASSIFICATION_SOURCE_DELIVERY_FAILURE = "source_delivery_failure";
+text jetsa:INCIDENT_CLASSIFICATION_SOURCE_CONTENT_CHANGE = "source_content_change";
+text jetsa:INCIDENT_CLASSIFICATION_TRANSPORT_FAILURE = "transport_failure";
+text jetsa:INCIDENT_CLASSIFICATION_PARSE_FAILURE = "parse_failure";
+text jetsa:INCIDENT_CLASSIFICATION_VALIDATION_BREACH = "validation_breach";
+text jetsa:INCIDENT_CLASSIFICATION_TRANSFORMATION_DEFECT = "transformation_defect";
+text jetsa:INCIDENT_CLASSIFICATION_INFRASTRUCTURE_FAILURE = "infrastructure_failure";
+text jetsa:INCIDENT_CLASSIFICATION_DEPENDENCY_FAILURE = "dependency_failure";
+text jetsa:INCIDENT_CLASSIFICATION_CAPACITY_OR_COST_DEVIATION = "capacity_or_cost_deviation";
+text jetsa:INCIDENT_CLASSIFICATION_BENIGN_VARIATION = "benign_variation";
+
+# jetsa:hypothesis_locus / jetsa:incident_locus enum (IncidentLocus)
+text jetsa:INCIDENT_LOCUS_RUN_NOT_STARTED = "run_not_started";
+text jetsa:INCIDENT_LOCUS_STEP_NEVER_STARTED = "step_never_started";
+text jetsa:INCIDENT_LOCUS_WORKER_NOT_TERMINATED = "worker_not_terminated";
+text jetsa:INCIDENT_LOCUS_WORKER_FAILED = "worker_failed";
+text jetsa:INCIDENT_LOCUS_SINK_FAILED_UNDER_COMPLETED_WORKER = "sink_failed_under_completed_worker";
+text jetsa:INCIDENT_LOCUS_ROWS_LOST_SILENTLY = "rows_lost_silently";
+text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_REPORTED = "per_record_failures_reported";
+text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_UNREPORTABLE = "per_record_failures_unreportable";
+text jetsa:INCIDENT_LOCUS_WRITTEN_NOT_ARRIVED = "written_not_arrived";
+
+# jetsa:severity enum (Severity)
+text jetsa:SEVERITY_INFO = "info";
+text jetsa:SEVERITY_LOW = "low";
+text jetsa:SEVERITY_MEDIUM = "medium";
+text jetsa:SEVERITY_HIGH = "high";
+text jetsa:SEVERITY_CRITICAL = "critical";
+
+# jetsa:from_status / jetsa:status / jetsa:to_status enum (IncidentStatus)
+text jetsa:INCIDENT_STATUS_DETECTED = "detected";
+text jetsa:INCIDENT_STATUS_TRIAGED = "triaged";
+text jetsa:INCIDENT_STATUS_DIAGNOSED = "diagnosed";
+text jetsa:INCIDENT_STATUS_REMEDIATION_PROPOSED = "remediation_proposed";
+text jetsa:INCIDENT_STATUS_AWAITING_APPROVAL = "awaiting_approval";
+text jetsa:INCIDENT_STATUS_REMEDIATING = "remediating";
+text jetsa:INCIDENT_STATUS_RESOLVED = "resolved";
+text jetsa:INCIDENT_STATUS_VERIFIED = "verified";
+text jetsa:INCIDENT_STATUS_CLOSED = "closed";
+text jetsa:INCIDENT_STATUS_RECLASSIFIED = "reclassified";
+text jetsa:INCIDENT_STATUS_SUPPRESSED_AS_BENIGN = "suppressed_as_benign";
+
+# jetsa:reversibility enum (Reversibility)
+text jetsa:REVERSIBILITY_FULLY_REVERSIBLE = "fully_reversible";
+text jetsa:REVERSIBILITY_REVERSIBLE_WITH_BACKFILL = "reversible_with_backfill";
+text jetsa:REVERSIBILITY_IRREVERSIBLE = "irreversible";
+
+# jetsa:event_actor_kind enum (ActorKind)
+text jetsa:ACTOR_KIND_HUMAN = "human";
+text jetsa:ACTOR_KIND_AGENT = "agent";
+
+# jetsa:evidenceability enum (Evidenceability)
+text jetsa:EVIDENCEABILITY_EVIDENCED = "evidenced";
+text jetsa:EVIDENCEABILITY_CONDITIONAL = "conditional";
+text jetsa:EVIDENCEABILITY_COARSE = "coarse";
+text jetsa:EVIDENCEABILITY_ASYMMETRIC = "asymmetric";
+text jetsa:EVIDENCEABILITY_NONE = "none";
+
+# Rule-visible property metadata (§3.5): data_classification markers as
+# triples, readable in working memory and at build time (workspace.db triples).
+resource jetsa:data_classification = "jetsa:data_classification";
+triple(jetsa:statement, jetsa:data_classification, "PHI");

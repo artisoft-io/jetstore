@@ -1,0 +1,566 @@
+# compute_pipes — things that cost someone a day
+
+**Package-level discoveries.** Not API documentation — that belongs in the code, in doc
+comments where `go doc` will show it. This file is for the facts you cannot see from the code you are
+reading: how a mechanism behaves across process boundaries, what an environment variable is really
+deciding, why an obvious-looking change is wrong. **Anything that took real digging to establish, and
+that the next person would otherwise have to dig for again.**
+
+Add an entry when you find one. The bar is *would I have saved a day by reading this?* — not *is this
+interesting?* Cite `file:line` so the entry can be checked rather than believed, say what was
+**measured** as opposed to reasoned, and date it, because a fact about deployment wiring goes stale
+without announcing it.
+
+**Entries are appended and their numbers are stable**, so a later one can cite an earlier one. (The
+first revision of this file said "newest first", which cannot be true of numbered entries, and is
+corrected here.)
+
+---
+
+## 1. How a compiled workspace reaches a running process, and when it does not
+
+**Established 2026-08-22, mostly by measurement against built images.**
+
+### The symptom
+
+Every cpipes cold start — ECS task, node lambda, apiserver — fetched `workspace.tgz` and `sqlite`
+from the database, including the ones running an image that already carried the compiled workspace.
+The mechanism to avoid that exists and had never fired.
+
+### The mechanism
+
+`workspace.SyncComputePipesWorkspace` (`jets/workspace/compile_workspace_utils.go:240`, called from
+`actions_coordinate_cp.go:42` and `actions_start_common.go:115`) skips the fetch when the database's
+workspace version equals `localRepoVersion`, which is `JETS_VERSION` read at
+`compile_workspace_utils.go:24`. `SyncRunReportsWorkspace` does the same for `reports.tgz` at `:196`.
+
+**Its purpose is a deployment one, not a performance one.** The apiserver may need to recompile a
+workspace with overridden files; that often times out and a new instance starts; the version check is
+what stops the new instance repeating work already done.
+
+### The chain, which has four links and needs all four
+
+| Link | Where | What it does |
+|---|---|---|
+| 1 | `build_cpipes.sh` | `JETS_VERSION=$(date +%s)`, once per build run, passed as `--build-arg` to every image |
+| 2 | `Dockerfile.compile_ws` | `compile_workspace -v=${JETS_VERSION}` — **writes the version into the database** |
+| 3 | `Dockerfile.{cpipes,cpipes_native_lambda,ui_service}` | `ENV JETS_VERSION` — what the running process compares against |
+| 4 | the process | must find the workspace at `WORKSPACES_HOME`, not merely have it in the image |
+
+**Links 1 and 2 are in `build_jetstore_scripts`, a separate repository.** A change to the version
+chain is not complete inside `jetstore_ai`.
+
+### Three things were broken, and each hid the next
+
+**Link 3 for the cpipes images.** `Dockerfile.cpipes` and `Dockerfile.cpipes_native_lambda` never
+declared `ARG JETS_VERSION`, so the build arg the script had been passing all along was discarded —
+an `ARG` is scoped to its stage and `ENV` does not cross a `FROM`, and both files start a fresh final
+stage. Measured on the built images: `ui_service:latest` carried `JETS_VERSION=1787230645`,
+`cpipes_jets_ws:latest` and `cpipes_lambda_jets_ws:latest` carried none.
+
+**Link 2, and this one was invisible from either repository alone.** `build_cpipes.sh` rebuilds
+`cpipes_builder` only if the operator answers `y` to a prompt, and `Dockerfile.compile_ws` is
+`FROM cpipes_builder:latest` and *inherited* `JETS_VERSION` from it, while `ui_service` and `cpipes`
+received the current run's value as a build arg. Skip the builder rebuild — the normal case — and the
+version in the database and the version in the runtime images come from different build runs:
+
+| Image | `JETS_VERSION` | Determines |
+|---|---:|---|
+| `cpipes_builder:latest` | 1787220475 | — |
+| `compile_ws:latest` | 1787220475 | **the database's workspace version** |
+| `ui_service:latest` | 1787230645 | the apiserver's `localRepoVersion` |
+
+They differ, so nothing ever matched. **Both halves of the fix are needed and they live in different
+repositories**: `ARG JETS_VERSION` in `Dockerfile.compile_ws`, and `--build-arg` on the `compile_ws`
+build in `internal/build_workspace.sh`.
+
+**Link 4 for Lambda only, and it is the asymmetry worth remembering.** A container process gets
+`WORKSPACES_REPO` copied to `WORKSPACES_HOME` by `cbooter` before the binary is exec'd
+(`jets/cmds/cbooter/main.go:180`, the `default` case covering `cpipes_server` and
+`cpipes_native_server`). **A Lambda has no cbooter** — its entrypoint is the runtime interface and its
+`CMD` is the handler — so nothing copied anything. Confirmed inside `cpipes_lambda_jets_ws:latest`:
+`/workspaces/jets_ws/build/classes.json` exists and `/tmp` is empty, while the CDK gives the function
+`WORKSPACES_HOME=/tmp/workspaces` (`cdk/jetstore_one/stack/build_cpipes_lambdas.go`). That file is
+exactly what `jetrules_utils.go:371` reads.
+
+So for the lambda, enabling link 3 *without* link 4 is worse than leaving it off: it would skip the
+fetch and then fail to find the workspace it is carrying. `workspace.ensureLocalRepoSeeded` is that
+copy, deliberately placed on the **skip path** rather than at startup, so a run about to fetch a newer
+workspace does not pay for a copy it would overwrite.
+
+### The `ARG`/`ENV` resolution rule, which is not the obvious one
+
+Measured against `cpipes_builder:latest` with `--no-cache`, in a stage that is `FROM` an image whose
+`ENV JETS_VERSION` is set:
+
+| Case | Resolves to |
+|---|---|
+| `ARG JETS_VERSION` declared, no `--build-arg` | **the inherited `ENV`** |
+| `--build-arg JETS_VERSION=1787999999` | `1787999999` |
+| `--build-arg JETS_VERSION=` | **empty** — an explicitly empty arg *does* shadow |
+
+**A declared-but-unpassed `ARG` shadows nothing.** The case that bites is the third, which is what
+`--build-arg "JETS_VERSION=$JETS_VERSION"` expands to when the shell variable is unset — hence the
+guard in `build_workspace.sh`. It is not belt-and-braces; it is the only thing standing between an
+unset shell variable and an empty workspace version. (`compile_workspace` panics on an empty `-v`
+at `jets/cmds/compile_workspace/main.go:25`, so the failure is at least loud.)
+
+### Two facts worth having before you touch this
+
+**`WORKSPACES_REPO` and `WORKSPACES_HOME` are different variables and only the second is read by the
+code.** `compile_workspace_utils.go:25` and `actions_start_common.go:22` both read `WORKSPACES_HOME`
+in `init()`, in two different packages — which is why the seeding is a copy rather than a repointing.
+
+**The baked workspace is the whole client repo, `.git` included.** `Dockerfile.compile_ws` does
+`COPY . $WORKSPACES_REPO/$WORKSPACE/`. `jets_ws` measures 110 MB, of which `lookup.db` is 56 MB and
+the `lookups/` source CSVs another 45 MB. The seeding copies all of it, as cbooter does; trimming it
+would mean predicting what the runtime reads, which nothing currently documents.
+
+### How to check it is working
+
+The log lines are the observable, on the first invocation after a deploy:
+
+```
+Skipping sync of workspace.tgz and sqlite since workspace version <v> is same as local repo version
+Seeded /tmp/workspaces/<workspace> in <duration>          # lambda only
+🙌 No need to sync compute pipes workspace ...             # subsequent checks in the same process
+```
+
+Their absence means the version chain is broken again, and the first thing to compare is
+`docker image inspect <image> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep JETS_VERSION`
+across `compile_ws`, `cpipes` and `ui_service`. **They must all be equal.**
+
+---
+
+## 2. What a cpipes cold start fetches, and what it is mostly made of
+
+**Measured 2026-08-22** against workspaces compiled locally from the four `workspaces/` submodules at
+their pinned commits. Extends §1, which established *when* the fetch happens; this is *how big it is*.
+
+### What is fetched
+
+`SyncComputePipesWorkspace` makes two calls: content type `workspace.tgz`, then content type
+`sqlite`. Those resolve in `jetsapi.workspace_changes` to exactly three objects, written there by
+`UploadWorkspaceAssets` (`jets/workspace/compile_workspace.go:27`) at every compile:
+
+**`workspace.tgz` + `workspace.db` + `lookup.db`.** `reports.tgz` is *not* fetched — it has its own
+content type and its own sync function, for the report lambdas.
+
+### Sizes
+
+| Workspace | `workspace.tgz` | `workspace.db` | `lookup.db` | **fetched per cold start** | `lookup.db` share |
+|---|---:|---:|---:|---:|---:|
+| `cedargate_ws` | 113,110 | 401,408 | 7,909,376 | **8,423,894** — 8.0 MiB | 93.9% |
+| `walrus_ws` | 318,422 | 2,170,880 | 44,232,704 | **46,722,006** — 44.6 MiB | 94.7% |
+| `jets_ws` | 23,367 | 290,816 | 58,675,200 | **58,989,383** — 56.3 MiB | 99.5% |
+| `usi_ws` | 1,825,420 | 9,101,312 | 76,013,568 | **86,940,300** — 82.9 MiB | 87.4% |
+
+**`lookup.db` is 87–99.5% of every one of them.** `workspace.tgz` — the one people picture, since it
+is the archive that gets extracted — is under 2% everywhere.
+
+### It is paid per node, not per run
+
+Once per Lambda execution environment: `lastWorkspaceSyncCheck` and `workspaceVersion` are package
+variables, so a cold start pays it and warm invocations do not. The sharding starter pays it too
+(`actions_start_common.go:110`), and a reducing phase adds another.
+
+So a run costs roughly `(nodes + 1) ×` the number above, and `cluster_config.default_max_concurrency`
+sets the ceiling on nodes. Across the corpus that ceiling is **4** (`embed_input_parts`), **20**
+(`jets_loader`) and **40** (`cedargate_ws`'s nine `qc_*` configs):
+
+| Pipeline | ceiling | `cedargate_ws` | `walrus_ws` | `jets_ws` | `usi_ws` |
+|---|---:|---:|---:|---:|---:|
+| `embed_input_parts` | 4 | 40 MiB | 223 MiB | 281 MiB | 415 MiB |
+| `jets_loader` | 20 | 169 MiB | 936 MiB | 1.15 GiB | **1.70 GiB** |
+
+**Fan-out and workspace size are uncorrelated**, which is why the worst case is not where you would
+guess: `cedargate_ws` has the widest configs in the corpus and the smallest workspace by a factor of
+ten, so its 40-way runs move less than `usi_ws` moves at 4.
+
+### What is *not* measured, and why the shape matters more than the number
+
+The bytes are exact. **The wall time is not** — the transfer is a Postgres `bytea` read over the VPC,
+and measuring it needs the production database or CloudWatch. Local handling is not the cost: writing
+the three files and extracting the archive measured **26–130 ms** (three runs per workspace), so
+essentially all of it is the read.
+
+That makes the shape worth stating even without the number. Nodes are concurrent, so the effect on a
+run's wall clock is roughly *one* node's fetch — but **the load on the database is the sum**, arriving
+as a burst of up to 20 or 40 simultaneous large reads. If this ever turns out to hurt, that is the form
+it will take, and it is an RDS question rather than a Lambda one.
+
+### The part worth acting on
+
+**A pipeline that configures no `lookup_tables` still fetches `lookup.db`.** The sync is by content
+type and takes every `sqlite` row; nothing consults the pipeline config. `lookup.db` is opened only
+through `jets/workspace/lookup_tables.go:55` and `jets/jetrules/rete/lookup_table_manager.go:40`, both
+reached only when a lookup is actually configured.
+
+Neither JetStore-owned pipeline configures one. So `jets_loader` and `embed_input_parts` each pull
+**87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on `usi_ws`.
+
+## The jetrules caches, and the cold start of 2026-08-31
+
+**Symptom.** A pipeline runs, the workspace is intact, and the rule engine reports
+a class it can plainly see:
+
+```
+Error getting multi-value data properties for class cintel:Patient_Profile :
+error: domain table for class cintel:Patient_Profile is not found in the local
+workspace, cache contains 0 entries
+```
+
+**Cause: a double-checked lock with the check on the wrong side of the work.**
+`GetWorkspaceDomainTables` and its two siblings assigned the shared map *before*
+filling it:
+
+```go
+if domainTablesMap == nil {          // unsynchronised read
+    mx.Lock(); defer mx.Unlock()
+    if domainTablesMap == nil {
+        domainTablesMap = make(...)  // published empty, then filled
+```
+
+A goroutine reaching the outer test inside that window sees a non-nil map, never
+takes the lock, and gets an **empty cache with a nil error**. `GetWorkspaceControl`
+in the same file has always done it correctly — build into a local, assign on
+success — which is the shape all four have now.
+
+**Read the counts.** The log says `Worker Pool of size 6` and carries exactly
+**5** copies of the error. One winner, five losers. That arithmetic is what turns
+"probably a race" into a diagnosis.
+
+### Why it appeared when it did, which is the part worth carrying
+
+The race is as old as the caches. What changed is that something stopped hiding
+it.
+
+`actions_coordinate_cp.go` pre-loads all three caches through
+`LoadJetrulesCaches()` — single-threaded, before any worker goroutine exists —
+but only `if didSync`. And `didSync` is true only when the workspace was
+**fetched from the database**: the image-workspace skip returns
+`false, ensureLocalRepoSeeded()`. So enabling that skip for the native lambda
+(`5f9b1bc8`, 2026-08-22) silently removed the pre-load, and the first load of
+these caches moved from an initialisation step into a six-way race.
+
+**A commit that changes which branch is taken can arm a defect on the branch it
+did not touch.** Nothing in that change went near these caches; it changed a
+boolean two call frames away, and the boolean was the only thing serialising
+them. The pre-load now runs on both paths.
+
+### What a test can do here
+
+Everything, unlike the two workspace-permission defects that preceded it — those
+needed a second uid to observe, and this needs two goroutines.
+`TestDomainCachesAreNotPublishedBeforeTheyAreFull` releases 16 of them together
+and fails if any sees an empty map. Against the original code it reports
+`saw 0 entries`, which is the production failure verbatim; two of the three
+caches lost the race on the first run and the third did not, which is the usual
+reminder that a green race test is weaker evidence than a red one.
+
+## Object properties are graph structure, not columns
+
+**Symptom.** A pipeline reports, at warning level, that a property it can plainly
+see is multi-valued is not:
+
+```
+warning: property cintel:has_Medical_Events is not multi-value but has multiple
+values for subject 4c336cda-…, setting value to null
+```
+
+and the values are discarded.
+
+**The rule, which the code now states in both places it matters.** A flat record
+— the main flow, an entity exported to CSV or a domain table — carries the
+class's **data properties**. Object properties are how the graph is *traversed*
+when a channel asks for a serialised entity, and the serialisation lands in a
+**data** property: in `patient_profile.pc.json` the `toon` encoding names
+`cintel:Claim_Summary`, which is `type: text`, while the two object properties
+walked to build it are `type: resource`.
+
+That is why the filter needs no knowledge of `column_encodings`, and why it is
+unconditional: **an encoding names the data property that receives the
+serialisation, never the object property that was traversed.**
+
+**What was wrong.** `GetDomainProperties` derived a flat record's columns from
+every entry in the domain table, object properties included. Those columns then
+reached `extractLiteralValue`, where `GetMultiValueDataProperties` excludes
+object properties from the multi-value set — so a **multi-valued** object
+property looked single-valued and its values were dropped. Both halves arrived in
+`b2461545` (2026-07-05), the commit that added object properties: it split them
+out of the multi-value set on the assumption they would all take the
+special-encoding path, collected them into `objectProperties` — **which was
+stored on the worker and never read** — and left the derived column list
+untouched. The split was started and not finished.
+
+`jets/workspace.DomainColumnsOf` applies the same rule to the database schema,
+where the effect was a column that could only ever be null.
+
+**The natural experiment that identified it** is inside one class.
+`cintel:Patient_Profile` has four array columns; two carry `is_object` and two do
+not, and only the two object ones were nulled:
+
+| column | `as_array` | `is_object` | before |
+|---|---|---|---|
+| `cintel:has_Medical_Events` | ✔ | ✔ | nulled |
+| `cintel:has_Pharmacy_Events` | ✔ | ✔ | nulled |
+| `jets:ruleTag` | ✔ | — | fine |
+| `rdf:type` | ✔ | — | fine |
+
+**The escape hatch is deliberate.** Only the *derived* list is filtered;
+`chSpec.Columns` is appended afterwards and is not, so an explicitly listed
+column is still honoured if one is ever wanted materialised.
+
+**And this changes the output schema**: those columns are gone rather than
+present-and-null. That is the intended behaviour and it is worth saying out loud,
+because anything reading the CSV or the domain table by position will notice.
+
+
+---
+
+## The inference operators, and what a GPU week bought
+
+**Measured 2026-09-09/10** against the `patient_profile` briefing pipeline over a curated
+22-member population. **Full write-up:
+[`pipe_transformation_infer_readme.md`](pipe_transformation_infer_readme.md) §3**, which is
+also where the shared plumbing and the `type: infer` backend selection are documented.
+
+Four things here because they are the ones that change what you would otherwise do.
+
+**The serving stack does not affect accuracy.** Across vLLM bf16 eager, vLLM bf16 with CUDA
+graphs and ollama `Q4_K_M` — same 22 members, same fact set — every *decidable* accuracy
+category was identical; the approximate ones varied inside the run-to-run spread of a
+single arm. **So a backend is a cost and latency decision.** Benchmarking one for quality
+is a week nobody else needs to spend.
+
+**Throughput has no meaning without a pool size, because the arms cross.** ollama is 1.43x
+faster at `pool_size: 1` and vLLM is 1.13x faster at `pool_size: 4` — which is the pool
+`patient_profile.pc.json` sets. vLLM's latency rises 10% from pool 1 to 4 and ollama's
+rises 79%.
+
+**A slow model load was the disk, not the backend.** vLLM read a 6.34 GiB checkpoint in
+51.0 s and ollama ~2.1 GiB in 17.3 s — **124 and ~120 MiB/s, both of them gp3's
+unprovisioned baseline**. Neither server is slow at loading. The volume is now provisioned
+at 500 MiB/s (`INFER_VOLUME_THROUGHPUT_MIBPS`,
+`cdk/jetstore_one/stack/build_infer_ec2.go`), which takes that 51 s to about 13 s. **Check
+the volume before concluding a backend is slow to start.**
+
+**A guided-decoding field can be accepted and discarded with a 200 and no warning.** vLLM
+v0.28.0 — the version `Dockerfile.infer_service_vllm` pins — takes `guided_json` and
+ignores it: 0 of 24 conformant, against 23 of 24 for the same schema sent as
+`response_format: {"type":"json_schema"}`. `guided_regex`, `guided_choice` and an invented
+field behave the same way, so **this server drops unknown top-level request fields as a
+class**. The operator defaults `structured_output` to `json_schema` because of it; leave it
+there unless you have measured your server. *The operator reports success on an
+unconstrained answer, which is why this cost a day rather than an hour.*
+
+---
+
+## The `render` operator, and the word *template* meaning two things
+
+**Added 2026-09-11.** Full documentation:
+[`pipe_transformation_render_readme.md`](pipe_transformation_render_readme.md) — the configuration,
+the notation, the failure model and the measurement behind the operator.
+
+**`render` applies a *text* template to a record, and `template` already meant something else here.**
+`tools/cpipes_contract/templates/` holds gap 20's **configuration** templates, which project into a
+`.pc.json`; `prompt_templates` holds the prompts an infer step sends a model. So the operator token
+is `render`, its array is `text_templates` (`TextTemplates`, `pipes_model.go:23`), and the sentence
+to carry is **the operator renders; what it applies is a text template**. A reader meeting
+`"type": "template"` in a `pipes_config` would have had no way to tell which sense was meant.
+
+**Every failure the template engine admits is a *compile* failure, with three exceptions it names.**
+`Compile` is the only function of `jets/agentic/template` that returns an error and `Render` returns
+none at all (`Render`, `jets/agentic/template/render.go:66`), so a render-time failure cannot be
+added without changing a signature and every call site. The three that are not compile failures — a
+`require` a record violates, a prefixed entity, and a value of the wrong runtime kind, which renders
+empty and silently — are enumerated rather than defined away, and the third is a cost rather than a
+feature.
+
+**`on_error: pass_through` leaves the output column unwritten, and that is not what the word means
+elsewhere.** For `map_record`, `jetrules` and the infer operators there is nothing to write, so the
+two readings coincide; a render is total, so *the record continues carrying that text* is an equally
+natural reading and it is the one that puts a briefing an author declared invalid in front of a
+reader under the **default** policy. The rendered text reaches nobody under any of the three
+policies.
+
+**The input is a serialised entity column, not an entity.** The briefing this generalises renders
+inside the jetrules column encoder (`EncodeColumnData`, `jetrules_extract_entity.go:15`), and an
+operator cannot hang there — the RDF session is gone by the time a record crosses a channel. The
+consequence is that `render` and `infer` have the **same input contract**, which is what lets two
+versions of a pipeline differ in their operator block and in nothing else.
+
+---
+
+## A site operator runs in one of three processes, and the other two cannot see it
+
+**Established 2026-09-12 by `BD.2`, and every sentence below is the reason a design decision went
+the way it did rather than a remark about the code.**
+
+`WithOperators` is an option on `CoordinateComputePipes` (`actions_coordinate_cp.go`), which runs in
+**`cp_node`**. The three cpipes lambda entries are separate binaries in separate processes
+(`build_cpipes_lambdas.go:51`, `:179`, `:264`), and the functions that decide what a document *means*
+before a worker starts all run in the other two:
+
+| Runs in | Function |
+|---|---|
+| the starters | `ApplyAllConditionalTransformationSpec`, `SynthesizeDefaultErrorChannels`, `ValidatePipeSpecConfig` |
+| the node | `CoordinateComputePipes`, `StartComputePipes`, `BuildPipeTransformationEvaluator` |
+
+**So everything the platform needs to know about a site operator before the worker starts has to be
+readable from the document.** That is why `site_config` is a typed `SiteOperatorSpec` with a named
+`error_channel` (`pipes_model.go`) rather than an opaque blob the registry interprets, and why
+`errorChannelConfig` (`actions_start_common.go`) has one arm keyed on `site_config` rather than on
+the operator token — it is the only arm in that switch that is.
+
+**Three consequences worth knowing before changing any of it.**
+
+- **A mistyped site token is reported inside a running worker, not at startup.**
+  `ValidatePipeSpecConfig`'s operator switch has no `default`, so an unknown `type` passes startup
+  untouched and fails at `BuildPipeTransformationEvaluator`'s `default:`. Consulting the registry at
+  startup would fix it and cannot be done: the starters do not have one. The only honest startup
+  check is a schema one.
+- **A site operator is never given a synthesised error channel.** `reportsRowLevelFailures` names
+  six built-in tokens and a site token is not one of them, so the synthesis skips it. This is the one
+  place that function and `errorChannelConfig` deliberately disagree, and the direction is the benign
+  one: an authored channel is honoured and nothing is invented. JetStore cannot know whether an
+  operator it knows nothing about will ever write a bad record, and the operator's author is the only
+  party who does.
+- **A configuration block on a `TransformationSpec` that has no field for it is dropped in silence.**
+  The document crosses a process boundary as JSON twice — the starter marshals it into
+  `jetsapi.cpipes_execution_status` and the node reads it back through `UnmarshalComputePipesConfig`,
+  a plain `json.Unmarshal` with no `DisallowUnknownFields` anywhere in this package. No error, no log
+  line. `json.RawMessage` is the field type that survives both hops verbatim without JetStore knowing
+  the site's schema.
+
+**And the registry is consulted in `default:` on purpose.** The eighteen built-in cases are tried
+first, so a site cannot change what an existing `.pc.json` means. A colliding registration is kept
+rather than refused — a deployment should not fail to start because a later JetStore release took its
+name — and `WithOperators` logs the collision, because an operator that loses silently is
+indistinguishable from one that was never registered.
+
+---
+
+## `context` overwrites the schema event, and an unresolved bucket writes successfully
+
+**Established 2026-09-21, by measurement against `jets_ai` and the four pinned workspaces.** The
+two halves arrived as one register row from `healthcare_corpus` — `P9-I115`, read 2026-09-20 — and
+are separate mechanisms that happen to bite the same field.
+
+### `context` assigns, it does not default
+
+`prepareCpipesEnv` (`prepareCpipesEnv`, `actions_start_common.go:1905`) makes the main input schema
+provider's `Env` *be* `envSettings` and then walks `cpConfig.Context` over the top of it. So every
+`context` entry the engine had until now — `value`, `file_key_component`,
+`partfile_key_component` — **overrides what the deployment supplied**, and a document could not
+carry a fallback for a variable the site is expected to set. That was `P9-I115`'s complaint and it
+was right about the code.
+
+**What it did not say is that the same function already contains the other rule, eleven lines
+earlier**: `$DATE_FILE_KEY` is assigned only `if envSettings["$DATE_FILE_KEY"] == nil`
+(`actions_start_common.go:1957`), under the comment *Don't override with file key date if already
+set via schema provider*. So a fill-behind `context` type is a generalisation of a rule this
+function already makes rather than a new idea, and that is what `default_value` is. **The other
+three types are unchanged and deliberately so** — a document that relies on overriding the event
+keeps working.
+
+**`types.csv` described the opposite and had since the matrix was written.** The `ContextSpec/value`
+row read *"The value may be overriden by a schema provider"*, which is the order reversed; repaired
+in the same change. A contract entry that states a precedence backwards is worse than one that
+states none, because the reader who checks it stops.
+
+### An unresolved `${...}` bucket is a bucket literally so named
+
+Nothing between the document and the S3 call has an opinion about a bucket name.
+`utils.ReplaceEnvVars` leaves a name it cannot substitute exactly as it found it, the six sites that
+test for the JetStore bucket test `bucket == "" || bucket == "jetstore_bucket"` and say nothing
+about anything else, and the writer addresses whatever it was handed.
+
+**So the check is at startup**: `ValidateResolvedBuckets` (`bucket_validation.go`) is called from
+both start actions after `ValidatePipeSpecConfig` and before either assembles the config its workers
+run. Two properties worth knowing before changing it:
+
+- **It walks by json key, not by type.** `FileConfig`'s `Bucket` reaches four specs by embedding and
+  `ColumnFileSpec` declares its own, so an enumeration written from the embedders misses
+  `anonymized_columns_output_file`. Matching the key `bucket` is what makes the walk complete and
+  keeps it complete.
+- **It checks the step about to run, not the document.** A conditional step's `addl_env` is applied
+  only when that step is selected (`GetComputePipes`, `pipes_model.go:68`), so a later step's bucket
+  may legitimately be unresolvable now; each step is checked when it starts. And `$SHARD_ID` and
+  `$JETS_PARTITION_LABEL` are seeded, because `actions_coordinate_cp.go:109-110` assigns them at the
+  worker, after startup has persisted the env.
+
+**What it is not:** `src_bucket` and `dest_bucket` under a schema provider's `report_cmds` are
+outside it. They are not on this path at all — `RunSchemaProviderReportsCmds` hands them to
+`awsi.MultiPartCopy` verbatim (`jets/run_reports/delegate/run_commands.go:41`) with **no
+substitution anywhere** — so what they want is a stricter check in that package, which nothing has
+written.
+
+### The corpus parameterises buckets in two spellings, and only one was being caught
+
+Measured 2026-09-21 across the four workspaces this repository is pinned beside: **34 bucket values
+carry a variable, in 5 documents** — 24 braced (`${CORPUS_OUT_BUCKET}`, `healthcare_corpus.pc.json`)
+and 10 bare-dollar (`$CGT_OUT_BUCKET`, `$CGT_SUMMARY_BUCKET`, four `cedargate_ws` documents).
+**Nine of the ten env keys `prepareCpipesEnv` writes are bare-dollar**, so the bare form is the
+house spelling and the braced one is the exception.
+
+`IsUnresolvedBucket` now refuses any dollar sign rather than `${` anywhere plus `$` at the head. An
+S3 bucket name cannot contain a dollar, so the wider rule refuses no name that was ever a name — and
+the narrower one left `corpus-out-$CLIENT` to be complained about by the bucket API, which is a
+complaint made at the write, which is the thing the gate exists to move. **No corpus document uses
+that mid-string form today**, so the widening is closing a hole rather than tightening on live
+configuration; it is recorded here because the reasoning is the evidence and there is no instance.
+
+## A node's document is a marshal of the struct, so a bare json tag is a key the author never wrote
+
+**Established 2026-09-27, by the first deployed run of a Python `cp_node`, and then measured over the
+whole corpus.**
+
+### The symptom
+
+The Python node refused the document it was handed, `ConfigInvalid` with 49 validation errors, before
+doing any work. The document is `cpipes_execution_status.cpipes_config_json`, and the Python node
+validates it against the contract model, which has `extra="forbid"` throughout. Most of the 49 were
+Pydantic reporting every branch of the operator union; the causes were two.
+
+### The mechanism
+
+A starter does not copy the authored `.pc.json` into that column. It unmarshals it into
+`ComputePipesConfig`, builds a new one (`actions_start_sharding_cp.go`, `actions_start_reducing_cp.go`),
+and `json.Marshal`s that. **So every field whose tag has neither `omitempty` nor `omitzero` comes back
+as a key, carrying its zero value, whether or not the author wrote it**: `"type": ""` on every channel
+config and on a conditional `then`, `"apply": null` on `merge_files`, an empty `output_channel` on
+`jetrules`, `"name": ""` on output channels and columns. Go reads every one of those back as the zero
+value it already was, which is why **no Go node ever noticed** and why nothing on the Go side could
+have.
+
+The second cause is a real runtime field rather than an artefact: `ClusterSpec.ShardingInfo`, which the
+sharding starter sets on every run and which the contract's runtime model did not admit.
+
+### What was measured
+
+Every `.pc.json` under `workspaces/`, one document per step built the way a starter builds it, then
+validated by the Python runtime model: **194 of 194 refused** before the change and **0 of 194** after.
+The healthcare run only hit two of the five kinds because of which operators its step happens to use.
+
+### The fix, and the guard
+
+The tags were given `omitempty` (strings) or `omitzero` (slices, pointers, structs) on
+`TransformationSpec.Type` and `.OutputChannel`, `PipeSpec.Apply`, `InputChannelConfig.Type`,
+`OutputChannelConfig.Type` and `.Name`, `AnonymizeSpec.KeysOutputChannel`, and in `pipesmodel`
+`ChannelSpec.Columns` and `TransformationColumnSpec.Name`. **`omitzero` rather than `omitempty` on a
+slice is deliberate**: it drops a `nil` slice and keeps an author's explicit `[]`, so the document
+stays faithful in both directions. The contract gained `ClusterSpecRuntime`
+(`tools/cpipes_contract/cpipes_model.py`) for `sharding_info`.
+
+`TestCorpusRuntimeDocumentAddsOnlyRuntimeKeys` (`runtime_document_corpus_test.go`) asserts the
+invariant rather than the tags: for every step in the corpus, the starter-shaped document may add only
+`common_runtime_args` and `cluster_config.sharding_info` to what the author wrote. **A new field with a
+bare tag goes red there on the day it is added**, naming the file and the key path, instead of on the
+day a Python step first reaches it. Run it with `JETS_PC_CORPUS_DIR` set and `-count=1`, because it
+reads a submodule.
+
+**The other bare `type` tags were left alone on purpose** — `Metric`, `LookupSpec`, `CsvSourceSpec`,
+`SchemaProviderSpec`, `ReportCmdSpec`, `PipeSpec`, `FunctionTokenNode` — because the corpus always
+writes them, so marshalling them adds nothing. If one of them becomes optional, the test above is what
+will say so.

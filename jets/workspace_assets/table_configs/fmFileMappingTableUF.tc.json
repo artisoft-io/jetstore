@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "label": "File Mapping",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the Process Input data reside"
+    },
+    {
+      "name": "data_property",
+      "label": "Target Data Property",
+      "tooltip": "Canonical model data property"
+    },
+    {
+      "name": "input_column",
+      "label": "Source Input Column",
+      "tooltip": "Column from the input data"
+    },
+    {
+      "name": "function_name",
+      "label": "Cleansing Function",
+      "tooltip": "Function to cleanse input data"
+    },
+    {
+      "name": "argument",
+      "label": "Cleansing Function Argument",
+      "tooltip": "Argument for the cleansing function (is either required or ignored)"
+    },
+    {
+      "name": "default_value",
+      "label": "Default Value",
+      "tooltip": "Data Property default value if none in the input or the cleansing function returned null"
+    },
+    {
+      "name": "error_message",
+      "label": "Error Message",
+      "tooltip": "Error message if no value is provided in the input or returned by cleansing function"
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "data_property",
+  "sortAscending": true,
+  "rowsPerPage": 10,
+  "isCheckboxSingleSelect": true,
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_mapping"
+    }
+  ],
+  "where": [
+    {
+      "column": "table_name",
+      "formStateKey": "table_name"
+    }
+  ],
+  "actions": [
+    {
+      "key": "configureMappingPage",
+      "label": "Configure Mapping",
+      "action": "showScreen",
+      "style": "secondary",
+      "configForm": "fmMappingFormUF",
+      "configScreenPath": "/fileMappingUF/mapping/:table_name/:object_type",
+      "isEnabledWhenStateHasKeys": [
+        "table_name",
+        "object_type"
+      ],
+      "stateFormNavigationParams": {
+        "table_name": "table_name",
+        "object_type": "object_type"
+      }
+    },
+    {
+      "key": "loadRawRows",
+      "label": "Paste File Mapping",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "loadRawRowsDialog",
+      "capability": "client_config"
+    },
+    {
+      "key": "downloadMappingRows",
+      "label": "Download File Mapping",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "downloadMapping",
+      "isEnabledWhenWhereClauseSatisfied": true
+    }
+  ]
+}

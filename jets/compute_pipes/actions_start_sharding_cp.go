@@ -101,10 +101,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = shardResult.clusterShardingInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = shardResult.clusterShardingInfo.MultiStepSharding
-	cpipesStartup.EnvSettings["total_file_size"] = shardResult.clusterShardingInfo.TotalFileSize
-	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE"] = shardResult.clusterShardingInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_bytes"] = shardResult.clusterShardingInfo.TotalFileSize
+	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE}"] = shardResult.clusterShardingInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(shardResult.clusterShardingInfo.TotalFileSize) / 1024 / 1024 / 1024
-	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE_GB"] = cpipesStartup.EnvSettings["total_file_size_gb"]
+	cpipesStartup.EnvSettings["${TOTAL_FILE_SIZE_GB}"] = cpipesStartup.EnvSettings["total_file_size_gb"]
 	cpipesStartup.EnvSettings["nbr_partitions"] = shardResult.clusterShardingInfo.NbrPartitions
 	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = shardResult.clusterShardingInfo.NbrPartitions
 
@@ -125,6 +125,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("while applying conditional transformation spec: %v", err)
 	}
+
+	// Resolve the abstract infer operator into the concrete backend the deployment
+	// names. After the conditional pass, which may introduce one, and before the
+	// error-channel synthesis, which dispatches on the operator type.
+	err = ResolveInferBackend(pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, mainInputSchemaProvider, fmt.Errorf("while resolving the infer backend: %v", err)
+	}
+
+	// Built-in error reporting: give the operators that report row-level failures and
+	// name no error channel one of their own, with the shared channel spec and table
+	// binding they need. Ahead of both SelectActiveOutputTable and
+	// ValidatePipeSpecConfig, which the two startup paths call in opposite orders.
+	SynthesizeDefaultErrorChannels(&cpipesStartup.CpConfig, pipeConfig)
 
 	// Select the active output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
@@ -316,6 +330,15 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}
+
+	// Refuse a step whose document names a bucket that substitution did not reach,
+	// here rather than at the write: the write succeeds into a bucket literally
+	// named ${SOMETHING} and nothing reports it. After ValidatePipeSpecConfig,
+	// which normalises the stage channels onto jetstore_bucket.
+	err = ValidateResolvedBuckets(&cpipesStartup.CpConfig, pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, mainInputSchemaProvider, err
+	}
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:      "sharding",
@@ -353,6 +376,24 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		OutputFiles:     cpipesStartup.CpConfig.OutputFiles,
 		LookupTables:    lookupTables,
 		Channels:        cpipesStartup.CpConfig.Channels,
+		// **Carried because the node resolves a named prompt template, not the
+		// startup.** `resolveInferTemplate` looks `prompt_template_name` up in
+		// `cpConfig.PromptTemplates` at build time on the node
+		// (`pipe_transformation_infer.go`), and this literal is the whole of what a
+		// node sees — so omitting it made every named template resolve to nothing.
+		// An operator with an inline `prompt_template` was unaffected, which is why
+		// this survived until a config used the named form on a live run.
+		PromptTemplates: cpipesStartup.CpConfig.PromptTemplates,
+		// **Carried for the same reason, one element later.** The render
+		// operator resolves `template_name` in `cpConfig.TextTemplates` and
+		// compiles the document at build time *on the node*
+		// (`resolveRenderTemplate`, `jets/compute_pipes/pipe_transformation_render.go`),
+		// so a `text_templates` array that does not reach this literal reaches
+		// no operator. The failure would be a build error on a worker in a
+		// deployed run, which is the most expensive place in this system to find
+		// a configuration bug, and it was named before the operator was written
+		// rather than after -- see TestTextTemplatesReachAWorkerNode.
+		TextTemplates:   cpipesStartup.CpConfig.TextTemplates,
 		Context:         cpipesStartup.CpConfig.Context,
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,

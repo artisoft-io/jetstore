@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "label": "Query Result",
+  "columns": [],
+  "rowsPerPage": 1,
+  "source": "query",
+  "apiAction": "raw_query_tool",
+  "requestColumnDef": true,
+  "from": [
+    {
+      "schema": "public"
+    }
+  ],
+  "where": [
+    {
+      "formStateKey": "query.ready"
+    }
+  ]
+}

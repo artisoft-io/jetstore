@@ -357,6 +357,9 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 	// Generate the Rete network from the rules
 	l.BuildReteNetwork()
 
+	// An aggregate in a consequent must fire after the rules that feed it
+	l.ValidateAggregateSalience()
+
 	// Delete the temp var nodes created during parsing
 	// Remove from resourceManager.ResourceByKey and jetRuleModel.Resources
 	tempNodes := make(map[int]bool)
@@ -413,8 +416,18 @@ func (l *JetRuleListener) PostProcessClasses() {
 			}
 		}
 	}
-	// visit classes and create rules for class inheritance axioms
-	for className, class := range l.classesByName {
+	// visit classes and create rules for class inheritance axioms.
+	// In name order: these rules are appended to the model in the order visited,
+	// and ranging over the map put them in a different order on every run, which
+	// made workspace.db's jet_rules, rule_terms and rete_nodes keys differ
+	// between two compiles of the same workspace.
+	classNames := make([]string, 0, len(l.classesByName))
+	for className := range l.classesByName {
+		classNames = append(classNames, className)
+	}
+	sort.Strings(classNames)
+	for _, className := range classNames {
+		class := l.classesByName[className]
 		// Create a single rule to infer all base classes of the class:
 		// (?x01 rdf:type <class>) -> (?x01 rdf:type <baseClass1>).(?x01 rdf:type <baseClass2>)...;
 		// Rule name: ci_<class>
@@ -522,6 +535,7 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 				Type:       cls.DataProperties[i].Type,
 				ColumnName: cls.DataProperties[i].Name,
 				AsArray:    cls.DataProperties[i].AsArray,
+				Deleted:    cls.DataProperties[i].Deleted,
 			}
 		}
 	}
@@ -532,6 +546,7 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 				ColumnName: cls.ObjectProperties[i].Name,
 				AsArray:    cls.ObjectProperties[i].AsArray,
 				IsObject:   true,
+				Deleted:    cls.ObjectProperties[i].Deleted,
 			}
 		}
 	}

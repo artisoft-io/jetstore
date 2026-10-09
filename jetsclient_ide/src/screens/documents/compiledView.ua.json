@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "addWorkspaceFileOk": {
+      "description": "Create an empty workspace file under the section the tab shows",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "add_workspace_file",
+          "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" }
+          },
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "source_file_name": { "fromKey": "source_file_name" },
+              "user_email": { "userEmail": true }
+            }
+          }
+        }
+      ]
+    },
+    "deleteWorkspaceFiles": {
+      "description": "Delete the selected workspace files",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Are you sure you want to delete the selected file(s)?"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "delete_workspace_files",
+          "spinner": true,
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" }
+          },
+          "data": {
+            "rows": "fanOut",
+            "over": "source_file_name",
+            "fields": {
+              "source_file_name": { "fromKeyAtIndex": "source_file_name" },
+              "user_email": { "userEmail": true }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -17,7 +17,11 @@ type CustomErrorListener struct {
 	antlr.DefaultErrorListener // Embeds default implementation
 	ParseLog                   *strings.Builder
 	ErrorLog                   *strings.Builder
-	Trace                      bool
+	// Diagnostics receives the structured form of each syntax error. This is
+	// the only producer that has a position, since ANTLR reports one; nil is
+	// tolerated so the listener stays usable on its own.
+	Diagnostics *diagnosticSink
+	Trace       bool
 }
 
 func NewCustomErrorListener(parseLog, errorLog *strings.Builder, trace bool) *CustomErrorListener {
@@ -37,6 +41,15 @@ func (l *CustomErrorListener) SyntaxError(
 ) {
 	// allways report syntax errors
 	fmt.Fprintf(l.ErrorLog, "Syntax error at line %d:%d - %s\n", line, column, msg)
+	// The line ANTLR reports is into the concatenated buffer, not into any file
+	// anyone wrote. It is recorded as GlobalLine here and mapped to an authored
+	// file and local line once the compile finishes and the reader is at hand.
+	l.Diagnostics.add(Diagnostic{
+		Severity:   SeverityError,
+		GlobalLine: line,
+		Column:     column,
+		Message:    msg,
+	})
 }
 
 func (l *CustomErrorListener) ReportAmbiguity(

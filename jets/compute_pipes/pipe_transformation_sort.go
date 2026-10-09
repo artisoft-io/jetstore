@@ -111,6 +111,12 @@ func (ctx *BuilderContext) NewSortTransformationPipe(source *InputChannel, outpu
 		}
 		sortBy = append(sortBy, pos)
 	}
+	if len(sortBy) == 0 {
+		// Guarded at config level too (ValidatePipeSpecConfig), but a domain key can
+		// still resolve to an empty key_expr; sorting by nothing is never intended.
+		return nil, fmt.Errorf(
+			"error: sort operator has no sort key: set sort_config.domain_key or sort_config.sort_by")
+	}
 	if config.IsDebug {
 		log.Printf("SortTransformationPipe: sort by columns %v at positions %v", config.SortByColumn, sortBy)
 	}

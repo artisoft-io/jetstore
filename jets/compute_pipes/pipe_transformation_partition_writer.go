@@ -42,16 +42,25 @@ type PartitionWriterTransformationPipe struct {
 	samplingMaxCount     int
 	samplingCount        int
 	outputCh             *OutputChannel
-	currentDeviceCh      chan []any
-	parquetSchema        *ParquetSchemaInfo
-	columnEvaluators     []TransformationColumnEvaluator
-	doneCh               chan struct{}
-	errCh                chan error
-	copy2DeviceResultCh  chan<- ComputePipesResult
-	sessionId            string
-	nodeId               int
-	s3DeviceManager      *S3DeviceManager
-	env                  map[string]any
+	// inputChannelName is the name of the channel this partition writer reads;
+	// with outputCh.Name it is the DAG edge the result reports.
+	inputChannelName string
+	// outputLocation is the s3:// URI of what this output channel writes, with
+	// the jets_partition segment removed so that it is the same string for
+	// every sink of the channel — the edge row of
+	// jetsapi.pipeline_execution_channel_details is the aggregate over them.
+	// Empty when the output channel type has no location.
+	outputLocation      string
+	currentDeviceCh     chan []any
+	parquetSchema       *ParquetSchemaInfo
+	columnEvaluators    []TransformationColumnEvaluator
+	doneCh              chan struct{}
+	errCh               chan error
+	copy2DeviceResultCh chan<- ComputePipesResult
+	sessionId           string
+	nodeId              int
+	s3DeviceManager     *S3DeviceManager
+	env                 map[string]any
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey any) string {
@@ -290,9 +299,14 @@ func (ctx *PartitionWriterTransformationPipe) Finally() {
 	}
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{
-		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartitionLabel),
-		CopyRowCount: ctx.totalRowCount,
-		PartsCount:   int64(ctx.filePartitionNumber),
+		Type:              SinkJetsPartition,
+		EntityName:        ctx.jetsPartitionLabel,
+		InputChannel:      ctx.inputChannelName,
+		OutputChannel:     ctx.outputCh.Name,
+		OutputChannelSpec: ctx.outputCh.Config.Name,
+		OutputLocation:    ctx.outputLocation,
+		CopyRowCount:      ctx.totalRowCount,
+		PartsCount:        int64(ctx.filePartitionNumber),
 	}
 
 	// Indicate to S3DeviceManager that we're done using it
@@ -485,6 +499,22 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 
+	// The destination of this output channel, as a URI, for the execution
+	// record. The switch above has no default arm and the type range is four,
+	// so a partition writer whose output channel is "memory" or "sql" leaves
+	// baseOutputPath empty; an empty location is then left empty rather than
+	// reported as "s3://<bucket>/", which would be a wrong value that reads as
+	// a correct one.
+	var outputLocation string
+	if len(baseOutputPath) > 0 {
+		bucket := externalBucket
+		if bucket == "" || bucket == "jetstore_bucket" {
+			bucket = awsi.JetStoreBucket()
+		}
+		outputLocation = fmt.Sprintf("s3://%s/%s",
+			bucket, partitionPathPrefix(baseOutputPath, jetsPartitionLabel))
+	}
+
 	// Check if we limit the file part size
 	var rowCountPerPartition int64
 	if config.PartitionSize > 0 {
@@ -517,10 +547,12 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath:       &baseOutputPath,
 		localTempDir:         &localTempDir,
 		jetsPartitionLabel:   jetsPartitionLabel,
+		outputLocation:       outputLocation,
 		rowCountPerPartition: rowCountPerPartition,
 		samplingRate:         config.SamplingRate,
 		samplingMaxCount:     config.SamplingMaxCount,
 		outputCh:             outputCh,
+		inputChannelName:     source.Name,
 		parquetSchema:        parquetSchema,
 		columnEvaluators:     columnEvaluators,
 		errCh:                ctx.errCh,
@@ -531,6 +563,27 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		s3DeviceManager:      ctx.s3DeviceManager,
 		env:                  ctx.env,
 	}, nil
+}
+
+// partitionPathPrefix strips the partition identity from a sink path, so that
+// the result is one string for the whole output channel rather than one per
+// sink. The stage and schema-events arms end in a "/jets_partition=<label>"
+// segment and the segment goes; an "output" channel may instead interpolate
+// $CURRENT_PARTITION_LABEL anywhere in its key prefix, and there the path is
+// cut before the first occurrence of the label. Either way the result is a
+// prefix of every sink path of the channel, which is what an arrival check
+// against s3 lists on.
+func partitionPathPrefix(basePath, jetsPartitionLabel string) string {
+	if len(jetsPartitionLabel) == 0 {
+		return basePath
+	}
+	if seg := "/jets_partition=" + jetsPartitionLabel; strings.HasSuffix(basePath, seg) {
+		return strings.TrimSuffix(basePath, seg)
+	}
+	if i := strings.Index(basePath, jetsPartitionLabel); i >= 0 {
+		return basePath[:i]
+	}
+	return basePath
 }
 
 func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
@@ -545,7 +598,29 @@ func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
 	}
 
 	if s3OutputLocation == "jetstore_s3_output" {
-		value = strings.ReplaceAll(value, awsi.JetStoreInputPrefix(), awsi.JetStoreOutputPrefix())
+		value = toOutputArea(value, awsi.JetStoreInputPrefix(), awsi.JetStoreStagePrefix(), awsi.JetStoreOutputPrefix())
+	}
+	return value
+}
+
+// toOutputArea moves a key into the output area, for the jetstore_s3_output location.
+//
+// An input-area prefix is replaced by the output prefix, as it always was. A key that
+// starts with the stage prefix is moved too: a pipeline whose main input is read from
+// stage (a part-file folder another pipeline wrote) has $PATH_FILE_KEY under stage, and
+// without this its default output folder stayed there, beside the files it read -- where
+// the next run over that folder would read its own report back as input.
+//
+// The prefixes are arguments rather than reads of awsi so the rule can be tested: awsi
+// reads them from the environment once, when the package is initialised. An empty
+// prefix moves nothing, where strings.ReplaceAll with an empty old string would insert
+// the output prefix between every character.
+func toOutputArea(value, inputPrefix, stagePrefix, outputPrefix string) string {
+	if inputPrefix != "" {
+		value = strings.ReplaceAll(value, inputPrefix, outputPrefix)
+	}
+	if stagePrefix != "" && (value == stagePrefix || strings.HasPrefix(value, stagePrefix+"/")) {
+		value = outputPrefix + strings.TrimPrefix(value, stagePrefix)
 	}
 	return value
 }

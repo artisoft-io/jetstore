@@ -85,39 +85,46 @@ func (lhs *Node) AgeAsOf(rhs *Node) *Node {
 
 // unary operator
 func (rhs *Node) CreateEntity(rdfSession *RdfSession) *Node {
-	if rhs == nil {
+	entity, key := rhs.CreateEntityKey(rdfSession)
+	if entity == nil {
 		return nil
 	}
-
-	switch rhsv := rhs.Value.(type) {
-	case int:
-		if rhsv == 0 {
-			return createEntity(rdfSession, "")
-		}
-		return createEntity(rdfSession, strconv.Itoa(rhsv))
-	case string:
-		return createEntity(rdfSession, rhsv)
-	case float64:
-		if NearlyEqual(rhsv, 0) {
-			return createEntity(rdfSession, "")
-		}
-		return createEntity(rdfSession, strconv.FormatFloat(rhsv, 'G', 15, 64))
-	default:
-		return nil
-	}
-}
-
-func createEntity(rdfSession *RdfSession, name string) *Node {
-	if name == "" {
-		name = uuid.NewString()
-	}
-	rm := rdfSession.ResourceMgr
-	entity := rm.NewResource(name)
-	_, err := rdfSession.InsertInferred(entity, rm.JetsResources.Jets__key, rm.NewTextLiteral(name))
+	_, err := rdfSession.InsertInferred(entity, rdfSession.ResourceMgr.JetsResources.Jets__key, key)
 	if err != nil {
 		log.Panicf("while calling InsertInferred (createEntity operator): %v", err)
 	}
 	return entity
+}
+
+// CreateEntityKey is create_entity without the insert: it returns the entity and the
+// literal its (entity, jets:key, key) triple carries, and leaves inserting that triple
+// to the caller. The rete engine inserts it through ReteSession.InsertInferredFor so
+// that a consequent records it and retracts it with the beta row. A key of 0 or ""
+// mints a UUID.
+func (rhs *Node) CreateEntityKey(rdfSession *RdfSession) (entity, key *Node) {
+	if rhs == nil {
+		return nil, nil
+	}
+	var name string
+	switch rhsv := rhs.Value.(type) {
+	case int:
+		if rhsv != 0 {
+			name = strconv.Itoa(rhsv)
+		}
+	case string:
+		name = rhsv
+	case float64:
+		if !NearlyEqual(rhsv, 0) {
+			name = strconv.FormatFloat(rhsv, 'G', 15, 64)
+		}
+	default:
+		return nil, nil
+	}
+	if name == "" {
+		name = uuid.NewString()
+	}
+	rm := rdfSession.ResourceMgr
+	return rm.NewResource(name), rm.NewTextLiteral(name)
 }
 
 // unary operator

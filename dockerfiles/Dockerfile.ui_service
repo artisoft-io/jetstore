@@ -8,12 +8,35 @@ FROM cpipes_builder:latest AS builder
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
 # # Install runtime dependencies
+#
+# libstdc++ is named for node (below), which links it. git happens to pull it in
+# today -- measured in this image on 2026-10-01 -- but a dependency of a
+# dependency is not something to rest the workspace compile on.
 RUN dnf update -y && \
-  dnf install -y git && \
+  dnf install -y git libstdc++ && \
   dnf clean all
 
 RUN ln -s /usr/bin/git /usr/local/bin/git
 ENV PATH=$PATH:/usr/local/bin
+
+# Node, for the workspace document validator -- jetstore_maintenance_02 AG.6
+# (R12, Q-9 answered `b`).
+#
+# The apiserver compiles the workspace at startup when its version is behind, and
+# on the IDE's compile action; both now run `node jets_validate_workspace.mjs`
+# first and **fail the compile rather than skip** when node is absent
+# (jets/workspace/asset_validation.go). This image had no node until now (F45).
+#
+# The same build as the Docker build's compile uses, copied out of the builder
+# rather than installed from dnf, so the two gates run one interpreter at one
+# version (Dockerfile.cpipes_base_builder pins it). **The binary alone**, not the
+# whole /usr/local/node: of its 205MB, 121MB is bin/node and the rest is C headers
+# (65MB) and npm and corepack (19MB), measured in cpipes_builder on 2026-10-01, and
+# nothing here compiles an addon or installs a package. run_reports, which this image also carries, opts out
+# of the validation explicitly and needs none of it.
+COPY --from=builder /usr/local/node/bin/node /usr/local/node/bin/node
+ENV PATH=$PATH:/usr/local/node/bin
+RUN node --version
 
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
 
@@ -31,6 +54,9 @@ COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
+# Beside the apiserver, which is where CompileWorkspace looks for it when
+# JETS_WORKSPACE_VALIDATOR is unset. Built in Dockerfile.cpipes_builder.
+COPY --from=builder $JETS_SOURCE_DIR/jets_validate_workspace.mjs /usr/local/bin/
 
 # Make sure it is executable
 RUN \
@@ -38,3 +64,36 @@ chmod +x /usr/local/bin/apiserver \
 && chmod +x /usr/local/bin/cbooter \
 && chmod +x /usr/local/bin/update_db \
 && chmod +x /usr/local/bin/run_reports
+
+# cbooter drops to jsuser (uid/gid 999) before exec'ing the apiserver, and switching uid
+# does not change HOME. Left at the /root the container runtime supplies for uid 0, git
+# looks for $HOME/.config/git/attributes and $HOME/.config/git/ignore under a directory
+# uid 999 cannot read, so a git command run through the UI answers with permission warnings
+# ahead of its output -- measured 2026-09-08 in this image: `git status` as uid 999 with
+# HOME=/root prints the '/root/.config/git/ignore' warning and the same command with a
+# writable HOME prints none. Which of the two paths a warning names depends on the
+# operation, `attributes` being read by the ones that touch file content. Those warnings are
+# the visible half; anything wanting a home it can write to -- `git config --global`, a
+# credential helper's store -- fails without saying so. HOME therefore has to
+# point somewhere jsuser owns, and JETS_TEMP_DATA is the mounted volume, the one place the
+# read-only root filesystem leaves writable. Dockerfile.infer_service and
+# Dockerfile.infer_service_vllm carry the same two lines for the same reason; this image
+# was left out when they were written.
+#
+# JETS_TEMP_DATA is declared here rather than only in Dockerfile.ui_service_ws because
+# ${...} in an ENV resolves against the build that contains it: a downstream ENV set in an
+# image built FROM this one is not in scope while this line is read. Measured against this
+# image on 2026-09-08 rather than reasoned from the manual -- `ENV HOME=${JETS_TEMP_DATA}/home`
+# alone resolves to /home, and the same line preceded by the ENV below resolves to
+# /jetsdata/home. Dockerfile.ui_service_ws restates the same /jetsdata, so today the two
+# agree; a child image that changed it would leave HOME behind at the value baked here,
+# which the same measurement confirmed.
+#
+# What that leaves open is a divergence, and it is not hypothetical: the task definition
+# passes JETS_TEMP_DATA into the container (uiEnvironment, cdk/jetstore_one/stack/build_ui_service.go:49)
+# from a synth-time variable, so a site that overrides it gets a runtime JETS_TEMP_DATA
+# that no longer contains the HOME baked in here. cbooter checks for exactly that before it
+# creates the directory (checkJsuserHome, jets/cmds/cbooter/main.go) and warns rather than
+# starting a chown of the wrong tree.
+ENV JETS_TEMP_DATA=/jetsdata
+ENV HOME=${JETS_TEMP_DATA}/home

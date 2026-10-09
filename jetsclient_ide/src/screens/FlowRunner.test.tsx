@@ -1,0 +1,1190 @@
+/**
+ * @vitest-environment jsdom
+ *
+ * **F.0a's exit condition: a flow runs in the app rather than in a harness.**
+ *
+ * `proofFlows.test.ts` already drove both flows through `engine` + `interpret` +
+ * `validateForm` in memory, and it was right about all of it — the finding I-50
+ * recorded is that the *application* had none of it: no route, no screen, no
+ * registry value, and a store that read two of the four documents. So the thing
+ * worth testing here is not the flow's logic a second time. It is the seams: a
+ * url resolves to a screen, the screen fetches five documents over the real api
+ * client, the widgets render from them, and pressing a button reaches the server
+ * with the payload the Dart would have sent.
+ *
+ * Everything below the api client is real. The only stub is `fetch`, answering
+ * as the apiserver's `/dataTable` switch does.
+ */
+
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+
+import { ApiClient } from "../api/client";
+import lfFileKeyStagingTable from "../../../jets/workspace_assets/table_configs/lfFileKeyStagingTable.tc.json";
+import lfSourceConfigTable from "../../../jets/workspace_assets/table_configs/lfSourceConfigTable.tc.json";
+import wpClientList from "../../../jets/workspace_assets/table_configs/wpClientList.tc.json";
+import wpClientListRO from "../../../jets/workspace_assets/table_configs/wpClientListRO.tc.json";
+import hfProcessTable from "../../../jets/workspace_assets/table_configs/hfProcessTableUF.tc.json";
+import hfStatusTable from "../../../jets/workspace_assets/table_configs/hfStatusTableUF.tc.json";
+import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_configs/hfFileKeyFilterTypeTableUF.tc.json";
+import execStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
+import type { JetsRow } from "../datatable/types";
+import { ApiProvider } from "../shell/capabilities";
+import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { PromptsProvider } from "../shell/prompts";
+import { answerPrompt } from "../shell/promptsTesting";
+import { resetHomeFilters } from "../actions/homeFilters";
+import homeFiltersActions from "../../../jets/workspace_assets/user_flows/homeFiltersUF.ua.json";
+import loadConfigActions from "../../../jets/workspace_assets/user_flows/loadConfigUF.ua.json";
+import loadFilesActions from "../../../jets/workspace_assets/user_flows/loadFilesUF.ua.json";
+import mapFileActions from "../../../jets/workspace_assets/user_flows/mapFileUF.ua.json";
+import homeFiltersFlow from "../../../jets/workspace_assets/user_flows/homeFiltersUF.uf.json";
+import loadConfigFlow from "../../../jets/workspace_assets/user_flows/loadConfigUF.uf.json";
+import loadFilesFlow from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
+import mapFileFlow from "../../../jets/workspace_assets/user_flows/mapFileUF.uf.json";
+import homeFiltersForms from "../../../jets/workspace_assets/user_flows/homeFiltersUF.form.json";
+import loadConfigForms from "../../../jets/workspace_assets/user_flows/loadConfigUF.form.json";
+import loadFilesForms from "../../../jets/workspace_assets/user_flows/loadFilesUF.form.json";
+import mapFileForms from "../../../jets/workspace_assets/user_flows/mapFileUF.form.json";
+import { FlowRunner } from "./FlowRunner";
+
+afterEach(cleanup);
+
+const serialise = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
+
+/** The workspace the stub server holds, keyed by relative path. */
+const files: Record<string, string> = {
+  "user_flows/loadFilesUF.uf.json": serialise(loadFilesFlow),
+  "user_flows/loadFilesUF.ua.json": serialise(loadFilesActions),
+  "user_flows/loadFilesUF.form.json": serialise(loadFilesForms),
+  "table_configs/lfSourceConfigTable.tc.json": serialise(lfSourceConfigTable),
+  "table_configs/lfFileKeyStagingTable.tc.json": serialise(lfFileKeyStagingTable),
+
+  // F.1. The committed documents rather than a fixture, which is the whole point
+  // of the test: what is being checked is that *these* files run.
+  "user_flows/mapFileUF.uf.json": serialise(mapFileFlow),
+  "user_flows/mapFileUF.ua.json": serialise(mapFileActions),
+  "user_flows/mapFileUF.form.json": serialise(mapFileForms),
+
+  // F.2. Its route carries `?workspace_name=&workspace_uri=`, and the two text
+  // fields that show them are read-only — which the corpus says of 20 of the 36
+  // text inputs and the schema could not say until this task.
+  "user_flows/loadConfigUF.uf.json": serialise(loadConfigFlow),
+  "user_flows/loadConfigUF.ua.json": serialise(loadConfigActions),
+  "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
+  "table_configs/wpClientList.tc.json": serialise(wpClientList),
+  "table_configs/wpClientListRO.tc.json": serialise(wpClientListRO),
+
+  // F.5. Four table documents for five states, and the fourth is the one
+  // registered on the *non-flow* side (plan F18) — the first document in this
+  // workspace that no flow corpus produced.
+  "user_flows/homeFiltersUF.uf.json": serialise(homeFiltersFlow),
+  "user_flows/homeFiltersUF.ua.json": serialise(homeFiltersActions),
+  "user_flows/homeFiltersUF.form.json": serialise(homeFiltersForms),
+  "table_configs/hfProcessTableUF.tc.json": serialise(hfProcessTable),
+  "table_configs/hfStatusTableUF.tc.json": serialise(hfStatusTable),
+  "table_configs/hfFileKeyFilterTypeTableUF.tc.json": serialise(hfFileKeyFilterTypeTable),
+  "table_configs/pipelineExecStatusTable.tc.json": serialise(execStatusTable),
+
+  // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
+  // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
+  // and reaches them through a row builder, which is F.1's — so the wiring from
+  // `useFormQueries` through `FormHost.queryRows` to the two widgets has no real
+  // document to be exercised by yet. I-24's rule: a behaviour no configuration
+  // exercises needs a case written for it, and that case is necessarily invented.
+  "user_flows/itemSourceProbe.uf.json": serialise({
+    schemaVersion: 1,
+    startAtKey: "choose",
+    states: { choose: { description: "Choose a client", formConfig: "probeForm", isEnd: true } },
+  }),
+  "user_flows/itemSourceProbe.ua.json": serialise({ schemaVersion: 1, actions: {} }),
+  "user_flows/itemSourceProbe.form.json": serialise({
+    schemaVersion: 1,
+    forms: {
+      probeForm: {
+        queries: {
+          clients: { sql: "SELECT client FROM jetsapi.client_registry ORDER BY client" },
+          orgs: {
+            sql: "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}'",
+            params: ["client"],
+          },
+        },
+        rows: [
+          [
+            {
+              field: "dropdown",
+              key: "client",
+              label: "Client",
+              items: [{ value: "", label: "Select a Client" }],
+              itemsFrom: "clients",
+            },
+            {
+              field: "typeahead",
+              key: "org",
+              label: "Organization",
+              itemsFrom: "orgs",
+            },
+          ],
+        ],
+        actions: [{ action: "ufCompleted", label: "Done" }],
+      },
+    },
+  }),
+};
+
+const sourceRows: JetsRow[] = [
+  ["1", "acme", "vendorA", "claims", "staging_claims", "csv", "2026-08-01"],
+];
+const fileRows: JetsRow[] = [
+  ["10", "acme", "vendorA", "claims", "s3://bucket/in/f10.csv", "2026", "8", "1", "p", "staging_claims", "sess-1", "d", "spk"],
+];
+
+/**
+ * `inputFieldsQuery`'s eight columns, for a two-property canonical model.
+ *
+ * `claim:id` is required and unmapped; `member:dob` is optional and has a saved
+ * mapping. Two rows is the smallest set that shows the groups are independent.
+ */
+const mappingRows: JetsRow[] = [
+  ["claim:id", "1", null, null, null, null, null, null],
+  ["member:dob", "0", "dob", "to_date", "%Y-%m-%d", null, null, null],
+];
+const stagingColumns: JetsRow[] = [["claim_id"], ["dob"], ["member_id"]];
+/** `wpClientList`'s two columns — the key column is `client`, at index 0. */
+const clientRows: JetsRow[] = [
+  ["ACME", "Acme Health"],
+  ["USI", "USI Insurance"],
+];
+/** `hfProcessTableUF`'s two columns. */
+const processRows: JetsRow[] = [["loadFile", "Load a file"], ["runRules", "Run the rules"]];
+/** `pipelineExecStatusTable`'s nineteen, only the ones a test reads being real. */
+const execRows: JetsRow[] = [
+  ["1", "2", "acme", "loadFile", "claims", "2026", "8", "1", "failed",
+    "s3://bucket/in/f10.csv", "sess-1", "in-1", "req-1", "boom", "3", "{}",
+    "michel@artisoft.io", "00:00:10", "2026-08-24"],
+];
+const mappingFunctions: JetsRow[] = [
+  ["to_date", "1"],
+  ["to_upper", "0"],
+];
+
+interface Posted {
+  path: string;
+  body: Record<string, unknown>;
+}
+
+/** Added to the login response by a case; the D04 custom-button case sets it. */
+let extraLogin: Record<string, unknown> = {};
+/** The stage, by path, for `fetch_file_from_stage`; a path not here is a 404. */
+let stageFiles: Record<string, string> = {};
+
+/**
+ * The apiserver, as much of it as this screen touches.
+ *
+ * Dispatching on `action` rather than returning one canned body is what makes the
+ * assertions below about the *right* request rather than about any request —
+ * the same reason `loadFiles.test.tsx`'s stub filters on the where clause.
+ */
+function stubServer(overrides: { missing?: string[] } = {}) {
+  const posts: Posted[] = [];
+  const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
+    const path = String(url);
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    posts.push({ path, body });
+
+    if (path === "/login") {
+      return new Response(
+        JSON.stringify({
+          token: "t0",
+          name: "Michel",
+          user_email: "michel@artisoft.io",
+          is_admin: false,
+          // `client_config` is `mapFileUF`'s: both its save buttons declare it
+          // (`file_mapping/form_config.dart`), and `insert_rows` into
+          // `process_mapping` is gated on it server-side (`sql_stmts.go`). A user
+          // without it sees the worksheet and cannot save it.
+          capabilities: ["workspace_ide", "run_pipelines", "client_config"],
+          ...extraLogin,
+        }),
+        { status: 200 },
+      );
+    }
+    if (path === "/registerFileKey") return new Response("{}", { status: 200 });
+
+    switch (body["action"]) {
+      case "get_workspace_uri":
+        return new Response(
+          JSON.stringify({
+            workspace_name: "jets_ws",
+            workspace_uri: "git@example",
+            workspace_branch: "jets_ai",
+            workspace_file_key_label_re: "",
+          }),
+          { status: 200 },
+        );
+
+      case "get_workspace_document": {
+        const data = (body["data"] as { file_name: string }[])[0]!;
+        const name = decodeURIComponent(data.file_name.replace(/\+/g, " "));
+        if (overrides.missing?.includes(name) || files[name] === undefined) {
+          return new Response(JSON.stringify({ error: `no such file: ${name}` }), { status: 404 });
+        }
+        return new Response(JSON.stringify({ file_content: files[name] }), { status: 200 });
+      }
+
+      case "read": {
+        const from = (body["fromClauses"] as { table: string }[])[0]!.table;
+        if (from === "client_registry") {
+          return new Response(
+            JSON.stringify({ rows: clientRows, totalRowCount: clientRows.length }),
+            { status: 200 },
+          );
+        }
+        if (from === "source_config") {
+          return new Response(
+            JSON.stringify({ rows: sourceRows, totalRowCount: sourceRows.length }),
+            { status: 200 },
+          );
+        }
+        if (from === "process_config") {
+          return new Response(
+            JSON.stringify({ rows: processRows, totalRowCount: processRows.length }),
+            { status: 200 },
+          );
+        }
+        if (from === "pipeline_execution_status") {
+          return new Response(
+            JSON.stringify({ rows: execRows, totalRowCount: execRows.length }),
+            { status: 200 },
+          );
+        }
+        const clauses = (body["whereClauses"] ?? []) as { column: string; values?: string[] }[];
+        const wanted = clauses.find((c) => c.column === "table_name")?.values ?? [];
+        const rows = fileRows.filter((r) => wanted.includes(r[9]!));
+        return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
+      }
+
+      case "raw_query_map": {
+        const map = body["query_map"] as Record<string, string>;
+        const result_map: Record<string, unknown> = {};
+        for (const [name, sql] of Object.entries(map)) {
+          if (name === "clients") result_map[name] = [["acme"], ["globex"]];
+          else if (name === "inputFields") result_map[name] = mappingRows;
+          else if (name === "inputColumns") result_map[name] = stagingColumns;
+          else if (name === "mappingFunctions") result_map[name] = mappingFunctions;
+          // The substituted statement is what decides the answer, so the
+          // assertion below is about the substitution rather than about the name.
+          else result_map[name] = sql.includes("'acme'") ? [["eastern"], ["western"]] : [];
+        }
+        return new Response(JSON.stringify({ result_map }), { status: 200 });
+      }
+
+      case "insert_rows":
+      case "workspace_insert_rows":
+        return new Response("{}", { status: 200 });
+
+      case "fetch_file_from_stage": {
+        const stagePath = String((body["data"] as { stage_file_path: string }[])[0]!.stage_file_path);
+        return stagePath in stageFiles
+          ? new Response(JSON.stringify({ file_content: stageFiles[stagePath] }), { status: 200 })
+          : new Response(JSON.stringify({ error: `NoSuchKey: ${stagePath}` }), { status: 404 });
+      }
+
+      default:
+        return new Response(JSON.stringify({ error: `unexpected action ${String(body["action"])}` }), {
+          status: 422,
+        });
+    }
+  }) as unknown as typeof fetch;
+
+  return { fetchImpl, posts };
+}
+
+function Banners() {
+  const { error, status } = useNotifications();
+  return (
+    <>
+      {error != null && <div role="alert">{error}</div>}
+      {status != null && <div role="status">{status}</div>}
+    </>
+  );
+}
+
+async function mount(
+  flowKey = "loadFilesUF",
+  overrides: { missing?: string[]; search?: string } = {},
+) {
+  const { fetchImpl, posts } = stubServer(overrides);
+  const api = new ApiClient("", fetchImpl);
+  await api.login("michel@artisoft.io", "pw");
+
+  render(
+    <ApiProvider api={api}>
+      <NotificationsProvider>
+        <PromptsProvider>
+          {/* **The harness renders the banners**, as `Home.test.tsx`'s does and for
+              the same reason: `AppShell` draws them and this tree does not, so a
+              case asserting a refusal would otherwise find nothing and have no way
+              to tell "refused" from "did nothing". Added at D.10 for the entry
+              point's `ufPrevious`. */}
+          <Banners />
+          <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
+            <Routes>
+              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+              {/* The three destinations a flow can leave for (D.8): the app's
+                  index, an origin the url named, and the editor — which is where
+                  every flow used to land regardless. All three are stubbed so
+                  that a wrong exit fails by naming the screen it reached. */}
+              <Route path="/home" element={<p>the home screen</p>} />
+              <Route path="/workspaces" element={<p>the workspace registry</p>} />
+              <Route path="/workspace" element={<p>the workspace ide</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
+      </NotificationsProvider>
+    </ApiProvider>,
+  );
+  return { api, posts };
+}
+
+/** The `/dataTable` bodies, which is what the assertions below are about. */
+const actions = (posts: Posted[]) => posts.map((p) => p.body["action"]);
+
+describe("the route and the load", () => {
+  it("renders the flow's first state from the documents", async () => {
+    await mount();
+    // The label comes off the `.tc.json`, the description off the `.uf.json`, and
+    // the rows off the query the `.tc.json` describes: three documents visible in
+    // one screenshot.
+    expect(
+      await screen.findByText("Select a File Data Source Configurations"),
+    ).toBeTruthy();
+    expect(screen.getByText("Select a file data source configuration")).toBeTruthy();
+    expect(await screen.findByText("vendorA")).toBeTruthy();
+  });
+
+  it("heads the screen with the flow's title rather than its key", async () => {
+    await mount();
+    // **The defect I-263 reported**: this was `<h1>{key}</h1>`, so a user saw
+    // `loadFilesUF`. The title is a field of the `.uf.json` now, and the document
+    // read here is the committed one rather than a fixture.
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Load Files");
+    expect(screen.queryByText("loadFilesUF")).toBeNull();
+  });
+
+  it("falls back to the key for a flow whose document carries no title", async () => {
+    // `itemSourceProbe` is the synthetic flow this file already carries and it
+    // sets no `title`, which makes it the fallback's only exercise — every
+    // shipping flow has one (`translate.ts`, `flowTitles`).
+    await mount("itemSourceProbe");
+    expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("itemSourceProbe");
+  });
+
+  it("reads all five documents, and the table set from the forms", async () => {
+    const { posts } = await mount();
+    await screen.findByText("vendorA");
+    const read = posts
+      .filter((p) => p.body["action"] === "get_workspace_document")
+      .map((p) => decodeURIComponent(
+        ((p.body["data"] as { file_name: string }[])[0]!.file_name).replace(/\+/g, " "),
+      ));
+    expect(read.sort()).toEqual([
+      "table_configs/lfFileKeyStagingTable.tc.json",
+      "table_configs/lfSourceConfigTable.tc.json",
+      "user_flows/loadFilesUF.ua.json",
+      "user_flows/loadFilesUF.form.json",
+      "user_flows/loadFilesUF.uf.json",
+    ].sort());
+  });
+
+  it("asks for the deployment's workspace, not the IDE's picker", async () => {
+    const { posts } = await mount();
+    await screen.findByText("vendorA");
+    expect(actions(posts)).toContain("get_workspace_uri");
+    // `listWorkspaces` reads the registry and would be the wrong question here.
+    expect(posts.some((p) => p.body["action"] === "raw_query")).toBe(false);
+  });
+
+  it("renders the findings when a document is missing, not a bare error", async () => {
+    await mount("loadFilesUF", { missing: ["table_configs/lfFileKeyStagingTable.tc.json"] });
+    expect(await screen.findByText("This user flow cannot be loaded.")).toBeTruthy();
+    expect(
+      screen.getByText(/table_configs\/lfFileKeyStagingTable\.tc\.json could not be read/),
+    ).toBeTruthy();
+  });
+});
+
+describe("driving the flow", () => {
+  it("refuses to advance until the form validates, and says why", async () => {
+    await mount();
+    await screen.findByText("vendorA");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // `ufNext` validates first (`engine.ts`, `step`), and the message is the
+    // one the document wrote rather than one this screen invented.
+    expect(
+      await screen.findByText("Please select a file data source configuration."),
+    ).toBeTruthy();
+    expect(screen.getByText("Select a file data source configuration")).toBeTruthy();
+  });
+
+  it("advances when a row is selected, carrying the selection into the next state", async () => {
+    await mount();
+    await screen.findByText("vendorA");
+
+    // A.4c publishes the selected row's columns into form state; the second
+    // table's where clause reads `table_name` out of it. This is the assertion
+    // that the two states share one `FormState`.
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByText("Select File(s) to Load")).toBeTruthy();
+    expect(await screen.findByText("Select file keys to load")).toBeTruthy();
+    expect(await screen.findByText("s3://bucket/in/f10.csv")).toBeTruthy();
+  });
+
+  it("disables Previous on the first step and enables it on the second", async () => {
+    // **D.11.** `back` throws below two entries in `visited`, and not one of the
+    // **174** `ufPrevious` buttons in the installed documents declares a gate —
+    // so every flow's first page offered a live *Previous* whose only outcome
+    // was an error message.
+    //
+    // **Both halves are asserted, and the second is the one worth having.** A
+    // rule that disables a control is easy to write and easy to leave disabled;
+    // the failure it invites is not the false positive but the control that
+    // never comes back.
+    await mount();
+    await screen.findByText("vendorA");
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("s3://bucket/in/f10.csv");
+
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("posts the state action's rows on completion, built by the interpreter", async () => {
+    const { posts } = await mount();
+    await screen.findByText("vendorA");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("s3://bucket/in/f10.csv");
+
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
+
+    await waitFor(() => expect(actions(posts)).toContain("insert_rows"));
+    const insert = posts.find((p) => p.body["action"] === "insert_rows")!;
+    const rows = insert.body["data"] as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      client: "acme",
+      table_name: "staging_claims",
+      file_key: "s3://bucket/in/f10.csv",
+      status: "submitted",
+      user_email: "michel@artisoft.io",
+    });
+    // `insert_rows` targets a table named on the step, not on the document's
+    // `from` — the grammar's `table` shorthand (`interpret.ts`, `post`).
+    expect(insert.body["fromClauses"]).toEqual([{ table: "input_loader_status" }]);
+  });
+
+  /** Drives `loadFilesUF` to its end state and presses the last button. */
+  async function finish() {
+    await screen.findByText("vendorA");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("s3://bucket/in/f10.csv");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
+  }
+
+  it("leaves the flow for the app's index when nothing says otherwise", async () => {
+    await mount();
+    await finish();
+
+    // **`/home`, and it was `/workspace` until D.8.** `loadFilesUF` sets no
+    // `exitScreenPath` and this url carries no origin, so this is the fallback —
+    // which was the editor because F.0a wrote it when `/` redirected there. X.1
+    // moved the index and nothing revisited the exit (I-265).
+    expect(await screen.findByText("the home screen")).toBeTruthy();
+  });
+
+  it("returns to the screen that invoked it", async () => {
+    await mount("loadFilesUF", { search: "?returnTo=%2Fworkspaces" });
+    await finish();
+    expect(await screen.findByText("the workspace registry")).toBeTruthy();
+  });
+
+  it("refuses an origin that leaves this app, rather than following it", async () => {
+    // `//evil.example.com` is a path to `startsWith("/")` and a protocol-relative
+    // url to a browser, which is the whole reason `isInAppPath` exists: the
+    // parameter arrives from whoever composed the link.
+    await mount("loadFilesUF", { search: "?returnTo=%2F%2Fevil.example.com" });
+    await finish();
+    expect(await screen.findByText("the home screen")).toBeTruthy();
+  });
+
+  it("goes back without re-running anything", async () => {
+    const { posts } = await mount();
+    await screen.findByText("vendorA");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Select File(s) to Load");
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Select a file data source configuration")).toBeTruthy();
+    expect(actions(posts)).not.toContain("insert_rows");
+  });
+});
+
+/**
+ * Starting a flow partway through. Task D.10, from **I-260**.
+ *
+ * The entry point in the corpus is `fmInputSourceMappingUF`'s *Load Data*, which
+ * resolves to `/flow/loadFilesUF?client=…&org=…&object_type=…&table_name=…&startAt=select_file_keys`
+ * (`screens/routes.ts`, `FLOW_ENTRY_POINTS`). What is asserted here is the
+ * runner's half: which page opens, that the arguments arrive as form state and
+ * the state key does not, and what a state key the document does not declare
+ * does.
+ */
+describe("opening a flow at a named state", () => {
+  const ENTRY = "?client=acme&org=vendorA&object_type=claims&table_name=staging_claims";
+
+  it("opens on the second page with the source already chosen", async () => {
+    const { posts } = await mount("loadFilesUF", {
+      search: `${ENTRY}&startAt=select_file_keys`,
+    });
+    // The second state's table, rather than the first's — and its rows, which
+    // exist only because `table_name` reached form state: `lfFileKeyStagingTable`
+    // filters on it by `formStateKey`, so a page opened without the argument
+    // draws an empty list and says nothing about why.
+    expect(await screen.findByText("Select File(s) to Load")).toBeTruthy();
+    expect(screen.queryByText("Select a File Data Source Configurations")).toBeNull();
+    const read = posts
+      .map((p) => p.body)
+      .find((b) => (b["fromClauses"] as { table: string }[] | undefined)?.[0]?.table === "input_registry")!;
+    expect((read["whereClauses"] as { column: string; values?: string[] }[]).find(
+      (c) => c.column === "table_name",
+    )?.values).toEqual(["staging_claims"]);
+  });
+
+  it("posts the four arguments the second state's action needs", async () => {
+    // The point of carrying them rather than letting the skipped page set them:
+    // `lfLoadFilesUF` reads `client`, `org`, `object_type` and `table_name` by
+    // `fromKey`, and the page that would have published them is the one skipped.
+    const { posts } = await mount("loadFilesUF", {
+      search: `${ENTRY}&startAt=select_file_keys`,
+    });
+    await screen.findByText("s3://bucket/in/f10.csv");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(1),
+    );
+    const row = (posts.find((p) => p.body["action"] === "insert_rows")!.body["data"] as Record<
+      string,
+      unknown
+    >[])[0]!;
+    expect(row["client"]).toBe("acme");
+    expect(row["org"]).toBe("vendorA");
+    expect(row["object_type"]).toBe("claims");
+    expect(row["table_name"]).toBe("staging_claims");
+    // **`startAt` is the runner's own and is not one of the flow's arguments**,
+    // the same exclusion `returnTo` gets. Seeding it would put a state key into
+    // form state where a value belongs, and this posted row is where that would
+    // show.
+    expect(row["startAt"]).toBeUndefined();
+  });
+
+  it("refuses a state the document does not declare, rather than starting at the top", async () => {
+    // **The fallback is the plausible failure.** A user who pressed *Load Data*
+    // on a chosen source would land on the source-selection page with the choice
+    // already made and read that as the button half working. The finding names
+    // the state, which is what an operator who renamed one needs to see.
+    await mount("loadFilesUF", { search: `${ENTRY}&startAt=no_such_state` });
+    expect(
+      await screen.findByText(/this flow has no state "no_such_state" to start at/),
+    ).toBeTruthy();
+    expect(screen.queryByText("Select File(s) to Load")).toBeNull();
+  });
+
+  it("has no page behind it, so Previous refuses", async () => {
+    // `visited` is the requested state alone. Seeding the flow's own start would
+    // make *Previous* show a page this entry point exists to skip — a step the
+    // user never saw, with the choice they made on another screen presented
+    // again. So `ufPrevious` refuses here exactly as it does on any first page.
+    await mount("loadFilesUF", { search: `${ENTRY}&startAt=select_file_keys` });
+    await screen.findByText("Select File(s) to Load");
+    // **It now refuses before the press rather than after it, and this assertion
+    // moved with the behaviour rather than being weakened.** D.11 disables
+    // `ufPrevious` wherever `back` would throw, so the *"Already at the first
+    // step"* message this used to wait for is unreachable from the UI — the
+    // engine still raises it, and `engineStops.test.ts` still pins that. What is
+    // asserted here is the same claim one layer up: an entry point has no page
+    // behind it, and the control says so.
+    expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("starts at the document's own state when the url names none", async () => {
+    await mount("loadFilesUF");
+    expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
+  });
+});
+
+describe("the table action bar", () => {
+  it("runs a table action through the flow's action document", async () => {
+    const { posts } = await mount();
+    await screen.findByText("vendorA");
+
+    // `dropStagingTable` is `isVisibleWhenCheckboxVisible` and
+    // `isEnabledWhenHavingSelectedRows`, so it appears with the checkbox column
+    // and stays disabled until a row is picked — the gate composition S.2b built.
+    const drop = screen.getByRole("button", { name: "Drop Staging Table" });
+    expect((drop as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Drop Staging Table" }) as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Drop Staging Table" }));
+    await waitFor(() => expect(actions(posts)).toContain("drop_table"));
+    const dropped = posts.find((p) => p.body["action"] === "drop_table")!;
+    expect(dropped.body["data"]).toEqual([{ schemaName: "public", tableName: "staging_claims" }]);
+  });
+
+  it("renders a file key unshortened when the document names no cell filter", async () => {
+    // **The negative half of I-54, and it is here because the positive half
+    // cannot be.** `fileKeyLabel` is registered now (`actions/registry.ts`), and
+    // none of the three columns that name it is on a table either proof flow
+    // uses — they are `startPipelineUF`'s, whose form document track F has not
+    // written. So the assertion available today is that a column without the
+    // name renders the value untouched; `registry.test.ts` covers the body and
+    // `store.test.ts` covers the name resolving.
+    await mount();
+    await screen.findByText("vendorA");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByText("s3://bucket/in/f10.csv")).toBeTruthy();
+    expect(screen.queryByText(".../f10.csv")).toBeNull();
+  });
+});
+
+describe("a form whose item sources are queries", () => {
+  it("fills a dropdown from its query, behind the literal prompt item", async () => {
+    await mount("itemSourceProbe");
+    const select = (await screen.findByLabelText("Client")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.textContent)).toEqual([
+        "Select a Client",
+        "acme",
+        "globex",
+      ]),
+    );
+  });
+
+  it("posts one raw_query_map for the whole form rather than one per field", async () => {
+    const { posts } = await mount("itemSourceProbe");
+    await screen.findByLabelText("Client");
+    await waitFor(() => expect(actions(posts)).toContain("raw_query_map"));
+    const batches = posts.filter((p) => p.body["action"] === "raw_query_map");
+    expect(batches).toHaveLength(1);
+    // `orgs` is not in it: its parameter is not set, so it waits.
+    expect(Object.keys(batches[0]!.body["query_map"] as object)).toEqual(["clients"]);
+  });
+
+  it("re-runs the waiting query when its parameter is chosen, and fills the typeahead", async () => {
+    const { posts } = await mount("itemSourceProbe");
+    const select = (await screen.findByLabelText("Client")) as HTMLSelectElement;
+    await waitFor(() => expect(select.options).toHaveLength(3));
+
+    fireEvent.change(select, { target: { value: "acme" } });
+
+    const org = await screen.findByLabelText("Organization");
+    await waitFor(() => {
+      const batches = posts.filter((p) => p.body["action"] === "raw_query_map");
+      expect(batches).toHaveLength(2);
+      expect((batches[1]!.body["query_map"] as Record<string, string>)["orgs"]).toContain(
+        "client = 'acme'",
+      );
+    });
+
+    // Scoped to the listbox: a `<select>`'s `<option>` carries the same role, so
+    // an unscoped query here would also return the dropdown's three.
+    fireEvent.focus(org);
+    const listbox = screen.getByRole("listbox", { name: "Organization suggestions" });
+    await waitFor(() =>
+      expect(
+        [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent),
+      ).toEqual(["eastern", "western"]),
+    );
+  });
+});
+
+/**
+ * `mapFileUF`, the whole of task F.1.
+ *
+ * The corpus's most expensive flow (I-61) driven from its committed documents:
+ * three named queries, a form drawn once per query row, a typeahead and a
+ * query-backed dropdown inside each row, a validator escape, and two save
+ * buttons whose bodies are grammar rather than an escape.
+ *
+ * **The route carries parameters and until F.1 it could not.** Flutter serves
+ * this flow at `/fileMappingUF/mapping/:table_name/:object_type`, and both are
+ * substituted into `inputFieldsQuery` — with neither, the worksheet has no rows.
+ */
+const MAPPING_SEARCH = "?table_name=acme_org_claim&object_type=Claim";
+
+describe("mapFileUF — the file mapping worksheet", () => {
+  it("draws one group per data property, headed by the property", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    expect(await screen.findByText("claim:id*")).toBeTruthy();
+    expect(screen.getByText("member:dob")).toBeTruthy();
+    // Two groups, so two of each field.
+    expect(screen.getAllByLabelText("Input Column")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Cleansing Function")).toHaveLength(2);
+  });
+
+  it("substitutes both route parameters into the queries", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const batch = posts.find((p) => p.body["action"] === "raw_query_map")!;
+    const map = batch.body["query_map"] as Record<string, string>;
+    expect(map["inputFields"]).toContain("table_name = 'acme_org_claim'");
+    expect(map["inputFields"]).toContain("object_type = 'Claim'");
+    expect(map["inputColumns"]).toContain("table_name = 'acme_org_claim'");
+  });
+
+  it("seeds the saved mapping and defaults the unmapped row from the staging table", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const columns = screen.getAllByLabelText("Input Column") as HTMLInputElement[];
+    // `claim:id` has no saved mapping and the staging table has no column of that
+    // name, so it stays empty; `member:dob` carries `dob` from `process_mapping`.
+    expect(columns.map((c) => c.value)).toEqual(["", "dob"]);
+    const functions = screen.getAllByLabelText("Cleansing Function") as HTMLSelectElement[];
+    expect(functions.map((f) => f.value)).toEqual(["", "to_date"]);
+  });
+
+  it("fills each row's typeahead from the staging table's columns", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const first = screen.getAllByLabelText("Input Column")[0]!;
+    fireEvent.focus(first);
+    const listbox = screen.getAllByRole("listbox", { name: "Input Column suggestions" })[0]!;
+    await waitFor(() =>
+      expect([...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual([
+        // `claim:id` splits on `:` to `claim` and `id`, and a column containing
+        // *either* part floats — so `member_id` is priority too and only `dob`
+        // falls to the rest. `priorityKey` reads **this row's** data property
+        // rather than the form's, which is what makes the ordering per row.
+        // Nothing is hidden: the Dart's rule is an ordering, not a filter.
+        "claim_id",
+        "member_id",
+        "dob",
+      ]),
+    );
+  });
+
+  it("keeps Save disabled and Save as Draft enabled while a required row is unmapped", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Save as Draft" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("swaps the two once every row validates", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[0]!, {
+      target: { value: "claim_id" },
+    });
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Save as Draft" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("marks the row whose input column is not a column of the table", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[1]!, {
+      target: { value: "not_a_column" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    // The error is attached to the *second* group, which is what `FieldError.group`
+    // is for: one error list across n groups.
+    expect(await screen.findByText("Input Column is not valid.")).toBeTruthy();
+    expect(screen.getAllByText("Input Column is not valid.")).toHaveLength(1);
+  });
+
+  it("saves by deleting the table's mappings and posting one row per group", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[0]!, {
+      target: { value: "claim_id" },
+    });
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const inserts = posts.filter((p) => p.body["action"] === "insert_rows");
+      expect(inserts).toHaveLength(2);
+    });
+    const inserts = posts.filter((p) => p.body["action"] === "insert_rows");
+
+    // The delete first, keyed on the table alone — `delete/process_mapping`'s
+    // statement takes one column.
+    expect(inserts[0]!.body["fromClauses"]).toEqual([{ table: "delete/process_mapping" }]);
+    expect(inserts[0]!.body["data"]).toEqual([
+      { table_name: "acme_org_claim", user_email: "michel@artisoft.io" },
+    ]);
+
+    // Then one row per group, with the form-level values copied into each — the
+    // Dart's loop over `groupCount`, expressed as `rows: "everyGroup"`.
+    expect(inserts[1]!.body["fromClauses"]).toEqual([{ table: "process_mapping" }]);
+    const rows = inserts[1]!.body["data"] as Record<string, unknown>[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      table_name: "acme_org_claim",
+      object_type: "Claim",
+      user_email: "michel@artisoft.io",
+      data_property: "claim:id",
+      "flag.is_required": "1",
+      input_column: "claim_id",
+    });
+    expect(rows[1]).toMatchObject({
+      data_property: "member:dob",
+      input_column: "dob",
+      function_name: "to_date",
+      argument: "%Y-%m-%d",
+      table_name: "acme_org_claim",
+    });
+    // `data_property_label` is this port's addition, not a `process_mapping`
+    // column, and is omitted so the payload matches what the Dart sends.
+    expect(rows.every((r) => !("data_property_label" in r))).toBe(true);
+  });
+
+  it("saves a draft without validating, which is the point of the second button", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(2),
+    );
+  });
+
+  it("refuses to save when the staging table is not in the url", async () => {
+    // The `require` step, and the guard the Dart opens `mapperOk` with. Without
+    // `table_name` the worksheet has no rows either, so this is what a user who
+    // reached the route by hand sees.
+    const { posts } = await mount("mapFileUF", { search: "?object_type=Claim" });
+    await screen.findByRole("button", { name: "Save as Draft" });
+    // The worksheet is empty as well, because `inputFields` waits on the same
+    // parameter — so this is what a user who reached the route by hand sees.
+    expect(screen.getByText("Nothing to map yet.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save as Draft" })).toBeTruthy());
+    // **Nothing is posted, which is the assertion.** The message itself goes to
+    // `setError` and is drawn by the shell's banner, which this tree does not
+    // mount — the same reason the load-failure test asserts on the runner's own
+    // findings list rather than on a notification.
+    expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(0);
+  });
+});
+
+const LOAD_CONFIG_SEARCH =
+  "?workspace_name=jets_ws&workspace_uri=git%40github.com%3Aartisoft-io%2Fjets_ws.git";
+
+/**
+ * `loadConfigUF`, on the screen. Task F.2.
+ *
+ * **What only a rendered form can show**, and the reason this block exists
+ * alongside `proofFlows.test.ts`'s: the two text fields are read-only, and the
+ * "Load All Clients Config" button is a `button` *field* sitting in the rows
+ * rather than an entry in the action bar. Neither is visible to a harness that
+ * drives the engine.
+ */
+describe("loadConfigUF — loading client configuration", () => {
+  it("shows the workspace from the route, read-only", async () => {
+    await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    const name = (await screen.findByLabelText("Workspace Name")) as HTMLInputElement;
+    const uri = screen.getByLabelText("Worksapce URI") as HTMLInputElement;
+    expect(name.value).toBe("jets_ws");
+    expect(uri.value).toBe("git@github.com:artisoft-io/jets_ws.git");
+    // `isReadOnly` — 20 of the corpus's 36 text inputs set it, and until F.2 the
+    // schema could not say so. An editable copy here is a form on which the user
+    // retargets the pull.
+    expect(name.readOnly).toBe(true);
+    expect(uri.readOnly).toBe(true);
+  });
+
+  it("does not treat returnTo as one of the flow's arguments", async () => {
+    // **Every other query parameter is seeded into form-state group 0 by name**,
+    // and this screen is where that is visible: two of its fields render the
+    // route's parameters. `returnTo` is the runner's own and no form declares it,
+    // so it must not arrive as a value (D.8). This shows the fields are
+    // unaffected and that the origin is not rendered anywhere; it does not
+    // inspect the form state, which this screen does not expose.
+    await mount("loadConfigUF", { search: `${LOAD_CONFIG_SEARCH}&returnTo=%2Fworkspaces` });
+    const name = (await screen.findByLabelText("Workspace Name")) as HTMLInputElement;
+    expect(name.value).toBe("jets_ws");
+    expect(screen.queryByDisplayValue("/workspaces")).toBeNull();
+  });
+
+  it("draws the inline button beside the client table, not in the action bar", async () => {
+    await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    const inline = await screen.findByRole("button", { name: "Load All Clients Config" });
+    const bar = screen.getByRole("group", { name: "Form actions" });
+    expect(bar.contains(inline)).toBe(false);
+    expect(bar.textContent).toBe("PreviousCancelNext");
+  });
+
+  it("posts the selected clients as a comma-joined list", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox")[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await screen.findByRole("button", { name: "Comfirm" });
+    fireEvent.click(screen.getByRole("button", { name: "Comfirm" }));
+
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(1),
+    );
+    const post = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
+    expect(post.body["workspaceName"]).toBe("jets_ws");
+    const row = (post.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["user_email"]).toBe("michel@artisoft.io");
+  });
+
+  it("posts a null updateDbClients when the inline button is used instead", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load All Clients Config" }));
+
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(1),
+    );
+    const post = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
+    const row = (post.body["data"] as Record<string, unknown>[])[0]!;
+    // **Null rather than absent or `{}`**: the server reads a null here as
+    // `-initWorkspaceDb` and a string as `-clients <list>`
+    // (`jets/datatable/workspace_helper_functions.go`, `loadWorkspaceConfigAction`).
+    expect(row["updateDbClients"]).toBeNull();
+    // And the button does not validate first, so the selection it clears never
+    // had to be there — which is why the required rule on the table does not
+    // gate it.
+    expect(row["wpClientList"]).toBeUndefined();
+  });
+
+  it("refuses Next with no client selected", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(screen.getByText("Select Client to load their configuration")).toBeTruthy(),
+    );
+    expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(0);
+  });
+});
+
+/**
+ * `homeFiltersUF` in the app. Task F.5.
+ *
+ * **The first flow whose behaviour reaches the screen through an escape**, and
+ * the first whose table document is not the flow corpus's. What is worth driving
+ * here rather than in `proofFlows.test.ts` is the two seams that test cannot
+ * reach: the filters the escape writes have to arrive in the *query* of a table
+ * on a later state, and the buttons that table carries have to be drawn — both of
+ * which were missing until this task and neither of which would have failed a
+ * document check.
+ */
+describe("home_filters in the app", () => {
+  // **The filter store is module-level, so it outlives the tree.** That is what
+  // makes it the Flutter router's equivalent and it is also what makes it test
+  // state: without this, the filters one case sets are still set when the next
+  // mounts. Reset both ways round rather than only at the top, so a case added
+  // after these cannot inherit them either.
+  afterEach(resetHomeFilters);
+
+  const walkToTheTable = async () => {
+    resetHomeFilters();
+    const mounted = await mount("homeFiltersUF");
+    // select_process — the filter is optional, so Next needs no selection.
+    expect(await screen.findByText("loadFile")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_status — a static table, so no request; the filter is optional.
+    expect(await screen.findByText("Timed Out")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_file_key_filter — the filter type is required, and `None` is a row.
+    // **Wait for a row rather than for the label**: a static table's rows arrive
+    // from an effect one tick after the heading, so a checkbox query keyed on the
+    // label is a race — which is what this line was, twice in eight runs.
+    expect(await screen.findByText("Starts With")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // select_time_window — four optional text fields.
+    const startOffset = await screen.findByLabelText("Start Offset Duration");
+    fireEvent.change(startOffset, { target: { value: "3 days" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // Twice: the state's description and the table's own label, which is the
+    // same string in the Dart and is worth seeing rather than disambiguating.
+    expect(await screen.findAllByText("Pipeline Execution Status")).toHaveLength(2);
+    return mounted;
+  };
+
+  it("carries the escape's filters into the last state's query", async () => {
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+
+    // **The seam `proofFlows.test.ts` cannot see.** `updateHomeFilters` writes a
+    // module-level store; the query builder has taken `homeFilters` since A.4a
+    // and nothing supplied it, so before F.5 this clause would simply have been
+    // absent and the screen would have looked correct.
+    const read = posts.filter(
+      (p) =>
+        p.body["action"] === "read" &&
+        (p.body["fromClauses"] as { table: string }[])[0]!.table === "pipeline_execution_status",
+    );
+    const clauses = (read.at(-1)!.body["whereClauses"] ?? []) as Record<string, unknown>[];
+    expect(clauses).toContainEqual({
+      table: "pipeline_execution_status",
+      column: "start_time",
+      ge: "now()-interval '3 days'",
+    });
+  });
+
+  it("draws the second action row, where this table's only two references are", async () => {
+    await walkToTheTable();
+    await screen.findByText("sess-1");
+    // First row.
+    expect(screen.getByRole("button", { name: "Set Filters" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeTruthy();
+    // Second row — `Resubmit` is the flow's only table-run action and
+    // `View Failure Details` its only table-opened form.
+    expect(screen.getByRole("button", { name: "Resubmit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Failure Details" })).toBeTruthy();
+  });
+
+  it("unpacks session_id before the resubmit, or the server answers 400", async () => {
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Resubmit" }));
+
+    await waitFor(() => expect(actions(posts)).toContain("resubmit_pipeline"));
+    const post = posts.find((p) => p.body["action"] === "resubmit_pipeline")!;
+    const rows = post.body["data"] as Record<string, unknown>[];
+    // A string, not `["sess-1"]`. `jets/apiserver/api_tables.go`'s
+    // `resubmit_pipeline` type-asserts it and answers 400 for a list.
+    expect(rows[0]!["session_id"]).toBe("sess-1");
+  });
+
+  it("asks for a request id list in the app's own prompt, and filters on the answer", async () => {
+    // jetstore_maintenance_02 `I-39` (2026-10-02): `window.prompt` until then,
+    // which the embedded browser pane never shows, so the button did nothing.
+    const { posts } = await walkToTheTable();
+    await screen.findByText("sess-1");
+    const statusReads = () =>
+      posts.filter(
+        (p) =>
+          p.body["action"] === "read" &&
+          (p.body["fromClauses"] as { table: string }[])[0]!.table === "pipeline_execution_status",
+      );
+    fireEvent.click(screen.getByRole("button", { name: "Set Request Id" }));
+    expect(await answerPrompt("req-9")).toBe("Enter request IDs comma separated to filter");
+    await waitFor(() =>
+      expect(statusReads().at(-1)!.body["whereClauses"]).toContainEqual({
+        table: "pipeline_execution_status",
+        column: "request_id",
+        values: ["req-9"],
+      }),
+    );
+  });
+
+  /**
+   * **The deployment's custom buttons are drawn here too** (jetstore_maintenance_02
+   * `D04`, `I-26`, decided 2026-10-01): wherever Pipeline Status is drawn, not on
+   * Home alone, through the helper Home uses (`actions/pipelineStatusButtons.ts`).
+   */
+  describe("with a deployment's custom button", () => {
+    const ANALYSIS =
+      "process_name=loadFile/session_id=sess-1/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv";
+    let copied: string[] = [];
+
+    beforeEach(() => {
+      copied = [];
+      extraLogin = {
+        capabilities: ["workspace_ide", "run_pipelines", "client_config", "jetstore_read"],
+        custom_buttons: [
+          {
+            type: "fetch_stage_to_clipboard",
+            key: "analysis_report_to_clipboard",
+            label: "Analysis Report",
+            replace_text: "|",
+            replace_with: ",",
+            fsk_params: ["process_name", "session_id"],
+            file_path:
+              "process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv",
+          },
+        ],
+      };
+      stageFiles = { [ANALYSIS]: "a|b" };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: async (text: string) => void copied.push(text) },
+      });
+    });
+
+    afterEach(() => {
+      extraLogin = {};
+      stageFiles = {};
+      Reflect.deleteProperty(navigator, "clipboard");
+    });
+
+    it("draws it last on the table's third row, in the flow's status step", async () => {
+      await walkToTheTable();
+      await screen.findByText("sess-1");
+      const third = screen.getByRole("button", { name: "Get Run Manifest" }).closest(".jets-datatable__header-row")!;
+      expect(
+        within(third as HTMLElement)
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Get Run Manifest", "Get Schema Event", "Analysis Report"]);
+    });
+
+    it("runs the clipboard path when pressed", async () => {
+      const { posts } = await walkToTheTable();
+      await screen.findByText("sess-1");
+      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+      fireEvent.click(screen.getByRole("button", { name: "Analysis Report" }));
+      await screen.findByText("Analysis Report copied to the clipboard.");
+      expect(copied).toEqual(["a,b"]);
+      const fetched = posts.find((p) => p.body["action"] === "fetch_file_from_stage")!;
+      expect(fetched.body["data"]).toEqual([{ stage_file_path: ANALYSIS }]);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+});

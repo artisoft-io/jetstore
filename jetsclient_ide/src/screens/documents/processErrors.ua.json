@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "reteSession.setupModelV2": {
+      "description": "Read the saved rule session for the selected error and put its three models in form state",
+      "steps": [
+        {
+          "do": "escape",
+          "name": "loadReteSession"
+        }
+      ]
+    },
+    "reteSession.VisitEntity": {
+      "description": "Follow a property whose value is another entity, by making it the selected entity key",
+      "steps": [
+        {
+          "do": "set",
+          "key": "entity_key",
+          "value": {
+            "fromKey": "entity_property_value"
+          },
+          "when": {
+            "op": "equals",
+            "key": "entity_property_value_type",
+            "value": "named_resource"
+          }
+        }
+      ]
+    }
+  }
+}

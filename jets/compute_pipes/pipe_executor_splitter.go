@@ -46,6 +46,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			if len(spec.Apply[i].OutputChannel.Name) > 0 {
 				oc[spec.Apply[i].OutputChannel.Name] = true
 			}
+			// A site operator's `site_config.output_channels`. StartFanOutPipe's arm
+			// verbatim, reading the same function for the same reason: a channel
+			// declared there is registered and resolved, and without this it is
+			// closed by nothing (P9-I13). Outside the switch because a site token is
+			// none of the cases below, and it answers nil for every document that
+			// declares no site output channels, so such a document takes exactly the
+			// path it took before.
+			for _, siteChannel := range siteOutputChannelConfigs(&spec.Apply[i]) {
+				if len(siteChannel.Name) > 0 {
+					oc[siteChannel.Name] = true
+				}
+			}
 			switch spec.Apply[i].Type {
 			case "jetrules":
 				// Get the output channels of jetrules
@@ -61,6 +73,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				// Get the error output channel of ollama
 				if spec.Apply[i].OllamaConfig.ErrorChannel != nil {
 					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
+				}
+
+			case "embed":
+				// Get the error output channel of embed
+				if spec.Apply[i].EmbedConfig != nil && spec.Apply[i].EmbedConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].EmbedConfig.ErrorChannel.Name] = true
+				}
+
+			case "vllm":
+				// Get the error output channel of vllm
+				if spec.Apply[i].VllmConfig != nil && spec.Apply[i].VllmConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].VllmConfig.ErrorChannel.Name] = true
 				}
 
 			case "clustering":
@@ -198,6 +222,11 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			wg.Add(1)
 			channelHandlersCount += 1
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
+				// Name is the channel the splitter reads, carried through to
+				// the split so that downstream writers can name the edge of the
+				// DAG they are on. The ChannelSpec's name below is generated
+				// per split and is a label rather than a config identity.
+				Name:           source.Name,
 				Channel:        splitCh.data,
 				Columns:        source.Columns,
 				DomainKeySpec:  source.DomainKeySpec,
@@ -220,6 +249,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				// syart a go routine to manage the new channel
 				wg.Add(1)
 				go ctx.startSplitterChannelHandler(spec, &InputChannel{
+					// See the note above: Name is the config channel, the
+					// ChannelSpec's name is a per-split label.
+					Name:    source.Name,
 					Channel: splitCh.data,
 					Columns: source.Columns,
 					Config: &ChannelSpec{

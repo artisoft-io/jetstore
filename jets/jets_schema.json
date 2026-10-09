@@ -48,12 +48,22 @@
         "columnName": "version",
         "dataType": "text",
         "isNotNull": true
+      },
+      {
+        "columnName": "workspace_name",
+        "description": "Workspace this version was compiled from. Null on rows written before 2026-09-04, when the version was keyed across every workspace at once.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_commit",
+        "description": "Full sha of the workspace repository HEAD at compile time. Null when the compile ran against a tree with no git repository, which is a real deployment shape rather than an error.",
+        "dataType": "text"
       }
     ],
     "tableConstraints": [
       {
-        "name": "workspace_version_unique_cstraint",
-        "definition": "CONSTRAINT workspace_version_unique_cstraint UNIQUE (version)"
+        "name": "workspace_version_unique_cstraint_v2",
+        "definition": "CONSTRAINT workspace_version_unique_cstraint_v2 UNIQUE (workspace_name, version)"
       }
     ]
   },
@@ -1402,6 +1412,26 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "failure_class",
+        "description": "The Step Functions error class of the failure, verbatim: States.Timeout, States.TaskFailed, a Lambda's exception type. Computed by the platform and carried through the status-update decoder rather than discarded. Null when the run did not fail, and when the failure arrived without an Error field.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "failure_source",
+        "description": "Which arm of the status-update decoder produced failure_details: lambda_error_message, ecs_stopped_reason, cause_text, plain_string, unstructured or none. A closed vocabulary, so the shape of the prose in failure_details is declared rather than guessed.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_name",
+        "description": "The workspace the run was submitted under, from the WORKSPACE environment of the process that inserted the row.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_version",
+        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit -- see the note on workspace_version in the Phase 4 plan.",
+        "dataType": "text"
       }
     ],
     "indexes": [
@@ -1655,6 +1685,108 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "pipeline_execution_channel_details",
+    "description": "Child of pipeline_execution_details: one row per DAG edge (input channel, output channel) of a worker, so the data flow through a run's compute graph can be reconstructed. The parent row keeps its one-row-per-worker grain and its output_records_count remains the sum over these rows, read as coalesce(sum(child), 0) since a merge_files step records a NULL row count.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "pipeline_execution_details_key",
+        "description": "Parent row in jetsapi.pipeline_execution_details",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "session_id",
+        "description": "Carried from the parent so the purge (purge_database) and the session-scoped screens can reach these rows directly",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "input_channel",
+        "description": "Configured name of the channel the writer reads",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_channel",
+        "description": "Configured name of the writer's output: output_tables[].key for output_type db_table, the output_channel name for jets_partition",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_channel_spec",
+        "description": "The output's channel_spec_name: the shape of what crosses the edge. Required and, for an output_channel, guaranteed different from output_channel",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_type",
+        "description": "Sink kind: db_table, jets_partition, or output_file for the single file a merge_files step writes. It is the discriminant for how output_entity, output_channel_spec and output_location are to be read",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_entity",
+        "description": "Sink identity when the row has a single sink: the schema-qualified table, or the jets_partition label. Empty when output_sinks_count > 1",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_location",
+        "description": "Where the data was physically written, as a URI with env vars already substituted: s3://<bucket>/<prefix> for a file sink, sql://<schema>.<table> for a database one. The prefix rather than the per-sink path, so it is one value for an edge that folds several sinks. Empty under a known output_type means the sink has no physical location - a memory channel never leaves the process - and must not be read as a lost write",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_sinks_count",
+        "description": "Number of sink instances folded into this row; > 1 for a splitter writing one output channel into many jets_partitions",
+        "dataType": "int",
+        "default": "1",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_records_count",
+        "description": "Rows that crossed the edge. NULL rather than 0 when no row count exists for the sink: a merge_files step moves bytes and never parses a record, and 0 there would read as a collapse",
+        "dataType": "long"
+      },
+      {
+        "columnName": "parts_count",
+        "dataType": "long"
+      },
+      {
+        "columnName": "error_message",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "pipeline_execution_channel_details_ped_key_idx",
+        "indexDef": "INDEX pipeline_execution_channel_details_ped_key_idx ON jetsapi.pipeline_execution_channel_details (pipeline_execution_details_key)"
+      },
+      {
+        "indexName": "pipeline_execution_channel_details_session_id_idx",
+        "indexDef": "INDEX pipeline_execution_channel_details_session_id_idx ON jetsapi.pipeline_execution_channel_details (session_id)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "report_execution_status",
     "columns": [
       {
@@ -1754,12 +1886,31 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "cpipes_step_id",
+        "description": "The step the failing operator ran in, the same string pipeline_execution_details.cpipes_step_id carries for that worker, so an error row joins to its worker row on (session_id, cpipes_step_id, shard_id). Null for rows written by a configuration whose error channel does not declare the column.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "error_channel",
+        "description": "The name of the error channel the row was written to. The configuration already distinguishes operators by this name -- validateErrorChannels refuses two operators sharing one -- and this is where that discriminator lands in the record.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "operator_type",
+        "description": "The operator type as it is spelled in the configuration: jetrules, map_record, ollama, embed or vllm. Set at the construction site rather than derived from the message prefix.",
+        "dataType": "text"
       }
     ],
     "indexes": [
       {
         "indexName": "process_errors_session_id_idx",
         "indexDef": "INDEX process_errors_session_id_idx ON jetsapi.process_errors (session_id ASC)"
+      },
+      {
+        "indexName": "process_errors_session_step_idx",
+        "indexDef": "INDEX process_errors_session_step_idx ON jetsapi.process_errors (session_id, cpipes_step_id)"
       }
     ]
   },
@@ -1972,6 +2123,11 @@
       },
       {
         "columnName": "cpipes_startup_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
+        "columnName": "run_manifest_json",
         "dataType": "text",
         "default": "'{}'"
       },

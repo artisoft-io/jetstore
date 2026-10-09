@@ -213,19 +213,25 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 // NoMoreTask is true when StartReducing turned out to have nothing to do and we're past the last step,
 // the step function will go directly to ReportsCommand.
 // UseECSReducingTask is true when to use fargate task rather than lambda functions.
+// UsePythonReducingTask is true when to use the Python cp_node lambda rather than the Go one.
+// It is the input the state machine's Python arm reads: build_cpipes_sm.go guards that arm with
+// Condition_IsPresent($.usePythonReducingTask) followed by BooleanEquals, so the json tag carries
+// no omitempty -- the key must be on the payload for the arm to be reachable at all, exactly as
+// useECSReducingTask is. The two flags are independent and the Python arm is first-match-wins.
 // ReportsCommand contains the argument for RunReport
 // SuccessUpdate / ErrorUpdate are the arguments for status update.
 type ComputePipesRun struct {
-	CpipesCommands       any                   `json:"cpipesCommands"`
-	CpipesCommandsS3Key  string                `json:"cpipesCommandsS3Key,omitempty"`
-	CpipesMaxConcurrency int                   `json:"cpipesMaxConcurrency"`
-	StartReducing        StartComputePipesArgs `json:"startReducing"`
-	IsLastReducing       bool                  `json:"isLastReducing"`
-	NoMoreTask           bool                  `json:"noMoreTask"`
-	UseECSReducingTask   bool                  `json:"useECSReducingTask"`
-	ReportsCommand       []string              `json:"reportsCommand"`
-	SuccessUpdate        map[string]any        `json:"successUpdate"`
-	ErrorUpdate          map[string]any        `json:"errorUpdate"`
+	CpipesCommands        any                   `json:"cpipesCommands"`
+	CpipesCommandsS3Key   string                `json:"cpipesCommandsS3Key,omitempty"`
+	CpipesMaxConcurrency  int                   `json:"cpipesMaxConcurrency"`
+	StartReducing         StartComputePipesArgs `json:"startReducing"`
+	IsLastReducing        bool                  `json:"isLastReducing"`
+	NoMoreTask            bool                  `json:"noMoreTask"`
+	UseECSReducingTask    bool                  `json:"useECSReducingTask"`
+	UsePythonReducingTask bool                  `json:"usePythonReducingTask"`
+	ReportsCommand        []string              `json:"reportsCommand"`
+	SuccessUpdate         map[string]any        `json:"successUpdate"`
+	ErrorUpdate           map[string]any        `json:"errorUpdate"`
 }
 
 type FileName struct {
@@ -249,6 +255,9 @@ type ComputePipesContext struct {
 	JetStoreTempFolder    string
 	InputFileKeys         [][]*FileKeyInfo
 	JetRules              JetRulesProxy
+	// SiteOperators is this deployment's own operators, from WithOperators. Nil
+	// in every stock build, and it travels exactly the route JetRules does.
+	SiteOperators         map[string]SiteOperatorFactory
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	MainMergeDone         *chan struct{}

@@ -226,6 +226,27 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	mainInputSchemaProvider.Env["$YEAR"] = year
 	mainInputSchemaProvider.Env["$MONTH"] = month
 	mainInputSchemaProvider.Env["$DAY"] = day
+	// Copy INFER_BACKEND from the process environment into the cpipes env, so that a
+	// conditional_config can replace an infer operator with the backend the deployment
+	// is actually running without editing the workspace. The value names a backend
+	// ("vllm"), and the pipeline decides what it means: the host operator stays the
+	// default and the `then` names the alternative.
+	//
+	// Set unconditionally rather than only when present, so a `when` node reading it
+	// with a select leaf gets the empty string rather than nil. That keeps the
+	// comparison total: an unset INFER_BACKEND is a value that matches nothing, not an
+	// absent key whose behaviour depends on the operator it is compared with.
+	//
+	// Set *before* the env_json merge below, which is what makes a process_config able
+	// to override it. The deployment says what is running; a pipeline may still pin a
+	// backend, for a bake-off or while one server is being replaced.
+	//
+	// Only this path reads the process environment. reducingInitializeCpipes replays
+	// this map out of cpipes_startup_json, so every step of one run sees the value
+	// sharding captured -- a service redeployed mid-run cannot move a pipeline from one
+	// backend to the other between steps.
+	mainInputSchemaProvider.Env["$INFER_BACKEND"] = os.Getenv("INFER_BACKEND")
+
 	// Merge the env var from process_config with mainInputSchemaProvider.Env
 	if envJson.Valid && len(envJson.String) > 0 {
 		err = json.Unmarshal([]byte(envJson.String), &mainInputSchemaProvider.Env)
@@ -253,6 +274,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// in which case we want to skip the sharding step and go directly to the merge file step
 	// with the main input file (submitted file key) as the input of the merge file step.
 	if len(cpipesStartup.CpConfig.ConditionalPipesConfig) == 1 &&
+		len(cpipesStartup.CpConfig.ConditionalPipesConfig[0].PipesConfig) > 0 &&
 		cpipesStartup.CpConfig.ConditionalPipesConfig[0].PipesConfig[0].Type == "merge_files" {
 		cpipesStartup.IsMergeFileOnly = true
 		goto wrapUp
@@ -591,6 +613,21 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					activeTables = append(activeTables, spec)
 				}
 			}
+			// A site operator's declared lookups. Before the switch and outside
+			// it on purpose: a site token is by construction none of the cases
+			// below, and this pass runs in the starter where no operator
+			// registry exists -- so the document is the only thing that can say
+			// a site operator reads a table, and a table nothing says is read is
+			// pruned away and never loaded.
+			for _, key := range siteLookupKeys(transformationSpec) {
+				spec := lookupMap[key]
+				if spec == nil {
+					return nil, fmt.Errorf(
+						"error: lookup table '%s' declared in site_config.lookups of operator '%s' is not defined "+
+							"in lookup_tables, please verify the configuration", key, transformationSpec.Type)
+				}
+				activeTables = append(activeTables, spec)
+			}
 			switch transformationSpec.Type {
 			case "analyze":
 				// Check for Analyze transformation using lookup tables
@@ -780,6 +817,20 @@ func MergeTransformationSpec(host, override *TransformationSpec) error {
 
 // Function to prune the output tables and return only the tables used in pipeConfig
 // Returns an error if pipeConfig makes reference to a non-existent table
+//
+// An error channel names a table too. A synthesised default error channel is bound
+// to the default process_errors table by its spec name (isDefaultErrorChannel), and
+// without reading that here the table would be pruned away before the node ever saw
+// it -- the same shape as an unreferenced output table never reaching the node,
+// which is why this function exists.
+//
+// The result is deduplicated by table key. Every synthesised error channel of a step
+// names the one default table, and one table spec means one WriteTableSource holding
+// one pooled connection, so returning the entry once per channel would start one
+// writer per operator on a channel only one of them drains. Deduplication is not
+// scoped to the synthesised entries: two applies naming the same output_table_key
+// would have raced two writers over one channel before, and there are 0 such pairs
+// in the 45 configurations of the rule corpus.
 func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([]*TableSpec, error) {
 	// get a mapping of table name to table spec
 	tableMap := make(map[string]*TableSpec)
@@ -790,17 +841,37 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 	}
 	// Identify the used tables
 	activeTables := make([]*TableSpec, 0)
+	seen := make(map[string]bool)
+	addTable := func(key, usedIn string) error {
+		if len(key) == 0 || seen[key] {
+			return nil
+		}
+		spec := tableMap[key]
+		if spec == nil {
+			return fmt.Errorf("error: Output Table spec %s not found, is used in %s", key, usedIn)
+		}
+		seen[key] = true
+		activeTables = append(activeTables, spec)
+		return nil
+	}
+	// Two passes rather than one, so the tables an output_channel names keep the
+	// positions and the order they had before error channels were read here at all.
+	// The order is the order the writers are started in and the order their results
+	// reach Copy2DbResultCh; nothing observed depends on it, and a default that
+	// reshuffles an author's writers would be a change nobody asked for.
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
-			transformationSpec := &pipeConfig[i].Apply[j]
-			if len(transformationSpec.OutputChannel.OutputTableKey) > 0 {
-				spec := tableMap[transformationSpec.OutputChannel.OutputTableKey]
-				if spec == nil {
-					return nil, fmt.Errorf(
-						"error: Output Table spec %s not found, is used in output_channel",
-						transformationSpec.OutputChannel.OutputTableKey)
+			if err := addTable(pipeConfig[i].Apply[j].OutputChannel.OutputTableKey, "output_channel"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			if isDefaultErrorChannel(errorChannelConfig(&pipeConfig[i].Apply[j])) {
+				if err := addTable(DefaultErrorTableKey, "a default error_channel"); err != nil {
+					return nil, err
 				}
-				activeTables = append(activeTables, spec)
 			}
 		}
 	}
@@ -821,7 +892,28 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 // and channel Type 'stage'.
 // Set the bucket to jetstore_bucket for input_channel of type stage.
 // This function also syncs the input and ouput channels with the associated schema provider.
+// An output channel setting both use_original_headers and put_headers_on_first_partition
+// requires both flags on the stage channels leading to it (validateOriginalHeadersStagePath).
 func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
+	for i := range cpConfig.ConditionalPipesConfig {
+		if len(cpConfig.ConditionalPipesConfig[i].PipesConfig) == 0 {
+			return fmt.Errorf("configuration error: conditional_pipes_config step %d has an empty pipes_config", i)
+		}
+	}
+	for i := range cpConfig.Channels {
+		for _, encoding := range cpConfig.Channels[i].ColumnEncodings {
+			if encoding == nil || len(encoding.Column) == 0 {
+				return fmt.Errorf("configuration error: channel '%s' has a column_encodings entry with no column specified",
+					cpConfig.Channels[i].Name)
+			}
+		}
+	}
+	if err := validateTextTemplates(cpConfig); err != nil {
+		return err
+	}
+	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
+		return err
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
@@ -861,6 +953,16 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		default:
 			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
 		}
+		// An input channel must be authored with a name: every pipe reads from its
+		// channel by name, resolved in the channel registry at DAG-build time - so an
+		// unnamed one fails inside a running task, for what is a configuration error.
+		// An absent input_channel decodes to the zero value, so this also catches a
+		// pipe with no input_channel at all.
+		if pipeSpec.InputChannel.Name == "" {
+			return fmt.Errorf(
+				"configuration error: input_channel.name is required (pipe %d of type '%s')",
+				i, pipeSpec.Type)
+		}
 		// Check that we don't have two input channel reading from the same channel,
 		// this creates record lost since they steal records from each other
 		for k := range pipeConfig {
@@ -898,6 +1000,10 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			// 	pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name,
 			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := cpConfig.GetSchemaProviderSpec(outputChConfig.SchemaProvider)
+
+			if err := validateSiteOperatorSpec(transformationConfig); err != nil {
+				return err
+			}
 
 			// validate transformation pipe config
 			//TODO: Add other transformation pipe config validations for the other types, see above
@@ -984,9 +1090,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with no column specified", outCh.Name)
 						}
 						switch encoding.EntityEncoding {
-						case "json", "toon":
+						case "json", "toon", "briefing_prose":
 						default:
-							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with unknown entity_encoding type '%s' (valid types: json, toon)", outCh.Name, encoding.EntityEncoding)
+							return fmt.Errorf("configuration error: jetrules operator output channel %s has a special_encoding with unknown entity_encoding type '%s' (valid types: json, toon, briefing_prose)", outCh.Name, encoding.EntityEncoding)
 						}
 					}
 				}
@@ -996,6 +1102,43 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				if transformationConfig.OllamaConfig.PoolSize < 1 {
 					transformationConfig.OllamaConfig.PoolSize = 1
+				}
+			case "embed":
+				if transformationConfig.EmbedConfig == nil {
+					return fmt.Errorf("configuration error: missing embed_config for embed operator")
+				}
+				if transformationConfig.EmbedConfig.PoolSize < 1 {
+					transformationConfig.EmbedConfig.PoolSize = 1
+				}
+			case "vllm":
+				if transformationConfig.VllmConfig == nil {
+					return fmt.Errorf("configuration error: missing vllm_config for vllm operator")
+				}
+				if transformationConfig.VllmConfig.PoolSize < 1 {
+					transformationConfig.VllmConfig.PoolSize = 1
+				}
+			case RenderOperatorType:
+				// The render operator's build-time failures are the operator's
+				// own (see NewRenderTransformationPipe): the template name, the
+				// template's own twelve compile failures, the two column names
+				// and the input encoding are all resolved there, against the
+				// channels, which this validation does not have. What is owed
+				// here is the part that is answerable without them -- that the
+				// config element is present at all, and that the three fields a
+				// step cannot do without were written. Catching those here means
+				// an author gets them from the startup rather than from a worker
+				// node.
+				renderConfig := transformationConfig.RenderConfig
+				if renderConfig == nil {
+					return fmt.Errorf("configuration error: missing render_config for render operator")
+				}
+				if len(renderConfig.TemplateName) == 0 {
+					return fmt.Errorf(
+						"configuration error: render_config must specify a template_name, naming one of the text_templates")
+				}
+				if len(renderConfig.InputColumn) == 0 || len(renderConfig.OutputColumn) == 0 {
+					return fmt.Errorf(
+						"configuration error: render_config must specify input_column and output_column")
 				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
@@ -1007,6 +1150,18 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				err := args.validateOutputChConfig(outCh, cpConfig.GetSchemaProviderSpec(outCh.SchemaProvider))
 				if err != nil {
 					return err
+				}
+			case "sort":
+				// A sort with no key silently emits the records in arrival order: the
+				// builder resolves domain_key (via the domain key spec) or sort_by into
+				// the sortBy positions and used to accept both empty.
+				if transformationConfig.SortConfig == nil {
+					return fmt.Errorf("configuration error: missing sort_config for sort operator")
+				}
+				if len(transformationConfig.SortConfig.DomainKey) == 0 &&
+					len(transformationConfig.SortConfig.SortByColumn) == 0 {
+					return fmt.Errorf(
+						"configuration error: sort_config must set domain_key or sort_by, otherwise the sort has no key")
 				}
 			}
 			// Validate the error channel of the operators that report row level errors,
@@ -1022,15 +1177,47 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			if err != nil {
 				return err
 			}
+			// An output channel with both use_original_headers and
+			// put_headers_on_first_partition needs the stage channels leading to
+			// it to carry both flags too — see validateOriginalHeadersStagePath.
+			err = validateOriginalHeadersStagePath(cpConfig, pipeConfig, transformationConfig)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return validateErrorChannels(pipeConfig)
+	return validateErrorChannelSpecs(cpConfig, pipeConfig)
 }
 
 // errorChannelConfig returns the error channel of a transformation, nil when it has none.
 // These are the operators that report row level errors, typically to the process_errors
 // table.
+//
+// **A site-supplied operator is answered from site_config rather than from the
+// type**, and that is the one arm here that is not keyed on the token. It has to
+// be: the three callers that make an error channel exist -- the channel registry
+// construction, SynthesizeDefaultErrorChannels and
+// warnMissingErrorChannelDiscriminators -- run in processes with no operator
+// registry, so which site tokens exist is not knowable to them and only the
+// document can say.
+//
+// It also makes this function and reportsRowLevelFailures deliberately
+// asymmetric for the first time, which the tests assert rather than tolerate: a
+// site operator carrying an error channel gets one here and gets `false` there,
+// so it keeps the channel it authored and is never given a synthesised one.
 func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannelConfig {
+	if transformationConfig.SiteConfig != nil && !reservedOperatorTypes[transformationConfig.Type] {
+		// A site operator reports row-level failures iff it configured a channel
+		// to report them on; nil here is the author's choice rather than an
+		// omission JetStore should fill in.
+		//
+		// The built-in guard is not defensive padding. A `site_config` on a
+		// built-in token is a configuration error -- validateSiteOperatorSpec
+		// refuses it -- and without the guard this function would answer for an
+		// operator the dispatch is never going to build, which is the quietest
+		// possible way to send an error row to the wrong channel.
+		return transformationConfig.SiteConfig.ErrorChannel
+	}
 	switch transformationConfig.Type {
 	case "map_record":
 		if transformationConfig.MapRecordConfig != nil {
@@ -1044,37 +1231,249 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 		if transformationConfig.OllamaConfig != nil {
 			return transformationConfig.OllamaConfig.ErrorChannel
 		}
+	case "embed":
+		if transformationConfig.EmbedConfig != nil {
+			return transformationConfig.EmbedConfig.ErrorChannel
+		}
+	case "vllm":
+		if transformationConfig.VllmConfig != nil {
+			return transformationConfig.VllmConfig.ErrorChannel
+		}
+	case RenderOperatorType:
+		if transformationConfig.RenderConfig != nil {
+			return transformationConfig.RenderConfig.ErrorChannel
+		}
 	}
 	return nil
+}
+
+// siteOutputChannelConfigs returns the channels a *site* operator's step
+// declared in `site_config.output_channels`, beyond the step's own
+// `output_channel`. Nil when there is no site_config, no list, or the token is
+// one the dispatch handles itself.
+//
+// It is errorChannelConfig's shape one field over and exists for the same
+// reason that one does: the passes that make a channel exist -- the channel
+// registry construction and the executors' close pass -- run in processes where
+// no operator registry is present, so which site tokens exist is not knowable
+// to them and only the document can say.
+//
+// **The built-in guard is not defensive padding**, and the argument is
+// errorChannelConfig's verbatim: a `site_config` on a built-in token is a
+// configuration error that validateSiteOperatorSpec refuses, and without the
+// guard this function would answer for an operator the dispatch is never going
+// to build -- registering channels for a step that will not write them.
+func siteOutputChannelConfigs(transformationConfig *TransformationSpec) []*OutputChannelConfig {
+	if transformationConfig.SiteConfig == nil || reservedOperatorTypes[transformationConfig.Type] {
+		return nil
+	}
+	channels := transformationConfig.SiteConfig.OutputChannels
+	if len(channels) == 0 {
+		return nil
+	}
+	configs := make([]*OutputChannelConfig, 0, len(channels))
+	for i := range channels {
+		configs = append(configs, &channels[i])
+	}
+	return configs
+}
+
+// siteLookupKeys returns the `lookup_tables` keys a *site* operator's step
+// declared in `site_config.lookups`. Nil when there is no site_config, no list,
+// or the token is one the dispatch handles itself.
+//
+// siteOutputChannelConfigs' shape one field over, with the same built-in guard
+// for the same reason: a `site_config` on a built-in token is a configuration
+// error validateSiteOperatorSpec refuses, and answering for it here would keep a
+// lookup table loaded for a step the dispatch is never going to build.
+func siteLookupKeys(transformationConfig *TransformationSpec) []string {
+	if transformationConfig.SiteConfig == nil || reservedOperatorTypes[transformationConfig.Type] {
+		return nil
+	}
+	if len(transformationConfig.SiteConfig.Lookups) == 0 {
+		return nil
+	}
+	return transformationConfig.SiteConfig.Lookups
+}
+
+// outputChannelConfigs returns the channels a transformation writes its results
+// to, excluding its error channel.
+func outputChannelConfigs(transformationConfig *TransformationSpec) []*OutputChannelConfig {
+	configs := make([]*OutputChannelConfig, 0, 2)
+	configs = append(configs, &transformationConfig.OutputChannel)
+	// A site operator's declared channels. Outside the switch on purpose: a site
+	// token is by construction none of the cases below, so a case for it would
+	// be a case no document can reach.
+	configs = append(configs, siteOutputChannelConfigs(transformationConfig)...)
+	switch transformationConfig.Type {
+	case "jetrules":
+		if transformationConfig.JetrulesConfig != nil {
+			for i := range transformationConfig.JetrulesConfig.OutputChannels {
+				configs = append(configs, &transformationConfig.JetrulesConfig.OutputChannels[i])
+			}
+		}
+	case "anonymize":
+		if transformationConfig.AnonymizeConfig != nil && transformationConfig.AnonymizeConfig.KeysOutputChannel != nil {
+			configs = append(configs, transformationConfig.AnonymizeConfig.KeysOutputChannel)
+		}
+	case "clustering":
+		if transformationConfig.ClusteringConfig != nil && transformationConfig.ClusteringConfig.CorrelationOutputChannel != nil {
+			configs = append(configs, transformationConfig.ClusteringConfig.CorrelationOutputChannel)
+		}
+	}
+	return configs
 }
 
 // outputChannelNames returns the names of the channels a transformation writes its
 // results to, excluding its error channel.
 func outputChannelNames(transformationConfig *TransformationSpec) []string {
 	names := make([]string, 0, 2)
-	addName := func(name string) {
-		if len(name) > 0 {
-			names = append(names, name)
-		}
-	}
-	addName(transformationConfig.OutputChannel.Name)
-	switch transformationConfig.Type {
-	case "jetrules":
-		if transformationConfig.JetrulesConfig != nil {
-			for i := range transformationConfig.JetrulesConfig.OutputChannels {
-				addName(transformationConfig.JetrulesConfig.OutputChannels[i].Name)
-			}
-		}
-	case "anonymize":
-		if transformationConfig.AnonymizeConfig != nil && transformationConfig.AnonymizeConfig.KeysOutputChannel != nil {
-			addName(transformationConfig.AnonymizeConfig.KeysOutputChannel.Name)
-		}
-	case "clustering":
-		if transformationConfig.ClusteringConfig != nil && transformationConfig.ClusteringConfig.CorrelationOutputChannel != nil {
-			addName(transformationConfig.ClusteringConfig.CorrelationOutputChannel.Name)
+	for _, outputCh := range outputChannelConfigs(transformationConfig) {
+		if len(outputCh.Name) > 0 {
+			names = append(names, outputCh.Name)
 		}
 	}
 	return names
+}
+
+// allComputePipesSteps returns every step's pipes as authored in the document:
+// pipes_config (the runtime shape), then reducing_pipes_config, then the
+// conditional steps. Used to look across step boundaries at validation time.
+func allComputePipesSteps(cpConfig *ComputePipesConfig) [][]PipeSpec {
+	steps := make([][]PipeSpec, 0, len(cpConfig.ReducingPipesConfig)+len(cpConfig.ConditionalPipesConfig)+1)
+	if len(cpConfig.PipesConfig) > 0 {
+		steps = append(steps, cpConfig.PipesConfig)
+	}
+	steps = append(steps, cpConfig.ReducingPipesConfig...)
+	for i := range cpConfig.ConditionalPipesConfig {
+		steps = append(steps, cpConfig.ConditionalPipesConfig[i].PipesConfig)
+	}
+	return steps
+}
+
+// stageReadStepIds returns the step ids a step's pipes read from stage.
+func stageReadStepIds(step []PipeSpec) []string {
+	ids := make([]string, 0, 1)
+	for i := range step {
+		inputChannel := &step[i].InputChannel
+		if inputChannel.Type == "stage" && len(inputChannel.ReadStepId) > 0 {
+			ids = append(ids, inputChannel.ReadStepId)
+		}
+	}
+	return ids
+}
+
+// validateOriginalHeadersStagePath enforces the header contract of an output
+// channel carrying both use_original_headers and put_headers_on_first_partition:
+// such a channel gets the header line of the final merged file from the part
+// files themselves — the merge concatenates them (s3 multipart copy) without
+// rewriting them, so the header line must already sit, once and with the
+// original headers, in the first part file written upstream. Every stage
+// channel on the path leading to this output channel (followed backward through
+// read_step_id/write_step_id across the document's steps) must therefore carry
+// both flags as well; a stage channel missing either one leaves the final file
+// with uniquefied headers, no header line at all, or a header line per part.
+//
+// Config-level limits, accepted deliberately: step ids are compared as authored
+// (env vars unsubstituted), the other steps are seen as their base specs (a
+// conditional_config override of another step is not evaluated here), and a
+// stage read by file_key (historical data) has no writer in this document.
+func validateOriginalHeadersStagePath(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec,
+	transformationConfig *TransformationSpec) error {
+	for _, outputCh := range outputChannelConfigs(transformationConfig) {
+		if outputCh.Type != "output" || !outputCh.UseOriginalHeaders || !outputCh.PutHeadersOnFirstPartition {
+			continue
+		}
+		allSteps := allComputePipesSteps(cpConfig)
+		visited := make(map[string]bool)
+		pending := stageReadStepIds(pipeConfig)
+		for len(pending) > 0 {
+			readStepId := pending[len(pending)-1]
+			pending = pending[:len(pending)-1]
+			if visited[readStepId] {
+				continue
+			}
+			visited[readStepId] = true
+			for _, step := range allSteps {
+				stepWritesToIt := false
+				for i := range step {
+					for j := range step[i].Apply {
+						for _, stageCh := range outputChannelConfigs(&step[i].Apply[j]) {
+							if stageCh.Type != "stage" || stageCh.WriteStepId != readStepId {
+								continue
+							}
+							if !stageCh.UseOriginalHeaders || !stageCh.PutHeadersOnFirstPartition {
+								return fmt.Errorf(
+									"configuration error: output_channel '%s' has both use_original_headers and "+
+										"put_headers_on_first_partition set, but the stage output_channel '%s' "+
+										"(write_step_id '%s') leading to it does not; the final output file is a "+
+										"concatenation of the stage part files, so every stage channel leading to "+
+										"this output channel must also set both flags",
+									outputCh.Name, stageCh.Name, stageCh.WriteStepId)
+							}
+							stepWritesToIt = true
+						}
+					}
+				}
+				if stepWritesToIt {
+					pending = append(pending, stageReadStepIds(step)...)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// inputChannelWriterFields names the FileConfig settings that govern how a file is
+// written. They belong on output channels and schema providers; on an input channel no
+// reader consults them.
+func inputChannelWriterFields(ic *InputChannelConfig) []string {
+	fields := make([]string, 0)
+	if ic.NbrRowsInRecord != 0 {
+		fields = append(fields, "nbr_rows_in_record")
+	}
+	if ic.PutHeadersOnFirstPartition {
+		fields = append(fields, "put_headers_on_first_partition")
+	}
+	if ic.QuoteAllRecords {
+		fields = append(fields, "quote_all_records")
+	}
+	if ic.WriteDateLayout != "" {
+		fields = append(fields, "write_date_layout")
+	}
+	return fields
+}
+
+// validateInputChannelsCarryNoWriterFields refuses an input channel, or one of its
+// merge_channels, that sets a writer setting: nbr_rows_in_record,
+// put_headers_on_first_partition, quote_all_records or write_date_layout.
+//
+// No reader consults them on an input channel, so authoring one there is a setting that
+// does nothing, and it used to leak through syncInputChannelWithSchemaProvider onto the
+// shared schema provider and from there onto output channels. The sync no longer carries
+// them onto input channels; this keeps an authored one from reintroducing the leak.
+//
+// Every step of the document is checked, not only the one starting, so a document
+// carrying one fails when its first step starts rather than part way through a run.
+func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) error {
+	for stepId, step := range allComputePipesSteps(cpConfig) {
+		for i := range step {
+			channels := []*InputChannelConfig{&step[i].InputChannel}
+			for j := range step[i].InputChannel.MergeChannels {
+				channels = append(channels, &step[i].InputChannel.MergeChannels[j])
+			}
+			for _, ic := range channels {
+				if fields := inputChannelWriterFields(ic); len(fields) > 0 {
+					return fmt.Errorf(
+						"configuration error: input_channel '%s' (step %d, pipe %d) sets %s, which "+
+							"govern how a file is written and belong on an output channel or a "+
+							"schema_provider; no reader consults them on an input channel",
+						ic.Name, stepId, i, strings.Join(fields, ", "))
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // validateErrorChannels checks that an error channel has a single writer:
@@ -1140,10 +1539,8 @@ func validateErrorChannels(pipeConfig []PipeSpec) error {
 //   - EnforceRowMinLength
 //   - Format
 //   - IsPartFiles
-//   - NbrRowsInRecord
 //   - NoQuotes
 //   - ParquetSchema
-//   - QuoteAllRecords
 //   - ReadBatchSize
 //   - ReadDateLayout
 //   - ReorderColumnsOnRead
@@ -1151,10 +1548,17 @@ func validateErrorChannels(pipeConfig []PipeSpec) error {
 //   - UseLazyQuotes
 //   - UseLazyQuotesSpecial
 //   - VariableFieldsPerRecord
-//   - WriteDateLayout
 //
 // Priority: inputChannelConfig, mainInputSchemaProvider, and then source_config table (which served
 // as defaults to mainInputSchemaProvider)
+//
+// The writer settings of FileConfig -- NbrRowsInRecord, PutHeadersOnFirstPartition,
+// QuoteAllRecords and WriteDateLayout -- are deliberately NOT synced here. They govern how a
+// file is written, no reader consults them on an input channel, and syncOutputChannelWithSchemaProvider
+// carries them to the output channels that use them. Copying them onto an input channel put them in
+// the runtime document a starter hands a worker, where the Python cp_node's contract refuses them on
+// a stage input channel: the first Python merge_files step failed on exactly that. An input channel
+// that authors one is refused by validateInputChannelsCarryNoWriterFields.
 func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProviderSpec) {
 	if ic.BlankFieldMarkers == nil {
 		ic.BlankFieldMarkers = sp.BlankFieldMarkers
@@ -1240,12 +1644,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.IsPartFiles = ic.IsPartFiles
 	}
 
-	if ic.NbrRowsInRecord == 0 {
-		ic.NbrRowsInRecord = sp.NbrRowsInRecord
-	} else {
-		sp.NbrRowsInRecord = ic.NbrRowsInRecord
-	}
-
 	if ic.MultiColumnsInput {
 		sp.MultiColumnsInput = true
 	} else {
@@ -1262,18 +1660,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.ParquetSchema = sp.ParquetSchema
 	} else {
 		sp.ParquetSchema = ic.ParquetSchema
-	}
-
-	if !ic.PutHeadersOnFirstPartition {
-		ic.PutHeadersOnFirstPartition = sp.PutHeadersOnFirstPartition
-	} else {
-		sp.PutHeadersOnFirstPartition = ic.PutHeadersOnFirstPartition
-	}
-
-	if !ic.QuoteAllRecords {
-		ic.QuoteAllRecords = sp.QuoteAllRecords
-	} else {
-		sp.QuoteAllRecords = ic.QuoteAllRecords
 	}
 
 	if ic.ReadBatchSize == 0 {
@@ -1316,12 +1702,6 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.VariableFieldsPerRecord = sp.VariableFieldsPerRecord
 	} else {
 		sp.VariableFieldsPerRecord = ic.VariableFieldsPerRecord
-	}
-
-	if ic.WriteDateLayout == "" {
-		ic.WriteDateLayout = sp.WriteDateLayout
-	} else {
-		sp.WriteDateLayout = ic.WriteDateLayout
 	}
 }
 
@@ -1619,13 +1999,27 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 	envSettings["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
 	envSettings["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
 
-	// Add to envSettings based on compute pipe config
+	// Add to envSettings based on compute pipe config.
+	//
+	// These run after the main schema provider's Env has become envSettings, so
+	// file_key_component and value both *overwrite* what the schema event set.
+	// That is their behaviour and it is unchanged; default_value is the arm that
+	// fills in behind instead, on the same rule as $DATE_FILE_KEY above.
 	for _, contextSpec := range cpConfig.Context {
 		switch contextSpec.Type {
 		case "file_key_component":
 			envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
 		case "value":
 			envSettings[contextSpec.Key] = contextSpec.Expr
+		case "default_value":
+			// Don't override with the document's literal if already set via
+			// schema provider: the deployment's own value wins, and this
+			// supplies one only when the deployment named none. Same guard as
+			// $DATE_FILE_KEY above, and the same meaning for a key present
+			// with a nil value -- absent.
+			if envSettings[contextSpec.Key] == nil {
+				envSettings[contextSpec.Key] = contextSpec.Expr
+			}
 		case "partfile_key_component":
 		default:
 			return nil, fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
@@ -1647,6 +2041,33 @@ func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {
 		if pipeSpec[stepId].UseEcsTasksWhen != nil {
 			builderContext := ExprBuilderContext(cpipesStartup.EnvSettings)
 			evaluator, err := builderContext.BuildExprNodeEvaluator("use_ecs_tasks", nil, pipeSpec[stepId].UseEcsTasksWhen)
+			if err != nil {
+				return false, err
+			}
+			v, err := evaluator.Eval(cpipesStartup.EnvSettings)
+			if err != nil {
+				return false, err
+			}
+			return ToBool(v), nil
+		}
+	}
+	return result, nil
+}
+
+// EvalUsePythonNode reports whether the reducing step stepId is to run on the Python cp_node
+// rather than the Go worker. It is EvalUseEcsTask's shape applied to the other axis: the
+// use_python_node bool is the default and a non-nil use_python_node_when expression overrides it,
+// in both directions. A step spec shorter than stepId yields false, and an expression that fails
+// to build or to evaluate returns the error rather than a silent false -- a misconfigured
+// expression must not look like "run this on Go".
+func (cpipesStartup *CpipesStartup) EvalUsePythonNode(stepId int) (bool, error) {
+	pipeSpec := cpipesStartup.CpConfig.ConditionalPipesConfig
+	result := false
+	if len(pipeSpec) > stepId {
+		result = pipeSpec[stepId].UsePythonNode
+		if pipeSpec[stepId].UsePythonNodeWhen != nil {
+			builderContext := ExprBuilderContext(cpipesStartup.EnvSettings)
+			evaluator, err := builderContext.BuildExprNodeEvaluator("use_python_node", nil, pipeSpec[stepId].UsePythonNodeWhen)
 			if err != nil {
 				return false, err
 			}

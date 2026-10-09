@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "label": "Workspace Changes",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "workspace_name",
+      "label": "Workspace Name",
+      "tooltip": "Workspace identifier"
+    },
+    {
+      "name": "oid",
+      "label": "Change OID",
+      "tooltip": "Database Large Object ID",
+      "isNumeric": true
+    },
+    {
+      "name": "file_name",
+      "label": "File Name",
+      "tooltip": "Workspace File Name"
+    },
+    {
+      "name": "content_type",
+      "label": "Content Type",
+      "tooltip": "Workspace Content Type"
+    },
+    {
+      "name": "status",
+      "label": "Change Status"
+    },
+    {
+      "name": "user_email",
+      "label": "User Email",
+      "tooltip": "User who made the last change"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Update",
+      "tooltip": "Last time the workspace was compiled"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "oid",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "file_name",
+        "columnIdx": 3
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "workspace_changes"
+    }
+  ],
+  "where": [
+    {
+      "column": "workspace_name",
+      "formStateKey": "workspace_name"
+    }
+  ],
+  "actions": [
+    {
+      "key": "revertChanges",
+      "label": "Delete/Revert Changes",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "deleteWorkspaceChanges",
+      "isEnabledWhenHavingSelectedRows": true
+    },
+    {
+      "key": "revertAllChanges",
+      "label": "Delete/Revert ALL Changes",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteAllWorkspaceChanges"
+    }
+  ],
+  "refreshOnKeyUpdateEvent": [
+    "state_modified"
+  ]
+}

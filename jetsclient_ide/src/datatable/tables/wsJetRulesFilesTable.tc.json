@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "label": "Jet Rules Files",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "workspace_control",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "source_file_name",
+      "label": "File Name",
+      "table": "workspace_control",
+      "tooltip": "Workspace File Name"
+    },
+    {
+      "name": "is_main",
+      "label": "Main Rule File?",
+      "table": "workspace_control",
+      "tooltip": "Indicate if file is a main rule file"
+    }
+  ],
+  "sortColumn": "source_file_name",
+  "sortColumnTable": "workspace_control",
+  "sortAscending": true,
+  "rowsPerPage": 50,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "source_file_name",
+        "columnIdx": 1
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_file_name",
+      "table": "workspace_control",
+      "like": "jet_rules/%"
+    }
+  ],
+  "actions": [
+    {
+      "key": "addWorkspaceFile",
+      "label": "Add File",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "addWorkspaceFileDialog",
+      "navigationParams": {
+        "workspace.section": "jet_rules/",
+        "source_file_name": "jet_rules/"
+      },
+      "stateFormNavigationParams": {
+        "workspace_name": "workspace_name"
+      }
+    },
+    {
+      "key": "deleteWorkspaceFiles",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "deleteWorkspaceFiles",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

@@ -1,0 +1,392 @@
+package datatable
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/wsvalidate"
+)
+
+func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
+	cases := map[string]bool{
+		"user_flows/loadFilesUF.uf.json":            true,
+		"user_flows/loadFilesUF.ua.json":            true,
+		"user_flows/loadFilesUF.form.json":          true,
+		"table_configs/lfSourceConfigTable.tc.json": true,
+		"provenance/patient_briefing.pv.json":       true,
+		// The plain-JSON files that have always been saved through this path keep
+		// their existing behaviour: well-formedness only, no specific validator.
+		"workspace_control.json":    false,
+		"reports/something.json":    false,
+		"pipes_config/x.pc.json":    false, // agentic_ai's row, not yet added
+		"user_flows/notes.md":       false,
+		"looks_like.uf.json.backup": false,
+		"provenance/notes.json":     false,
+		"UPPER/LOADFILES.UF.JSON":   true, // case-insensitive, like the JSON check beside it
+		// The sixth row, and the first that is not JSON — so the first whose
+		// validator would have been unreachable behind the old `.json` gate in
+		// checkWorkspaceFile. TestSaveCheckValidatesSqlFiles is what asserts it
+		// is reached; this only asserts the dispatch.
+		"process_config/base__workspace_init_db.sql": true,
+		"reports/CM.sql":        true,
+		"reports/CM.SQL":        true,
+		"jet_rules/mapping.jr":  false,
+		"reports/CM.sql.backup": false,
+	}
+	for name, want := range cases {
+		if got := validatorFor(name) != nil; got != want {
+			t.Errorf("validatorFor(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
+
+// TestSuffixesAreDistinct guards the rule rather than today's table: longest
+// match only means something if two suffixes can overlap, and it is the rule
+// that keeps the *next* file type honest — `.tc.json` was the fourth and did not
+// need it, which is exactly when a guard like this stops being watched.
+func TestSuffixesAreDistinct(t *testing.T) {
+	for i, a := range workspaceFileValidators {
+		for j, b := range workspaceFileValidators {
+			if i != j && strings.HasSuffix(a.suffix, b.suffix) {
+				t.Errorf("%q ends with %q; longest-match decides, and that should be deliberate",
+					a.suffix, b.suffix)
+			}
+		}
+	}
+}
+
+func readGolden(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+	return string(raw)
+}
+
+// TestShippingDocumentsPassTheSaveCheck is the phase's rule at the save path: a
+// real configuration that fails means the check is wrong, not the configuration.
+func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
+	// The flows are JetStore-owned workspace assets, installed by
+	// install_workspace_assets; the directory also holds the projections
+	// `cpipes-contract templates` writes, which the save check governs too.
+	flows := "../workspace_assets/user_flows"
+	entries, err := os.ReadDir(flows)
+	if err != nil {
+		t.Fatalf("reading %s: %v", flows, err)
+	}
+	checked := 0
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".uf.json") {
+			continue
+		}
+		content := readGolden(t, flows+"/"+e.Name())
+		if findings := validatorFor(e.Name())(content); len(findings) > 0 {
+			t.Errorf("%s is refused by the save check: %v", e.Name(), findings)
+		}
+		checked++
+	}
+	// Ten flows since 2026-10-01, when registerFileKeyUF was retired by
+	// jetstore_maintenance_02 (Q-6, task AD.4).
+	if checked != 13 {
+		t.Errorf("expected the app's ten remaining flows and three projections, checked %d", checked)
+	}
+}
+
+// TestShippingTablesPassTheSaveCheck is the same rule for the fourth document
+// type, and it goes through `validatorFor` rather than calling the validator
+// directly — the dispatch is the part that was untested until the mutation pass
+// found it (see the header of the file under test).
+func TestShippingTablesPassTheSaveCheck(t *testing.T) {
+	// Two directories: the tables a flow draws are installed into a workspace, the
+	// tables a screen draws are bundled. Both go through this dispatch on save.
+	tableDirs := []string{
+		"../workspace_assets/table_configs",
+		"../../jetsclient_ide/src/datatable/tables",
+	}
+	var paths []string
+	for _, tables := range tableDirs {
+		found, err := os.ReadDir(tables)
+		if err != nil {
+			t.Fatalf("reading %s: %v", tables, err)
+		}
+		for _, e := range found {
+			if strings.HasSuffix(e.Name(), ".tc.json") {
+				paths = append(paths, tables+"/"+e.Name())
+			}
+		}
+	}
+	checked := 0
+	for _, path := range paths {
+		name := filepath.Base(path)
+		content := readGolden(t, path)
+		if findings := validatorFor(name)(content); len(findings) > 0 {
+			t.Errorf("%s is refused by the save check: %v", name, findings)
+		}
+		checked++
+	}
+	// **A lower bound, and it used to be an exact count — the change is the
+	// point.** This asserted `checked != 38` and `jets/userflow`'s
+	// TestShippingTablesValidate asserted the same directory's exact size a
+	// package away, so every screen track C ports had to update two numbers that
+	// mean the same thing. C.2 updated one of them and left this test failing on
+	// its own branch; C.4 found it while adding the fortieth document.
+	//
+	// The exact count belongs where the documents are *named* — `jets/userflow`
+	// lists which non-flow tables are in the directory and why — and what this test
+	// needs is only that the directory has not silently emptied, because what it is
+	// really checking is `validatorFor`'s dispatch. One number, one place.
+	if checked < 37 {
+		t.Errorf("expected at least the flows' 37 table configurations, checked %d", checked)
+	}
+}
+
+func TestSaveCheckRejects(t *testing.T) {
+	base := readGolden(t, "../workspace_assets/user_flows/loadFilesUF.uf.json")
+	mutate := func(f func(doc map[string]any)) string {
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(base), &doc); err != nil {
+			t.Fatalf("unmarshalling: %v", err)
+		}
+		f(doc)
+		out, err := json.Marshal(doc)
+		if err != nil {
+			t.Fatalf("marshalling: %v", err)
+		}
+		return string(out)
+	}
+
+	t.Run("a misspelt field", func(t *testing.T) {
+		content := mutate(func(doc map[string]any) {
+			s := doc["states"].(map[string]any)["select_source_config"].(map[string]any)
+			delete(s, "defaultNextState")
+			s["defaultNexState"] = "select_file_keys"
+		})
+		findings := ValidateFlowDocumentForTest(content)
+		if len(findings) == 0 {
+			t.Fatal("accepted, and it must not be")
+		}
+	})
+
+	t.Run("a transition to a state that does not exist, with its pointer", func(t *testing.T) {
+		content := mutate(func(doc map[string]any) {
+			doc["states"].(map[string]any)["select_source_config"].(map[string]any)["defaultNextState"] = "typo"
+		})
+		// Two findings, and only one blocks: breaking the transition also strands
+		// `select_file_keys`, which is a warning. The save path acts on
+		// ErrorsOnly, so that is what this asserts.
+		all := ValidateFlowDocumentForTest(content)
+		errs := wsvalidate.ErrorsOnly(all)
+		if len(all) != 2 || len(errs) != 1 {
+			t.Fatalf("expected one error beside one warning, got %v", all)
+		}
+		if errs[0].Path != "/states/select_source_config/defaultNextState" {
+			t.Errorf("unexpected path %q", errs[0].Path)
+		}
+	})
+
+	t.Run("the message names the file and every finding", func(t *testing.T) {
+		content := mutate(func(doc map[string]any) {
+			doc["states"].(map[string]any)["select_source_config"].(map[string]any)["defaultNextState"] = "typo"
+		})
+		err := describeFindings("user_flows/x.uf.json",
+			wsvalidate.ErrorsOnly(ValidateFlowDocumentForTest(content)))
+		if !strings.Contains(err.Error(), "user_flows/x.uf.json") ||
+			!strings.Contains(err.Error(), "/states/select_source_config/defaultNextState") {
+			t.Errorf("message is not usable: %v", err)
+		}
+	})
+}
+
+// TestCheckWorkspaceFileIsTheWiring covers the step SaveWorkspaceFileContent
+// actually performs, rather than the validators in isolation.
+//
+// Mutation testing is why it exists: bypassing the dispatch inside the handler
+// broke no test, because the handler needs a database and a token and nothing
+// reached it. The check is now a function, and this is that function.
+func TestCheckWorkspaceFileIsTheWiring(t *testing.T) {
+	good := readGolden(t, "../workspace_assets/user_flows/loadFilesUF.uf.json")
+
+	t.Run("a valid flow is written", func(t *testing.T) {
+		if err := checkWorkspaceFile("user_flows/loadFilesUF.uf.json", good); err != nil {
+			t.Errorf("refused a shipping flow: %v", err)
+		}
+	})
+
+	t.Run("an invalid flow is refused, and the message names the pointer", func(t *testing.T) {
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(good), &doc); err != nil {
+			t.Fatal(err)
+		}
+		doc["states"].(map[string]any)["select_source_config"].(map[string]any)["defaultNextState"] = "typo"
+		out, _ := json.Marshal(doc)
+		err := checkWorkspaceFile("user_flows/x.uf.json", string(out))
+		if err == nil {
+			t.Fatal("accepted, and it must not be")
+		}
+		if !strings.Contains(err.Error(), "/states/select_source_config/defaultNextState") {
+			t.Errorf("message is not usable: %v", err)
+		}
+	})
+
+	t.Run("the same content under a plain .json name is written", func(t *testing.T) {
+		// The dispatch is by suffix, and a file that names no specific validator
+		// keeps exactly the behaviour every existing file type has today.
+		var doc map[string]any
+		_ = json.Unmarshal([]byte(good), &doc)
+		doc["states"].(map[string]any)["select_source_config"].(map[string]any)["defaultNextState"] = "typo"
+		out, _ := json.Marshal(doc)
+		if err := checkWorkspaceFile("reports/whatever.json", string(out)); err != nil {
+			t.Errorf("a plain .json should not be flow-validated: %v", err)
+		}
+	})
+
+	t.Run("malformed json is refused before any validator runs", func(t *testing.T) {
+		if err := checkWorkspaceFile("user_flows/x.uf.json", "{ not json"); err == nil {
+			t.Error("accepted malformed json")
+		} else if !strings.Contains(err.Error(), "not a valid json file") {
+			t.Errorf("the well-formedness check should report first: %v", err)
+		}
+	})
+
+	t.Run("a non-json file is not touched", func(t *testing.T) {
+		if err := checkWorkspaceFile("jet_rules/mapping.jr", "this is not json at all"); err != nil {
+			t.Errorf("refused a non-json file: %v", err)
+		}
+	})
+}
+
+// The `.pv.json` row (agentic_ai AK.2). It is here rather than only in
+// jets/agentic/briefing because the claim being tested is the *wiring*: the
+// mechanism I.3's comment describes - adding a row is the whole of adding a file
+// type - held for a fifth type added by a different stream.
+func TestProvenanceSchemaGoesThroughTheSavePath(t *testing.T) {
+	// The disclaimer block is required by Confine (agentic_ai AK.3): a schema
+	// declaring a briefing's shape and no intended-use notice is refused at save
+	// time. This sample gained it on 2026-09-05, when AK.2's fixture and AK.3's
+	// rule met on jets_ai and neither pull request's diff showed the other.
+	const good = `{
+	  "key": "patient_briefing",
+	  "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
+	  "response_format": {"type": "object", "additionalProperties": false,
+	    "properties": {"count": {"type": "integer"}}},
+	  "rules": [{"field": "count", "kind": "count_of", "sources": ["e[]"]}]
+	}`
+	if err := checkWorkspaceFile("provenance/patient_briefing.pv.json", good); err != nil {
+		t.Fatalf("a well-formed provenance schema must save: %v", err)
+	}
+
+	// A briefing field with no rule is refused at save time, which is what makes
+	// the totality a property of the document rather than of a run.
+	const uncovered = `{
+	  "key": "patient_briefing",
+	  "response_format": {"type": "object", "additionalProperties": false,
+	    "properties": {"count": {"type": "integer"}, "note": {"type": "string"}}},
+	  "rules": [{"field": "count", "kind": "count_of", "sources": ["e[]"]}]
+	}`
+	err := checkWorkspaceFile("provenance/patient_briefing.pv.json", uncovered)
+	if err == nil {
+		t.Fatal("a briefing field with no provenance rule must not save")
+	}
+	if !strings.Contains(err.Error(), "note") {
+		t.Errorf("the message should name the field, got %v", err)
+	}
+
+	// An exemption with no reason: the escape hatch stays a sentence somebody has
+	// to write.
+	const unreasoned = `{
+	  "key": "patient_briefing",
+	  "rules": [{"field": "note", "kind": "ungrounded"}]
+	}`
+	if err := checkWorkspaceFile("provenance/patient_briefing.pv.json", unreasoned); err == nil {
+		t.Fatal("an ungrounded field with no reason must not save")
+	}
+}
+
+// The `.sql` row is the first non-JSON file type, and what it found was that
+// checkWorkspaceFile gated the whole check on a `.json` suffix — so a row could
+// be dispatched to by validatorFor and never reached. That is the regression
+// this test exists for, not the lexer, which has its own tests in
+// jets/sqlscript.
+func TestSaveCheckValidatesSqlFiles(t *testing.T) {
+	t.Run("a script with a semicolon in a comment is saved", func(t *testing.T) {
+		// The shape that cost a deployment on 2026-09-12 and is now legal.
+		content := "-- Registering it does not schedule it; a pipeline runs when somebody\n" +
+			"-- starts it.\nDELETE FROM jetsapi.process_config WHERE key = 50105;\n"
+		if err := checkWorkspaceFile("process_config/base__workspace_init_db.sql", content); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+	})
+
+	t.Run("an unterminated literal is refused, with the line", func(t *testing.T) {
+		content := "DELETE FROM jetsapi.source_config WHERE client = 'CI';\n" +
+			"INSERT INTO jetsapi.source_config VALUES ('CI', '{\n  \"a\": \"b; c\"\n}');\n"
+		// Closing quote removed from the JSON literal, which is the ciseit and
+		// fbin shape: unloadable, and reported at deployment against a line in
+		// whatever the unclosed quote swallowed.
+		content = strings.Replace(content, "}');", "});", 1)
+		err := checkWorkspaceFile("process_config/ci_workspace_init_db.sql", content)
+		if err == nil {
+			t.Fatal("want the save refused")
+		}
+		if !strings.Contains(err.Error(), "unterminated string literal") {
+			t.Errorf("error = %v, want it to name the unterminated literal", err)
+		}
+		// The coordinate is the point of Finding.Line: line 2 is where the
+		// literal opened, not where the file ran out.
+		if !strings.Contains(err.Error(), "line 2:") {
+			t.Errorf("error = %v, want it to carry the opening line", err)
+		}
+	})
+
+	t.Run("a report script is checked too", func(t *testing.T) {
+		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b' FROM t;\n"); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b FROM t;\n"); err == nil {
+			t.Error("want the save refused")
+		}
+	})
+
+	t.Run("a plain .json still gets its well-formedness check", func(t *testing.T) {
+		// The JSON check stopped being the gate on the whole function; it must
+		// not have stopped being applied.
+		if err := checkWorkspaceFile("reports/config.json", "{ not json"); err == nil {
+			t.Error("want a malformed plain .json refused")
+		}
+		if err := checkWorkspaceFile("reports/config.json", `{"a": 1}`); err != nil {
+			t.Errorf("want a well-formed plain .json saved, got %v", err)
+		}
+	})
+
+	t.Run("a file with no row is still untouched", func(t *testing.T) {
+		if err := checkWorkspaceFile("jet_rules/mapping.jr", "not json, not sql, not checked"); err != nil {
+			t.Errorf("want the file saved, got %v", err)
+		}
+	})
+}
+
+// describeFindings renders a coordinate where a finding has one, and the two
+// kinds do not collide: a JSON Pointer, a line, or neither.
+func TestDescribeFindingsRendersBothCoordinates(t *testing.T) {
+	got := describeFindings("x.sql", []wsvalidate.Finding{
+		{Severity: wsvalidate.Error, Code: "a", Message: "no coordinate"},
+		{Severity: wsvalidate.Error, Code: "b", Message: "a pointer", Path: "/states/x"},
+		{Severity: wsvalidate.Error, Code: "c", Message: "a line", Line: 12},
+		{Severity: wsvalidate.Error, Code: "d", Message: "both", Path: "/a/b", Line: 3},
+	}).Error()
+	for _, want := range []string{
+		"x.sql cannot be saved:",
+		"\n  no coordinate",
+		"\n  /states/x: a pointer",
+		"\n  line 12: a line",
+		"\n  /a/b:3: both",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering = %q, want it to contain %q", got, want)
+		}
+	}
+}

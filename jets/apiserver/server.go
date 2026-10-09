@@ -14,7 +14,9 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
+	"github.com/artisoft-io/jetstore/jets/migratedb"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -154,8 +156,73 @@ func (server *Server) checkJetStoreSchema() error {
 	return nil
 }
 
+// Bring the JetStore *system* tables to the deployed release, before anything
+// reads or writes one.
+// Precondition: db schema exist (checkJetStoreSchema has run)
+//
+// **This is a step of its own rather than a clause of checkDomainTablesVersion,
+// and the ordering is the whole of it.** The system tables are described by
+// jets_schema.json, which is baked into the image; the domain tables are described
+// by build/tables.json, which the workspace compile writes. Only the second is
+// downstream of the compile, and folding both into one late step meant that
+// everything between checkJetStoreSchema and checkDomainTablesVersion ran against
+// the *previous* release's system schema.
+//
+// checkWorkspaceVersion is that everything. On 2026-09-05 at 08:31 its insert into
+// workspace_version raised SQLSTATE 42703 on workspace_name -- a column the same
+// release had added (`UpdateWorkspaceVersionDb`,
+// `jets/workspace/compile_workspace_utils.go:563`) -- and the apiserver did not
+// start.
+//
+// **It is one of three system tables read or written before the old migration
+// point, and the other two are worth knowing because they age differently.** The
+// workspace_registry upsert below names workspace_name_unique_cstraintv3 in an
+// ON CONFLICT ON CONSTRAINT clause and logs its error rather than returning it, so
+// the same shape of staleness there loses the active workspace registration
+// silently instead of stopping the start; that constraint is older than the
+// current schema file and nothing has made it fire, which is exactly why it would
+// not be noticed. workspace_changes is the third and is not exposed at all:
+// UpdateTableSchema skips it by name once it exists (`UpdateTableSchema`,
+// `jets/schema/schema.go:189`), so no migration reaches it in either order.
+//
+// **Gated on the release, not on the workspace version.** This is the same gate
+// checkDomainTablesVersion applies, deliberately: a workspace version changes on
+// every recompile and a release does not, so gating here on a recompile would run
+// the migration far more often than the step it is being lifted out of.
+//
+// **It does not record the release.** addVersionToDb stays with
+// checkDomainTablesVersion, so a migration that runs and a start that then fails
+// leaves the release unrecorded and the next start repeats both halves.
+func (server *Server) checkSystemTablesVersion() error {
+	jetstoreVersion := os.Getenv("JETS_VERSION")
+	var version sql.NullString
+	stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
+	err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	switch {
+	case err == nil && version.Valid && jetstoreVersion <= version.String:
+		log.Println("JetStore system tables are at the deployed release", version.String, "- no migration needed")
+		return nil
+	case err != nil:
+		// The release is unreadable, so it is not known to be current. Migrating is
+		// the safe act: it is idempotent, and it is what checkDomainTablesVersion's
+		// own recovery branch runs anyway, only later than the compile.
+		log.Println("Notice: cannot read jetsapi.jetstore_release, migrating the system tables anyway:", err)
+	default:
+		log.Println("New JetStore release deployed, migrating the system tables before the workspace compile")
+	}
+	if err := migratedb.MigrateSystemTables(context.Background(), server.dbpool); err != nil {
+		return fmt.Errorf("while migrating the JetStore system tables: %v", err)
+	}
+	return nil
+}
+
 // Update JetStore Db -- Domain Tables and System Tables if needed
 // Precondition: db schema exist
+//
+// The -migrateDb here is the second, idempotent pass over the system tables that
+// checkSystemTablesVersion has already made on this start. It is kept rather than
+// dropped because UpdateScripts -- the release-specific data fixups -- rides the
+// same flag and must run *after* -initBaseWorkspaceDb, which is a workspace file.
 func (server *Server) checkDomainTablesVersion() error {
 	var serverArgs []string
 	var version sql.NullString
@@ -221,10 +288,60 @@ func (server *Server) checkWorkspaceVersion() error {
 		}
 	}
 
-	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI is set
+	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI
+	// is set, or if git is off for this deployment.
+	//
+	// **The second arm is here because an empty registry is a dead end rather than a
+	// cosmetic defect.** Compile, load client config, open and export all act on a
+	// *selected* row of the Workspace Registry screen -- 11 of that screen's 13
+	// actions carry isEnabledWhenHavingSelectedRows, the exceptions being Add
+	// Workspace and Refresh
+	// (`workspaceRegistryTable.tc.json`, jetsclient_ide/src/datatable/tables/,
+	// counted 2026-09-07). So a deployment that sets neither ACTIVE_WORKSPACE_URI nor
+	// WORKSPACE_BRANCH -- which is what a site with no source-control host looks like
+	// -- reaches a screen that renders correctly, has nothing in it to select, and
+	// offers no way to compile the workspace the process is running on. That failure
+	// hides behind the more obvious one: an operator meeting this deployment sees the
+	// git buttons fail first, fixes those, and finds the screen still empty for a
+	// reason that had nothing to do with the buttons.
+	//
+	// **The uri is written as the empty string and not as a null**, because
+	// workspace_registry.workspace_uri is NOT NULL with no default
+	// (jets/jets_schema.json). Empty reads as "this workspace has no remote", which is
+	// the state being recorded rather than a placeholder for one.
+	//
+	// **Both values are taken from the environment verbatim, so this arm does not
+	// have to decide what a no-git site *should* have configured.** When the
+	// deployment sets neither, the row carries two empty strings; when it sets a uri
+	// and turns git off anyway, the row records what was configured and the switch
+	// still governs what runs.
+	//
+	// **The branch is written as WORKSPACE_BRANCH holds it, empty included, rather
+	// than as the column's 'main' default.** A row is recognised as *the active
+	// workspace* by comparing its workspace_branch against os.Getenv("WORKSPACE_BRANCH")
+	// (`InitWorkspaceGit`, jets/datatable/git/workspace_git.go, read by `GetStatus`),
+	// and the status that comparison produces is what disables Delete on the active
+	// workspace: that button's enableWhen clause refuses a status containing
+	// "active", in the same table document. Writing 'main' against an unset variable
+	// would make the row fail its own identity test, and the screen would then offer
+	// to delete the workspace the deployment is running on -- refused by
+	// `DeleteWorkspace` with a 400, so the guard holds, but the courtesy is lost for
+	// no gain. Matching the variable keeps the comparison true whatever it holds, and
+	// the column's 'main' default is unreachable here in any case, because the
+	// statement names the column.
+	//
+	// **The new arm asks for a workspace name and the old one does not**, which is not
+	// an inconsistency being introduced so much as one being kept out of the arm that
+	// fires unconditionally. WORKSPACE is what the row is keyed on
+	// (workspace_name_unique_cstraintv3) and what makes it selectable; with git off
+	// and WORKSPACE unset there is nothing to register, and inserting a row named ""
+	// would put an entry on the screen that no action can act on. The existing arm's
+	// behaviour in that case is left as it is -- it is reachable only when someone has
+	// configured a uri and a branch but no workspace, and changing it is a separate
+	// question from this one.
 	activeWorkspaceUri := os.Getenv("ACTIVE_WORKSPACE_URI")
 	workspaceBranch := os.Getenv("WORKSPACE_BRANCH")
-	if activeWorkspaceUri != "" && workspaceBranch != "" {
+	if (activeWorkspaceUri != "" && workspaceBranch != "") || (git.NoGitAccess() && workspaceName != "") {
 		stmt := fmt.Sprintf(`
 			INSERT INTO jetsapi.workspace_registry 
 				(workspace_name, workspace_uri, workspace_branch, user_email) VALUES 
@@ -382,6 +499,13 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
+	// Bring the system tables to the deployed release. This must precede
+	// checkWorkspaceVersion, which reads and writes several of them.
+	err = server.checkSystemTablesVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
+	}
+
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
@@ -431,72 +555,8 @@ func listenAndServe() error {
 	// Home Route
 	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
-	// Serve the jetsclient app
-	fs := http.FileServer(http.Dir(*uiWebDir))
-	server.Router.Handle("/", fs).Methods("GET")
-	server.Router.Handle("/favicon.ico", fs).Methods("GET")
-	server.Router.Handle("/flutter.js", fs).Methods("GET")
-	server.Router.Handle("/version.json", fs).Methods("GET")
-	server.Router.Handle("/main.dart.js.map", fs).Methods("GET")
-	server.Router.Handle("/index.html", fs).Methods("GET")
-	server.Router.Handle("/favicon.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-192.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-maskable-512.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-maskable-192.png", fs).Methods("GET")
-	server.Router.Handle("/icons/Icon-512.png", fs).Methods("GET")
-	server.Router.Handle("/assets/NOTICES", fs).Methods("GET")
-	server.Router.Handle("/assets/fonts/MaterialIcons-Regular.otf", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.json", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.bin", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.bin.json", fs).Methods("GET")
-	server.Router.Handle("/assets/AssetManifest.smcbin", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Thin.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-MediumItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-ThinItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-BlackItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Medium.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-Black.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-BoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Bold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ExtraLightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ExtraLight.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Italic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Italic-VariableFont_wght.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-LightItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Light.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-MediumItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Medium.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Regular.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-SemiBoldItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-SemiBold.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-ThinItalic.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-Thin.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/VictorMono-VariableFont_wght.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/images/logo.png", fs).Methods("GET")
-	server.Router.Handle("/assets/FontManifest.json", fs).Methods("GET")
-	server.Router.Handle("/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/shaders/ink_sparkle.frag", fs).Methods("GET")
-	server.Router.Handle("/flutter_service_worker.js", fs).Methods("GET")
-	server.Router.Handle("/flutter_bootstrap.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/canvaskit.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/canvaskit.wasm", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/profiling/canvaskit.js", fs).Methods("GET")
-	server.Router.Handle("/canvaskit/profiling/canvaskit.wasm", fs).Methods("GET")
-	server.Router.Handle("/main.dart.js", fs).Methods("GET")
-	server.Router.Handle("/manifest.json", fs).Methods("GET")
-	// server.Router.Handle("", fs).Methods("GET")
+	// The web app is served last, after every api route — see the tail of this
+	// function. Task X.1 moved it there; the reason is written where it now sits.
 
 	// Health Check
 	healthCheckOptions := OptionConfig{Origin: "",
@@ -550,6 +610,16 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/inferServer", inferServerOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/inferServer", jsonh(corsh(authh(server.DoInferServerAction)))).Methods("POST")
 
+	// Agentic supervision route — proposal staging, approval decisions and run
+	// transcripts for the Workspace IDE (task K.3, gap 11).
+	// Note: authh validates the token only; the agent_supervision capability is
+	// checked inside DoAgenticAction, following the InferServer route above.
+	agenticOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/agentic", agenticOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/agentic", jsonh(corsh(authh(server.DoAgenticAction)))).Methods("POST")
+
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
 	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
@@ -558,6 +628,34 @@ func listenAndServe() error {
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	// server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
+
+	// Serve the web app — last, and over everything.
+	//
+	// **Registration order is the whole of the safety here**, and it is why this
+	// sits at the bottom of the function rather than the top. gorilla/mux matches
+	// in registration order, so every api route above wins its own path and this
+	// takes what is left. Registered first, a `PathPrefix("/")` would shadow
+	// `/login`, `/dataTable` and the rest, and the failure would be an api call
+	// answered with the html shell — a console error about an unexpected `<` that
+	// says nothing about the cause.
+	//
+	// `static_ide.go` predicted this exact change and declined to make it early:
+	// *"a change worth making on its own when the Flutter app is retired, not as a
+	// rider on this one"*. This is that task (X.1).
+	//
+	// **A catch-all was not needed before and is required now**, which is the part
+	// worth knowing. `jetsclient` never called `setPathUrlStrategy`, so Flutter web
+	// kept hash routing and every one of its routes lived after the `#` — never
+	// sent to the server, which is why 64 hand-enumerated asset routes and no
+	// catch-all were enough. React uses real paths. Without the fallback below,
+	// every deep link into the app 404s on reload rather than on navigation, which
+	// is the kind of defect that survives testing and appears in production.
+	//
+	// GET only: a POST to an unknown path is a client error and should say so
+	// rather than receive html.
+	server.Router.PathPrefix(appAssetPrefix).
+		Handler(appHandler(appAssetPrefix, *ideWebDir)).
+		Methods("GET")
 
 	// Get the secret rotation version from db
 	server.LastSecretRotation, err = server.GetLastSecretRotation()

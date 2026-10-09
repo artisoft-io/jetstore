@@ -1,0 +1,658 @@
+# The cpipes applicability matrix — schema
+
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · revised 2026-08-15 preparing B.8 (the reachability closure; the walk starts at the root; the review stamp) · revised 2026-08-16 (the B.10 flip; the corpus-unreachable stamp) · **third review complete — reviewed and signed off by Michel 2026-08-16, with the matrix***
+
+> **The B.10 flip (2026-08-16).** Since B.9/B.10 the source of truth for the *contract claims* —
+> which fields exist per token (`applicable`), `required`, `values`, `default`, `description` — is
+> `cpipes_model.py`, the generated-then-adopted Pydantic model. Those columns of `fields.csv` are
+> regenerated from the model by `python -m cpipes_contract reflect`, and `reflect --check` is the
+> divergence guard. Everything else stays CSV-authoritative: the audit trail (evidence, citations,
+> corpus counts, harness verdicts, review stamps, notes), the Go binding (`go_type`, `container`,
+> `ref_struct`, `declared_in`), `types.csv`, `constraints.csv`, and the rows the model cannot express
+> (the merged `ExpressionNode`/`ContextSpec` claims; fields inapplicable on every token of their
+> struct). The `generate` command is the bootstrap that first produced the model — running it again
+> overwrites model edits.
+
+This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
+twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
+with no rows in it has not been shown to carry anything. B.2–B.6 fill the rest.
+
+The reasoning behind the matrix — why reflection over `pipes_model.go` recovers nothing about
+applicability, and why the schema is a projection of the matrix rather than a thing built directly —
+is in the Phase 0 plan (`projects/agentic_ai/plan/phase0_plan.md` §5.2 of the `jetstore_agentic_ai`
+repo). This file documents the columns. Where it departs from the plan's §5.2.1 it says so, and the
+argument for each departure is issue **I-11** in that repo's
+`projects/agentic_ai/plan/tracking/phase0_tasks_issues_risks.md`.
+
+## Three tables, not one
+
+| File | One row per | What it is for |
+|---|---|---|
+| `matrix/types.csv` | **addressable type** — a Go struct, paired with one value of its discriminator when it has one | The unit of a `$defs` entry, of a Pydantic subclass, and of a fragment-library part |
+| `matrix/fields.csv` | **field of an addressable type** | The matrix proper: applicability, requirement, default, evidence |
+| `matrix/constraints.csv` | **requirement spanning more than one field** | What `(applicable, required)` cannot express |
+
+The plan asks for one CSV. It became three because the discriminator vocabulary, the corpus instance
+count and the exemplar are properties of a *type* rather than of a field: carried on every field row
+they would be repeated a dozen times and could disagree row to row, which is the two-sources-for-one-
+fact problem decision 8 exists to object to. `fields.csv` remains the review artifact.
+
+### How exhaustive `types.csv` has to be
+
+**Exhaustive.** A type row is not merely a place to put a `defs_name` that the Go name cannot carry —
+it is the parent of its field rows, the anchor of the fragment library's exemplar, and the node the
+corpus walker descends through. So:
+
+> **Every struct reachable as a *value* gets a row: one per `(go_struct, type_token)` pair, and `*`
+> is a full-standing token, not a placeholder.** A struct with no discriminator gets exactly one row.
+
+Reachable *as a value* means some field points at it through `ref_struct`, plus the document root.
+Two consequences that are easy to get wrong at extraction time:
+
+- **Embedded structs get no row.** `FileConfig` is only ever embedded, never a named field, so
+  nothing references it — its 43 fields appear on the *host's* rows with `declared_in=FileConfig`.
+  A `FileConfig/*` row would have no parent field, no exemplar and no corpus count.
+- **Undiscriminated structs are not optional.** `OllamaSpec/*` is where the only `ollama` exemplar in
+  the corpus lives, and it is the parent of 22 field rows. `defs_name` happens to be mechanical there;
+  the other nine columns are not.
+
+This is enforced, not merely intended. `check` fails with `no types row for X/Y` for any orphaned
+field row; the corpus walker reports a struct with no row as `unreachable` and stops descending, which
+is how `TransformationColumnSpec` (1446 nodes) and `OutputChannelConfig` (389) currently head the
+coverage worklist; and `--strict` makes every unresolved `ref_struct` a failure.
+
+Size, then: `pipes_model.go` declares 69 structs, of which about fourteen discriminate into roughly
+fifty tokens between them — `TransformationSpec` alone has fifteen. So expect **on the order of a
+hundred rows**, not a few dozen. `constraints.csv` stays small.
+
+## Conventions
+
+- **A cell has three states, and they never collapse into each other.** `-` is a claim: "none, and
+  judged to be none". A **blank** is the absence of a claim: mechanically extracted, awaiting review —
+  the state B.2's inventory pass leaves every judgment column in, precisely so that a value in one of
+  those columns is always someone's decision and never a generator's guess. A blank is legal only on
+  the judgment columns of `fields.csv` and `constraints.csv`: identity columns (the struct, the field,
+  the wire key, the container) come from the source and a blank one is a schema error, as is any blank
+  on a row marked `reviewed`. `check` reports the blank count on every run — it is R-1's number — and
+  `--strict` fails each one, because at end state the worklist must be empty. This replaces the
+  original "every cell is filled" rule, which was right about the distinction and wrong about the
+  mechanism: with no legal blank, a mechanical extraction pass would have had to *invent* values for
+  22,000 judgment cells just to satisfy the loader, manufacturing exactly the unreviewed-claims
+  problem the rule existed to prevent.
+- **`*` is the type token of a struct with no discriminator** — `OllamaSpec/*` means every instance
+  of `OllamaSpec`. A blank token would collide with "not yet determined".
+- **`~name` is a *virtual* token: a variant selected by the shape of the node rather than by a value
+  of the discriminator.** Its membership test lives in `variant_when` — `present(key)` (the key is
+  set and not null) or `absent(key)` (missing, null, or the empty string, the reading Go gives an
+  omitted `string`). The engine contains two such discriminations and the seed's grammar could
+  express neither: an `ExpressionNode` is `~unary` when `arg` is set and `~binary` when `lhs` is
+  (`eval_expression.go:208` tests them in that order, before consulting `type`), and a
+  `TransformationSpec` at `conditional_config.N.then` with no `type` at all is `~override` — a
+  field-level override of its host, where a `then` *with* a `type` is a full replacement
+  (`actions_start_common.go:707`). Virtual rows still carry the struct's real discriminator, so the
+  one-discriminator-per-struct rule stays checkable; they are tested **in their row order, before
+  any value token**, which is why `~unary` precedes `~binary` in the file — the row order mirrors
+  the dispatch order of the code. The mechanical naming rule applies with the `~` dropped:
+  `CamelCase(override) + TransformationSpec = OverrideTransformationSpec`. One consequence for what
+  the matrix emits: a union with virtual members is not a plain discriminated union — the JSON
+  Schema branches become `if`/`then` overlays on key presence, and the Pydantic side needs a
+  pre-validator rather than a discriminator field.
+- **`unlisted(key)` is the third predicate, added 2026-09-13 for gap 2b, and it is a different kind
+  of membership from the other two.** `present` and `absent` read the *shape* of the node;
+  `unlisted` reads the discriminator and asks whether its value is one this struct has a row for.
+  It is the matrix's spelling of a `default:` branch, and it exists because the engine has one:
+  `BuildPipeTransformationEvaluator` (`pipes_runtime_model.go:332`) sends a `TransformationSpec`
+  whose `type` names none of the built-in operators to the site operator registry, so the variant's
+  membership is the **complement of the recorded token vocabulary** and no key's presence decides
+  it. `TransformationSpec/~site` is the case and is the only one today.
+  **Three consequences, each of which had to be built rather than inherited.**
+  An `unlisted` row **keeps its discriminator field**, alone among virtual rows — `~override` is
+  selected by `type` being absent, so carrying it would contradict the membership, while `~site` is
+  nothing without it, and the field is `required=yes`. It **joins its union's `oneOf`**, which no
+  other virtual token does, as a branch whose discriminator is a string with
+  `"not": {"enum": [the value tokens]}` and `"minLength": 1`; the enum is derived from `types.csv`
+  rather than listed, so the branch is the exact complement of the union's other branches and
+  cannot drift from them. And an **absent** discriminator is *not* unlisted: a missing key is the
+  defaulted-token case (the 90 `standard` splitters that write no `type`), which the walker settles
+  from the field row's `default`, so `unlisted` requires a value and is deliberately indifferent to
+  row order against an `absent(...)` sibling. The empty string is likewise not unlisted — it is the
+  `~override` shape, and `WithOperators` refuses to register an operator under an empty name.
+- **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
+  `jets/compute_pipes/pipes_model.go:1152`. One extension, added for B.5: **a citation beginning with
+  `workspaces/` resolves against the repo holding the corpus** — the parent of the code root — because
+  generator evidence (the org1 lambdas) lives in the client workspaces beside the JetStore checkout,
+  not inside it. `check --code` follows both.
+- **The corpus is `workspaces/*/pipes_config/**` minus what each directory's asset manifest
+  names** — ~~45~~ **42 files, measured 2026-09-11**; the 2026-09-08 sharpening excluded the
+  JetStore-owned assets `install_workspace_assets` installs, which a developer's checkout
+  acquired when the workspace repositories stopped committing them. The `.pc.json` under
+  `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
+  not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
+- **The corpus is authored documents.** The root type also serialises a *runtime* shape that
+  JetStore writes for itself, and the schema must describe only the authored one — see the fourth
+  finding below.
+- **`test/` is a tier, not an exclusion.** Configs under `workspaces/*/pipes_config/*/test/` are real
+  and must validate, so they stay in the corpus and in every count — but they are also counted
+  separately, because a field attested only by a test config is weaker evidence than one a production
+  pipeline depends on, and exemplars prefer a production occurrence.
+- **The validator wins.** It runs on every execution, so a shape it rejects cannot be in service. A
+  config that contradicts it is not evidence against it, it is evidence of its own age. Corpus
+  evidence stays strong for presence and weak for absence, and is worth nothing against the validator.
+- **Corpus paths are relative to the repo holding `workspaces/`**, and the path into the file is dot
+  notation with numeric indices — the same notation `OllamaMappingSpec.Path` already uses, so there is
+  one path convention rather than two.
+- **Pipe-separated lists** (`values`, `members`); comma-separated only for `embeds`.
+- Descriptions are flattened to one line on write, so the files stay diffable and open cleanly in a
+  spreadsheet.
+
+## `types.csv`
+
+| Column | Rule |
+|---|---|
+| `go_struct` | The Go struct name, as declared. |
+| `type_token` | One value of that struct's discriminator, `*` when it has none, or a `~virtual` token (see *Conventions*). |
+| `defs_name` | Mechanical: `CamelCase(type_token) + go_struct`, or `go_struct` when the token is `*`. `OllamaTransformationSpec`, `MergeFilesPipeSpec`, `StageInputChannelConfig`. A virtual token drops its `~` first; hyphens split like underscores (`de-identification` → `DeIdentificationAnonymizeSpec`). Where the token repeats a word of the struct the name stutters — `OutputOutputChannelConfig`, `SqlLookupLookupSpec` — and the stutter stands: it is the price of a rule under which no hand-picked pair of names can collide. The check enforces the rule and also that every `defs_name` is unique, so the `$defs` key, the Pydantic class name and the fragment-library entry are one name rather than three conventions. |
+| `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. Virtual rows carry it too, so all rows of one struct can be checked to agree on it — **except where a struct discriminates only by shape, and then every row carries `-`** (2026-09-11). `Element` is the case: a paragraph and a group are told apart by which of `text` and `elements` is present and by nothing else, so there is no key to name, and `variant_when` is where the membership is written. The rule the check enforces is *`-` exactly when the token is `*` or the struct's variants are all `~virtual`*; it read *exactly when the token is `*`* until then, which conflated *this struct has variants* with *this struct has a discriminating key*. The two virtual tokens that existed before — `ExpressionNode`'s and `TransformationSpec`'s — both sit on structs that also carry a value discriminator, so the conflation cost nothing and was never tested. |
+| `variant_when` | The membership predicate of a `~virtual` token — `present(key)`, `absent(key)` or `unlisted(key)` — and `-` on every other row. The corpus walker and the emitted schema both read it. `unlisted` names the struct's own discriminator and means *a value no row of this struct claims*; see *Conventions* for what it costs the emitter. |
+| `embeds` | Structs embedded anonymously, whose fields are promoted onto this type on the wire. `InputChannelConfig` embeds `FileConfig`. |
+| `fragment` | Whether this type can be authored and validated standing alone (plan criteria 6 and 7). Expected to be `yes` almost everywhere; a `no` must say why in `notes`. |
+| `deprecated` | Superseded but still valid; as in `fields.csv`. |
+| `corpus_instances`, `corpus_prod_instances` | **Measured.** Occurrences across the live corpus, and the subset outside a `test/` directory. Written by `corpus --apply`, never by hand. |
+| `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. `check --corpus` resolves every one, refuses a retired one, and demands more than resolution: the node must be an **object that is an instance of this row** — a path landing on the containing array fails, and so does a node whose discriminator carries another row's token or that fails a virtual row's predicate. While extraction is partial, a row the walk cannot reach yet may carry a *hand-proposed* exemplar, which those checks verify and which `corpus --apply` replaces with a measured one as soon as the type becomes reachable; "set exactly when `corpus_instances > 0`" is therefore a `--strict` check, with the other invariants that only hold at end state. **`exemplar_path = -` means the exemplar is the whole file**, which is the root type's case and only its case; see below. |
+| `doc_ref` | `file:line` of the type definition. `check --code` resolves it and requires the cited line to name the struct — the same discipline `evidence_ref` gets, and what catches a filename remembered rather than read. |
+| **+** `harness` | **Written by the machine**, like its `fields.csv` namesake: did `ValidatePipeSpecConfig` accept the minimal config the harness synthesized for this type from the matrix's own claims? `pass`, `fail`, or `pending` — a type has no `untestable`, since every type can at least be embedded and offered. A `fail` here is the review's entry point for the whole type: its field rows stay `pending` until the type's own acceptance is settled, because removal tests against a rejected base prove nothing. See *The harness* below. |
+| `description`, `notes` | Prose. `description` is destined for the Pydantic model; `notes` is not. |
+
+The token vocabulary of a struct is the set of its rows here. It is deliberately not a column
+anywhere, so it cannot drift from the rows it describes.
+
+**The exemplar of the root type is the file itself, and its `exemplar_path` is `-`.** The dot path is
+borrowed from `OllamaMappingSpec.Path`, where an *empty* path means the whole response
+(`pipe_transformation_ollama.go:439` — `path` stays nil and the root object is used). The
+every-cell-is-filled rule has no empty string to offer, so the `-` sentinel carries that meaning
+instead: no path into a file is the file. The two columns disambiguate each other, so nothing is lost:
+
+| `exemplar_file` | `exemplar_path` | Means |
+|---|---|---|
+| `-` | `-` | No exemplar at all — `corpus_instances = 0`, as `SplitterSpec/ext_count` |
+| a live config | `-` | The exemplar **is** that whole document — `ComputePipesConfig` |
+| a live config | `conditional_pipes_config.6.pipes_config.3.apply.0` | That node inside it |
+
+The fourth combination — a path with no file to resolve it against — is rejected by the check.
+
+## `fields.csv`
+
+Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **+**.
+
+| Column | Rule |
+|---|---|
+| `go_struct`, `type_token` | Foreign key into `types.csv`. |
+| `field_name` | The Go field name. |
+| `json_key` | The wire key. |
+| **+** `declared_in` | The struct that declares the field. Differs from `go_struct` when the field is promoted through an embed, which keeps the field inventory single-sourced while letting applicability be per host and per token — `FileConfig.Delimiter` is defaulted for `input_channel` type `stage` and not for the others. |
+| `go_type` | The Go type as written, pointer and all. |
+| **+** `container` | `scalar`, `object`, `array`, `array2`, `map`, `raw_json`, `any`. `array2` is `[][]T`, which three fields of the model need — `reducing_pipes_config`, `date_formats`, `other_date_formats`. A vocabulary without it would have forced a wrong row at B.2, though the first of the three is deprecated (I-14), so the shape may end up carried only by the two date fields. |
+| **+** `ref_struct` | The struct the value is, for objects, arrays of objects and maps of objects; `-` otherwise. Without it the matrix is a flat field list and nothing can compose fragments: this and `container` are what make the same rows serve the parts library. |
+| **+** `values` | A closed value set, pipe-separated — `pass_through\|drop\|fail`. `-` on the discriminator field itself, whose vocabulary is the `types.csv` rows. Enums are a third of what a schema constrains and §5.2.1 has no column for them. |
+| `applicable` | Does this field mean anything for this type token? `applicable=no` is the row that drives the `if`/`then` overlay's prohibitions. |
+| **+** `deprecated` | Superseded but still valid. **A third axis, not a state of `applicable`**: a deprecated field is applicable, is present in the corpus, and must still validate — three things `applicable=no` denies. What it must not do is appear in the fragment library or in anything the model is prompted to produce. `reducing_pipes_config` is the known case (I-14); the check rejects `deprecated=yes` with `applicable=no` as two different claims conflated. |
+| `required` | **Three states, not two:** `yes`, `no`, `conditional`, plus `na` when the field is inapplicable. |
+| **+** `required_when` | The condition, set exactly when `required` is `conditional`. `absent(output_channel.schema_provider)`. |
+| `default` | The literal applied when the field is absent, or `-`. A value the builder *forces* — writing it whatever the author put there — is not a default and belongs in `notes`; the row is `applicable=no`, and `TransformationSpec/ollama.new_record` is the case. |
+| **+** `default_by` | `validator`, `builder` or `none`. This decides who can observe the default: the config validator mutates its input, so a default it applies is already in the config by the time the harness looks; one the operator builder applies is invisible both at config level and to the schema. `pool_size` is applied by both. |
+| `evidence` | `validator`, `builder`, `corpus`, `generator`, `comment` — the plan's authority order. **`reviewed` and `unreviewed` are not values here**; see `review`. |
+| **+** `evidence_ref` | `file:line`, relative to the JetStore repo root. Required for every evidence kind except `corpus`, where `corpus_count` is the citation. A source kind with no location is not checkable, and the plan's own standard is that a claim without a citation does not belong. `check --code` resolves every one of them and requires the cited line to name the field — see below. |
+| `corpus_count` | **Measured.** Occurrences of this field across instances of this type. Strong evidence for presence, weak for absence — a row claiming `applicable=no` with a non-zero count is rejected outright. On a type the corpus walk cannot reach (runtime-injected shapes), `corpus --apply` stamps `-` instead of leaving the cell to await review forever; a later run that reaches the type replaces the stamp with measured counts. |
+| **+** `corpus_prod_count` | **Measured.** Of those, the ones outside a `test/` directory. A field attested only by test configs is weaker evidence than one a production pipeline depends on, and `corpus_count == n, corpus_prod_count == 0` is the pattern the review should reach early (R-1 orders by evidence strength). Costs nothing to carry, since both are written by `corpus --apply` and never typed. |
+| **+** `harness` | **Written by the machine.** `pass`, `fail`, `untestable`, `pending` — the B.7 result for this row, written back by the harness. The mitigation for R-1 is that reviewing a row means reading a test result, which is only true if the result is on the row. What each state means per claim: a `required=yes` (or satisfied `required_when`) row is `pass` when removing the field got the document rejected; a `required=no` row is `pass` when the type's minimal config — which omits every optional field — was accepted, absence tolerated being exactly that row's claim. `untestable` is the honest state for claims the config validator cannot see: a builder-enforced requirement whose removal was still accepted, a prohibition (`applicable=no` — the decoder ignores what it does not know), or a discriminator or `present()` membership key, whose removal *re-types* the node rather than invalidating it. `fail` is reserved for a claim the validator contradicts: `evidence=validator` and the removal was accepted anyway. See *The harness* below. |
+| **+** `review` | **Written by you.** `unreviewed`, `reviewed`, `disputed` — the human sign-off, set by hand in B.8 and by nothing else. A separate axis from `evidence`: a row can be corpus-derived and reviewed, or validator-derived and unreviewed. R-1's number to watch — rows still unreviewed when B.9 wants to start — is not countable unless these are two columns. `disputed` is for rows where you judge the sources to disagree; it is a verdict, not a measurement. |
+| **+** `reviewed_hash` | **Written by `stamp`.** The fingerprint of what a `reviewed` mark certifies — every column except `harness`, `review`, `notes` and the stamp itself — and `-` until stamped. This closes the gap the first revision of this file left open: a row reviewed in B.8 and then changed by a re-extraction or a `corpus --apply` used to keep its tick silently; now `check` reports it as *changed since it was reviewed*, and only an explicit `stamp --restamp` re-certifies it. Mark a row `reviewed`, run `stamp`; the command never touches `review` itself, so a reviewed mark still cannot be manufactured by a re-run. `harness` is deliberately outside the fingerprint — it re-runs freely and a regression there is caught loudly on its own axis. |
+| `description` | The Go doc comment, carried across by B.6. Destined for the Pydantic field description, after which the Go comments stop being the source. Last column, so a spreadsheet review can hide it. |
+| `notes` | Everything else, including why a weak row is weak. |
+
+`harness`, `review` and `reviewed_hash` are the answer to "who fills this in": the columns marked
+**Measured** are written by `corpus --apply`, the rest are extracted from the code by hand, `harness`
+is written by the test run, `review` is the one column that is yours — nothing in the toolchain
+writes it, so a `reviewed` mark can never be manufactured by a re-run — and `reviewed_hash` is
+written by `stamp`, which certifies the marks you made and clears the ones you withdrew.
+
+The B.2 inventory pass fills only the identity columns — field name, wire key, declarer, Go type,
+container, ref_struct, all read from the declarations — plus `harness=pending` and
+`review=unreviewed`, which are defined initial states rather than judgments. Everything else starts
+blank (see *Conventions*), `corpus --apply` fills the measured counts as the walk reaches each type,
+and the review turns the rest into claims one row at a time.
+
+### Coherence rules the check enforces
+
+- `required = na` exactly when `applicable = no`.
+- `required_when` set exactly when `required = conditional`.
+- `default_by = none` exactly when `default = -`.
+- An inapplicable field has no default.
+- An object field names a `ref_struct`; a scalar or `raw_json` field does not.
+- Non-corpus evidence carries an `evidence_ref`.
+- `applicable = no` with `corpus_count > 0` is a contradiction.
+- `declared_in ≠ go_struct` requires the type row to embed it.
+
+## `constraints.csv`
+
+`(applicable, required)` says a field is needed; it cannot say *exactly one of these two*, *this one
+wins when both are set*, or *required unless that one is present*. All three are in the code.
+
+| Column | Rule |
+|---|---|
+| `go_struct`, `type_token` | The **innermost type from which every member is reachable**. Members below it are dotted paths — `ollama_config.output_mapping`. |
+| `kind` | `one_of`, `at_least_one`, `mutually_exclusive`, `precedence` (all may be set, the first member wins), `requires`, `forbids`, `external`. |
+| `members` | Pipe-separated json keys, in significant order for `precedence`. For `external`, the first member is the field and the rest name something outside the type — another section of the document, or the pipe's position. |
+| `enforce` | `schema` (expressible as an `if`/`then` overlay), `validator` (needs the Go validator or the harness), `prompt` (expressible only as an instruction to the model). Knowing which constraints fall to `prompt` is knowing where the contract stops applying. |
+| `evidence`, `evidence_ref`, `review`, `reviewed_hash` | As in `fields.csv`. |
+| `notes` | Prose. |
+
+## The corpus
+
+**45 files — 49 until 2026-08-16, 71 originally.** `workspaces/*/pipes_config/**` is what JetStore
+loads. Four files were deleted on 2026-08-16 on I-15's finding that they could not run as they
+stood: `cedargate_ws`'s `csv_test.pc.json` (does not decode — a string in an `int32` `delimiter`)
+and `clustering_test.pc.json` (clustering keys from a retired revision of `ClusteringSpec`), and
+`usi_ws`'s two `test/` jetrules configs (predate the jetrules output-channel checks). The same call
+as the 2026-08-12 deletions: a config the engine rejects is not corpus, it is history. One
+consequence worth naming: `TransformationSpec/clustering`, `ClusteringSpec` and
+`TargetColumnsLookupSpec` are back to zero live instances — code-supported, corpus-unused, the
+`SplitterSpec/ext_count` state. The `.pc.json` under
+`workspaces/*/data/` are notes and reference material for developers, never read by the engine, and
+preserving config shapes that have since been retired. Counting them does not add noise, it
+manufactures contradictions: *every* apparent disagreement between the validator and the corpus in
+the first draft of this seed came from that directory, and all of them dissolve once it is excluded.
+
+| | live `*/pipes_config/**` | retired `*/data/**` |
+|---|---:|---:|
+| files | 45 | 9 |
+| pipes | 324 | 68 |
+| transformations | 458 | 186 |
+| `splitter` without `splitter_config` | **0** | 18 |
+| `partition_writer` without `partition_writer_config` | **0** | 0 |
+
+Those zeroes are the point, and they were not zero when this seed was drafted. The stale sources —
+`data/automated_mapping/initial_pipes_config/` and the one live file copied from it,
+`cedargate_ws/pipes_config/hf_medicalclaim_extract.pc.json` — were deleted on 2026-08-12. The live
+corpus now agrees with the validator without exception: `partition_writer_config` is present on
+143/143 instances, `splitter_config` on 89/89 (138/138 and 89/89 after the 2026-08-16 deletions).
+
+Counting is not done by hand. `cpipes-contract corpus` walks the live corpus **driven by the matrix
+itself** — starting at the document root, `ComputePipesConfig/*`: a field row's `ref_struct` says
+where a child of that type is found, the child's own discriminator says which row it is — and
+`--apply` writes the measured counts and a live exemplar back onto the rows. (Until 2026-08-15 the
+walk hard-coded the three pipe-carrying roots, a scaffold from before `ComputePipesConfig` had a
+row; the root sections — `channels`, `lookup_tables`, `schema_providers`, `output_tables` — were
+invisible to it, their types carried hand-proposed exemplars with instances stuck at zero, and the
+unknown-key audit could not see a stray key at the top of the document. Repointing it found two —
+see the closure note under *The harness*.) So `corpus_instances`, `corpus_count` and every exemplar are measured or they are
+not written, which is the same discipline `--code` imposes on citations and for the same reason.
+Typing a node tries the struct's `~virtual` rows first, in their row order, before reading the
+discriminator — the same dispatch order as the code the rows describe — and falls back to the
+discriminator's recorded default when the key is absent from the wire.
+
+Two things fall out of the walk for free. `unreachable` names the types the matrix cannot yet descend
+into, ordered by how much of the corpus sits behind them — `TransformationColumnSpec` (1446 nodes),
+`OutputChannelConfig` (389), `InputChannelConfig` with no `type` at all (171) — which is a coverage
+worklist for B.2–B.6 ordered by value rather than by struct order. `--unknown` names keys present in
+live configs that no field row accounts for, which is the B.14 dead-key audit once the matrix is
+complete.
+
+## What the seed rows demonstrate
+
+Twelve types, eighty-eight fields, eleven constraints, chosen to exercise the parts of the schema that
+were in doubt rather than to make progress on coverage:
+
+- **`OllamaSpec/*`, all 22 fields with their defaults and descriptions.** The operator the agentic
+  programme cares about, the richest set of builder-applied defaults in the model, and a full B.6
+  description transfer on one struct — the standard R-2 asks the rest to be held to.
+- **`pool_size`** — a default applied twice, by the validator at `actions_start_common.go:1007` and
+  again by `applyOllamaDefaults` at `pipe_transformation_ollama.go:911`. `default_by` earns its place
+  on this row alone.
+- **`device_writer_type`** — required unless the output channel names a schema provider, a condition
+  on a field of a different struct. This is the row a boolean `required` cannot carry.
+- **`prompt_template` / `prompt_template_name`** — exactly one, which is a constraint row rather than
+  a field property.
+- **`TransformationSpec/ollama.new_record`** — `applicable=no` because the builder *forces* it to
+  false, not because it is meaningless. The distinction is in `notes`; the row keeps `default = -`.
+- **`PipeSpec/merge_files.apply`** — `applicable=no` on 0/19 live occurrences and nothing else.
+  Correct-looking and weakly evidenced, marked `unreviewed`, and exactly the kind of row the review
+  is ordered to reach first.
+- **`PipeSpec/splitter`, `SplitterSpec/standard` and `SplitterSpec/ext_count`** — added on review.
+  `splitter_config` is required (90/90 live), and `SplitterSpec` carries three mutually-substitutable
+  fields of which at least one must be set, plus `partition_row_count`, which is `required=yes` under
+  `ext_count` and `applicable=no` under `standard`. Five fields, two tokens, one constraint each: the
+  density the schema was designed for.
+- **`SplitterSpec/ext_count` has zero live instances.** A token the code supports and no config uses.
+  The schema must still emit it, the fragment library has no part for it, and the review has only the
+  code to go on — the first row in the seed where corpus evidence is not weak but absent.
+- **`TransformationSpec/partition_writer.partition_writer_config`** — was the seed's only `disputed`
+  row; the dispute was an artifact of counting retired configs. See below.
+- **`InputChannelConfig/stage`** — the embedded-`FileConfig` case, four validator-applied defaults,
+  and `bucket`, which the validator *overwrites* rather than defaults.
+
+`PipeSpec/splitter`'s `defs_name` is **`SplitterPipeSpec`**, not `SplitterSpec` — `SplitterSpec` is
+the name of the config struct it points at, a different type with its own row. The near-collision is
+the argument *for* the mechanical `CamelCase(type_token) + go_struct` rule rather than against it:
+picking names by hand is how two things end up sharing one.
+
+## Five findings from seeding it
+
+**The corpus was 71 files and is 50.** Under review, the `.pc.json` beneath `workspaces/*/data/` were
+identified as developer reference material JetStore never loads. The consequences run through every
+number in the matrix and are set out under *The corpus* above; the largest is that corpus evidence is
+now measured against configs that actually execute.
+
+**The `partition_writer_config` dispute was an artifact of that.** The validator rejects a
+`partition_writer` without one (`actions_start_common.go:918`); 8 of the then-181 instances had none.
+Seven of those 8 are retired, and the eighth is the stale live file named above. The validator was
+right, and the general rule now stated under *Conventions* — the validator wins, because it runs on
+every execution — is what the seed had backwards. The row is no longer `disputed`. The dead-key
+observation survives: `write_headers` is in live config text and in no Go source, so B.14's audit
+still has something to find before `additionalProperties: false` goes on.
+
+**A defaulted discriminator is usually absent from the config, which nearly broke the walk.**
+`SplitterSpec` discriminates on `type`, and the builder defaults it to `standard`
+(`pipe_executor_splitter.go:100`) — so all 90 live `splitter_config` nodes are `standard` and **not
+one of them writes `type`**. Reading the token off the wire alone leaves every one of them untyped.
+The fix needs no new column: the default is already on the discriminator's own field row, so the
+walker falls back to it, and rows of one struct disagreeing about that default is reported rather
+than resolved. `InputChannelConfig` is the same shape and larger — 171 of its live nodes omit `type`,
+against a validator default of `memory` (`actions_start_common.go:829`) — so B.2 inherits this
+already handled rather than as a surprise. It also says something about the emitted schema: a
+discriminated union whose discriminator is optional needs the default declared on the Pydantic field,
+or nothing that consumes the schema can tell which branch an untagged object belongs to.
+
+**The root type is two documents, and the schema must describe only one.** `ComputePipesConfig` has
+three fields that can carry pipes. `conditional_pipes_config` and `reducing_pipes_config` are written
+by the author; **`pipes_config` is written by JetStore, never by the author** — the startup actions
+select one step's pipes and marshal a fresh `ComputePipesConfig` carrying them there
+(`actions_start_sharding_cp.go:358`, `actions_start_reducing_cp.go:271`), and that per-step document
+is what the whole runtime reads. The live corpus is unanimous: 29 files use
+`conditional_pipes_config`, 20 use `reducing_pipes_config`, none uses both, none uses `pipes_config`.
+Reflection over the struct sees three alternatives and cannot see the split, so a schema built from
+it would permit the runtime shape — which validates cleanly and cannot run. Recorded as I-14, with
+the further point that `reducing_pipes_config` is *superseded* rather than merely older, which the
+matrix has no column for yet.
+
+**`ollama` is no longer at zero.** The analysis and the plan both record it at zero as of 2026-08-06;
+`workspaces/jets_ws/pipes_config/patient_profile.pc.json` gained an `ollama` transformation on
+2026-08-08, so the corpus now holds a real exemplar for the operator the programme cares about most.
+Recorded as I-12 — which also needs restating, since the transformation totals it quotes (678 against
+the analysis's 676) were computed over all 71 files and are superseded by the live figures above.
+
+## A sixth finding, from B.2: two discriminations are structural
+
+The token grammar this file first defined — a value of the discriminator, or `*` — could not express
+two variants B.2 ran into, and the first attempt at recording them invented per-row notation (a `-`
+token with `lhs` or `arg` standing in the `discriminator` column) that broke the very properties the
+schema depends on: `-` acquired three meanings, and the rows of one struct stopped agreeing on their
+discriminator. The correction is the `~virtual` token and its `variant_when` predicate, defined under
+*Conventions*.
+
+The two cases are worth recording because they are different in kind. `ExpressionNode` is a **hybrid
+union**: `BuildExprNodeEvaluator` (`eval_expression.go:208`) dispatches on `arg` being set, then on
+`lhs`, and only then on the `type` value — so `~unary` and `~binary` are shape-selected while
+`select`, `value`, `expr_proxy`, `function` and `static_list` (a leaf the first draft missed: the
+mandatory rhs of `in` and `in_no_case`) are value-selected, and the row order of the virtual tokens
+carries the dispatch precedence. `TransformationSpec/~override` is **absence-selected**: a
+`conditional_config.N.then` whose `type` is empty overrides fields of its host, while one with a
+`type` replaces it outright (`MergeTransformationSpec`, `actions_start_common.go:725`) — so every
+value token is *also* legal at that position, and the schema for `then` is the whole union rather
+than one branch. Neither case is the defaulted-discriminator shape of the third finding above:
+there, an absent key still means one value token; here, absence or presence *is* the discrimination.
+
+## A seventh, from gap 2b: a discrimination that is a complement — 2026-09-13
+
+**Added for `I-778`, and it is the first union member this file has had to describe as *everything
+else*.** Phase 9 gave the engine a site operator registry: `BuildPipeTransformationEvaluator`'s
+`default:` branch (`pipes_runtime_model.go:332`) hands a `type` that names no built-in to a factory
+the deployment registered with `WithOperators`, and `TransformationSpec` gained a `site_config`
+field to configure it (`pipes_model.go:607`). The emitted contract refused all of it: a `oneOf` over
+nineteen `"type": {"const": …}` branches with `additionalProperties: false` matches no site token,
+and refuses `site_config` on every branch even if one did match. So JetStore accepted a shape the
+schema called invalid, and the first client `.pc.json` authoring one would have turned
+`cpipes-contract validate` red.
+
+**The membership predicate is `unlisted(type)` and not `present(site_config)`**, which is what the
+task that found this proposed. Three measurements decided it, all taken 2026-09-13 against
+`jets_ai` at `82a5dd4a`:
+
+- **`site_config` does not select the variant.** `siteOperatorArgs` early-returns on a nil
+  `SiteConfig` (`site_operators.go:238`), so an operator needing no configuration is a shape the
+  engine builds and runs. A branch keyed on the field's presence would refuse it.
+- **It is not even *evidence* of the variant.** `validateSiteOperatorSpec` (`site_operators.go:128`)
+  refuses a `site_config` on a built-in token, so its presence and the operator's identity are
+  separate claims that the engine checks against each other.
+- **The `oneOf` stays exclusive without it.** A built-in token matches its own branch and fails the
+  site branch's `not: enum`; anything else matches the site branch alone. Requiring `site_config`
+  to keep the union exclusive would therefore have been unnecessary as well as wrong.
+
+**The enum is derived from `types.csv`, and that is the whole of why this is safe to leave.** The
+tokens the site branch excludes and the tokens the union's other branches carry are the same fact,
+and a second list of a fact is how `builtinOperatorTypes` and `reportsRowLevelFailures` could have
+drifted apart on the Go side — which is why each of those has a test. This one has
+`test_the_complement_branch_excludes_exactly_its_union_s_own_tokens`. A token in the union and
+missing from the enum would match **two** branches, so the union would stop being exclusive and a
+document that should be one operator would be neither.
+
+**`infer` is in the enum and is not in Go's `builtinOperatorTypes`, and the two are right.** That
+map is *the tokens the dispatch handles*, and `ResolveInferBackend` rewrites `infer` into `ollama`
+or `vllm` before the validator or the dispatch ever sees it (`actions_start_sharding_cp.go:132`). So
+an authored `{"type": "infer", "site_config": …}` is rewritten into a built-in carrying a
+`site_config` and refused — the schema excluding `infer` agrees with the engine rather than
+overreaching, and it is the *authored* vocabulary the schema describes.
+
+**What the schema now says, and what it still cannot.** A site operator's `output_channel` is
+required, because `validateOutputChConfig` runs for every transformation outside the operator switch
+(`actions_start_common.go:1158`). Its eighteen built-in config pointers are inapplicable, because
+`siteOperatorArgs` reads none of them. `site_config` is inapplicable at `conditional_config.N.then`,
+because `MergeTransformationSpec` has no arm for it. What the schema cannot say is anything at all
+about the *contents* of `site_config.config`: it is `json.RawMessage`, JetStore does not know its
+schema, and that is the design rather than a gap.
+
+**Every row added here is `unreviewed` and none of the 2,102 existing rows moved** — the diff is 52
+insertions and no deletions, `stamp` reports `0 stamped, 0 cleared, 0 restamped`, and the review
+these rows are waiting for is a human's.
+
+### What gap 2b left behind, and it was half the contract — 2026-09-19
+
+**The emitter change reached the JSON Schema and not the Pydantic model.** `generate.py` builds a
+union alias from the struct's *real* rows and emits virtual tokens as free-standing classes, so
+`TransformationSpec` stayed a nineteen-member tagged union and
+`ComputePipesConfig.model_validate` refused every document naming a site operator — while
+`cpipes_schema.json`, which gets the branch by a splice, validated the same document at 0 errors.
+Two readers of one contract, disagreeing, and the section above predicted the symptom exactly one
+artefact over: *the first client `.pc.json` authoring one would have turned `cpipes-contract
+validate` red*. What it actually turned red was `cpipes_node`'s corpus test, six days later, on
+`workspaces/jets_ws/pipes_config/healthcare_corpus.pc.json` — the first authored document in
+JetStore's own corpus to contain a site operator.
+
+**A union with a complement token is now emitted as an ordered union**:
+`Annotated[Union[<the tagged nineteen>, <the branch>], union_mode="left_to_right"]`. Left-to-right
+is the rule and not a preference — the branch's discriminator is a bare `str`, so under any other
+ordering it is a candidate for every token, the built-ins included. That is the model's spelling of
+`BuildPipeTransformationEvaluator`'s `default:` branch, which is what the predicate names.
+
+**And the complement's `type` refuses a built-in token at validation, not only in the schema.**
+`json_schema_extra` is read when the schema is emitted and by nothing in Pydantic, so an ordered
+union alone would have left the model admitting on the site branch exactly what the schema refuses
+by `not: enum` — and the direction of that disagreement is the harmful one: a *malformed* built-in
+fails its own tagged branch, satisfies the site branch, and is reported as an unknown site operator
+rather than as the malformed built-in it is. `_unlisted` closes it, taking the same emitted tuple
+the `not: enum` takes, so the two remain one list. The empty string is refused with it, for the
+reason F1528 gives.
+
+**The emitted `cpipes_schema.json` did not move by a byte.** Pydantic writes the widened alias as
+`anyOf: [<tagged oneOf>, <branch>]`, and `splice_complement_branches` — which used to *add* the
+branch — now *folds* that back into the single discriminated `oneOf`. Measured against the committed
+file and asserted on every run by `tests_schema.py`, which is also the first thing in this package
+to check that the committed schema is what the current model emits at all.
+
+## The harness
+
+B.7, built before the review rather than after it, so that reviewing a row means reading what the
+validator actually did. Two halves:
+
+- **`harness/` (Go)** is deliberately dumb: a JSON array of `{id, config}` documents on stdin, a
+  verdict per document on stdout, produced by running each one through `GetComputePipes`,
+  `ApplyAllConditionalTransformationSpec` and `ValidatePipeSpecConfig` exactly as
+  `actions_start_sharding_cp.go` and `actions_start_reducing_cp.go` do — including a fresh unmarshal
+  per step, because the validator mutates its input (I-4). It holds no opinion about the matrix, so
+  the contract under test is the one the engine enforces. A `decode` failure (the document
+  `json.Unmarshal` refuses) is reported separately from a `validate` rejection, because the first
+  means the matrix's `go_type` or the synthesis is wrong and the second is the observation the
+  harness exists to make.
+- **`cpipes_contract/harness.py`** synthesizes, per `(go_struct, type_token)`, a **minimal authored
+  config from the matrix alone**: the target's required fields (and the conditional ones whose
+  `required_when` holds in the minimal context), values taken from `values`, `default` or neutral
+  fill, embedded at a position found by walking the matrix's own `ref_struct` graph from
+  `ComputePipesConfig/*` — the same graph the corpus walker descends, in the other direction. The
+  host chain is itself minimal, references are wired to the sibling entities the validator resolves
+  them against (`output_file` to an `output_files` entry, `output_table_key` to an `output_tables`
+  entry with a `channel_spec_name`, a jetrules `spec_name` to a `channels` entry), and every document
+  gets at least one live step, since a config the validator runs zero steps over is accepted
+  vacuously. Then, for each required field of the target, the same document minus that one field must
+  be rejected.
+
+Three kinds of knowledge live in the harness rather than the matrix, each a small named table with
+its reason: which token an intermediate takes (`PREFERRED_TOKEN` — the cheapest valid instance,
+`map_record` for a transformation, `value` for an expression), which token is position-bound
+(`TOKEN_ONLY_VIA` — `~override` means override only at `conditional_config.N.then`; anywhere else a
+type-less spec is just invalid), and the reference wiring above. A hint never substitutes for a
+missing `required` claim: when the matrix under-declares a type, its minimal config is rejected and
+that is reported as a finding, not papered over — the findings *are* the review worklist, in
+validator-authority order.
+
+The honest limit is the plan's own (§5.2.1): the config validator sees a fraction of the real
+contract, the rest living in the operator builders at DAG-build time. So `pass` on a type the
+validator never inspects says only "decodable, and nothing contradicted"; builder-evidence
+requirements come back `untestable` rather than proven; and prohibitions are entirely the emitted
+schema's to enforce. The expression grammar is the extreme case: an `ExpressionNode` is carried, not
+compiled, at config level, so all seven of its variants accept vacuously — their contract becomes
+testable only where an expression is actually built, which is gap 6's territory.
+
+### What the first run found, 2026-08-15 — and how it settled, same day
+
+45 findings, none of them a harness artifact, in three classes — recorded here the way the seed's
+findings were, with the resolution each got:
+
+1. **Requirements the validator enforces that the matrix under- or mis-declared.** Eleven
+   transformation tokens (`aggregate` through `clustering`) carried no claim on `output_channel`,
+   and the validator rejects every one of them (`output_channel.name must not be empty`,
+   `actions_start_common.go:1478`) — this one gap failed ~25 types, because everything reachable
+   only through those tokens inherited it. Worse than unfilled: `anonymize_config`,
+   `jetrules_config`, `clustering_config`, `correlation_output_channel` and
+   `JetrulesSpec.output_channels` all said **`required=no` on comment evidence**, and
+   `write_step_id`/`file_key`/`format` said the same on `OutputChannelConfig` — claims the
+   validator rejects outright. *The authority order working as designed:* the validator outranks
+   the comment and the corpus, and the harness is what made the disagreement visible. All corrected
+   with `evidence=validator` and the rejecting line cited; the stage channel's
+   `write_step_id`-or-`file_key` alternative became `required=conditional` on both rows plus an
+   `at_least_one` constraint, and `format` on the `output` token is conditional on
+   `absent(schema_provider)`, since the sync (`:1398`) can supply it — the `device_writer_type`
+   shape. `TransformationSpec/jetrules.output_channel` went the other way: `applicable=no`, because
+   the validator discards it (`:972`) in favour of `jetrules_config.output_channels`, and 0/13
+   corpus instances carry one.
+2. **Six `required=yes, evidence=validator` claims the validator does not enforce.** The validator
+   *defaults* an absent `input_channel` (to a memory channel) rather than requiring one
+   (`PipeSpec/fan_out`, `/splitter`), and never checks that an input channel's `name` is non-empty
+   (all four `InputChannelConfig` tokens). The claims themselves stand — the requirement is real,
+   enforced where `GetInputChannel` resolves the name at DAG build
+   (`pipes_runtime_model.go:193`), and the corpus is unanimous on presence (333/333 pipes, 343/343
+   names) — so the *evidence* first moved to `builder` with that citation, and the rows went
+   `fail` → `untestable`. The validator was then tightened the same day, as its own change:
+   `ValidatePipeSpecConfig` now rejects an unnamed or absent input channel
+   (`actions_start_common.go:869`), guarded by running all 49 live configs through it before and
+   after with no verdict changing. The evidence moved back to `validator` and the six rows are
+   `pass` — the harness proving the very check it caused to exist.
+3. **Two types are unreachable by construction** — `ComputePipesCommonArgs` and
+   `ClusterShardingInfo`, whose only referring fields are `applicable=no` because JetStore writes
+   them, not the author (I-14). Permanently `pending` at config level, which is the correct state
+   for runtime-only shapes. No action; that is the finding.
+
+After the corrections and the tightening the harness runs clean: **115 of 117 types `pass`, 0
+`fail`, the 2 above `pending`; fields 579 `pass`, 0 `fail`, 633 `untestable`, 580 `pending`** —
+the pending fields being the 569 rows whose `required` is still unfilled plus the 19 rows of the
+two unreachable types (eight are both), which together are the remaining B.8 worklist.
+
+### Closing the reachability gap, 2026-08-15
+
+Preparing B.8, `check --strict`'s worklist was worked down to the review itself. Ten structs
+referenced through `ref_struct` had no rows — the seven strict named plus the three their own fields
+pull in (`S3CopyFileSpec`, `DomainKeyInfo`, `InputSourceSpec`; `ReportCmdSpec` turned out to be
+discriminated, `type` range `s3_copy_file`) — bringing the matrix to 127 types and 1,831 fields,
+every `ref_struct` now resolving. The corpus walk was repointed to start at the document root, so
+the root-section types are measured rather than hand-attested (`ComputePipesConfig` 49,
+`TableColumnSpec` 256, `ChannelSpec` 133, ...), and the one live `TargetColumnsLookupSpec` node the
+old walk reported unreachable is typed. The harness now stands at **123 of 127 types `pass`, 0
+`fail`, 4 `pending`** — the four being the runtime-only shapes (`ComputePipesCommonArgs`,
+`ClusterShardingInfo`, and now `SourcesConfigSpec` and `InputSourceSpec`, reachable only through
+`common_runtime_args`).
+
+The repointed walk immediately found two engine-level defects at the top of the document, both
+invisible before:
+
+- **`ClusterSpec.MaxNbrPartitions`'s json tag is misspelled `max_nbr_partitons`**
+  (`pipes_model.go:135`). Eight live configs write the correct spelling, Go ignores all eight, so
+  their partition caps never take effect and the `ClusterShardingSpec`-level or default value wins
+  instead. No config uses the misspelled key, so correcting the tag is corpus-safe — but it makes
+  those eight caps *start working*, a runtime behaviour change that is an upstream decision, not a
+  matrix edit.
+- **Seven live configs set `use_ecs_tasks` on `cluster_sharding_config` entries**, where the model
+  has no such field — the key belongs to `ConditionalPipeSpec`. Silently ignored today; either the
+  configs are wrong or the field is missing upstream.
+
+Two side observations from the corpus baseline the tightening was guarded with, for B.14/B.15:
+the live corpus is *not* 49/49 through `ValidatePipeSpecConfig` today. Three cedargate configs
+need env vars the harness cannot know (`$CGT_*`, `$MAIN_INPUT_ROW_COUNT` in `when` conditions —
+an environment limit, not a config defect); but `cedargate_ws/pipes_config/csv_test.pc.json`
+fails to **decode** (a string in the `int32` `delimiter` of a schema provider), and the two
+usi_ws `test/` jetrules configs are rejected by today's jetrules channel checks — three files
+that would fail at startup as-is, which the "test is a tier, and it must validate" rule says
+someone should look at. **Settled 2026-08-16 (Michel): all three deleted, along with
+`clustering_test.pc.json` and its retired clustering keys — see *The corpus* above. The corpus is
+45 files, and every one of them decodes; the remaining three rejections are the env-var limit,
+which is the harness's, not the corpus's.** Also settled the same day: the two stray keys the root
+walk found. `use_ecs_tasks` on sharding tiers was the field's *old* home before it moved to
+`ConditionalPipeSpec` — the seven leftovers (all `false`) are removed from the cedargate `qc_*`
+configs; and the `max_nbr_partitions` story is under *Closing the reachability gap*.
+
+## Running the checks
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e .
+
+.venv/bin/cpipes-contract check                        # coherence, while the matrix is partial
+.venv/bin/cpipes-contract check --code ../..           # every citation resolves and names its field
+.venv/bin/cpipes-contract check --corpus ../../..      # every exemplar resolves, and is a live config
+.venv/bin/cpipes-contract check --strict --code ../.. --corpus ../../..
+
+.venv/bin/cpipes-contract corpus --corpus ../../..           # recorded counts vs measured
+.venv/bin/cpipes-contract corpus --corpus ../../.. --apply   # write the measured ones back
+.venv/bin/cpipes-contract corpus --corpus ../../.. --unknown # keys no field row accounts for
+
+.venv/bin/cpipes-contract harness --code ../..               # run the B.7 harness; findings on stderr
+.venv/bin/cpipes-contract harness --code ../.. --apply       # write results onto the harness columns
+.venv/bin/cpipes-contract harness --code ../.. --dump DIR    # also keep each synthesized config
+
+.venv/bin/cpipes-contract stamp                              # certify reviewed rows; clear withdrawn ones
+.venv/bin/cpipes-contract stamp --restamp                    # re-approve rows changed since review
+```
+
+`harness` needs a Go toolchain: the runner is `go run ./tools/cpipes_contract/harness` from the
+`--code` root. Without `--apply` it exits non-zero when it has findings, which makes it the same
+kind of drift check as `corpus`.
+
+One command, one exit code — there is no CI service to host it (I-9). `--strict` adds the checks that
+only hold once extraction is complete, and its failures are the worklist: every `ref_struct` with no
+`types.csv` row is a type B.2–B.6 has yet to reach. `corpus` without `--apply` is the drift check and
+exits non-zero, so a corpus that moves under the matrix is caught rather than assumed.
+
+**`--code` exists because I wrote 27 bad citations into the seed.** Drafting the rows, I inferred
+line numbers from the shape of the file instead of reading them, and the doc-comment references were
+mostly a line or two off — pointing at the neighbouring field's declaration, which is the failure mode
+a reader would take at face value. The check requires the cited line itself to name the field, by its
+Go name or its json key; the seed's citations are now computed by locating the field in the source
+rather than typed, and **B.2–B.6 should do the same**. A citation that a program cannot follow is one
+nobody will follow either.

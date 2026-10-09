@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "label": "Select the Main Process Source",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "input_registry",
+      "tooltip": "Input Registry Key",
+      "isNumeric": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "table": "input_registry",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "table": "input_registry",
+      "tooltip": "Clients org the file came from"
+    },
+    {
+      "name": "object_type",
+      "label": "Domain Key",
+      "table": "input_registry",
+      "tooltip": "Domain Key supported by the input records"
+    },
+    {
+      "name": "year",
+      "label": "Year",
+      "table": "source_period",
+      "tooltip": "Year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "table": "source_period",
+      "tooltip": "Month of the year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "table": "source_period",
+      "tooltip": "Day of the month the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "table": "input_registry",
+      "tooltip": "Table where the data reside"
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "table": "input_registry",
+      "tooltip": "Session ID of the file load job"
+    },
+    {
+      "name": "source_type",
+      "label": "Source Type",
+      "table": "input_registry",
+      "tooltip": "Source of the input data, either File or Domain Table"
+    },
+    {
+      "name": "file_key",
+      "label": "File Key",
+      "table": "input_registry",
+      "tooltip": "File Key of the loaded file",
+      "cellFilter": "fileKeyLabel"
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "table": "input_registry",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "table": "input_registry",
+      "tooltip": "Indicates when the record was created"
+    },
+    {
+      "name": "source_period_key",
+      "label": "Period",
+      "table": "input_registry",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 50,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "main_input_file_key",
+        "columnIdx": 10
+      },
+      {
+        "stateKey": "year",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "month",
+        "columnIdx": 5
+      },
+      {
+        "stateKey": "source_period_key",
+        "columnIdx": 13
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "input_registry"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "source_period"
+    }
+  ],
+  "where": [
+    {
+      "column": "client",
+      "formStateKey": "client"
+    },
+    {
+      "column": "object_type",
+      "formStateKey": "main_object_type"
+    },
+    {
+      "column": "source_type",
+      "formStateKey": "main_source_type"
+    },
+    {
+      "column": "table_name",
+      "formStateKey": "main_process_input.table_name"
+    },
+    {
+      "column": "source_period_key",
+      "joinWith": "source_period.key"
+    }
+  ],
+  "actions": [
+    {
+      "key": "clearFilters",
+      "label": "Clear Filters",
+      "action": "clearHomeFilters",
+      "style": "primary",
+      "isEnabled": "hasDataRegistryFilters"
+    }
+  ]
+}

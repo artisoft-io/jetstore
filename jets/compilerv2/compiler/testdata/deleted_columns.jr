@@ -1,0 +1,23 @@
+# A class carrying tombstones, for TestJetRuleListener_DeletedColumns.
+#
+# `deleted` marks a column to be DROPped from the domain table. It is about the
+# column rather than the property, which is why it reads the same on a data
+# property that has been retired and on an object property whose column is a
+# leftover from before it was one.
+
+@JetCompilerDirective JWS_VERSION = "0.1.0";
+
+class Retired {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    liveText           as text,
+    liveArray          as array of int,
+    retiredText        as text deleted,
+    retiredArray       as array of int deleted
+  ],
+  $object_properties = [
+    liveObject         as array of resource,
+    staleObjectColumn  as array of resource deleted
+  ],
+  $as_table = true
+};

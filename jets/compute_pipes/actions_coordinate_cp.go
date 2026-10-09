@@ -21,8 +21,16 @@ func getTotNbrFileKeys(fileKeys [][]*FileKeyInfo) int {
 	return nbrFileKeys
 }
 
-func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jrProxy JetRulesProxy) error {
+// CoordinateComputePipes runs one compute pipes node.
+//
+// The opts are variadic so that a deployment adding its own operators does it
+// with one extra argument and every existing caller compiles unchanged -- the
+// two lambda entries, the two task entries and the local test driver's two
+// calls. See WithOperators.
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool,
+	jrProxy JetRulesProxy, opts ...CPOption) error {
 	var cpErr, err error
+	cpOpts := applyCPOptions(opts)
 	var didSync bool
 	var inFolderPath []string
 	var cpContext *ComputePipesContext
@@ -44,9 +52,22 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		return fmt.Errorf("error while synching workspace files from db: %v", err)
 	}
 	if didSync {
+		// The workspace content changed under us, so what is cached is stale.
 		ClearJetrulesCaches()
-		LoadJetrulesCaches()
 	}
+	// **Pre-load on both paths, not only after a fetch.** `didSync` is true only
+	// when the workspace was pulled from the database; the image-workspace skip
+	// returns false (`SyncComputePipesWorkspace`), so from the moment that skip
+	// was enabled this pre-load stopped running on the native lambda and the
+	// three caches first loaded inside the worker pool instead.
+	//
+	// That is what surfaced the race in `GetWorkspaceDomainTables` on
+	// 2026-08-31: six workers, one winner, five reading an empty cache. The race
+	// is fixed where it lives, so this is no longer load-bearing for
+	// correctness — it is here because loading three files once, before the
+	// goroutines start, is what the code always intended and is strictly better
+	// than having six of them arrive at a cold cache together.
+	LoadJetrulesCaches()
 
 	// Make sure we have a jet partition key set
 	if len(args.JetsPartitionLabel) == 0 {
@@ -170,6 +191,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		SchemaManager:      schemaManager,
 		InputFileKeys:      fileKeys,
 		JetRules:           jrProxy,
+		SiteOperators:      cpOpts.siteOperators,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
@@ -248,8 +270,18 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	return cpContext.ProcessFilesAndReportStatus(ctx, dbpool)
 
 gotError:
+	if cpConfig == nil || cpConfig.CommonRuntimeArgs == nil {
+		// Without the cpipes config, the error cannot be recorded in pipeline_execution_details
+		log.Println("node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
+		return cpErr
+	}
 	log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
 
-	//*TODO insert error in pipeline_execution_details
+	// Record the error in pipeline_execution_details, the status update reports it from there
+	// since it is not available to the state machine when the node runs as an ecs task
+	err = args.RegisterNodeError(dbpool, cpConfig.CommonRuntimeArgs, cpErr)
+	if err != nil {
+		log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "WARNING", err)
+	}
 	return cpErr
 }

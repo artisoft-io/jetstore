@@ -40,8 +40,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	ctx := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
-	case "raw_query", "raw_query_tool":
-		results, code, err = ctx.ExecRawQuery(&dataTableAction, token)
+	case "raw_query":
+		// Queries the app composed, issued on a user's behalf.
+		results, code, err = ctx.ExecRawQuery(&dataTableAction, token, datatable.CapabilityReadData)
+	case "raw_query_tool":
+		// The IDE's free-SQL box: the statement is whatever the user typed, so it
+		// wants the capability the seed file already says covers the query tool.
+		results, code, err = ctx.ExecRawQuery(&dataTableAction, token, datatable.CapabilityQueryTool)
 	case "exec_ddl":
 		results, code, err = ctx.ExecDataManagementStatement(&dataTableAction, token)
 	case "raw_query_map":
@@ -53,6 +58,16 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		// fetch file from stage
 	case "fetch_file_from_stage":
+		// **This arm asked for nothing until 2026-08-25** (ui_refresh I-136's sweep).
+		// It is handled here rather than by a method on DataTableContext, so the
+		// per-statement Capability in sql_stmts.go never applied to it and no test
+		// over that type's methods could see it. It reads an object out of the S3
+		// stage at a path the request chooses; jetstore_read is what
+		// DoPreviewFileAction requires for the nearest equivalent.
+		if code, err = ctx.RequireCapability(datatable.CapabilityReadData, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
 		results = &map[string]any{}
 		code = 200
 		filePath, ok := dataTableAction.Data[0]["stage_file_path"].(string)
@@ -65,15 +80,30 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		obj, err := awsi.DownloadBufFromS3(fmt.Sprintf("%s/%s", stagePrefix, filePath))
 		if err != nil {
+			code := stageFetchStatus(err)
 			err = fmt.Errorf("error: failed to fetch file from stage: %v", err)
 			log.Printf("Error: %v", err)
-			ERROR(w, 400, err)
+			ERROR(w, code, err)
 			return
 		}
 		(*results)["file_content"] = string(obj)
 
 		// resubmit pipeline
 	case "resubmit_pipeline":
+		// **A second route to a gated table, and it was the ungated one** (ui_refresh
+		// I-136's sweep, 2026-08-25). insert_rows on jetsapi.pipeline_execution_status
+		// resolves sqlInsertStmts and is refused without run_pipelines; this arm
+		// hand-writes the same INSERT, resolves no statement, and inherited no
+		// capability -- then calls StartPendingTasks, so it does not merely record a
+		// run, it starts one. It stamps the token's user onto the row, which is the
+		// same pairing I-124 named: careful about attribution, silent about
+		// authorisation. datatable.TestResubmitPipelineUsesTheSameCapabilityAsItsInsert
+		// ties the constant below to the statement's own Capability so the two routes
+		// to this table cannot drift apart.
+		if code, err = ctx.RequireCapability(datatable.CapabilityRunPipelines, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
 		results = &map[string]any{}
 		code = 200
 		sid, ok := dataTableAction.Data[0]["session_id"].(string)
@@ -95,14 +125,19 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			ERROR(w, 400, err)
 			return
 		}
+		// The workspace binding is taken as it stands now rather than copied from
+		// the run being resubmitted: a resubmission runs under today's compiled
+		// workspace, and copying the old row's version would assert the opposite.
 		stmt := `INSERT INTO jetsapi.pipeline_execution_status (
-								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email) 
-							(SELECT 
-								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2 
+								pipeline_config_key, main_input_registry_key, main_input_file_key,
+								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email,
+								workspace_name, workspace_version)
+							(SELECT
+								pipeline_config_key, main_input_registry_key, main_input_file_key,
+								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2,
+								NULLIF($4, ''), (SELECT MAX(version) FROM jetsapi.workspace_version)
 							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
-		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid)
+		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid, os.Getenv("WORKSPACE"))
 		if err != nil {
 			err = fmt.Errorf("error: failed resubmit to database: %v", err)
 			log.Printf("Error: %v", err)
@@ -150,6 +185,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		JSONB(w, http.StatusOK, *resultsB)
 		return
 
+	case "get_workspace_document":
+		// The runtime read: a flow's documents and the tables they draw, at
+		// jetstore_read. See GetWorkspaceDocument for why it is not the case below.
+		results, code, err = ctx.GetWorkspaceDocument(&dataTableAction, token)
 	case "get_workspace_file_content":
 		results, code, err = ctx.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":
@@ -202,4 +241,21 @@ func addToken(r *http.Request, results *map[string]any) {
 	if ok {
 		(*results)["token"] = token[0]
 	}
+}
+
+// stageFetchStatus is the status fetch_file_from_stage answers a failed download
+// with: 404 when there is no such object, 400 for anything else.
+//
+// jetstore_maintenance_02 I-23, 2026-10-01. Every failure was a 400, so a client
+// could tell "no such object" from "the read failed" only by finding NoSuchKey in
+// the message text. The difference matters to the Pipeline Status screen's Get
+// Run Manifest: a manifest is written for completed cpipes runs only, so its
+// absence is an answer to report plainly rather than an error. The client
+// (jetsclient_ide/src/actions/stageClipboard.ts, isMissingStageObject) reads a
+// 404 as missing and still accepts the old 400-with-NoSuchKey form.
+func stageFetchStatus(err error) int {
+	if awsi.IsNoSuchKey(err) {
+		return http.StatusNotFound
+	}
+	return http.StatusBadRequest
 }

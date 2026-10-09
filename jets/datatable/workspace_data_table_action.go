@@ -50,8 +50,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 	}
 	userProfile, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	var gitProfile user.GitProfile
@@ -76,42 +75,75 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			if gitProfileErr != nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
-			}
-			gitUser := gitProfile.Name
-			gitToken := gitProfile.GitToken
-			gitUserName := gitProfile.GitHandle
-			gitUserEmail := gitProfile.Email
-			wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
-			if wsUri == "" || gitUser == "" || gitToken == "" ||
-				gitUserName == "" || gitUserEmail == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
-			}
-			var wsPreviousName string
-			if wsPN != nil {
-				wsPreviousName = wsPN.(string)
-			}
+			// # Why the git-off branch is here and not only in the git package
+			//
+			// The two refusals below run *before* `git.InitWorkspaceGit` is reached, so
+			// the switch that lives inside that package cannot be seen from this side of
+			// the call. Left alone, a deployment with JETS_NO_GIT_ACCESS set would refuse
+			// this request with 400 and "missing git information" -- an accurate sentence
+			// about a requirement the deployment no longer has -- and would never reach
+			// the code that knows the requirement is gone. That is the whole reason the
+			// change is two-layered rather than one function in one package.
+			//
+			// **A branch and not a deletion.** Both refusals are right when git is on: a
+			// deployment with a repository cannot clone, switch a branch or push without
+			// a uri and a git identity, and the 400 is what says so. Nothing about a
+			// site with no source-control host makes that guard less true for the sites
+			// that have one.
+			//
+			// **The notice falls through to the SQL update rather than being returned.**
+			// Each of these pseudo-tables is an UPDATE on workspace_registry that writes
+			// last_git_log (jets/datatable/sql_stmts.go:236 onward), and that column is
+			// what the registry screen's "View Last Log" dialog reads. Reporting the
+			// skip through the column the log always travelled by means the UI is told
+			// the usual thing, which happens to say that nothing was done -- no new
+			// response shape, and no UI change owed by this phase.
+			if git.NoGitAccess() {
+				// Logged once per skipped action rather than once per git command that
+				// would have run, so pressing a button produces one line and not five.
+				log.Println(git.NoGitAccessNotice)
+				gitLog = git.NoGitAccessNotice
+			} else {
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				if gitProfileErr != nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+				}
+				gitUser := gitProfile.Name
+				gitToken := gitProfile.GitToken
+				gitUserName := gitProfile.GitHandle
+				gitUserEmail := gitProfile.Email
+				wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
+				if wsUri == "" || gitUser == "" || gitToken == "" ||
+					gitUserName == "" || gitUserEmail == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
+				}
+				var wsPreviousName string
+				if wsPN != nil {
+					wsPreviousName = wsPN.(string)
+				}
 
-			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-				WorkspaceName:   dataTableAction.WorkspaceName,
-				WorkspaceUri:    wsUri,
-				WorkspaceBranch: dataTableAction.WorkspaceBranch,
-				FeatureBranch:   dataTableAction.FeatureBranch,
-			})
-			gitLog, err = workspaceGit.UpdateLocalWorkspace(
-				gitProfile.Name,
-				gitProfile.Email,
-				gitProfile.GitHandle,
-				gitProfile.GitToken,
-				wsPreviousName,
-			)
-			if err != nil {
-				log.Printf("Error while updating local workspace: %s\n", gitLog)
-				httpStatus = http.StatusBadRequest
-				status = "error"
+				workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+					WorkspaceName:   dataTableAction.WorkspaceName,
+					WorkspaceUri:    wsUri,
+					WorkspaceBranch: dataTableAction.WorkspaceBranch,
+					FeatureBranch:   dataTableAction.FeatureBranch,
+				})
+				gitLog, err = workspaceGit.UpdateLocalWorkspace(
+					gitProfile.Name,
+					gitProfile.Email,
+					gitProfile.GitHandle,
+					gitProfile.GitToken,
+					wsPreviousName,
+				)
+				if err != nil {
+					log.Printf("Error while updating local workspace: %s\n", gitLog)
+					httpStatus = http.StatusBadRequest
+					status = "error"
+				}
 			}
+			// status is left as the success path leaves it -- the empty string -- so the
+			// registry screen computes this row's status from GetStatus on the next read
+			// rather than from a value invented here.
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = status
 
@@ -120,47 +152,78 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			if gitProfileErr != nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
-			}
-			gitUser := gitProfile.Name
-			gitToken := gitProfile.GitToken
-			if wsUri == "" || gitUser == "" || gitToken == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
-			}
-			// Commit changes in local workspace and push to repository:
-			//	- Commit and Push to repository
-			//  NOTE:
-			//	- Delete workspace overrides
-			//	  (except for workspace.db, workspace.tgz, lookup.db, and reports.tgz)
-			//	- Compile workspace must be done manually
-			wsCM := dataTableAction.Data[irow]["git.commit.message"]
-			var wsCommitMessage string
-			if wsCM != nil {
-				wsCommitMessage = wsCM.(string)
-			}
-			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-				WorkspaceName:   dataTableAction.WorkspaceName,
-				WorkspaceUri:    wsUri,
-				WorkspaceBranch: dataTableAction.WorkspaceBranch,
-				FeatureBranch:   dataTableAction.FeatureBranch,
-			})
-			var buf strings.Builder
-			// Commit and push workspace changes and update workspace_registry table
-			gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
-			buf.WriteString(gitLog)
-			buf.WriteString("\n")
-			if err != nil {
-				status = "error"
+			// # Why the delete is skipped as well as the commit, and why that is the
+			// # part of this change worth reading twice
+			//
+			// On the success path this case does two things that look like one: it
+			// commits and pushes, and it then drops the workspace's rows from
+			// jetsapi.workspace_changes (DeleteAllFileChanges below, called with
+			// restoreFromStash false). With a repository that deletion is safe because
+			// it is redundant -- the edits it removes have just been pushed, so the
+			// remote holds them and a later pull brings them back into the tree.
+			//
+			// **With no repository those rows are the only copy of the user's edits.**
+			// The container's workspace tree is re-copied from the image whenever the
+			// task starts (cbooter's cp -r of WORKSPACES_REPO into WORKSPACES_HOME),
+			// and it is the override rows that are re-applied over it -- so a workspace
+			// edit survives a task rotation because it is in the database, and for no
+			// other reason. Skipping the push while still running the delete would
+			// therefore destroy the user's work at the next rotation and report success
+			// in the same breath, with nothing on the screen or in the log to say a
+			// deletion had happened. That is the specific bug this branch exists to
+			// avoid; it is not a hypothetical ordering worry.
+			//
+			// The requirement's word for the skipped git operations is *silently*, and
+			// the asymmetry is deliberate: silence about a push that did not happen is
+			// honest, because the notice below says so and nothing was lost. Silence
+			// about a deletion is not.
+			if git.NoGitAccess() {
+				log.Println(git.NoGitAccessNotice)
+				gitLog = git.NoGitAccessNotice
 			} else {
-				// Delete all workspace overrides w/o restaure from stash
-				err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true)
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				if gitProfileErr != nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+				}
+				gitUser := gitProfile.Name
+				gitToken := gitProfile.GitToken
+				if wsUri == "" || gitUser == "" || gitToken == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
+				}
+				// Commit changes in local workspace and push to repository:
+				//	- Commit and Push to repository
+				//  NOTE:
+				//	- Delete workspace overrides
+				//	  (except for workspace.db, workspace.tgz, lookup.db, and reports.tgz)
+				//	- Compile workspace must be done manually
+				wsCM := dataTableAction.Data[irow]["git.commit.message"]
+				var wsCommitMessage string
+				if wsCM != nil {
+					wsCommitMessage = wsCM.(string)
+				}
+				workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+					WorkspaceName:   dataTableAction.WorkspaceName,
+					WorkspaceUri:    wsUri,
+					WorkspaceBranch: dataTableAction.WorkspaceBranch,
+					FeatureBranch:   dataTableAction.FeatureBranch,
+				})
+				var buf strings.Builder
+				// Commit and push workspace changes and update workspace_registry table
+				gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
+				buf.WriteString(gitLog)
+				buf.WriteString("\n")
 				if err != nil {
 					status = "error"
+				} else {
+					// Delete all workspace overrides w/o restaure from stash
+					err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true)
+					if err != nil {
+						status = "error"
+					}
 				}
+				gitLog = buf.String()
 			}
-			dataTableAction.Data[irow]["last_git_log"] = buf.String()
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
@@ -168,21 +231,31 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitCommand := dataTableAction.Data[irow]["git.command"]
-			if wsUri == "" || gitCommand == nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing git information")
-			}
-			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-				WorkspaceName:   dataTableAction.WorkspaceName,
-				WorkspaceUri:    wsUri,
-				WorkspaceBranch: dataTableAction.WorkspaceBranch,
-				FeatureBranch:   dataTableAction.FeatureBranch,
-			})
-			gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
-			if err != nil {
-				log.Printf("Error while git status workspace: %s\n", gitLog)
-				httpStatus = http.StatusBadRequest
+			// Git off: the same branch as workspace_registry above, and the argument for
+			// it is the one written out there. The refusal skipped here also covers a
+			// missing git.command, which costs nothing to skip alongside the uri --
+			// there is no command to run either way, and refusing on the shape of a
+			// request that will not be executed tells the user about the wrong problem.
+			if git.NoGitAccess() {
+				log.Println(git.NoGitAccessNotice)
+				gitLog = git.NoGitAccessNotice
+			} else {
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				gitCommand := dataTableAction.Data[irow]["git.command"]
+				if wsUri == "" || gitCommand == nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing git information")
+				}
+				workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+					WorkspaceName:   dataTableAction.WorkspaceName,
+					WorkspaceUri:    wsUri,
+					WorkspaceBranch: dataTableAction.WorkspaceBranch,
+					FeatureBranch:   dataTableAction.FeatureBranch,
+				})
+				gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
+				if err != nil {
+					log.Printf("Error while git status workspace: %s\n", gitLog)
+					httpStatus = http.StatusBadRequest
+				}
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = ""
@@ -192,20 +265,29 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			if wsUri == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing git information")
-			}
-			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-				WorkspaceName:   dataTableAction.WorkspaceName,
-				WorkspaceUri:    wsUri,
-				WorkspaceBranch: dataTableAction.WorkspaceBranch,
-				FeatureBranch:   dataTableAction.FeatureBranch,
-			})
-			gitLog, err = workspaceGit.GitCommandWorkspace("git status")
-			if err != nil {
-				log.Printf("Error while git status in workspace: %s\n", gitLog)
-				httpStatus = http.StatusBadRequest
+			// Git off: the branch of workspace_registry above. The registry screen leaves
+			// this button enabled at every status, so it is a button a user in a no-git
+			// deployment can press; answering it with the notice is what makes pressing
+			// it informative rather than a 400 about a uri the deployment does not need.
+			if git.NoGitAccess() {
+				log.Println(git.NoGitAccessNotice)
+				gitLog = git.NoGitAccessNotice
+			} else {
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				if wsUri == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing git information")
+				}
+				workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+					WorkspaceName:   dataTableAction.WorkspaceName,
+					WorkspaceUri:    wsUri,
+					WorkspaceBranch: dataTableAction.WorkspaceBranch,
+					FeatureBranch:   dataTableAction.FeatureBranch,
+				})
+				gitLog, err = workspaceGit.GitCommandWorkspace("git status")
+				if err != nil {
+					log.Printf("Error while git status in workspace: %s\n", gitLog)
+					httpStatus = http.StatusBadRequest
+				}
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = ""
@@ -215,26 +297,35 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			if gitProfileErr != nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
-			}
-			gitUser := gitProfile.Name
-			gitToken := gitProfile.GitToken
-			if wsUri == "" || gitUser == "" || gitToken == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
-			}
-			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-				WorkspaceName:   dataTableAction.WorkspaceName,
-				WorkspaceUri:    wsUri,
-				WorkspaceBranch: dataTableAction.WorkspaceBranch,
-				FeatureBranch:   dataTableAction.FeatureBranch,
-			})
-			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
-			if err != nil {
-				log.Printf("Error while push (only) workspace: %s\n", gitLog)
-				httpStatus = http.StatusBadRequest
-				status = "error"
+			// Git off: the branch of workspace_registry above. This case has nothing to
+			// do but report, since a push with no remote is the one operation here that
+			// has no non-git half -- unlike commit_workspace and pull_workspace, which
+			// each carry work that is business logic rather than source control.
+			if git.NoGitAccess() {
+				log.Println(git.NoGitAccessNotice)
+				gitLog = git.NoGitAccessNotice
+			} else {
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				if gitProfileErr != nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+				}
+				gitUser := gitProfile.Name
+				gitToken := gitProfile.GitToken
+				if wsUri == "" || gitUser == "" || gitToken == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
+				}
+				workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+					WorkspaceName:   dataTableAction.WorkspaceName,
+					WorkspaceUri:    wsUri,
+					WorkspaceBranch: dataTableAction.WorkspaceBranch,
+					FeatureBranch:   dataTableAction.FeatureBranch,
+				})
+				gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
+				if err != nil {
+					log.Printf("Error while push (only) workspace: %s\n", gitLog)
+					httpStatus = http.StatusBadRequest
+					status = "error"
+				}
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = status
@@ -246,14 +337,40 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
-			wsUri := getWorkspaceUri(dataTableAction, irow)
-			if gitProfileErr != nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
-			}
-			gitUser := gitProfile.Name
-			gitToken := gitProfile.GitToken
-			if wsUri == "" || gitUser == "" || gitToken == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
+			// # Git off: the refusals go and the action stays, which is not the shape of
+			// # the five cases above
+			//
+			// pullWorkspaceAction does four things and only the first is git: it pulls,
+			// then clears the stash, re-stashes the pulled tree, and re-applies the
+			// database overrides through workspace.SyncWorkspaceFiles. The last three
+			// are the mechanism by which a workspace edit held in workspace_changes
+			// reaches the file system, which is precisely what a deployment with no
+			// repository needs this button for -- and the compile / load-client-config
+			// options below are the other half of the same journey. So this case skips
+			// its refusals and calls the action; it does not skip the action.
+			//
+			// **The pull inside it needs nothing from here**, and that is deliberate
+			// rather than an omission. PullRemoteWorkspace returns the notice with no
+			// error when git is off, so pullWorkspaceAction's `goto` past the remaining
+			// three steps is not taken and they run as they do today. Doing the skip at
+			// this call site instead would mean either duplicating those three steps or
+			// editing workspace_helper_functions.go to teach it a second entry point,
+			// and the git package already owns the decision (see
+			// jets/datatable/git/no_git_access.go for why it lives there).
+			//
+			// gitProfile may be a zero value on this path, since the gitProfileErr
+			// refusal is one of the two skipped; the handle and token it carries are
+			// passed to a pull that will not run.
+			if !git.NoGitAccess() {
+				wsUri := getWorkspaceUri(dataTableAction, irow)
+				if gitProfileErr != nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+				}
+				gitUser := gitProfile.Name
+				gitToken := gitProfile.GitToken
+				if wsUri == "" || gitUser == "" || gitToken == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
+				}
 			}
 			gitLog, err = pullWorkspaceAction(ctx.Dbpool, irow, &gitProfile, dataTableAction)
 			if err != nil {
@@ -384,7 +501,8 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	}
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 
 	// to package up the result
@@ -588,8 +706,7 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 	}
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 
@@ -598,116 +715,24 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 
 	// Prepare the return object
 	httpStatus = http.StatusOK
-	resultData := make([]*wsfile.WorkspaceNode, 0)
+	var resultData []*wsfile.WorkspaceNode
 	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
-	var workspaceNode *wsfile.WorkspaceNode
 
 	switch requestType {
 	case "workspace_file_structure":
-		// Data Model (.jr)
-		// log.Println("** Visiting data_model:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
+		// The section list, the file-suffix filters and — the part C.1 added —
+		// which sections have a compiled view of `workspace.db` all live in one
+		// table now, wsfile.WorkspaceSections. This used to be eight
+		// near-identical blocks with copy-pasted error handling, and the client
+		// worked out what a heading showed by composing a form key from the
+		// directory name and looking it up in its own registry.
+		resultData, err = wsfile.BuildWorkspaceFileStructure(root, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
 			return
 		}
-		resultData = append(resultData, workspaceNode)
-
-		// Jets Rules (.jr, .jr.sql)
-		// log.Println("** Visiting jet_rules:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr", ".jr.sql"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Lookups (.jr)
-		// log.Println("** Visiting lookups:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// cpipes config (.pc.json)
-		log.Println("** Visiting pipes_config:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "pipes_config", "Pipes Config", &[]string{".pc.json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Process Configurations (workspace_init_db.sql)
-		// log.Println("** Visiting process_config:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Process Sequences (.jr)
-		// log.Println("** Visiting process_sequence:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// Reports (.sql, .json)
-		// log.Println("** Visiting reports:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
-
-		// compile_workspace.sh
-		resultData = append(resultData, &wsfile.WorkspaceNode{
-			Key:          "compile_workspace",
-			Type:         "file",
-			PageMatchKey: "compile_workspace.sh",
-			Label:        "Compile Workspace Script",
-			RoutePath:    "/workspace/:workspace_name/home",
-			RouteParams: map[string]string{
-				"workspace_name": workspaceName,
-				"file_name":      url.QueryEscape("compile_workspace.sh"),
-				"label":          "compile_workspace.sh",
-			},
-		})
-
-		// workspace_control.json
-		resultData = append(resultData, &wsfile.WorkspaceNode{
-			Key:          "workspace_control",
-			Type:         "file",
-			PageMatchKey: "workspace_control.json",
-			Label:        "Workspace Control",
-			RoutePath:    "/workspace/:workspace_name/home",
-			RouteParams: map[string]string{
-				"workspace_name": workspaceName,
-				"file_name":      url.QueryEscape("workspace_control.json"),
-				"label":          "workspace_control.json",
-			},
-		})
 	default:
 		httpStatus = http.StatusBadRequest
 		err = errors.New("invalid workspace request type")
@@ -788,8 +813,7 @@ func (ctx *DataTableContext) addWorkspaceFile(dataTableAction *DataTableAction, 
 func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	httpStatus = http.StatusOK
@@ -807,8 +831,7 @@ func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, 
 func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		httpStatus = http.StatusUnauthorized
-		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		httpStatus, err = RefusalFor(err2)
 		return
 	}
 	httpStatus = http.StatusOK
@@ -865,10 +888,107 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
+// documentDirs are the workspace directories GetWorkspaceDocument serves, and
+// the suffixes each may serve from.
+//
+// **This map is the whole of the security argument**, so it is a whitelist of
+// both halves rather than a prefix check: a directory this does not name is not
+// readable through this path at any capability, and a suffix that directory does
+// not list is not readable either. `.pc.json` beside a flow, a `.sql` under
+// reports, `workspace_control.json` at the root — none of them reach here.
+var documentDirs = map[string][]string{
+	"user_flows":    {".uf.json", ".ua.json", ".form.json", ".apply.json"},
+	"table_configs": {".tc.json"},
+}
+
+// documentPathOK reports whether fileName names a document this path may serve.
+//
+// Exactly one separator, so a nested path cannot walk out of the directory the
+// map named — `wsfile.GetContent` already confines to the workspace (CWE-73) and
+// this confines to the two directories inside it. The two checks are
+// independent and both are wanted: the first stops an escape from the workspace,
+// the second stops a jetstore_read user reading the workspace's rules, its
+// pipeline configurations or its client config.
+func documentPathOK(fileName string) bool {
+	dir, name, found := strings.Cut(fileName, "/")
+	if !found || name == "" || strings.Contains(name, "/") {
+		return false
+	}
+	suffixes, ok := documentDirs[dir]
+	if !ok {
+		return false
+	}
+	for _, suffix := range suffixes {
+		// A file that is *only* the suffix — ".tc.json" — names no document and
+		// is refused, which also refuses the dotfile it would otherwise be.
+		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetWorkspaceDocument --------------------------------------------------------------------------
+// Reads one user flow or table configuration document, for the *running* app
+// rather than for the IDE.
+//
+// **Why this exists beside GetWorkspaceFileContent, which reads any workspace
+// file.** That one gates on `workspace_ide`, and `jets_init_db.sql` grants
+// `workspace_ide` to `knowledge_engineer` alone. Since the eleven flows became
+// workspace assets (ui_refresh's X.5) the React app reads its flow documents at
+// run time, so the IDE's capability had become the capability required to *use a
+// flow* — and `ops_user` and `client_advocate`, who hold `jetstore_read` and
+// `run_pipelines`, could no longer open one. They are the roles the flows are
+// for.
+//
+// The alternative was granting them `workspace_ide`, which also carries the free
+// SQL query tool, git push, file save and delete, and purge data. Widening a
+// capability to fix a read is how a capability stops meaning anything.
+//
+// So: same content, same confinement, a *read-only* verb over a whitelist of two
+// directories, at the capability an ordinary user already has to read data.
+func (ctx *DataTableContext) GetWorkspaceDocument(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
+		return nil, code, err2
+	}
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	workspaceName := dataTableAction.WorkspaceName
+	wsFileName := request["file_name"]
+	if workspaceName == "" || wsFileName == nil {
+		err = fmt.Errorf("GetWorkspaceDocument: missing workspace_name or file_name")
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	fileName, err := url.QueryUnescape(wsFileName.(string))
+	if err != nil {
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	if !documentPathOK(fileName) {
+		// Refused by path rather than by existence, so this cannot be used to
+		// discover what a workspace holds outside the two directories.
+		err = fmt.Errorf("GetWorkspaceDocument: %s is not a user flow or table configuration document", fileName)
+		log.Println(err)
+		httpStatus = http.StatusForbidden
+		return
+	}
+
+	content, err := wsfile.GetContent(workspaceName, fileName)
+	results = &map[string]any{
+		"file_name":    wsFileName,
+		"file_content": content,
+	}
+	return
+}
+
 func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -901,7 +1021,8 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -921,19 +1042,28 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 		return
 	}
 
-	if strings.HasSuffix(strings.ToUpper(fileName), ".JSON") {
-		// Validate json file
-		var m map[string]any
-		err = json.Unmarshal([]byte(wsFileContent.(string)), &m)
-		if err != nil {
-			err = fmt.Errorf("the file is not a valid json file: %v", err)
-			log.Println(err)
-			httpStatus = http.StatusBadRequest
-			return
-		}
+	// Validate structured files before writing them. Two steps, in this order,
+	// and the order is the agreement with the agentic_ai stream (Q-3):
+	//
+	//  1. **Well-formedness, for anything ending .json.** It is a precondition for
+	//     every structured check, so doing it once keeps one bad file from
+	//     producing two different complaints. **It is not a gate on step 2** —
+	//     it was, until the `.sql` row on 2026-09-12 needed a validator to run
+	//     for a file that is not JSON at all.
+	//  2. **At most one specific validator**, on the most specific suffix match —
+	//     see validatorFor. Absent for a plain .json, which keeps the behaviour
+	//     every existing file type has today.
+	// Warnings travel with the findings and do not block; only errors do. Which
+	// of the two an unreachable state is, is the deployment's call through
+	// JETS_USERFLOW_STRICT_REACHABILITY.
+	content := wsFileContent.(string)
+	if err = checkWorkspaceFile(fileName, content); err != nil {
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
 	}
 	// Write file to local workspace
-	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, wsFileContent.(string))
+	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content)
 	results = &map[string]any{
 		"file_name": wsFileName,
 	}
@@ -945,7 +1075,8 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -971,7 +1102,8 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
@@ -984,6 +1116,27 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 			httpStatus = http.StatusBadRequest
 			return
 		}
+		// **Reverting a file runs whether or not git is on, and the reason it is
+		// safe with git off is a property of the stash rather than of this call.**
+		//
+		// `DeleteFileChange` deletes the file's row from `jetsapi.workspace_changes`
+		// and copies the stashed version back over the working file. The deletion is
+		// only a revert if the stash holds the *pristine* content; if it holds the
+		// user's own edits the row is discarded and the file does not change, which
+		// is a silent loss rather than a revert.
+		//
+		// With a repository the stash is re-taken after every pull, so it tracks the
+		// remote. With no repository it is taken once at startup, from the tree
+		// `cbooter` copied out of the image and before the database overrides are
+		// applied -- so it is pristine by construction. **What makes that hold is
+		// that `pullWorkspaceAction` no longer clears and re-takes it when git is
+		// off** (see the comment there): the clear is what would have replaced the
+		// pristine snapshot with an edited one.
+		//
+		// This was gated shut for one revision of Phase 6, before that fix existed,
+		// on the ground that the row is the only copy of the edit. It is the only
+		// copy, and with a pristine stash the revert is still what the user asked
+		// for. Q-89.
 		err = wsfile.DeleteFileChange(ctx.Dbpool, workspaceName, wsFileName.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
@@ -1001,7 +1154,8 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
-		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+		status, refusal := RefusalFor(err2)
+		return nil, status, refusal
 	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
@@ -1011,6 +1165,17 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 		httpStatus = http.StatusBadRequest
 		return
 	}
+	// Runs whether or not git is on; `DeleteWorkspaceChanges` above carries the
+	// argument, which is that the stash a no-git deployment restores from is
+	// pristine by construction and stays that way. Q-89.
+	//
+	// **Note the asymmetry with `commit_workspace`, which is still skipped when
+	// git is off.** That call passes `restaureFromStash` false: it drops the rows
+	// *without* putting anything back, because with a repository the content has
+	// just been pushed. With no repository nothing was pushed and nothing is
+	// restored, so it is a deletion with no counterpart -- which is a different
+	// act from the revert here, and the reason one is gated and the other is not.
+	//
 	// Delete all workspace changes and restaure from stash
 	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, false)
 	if err != nil {

@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "spSelectPipelineConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pipeline_config_key",
+            "table": "pipeline_config_key",
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "spSelectMainDataSourceUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "main_input_registry_key",
+            "table": "main_input_registry_key",
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "spSelectMergedDataSourcesUF": {
+      "rows": [
+        [{ "field": "dataTable", "key": "mergeProcessInputTable", "table": "mergeProcessInputTable" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "merged_input_registry_keys",
+            "table": "merged_input_registry_keys",
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "spSummaryUF": {
+      "title": "Run Pipeline Summary",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client",
+            "isReadOnly": true,
+            "maxLength": 60,
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          },
+          {
+            "field": "text",
+            "key": "process_name",
+            "label": "Process Name",
+            "isReadOnly": true,
+            "maxLength": 100,
+            "rules": [{ "rule": "required", "message": "Select an option" }]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "description",
+            "label": "Description",
+            "hint": "Pipeline configuration description",
+            "isReadOnly": true,
+            "maxLength": 1024
+          }
+        ],
+        [{ "field": "dataTable", "key": "spSummaryDataSources", "table": "spSummaryDataSources" }],
+        [{ "field": "dataTable", "key": "spInjectedProcessInput", "table": "spInjectedProcessInput" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Start Pipeline & Done", "style": "secondary" }
+      ]
+    }
+  }
+}

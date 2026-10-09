@@ -1,0 +1,9 @@
+{
+  "_comment": "Written by install_workspace_assets. Records the hash of each JetStore-owned asset as installed, so the next install can tell a stale copy (replaced) from a locally edited one (build fails). Commit it with the assets.",
+  "assets": {
+    "jets_agentic.jr": "9cffd5038f2b84963d74b18cd0e4553b2dd97d512678fab3ee272c15f3294bfb",
+    "jets_agentic.meta.json": "b119648170a619c2856ea5cac90ad9d34bc53e3faa83fabdbc8f8d9df84016eb",
+    "jets_agentic.schema.json": "983afe4698a1b1e6df97d4e19af86a77d0685b187532d5c8adad6631b57dfa15",
+    "jets_model.jr": "fd10864bb4efad702c7c7aefa9575fc7db9b67088235f63759ef3298c9fead74"
+  }
+}

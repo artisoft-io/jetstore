@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "label": "File Loader Status",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "input_loader_status",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization"
+    },
+    {
+      "name": "object_type",
+      "label": "Object Type",
+      "tooltip": "Type of object in file"
+    },
+    {
+      "name": "year",
+      "label": "Year",
+      "tooltip": "Year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "tooltip": "Month of the year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "tooltip": "Day of the month the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the file was loaded",
+      "isHidden": true
+    },
+    {
+      "name": "load_count",
+      "label": "Records Count",
+      "tooltip": "Number of records loaded",
+      "isNumeric": true
+    },
+    {
+      "name": "status",
+      "label": "Status",
+      "tooltip": "Status of the load"
+    },
+    {
+      "name": "file_key",
+      "label": "File Key",
+      "tooltip": "File key",
+      "cellFilter": "fileKeyLabel"
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "tooltip": "Data Pipeline Job Key"
+    },
+    {
+      "name": "bad_row_count",
+      "label": "Bad Records",
+      "tooltip": "Number of Bad Records",
+      "isNumeric": true
+    },
+    {
+      "name": "error_message",
+      "label": "Error Message",
+      "tooltip": "Error that occured during execution",
+      "cellFilter": "errorMessageLabel",
+      "maxLines": 3,
+      "columnWidth": 400
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who loaded the file"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the file was loaded"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 10,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "input_loader_status"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "source_period"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_period_key",
+      "joinWith": "source_period.key"
+    }
+  ],
+  "actions": [
+    {
+      "key": "viewDomainTable",
+      "label": "View Loaded Data",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/domainTableViewer/:table_name/:session_id",
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "table_name": 7,
+        "session_id": 11
+      }
+    },
+    {
+      "key": "refreshTable",
+      "label": "Refresh",
+      "action": "refreshTable",
+      "style": "secondary"
+    }
+  ],
+  "refreshOnKeyUpdateEvent": [
+    "key"
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "bindings",
+  "states": {
+    "bindings": {
+      "description": "The values this template is parameterised by",
+      "formConfig": "bindings",
+      "defaultNextState": "load_stages.0"
+    },
+    "load_stages.0": {
+      "description": "Load stages 1 (ConditionalPipeSpec)",
+      "formConfig": "load_stages.0",
+      "defaultNextState": "load_stages.0.use_ecs_tasks_when"
+    },
+    "load_stages.0.use_ecs_tasks_when": {
+      "description": "Use ecs tasks when (ExpressionNode)",
+      "formConfig": "load_stages.0.use_ecs_tasks_when",
+      "defaultNextState": "load_stages.0.when"
+    },
+    "load_stages.0.when": {
+      "description": "When (ExpressionNode)",
+      "formConfig": "load_stages.0.when",
+      "defaultNextState": "load_stages.1"
+    },
+    "load_stages.1": {
+      "description": "Load stages 2 (ConditionalPipeSpec)",
+      "formConfig": "load_stages.1",
+      "defaultNextState": "load_stages.1.use_ecs_tasks_when"
+    },
+    "load_stages.1.use_ecs_tasks_when": {
+      "description": "Use ecs tasks when (ExpressionNode)",
+      "formConfig": "load_stages.1.use_ecs_tasks_when",
+      "defaultNextState": "load_stages.1.when"
+    },
+    "load_stages.1.when": {
+      "description": "When (ExpressionNode)",
+      "formConfig": "load_stages.1.when",
+      "defaultNextState": "load_stages.2"
+    },
+    "load_stages.2": {
+      "description": "Load stages 3 (ConditionalPipeSpec)",
+      "formConfig": "load_stages.2",
+      "defaultNextState": "load_stages.2.use_ecs_tasks_when"
+    },
+    "load_stages.2.use_ecs_tasks_when": {
+      "description": "Use ecs tasks when (ExpressionNode)",
+      "formConfig": "load_stages.2.use_ecs_tasks_when",
+      "defaultNextState": "load_stages.2.when"
+    },
+    "load_stages.2.when": {
+      "description": "When (ExpressionNode)",
+      "formConfig": "load_stages.2.when",
+      "isEnd": true,
+      "stateAction": "cpipesTemplateApply"
+    }
+  }
+}

@@ -12,12 +12,37 @@ RUN mkdir -p ${JETS_BUILD_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
 
 # Copy source files
-COPY .git                ${JETS_SOURCE_DIR}/.git
+#
+# **There is deliberately no `COPY .git` here, and this comment is what stops it
+# coming back.** One was carried until 2026-09-13 and nothing in the image ever
+# read it: this Dockerfile runs no git, `CMakeLists.txt` has no `git`,
+# `FetchContent` or `GIT_REPOSITORY`, the built binaries carry no `vcs.*` stamps,
+# and no runtime stage copies `.git` out of this one. The single
+# `exec.Command("git", ...)` in the repository is `runGit`
+# (`jets/datatable/git/workspace_git.go:79`), and every caller sets `cmd.Dir` to a
+# `WORKSPACES_HOME/<workspace>` path -- never to JETS_SOURCE_DIR.
+#
+# **The fact the image actually needs is the commit, and it arrives as a build
+# arg**: `JETS_GIT_SHA=${branch}-${sha}`, computed on the host in
+# `build_cpipes.sh` and passed with `--build-arg`. Supplying the fact is what the
+# copy was reaching for.
+#
+# **It failed differently in the two checkouts and neither was visible.** From a
+# plain clone `.git` is a real tree that changes on every commit, so the COPY
+# busted the cache here and forced `go mod tidy`, `go get all` and the whole C++
+# build to re-run -- most of this image, on every commit. From a superproject
+# checkout, where jetstore is a submodule, `.git` is a 36-byte pointer file, so
+# the image got `gitdir: ../.git/modules/jetstore_ai` pointing at nothing and
+# `git rev-parse` inside /app failed outright. Cheap and broken, or expensive and
+# unused, depending on how the tree was obtained.
+#
+# `git` the binary is still required and still installed: `go mod download` uses
+# it to fetch modules. What is not required is a `.git` directory of our own.
 COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY go.sum              ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
-COPY jetsclient          ${JETS_SOURCE_DIR}/jetsclient
+COPY jetsclient_ide      ${JETS_SOURCE_DIR}/jetsclient_ide
 COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
 
 # Set CGO environment variables
@@ -64,11 +89,46 @@ WORKDIR ${JETS_SOURCE_DIR}
 RUN go build -ldflags="-w -s" -o cbooter              ${JETS_SOURCE_DIR}/jets/cmds/cbooter
 # RUN go build -ldflags="-w -s" -o cpipes_server        ${JETS_SOURCE_DIR}/jets/cmds/cpipes_server
 RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cmds/compile_workspace
+# Installs the JetStore-owned workspace assets (jets/workspace_assets) into the
+# client workspace; runs in Dockerfile.compile_ws just before compile_workspace.
+RUN go build -ldflags="-w -s" -o install_workspace_assets ${JETS_SOURCE_DIR}/jets/cmds/install_workspace_assets
 RUN go build -ldflags="-w -s" -o bootstrap            ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
 RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
 RUN go build -ldflags="-w -s" -o apiserver            ${JETS_SOURCE_DIR}/jets/apiserver
 RUN go build -ldflags="-w -s" -o run_reports          ${JETS_SOURCE_DIR}/jets/run_reports
 RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/update_db
+
+# The workspace document validator -- jetstore_maintenance_02 AG.3 (R12).
+#
+# `CompileWorkspace` runs `node jets_validate_workspace.mjs <workspace>` over the
+# workspace's user_flows/ and table_configs/ before compiling, and fails when it
+# cannot (jets/workspace/asset_validation.go). The script is the TypeScript
+# cross-document checks bundled into one ES module with no node_modules beside
+# it (jetsclient_ide/vite.validator.config.ts).
+#
+# **Built once, here, and inherited -- not built in each image that needs it.**
+# This is the one image with both the React source (COPY jetsclient_ide above)
+# and Node (cpipes_base_builder), and every image that compiles descends from it:
+# compile_ws is FROM this image and finds the script beside /app/compile_workspace
+# with node already on PATH; ui_service copies it out of this image as `builder`.
+# Building it in each would be two `npm ci`s producing what should be the same
+# bytes, and the place they could differ is exactly what a validator must not.
+#
+# Written to /app beside the binaries because that is where the Go side looks when
+# JETS_WORKSPACE_VALIDATOR is unset: beside the running executable.
+# node_modules is removed in the same layer -- the bundle needs none of it, and
+# Dockerfile.ui_service_ws runs its own `npm ci`, which would delete it anyway.
+#
+# The last command runs the script over the assets this build embeds, so an image
+# whose own shipping documents do not validate fails here rather than at the first
+# compile that uses it.
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient_ide
+RUN npm ci \
+  && npm run build:validator \
+  && cp dist-validator/jets_validate_workspace.mjs ${JETS_SOURCE_DIR}/jets_validate_workspace.mjs \
+  && rm -rf node_modules dist-validator \
+  && node ${JETS_SOURCE_DIR}/jets_validate_workspace.mjs ${JETS_SOURCE_DIR}/jets/workspace_assets
+WORKDIR ${JETS_SOURCE_DIR}
 
 # Copy workspace db schema for compile_workspace utility 
 # Copy programs resources

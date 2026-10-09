@@ -3,12 +3,15 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 	"regexp"
-	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/agentic/template"
 )
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
+	Comment                string                  `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	CommonRuntimeArgs      *ComputePipesCommonArgs `json:"common_runtime_args,omitzero"`
 	MetricsConfig          *MetricsSpec            `json:"metrics_config,omitzero"`
 	ClusterConfig          *ClusterSpec            `json:"cluster_config,omitzero"`
@@ -17,6 +20,7 @@ type ComputePipesConfig struct {
 	LookupTables           []*LookupSpec           `json:"lookup_tables,omitempty"`
 	Channels               []ChannelSpec           `json:"channels,omitempty"`
 	PromptTemplates        []PromptTemplateSpec    `json:"prompt_templates,omitempty"`
+	TextTemplates          []TextTemplateSpec      `json:"text_templates,omitempty"`
 	Context                []ContextSpec           `json:"context,omitempty"`
 	SchemaProviders        []*SchemaProviderSpec   `json:"schema_providers,omitempty"`
 	PipesConfig            []PipeSpec              `json:"pipes_config,omitempty"`
@@ -66,11 +70,20 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 	case len(cp.ReducingPipesConfig) > stepId:
 		return cp.ReducingPipesConfig[stepId], stepId, nil
 	case len(cp.ConditionalPipesConfig) > stepId:
+		// A selected step with an empty pipes_config is a configuration error,
+		// not a no-op; ValidatePipeSpecConfig rejects it statically and this
+		// guards the paths that select a step before validation runs.
+		selected := func(id int) ([]PipeSpec, int, error) {
+			if len(cp.ConditionalPipesConfig[id].PipesConfig) == 0 {
+				return nil, id, fmt.Errorf("configuration error: conditional_pipes_config step %d has an empty pipes_config", id)
+			}
+			return cp.ConditionalPipesConfig[id].PipesConfig, id, nil
+		}
 		if cp.ConditionalPipesConfig[stepId].When != nil {
 			// Check if condition is met
 			// Available expr variables:
 			// multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
-			// total_file_size in bytes
+			// total_file_size_bytes in bytes
 			// total_file_size_gb in GiB
 			// nbr_partitions as int (assuming each sharding step has the same nbr of partitions?)
 			builderContext := ExprBuilderContext(env)
@@ -87,7 +100,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 					if ToBool(v) {
 						ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-						return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+						return selected(stepId)
 					}
 					stepId += 1
 					if len(cp.ConditionalPipesConfig) == stepId {
@@ -96,12 +109,12 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 				} else {
 					ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+					return selected(stepId)
 				}
 			}
 		}
 		ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-		return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+		return selected(stepId)
 	}
 	return nil, stepId, nil
 }
@@ -130,7 +143,8 @@ func (cp *ComputePipesConfig) GetStepName(stepId int) string {
 // Do not set [ShardingInfo] at configuration time, it will be ignored and replaced with the calculated values.
 // Note: Make sure that ClusterShardingSpec is in decreasing order of WhenTotalSizeGe.
 type ClusterSpec struct {
-	MaxNbrPartitions            int                   `json:"max_nbr_partitons,omitzero"`
+	Comment                     string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	MaxNbrPartitions            int                   `json:"max_nbr_partitions,omitzero"`
 	MultiStepShardingThresholds int                   `json:"multi_step_sharding_thresholds,omitzero"`
 	DefaultShardSizeMb          float64               `json:"default_shard_size_mb,omitzero"`
 	DefaultShardMaxSizeMb       float64               `json:"default_shard_max_size_mb,omitzero"`
@@ -180,6 +194,7 @@ func (cs *ClusterSpec) NbrPartitions(mode string) int {
 // to shards.
 // When [MaxNbrPartitions] is not specified, the value at the ClusterSpec level is taken.
 type ClusterShardingSpec struct {
+	Comment                     string  `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	AppliesToFormat             string  `json:"applies_to_format,omitempty"`
 	WhenTotalSizeGe             int     `json:"when_total_size_ge_mb,omitzero"`
 	MaxNbrPartitions            int     `json:"max_nbr_partitions,omitzero"`
@@ -193,11 +208,13 @@ type ClusterShardingSpec struct {
 }
 
 type MetricsSpec struct {
+	Comment        string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	ReportInterval int      `json:"report_interval_sec"`
 	RuntimeMetrics []Metric `json:"runtime_metrics"`
 }
 
 type Metric struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: runtime
 	// Name values: alloc_mb, total_alloc_mb, sys_mb, nbr_gc
 	// note: suffix _mb for units in MiB
@@ -206,6 +223,7 @@ type Metric struct {
 }
 
 type LookupSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// type range: sql_lookup, s3_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
@@ -217,9 +235,10 @@ type LookupSpec struct {
 }
 
 type CsvSourceSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// This is used for lookup tables and loading metadata in jetrules.
 	// This is a single file source, the first file found is taken.
-	// Type range: cpipes, csv_file (future)
+	// Type range: cpipes (located from a stage step), csv_file (named by csv_source_file_key)
 	// Default values are taken from current pipeline
 	// Format: csv, headerless_csv
 	// Compression: none, snappy
@@ -229,56 +248,23 @@ type CsvSourceSpec struct {
 	Type                string `json:"type"`
 	Format              string `json:"format,omitempty"`
 	Compression         string `json:"compression,omitempty"`
-	Delimiter           rune   `json:"delimiter,omitzero"`       // default ','
-	ProcessName         string `json:"process_name,omitempty"`   // for cpipes
-	ReadStepId          string `json:"read_step_id,omitempty"`   // for cpipes
-	JetsPartitionLabel  string `json:"jets_partition,omitempty"` // for cpipes
-	SessionId           string `json:"session_id,omitempty"`     // for cpipes
-	ClassName           string `json:"class_name,omitempty"`     // used by jetrules_config
+	Delimiter           rune   `json:"delimiter,omitzero"`            // default ','
+	CsvSourceFileKey    string `json:"csv_source_file_key,omitempty"` // for csv_file
+	ProcessName         string `json:"process_name,omitempty"`        // for cpipes
+	ReadStepId          string `json:"read_step_id,omitempty"`        // for cpipes
+	JetsPartitionLabel  string `json:"jets_partition,omitempty"`      // for cpipes
+	SessionId           string `json:"session_id,omitempty"`          // for cpipes
+	ClassName           string `json:"class_name,omitempty"`          // used by jetrules_config
 	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found,omitzero"`
 }
 
-// ChannelSpec specifies the columns of a channel and other properties.
-// The columns can be obtained from a domain class from the
-// local workspace using class_name.
-// In that case, the columns
-// that are specified in the slice, are added to the columns of
-// the domain class.
-// When direct_properties_only is true, only take the data properties
-// of the class, not including the properties of the parent classes.
-// ClassName is used to get the columns from the local workspace, and get domain key from registry, and is optional.
-// Env variables (from mainInputSchemaProvider.Env) can be used in the class_name, e.g., hc:${ENTITY}.
-// DomainKeys provide the ability to configure the domain keys in the cpipes config document.
-// DomainKeysInfo is obtained from the domain_keys_registry table or derived from DomainKeys - the latter takes precedence when both are available.
-// columnsMap is added in StartComputePipes
-type ChannelSpec struct {
-	Name                 string                `json:"name"`
-	Columns              []string              `json:"columns"`
-	ClassName            string                `json:"class_name,omitempty"`
-	DirectPropertiesOnly bool                  `json:"direct_properties_only,omitzero"`
-	HasDynamicColumns    bool                  `json:"has_dynamic_columns,omitzero"`
-	SameColumnsAsInput   bool                  `json:"same_columns_as_input,omitzero"`
-	DomainKeys           map[string]any        `json:"domain_keys,omitempty"`
-	DomainKeysInfo       *DomainKeysSpec       `json:"domain_keys_spec,omitzero"`
-	ColumnEncodings      []*ColumnEncodingSpec `json:"column_encodings,omitzero"`
-	columnsMap           *map[string]int
-}
+type ChannelSpec = pipesmodel.ChannelSpec
 
-// ColumnEncodingSpec is used to specify special encoding for a channel column, e.g., toon or json
-// Column is the column name to which the special encoding applies, this is required.
-// EntityEncoding is used to specify the encoding of the column: range values: json, toon (default is json).
-// RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (any prefix up to the character ':').
-// ExcludeProperties is used to specify the properties to exclude from the output, e.g., jets:key, rdf:type, etc.
-// This is used to exclude properties from the json or toon output.
-type ColumnEncodingSpec struct {
-	Column              string   `json:"column"`
-	EntityEncoding      string   `json:"entity_encoding,omitempty"`
-	RemoveModelPrefixes bool     `json:"remove_model_prefixes,omitzero"`
-	ExcludeProperties   []string `json:"exclude_properties,omitempty"`
-}
+type ColumnEncodingSpec = pipesmodel.ColumnEncodingSpec
 
 type ContextSpec struct {
-	// Type range: file_key_component, partfile_key_component
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// Type range: default_value, file_key_component, partfile_key_component, value
 	Type string `json:"type,omitempty"`
 	Key  string `json:"key,omitempty"`
 	Expr string `json:"expr,omitempty"`
@@ -333,11 +319,13 @@ type FileConfig struct {
 }
 
 type BlankFieldMarkersSpec struct {
+	Comment       string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	CaseSensitive bool     `json:"case_sensitive,omitzero"`
 	Markers       []string `json:"markers,omitempty"`
 }
 
 type SchemaProviderSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: default, pipeline_coordinator_map
 	// Most properties applies to type default:
 	// Key is schema provider key for reference by compute pipes steps
@@ -361,7 +349,7 @@ type SchemaProviderSpec struct {
 	// Note EnforceRowMinLength and EnforceRowMaxLength apply to text format only (csv, headerless_csv, fixed_width).
 	// UseOriginSourceConfig: when true, use the source config from file_key components (client, org, object_type).
 	// Note origin session_id is from cpipes env $ORIGIN_SESSIONID
-	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
+	// BadRowsConfig: Specify how to handle bad rows when not specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
@@ -454,6 +442,7 @@ func (sp *SchemaProviderSpec) ToMap() (map[string]any, error) {
 // is to be executed.
 // S3CopyFileConfig provides the configuration for s3_copy_file command.
 type ReportCmdSpec struct {
+	Comment          string          `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Type             string          `json:"type"`
 	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
 	When             *ExpressionNode `json:"when,omitzero"`
@@ -462,6 +451,7 @@ type ReportCmdSpec struct {
 // ReportCommand to copy file from s3 to s3
 // Default WorkerPoolSize is calculated based on number of tasks
 type S3CopyFileSpec struct {
+	Comment           string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	SourceBucket      string `json:"src_bucket,omitempty"`
 	SourceKey         string `json:"src_key,omitempty"`
 	DestinationBucket string `json:"dest_bucket,omitempty"`
@@ -470,6 +460,7 @@ type S3CopyFileSpec struct {
 }
 
 type SchemaColumnSpec struct {
+	Comment   string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name      string `json:"name,omitempty"`
 	Length    int    `json:"length,omitzero"`    // for fixed_width
 	Precision *int   `json:"precision,omitzero"` // for fixed_width
@@ -481,6 +472,7 @@ type SchemaColumnSpec struct {
 // ChannelSpecName specify the channel spec.
 // Column provides metadata info
 type TableSpec struct {
+	Comment            string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Key                string            `json:"key"`
 	Name               string            `json:"name"`
 	CheckSchemaChanged bool              `json:"check_schema_changed,omitzero"`
@@ -489,6 +481,7 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_schema_events,
 	// jetstore_s3_output (default), or custom file key (the lasy option is depricated, use FileKey).
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
@@ -533,18 +526,20 @@ func (r *OutputFileSpec) SetName(s string) {
 }
 
 type TableColumnSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name    string `json:"name"`
 	RdfType string `json:"rdf_type,omitempty"`
 	IsArray bool   `json:"as_array,omitzero"`
 }
 
 type PipeSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: fan_out, splitter, merge_files
 	Type            string               `json:"type"`
 	InputChannel    InputChannelConfig   `json:"input_channel"`
 	SplitterConfig  *SplitterSpec        `json:"splitter_config,omitzero"`
 	MergeFileConfig *MergeFileSpec       `json:"merge_file_config,omitzero"`
-	Apply           []TransformationSpec `json:"apply"`
+	Apply           []TransformationSpec `json:"apply,omitzero"`
 	OutputFile      *string              `json:"output_file,omitzero"` // for merge_files
 }
 
@@ -552,36 +547,45 @@ type PipeSpec struct {
 // FirstPartitionHasHeaders: when true, the first partitions has the headers
 // (considered for csv to determine if use s3 multipart copy).
 type MergeFileSpec struct {
-	FirstPartitionHasHeaders bool `json:"first_partition_has_headers,omitempty"` // splitter column
+	Comment                  string `json:"comment,omitempty"`                     // free text for the reader; ignored by JetStore
+	FirstPartitionHasHeaders bool   `json:"first_partition_has_headers,omitempty"` // splitter column
 }
 
-// ConditionalPipe: Each step are executed conditionally.
-// When the key "when" is nil, the step is always executed.
+// ConditionalPipe: The pipes_config are executed conditionally, all or nothing.
+// When the key "when" is nil, the pipes_config are always executed.
 // Available expr variables as main schema provider env var (see above):
 // multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
-// total_file_size in bytes
+// total_file_size_bytes in bytes
 // nbr_partitions as int (used for hashing purpose)
 // use_ecs_tasks is true to use ecs fargate task
 // use_ecs_tasks_when is an expression as the when property.
+// use_python_node is true to use the python cp_node rather than the go one
+// use_python_node_when is an expression as the when property.
 type ConditionalPipeSpec struct {
-	StepName        string                   `json:"step_name,omitempty"`
-	UseEcsTasks     bool                     `json:"use_ecs_tasks,omitzero"`
-	UseEcsTasksWhen *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
-	PipesConfig     []PipeSpec               `json:"pipes_config"`
-	When            *ExpressionNode          `json:"when,omitzero"`
-	AddlEnv         []ConditionalEnvVariable `json:"addl_env,omitempty"`
+	Comment           string                   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	StepName          string                   `json:"step_name,omitempty"`
+	UseEcsTasks       bool                     `json:"use_ecs_tasks,omitzero"`
+	UseEcsTasksWhen   *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
+	UsePythonNode     bool                     `json:"use_python_node,omitzero"`
+	UsePythonNodeWhen *ExpressionNode          `json:"use_python_node_when,omitzero"`
+	PipesConfig       []PipeSpec               `json:"pipes_config"`
+	When              *ExpressionNode          `json:"when,omitzero"`
+	AddlEnv           []ConditionalEnvVariable `json:"addl_env,omitempty"`
 }
 
 type ConditionalEnvVariable struct {
+	Comment  string              `json:"comment,omitempty"`   // free text for the reader; ignored by JetStore
 	CaseExpr []CaseEnvExpression `json:"case_expr,omitempty"` // alternate implementation to case op
 	ElseExpr []*ExpressionNode   `json:"else_expr,omitempty"`
 }
 type CaseEnvExpression struct {
-	When ExpressionNode    `json:"when"`
-	Then []*ExpressionNode `json:"then"`
+	Comment string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	When    ExpressionNode    `json:"when"`
+	Then    []*ExpressionNode `json:"then"`
 }
 
 type SplitterSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: standard (default), ext_count
 	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
 	// ext_count: split on Column / DefaultSplitterValue / ShardOn + N, N = 0..ExtPartitionsCount-1
@@ -594,11 +598,12 @@ type SplitterSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering,
-	// ollama
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize,
+	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
+	// embed, vllm, render
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
-	Type                  string                           `json:"type"`
+	Type                  string                           `json:"type,omitempty"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
 	Columns               []TransformationColumnSpec       `json:"columns,omitempty"`
 	MapRecordConfig       *MapRecordSpec                   `json:"map_record_config,omitzero"`
@@ -613,11 +618,98 @@ type TransformationSpec struct {
 	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
 	OllamaConfig          *OllamaSpec                      `json:"ollama_config,omitzero"`
+	EmbedConfig           *EmbedSpec                       `json:"embed_config,omitzero"`
+	VllmConfig            *VllmSpec                        `json:"vllm_config,omitzero"`
+	InferConfig           *InferSpec                       `json:"infer_config,omitzero"`
+	RenderConfig          *RenderSpec                      `json:"render_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
-	OutputChannel         OutputChannelConfig              `json:"output_channel"`
+	SiteConfig            *SiteOperatorSpec                `json:"site_config,omitzero"`
+	OutputChannel         OutputChannelConfig              `json:"output_channel,omitzero"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 	When                  *ExpressionNode                  `json:"when,omitzero"`
+}
+
+// SiteOperatorSpec is the configuration of an operator this deployment supplies.
+//
+// **One field on the union for all of them rather than one per operator**, which
+// is the whole difference between this and the eighteen `*_config` pointers
+// above: which operators a site has is not JetStore's business, and a union
+// branch per site token would make it so.
+//
+// It exists because a site operator is not merely inconvenient to configure
+// without it -- it is unconfigurable, and silently so. The cpipes document
+// crosses a process boundary as JSON twice, the starter marshalling it into
+// `jetsapi.cpipes_execution_status` and the node reading it back through
+// UnmarshalComputePipesConfig, which is a plain json.Unmarshal with no
+// DisallowUnknownFields anywhere in this package. A configuration block that is
+// not a JSON-tagged field of TransformationSpec is dropped with no error and no
+// log line (`I-777`).
+//
+// The error channel is a *named field* rather than something the site buries
+// inside Config, and that is not a style preference: errorChannelConfig is the
+// single point that makes an error channel exist -- the channel registry
+// construction registers it, SynthesizeDefaultErrorChannels reserves its name
+// against collision, and warnMissingErrorChannelDiscriminators warns about it.
+// All three run in processes where no operator registry is present, so all three
+// have to be able to read the channel off the document.
+type SiteOperatorSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// ErrorChannel is where the operator reports a row-level failure, typically
+	// the process_errors table. Unlike the six built-ins that report row-level
+	// failures, a site operator is never given a synthesised one: JetStore
+	// cannot know whether an operator it knows nothing about will ever write a
+	// bad record, and its author is the only party who does.
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	// OutputChannels are the channels this operator writes beyond the step's own
+	// `output_channel`. The builder resolves each one and hands the resolved
+	// channels over on OperatorArgs.Outputs, which is the move ErrorChannel
+	// makes one field up and is made for the same reason: the channel registry
+	// is withheld from OperatorEnv because an operator that can name any channel
+	// can read from or write into one it does not own, and an operator that is
+	// *handed* what its own step declared can name nothing else.
+	//
+	// **A named field rather than something the site buries in `config`**, on
+	// the same argument this struct's own doc block makes: a channel exists
+	// because some pass reads it off the document. The channel registry
+	// construction registers it (compute_pipes.go) and the pipe executors close
+	// it, and both run in processes where no operator registry is present -- so
+	// a channel named only inside `config` would be a channel nothing creates.
+	// `outputChannelConfigs` is the one function that reads them, which is why
+	// the validator sees them too.
+	//
+	// **It neither replaces `output_channel` nor contains it.** The two are
+	// different containers on different parts of the step, and the built-ins'
+	// own shape is the precedent: `clustering` and `anonymize` each write their
+	// step's `output_channel` *and* a second channel named in their own config
+	// block. See OperatorArgs.Outputs for which is which, and for what
+	// declaring both means.
+	OutputChannels []OutputChannelConfig `json:"output_channels,omitempty"`
+	// Lookups names the document's own `lookup_tables` entries this operator
+	// reads, by their `key`. The builder resolves each one to the loaded table
+	// and hands them over on OperatorArgs.Lookups, which is OutputChannels' move
+	// on the other field §12.6 withholds: `lookupTableManager` stays out of
+	// OperatorEnv and the operator names no table its own step did not.
+	//
+	// **Declaring one is what makes it load, and that is this field's first
+	// job.** SelectActiveLookupTable prunes `lookup_tables` to the entries some
+	// step references and runs in the *starter*, where no operator registry
+	// exists, so a table nothing references is never loaded. Without this list a
+	// site operator's reference would be invisible to that pass, and the table
+	// it needs would be pruned away -- a failure whose cause is two processes
+	// from its symptom.
+	//
+	// **Bare keys rather than objects**, because a lookup reference *is* its
+	// key: that is how `map_record`'s lookup columns, `anonymize`, `shuffling`
+	// and `clustering` each name one. An output channel reference carries a name
+	// and a channel spec name and is an object for that reason; this carries one
+	// fact and is a string.
+	Lookups []string `json:"lookups,omitempty"`
+	// Config is the site's own configuration, verbatim. JetStore does not decode
+	// it, validate it or know its schema; it reaches the site's factory as
+	// json.RawMessage for the factory to unmarshal into whatever type it likes.
+	Config json.RawMessage `json:"config,omitempty"`
 }
 
 // This type is to provide conditional TransformationSpec
@@ -626,8 +718,9 @@ type TransformationSpec struct {
 // When is the condition to evaluate, if true then apply the Then spec.
 // Note: when Then.Type is not empty, replace the host TransformationSpec altogether.
 type ConditionalTransformationSpec struct {
-	When ExpressionNode     `json:"when"`
-	Then TransformationSpec `json:"then"`
+	Comment string             `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	When    ExpressionNode     `json:"when"`
+	Then    TransformationSpec `json:"then"`
 }
 
 // MapRecordSpec configuration for map_record transformation
@@ -637,9 +730,27 @@ type ConditionalTransformationSpec struct {
 // Note: When output_channel.class_name is provided, the first 3 columns of the output record
 // are `jets:key,rdf:type,jets:source_period_sequence` and if rdf:type is null after the mapping,
 // the default value specified by output_channel.class_name is used.
+// OnError policy values shared by the operators that report record-level
+// failures (map_record, jetrules, ollama).
+const (
+	OnErrorPassThrough = "pass_through"
+	OnErrorDrop        = "drop"
+	OnErrorFail        = "fail"
+)
+
+// OnError specifies what to do with a record whose column transformation
+// failed: pass_through (default, the record is sent to the output), drop,
+// or fail. fail_on_error is the legacy spelling of on_error: fail and is
+// honoured when on_error is not set.
+// MaxErrorCount caps the number of errors reported to the log and the
+// error channel, default 20. Errors are logged even when no error_channel
+// is configured.
 type MapRecordSpec struct {
+	Comment              string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	FileMappingTableName string               `json:"file_mapping_table_name"`
 	ErrorChannel         *OutputChannelConfig `json:"error_channel,omitzero"`
+	OnError              string               `json:"on_error,omitempty"`
+	MaxErrorCount        int                  `json:"max_error_count,omitzero"`
 	FailOnError          bool                 `json:"fail_on_error,omitzero"`
 	IsDebug              bool                 `json:"is_debug,omitzero"`
 }
@@ -661,6 +772,7 @@ type MapRecordSpec struct {
 // KeywordTokens specify keywords to identify classification tokens.
 // FunctionTokens specify functions to identify classification tokens.
 type AnalyzeSpec struct {
+	Comment                         string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	SchemaProvider                  string               `json:"schema_provider,omitempty"`
 	ScrubChars                      string               `json:"scrub_chars,omitempty"`
 	DistinctValuesWhenLessThanCount int                  `json:"distinct_values_when_less_than_count,omitzero"`
@@ -679,8 +791,9 @@ type AnalyzeSpec struct {
 // Lookup: list of ColumnNameLookupNode to match the column names to the
 // classification token.
 type ColumnNameTokenNode struct {
-	Name   string                  `json:"name"`
-	Lookup []*ColumnNameLookupNode `json:"lookup,omitempty"`
+	Comment string                  `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Name    string                  `json:"name"`
+	Lookup  []*ColumnNameLookupNode `json:"lookup,omitempty"`
 }
 
 // ColumnNameLookupNode specifies the column name to classification token
@@ -691,6 +804,7 @@ type ColumnNameTokenNode struct {
 // any of the fragments, it maps to the classification token.
 // ColumnNames takes precedence over ColumnPos. Both can be empty if ColumnNameFragments is used.
 type ColumnNameLookupNode struct {
+	Comment             string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name                string   `json:"name"`
 	ColumnNames         []string `json:"column_names,omitempty"`
 	ColumnPos           []int    `json:"column_pos,omitempty"`
@@ -703,11 +817,13 @@ type ColumnNameLookupNode struct {
 // The input row is considered a bad row when any of WhenCriteria applies
 // then the row is sent to bad row channel and remove from the input rows.
 type BadRowsSpec struct {
+	Comment       string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	BadRowsStepId string `json:"bad_rows_step_id,omitempty"`
 	// WhenCriteria  []BadRowsCriteria `json:"when_criteria,omitempty"`
 }
 
 type InputChannelConfig struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: memory (default), input, stage, generator
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
@@ -728,7 +844,7 @@ type InputChannelConfig struct {
 	// NbrNodesAny and NbrRowsAny are used for Type = "generator" to specify the number
 	// of nodes and rows to generate, they can be int or string (with env var substitution).
 	FileConfig
-	Type                 string               `json:"type"`
+	Type                 string               `json:"type,omitempty"`
 	Name                 string               `json:"name"`
 	SchemaProvider       string               `json:"schema_provider,omitempty"`
 	ReadSessionId        string               `json:"read_session_id,omitempty"`
@@ -744,14 +860,27 @@ type InputChannelConfig struct {
 }
 
 type OutputChannelConfig struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// Type range: memory (default), stage, output, sql
 	// Name: output channel name, required (must exist in the channels section of the config document)
 	// Format: file format, range values: csv, headerless_csv, fixed_width.
 	// NbrRowsInRecord: nbr of rows in record (applicable to format: parquet)
 	// Compression: none, snappy (default). Does not apply to parquet format (always snappy).
 	// UseInputParquetSchema to use the same schema as the input file.
-	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
+	// UseOriginalHeaders to use the original headers that came with the input
+	// file (csv only) rather than the headers JetStore processes with. JetStore
+	// needs unique header names during processing, so when an input file carries
+	// duplicate headers they are uniquefied and the originals are kept aside for
+	// the final pipeline output. Applies to Type output and to the Type stage
+	// channels leading to an output channel: for delimited files the header line
+	// is written on the first partition only (see PutHeadersOnFirstPartition in
+	// FileConfig), so the merge operator can concatenate the part files with the
+	// s3 multipart copy without rewriting them — the first stage part file then
+	// carries the header line of the final output file. When an output channel
+	// sets both UseOriginalHeaders and PutHeadersOnFirstPartition, the preceding
+	// stage channels leading to it must also set both to get the expected
+	// outcome (enforced by ValidatePipeSpecConfig).
 	// OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
 	// When using jetstore_s3_input and jetstore_s3_schema_events you must specify
@@ -773,9 +902,9 @@ type OutputChannelConfig struct {
 	// $SHARD_ID current node id.
 	// $JETS_PARTITION_LABEL current node partition label.
 	FileConfig
-	Type                  string `json:"type"`
-	Name                  string `json:"name"`
-	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type output
+	Type                  string `json:"type,omitempty"`
+	Name                  string `json:"name,omitempty"`
+	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type stage,output — see doc block above
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
 	WriteStepId           string `json:"write_step_id,omitempty"`           // Type stage
@@ -796,22 +925,26 @@ func (r *OutputChannelConfig) SetOutputLocation(s string) {
 }
 
 type PathSubstitution struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Replace string `json:"replace"`
 	With    string `json:"with"`
 }
 
 type DataSchemaSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Columns string `json:"column"`
 	RdfType string `json:"rdf_type,omitempty"`
 }
 
 type EntityHint struct {
+	Comment            string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Entity             string   `json:"entity"`
 	NameFragments      []string `json:"column_name_fragments,omitempty"`
 	ExclusionFragments []string `json:"exclusion_fragments,omitempty"`
 }
 
 type RegexNode struct {
+	Comment          string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name             string `json:"name"`
 	Rexpr            string `json:"re,omitempty"`
 	UseScrubbedValue bool   `json:"use_scrubbed_value,omitzero"`
@@ -824,6 +957,7 @@ type RegexNode struct {
 // Name: the name of the feature (ie output column name)
 // Tokens: each splitted value must match at least one token
 type MultiTokensNode struct {
+	Comment   string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name      string   `json:"name"`
 	NbrTokens int      `json:"nbr_tokens"`
 	Tokens    []string `json:"tokens"`
@@ -834,6 +968,7 @@ type MultiTokensNode struct {
 // Typically values in lookup table does not have spaces.
 // MultiTokensMatch: Matching composite values, separated by space(s)
 type LookupTokenNode struct {
+	Comment          string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name             string            `json:"lookup_name"`
 	KeyRe            string            `json:"key_re,omitempty"`
 	Tokens           []string          `json:"tokens,omitempty"`
@@ -841,6 +976,7 @@ type LookupTokenNode struct {
 }
 
 type KeywordTokenNode struct {
+	Comment  string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name     string   `json:"name"`
 	Keywords []string `json:"keywords,omitempty"`
 }
@@ -850,6 +986,7 @@ type KeywordTokenNode struct {
 // ParseDateArguments: for Type: parse_date
 // Large_Double: for Type: parse_double
 type FunctionTokenNode struct {
+	Comment         string         `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Type            string         `json:"type"`
 	ParseDateConfig *ParseDateSpec `json:"parse_date_config,omitzero"`
 	LargeDouble     *float64       `json:"large_double,omitzero"`
@@ -875,6 +1012,7 @@ type FunctionTokenNode struct {
 // for 75% of total date matches.
 // Identify other date matches, each must match 98% of total date matches.
 type ParseDateSpec struct {
+	Comment              string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	DateFormatToken      string                `json:"date_format_token,omitempty"`
 	OtherDateFormatToken string                `json:"other_date_format_token,omitempty"`
 	DateSamplingMaxCount int                   `json:"sampling_max_count,omitzero"`
@@ -887,6 +1025,7 @@ type ParseDateSpec struct {
 	UseJetstoreParser    bool                  `json:"use_jetstore_date_parser,omitzero"`
 }
 type DateFormatLookupSpec struct {
+	Comment                  string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	LookupName               string `json:"lookup_name,omitempty"`
 	DataClassificationColumn string `json:"data_classification_column,omitempty"`
 	LookupKeyColumn          string `json:"lookup_key_column,omitempty"`
@@ -902,6 +1041,7 @@ type DateFormatLookupSpec struct {
 // year_less_than and year_greater_than is an additional condition
 // to the match result.
 type ParseDateFTSpec struct {
+	Comment         string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Token           string `json:"token"`
 	YearLessThan    int    `json:"year_less_than,omitzero"`
 	YearGreaterThan int    `json:"year_greater_than,omitzero"`
@@ -923,6 +1063,7 @@ type ParseDateFTSpec struct {
 // for the column. Note that the distinct values are by descending
 // frequence of occurence.
 type HighFreqSpec struct {
+	Comment       string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Name          string `json:"name"`
 	KeyRe         string `json:"key_re,omitempty"`
 	TopPercentile int    `json:"top_pct,omitzero"`
@@ -936,6 +1077,7 @@ type HighFreqSpec struct {
 // When StreamDataOut is true, data is stream to s3 rather than written locally
 // and then copied to s3. Useful for large files that would exceed local storage capacity.
 type PartitionWriterSpec struct {
+	Comment          string  `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	DeviceWriterType string  `json:"device_writer_type,omitempty"`
 	JetsPartitionKey *string `json:"jets_partition_key,omitzero"`
 	PartitionSize    int     `json:"partition_size,omitzero"`
@@ -945,6 +1087,7 @@ type PartitionWriterSpec struct {
 }
 
 type ColumnFileSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	// OutputLocation: custom file key.
 	// Bucket is bucket or empty for jetstore one.
 	// Delimiter: rune delimiter to use for output file.
@@ -983,6 +1126,7 @@ type ColumnFileSpec struct {
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
+	Comment                     string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Mode                        string               `json:"mode,omitempty"`
 	LookupName                  string               `json:"lookup_name,omitempty"`
 	AnonymizeType               string               `json:"anonymize_type,omitempty"`
@@ -999,26 +1143,29 @@ type AnonymizeSpec struct {
 	AdjustFieldWidthOnFW        bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
 	OmitPrefixOnFW              bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
 	AnonymizedColumnsOutputFile *ColumnFileSpec      `json:"anonymized_columns_output_file,omitzero"`
-	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel"`
+	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel,omitzero"`
 }
 
 type DistinctSpec struct {
+	Comment    string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	DistinctOn []string `json:"distinct_on,omitempty"`
 }
 
 type ShufflingSpec struct {
+	Comment               string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	MaxInputSampleSize    int               `json:"max_input_sample_size,omitzero"`
 	OutputSampleSize      int               `json:"output_sample_size,omitzero"`
 	PadShortRowsWithNulls bool              `json:"pad_short_rows_with_nulls,omitzero"`
 	FilterColumns         *FilterColumnSpec `json:"filter_columns,omitzero"`
 }
 
-// FilterColumnSpec specify how to filter the input rows before shuffling
+// FilterColumnSpec specify how to filter columns in the input rows before shuffling
 // LookupName is the name of the lookup table containing the column metadata, produced by the analyze operator.
 // ColumnName is the name of the column of the lookup table containing the column name to use on the output rows.
 // LookupColumn is the name of the column in the lookup table containing column name of the metadata table to filter on.
-// RetainOnValues is the list of values in the lookup table for LookupColumn to retain, only rows with thosae values are retained.
+// RetainOnValues is the list of values in the lookup table for LookupColumn to retain, only rows with those values are retained.
 type FilterColumnSpec struct {
+	Comment        string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	LookupName     string   `json:"lookup_name,omitempty"`
 	ColumnName     string   `json:"column_name,omitempty"`
 	LookupColumn   string   `json:"lookup_column,omitempty"`
@@ -1031,6 +1178,7 @@ type FilterColumnSpec struct {
 // domain_key use the domain key info to compute the composite key
 // At least one must be specified.
 type GroupBySpec struct {
+	Comment      string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	GroupByName  []string `json:"group_by_name,omitempty"`
 	GroupByPos   []int    `json:"group_by_pos,omitempty"`
 	GroupByCount int      `json:"group_by_count,omitzero"`
@@ -1039,6 +1187,7 @@ type GroupBySpec struct {
 }
 
 type MergeSpec struct {
+	Comment      string         `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	IsDebug      bool           `json:"is_debug,omitzero"`
 	MainGroupBy  GroupBySpec    `json:"main_group_by"`
 	MergeGroupBy []*GroupBySpec `json:"merge_group_by,omitempty"`
@@ -1051,6 +1200,7 @@ type MergeSpec struct {
 // RowLengthStrict: when true, will enforce that input row length
 // matches the schema length, otherwise they are filtered.
 type FilterSpec struct {
+	Comment         string          `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	RowLengthStrict bool            `json:"row_length_strict,omitzero"`
 	When            *ExpressionNode `json:"when,omitzero"`
 	MaxOutputCount  int             `json:"max_output_records,omitzero"`
@@ -1060,6 +1210,7 @@ type FilterSpec struct {
 // sort_by column names making the composite key
 // domain_key use the domain key info to compute the composite key
 type SortSpec struct {
+	Comment      string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	DomainKey    string   `json:"domain_key,omitempty"`
 	SortByColumn []string `json:"sort_by,omitempty"`
 	IsDebug      bool     `json:"is_debug,omitzero"`
@@ -1089,6 +1240,7 @@ type SortSpec struct {
 // OutputChannels specify the output channels to write the extracted entities from JetRules
 // ErrorChannel specify the channel to write the errors and exported triples from JetRules processing.
 type JetrulesSpec struct {
+	Comment                 string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	ProcessName             string                `json:"process_name,omitempty"`
 	UseJetRulesNative       bool                  `json:"use_jet_rules_native,omitzero"`
 	UseJetRulesGo           bool                  `json:"use_jet_rules_go,omitzero"`
@@ -1104,7 +1256,16 @@ type JetrulesSpec struct {
 	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources,omitempty"`
 	IsDebug                 bool                  `json:"is_debug,omitzero"`
 	OutputChannels          []OutputChannelConfig `json:"output_channels,omitempty"`
-	ErrorChannel            *OutputChannelConfig  `json:"error_channel,omitzero"`
+	// OnError specifies what to do when a record bundle fails rule execution
+	// (ExecuteRules error, max-loop reached, or jets:exception): pass_through
+	// (default, the session data is still extracted), drop (the bundle's
+	// output is discarded), or fail (the pipeline is aborted).
+	// MaxErrorCount caps the number of errors reported to the log and the
+	// error channel, default 20. Errors are logged even when no error_channel
+	// is configured.
+	OnError       string               `json:"on_error,omitempty"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
 }
 
 // PromptTemplateSpec is a named prompt template, defined at the ComputePipesConfig level
@@ -1114,10 +1275,91 @@ type JetrulesSpec struct {
 // SystemPrompt and ResponseFormat are defaults for the operator using this template,
 // the operator's own settings take precedence when both are provided.
 type PromptTemplateSpec struct {
+	Comment        string          `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Key            string          `json:"key"`
 	Template       string          `json:"template"`
 	SystemPrompt   string          `json:"system_prompt,omitempty"`
 	ResponseFormat json.RawMessage `json:"response_format,omitempty"`
+}
+
+// TextTemplateSpec is a named text template document, declared at the
+// ComputePipesConfig level so that a document can be shared by several steps and
+// pipes -- which is PromptTemplateSpec's argument for the same indirection, and
+// the reason this element copies that shape rather than paralleling it.
+//
+// Key is the name used by RenderSpec.TemplateName. The rest is the document:
+// Width is the column each paragraph is wrapped to, Elements are emitted in
+// array order, and Empty is what the document says when no element said
+// anything. The notation is specified in agentic_ai's Phase 8 plan §10 and
+// implemented in jets/agentic/template; RenderSpec is its only consumer here.
+//
+// **The array is `text_templates` rather than `templates`, and the word is doing
+// work.** `prompt_templates` is the only other template array in this
+// configuration and it is qualified; a bare `templates` would be the sole
+// unqualified one, and it is the one that collides with gap 20's *configuration*
+// templates (`tools/cpipes_contract/templates/`). The operator renders; what it
+// applies is a text template.
+//
+// **The document fields are copied from template.Spec rather than embedded, and
+// TestTextTemplateSpecCarriesTheDocument is what keeps the two in step.** The
+// engine's Spec decodes strictly (its C1: `wen` written for `when` is a template
+// that silently never fires), so it admits no `comment` -- and every element of
+// this configuration carries one. Copying buys the comment; the test buys back
+// what embedding would have given for free.
+type TextTemplateSpec struct {
+	Comment  string              `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Key      string              `json:"key"`
+	Width    int                 `json:"width"`
+	Elements []*template.Element `json:"elements"`
+	Empty    string              `json:"empty,omitempty"`
+}
+
+// Document is the spec as the template engine's compiler takes it.
+func (s *TextTemplateSpec) Document() *template.Spec {
+	if s == nil {
+		return nil
+	}
+	return &template.Spec{
+		Key:      s.Key,
+		Width:    s.Width,
+		Elements: s.Elements,
+		Empty:    s.Empty,
+	}
+}
+
+// RenderSpec configuration for the render transformation operator.
+// The operator renders one text template per input record and augments that
+// record *in place*, so the input and output channels must share the same
+// ChannelSpec; this is validated when the operator is built.
+//
+// TemplateName names an entry of ComputePipesConfig.TextTemplates (required).
+// There is no inline alternative to it -- see resolveRenderTemplate for why.
+// InputColumn is the column carrying the serialised entity the template renders
+// from, and OutputColumn is where the rendered text is written (both required,
+// and they may not be the same column).
+// InputEncoding says how InputColumn is serialised: json (the default) or toon.
+// It is an override rather than the answer: the encoding is read off the input
+// channel's column_encodings entry when there is one, and a disagreement between
+// the two is a configuration error.
+// RowKeyColumn names a column whose value identifies the record on an error row,
+// optional; it is InferCommonSpec.RowKeyColumn's field for the same purpose.
+// OnError specifies what to do with a record whose render failed -- because the
+// input column is not a document, or because a `require` the template declares
+// was not satisfied: pass_through (default, the record is sent on with the
+// output column left unwritten), drop, or fail.
+// MaxErrorCount caps the number of errors reported to the log and the error
+// channel, default 20. Errors are logged even when no error_channel is
+// configured.
+type RenderSpec struct {
+	Comment       string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	TemplateName  string               `json:"template_name"`
+	InputColumn   string               `json:"input_column"`
+	OutputColumn  string               `json:"output_column"`
+	InputEncoding string               `json:"input_encoding,omitempty"`
+	RowKeyColumn  string               `json:"row_key_column,omitempty"`
+	OnError       string               `json:"on_error,omitempty"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
 }
 
 // OllamaSpec configuration for the ollama transformation operator.
@@ -1140,6 +1382,16 @@ type PromptTemplateSpec struct {
 // error reported when the operator is built.
 // SystemPrompt is the system message, optional.
 // ResponseFormat is passed to ollama as `format`: the string "json" or a json schema.
+// ProvenanceSchemaName names a provenance schema of the workspace,
+// provenance/<name>.pv.json, and turns on the per-field provenance check of
+// jets/agentic/briefing: the model's answer is checked against the serialised
+// entity the prompt was built from, and a field the entity does not support is
+// reported on the error channel. It resolves the way prompt_template_name does -
+// at build time, so a name nothing matches is a configuration error rather than a
+// per-record one, and the named document supplies the response_format the
+// operator does not otherwise set. When both are set they must be identical: the
+// shape the model is constrained by and the shape the guardrail checks are then
+// the same bytes rather than two copies nothing compares.
 // Options is passed to ollama as `options`, eg temperature, num_ctx, seed, num_predict.
 // KeepAlive is passed to ollama as `keep_alive`, it is how long the model stays resident
 // between calls; defaults to 30m since a pipeline calls the model for every record.
@@ -1166,17 +1418,38 @@ type PromptTemplateSpec struct {
 // ErrorChannel is the channel where row-level errors are reported, using the
 // process_errors channel spec (see the jetrules operator).
 type OllamaSpec struct {
-	Model                  string               `json:"model"`
-	Api                    string               `json:"api,omitempty"`
+	Comment   string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model     string            `json:"model"`
+	Api       string            `json:"api,omitempty"`
+	Options   map[string]any    `json:"options,omitempty"`
+	KeepAlive string            `json:"keep_alive,omitempty"`
+	Think     *bool             `json:"think,omitzero"`
+	Server    *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion keeps every existing .pc.json parsing unchanged (15a).
+	InferCommonSpec
+}
+
+// InferCommonSpec is the backend-agnostic configuration of an inference
+// operator, shared by the infer plumbing (pipe_transformation_infer.go). It is
+// embedded anonymously in each backend's spec (OllamaSpec today), so the wire
+// format is unchanged: encoding/json promotes the fields onto the host.
+// See the doc block above OllamaSpec for the field-by-field description.
+type InferCommonSpec struct {
+	// onErrorDefaulted records that OnError was not set by the author and was
+	// filled in by applyInferCommonDefaults. Unexported, so it never round-trips
+	// through json: it is a fact about the document rather than part of it.
+	//
+	// It exists because an invisible default should not get to decide whether a
+	// stopped infer server takes the pipeline down — see the infer operator's
+	// failedRecord.
+	onErrorDefaulted       bool
 	PromptTemplate         string               `json:"prompt_template,omitempty"`
 	PromptTemplateName     string               `json:"prompt_template_name,omitempty"`
 	SystemPrompt           string               `json:"system_prompt,omitempty"`
 	ResponseFormat         json.RawMessage      `json:"response_format,omitempty"`
-	Options                map[string]any       `json:"options,omitempty"`
-	KeepAlive              string               `json:"keep_alive,omitempty"`
-	Think                  *bool                `json:"think,omitzero"`
-	Server                 *OllamaServerSpec    `json:"server,omitzero"`
-	OutputMapping          []OllamaMappingSpec  `json:"output_mapping,omitempty"`
+	ProvenanceSchemaName   string               `json:"provenance_schema_name,omitempty"`
+	OutputMapping          []InferMappingSpec   `json:"output_mapping,omitempty"`
 	DisableStripCodeFences bool                 `json:"disable_strip_code_fences,omitzero"`
 	PoolSize               int                  `json:"pool_size,omitzero"`
 	RequestTimeoutSec      int                  `json:"request_timeout_sec,omitzero"`
@@ -1198,20 +1471,21 @@ type OllamaSpec struct {
 // deployed containers when the stack is built with BUILD_INFER_SERVICE.
 // Headers are additional request headers, optional.
 type OllamaServerSpec struct {
+	Comment string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Url     string            `json:"url,omitempty"`
 	Headers map[string]string `json:"headers,omitempty"`
 }
 
-// OllamaMappingSpec maps one element of the model response to a column of the record.
+// InferMappingSpec maps one element of the model response to a column of the record.
 // Column is the name of the column to set, it must be a column of the channel shared by
 // the input and output channels.
 // Source specifies what the mapping reads from:
 //   - response (default): the model's text, parsed as json when Path is specified;
 //   - raw_response: the model's text, verbatim, without parsing;
-//   - envelope: a property of the ollama api response envelope itself, eg eval_count,
+//   - envelope: a property of the infer server response envelope itself, eg eval_count,
 //     prompt_eval_count, total_duration, model;
 //   - thinking: the reasoning text, when Think is in use.
-//	 - model_name: the model name.
+//   - model_name: the model name.
 //
 // Path is a dot notation path into the parsed json, eg summary, codes.0.icd10,
 // detail.score - a numeric element indicates the position in an array.
@@ -1219,7 +1493,8 @@ type OllamaServerSpec struct {
 // AsRdfType casts the value, see CastToRdfType.
 // Default is the value to use when the path is absent or null.
 // Required indicates that an absent or null value is a row-level error.
-type OllamaMappingSpec struct {
+type InferMappingSpec struct {
+	Comment   string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Column    string `json:"column"`
 	Source    string `json:"source,omitempty"`
 	Path      string `json:"path,omitempty"`
@@ -1236,6 +1511,7 @@ type OllamaMappingSpec struct {
 // ClusterDataSubclassification contains data_classification values, when found in a
 // cluster all columns member of the cluster get that value as data_subclassification.
 type ClusteringSpec struct {
+	Comment                      string                  `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	MaxInputCount                int                     `json:"max_input_count,omitzero"`
 	MinColumn1NonNilCount        int                     `json:"min_column1_non_null_count,omitzero"`
 	MinColumn2NonNilCount        int                     `json:"min_column2_non_null_count,omitzero"`
@@ -1248,151 +1524,159 @@ type ClusteringSpec struct {
 }
 
 type TargetColumnsLookupSpec struct {
+	Comment                     string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	LookupName                  string   `json:"lookup_name"`
 	DataClassificationColumn    string   `json:"data_classification_column,omitempty"`
 	Column1ClassificationValues []string `json:"column1_classification_values,omitempty"`
 	Column2ClassificationValues []string `json:"column2_classification_values,omitempty"`
 }
 
-type TransformationColumnSpec struct {
-	// Type range: select, multi_select, value, eval, map, hash
-	// count, distinct_count, sum, min, max, avrg, case,
-	// map_reduce, lookup
-	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
-	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
-	// MaxEnvVarSubstitution applies to expr with env var substitution: select, multi_select, value, lookup
-	Name                  string                      `json:"name"`
-	Type                  string                      `json:"type"`
-	Expr                  *string                     `json:"expr,omitempty"`
-	ExprArray             []string                    `json:"expr_array,omitempty"`
-	MapExpr               *MapExpression              `json:"map_expr,omitzero"`
-	EvalExpr              *ExpressionNode             `json:"eval_expr,omitzero"`
-	HashExpr              *HashExpression             `json:"hash_expr,omitzero"`
-	Where                 *ExpressionNode             `json:"where,omitzero"`
-	CaseExpr              []CaseExpression            `json:"case_expr,omitempty"` // case operator
-	ElseExpr              []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
-	MapOn                 *string                     `json:"map_on,omitzero"`
-	AlternateMapOn        []string                    `json:"alternate_map_on,omitempty"`
-	ApplyMap              []TransformationColumnSpec  `json:"apply_map,omitempty"`
-	ApplyReduce           []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
-	LookupName            *string                     `json:"lookup_name,omitzero"`
-	LookupKey             []LookupColumnSpec          `json:"key,omitempty"`
-	LookupValues          []LookupColumnSpec          `json:"values,omitempty"`
-	MaxEnvVarSubstitution int                         `json:"max_env_var_substitution,omitzero"`
-	AsRdfType             string                      `json:"as_rdf_type,omitempty"`
+type TransformationColumnSpec = pipesmodel.TransformationColumnSpec
+
+type LookupColumnSpec = pipesmodel.LookupColumnSpec
+
+type HashExpression = pipesmodel.HashExpression
+
+type MapExpression = pipesmodel.MapExpression
+
+type ExpressionNode = pipesmodel.ExpressionNode
+
+type CaseExpression = pipesmodel.CaseExpression
+
+// EmbedSpec is the configuration of the embed transformation operator: it renders
+// one text per record from the record's columns and calls the infer server's
+// embeddings endpoint, putting the resulting vector on the record.
+//
+// It embeds InferCommonSpec, so the prompt template, the request policy (pool,
+// timeouts, retries), the cost guard and the on_error handling are the ollama
+// operator's and are described on the doc block above OllamaSpec. Three of the
+// promoted fields have no meaning for an embeddings call and are rejected at build
+// time rather than silently ignored: system_prompt, response_format and
+// disable_strip_code_fences.
+//
+// Note that PromptTemplate renders the text to embed rather than an instruction to a
+// model; the name is the shared plumbing's and is kept so the two operators are
+// configured the same way.
+//
+// Model is the embedding model, required. It must be a model whose /api/show
+// capabilities include `embedding` - a generative model refuses the endpoint with a
+// message naming a server flag, which is not the actual cause.
+// VectorColumn is the column receiving the embedding vector, required. It saves the
+// configuration from naming the response path, which is not free to choose: see the
+// endpoint note below.
+// VectorAsRdfType casts the vector's elements, see CastToRdfType; without it the vector
+// is written as json text, which is what a csv or text output channel can carry. Set it
+// to double when the consumer wants the numbers.
+// Truncate is passed to ollama as `truncate`; the default (true) truncates an input
+// longer than the model's context, false makes it a row level error instead.
+// Options is passed to ollama as `options`, eg num_ctx.
+// KeepAlive is passed to ollama as `keep_alive`, defaults to 30m as ollama's does.
+// Server specifies how to reach the infer server, shared with the ollama operator.
+// OutputMapping is optional here, unlike on the ollama operator: the vector mapping
+// is synthesized from VectorColumn, and any mapping given is applied on top of it -
+// the envelope carries `model` and `prompt_eval_count` worth mapping.
+//
+// The endpoint is /api/embed and is not configurable. The legacy /api/embeddings
+// returns the vector alone, with no model name and no token count, so it cannot
+// satisfy the operator's model_name and envelope mappings. The two also differ in a
+// way that does not announce itself: /api/embed returns an L2 normalised vector and
+// the legacy endpoint the raw one, same direction, so a corpus embedded through both
+// compares correctly under cosine and wrongly under dot product.
+type EmbedSpec struct {
+	Comment         string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model           string            `json:"model"`
+	VectorColumn    string            `json:"vector_column"`
+	VectorAsRdfType string            `json:"vector_as_rdf_type,omitempty"`
+	Truncate        *bool             `json:"truncate,omitzero"`
+	Options         map[string]any    `json:"options,omitempty"`
+	KeepAlive       string            `json:"keep_alive,omitempty"`
+	Server          *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion gives the wire shape the ollama operator has (15a).
+	InferCommonSpec
 }
 
-type LookupColumnSpec struct {
-	// Type range: select, value
-	// MaxEnvVarSubstitution applies to expr with env var substitution: value
-	Name                  string  `json:"name,omitempty"`
-	Type                  string  `json:"type,omitempty"`
-	Expr                  *string `json:"expr,omitzero"`
-	MaxEnvVarSubstitution int     `json:"max_env_var_substitution,omitzero"`
+// VllmSpec is the configuration of the vllm transformation operator: it calls a vLLM
+// server's OpenAI-compatible api once per input record and augments that record *in
+// place* with values extracted from the model response, exactly as the ollama operator
+// does. The input and output channels must therefore share the same ChannelSpec.
+//
+// It embeds InferCommonSpec, so the prompt template, the response mapping, the request
+// policy (pool, timeouts, retries), the cost guard and the on_error handling are the
+// ollama operator's and are described on the doc block above OllamaSpec. A .pc.json moves
+// between the two operators by changing the type token and the config element; what
+// differs is below.
+//
+// Model is the model the server was started with, required. Unlike ollama there is no
+// model lifecycle to configure: a vLLM server serves one model, loaded at startup, so
+// there is no keep_alive and a wrong name is a request error rather than a pull.
+// Api is the route to call: chat (default, /v1/chat/completions) or completions
+// (/v1/completions). SystemPrompt requires chat, the completions api having no message
+// roles; asking for both is a build time error rather than a silent fold into the prompt.
+// StructuredOutput chooses how the promoted ResponseFormat reaches the server:
+//   - guided_json (default) sends the schema in vLLM's own `guided_json` parameter;
+//   - json_schema sends it in the OpenAI-compatible `response_format`, named and strict.
+//
+// Which one a server accepts is a property of its vLLM version, not of the pipeline,
+// which is why this is configurable at all. The promoted ResponseFormat keeps ollama's
+// shape either way: the string "json" becomes OpenAI json mode, a schema document is
+// constrained decoding. It is *not* passed through as ollama's `format` - guided_json is
+// not format, and the translation is done once when the operator is built.
+// Options is merged into the request body at the top level rather than nested, because
+// that is where the OpenAI api puts sampling parameters: temperature, max_tokens, top_p,
+// seed, and vLLM's own extensions such as top_k and repetition_penalty. The keys the
+// operator sets itself (model, stream, messages, prompt, guided_json, response_format)
+// are refused rather than merged.
+// Server specifies how to reach the vLLM server, shared with the ollama operator - note
+// that its JETS_INFER_URL fallback names the deployed *Ollama* infer service, which does
+// not serve /v1/*, so url is in practice required here.
+//
+// There is no `think` property: vLLM exposes reasoning through a server-side parser and
+// the reasoning text arrives as message.reasoning_content, which the `thinking` mapping
+// source reads when the server supplies it.
+// InferSpec is the backend-agnostic inference operator. It carries the whole of
+// what both backends read, so a document that switches between them states its
+// configuration once rather than twice.
+//
+// It is resolved away before anything else sees it: ResolveInferBackend rewrites a
+// `type: infer` step into a `type: ollama` or `type: vllm` one, between
+// ApplyAllConditionalTransformationSpec and SynthesizeDefaultErrorChannels. So the
+// executors, the error-channel synthesis, the validator and the matrix all keep
+// seeing the two operators they already know, and this type adds no dispatch site.
+//
+// The specialized keys are flat and inert on the backend that does not read them:
+// KeepAlive and Think are ollama's, StructuredOutput is vllm's. That is what lets
+// one document serve both. An inert key is logged at resolution rather than
+// refused, because refusing it would defeat the point of the type.
+type InferSpec struct {
+	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	// Backend names the server this step runs against: "ollama" or "vllm". It may be
+	// an env var reference -- "$INFER_BACKEND" is copied from the process environment
+	// by shardingInitializeCpipes -- which is the point of the field: the deployment
+	// states which server is running and the document does not have to. Empty, or an
+	// env var that is unset, means ollama.
+	Backend          string            `json:"backend,omitempty"`
+	Model            string            `json:"model"`
+	Api              string            `json:"api,omitempty"`
+	Options          map[string]any    `json:"options,omitempty"`
+	Server           *OllamaServerSpec `json:"server,omitzero"`
+	KeepAlive        string            `json:"keep_alive,omitempty"`        // ollama only
+	Think            *bool             `json:"think,omitzero"`              // ollama only
+	StructuredOutput string            `json:"structured_output,omitempty"` // vllm only
+	// The backend-agnostic configuration, embedded anonymously exactly as the two
+	// concrete operators embed it, so every shared key is the same field rather than
+	// a third copy of the same list.
+	InferCommonSpec
 }
 
-// Hash using values from columns.
-// Case single column, use Expr.
-// Case multi column, use CompositeExpr.
-// Expr takes precedence if both are populated.
-// DomainKey is specified as an object_type. DomainKeysJson provides the
-// mapping between domain keys and columns.
-// AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
-// MultiStepShardingMode values: 'limited_range', 'full_range' or empty.
-// NoPartitions indicated not to assign the hash to a partition (no modulo operation).
-// NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false.
-// MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false.
-// NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided.
-// ComputeDomainKey flag indicate to compute the domain key rather than a simple hash.
-// This consider the hashing algo used and delimitor between the key components.
-type HashExpression struct {
-	Expr                    string   `json:"expr,omitempty"`
-	CompositeExpr           []string `json:"composite_expr,omitempty"`
-	DomainKey               string   `json:"domain_key,omitempty"`
-	NbrJetsPartitionsAny    any      `json:"nbr_jets_partitions,omitzero"`
-	MaxNbrJetsPartitionsAny any      `json:"max_nbr_jets_partitions,omitzero"`
-	MultiStepShardingMode   string   `json:"multi_step_sharding_mode,omitempty"`
-	AlternateCompositeExpr  []string `json:"alternate_composite_expr,omitempty"`
-	NoPartitions            bool     `json:"no_partitions,omitzero"`
-	ComputeDomainKey        bool     `json:"compute_domain_key,omitzero"`
-}
-
-func (h *HashExpression) String() string {
-	var b strings.Builder
-	b.WriteString("HashExpression(")
-	if h.Expr != "" {
-		fmt.Fprintf(&b, "Expr: %s, ", h.Expr)
-	}
-	if len(h.CompositeExpr) > 0 {
-		fmt.Fprintf(&b, "CompositeExpr: %v, ", h.CompositeExpr)
-	}
-	if h.DomainKey != "" {
-		fmt.Fprintf(&b, "DomainKey: %s, ", h.DomainKey)
-	}
-	if h.MultiStepShardingMode != "" {
-		fmt.Fprintf(&b, "MultiStepShardingMode: %s, ", h.MultiStepShardingMode)
-	}
-	if len(h.AlternateCompositeExpr) > 0 {
-		fmt.Fprintf(&b, "AlternateCompositeExpr: %v, ", h.AlternateCompositeExpr)
-	}
-	if h.NoPartitions {
-		b.WriteString("NoPartitions: true, ")
-	}
-	if h.ComputeDomainKey {
-		b.WriteString("ComputeDomainKey: true")
-	}
-	b.WriteString(")")
-	return b.String()
-}
-
-type MapExpression struct {
-	CleansingFunction string            `json:"cleansing_function,omitempty"`
-	Argument          string            `json:"argument,omitempty"`
-	Default           string            `json:"default,omitempty"`
-	ErrMsg            string            `json:"err_msg,omitempty"`
-	CodeValueMapping  map[string]string `json:"code_value_mapping,omitempty"`
-	RdfType           string            `json:"rdf_type,omitempty"`
-}
-
-type ExpressionNode struct {
-	// Name is for the special case CaseEnvExpression
-	// Type is for leaf nodes: select, value, expr_proxy, function
-	// Expr is for leaf nodes, the expression to evaluate:
-	// - for Type: select, it is the column name to select or substitute with env var
-	//   substitution if it contains the char '$'.
-	// - for Type: value, it is the value to use or substitute with env var
-	//   substitution if it contains the char '$'.
-	// ExprPos is for leaf nodes for Type select, it is the 0-based column position to select,
-	// it is an alternative to Expr which is the column name.
-	// ExprList is for leaf nodes with multiple values, used for the `in`` operator.
-	// MaxEnvVarSubstitution indicates how many loop of env substitution to do for
-	// Expr containinng the char '$', default to 3.
-	// For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc.
-	// Special case for type: expr_proxy, it indicates that the expression is a proxy
-	// for another expression, the actual expression is specified by one of:
-	// - ExprEnvVarProxy: the expression is specified by an env var, the value of
-	//   the env var is the actual expression as a json string to evaluate.
-	// (more to come)
-	// Special case for type: function, it indicates that the expression is a function call,
-	// the actual function is specified by Expr, and the arguments are specified by Farg.
-	// Default value to use when the evaluation returns error
-	Name                  string           `json:"name,omitempty"`
-	Type                  string           `json:"type,omitempty"`
-	Expr                  string           `json:"expr,omitempty"`
-	ExprPos               *int             `json:"expr_pos,omitempty"`
-	ExprList              []string         `json:"expr_list,omitempty"`
-	MaxEnvVarSubstitution int              `json:"max_env_var_substitution,omitzero"`
-	AsRdfType             string           `json:"as_rdf_type,omitempty"`
-	Arg                   *ExpressionNode  `json:"arg,omitzero"`
-	Lhs                   *ExpressionNode  `json:"lhs,omitzero"`
-	Op                    string           `json:"op,omitempty"`
-	Rhs                   *ExpressionNode  `json:"rhs,omitzero"`
-	ExprEnvVarProxy       string           `json:"expr_env_var_proxy,omitempty"`
-	Farg                  []ExpressionNode `json:"function_arguments,omitzero"`
-	Default               *ExpressionNode  `json:"default,omitzero"`
-}
-
-type CaseExpression struct {
-	When ExpressionNode              `json:"when"`
-	Then []*TransformationColumnSpec `json:"then"`
+type VllmSpec struct {
+	Comment          string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model            string            `json:"model"`
+	Api              string            `json:"api,omitempty"`
+	StructuredOutput string            `json:"structured_output,omitempty"`
+	Options          map[string]any    `json:"options,omitempty"`
+	Server           *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion gives the wire shape the ollama operator has (15a).
+	InferCommonSpec
 }

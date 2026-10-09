@@ -1,7 +1,9 @@
 # Infer Server — GPU memory and Ollama tuning
 
-Findings from the first live test of the Infer Server (2026-08-04), measured against a running
-`jetstore-infer-service` task on `g5.xlarge` with `granite4.1:3b`, Ollama 0.32.5.
+Measured against a running `jetstore-infer-service` task with `granite4.1:3b`, Ollama 0.32.5.
+First written 2026-08-04 against `g5.xlarge`; **re-measured 2026-08-20 on `g6e.2xlarge`**, which is
+the instance these numbers now describe. Every figure below comes from `tools/infer_capacity` run
+against the deployed task, not from a formula.
 
 This file covers **runtime memory behaviour** only. For how the service is assembled — the ASG,
 the persistent EBS volume, the lifecycle hook, GPU scheduling and the AMI contract — see the
@@ -47,20 +49,79 @@ overflow to host RAM — and asks for 22 GiB of it on an instance with 16 GiB. `
 
 ## Measured KV cache cost
 
-`granite4.1:3b` on `g5.xlarge` (A10G, 24 GiB VRAM / 16 GiB host RAM), from `/api/ps` after
-loading at each context size. Roughly **0.31 MiB per token** on top of a ~2.3 GiB base.
+`granite4.1:3b` on **`g6e.2xlarge` (L40S, 48 GiB VRAM / 64 GiB host RAM)**, measured 2026-08-20
+with `tools/infer_capacity`, which reads `size` and `size_vram` from `/api/ps` rather than
+inferring the spill from throughput.
 
-| `num_ctx` | Total | Resident in VRAM | Result |
+| `num_ctx` | Total | Resident in VRAM | tok/s | Result |
+|---|---|---|---|---|
+| 32k | 12.32 GiB | 12.32 GiB | 202.7 | fully GPU-resident |
+| **48k** | **17.39 GiB** | **17.39 GiB** | **203.0** | **fully GPU-resident — current default** |
+| 64k | 22.45 GiB | 22.45 GiB | 202.7 | fully GPU-resident |
+| 128k | 42.14 GiB | 42.14 GiB | 202.6 | fully GPU-resident — granite's own maximum |
+
+**Nothing spilled, at any context this model supports.** 131072 is the model's maximum and it sits
+fully on the GPU with about 6 GiB to spare, so for a single model **the card is no longer the
+constraint — the model is.** Throughput is flat at ~203 tok/s across the whole range.
+
+The cache still costs **~0.31 MiB per token** on a ~2.3 GiB base. That is a property of the model
+and did not change with the card; what changed is how much of it fits.
+
+### What this replaced
+
+The previous instance was `g5.xlarge` (A10G, 24 GiB VRAM / 16 GiB host RAM), where the ceiling was
+between 56k and 60k and the spill was graded rather than a cliff — 68% of resident speed at 0.59 GiB
+spilled, 38% at 2.26 GiB, with nothing logged either time. Those readings are gone from the table
+because the instance is gone, but the *shape* of the failure is worth carrying: a model that has
+spilled a little just looks slow.
+
+## Choosing the three settings together
+
+`OLLAMA_MAX_LOADED_MODELS` multiplies the VRAM cost. `OLLAMA_NUM_PARALLEL` **divides** the
+per-request context and does not change the VRAM cost at all. `OLLAMA_CONTEXT_LENGTH` sizes the
+window they act on. **They are one choice, not three.**
+
+**Deployed 2026-08-20: `98304` / `2` parallel / `1` model** — 32.26 GiB resident, **49 152 tokens
+per request**. The largest prompt the authoring loop actually builds is 13.5k (measured at F.6), so
+that is 3.6× headroom.
+
+| combination | VRAM | per request | |
 |---|---|---|---|
-| 8k | 4.6 GiB | 4.6 GiB | fully GPU-resident |
-| 16k | 7.3 GiB | 7.3 GiB | fully GPU-resident |
-| **32k** | **12.3 GiB** | **12.3 GiB** | **fully GPU-resident — current default** |
-| 64k | 22.6 GiB | 20.4 GiB | 2.3 GiB spilled to host RAM |
-| 128k | — | — | load fails (22 GiB overflow into 16 GiB RAM) |
+| **98304, 2 parallel, 1 model** | **32.26 GiB** | **49 152** | **current** |
+| 98304, 4 parallel, 1 model | 32.26 GiB | 24 576 | safe; restores E.8's K to 4 |
+| 128k, 4 parallel, 1 model | 42.14 GiB | 32 768 | safe, near the ceiling |
+| 98304, 2 parallel, **2 models** | **64.5 GiB** | 49 152 | **over 48 GiB — silent spill** |
+| 49152, 2 parallel, 2 models | 34.78 GiB | 24 576 | what two models costs |
 
-The practical ceiling on this instance type is roughly 48k for a single model. Past that the
-cache starts leaving the GPU, and inference silently degrades to host-RAM speed long before it
-fails outright.
+**Raising `OLLAMA_MAX_LOADED_MODELS` to 2 requires lowering `OLLAMA_CONTEXT_LENGTH` in the same
+change.** Leaving them inconsistent is safe only while exactly one model exists, because Ollama does
+not load a model until it is requested — so the failure arrives with the second model, as a spill
+rather than a refusal.
+
+### How the division was established, because the first attempt did not
+
+`tools/infer_capacity` sets `num_ctx` **per request**, which overrides `OLLAMA_CONTEXT_LENGTH`
+entirely. So the sweep measures the per-request path and says nothing about how the env var
+interacts with `OLLAMA_NUM_PARALLEL`. An earlier revision of this file asserted the division from
+the sweep; the sweep could not see it.
+
+What settled it was a reading with no override at all — `/api/ps` immediately after a plain
+generate:
+
+```
+size 32.26 GiB   size_vram 32.26 GiB   context_length 98304
+```
+
+against `OLLAMA_CONTEXT_LENGTH=98304`, `OLLAMA_NUM_PARALLEL=2`. That is the figure a *single*
+98304-token request allocates, not twice it. Multiplying would have wanted ~120 GiB and refused to
+start.
+
+**One consequence worth keeping.** The previous default of `32768` with `OLLAMA_NUM_PARALLEL` at 4
+was giving each request **8 192 tokens** — under the prompts the loop builds. That truncation was
+latent and unnoticed, and it is gone rather than fixed.
+
+**And one figure here is still arithmetic, not a reading**: the two-model rows. `OLLAMA_MAX_LOADED_MODELS`
+was never varied, because doing so needs a deployment. See I-47.
 
 ## Current defaults
 

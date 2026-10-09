@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "title": "Load Client Configurations",
+  "startAtKey": "load_config",
+  "exitScreenPath": "/workspaces",
+  "states": {
+    "load_config": {
+      "description": "Load Client Config form",
+      "formConfig": "wpLoadConfigUF",
+      "stateAction": "wpLoadConfigConfirmUF",
+      "defaultNextState": "confirm"
+    },
+    "confirm": {
+      "description": "Confirm Load Config",
+      "formConfig": "wpConfirmLoadConfigUF",
+      "stateAction": "wpLoadConfigOkUF",
+      "isEnd": true
+    }
+  }
+}

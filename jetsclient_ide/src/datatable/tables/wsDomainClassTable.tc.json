@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "label": "Data Model",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "domain_classes",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "name",
+      "label": "Class Name",
+      "table": "domain_classes",
+      "tooltip": "Domain Class Name"
+    },
+    {
+      "name": "as_table",
+      "label": "Persisted as Table?",
+      "table": "domain_classes",
+      "tooltip": "Boolean (1:true, 0:false) indicating if this Domain Class is converted into a Table"
+    },
+    {
+      "name": "source_file_name",
+      "label": "Source File Name",
+      "table": "workspace_control",
+      "tooltip": "File containing the Class definition"
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "domain_classes",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "domain_classes"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_file_key",
+      "joinWith": "workspace_control.key"
+    }
+  ]
+}

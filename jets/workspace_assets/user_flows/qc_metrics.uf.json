@@ -1,0 +1,1220 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "bindings",
+  "states": {
+    "bindings": {
+      "description": "The values this template is parameterised by",
+      "formConfig": "bindings",
+      "defaultNextState": "metric_columns.0"
+    },
+    "metric_columns.0": {
+      "description": "Metric columns 1: choose which kind",
+      "formConfig": "metric_columns.0",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.0.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.0.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.0.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.0.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.0.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.0.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.0.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.0.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.0.value"
+        }
+      ]
+    },
+    "metric_columns.0.case": {
+      "description": "Metric columns 1 \u2014 Case",
+      "formConfig": "metric_columns.0.case",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.eval": {
+      "description": "Metric columns 1 \u2014 Eval",
+      "formConfig": "metric_columns.0.eval",
+      "defaultNextState": "metric_columns.0.eval.eval_expr"
+    },
+    "metric_columns.0.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.0.eval.eval_expr",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.hash": {
+      "description": "Metric columns 1 \u2014 Hash",
+      "formConfig": "metric_columns.0.hash",
+      "defaultNextState": "metric_columns.0.hash.hash_expr"
+    },
+    "metric_columns.0.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.0.hash.hash_expr",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.lookup": {
+      "description": "Metric columns 1 \u2014 Lookup",
+      "formConfig": "metric_columns.0.lookup",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.map": {
+      "description": "Metric columns 1 \u2014 Map",
+      "formConfig": "metric_columns.0.map",
+      "defaultNextState": "metric_columns.0.map.map_expr"
+    },
+    "metric_columns.0.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.0.map.map_expr",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.multi_select": {
+      "description": "Metric columns 1 \u2014 Multi select",
+      "formConfig": "metric_columns.0.multi_select",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.select": {
+      "description": "Metric columns 1 \u2014 Select",
+      "formConfig": "metric_columns.0.select",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.0.value": {
+      "description": "Metric columns 1 \u2014 Value",
+      "formConfig": "metric_columns.0.value",
+      "defaultNextState": "metric_columns.1"
+    },
+    "metric_columns.1": {
+      "description": "Metric columns 2: choose which kind",
+      "formConfig": "metric_columns.1",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.1.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.1.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.1.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.1.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.1.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.1.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.1.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.1.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.1.value"
+        }
+      ]
+    },
+    "metric_columns.1.case": {
+      "description": "Metric columns 2 \u2014 Case",
+      "formConfig": "metric_columns.1.case",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.eval": {
+      "description": "Metric columns 2 \u2014 Eval",
+      "formConfig": "metric_columns.1.eval",
+      "defaultNextState": "metric_columns.1.eval.eval_expr"
+    },
+    "metric_columns.1.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.1.eval.eval_expr",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.hash": {
+      "description": "Metric columns 2 \u2014 Hash",
+      "formConfig": "metric_columns.1.hash",
+      "defaultNextState": "metric_columns.1.hash.hash_expr"
+    },
+    "metric_columns.1.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.1.hash.hash_expr",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.lookup": {
+      "description": "Metric columns 2 \u2014 Lookup",
+      "formConfig": "metric_columns.1.lookup",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.map": {
+      "description": "Metric columns 2 \u2014 Map",
+      "formConfig": "metric_columns.1.map",
+      "defaultNextState": "metric_columns.1.map.map_expr"
+    },
+    "metric_columns.1.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.1.map.map_expr",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.multi_select": {
+      "description": "Metric columns 2 \u2014 Multi select",
+      "formConfig": "metric_columns.1.multi_select",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.select": {
+      "description": "Metric columns 2 \u2014 Select",
+      "formConfig": "metric_columns.1.select",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.1.value": {
+      "description": "Metric columns 2 \u2014 Value",
+      "formConfig": "metric_columns.1.value",
+      "defaultNextState": "metric_columns.2"
+    },
+    "metric_columns.2": {
+      "description": "Metric columns 3: choose which kind",
+      "formConfig": "metric_columns.2",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.2.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.2.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.2.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.2.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.2.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.2.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.2.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.2.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.2.value"
+        }
+      ]
+    },
+    "metric_columns.2.case": {
+      "description": "Metric columns 3 \u2014 Case",
+      "formConfig": "metric_columns.2.case",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.eval": {
+      "description": "Metric columns 3 \u2014 Eval",
+      "formConfig": "metric_columns.2.eval",
+      "defaultNextState": "metric_columns.2.eval.eval_expr"
+    },
+    "metric_columns.2.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.2.eval.eval_expr",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.hash": {
+      "description": "Metric columns 3 \u2014 Hash",
+      "formConfig": "metric_columns.2.hash",
+      "defaultNextState": "metric_columns.2.hash.hash_expr"
+    },
+    "metric_columns.2.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.2.hash.hash_expr",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.lookup": {
+      "description": "Metric columns 3 \u2014 Lookup",
+      "formConfig": "metric_columns.2.lookup",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.map": {
+      "description": "Metric columns 3 \u2014 Map",
+      "formConfig": "metric_columns.2.map",
+      "defaultNextState": "metric_columns.2.map.map_expr"
+    },
+    "metric_columns.2.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.2.map.map_expr",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.multi_select": {
+      "description": "Metric columns 3 \u2014 Multi select",
+      "formConfig": "metric_columns.2.multi_select",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.select": {
+      "description": "Metric columns 3 \u2014 Select",
+      "formConfig": "metric_columns.2.select",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.2.value": {
+      "description": "Metric columns 3 \u2014 Value",
+      "formConfig": "metric_columns.2.value",
+      "defaultNextState": "metric_columns.3"
+    },
+    "metric_columns.3": {
+      "description": "Metric columns 4: choose which kind",
+      "formConfig": "metric_columns.3",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.3.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.3.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.3.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.3.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.3.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.3.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.3.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.3.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.3.value"
+        }
+      ]
+    },
+    "metric_columns.3.case": {
+      "description": "Metric columns 4 \u2014 Case",
+      "formConfig": "metric_columns.3.case",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.eval": {
+      "description": "Metric columns 4 \u2014 Eval",
+      "formConfig": "metric_columns.3.eval",
+      "defaultNextState": "metric_columns.3.eval.eval_expr"
+    },
+    "metric_columns.3.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.3.eval.eval_expr",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.hash": {
+      "description": "Metric columns 4 \u2014 Hash",
+      "formConfig": "metric_columns.3.hash",
+      "defaultNextState": "metric_columns.3.hash.hash_expr"
+    },
+    "metric_columns.3.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.3.hash.hash_expr",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.lookup": {
+      "description": "Metric columns 4 \u2014 Lookup",
+      "formConfig": "metric_columns.3.lookup",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.map": {
+      "description": "Metric columns 4 \u2014 Map",
+      "formConfig": "metric_columns.3.map",
+      "defaultNextState": "metric_columns.3.map.map_expr"
+    },
+    "metric_columns.3.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.3.map.map_expr",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.multi_select": {
+      "description": "Metric columns 4 \u2014 Multi select",
+      "formConfig": "metric_columns.3.multi_select",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.select": {
+      "description": "Metric columns 4 \u2014 Select",
+      "formConfig": "metric_columns.3.select",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.3.value": {
+      "description": "Metric columns 4 \u2014 Value",
+      "formConfig": "metric_columns.3.value",
+      "defaultNextState": "metric_columns.4"
+    },
+    "metric_columns.4": {
+      "description": "Metric columns 5: choose which kind",
+      "formConfig": "metric_columns.4",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.4.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.4.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.4.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.4.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.4.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.4.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.4.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.4.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.4.value"
+        }
+      ]
+    },
+    "metric_columns.4.case": {
+      "description": "Metric columns 5 \u2014 Case",
+      "formConfig": "metric_columns.4.case",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.eval": {
+      "description": "Metric columns 5 \u2014 Eval",
+      "formConfig": "metric_columns.4.eval",
+      "defaultNextState": "metric_columns.4.eval.eval_expr"
+    },
+    "metric_columns.4.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.4.eval.eval_expr",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.hash": {
+      "description": "Metric columns 5 \u2014 Hash",
+      "formConfig": "metric_columns.4.hash",
+      "defaultNextState": "metric_columns.4.hash.hash_expr"
+    },
+    "metric_columns.4.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.4.hash.hash_expr",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.lookup": {
+      "description": "Metric columns 5 \u2014 Lookup",
+      "formConfig": "metric_columns.4.lookup",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.map": {
+      "description": "Metric columns 5 \u2014 Map",
+      "formConfig": "metric_columns.4.map",
+      "defaultNextState": "metric_columns.4.map.map_expr"
+    },
+    "metric_columns.4.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.4.map.map_expr",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.multi_select": {
+      "description": "Metric columns 5 \u2014 Multi select",
+      "formConfig": "metric_columns.4.multi_select",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.select": {
+      "description": "Metric columns 5 \u2014 Select",
+      "formConfig": "metric_columns.4.select",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.4.value": {
+      "description": "Metric columns 5 \u2014 Value",
+      "formConfig": "metric_columns.4.value",
+      "defaultNextState": "metric_columns.5"
+    },
+    "metric_columns.5": {
+      "description": "Metric columns 6: choose which kind",
+      "formConfig": "metric_columns.5",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.5.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.5.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.5.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.5.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.5.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.5.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.5.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.5.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.5.value"
+        }
+      ]
+    },
+    "metric_columns.5.case": {
+      "description": "Metric columns 6 \u2014 Case",
+      "formConfig": "metric_columns.5.case",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.eval": {
+      "description": "Metric columns 6 \u2014 Eval",
+      "formConfig": "metric_columns.5.eval",
+      "defaultNextState": "metric_columns.5.eval.eval_expr"
+    },
+    "metric_columns.5.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.5.eval.eval_expr",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.hash": {
+      "description": "Metric columns 6 \u2014 Hash",
+      "formConfig": "metric_columns.5.hash",
+      "defaultNextState": "metric_columns.5.hash.hash_expr"
+    },
+    "metric_columns.5.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.5.hash.hash_expr",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.lookup": {
+      "description": "Metric columns 6 \u2014 Lookup",
+      "formConfig": "metric_columns.5.lookup",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.map": {
+      "description": "Metric columns 6 \u2014 Map",
+      "formConfig": "metric_columns.5.map",
+      "defaultNextState": "metric_columns.5.map.map_expr"
+    },
+    "metric_columns.5.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.5.map.map_expr",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.multi_select": {
+      "description": "Metric columns 6 \u2014 Multi select",
+      "formConfig": "metric_columns.5.multi_select",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.select": {
+      "description": "Metric columns 6 \u2014 Select",
+      "formConfig": "metric_columns.5.select",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.5.value": {
+      "description": "Metric columns 6 \u2014 Value",
+      "formConfig": "metric_columns.5.value",
+      "defaultNextState": "metric_columns.6"
+    },
+    "metric_columns.6": {
+      "description": "Metric columns 7: choose which kind",
+      "formConfig": "metric_columns.6",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.6.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.6.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.6.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.6.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.6.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.6.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.6.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.6.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.6.value"
+        }
+      ]
+    },
+    "metric_columns.6.case": {
+      "description": "Metric columns 7 \u2014 Case",
+      "formConfig": "metric_columns.6.case",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.eval": {
+      "description": "Metric columns 7 \u2014 Eval",
+      "formConfig": "metric_columns.6.eval",
+      "defaultNextState": "metric_columns.6.eval.eval_expr"
+    },
+    "metric_columns.6.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.6.eval.eval_expr",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.hash": {
+      "description": "Metric columns 7 \u2014 Hash",
+      "formConfig": "metric_columns.6.hash",
+      "defaultNextState": "metric_columns.6.hash.hash_expr"
+    },
+    "metric_columns.6.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.6.hash.hash_expr",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.lookup": {
+      "description": "Metric columns 7 \u2014 Lookup",
+      "formConfig": "metric_columns.6.lookup",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.map": {
+      "description": "Metric columns 7 \u2014 Map",
+      "formConfig": "metric_columns.6.map",
+      "defaultNextState": "metric_columns.6.map.map_expr"
+    },
+    "metric_columns.6.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.6.map.map_expr",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.multi_select": {
+      "description": "Metric columns 7 \u2014 Multi select",
+      "formConfig": "metric_columns.6.multi_select",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.select": {
+      "description": "Metric columns 7 \u2014 Select",
+      "formConfig": "metric_columns.6.select",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.6.value": {
+      "description": "Metric columns 7 \u2014 Value",
+      "formConfig": "metric_columns.6.value",
+      "defaultNextState": "metric_columns.7"
+    },
+    "metric_columns.7": {
+      "description": "Metric columns 8: choose which kind",
+      "formConfig": "metric_columns.7",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.7.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.7.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.7.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.7.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.7.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.7.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.7.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.7.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.7.value"
+        }
+      ]
+    },
+    "metric_columns.7.case": {
+      "description": "Metric columns 8 \u2014 Case",
+      "formConfig": "metric_columns.7.case",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.eval": {
+      "description": "Metric columns 8 \u2014 Eval",
+      "formConfig": "metric_columns.7.eval",
+      "defaultNextState": "metric_columns.7.eval.eval_expr"
+    },
+    "metric_columns.7.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.7.eval.eval_expr",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.hash": {
+      "description": "Metric columns 8 \u2014 Hash",
+      "formConfig": "metric_columns.7.hash",
+      "defaultNextState": "metric_columns.7.hash.hash_expr"
+    },
+    "metric_columns.7.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.7.hash.hash_expr",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.lookup": {
+      "description": "Metric columns 8 \u2014 Lookup",
+      "formConfig": "metric_columns.7.lookup",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.map": {
+      "description": "Metric columns 8 \u2014 Map",
+      "formConfig": "metric_columns.7.map",
+      "defaultNextState": "metric_columns.7.map.map_expr"
+    },
+    "metric_columns.7.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.7.map.map_expr",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.multi_select": {
+      "description": "Metric columns 8 \u2014 Multi select",
+      "formConfig": "metric_columns.7.multi_select",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.select": {
+      "description": "Metric columns 8 \u2014 Select",
+      "formConfig": "metric_columns.7.select",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.7.value": {
+      "description": "Metric columns 8 \u2014 Value",
+      "formConfig": "metric_columns.7.value",
+      "defaultNextState": "metric_columns.8"
+    },
+    "metric_columns.8": {
+      "description": "Metric columns 9: choose which kind",
+      "formConfig": "metric_columns.8",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "case"
+          },
+          "nextState": "metric_columns.8.case"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "eval"
+          },
+          "nextState": "metric_columns.8.eval"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "hash"
+          },
+          "nextState": "metric_columns.8.hash"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "lookup"
+          },
+          "nextState": "metric_columns.8.lookup"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "map"
+          },
+          "nextState": "metric_columns.8.map"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "multi_select"
+          },
+          "nextState": "metric_columns.8.multi_select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "select"
+          },
+          "nextState": "metric_columns.8.select"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "metric_columns.8.type",
+            "value": "value"
+          },
+          "nextState": "metric_columns.8.value"
+        }
+      ]
+    },
+    "metric_columns.8.case": {
+      "description": "Metric columns 9 \u2014 Case",
+      "formConfig": "metric_columns.8.case",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.eval": {
+      "description": "Metric columns 9 \u2014 Eval",
+      "formConfig": "metric_columns.8.eval",
+      "defaultNextState": "metric_columns.8.eval.eval_expr"
+    },
+    "metric_columns.8.eval.eval_expr": {
+      "description": "Eval expr (ExpressionNode)",
+      "formConfig": "metric_columns.8.eval.eval_expr",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.hash": {
+      "description": "Metric columns 9 \u2014 Hash",
+      "formConfig": "metric_columns.8.hash",
+      "defaultNextState": "metric_columns.8.hash.hash_expr"
+    },
+    "metric_columns.8.hash.hash_expr": {
+      "description": "Hash expr (HashExpression)",
+      "formConfig": "metric_columns.8.hash.hash_expr",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.lookup": {
+      "description": "Metric columns 9 \u2014 Lookup",
+      "formConfig": "metric_columns.8.lookup",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.map": {
+      "description": "Metric columns 9 \u2014 Map",
+      "formConfig": "metric_columns.8.map",
+      "defaultNextState": "metric_columns.8.map.map_expr"
+    },
+    "metric_columns.8.map.map_expr": {
+      "description": "Map expr (MapExpression)",
+      "formConfig": "metric_columns.8.map.map_expr",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.multi_select": {
+      "description": "Metric columns 9 \u2014 Multi select",
+      "formConfig": "metric_columns.8.multi_select",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.select": {
+      "description": "Metric columns 9 \u2014 Select",
+      "formConfig": "metric_columns.8.select",
+      "defaultNextState": "partition_output"
+    },
+    "metric_columns.8.value": {
+      "description": "Metric columns 9 \u2014 Value",
+      "formConfig": "metric_columns.8.value",
+      "defaultNextState": "partition_output"
+    },
+    "partition_output": {
+      "description": "Partition output (PartitionWriterPipe)",
+      "formConfig": "partition_output",
+      "defaultNextState": "partition_output.output_channel"
+    },
+    "partition_output.output_channel": {
+      "description": "Output channel: choose which kind",
+      "formConfig": "partition_output.output_channel",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "partition_output.output_channel.type",
+            "value": "memory"
+          },
+          "nextState": "partition_output.output_channel.memory"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "partition_output.output_channel.type",
+            "value": "output"
+          },
+          "nextState": "partition_output.output_channel.output"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "partition_output.output_channel.type",
+            "value": "sql"
+          },
+          "nextState": "partition_output.output_channel.sql"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "partition_output.output_channel.type",
+            "value": "stage"
+          },
+          "nextState": "partition_output.output_channel.stage"
+        }
+      ]
+    },
+    "partition_output.output_channel.memory": {
+      "description": "Output channel \u2014 Memory",
+      "formConfig": "partition_output.output_channel.memory",
+      "defaultNextState": "partition_output.partition_writer_config"
+    },
+    "partition_output.output_channel.output": {
+      "description": "Output channel \u2014 Output",
+      "formConfig": "partition_output.output_channel.output",
+      "defaultNextState": "partition_output.output_channel.output.parquet_schema"
+    },
+    "partition_output.output_channel.output.parquet_schema": {
+      "description": "Parquet schema (ParquetSchemaInfo)",
+      "formConfig": "partition_output.output_channel.output.parquet_schema",
+      "defaultNextState": "partition_output.partition_writer_config"
+    },
+    "partition_output.output_channel.sql": {
+      "description": "Output channel \u2014 Sql",
+      "formConfig": "partition_output.output_channel.sql",
+      "defaultNextState": "partition_output.partition_writer_config"
+    },
+    "partition_output.output_channel.stage": {
+      "description": "Output channel \u2014 Stage",
+      "formConfig": "partition_output.output_channel.stage",
+      "defaultNextState": "partition_output.output_channel.stage.parquet_schema"
+    },
+    "partition_output.output_channel.stage.parquet_schema": {
+      "description": "Parquet schema (ParquetSchemaInfo)",
+      "formConfig": "partition_output.output_channel.stage.parquet_schema",
+      "defaultNextState": "partition_output.partition_writer_config"
+    },
+    "partition_output.partition_writer_config": {
+      "description": "Partition writer config (PartitionWriterSpec)",
+      "formConfig": "partition_output.partition_writer_config",
+      "defaultNextState": "partition_output.when"
+    },
+    "partition_output.when": {
+      "description": "When (ExpressionNode)",
+      "formConfig": "partition_output.when",
+      "isEnd": true,
+      "stateAction": "cpipesTemplateApply"
+    }
+  }
+}

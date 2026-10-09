@@ -85,7 +85,7 @@ func (server *Server) DoInferServerAction(w http.ResponseWriter, r *http.Request
 	if !jetsUser.HasCapability(InferServerCapability) {
 		log.Printf("user %s attempted an infer server action without the %s capability",
 			userEmail, InferServerCapability)
-		ERROR(w, http.StatusUnauthorized,
+		ERROR(w, http.StatusForbidden,
 			errors.New("error: unauthorized, user do not have required capability"))
 		return
 	}

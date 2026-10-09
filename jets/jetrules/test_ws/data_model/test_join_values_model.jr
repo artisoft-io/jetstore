@@ -1,0 +1,26 @@
+# Data Model for the join_values UC
+#
+# A medication with several fills, which is the shape join_values was written for:
+# folding a multi-valued property into one ordered string so a prompt can carry
+# "2025-06-15; 2025-07-20; 2025-08-24" rather than three triples.
+
+class jv:Fill {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jv:fill_date              as date
+  ],
+  $as_table = true
+};
+
+class jv:Medication {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    jv:fill_dates             as text,
+    jv:ndc_list               as text,
+    jv:ndc_seen               as array of text
+  ],
+  $object_properties = [
+    jv:has_fill               as array of resource
+  ],
+  $as_table = true
+};

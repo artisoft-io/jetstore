@@ -4,12 +4,108 @@ ARG WORKSPACE
 ENV WORKSPACE=${WORKSPACE}
 ENV WORKSPACES_REPO=/workspaces
 
-# Copy the workspace and compile it
-# Copy the whole repo so to be able to pull and push changes
+# The version compile_workspace stamps into the database, and therefore the
+# value every runtime image's JETS_VERSION is compared against by
+# SyncComputePipesWorkspace. It must be the *current* build run's, which is why
+# it is an explicit build arg rather than the ENV inherited from
+# cpipes_builder above: build_cpipes.sh rebuilds that image only on a prompt, so
+# the inherited value is whenever the builder was last rebuilt, while
+# ui_service and cpipes receive the current run's value directly. Those two
+# disagreeing is what made the skip never fire.
+#
+# Measured, because the resolution rule is not the obvious one and one of the
+# three cases is a trap:
+#
+#   ARG declared, no --build-arg      -> the inherited ENV. A safe fallback,
+#                                        and the reason adding this line before
+#                                        build_workspace.sh passes the arg is a
+#                                        no-op rather than a breakage.
+#   --build-arg JETS_VERSION=<ts>     -> <ts>. What we want.
+#   --build-arg JETS_VERSION=         -> empty, and it does shadow the ENV.
+#
+# The third is what `--build-arg "JETS_VERSION=$JETS_VERSION"` expands to when
+# the variable is unset in the shell, so build_workspace.sh guards against that
+# before it gets here. If one ever slips through, the compile below aborts —
+# compile_workspace panics on an empty -v
+# (jets/cmds/compile_workspace/main.go:25) — rather than stamping a version
+# nothing will match.
+ARG JETS_VERSION
+
+# Copy the workspace and compile it.
+#
+# The whole build context, `.`, rather than a subset. The reason used to be
+# stated here as "so to be able to pull and push changes": the runtime pulls and
+# pushes through the workspace's own .git, so the repository had to travel with
+# the tree. That reason holds for a site that has a route to a source-control
+# host and it is no longer the only shape a workspace comes in. A tree with no
+# .git in it is a supported input as of 2026-09: a deployment setting
+# JETS_NO_GIT_ACCESS runs with git integration off, and the workspace registry
+# then reports status and refuses the write actions without shelling out to git
+# (jets/datatable/git/no_git_access.go).
+#
+# So this line decides something narrower than the old comment claimed, and also
+# something more final. Whether a .git is on disk at runtime is settled by what
+# the build context holds: cbooter carries WORKSPACES_REPO to WORKSPACES_HOME
+# with `cp -r` (jets/cmds/cbooter/main.go:129, and again at :155), which
+# preserves whatever this COPY brought in and adds nothing. Copying `.` keeps a
+# repository for the deployment that wants one and costs a no-git build only the
+# bytes, which is why the COPY itself is unchanged.
 COPY . $WORKSPACES_REPO/$WORKSPACE/
 
+# **Normalise the incoming workspace's permissions. This is the client's
+# artifact, and its directory modes are whatever their checkout produced.**
+#
+# It matters because `ensureLocalRepoSeeded` copies this tree out of the image
+# as the *native lambda handler's* identity rather than as the root that built
+# it, so a directory anywhere below here that root can traverse and nobody else
+# can fails the copy and the function never starts. That is not hypothetical: the
+# image shipped on 2026-08-31 carried `build/`, `build/jet_rules` and
+# `build/jet_rules/clinical_intel` at 0770 — dated months before that build,
+# because they came in through the COPY above — against 222 files that were all
+# world-readable. See jets/workspace/README.md.
+#
+# **Here rather than only after the compile, because the archive is built in
+# between.** `compile_workspace` writes workspace.tgz from this tree, and a
+# tarball preserves modes; normalising afterwards would ship a correct directory
+# tree alongside an archive that still carried the bad one.
+#
+# `a+rX` adds read for everyone and execute only where execute is already set, so
+# it opens directories and does not make data files executable. It only ever
+# adds permissions, and this filesystem is read-only at runtime.
+RUN chmod -R a+rX $WORKSPACES_REPO/$WORKSPACE
+
+# Install the JetStore-owned assets into the workspace's data_model/ and
+# pipes_config/ before the compile reads them. The assets are embedded in the binary, so this needs no path
+# into the JetStore source tree. It fails the build rather than overwrite a
+# JetStore-owned file the workspace has changed locally — see
+# jets/workspace_assets/install.go.
+RUN \
+  echo "Installing JetStore-owned assets into $WORKSPACES_REPO/$WORKSPACE" \
+  && WORKSPACES_HOME=${WORKSPACES_REPO} /app/install_workspace_assets -w=${WORKSPACE}
+
+# **The compile validates the workspace's user_flows/ and table_configs/ first,
+# and an invalid document fails this build** (jetstore_maintenance_02 AG.4,
+# 2026-10-01; jets/workspace/asset_validation.go). Nothing here sets that up: the
+# script is /app/jets_validate_workspace.mjs beside /app/compile_workspace and node
+# is on PATH, both inherited from cpipes_builder. The findings print with file and
+# JSON Pointer in the build log, above the error.
 RUN \
   echo "Compiling workspace in $WORKSPACES_REPO/$WORKSPACE" \
   && rm -rf $WORKSPACES_REPO/$WORKSPACE/cdk/jetstore_one/cdk.out/* \  
   && ls -la $WORKSPACES_REPO/$WORKSPACE/ \
   && WORKSPACES_HOME=${WORKSPACES_REPO} /app/compile_workspace -w=${WORKSPACE} -v=${JETS_VERSION}
+
+# The same again, and it is not a duplicate of the one after the COPY — **do not
+# delete either thinking it is.** That one normalises what the client shipped,
+# before the archive is built from it. This one covers what the two RUN steps
+# above created: the asset installer and the compiler both write directories,
+# and while both now go through `utils.EnsureWorkspaceDir`, this is the last
+# point where the shipped tree can be made to hold the property the lambda needs
+# regardless of which step produced a given directory.
+#
+# Cheap insurance for a failure whose cost is a production outage plus a full
+# image rebuild — which is what it cost twice, on 2026-08-27 and again on
+# 2026-08-31, the second time because the first fix passed the right mode to
+# `os.MkdirAll` and `os.MkdirAll` does not re-mode a directory that already
+# exists.
+RUN chmod -R a+rX $WORKSPACES_REPO/$WORKSPACE

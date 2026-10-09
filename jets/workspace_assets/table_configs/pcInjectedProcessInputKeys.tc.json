@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Data Source to Inject",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization the file came from"
+    },
+    {
+      "name": "object_type",
+      "label": "Domain Key",
+      "tooltip": "Pipeline Grouping Domain Key"
+    },
+    {
+      "name": "entity_rdf_type",
+      "label": "Domain Class",
+      "tooltip": "Canonical model for the source data"
+    },
+    {
+      "name": "source_type",
+      "label": "Source Type",
+      "tooltip": "Source of the input data, either File or Domain Table"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the data reside"
+    },
+    {
+      "name": "lookback_periods",
+      "label": "Lookback Periods",
+      "tooltip": "Number of periods included in the rule session",
+      "isNumeric": true
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 10,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_input"
+    }
+  ],
+  "where": [
+    {
+      "column": "client",
+      "formStateKey": "client"
+    },
+    {
+      "column": "object_type",
+      "formStateKey": "main_object_type"
+    },
+    {
+      "column": "source_type",
+      "defaultValue": [
+        "alias_domain_table"
+      ]
+    },
+    {
+      "column": "entity_rdf_type",
+      "formStateKey": "entity_rdf_type"
+    }
+  ],
+  "actions": [
+    {
+      "key": "addProcessInput",
+      "label": "Add/Update Data Source Configuration",
+      "action": "doActionShowDialog",
+      "style": "primary",
+      "actionName": "pcSetProcessInputRegistryKey",
+      "configForm": "pcNewProcessInputDialog4MI",
+      "navigationParams": {
+        "key": 0,
+        "org": 2,
+        "object_type": 3,
+        "entity_rdf_type": 4,
+        "source_type": 5,
+        "table_name": 6,
+        "lookback_periods": 7,
+        "where.source_type": "{alias_domain_table}"
+      },
+      "stateFormNavigationParams": {
+        "client": "client",
+        "process_name": "process_name",
+        "object_type": "main_object_type",
+        "source_type": "source_type"
+      }
+    }
+  ]
+}

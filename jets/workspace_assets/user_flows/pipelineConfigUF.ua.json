@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "pcAddPipelineConfigUF": {
+      "description": "Initialise a new pipeline configuration",
+      "steps": [
+        { "do": "set", "key": "max_rete_sessions_saved", "value": { "literal": "0" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "literal": "{}" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "literal": "{}" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "require", "keys": ["process_name"], "message": "Error: null process_name in formState" },
+        { "do": "query", "name": "processInputRdfTypes",
+          "into": { "process_config_key": "key", "entity_rdf_type": "input_rdf_types" } }
+      ]
+    },
+    "pcGoToAddPipelineConfig": {
+      "description": "+ Add on the pipeline config table: clear every key the edit path sets, so an add after an edit inserts rather than updating the configuration just edited (pcSavePipelineConfigUF updates whenever pcPipelineConfigTable is set), then open the add page. The list is in actions.md",
+      "steps": [
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
+        { "do": "clearSelection", "key": "pcMainProcessInputKey" },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcMergedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcInjectedProcessInputKeys" },
+        { "do": "clearSelection", "key": "pcSummaryProcessInputs" },
+        { "do": "clearSelection", "key": "pcProcessInputRegistry" },
+        { "do": "clearSelection", "key": "pcProcessInputRegistry4MI" },
+        { "do": "remove", "keys": [
+          "pcPipelineConfigTable", "key", "client", "process_name", "process_config_key",
+          "main_process_input_key", "merged_process_input_keys", "main_object_type",
+          "main_source_type", "source_period_type", "automated", "description",
+          "max_rete_sessions_saved", "injected_process_input_keys", "rule_config_json",
+          "entity_rdf_type", "pcMainProcessInputKey",
+          "pcViewMergedProcessInputKeys", "pcMergedProcessInputKeys",
+          "pcViewInjectedProcessInputKeys", "pcInjectedProcessInputKeys",
+          "ufAllProcessInputKeys", "pcSummaryProcessInputs",
+          "pcProcessInputRegistry", "pcProcessInputRegistry4MI",
+          "org", "object_type", "source_type", "table_name", "lookback_periods",
+          "user_email", "serverError"
+        ] },
+        { "do": "goToState", "state": "add_pipeline_config" }
+      ]
+    },
+    "pcCancelToList": {
+      "description": "Cancel on a page of the wizard: abandon the add or the edit and return to the pipeline config table rather than leaving the flow. The selection is cleared first, so Edit needs a row ticked again, which publishes it afresh from the table rather than reopening the abandoned values",
+      "steps": [
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
+        { "do": "goToState", "state": "select_pipeline_config" }
+      ]
+    },
+    "pcSelectPipelineConfigUF": {
+      "description": "Load the selected pipeline configuration into the form",
+      "steps": [
+        { "do": "set", "key": "automated", "value": { "fromKey": "automated" } },
+        { "do": "set", "key": "client", "value": { "fromKey": "client" } },
+        { "do": "set", "key": "description", "value": { "fromKey": "description" } },
+        { "do": "set", "key": "pcPipelineConfigTable", "value": { "fromKey": "pcPipelineConfigTable" } },
+        { "do": "set", "key": "main_object_type", "value": { "fromKey": "main_object_type" } },
+        { "do": "set", "key": "main_process_input_key", "value": { "fromKey": "main_process_input_key" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKey": "merged_process_input_keys" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKey": "injected_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "set", "key": "main_source_type", "value": { "fromKey": "main_source_type" } },
+        { "do": "set", "key": "max_rete_sessions_saved", "value": { "fromKey": "max_rete_sessions_saved" } },
+        { "do": "set", "key": "process_config_key", "value": { "fromKey": "process_config_key" } },
+        { "do": "set", "key": "process_name", "value": { "fromKey": "process_name" } },
+        { "do": "set", "key": "rule_config_json", "value": { "fromKey": "rule_config_json" } },
+        { "do": "set", "key": "source_period_type", "value": { "fromKey": "source_period_type" } },
+        { "do": "set", "key": "pcMainProcessInputKey", "value": { "fromKey": "main_process_input_key" } }
+      ]
+    },
+    "deletePipelineConfig": {
+      "description": "Delete the selected pipeline configuration",
+      "steps": [
+        { "do": "confirm", "message": "Are you sure you want to delete the selected Pipeline Configuration?" },
+        { "do": "set", "key": "key", "value": { "fromKey": "key" } },
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
+        { "do": "remove", "keys": ["pcPipelineConfigTable"] },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/pipeline_config",
+          "data": { "rows": "wholeState" } },
+        { "do": "remove", "keys": ["key"] }
+      ]
+    },
+    "pcRemoveMergedProcessInput": {
+      "description": "Remove a data source from the merge set",
+      "steps": [
+        { "do": "removeFrom", "listKey": "merged_process_input_keys", "value": { "fromKey": "pcViewMergedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" }
+      ]
+    },
+    "pcRemoveInjectedProcessInput": {
+      "description": "Remove a data source from the injected set",
+      "steps": [
+        { "do": "removeFrom", "listKey": "injected_process_input_keys", "value": { "fromKey": "pcViewInjectedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" }
+      ]
+    },
+    "pcGotToAddMergeProcessInputUF": {
+      "description": "Go to the page that adds a data source to merge",
+      "steps": [
+        { "do": "goToState", "state": "add_merge_process_inputs" },
+        { "do": "remove", "keys": ["pcMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcMergedProcessInputKeys" }
+      ]
+    },
+    "pcGotToAddInjectedProcessInputUF": {
+      "description": "Go to the page that adds a data source for historical data",
+      "steps": [
+        { "do": "goToState", "state": "add_injected_process_inputs" },
+        { "do": "remove", "keys": ["pcInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcInjectedProcessInputKeys" }
+      ]
+    },
+    "pcSelectMainProcessInputUF": {
+      "description": "Record the selected main process input",
+      "steps": [
+        { "do": "set", "key": "main_process_input_key", "value": { "fromKey": "pcMainProcessInputKey" } }
+      ]
+    },
+    "pcAddMergeProcessInputUF": {
+      "description": "Add the selected data source to the merge set",
+      "steps": [
+        { "do": "appendUnique", "listKey": "merged_process_input_keys", "value": { "fromKey": "pcMergedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" }
+      ]
+    },
+    "pcAddInjectedProcessInputUF": {
+      "description": "Add the selected data source to the injected set",
+      "steps": [
+        { "do": "appendUnique", "listKey": "injected_process_input_keys", "value": { "fromKey": "pcInjectedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" }
+      ]
+    },
+    "pcPrepareSummaryUF": {
+      "description": "Collect every process input key for the summary",
+      "steps": [
+        { "do": "require", "keys": ["main_process_input_key"], "message": "Unexpected error" },
+        { "do": "set", "key": "ufAllProcessInputKeys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "appendUnique", "listKey": "ufAllProcessInputKeys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "appendUnique", "listKey": "ufAllProcessInputKeys", "value": { "fromKeyList": "main_process_input_key" } }
+      ]
+    },
+    "pcSavePipelineConfigUF": {
+      "description": "Save the pipeline configuration, inserting a new row or updating the selected one, then clear the table's selection as Cancel does",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "pipeline_config",
+          "when": { "op": "isNullOrEmpty", "key": "pcPipelineConfigTable" },
+          "onConflict": "Record already exist, please verify.",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "process_name": { "fromKey": "process_name" },
+              "process_config_key": { "fromKey": "process_config_key" },
+              "client": { "fromKey": "client" },
+              "max_rete_sessions_saved": { "fromKey": "max_rete_sessions_saved" },
+              "rule_config_json": { "fromKey": "rule_config_json" },
+              "source_period_type": { "fromKey": "source_period_type" },
+              "main_process_input_key": { "fromKey": "main_process_input_key" },
+              "main_object_type": { "fromKey": "main_object_type" },
+              "main_source_type": { "fromKey": "main_source_type" },
+              "automated": { "fromKey": "automated" },
+              "description": { "fromKey": "description" },
+              "user_email": { "userEmail": true },
+              "merged_process_input_keys": { "pgArrayFromKey": "merged_process_input_keys" },
+              "injected_process_input_keys": { "pgArrayFromKey": "injected_process_input_keys" }
+            }
+          } },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "update/pipeline_config",
+          "when": { "op": "not", "condition": { "op": "isNullOrEmpty", "key": "pcPipelineConfigTable" } },
+          "onConflict": "Record already exist, please verify.",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "key": { "fromKey": "pcPipelineConfigTable" },
+              "process_name": { "fromKey": "process_name" },
+              "process_config_key": { "fromKey": "process_config_key" },
+              "client": { "fromKey": "client" },
+              "max_rete_sessions_saved": { "fromKey": "max_rete_sessions_saved" },
+              "rule_config_json": { "fromKey": "rule_config_json" },
+              "source_period_type": { "fromKey": "source_period_type" },
+              "main_process_input_key": { "fromKey": "main_process_input_key" },
+              "main_object_type": { "fromKey": "main_object_type" },
+              "main_source_type": { "fromKey": "main_source_type" },
+              "automated": { "fromKey": "automated" },
+              "description": { "fromKey": "description" },
+              "user_email": { "userEmail": true },
+              "merged_process_input_keys": { "pgArrayFromKey": "merged_process_input_keys" },
+              "injected_process_input_keys": { "pgArrayFromKey": "injected_process_input_keys" }
+            }
+          } },
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" }
+      ]
+    },
+    "pcSetProcessInputRegistryKey": {
+      "description": "Derive the process input registry key from four form values",
+      "steps": [
+        { "do": "remove", "keys": ["pcProcessInputRegistry", "pcProcessInputRegistry4MI"],
+          "when": { "op": "or", "conditions": [
+            { "op": "isNull", "key": "process_name" },
+            { "op": "isNull", "key": "object_type" },
+            { "op": "isNull", "key": "table_name" },
+            { "op": "isNull", "key": "source_type" }
+          ] } },
+        { "do": "set", "key": "pcProcessInputRegistry",
+          "when": { "op": "and", "conditions": [
+            { "op": "not", "condition": { "op": "isNull", "key": "process_name" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "object_type" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "table_name" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "source_type" } }
+          ] },
+          "value": { "template": "{process_name}{object_type}{table_name}{source_type}" } },
+        { "do": "set", "key": "pcProcessInputRegistry4MI",
+          "when": { "op": "and", "conditions": [
+            { "op": "not", "condition": { "op": "isNull", "key": "process_name" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "object_type" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "table_name" } },
+            { "op": "not", "condition": { "op": "isNull", "key": "source_type" } }
+          ] },
+          "value": { "template": "{process_name}{object_type}{table_name}{source_type}" } }
+      ]
+    },
+    "addProcessInputOk": {
+      "description": "Save the process input the dialog describes, adding a row or updating the selected one",
+      "steps": [
+        { "do": "validate" },
+        { "do": "set", "key": "user_email", "value": { "userEmail": true } },
+        { "do": "set", "key": "client", "value": { "fromKey": "client" } },
+        { "do": "set", "key": "org", "value": { "fromKey": "org" } },
+        { "do": "set", "key": "source_type", "value": { "fromKey": "source_type" } },
+        { "do": "set", "key": "object_type", "value": { "fromKey": "object_type" } },
+        { "do": "set", "key": "entity_rdf_type", "value": { "fromKey": "entity_rdf_type" } },
+        { "do": "set", "key": "table_name", "value": { "fromKey": "table_name" } },
+        { "do": "require", "keys": ["source_type"],
+          "message": "Cannot save this data source: its source type is not set." },
+        { "do": "set", "key": "org", "value": { "literal": "" },
+          "when": { "op": "not", "condition": { "op": "or", "conditions": [
+            { "op": "equals", "key": "source_type", "value": "file" },
+            { "op": "equals", "key": "source_type", "value": "db_table" }
+          ] } } },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "process_input",
+          "when": { "op": "isNull", "key": "key" },
+          "transport": "insertRows",
+          "data": { "rows": "wholeState" } },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "update2/process_input",
+          "when": { "op": "not", "condition": { "op": "isNull", "key": "key" } },
+          "transport": "insertRows",
+          "data": { "rows": "wholeState" } }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

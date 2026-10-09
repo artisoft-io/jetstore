@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "label": "Data Model",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "data_properties",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "name",
+      "label": "Class Name",
+      "table": "domain_classes",
+      "tooltip": "Domain Class Name"
+    },
+    {
+      "name": "name",
+      "label": "Property Name",
+      "table": "data_properties",
+      "tooltip": "Domain Property Name"
+    },
+    {
+      "name": "type",
+      "label": "Property Type",
+      "table": "data_properties",
+      "tooltip": "Range type of the property"
+    },
+    {
+      "name": "as_array",
+      "label": "Is Array?",
+      "table": "data_properties",
+      "tooltip": "Is the property multi value?"
+    }
+  ],
+  "sortColumn": "name",
+  "sortColumnTable": "domain_classes",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "data_properties"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "domain_classes"
+    }
+  ],
+  "where": [
+    {
+      "column": "domain_class_key",
+      "joinWith": "domain_classes.key"
+    }
+  ]
+}

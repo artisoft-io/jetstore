@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "fmMappingFormUF": {
+      "title": "File Mapping Worksheet",
+      "queries": {
+        "inputFields": {
+          "sql": "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message, md.default_column_value FROM jetsapi.object_type_mapping_details md LEFT JOIN (SELECT * FROM jetsapi.process_mapping WHERE table_name = '{table_name}') pm ON md.data_property = pm.data_property WHERE md.object_type = '{object_type}' ORDER BY md.data_property ASC LIMIT 1000",
+          "params": ["table_name", "object_type"]
+        },
+        "inputColumns": {
+          "sql": "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id') ORDER BY column_name",
+          "params": ["table_name"]
+        },
+        "mappingFunctions": {
+          "sql": "SELECT function_name, is_argument_required FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 500"
+        }
+      },
+      "repeat": {
+        "from": "inputFields",
+        "seed": "seedMappingRow"
+      },
+      "validator": "mappingFormValidator",
+      "autovalidate": true,
+      "rows": [
+        [{ "field": "label", "fromKey": "data_property_label" }],
+        [
+          {
+            "field": "typeahead",
+            "key": "input_column",
+            "label": "Input Column",
+            "hint": "Input File Column Name",
+            "itemsFrom": "inputColumns",
+            "priorityKey": "data_property",
+            "maxLength": 120
+          },
+          {
+            "field": "dropdown",
+            "key": "function_name",
+            "label": "Cleansing Function",
+            "items": [{ "value": "", "label": "Select cleansing function" }],
+            "itemsFrom": "mappingFunctions"
+          },
+          {
+            "field": "text",
+            "key": "argument",
+            "label": "Function Argument",
+            "hint": "Cleansing function argument, it is either required or ignored",
+            "maxLength": 512
+          },
+          {
+            "field": "text",
+            "key": "default_value",
+            "label": "Default Value",
+            "hint": "Default value to use if input value is not provided or cleansing function returns null",
+            "maxLength": 512
+          },
+          {
+            "field": "text",
+            "key": "error_message",
+            "label": "Error Message",
+            "hint": "Error message to raise if input value is not provided or cleansing function returns null and there is no default value",
+            "maxLength": 125
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "mapperOk",
+          "label": "Save",
+          "style": "primary",
+          "capability": "client_config",
+          "enableOnlyWhenFormValid": true
+        },
+        {
+          "action": "mapperDraft",
+          "label": "Save as Draft",
+          "style": "secondary",
+          "capability": "client_config",
+          "enableOnlyWhenFormNotValid": true
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

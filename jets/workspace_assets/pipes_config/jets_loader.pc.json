@@ -1,0 +1,71 @@
+{
+  "cluster_config": {
+    "default_max_concurrency": 20,
+    "s3_worker_pool_size": 20,
+    "shard_offset": 25000,
+    "default_shard_size_mb": 200.0,
+    "default_shard_max_size_mb": 220.0,
+    "is_debug_mode": false,
+    "cluster_sharding_tiers": [
+      {
+        "applies_to_format": "parquet",
+        "when_total_size_ge_mb": 100,
+        "shard_size_mb": 100,
+        "shard_max_size_mb": 110
+      }
+    ]
+  },
+  "output_tables": [
+    {
+      "key": "staging",
+      "name": "${STAGING_TABLE_NAME}",
+      "channel_spec_name": "staging"
+    }
+  ],
+  "channels": [
+    {
+      "name": "input_row",
+      "columns": [
+        "session_id"
+      ]
+    },
+    {
+      "name": "staging",
+      "same_columns_as_input": true,
+      "columns": [
+        "placeholder"
+      ]
+    }
+  ],
+  "conditional_pipes_config": [
+    {
+      "step_name": "Load to DB",
+      "pipes_config": [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "type": "input",
+            "name": "input_row",
+            "sampling_max_count": 5000
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "columns": [
+                {
+                  "name": "session_id",
+                  "type": "value",
+                  "expr": "$ORIGIN_SESSIONID"
+                }
+              ],
+              "output_channel": {
+                "type": "sql",
+                "output_table_key": "staging"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

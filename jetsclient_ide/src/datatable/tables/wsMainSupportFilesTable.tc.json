@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "label": "Rule Terms",
+  "columns": [
+    {
+      "name": "source_file_name",
+      "label": "Main Rule Module",
+      "table": "main_file",
+      "tooltip": "Main Rule Module"
+    },
+    {
+      "name": "source_file_name",
+      "label": "Jet Rule File",
+      "table": "support_file",
+      "tooltip": "Jet Rule File"
+    }
+  ],
+  "sortColumn": "source_file_name",
+  "sortColumnTable": "main_file",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    {
+      "schema": "$SCHEMA",
+      "table": "main_support_files"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control",
+      "as": "main_file"
+    },
+    {
+      "schema": "$SCHEMA",
+      "table": "workspace_control",
+      "as": "support_file"
+    }
+  ],
+  "where": [
+    {
+      "column": "main_file_key",
+      "table": "main_support_files",
+      "joinWith": "main_file.key"
+    },
+    {
+      "column": "support_file_key",
+      "table": "main_support_files",
+      "joinWith": "support_file.key"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
@@ -19,7 +20,6 @@ import (
 //   -apiSecret "${API_SECRET}" \
 //   -awsRegion "${JETS_REGION}" \
 //   -tokenExpiration "${API_TOKEN_EXPIRATION_MIN}" \
-//   -WEB_APP_DEPLOYMENT_DIR "${WEB_APP_DEPLOYMENT_DIR}" \
 //   -adminEmail "${JETS_ADMIN_EMAIL}" \
 //   -awsAdminPwdSecret "${AWS_JETS_ADMIN_PWD_SECRET}" \
 //   -adminPwd "${JETS_ADMIN_PWD}"
@@ -37,12 +37,15 @@ import (
 // JETS_REGION
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_LOG_DEBUG set to 1 or 2 (will prints graph, very verbose)
-// WEB_APP_DEPLOYMENT_DIR
 // WORKSPACE Workspace currently in use (active workspace)
 // WORKSPACE_BRANCH deployed branch of active workspace
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 // ACTIVE_WORKSPACE_URI Workspace uri for active workspace
 // WORKSPACE_URI (optional) fixed Workspace uri for all workspaces when defined
+// JETS_NO_GIT_ACCESS (optional) truthy ("1", "true", "yes", "on") turns every workspace git
+//   operation into a logged no-op. Unset, empty or anything else leaves git on. For a site with no
+//   path to a source-control host, and for local development, where WORKSPACES_HOME is a checkout
+//   whose workspaces are submodules and a push would land in the developer's own tree.
 // WORKSPACES_HOME Home dir of workspaces
 // JETS_BUCKET (required for SyncFileKeys)
 // JETS_s3_INPUT_PREFIX Input file key prefix
@@ -57,6 +60,7 @@ import (
 // JETS_WORKSPACE_DB_SCHEMA_SCRIPT location of the workspace.db schema file
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY_SECRET or JETS_ENCRYPTION_KEY required key to encrypt git token in users table
+// IDE_APP_DEPLOYMENT_DIR path to the IDE static web app directory (jetsclient_ide)
 
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -67,7 +71,7 @@ var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws s
 var dsn = flag.String("dsn", "", "primary database connection string (required unless -awsDsnSecret is provided)")
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
-var uiWebDir = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
+var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
 var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
@@ -86,9 +90,9 @@ func main() {
 		serverAddr = ":8443"
 	}
 
-	webAppDirEnv := os.Getenv("WEB_APP_DEPLOYMENT_DIR")
-	if webAppDirEnv != "" {
-		*uiWebDir = webAppDirEnv
+	ideAppDirEnv := os.Getenv("IDE_APP_DEPLOYMENT_DIR")
+	if ideAppDirEnv != "" {
+		*ideWebDir = ideAppDirEnv
 	}
 	if *adminEmail == "" {
 		*adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -191,7 +195,7 @@ func main() {
 	log.Println("Got argument: adminEmail len", len(*adminEmail))
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
-	log.Println("Got argument: WEB_APP_DEPLOYMENT_DIR", *uiWebDir)
+	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)
 	if globalDevMode {
 		log.Println("Running in DEV MODE")
 		if len(*unitTestDir) > 0 {
@@ -207,6 +211,11 @@ func main() {
 	log.Println("ENV WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	log.Println("ENV ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	log.Println("ENV WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
+	// Says once, loudly, whether workspace git operations will run. The switch
+	// is silent by design afterwards, and a misread switch is indistinguishable
+	// from a correctly read one without this line.
+	git.LogGitAccessMode()
+	logCustomButtons()
 	log.Println("ENV JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("ENV JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	log.Println("ENV JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))
