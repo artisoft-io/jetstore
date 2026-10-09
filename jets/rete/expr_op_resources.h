@@ -38,7 +38,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // CreateEntityVisitor
 // --------------------------------------------------------------------------------------
-struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
+struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public MintsResource
 {
   CreateEntityVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateEntityVisitor(): rs(nullptr), br(nullptr) {}
@@ -108,7 +108,7 @@ struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoC
 
 // CreateUUIDResourceVisitor
 // --------------------------------------------------------------------------------------
-struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public NotRowPure
+struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public MintsResource
 {
   CreateUUIDResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateUUIDResourceVisitor(): rs(nullptr), br(nullptr) {}
@@ -127,7 +127,7 @@ struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public
 
 // ExistVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct ExistVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
+struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ExistVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for exist: ("<<lhs<<", "<<rhs<<")");};
@@ -158,7 +158,7 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
 
 // ExistNotVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
+struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ExistNotVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
@@ -189,7 +189,7 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPur
 
 // SizeOfVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
-struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>, public NotRowPure
+struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   SizeOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for size_of: ("<<lhs<<", "<<rhs<<")");};

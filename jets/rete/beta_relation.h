@@ -126,24 +126,6 @@ class BetaRelation {
   remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
   /**
-   * @brief Erase `beta_row` once its consequents have been retracted
-   *
-   * remove_beta_row marks a row with consequent terms kDeleted, removes its indexes
-   * and notifies the child nodes, and leaves it in the relation until
-   * compute_consequent_triples has retracted its consequents. This is the last step.
-   * Only that instance, still marked kDeleted, is erased: a row re-inserted in the
-   * meantime was set back to kProcessed by insert_beta_row and is never retracted.
-   */
-  inline void
-  erase_retracted_beta_row(BetaRowPtr const& beta_row)
-  {
-    auto itor = this->all_beta_rows_.find(beta_row);
-    if(itor != this->all_beta_rows_.end() and itor->get() == beta_row.get() and beta_row->is_deleted()) {
-      this->all_beta_rows_.erase(itor);
-    }
-  }
-
-  /**
    * @brief Get the idx1 rows iterator object
    * 
    * @param key the index key of the AntecedentQuery

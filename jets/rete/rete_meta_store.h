@@ -141,7 +141,7 @@ class ReteMetaStore {
         b_index node = alpha_ptr->get_node_vertex();
         auto & current_node = this->node_vertexes_[node->vertex];
         current_node->consequent_alpha_vertexes.insert(ipos);
-        if(not alpha_ptr->is_row_pure()) {
+        if(alpha_ptr->mints_resource()) {
           current_node->records_consequents = true;
         }
       }

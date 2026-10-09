@@ -392,7 +392,7 @@ namespace jets::rete {
       if(beta_row->is_inserted()) {
         // Infer consequent triples
         vertex_visits_[meta_node->vertex] = {current_visits.first+1, current_visits.second};
-        // A vertex whose consequents are not row pure records what this row infers,
+        // A vertex whose consequents mint a resource records what this row infers,
         // including the jets:key triple create_entity inserts, for retraction to replay.
         struct RecordingGuard {
           BetaRow *& slot;
@@ -421,11 +421,12 @@ namespace jets::rete {
         // Retract consequent triples
         vertex_visits_[meta_node->vertex] = {current_visits.first, current_visits.second+1};
         if(beta_row->is_recording()) {
-          // Replay what the row inferred: no expression is evaluated, so no entity
-          // is minted, no jets:key is inserted and no aggregate reads the graph as it
-          // stands now. Retracting the record also releases it.
+          // Replay what the row inferred: no expression is evaluated, so no entity is
+          // minted and no jets:key is inserted. The record is emptied, not released:
+          // the row stays in its relation (see below) and can be retracted again, and
+          // must then replay nothing rather than fall back to recomputing.
           auto recorded = beta_row->take_recorded();
-          for(auto const& t3: *recorded) {
+          for(auto const& t3: recorded) {
             VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" (recorded) from row "<<beta_row;
             this->rdf_session_->retract(t3);
           }
@@ -438,11 +439,12 @@ namespace jets::rete {
             this->rdf_session_->retract(std::move(t3));
           }
         }
-        // Remove row from beta node. This was remove_beta_row, which returns at once
-        // for a row marked kDeleted -- which this row is -- so the retracted row stayed
-        // in the relation as kProcessed and an equal row inserted later was taken for
-        // one already inferred: it never fired again. Fixed 2026-10-08.
-        beta_relation->erase_retracted_beta_row(beta_row);
+        // Remove row from beta node. KNOWN DEFECT, kept deliberately (2026-10-09):
+        // remove_beta_row returns at once for a row marked kDeleted -- which this row
+        // is -- so the retracted row stays in the relation as kProcessed and an equal
+        // row inserted later is taken for one already inferred: it never fires again.
+        // usi_ws's rules terminate only because of it; see jets/jetrules/rete/README.md.
+        beta_relation->remove_beta_row(this, beta_row);
         beta_row->set_status(BetaRowStatus::kProcessed);
       }
     }

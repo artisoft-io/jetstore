@@ -10,38 +10,46 @@
 #include "../rete/expr_op_arithmetics.h"
 #include "../rete/expr_op_resources.h"
 
-// RETRACTION REPLAYS WHAT A BETA ROW INFERRED -- it does not recompute it.
+// RETRACTION REPLAYS WHAT A MINTING CONSEQUENT INFERRED -- and only that.
 //
 // Until 2026-10-08 ReteSession::compute_consequent_triples retracted a beta row by
 // evaluating its consequent terms a second time, against the withdrawn row, and
-// retracting whatever came out. That is right only when the consequent is a pure
-// function of the row. It is not for:
+// retracting whatever came out. For a consequent that mints a resource that is wrong:
 //
-//   - create_entity 0, which mints a UUID: the retraction minted a SECOND entity,
-//     inserted a stray jets:key triple for it, and retracted a link to it that did not
-//     exist, leaving the real link in place.
-//   - a keyed create_entity, which re-inserted jets:key on every retraction, so its
-//     reference count never came back to zero.
-//   - an aggregate, which read the graph as it stood at retraction: once its input
-//     had changed, the triple retracted was not the triple inferred.
+//   - create_entity 0 minted a SECOND entity on retraction, inserted a stray jets:key
+//     triple for it, and retracted a link to it that did not exist, leaving the real
+//     link in place.
+//   - a keyed create_entity re-inserted jets:key on every retraction, so its reference
+//     count never came back to zero.
 //
 // Found by the usi_ws workspace assessment (jetstore_agentic_ai,
 // projects/workspace_assessments/02_usi_ws_assessment, Q-37 / R-13), where rule ckd30
 // was keyed as a workaround.
 //
-// THE FIX: a node vertex whose consequent terms are not row pure
+// THE FIX: a node vertex with a consequent that mints a resource -- create_entity,
+// create_uuid_resource, range, lookup_rand, multi_lookup_rand
 // (NodeVertex::records_consequents, set by ReteMetaStore::initialize from
-// AlphaNode::is_row_pure) records on the beta row every triple its consequents
+// AlphaNode::mints_resource) -- records on the beta row every triple its consequents
 // inferred, the jets:key triple create_entity inserts included, and retraction
 // retracts that record and evaluates nothing.
+//
+// TWO NEIGHBOURING DEFECTS ARE KEPT, and the cases marked LEGACY pin them so that
+// they are visible rather than assumed. A consequent aggregate is still recomputed on
+// retraction, and a withdrawn row is never erased from its relation, so an equal row
+// arriving later never fires. Fixing both was tried on 2026-10-08 and reverted on
+// 2026-10-09 by Michel's decision: usi_ws's loop rules and CM04 op01 terminate only
+// because of them (see loop_through_negation_test.cc and
+// jets/jetrules/rete/README.md).
 //
 // The fixture follows the shape of no_truth_main_on_exist_test.cc: THE RETRACTION IS
 // DRIVEN BY A RULE. Vertex 1 carries [(?s exist_not done) == 1], so when vertex 2 puts
 // (main1 done 1) in the graph during inference, the exist_not callback replays vertex 1
 // and retracts its row inside the same compute_consequent_triples drain. The repeated
-// cycle case also drives it from the test, by asserting and erasing (main1 done 1)
-// between execute_rules calls; the callback queues the work and the next execute_rules
-// drains it.
+// cycle cases drive it from the test instead, by inserting (main1 done 1) into the
+// inferred graph and retracting it between execute_rules calls; the callback queues the
+// work and the next execute_rules drains it. Not insert and erase: RDFGraph::erase does
+// not notify the graph callbacks, only insert and retract do, so an erased triple is
+// never seen by truth maintenance.
 namespace jets::rete {
 namespace {
 
@@ -49,7 +57,7 @@ enum ConsequentKind {
   kCreateEntityUuid,    // (?s link create_entity(0))
   kCreateEntityKeyed,   // (?s link create_entity("K1"))
   kSumValues,           // (?s total (?s sum_values sumConfig))
-  kPure,                // (?s link (?s))  -- no expression that is not row pure
+  kPure,                // (?s link ?s)  -- mints nothing
 };
 
 class RetractRecordedConsequentsTest : public ::testing::Test {
@@ -223,13 +231,18 @@ class RetractRecordedConsequentsTest : public ::testing::Test {
   rdf::RDFSessionPtr rdf_session;
 };
 
-// The flag is set where it should be and nowhere else: an expression that is not row
-// pure makes the vertex record, a consequent with no such expression does not.
-TEST_F(RetractRecordedConsequentsTest, OnlyVertexesWithImpureConsequentsRecord) {
+// The flag is set where it should be and nowhere else: a consequent that mints a
+// resource makes the vertex record, one that does not, does not.
+TEST_F(RetractRecordedConsequentsTest, OnlyVertexesWithMintingConsequentsRecord) {
   this->build(kCreateEntityUuid);
   EXPECT_TRUE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(2)->records_consequents);
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(3)->records_consequents);
+}
+
+TEST_F(RetractRecordedConsequentsTest, KeyedCreateEntityRecords) {
+  this->build(kCreateEntityKeyed);
+  EXPECT_TRUE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
 }
 
 TEST_F(RetractRecordedConsequentsTest, PureConsequentDoesNotRecord) {
@@ -237,9 +250,11 @@ TEST_F(RetractRecordedConsequentsTest, PureConsequentDoesNotRecord) {
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
 }
 
-TEST_F(RetractRecordedConsequentsTest, AggregateConsequentRecords) {
+// LEGACY: an aggregate reads the graph but mints nothing, and is deliberately left out
+// of the set, so its consequent is recomputed on retraction.
+TEST_F(RetractRecordedConsequentsTest, AggregateConsequentDoesNotRecord) {
   this->build(kSumValues);
-  EXPECT_TRUE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
+  EXPECT_FALSE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
 }
 
 // The control: nothing retracts, so the link and one jets:key are there.
@@ -273,11 +288,16 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedRetractedReleasesKey) {
   EXPECT_EQ(this->k1_key_ref_count(), 0);
 }
 
-// Repeated assert / retract cycles, driven from the test: retracting (main1 done 1)
-// re-admits vertex 1's row, inserting it withdraws the row again. The reference count
-// of the keyed entity's jets:key stays at 1 while the row stands and 0 while it does
-// not, however many cycles run -- before the fix it went up by two per cycle.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesKeepRefCountBounded) {
+// Repeated assert / retract cycles on the keyed entity. Two things are pinned at once:
+//
+//  - LEGACY: once the row is retracted it is never inferred again, though its support
+//    comes back -- the withdrawn row stays in the relation and an equal row is taken
+//    for it.
+//  - THE FIX: every later withdrawal retracts that stale row again, and it replays its
+//    now empty record. Before the record was kept empty, that second retraction fell
+//    back to recomputing create_entity("K1") and re-inserted jets:key, so the count
+//    climbed by one per cycle with no row standing at all.
+TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesStayRetracted) {
   this->build(kCreateEntityKeyed);
   auto one = this->rdf_session->rmgr()->create_literal(1);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
@@ -286,18 +306,17 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesKeepRefCountBounde
   for(int cycle=0; cycle<5; ++cycle) {
     this->rdf_session->insert_inferred(r("main1"), r("done"), one);
     ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ", retracted";
-    EXPECT_EQ(this->k1_key_ref_count(), 0) << "cycle " << cycle << ", retracted";
+    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ", withdrawn";
+    EXPECT_EQ(this->k1_key_ref_count(), 0) << "cycle " << cycle << ", withdrawn";
 
     this->rdf_session->retract(r("main1"), r("done"), one);
     ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 1) << "cycle " << cycle << ", re-inferred";
-    EXPECT_EQ(this->k1_key_ref_count(), 1) << "cycle " << cycle << ", re-inferred";
+    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ", re-admitted: LEGACY, does not re-fire";
+    EXPECT_EQ(this->k1_key_ref_count(), 0) << "cycle " << cycle << ", re-admitted";
   }
 }
 
-// The same cycles with create_entity 0: each re-inference mints a new entity, and each
-// retraction takes that entity's jets:key with it, so at most one is ever standing.
+// The same cycles with create_entity 0: no stray entity is ever minted.
 TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidCyclesLeaveNoStrayKeys) {
   this->build(kCreateEntityUuid);
   auto one = this->rdf_session->rmgr()->create_literal(1);
@@ -310,31 +329,31 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidCyclesLeaveNoStrayKeys) {
 
     this->rdf_session->retract(r("main1"), r("done"), one);
     ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 1) << "cycle " << cycle;
-    EXPECT_EQ(this->count_inferred_keys(), 1) << "cycle " << cycle;
+    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ": LEGACY, does not re-fire";
+    EXPECT_EQ(this->count_inferred_keys(), 0) << "cycle " << cycle;
   }
 }
 
-// A consequent aggregate whose input changes between inference and retraction. The
-// row infers (main1 total 6); vertex 3 then links support4, so the sum is 10 by the
-// time vertex 2 retracts the row. Recomputing retracted (main1 total 10), which was
-// never inferred, and left (main1 total 6) standing.
-TEST_F(RetractRecordedConsequentsTest, ConsequentAggregateRetractsWhatItInferred) {
+// LEGACY: a consequent aggregate whose input changes between inference and retraction.
+// The row infers (main1 total 6); vertex 3 then links support4, so the sum is 10 by the
+// time vertex 2 retracts the row. Retraction recomputes, retracts (main1 total 10),
+// which was never inferred, and leaves (main1 total 6) standing. If this starts failing,
+// aggregate consequents have been given replay -- read the README entry first.
+TEST_F(RetractRecordedConsequentsTest, ConsequentAggregateRetractionRecomputes) {
   this->build(kSumValues);
   this->stage_support4();
   this->stage_done();
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
   auto rmgr = this->rdf_session->rmgr();
-  EXPECT_TRUE(this->rdf_session->contains(r("main1"), r("hasSupport"), r("support4")))
+  ASSERT_TRUE(this->rdf_session->contains(r("main1"), r("hasSupport"), r("support4")))
     << "the aggregate's input changed before the retraction";
-  EXPECT_FALSE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(6)))
-    << "the total inferred is retracted";
-  EXPECT_FALSE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(10)))
-    << "and no total is left standing";
+  EXPECT_TRUE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(6)))
+    << "LEGACY: the total inferred is still standing";
+  EXPECT_FALSE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(10)));
 }
 
-// The pure path is unchanged: recomputing a consequent with no impure expression still
-// retracts what it inferred.
+// The pure path is unchanged: recomputing a consequent that mints nothing retracts
+// what it inferred.
 TEST_F(RetractRecordedConsequentsTest, PureConsequentStillRetracts) {
   this->build(kPure);
   this->stage_done();
@@ -342,25 +361,21 @@ TEST_F(RetractRecordedConsequentsTest, PureConsequentStillRetracts) {
   EXPECT_EQ(this->count_links(), 0);
 }
 
-// THE SAME CYCLES ON A PURE CONSEQUENT, which the recording does not touch. This
-// failed before the recording was added as well: once a row had been retracted it was
-// left in its beta relation marked kProcessed -- compute_consequent_triples called
+// LEGACY, on a consequent the recording does not touch: once a row has been retracted
+// it is left in its beta relation marked kProcessed -- compute_consequent_triples calls
 // remove_beta_row on a row already marked kDeleted, which returns without erasing it --
-// so an equal row arriving later was taken for one already inferred and never fired.
-TEST_F(RetractRecordedConsequentsTest, PureConsequentCyclesReinfer) {
+// so an equal row arriving later is taken for one already inferred and never fires.
+TEST_F(RetractRecordedConsequentsTest, PureConsequentDoesNotRefire) {
   this->build(kPure);
   auto one = this->rdf_session->rmgr()->create_literal(1);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
   ASSERT_EQ(this->count_links(), 1);
-  for(int cycle=0; cycle<5; ++cycle) {
-    this->rdf_session->insert_inferred(r("main1"), r("done"), one);
-    ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle;
-
-    this->rdf_session->retract(r("main1"), r("done"), one);
-    ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 1) << "cycle " << cycle;
-  }
+  this->rdf_session->insert_inferred(r("main1"), r("done"), one);
+  ASSERT_EQ(this->rete_session->execute_rules(), 0);
+  EXPECT_EQ(this->count_links(), 0);
+  this->rdf_session->retract(r("main1"), r("done"), one);
+  ASSERT_EQ(this->rete_session->execute_rules(), 0);
+  EXPECT_EQ(this->count_links(), 0) << "LEGACY: the support is back and the rule does not fire";
 }
 
 }   // namespace

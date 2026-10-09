@@ -1,15 +1,16 @@
 package rete
 
-// RETRACTION REPLAYS WHAT A BETA ROW INFERRED -- it does not recompute it.
+// RETRACTION REPLAYS WHAT A MINTING CONSEQUENT INFERRED -- and only that.
 //
-// The Go half of jets/rete/retract_recorded_consequents_test.cc, with the same
-// network and the same cases; read that file's header for the defect. In short:
-// ReteSession.ComputeConsequentTriples retracted a row by evaluating its consequents
-// again, so a create_entity 0 rule minted a second entity on retraction and left its
-// link in place, a keyed create_entity re-inserted jets:key on every retraction, and a
-// consequent aggregate retracted a triple it never inferred once its input had moved.
-// Found by the usi_ws workspace assessment (jetstore_agentic_ai,
-// projects/workspace_assessments/02_usi_ws_assessment, Q-37 / R-13).
+// The Go half of jets/rete/retract_recorded_consequents_test.cc, with the same network
+// and the same cases; read that file's header. In short: retracting a create_entity 0
+// row minted a second entity and left its link in place, and a keyed create_entity
+// re-inserted jets:key on every retraction. Found by the usi_ws workspace assessment
+// (jetstore_agentic_ai, projects/workspace_assessments/02_usi_ws_assessment, Q-37 /
+// R-13). The cases marked LEGACY pin two neighbouring defects that are kept by
+// Michel's decision of 2026-10-09, because usi_ws's rules terminate only because of
+// them: an aggregate consequent is recomputed on retraction, and a withdrawn row never
+// fires again. See README.md.
 //
 // The network, built by hand as the C++ fixture is:
 //
@@ -178,17 +179,17 @@ func (f *retractFixture) contains(s, p string, o *rdf.Node) bool {
 	return f.rdf.Contains(f.r(s), f.r(p), o)
 }
 
-func TestRetractOnlyImpureConsequentsRecord(t *testing.T) {
+func TestRetractOnlyMintingConsequentsRecord(t *testing.T) {
 	for _, c := range []struct {
 		kind consequentKind
 		want bool
-	}{{kCreateEntityUuid, true}, {kCreateEntityKeyed, true}, {kSumValues, true}, {kPure, false}} {
+	}{{kCreateEntityUuid, true}, {kCreateEntityKeyed, true}, {kSumValues, false}, {kPure, false}} {
 		f := newRetractFixture(t, c.kind)
 		if got := f.ms.NodeVertices[1].RecordsConsequents; got != c.want {
 			t.Errorf("kind %d: vertex 1 RecordsConsequents = %v, want %v", c.kind, got, c.want)
 		}
 		if f.ms.NodeVertices[2].RecordsConsequents || f.ms.NodeVertices[3].RecordsConsequents {
-			t.Errorf("kind %d: a pure vertex records", c.kind)
+			t.Errorf("kind %d: a vertex that mints nothing records", c.kind)
 		}
 	}
 }
@@ -233,9 +234,11 @@ func TestRetractCreateEntityKeyedReleasesKey(t *testing.T) {
 	}
 }
 
-// Repeated cycles: the keyed entity's jets:key ref count is 1 while the row stands and
-// 0 while it does not, however many cycles run.
-func TestRetractCreateEntityKeyedCyclesKeepRefCountBounded(t *testing.T) {
+// Repeated cycles on the keyed entity. LEGACY: once retracted the row never fires
+// again, though its support comes back. THE FIX: each later withdrawal retracts that
+// stale row again and it replays its now empty record, so jets:key stays at 0 -- before
+// the record was kept empty it fell back to recomputing and re-inserted jets:key.
+func TestRetractCreateEntityKeyedCyclesStayRetracted(t *testing.T) {
 	f := newRetractFixture(t, kCreateEntityKeyed)
 	one := f.rdf.ResourceMgr.NewIntLiteral(1)
 	f.execute()
@@ -246,12 +249,12 @@ func TestRetractCreateEntityKeyedCyclesKeepRefCountBounded(t *testing.T) {
 		f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
 		f.execute()
 		if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 0 || rc != 0 {
-			t.Errorf("cycle %d retracted: links %d, ref count %d, want 0 and 0", cycle, n, rc)
+			t.Errorf("cycle %d withdrawn: links %d, ref count %d, want 0 and 0", cycle, n, rc)
 		}
 		f.rdf.Retract(f.r("main1"), f.r("done"), one)
 		f.execute()
-		if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 1 || rc != 1 {
-			t.Errorf("cycle %d re-inferred: links %d, ref count %d, want 1 and 1", cycle, n, rc)
+		if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 0 || rc != 0 {
+			t.Errorf("cycle %d re-admitted: links %d, ref count %d, want 0 and 0 (LEGACY: does not re-fire)", cycle, n, rc)
 		}
 	}
 }
@@ -264,20 +267,21 @@ func TestRetractCreateEntityUuidCyclesLeaveNoStrayKeys(t *testing.T) {
 		f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
 		f.execute()
 		if n, k := f.countLinks(), f.countInferredKeys(); n != 0 || k != 0 {
-			t.Errorf("cycle %d retracted: links %d, keys %d, want 0 and 0", cycle, n, k)
+			t.Errorf("cycle %d withdrawn: links %d, keys %d, want 0 and 0", cycle, n, k)
 		}
 		f.rdf.Retract(f.r("main1"), f.r("done"), one)
 		f.execute()
-		if n, k := f.countLinks(), f.countInferredKeys(); n != 1 || k != 1 {
-			t.Errorf("cycle %d re-inferred: links %d, keys %d, want 1 and 1", cycle, n, k)
+		if n, k := f.countLinks(), f.countInferredKeys(); n != 0 || k != 0 {
+			t.Errorf("cycle %d re-admitted: links %d, keys %d, want 0 and 0 (LEGACY: does not re-fire)", cycle, n, k)
 		}
 	}
 }
 
-// A consequent aggregate whose input changes between inference and retraction: the row
-// infers (main1 total 6), vertex 3 links support4 so the sum is 10, then vertex 2
-// retracts the row. Recomputing retracted (main1 total 10) and left 6 standing.
-func TestRetractConsequentAggregateRetractsWhatItInferred(t *testing.T) {
+// LEGACY: a consequent aggregate whose input changes between inference and retraction.
+// The row infers (main1 total 6), vertex 3 links support4 so the sum is 10, then vertex
+// 2 retracts the row. Retraction recomputes, retracts (main1 total 10), which was never
+// inferred, and leaves 6 standing.
+func TestRetractConsequentAggregateRetractionRecomputes(t *testing.T) {
 	f := newRetractFixture(t, kSumValues)
 	rm := f.rdf.ResourceMgr
 	f.rdf.Insert(f.r("support4"), f.r("value"), rm.NewIntLiteral(4))
@@ -287,8 +291,8 @@ func TestRetractConsequentAggregateRetractsWhatItInferred(t *testing.T) {
 	if !f.contains("main1", "hasSupport", f.r("support4")) {
 		t.Fatal("the aggregate's input did not change before the retraction")
 	}
-	if f.contains("main1", "total", rm.NewIntLiteral(6)) {
-		t.Error("(main1 total 6) is still standing: the total inferred was not the total retracted")
+	if !f.contains("main1", "total", rm.NewIntLiteral(6)) {
+		t.Error("(main1 total 6) is gone: aggregate consequents have been given replay -- read README.md first")
 	}
 	if f.contains("main1", "total", rm.NewIntLiteral(10)) {
 		t.Error("(main1 total 10) is standing")
@@ -304,27 +308,24 @@ func TestRetractPureConsequentStillRetracts(t *testing.T) {
 	}
 }
 
-// The same cycles on a pure consequent, which the recording does not touch. This failed
-// before the recording was added as well: a retracted row was left in its relation
-// marked kProcessed, because RemoveBetaRow returns at once for a row marked kDeleted, so
-// an equal row arriving later was taken for one already inferred and never fired.
-func TestRetractPureConsequentCyclesReinfer(t *testing.T) {
+// LEGACY, on a consequent the recording does not touch: a retracted row is left in its
+// relation marked kProcessed, because RemoveBetaRow returns at once for a row marked
+// kDeleted, so an equal row arriving later is taken for one already inferred.
+func TestRetractPureConsequentDoesNotRefire(t *testing.T) {
 	f := newRetractFixture(t, kPure)
 	one := f.rdf.ResourceMgr.NewIntLiteral(1)
 	f.execute()
 	if f.countLinks() != 1 {
 		t.Fatalf("initial inference: links %d", f.countLinks())
 	}
-	for cycle := 0; cycle < 5; cycle++ {
-		f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
-		f.execute()
-		if n := f.countLinks(); n != 0 {
-			t.Errorf("cycle %d retracted: links %d, want 0", cycle, n)
-		}
-		f.rdf.Retract(f.r("main1"), f.r("done"), one)
-		f.execute()
-		if n := f.countLinks(); n != 1 {
-			t.Errorf("cycle %d re-inferred: links %d, want 1", cycle, n)
-		}
+	f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
+	f.execute()
+	if n := f.countLinks(); n != 0 {
+		t.Errorf("withdrawn: links %d, want 0", n)
+	}
+	f.rdf.Retract(f.r("main1"), f.r("done"), one)
+	f.execute()
+	if n := f.countLinks(); n != 0 {
+		t.Errorf("re-admitted: links %d, want 0 (LEGACY: does not re-fire)", n)
 	}
 }

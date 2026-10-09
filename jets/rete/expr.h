@@ -74,19 +74,21 @@ class ExprBase {
   eval(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
   /**
-   * @brief True when evaluating the expression twice on the same beta row is
-   * guaranteed to give the same value.
+   * @brief True when an operator in the tree mints a resource: create_entity,
+   * create_uuid_resource, range, lookup_rand or multi_lookup_rand.
    *
-   * False when an operator in the tree mints a resource (create_entity,
-   * create_uuid_resource, range), reads the graph (exist, size_of, the aggregates)
-   * or reads a lookup table. A consequent carrying such an expression records the
-   * triples it inferred on its beta row, and retraction replays that record instead
-   * of evaluating the expression again (see ReteSession::compute_consequent_triples).
+   * Evaluating such an expression a second time gives a different resource, so a
+   * consequent carrying one records the triples it inferred on its beta row, and
+   * retraction replays that record instead of evaluating the expression again (see
+   * ReteSession::compute_consequent_triples). Operators that read the graph -- exist,
+   * size_of, the aggregates -- are deliberately NOT in the set: their consequents are
+   * still recomputed on retraction, which is a known defect that rule sets depend on
+   * (jets/jetrules/rete/README.md, 2026-10-09).
    */
   virtual bool
-  is_row_pure()const
+  mints_resource()const
   {
-    return true;
+    return false;
   }
 
   inline bool
@@ -109,13 +111,13 @@ inline std::ostream & operator<<(std::ostream & out, ExprBasePtr node)
   return out;
 }
 
-// Marker base for an operator visitor whose result is NOT a pure function of its
-// arguments: it mints a resource, reads the graph or reads a lookup table. An
-// ExprBinaryOp or ExprUnaryOp over such a visitor reports is_row_pure() false.
-struct NotRowPure {};
+// Marker base for an operator visitor that mints a resource, so evaluating it twice
+// gives two different results. An ExprBinaryOp or ExprUnaryOp over such a visitor
+// reports mints_resource() true.
+struct MintsResource {};
 
 template<class Op>
-inline constexpr bool op_is_row_pure = not std::is_base_of_v<NotRowPure, Op>;
+inline constexpr bool op_mints_resource = std::is_base_of_v<MintsResource, Op>;
 
 // Utility class for operator visitor that don't need to register callbacks
 // for truth maintenance
@@ -152,12 +154,12 @@ class ExprConjunction: public ExprBase {
   }
 
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
     for(auto const& item: this->data_) {
-      if(not item->is_row_pure()) return false;
+      if(item->mints_resource()) return true;
     }
-    return true;
+    return false;
   }
 
   ExprDataType
@@ -206,12 +208,12 @@ class ExprDisjunction: public ExprBase {
   }
 
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
     for(auto const& item: this->data_) {
-      if(not item->is_row_pure()) return false;
+      if(item->mints_resource()) return true;
     }
-    return true;
+    return false;
   }
 
   // defined in expr_impl.h
@@ -337,9 +339,9 @@ class ExprBinaryOp: public ExprBase {
   }
 
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
-    return op_is_row_pure<Op> and this->lhs_->is_row_pure() and this->rhs_->is_row_pure();
+    return op_mints_resource<Op> or this->lhs_->mints_resource() or this->rhs_->mints_resource();
   }
 
   // defined in expr_impl.h
@@ -381,9 +383,9 @@ class ExprUnaryOp: public ExprBase {
   virtual ~ExprUnaryOp() {}
 
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
-    return op_is_row_pure<Op> and this->arg_->is_row_pure();
+    return op_mints_resource<Op> or this->arg_->mints_resource();
   }
 
   // defined in expr_impl.h

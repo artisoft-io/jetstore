@@ -38,13 +38,14 @@ func (row *BetaRow) isRecording() bool {
 	return row.inferred != nil
 }
 
-// takeRecorded hands the record over and leaves the row not recording.
+// takeRecorded hands the recorded triples over and leaves the record empty: the row
+// still records, so retracting it again replays nothing.
 func (row *BetaRow) takeRecorded() []rdf.Triple {
 	if row.inferred == nil {
 		return nil
 	}
 	recorded := *row.inferred
-	row.inferred = nil
+	*row.inferred = nil
 	return recorded
 }
 

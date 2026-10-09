@@ -192,11 +192,14 @@ class BetaRow {
     return inferred_.get();
   }
 
-  // Hands the record over and leaves the row not recording
-  inline std::unique_ptr<triple_list>
+  // Hands the recorded triples over and leaves the record empty: the row still
+  // records, so retracting it again replays nothing
+  inline triple_list
   take_recorded()
   {
-    return std::move(inferred_);
+    triple_list recorded;
+    if(inferred_) recorded.swap(*inferred_);
+    return recorded;
   }
 
   inline const_iterator

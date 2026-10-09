@@ -46,9 +46,9 @@ class AlphaNodeStub: public AlphaNode {
     return {};
   }
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
-    return true;
+    return false;
   }
   void
   index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const override

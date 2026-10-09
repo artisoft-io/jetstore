@@ -243,7 +243,7 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 		if betaRow.IsInserted() {
 			// Infer consequent triples
 			currentVisit.InferCount += 1
-			// A vertex whose consequents are not row pure records what this row infers,
+			// A vertex whose consequents mint a resource records what this row infers,
 			// including the jets:key triple create_entity inserts, for retraction to replay.
 			if betaRow.NdVertex.RecordsConsequents {
 				betaRow.startRecording()
@@ -269,8 +269,9 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			currentVisit.RetractCount += 1
 			if betaRow.isRecording() {
 				// Replay what the row inferred: no expression is evaluated, so no entity
-				// is minted, no jets:key is inserted and no aggregate reads the graph as
-				// it stands now. Retracting the record also releases it.
+				// is minted and no jets:key is inserted. The record is emptied, not
+				// released: the row stays in its relation (see below) and can be
+				// retracted again, and must then replay nothing rather than recompute.
 				for _, t3 := range betaRow.takeRecorded() {
 					_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
 					if err != nil {
@@ -278,7 +279,9 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 					}
 				}
 			} else {
-				// Row pure consequents: recomputing gives back the triples inferred
+				// Consequents that mint nothing are recomputed. For one that reads the
+				// graph (an aggregate, exist, size_of) that is a known defect -- see
+				// README.md, 2026-10-09.
 				for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 					t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
 					_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
@@ -287,11 +290,12 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 					}
 				}
 			}
-			// Remove row from beta node. This was RemoveBetaRow, which returns at once
-			// for a row marked kDeleted -- which this row is -- so the retracted row
-			// stayed in the relation as kProcessed and an equal row inserted later was
-			// taken for one already inferred: it never fired again. Fixed 2026-10-08.
-			betaRelation.EraseRetractedBetaRow(betaRow)
+			// Remove row from beta node. KNOWN DEFECT, kept deliberately (2026-10-09):
+			// RemoveBetaRow returns at once for a row marked kDeleted -- which this row
+			// is -- so the retracted row stays in the relation as kProcessed and an
+			// equal row inserted later is taken for one already inferred: it never
+			// fires again. usi_ws's rules terminate only because of it; see README.md.
+			betaRelation.RemoveBetaRow(rs, betaRow)
 			betaRow.Status = kProcessed
 		}
 	}

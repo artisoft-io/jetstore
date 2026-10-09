@@ -191,9 +191,9 @@ class AlphaNodeImpl: public AlphaNode {
   }
 
   bool
-  is_row_pure()const override
+  mints_resource()const override
   {
-    return fu_.is_row_pure() and fv_.is_row_pure() and fw_.is_row_pure();
+    return fu_.mints_resource() or fv_.mints_resource() or fw_.mints_resource();
   }
 
   /**

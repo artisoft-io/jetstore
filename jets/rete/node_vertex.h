@@ -133,11 +133,11 @@ struct NodeVertex {
   BetaRowInitializerPtr    beta_row_initializer;
   mutable int              antecedent_query_key;
   mutable int              tid_;
-  // Set by ReteMetaStore::initialize when a consequent term of this vertex is not
-  // row pure (AlphaNode::is_row_pure). A beta row of such a vertex records the
+  // Set by ReteMetaStore::initialize when a consequent term of this vertex mints a
+  // resource (AlphaNode::mints_resource). A beta row of such a vertex records the
   // triples it inferred, and retraction replays that record rather than recomputing
-  // the consequents -- recomputing create_entity mints a second entity, and
-  // recomputing an aggregate reads the graph as it is now, not as it was.
+  // the consequents -- recomputing create_entity 0 mints a second entity and inserts
+  // a stray jets:key, and recomputing a keyed one re-inserts its jets:key.
   bool                     records_consequents;
 };
 
