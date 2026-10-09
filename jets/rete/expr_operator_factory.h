@@ -17,6 +17,26 @@
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.
+// =====================================================================================
+// !!!  ADDING AN AGGREGATE OPERATOR? UPDATE THE COMPILER CHECK TOO  !!!
+//
+// An aggregate operator reads every value of a property, or of the properties a
+// config names with jets:entity_property / jets:value_property: max_of, min_of,
+// max_head_of, min_head_of, sorted_head, sum_values, join_values, size_of.
+//
+// Every aggregate MUST be listed in consequentAggregateOps in
+//     jets/compilerv2/compiler/jet_rule_listener_aggregate_salience.go
+//
+// Why: an aggregate in a consequent is computed once, when its rule fires; neither
+// engine recomputes a consequent. So the compiler rejects an aggregate whose
+// salience is not below every rule that writes what it reads. An aggregate missing
+// from that list is never checked, and a rule using it can aggregate over part of
+// its values with no error anywhere. Three production rules did exactly that.
+//
+// Add the operator to BOTH engines (jets/rete/expr_operator_factory.h and
+// jets/jetrules/rete/expr_operator_factory.go) and to that list, in the same change.
+// Lines marked AGGREGATE below are the ones the list must cover.
+// =====================================================================================
 namespace jets::rete {
 
 ExprBasePtr
@@ -29,11 +49,11 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "-")                 return create_expr_binary_operator<SubsVisitor>(key, lhs, rhs);
   if(op == "/")                 return create_expr_binary_operator<DivVisitor>(key, lhs, rhs);
   if(op == "*")                 return create_expr_binary_operator<MultVisitor>(key, lhs, rhs);
-  if(op == "max_of")            return create_expr_binary_operator<MaxOfVisitor>(key, lhs, rhs);
-  if(op == "min_of")            return create_expr_binary_operator<MinOfVisitor>(key, lhs, rhs);
-  if(op == "sorted_head")       return create_expr_binary_operator<SortedHeadVisitor>(key, lhs, rhs);
-  if(op == "sum_values")        return create_expr_binary_operator<SumValuesVisitor>(key, lhs, rhs);
-  if(op == "join_values")       return create_expr_binary_operator<JoinValuesVisitor>(key, lhs, rhs);
+  if(op == "max_of")            return create_expr_binary_operator<MaxOfVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
+  if(op == "min_of")            return create_expr_binary_operator<MinOfVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
+  if(op == "sorted_head")       return create_expr_binary_operator<SortedHeadVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
+  if(op == "sum_values")        return create_expr_binary_operator<SumValuesVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
+  if(op == "join_values")       return create_expr_binary_operator<JoinValuesVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
 
   // Logical operators
   if(op == "and")               return create_expr_binary_operator<AndVisitor>(key, lhs, rhs);
@@ -59,7 +79,7 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "range")             return create_expr_binary_operator<RangeVisitor>(key, lhs, rhs);
 
   // Resource operators
-  if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);
+  if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);  // AGGREGATE: listed in consequentAggregateOps
   if(op == "exist")             return create_expr_binary_operator<ExistVisitor>(key, lhs, rhs);
   if(op == "exist_not")         return create_expr_binary_operator<ExistNotVisitor>(key, lhs, rhs);
 
