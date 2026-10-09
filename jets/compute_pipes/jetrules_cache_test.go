@@ -1,8 +1,10 @@
 package compute_pipes
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -145,5 +147,95 @@ func TestFlatRecordColumnsAreDataPropertiesOnly(t *testing.T) {
 	// survives, which is why the filter needs no knowledge of column_encodings.
 	if !got["cintel:Claim_Summary"] {
 		t.Error("the encoded column is a data property and must survive the filter")
+	}
+}
+
+// The usi_ws crash of 2026-10-09, reproduced.
+//
+// `GetRuleEngineConfig` read the package map `ruleEngineConfig` with no lock
+// while `loadRuleEngineConfig` wrote it under `ruleEngineConfigMx`. A jetrules
+// pool reads `$max_looping` as each worker starts its first rule set
+// (`jetrules_pool_worker.go`), so with `pool_size` above one the workers ask
+// for the same main rule file at once, and one reads the map while another
+// writes it. The Go runtime does not report that as a wrong answer: it aborts
+// the process with `fatal error: concurrent map read and map write`. It was
+// seen on the usi_ws local harness, two runs of six, with `pool_size` 10 — the
+// value USI's production pipeline sets.
+//
+// The runtime's own check catches it only sometimes, so this test is meant to
+// be run with `-race`, which flags the unlocked read on every run. Several main
+// rule files are asked for at once, so a reader of one entry races the writer
+// of another, which is the shape a rule sequence with several rule sets has.
+//
+// `GetWorkspaceControl` had the same unlocked read in a double-checked lock and
+// is asked for at the same moment, so it is exercised here too.
+func TestRuleEngineConfigIsSafeForConcurrentWorkers(t *testing.T) {
+	ws := t.TempDir()
+	build := filepath.Join(ws, "testws", "build")
+	if err := os.MkdirAll(build, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(path, body string) {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ruleFiles := []string{"rs_a.jr", "rs_b.jr", "rs_c.jr", "rs_d.jr"}
+	for i, rf := range ruleFiles {
+		write(filepath.Join(build, strings.TrimSuffix(rf, ".jr")+".config.json"),
+			fmt.Sprintf(`{"main_rule_file_name":%q,"jetstore_config":{"$max_looping":"%d"}}`, rf, 100+i))
+	}
+	write(filepath.Join(ws, "testws", "workspace_control.json"),
+		`{"workspace_name":"testws","rule_sets":["rs_a.jr","rs_b.jr","rs_c.jr","rs_d.jr"]}`)
+
+	oldHome, oldPrefix := workspaceHome, wsPrefix
+	workspaceHome, wsPrefix = ws, "testws"
+	t.Cleanup(func() {
+		workspaceHome, wsPrefix = oldHome, oldPrefix
+		ClearJetrulesCaches()
+	})
+
+	for round := range 20 {
+		ClearJetrulesCaches()
+		const n = 32
+		var start, done sync.WaitGroup
+		start.Add(1)
+		errs := make([]error, n)
+		for i := range n {
+			done.Add(1)
+			go func(i int) {
+				defer done.Done()
+				start.Wait() // release them together, as a pool's workers start together
+				// Half the goroutines share one file, the rest spread over all four.
+				idx := 0
+				if i%2 == 1 {
+					idx = i % len(ruleFiles)
+				}
+				v, err := GetRuleEngineConfig(ruleFiles[idx], "$max_looping")
+				if err != nil {
+					errs[i] = err
+					return
+				}
+				if want := fmt.Sprintf("%d", 100+idx); v != want {
+					errs[i] = fmt.Errorf("%s: $max_looping = %q, want %q", ruleFiles[idx], v, want)
+					return
+				}
+				wc, err := GetWorkspaceControl()
+				if err != nil {
+					errs[i] = err
+					return
+				}
+				if len(wc.RuleSets) != len(ruleFiles) {
+					errs[i] = fmt.Errorf("workspace control has %d rule sets, want %d", len(wc.RuleSets), len(ruleFiles))
+				}
+			}(i)
+		}
+		start.Done()
+		done.Wait()
+		for i := range n {
+			if errs[i] != nil {
+				t.Fatalf("round %d, goroutine %d: %v", round, i, errs[i])
+			}
+		}
 	}
 }
