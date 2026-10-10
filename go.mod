@@ -1,6 +1,6 @@
 module github.com/artisoft-io/jetstore
 
-go 1.26.7
+go 1.27.2
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.7
