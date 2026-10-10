@@ -90,6 +90,14 @@ func TestDecodeTOONReportsAMalformedDocument(t *testing.T) {
 	if _, err := DecodeTOONEntity(`{"a": [1, 2,`); err == nil {
 		t.Fatal("expected a decode error")
 	}
+	// A well-formed json object too: toon-go v1.0.1 decodes it as an object with
+	// one bogus key, so only OpensAsJSONObject stands between it and a clean pass.
+	if _, err := DecodeTOONEntity("\n  {\"Diagnosis_Code\": \"B182\"}"); err == nil {
+		t.Fatal("expected a json object to be refused as toon")
+	}
+	if _, err := DecodeTOONEntity("Diagnosis_Code: B182\n"); err != nil {
+		t.Fatalf("a toon object must still decode: %v", err)
+	}
 }
 
 func TestCheckEncodedDispatchesAndRefusesAnUnknownEncoding(t *testing.T) {

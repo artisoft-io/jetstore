@@ -1,5 +1,5 @@
 # Dockerfile to run aws cdk commands
-FROM golang:1.26-alpine
+FROM golang:1.27-alpine
 
 # Pinned tool versions, so a new upstream release cannot break the image build.
 # AWS_CDK_VERSION is the CDK CLI. It must understand the cloud assembly schema emitted by the
@@ -8,7 +8,7 @@ FROM golang:1.26-alpine
 # A newer CLI works with an older library; an older CLI fails at synth with an error saying
 # it is not compatible with the CDK library and must be upgraded.
 # AWSCLI_VERSION has no such coupling, bump it when a feature or a security finding needs it.
-ARG AWS_CDK_VERSION=2.1144.0
+ARG AWS_CDK_VERSION=2.1145.0
 ARG AWSCLI_VERSION=1.46.1
 
 # Install packages

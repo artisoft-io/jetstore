@@ -2,6 +2,7 @@ package briefing
 
 import (
 	"fmt"
+	"strings"
 
 	togo "github.com/toon-format/toon-go"
 )
@@ -64,6 +65,11 @@ func CheckTOON(s *Schema, entityTOON, briefJSON string) (*Result, error) {
 // column holding something other than an encoded entity, and grounding a
 // briefing against it would report a clean record for the wrong reason.
 func DecodeTOONEntity(content string) (map[string]any, error) {
+	if OpensAsJSONObject(content) {
+		return nil, fmt.Errorf(
+			"while reading the input entity as toon: the document opens with '{', which is json; " +
+				"toon writes an object as `key: value` lines")
+	}
 	v, err := togo.DecodeString(content)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the input entity as toon: %w", err)
@@ -75,6 +81,22 @@ func DecodeTOONEntity(content string) (map[string]any, error) {
 				"an encoded entity is always an object", v)
 	}
 	return obj, nil
+}
+
+// OpensAsJSONObject reports whether content, after leading whitespace, opens with
+// `{` — a json object, which a toon decoder must not be handed as toon.
+//
+// **toon-go stopped refusing it at v1.0.1** (measured 2026-10-10). Its decoder
+// takes any bare text up to a colon as a key, so `{"a": [1, 2,` decodes cleanly as
+// an object whose key is `{"a"` and whose value is `[1, 2,`; the pre-release it
+// replaced returned an error. Its strict mode, the default, governs lengths,
+// duplicate keys and indentation, not key syntax, and only its encoder applies
+// the identifier rule (`^[A-Za-z_][A-Za-z0-9_.]*$`). A toon object is `key: value`
+// lines, and the encoder never writes a bare key opening with `{`, so a leading
+// `{` is json. Refusing it here keeps a json column from passing as a clean toon
+// entity, which for a guardrail is the worst failure available.
+func OpensAsJSONObject(content string) bool {
+	return strings.HasPrefix(strings.TrimLeft(content, " \t\r\n\ufeff"), "{")
 }
 
 // CheckEncoded is Check over an entity column whose encoding is named rather

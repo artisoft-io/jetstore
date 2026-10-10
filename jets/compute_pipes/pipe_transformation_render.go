@@ -86,6 +86,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 	"github.com/artisoft-io/jetstore/jets/agentic/template"
 	togo "github.com/toon-format/toon-go"
 )
@@ -245,6 +246,13 @@ func decodeRenderJson(column string) func(string) (map[string]any, error) {
 // the shape `scalar` and `asInt` are written for.
 func decodeRenderToon(column string) func(string) (map[string]any, error) {
 	return func(text string) (map[string]any, error) {
+		// toon-go v1.0.1 decodes a json object as a toon object with one bogus
+		// key (`briefing.OpensAsJSONObject` has the measurement), which would
+		// render every path as nothing instead of failing the record here.
+		if briefing.OpensAsJSONObject(text) {
+			return nil, fmt.Errorf(
+				"the input column '%s' is not valid toon: it opens with '{', which is json", column)
+		}
 		parsed, err := togo.DecodeString(text)
 		if err != nil {
 			return nil, fmt.Errorf("the input column '%s' is not valid toon: %v", column, err)
