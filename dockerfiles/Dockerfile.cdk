@@ -8,7 +8,7 @@ FROM golang:1.27-alpine
 # A newer CLI works with an older library; an older CLI fails at synth with an error saying
 # it is not compatible with the CDK library and must be upgraded.
 # AWSCLI_VERSION has no such coupling, bump it when a feature or a security finding needs it.
-ARG AWS_CDK_VERSION=2.1144.0
+ARG AWS_CDK_VERSION=2.1145.0
 ARG AWSCLI_VERSION=1.46.1
 
 # Install packages
