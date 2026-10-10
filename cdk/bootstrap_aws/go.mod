@@ -1,6 +1,6 @@
 module bootstrap_aws
 
-go 1.26.7
+go 1.27.2
 
 require (
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.266.0

@@ -36,7 +36,7 @@ The three variants form a discriminated union keyed on `type`.
 
 ## Requirements
 
-- Go 1.26+ (uses the parent module at
+- Go 1.27.2+ (uses the parent module at
   [`../../../go.mod`](../../../go.mod) — there is **no** separate `go.mod` here)
 - A running [Ollama](https://ollama.com) server with a model that supports
   structured output (e.g. `gemma4:latest`)

@@ -116,7 +116,11 @@ func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 		"Lookups":       "[]*pipesmodel.Lookup",
 		"ErrorChannel":  "*pipesmodel.OutputChannel",
 		"MaxErrorCount": "int",
-		"Config":        "json.RawMessage",
+		// json.RawMessage is named the way the running Go names it: from Go 1.27
+		// encoding/json is backed by v2 and declares `type RawMessage = jsontext.Value`,
+		// so reflection reports jsontext.Value for a field declared json.RawMessage.
+		// The field and its behaviour are unchanged; only the printed name moved.
+		"Config": reflect.TypeOf(json.RawMessage(nil)).String(),
 	}
 	for name, wantType := range want {
 		gotType, ok := got[name]
