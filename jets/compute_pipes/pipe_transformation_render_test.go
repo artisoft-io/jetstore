@@ -318,6 +318,32 @@ func TestRenderRejectsARecordThatIsNotADocument(t *testing.T) {
 	}
 }
 
+// TestRenderRejectsJsonInAToonColumn is the toon half of the table above, and
+// it exists because toon-go v1.0.1 stopped catching it: its decoder reads
+// `{"Disclaimer": "x"}` as an object with the one key `{"Disclaimer"`, so every
+// path resolves to nothing and the template renders its empty form. The record
+// must fail instead (`briefing.OpensAsJSONObject`).
+func TestRenderRejectsJsonInAToonColumn(t *testing.T) {
+	for _, value := range []string{`{"Disclaimer": "x", "Events": []}`, "  \n{\"a\": [1, 2,"} {
+		config := renderTestConfig("briefing")
+		config.InputEncoding = "toon"
+		config.ErrorChannel = renderTestErrorChannel()
+		config.OnError = OnErrorDrop
+		result := runRenderTestPipe(t, renderTestCpConfig(renderTestTemplate("briefing")), config,
+			[][]any{{"member-1", value, nil}}, nil)
+
+		if len(result.outputRecords) != 0 {
+			t.Errorf("%q: on_error: drop still emitted %d record(s)", value, len(result.outputRecords))
+		}
+		if len(result.errorRecords) != 1 {
+			t.Fatalf("%q: got %d error rows, want 1", value, len(result.errorRecords))
+		}
+		if message, _ := result.errorRecords[0][5].(string); !strings.Contains(message, "not valid toon") {
+			t.Errorf("%q: the error row says %q, want it to say the column is not valid toon", value, message)
+		}
+	}
+}
+
 // TestRenderShortRecordIsReported covers `pad_short_rows_with_nulls`'s legitimate
 // short record arriving before the input column exists.
 func TestRenderShortRecordIsReported(t *testing.T) {
