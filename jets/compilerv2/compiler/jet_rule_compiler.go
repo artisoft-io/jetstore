@@ -71,6 +71,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	p.RemoveErrorListeners() // remove default ConsoleErrorListener
 	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog(), false /* c.Trace */)
 	errorListener.Diagnostics = c.listener.diagnostics
+	errorListener.Reader = c.ruleFileReader
 	p.AddErrorListener(errorListener)
 
 	// Build the tree
