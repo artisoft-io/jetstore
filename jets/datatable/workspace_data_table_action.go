@@ -56,8 +56,22 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 	var gitProfile user.GitProfile
 	gitProfile, gitProfileErr := user.GetGitProfile(ctx.Dbpool, userProfile.Email)
 
-	row := make([]any, len(sqlStmt.ColumnKeys))
+	// Rules unit tests are queued as a batch, outside the per-row loop below: the
+	// whole batch is refused or queued in one transaction (rules_unit_test_runs.go).
+	var rulesUnitTestRuns []RulesUnitTestRun
+	if dataTableAction.FromClauses[0].Table == rulesUnitTestTarget {
+		rulesUnitTestRuns, httpStatus, err = ctx.queueRulesUnitTests(dataTableAction, userProfile.Email)
+		if err != nil {
+			return nil, httpStatus, err
+		}
+		for i := range rulesUnitTestRuns {
+			returnedKey[i] = rulesUnitTestRuns[i].Key
+		}
+		goto postProcessing
+	}
+
 	for irow := range dataTableAction.Data {
+		row := make([]any, len(sqlStmt.ColumnKeys))
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
 		var gitLog, status string
@@ -372,6 +386,14 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 				}
 			}
+			// The compile option compiles the active workspace once the pull is done,
+			// so it is refused while rules unit tests of it are queued or executing
+			// (AC.5), before the pull rather than after it.
+			if hasWorkspaceActionOption(dataTableAction.Data[irow], "wpCompileWorkspaceOption") {
+				if httpStatus, err = refuseCompileWhileTestsRun(ctx.Dbpool); err != nil {
+					return nil, httpStatus, err
+				}
+			}
 			gitLog, err = pullWorkspaceAction(ctx.Dbpool, irow, &gitProfile, dataTableAction)
 			if err != nil {
 				log.Printf("Error while pull workspace: %v\nLog: %s\n", err, gitLog)
@@ -387,7 +409,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					compileWorkspaceStarted := false
 					for i := range l {
 						if l[i] != nil && l[i] == "wpCompileWorkspaceOption" {
-							status = "Compiling workspace in progress"
+							status = statusCompilingWorkspaceProgress
 							go compileWorkspaceAction(ctx, dataTableAction)
 							compileWorkspaceStarted = true
 						}
@@ -408,7 +430,22 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
 			}
-			dataTableAction.Data[irow]["status"] = "Compile in progress"
+			// Refuse a row that is not the active workspace (I-4), and a compile while
+			// rules unit tests of the workspace are queued or executing (AC.5); the
+			// claim writes the status below before a test request can look for it.
+			// compile_workspace names the row by key, compile_workspace_by_name by
+			// workspace name.
+			var rowKey any
+			if dataTableAction.FromClauses[0].Table == "compile_workspace" {
+				rowKey = dataTableAction.Data[irow]["key"]
+				if rowKey == nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for compile_workspace, missing key")
+				}
+			}
+			if httpStatus, err = claimCompile(ctx.Dbpool, dataTableAction.WorkspaceName, rowKey); err != nil {
+				return nil, httpStatus, err
+			}
+			dataTableAction.Data[irow]["status"] = statusCompileInProgress
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
 			if dataTableAction.WorkspaceName == "" {
@@ -472,7 +509,12 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 	// Post Processing Hook
 	// -----------------------------------------------------------------------
+postProcessing:
 	switch {
+	case dataTableAction.FromClauses[0].Table == rulesUnitTestTarget:
+		//	- Hand the queued runs to the executor pool
+		currentRulesUnitTestExecutor().Submit(ctx.Dbpool, rulesUnitTestRuns)
+
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go compileWorkspaceAction(ctx, dataTableAction)

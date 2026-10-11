@@ -216,6 +216,24 @@ func (server *Server) checkSystemTablesVersion() error {
 	return nil
 }
 
+// sweepInterruptedWork runs datatable.SweepInterruptedWork with this start taken
+// from the database's clock, the clock every last_update it compares is written
+// by. Rules unit tests project, AC.7 and I-5.
+func (server *Server) sweepInterruptedWork() {
+	var startedAt time.Time
+	if err := server.dbpool.QueryRow(context.Background(), "SELECT now()").Scan(&startedAt); err != nil {
+		log.Println("Warning: cannot read the database clock, interrupted work not swept:", err)
+		return
+	}
+	tests, workspaces, err := datatable.SweepInterruptedWork(server.dbpool, startedAt)
+	if err != nil {
+		log.Println("Warning: while sweeping interrupted work:", err)
+	}
+	if tests > 0 || workspaces > 0 {
+		log.Printf("Swept interrupted work: %d rules unit test run(s), %d workspace action(s)", tests, workspaces)
+	}
+}
+
 // Update JetStore Db -- Domain Tables and System Tables if needed
 // Precondition: db schema exist
 //
@@ -505,6 +523,13 @@ func listenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
 	}
+
+	// What a stopped apiserver left running is recorded as interrupted: rules unit
+	// test runs queued or executing, and a workspace compile or client config load
+	// still "in progress". It needs the tables checkSystemTablesVersion migrates,
+	// and it runs before anything here can start new work. A failure is logged
+	// rather than fatal: the rows it would fix are stale, not dangerous.
+	server.sweepInterruptedWork()
 
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()

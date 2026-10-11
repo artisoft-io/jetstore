@@ -73,6 +73,10 @@ func DoPurgeSessions() error {
 	//  - Delete rows in pipeline_execution_status that are older than 6 months
 	//  - Compact the database
 
+	// Rules unit test runs are not sessions, so they are purged by age before the
+	// session purge below can return early with nothing to do.
+	purgeRulesUnitTestRuns(dbpool, purgeFrom)
+
 	// Get all session_id prior to purgeFrom
 	sessionIds, err := readSessionIds(dbpool, &purgeFrom)
 	if err != nil {
@@ -259,4 +263,32 @@ func stringifySessionIds(sessionIds []string) string {
 		isFirst = false
 	}
 	return buf.String()
+}
+
+// purgeRulesUnitTestRuns deletes the rules unit test runs last updated on or
+// before purgeFrom, with their checks. A run still queued or executing is kept
+// whatever its age: the apiserver's start-up sweep is what ends those. Errors are
+// logged and not returned, as for the other secondary purges here -- a database
+// the apiserver has not migrated yet has neither table. purgeFrom is cast to
+// timestamptz because last_update is a timestamp without time zone and pgx
+// would otherwise encode it by its wall clock in its own location.
+func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) (runs, checks int64) {
+	ctx := context.Background()
+	tag, err := dbpool.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_check WHERE execution_key IN (
+		SELECT key FROM jetsapi.rules_unit_test_execution
+		WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing'))`, purgeFrom)
+	if err != nil {
+		log.Println("Warning: while purging rules_unit_test_check:", err)
+		return 0, 0
+	}
+	checks = tag.RowsAffected()
+	tag, err = dbpool.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_execution
+		WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing')`, purgeFrom)
+	if err != nil {
+		log.Println("Warning: while purging rules_unit_test_execution:", err)
+		return 0, checks
+	}
+	runs = tag.RowsAffected()
+	log.Printf("Purged %d rules unit test runs and %d of their checks\n", runs, checks)
+	return runs, checks
 }
