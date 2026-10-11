@@ -38,6 +38,9 @@ import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments,
   CORPUS_CORRECTIONS,
 } from "./tableTranslate";
 import type { TableConfig } from "./types";
+import { availability } from "./actionBarModel";
+import { FormState } from "./formState";
+import { inAppPath } from "../screens/routes";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
@@ -754,17 +757,21 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     expect(fromDocument("lfSourceConfigTable", flow).apiAction).toBe("read");
   });
 
-  it("gates eight buttons on the selected row's status, by column name", () => {
+  it("gates nine buttons on the selected row's status, by column name", () => {
     if (doc.source !== "query") return;
     const gated = [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])].filter(
       (a) => a.enableWhen !== undefined,
     );
+    // **Nine since 2026-10-11**: *Rules Unit Tests* (`rules_unit_test_harness`
+    // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
+    // why `actionBar.test.tsx`, reading that corpus, still counts eight.
     expect(gated.map((a) => a.key)).toEqual([
       "openWorkspace",
       "exportWorkspaceClientConfig",
       "loadWorkspaceConfig",
       "deleteWorkspace",
       "compileWorkspace",
+      "rulesUnitTests",
       "commitWorkspace",
       "pushOnlyWorkspace",
       "pullWorkspace",
@@ -776,9 +783,55 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     expect(doc.columns[6]?.name).toBe("status");
   });
 
+  it("enables Rules Unit Tests exactly as it enables Open, and sends it to the flow", () => {
+    // `rules_unit_test_harness` `AD.2`, 2026-10-11, criterion 19's first half.
+    // **Asserted on behaviour as well as on the three fields**: equal JSON would
+    // pass with a gate the model reads differently on a `showScreen` than on a
+    // `doAction`, and the claim is about what the user sees enabled.
+    const model = fromDocument("workspaceRegistryTable", doc);
+    const open = model.actions.find((a) => a.key === "openWorkspace")!;
+    const tests = model.secondRowActions.find((a) => a.key === "rulesUnitTests")!;
+    expect(tests.label).toBe("Rules Unit Tests");
+    expect(tests.style).toBe("primary");
+    expect(tests.capability).toBe("workspace_ide");
+    expect(tests.isVisibleWhenCheckboxVisible).toBe(open.isVisibleWhenCheckboxVisible);
+    expect(tests.isEnabledWhenHavingSelectedRows).toBe(open.isEnabledWhenHavingSelectedRows);
+    expect(tests.actionEnableCriterias).toEqual(open.actionEnableCriterias);
+
+    const row = (status: string | null): (string | null)[] => [
+      "1", "acme", "main", "feature", "git@x", "a workspace", status, null, "u@x", "now",
+    ];
+    for (const checkboxVisible of [true, false]) {
+      for (const selectedRowCount of [0, 1]) {
+        for (const status of [null, "", "active", "modified", "Compile in progress", "removed"]) {
+          const context = {
+            tableKey: "workspaceRegistryTable",
+            selectedRowCount,
+            checkboxVisible,
+            whereClauseSatisfied: true,
+            formState: new FormState(),
+            predicates: {},
+            ...(selectedRowCount > 0 ? { selectedRow: row(status) } : {}),
+          };
+          const label = `checkbox ${checkboxVisible}, ${selectedRowCount} selected, status ${status}`;
+          expect(availability(tests, context).enabled, label).toBe(availability(open, context).enabled);
+          expect(availability(tests, context).visible, label).toBe(availability(open, context).visible);
+        }
+      }
+    }
+
+    // The row's `workspace_name` is column 1, as `loadWorkspaceConfig` reads it,
+    // and the template resolves to the flow through `FLOW_ROUTES` (`AD.3`).
+    expect(tests.actionType).toBe("showScreen");
+    expect(tests.navigationParams).toEqual({ workspace_name: 1 });
+    expect(inAppPath(tests.configScreenPath, { workspace_name: "jets_ws" })).toBe(
+      "/flow/rulesUnitTestUF?workspace_name=jets_ws",
+    );
+  });
+
   it("keeps the disjunction of conjunctions rather than flattening it", () => {
     if (doc.source !== "query") return;
-    // Two of the eight use the inner list, and a flattened `enableWhen` would
+    // Two of the nine use the inner list, and a flattened `enableWhen` would
     // have turned "neither removed nor in progress" into "either", which is the
     // difference between refusing a mid-compile export and permitting one.
     const exportAction = (doc.actions ?? []).find((a) => a.key === "exportWorkspaceClientConfig");
@@ -798,6 +851,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     if (doc.source !== "query") return;
     expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
       "compileWorkspace",
+      "rulesUnitTests",
       "commitWorkspace",
       "pushOnlyWorkspace",
       "pullWorkspace",
@@ -813,7 +867,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   });
 
   it("names no escape, so this screen needs no predicate registered", () => {
-    // All eight gates are row criteria, which are data; `hasIsEnabledFnc` is
+    // All nine gates are row criteria, which are data; `hasIsEnabledFnc` is
     // false on every action of this table. The two mechanisms look alike and are
     // not the same one — see `tableTranslate.ts`.
     expect(escapeNamesOf(doc)).toEqual([]);

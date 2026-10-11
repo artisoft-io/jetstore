@@ -304,7 +304,11 @@ export const FLOW_EXIT_FALLBACK = "/home";
  *
  * **Ten since 2026-10-01**, when `/registerFileKeyUF` went with its flow
  * (`jetstore_maintenance_02` `AD.4`); a row leaves this map when its flow is
- * retired, and is never added for a flow that has no Flutter route.
+ * retired. ~~and is never added for a flow that has no Flutter route~~ **Eleven
+ * since 2026-10-11**: `rulesUnitTestUF` has no Flutter route and needs a row
+ * anyway, because this map is the only way a table button opens a flow. A new
+ * row is therefore a flow a table button opens, not a Flutter template, and says
+ * so in its own comment (the last row below).
  *
  * **Four of the eleven have a route that disagrees with their key**, which is the
  * whole reason this is a map rather than a string operation: `mapFileUF`'s leading
@@ -329,6 +333,22 @@ export const FLOW_ROUTES: Readonly<Record<string, { flowKey: string; parameters:
   "/sourceConfigUF/:startAtKey": { flowKey: "sourceConfigUF", parameters: ["startAtKey"] },
   "/startPipelineUF": { flowKey: "startPipelineUF", parameters: [] },
   "/workspaces/loadConfigUF/:workspace_name": { flowKey: "loadConfigUF", parameters: ["workspace_name"] },
+  /**
+   * **The one row with no Flutter predecessor**, and the header above is
+   * corrected by it rather than around it, as `SERVED_SCREENS` was by
+   * `/fileLoaderStatus`. `rulesUnitTestUF` is a new flow
+   * (`rules_unit_test_harness` Phase 1, `AD.3`, 2026-10-11) reached from the
+   * workspace registry's *Rules Unit Tests* button, and a table button names a
+   * flow only through a template in this map: `inAppPath` has no third way. The
+   * template is chosen to read as `loadConfigUF`'s does — the registry's own
+   * route, then the flow, then the row's `workspace_name` — so the two buttons on
+   * that table that open a flow carry their argument the same way.
+   *
+   * **`FLOW_ENTRY_POINTS` was the alternative and is the wrong map**: it exists
+   * for opening a flow on a state other than its first, and this flow opens on
+   * its hub.
+   */
+  "/workspaces/rulesUnitTestUF/:workspace_name": { flowKey: "rulesUnitTestUF", parameters: ["workspace_name"] },
 };
 
 /**

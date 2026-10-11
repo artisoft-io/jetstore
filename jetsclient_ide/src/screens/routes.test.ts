@@ -189,7 +189,10 @@ describe("the served-screen map", () => {
     // plus three projections, and a projection has no Flutter route).
     // **Ten since 2026-10-01**: `/registerFileKeyUF` went with its flow
     // (`jetstore_maintenance_02` `AD.4`), and `user_flows/` holds ten.
-    expect(Object.keys(FLOW_ROUTES)).toHaveLength(10);
+    // **Eleven since 2026-10-11**, and the eleventh is not a Flutter route:
+    // `rulesUnitTestUF` (`rules_unit_test_harness` `AD.3`) is a new flow a table
+    // button opens, and this map is the only way a button names a flow.
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
   });
 
   it("carries a flow's parameters as a query string, and refuses a partial one", () => {
@@ -199,6 +202,13 @@ describe("the served-screen map", () => {
     // F.10's decision, kept: a flow whose arguments are absent is not opened with
     // an empty worksheet.
     expect(reactFlowRoute("/fileMappingUF/mapping/:table_name/:object_type", { table_name: "t" })).toBeNull();
+    // `AD.3`: the workspace registry's *Rules Unit Tests* button, which carries
+    // the row's workspace the way *Load Client Config* does — and refuses to open
+    // a flow that would test no workspace.
+    expect(
+      reactFlowRoute("/workspaces/rulesUnitTestUF/:workspace_name", { workspace_name: "jets_ws" }),
+    ).toBe("/flow/rulesUnitTestUF?workspace_name=jets_ws");
+    expect(reactFlowRoute("/workspaces/rulesUnitTestUF/:workspace_name", {})).toBeNull();
   });
 
   it("returns null for a template neither app routes, and for none at all", () => {
@@ -297,8 +307,10 @@ describe("the flow entry points", () => {
     // header false.
     const inBoth = Object.keys(FLOW_ENTRY_POINTS).filter((t) => FLOW_ROUTES[t] !== undefined);
     expect(inBoth).toEqual([]);
-    // Eleven until `registerFileKeyUF` was retired, 2026-10-01.
-    expect(Object.keys(FLOW_ROUTES)).toHaveLength(10);
+    // Eleven until `registerFileKeyUF` was retired, 2026-10-01; eleven again
+    // since `rulesUnitTestUF`, 2026-10-11, which is a flow a table button opens
+    // on its first state and therefore belongs in that map rather than this one.
+    expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
   });
 
   it("carries the state key and the arguments the state needs", () => {

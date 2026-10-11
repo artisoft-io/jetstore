@@ -235,6 +235,28 @@
       ]
     },
     {
+      "key": "rulesUnitTests",
+      "label": "Rules Unit Tests",
+      "action": "showScreen",
+      "style": "primary",
+      "capability": "workspace_ide",
+      "configScreenPath": "/workspaces/rulesUnitTestUF/:workspace_name",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "workspace_name": 1
+      },
+      "enableWhen": [
+        [
+          {
+            "column": "status",
+            "is": "doesNotContain",
+            "value": "in progress"
+          }
+        ]
+      ]
+    },
+    {
       "key": "commitWorkspace",
       "label": "Commit & Push Workspace",
       "action": "showDialog",
