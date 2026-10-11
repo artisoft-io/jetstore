@@ -25,6 +25,7 @@ const validDefinition = `{
     "is_debug": true,
     "input_rdf_type": "hc:Eligibility",
     "current_source_period": 1,
+    "current_source_period_type": "month_period",
     "rule_config": [
       {"jets:key": "jets:iState", "jets:max_vertex_visits": {"value": "50", "type": "int"}, "_0:no_truth_main_on_exist": {"value": "1", "type": "int"}}
     ]
@@ -325,6 +326,9 @@ func TestRequiredAndConflicts(t *testing.T) {
 		{CodeInvalidValue, "/input_sessions/1/input/0", "leaves", func(d map[string]any) { obj(d, "input_sessions", 1)["input"] = []any{"../x.csv"} }},
 		{CodeInvalidValue, "/input_sessions/1/input/0", "absolute", func(d map[string]any) { obj(d, "input_sessions", 1)["input"] = []any{"/tmp/x.csv"} }},
 		{CodeInvalidValue, "/expect/status", "error", func(d map[string]any) { obj(d, "expect")["status"] = "pass" }},
+		{CodeRequired, "/jetrules_config/current_source_period_type", "reset to 0", func(d map[string]any) {
+			delete(obj(d, "jetrules_config"), "current_source_period_type")
+		}},
 		{CodeInvalidValue, "/jetrules_config/max_looping", "negative", func(d map[string]any) { obj(d, "jetrules_config")["max_looping"] = -1 }},
 		{CodeInvalidValue, "/jetrules_config/rule_config/0/jets:max_vertex_visits/value", "JSON string", func(d map[string]any) {
 			obj(d, "jetrules_config", "rule_config", 0, "jets:max_vertex_visits")["value"] = 50
