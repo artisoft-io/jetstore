@@ -78,3 +78,59 @@ func TestVisitDirWrapperStillFailsWhenTheSectionIsNotADirectory(t *testing.T) {
 		t.Fatal("want an error when the section path is a file")
 	}
 }
+
+// A rules unit test definition is listed under Jets Rules, however deep below
+// jet_rules/unit_tests/ it sits. They were invisible until 2026-10-11 because the
+// section's filters named only `.jr`.
+func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
+	root := t.TempDir()
+	for name, content := range map[string]string{
+		"jet_rules/main.jr":                       "",
+		"jet_rules/unit_tests/loop/loop.tst.json": "{}",
+		"jet_rules/unit_tests/loop/member1.csv":   "jets:key",
+		"jet_rules/unit_tests/loop/notes.md":      "",
+	} {
+		p := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var jetRules *Section
+	for i := range WorkspaceSections {
+		if WorkspaceSections[i].Dir == "jet_rules" {
+			jetRules = &WorkspaceSections[i]
+		}
+	}
+	node, err := jetRules.Visit(root, "ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []string
+	var walk func(n *WorkspaceNode)
+	walk = func(n *WorkspaceNode) {
+		if n.Type == "file" {
+			files = append(files, n.RouteParams["file_name"])
+		}
+		if n.Children != nil {
+			for _, c := range *n.Children {
+				walk(c)
+			}
+		}
+	}
+	walk(node)
+	want := map[string]bool{
+		"jet_rules%2Fmain.jr":                           true,
+		"jet_rules%2Funit_tests%2Floop%2Floop.tst.json": true,
+	}
+	if len(files) != len(want) {
+		t.Fatalf("listed %v, want exactly %v", files, want)
+	}
+	for _, f := range files {
+		if !want[f] {
+			t.Errorf("listed %s, which the section should not show", f)
+		}
+	}
+}

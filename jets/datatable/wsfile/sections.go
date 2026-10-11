@@ -108,8 +108,13 @@ var WorkspaceSections = []Section{
 		// in the .jr arm"; `"a.jr.sql".endsWith(".jr")` is false**, so the
 		// special case only ever returned what the `.sql` arm would have. This
 		// is the one home for that; the other sites point here.
+		//
+		// **`.tst.json` since 2026-10-11**: the rules unit tests live under
+		// `jet_rules/unit_tests/` (workspace.UnitTestsDir, UnitTestSuffix) and
+		// were invisible here from the day they shipped, the same missing-suffix
+		// defect as `.apply.json` below.
 		Dir: "jet_rules", Label: "Jets Rules",
-		Filters: []string{".jr"}, CompiledView: JetRulesView,
+		Filters: []string{".jr", ".tst.json"}, CompiledView: JetRulesView,
 	},
 	{
 		// Declared here, and not built in the Flutter client. That is the state
