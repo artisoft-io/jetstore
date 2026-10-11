@@ -103,15 +103,18 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 # Create a simple library cache manually
 RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 
-# Make sure bootstrap is executable
-RUN chmod +x ${LAMBDA_RUNTIME_DIR}/bootstrap
-
+# **No chmod on bootstrap.** go build in Dockerfile.cpipes_builder writes it
+# 0755 and COPY keeps the mode, and a chmod in a later layer stores the whole
+# file again -- measured on 2026-10-11, the RUN that chmod'ed it added 55 MB, the
+# binary's own size, and changed no mode. Dockerfile.ui_service carries the same
+# note (rules_unit_test_harness I-31, I-34).
+#
+# **No chmod on the libraries either.** All five are already 0755 where they
+# are copied from in the builder (`ls -lL` there, 2026-10-11), COPY keeps the mode, and the dynamic loader needs no execute bit on a shared
+# object in any case -- it maps it, it does not exec it. The four chmods here
+# rewrote 1.8 MB for nothing; the symlink, the listing and the ldd stay.
 RUN \
     cd /usr/local/lib/ \
-    && chmod +x libglog.so.0.6.0 \
-    && chmod +x libboost_date_time.so.1.75.0 \
-    && chmod +x libsqlite3.so.0.8.6 \
-    && chmod +x libgflags.so.2.2 \
     && ln -s libglog.so.0.6.0 libglog.so.1  \
     && echo "/usr/local/lib/ DIRECTORY Contains" \
     && ls -la /usr/local/lib/ \
