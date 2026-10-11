@@ -156,7 +156,9 @@ func TakeSnapshot(ses compute_pipes.JetRdfSession) (*Snapshot, error) {
 // DecodeNode turns a node of either engine into a Term. The two adaptors name
 // types differently (Go: named_resource, int, uint, string; C++: named_resource,
 // int32/int64, uint32/uint64, string) and the native Value() cannot read a
-// blank node or an unsigned literal, so those are read through String().
+// blank node or an unsigned literal, so those are read through String(). A blank
+// node's String() carries its key on both engines (Go BN<key>, C++ BN:<key>),
+// which is what keeps two blank nodes two terms.
 func DecodeNode(n compute_pipes.RdfNode) (Term, error) {
 	if n == nil {
 		return Term{Kind: TermNull}, nil

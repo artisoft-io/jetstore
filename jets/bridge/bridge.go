@@ -563,6 +563,21 @@ func (r *Resource) GetName() (string, error) {
 	return C.GoString(sp), nil
 }
 
+// GetBlankNodeKey returns a blank node's key, which tells it apart from the
+// other blank nodes of its graph.
+func (r *Resource) GetBlankNodeKey() (int, error) {
+	// rdf_blank_node_t
+	if r.GetType() != 1 {
+		return 0, ErrUnexpectedRdfType
+	}
+	var cint C.int
+	ret := int(C.get_blank_node_key(r.hdl, &cint))
+	if ret != 0 {
+		return 0, fmt.Errorf("error while getting blank node key: %v", ret)
+	}
+	return int(cint), nil
+}
+
 func (r *Resource) GetInt() (int, error) {
 	// rdf_literal_int32_t or rdf_literal_int64_t
 	if r.GetType() != 3 && r.GetType() != 5 {
@@ -696,7 +711,11 @@ func (r *Resource) AsText() (string, error) {
 	case 0:
 		return "NULL", nil
 	case 1:
-		return "BN:", nil
+		v, err := r.GetBlankNodeKey()
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("BN:%d", v), nil
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
