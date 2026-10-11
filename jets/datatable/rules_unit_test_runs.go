@@ -19,6 +19,10 @@ package datatable
 // the alternative is a compile reported against one row and done to another, or a
 // test that runs against rules compiled from somewhere else.
 //
+// *Pull Workspace* with its compile option is refused on the same terms, before
+// it pulls (I-16), since the compile that follows the pull is of the active
+// workspace too.
+//
 // # A compile and a test run exclude each other
 //
 // Every running harness reads build/ and workspace.db, and a compile rewrites
@@ -172,6 +176,32 @@ func claimCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, 
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("while committing the compile claim: %v", err)
+	}
+	return http.StatusOK, nil
+}
+
+// refusePullCompileOfAnotherWorkspace is I-4's refusal for pull_workspace with its
+// compile option (I-16). The compile that follows the pull is of the active
+// workspace whichever row was pulled (compileWorkspaceAction), so a request
+// naming another workspace, or naming the active workspace and a row of another
+// one, is refused with the sentence claimCompile answers -- and before the pull,
+// so a refused request pulls nothing. rowKey is the registry row the request
+// names; a key that names no row is refused as claimCompile refuses it.
+//
+// A check and not a claim, like refuseCompileWhileTestsRun: a pull without the
+// compile option is not refused, and pulling another workspace stays possible.
+func refusePullCompileOfAnotherWorkspace(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, error) {
+	if err := activeWorkspaceRefusal(workspaceName); err != nil {
+		return http.StatusBadRequest, err
+	}
+	var rowName string
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT workspace_name FROM jetsapi.workspace_registry WHERE key = $1`, rowKey).Scan(&rowName)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return http.StatusInternalServerError, fmt.Errorf("while reading the workspace_registry row to pull: %v", err)
+	}
+	if rowName != workspaceName {
+		return http.StatusBadRequest, activeWorkspaceRefusal(rowName)
 	}
 	return http.StatusOK, nil
 }
