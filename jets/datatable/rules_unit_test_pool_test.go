@@ -101,7 +101,19 @@ const passResult = `{
 func TestPoolRecordsAResult(t *testing.T) {
 	f := newRutFixture(t)
 	seen := filepath.Join(t.TempDir(), "seen")
-	fakeHarness(t, `echo "args: $*" > `+seen+`
+	// The apiserver task's secret-bearing variables (cdk/jetstore_one/stack),
+	// and what the harness needs beside them.
+	secrets := []string{"API_SECRET", "AWS_API_SECRET", "JETS_ENCRYPTION_KEY", "JETS_ENCRYPTION_KEY_SECRET",
+		"JETS_DSN_SECRET", "JETS_DSN_JSON_VALUE", "JETS_ADMIN_PWD", "AWS_JETS_ADMIN_PWD_SECRET",
+		"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"}
+	for _, name := range secrets {
+		t.Setenv(name, "must-not-reach-the-harness")
+	}
+	t.Setenv("GLOG_v", "2")
+	t.Setenv("JETS_BUCKET", "a-bucket")
+	t.Setenv("LD_LIBRARY_PATH", "/usr/local/lib")
+	fakeHarness(t, `env > `+seen+`.env
+echo "args: $*" > `+seen+`
 echo "cwd: $PWD" >> `+seen+`
 echo "env: $WORKSPACES_HOME $WORKSPACE" >> `+seen+`
 echo "to stdout"
@@ -140,6 +152,18 @@ JSON`)
 	want := []string{"s1|expected|pass|?x=hc:a1|native", "s1|expected|pass|?x=hc:a1|go", "s2|count|pass|1|"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("checks\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	env, err := os.ReadFile(seen + ".env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(env), "must-not-reach-the-harness") {
+		t.Errorf("a secret reached the harness:\n%s", env)
+	}
+	for _, w := range []string{"\nGLOG_v=2\n", "\nJETS_BUCKET=a-bucket\n", "\nLD_LIBRARY_PATH=/usr/local/lib\n"} {
+		if !strings.Contains("\n"+string(env), w) {
+			t.Errorf("the harness environment lacks %q", strings.TrimSpace(w))
+		}
 	}
 	b, err := os.ReadFile(seen)
 	if err != nil {
@@ -364,5 +388,17 @@ func TestTailBuffer(t *testing.T) {
 	s := b.String()
 	if !strings.HasPrefix(s, "[log truncated: the first ") || !strings.HasSuffix(s, " and more") {
 		t.Errorf("over the cap: %q", s)
+	}
+}
+
+func TestHarnessEnvironment(t *testing.T) {
+	got := harnessEnviron([]string{
+		"PATH=/bin", "OLDPWD=/tmp", "PWD=/x", "JETS_ADMIN_PWD=p", "MY_PASSWORD=p", "JETS_DSN_SECRET=arn",
+		"jets_encryption_key=k", "AWS_REGION=us-east-1", "AWS_PROFILE=dev", "AWS_ACCESS_KEY_ID=id",
+		"WORKSPACE=stale", "JETS_VERSION=1", "GLOG_v=3",
+	}, "/home", "ws")
+	want := "PATH=/bin OLDPWD=/tmp AWS_REGION=us-east-1 JETS_VERSION=1 GLOG_v=3 WORKSPACES_HOME=/home WORKSPACE=ws"
+	if strings.Join(got, " ") != want {
+		t.Errorf("got  %s\nwant %s", strings.Join(got, " "), want)
 	}
 }

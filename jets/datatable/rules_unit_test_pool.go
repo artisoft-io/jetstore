@@ -37,8 +37,9 @@ package datatable
 //
 //	rules_unit_test -out <result.json> -rlimit_data_mb <N> <test_path>
 //
-// with WORKSPACES_HOME and WORKSPACE set to the run's workspace, and the working
-// directory its root; test_path is relative to that root, as the compile recorded
+// with WORKSPACES_HOME and WORKSPACE set to the run's workspace, every
+// secret-bearing variable of the apiserver's environment removed (harnessEnviron),
+// and the working directory the workspace root; test_path is relative to that root, as the compile recorded
 // it. The harness writes the result file and exits non-zero only when it could
 // not; its standard output and error are the log.
 
@@ -278,7 +279,7 @@ func (p *RulesUnitTestPool) runHarness(run RulesUnitTestRun) (out rulesUnitTestO
 		"-rlimit_data_mb", strconv.Itoa(p.config.MemoryMB),
 		run.TestPath)
 	cmd.Dir = filepath.Join(workspacesHome, run.WorkspaceName)
-	cmd.Env = append(os.Environ(), "WORKSPACES_HOME="+workspacesHome, "WORKSPACE="+run.WorkspaceName)
+	cmd.Env = harnessEnviron(os.Environ(), workspacesHome, run.WorkspaceName)
 	logBuf := newTailBuffer(p.config.LogCap)
 	cmd.Stdout = logBuf
 	cmd.Stderr = logBuf
@@ -310,6 +311,58 @@ func (p *RulesUnitTestPool) runHarness(run RulesUnitTestRun) (out rulesUnitTestO
 	}
 	out.reason = describeHarnessExit(waitErr, readErr, out.log, p.config.MemoryMB)
 	return
+}
+
+// secretWords are the underscore-separated words that mark a variable as
+// carrying a secret, or a way to fetch one: JETS_DSN_SECRET, JETS_DSN_JSON_VALUE,
+// API_SECRET, JETS_ADMIN_PWD, AWS_SESSION_TOKEN, the ECS task role's
+// AWS_CONTAINER_CREDENTIALS_RELATIVE_URI. A whole word, so OLDPWD is kept and
+// PWD is not.
+var secretWords = map[string]bool{
+	"DSN": true, "SECRET": true, "SECRETS": true, "PASSWORD": true, "PASSWD": true, "PWD": true,
+	"TOKEN": true, "CREDENTIALS": true,
+}
+
+// secretNames are the secret-bearing names no word gives away.
+var secretNames = map[string]bool{
+	"AWS_ACCESS_KEY_ID": true, "AWS_ROLE_ARN": true, "AWS_PROFILE": true,
+}
+
+// isSecretEnvName reports whether a variable must not reach the harness.
+func isSecretEnvName(name string) bool {
+	upper := strings.ToUpper(name)
+	if secretNames[upper] || strings.Contains(upper, "ENCRYPTION_KEY") {
+		return true
+	}
+	for _, w := range strings.Split(upper, "_") {
+		if secretWords[w] {
+			return true
+		}
+	}
+	return false
+}
+
+// harnessEnviron is the harness's environment: the apiserver's, less every
+// variable that carries a secret, with the run's workspace set (I-19).
+//
+// **The harness opens no database and calls no AWS service, so it needs none of
+// them -- and it links jets/user**, through compute_pipes, jets/workspace and
+// jets/datatable/git, whose init reads JETS_ENCRYPTION_KEY, API_SECRET,
+// JETS_ENCRYPTION_KEY_SECRET and AWS_API_SECRET, and with the last two set calls
+// AWS Secrets Manager at process start (jets/user/git_profile.go). Left in the
+// environment, every test would fetch two secrets it never uses. What the
+// harness does read -- WORKSPACES_HOME, WORKSPACE, LD_LIBRARY_PATH, GLOG_*, the
+// non-secret JETS_* settings -- passes unchanged.
+func harnessEnviron(base []string, workspacesHome, workspaceName string) []string {
+	env := make([]string, 0, len(base)+2)
+	for _, kv := range base {
+		name, _, _ := strings.Cut(kv, "=")
+		if isSecretEnvName(name) || name == "WORKSPACES_HOME" || name == "WORKSPACE" {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "WORKSPACES_HOME="+workspacesHome, "WORKSPACE="+workspaceName)
 }
 
 // memoryLogMarkers are what a process says when an allocation fails under
