@@ -335,9 +335,12 @@ type RuleSetOutcome struct {
 	// ExecuteErr is the error ExecuteRules returned, which ends the rule set's
 	// loop; the max vertex visit limit is one.
 	ExecuteErr error
-	// Exceptions are the objects of (jets:iState jets:exception ?) in the rdf
-	// session once the rule set has run. The scan covers the whole session, so
-	// an exception asserted by one rule set is found again by every later one.
+	// Exceptions are the objects of (jets:iState jets:exception ?) that this
+	// rule set raised: in the rdf session once it has run, and not there when it
+	// started. An exception stays in the session for the later rule sets, whose
+	// rules may read it, but only the rule set that raised it reports it
+	// (rules_unit_test_harness I-8, Michel 2026-10-11: report each exception
+	// once). See exceptionKey for what makes two exceptions the same.
 	Exceptions []string
 }
 
@@ -355,7 +358,8 @@ type RuleSetsOutcome struct {
 	MaxLoopReached bool
 	// ExecuteErr is the first ExecuteRules error of any rule set.
 	ExecuteErr error
-	// Exceptions are every rule set's Exceptions, in order, as pipelines report them.
+	// Exceptions are every rule set's Exceptions, in order, as pipelines report
+	// them: each exception once, from the rule set that raised it.
 	Exceptions []string
 	// Err is set when the rule sets could not be run to the end: no rule set for
 	// the process, a rete session that could not be created, the input that could
@@ -379,7 +383,8 @@ func (o *RuleSetsOutcome) Failed() bool {
 // session and runs the looping protocol: erase (jets:iState jets:loop ?) and
 // (jets:iState jets:completed ?), then for each loop from 0 to the maximum
 // insert (jets:iState jets:loop n) from 1, call ExecuteRules, and stop on an
-// ExecuteRules error or on jets:completed; then scan for jets:exception.
+// ExecuteRules error or on jets:completed; then scan for jets:exception and keep
+// the exceptions that were not in the session when the rule set started.
 //
 // assertInput asserts the input into rdfSession. It is called once, after the
 // first rule set's rete session is created and before any rule set runs, which
@@ -405,6 +410,9 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 	var inputAsserted bool
 	var ruleFileNames []string
 	var err error
+	// The exceptions in the rdf session when the current rule set started, which
+	// are the previous rule set's scan; nothing between two scans asserts one.
+	var exceptionsBefore map[string]bool
 	isDebug := config.IsDebug
 
 	wc, err = GetWorkspaceControl()
@@ -499,16 +507,24 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 			// Looped til the end, something might be wrong
 			rs.MaxLoopReached = true
 		}
-		// Check for any jets:exceptions in the rdfSession
+		// Check for any jets:exceptions in the rdfSession, and keep the ones this
+		// rule set raised. The exceptions stay in the session: a later rule set's
+		// rules may read them, and its scan finds them again without reporting them.
+		exceptionsNow := make(map[string]bool)
 		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
 		for !ctor.IsEnd() {
 			hasException := ctor.GetObject()
 			if hasException != nil {
-				rs.Exceptions = append(rs.Exceptions, hasException.String())
+				key := exceptionKey(hasException)
+				exceptionsNow[key] = true
+				if !exceptionsBefore[key] {
+					rs.Exceptions = append(rs.Exceptions, hasException.String())
+				}
 			}
 			ctor.Next()
 		}
 		ctor.Release()
+		exceptionsBefore = exceptionsNow
 
 		outcome.RuleSets = append(outcome.RuleSets, rs)
 		outcome.Loops = rs.Loops
@@ -526,6 +542,25 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		reteSession.Release()
 	}
 	return
+}
+
+// exceptionKey identifies the object of a (jets:iState jets:exception ?) triple
+// across the scans of a rule sequence: its rdf type and its text.
+//
+// The triple is the identity that matters, and with its subject and predicate
+// fixed it is the object node; the rdf session is a set of triples, so one
+// exception value is one triple however many rules or rule sets assert it. The
+// node itself cannot be the key, because neither adaptor exposes it: Hdle()
+// returns the RdfNode wrapper, which GetObject allocates afresh on every call
+// (rules_unit_test_harness F93). The type and the text name the node instead,
+// the type keeping the text "1" apart from the int 1 and a resource from a
+// literal of the same name.
+//
+// Two raises of one value by two rule sets are therefore one exception, reported
+// by the first; a value that a later rule set retracted and another raised again
+// is absent from the scan between them and is reported again.
+func exceptionKey(n RdfNode) string {
+	return n.Type() + "\x00" + n.String()
 }
 
 func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode) (bool, error) {

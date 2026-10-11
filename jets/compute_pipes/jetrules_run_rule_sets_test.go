@@ -237,8 +237,27 @@ func TestRunRuleSets(t *testing.T) {
 			if len(o.RuleSets) != 2 || o.RuleSets[0].MaxLooping != 2 || o.RuleSets[1].MaxLooping != 5 {
 				t.Errorf("rule sets = %+v, want two, each with its own $max_looping", o.RuleSets)
 			}
-			if !o.Completed || o.Loops != 3 || len(o.Exceptions) != 2 {
-				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception found by both", o)
+			// I-8: the exception stays in the session for the second rule set, and only
+			// the first, which raised it, reports it.
+			if !o.Completed || o.Loops != 3 || !slices.Equal(o.Exceptions, []string{"xr exception raised"}) {
+				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception once", o)
+			}
+			if len(o.RuleSets) == 2 && (len(o.RuleSets[0].Exceptions) != 1 || len(o.RuleSets[1].Exceptions) != 0) {
+				t.Errorf("rule set exceptions = %q and %q, want the exception in the first only",
+					o.RuleSets[0].Exceptions, o.RuleSets[1].Exceptions)
+			}
+		})
+		// I-8: two distinct exceptions from two rule sets, once each; the second rule
+		// set raising the first exception again is the same triple and reports nothing.
+		t.Run("two_exceptions_once_each", func(t *testing.T) {
+			o := runRuleSets(t, twoExceptionsSequence, "exception", &compute_pipes.RuleSetsConfig{})
+			want := []string{"xr exception raised", "xr second exception raised"}
+			if o.Err != nil || !slices.Equal(o.Exceptions, want) || !o.Failed() {
+				t.Errorf("outcome = %+v, want the exceptions %q", o, want)
+			}
+			if len(o.RuleSets) != 2 ||
+				!slices.Equal(o.RuleSets[0].Exceptions, want[:1]) || !slices.Equal(o.RuleSets[1].Exceptions, want[1:]) {
+				t.Errorf("rule sets = %+v, want each exception in the rule set that raised it", o.RuleSets)
 			}
 		})
 		t.Run("rete_session_created_before_input_asserted", func(t *testing.T) {

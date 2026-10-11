@@ -21,9 +21,13 @@ package compute_pipes_test
 //   - a jets:exception, with and without a saved rete session;
 //   - each on_error policy's effect on output, for each of the three failures;
 //   - max_error_count, which stops the reporting and not the counting;
-//   - a rule sequence, where a jets:exception asserted by the first rule set is
-//     reported again by every later one, because each rule set scans the whole
-//     rdf session;
+//   - a rule sequence reports each jets:exception once, from the rule set that
+//     raised it, though the exception stays in the rdf session and every later
+//     rule set's scan finds it. Until I-8 was fixed it was reported again by
+//     every later rule set; the case was changed in the commit that fixed it;
+//   - two distinct exceptions raised by two rule sets of a sequence are reported
+//     once each, and a later rule set raising the first one again does not
+//     report it a second time;
 //   - the order: the first rule set's rete session is created before the input
 //     is asserted. On the Go engine the order changes no outcome, so it is pinned
 //     by recording the calls; on C++ it is load-bearing, because creating a
@@ -43,7 +47,8 @@ package compute_pipes_test
 // loop 3 under a $max_looping of 5, and jet_rules/test_execute_rules_main.jr,
 // added for this test, whose input entity's xr:mode selects the behaviour (see
 // its header). The sequence test_execute_rules_sequence runs the second and then
-// the first.
+// the first; test_execute_rules_two_exceptions runs test_execute_rules_main.jr and
+// then jet_rules/test_execute_rules_second.jr (see its header).
 //
 // Run it with -count=1: the rules it compiles are read from disk, outside the
 // Go module's cache key, so a cached ok survives a change to them.
@@ -68,9 +73,10 @@ import (
 const characterisationHomeEnv = "JETS_EXECUTE_RULES_CHARACTERISATION_HOME"
 
 const (
-	loopingRuleFile      = "jet_rules/test_looping_main.jr"
-	executeRulesRuleFile = "jet_rules/test_execute_rules_main.jr"
-	executeRulesSequence = "test_execute_rules_sequence"
+	loopingRuleFile       = "jet_rules/test_looping_main.jr"
+	executeRulesRuleFile  = "jet_rules/test_execute_rules_main.jr"
+	executeRulesSequence  = "test_execute_rules_sequence"
+	twoExceptionsSequence = "test_execute_rules_two_exceptions"
 )
 
 func TestExecuteRulesCharacterisation(t *testing.T) {
@@ -315,6 +321,7 @@ func runOnce(t *testing.T, process, mode string, config *compute_pipes.JetrulesS
 const (
 	msgExecuteRulesError = "ExecuteRules returned error: error: max vertex visit reached"
 	msgException         = "jets:exception caught: xr exception raised"
+	msgSecondException   = "jets:exception caught: xr second exception raised"
 	msgOnErrorFail       = "jetrules: record bundle failed rule execution (on_error: fail)"
 )
 
@@ -552,18 +559,50 @@ func runCharacterisation(t *testing.T, home string) {
 	})
 
 	// A rule sequence: the exception asserted by test_execute_rules_main.jr stays in
-	// the rdf session and is found again by test_looping_main.jr's scan, so it is
-	// reported once per rule set from the one that raised it to the last. Each rule
-	// set reads its own $max_looping: 2, then 5.
-	t.Run("sequence_reports_an_exception_once_per_remaining_rule_set", func(t *testing.T) {
-		r := runOnce(t, executeRulesSequence, "exception", &compute_pipes.JetrulesSpec{})
+	// the rdf session and is found again by test_looping_main.jr's scan, but it is
+	// reported once, by the rule set that raised it (I-8, fixed 2026-10-11). Until
+	// then it was reported once per rule set from the raiser to the last, and each
+	// report counted toward max_error_count and could save a rete session. Each
+	// rule set reads its own $max_looping: 2, then 5.
+	t.Run("sequence_reports_an_exception_once_from_the_rule_set_that_raised_it", func(t *testing.T) {
+		r := runOnce(t, executeRulesSequence, "exception", &compute_pipes.JetrulesSpec{MaxReteSessionsSaved: 2})
 		assertBundleKept(t, r)
-		assertMessages(t, r, msgException, msgException)
+		assertMessages(t, r, msgException)
+		if len(r.errorRows) == 1 && r.errorRows[0].ReteSessionSaved != "Y" {
+			t.Errorf("exception row: saved %q, want Y, the rule set that raised it saving its session", r.errorRows[0].ReteSessionSaved)
+		}
 		if len(r.persons) != 3 {
 			t.Errorf("sequence: extracted %d lp:Person, want 3 from the second rule set's loop", len(r.persons))
 		}
 		if got := caseResult(t, r); got != "raised" {
 			t.Errorf("sequence: xr:result = %v, want raised", got)
+		}
+	})
+
+	// Two rule sets each raise an exception: test_execute_rules_main.jr raises
+	// "xr exception raised", and test_execute_rules_second.jr raises it again,
+	// which is the same triple, and raises "xr second exception raised". Each is
+	// reported once, by the rule set that raised it first, and each saves a session.
+	t.Run("sequence_reports_two_exceptions_from_two_rule_sets_once_each", func(t *testing.T) {
+		h := newHarness(t, twoExceptionsSequence, &compute_pipes.JetrulesSpec{MaxReteSessionsSaved: 5})
+		r := h.execute("exception")
+		assertBundleKept(t, r)
+		assertMessages(t, r, msgException, msgSecondException)
+		if len(r.errorRows) != 2 {
+			t.FailNow()
+		}
+		// The first row's session is the first rule set's: the second exception is
+		// not in it yet.
+		if r.errorRows[0].ReteSessionSaved != "Y" || r.errorRows[1].ReteSessionSaved != "Y" {
+			t.Errorf("exception rows saved %q and %q, want Y and Y",
+				r.errorRows[0].ReteSessionSaved, r.errorRows[1].ReteSessionSaved)
+		}
+		if strings.Contains(r.errorRows[0].ReteSessionTriples.String, "xr second exception raised") ||
+			!strings.Contains(r.errorRows[1].ReteSessionTriples.String, "xr second exception raised") {
+			t.Errorf("saved sessions: want the second exception in the second rule set's session only")
+		}
+		if got := h.worker.ErrorCountForTest(); got != 2 {
+			t.Errorf("errorCount = %d, want 2, one per exception", got)
 		}
 	})
 }
