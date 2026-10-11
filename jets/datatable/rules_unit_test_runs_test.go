@@ -596,3 +596,39 @@ func itoa(i int) string {
 	b, _ := json.Marshal(i)
 	return string(b)
 }
+
+func (f *rutFixture) readWorkspace(t *testing.T, workspaceName, table string) (*map[string]any, int, error) {
+	t.Helper()
+	return f.ctx.DoWorkspaceReadAction(&DataTableAction{
+		Action:        "workspace_read",
+		WorkspaceName: workspaceName,
+		Columns:       []Column{{Table: table, Column: "path"}},
+		FromClauses:   []FromClause{{Schema: "$SCHEMA", Table: table}},
+		Limit:         50,
+	}, f.adminToken)
+}
+
+// The test case table of another workspace answers with the sentence a test run
+// is refused with, not with sqlite's "unable to open database file"
+// (rules_unit_test_harness AG.1); the active workspace still reads; and a
+// workspace.db read of another table is not refused by it, because the IDE
+// reads other workspaces' workspace.db through the same path.
+func TestUnitTestCasesReadOnlyFromTheActiveWorkspace(t *testing.T) {
+	f := newRutFixture(t)
+	_, status, err := f.readWorkspace(t, rutOtherWorkspace, "unit_tests")
+	want := activeWorkspaceRefusal(rutOtherWorkspace)
+	if status != http.StatusBadRequest || err == nil || err.Error() != want.Error() {
+		t.Fatalf("reading another workspace's test cases: %d %v, want 400 %q", status, err, want)
+	}
+	res, status, err := f.readWorkspace(t, rutActiveWorkspace, "unit_tests")
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("reading the active workspace's test cases: %d %v", status, err)
+	}
+	if n := (*res)["totalRowCount"]; n != 3 {
+		t.Errorf("read %v test cases, want the 3 recorded", n)
+	}
+	_, _, err = f.readWorkspace(t, rutOtherWorkspace, "jet_rules")
+	if err != nil && strings.Contains(err.Error(), "is not the active workspace") {
+		t.Errorf("a read of another table in another workspace was refused as not active: %v", err)
+	}
+}

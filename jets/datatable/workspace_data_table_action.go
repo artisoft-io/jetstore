@@ -564,6 +564,22 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 		if dataTableAction.WorkspaceName == "" {
 			return nil, http.StatusBadRequest, fmt.Errorf("invaid request, missing workspace_name")
 		}
+		// The rules unit test cases of a workspace that is not the active one are
+		// refused with the sentence the test run itself is refused with
+		// (activeWorkspaceRefusal), rather than failing on a workspace.db that a
+		// workspace this server never compiled does not have -- found by the
+		// browser pass (rules_unit_test_harness AG.1).
+		//
+		// **Scoped to unit_tests, not to every workspace.db read.** The IDE's own
+		// tables (wsJetRulesTable and the other ws*Table documents) read $SCHEMA
+		// too, and Open is enabled on any registry row, so the IDE legitimately
+		// reads the workspace.db of a workspace that was compiled while it was
+		// the active one.
+		if readsUnitTestCases(dataTableAction) {
+			if err := activeWorkspaceRefusal(dataTableAction.WorkspaceName); err != nil {
+				return nil, http.StatusBadRequest, err
+			}
+		}
 	}
 
 	// Build the query

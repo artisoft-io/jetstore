@@ -467,3 +467,14 @@ func hasWorkspaceActionOption(row map[string]any, option string) bool {
 	}
 	return false
 }
+
+// readsUnitTestCases reports whether a workspace read selects from workspace.db's
+// unit_tests table -- the rules unit test flow's test case table.
+func readsUnitTestCases(dataTableAction *DataTableAction) bool {
+	for _, f := range dataTableAction.FromClauses {
+		if f.Table == "unit_tests" && f.Schema != "jetsapi" {
+			return true
+		}
+	}
+	return false
+}
