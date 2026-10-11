@@ -19,6 +19,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// pullWorkspace and compileWorkspace are the pull and the compile the
+// workspace_registry actions run: variables so that a test of the requests can
+// stand in for git and for the compiler, as lookupRulesUnitTestCases stands in
+// for workspace.db.
+var (
+	pullWorkspace    = pullWorkspaceAction
+	compileWorkspace = compileWorkspaceAction
+)
+
 // Pull workspace changes in local repository:
 //   - Pull changes by merging WorkspaceBranch into current branch
 //   - Update the file stash with pulled version

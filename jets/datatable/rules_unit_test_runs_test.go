@@ -632,3 +632,162 @@ func TestUnitTestCasesReadOnlyFromTheActiveWorkspace(t *testing.T) {
 		t.Errorf("a read of another table in another workspace was refused as not active: %v", err)
 	}
 }
+
+// pullRecorder stands in for git and the compiler on pull_workspace, and records
+// which workspaces were pulled and how many compiles were started.
+type pullRecorder struct {
+	mu       sync.Mutex
+	pulled   []string
+	compiled chan string
+}
+
+// stubPullAndCompile replaces pullWorkspace and compileWorkspace for one test,
+// and gives the admin a git profile, so the request passes the git refusals that
+// come before the pull when git is on.
+func (f *rutFixture) stubPullAndCompile(t *testing.T) *pullRecorder {
+	t.Helper()
+	r := &pullRecorder{compiled: make(chan string, 4)}
+	previousPull, previousCompile := pullWorkspace, compileWorkspace
+	pullWorkspace = func(_ *pgxpool.Pool, _ int, _ *user.GitProfile, a *DataTableAction) (string, error) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.pulled = append(r.pulled, a.WorkspaceName)
+		return "pulled " + a.WorkspaceName, nil
+	}
+	compileWorkspace = func(_ *DataTableContext, a *DataTableAction) { r.compiled <- a.WorkspaceName }
+	t.Cleanup(func() { pullWorkspace, compileWorkspace = previousPull, previousCompile })
+
+	previousKey := user.JetsEncriptionKey
+	user.JetsEncriptionKey = "rut-oi-pull-Kq7#xZ2!mW9$vB4&nR6@"
+	t.Cleanup(func() { user.JetsEncriptionKey = previousKey })
+	token, err := user.EncryptGitToken("rut-git-token")
+	if err != nil {
+		t.Fatalf("encrypting a test git token: %v", err)
+	}
+	if _, err = f.pool.Exec(context.Background(), `UPDATE jetsapi.users
+		SET git_name = 'Admin', git_email = $1, git_handle = 'admin', git_token = $2 WHERE user_email = $1`,
+		rutAdminEmail, token); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKSPACE_URI", "")
+	return r
+}
+
+func (r *pullRecorder) pulls() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.pulled...)
+}
+
+// pull posts pull_workspace as the Workspaces screen does: the row's key comes
+// back from JSON as a float64, and the compile option is in
+// otherWorkspaceActionOptions.
+func (f *rutFixture) pull(t *testing.T, workspaceName string, rowKey int, compile bool) (int, error) {
+	t.Helper()
+	options := []any{}
+	if compile {
+		options = append(options, "wpCompileWorkspaceOption")
+	}
+	_, status, err := f.ctx.WorkspaceInsertRows(&DataTableAction{
+		Action:        "workspace_insert_rows",
+		FromClauses:   []FromClause{{Table: "pull_workspace"}},
+		WorkspaceName: workspaceName,
+		Data: []map[string]any{{
+			"key": float64(rowKey), "workspace_name": workspaceName, "workspace_uri": "https://git.rut.test/ws.git",
+			"status": "", "last_git_log": "", "user_email": rutAdminEmail,
+			"otherWorkspaceActionOptions": options,
+		}},
+	}, f.adminToken)
+	return status, err
+}
+
+func (f *rutFixture) registryLog(t *testing.T, key int) string {
+	t.Helper()
+	var s sql.NullString
+	if err := f.pool.QueryRow(context.Background(),
+		`SELECT last_git_log FROM jetsapi.workspace_registry WHERE key = $1`, key).Scan(&s); err != nil {
+		t.Fatal(err)
+	}
+	return s.String
+}
+
+// Pull with the compile option is refused, before anything is pulled, for a row
+// that is not the active workspace (I-16): the compile that follows a pull is of
+// the active workspace whichever row was pulled, which is I-4 by a second route.
+// It is refused with the sentence compile_workspace answers, whether the request
+// names the other workspace or names the active one with the other row's key.
+func TestPullWithCompileRefusesARowThatIsNotTheActiveWorkspace(t *testing.T) {
+	for _, c := range []struct {
+		name, workspace string
+	}{
+		{"other workspace", rutOtherWorkspace},
+		{"active name, other row", rutActiveWorkspace},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newRutFixture(t)
+			r := f.stubPullAndCompile(t)
+			status, err := f.pull(t, c.workspace, f.otherKey, true)
+			want := activeWorkspaceRefusal(rutOtherWorkspace)
+			if status != http.StatusBadRequest || err == nil || err.Error() != want.Error() {
+				t.Fatalf("got %d %v, want 400 %q", status, err, want)
+			}
+			// The compile refusal for the same request is the same sentence.
+			if _, compileErr := f.compile(t, c.workspace, f.otherKey); compileErr == nil || compileErr.Error() != err.Error() {
+				t.Errorf("pull refusal %q and compile refusal %v differ", err, compileErr)
+			}
+			if p := r.pulls(); len(p) != 0 {
+				t.Errorf("a refused pull pulled %v", p)
+			}
+			if len(r.compiled) != 0 {
+				t.Errorf("a refused pull started a compile")
+			}
+			for _, key := range []int{f.otherKey, f.activeKey} {
+				if s, l := f.registryStatus(t, key), f.registryLog(t, key); s != "" || l != "" {
+					t.Errorf("a refused pull wrote status %q and log %q on row %d", s, l, key)
+				}
+			}
+		})
+	}
+}
+
+// Pull with the compile option of the active workspace's row pulls and then
+// starts the compile; a pull without the option is not refused for another row.
+func TestPullWithCompileOfTheActiveWorkspaceProceeds(t *testing.T) {
+	t.Run("active row, compile", func(t *testing.T) {
+		f := newRutFixture(t)
+		r := f.stubPullAndCompile(t)
+		if status, err := f.pull(t, rutActiveWorkspace, f.activeKey, true); err != nil {
+			t.Fatalf("pull with compile of the active workspace: %d %v", status, err)
+		}
+		if p := r.pulls(); len(p) != 1 || p[0] != rutActiveWorkspace {
+			t.Errorf("pulled %v, want [%s]", p, rutActiveWorkspace)
+		}
+		select {
+		case ws := <-r.compiled:
+			if ws != rutActiveWorkspace {
+				t.Errorf("compiled %s, want %s", ws, rutActiveWorkspace)
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("no compile was started")
+		}
+		if s := f.registryStatus(t, f.activeKey); s != statusCompilingWorkspaceProgress {
+			t.Errorf("status %q, want %q", s, statusCompilingWorkspaceProgress)
+		}
+	})
+	t.Run("other row, no compile", func(t *testing.T) {
+		f := newRutFixture(t)
+		r := f.stubPullAndCompile(t)
+		if status, err := f.pull(t, rutOtherWorkspace, f.otherKey, false); err != nil {
+			t.Fatalf("pull without compile of another workspace: %d %v", status, err)
+		}
+		if p := r.pulls(); len(p) != 1 || p[0] != rutOtherWorkspace {
+			t.Errorf("pulled %v, want [%s]", p, rutOtherWorkspace)
+		}
+		if len(r.compiled) != 0 {
+			t.Error("a pull without the compile option started a compile")
+		}
+		if l := f.registryLog(t, f.otherKey); l != "pulled "+rutOtherWorkspace {
+			t.Errorf("last_git_log %q, want the pull's log", l)
+		}
+	})
+}

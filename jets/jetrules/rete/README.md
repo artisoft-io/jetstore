@@ -220,7 +220,7 @@ rendering test in the Go file exists only to pin agreement with the C++ `JoinTex
 nothing exercised compile → metastore → execution — the leg on which an operator name is an opaque
 string. `jets/jetrules/test_ws/jet_rules/test_join_values_main.jr` is that rule, run by
 `TestJoinValuesCompilesAndRuns` (`join_values_rule_test.go`), which compiles a scratch copy of
-`test_ws` with `compile_workspace` and asserts the joined strings. **Two of the three config forms
+`test_ws` with `workspace.CompileWorkspace`, asset validation skipped, and asserts the joined strings. **Two of the three config forms
 are in it deliberately**: the `jets:entity_property` + `jets:value_property` form with an explicit
 `jets:separator`, and the `jets:value_property`-alone form with the default — which is item 1 above,
 the form `sum_values` gets wrong in Go, so the rule is what says `join_values` does not.
