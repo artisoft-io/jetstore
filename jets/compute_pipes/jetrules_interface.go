@@ -162,6 +162,15 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 			return nil, fmt.Errorf("while asserting rule config: %v", err)
 		}
 		node = re.NewIntLiteral(v)
+	case "uint", "ulong":
+		// The rule language has both unsigned types (JetRule.g4) and the engines one
+		// unsigned literal, as castToRdfTypeFromTxt maps both to uint.
+		var v uint
+		_, err = fmt.Sscan(value, &v)
+		if err != nil {
+			return nil, fmt.Errorf("while asserting rule config: value is not %s: %q: %v", rdfType, value, err)
+		}
+		node = re.NewUIntLiteral(v)
 	case "double":
 		var v float64
 		_, err = fmt.Sscan(value, &v)
