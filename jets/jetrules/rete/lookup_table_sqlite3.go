@@ -68,6 +68,11 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 		// columnResource as a resource from column name
 		lookupTable.columnsSpec[i].columnResource = rmgr.GetResource(spec.Columns[i].Name)
 	}
+	// The row's own rowid, last: served as jets:row_id (insertResultIntoSession)
+	if !isFirst {
+		buf.WriteString(", ")
+	}
+	buf.WriteString("_rowid_")
 	buf.WriteString(fmt.Sprintf(` FROM "%s" WHERE `, spec.Name))
 	stmt := buf.String()
 	lookupTable.selectStmt = fmt.Sprintf(`%s "jets:key" = ?`, stmt)
@@ -143,8 +148,20 @@ func (tbl *LookupTableSqlite3) insertResultIntoSession(sess *rdf.RdfSession, s *
 			return fmt.Errorf("while InsertInferred in lookup: %v", err)
 		}
 	}
+	// jets:row_id is the row's SQLite rowid. The packager inserts a table's
+	// rows in CSV order into a new table, so it numbers them from 1 in that
+	// order, and it tells apart rows that share a jets:key.
+	switch v := (*resultRow[len(tbl.spec.Columns)].(*interface{})).(type) {
+	case int64:
+		if _, err := sess.InsertInferred(s, rmgr.JetsResources.Jets__row_id, rmgr.NewIntLiteral(int(v))); err != nil {
+			return fmt.Errorf("while InsertInferred of jets:row_id in lookup: %v", err)
+		}
+	default:
+		return fmt.Errorf("expecting int64 rowid in lookup table %s, got %T", tbl.spec.Name, v)
+	}
 	return nil
 }
+
 
 func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil || key == nil {
@@ -162,7 +179,7 @@ func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *str
 		return row, nil
 	}
 	// Query the lookup table, make destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for i := range resultRow {
 		resultRow[i] = new(interface{})
 	}
@@ -213,7 +230,7 @@ func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key
 		return nil, fmt.Errorf("failed query lookup table %s for key %s: %v", tbl.spec.Name, *key, err)
 	}
 	defer rows.Close()
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for rows.Next() {
 		// Scan the row
 		for i := range resultRow {
@@ -262,7 +279,7 @@ func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rd
 		return row, nil
 	}
 	// Query the lookup table, make a copy of the destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for i := range resultRow {
 		resultRow[i] = new(interface{})
 	}
@@ -317,7 +334,7 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 		return nil, fmt.Errorf("failed query multi rand lookup for table %s for key %d: %v", tbl.spec.Name, key, err)
 	}
 	defer rows.Close()
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for rows.Next() {
 		// Scan the row
 		for i := range resultRow {

@@ -75,6 +75,12 @@ namespace jets::rete {
         }
         rdf_session->insert_inferred(row_subject, cinfo.first, value);
       }
+      // jets:row_id is the row's SQLite rowid, selected after the columns. The
+      // packager inserts a table's rows in CSV order into a new table, so it
+      // numbers them from 1 in that order, and it tells apart rows that share
+      // a jets:key.
+      rdf_session->insert_inferred(row_subject, rmgr->jets()->jets__row_id,
+        rmgr->create_literal(sqlite3_column_int(stmt, sz)));
       if(is_multi) {
         rdf_session->insert_inferred(subject, lookup_multi_rows, row_subject);
       } else {

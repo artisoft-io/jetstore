@@ -92,6 +92,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 	l.AddR("jets:range_value")
 	l.AddR("jets:replace_chars")
 	l.AddR("jets:replace_with")
+	l.AddR("jets:row_id")
 	l.AddR("jets:ruleTag")
 	l.AddR("jets:source_period_sequence")
 	l.AddR("jets:sourcePeriodType")

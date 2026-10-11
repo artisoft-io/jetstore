@@ -456,3 +456,66 @@ INSERT INTO "one_lk" VALUES (1, 'A', 'only');`); err != nil {
 		}
 	}
 }
+
+// TestLookupServesRowId checks that every served row carries jets:row_id, its
+// position in the table, so that rows sharing a jets:key stay apart.
+func TestLookupServesRowId(t *testing.T) {
+	useLookupFixture(t, 1)
+	ctx := NewTestLookupTableManagerContext()
+	jetRuleModel := &JetruleModel{
+		LookupTables: []*LookupTableNode{
+			{
+				Columns: []LookupTableColumn{
+					{Name: "PRIORITY", Type: "int"},
+					{Name: "TYPE", Type: "text"},
+				},
+				CsvFile: "lookups/IM/Exclusion_Type.csv",
+				Key:     []string{"TYPE"},
+				Name:    "IM_Exclusion_Type",
+				Type:    "lookup",
+			},
+		},
+	}
+	sess := ctx.reteSession.RdfSession
+	rm := sess.ResourceMgr
+	rm.NewResource("PRIORITY")
+	rm.NewResource("TYPE")
+	lookupMgr, err := NewLookupTableManager(rm, ctx.metaGraph, jetRuleModel)
+	if err != nil {
+		t.Fatalf("while calling NewLookupTableManager: %v", err)
+	}
+	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
+	rowId := rm.JetsResources.Jets__row_id
+	name := "IM_Exclusion_Type"
+
+	// The fixture's rows are DIAGNOSIS, MODALITY, PROCEDURE, PROCEDURE.
+	key := "MODALITY"
+	row, err := lookupTable.Lookup(ctx.reteSession, &name, &key)
+	if err != nil || row == nil {
+		t.Fatalf("Lookup MODALITY: %v", err)
+	}
+	if !sess.Contains(row, rowId, rm.NewIntLiteral(2)) {
+		t.Errorf("lookup row for MODALITY: want (%s jets:row_id 2), got %v", row, sess.GetObject(row, rowId))
+	}
+
+	key = "PROCEDURE"
+	multi, err := lookupTable.MultiLookup(ctx.reteSession, &name, &key)
+	if err != nil || multi == nil {
+		t.Fatalf("MultiLookup PROCEDURE: %v", err)
+	}
+	// Each row's jets:row_id against its PRIORITY, which the fixture gives as 3 and 4.
+	got := map[int]int{}
+	itor := sess.FindSP(multi, rm.JetsResources.Jets__lookup_multi_rows)
+	for t3 := range itor.Itor {
+		id, priority := sess.GetObject(t3[2], rowId), sess.GetObject(t3[2], rm.GetResource("PRIORITY"))
+		if id == nil || priority == nil {
+			t.Errorf("multi lookup row %s: jets:row_id %v, PRIORITY %v", t3[2], id, priority)
+			continue
+		}
+		got[id.Value.(int)] = priority.Value.(int)
+	}
+	itor.Done()
+	if len(got) != 2 || got[3] != 3 || got[4] != 4 {
+		t.Errorf("multi lookup rows for PROCEDURE: want jets:row_id 3 and 4 on PRIORITY 3 and 4, got %v", got)
+	}
+}
