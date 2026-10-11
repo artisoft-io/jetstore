@@ -166,6 +166,54 @@ func (s orderSession) NewReteSession(ruleset string) (compute_pipes.JetReteSessi
 	return s.JetRdfSession.NewReteSession(ruleset)
 }
 
+// releaseCountingSession counts the rete sessions created through it and the
+// ones released. ruleset, when not empty, is created in place of the rule set
+// asked for, so that a process name can lead RunRuleSets to a rule set's
+// $max_looping while the engine builds a rete session it has.
+type releaseCountingSession struct {
+	compute_pipes.JetRdfSession
+	ruleset           string
+	created, released *int
+}
+
+func (s releaseCountingSession) NewReteSession(ruleset string) (compute_pipes.JetReteSession, error) {
+	if s.ruleset != "" {
+		ruleset = s.ruleset
+	}
+	rs, err := s.JetRdfSession.NewReteSession(ruleset)
+	if err != nil {
+		return nil, err
+	}
+	*s.created++
+	return releaseCountingRete{JetReteSession: rs, released: s.released}, nil
+}
+
+type releaseCountingRete struct {
+	compute_pipes.JetReteSession
+	released *int
+}
+
+func (r releaseCountingRete) Release() error {
+	*r.released++
+	return r.JetReteSession.Release()
+}
+
+// replaceRuleEngineConfig writes content as the compiled .config.json of
+// ruleFile in the scratch workspace, and puts the original back afterwards.
+func replaceRuleEngineConfig(t *testing.T, ruleFile, content string) {
+	t.Helper()
+	path := filepath.Join(os.Getenv("WORKSPACES_HOME"), "test_ws", "build",
+		strings.TrimSuffix(ruleFile, ".jr")+".config.json")
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading the compiled config of %s: %v", ruleFile, err)
+	}
+	t.Cleanup(func() { os.WriteFile(path, original, 0644) })
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRunRuleSets(t *testing.T) {
 	inCompiledTestWs(t, func(t *testing.T) {
 		// test_looping_main.jr: $max_looping 5, jets:completed on loop 3.
@@ -237,8 +285,27 @@ func TestRunRuleSets(t *testing.T) {
 			if len(o.RuleSets) != 2 || o.RuleSets[0].MaxLooping != 2 || o.RuleSets[1].MaxLooping != 5 {
 				t.Errorf("rule sets = %+v, want two, each with its own $max_looping", o.RuleSets)
 			}
-			if !o.Completed || o.Loops != 3 || len(o.Exceptions) != 2 {
-				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception found by both", o)
+			// I-8: the exception stays in the session for the second rule set, and only
+			// the first, which raised it, reports it.
+			if !o.Completed || o.Loops != 3 || !slices.Equal(o.Exceptions, []string{"xr exception raised"}) {
+				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception once", o)
+			}
+			if len(o.RuleSets) == 2 && (len(o.RuleSets[0].Exceptions) != 1 || len(o.RuleSets[1].Exceptions) != 0) {
+				t.Errorf("rule set exceptions = %q and %q, want the exception in the first only",
+					o.RuleSets[0].Exceptions, o.RuleSets[1].Exceptions)
+			}
+		})
+		// I-8: two distinct exceptions from two rule sets, once each; the second rule
+		// set raising the first exception again is the same triple and reports nothing.
+		t.Run("two_exceptions_once_each", func(t *testing.T) {
+			o := runRuleSets(t, twoExceptionsSequence, "exception", &compute_pipes.RuleSetsConfig{})
+			want := []string{"xr exception raised", "xr second exception raised"}
+			if o.Err != nil || !slices.Equal(o.Exceptions, want) || !o.Failed() {
+				t.Errorf("outcome = %+v, want the exceptions %q", o, want)
+			}
+			if len(o.RuleSets) != 2 ||
+				!slices.Equal(o.RuleSets[0].Exceptions, want[:1]) || !slices.Equal(o.RuleSets[1].Exceptions, want[1:]) {
+				t.Errorf("rule sets = %+v, want each exception in the rule set that raised it", o.RuleSets)
 			}
 		})
 		t.Run("rete_session_created_before_input_asserted", func(t *testing.T) {
@@ -273,6 +340,59 @@ func TestRunRuleSets(t *testing.T) {
 			}
 			if len(calls) < 2 || calls[0] != "JetResources" || calls[1] != "NewRdfSession" {
 				t.Errorf("engine calls = %q, want JetResources before NewRdfSession", calls)
+			}
+		})
+		// I-10: every rete session RunRuleSets creates is released, on the paths that
+		// end the rule sets early as on the one that runs them all.
+		t.Run("rete_session_released_on_every_path", func(t *testing.T) {
+			for _, c := range []struct {
+				name, process, ruleset string
+				setup                  func(t *testing.T)
+				assertInput            func(compute_pipes.JetRdfSession) error
+				wantErr                string
+			}{
+				{name: "sequence_run_to_the_end", process: executeRulesSequence, assertInput: assertCase("ok")},
+				{name: "input_not_asserted", process: loopingRuleFile,
+					assertInput: func(compute_pipes.JetRdfSession) error { return errors.New("bad row") },
+					wantErr:     "while asserting input records to rdf session: bad row"},
+				// The rete session is test_looping_main.jr's; the $max_looping read is
+				// that of the rule set named by the process, whose config is broken.
+				{name: "max_looping_unreadable", process: "jet_rules/test_join_values_main.jr", ruleset: loopingRuleFile,
+					setup: func(t *testing.T) {
+						replaceRuleEngineConfig(t, "jet_rules/test_join_values_main.jr", "{not json")
+					},
+					assertInput: assertCase("ok"),
+					wantErr:     "error: while getting '$max_looping' property from workspace jet_rules/test_join_values_main.jr"},
+				{name: "max_looping_invalid", process: "jet_rules/test_lookup_main.jr", ruleset: loopingRuleFile,
+					setup: func(t *testing.T) {
+						replaceRuleEngineConfig(t, "jet_rules/test_lookup_main.jr", `{"jetstore_config": {"$max_looping": "five"}}`)
+					},
+					assertInput: assertCase("ok"),
+					wantErr:     "error: invalid '$max_looping' property in workspace jet_rules/test_lookup_main.jr"},
+			} {
+				t.Run(c.name, func(t *testing.T) {
+					if c.setup != nil {
+						c.setup(t)
+					}
+					engineProcess := c.process
+					if c.ruleset != "" {
+						engineProcess = c.ruleset
+					}
+					engine, s := goSession(t, engineProcess)
+					var created, released int
+					o := compute_pipes.RunRuleSets(
+						releaseCountingSession{JetRdfSession: s, ruleset: c.ruleset, created: &created, released: &released},
+						processEngine{engine, c.process}, &compute_pipes.RuleSetsConfig{}, c.assertInput)
+					switch {
+					case c.wantErr == "" && o.Err != nil:
+						t.Fatalf("RunRuleSets: %v", o.Err)
+					case c.wantErr != "" && (o.Err == nil || !strings.HasPrefix(o.Err.Error(), c.wantErr)):
+						t.Fatalf("RunRuleSets error = %v, want one starting %q", o.Err, c.wantErr)
+					}
+					if created == 0 || released != created {
+						t.Errorf("rete sessions created %d, released %d; want every one created released", created, released)
+					}
+				})
 			}
 		})
 		t.Run("no_rule_set", func(t *testing.T) {

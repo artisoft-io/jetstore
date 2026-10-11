@@ -1,0 +1,30 @@
+# Second rule set of the rule sequence test_execute_rules_two_exceptions, which
+# runs test_execute_rules_main.jr and then this file, for the characterisation
+# test of JrPoolWorker.executeRules (jets/compute_pipes/jetrules_execute_rules_test.go)
+# and the RunRuleSets test beside it.
+#
+# For an xr:Case whose xr:mode is "exception", test_execute_rules_main.jr has
+# already asserted the jets:exception "xr exception raised". This rule set
+# asserts it again, which is the same triple and so the same exception, and
+# asserts a second, distinct one. A sequence reports each exception once, from
+# the rule set that raised it (rules_unit_test_harness I-8).
+#
+# No $max_looping: the rule set runs loop 0 only.
+import "data_model/jets_model.jr"
+import "data_model/test_execute_rules_model.jr"
+
+[XR2_SameException]:
+  (?state rdf:type jets:State).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "exception")
+  ->
+  (?state jets:exception "xr exception raised")
+;
+
+[XR2_SecondException]:
+  (?state rdf:type jets:State).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "exception")
+  ->
+  (?state jets:exception "xr second exception raised")
+;
