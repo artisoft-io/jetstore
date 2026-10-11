@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -89,5 +90,37 @@ func TestLoadJetRulesWithMode(t *testing.T) {
 		if err := js.ReleaseJetRules(); err != nil {
 			t.Errorf("mode %+v: ReleaseJetRules: %v", mode, err)
 		}
+	}
+}
+
+// A blank node's text carries its key, so two blank nodes read as two terms.
+// AsText returned a bare "BN:" for every blank node until 2026-10-11, which made
+// the rules unit test harness read all of a session's blank nodes, lookup rows
+// among them, as one subject (rules_unit_test_harness I-43).
+func TestBlankNodeAsText(t *testing.T) {
+	js, err := LoadJetRules("", "test_data/bridge_test1.db", "")
+	if err != nil {
+		t.Fatalf("while loading workspace db: %v", err)
+	}
+	defer js.ReleaseJetRules()
+	for _, key := range []int{1, 2, 4097} {
+		r, err := js.NewBlankNode(key)
+		if err != nil {
+			t.Fatalf("NewBlankNode(%d): %v", key, err)
+		}
+		if k, err := r.GetBlankNodeKey(); err != nil || k != key {
+			t.Errorf("GetBlankNodeKey = %d, %v; want %d", k, err, key)
+		}
+		want := fmt.Sprintf("BN:%d", key)
+		if txt, err := r.AsText(); err != nil || txt != want {
+			t.Errorf("AsText = %q, %v; want %q", txt, err, want)
+		}
+	}
+	r, err := js.NewIntLiteral(5)
+	if err != nil {
+		t.Fatalf("NewIntLiteral: %v", err)
+	}
+	if _, err := r.GetBlankNodeKey(); err != ErrUnexpectedRdfType {
+		t.Errorf("GetBlankNodeKey on an int literal: %v, want ErrUnexpectedRdfType", err)
 	}
 }

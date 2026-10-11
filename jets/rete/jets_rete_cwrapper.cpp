@@ -471,6 +471,19 @@ char const* get_resource_name2(HJR handle, int* v) {
   }
 }
 
+// A blank node has no name, only its key, which is unique in its graph.
+int get_blank_node_key(HJR handle, int* v) {
+  if (not handle or not v) return -1;
+  auto const* r = static_cast<r_index>(handle);
+  switch (r->which()) {
+    case rdf_blank_node_t:
+      *v = boost::get<BlankNode>(r)->key;
+      return 0;
+    default:
+      return -1;
+  }
+}
+
 int get_int_literal(HJR handle, int* v) {
   if (not handle or not v) return -1;
   auto const* r = static_cast<r_index>(handle);
