@@ -411,11 +411,12 @@ func (lhs LDatetime) Add(days int) LDatetime {
 }
 
 // ParseBool reads a bool column of a lookup table or of input data. Anything it
-// does not recognise is false. "yes" is accepted because lookup files say YES/NO
-// (usi_ws's IM exclusion lists), which read as false before it was.
+// does not recognise is false. "yes" and "y" are accepted because files say
+// YES/NO (usi_ws's IM exclusion lists) as often as Y/N, and read as false
+// before they were.
 func ParseBool(value string) int {
 	switch strings.ToLower(value) {
-	case "true", "t", "1", "yes":
+	case "true", "t", "1", "yes", "y":
 		return 1
 	default:
 		return 0
