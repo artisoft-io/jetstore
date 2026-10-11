@@ -18,7 +18,12 @@ class MSFactoryLoadV2 : public ::testing::Test {
   MSFactoryLoadV2()
       : workspace_db_name("test_data/usi_workspace_v2.db"),
         lookup_db_name("test_data/usi_lookup_v2.db") {
-    google::InitGoogleLogging("MSFactoryLoadV2");
+    // A skipped test returns before its ShutdownGoogleLogging, so the next
+    // test's fixture would initialise glog a second time, which aborts the
+    // whole binary. Initialise only when it is not already.
+    if (not google::IsGoogleLoggingInitialized()) {
+      google::InitGoogleLogging("MSFactoryLoadV2");
+    }
     workspacePath = std::filesystem::path(workspace_db_name);
     lookupPath = std::filesystem::path(lookup_db_name);
     std::cout << "Current path is " << fs::current_path() << '\n';
