@@ -315,7 +315,10 @@ func (server *Server) checkWorkspaceVersion() error {
 	// actions carry isEnabledWhenHavingSelectedRows, the exceptions being Add
 	// Workspace and Refresh
 	// (`workspaceRegistryTable.tc.json`, jetsclient_ide/src/datatable/tables/,
-	// counted 2026-09-07). So a deployment that sets neither ACTIVE_WORKSPACE_URI nor
+	// counted 2026-09-07). Since 2026-10-11 most of them are the Workspace IDE's
+	// toolbar (`workspaceIdeToolbar.json`), which needs no selection but still
+	// reads the open workspace's registry row, so an empty registry leaves them
+	// all disabled there too. So a deployment that sets neither ACTIVE_WORKSPACE_URI nor
 	// WORKSPACE_BRANCH -- which is what a site with no source-control host looks like
 	// -- reaches a screen that renders correctly, has nothing in it to select, and
 	// offers no way to compile the workspace the process is running on. That failure

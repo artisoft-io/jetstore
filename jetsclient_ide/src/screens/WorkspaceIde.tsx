@@ -30,10 +30,54 @@ import { useNotifications } from "../shell/notifications";
 import { usePrompts } from "../shell/prompts";
 import { CompiledView } from "./CompiledView";
 import { WorkspaceChanges } from "./WorkspaceChanges";
+import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { compiledViewFor, compiledViews } from "./sectionContract";
 
 /** The capability the server requires for every workspace action. */
 export const WORKSPACE_IDE = "workspace_ide";
+
+/**
+ * The session key the picker's choice is kept under. 2026-10-11.
+ *
+ * **Session storage, so it is per tab and ends with it**: returning to the IDE
+ * later in the session lands on the workspace last open, and a new session
+ * starts again from the deployment's `WORKSPACE`. Every access is guarded,
+ * because storage can be unavailable (a private window, blocked site data) and
+ * the picker must still work without it.
+ */
+export const PICKED_WORKSPACE_KEY = "jetstore.workspaceIde.workspace";
+
+export function rememberedWorkspace(): string | null {
+  try {
+    return window.sessionStorage.getItem(PICKED_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberWorkspace(name: string): void {
+  try {
+    window.sessionStorage.setItem(PICKED_WORKSPACE_KEY, name);
+  } catch {
+    // Not remembered; the picker still works.
+  }
+}
+
+/**
+ * The workspace the picker opens on when the route names none: the one picked
+ * earlier this session, else the deployment's `WORKSPACE`, else the first —
+ * each only when it is in the list, so a removed workspace is never selected.
+ */
+export function defaultWorkspace(
+  list: WorkspaceSummary[],
+  remembered: string | null,
+  active: string | null,
+): string {
+  const names = new Set(list.map((w) => w.name));
+  if (remembered !== null && names.has(remembered)) return remembered;
+  if (active !== null && names.has(active)) return active;
+  return list[0]?.name ?? "";
+}
 
 /**
  * An open tab. Task C.3 made this a union of two.
@@ -137,9 +181,22 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     void guard(async () => {
       const list = await workspaceApi.listWorkspaces();
       setWorkspaces(list);
-      // The route wins when it names one; otherwise the first is as good a
-      // default as any, which is what Phase 1 has always done.
-      if (list.length > 0 && workspace === "") setWorkspace(list[0]!.name);
+      // The route wins when it names one. Otherwise the workspace picked earlier
+      // this session, then the deployment's — the first in the list was the
+      // default until 2026-10-11, which put a user back on whichever workspace
+      // sorts first every time they returned to the screen.
+      if (list.length > 0 && workspace === "") {
+        const remembered = rememberedWorkspace();
+        let active: string | null = null;
+        if (remembered === null) {
+          try {
+            active = (await workspaceApi.activeWorkspace()).name;
+          } catch {
+            // The deployment's workspace is a preference, not a requirement.
+          }
+        }
+        setWorkspace(defaultWorkspace(list, remembered, active));
+      }
     });
     // Once, on mount: the shell guarantees a session, and picking a workspace is
     // handled below.
@@ -157,6 +214,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
 
   useEffect(() => {
     if (workspace === "") return;
+    rememberWorkspace(workspace);
     setTabs([]);
     setActiveKey(null);
     setBusy(true);
@@ -367,6 +425,8 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           Save
         </ActionButton>
       </div>
+
+      {workspace !== "" && <WorkspaceToolbar api={api} workspace={workspace} />}
 
       <div className="body">
         <aside className="sidebar">
