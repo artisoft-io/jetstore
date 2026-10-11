@@ -14,9 +14,9 @@ package compute_pipes_test
 //   - a loop that completes before its maximum;
 //   - a loop that reaches its maximum, from the rule file's $max_looping and from
 //     the jetrules_config max_looping override;
-//   - I-7: completion on the last allowed iteration is reported as MAX LOOP
-//     REACHED. That is a defect, pinned on purpose; AA.3 fixes it and changes the
-//     case below in the same commit;
+//   - I-7, fixed by AA.3: completion, or an ExecuteRules error, on the last
+//     allowed iteration is not reported as MAX LOOP REACHED. AA.1 pinned the
+//     defect; AA.3 changed these cases in the commit that fixed it;
 //   - an ExecuteRules error, the max vertex visit limit;
 //   - a jets:exception, with and without a saved rete session;
 //   - each on_error policy's effect on output, for each of the three failures;
@@ -378,13 +378,12 @@ func runCharacterisation(t *testing.T, home string) {
 		}
 	})
 
-	// I-7, pinned on purpose. The loop completes on loop 3, the last one max_looping 3
-	// allows, and is reported as reaching its maximum anyway. AA.3 fixes this and
-	// changes this case in the same commit.
-	t.Run("I7_completion_on_last_allowed_loop_reported_as_max_loop", func(t *testing.T) {
+	// I-7, fixed by AA.3. The loop completes on loop 3, the last one max_looping 3
+	// allows, and is not reported as reaching its maximum. Until AA.3 it was.
+	t.Run("I7_completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 		r := runOnce(t, loopingRuleFile, "ok", &compute_pipes.JetrulesSpec{MaxLooping: 3})
 		assertBundleKept(t, r)
-		assertMessages(t, r, msgMaxLoop("3"))
+		assertMessages(t, r)
 		if len(r.persons) != 3 {
 			t.Errorf("max_looping 3: extracted %d lp:Person, want 3, the loop having completed", len(r.persons))
 		}
@@ -404,6 +403,14 @@ func runCharacterisation(t *testing.T, home string) {
 		r := runOnce(t, executeRulesRuleFile, "endless", &compute_pipes.JetrulesSpec{})
 		assertBundleKept(t, r)
 		assertMessages(t, r, msgMaxLoop("2"))
+	})
+
+	// I-7's second shape: an ExecuteRules error on loop 2, the last one the rule
+	// file allows, is the error alone. Until AA.3 it was also MAX LOOP REACHED.
+	t.Run("I7_execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+		r := runOnce(t, executeRulesRuleFile, "late_runaway", &compute_pipes.JetrulesSpec{})
+		assertBundleKept(t, r)
+		assertMessages(t, r, msgExecuteRulesError)
 	})
 
 	t.Run("execute_rules_error_max_vertex_visits", func(t *testing.T) {

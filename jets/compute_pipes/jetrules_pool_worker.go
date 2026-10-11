@@ -324,9 +324,10 @@ type RuleSetOutcome struct {
 	Loops int
 	// Completed is true when the rule set asserted (jets:iState jets:completed ?).
 	Completed bool
-	// MaxLoopReached is the maximum-loop failure as pipelines report it. It is
-	// true when the loop ran out of iterations, and also when jets:completed was
-	// set on the last iteration MaxLooping allows (rules_unit_test_harness I-7).
+	// MaxLoopReached is true when the loop ran out of iterations: every loop
+	// MaxLooping allows ran, and none set jets:completed or returned an
+	// ExecuteRules error. Completion or an error on the last allowed loop is not
+	// the maximum reached (rules_unit_test_harness I-7, fixed by AA.3).
 	MaxLoopReached bool
 	// ExecuteErr is the error ExecuteRules returned, which ends the rule set's
 	// loop; the max vertex visit limit is one.
@@ -482,7 +483,9 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 				break
 			}
 		}
-		if maxLooping > 0 && iloop >= maxLooping {
+		// The loop ran out only when it went past the last allowed iteration;
+		// a break on completion or on an error leaves iloop at that iteration.
+		if maxLooping > 0 && iloop > maxLooping {
 			// Looped til the end, something might be wrong
 			rs.MaxLoopReached = true
 		}

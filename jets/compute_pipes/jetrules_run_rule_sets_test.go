@@ -167,11 +167,18 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("outcome = %+v, want not completed, loop 2 the last run, the maximum reached", o)
 			}
 		})
-		// I-7, as pipelines report it; AA.3 changes this case.
-		t.Run("I7_completion_on_last_allowed_loop_reported_as_max_loop", func(t *testing.T) {
+		// I-7, fixed by AA.3: completion or an error on the last allowed loop is not
+		// the maximum reached.
+		t.Run("I7_completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 			o := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{MaxLooping: 3})
-			if !o.Completed || o.Loops != 3 || !o.MaxLoopReached {
-				t.Errorf("outcome = %+v, want completed on loop 3 and reported as the maximum reached (I-7)", o)
+			if !o.Completed || o.Loops != 3 || o.MaxLoopReached || o.Failed() {
+				t.Errorf("outcome = %+v, want completed on loop 3 and nothing failed (I-7)", o)
+			}
+		})
+		t.Run("I7_execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+			o := runRuleSets(t, executeRulesRuleFile, "late_runaway", &compute_pipes.RuleSetsConfig{})
+			if o.ExecuteErr == nil || o.Loops != 2 || o.MaxLoopReached {
+				t.Errorf("outcome = %+v, want the ExecuteRules error on loop 2 and not the maximum (I-7)", o)
 			}
 		})
 		t.Run("execute_rules_error", func(t *testing.T) {
