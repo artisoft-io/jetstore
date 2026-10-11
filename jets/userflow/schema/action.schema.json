@@ -269,7 +269,8 @@
         "compile_workspace",
         "delete_workspace",
         "git_command_workspace",
-        "git_status_workspace"
+        "git_status_workspace",
+        "rules_unit_test"
       ],
       "type": "string"
     },
