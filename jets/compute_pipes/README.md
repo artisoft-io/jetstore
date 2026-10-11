@@ -193,8 +193,9 @@ it will take, and it is an RDS question rather than a Lambda one.
 
 **A pipeline that configures no `lookup_tables` still fetches `lookup.db`.** The sync is by content
 type and takes every `sqlite` row; nothing consults the pipeline config. `lookup.db` is opened only
-through `jets/workspace/lookup_tables.go:55` and `jets/jetrules/rete/lookup_table_manager.go:40`, both
-reached only when a lookup is actually configured.
+through `jets/workspace/lookup_tables.go:103` (`buildLookupDb`, at compile, beside the read-only
+`storedLookupDbFingerprint` in `lookup_db_fingerprint.go`) and
+`jets/jetrules/rete/lookup_table_manager.go:40`, both reached only when a lookup is actually configured.
 
 Neither JetStore-owned pipeline configures one. So `jets_loader` and `embed_input_parts` each pull
 **87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on `usi_ws`.

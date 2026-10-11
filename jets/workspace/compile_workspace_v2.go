@@ -234,13 +234,15 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	fmt.Fprintf(&buf, "Recorded %d rules unit tests in workspace.db, %d of them invalid\n", recorded, invalid)
 
 	// All files are now compiled
+	// The rebuild is skipped when the existing lookup.db was built from the same
+	// inputs (lookup_db_fingerprint.go); the log says which happened and why.
 	buf.WriteString("All main rule files compiled, now package the lookup.db file\n")
-	err = PackageLookupTablesToSqlite(lookupTables)
+	lookupDbResult, err := EnsureLookupDb(lookupTables)
 	if err != nil {
 		log.Println("Error packaging lookup tables to SQLite:", err)
 		return buf.String(), err
 	}
-	buf.WriteString("Lookup tables packaged into lookup.db\n")
+	buf.WriteString(lookupDbResult.String())
 
 	// Archive reports
 	inputPath := []string{fmt.Sprintf("%s/%s/reports/", workspaceHome, workspaceName)}
