@@ -72,6 +72,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog(), false /* c.Trace */)
 	errorListener.Diagnostics = c.listener.diagnostics
 	errorListener.Reader = c.ruleFileReader
+	c.listener.ruleFileReader = c.ruleFileReader
 	p.AddErrorListener(errorListener)
 
 	// Build the tree

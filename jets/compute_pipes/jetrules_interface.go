@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -181,19 +182,19 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 		}
 		node = re.NewIntLiteral(v)
 	case "bool":
-		v := 0
-		if len(value) > 0 {
-			c := strings.ToLower(value[0:1])
-			switch c {
-			case "t", "1", "y":
-				v = 1
-			case "f", "0", "n":
-				v = 0
-			default:
-				return nil, fmt.Errorf("while rule config triple; value is not bool: %s", value)
-			}
+		// The accepted spellings and nothing else; empty is null (I-45). This
+		// read the first letter until 2026-10-11, so "tomato" was true.
+		b, err := rdf.ParseBool(value)
+		switch {
+		case errors.Is(err, rdf.ErrNullBool):
+			node = re.RdfNull()
+		case err != nil:
+			return nil, fmt.Errorf("while rule config triple; %v", err)
+		case b:
+			node = re.NewIntLiteral(1)
+		default:
+			node = re.NewIntLiteral(0)
 		}
-		node = re.NewIntLiteral(v)
 	case "long":
 		var v int
 		_, err = fmt.Sscan(value, &v)

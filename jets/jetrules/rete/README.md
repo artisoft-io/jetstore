@@ -2,6 +2,40 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## Text read as a bool: one specification on both engines — 2026-10-11
+
+**Until 2026-10-11 the two engines read a string as a bool the opposite way round.** C++
+(`rdf::to_bool`) took any text but a few spellings of false as true; Go (`rdf.ParseBool` for
+literals, `Node.Bool` for a filter) took any text but a few spellings of true as false, and
+`Node.Bool` called `"false"` true. Rule configuration read the first letter, so `tomato` was true.
+None of the four workspaces reached the difference on that day: no rule file wrote `bool("…")` or
+`bool x = "…";`, and no filter tested a bare variable. This is `rules_unit_test_harness` `I-45`.
+
+**Now one parser, `rdf.ParseBool` in Go and `rdf::parse_bool` in C++, on the same sets**: trimmed,
+in any case, `true, t, yes, y, 1` and `false, f, no, n, 0`; empty is **null**; anything else is an
+error. The parser decides nothing about what an error means. Each caller does, and that is the
+specification:
+
+| Where | Empty | Not empty and not in the sets |
+|---|---|---|
+| Rule-file bool literal | null | compile error naming file and line (`checkBoolLiteral`, compilerv2); refused at load on both engines |
+| Lookup bool column (packager, `jets/workspace/lookup_tables.go`) | SQL `NULL`, served as rdf null on both engines | compile error naming lookup, CSV row, column and value |
+| Rule configuration (`ParseRdfNodeValue`) | null | pipeline fails at start |
+| Text a rule tests for truth: filter, `and`, `or`, `not` | null; a filter does not pass; no exception | `(jets:iState jets:exception "…")` and the expression is null; the rule set carries on and the pipeline reports it under `on_error` |
+| `map_record` bool cell | null (an empty cell is never cast) | record-level error under the operator's `on_error` |
+| Typed file read (`castToRdfTypeFromTxt`) | null | the read fails, as for a bad date or int: JetStore wrote the file |
+| Rules unit test expected bool | null | the check errors |
+
+**Three things that were wrong on the way, and are fixed with it.** `bool x = "false";` kept its
+quotes, so both engines received `"false"` with the quote characters: true on C++, false on Go.
+C++ `not` on any text raised `Invalid arguments for not`, failing the session, even for `"false"`.
+And C++ read a SQL `NULL` in an int or double lookup column as `0` where Go served null
+(`lookup_sql_helper.cc`), which mattered the moment an empty bool cell became `NULL`.
+
+**The run-time exception is the C++ `substring_of` pattern** (`expr_op_strings.h`), now on Go as
+`ReteSession.RaiseException`: a rule-time error is data in the session, not a failed
+`ExecuteRules`, so one bad value in one row does not stop the others.
+
 ## A minting consequent is retracted by replay; two retraction defects are kept — 2026-10-08, revised 2026-10-09
 
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again

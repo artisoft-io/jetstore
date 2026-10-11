@@ -30,6 +30,17 @@ namespace jets::rete {
 // Definition of ExprBasePtr is in node_vertex.h
 class ReteSession;
 
+// raise_exception records a rule-time error in the session as
+// (jets:iState jets:exception "msg"), as substring_of does
+// (expr_op_strings.h); the rule set carries on and the pipeline reports the
+// exception under its on_error policy. truth_of is v's truth when a rule tests
+// it: text is read with rdf::parse_bool, and text outside the accepted
+// spellings raises an exception and sets ok to false, which the caller turns
+// into a null result. Empty text is null, false with no exception (I-45).
+// Defined in rete_session.cc, where ReteSession is complete.
+void raise_exception(ReteSession * rs, std::string const& msg);
+bool truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok);
+
 // Utility function for operators that need to get a graph rdf::r_index
 inline 
 std::pair<rdf::r_index, rdf::r_index>
@@ -113,7 +124,8 @@ class ExprBase {
   eval_filter(ReteSession * rete_session, BetaRow const* beta_row)const
   {
     auto result = eval(rete_session, beta_row);
-    return rdf::to_bool(&result);
+    bool ok;
+    return truth_of(rete_session, result, ok);
   }
   virtual std::ostream & describe(std::ostream & out)const=0;
 

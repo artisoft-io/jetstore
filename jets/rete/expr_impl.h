@@ -17,7 +17,10 @@ ExprConjunction::eval(ReteSession * rete_session, BetaRow const* beta_row)const
   ExprConjunction::ExprDataType v = rdf::LInt32(0);  // default value if list is empty
   for(auto const& item: this->data_) {
     v = item->eval(rete_session, beta_row);
-    if(not rdf::to_bool(&v)) return v;
+    bool ok;
+    bool b = truth_of(rete_session, v, ok);
+    if(not ok) return rdf::Null();
+    if(not b) return v;
   }
   return v;
 }
@@ -30,7 +33,10 @@ ExprDisjunction::eval(ReteSession * rete_session, BetaRow const* beta_row)const
   ExprDisjunction::ExprDataType v = rdf::LInt32(0);  // default value if list is empty
   for(auto const& item: this->data_) {
     v = item->eval(rete_session, beta_row);
-    if(rdf::to_bool(&v)) return v;
+    bool ok;
+    bool b = truth_of(rete_session, v, ok);
+    if(not ok) return rdf::Null();
+    if(b) return v;
   }
   return v;
 }

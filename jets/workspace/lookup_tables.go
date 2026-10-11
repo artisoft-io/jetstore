@@ -162,7 +162,7 @@ func buildLookupDb(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, s
 			rowIdByJetsKey := make(map[string]int)
 			// For each record, map the columns to the output record
 			isFirst := true
-			for _, record := range records[1:] {
+			for irec, record := range records[1:] {
 				if !isFirst {
 					buf.WriteString(",\n")
 				} else {
@@ -207,10 +207,20 @@ func buildLookupDb(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, s
 						case "double":
 							outputRec[i+2] = val
 						case "bool":
-							if rdf.ParseBool(val) == 0 {
-								outputRec[i+2] = "0"
-							} else {
+							// Empty is null and anything outside the accepted
+							// spellings stops the compile, naming where (I-45).
+							// Both engines serve a NULL bool column as rdf null.
+							b, err := rdf.ParseBool(val)
+							switch {
+							case errors.Is(err, rdf.ErrNullBool):
+								outputRec[i+2] = "NULL"
+							case err != nil:
+								return fmt.Errorf("lookup table %s, csv file %s, row %d, column %s: %v",
+									lookupTbl.Name, filePath, irec+2, col.Name, err)
+							case b:
 								outputRec[i+2] = "1"
+							default:
+								outputRec[i+2] = "0"
 							}
 						default:
 							outputRec[i+2] = quote(val) // Default to string

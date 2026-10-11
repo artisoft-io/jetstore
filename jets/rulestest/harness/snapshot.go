@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -265,17 +266,19 @@ func ExpectedTerm(o *rulestest.ObjectTerm) (Term, error) {
 		}
 		return Term{Kind: TermInt, Text: strconv.Itoa(i)}, nil
 	case "bool":
-		i := 0
-		if len(v) > 0 {
-			switch strings.ToLower(v[0:1]) {
-			case "t", "1", "y":
-				i = 1
-			case "f", "0", "n":
-			default:
-				return Term{}, fmt.Errorf("%q is not a bool", v)
-			}
+		// As the engines read a bool (I-45): the accepted spellings, empty is
+		// null, anything else makes the test definition invalid.
+		b, err := rdf.ParseBool(v)
+		switch {
+		case errors.Is(err, rdf.ErrNullBool):
+			return Term{Kind: TermNull}, nil
+		case err != nil:
+			return Term{}, err
+		case b:
+			return Term{Kind: TermInt, Text: "1"}, nil
+		default:
+			return Term{Kind: TermInt, Text: "0"}, nil
 		}
-		return Term{Kind: TermInt, Text: strconv.Itoa(i)}, nil
 	case "uint", "ulong":
 		var u uint
 		if _, err := fmt.Sscan(v, &u); err != nil {

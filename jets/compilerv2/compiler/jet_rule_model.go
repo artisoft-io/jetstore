@@ -55,6 +55,12 @@ type JetRuleListener struct {
 	// has a position to record.
 	diagnostics *diagnosticSink
 	trace       bool
+	// ruleFileReader maps a buffer line to the authored file and line, and
+	// currentLine is the buffer line of the parse node entered last; together
+	// they let LogErrorAt say where a semantic error is. Nil when a buffer is
+	// compiled directly.
+	ruleFileReader *RuleFileReader
+	currentLine    int
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
