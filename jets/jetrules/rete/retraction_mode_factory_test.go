@@ -31,12 +31,14 @@ import (
 )
 
 const (
-	factoryModeChildEnv = "JETS_RETE_FACTORY_MODE_TEST_HOME"
-	factoryModeRuleFile = "jet_rules/test_join_values_main.jr"
+	// compiledTestWsChildEnv marks the child process rerunOverCompiledTestWs starts;
+	// join_values_rule_test.go uses it too.
+	compiledTestWsChildEnv = "JETS_RETE_COMPILED_TEST_WS_CHILD"
+	factoryModeRuleFile    = "jet_rules/test_join_values_main.jr"
 )
 
 func TestFactoryAppliesRetractionMode(t *testing.T) {
-	if os.Getenv(factoryModeChildEnv) == "" {
+	if os.Getenv(compiledTestWsChildEnv) == "" {
 		rerunOverCompiledTestWs(t)
 		return
 	}
@@ -143,7 +145,7 @@ func rerunOverCompiledTestWs(t *testing.T) {
 		"WORKSPACES_HOME="+home,
 		"WORKSPACE=test_ws",
 		"JETS_WORKSPACE_DB_SCHEMA_SCRIPT="+filepath.Join(root, "jets", "workspace_schema.sql"),
-		factoryModeChildEnv+"=1",
+		compiledTestWsChildEnv+"=1",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

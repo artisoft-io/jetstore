@@ -49,7 +49,8 @@ func copyTestWorkspace(t *testing.T) (home, root string) {
 		t.Fatalf("copying test_ws: %v\n%s", err, out)
 	}
 	// The compiler builds its paths from workspace_control.json's workspace_name,
-	// which the checked-in file lacks (see join_values_rule_test.go).
+	// which the checked-in file lacks (see rerunOverCompiledTestWs in
+	// jets/jetrules/rete/retraction_mode_factory_test.go).
 	ctlPath := filepath.Join(wsDir, "workspace_control.json")
 	raw, err := os.ReadFile(ctlPath)
 	if err != nil {

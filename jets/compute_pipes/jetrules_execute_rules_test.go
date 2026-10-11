@@ -91,7 +91,7 @@ func TestExecuteRulesCharacterisation(t *testing.T) {
 	}
 	// The compiler builds its paths from workspace_control.json's workspace_name,
 	// which the committed file does not carry; patched in the copy only, as
-	// jets/jetrules/rete/join_values_rule_test.go does.
+	// rerunOverCompiledTestWs in jets/jetrules/rete/retraction_mode_factory_test.go does.
 	ctlPath := filepath.Join(wsDir, "workspace_control.json")
 	raw, err := os.ReadFile(ctlPath)
 	if err != nil {
