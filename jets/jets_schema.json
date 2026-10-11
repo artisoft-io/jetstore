@@ -2541,8 +2541,13 @@
         "dataType": "long"
       },
       {
+        "columnName": "run_ms",
+        "description": "Time the harness spent running the input sessions and evaluating the checks.",
+        "dataType": "long"
+      },
+      {
         "columnName": "duration_ms",
-        "description": "Time from executing to the end of the run; the wait in the queue is not counted.",
+        "description": "Wall time of the harness process, measured by the apiserver from executing to its exit; the wait in the queue is not counted.",
         "dataType": "long"
       },
       {
@@ -2623,6 +2628,11 @@
       {
         "columnName": "found",
         "description": "What matched, or the count.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "engine",
+        "description": "The engine the check ran on, native or go. Set only on a compare_engines run, where each check is recorded once per engine; null otherwise.",
         "dataType": "text"
       }
     ],
