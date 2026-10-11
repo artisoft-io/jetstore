@@ -9,6 +9,7 @@
 #   exception  asserts a jets:exception on loop 0, then completes on loop 1
 #   runaway    infers without end on loop 0, so ExecuteRules returns the
 #              max vertex visit error
+#   late_runaway  the same, on loop 2, the last one $max_looping allows
 #
 # Looping starts at 1; loop 0 is the pre-loop pass.
 import "data_model/jets_model.jr"
@@ -65,6 +66,15 @@ main {
   ->
   (?c xr:count 0).
   (?c xr:result "runaway")
+;
+
+[XR_LateRunawayStart]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 2).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "late_runaway")
+  ->
+  (?c xr:count 0)
 ;
 
 [XR_Runaway]:
