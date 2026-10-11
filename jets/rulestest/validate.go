@@ -384,6 +384,12 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 		f = append(f, errorf(CodeConflict, "/compare_engines",
 			"compare_engines runs both engines; remove use_jet_rules_go and use_jet_rules_native"))
 	}
+	if jc.CurrentSourcePeriod != 0 && jc.CurrentSourcePeriodType == "" {
+		// AssertSourcePeriodInfo replaces a period without a type by the
+		// environment's, which a test does not have: it would assert 0.
+		f = append(f, errorf(CodeRequired, "/jetrules_config/current_source_period_type",
+			"current_source_period needs current_source_period_type (month_period, day_period or hour_period); without it the period is reset to 0"))
+	}
 	if jc.MaxLooping < 0 {
 		f = append(f, errorf(CodeInvalidValue, "/jetrules_config/max_looping", "max_looping must not be negative"))
 	}

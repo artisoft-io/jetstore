@@ -115,10 +115,8 @@ func goEngineChild(t *testing.T) {
 	}
 	defer rete.Release()
 	rm := ses.GetResourceManager()
-	// No engine asserts (jets:iState rdf:type jets:State), and LOOP01 needs it.
-	if err := ses.Insert(jr.Jets__istate, rm.NewResource("rdf:type"), rm.NewResource("jets:State")); err != nil {
-		t.Fatal(err)
-	}
+	// LOOP01 needs (jets:iState rdf:type jets:State), which the rule file gets
+	// from importing data_model/jets_model.jr, where it is a triple(...).
 	completedAt := -1
 	for iloop := 0; iloop <= 5; iloop++ { // $max_looping = 5 in the rule file
 		if iloop > 0 {
