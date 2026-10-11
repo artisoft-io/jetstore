@@ -79,9 +79,9 @@ func TestVisitDirWrapperStillFailsWhenTheSectionIsNotADirectory(t *testing.T) {
 	}
 }
 
-// A rules unit test definition is listed under Jets Rules, however deep below
-// jet_rules/unit_tests/ it sits. They were invisible until 2026-10-11 because the
-// section's filters named only `.jr`.
+// A rules unit test definition and its CSV input are listed under Jets Rules,
+// however deep below jet_rules/unit_tests/ they sit. They were invisible until
+// 2026-10-11 because the section's filters named only `.jr`.
 func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
 	root := t.TempDir()
 	for name, content := range map[string]string{
@@ -124,6 +124,7 @@ func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
 	want := map[string]bool{
 		"jet_rules%2Fmain.jr":                           true,
 		"jet_rules%2Funit_tests%2Floop%2Floop.tst.json": true,
+		"jet_rules%2Funit_tests%2Floop%2Fmember1.csv":   true,
 	}
 	if len(files) != len(want) {
 		t.Fatalf("listed %v, want exactly %v", files, want)

@@ -109,12 +109,16 @@ var WorkspaceSections = []Section{
 		// special case only ever returned what the `.sql` arm would have. This
 		// is the one home for that; the other sites point here.
 		//
-		// **`.tst.json` since 2026-10-11**: the rules unit tests live under
-		// `jet_rules/unit_tests/` (workspace.UnitTestsDir, UnitTestSuffix) and
-		// were invisible here from the day they shipped, the same missing-suffix
-		// defect as `.apply.json` below.
+		// **`.tst.json` and `.csv` since 2026-10-11**: the rules unit tests live
+		// under `jet_rules/unit_tests/` (workspace.UnitTestsDir, UnitTestSuffix)
+		// with their CSV inputs beside them, and were invisible here from the day
+		// they shipped, the same missing-suffix defect as `.apply.json` below.
+		// `.csv` matches anywhere under jet_rules/, not only under unit_tests/; on
+		// that day every CSV there was a test input (5 in jets_ws, 7 in usi_ws,
+		// none in walrus_ws or cedargate_ws), so a path-aware filter would guard
+		// against nothing.
 		Dir: "jet_rules", Label: "Jets Rules",
-		Filters: []string{".jr", ".tst.json"}, CompiledView: JetRulesView,
+		Filters: []string{".jr", ".tst.json", ".csv"}, CompiledView: JetRulesView,
 	},
 	{
 		// Declared here, and not built in the Flutter client. That is the state
