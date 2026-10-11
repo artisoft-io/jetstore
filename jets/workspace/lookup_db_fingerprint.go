@@ -52,7 +52,9 @@ import (
 // lookupDbFormatVersion versions the packager's output. Bump it when a change
 // to the packager would produce a different lookup.db from the same inputs.
 // It is a var only so a test can bump it.
-var lookupDbFormatVersion = 1
+//
+// 2: rdf.ParseBool reads "yes" as true, so a YES in a bool column packages as 1.
+var lookupDbFormatVersion = 2
 
 // lookupDbMetaTable holds the fingerprint. The double underscores keep it out
 // of the namespace of lookup names, which are rule-file resources.
