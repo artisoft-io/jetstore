@@ -262,8 +262,11 @@ func runOnTestWsChild(t *testing.T) {
 		t.Errorf("engine %q, want native", r.Engine)
 	}
 
+	// A LEGACY switch turned off reaches the engine (AF.6): the greetings involve no
+	// retraction, so the test passes as in legacy, and the result records the mode
+	// the engine reports it was built in.
 	r = goOnly(root, u+"legacy_off.tst.json")
-	wantResult(t, r, rulestest.StatusError, "legacy mode fixed-1 is not available")
+	wantResult(t, r, rulestest.StatusPass, "")
 	if r.LegacyMode != rulestest.LegacyModeFixed1 {
 		t.Errorf("legacy mode %q", r.LegacyMode)
 	}

@@ -136,8 +136,17 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   differ**, with each difference in `engine_differences`.
 - **`_0:no_truth_main_on_exist` is refused when Go runs.** It exists only in C++, and Go would
   ignore it.
-- **The Go engine ignores `$max_rule_exec`.** To lower the vertex-visit limit there, set
-  `jets:max_vertex_visits` on `jets:iState` through `rule_config`.
+- **The Go engine ignores `$max_rule_exec`.** To lower the vertex-visit limit, set
+  `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`. **Both engines
+  honour it** (measured 2026-10-11): the harness asserts `rule_config` into the meta graph before
+  the first RDF session opens, Go reads it there, and C++ reads it from the RDF session when each
+  rete session initialises. Without it Go stops at its default of 10,000 visits. C++ has no limit
+  unless the triple is in a graph its session reads (`ReteSession::initialize`), so **a test that
+  may not terminate on C++ should set it**; whether the rule file's `$max_rule_exec` reaches C++
+  that way was not checked here.
+- **The two engines word the limit differently**: Go `max vertex visit reached`, C++
+  `Maximum vertex visits reached`. An `expect.reason` that must hold on both, or under
+  `compare_engines`, names `vertex visit`.
 
 ### Checks
 
@@ -239,6 +248,9 @@ A check takes one of three forms:
   protocol reaches both.
 - **The checks read a snapshot of the session.** `DecodeNode` normalises the adaptors' type
   names, so a check never builds a node in the session it checks.
-- **The `LEGACY` switches** are recorded as `legacy_mode` but are not yet passed to the engine
-  (track AF.6). Until they are, a test that turns one off is an `error` rather than a silent
-  legacy run.
+- **The `LEGACY` switches** are passed to the engine constructor
+  (`compute_pipes.WithRetractionMode`, from `harness.RetractionModeOf`), so the rules load in the
+  test's mode; this harness is the only caller that passes anything but legacy. `legacy_mode` is
+  the mode the engine reports it was built in (`RetractionMode()` on either adaptor's engine),
+  and a run whose engine reports a different mode from the one the test declares is an `error`.
+  `legacy_mode_test.go` runs defect 1 in all four modes on both engines.

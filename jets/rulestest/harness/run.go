@@ -63,6 +63,8 @@ func Run(opts Options) *rulestest.Result {
 		return failed(r, rulestest.StatusError, "invalid test definition: %s", findingSummary(findings))
 	}
 	r.TestName = td.TestName
+	// The mode the test asks for; replaced below by the mode each engine reports it
+	// was built in, so the result records what ran rather than what was written.
 	r.LegacyMode = td.LegacyMode()
 	r.Sessions = len(td.InputSessions)
 
@@ -76,14 +78,6 @@ func Run(opts Options) *rulestest.Result {
 			return failed(r, rulestest.StatusError, "the %s engine is not available in this harness", e)
 		}
 	}
-	// The LEGACY switches reach the engine constructor with track AF. Until
-	// they do, a test that turns one off cannot be run as written, and running
-	// it in legacy mode would silently ignore what its author wrote.
-	if r.LegacyMode != rulestest.LegacyModeLegacy {
-		return failed(r, rulestest.StatusError,
-			"legacy mode %s is not available in this harness: the LEGACY switches are not passed to the engine yet", r.LegacyMode)
-	}
-
 	// The CSVs are read once, before any engine is built: a misspelt column is
 	// the author's error and is reported without paying for a load.
 	dir := filepath.Dir(path)
@@ -103,6 +97,9 @@ func Run(opts Options) *rulestest.Result {
 		runs[i] = runOnEngine(td, e, factoryFor(opts.Factories, e), tables)
 		r.LoadMs += runs[i].loadMs
 		r.RunMs += runs[i].runMs
+		if runs[i].legacyMode != "" {
+			r.LegacyMode = runs[i].legacyMode
+		}
 	}
 	if len(runs) == 1 {
 		run := runs[0]
@@ -113,6 +110,16 @@ func Run(opts Options) *rulestest.Result {
 		return r
 	}
 	return compareRuns(r, runs)
+}
+
+// RetractionModeOf is the engine retraction mode a test definition's legacy object
+// asks for: a switch that is absent or true keeps its defect, false turns it off.
+// Labels agree: RetractionModeOf(td).Label() == td.LegacyMode().
+func RetractionModeOf(td *rulestest.TestDefinition) compute_pipes.RetractionMode {
+	return compute_pipes.RetractionMode{
+		ReplayGraphReadingConsequents: !td.Legacy.RecomputeOnRetractionOn(),
+		EraseWithdrawnRows:            !td.Legacy.WithdrawnRowStaysOn(),
+	}
 }
 
 func failed(r *rulestest.Result, status, format string, args ...any) *rulestest.Result {
@@ -174,6 +181,7 @@ func factoryFor(f Factories, engine string) compute_pipes.JetRulesFactory {
 // engineRun is the test run on one engine.
 type engineRun struct {
 	engine         string
+	legacyMode     string // as the engine reports it was built; empty when no engine was built
 	status, reason string
 	loadMs, runMs  int64
 	loops          int
@@ -203,12 +211,33 @@ func runOnEngine(td *rulestest.TestDefinition, engine string, factory compute_pi
 		return
 	}
 	loadStart := time.Now()
-	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug)
+	// The LEGACY switches are applied here, when the rules load (definition §8.5.3):
+	// the only caller that passes a mode other than legacy (§8.5.5).
+	mode := RetractionModeOf(td)
+	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug, compute_pipes.WithRetractionMode(mode))
 	if err != nil {
 		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("while building the %s engine for %s: %v", engine, cfg.ProcessName, err)
 		return
 	}
 	defer re.Release()
+	// legacy_mode is what the engine says it was built in, and a test never runs in a
+	// mode other than the one it declares.
+	built, ok := re.(interface {
+		RetractionMode() compute_pipes.RetractionMode
+	})
+	switch {
+	case ok:
+		run.legacyMode = built.RetractionMode().Label()
+	case mode.IsLegacy():
+		run.legacyMode = rulestest.LegacyModeLegacy
+	default:
+		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("the %s engine cannot report its retraction mode, and the test asks for %s", engine, td.LegacyMode())
+		return
+	}
+	if run.legacyMode != td.LegacyMode() {
+		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("the %s engine was built in legacy mode %s, and the test asks for %s", engine, run.legacyMode, td.LegacyMode())
+		return
+	}
 	re.JetResources()
 	env := map[string]any{}
 	if err := compute_pipes.AssertSourcePeriodInfo(re, spec, env); err != nil {
