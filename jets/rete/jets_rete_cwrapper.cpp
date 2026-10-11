@@ -14,12 +14,24 @@ using namespace jets::rdf;
 
 int create_jetstore_hdl(char const* rete_db_path,
                         char const* lookup_data_db_path, HJETS* handle) {
+  // Legacy for both retraction defects, as every pipeline runs
+  return create_jetstore_hdl_with_mode(rete_db_path, lookup_data_db_path, 0, 0, handle);
+}
+
+int create_jetstore_hdl_with_mode(char const* rete_db_path,
+                                  char const* lookup_data_db_path,
+                                  int replay_graph_reading_consequents,
+                                  int erase_withdrawn_rows, HJETS* handle) {
   if (not rete_db_path or not handle) return -1;
+
+  RetractionMode mode;
+  mode.replay_graph_reading_consequents = replay_graph_reading_consequents != 0;
+  mode.erase_withdrawn_rows = erase_withdrawn_rows != 0;
 
   auto* factory = new ReteMetaStoreFactory();
   int res = 0;
   try {
-    res = factory->load_database(rete_db_path, lookup_data_db_path);
+    res = factory->load_database(rete_db_path, lookup_data_db_path, mode);
     if (res != 0) {
       LOG(ERROR) << "create_jetstore_hdl: ERROR while loading database '"
                  << rete_db_path << "', code " << res;

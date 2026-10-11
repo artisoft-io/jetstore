@@ -18,9 +18,10 @@ type NodeVertex struct {
 	AntecedentQueryKey   int
 	AssociatedRules      []string
 	// RecordsConsequents is set by AddConsequentTerm when a consequent term mints a
-	// resource (see expr_mints_resource.go). A beta row of such a vertex records the
-	// triples it inferred, and retraction replays that record rather than
-	// recomputing the consequents.
+	// resource (see expr_mints_resource.go) or, with LEGACY defect 1 turned off, reads
+	// the graph (expr_reads_graph.go). A beta row of such a vertex records the triples
+	// it inferred, and retraction replays that record rather than recomputing the
+	// consequents.
 	RecordsConsequents bool
 }
 
@@ -68,9 +69,14 @@ func (node *NodeVertex) AddChildAlphaNode(alphaNd *AlphaNode) {
 	node.ChildAlphaNodes = append(node.ChildAlphaNodes, alphaNd)
 }
 
-func (node *NodeVertex) AddConsequentTerm(alphaNd *AlphaNode) {
+// AddConsequentTerm adds a consequent term to the vertex and decides, once, whether
+// the vertex records what its rows infer. A consequent that mints a resource always
+// records. One that reads the graph records only when mode turns LEGACY defect 1 off
+// (RetractionMode.ReplayGraphReadingConsequents); in the legacy mode it is recomputed
+// on retraction, which is the defect (README.md, 2026-10-09).
+func (node *NodeVertex) AddConsequentTerm(alphaNd *AlphaNode, mode RetractionMode) {
 	node.ConsequentAlphaNodes = append(node.ConsequentAlphaNodes, alphaNd)
-	if alphaNd.MintsResource() {
+	if alphaNd.MintsResource() || (mode.ReplayGraphReadingConsequents && alphaNd.ReadsGraph()) {
 		node.RecordsConsequents = true
 	}
 }

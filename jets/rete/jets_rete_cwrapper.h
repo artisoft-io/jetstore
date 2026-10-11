@@ -11,6 +11,13 @@ extern "C"
 typedef void* HJETS;
 
 int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_path, HJETS * handle );
+// As create_jetstore_hdl, with the LEGACY retraction mode the rete networks are built in
+// (jets::rete::RetractionMode, rete/rete_meta_store.h). A non-zero
+// replay_graph_reading_consequents turns defect 1 off, a non-zero erase_withdrawn_rows
+// turns defect 2 off. For the rules unit test harness only: create_jetstore_hdl, which
+// pipelines call, is this with both zero, legacy.
+int create_jetstore_hdl_with_mode( char const * rete_db_path, char const * lookup_data_db_path,
+  int replay_graph_reading_consequents, int erase_withdrawn_rows, HJETS * handle );
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;

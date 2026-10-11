@@ -26,7 +26,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // LookupVisitor
 // --------------------------------------------------------------------------------------
-struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public ReadsGraph
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -93,7 +93,7 @@ struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
 
 // MultiLookupVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded, public ReadsGraph
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}

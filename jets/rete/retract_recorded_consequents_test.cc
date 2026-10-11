@@ -50,6 +50,17 @@
 // work and the next execute_rules drains it. Not insert and erase: RDFGraph::erase does
 // not notify the graph callbacks, only insert and retract do, so an erased triple is
 // never seen by truth maintenance.
+//
+// EVERY CASE RUNS IN THE FOUR RETRACTION MODES (RetractionMode, rete_meta_store.h), as
+// a value-parameterised test whose suffix is the mode's label. In "legacy" it pins what
+// production runs. With a defect turned off it asserts what 1d993844's version of this
+// file asserted, which is the fixed behaviour: "fixed-1" replays a graph-reading
+// consequent, "fixed-2" erases a withdrawn row, "fixed" does both. The modes are the
+// rules unit test harness's LEGACY switches, reached through
+// create_jetstore_hdl_with_mode; no pipeline can set them. A test whose name states a
+// LEGACY behaviour (DoesNotRecord, DoesNotRefire, RetractionRecomputes, StayRetracted)
+// keeps the name its "legacy" instance pins, so that citations of it still resolve;
+// its other instances assert the fixed behaviour, as its comment says.
 namespace jets::rete {
 namespace {
 
@@ -60,7 +71,7 @@ enum ConsequentKind {
   kPure,                // (?s link ?s)  -- mints nothing
 };
 
-class RetractRecordedConsequentsTest : public ::testing::Test {
+class RetractRecordedConsequentsTest : public ::testing::TestWithParam<RetractionMode> {
  protected:
   ~RetractRecordedConsequentsTest() {
     if(this->rete_session) this->rete_session->terminate();
@@ -159,7 +170,7 @@ class RetractRecordedConsequentsTest : public ::testing::Test {
       F_binded(0), F_cst(has), F_binded(1) ));
 
     this->rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
-    this->rete_meta_store->initialize();
+    this->rete_meta_store->initialize(this->mode());
     rmgr->set_locked();
     meta_graph->set_locked();
 
@@ -177,6 +188,12 @@ class RetractRecordedConsequentsTest : public ::testing::Test {
       this->rdf_session->insert(s, value, i);
     }
   }
+
+  RetractionMode const& mode()const { return this->GetParam(); }
+
+  // What an equal row does when its support comes back after a withdrawal: 0 when the
+  // withdrawn row stays (LEGACY defect 2), 1 when it was erased and the equal row fires.
+  int readmitted()const { return this->mode().erase_withdrawn_rows ? 1 : 0; }
 
   rdf::r_index r(char const* name)
   {
@@ -232,33 +249,52 @@ class RetractRecordedConsequentsTest : public ::testing::Test {
 };
 
 // The flag is set where it should be and nowhere else: a consequent that mints a
-// resource makes the vertex record, one that does not, does not.
-TEST_F(RetractRecordedConsequentsTest, OnlyVertexesWithMintingConsequentsRecord) {
+// resource makes the vertex record in every mode, one that mints nothing and reads
+// nothing never does.
+TEST_P(RetractRecordedConsequentsTest, OnlyVertexesWithMintingConsequentsRecord) {
   this->build(kCreateEntityUuid);
   EXPECT_TRUE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(2)->records_consequents);
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(3)->records_consequents);
 }
 
-TEST_F(RetractRecordedConsequentsTest, KeyedCreateEntityRecords) {
+TEST_P(RetractRecordedConsequentsTest, KeyedCreateEntityRecords) {
   this->build(kCreateEntityKeyed);
   EXPECT_TRUE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
 }
 
-TEST_F(RetractRecordedConsequentsTest, PureConsequentDoesNotRecord) {
+TEST_P(RetractRecordedConsequentsTest, PureConsequentDoesNotRecord) {
   this->build(kPure);
   EXPECT_FALSE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
 }
 
-// LEGACY: an aggregate reads the graph but mints nothing, and is deliberately left out
-// of the set, so its consequent is recomputed on retraction.
-TEST_F(RetractRecordedConsequentsTest, AggregateConsequentDoesNotRecord) {
+// LEGACY defect 1: an aggregate reads the graph but mints nothing, and is left out of
+// the set, so its consequent is recomputed on retraction. With the defect turned off it
+// records.
+TEST_P(RetractRecordedConsequentsTest, AggregateConsequentDoesNotRecord) {
   this->build(kSumValues);
-  EXPECT_FALSE(this->rete_meta_store->get_node_vertex(1)->records_consequents);
+  EXPECT_EQ(this->rete_meta_store->get_node_vertex(1)->records_consequents,
+    this->mode().replay_graph_reading_consequents);
+}
+
+// The two predicates, on the consequents the fixture builds.
+TEST_P(RetractRecordedConsequentsTest, ConsequentPredicates) {
+  struct { ConsequentKind kind; bool mints; bool reads; } cases[] = {
+    {kCreateEntityUuid, true, false}, {kCreateEntityKeyed, true, false},
+    {kSumValues, false, true}, {kPure, false, false}};
+  for(auto const& c: cases) {
+    this->build(c.kind);
+    // the consequent under test is the first alpha node past the antecedents
+    auto const* an = this->rete_meta_store->get_alpha_node(4);
+    EXPECT_EQ(an->mints_resource(), c.mints) << "kind " << c.kind;
+    EXPECT_EQ(an->reads_graph(), c.reads) << "kind " << c.kind;
+    this->rete_session->terminate();
+    this->rete_session.reset();
+  }
 }
 
 // The control: nothing retracts, so the link and one jets:key are there.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidInfersOneEntity) {
+TEST_P(RetractRecordedConsequentsTest, CreateEntityUuidInfersOneEntity) {
   this->build(kCreateEntityUuid);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
   EXPECT_EQ(this->count_links(), 1);
@@ -267,7 +303,7 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidInfersOneEntity) {
 
 // THE DEFECT. Before the fix this left the link in place (1) and two jets:key triples,
 // one for the entity inferred and one for the entity the retraction minted.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidRetractedLeavesNothing) {
+TEST_P(RetractRecordedConsequentsTest, CreateEntityUuidRetractedLeavesNothing) {
   this->build(kCreateEntityUuid);
   this->stage_done();
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
@@ -280,7 +316,7 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidRetractedLeavesNothing) {
 
 // A keyed entity: the jets:key triple is retracted with the row that inferred it,
 // so its reference count reaches zero rather than being raised by the retraction.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedRetractedReleasesKey) {
+TEST_P(RetractRecordedConsequentsTest, CreateEntityKeyedRetractedReleasesKey) {
   this->build(kCreateEntityKeyed);
   this->stage_done();
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
@@ -288,16 +324,18 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedRetractedReleasesKey) {
   EXPECT_EQ(this->k1_key_ref_count(), 0);
 }
 
-// Repeated assert / retract cycles on the keyed entity. Two things are pinned at once:
+// Repeated assert / retract cycles on the keyed entity. Withdrawn, nothing stands in
+// any mode. Re-admitted:
 //
-//  - LEGACY: once the row is retracted it is never inferred again, though its support
-//    comes back -- the withdrawn row stays in the relation and an equal row is taken
-//    for it.
-//  - THE FIX: every later withdrawal retracts that stale row again, and it replays its
-//    now empty record. Before the record was kept empty, that second retraction fell
-//    back to recomputing create_entity("K1") and re-inserted jets:key, so the count
+//  - LEGACY defect 2: once the row is retracted it is never inferred again, though its
+//    support comes back -- the withdrawn row stays in the relation and an equal row is
+//    taken for it. Every later withdrawal retracts that stale row again, and it replays
+//    its now empty record. Before the record was kept empty, that second retraction
+//    fell back to recomputing create_entity("K1") and re-inserted jets:key, so the count
 //    climbed by one per cycle with no row standing at all.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesStayRetracted) {
+//  - Defect 2 turned off: the row was erased and an equal one fires, so the link and one
+//    jets:key are back on every cycle.
+TEST_P(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesStayRetracted) {
   this->build(kCreateEntityKeyed);
   auto one = this->rdf_session->rmgr()->create_literal(1);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
@@ -311,13 +349,13 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityKeyedCyclesStayRetracted) {
 
     this->rdf_session->retract(r("main1"), r("done"), one);
     ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ", re-admitted: LEGACY, does not re-fire";
-    EXPECT_EQ(this->k1_key_ref_count(), 0) << "cycle " << cycle << ", re-admitted";
+    EXPECT_EQ(this->count_links(), this->readmitted()) << "cycle " << cycle << ", re-admitted";
+    EXPECT_EQ(this->k1_key_ref_count(), this->readmitted()) << "cycle " << cycle << ", re-admitted";
   }
 }
 
 // The same cycles with create_entity 0: no stray entity is ever minted.
-TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidCyclesLeaveNoStrayKeys) {
+TEST_P(RetractRecordedConsequentsTest, CreateEntityUuidCyclesLeaveNoStrayKeys) {
   this->build(kCreateEntityUuid);
   auto one = this->rdf_session->rmgr()->create_literal(1);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
@@ -329,17 +367,19 @@ TEST_F(RetractRecordedConsequentsTest, CreateEntityUuidCyclesLeaveNoStrayKeys) {
 
     this->rdf_session->retract(r("main1"), r("done"), one);
     ASSERT_EQ(this->rete_session->execute_rules(), 0);
-    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ": LEGACY, does not re-fire";
-    EXPECT_EQ(this->count_inferred_keys(), 0) << "cycle " << cycle;
+    EXPECT_EQ(this->count_links(), this->readmitted()) << "cycle " << cycle << ", re-admitted";
+    EXPECT_EQ(this->count_inferred_keys(), this->readmitted()) << "cycle " << cycle << ", re-admitted";
   }
 }
 
-// LEGACY: a consequent aggregate whose input changes between inference and retraction.
-// The row infers (main1 total 6); vertex 3 then links support4, so the sum is 10 by the
-// time vertex 2 retracts the row. Retraction recomputes, retracts (main1 total 10),
-// which was never inferred, and leaves (main1 total 6) standing. If this starts failing,
-// aggregate consequents have been given replay -- read the README entry first.
-TEST_F(RetractRecordedConsequentsTest, ConsequentAggregateRetractionRecomputes) {
+// A consequent aggregate whose input changes between inference and retraction. The
+// row infers (main1 total 6); vertex 3 then links support4, so the sum is 10 by the
+// time vertex 2 retracts the row. LEGACY defect 1: retraction recomputes, retracts
+// (main1 total 10), which was never inferred, and leaves (main1 total 6) standing. If
+// that starts failing in a legacy mode, aggregate consequents have been given replay --
+// read the README entry first. With defect 1 turned off the row replays its record and
+// 6 goes.
+TEST_P(RetractRecordedConsequentsTest, ConsequentAggregateRetractionRecomputes) {
   this->build(kSumValues);
   this->stage_support4();
   this->stage_done();
@@ -347,36 +387,55 @@ TEST_F(RetractRecordedConsequentsTest, ConsequentAggregateRetractionRecomputes) 
   auto rmgr = this->rdf_session->rmgr();
   ASSERT_TRUE(this->rdf_session->contains(r("main1"), r("hasSupport"), r("support4")))
     << "the aggregate's input changed before the retraction";
-  EXPECT_TRUE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(6)))
-    << "LEGACY: the total inferred is still standing";
+  EXPECT_EQ(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(6)),
+    not this->mode().replay_graph_reading_consequents)
+    << "LEGACY: the total inferred is still standing; fixed: it was retracted";
   EXPECT_FALSE(this->rdf_session->contains(r("main1"), r("total"), rmgr->create_literal<int>(10)));
 }
 
 // The pure path is unchanged: recomputing a consequent that mints nothing retracts
 // what it inferred.
-TEST_F(RetractRecordedConsequentsTest, PureConsequentStillRetracts) {
+TEST_P(RetractRecordedConsequentsTest, PureConsequentStillRetracts) {
   this->build(kPure);
   this->stage_done();
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
   EXPECT_EQ(this->count_links(), 0);
 }
 
-// LEGACY, on a consequent the recording does not touch: once a row has been retracted
-// it is left in its beta relation marked kProcessed -- compute_consequent_triples calls
-// remove_beta_row on a row already marked kDeleted, which returns without erasing it --
-// so an equal row arriving later is taken for one already inferred and never fires.
-TEST_F(RetractRecordedConsequentsTest, PureConsequentDoesNotRefire) {
+// Cycles on a consequent the recording does not touch. LEGACY defect 2: once a row has
+// been retracted it is left in its beta relation marked kProcessed --
+// compute_consequent_triples calls remove_beta_row on a row already marked kDeleted,
+// which returns without erasing it -- so an equal row arriving later is taken for one
+// already inferred and never fires. With defect 2 turned off it fires on every cycle.
+TEST_P(RetractRecordedConsequentsTest, PureConsequentDoesNotRefire) {
   this->build(kPure);
   auto one = this->rdf_session->rmgr()->create_literal(1);
   ASSERT_EQ(this->rete_session->execute_rules(), 0);
   ASSERT_EQ(this->count_links(), 1);
-  this->rdf_session->insert_inferred(r("main1"), r("done"), one);
-  ASSERT_EQ(this->rete_session->execute_rules(), 0);
-  EXPECT_EQ(this->count_links(), 0);
-  this->rdf_session->retract(r("main1"), r("done"), one);
-  ASSERT_EQ(this->rete_session->execute_rules(), 0);
-  EXPECT_EQ(this->count_links(), 0) << "LEGACY: the support is back and the rule does not fire";
+  for(int cycle=0; cycle<5; ++cycle) {
+    this->rdf_session->insert_inferred(r("main1"), r("done"), one);
+    ASSERT_EQ(this->rete_session->execute_rules(), 0);
+    EXPECT_EQ(this->count_links(), 0) << "cycle " << cycle << ", withdrawn";
+    this->rdf_session->retract(r("main1"), r("done"), one);
+    ASSERT_EQ(this->rete_session->execute_rules(), 0);
+    EXPECT_EQ(this->count_links(), this->readmitted()) << "cycle " << cycle << ", re-admitted";
+  }
 }
+
+std::string mode_name(::testing::TestParamInfo<RetractionMode> const& info)
+{
+  std::string label = info.param.label();
+  for(auto & c: label) if(c == '-') c = '_';
+  return label;
+}
+
+INSTANTIATE_TEST_SUITE_P(RetractionModes, RetractRecordedConsequentsTest,
+  ::testing::Values(
+    RetractionMode{false, false},
+    RetractionMode{true, false},
+    RetractionMode{false, true},
+    RetractionMode{true, true}),
+  mode_name);
 
 }   // namespace
 }   // namespace jets::rete

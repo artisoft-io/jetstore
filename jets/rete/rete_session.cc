@@ -431,7 +431,11 @@ namespace jets::rete {
             this->rdf_session_->retract(t3);
           }
         } else {
-          // Row pure consequents: recomputing gives back the triples inferred
+          // Consequents that mint nothing are recomputed. For one that reads the graph
+          // (an aggregate, exist, size_of) that is LEGACY defect 1 -- see
+          // jets/jetrules/rete/README.md, 2026-10-09 -- unless the meta store was
+          // initialized with RetractionMode::replay_graph_reading_consequents, when such
+          // a vertex records and is replayed above.
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
@@ -444,7 +448,13 @@ namespace jets::rete {
         // is -- so the retracted row stays in the relation as kProcessed and an equal
         // row inserted later is taken for one already inferred: it never fires again.
         // usi_ws's rules terminate only because of it; see jets/jetrules/rete/README.md.
-        beta_relation->remove_beta_row(this, beta_row);
+        // A meta store initialized with RetractionMode::erase_withdrawn_rows, which only
+        // the rules unit test harness builds, erases the row instead.
+        if(this->rule_ms_->retraction_mode().erase_withdrawn_rows) {
+          beta_relation->erase_retracted_beta_row(beta_row);
+        } else {
+          beta_relation->remove_beta_row(this, beta_row);
+        }
         beta_row->set_status(BetaRowStatus::kProcessed);
       }
     }
