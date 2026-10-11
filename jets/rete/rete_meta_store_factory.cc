@@ -259,8 +259,18 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   }
   
   if( strcmp(type, "bool") == 0) {
-    this->r_map_.insert({key, this->rmgr_->create_literal(rdf::to_bool(std::string_view(value)))});
-    return SQLITE_OK;
+    // A rule-file bool literal: empty is null, anything outside the accepted
+    // spellings refuses to load (I-45). The compiler refuses it first, naming
+    // the file and line; this is the backstop.
+    switch(rdf::parse_bool(std::string_view(value))) {
+    case rdf::ParsedBool::True:  this->r_map_.insert({key, this->rmgr_->create_literal(true)}); return SQLITE_OK;
+    case rdf::ParsedBool::False: this->r_map_.insert({key, this->rmgr_->create_literal(false)}); return SQLITE_OK;
+    case rdf::ParsedBool::Null:  this->r_map_.insert({key, this->rmgr_->get_null()}); return SQLITE_OK;
+    default:
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: bool literal "
+                 << key << ": " << rdf::not_a_bool_message(value);
+      return SQLITE_ERROR;
+    }
   }
   
   if( strcmp(type, "datetime") == 0) {

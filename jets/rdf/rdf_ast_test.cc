@@ -119,7 +119,10 @@ TEST(RdfAstTest, ToBool)
   EXPECT_EQ(to_bool(bn1_s.get()), true);
   EXPECT_EQ(to_bool(banane_s.get()), true);
   EXPECT_EQ(to_bool(false_s.get()), false);
-  EXPECT_EQ(to_bool(f0lse_s.get()), true);
+  // "f0lse" was true until I-45 (2026-10-11): any text but a spelling of false.
+  // It is outside the accepted spellings now, so to_bool, which has nowhere to
+  // report it, reads it as not true; a rule testing it raises a jets:exception.
+  EXPECT_EQ(to_bool(f0lse_s.get()), false);
   EXPECT_EQ(to_bool(FALSE_s.get()), false);
   EXPECT_EQ(to_bool(TRUE_s.get()), true);
   EXPECT_EQ(to_bool(f_s.get()), false);

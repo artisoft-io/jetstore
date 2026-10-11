@@ -247,12 +247,20 @@ func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStm
 }
 
 // exitBooleanLiteralStmt is called when production booleanLiteral is exited.
+//
+// The value is stripped of its quotes, as every other typed declaration's is.
+// It was not until 2026-10-11, so `bool x = "false";` reached the engines as
+// "\"false\"", which C++ read as true and Go as false (I-45).
 func (s *JetRuleListener) ExitBooleanLiteralStmt(ctx *parser.BooleanLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		value := StripQuotes(ctx.GetDeclValue().GetText())
+		if !s.checkBoolLiteral(ctx.GetStart().GetLine(), value) {
+			return
+		}
 		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
-			Value: ctx.GetDeclValue().GetText(),
+			Value: value,
 		})
 	}
 }

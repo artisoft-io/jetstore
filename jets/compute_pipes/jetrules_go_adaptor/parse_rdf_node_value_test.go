@@ -79,3 +79,26 @@ func TestParseRdfNodeValueUlong(t *testing.T) {
 		t.Errorf("ulong: \"-7\" accepted; want an error")
 	}
 }
+
+// TestParseRdfNodeValueBool: rule configuration reads a bool as the engines do
+// (rules_unit_test_harness I-45): the accepted spellings, trimmed and in any
+// case; empty is null; anything else is an error, which fails the pipeline at
+// start. It read the first letter until 2026-10-11, so "tomato" was true.
+func TestParseRdfNodeValueBool(t *testing.T) {
+	rm := newTestResourceManager()
+	for value, want := range map[string]int{"true": 1, " Yes ": 1, "y": 1, "1": 1, "FALSE": 0, "no": 0, "n": 0, "0": 0} {
+		node, err := compute_pipes.ParseRdfNodeValue(rm, value, "bool")
+		if err != nil || goNode(node) != goNode(rm.NewIntLiteral(want)) {
+			t.Errorf("bool %q: got %v, %v; want int %d", value, node, err, want)
+		}
+	}
+	node, err := compute_pipes.ParseRdfNodeValue(rm, "", "bool")
+	if err != nil || node.Type() != rm.RdfNull().Type() {
+		t.Errorf("bool \"\": got %v, %v; want null", node, err)
+	}
+	for _, value := range []string{"tomato", "maybe", "nope", "2"} {
+		if _, err := compute_pipes.ParseRdfNodeValue(rm, value, "bool"); err == nil {
+			t.Errorf("bool %q accepted; want an error", value)
+		}
+	}
+}

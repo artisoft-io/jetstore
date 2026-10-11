@@ -43,6 +43,14 @@ namespace jets::rete {
       int sz = boost::numeric_cast<int>(this->columns_.size());
       for(int pos=0; pos<sz; pos++) {
         ColumnInfo const& cinfo = this->columns_[pos];
+        // A SQL NULL is rdf null for every column type. The numeric arms below
+        // read NULL as 0, so a NULL bool column -- an empty cell, which the
+        // packager writes as NULL since I-45 -- would have been false here and
+        // null on the Go engine (lookup_table_sqlite3.go).
+        if(sqlite3_column_type(stmt, pos) == SQLITE_NULL) {
+          rdf_session->insert_inferred(row_subject, cinfo.first, rmgr->get_null());
+          continue;
+        }
         switch (cinfo.second) {
         case rdf::rdf_null_t             : value = rmgr->get_null(); break;
         case rdf::rdf_blank_node_t       : LOG(ERROR)<<"lookup: BUG: Blank node cannot be a returned lookup data type"; return -1;

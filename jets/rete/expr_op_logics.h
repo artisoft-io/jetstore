@@ -533,6 +533,20 @@ struct NotVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LInt64  lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
+  // Text is read as a bool (I-45). It raised "Invalid arguments for not" until
+  // 2026-10-11, even for "false". Empty text is null; text outside the accepted
+  // spellings raises a jets:exception; both give null.
+  RDFTTYPE operator()(rdf::LString lhs)const
+  {
+    switch(rdf::parse_bool(lhs.data)) {
+    case rdf::ParsedBool::True:  return rdf::LInt32{0};
+    case rdf::ParsedBool::False: return rdf::LInt32{1};
+    case rdf::ParsedBool::Null:  return rdf::Null();
+    default:
+      raise_exception(rs, "error: a rule tested text for truth: " + rdf::not_a_bool_message(lhs.data));
+      return rdf::Null();
+    }
+  }
 
   ReteSession * rs;
   BetaRow const* br;

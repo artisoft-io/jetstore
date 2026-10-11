@@ -16,6 +16,38 @@
 
 namespace jets::rete {
 
+void
+raise_exception(ReteSession * rs, std::string const& msg)
+{
+  if(not rs or not rs->rdf_session()) {
+    LOG(ERROR) << msg;
+    return;
+  }
+  auto * sess = rs->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal(msg));
+}
+
+bool
+truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
+{
+  ok = true;
+  if(auto const* text = boost::get<rdf::LString>(&v)) {
+    switch(rdf::parse_bool(text->data)) {
+    case rdf::ParsedBool::True:  return true;
+    case rdf::ParsedBool::False: return false;
+    case rdf::ParsedBool::Null:  return false;
+    default:
+      ok = false;
+      raise_exception(rs, "error: a rule tested text for truth: " + rdf::not_a_bool_message(text->data));
+      return false;
+    }
+  }
+  return rdf::to_bool(&v);
+}
+
+
   int 
   ReteSession::initialize()
   {

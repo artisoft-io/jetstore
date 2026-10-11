@@ -2,6 +2,7 @@ package rete
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -416,7 +417,20 @@ func (ctx *ReteBuilderContext) loadResources() error {
 			}
 			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewDoubleLiteral(v)
 		case "bool":
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(rdf.ParseBool(resourceNode.Value))
+			// A rule-file bool literal: empty is null, anything outside the
+			// accepted spellings refuses to load (I-45). The compiler refuses it
+			// first, with the file and line; this is the backstop.
+			b, err := rdf.ParseBool(resourceNode.Value)
+			switch {
+			case errors.Is(err, rdf.ErrNullBool):
+				ctx.ResourcesLookup[resourceNode.Key] = rdf.Null()
+			case err != nil:
+				return fmt.Errorf("error: bool literal %d: %v", resourceNode.Key, err)
+			case b:
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(1)
+			default:
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(0)
+			}
 		case "datetime":
 			v, err := rdf.NewLDatetime(resourceNode.Value)
 			if err != nil {
