@@ -199,6 +199,20 @@ CREATE TABLE IF NOT EXISTS rule_sequences (
   UNIQUE (name)
 );
 
+-- unit_tests: the rules unit tests the compile found under jet_rules/unit_tests/
+-- (rules_unit_test_harness, task AD.1). path is relative to the workspace root.
+-- findings is NULL for a test that may be started, else the JSON array of the
+-- error findings that refuse it; warnings are not recorded here, so a test with
+-- warnings alone stays runnable. An invalid test is recorded, not fatal.
+CREATE TABLE IF NOT EXISTS unit_tests (
+  path TEXT PRIMARY KEY,
+  test_name TEXT,
+  process_name TEXT,
+  legacy_mode TEXT,
+  comment TEXT,
+  findings TEXT
+);
+
 -- rule_terms (antecedents and consequents
 CREATE TABLE IF NOT EXISTS rule_terms (
   rule_key INTEGER NOT NULL,

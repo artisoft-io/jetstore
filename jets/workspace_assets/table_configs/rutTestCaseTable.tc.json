@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "label": "Rules Unit Test Cases",
+  "columns": [
+    { "name": "path", "label": "Test File", "table": "unit_tests", "tooltip": "Path of the .tst.json in the workspace" },
+    { "name": "test_name", "label": "Test", "table": "unit_tests", "tooltip": "Test name" },
+    { "name": "process_name", "label": "Process", "table": "unit_tests", "tooltip": "The rule process the test runs" },
+    { "name": "legacy_mode", "label": "Legacy Mode", "table": "unit_tests", "tooltip": "The LEGACY switches the test definition declares" },
+    { "name": "comment", "label": "Comment", "table": "unit_tests", "tooltip": "The test's comment" },
+    { "name": "findings", "label": "Findings", "table": "unit_tests", "tooltip": "Why the test file is invalid; a test with findings cannot be started" }
+  ],
+  "sortColumn": "path",
+  "sortColumnTable": "unit_tests",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      { "stateKey": "test_path", "columnIdx": 0 }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    { "schema": "$SCHEMA", "table": "unit_tests" }
+  ]
+}

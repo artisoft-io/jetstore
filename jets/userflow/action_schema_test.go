@@ -69,7 +69,10 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	//
 	// **13 since 2026-10-01**: registerFileKeyUF was retired by
 	// jetstore_maintenance_02 (Q-6, task AD.4), and ten ported flows remain.
-	const flowDocuments = 13
+	//
+	// **14 since 2026-10-11**: rulesUnitTestUF, written for
+	// rules_unit_test_harness (task AD.4) rather than ported.
+	const flowDocuments = 14
 	if len(names) != flowDocuments {
 		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)
 	}
