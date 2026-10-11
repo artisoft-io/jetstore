@@ -20,9 +20,9 @@ a workaround (artisoft-io/usi_ws#22).
 
 At rule load a node vertex is flagged when one of its consequent terms mints a resource:
 `create_entity`, `create_uuid_resource`, `range`, `lookup_rand` or `multi_lookup_rand`. C++: the
-`MintsResource` marker on those visitors (`jets/rete/expr.h:117`) and `ExprBase::mints_resource`,
-read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:145`). Go: `expr_mints_resource.go`
-and `AddConsequentTerm` (`node_vertex.go:71`). A row of a flagged vertex records every triple its
+`MintsResource` marker on those visitors (`jets/rete/expr.h:135`) and `ExprBase::mints_resource`,
+read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go: `expr_mints_resource.go`
+and `AddConsequentTerm` (`node_vertex.go:77`). A row of a flagged vertex records every triple its
 consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
 both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
 `rete_session.go:34`) — and **retraction retracts that record and evaluates nothing**
@@ -45,7 +45,7 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
    `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
    and the inferred one stays.
 2. **A withdrawn row never fires again.** After retracting a row's consequents both engines call
-   `remove_beta_row` / `RemoveBetaRow` (`rete_session.cc:447`, `rete_session_exec_rules.go:298`), which
+   `remove_beta_row` / `RemoveBetaRow` (`rete_session.cc:456`, `rete_session_exec_rules.go:305`), which
    returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
    `kProcessed`, and an equal row arriving later is taken for one already inferred.
 
