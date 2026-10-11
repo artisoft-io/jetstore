@@ -19,12 +19,16 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import { AppShell } from "../shell/AppShell";
 import { WorkspaceIde, WORKSPACE_IDE } from "./WorkspaceIde";
+
+// The IDE remembers the picked workspace in session storage, which jsdom keeps
+// across the tests of one file; each test starts from none picked.
+beforeEach(() => window.sessionStorage.clear());
 
 afterEach(() => {
   cleanup();

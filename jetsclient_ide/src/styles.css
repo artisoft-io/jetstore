@@ -218,6 +218,17 @@ body {
   flex: 0 0 auto;
 }
 
+/* The Workspace IDE's toolbar: the registry's workspace actions, one line per
+   row of `workspaceIdeToolbar.json`, under the screen bar. */
+.ws-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+
 .ws-picker select {
   font-family: var(--sans);
   font-size: 13px;

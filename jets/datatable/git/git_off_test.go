@@ -185,8 +185,10 @@ func TestGitOffOperationsSkipTheirOwnValidation(t *testing.T) {
 }
 
 // TestGitOffStatusVocabulary is the guard the plan asks for at I-517: the status
-// strings are coupled to the registry screen by substring
-// (jetsclient_ide/src/datatable/tables/workspaceRegistryTable.tc.json), and until
+// strings are coupled to the registry's actions by substring
+// (jetsclient_ide/src/datatable/tables/workspaceRegistryTable.tc.json, and since
+// 2026-10-11 jetsclient_ide/src/screens/documents/workspaceIdeToolbar.json, the
+// Workspace IDE's toolbar, which tests the same registry row), and until
 // this test nothing on either side of that seam checked the pairing. This is it,
 // stated as the button rules rather than as the strings, so that a future edit to
 // the vocabulary fails against the reason rather than against a literal.

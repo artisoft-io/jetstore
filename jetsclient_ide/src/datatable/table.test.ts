@@ -34,13 +34,15 @@ import {
   type TableConfigDocument,
 } from "./table";
 import { validateTableActions } from "../userflow/documentSet";
-import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments,
+import { ROWS_PER_PAGE, fromDocument, restoreActions, toDocument, toDocuments,
   CORPUS_CORRECTIONS,
 } from "./tableTranslate";
 import type { TableConfig } from "./types";
 import { availability } from "./actionBarModel";
 import { FormState } from "./formState";
 import { inAppPath } from "../screens/routes";
+import { WorkspaceToolbarDocumentSchema } from "../screens/WorkspaceToolbar";
+import toolbarJson from "../screens/documents/workspaceIdeToolbar.json";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
@@ -728,6 +730,17 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
 describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   const doc = documents["workspaceRegistryTable"]!;
   const config = configOf("workspaceRegistryTable");
+  /**
+   * The registry's actions wherever they are drawn. **Since 2026-10-11 the ten
+   * that act on a workspace are the Workspace IDE's toolbar**
+   * (`screens/documents/workspaceIdeToolbar.json`), still in this table's action
+   * format and still run against a registry row; the table keeps the four about
+   * the registry itself. So the claims below about the registry's actions are
+   * asserted over both documents, and where each button lives is asserted once.
+   */
+  const toolbar = WorkspaceToolbarDocumentSchema.parse(toolbarJson).rows;
+  const registryActions = doc.source === "query" ? [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])] : [];
+  const allActions = [...registryActions, ...toolbar.flat()];
 
   it("accounts for every apiAction either corpus holds, which is what makes the enum closed", () => {
     // **The membership argument, asserted rather than described.** `table.ts`
@@ -779,17 +792,16 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
 
   it("gates nine buttons on the selected row's status, by column name", () => {
     if (doc.source !== "query") return;
-    const gated = [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])].filter(
-      (a) => a.enableWhen !== undefined,
-    );
+    const gated = allActions.filter((a) => a.enableWhen !== undefined);
     // **Nine since 2026-10-11**: *Rules Unit Tests* (`rules_unit_test_harness`
     // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
     // why `actionBar.test.tsx`, reading that corpus, still counts eight.
+    // Registry first, then the toolbar's rows: the order the two documents hold.
     expect(gated.map((a) => a.key)).toEqual([
       "openWorkspace",
+      "deleteWorkspace",
       "exportWorkspaceClientConfig",
       "loadWorkspaceConfig",
-      "deleteWorkspace",
       "compileWorkspace",
       "rulesUnitTests",
       "commitWorkspace",
@@ -810,7 +822,8 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     // `doAction`, and the claim is about what the user sees enabled.
     const model = fromDocument("workspaceRegistryTable", doc);
     const open = model.actions.find((a) => a.key === "openWorkspace")!;
-    const tests = model.secondRowActions.find((a) => a.key === "rulesUnitTests")!;
+    // On the IDE's toolbar since 2026-10-11, restored against this table's columns.
+    const tests = restoreActions(doc, toolbar.flat()).find((a) => a.key === "rulesUnitTests")!;
     expect(tests.label).toBe("Rules Unit Tests");
     expect(tests.style).toBe("primary");
     expect(tests.capability).toBe("workspace_ide");
@@ -854,32 +867,48 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     // Two of the nine use the inner list, and a flattened `enableWhen` would
     // have turned "neither removed nor in progress" into "either", which is the
     // difference between refusing a mid-compile export and permitting one.
-    const exportAction = (doc.actions ?? []).find((a) => a.key === "exportWorkspaceClientConfig");
+    const exportAction = allActions.find((a) => a.key === "exportWorkspaceClientConfig");
     expect(exportAction?.enableWhen).toEqual([
       [
         { column: "status", is: "doesNotContain", value: "removed" },
         { column: "status", is: "doesNotContain", value: "in progress" },
       ],
     ]);
-    const commit = (doc.secondRowActions ?? []).find((a) => a.key === "commitWorkspace");
+    const commit = allActions.find((a) => a.key === "commitWorkspace");
     expect(commit?.enableWhen).toEqual([
       [{ column: "status", is: "contains", value: "modified" }],
     ]);
   });
 
-  it("is the second table with a second action row, and the corpus has no third", () => {
+  it("keeps the registry's own buttons in one row, and gives the IDE the workspace actions", () => {
     if (doc.source !== "query") return;
-    expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
-      "compileWorkspace",
-      "rulesUnitTests",
-      "commitWorkspace",
-      "pushOnlyWorkspace",
-      "pullWorkspace",
-      "doGitStatus",
-      "doGitCommand",
-      "viewGitLogWorkspace",
+    // The split is by what a button acts on: a registry row as such (add,
+    // open, delete) or the table (refresh) stay; what acts on a workspace moves.
+    expect((doc.actions ?? []).map((a) => a.key)).toEqual([
+      "addWorkspace",
+      "openWorkspace",
+      "deleteWorkspace",
       "refreshTable",
     ]);
+    expect(doc.secondRowActions).toBeUndefined();
+    expect(toolbar.map((row) => row.map((a) => a.key))).toEqual([
+      ["exportWorkspaceClientConfig", "loadWorkspaceConfig"],
+      [
+        "compileWorkspace",
+        "rulesUnitTests",
+        "commitWorkspace",
+        "pushOnlyWorkspace",
+        "pullWorkspace",
+        "doGitStatus",
+        "doGitCommand",
+        "viewGitLogWorkspace",
+      ],
+    ]);
+  });
+
+  it("was the second table with a second action row in the Flutter corpus, which has no third", () => {
+    // The frozen corpus still carries the registry's two rows; the document
+    // above no longer does.
     const withSecondRow = Object.entries(screenTables)
       .filter(([, t]) => t.secondRowActions.length > 0)
       .map(([key]) => key);
@@ -892,13 +921,20 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     // not the same one — see `tableTranslate.ts`.
     expect(escapeNamesOf(doc)).toEqual([]);
     expect([...config.actions, ...config.secondRowActions].some((a) => a.hasIsEnabledFnc)).toBe(false);
+    expect(toolbar.flat().some((a) => a.isEnabled !== undefined)).toBe(false);
   });
 
-  it("names three action-document entries and five dialog forms on the second row", () => {
-    expect(actionNamesOf(doc)).toEqual(["compileWorkspace", "deleteWorkspace", "openWorkspace"]);
-    if (doc.source !== "query") return;
+  it("names three action-document entries and five dialog forms on the toolbar's second row", () => {
+    // `compileWorkspace` moved to the toolbar; the registry keeps the other two.
+    expect(actionNamesOf(doc)).toEqual(["deleteWorkspace", "openWorkspace"]);
     expect(
-      (doc.secondRowActions ?? []).filter((a) => a.action === "showDialog").map((a) => a.configForm),
+      [...registryActions, ...toolbar.flat()]
+        .filter((a) => a.action === "doAction")
+        .map((a) => a.actionName)
+        .sort(),
+    ).toEqual(["compileWorkspace", "deleteWorkspace", "openWorkspace"]);
+    expect(
+      toolbar[1]!.filter((a) => a.action === "showDialog").map((a) => a.configForm),
     ).toEqual([
       "commitWorkspaceDialog",
       "pushOnlyWorkspaceDialog",
