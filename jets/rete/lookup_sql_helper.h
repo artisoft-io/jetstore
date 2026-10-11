@@ -246,6 +246,9 @@ class LookupTable {
       is_first = false;
       sqlb << "\""<< rdf::get_name(colinfo.first) << "\"";
     }
+    // The row's own rowid, last: served as jets:row_id (lookup_internal_c)
+    if(not is_first) sqlb << ", ";
+    sqlb << "_rowid_";
     sqlb << " FROM \"" << lookup_table_name << "\" WHERE ";
     auto str = sqlb.str();
     err = this->db_pool_.initialize(str+"\"jets:key\" = ?", str+"__key__ = ?");
