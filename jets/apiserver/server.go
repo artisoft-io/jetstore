@@ -531,6 +531,10 @@ func listenAndServe() error {
 	// rather than fatal: the rows it would fix are stale, not dangerous.
 	server.sweepInterruptedWork()
 
+	// One rules unit test executor pool for this process, installed after the
+	// sweep so nothing it starts can be swept. Rules unit tests project, AC.3.
+	datatable.SetRulesUnitTestExecutor(datatable.NewRulesUnitTestPool(datatable.RulesUnitTestPoolConfigFromEnv()))
+
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {

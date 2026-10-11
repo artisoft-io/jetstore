@@ -270,8 +270,8 @@ func TestRulesUnitTestTablesMigrate(t *testing.T) {
 	defs := rutTableDefs(t)
 	want := map[string][]string{
 		"rules_unit_test_execution": {"key", "workspace_name", "test_path", "test_name", "engine", "legacy_mode",
-			"status", "reason", "load_ms", "duration_ms", "sessions", "loops", "log", "user_email", "last_update"},
-		"rules_unit_test_check": {"key", "execution_key", "session_name", "kind", "check", "outcome", "found"},
+			"status", "reason", "load_ms", "run_ms", "duration_ms", "sessions", "loops", "log", "user_email", "last_update"},
+		"rules_unit_test_check": {"key", "execution_key", "session_name", "kind", "check", "outcome", "found", "engine"},
 	}
 	for table, cols := range want {
 		if err := defs[table].UpdateTableSchema(f.pool, false); err != nil {
