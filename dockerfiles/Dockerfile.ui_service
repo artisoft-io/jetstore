@@ -50,6 +50,13 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
     echo "----------------*********************-------------" >> /VERSION.txt
 
 # Copy the binaries to usr/local/bin for ecs tasks
+#
+# **No chmod after these**, for the reason given at the harness below: go build in
+# Dockerfile.cpipes_builder writes all four 0755 and COPY keeps the mode. A
+# `RUN chmod +x` of the four used to follow, and a chmod in a later layer stores
+# every file it touches again -- measured on 2026-10-11, that layer was 140 MB of
+# a 726 MB image, the four binaries' sizes summed, and changed no mode (all four
+# were 755 before it and after it).
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
@@ -95,13 +102,6 @@ RUN \
     && ! ldd /usr/local/bin/rules_unit_test | grep -q 'not found' \
     && (rules_unit_test > /dev/null 2>&1; test $? -eq 2) \
     && cd /
-
-# Make sure it is executable
-RUN \
-chmod +x /usr/local/bin/apiserver \
-&& chmod +x /usr/local/bin/cbooter \
-&& chmod +x /usr/local/bin/update_db \
-&& chmod +x /usr/local/bin/run_reports
 
 # cbooter drops to jsuser (uid/gid 999) before exec'ing the apiserver, and switching uid
 # does not change HOME. Left at the /root the container runtime supplies for uid 0, git
