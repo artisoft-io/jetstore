@@ -13,14 +13,30 @@ package rete
 // again -- two known defects kept by Michel's decision of 2026-10-09 (README.md). THIS
 // IS A GUARD, NOT A SPECIFICATION: if a change to truth maintenance makes it fail, that
 // change needs option (b) or (c) of the README entry, not a new expectation here.
+//
+// The guard is the "legacy" subtest. The other three run the same network in the
+// retraction modes the rules unit test harness can select (retraction_mode.go), and
+// pin what each does to it, as the README measured on the C++ engine on 2026-10-09:
+// with both defects turned off ("fixed") the loop rules do not terminate and the run
+// ends at the vertex visit limit; with only defect 1 turned off ("fixed-1") they
+// terminate and the merges are undone; with only defect 2 turned off ("fixed-2") they
+// terminate as in legacy.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-func TestLoopControlRulesTerminate(t *testing.T) {
+// loopOutcome is what one run of the loop network ended with.
+type loopOutcome struct {
+	err                    error
+	topMatch, merged, prio [2]bool // for m1 and m2
+}
+
+func runLoopControlRules(t *testing.T, mode RetractionMode) loopOutcome {
+	t.Helper()
 	rm := rdf.NewResourceManager(nil)
 	jr := rm.JetsResources
 	metaGraph := rdf.NewMetaRdfGraph(rm)
@@ -71,7 +87,7 @@ func TestLoopControlRulesTerminate(t *testing.T) {
 		case an.IsAntecedent:
 			an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
 		case an.IsConsequent:
-			an.NdVertex.AddConsequentTerm(an)
+			an.NdVertex.AddConsequentTerm(an, mode)
 		}
 	}
 	config := map[string]string{"$max_rule_exec": "1000"}
@@ -79,6 +95,7 @@ func TestLoopControlRulesTerminate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ms.RetractionMode = mode
 	sess := rdf.NewRdfSession(rm, metaGraph)
 	rs := NewReteSession(sess)
 	rs.Initialize(ms)
@@ -94,24 +111,54 @@ func TestLoopControlRulesTerminate(t *testing.T) {
 	}
 
 	// The jetrules_pool_worker loop, without the jets:completed rule.
-	if err := rs.ExecuteRules(); err != nil {
-		t.Fatal(err)
-	}
-	for i := 1; i <= 3; i++ {
+	var out loopOutcome
+	out.err = rs.ExecuteRules()
+	for i := 1; i <= 3 && out.err == nil; i++ {
 		sess.Insert(s, loop, srm.NewIntLiteral(i))
-		if err := rs.ExecuteRules(); err != nil {
-			t.Fatalf("loop %d: the loop rules cycled: %v", i, err)
-		}
+		out.err = rs.ExecuteRules()
 	}
 	has := func(p, o *rdf.Node) bool { return sess.Contains(s, p, o) }
-	m1, m2 := srm.NewResource("m1"), srm.NewResource("m2")
-	if !has(top, m1) || !has(top, m2) {
-		t.Errorf("topMatch m1 %v m2 %v, want both", has(top, m1), has(top, m2))
+	for i, name := range []string{"m1", "m2"} {
+		m := srm.NewResource(name)
+		out.topMatch[i], out.merged[i], out.prio[i] = has(top, m), has(merge, m), has(priority, m)
 	}
-	if !has(merge, m1) || !has(merge, m2) {
-		t.Errorf("a merge was undone: mergeList m1 %v m2 %v", has(merge, m1), has(merge, m2))
-	}
-	if has(priority, m1) || has(priority, m2) {
-		t.Errorf("priorityList m1 %v m2 %v, want neither", has(priority, m1), has(priority, m2))
+	return out
+}
+
+func TestLoopControlRulesTerminate(t *testing.T) {
+	both := [2]bool{true, true}
+	neither := [2]bool{false, false}
+	for _, mode := range AllRetractionModes() {
+		t.Run(mode.Label(), func(t *testing.T) {
+			out := runLoopControlRules(t, mode)
+			t.Logf("mode %s: err %v, topMatch %v, mergeList %v, priorityList %v",
+				mode.Label(), out.err, out.topMatch, out.merged, out.prio)
+			if mode.ReplayGraphReadingConsequents && mode.EraseWithdrawnRows {
+				// No fixed point under correct truth maintenance.
+				if out.err == nil || !strings.Contains(out.err.Error(), "max vertex visit") {
+					t.Fatalf("err = %v, want the vertex visit limit: the shape has no fixed point with both defects off", out.err)
+				}
+				return
+			}
+			if out.err != nil {
+				t.Fatalf("the loop rules cycled: %v", out.err)
+			}
+			// Legacy and fixed-2: both items merged. Fixed-1: topMatch is replayed away
+			// when the priority list empties, which un-merges both -- and the stale v3
+			// rows never re-fire, so the list stays empty.
+			wantTop, wantMerged := both, both
+			if mode.ReplayGraphReadingConsequents {
+				wantTop, wantMerged = neither, neither
+			}
+			if out.topMatch != wantTop {
+				t.Errorf("topMatch m1, m2 = %v, want %v", out.topMatch, wantTop)
+			}
+			if out.merged != wantMerged {
+				t.Errorf("mergeList m1, m2 = %v, want %v: a merge was undone or kept", out.merged, wantMerged)
+			}
+			if out.prio != neither {
+				t.Errorf("priorityList m1, m2 = %v, want neither", out.prio)
+			}
+		})
 	}
 }

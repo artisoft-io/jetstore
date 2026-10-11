@@ -17,6 +17,10 @@ type ReteMetaStore struct {
 	JetStoreConfig  *map[string]string
 	DataPropertyMap map[string]*PropertyNode
 	DomainTableMap  map[string]*TableNode
+	// RetractionMode is the mode the network was built in (retraction_mode.go). It must
+	// be the mode AddConsequentTerm was given for every vertex: the factory sets both.
+	// The zero value is legacy, which is what every pipeline runs.
+	RetractionMode RetractionMode
 }
 
 func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager,

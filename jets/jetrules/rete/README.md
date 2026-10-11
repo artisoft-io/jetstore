@@ -85,6 +85,28 @@ truth maintenance on these shapes, the paths are:
   non-retractable, then rewrite the `usi_ws` loop rules and its `exist_not` self-guards (`op01`,
   `op02` and their like) before running it with the flag off.
 
+**2026-10-11: option (b) is built, for rules unit tests only, and no pipeline can reach it.**
+`jetstore_agentic_ai`'s `rules_unit_test_harness` project (Phase 1, track `AF`) restored
+`1d993844`'s two fixes behind a **retraction mode fixed when the network is built**, one switch
+per defect, because each was measured above to do something different alone. Go:
+`RetractionMode` (`retraction_mode.go`), passed as `WithRetractionMode` to
+`NewReteMetaStoreFactory`; `AddConsequentTerm` records a graph-reading consequent
+(`expr_reads_graph.go`, the wide half of `1d993844`'s row purity) only with
+`ReplayGraphReadingConsequents`, and `ComputeConsequentTriples` calls `EraseRetractedBetaRow`
+instead of `RemoveBetaRow` only with `EraseWithdrawnRows`. C++: `RetractionMode`
+(`jets/rete/rete_meta_store.h`), passed to `ReteMetaStore::initialize` through
+`ReteMetaStoreFactory::load_database` from the C entry point `create_jetstore_hdl_with_mode`;
+`create_jetstore_hdl` is unchanged and builds the legacy mode. **The zero value is legacy for
+both, in both engines**, and nothing a pipeline configures sets anything else: there is no
+`rule_config` key and no `JetrulesSpec` field for it. The mode is set by a unit test definition
+(its `legacy` object), which the harness reads before it builds the test's engine, so each test
+runs in its own process in one mode. Production runs exactly what the decision of 2026-10-09
+left it running. The `LEGACY` tests in both engines now run every case in the four modes:
+`legacy` pins today's behaviour, and `fixed-1`, `fixed-2` and `fixed` assert what `1d993844`
+asserted. On the five-term loop shape they reproduce the measurement above on both engines:
+`fixed` ends at the vertex visit limit, `fixed-1` terminates with both merges undone, and
+`fixed-2` terminates as `legacy` does.
+
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
 so erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle

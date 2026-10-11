@@ -131,6 +131,19 @@ func (br *BetaRelation) RemoveBetaRow(rs *ReteSession, row *BetaRow) {
 	}
 }
 
+// EraseRetractedBetaRow erases row once its consequents have been retracted, which is
+// LEGACY defect 2 turned off (RetractionMode.EraseWithdrawnRows). RemoveBetaRow marks a
+// row with consequent terms kDeleted, removes its indexes and notifies the child nodes,
+// and leaves it in the relation until ReteSession.ComputeConsequentTriples has
+// retracted its consequents. This is the last step. Only that instance, still marked
+// kDeleted, is erased: a row re-inserted in the meantime was set back to kProcessed by
+// InsertBetaRow and is never retracted. Restored from 1d993844, which c2de6953 removed.
+func (br *BetaRelation) EraseRetractedBetaRow(row *BetaRow) {
+	if row.IsDeleted() && br.AllRows.Get(row) == row {
+		br.AllRows.Erase(row)
+	}
+}
+
 // remove the indexes associated with the beta row
 func (br *BetaRelation) RemoveIndexesForBetaRow(row *BetaRow) {
 	br.rowIndexes0[row] = false

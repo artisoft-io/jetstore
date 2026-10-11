@@ -32,8 +32,14 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
 
 
 int
-ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db)
+ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db,
+  RetractionMode mode)
 {
+  this->retraction_mode_ = mode;
+  if(not mode.is_legacy()) {
+    LOG(INFO) << "Load Workspace DB: retraction mode " << mode.label()
+              << " -- LEGACY defects turned off, for a rules unit test only";
+  }
   VLOG(1) << "Current path is " << std::filesystem::current_path();
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
@@ -136,7 +142,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     // Create the ReteMetaStore
     // create & initalize the meta store
     auto rete_meta_store = rete::create_rete_meta_store(lookup_sql_helper, alpha_nodes, node_vertexes);
-    err = rete_meta_store->initialize();
+    err = rete_meta_store->initialize(this->retraction_mode_);
     if(err) {
       LOG(ERROR) << "Load Workspace DB: ERROR while initializing meta store "<<item.first;
       return err;

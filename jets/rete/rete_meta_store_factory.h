@@ -123,8 +123,23 @@ class ReteMetaStoreFactory {
     return this->meta_graph_;
   }
 
+  /**
+   * @brief Load the rete networks of jetrule_rete_db, every one in `mode`
+   *
+   * The mode is the LEGACY retraction mode (RetractionMode, rete_meta_store.h), fixed
+   * here for every meta store the factory builds. The default is legacy for both
+   * defects, which is what create_jetstore_hdl, and so every pipeline, gets; only
+   * create_jetstore_hdl_with_mode passes another.
+   */
   int
-  load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db);
+  load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db,
+    RetractionMode mode = {});
+
+  inline RetractionMode const&
+  retraction_mode()const
+  {
+    return this->retraction_mode_;
+  }
 
   int 
   read_resources_cb(int argc, char **argv, char **colnm);
@@ -337,6 +352,7 @@ class ReteMetaStoreFactory {
 
   std::string jetrule_rete_db_;
   std::string lookup_data_db_;
+  RetractionMode retraction_mode_;
   rdf::RManagerPtr rmgr_;
   rdf::RDFGraphPtr meta_graph_;
 

@@ -247,6 +247,14 @@ class AlphaNode {
   virtual bool
   mints_resource()const=0;
 
+  /**
+   * @brief True when a functor is an expression that reads the graph (see
+   * ExprBase::reads_graph). Applicable to consequent terms. ReteMetaStore::initialize
+   * consults it only when its RetractionMode turns LEGACY defect 1 off.
+   */
+  virtual bool
+  reads_graph()const=0;
+
   virtual std::ostream & describe(std::ostream & out)const=0;
 
  private:
