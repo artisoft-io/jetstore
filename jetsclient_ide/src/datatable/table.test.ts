@@ -1422,6 +1422,22 @@ describe("the rules unit test tables", () => {
     expect(doc.formStateBinding?.otherColumns).toEqual([{ stateKey: "test_path", columnIdx: 0 }]);
   });
 
+  it("sort every query table on a column the table shows", () => {
+    // `resolveSortColumn` (`model.ts`) resolves the configured sort column among
+    // the *visible* columns and sends an empty one otherwise, so a query table
+    // sorted on a hidden column is not sorted at all. `rutExecutionTable` was, on
+    // its hidden `key`, until `AD.7`'s FlowRunner test read the request it sent
+    // (2026-10-11). Asserted over every query document rather than the three,
+    // because nothing else checks it: on that day the only tables sorting on a
+    // hidden column were six static option tables, whose rows the server never
+    // orders.
+    const offenders = Object.entries(documents)
+      .filter(([, doc]) => doc.source === "query" && doc.sortColumn !== undefined && doc.sortColumn !== "")
+      .filter(([, doc]) => !doc.columns.some((c) => c.name === doc.sortColumn && !c.isHidden))
+      .map(([key, doc]) => `${key}: ${doc.sortColumn}`);
+    expect(offenders).toEqual([]);
+  });
+
   it("gate every read on workspace_ide by reading through workspace_read", () => {
     // `DoReadAction` requires `jetstore_read`, which three roles hold;
     // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge

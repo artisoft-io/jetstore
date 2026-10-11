@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "label": "Rules Unit Test Runs",
   "columns": [
-    { "name": "key", "label": "Key", "tooltip": "Run key", "isNumeric": true, "isHidden": true },
+    { "name": "key", "label": "Run", "tooltip": "Run number; the table is sorted on it, newest first", "isNumeric": true },
     { "name": "test_name", "label": "Test", "tooltip": "Test name, from its .tst.json" },
     { "name": "status", "label": "Status", "tooltip": "queued, executing, pass, fail or error; refresh to see a later status" },
     { "name": "reason", "label": "Reason", "tooltip": "Why the run failed or ended in error" },

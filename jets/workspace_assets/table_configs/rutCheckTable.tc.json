@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "label": "Checks of the Selected Run",
   "columns": [
-    { "name": "key", "label": "Key", "isNumeric": true, "isHidden": true },
+    { "name": "key", "label": "#", "tooltip": "Check number, in the order the test states its checks", "isNumeric": true },
     { "name": "session_name", "label": "Session", "tooltip": "The input session the check applies to" },
     { "name": "kind", "label": "Kind", "tooltip": "expected, excluded or count" },
     { "name": "check", "label": "Check", "tooltip": "The pattern or count the test states" },
