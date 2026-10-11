@@ -218,6 +218,9 @@ describe("the Rules Unit Tests flow", () => {
     const read = posts.find((p) => p.body["action"] === "workspace_read")!;
     expect(read.body["sortColumn"]).toBe("key");
     expect(read.body["sortAscending"]).toBe(false);
+    // Qualified, so PostgreSQL sorts the integer column rather than its text
+    // cast: run 10 above run 9 (the browser pass, `AG.1`).
+    expect(read.body["sortColumnTable"]).toBe("rules_unit_test_execution");
     expect(read.body["whereClauses"]).toEqual([
       expect.objectContaining({ column: "workspace_name", values: [WORKSPACE] }),
     ]);

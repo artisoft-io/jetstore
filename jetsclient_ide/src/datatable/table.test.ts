@@ -1438,6 +1438,41 @@ describe("the rules unit test tables", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("qualify a numeric sort column with its table, so PostgreSQL sorts it as a number", () => {
+    // Found by the browser pass (`AG.1`, 2026-10-11): `rutCheckTable` listed
+    // checks 10, 11, 12, 8, 9 under "#" ascending. `buildQuery` selects every
+    // column as `"col"::text` and orders by the bare sort column when the request
+    // names no table, which PostgreSQL resolves to the *text output* column
+    // (`jets/datatable/data_table_action.go`, `buildQuery` and
+    // `makeSelectColumns`). Naming the table reaches the table column instead.
+    //
+    // **What reaches the request is the sort column's own `table`, not the
+    // document's `sortColumnTable`**: `resolveSortColumn` (`model.ts`) takes
+    // `col.table`, and the document field is carried into the model and read by
+    // nothing on the request path. So that is what is asserted.
+    //
+    // Over every query document. Two shipped tables sort on an unqualified
+    // numeric column today and are listed rather than fixed here, because they
+    // are not this project's (`rules_unit_test_harness` reports them); a third
+    // appearing fails. Timestamps are not checked: their text form sorts in time
+    // order, so the cast is harmless for them.
+    const KNOWN_UNQUALIFIED = ["cpipesExecDetailsTable", "pipelineExecDetailsTable"];
+    const offenders = Object.entries(documents)
+      .filter(([, doc]) => doc.source === "query")
+      .filter(([, doc]) => {
+        const sorted = doc.columns.find((c) => c.name === doc.sortColumn);
+        return sorted?.isNumeric === true && !sorted.table;
+      })
+      .map(([key]) => key)
+      .sort();
+    expect(offenders).toEqual(KNOWN_UNQUALIFIED);
+    for (const key of ["rutExecutionTable", "rutCheckTable"]) {
+      const doc = documents[key]!;
+      if (doc.source !== "query") throw new Error(`${key} is not a query table`);
+      expect(doc.columns.find((c) => c.name === "key")?.table, key).toBe(doc.from[0]!.table);
+    }
+  });
+
   it("gate every read on workspace_ide by reading through workspace_read", () => {
     // `DoReadAction` requires `jetstore_read`, which three roles hold;
     // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge

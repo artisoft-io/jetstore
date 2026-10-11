@@ -68,6 +68,11 @@ func readRequestFor(t *testing.T, tableKey string, formState map[string]string) 
 	}
 	for _, c := range doc.Columns {
 		action.Columns = append(action.Columns, Column{Table: c.Table, Column: c.Name})
+		// The client sends the sort column's own table, not the document's
+		// sortColumnTable (resolveSortColumn, jetsclient_ide/src/datatable/model.ts).
+		if c.Name == doc.SortColumn {
+			action.SortColumnTable = c.Table
+		}
 	}
 	for _, w := range doc.Where {
 		value, ok := formState[w.FormStateKey]
