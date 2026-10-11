@@ -68,6 +68,12 @@ func TestDiagnostics_ErrorInImportedFileNamesThatFile(t *testing.T) {
 		t.Fatalf("no diagnostic carries a file; positions never resolved: %v", errs)
 	}
 
+	// The text log is what a workspace compile shows its author, so it must
+	// name the same place the diagnostic does rather than the buffer line.
+	if log := c.ErrorLog().String(); !strings.Contains(log, "Syntax error in bad.jr at line 3:") {
+		t.Errorf("text log does not name bad.jr line 3:\n%s", log)
+	}
+
 	for _, d := range located {
 		if d.File != "bad.jr" {
 			t.Errorf("diagnostic %v names %q, but the error is in bad.jr", d, d.File)
@@ -107,6 +113,10 @@ func TestDiagnostics_UnresolvablePositionIsNotGuessed(t *testing.T) {
 		if d.GlobalLine == 0 {
 			t.Errorf("diagnostic %v dropped its buffer position, leaving nothing to report", d)
 		}
+	}
+	// The text log says which kind of line it is reporting.
+	if log := c.ErrorLog().String(); !strings.Contains(log, "Syntax error at buffer line 1:") {
+		t.Errorf("text log does not report a buffer line:\n%s", log)
 	}
 }
 
