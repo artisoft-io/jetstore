@@ -138,6 +138,23 @@ type processEngine struct {
 
 func (e processEngine) MainRuleFile() string { return e.process }
 
+// resourcesOrderEngine records the engine calls that create JetResources and
+// open an rdf session.
+type resourcesOrderEngine struct {
+	compute_pipes.JetRuleEngine
+	calls *[]string
+}
+
+func (e resourcesOrderEngine) JetResources() *compute_pipes.JetResources {
+	*e.calls = append(*e.calls, "JetResources")
+	return e.JetRuleEngine.JetResources()
+}
+
+func (e resourcesOrderEngine) NewRdfSession() (compute_pipes.JetRdfSession, error) {
+	*e.calls = append(*e.calls, "NewRdfSession")
+	return e.JetRuleEngine.NewRdfSession()
+}
+
 // orderSession records each rete session created.
 type orderSession struct {
 	compute_pipes.JetRdfSession
@@ -237,6 +254,27 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("calls = %q (err %v), want %q", calls, o.Err, want)
 			}
 		})
+		// executeRules creates the engine's JetResources before it opens the rdf
+		// session, because on C++ the first creation after a session exists aborts
+		// the process (I-15). Recorded through a wrapping engine.
+		t.Run("executeRules_creates_jet_resources_before_the_rdf_session", func(t *testing.T) {
+			engine, _ := goSession(t, loopingRuleFile)
+			var calls []string
+			wrapped := resourcesOrderEngine{JetRuleEngine: engine, calls: &calls}
+			config := &compute_pipes.JetrulesSpec{OnError: compute_pipes.OnErrorPassThrough, MaxErrorCount: 20, CurrentSourcePeriod: 1}
+			done, errCh := make(chan struct{}), make(chan error, 1)
+			worker := (&compute_pipes.BuilderContext{}).NewJrPoolWorker(config,
+				&compute_pipes.InputChannel{Name: "input", HasGroupedRows: true},
+				map[string][]string{"xr:Case": {"jets:key", "rdf:type", "jets:source_period_sequence", "xr:mode"}},
+				wrapped, nil, nil, done, errCh)
+			bundle := []any{[]any{"case-ok", []any{"xr:Case"}, nil, "ok"}}
+			if err := worker.ExecuteRulesForTest(&bundle, make(chan compute_pipes.JetrulesWorkerResult, 1)); err != nil {
+				t.Fatal(err)
+			}
+			if len(calls) < 2 || calls[0] != "JetResources" || calls[1] != "NewRdfSession" {
+				t.Errorf("engine calls = %q, want JetResources before NewRdfSession", calls)
+			}
+		})
 		t.Run("no_rule_set", func(t *testing.T) {
 			engine, s := goSession(t, loopingRuleFile)
 			o := compute_pipes.RunRuleSets(s, processEngine{engine, "no_such_process"},
@@ -300,6 +338,23 @@ func TestAssertTextRow(t *testing.T) {
 				t.Errorf("a date property at midnight = %v, want a date literal", n)
 			} else if got := compute_pipes.GetRdfNodeValue(n); got != time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC) {
 				t.Errorf("date value = %#v, want 2024-01-01", got)
+			}
+		})
+		// assertInputRow reads position 2 only as a Go int; anything else counts as
+		// -1, the current period, and adds the jets:InputRecord marker. A period of 1
+		// in a row of current period 1 is therefore 0 and unmarked only if the cell
+		// cast to int.
+		t.Run("source_period_sequence_casts_to_int", func(t *testing.T) {
+			_, s := goSession(t, loopingRuleFile)
+			if err := compute_pipes.AssertTextRow(spec, s, []string{"jets:key", "rdf:type", "jets:source_period_sequence"},
+				[]string{"k4", "xr:Case", "1"}); err != nil {
+				t.Fatal(err)
+			}
+			if got := value(s, "k4", "jets:source_period_sequence"); got != 0 {
+				t.Errorf("jets:source_period_sequence = %#v, want 0, the row's period 1 read as an int", got)
+			}
+			if has(s, "k4", "rdf:type", "jets:InputRecord") {
+				t.Errorf("k4 is marked jets:InputRecord, which assertInputRow does when the period is not an int")
 			}
 		})
 		t.Run("blank_cell_asserts_nothing", func(t *testing.T) {

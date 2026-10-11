@@ -149,6 +149,9 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var cpErr error
 	var outcome RuleSetsOutcome
 	re := ctx.ruleEngine
+	// The engine's JetResources are created on first use, through the meta graph,
+	// so they must exist before any rdf session opens (see RunRuleSets).
+	re.JetResources()
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -379,11 +382,18 @@ func (o *RuleSetsOutcome) Failed() bool {
 // ExecuteRules error or on jets:completed; then scan for jets:exception.
 //
 // assertInput asserts the input into rdfSession. It is called once, after the
-// first rule set's rete session is created and before any rule set runs. **That
-// order is load-bearing on the C++ engine**, where a resource created through
-// the meta graph after the first rdf session opens aborts the process
-// (rules_unit_test_harness I-15), and creating the first rete session is what
-// creates the resources the rules declare.
+// first rule set's rete session is created and before any rule set runs, which
+// is the order executeRules has always used.
+//
+// **Precondition: call engine.JetResources() before opening rdfSession.** Both
+// adaptors create the JetResources on first use, through the meta graph's
+// resource manager, and on the C++ engine creating a resource through the meta
+// graph after the first rdf session opens aborts the process
+// (rules_unit_test_harness I-15). A pipeline meets it because
+// AssertSourcePeriodInfo, at pipe construction, and executeRules both call it
+// first; the harness must call it before NewRdfSession. RunRuleSets cannot do it
+// for the caller, since the session is already open when it is called. The
+// same holds for AssertTextRow, which reads the session's JetResources.
 func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSetsConfig,
 	assertInput func(rdfSession JetRdfSession) error) (outcome RuleSetsOutcome) {
 
@@ -879,7 +889,11 @@ nextField:
 // A blank cell asserts nothing. A column that is not a data property of the
 // workspace is an error naming it, and so is a cell that does not cast. The
 // rules unit-test harness calls this once per CSV row, through the assertInput
-// argument of RunRuleSets.
+// argument of RunRuleSets; RunRuleSets' precondition on JetResources applies.
+//
+// The data properties are read through GetWorkspaceDataProperties, which loads
+// them once per process and returns the cached map after that, so calling it
+// per row costs a lock and a lookup.
 func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []string, cells []string) error {
 	if len(cells) != len(columns) {
 		return fmt.Errorf("error: row has %d cells for %d columns", len(cells), len(columns))
@@ -921,7 +935,9 @@ func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []str
 	// assertInputRow looks the columns up by the entity's first rdf:type.
 	assertType := config.InputRdfType
 	if types, ok := row[1].([]any); ok && len(types) > 0 {
-		assertType, _ = types[0].(string)
+		if assertType, ok = types[0].(string); !ok {
+			return fmt.Errorf("error: rdf:type value %v (%T) is not a resource name", types[0], types[0])
+		}
 	} else {
 		row[1] = nil
 	}
