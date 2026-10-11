@@ -107,6 +107,12 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 //   - BAD ROW via ExecuteRules() returned error
 //   - error: max loop reached
 //   - Rete Session Has Rule Exception
+//
+// The rule loop itself is RunRuleSets, which the rules unit-test harness calls
+// too. What stays here is what belongs to a pipeline: asserting a bundle from
+// the input channel, reporting each failure to the error channel as the rule
+// set that raised it ends, the on_error policy, extracting the output, and
+// closing done on error.
 func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	resultCh chan JetrulesWorkerResult) (err error) {
 	// Create a rdf session for input and execute rules on that session
@@ -115,7 +121,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	//	- Assert current source period to meta graph (done in NewJetrulesTransformationPipe)
 	//	- Assert the input records to rdf session
 	//	- Assert rule config to meta graph from the pipeline configuration (done in NewJetrulesTransformationPipe)
-	//	- For each ruleset, create a rete session and execute_rules
+	//	- For each ruleset, create a rete session and execute_rules (RunRuleSets)
 
 	defer func() {
 		// Catch the panic that might be generated downstream
@@ -141,17 +147,8 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// log.Println("*** Pool Worker == Entering executeRules")
 
 	var cpErr error
+	var outcome RuleSetsOutcome
 	re := ctx.ruleEngine
-	jr := re.JetResources()
-	var maxLooping, iloop int
-	var wc *rete.WorkspaceControl
-	var rm JetResourceManager
-	var reteSession JetReteSession
-	var inputAsserted bool
-	var recordFailed bool
-	var ruleFileNames []string
-	// var ctor TripleIterator
-	isDebug := ctx.config.IsDebug
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -160,153 +157,17 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	}
 	defer rdfSession.Release()
 
-	wc, err = GetWorkspaceControl()
-	if err != nil {
-		cpErr = fmt.Errorf("while getting workspace control in executeRules: %v", err)
+	outcome = RunRuleSets(rdfSession, re, &RuleSetsConfig{
+		MaxLooping:   ctx.config.MaxLooping,
+		IsDebug:      ctx.config.IsDebug,
+		AfterRuleSet: ctx.reportRuleSet,
+	}, func(rdfSession JetRdfSession) error {
+		// Assert the input records to rdf session
+		return assertInputRecords(ctx.config, ctx.source, ctx.rdfType2Columns, rdfSession, inputRecords)
+	})
+	if outcome.Err != nil {
+		cpErr = outcome.Err
 		goto gotError
-	}
-	// Loop over all rulesets
-	if isDebug {
-		log.Printf("jetrules: Looping over rulesets %s", re.MainRuleFile())
-	}
-	ruleFileNames = wc.RuleFileNames(re.MainRuleFile())
-	if len(ruleFileNames) == 0 {
-		cpErr = fmt.Errorf("error: no rulesets found for main rule file name %s", re.MainRuleFile())
-		goto gotError
-	}
-	for _, ruleset := range ruleFileNames {
-		// Create the rete session
-		reteSession, err = rdfSession.NewReteSession(ruleset)
-		rm = rdfSession.GetResourceManager()
-		if err != nil {
-			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
-			goto gotError
-		}
-		if !inputAsserted {
-			// Assert the input records to rdf session
-			err = assertInputRecords(ctx.config, ctx.source, ctx.rdfType2Columns, rdfSession, inputRecords)
-			if err != nil {
-				cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
-				goto gotError
-			}
-			inputAsserted = true
-		}
-
-		// Step 0 of loop is pre loop or no loop
-		// Step 1+ for looping
-		rdfSession.Erase(jr.Jets__istate, jr.Jets__loop, nil)
-		rdfSession.Erase(jr.Jets__istate, jr.Jets__completed, nil)
-		maxLooping = 0
-		if ctx.config.MaxLooping == 0 {
-			// get the $max_looping of the workspace
-			v, err := GetRuleEngineConfig(ruleset, "$max_looping")
-			if err != nil {
-				cpErr = fmt.Errorf(
-					"error: while getting '$max_looping' property from workspace %s: %v",
-					ruleset, err)
-				goto gotError
-			}
-			if len(v) > 0 {
-				maxLooping, err = strconv.Atoi(v)
-				if err != nil {
-					cpErr = fmt.Errorf(
-						"error: invalid '$max_looping' property in workspace %s: %v",
-						ruleset, err)
-					goto gotError
-				}
-			}
-		} else {
-			maxLooping = ctx.config.MaxLooping
-		}
-		if maxLooping > 0 {
-			log.Printf("jetrules: looping in use, max number of loops is %d", maxLooping)
-		}
-		// do for iloop <= maxloop (since looping start at one!)
-		for iloop = 0; iloop <= maxLooping; iloop++ {
-			if iloop > 0 {
-				rdfSession.Insert(jr.Jets__istate, jr.Jets__loop, rm.NewIntLiteral(iloop))
-			}
-			err2 := reteSession.ExecuteRules()
-			if err2 != nil {
-				recordFailed = true
-				ctx.errorCount++
-				switch {
-				case ctx.errorCount <= ctx.config.MaxErrorCount:
-					log.Printf("jetrules: ExecuteRules returned error: %v", err2)
-					if ctx.errorOutputCh != nil {
-						// report the rule error
-						peRow := ctx.builderContext.NewProcessError("jetrules")
-						peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", err2)
-						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-					}
-				case ctx.errorCount == ctx.config.MaxErrorCount+1:
-					log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
-				default:
-					if ctx.config.IsDebug {
-						log.Printf("jetrules: ExecuteRules returned error: %v", err2)
-					}
-				}
-				break
-			}
-			// Check if looping is completed (Jets__completed)
-			if rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
-				log.Printf("jetrules: Rete Session Looping Completed with iloop %d", iloop)
-				break
-			}
-		}
-		if maxLooping > 0 && iloop >= maxLooping {
-			// Looped til the end, something might be wrong
-			recordFailed = true
-			ctx.errorCount++
-			switch {
-			case ctx.errorCount <= ctx.config.MaxErrorCount:
-				log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
-				if ctx.errorOutputCh != nil {
-					peRow := ctx.builderContext.NewProcessError("jetrules")
-					peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", maxLooping)
-					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-				}
-			case ctx.errorCount == ctx.config.MaxErrorCount+1:
-				log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
-			default:
-				if ctx.config.IsDebug {
-					log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
-				}
-			}
-		}
-		// Check for any jets:exceptions in the rdfSession
-		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
-		for !ctor.IsEnd() {
-			hasException := ctor.GetObject()
-			if hasException != nil {
-				// report jetrules exception, save rete session
-				recordFailed = true
-				ctx.errorCount++
-				switch {
-				case ctx.errorCount <= ctx.config.MaxErrorCount:
-					log.Printf("jetrule: jets:exception caught: %s", hasException)
-					if ctx.errorOutputCh != nil {
-						peRow := ctx.builderContext.NewProcessError("jetrules")
-						peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
-						if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
-							ctx.nbrReteSessionsSaved++
-							peRow.ReteSessionSaved = "Y"
-							peRow.ReteSessionTriples = sql.NullString{String: rdfSession.EncodeRdfSession(), Valid: true}
-						}
-						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-					}
-				case ctx.errorCount == ctx.config.MaxErrorCount+1:
-					log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
-				default:
-					if ctx.config.IsDebug {
-						log.Printf("jetrule: jets:exception caught: %s", hasException)
-					}
-				}
-			}
-			ctor.Next()
-		}
-		ctor.Release()
-		reteSession.Release()
 	}
 
 	// // Print rdf session if in debug mode
@@ -326,7 +187,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// // }
 
 	// Apply the on_error policy when the record bundle failed rule execution
-	if recordFailed {
+	if outcome.Failed() {
 		switch ctx.config.OnError {
 		case OnErrorDrop:
 			// discard the bundle's output
@@ -363,6 +224,295 @@ gotError:
 		close(ctx.done)
 	}
 	return cpErr
+}
+
+// reportRuleSet reports one rule set's failures to the log and the error
+// channel, in the order the loop meets them: the ExecuteRules error, the
+// maximum loop count reached, then each jets:exception. It is RunRuleSets'
+// AfterRuleSet, so it runs while the rule set's rete session is still open and
+// a saved session holds the triples as they were when the rule set ended.
+// Every failure counts toward max_error_count whether or not it is reported.
+func (ctx *JrPoolWorker) reportRuleSet(rdfSession JetRdfSession, rs *RuleSetOutcome) {
+	if rs.ExecuteErr != nil {
+		ctx.errorCount++
+		switch {
+		case ctx.errorCount <= ctx.config.MaxErrorCount:
+			log.Printf("jetrules: ExecuteRules returned error: %v", rs.ExecuteErr)
+			if ctx.errorOutputCh != nil {
+				// report the rule error
+				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", rs.ExecuteErr)
+				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+			}
+		case ctx.errorCount == ctx.config.MaxErrorCount+1:
+			log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+		default:
+			if ctx.config.IsDebug {
+				log.Printf("jetrules: ExecuteRules returned error: %v", rs.ExecuteErr)
+			}
+		}
+	}
+	if rs.MaxLoopReached {
+		// Looped til the end, something might be wrong
+		ctx.errorCount++
+		switch {
+		case ctx.errorCount <= ctx.config.MaxErrorCount:
+			log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", rs.MaxLooping)
+			if ctx.errorOutputCh != nil {
+				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", rs.MaxLooping)
+				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+			}
+		case ctx.errorCount == ctx.config.MaxErrorCount+1:
+			log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+		default:
+			if ctx.config.IsDebug {
+				log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", rs.MaxLooping)
+			}
+		}
+	}
+	for _, hasException := range rs.Exceptions {
+		// report jetrules exception, save rete session
+		ctx.errorCount++
+		switch {
+		case ctx.errorCount <= ctx.config.MaxErrorCount:
+			log.Printf("jetrule: jets:exception caught: %s", hasException)
+			if ctx.errorOutputCh != nil {
+				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
+				if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
+					ctx.nbrReteSessionsSaved++
+					peRow.ReteSessionSaved = "Y"
+					peRow.ReteSessionTriples = sql.NullString{String: rdfSession.EncodeRdfSession(), Valid: true}
+				}
+				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+			}
+		case ctx.errorCount == ctx.config.MaxErrorCount+1:
+			log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+		default:
+			if ctx.config.IsDebug {
+				log.Printf("jetrule: jets:exception caught: %s", hasException)
+			}
+		}
+	}
+}
+
+// RuleSetsConfig is what RunRuleSets reads besides the sessions. A pipeline
+// builds it from its JetrulesSpec; the rules unit-test harness from the
+// jetrules_config of a test.
+type RuleSetsConfig struct {
+	// MaxLooping, when not 0, replaces every rule set's $max_looping
+	// (JetrulesSpec.MaxLooping).
+	MaxLooping int
+	IsDebug    bool
+	// AfterRuleSet, when not nil, is called once for each rule set that ran,
+	// after its loop and its exception scan and before its rete session is
+	// released, with that rule set's outcome. executeRules reports failures
+	// through it; it must not retain rdfSession.
+	AfterRuleSet func(rdfSession JetRdfSession, outcome *RuleSetOutcome)
+}
+
+// RuleSetOutcome is what happened in one rule set.
+type RuleSetOutcome struct {
+	RuleSet string
+	// MaxLooping is the maximum in force, from the rule file's $max_looping or
+	// RuleSetsConfig.MaxLooping; 0 means the rule set does not loop and runs
+	// loop 0 only.
+	MaxLooping int
+	// Loops is the last loop value run: 0 is the pre-loop pass, and looping
+	// starts at 1.
+	Loops int
+	// Completed is true when the rule set asserted (jets:iState jets:completed ?).
+	Completed bool
+	// MaxLoopReached is the maximum-loop failure as pipelines report it. It is
+	// true when the loop ran out of iterations, and also when jets:completed was
+	// set on the last iteration MaxLooping allows (rules_unit_test_harness I-7).
+	MaxLoopReached bool
+	// ExecuteErr is the error ExecuteRules returned, which ends the rule set's
+	// loop; the max vertex visit limit is one.
+	ExecuteErr error
+	// Exceptions are the objects of (jets:iState jets:exception ?) in the rdf
+	// session once the rule set has run. The scan covers the whole session, so
+	// an exception asserted by one rule set is found again by every later one.
+	Exceptions []string
+}
+
+// RuleSetsOutcome is what happened when RunRuleSets ran a process's rule sets
+// over one rdf session.
+type RuleSetsOutcome struct {
+	// RuleSets holds one outcome per rule set that ran, in order.
+	RuleSets []RuleSetOutcome
+	// Completed is true when every rule set that loops asserted jets:completed,
+	// none returned an ExecuteRules error, and Err is nil.
+	Completed bool
+	// Loops is the last loop value run by the last rule set that ran.
+	Loops int
+	// MaxLoopReached is true when any rule set reached its maximum.
+	MaxLoopReached bool
+	// ExecuteErr is the first ExecuteRules error of any rule set.
+	ExecuteErr error
+	// Exceptions are every rule set's Exceptions, in order, as pipelines report them.
+	Exceptions []string
+	// Err is set when the rule sets could not be run to the end: no rule set for
+	// the process, a rete session that could not be created, the input that could
+	// not be asserted, or an unreadable $max_looping. RuleSets then holds the rule
+	// sets that ran before it.
+	Err error
+}
+
+// Failed reports whether the bundle failed rule execution in on_error's sense:
+// an ExecuteRules error, the maximum loop count reached, or a jets:exception.
+func (o *RuleSetsOutcome) Failed() bool {
+	return o.ExecuteErr != nil || o.MaxLoopReached || len(o.Exceptions) > 0
+}
+
+// RunRuleSets runs the rule sets of engine's process over rdfSession: the rule
+// loop of a jetrules pipeline, shared with the rules unit-test harness so that a
+// test and a pipeline run one loop. It touches no channel.
+//
+// The rule sets are the workspace control's for engine.MainRuleFile(): a rule
+// sequence's, or the one rule set of that name. For each one it creates a rete
+// session and runs the looping protocol: erase (jets:iState jets:loop ?) and
+// (jets:iState jets:completed ?), then for each loop from 0 to the maximum
+// insert (jets:iState jets:loop n) from 1, call ExecuteRules, and stop on an
+// ExecuteRules error or on jets:completed; then scan for jets:exception.
+//
+// assertInput asserts the input into rdfSession. It is called once, after the
+// first rule set's rete session is created and before any rule set runs. **That
+// order is load-bearing on the C++ engine**, where a resource created through
+// the meta graph after the first rdf session opens aborts the process
+// (rules_unit_test_harness I-15), and creating the first rete session is what
+// creates the resources the rules declare.
+func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSetsConfig,
+	assertInput func(rdfSession JetRdfSession) error) (outcome RuleSetsOutcome) {
+
+	jr := engine.JetResources()
+	var maxLooping, iloop int
+	var wc *rete.WorkspaceControl
+	var rm JetResourceManager
+	var reteSession JetReteSession
+	var inputAsserted bool
+	var ruleFileNames []string
+	var err error
+	isDebug := config.IsDebug
+
+	wc, err = GetWorkspaceControl()
+	if err != nil {
+		outcome.Err = fmt.Errorf("while getting workspace control in executeRules: %v", err)
+		return
+	}
+	// Loop over all rulesets
+	if isDebug {
+		log.Printf("jetrules: Looping over rulesets %s", engine.MainRuleFile())
+	}
+	ruleFileNames = wc.RuleFileNames(engine.MainRuleFile())
+	if len(ruleFileNames) == 0 {
+		outcome.Err = fmt.Errorf("error: no rulesets found for main rule file name %s", engine.MainRuleFile())
+		return
+	}
+	outcome.Completed = true
+	defer func() {
+		if outcome.Err != nil || outcome.ExecuteErr != nil {
+			outcome.Completed = false
+		}
+	}()
+	for _, ruleset := range ruleFileNames {
+		// Create the rete session
+		reteSession, err = rdfSession.NewReteSession(ruleset)
+		rm = rdfSession.GetResourceManager()
+		if err != nil {
+			outcome.Err = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
+			return
+		}
+		if !inputAsserted {
+			// Assert the input records to rdf session
+			err = assertInput(rdfSession)
+			if err != nil {
+				outcome.Err = fmt.Errorf("while asserting input records to rdf session: %v", err)
+				return
+			}
+			inputAsserted = true
+		}
+
+		// Step 0 of loop is pre loop or no loop
+		// Step 1+ for looping
+		rdfSession.Erase(jr.Jets__istate, jr.Jets__loop, nil)
+		rdfSession.Erase(jr.Jets__istate, jr.Jets__completed, nil)
+		maxLooping = 0
+		if config.MaxLooping == 0 {
+			// get the $max_looping of the workspace
+			v, err := GetRuleEngineConfig(ruleset, "$max_looping")
+			if err != nil {
+				outcome.Err = fmt.Errorf(
+					"error: while getting '$max_looping' property from workspace %s: %v",
+					ruleset, err)
+				return
+			}
+			if len(v) > 0 {
+				maxLooping, err = strconv.Atoi(v)
+				if err != nil {
+					outcome.Err = fmt.Errorf(
+						"error: invalid '$max_looping' property in workspace %s: %v",
+						ruleset, err)
+					return
+				}
+			}
+		} else {
+			maxLooping = config.MaxLooping
+		}
+		if maxLooping > 0 {
+			log.Printf("jetrules: looping in use, max number of loops is %d", maxLooping)
+		}
+		rs := RuleSetOutcome{RuleSet: ruleset, MaxLooping: maxLooping}
+		// do for iloop <= maxloop (since looping start at one!)
+		for iloop = 0; iloop <= maxLooping; iloop++ {
+			rs.Loops = iloop
+			if iloop > 0 {
+				rdfSession.Insert(jr.Jets__istate, jr.Jets__loop, rm.NewIntLiteral(iloop))
+			}
+			err2 := reteSession.ExecuteRules()
+			if err2 != nil {
+				rs.ExecuteErr = err2
+				break
+			}
+			// Check if looping is completed (Jets__completed)
+			if rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
+				log.Printf("jetrules: Rete Session Looping Completed with iloop %d", iloop)
+				rs.Completed = true
+				break
+			}
+		}
+		if maxLooping > 0 && iloop >= maxLooping {
+			// Looped til the end, something might be wrong
+			rs.MaxLoopReached = true
+		}
+		// Check for any jets:exceptions in the rdfSession
+		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
+		for !ctor.IsEnd() {
+			hasException := ctor.GetObject()
+			if hasException != nil {
+				rs.Exceptions = append(rs.Exceptions, hasException.String())
+			}
+			ctor.Next()
+		}
+		ctor.Release()
+
+		outcome.RuleSets = append(outcome.RuleSets, rs)
+		outcome.Loops = rs.Loops
+		if maxLooping > 0 && !rs.Completed {
+			outcome.Completed = false
+		}
+		outcome.MaxLoopReached = outcome.MaxLoopReached || rs.MaxLoopReached
+		if outcome.ExecuteErr == nil {
+			outcome.ExecuteErr = rs.ExecuteErr
+		}
+		outcome.Exceptions = append(outcome.Exceptions, rs.Exceptions...)
+		if config.AfterRuleSet != nil {
+			config.AfterRuleSet(rdfSession, &outcome.RuleSets[len(outcome.RuleSets)-1])
+		}
+		reteSession.Release()
+	}
+	return
 }
 
 func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode) (bool, error) {
@@ -706,6 +856,73 @@ nextField:
 		}
 	}
 	return
+}
+
+// AssertTextRow asserts one entity into rdfSession from a row of text cells,
+// as a CSV export of an entity table holds it: columns names each cell's
+// property, in any order, and each cell is cast by that property's type and
+// array flag in the workspace's build/properties.json (GetWorkspaceDataProperties),
+// the cast a pipeline applies to text input (castToRdfTypeFromTxt). The entity is
+// then asserted exactly as a pipeline asserts an input row (assertInputRow).
+//
+// The three columns assertInputRow reads by position are found by name:
+//   - jets:key is optional; absent or blank, the key is a hash of the row;
+//   - rdf:type is cast as an array, so `hc:Eligibility` and `{"a","b"}` both
+//     work; absent or blank, config.InputRdfType is the type;
+//   - jets:source_period_sequence is optional and is usually absent from an
+//     export; absent or blank, the entity is of config.CurrentSourcePeriod and
+//     is marked jets:InputRecord, as a pipeline's input is.
+//
+// A blank cell asserts nothing. A column that is not a data property of the
+// workspace is an error naming it, and so is a cell that does not cast. The
+// rules unit-test harness calls this once per CSV row, through the assertInput
+// argument of RunRuleSets.
+func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []string, cells []string) error {
+	if len(cells) != len(columns) {
+		return fmt.Errorf("error: row has %d cells for %d columns", len(cells), len(columns))
+	}
+	dpMap, err := GetWorkspaceDataProperties()
+	if err != nil {
+		return err
+	}
+	// assertInputRow's layout: jets:key, rdf:type, jets:source_period_sequence,
+	// then the other columns in the order given.
+	layout := make([]string, 3, len(columns)+3)
+	layout[0], layout[1], layout[2] = "jets:key", "rdf:type", "jets:source_period_sequence"
+	row := make([]any, 3, len(columns)+3)
+	for i, column := range columns {
+		dp := dpMap[column]
+		if dp == nil {
+			return fmt.Errorf("error: column '%s' is not a data property of the workspace", column)
+		}
+		isArray := dp.AsArray
+		if column == "rdf:type" {
+			isArray = true
+		}
+		value, err := castToRdfTypeFromTxt(cells[i], dp.Type, &isArray)
+		if err != nil {
+			return fmt.Errorf("error: column '%s' value '%s' is not a %s: %v", column, cells[i], dp.Type, err)
+		}
+		switch column {
+		case "jets:key":
+			row[0] = value
+		case "rdf:type":
+			row[1] = value
+		case "jets:source_period_sequence":
+			row[2] = value
+		default:
+			layout = append(layout, column)
+			row = append(row, value)
+		}
+	}
+	// assertInputRow looks the columns up by the entity's first rdf:type.
+	assertType := config.InputRdfType
+	if types, ok := row[1].([]any); ok && len(types) > 0 {
+		assertType, _ = types[0].(string)
+	} else {
+		row[1] = nil
+	}
+	return assertInputRow(config, rdfSession, &row, map[string][]string{assertType: layout})
 }
 
 func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
