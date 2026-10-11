@@ -1402,6 +1402,26 @@ describe("the rules unit test tables", () => {
     }
   });
 
+  it("reads the test cases from the unit_tests table the compile writes", () => {
+    // `AD.1` records each `.tst.json` in `workspace.db` at compile, and
+    // `jets/workspace_schema.sql` is the only thing that knows its columns.
+    const sql = readFileSync(fileURLToPath(new URL("../../../jets/workspace_schema.sql", import.meta.url)), "utf8");
+    const body = /CREATE TABLE IF NOT EXISTS unit_tests \(([\s\S]*?)\n\);/.exec(sql)?.[1] ?? "";
+    const declared = body
+      .split("\n")
+      .map((line) => line.trim().split(/\s+/)[0] ?? "")
+      .filter((word) => /^[a-z_]+$/.test(word));
+    expect(declared).toEqual(["path", "test_name", "process_name", "legacy_mode", "comment", "findings"]);
+    const doc = documents["rutTestCaseTable"]!;
+    if (doc.source !== "query") throw new Error("rutTestCaseTable is not a query table");
+    expect(doc.from).toEqual([{ schema: "$SCHEMA", table: "unit_tests" }]);
+    expect(doc.columns.map((c) => c.name)).toEqual(declared);
+    // Multi-select, and what the fanOut posts is the path, which `AC.2` reads as
+    // `test_path`.
+    expect(doc.isCheckboxSingleSelect).toBeUndefined();
+    expect(doc.formStateBinding?.otherColumns).toEqual([{ stateKey: "test_path", columnIdx: 0 }]);
+  });
+
   it("gate every read on workspace_ide by reading through workspace_read", () => {
     // `DoReadAction` requires `jetstore_read`, which three roles hold;
     // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge

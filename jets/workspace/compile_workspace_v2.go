@@ -224,6 +224,15 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		return buf.String(), fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
+	// Record the rules unit tests (rules_unit_test_harness AD.1). A test file
+	// that fails validation is recorded with its findings rather than failing
+	// the compile: a broken test must not stop a workspace deploying.
+	recorded, invalid, err := SaveUnitTests(context.TODO(), wdb.DB, workspacePath)
+	if err != nil {
+		return buf.String(), fmt.Errorf("failed to save rules unit tests: %w", err)
+	}
+	fmt.Fprintf(&buf, "Recorded %d rules unit tests in workspace.db, %d of them invalid\n", recorded, invalid)
+
 	// All files are now compiled
 	buf.WriteString("All main rule files compiled, now package the lookup.db file\n")
 	err = PackageLookupTablesToSqlite(lookupTables)
