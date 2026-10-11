@@ -54,7 +54,8 @@ import (
 // It is a var only so a test can bump it.
 //
 // 2: rdf.ParseBool reads "yes" as true, so a YES in a bool column packages as 1.
-var lookupDbFormatVersion = 2
+// 3: and "y", so a Y does too.
+var lookupDbFormatVersion = 3
 
 // lookupDbMetaTable holds the fingerprint. The double underscores keep it out
 // of the namespace of lookup names, which are rule-file resources.
