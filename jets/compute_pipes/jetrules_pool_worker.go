@@ -443,11 +443,14 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 			outcome.Err = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			return
 		}
+		// From here every return releases the rete session, as the end of the
+		// rule set does (rules_unit_test_harness I-10).
 		if !inputAsserted {
 			// Assert the input records to rdf session
 			err = assertInput(rdfSession)
 			if err != nil {
 				outcome.Err = fmt.Errorf("while asserting input records to rdf session: %v", err)
+				reteSession.Release()
 				return
 			}
 			inputAsserted = true
@@ -465,6 +468,7 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 				outcome.Err = fmt.Errorf(
 					"error: while getting '$max_looping' property from workspace %s: %v",
 					ruleset, err)
+				reteSession.Release()
 				return
 			}
 			if len(v) > 0 {
@@ -473,6 +477,7 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 					outcome.Err = fmt.Errorf(
 						"error: invalid '$max_looping' property in workspace %s: %v",
 						ruleset, err)
+					reteSession.Release()
 					return
 				}
 			}
