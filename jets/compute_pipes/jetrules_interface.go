@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,8 +20,46 @@ type JetRulesProxy interface {
 
 type JetRulesFactory interface {
 	JetRulesName() string
-	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool) (JetRuleEngine, error)
+	// NewJetRuleEngine builds the rule networks of processName. opts are applied before
+	// the rules load; a pipeline passes none and gets the legacy engine.
+	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool, opts ...EngineOption) (JetRuleEngine, error)
 	ClearCache() bool
+}
+
+// RetractionMode is the LEGACY retraction mode a rule engine is built in: whether a
+// graph-reading consequent is replayed rather than recomputed on retraction (defect 1
+// off) and whether a withdrawn row is erased (defect 2 off). The zero value is legacy
+// for both, which is what every pipeline runs. See jets/jetrules/rete/README.md,
+// 2026-10-09 and 2026-10-11; the C++ engine's twin is jets::rete::RetractionMode.
+type RetractionMode = rete.RetractionMode
+
+// EngineOptions are what NewJetRuleEngine's options set.
+type EngineOptions struct {
+	RetractionMode RetractionMode
+}
+
+// EngineOption configures one NewJetRuleEngine call.
+type EngineOption func(*EngineOptions)
+
+// WithRetractionMode builds the engine in mode, in both adaptors. Only the rules unit
+// test harness passes it, from a test definition's legacy object: there is
+// deliberately no JetrulesSpec field and no rule_config key that reaches it, so a
+// pipeline cannot turn a LEGACY defect off.
+func WithRetractionMode(mode RetractionMode) EngineOption {
+	return func(o *EngineOptions) {
+		o.RetractionMode = mode
+	}
+}
+
+// ApplyEngineOptions folds opts into EngineOptions, for the adaptors.
+func ApplyEngineOptions(opts ...EngineOption) EngineOptions {
+	var o EngineOptions
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&o)
+		}
+	}
+	return o
 }
 
 type JetRuleEngine interface {

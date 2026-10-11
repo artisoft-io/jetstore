@@ -65,3 +65,29 @@ func TestGetDateDetails(t *testing.T) {
 		t.Errorf("expecting ErrNotValidDate got: %v", err)
 	}
 }
+
+// create_jetstore_hdl_with_mode is reachable from Go and loads a workspace in each of
+// the four LEGACY retraction modes. What the modes do to a network is tested in
+// jets/rete/retract_recorded_consequents_test.cc and loop_through_negation_test.cc;
+// this only shows the C entry point links and accepts every combination.
+func TestLoadJetRulesWithMode(t *testing.T) {
+	workspaceDb := "test_data/bridge_test1.db"
+	for _, mode := range []struct{ replay, erase bool }{
+		{false, false}, {true, false}, {false, true}, {true, true},
+	} {
+		js, err := LoadJetRulesWithMode("", workspaceDb, "", mode.replay, mode.erase)
+		if err != nil {
+			t.Fatalf("mode %+v: while loading workspace db: %v", mode, err)
+		}
+		r, err := js.NewIntLiteral(5)
+		if err != nil {
+			t.Fatalf("mode %+v: NewIntLiteral: %v", mode, err)
+		}
+		if v, err := r.GetInt(); err != nil || v != 5 {
+			t.Errorf("mode %+v: GetInt = %d, %v", mode, v, err)
+		}
+		if err := js.ReleaseJetRules(); err != nil {
+			t.Errorf("mode %+v: ReleaseJetRules: %v", mode, err)
+		}
+	}
+}
