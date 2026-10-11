@@ -26,8 +26,12 @@ func (factory *JetRulesFactoryGo) ClearCache() bool {
 	return true
 }
 
-func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool) (compute_pipes.JetRuleEngine, error) {
-	f, err := rete.NewReteMetaStoreFactory(processName)
+func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool,
+	opts ...compute_pipes.EngineOption) (compute_pipes.JetRuleEngine, error) {
+	o := compute_pipes.ApplyEngineOptions(opts...)
+	// The retraction mode is fixed here, when the rules load; legacy unless a rules unit
+	// test asked otherwise.
+	f, err := rete.NewReteMetaStoreFactory(processName, rete.WithRetractionMode(o.RetractionMode))
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +42,13 @@ func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName 
 		isDebug:              isDebug,
 	}
 	return ruleEngine, nil
+}
+
+// RetractionMode is the LEGACY retraction mode the engine's networks were built in,
+// read back from the rete factory. Not part of compute_pipes.JetRuleEngine: the rules
+// unit test harness reads it to record on a result which mode a test ran in.
+func (engine *JetRuleEngineGo) RetractionMode() compute_pipes.RetractionMode {
+	return engine.reteMetaStoreFactory.RetractionMode
 }
 
 // function for compute_pipes.JetRuleEngine
