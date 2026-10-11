@@ -315,6 +315,20 @@ const HAND_MAINTAINED_KEYS = [
   "pcViewMergedProcessInputKeys",
 ] as const;
 
+/**
+ * Documents written for a feature, with no Dart original and none to come.
+ * `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ *
+ * **A fourth list, because none of the three above describes them.** They were
+ * never translations, so `HAND_MAINTAINED_KEYS`' premise does not hold; nothing in
+ * either fixture names them, so `HAND_AUTHORED_KEYS`' field-by-field check has
+ * nothing to compare. What they are checked against instead is the schema of the
+ * tables they read (`the rules unit test tables`, below), which is the contract
+ * that can actually drift: the hub and the check table read `jetsapi` tables
+ * track `AC` defined in `jets/jets_schema.json`.
+ */
+const FEATURE_KEYS = ["rutExecutionTable", "rutTestCaseTable", "rutCheckTable"] as const;
+
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
   ...flowDocuments,
@@ -330,11 +344,13 @@ const readAuthored = (keys: readonly string[]): Record<string, TableConfigDocume
 const handAuthored = readAuthored(HAND_AUTHORED_KEYS);
 const authoredDocuments = readAuthored(AUTHORED_KEYS);
 const handMaintained = readAuthored(HAND_MAINTAINED_KEYS);
+const featureDocuments = readAuthored(FEATURE_KEYS);
 const documents: Record<string, TableConfigDocument> = {
   ...translated,
   ...handAuthored,
   ...authoredDocuments,
   ...handMaintained,
+  ...featureDocuments,
 };
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 /**
@@ -361,8 +377,9 @@ describe("the emitted JSON Schema", () => {
   });
 
   // **61 since 2026-10-01**: the three add-or-edit option tables `D06` removed
-  // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`).
-  it("has the 61 configurations committed beside it, for the Go check", () => {
+  // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`). **64 since
+  // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
+  it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -424,7 +441,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 31 configurations still translated from the flow fixture", () => {
-  it("all translate, and the twenty-seven non-flow tables so far make 61", () => {
+  it("all translate, and with the authored ones make 64", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
     // workspace home's one, of which four are authored rather than translated. The
@@ -450,7 +467,10 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // the on-disk document overrides the translation in `documents`, so the total
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
     expect(Object.keys(handMaintained).length).toBe(8);
-    expect(Object.keys(documents).length).toBe(61);
+    // **64 since 2026-10-11**: the three rules unit test tables
+    // (`rules_unit_test_harness` `AD.4`), written rather than translated.
+    expect(Object.keys(featureDocuments).length).toBe(3);
+    expect(Object.keys(documents).length).toBe(64);
   });
 
   it("all validate against the schema", () => {
@@ -1352,5 +1372,60 @@ describe("thirdRowActions", () => {
       { pipelineExecStatusTable: withThird() },
     );
     expect(findings.map((f) => f.path)).toContain("/pipelineExecStatusTable/thirdRowActions/0/actionName");
+  });
+});
+
+/**
+ * The rules unit test tables. `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ *
+ * **They are read against the schema of what they read**, because that is the
+ * contract between two tracks: `AC.1` defined the two `jetsapi` tables in
+ * `jets/jets_schema.json`, and a column named here that the table does not have
+ * is a query the server refuses, which nothing else in this suite would see.
+ */
+describe("the rules unit test tables", () => {
+  const jetsSchema = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../../jets/jets_schema.json", import.meta.url)), "utf8"),
+  ) as { schemaName: string; tableName: string; columns: { columnName: string }[] }[];
+  const columnsOf = (table: string): string[] =>
+    jetsSchema.find((t) => t.schemaName === "jetsapi" && t.tableName === table)?.columns.map((c) => c.columnName) ?? [];
+
+  it("read only columns the jetsapi tables have", () => {
+    for (const key of ["rutExecutionTable", "rutCheckTable"]) {
+      const doc = documents[key]!;
+      if (doc.source !== "query") throw new Error(`${key} is not a query table`);
+      const table = doc.from[0]!.table ?? "";
+      const have = columnsOf(table);
+      expect(have.length, `${table} is not in jets_schema.json`).toBeGreaterThan(0);
+      const named = [...doc.columns.map((c) => c.name), ...(doc.where ?? []).map((w) => w.column ?? "")];
+      expect(named.filter((c) => !have.includes(c)), key).toEqual([]);
+    }
+  });
+
+  it("gate every read on workspace_ide by reading through workspace_read", () => {
+    // `DoReadAction` requires `jetstore_read`, which three roles hold;
+    // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge
+    // engineer holds. The flow is protected exactly as well as its reads are
+    // (definition F49), so all three take the second path — the two `jetsapi`
+    // tables included, which that handler reads from PostgreSQL.
+    for (const key of FEATURE_KEYS) {
+      const doc = documents[key]!;
+      expect(doc.source === "query" && doc.apiAction, key).toBe("workspace_read");
+    }
+  });
+
+  it("show a run's checks for the run the hub selected, newest run first", () => {
+    const hub = documents["rutExecutionTable"]!;
+    const checks = documents["rutCheckTable"]!;
+    if (hub.source !== "query" || checks.source !== "query") throw new Error("not query tables");
+    expect(hub.sortColumn).toBe("key");
+    expect(hub.sortAscending).toBe(false);
+    expect(hub.isCheckboxSingleSelect).toBe(true);
+    expect(hub.where).toEqual([{ column: "workspace_name", formStateKey: "workspace_name" }]);
+    expect(checks.where).toEqual([{ column: "execution_key", formStateKey: "rutExecutionTable" }]);
+    // The log the *View Log* dialog shows is bound by the column the action names.
+    const log = hub.columns.findIndex((c) => c.name === "log");
+    expect(hub.formStateBinding?.otherColumns).toContainEqual({ stateKey: "log", columnIdx: log });
+    expect(hub.actions?.find((a) => a.key === "rutViewLog")?.navigationParams).toEqual({ log });
   });
 });

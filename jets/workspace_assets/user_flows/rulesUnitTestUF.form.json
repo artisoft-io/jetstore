@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "rutRunsUF": {
+      "title": "Rules Unit Tests",
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "rutExecutionTable",
+            "table": "rutExecutionTable"
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufCancel", "label": "Close", "style": "primary" }
+      ]
+    },
+    "rutSelectTestsUF": {
+      "title": "Select Rules Unit Tests",
+      "rows": [
+        [
+          {
+            "field": "label",
+            "text": "The test cases recorded by the workspace's last compile. A test with findings cannot be started; fix its file and compile again."
+          }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "rutTestCaseTable",
+            "table": "rutTestCaseTable",
+            "rules": [
+              { "rule": "required", "message": "Please select one or more tests to start." }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Start Test(s)", "style": "secondary", "enableOnlyWhenFormValid": true }
+      ]
+    },
+    "rutRunDetailUF": {
+      "title": "Rules Unit Test Result",
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "rutCheckTable",
+            "table": "rutCheckTable"
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Back", "style": "primary" }
+      ]
+    },
+    "rutViewLogDialog": {
+      "title": "Rules Unit Test Log",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "log",
+            "label": "Log",
+            "hint": "This is read only",
+            "isReadOnly": true,
+            "maxLines": 20,
+            "maxLength": 4000000
+          }
+        ]
+      ],
+      "actions": [{ "action": "dialogCancel", "label": "Close", "style": "primary" }]
+    }
+  }
+}

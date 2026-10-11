@@ -65,6 +65,10 @@ const HAND_AUTHORED = [
   "pipelineConfigUF",
   "sourceConfigUF",
   "startPipelineUF",
+  // **Never a translation**: written for `rules_unit_test_harness` (`AD.4`,
+  // 2026-10-11), so nothing regenerates it either, which is the promise this
+  // list makes.
+  "rulesUnitTestUF",
 ];
 const flows = toUserFlows(corpus as unknown as Corpus);
 /** The hand-authored flows as committed — the thing that ships, so the thing checked. */
