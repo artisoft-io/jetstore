@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "title": "Rules Unit Tests",
   "startAtKey": "rules_unit_test_runs",
-  "exitScreenPath": "/workspaces",
   "states": {
     "rules_unit_test_runs": {
       "description": "Rules unit test runs of this workspace, newest first",

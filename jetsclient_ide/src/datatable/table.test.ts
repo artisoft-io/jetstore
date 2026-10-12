@@ -190,8 +190,7 @@ const screenTables = (screenCorpus as { tables: Record<string, unknown> }).table
 const NON_FLOW_KEYS = [
   // `pipelineExecStatusTable` was the first entry here until 2026-10-01; it is
   // hand-maintained now. See `HAND_MAINTAINED_KEYS`. So is `workspaceRegistryTable`,
-  // since the same evening.
-  "workspaceChangesTable",
+  // since the same evening. And `workspaceChangesTable`, since 2026-10-11.
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
   "queryToolResultSetTable",
@@ -315,6 +314,9 @@ const HAND_MAINTAINED_KEYS = [
   "org",
   "pcViewInjectedProcessInputKeys",
   "pcViewMergedProcessInputKeys",
+  // A Refresh, so a save in the Workspace IDE shows without reloading the page
+  // (Michel, 2026-10-11).
+  "workspaceChangesTable",
 ] as const;
 
 /**
@@ -460,15 +462,17 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // `scAddOrEditSourceConfigOption` and `pcAddOrEditPipelineConfigOption` with
     // the add-or-edit steps `D06` removed — the first documents to leave this set
     // by going nowhere. **52 and 5 the same evening**, when `workspaceRegistryTable`
-    // left too, to drop a label that repeated its screen title.
+    // left too, to drop a label that repeated its screen title. **51 on
+    // 2026-10-11**, when `workspaceChangesTable` left to gain a Refresh.
     expect(Object.keys(flowDocuments).length).toBe(31);
-    expect(Object.keys(translated).length).toBe(52);
+    expect(Object.keys(translated).length).toBe(51);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
     // the on-disk document overrides the translation in `documents`, so the total
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
-    expect(Object.keys(handMaintained).length).toBe(8);
+    // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(9);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     expect(Object.keys(featureDocuments).length).toBe(3);
@@ -790,13 +794,15 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     expect(fromDocument("lfSourceConfigTable", flow).apiAction).toBe("read");
   });
 
-  it("gates nine buttons on the selected row's status, by column name", () => {
+  it("gates six buttons on the selected row's status, by column name", () => {
     if (doc.source !== "query") return;
     const gated = allActions.filter((a) => a.enableWhen !== undefined);
     // **Nine since 2026-10-11**: *Rules Unit Tests* (`rules_unit_test_harness`
     // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
     // why `actionBar.test.tsx`, reading that corpus, still counts eight.
     // Registry first, then the toolbar's rows: the order the two documents hold.
+    // **Six since the same evening**: *Commit & Push*, *Push Only* and *Pull*
+    // lost their gates on the IDE's toolbar (Michel: always enabled).
     expect(gated.map((a) => a.key)).toEqual([
       "openWorkspace",
       "deleteWorkspace",
@@ -804,9 +810,6 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
       "loadWorkspaceConfig",
       "compileWorkspace",
       "rulesUnitTests",
-      "commitWorkspace",
-      "pushOnlyWorkspace",
-      "pullWorkspace",
     ]);
     // Every criterion in either corpus tests this one column. The Dart says `6`;
     // that this is the column at index 6 is what the translation had to know.
@@ -864,20 +867,22 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
 
   it("keeps the disjunction of conjunctions rather than flattening it", () => {
     if (doc.source !== "query") return;
-    // Two of the nine use the inner list, and a flattened `enableWhen` would
-    // have turned "neither removed nor in progress" into "either", which is the
+    // Export uses the inner list, and a flattened `enableWhen` would have
+    // turned "neither removed nor in progress" into "either", which is the
     // difference between refusing a mid-compile export and permitting one.
+    // **`local workspace removed` since 2026-10-11**: a bare `removed` also
+    // matched `active, feature branch missing or removed`, the active workspace
+    // on its base branch, and refused Export there.
     const exportAction = allActions.find((a) => a.key === "exportWorkspaceClientConfig");
     expect(exportAction?.enableWhen).toEqual([
       [
-        { column: "status", is: "doesNotContain", value: "removed" },
+        { column: "status", is: "doesNotContain", value: "local workspace removed" },
         { column: "status", is: "doesNotContain", value: "in progress" },
       ],
     ]);
-    const commit = allActions.find((a) => a.key === "commitWorkspace");
-    expect(commit?.enableWhen).toEqual([
-      [{ column: "status", is: "contains", value: "modified" }],
-    ]);
+    for (const key of ["commitWorkspace", "pushOnlyWorkspace", "pullWorkspace"]) {
+      expect(allActions.find((a) => a.key === key)?.enableWhen).toBeUndefined();
+    }
   });
 
   it("keeps the registry's own buttons in one row, and gives the IDE the workspace actions", () => {

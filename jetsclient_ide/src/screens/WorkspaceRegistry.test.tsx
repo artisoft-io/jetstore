@@ -52,7 +52,7 @@ afterEach(() => {
  * four rows are the four states the criteria distinguish.
  */
 const rows: (string | null)[][] = [
-  ["1", "acme_ws", "main", "feat", "git@example/acme", "The acme workspace", "active", "log a", "u@x", "now"],
+  ["1", "acme_ws", "main", "feat", "git@example/acme", "The acme workspace", "active, feature branch missing or removed", "log a", "u@x", "now"],
   ["2", "globex_ws", "main", "feat", "git@example/globex", "Globex", "modified", "log b", "u@x", "now"],
   ["3", "initech_ws", "main", "feat", "git@example/initech", "Initech", "in progress", "", "u@x", "now"],
   ["4", "old_ws", "main", "feat", "git@example/old", "Retired", "removed", "", "u@x", "now"],
@@ -292,13 +292,21 @@ describe("the screen", () => {
     expect(button("Delete").hasAttribute("disabled")).toBe(true);
     expect(button("Delete").title).toContain("active");
 
-    // And on the toolbar, Commit is not offered on an `active` workspace.
+    // And on the toolbar, the active workspace on its base branch: its status
+    // ends `feature branch missing or removed`, which a bare `removed` gate read
+    // as a removed workspace and refused Export for (Michel, 2026-10-11). The
+    // three git buttons have no gate at all since the same evening.
     cleanup();
     await mountToolbar("acme_ws");
-    expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(true);
+    await waitFor(() =>
+      expect(button("Export Client Config").hasAttribute("disabled")).toBe(false),
+    );
+    for (const label of ["Commit & Push Workspace", "Push Only", "Pull Workspace"]) {
+      expect(button(label).hasAttribute("disabled")).toBe(false);
+    }
   });
 
-  it("offers Commit only on a modified workspace, and refuses everything mid-compile", async () => {
+  it("offers the git buttons always, and refuses the rest mid-compile", async () => {
     await mount();
     await selectRow("globex_ws");
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
@@ -320,7 +328,8 @@ describe("the screen", () => {
 
     cleanup();
     await mountToolbar("initech_ws");
-    // `in progress` fails seven of the eight; Push Only tests `removed` alone.
+    // `in progress` refuses the four with a status gate; the three git buttons
+    // have none since 2026-10-11 (Michel: always enabled).
     //
     // **Wait on the button that becomes *enabled*, not on one that becomes
     // disabled.** This waited on `Open` being disabled, which is also true with
@@ -331,11 +340,13 @@ describe("the screen", () => {
     // repeatedly for its own flake check; the case itself is C.2b's and correct.
     await waitFor(() => expect(button("Push Only").hasAttribute("disabled")).toBe(false));
     for (const label of [
-      "Export Client Config", "Load Client Config", "Compile Workspace", "Pull Workspace",
+      "Export Client Config", "Load Client Config", "Compile Workspace", "Rules Unit Tests",
     ]) {
       expect(button(label).hasAttribute("disabled")).toBe(true);
     }
-    expect(button("Push Only").hasAttribute("disabled")).toBe(false);
+    for (const label of ["Push Only", "Commit & Push Workspace", "Pull Workspace"]) {
+      expect(button(label).hasAttribute("disabled")).toBe(false);
+    }
   });
 });
 

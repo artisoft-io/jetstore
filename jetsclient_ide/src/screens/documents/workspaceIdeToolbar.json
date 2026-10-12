@@ -1,5 +1,5 @@
 {
-  "comment": "The Workspace IDE's toolbar: workspaceRegistryTable actions that need a workspace, moved off the registry on 2026-10-11 so they act on the workspace the IDE has open. Each runs against that workspace's registry row, so navigationParams indices and enableWhen columns mean what they mean on workspaceRegistryTable.tc.json. Rows, top to bottom.",
+  "comment": "The Workspace IDE's toolbar: workspaceRegistryTable actions that need a workspace, moved off the registry on 2026-10-11 so they act on the workspace the IDE has open. Each runs against that workspace's registry row, so navigationParams indices and enableWhen columns mean what they mean on workspaceRegistryTable.tc.json. Rows, top to bottom. Since the same evening, Commit & Push, Push Only and Pull carry no status gate (Michel: always enabled), and Export is refused only for `local workspace removed`, because the active workspace on its base branch reads `active, feature branch missing or removed` and a bare `removed` refused it.",
   "rows": [
     [
       {
@@ -22,7 +22,7 @@
             {
               "column": "status",
               "is": "doesNotContain",
-              "value": "removed"
+              "value": "local workspace removed"
             },
             {
               "column": "status",
@@ -99,7 +99,7 @@
         "key": "commitWorkspace",
         "label": "Commit & Push Workspace",
         "action": "showDialog",
-        "style": "secondary",
+        "style": "primary",
         "configForm": "commitWorkspaceDialog",
         "isVisibleWhenCheckboxVisible": true,
         "isEnabledWhenHavingSelectedRows": true,
@@ -109,16 +109,7 @@
           "workspace_branch": 2,
           "feature_branch": 3,
           "workspace_uri": 4
-        },
-        "enableWhen": [
-          [
-            {
-              "column": "status",
-              "is": "contains",
-              "value": "modified"
-            }
-          ]
-        ]
+        }
       },
       {
         "key": "pushOnlyWorkspace",
@@ -134,22 +125,13 @@
           "workspace_branch": 2,
           "feature_branch": 3,
           "workspace_uri": 4
-        },
-        "enableWhen": [
-          [
-            {
-              "column": "status",
-              "is": "doesNotContain",
-              "value": "removed"
-            }
-          ]
-        ]
+        }
       },
       {
         "key": "pullWorkspace",
         "label": "Pull Workspace",
         "action": "showScreen",
-        "style": "secondary",
+        "style": "primary",
         "configScreenPath": "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri",
         "isVisibleWhenCheckboxVisible": true,
         "isEnabledWhenHavingSelectedRows": true,
@@ -159,21 +141,7 @@
           "workspace_branch": 2,
           "feature_branch": 3,
           "workspace_uri": 4
-        },
-        "enableWhen": [
-          [
-            {
-              "column": "status",
-              "is": "doesNotContain",
-              "value": "removed"
-            },
-            {
-              "column": "status",
-              "is": "doesNotContain",
-              "value": "in progress"
-            }
-          ]
-        ]
+        }
       },
       {
         "key": "doGitStatus",

@@ -53,6 +53,15 @@ keys, `choiceTypeCounts` down to one `Expression`, and `nestedChoiceCount` and
 as measured and is kept as history; the nested choice it describes is still in the
 shipping document, read off disk by `../schema.test.ts`.
 
+**`loadConfigUF` and `workspacePullUF` followed on 2026-10-11**
+(`rules_unit_test_harness`, from Michel's testing), so that, launched from the
+Workspace IDE's toolbar, they return there rather than to `/workspaces`: both
+drop `exitScreenPath`. They took five states and five form keys with them, and
+`workspacePullUF` took the fixture's last choice, its one `contains`: 3 flows, 8
+states, 8 form keys, and `choiceTypeCounts`, `operatorCounts` and `rhsKindCounts`
+all empty. The `contains` is still in the shipping document, and
+`../schema.test.ts` reads it there.
+
 ## Regenerating
 
 ```bash
