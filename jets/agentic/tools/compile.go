@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -84,7 +85,18 @@ type compileArgs struct {
 	// every dropped fragment a JetRules construct — a label, an import line.
 	// In this arm the model writes none of them: the renderer does. It serves
 	// the case the path arm cannot, a rule composed and not saved.
+	//
+	// **The document's own fields are the arguments**: 'rules' is the array
+	// of rules and 'imports' sits beside it. The first shape nested a whole
+	// document under 'rules', and the document has a 'rules' of its own: on
+	// granite4.1:3b, told the shape in words, the model sent the inner array
+	// as the argument 10 times of 10 — the right rules in the wrong place —
+	// and, shown an inline example, sent the document as a string, whose
+	// quotes around ?variables it rewrote as curly quotes 11 times of 14
+	// (I-250, 2026-10-12). A whole document, and a string holding either
+	// form, are still accepted, since each has one reading.
 	Rules    json.RawMessage `json:"rules"`
+	Imports  []string        `json:"imports"`
 	FileName string          `json:"file_name"`
 }
 
@@ -106,6 +118,9 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 		return nil, fmt.Errorf(
 			"give exactly one of 'rule_path', 'rules' and 'rule_text': they name different " +
 				"rules and this tool will not guess which one you meant")
+	case len(in.Imports) > 0 && !hasRules:
+		return nil, fmt.Errorf(
+			"argument 'imports' belongs with 'rules'; a .jr names its imports in its own text")
 	case given == 0:
 		return nil, fmt.Errorf(
 			"one of 'rule_path' (a workspace-relative .jr, preferred), 'rules' (the rules as a " +
@@ -117,7 +132,7 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 	var rendered *symbolic.Rendered
 	if hasRules {
 		var report *CompileReport
-		rendered, report = renderRules(in.Rules)
+		rendered, report = renderRules(in.Rules, in.Imports)
 		if report != nil {
 			return report, nil
 		}
@@ -219,22 +234,20 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 // the tool, so it comes back as an invalid report carrying the location — the
 // same shape a compile error has, which is what lets a repair loop treat the
 // two alike.
-func renderRules(raw json.RawMessage) (*symbolic.Rendered, *CompileReport) {
+func renderRules(raw json.RawMessage, imports []string) (*symbolic.Rendered, *CompileReport) {
 	invalid := func(ptr, msg string) *CompileReport {
 		return &CompileReport{Diagnostics: []RuleDiagnostic{{
 			Diagnostic: compiler.Diagnostic{Severity: compiler.SeverityError, Message: "error: " + msg},
 			Pointer:    ptr,
 		}}}
 	}
-	doc := []byte(raw)
-	// A model sometimes sends a JSON document as a string holding it.
-	var asString string
-	if json.Unmarshal(raw, &asString) == nil {
-		doc = []byte(asString)
-	}
-	f, err := symbolic.Parse(doc)
+	f, err := ReadRulesArgument(raw, imports)
 	if err != nil {
-		return nil, invalid("", "the 'rules' document does not parse: "+err.Error())
+		var re *symbolic.RenderError
+		if errors.As(err, &re) {
+			return nil, invalid(re.Pointer, re.Message)
+		}
+		return nil, invalid("", err.Error())
 	}
 	rendered, err := symbolic.Render(f)
 	if err != nil {
@@ -245,6 +258,72 @@ func renderRules(raw json.RawMessage) (*symbolic.Rendered, *CompileReport) {
 		return nil, invalid("", err.Error())
 	}
 	return rendered, nil
+}
+
+// ReadRulesArgument is how the 'rules' arm reads its arguments into a
+// symbolic rule file. It is exported so that tools/tool_conformance judges a
+// call by what this tool would compile, not by a reimplementation of it.
+//
+// The canonical form is 'rules' an array of rules with 'imports' beside it.
+// Three other forms are accepted because each has one reading, and the
+// measurement found a model sending all three (I-250, 2026-10-12):
+//
+//   - a whole document, {"imports": [...], "rules": [...]}, under 'rules';
+//   - a string holding the array or the document;
+//   - the array with a last element {"imports": [...]} and nothing else —
+//     an object with no name and no terms cannot be a rule. Only the last
+//     element, so that a pointer into /rules/N still names the Nth rule.
+//
+// Imports given twice — beside a document, or both beside the array and in
+// it — are refused rather than merged.
+func ReadRulesArgument(raw json.RawMessage, imports []string) (*symbolic.RuleFile, error) {
+	doc := []byte(raw)
+	var asString string
+	if json.Unmarshal(raw, &asString) == nil {
+		doc = []byte(asString)
+	}
+	trimmed := bytes.TrimSpace(doc)
+	if len(trimmed) == 0 || trimmed[0] != '[' {
+		if len(imports) > 0 {
+			return nil, &symbolic.RenderError{Pointer: "/imports",
+				Message: "'imports' was given beside a whole rules document; put them in the document or pass 'rules' as an array"}
+		}
+		f, err := symbolic.Parse(doc)
+		if err != nil {
+			return nil, fmt.Errorf("the rules do not parse: %w", err)
+		}
+		return f, nil
+	}
+	var elems []json.RawMessage
+	if err := json.Unmarshal(trimmed, &elems); err != nil {
+		return nil, fmt.Errorf("the rules do not parse: %w", err)
+	}
+	if n := len(elems); n > 0 {
+		var last map[string]json.RawMessage
+		if json.Unmarshal(elems[n-1], &last) == nil && len(last) == 1 && last["imports"] != nil {
+			if len(imports) > 0 {
+				return nil, &symbolic.RenderError{Pointer: fmt.Sprintf("/rules/%d", n-1),
+					Message: "imports were given both in 'rules' and in 'imports'; give them once, in 'imports'"}
+			}
+			if err := json.Unmarshal(last["imports"], &imports); err != nil {
+				return nil, &symbolic.RenderError{Pointer: fmt.Sprintf("/rules/%d/imports", n-1),
+					Message: "imports are a list of .jr paths: " + err.Error()}
+			}
+			elems = elems[:n-1]
+		}
+	}
+	wrapped, err := json.Marshal(struct {
+		Imports []string          `json:"imports,omitempty"`
+		Rules   []json.RawMessage `json:"rules"`
+	}{imports, elems})
+	if err != nil {
+		return nil, err
+	}
+	f, err := symbolic.Parse(wrapped)
+	if err != nil {
+		return nil, fmt.Errorf("the rules do not parse: %w", err)
+	}
+	return f, nil
 }
 
 func btoi(b bool) int {

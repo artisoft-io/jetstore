@@ -239,10 +239,11 @@ TOOLS: list[dict] = [
             "meaning. Read-only. Give it exactly one of: 'rule_path' - the "
             "workspace-relative path of an existing .jr, preferred whenever "
             "the rule is already in the workspace, because the tool then "
-            "reads the file itself; 'rules' - the rules as a JSON document, "
-            "for rules that have not been saved, which the tool renders to "
-            "JetRules source and compiles, returning that source and "
-            "pointing each diagnostic at the JSON element it concerns; or "
+            "reads the file itself; 'rules' - the rules as a JSON array, "
+            "with 'imports' beside it, for rules that have not been saved, "
+            "which the tool renders to JetRules source and compiles, "
+            "returning that source and pointing each diagnostic at the "
+            "element of the arguments it concerns; or "
             "'rule_text' - JetRules source itself."
         ),
         "reversibility": "na",
@@ -260,21 +261,29 @@ TOOLS: list[dict] = [
                     ),
                 },
                 "rules": {
-                    "$ref": f"{SYMBOLIC_RULES_SCHEMA}#",
+                    "type": "array",
+                    "items": {"$ref": f"{SYMBOLIC_RULES_SCHEMA}#/$defs/rule"},
                     "description": (
-                        "The rules as a JSON document: {\"imports\": "
-                        "[\"data_model/hc_model.jr\"], \"rules\": [{\"name\": "
-                        "\"R1\", \"salience\": 50, \"antecedents\": "
-                        "[{\"subject\": \"?clm\", \"predicate\": "
-                        "\"rdf:type\", \"object\": \"hc:Claim\"}], "
-                        "\"consequents\": [{\"subject\": \"?clm\", "
-                        "\"predicate\": \"hc:flag\", \"object\": true}]}]}. "
-                        "A term is an id string (?var, prefix:name) or a "
-                        "literal {\"type\": \"int\", \"value\": \"5\"}; "
-                        "a filter or consequent object may be an operation "
-                        "{\"op\", \"lhs\", \"rhs\"} or {\"op\", \"arg\"}. "
-                        "Prefer this to rule_text for rules not in the "
-                        "workspace."
+                        "The rules, as a JSON array; the tool renders them to "
+                        "JetRules source. A rule has 'name', optionally "
+                        "'salience', and 'antecedents' and 'consequents', "
+                        "each a list of terms with 'subject', 'predicate' and "
+                        "'object'. A term is an id string - a variable such as "
+                        "?clm, or a resource such as rdf:type - or a literal "
+                        "object with 'type' and 'value'. An antecedent's "
+                        "'filter' or a consequent's 'object' may be an "
+                        "operation: an object with 'op' and 'lhs' and 'rhs', "
+                        "or 'op' and 'arg'. Prefer this to rule_text for rules "
+                        "not in the workspace."
+                    ),
+                },
+                "imports": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Workspace-relative paths of the .jr files that "
+                        "declare the vocabulary the rules use, if they need "
+                        "any. Applies to rules only."
                     ),
                 },
                 "rule_path": {

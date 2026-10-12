@@ -42,7 +42,10 @@
 // probes (crr-*) carry the same six rules as the content arm's (crf-*), so the
 // two rows compare one notation against the other on one model in one run —
 // F176 found the text arm's losses were all JetRules constructs, and this arm
-// asks the model for none.
+// asks the model for none. The arm's argument shape was changed twice on what
+// this harness found (the document's own fields are now the arguments), and a
+// rules-arm call is judged by tools.ReadRulesArgument — what the tool would
+// compile — so a judgement cannot drift from the tool it measures.
 //
 //	go run ./tools/tool_conformance
 //	go run ./tools/tool_conformance -repeats 3 -model granite4.1:3b
@@ -84,6 +87,12 @@ type fidelitySpec struct {
 	// than the text arm it is compared with, which makes the comparison
 	// conservative against it rather than for it. Key order and whitespace
 	// still do not count: both sides are parsed and re-encoded.
+	//
+	// The document is read from the whole arguments, because its fields are
+	// the tool's arguments: 'rules' is the array and 'imports' sits beside it
+	// (a whole document under 'rules', or a string holding either, is the
+	// tool's other reading and is judged the same way). For the same reason
+	// MustContain is searched in the arguments rather than in 'rules' alone.
 	SameRules json.RawMessage `json:"same_rules,omitempty"`
 }
 
@@ -396,6 +405,19 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 	if !ok {
 		return spec.MustContain, false
 	}
+	if len(spec.SameRules) > 0 {
+		// Search the arguments as the tool reads them: a 'rules' sent as a
+		// string is unwrapped first, or its quotes would be escaped in the
+		// text searched. A string that is not JSON is searched as it is.
+		delete(obj, "file_name")
+		if s, isString := obj["rules"].(string); isString {
+			var inner any
+			if json.Unmarshal([]byte(s), &inner) == nil {
+				obj["rules"] = inner
+			}
+		}
+		v = obj
+	}
 	var text string
 	if s, isString := v.(string); isString {
 		text = s
@@ -412,16 +434,28 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 			missing = append(missing, want)
 		}
 	}
-	if len(spec.SameRules) > 0 && !sameRules(text, spec.SameRules) {
+	if len(spec.SameRules) > 0 && !sameRules(obj, spec.SameRules) {
 		missing = append(missing, "(the rules document is not the one given)")
 	}
 	return missing, true
 }
 
-// sameRules says whether a symbolic rules document is the expected one, by
-// parsing both and comparing their canonical encodings.
-func sameRules(got string, want json.RawMessage) bool {
-	g, err := symbolic.Parse([]byte(got))
+// sameRules says whether the arguments carry the expected rules document:
+// the document the tool would compile from them (tools.ReadRulesArgument),
+// against the one the prompt gave, by canonical encoding.
+func sameRules(args map[string]any, want json.RawMessage) bool {
+	rules, err := json.Marshal(args["rules"])
+	if err != nil {
+		return false
+	}
+	var imports []string
+	if v, ok := args["imports"]; ok {
+		b, _ := json.Marshal(v)
+		if json.Unmarshal(b, &imports) != nil {
+			return false
+		}
+	}
+	g, err := tools.ReadRulesArgument(rules, imports)
 	if err != nil {
 		return false
 	}
