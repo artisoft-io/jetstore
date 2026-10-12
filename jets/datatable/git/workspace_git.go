@@ -265,17 +265,19 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	// **The order of these two tests is deliberate and is not a matter of taste.**
 	// A workspace whose directory has been deleted is removed whether or not this
 	// deployment has a repository, and `local workspace removed` is the string the
-	// registry's actions gate four buttons on (`workspaceRegistryTable.tc.json`,
-	// and since 2026-10-11 the Workspace IDE's `workspaceIdeToolbar.json`, which
-	// holds most of them and reads the same registry row). Testing the switch first would report a
-	// directory that is not there as `no git repository`, re-enabling Push Only,
-	// Pull and Export for a workspace with nothing in it.
+	// registry's actions gate buttons on (`workspaceRegistryTable.tc.json`, and
+	// since 2026-10-11 the Workspace IDE's `workspaceIdeToolbar.json`, which
+	// holds most of them and reads the same registry row). Testing the switch
+	// first would report a directory that is not there as `no git repository`,
+	// re-enabling Export for a workspace with nothing in it.
 	//
-	// **Neither string below is free choice.** The screen enables Commit & Push
-	// only when the status contains `modified`, disables Delete when it contains
-	// `active`, and disables four more on `in progress` or `removed` -- all by
-	// substring, all in that table, and nothing on either side of the seam checks
-	// the pairing. So: no `modified`, because only `git status` can establish that
+	// **Neither string below is free choice.** The registry disables Delete when
+	// the status contains `active`, and the registry and the IDE's toolbar
+	// disable more on `in progress` or, for Export, `local workspace removed` --
+	// all by substring, and nothing on either side of the seam checks the
+	// pairing. (Commit & Push, Push Only and Pull lost their gates on
+	// 2026-10-11, and Export's was narrowed from `removed`, which also matched
+	// `active, feature branch missing or removed` below.) So: no `modified`, because only `git status` can establish that
 	// and it has not been run; `active` on the active workspace, because that is
 	// what stops a user deleting the workspace this deployment is running out of;
 	// and neither `in progress` nor `removed`, which would grey out buttons that

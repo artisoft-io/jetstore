@@ -19,7 +19,8 @@
  * registry reads it — `workspace_read`, whose post-processing computes `status`
  * from git (`DoWorkspaceReadAction`, `jets/datatable/workspace_data_table_action.go`).
  * So each `navigationParams` index and `enableWhen` column means exactly what it
- * meant on the table, *Commit & Push* still waits for `modified`, and the row is
+ * meant on the table (though *Commit & Push*, *Push Only* and *Pull* have had no
+ * gate since the same evening, at Michel's request), and the row is
  * published into form state as a selection would publish it, which is what the
  * `doAction` entries read. The dialogs and actions are the registry's, through
  * the host the two screens share (`workspaceRegistryHost.tsx`).

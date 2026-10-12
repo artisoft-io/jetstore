@@ -95,6 +95,13 @@ describe("the workspace home's changes table", () => {
     await screen.findByRole("heading", { name: "Workspace Changes" });
   });
 
+  it("re-reads on Refresh, so a save shows without reloading the page", async () => {
+    // Michel, 2026-10-11: the table kept its first read until the page reloaded.
+    const { posts } = await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(reads(posts).length).toBe(2));
+  });
+
   it("reverts the selected change, sending only what the handler reads", async () => {
     const { posts } = await mount();
     fireEvent.click(await screen.findByLabelText("Select row 1"));
