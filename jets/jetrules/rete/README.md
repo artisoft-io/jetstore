@@ -110,8 +110,9 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
   happens, and the full fix gave the same member outcomes as the pin.
 
 **The rule language cannot end these loops by itself**: a rule has the properties `o`, `s` and
-`flag`, and nothing that makes a consequent non-retractable. So if a workspace ever needs correct
-truth maintenance on these shapes, the paths are:
+`flag`, and nothing that makes a consequent non-retractable. *(Wrong, corrected 2026-10-11 below:
+`usi_ws` ended them in the rule language, by changing what the rules are guarded on.)* So if a
+workspace ever needs correct truth maintenance on these shapes, the paths are:
 
 - **(b)** put aggregate replay and row erasure behind an opt-in rule-config switch, default off —
   two code paths, no workspace changing behaviour unless it asks; or
@@ -141,6 +142,38 @@ asserted. On the five-term loop shape they reproduce the measurement above on bo
 `fixed` ends at the vertex visit limit, `fixed-1` terminates with both merges undone, and
 `fixed-2` terminates as `legacy` does.
 
+**2026-10-11, later: `usi_ws` depends on neither defect any more, nor on the switch.** Two
+corrections to what is above, from `jetstore_agentic_ai`'s `rules_unit_test_harness` (its `I-38` to
+`I-40` and `I-44`), which reduced these shapes to unit tests:
+
+- **What held the shapes up in production was the switch, not the defects.** The measurements
+  above were taken with `_0:no_truth_main_on_exist` off. With it on, as USI runs, an `exist` filter
+  is evaluated once, when its row is made, and the compiler puts the loop rule's filter on the
+  loop-0 `jets:State` row. So the guard never moved. With the switch on, `usi_ws` at the time passed
+  with both defects off as well. The defects held the shape up only with the switch off, which is
+  what this entry measured. They do so in `jets_ws`'s `looping_test1`, which has no switch.
+- **The rule language could end them; what was missing was the right guard, not an engine
+  primitive.** `artisoft-io/usi_ws#31` rewrote them without (c)'s non-retractable consequent:
+  - The loop rule (`mcp2` in CM, its IM and MSK twins) is guarded by `size_of` on the match list,
+    which no merge changes, instead of `exist` on the priority list, which every merge shrinks.
+  - The loop completes on an empty priority list. `size_of` is maintained in every mode.
+  - CM02's and IM02's adjustment loops run in their own rule sets, each with its own loop counter.
+  - `op01`/`op02`'s chain now ends in `_0:totalAmountAllowed`, which `rt10` copies to
+    `hc_usi:totalAmountAllowed` in `4_CM04_Orphans_Main2`, the next tier, where nothing tests for
+    its absence.
+  - IM02's `MEREXCL011`/`012` test `_0:hasOwnExclusion` instead of `hc_usi:hasExclusion`, which
+    their own result reached.
+
+  `artisoft-io/usi_ws#32` then stopped setting the switch. The `usi_ws` unit tests `cm_loop`,
+  `im_mercom` and `msk_loop` pass in the legacy mode and with both defects off (`fixed`). With the
+  switch off, CM and IM give the switch-on export on the assessment's 28 test claims.
+
+**So the case for keeping the defects now rests on USI's own copy of the workspace**, which still
+sets the switch and has neither PR; it must take both together, because the switch removed without
+`#31`'s rules brings the hangs back. Nothing in the workspaces `jetstore_agentic_ai` pins depends
+on them except `jets_ws`'s `looping_test1`, which pins them on purpose, and the `LEGACY` tests.
+Whether pipelines should run with them fixed is a decision this entry does not make.
+
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
 so erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle
@@ -153,7 +186,8 @@ code, not measured.
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
 C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.
-`workspaces/usi_ws` sets it in `pipes_config/usiclaim_processes.pc.json` because its rules predate
+`workspaces/usi_ws` set it in `pipes_config/usiclaim_processes.pc.json` (until 2026-10-11,
+`artisoft-io/usi_ws#32`; see the entry above; USI's own copy still does) because its rules predate
 rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
 `ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
 
