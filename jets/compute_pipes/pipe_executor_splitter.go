@@ -58,44 +58,23 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 					oc[siteChannel.Name] = true
 				}
 			}
+			// Every operator's error channel, through errorChannelConfig: StartFanOutPipe's
+			// arm verbatim, and for its reason -- the per-type list here named no
+			// `render` and no site operator, so their error channels were closed by
+			// nothing.
+			if ec := errorChannelConfig(&spec.Apply[i]); ec != nil && len(ec.Name) > 0 {
+				oc[ec.Name] = true
+			}
 			switch spec.Apply[i].Type {
 			case "jetrules":
 				// Get the output channels of jetrules
 				for j := range spec.Apply[i].JetrulesConfig.OutputChannels {
 					oc[spec.Apply[i].JetrulesConfig.OutputChannels[j].Name] = true
 				}
-				// Get the error output channel of jetrules
-				if spec.Apply[i].JetrulesConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].JetrulesConfig.ErrorChannel.Name] = true
-				}
-
-			case "ollama":
-				// Get the error output channel of ollama
-				if spec.Apply[i].OllamaConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
-				}
-
-			case "embed":
-				// Get the error output channel of embed
-				if spec.Apply[i].EmbedConfig != nil && spec.Apply[i].EmbedConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].EmbedConfig.ErrorChannel.Name] = true
-				}
-
-			case "vllm":
-				// Get the error output channel of vllm
-				if spec.Apply[i].VllmConfig != nil && spec.Apply[i].VllmConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].VllmConfig.ErrorChannel.Name] = true
-				}
 
 			case "clustering":
 				// Get the output channels of clustering
 				oc[spec.Apply[i].ClusteringConfig.CorrelationOutputChannel.Name] = true
-
-			case "map_record":
-				// Get the error output channel of map_record
-				if spec.Apply[i].MapRecordConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].MapRecordConfig.ErrorChannel.Name] = true
-				}
 			}
 		}
 		for i := range oc {

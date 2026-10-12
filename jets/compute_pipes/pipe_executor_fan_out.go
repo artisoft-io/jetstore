@@ -56,6 +56,19 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 					oc[siteChannel.Name] = true
 				}
 			}
+			// Every operator's error channel, read through the one function that
+			// knows them all -- the same one the synthesis and the channel registry
+			// read. This was a per-type list here and it had drifted: it named no
+			// `render` and no site operator, so a render step's error channel, which
+			// SynthesizeDefaultErrorChannels gives it whenever it names none, was
+			// closed by nothing, and the process_errors writer it feeds waited for
+			// an EOF that never came. The run hung after every other channel had
+			// closed (Patient_Profile_Template, 2026-10-11). Outside the switch so
+			// the next operator that reports row-level failures is closed without a
+			// second list to remember.
+			if ec := errorChannelConfig(&spec.Apply[i]); ec != nil && len(ec.Name) > 0 {
+				oc[ec.Name] = true
+			}
 			switch spec.Apply[i].Type {
 			case "jetrules":
 				// Get the output channels of jetrules
@@ -63,28 +76,6 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 					for j := range spec.Apply[i].JetrulesConfig.OutputChannels {
 						oc[spec.Apply[i].JetrulesConfig.OutputChannels[j].Name] = true
 					}
-					// Get the error output channel of jetrules
-					if spec.Apply[i].JetrulesConfig.ErrorChannel != nil {
-						oc[spec.Apply[i].JetrulesConfig.ErrorChannel.Name] = true
-					}
-				}
-
-			case "ollama":
-				// Get the error output channel of ollama
-				if spec.Apply[i].OllamaConfig != nil && spec.Apply[i].OllamaConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
-				}
-
-			case "embed":
-				// Get the error output channel of embed
-				if spec.Apply[i].EmbedConfig != nil && spec.Apply[i].EmbedConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].EmbedConfig.ErrorChannel.Name] = true
-				}
-
-			case "vllm":
-				// Get the error output channel of vllm
-				if spec.Apply[i].VllmConfig != nil && spec.Apply[i].VllmConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].VllmConfig.ErrorChannel.Name] = true
 				}
 
 			case "clustering":
@@ -92,12 +83,6 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 				if spec.Apply[i].ClusteringConfig != nil &&
 					spec.Apply[i].ClusteringConfig.CorrelationOutputChannel != nil {
 					oc[spec.Apply[i].ClusteringConfig.CorrelationOutputChannel.Name] = true
-				}
-
-			case "map_record":
-				// Get the error output channel of map_record
-				if spec.Apply[i].MapRecordConfig != nil && spec.Apply[i].MapRecordConfig.ErrorChannel != nil {
-					oc[spec.Apply[i].MapRecordConfig.ErrorChannel.Name] = true
 				}
 			}
 		}
