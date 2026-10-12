@@ -578,6 +578,15 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
 	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
+	// A nil atom is one already refused and logged — a bool literal outside
+	// the accepted spellings, or a cast to an unknown type. It used to be
+	// dereferenced here, so the same literal that is a located error in a
+	// consequent was a panic as an antecedent's object (found 2026-10-12 by
+	// jetstore_agentic_ai I-250, whose renderer passes such a literal through).
+	if S == nil || P == nil || O == nil {
+		s.inProgressExpr = nil
+		return
+	}
 	ruleTerm := &rete.RuleTerm{
 		Type:         "antecedent",
 		IsNot:        ctx.GetN() != nil,
@@ -654,6 +663,10 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
 	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
+	// As in ExitAntecedent: nil is a literal already refused and logged.
+	if S == nil || P == nil || O == nil {
+		return
+	}
 	triple := &rete.TripleNode{
 		SubjectKey:     S.Key,
 		PredicateKey:   P.Key,
