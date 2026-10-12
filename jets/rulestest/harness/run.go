@@ -193,8 +193,9 @@ type engineRun struct {
 // is the pipeline's (NewJetrulesTransformationPipe, then executeRules): the
 // engine, its JetResources, the source period and rule_config into the meta
 // graph, and only then the first RDF session — the meta graph locks when it
-// opens (definition F31), and on C++ a meta resource made after that aborts the
-// process (I-15).
+// opens (definition F31), and a new meta resource is refused after that: a nil
+// node on Go, an error on C++, where it aborted the process until 2026-10-11
+// (I-15).
 func runOnEngine(td *rulestest.TestDefinition, engine string, factory compute_pipes.JetRulesFactory,
 	tables [][]*InputTable) (run *engineRun) {
 	run = &engineRun{engine: engine}

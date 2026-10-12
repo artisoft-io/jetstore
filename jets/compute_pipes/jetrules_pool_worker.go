@@ -392,9 +392,10 @@ func (o *RuleSetsOutcome) Failed() bool {
 //
 // **Precondition: call engine.JetResources() before opening rdfSession.** Both
 // adaptors create the JetResources on first use, through the meta graph's
-// resource manager, and on the C++ engine creating a resource through the meta
-// graph after the first rdf session opens aborts the process
-// (rules_unit_test_harness I-15). A pipeline meets it because
+// resource manager, and the meta graph locks when the first rdf session opens:
+// after that a new meta resource is refused, a nil node on Go and an error on
+// C++. (On C++ it aborted the process until 2026-10-11, rules_unit_test_harness
+// I-15.) A pipeline meets it because
 // AssertSourcePeriodInfo, at pipe construction, and executeRules both call it
 // first; the harness must call it before NewRdfSession. RunRuleSets cannot do it
 // for the caller, since the session is already open when it is called. The

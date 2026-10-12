@@ -566,10 +566,16 @@ func (n *RdfNodeGo) String() string {
 	return n.node.String()
 }
 
+// Equals is node identity: the resource manager interns resources and
+// literals. It compared EQ's result with rdf.TRUE() by pointer, and TRUE()
+// makes a new node on every call, so it was always false.
 func (n *RdfNodeGo) Equals(other compute_pipes.RdfNode) bool {
-	otherNodeGo, ok := other.Hdle().(*RdfNodeGo)
-	if !ok {
+	if other == nil {
 		return false
 	}
-	return n.node.EQ(otherNodeGo.node) == rdf.TRUE()
+	otherNodeGo, ok := other.Hdle().(*RdfNodeGo)
+	if !ok || n == nil || otherNodeGo == nil {
+		return false
+	}
+	return n.node == otherNodeGo.node
 }

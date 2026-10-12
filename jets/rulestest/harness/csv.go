@@ -104,7 +104,9 @@ func checkColumns(name string, columns []string) error {
 
 // assertTables asserts every row of every table into rdfSession. It is the
 // assertInput argument of RunRuleSets, which calls it once the first rete
-// session exists (I-15).
+// session exists, the pipeline's order. Until 2026-10-11 C++ needed that order:
+// the native session made its nodes through the meta graph before a rete
+// session existed (I-15).
 func assertTables(spec *compute_pipes.JetrulesSpec, tables []*InputTable, isDebug bool) func(compute_pipes.JetRdfSession) error {
 	return func(rdfSession compute_pipes.JetRdfSession) error {
 		for _, t := range tables {

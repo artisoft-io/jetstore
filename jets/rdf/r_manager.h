@@ -189,7 +189,13 @@ class RManager {
   inline r_index 
   insert_item(Rptr lptr)
   {
-    if(is_locked_) throw rdf_exception("Accessing meta_graph to rdf index -- must use session graph instead");
+    if(is_locked_) {
+      // A locked manager still returns what it already holds, as the Go
+      // engine's ResourceManager does; only a new item is refused.
+      auto itor = lmap_.find(lptr);
+      if(itor != lmap_.end()) return itor->second;
+      throw rdf_exception("Accessing meta_graph to rdf index -- must use session graph instead");
+    }
     if(root_mgr_p_) {
       auto itor = root_mgr_p_->lmap_.find(lptr);
       if(itor != root_mgr_p_->lmap_.end()) {

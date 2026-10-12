@@ -80,6 +80,10 @@ int get_resource_name(HJR handle, HSTR*);
 char const* get_resource_name2(HJR handle, int*);
 int get_blank_node_key(HJR handle, int*);
 int get_int_literal(HJR handle, int*);
+// get_long_literal reads an int32 or int64 literal, and get_ulong_literal a
+// uint32 or uint64 one, without narrowing to an int.
+int get_long_literal(HJR handle, long*);
+int get_ulong_literal(HJR handle, ulong*);
 int get_double_literal(HJR handle, double*);
 int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);
