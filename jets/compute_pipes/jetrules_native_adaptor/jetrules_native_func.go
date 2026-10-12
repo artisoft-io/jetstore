@@ -130,8 +130,8 @@ func (engine *JetRuleEngineNative) Release() error {
 
 func (rm *JetResourceManagerNative) RdfNull() compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewNull()
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewNull()
 	} else {
 		node, _ = rm.js.NewNull()
 	}
@@ -142,8 +142,8 @@ func (rm *JetResourceManagerNative) RdfNull() compute_pipes.RdfNode {
 
 func (rm *JetResourceManagerNative) CreateBNode(key int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewBlankNode(key)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewBlankNode(key)
 	} else {
 		node, _ = rm.js.NewBlankNode(key)
 	}
@@ -154,8 +154,8 @@ func (rm *JetResourceManagerNative) CreateBNode(key int) compute_pipes.RdfNode {
 
 func (rm *JetResourceManagerNative) NewDateLiteral(date string) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewDateLiteral(date)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewDateLiteral(date)
 	} else {
 		node, _ = rm.js.NewDateLiteral(date)
 	}
@@ -166,8 +166,8 @@ func (rm *JetResourceManagerNative) NewDateLiteral(date string) compute_pipes.Rd
 
 func (rm *JetResourceManagerNative) NewDateDetails(year, month, day int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewDateDetails(year, month, day)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewDateDetails(year, month, day)
 	} else {
 		node, _ = rm.js.NewDateDetails(year, month, day)
 	}
@@ -178,8 +178,8 @@ func (rm *JetResourceManagerNative) NewDateDetails(year, month, day int) compute
 
 func (rm *JetResourceManagerNative) NewDatetimeLiteral(date string) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewDatetimeLiteral(date)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewDatetimeLiteral(date)
 	} else {
 		node, _ = rm.js.NewDatetimeLiteral(date)
 	}
@@ -190,8 +190,8 @@ func (rm *JetResourceManagerNative) NewDatetimeLiteral(date string) compute_pipe
 
 func (rm *JetResourceManagerNative) NewDatetimeDetails(year, month, day, hour, min, sec int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewDatetimeDetails(year, month, day, hour, min, sec)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewDatetimeDetails(year, month, day, hour, min, sec)
 	} else {
 		node, _ = rm.js.NewDatetimeDetails(year, month, day, hour, min, sec)
 	}
@@ -202,8 +202,8 @@ func (rm *JetResourceManagerNative) NewDatetimeDetails(year, month, day, hour, m
 
 func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewDoubleLiteral(x)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewDoubleLiteral(x)
 	} else {
 		node, _ = rm.js.NewDoubleLiteral(x)
 	}
@@ -214,8 +214,8 @@ func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.Rd
 
 func (rm *JetResourceManagerNative) NewIntLiteral(data int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewIntLiteral(data)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewIntLiteral(data)
 	} else {
 		node, _ = rm.js.NewIntLiteral(data)
 	}
@@ -226,8 +226,8 @@ func (rm *JetResourceManagerNative) NewIntLiteral(data int) compute_pipes.RdfNod
 
 func (rm *JetResourceManagerNative) NewUIntLiteral(data uint) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewUIntLiteral(data)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewUIntLiteral(data)
 	} else {
 		node, _ = rm.js.NewUIntLiteral(data)
 	}
@@ -238,8 +238,8 @@ func (rm *JetResourceManagerNative) NewUIntLiteral(data uint) compute_pipes.RdfN
 
 func (rm *JetResourceManagerNative) NewResource(name string) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewResource(name)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewResource(name)
 	} else {
 		node, _ = rm.js.NewResource(name)
 	}
@@ -250,8 +250,8 @@ func (rm *JetResourceManagerNative) NewResource(name string) compute_pipes.RdfNo
 
 func (rm *JetResourceManagerNative) NewTextLiteral(data string) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rs != nil {
-		node, _ = rm.rs.NewTextLiteral(data)
+	if rm.rdfs != nil {
+		node, _ = rm.rdfs.NewTextLiteral(data)
 	} else {
 		node, _ = rm.js.NewTextLiteral(data)
 	}
@@ -265,8 +265,8 @@ func (rm *JetResourceManagerNative) NewTextLiteral(data string) compute_pipes.Rd
 
 func (ses *JetRdfSessionNative) GetResourceManager() compute_pipes.JetResourceManager {
 	return &JetResourceManagerNative{
-		js: ses.re.js,
-		rs: ses.rs,
+		js:   ses.re.js,
+		rdfs: ses.rdfSession,
 	}
 }
 
@@ -678,6 +678,15 @@ func (n *RdfNodeNative) Value() any {
 	if n == nil || n.node == nil {
 		return nil
 	}
+	if n.node.GetType() == 1 {
+		// a blank node, as the Go adaptor gives it
+		key, err := n.node.GetBlankNodeKey()
+		if err != nil {
+			log.Printf("Error getting value from RdfNodeNative: %v", err)
+			return nil
+		}
+		return rdf.BlankNode{Key: key}
+	}
 	value, err := n.node.AsInterface("")
 	if err != nil {
 		log.Printf("Error getting value from RdfNodeNative: %v", err)
@@ -735,10 +744,15 @@ func (n *RdfNodeNative) String() string {
 	return v
 }
 
+// Equals compares the engine's handles: every read allocates a new
+// *bridge.Resource, so comparing those was false for the same node.
 func (n *RdfNodeNative) Equals(other compute_pipes.RdfNode) bool {
-	otherNodeNative, ok := other.Hdle().(*RdfNodeNative)
-	if !ok {
+	if other == nil {
 		return false
 	}
-	return n.node == otherNodeNative.node
+	otherNodeNative, ok := other.Hdle().(*RdfNodeNative)
+	if !ok || n == nil || otherNodeNative == nil {
+		return false
+	}
+	return n.node.SameAs(otherNodeNative.node)
 }

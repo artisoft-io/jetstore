@@ -19,19 +19,20 @@ import (
 // decoded once into engine-independent Terms after the rules ran. The match is
 // still the join over (s, p, o) the project definition describes (§4.2), with
 // the bindings so far; it is made over the snapshot rather than over FindSPO,
-// for three reasons measured on the code:
+// for three reasons measured on the code, two of them since fixed:
 //
 //   - FindSPO needs a node for every constant, so every check would make nodes
-//     in the session it is checking. On C++ that is safe only once a rete
-//     session exists — before one, the native manager falls back to the meta
-//     graph, which throws once an RDF session is open (rules_unit_test_harness
-//     I-15) — and the harness would depend on that order. Reading makes nothing.
+//     in the session it is checking. Reading makes nothing. (On C++ that was
+//     safe only once a rete session existed: before one, the native manager
+//     fell back to the meta graph, which aborted the process once an RDF
+//     session was open. Fixed 2026-10-11, rules_unit_test_harness I-15.)
 //   - Literals are interned by constructor (definition F28), so a node built
 //     for an expected value matches only if built the way the rules built it.
 //     Comparing decoded values does not depend on that.
-//   - RdfNode.Equals cannot be used: the Go adaptor's compares EQ's result to a
-//     fresh rdf.TRUE() by pointer and is always false, and the native one
-//     compares wrapper pointers that each call allocates anew.
+//   - RdfNode.Equals could not be used: the Go adaptor's compared EQ's result
+//     to a fresh rdf.TRUE() by pointer and was always false, and the native one
+//     compared wrapper pointers that each call allocates anew. Fixed 2026-10-11
+//     (I-11): Equals is node identity in both, which is the interning above.
 //
 // And one property the harness needs anyway: compare_engines diffs two runs,
 // which is a comparison of two snapshots.

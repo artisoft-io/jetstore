@@ -15,8 +15,8 @@ func newTestResourceManager() compute_pipes.JetResourceManager {
 	return &JetResourceManagerGo{rm: rdf.NewResourceManager(nil)}
 }
 
-// goNode compares interned literals by identity. RdfNodeGo.Equals is not used:
-// it compares EQ's result to a fresh rdf.TRUE() by pointer, so it is always false.
+// goNode compares interned literals by identity, which is what RdfNodeGo.Equals
+// does since rules_unit_test_harness I-11 (rdf_node_equals_test.go).
 func goNode(n compute_pipes.RdfNode) *rdf.Node {
 	return n.Hdle().(*RdfNodeGo).node
 }

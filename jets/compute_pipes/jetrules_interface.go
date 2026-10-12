@@ -129,6 +129,9 @@ type RdfNode interface {
 	IsNil() bool
 	Value() any
 	Type() string
+	// Equals reports whether both are the same RDF node, the identity that
+	// Contains and FindSPO use: the same resource, or a literal of the same
+	// type and value. No coercion, so int 1 and double 1 are not equal.
 	Equals(other RdfNode) bool
 	String() string
 }

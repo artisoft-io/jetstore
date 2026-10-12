@@ -241,9 +241,13 @@ A check takes one of three forms:
 
 ## For the code
 
-- **Order matters on the C++ engine** (`I-15`). The harness calls `engine.JetResources()`
-  before the first RDF session opens, and asserts input only through `RunRuleSets`'
-  `assertInput`. A meta-graph resource made after a session opens aborts the process.
+- **Order matters on both engines.** The harness calls `engine.JetResources()` before the
+  first RDF session opens, because the meta graph locks then and a new meta resource is
+  refused afterwards: a nil node on Go, an error on C++. Input is asserted through
+  `RunRuleSets`' `assertInput`, the pipeline's order. **Until 2026-10-11 (`I-15`) C++ was
+  stricter**: a meta resource made after a session opened aborted the process, and so did
+  asserting input before the first rete session, because the native session made its nodes
+  through the meta graph until one existed.
 - **The loop is the pipeline's**, `compute_pipes.RunRuleSets`, so a change to the looping
   protocol reaches both.
 - **The checks read a snapshot of the session.** `DecodeNode` normalises the adaptors' type

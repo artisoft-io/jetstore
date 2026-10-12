@@ -101,9 +101,9 @@ func goEngineChild(t *testing.T) {
 		t.Fatalf("building the engine: %v", err)
 	}
 	defer engine.Release()
-	// JetResources before the first session: on C++ making a meta resource
-	// after a session opens aborts the process (I-15). Go does not care; the
-	// harness keeps one order for both.
+	// JetResources before the first session: the meta graph locks when a
+	// session opens, and a new meta resource is refused after that on both
+	// engines (on C++ it aborted the process until I-15 was fixed).
 	jr := engine.JetResources()
 	ses, err := engine.NewRdfSession()
 	if err != nil {
