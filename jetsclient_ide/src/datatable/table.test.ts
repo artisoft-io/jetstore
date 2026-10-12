@@ -897,7 +897,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     ]);
     expect(doc.secondRowActions).toBeUndefined();
     expect(toolbar.map((row) => row.map((a) => a.key))).toEqual([
-      ["exportWorkspaceClientConfig", "loadWorkspaceConfig"],
+      ["exportWorkspaceClientConfig", "loadWorkspaceConfig", "refreshTable"],
       [
         "compileWorkspace",
         "rulesUnitTests",

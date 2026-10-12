@@ -245,6 +245,18 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     });
   }, [guard, workspace, workspaceApi]);
 
+  /**
+   * The toolbar's Refresh: the file tree, and the changes table remounted so it
+   * reads again, for what changed outside this screen -- a pull, a compile, a new
+   * unit test directory. Open tabs are left alone, as refreshTree leaves them.
+   * The toolbar re-reads its own row (WorkspaceToolbar's onRefresh).
+   */
+  const [changesGeneration, setChangesGeneration] = useState(0);
+  const refresh = useCallback(() => {
+    refreshTree();
+    setChangesGeneration((n) => n + 1);
+  }, [refreshTree]);
+
   const openFile = useCallback(
     (node: WorkspaceNode) => {
       const fileName = fileNameOf(node);
@@ -426,7 +438,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
         </ActionButton>
       </div>
 
-      {workspace !== "" && <WorkspaceToolbar api={api} workspace={workspace} />}
+      {workspace !== "" && <WorkspaceToolbar api={api} workspace={workspace} onRefresh={refresh} />}
 
       <div className="body">
         <aside className="sidebar">
@@ -497,7 +509,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               where a user has not picked one yet — keeps the placeholder.
             */
             workspace ? (
-              <WorkspaceChanges api={api} workspace={workspace} />
+              <WorkspaceChanges key={changesGeneration} api={api} workspace={workspace} />
             ) : (
               <div className="empty">
                 <p>Select a workspace to see its changes, or a file to start editing.</p>

@@ -88,7 +88,21 @@ export async function fetchRegistryRow(api: ApiClient, workspace: string): Promi
   return rows.find((r) => r[1] === workspace) ?? null;
 }
 
-export function WorkspaceToolbar({ api, workspace }: { api: ApiClient; workspace: string }) {
+/**
+ * `onRefresh` is the IDE's half of the toolbar's Refresh (the document's
+ * `refreshTable` action): the toolbar re-reads its own registry row and the IDE
+ * re-reads what it shows. 2026-10-12, Michel: files that arrived outside the IDE
+ * did not appear until the page was reloaded.
+ */
+export function WorkspaceToolbar({
+  api,
+  workspace,
+  onRefresh,
+}: {
+  api: ApiClient;
+  workspace: string;
+  onRefresh?: () => void;
+}) {
   const { setError } = useNotifications();
   const [row, setRow] = useState<JetsRow | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -98,6 +112,17 @@ export function WorkspaceToolbar({ api, workspace }: { api: ApiClient; workspace
   const registry = useRegistryActionHost({ api, tableContext, afterAction: reload });
   const { formState } = registry;
   const rows = useMemo(toolbarRows, []);
+  /** The bar's widget: Refresh is the only widget action the toolbar configures. */
+  const widget = useMemo(
+    () => ({
+      refresh() {
+        reload();
+        onRefresh?.();
+      },
+      toggleCheckboxVisible() {},
+    }),
+    [reload, onRefresh],
+  );
 
   useEffect(() => {
     if (workspace === "") return;
@@ -153,6 +178,7 @@ export function WorkspaceToolbar({ api, workspace }: { api: ApiClient; workspace
           key={index}
           actions={actions}
           context={context}
+          widget={widget}
           {...(row !== null ? { selectedRow: row } : {})}
           onAction={registry.onAction}
         />
