@@ -11,6 +11,13 @@ extern "C"
 typedef void* HJETS;
 
 int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_path, HJETS * handle );
+// As create_jetstore_hdl, with the LEGACY retraction mode the rete networks are built in
+// (jets::rete::RetractionMode, rete/rete_meta_store.h). A non-zero
+// replay_graph_reading_consequents turns defect 1 off, a non-zero erase_withdrawn_rows
+// turns defect 2 off. For the rules unit test harness only: create_jetstore_hdl, which
+// pipelines call, is this with both zero, legacy.
+int create_jetstore_hdl_with_mode( char const * rete_db_path, char const * lookup_data_db_path,
+  int replay_graph_reading_consequents, int erase_withdrawn_rows, HJETS * handle );
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;
@@ -71,7 +78,12 @@ typedef void const* HSTR;
 int get_resource_type(HJR handle);
 int get_resource_name(HJR handle, HSTR*);
 char const* get_resource_name2(HJR handle, int*);
+int get_blank_node_key(HJR handle, int*);
 int get_int_literal(HJR handle, int*);
+// get_long_literal reads an int32 or int64 literal, and get_ulong_literal a
+// uint32 or uint64 one, without narrowing to an int.
+int get_long_literal(HJR handle, long*);
+int get_ulong_literal(HJR handle, ulong*);
 int get_double_literal(HJR handle, double*);
 int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);

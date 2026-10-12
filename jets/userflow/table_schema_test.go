@@ -125,7 +125,10 @@ func TestShippingTablesValidate(t *testing.T) {
 	// option tables of the add-or-edit steps it removed (ufClientOrVendorOption,
 	// scAddOrEditSourceConfigOption, pcAddOrEditPipelineConfigOption; tasks AF.2 to
 	// AF.4), and install deletes their unedited copies (RetiredAssets).
-	if len(files) != 61 {
+	//
+	// **61 -> 64 on 2026-10-11**: rules_unit_test_harness's three tables
+	// (rutExecutionTable, rutTestCaseTable, rutCheckTable; task AD.4).
+	if len(files) != 64 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

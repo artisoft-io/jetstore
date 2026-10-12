@@ -5,7 +5,7 @@
 # **The default is the stock builder, and that default is exit criterion 98.** A
 # build that passes no --build-arg resolves to `cpipes_builder:latest`, which is
 # the literal this line carried before the ARG existed, so a deployment with no
-# site operators builds from the same stage, with the same inputs, and the six
+# site operators builds from the same stage, with the same inputs, and the
 # COPY --from=builder lines below are unchanged.
 #
 # **This is Dockerfile.cpipes's mechanism, applied here because the two images
@@ -27,7 +27,7 @@
 # A site that ships its own compute_pipes operators passes
 # CPIPES_BUILDER_IMAGE=cpipes_builder_ws:latest, whose bootstrap is built from
 # the site's own cp_node_native main package over the stock binary's path.
-# Everything else copied below -- libjets.so and the four system libraries -- is
+# Everything else copied below -- libjets.so and the three system libraries -- is
 # the parent image's, byte for byte, because nothing in that Dockerfile rebuilds
 # them.
 #
@@ -92,9 +92,13 @@ COPY --from=builder $JETS_SOURCE_DIR/bootstrap ${LAMBDA_RUNTIME_DIR}
 
 # COPY native rule engine library
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+# libsqlite3 is not copied: libjets.so needs libsqlite3.so.0, and nothing here
+# ever linked that soname to a copy, so the loader always took the base image's
+# /lib64/libsqlite3.so.0 and the builder's libsqlite3.so.0.8.6 sat unused --
+# measured on 2026-10-11 (rules_unit_test_harness I-35). The base's is what has
+# been running, and the ldd check below fails the build if it ever goes missing.
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
-COPY --from=builder /lib64/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /lib64/libgflags.so.2.2 /usr/local/lib/
 COPY --from=builder /usr/local/lib64/libglog.so.0.6.0 /usr/local/lib/
 
@@ -103,20 +107,24 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 # Create a simple library cache manually
 RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 
-# Make sure bootstrap is executable
-RUN chmod +x ${LAMBDA_RUNTIME_DIR}/bootstrap
-
+# **No chmod on bootstrap.** go build in Dockerfile.cpipes_builder writes it
+# 0755 and COPY keeps the mode, and a chmod in a later layer stores the whole
+# file again -- measured on 2026-10-11, the RUN that chmod'ed it added 55 MB, the
+# binary's own size, and changed no mode. Dockerfile.ui_service carries the same
+# note (rules_unit_test_harness I-31, I-34).
+#
+# **No chmod on the libraries either.** All four are already 0755 where they
+# are copied from in the builder (`ls -lL` there, 2026-10-11), COPY keeps the mode, and the dynamic loader needs no execute bit on a shared
+# object in any case -- it maps it, it does not exec it. The four chmods that stood
+# here rewrote 1.8 MB for nothing; the symlink, the listing and the ldd stay.
 RUN \
     cd /usr/local/lib/ \
-    && chmod +x libglog.so.0.6.0 \
-    && chmod +x libboost_date_time.so.1.75.0 \
-    && chmod +x libsqlite3.so.0.8.6 \
-    && chmod +x libgflags.so.2.2 \
     && ln -s libglog.so.0.6.0 libglog.so.1  \
     && echo "/usr/local/lib/ DIRECTORY Contains" \
     && ls -la /usr/local/lib/ \
     && echo "ldd libjets.so" \
     && ldd libjets.so \
+    && ! ldd libjets.so | grep -q 'not found' \
     && echo "LAMBDA_RUNTIME_DIR DIRECTORY Contains" \
     && ls -la ${LAMBDA_RUNTIME_DIR} \
     && cd / 

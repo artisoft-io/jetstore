@@ -156,3 +156,20 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 }
+
+// A bool cell read from text (I-45): the accepted spellings become 1 or 0,
+// empty is null (nil), and anything else is an error the caller turns into its
+// own policy -- map_record's on_error, or a failed read of a typed file.
+func TestCastBoolFromText(t *testing.T) {
+	for value, want := range map[string]any{"Y": 1, " true ": 1, "1": 1, "no": 0, "F": 0, "0": 0, "": nil, "  ": nil} {
+		got, err := castToRdfTypeFromTxt(value, "bool", new(false))
+		if err != nil || got != want {
+			t.Errorf("cast %q to bool: got %v, %v; want %v", value, got, err, want)
+		}
+	}
+	for _, value := range []string{"maybe", "tomato", "2"} {
+		if got, err := castToRdfTypeFromTxt(value, "bool", new(false)); err == nil {
+			t.Errorf("cast %q to bool: got %v, want an error", value, got)
+		}
+	}
+}

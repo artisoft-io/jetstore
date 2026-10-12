@@ -50,6 +50,13 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
     echo "----------------*********************-------------" >> /VERSION.txt
 
 # Copy the binaries to usr/local/bin for ecs tasks
+#
+# **No chmod after these**, for the reason given at the harness below: go build in
+# Dockerfile.cpipes_builder writes all four 0755 and COPY keeps the mode. A
+# `RUN chmod +x` of the four used to follow, and a chmod in a later layer stores
+# every file it touches again -- measured on 2026-10-11, that layer was 140 MB of
+# a 726 MB image, the four binaries' sizes summed, and changed no mode (all four
+# were 755 before it and after it).
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
@@ -58,12 +65,43 @@ COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
 # JETS_WORKSPACE_VALIDATOR is unset. Built in Dockerfile.cpipes_builder.
 COPY --from=builder $JETS_SOURCE_DIR/jets_validate_workspace.mjs /usr/local/bin/
 
-# Make sure it is executable
+# The rules unit test harness, and the C++ rule engine it links --
+# rules_unit_test_harness AC.6.
+#
+# The apiserver runs one harness process per test, from a pool, and looks for it
+# beside itself when JETS_RULES_UNIT_TEST_HARNESS is unset
+# (jets/datatable/rules_unit_test_pool.go). A test runs on the C++ engine by
+# default, the one the workspaces run in production, so the image carries
+# libjets.so and the three libraries of the builder's own that it needs, copied
+# as Dockerfile.cpipes copies them. The rest -- libstdc++, libsqlite3, libz,
+# libgcc_s -- this image already has in /lib64; the ldd below is what says so,
+# and fails the build when any library is missing, since ldd itself exits 0.
+#
+# LD_LIBRARY_PATH is set for the whole image rather than only for the child: the
+# pool passes the apiserver's environment on (less its secrets), and
+# /usr/local/lib holds nothing but these four, so the apiserver, git and node
+# resolve nothing differently. Running the harness with no arguments loads every
+# library and exits 2 on the usage error, which proves the dynamic link and not
+# only the file list.
+#
+# **No chmod on the harness**: go build writes it 0755 and COPY keeps the mode,
+# and a chmod in a later layer stores the whole file again -- measured on
+# 2026-10-11, a RUN that only chmod'ed it added 49.3 MB, the binary's own size.
+COPY --from=builder $JETS_SOURCE_DIR/rules_unit_test /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+#* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
+COPY --from=builder /lib64/libgflags.so.2.2 /usr/local/lib/
+COPY --from=builder /usr/local/lib64/libglog.so.0.6.0 /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib
 RUN \
-chmod +x /usr/local/bin/apiserver \
-&& chmod +x /usr/local/bin/cbooter \
-&& chmod +x /usr/local/bin/update_db \
-&& chmod +x /usr/local/bin/run_reports
+    cd /usr/local/lib \
+    && ln -s libglog.so.0.6.0 libglog.so.1 \
+    && echo "ldd rules_unit_test" \
+    && ldd /usr/local/bin/rules_unit_test \
+    && ! ldd /usr/local/bin/rules_unit_test | grep -q 'not found' \
+    && (rules_unit_test > /dev/null 2>&1; test $? -eq 2) \
+    && cd /
 
 # cbooter drops to jsuser (uid/gid 999) before exec'ing the apiserver, and switching uid
 # does not change HOME. Left at the /root the container runtime supplies for uid 0, git

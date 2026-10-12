@@ -1,4 +1,4 @@
-package rete
+package rete_test
 
 // join_values THROUGH COMPILE -> METASTORE -> EXECUTION.
 //
@@ -12,9 +12,10 @@ package rete
 //
 // WHAT THIS TEST DOES, in order, with nothing stubbed between the steps:
 //
-//  1. copies jets/jetrules/test_ws to a scratch directory and runs compile_workspace
-//     over it, which is the real compiler writing the real workspace.db and the
-//     build/*.model.json, *.rete.json and *.triples.json the engine loads;
+//  1. copies jets/jetrules/test_ws to a scratch directory and compiles it with
+//     workspace.CompileWorkspace, which is the real compiler writing the real
+//     workspace.db and the build/*.model.json, *.rete.json and *.triples.json the
+//     engine loads;
 //  2. builds a ReteMetaStore from those artefacts through NewReteMetaStoreFactory;
 //  3. asserts a medication with three fills and runs the rules;
 //  4. reads the joined strings back out of the session.
@@ -32,90 +33,46 @@ package rete
 // compiler mangles, fails here for both. What is NOT covered is C++ evaluation of the
 // operator, which is JoinValues* in jets/rete/expr_op_specialty_test.cc.
 //
+// WHY A CHILD PROCESS AND package rete_test. The test compiled test_ws by running the
+// compile_workspace command until 2026-10-11, and that command has run the workspace
+// asset validator since CompileWorkspace gained validateWorkspaceAssets: without
+// JETS_WORKSPACE_VALIDATOR, which no workstation sets, the compile panicked and the
+// test failed for a reason that had nothing to do with join_values. It now compiles
+// in-process with the asset validation skipped -- test_ws has no user flows to
+// validate -- exactly as retraction_mode_factory_test.go does, and through the same
+// helper: package workspace imports package rete, so only an external test package can
+// import it, and both packages fix their workspace paths from the environment at
+// init, so the test re-runs itself in a child whose WORKSPACES_HOME is the scratch
+// copy. (Project rules_unit_test_harness, issue I-26.)
+//
 // -count=1: this test writes and reads files outside the Go module's cache key. A
 // cached ok here survives a change to the rule file and is indistinguishable from a
 // pass.
 
 import (
-	"encoding/json"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
 const joinValuesMainRuleFile = "jet_rules/test_join_values_main.jr"
 
-// compileTestWorkspace copies test_ws somewhere scratch and compiles it, returning the
-// scratch WORKSPACES_HOME.
-func compileTestWorkspace(t *testing.T) string {
-	t.Helper()
-	wd, err := os.Getwd() // jets/jetrules/rete
-	if err != nil {
-		t.Fatal(err)
-	}
-	root := filepath.Clean(filepath.Join(wd, "..", "..", ".."))
-
-	home := t.TempDir()
-	wsDir := filepath.Join(home, "test_ws")
-	if out, err := exec.Command("cp", "-r", filepath.Join(root, "jets", "jetrules", "test_ws"), wsDir).CombinedOutput(); err != nil {
-		t.Fatalf("copying test_ws: %v\n%s", err, out)
-	}
-
-	// compileWorkspaceV2 builds every path from workspace_control.json's
-	// workspace_name, NOT from the -w flag, and the checked-in file has no such key --
-	// so without this the compiler looks for the rules directly under WORKSPACES_HOME
-	// and reports a missing rule file. The patch is made in the copy so the committed
-	// workspace_control.json keeps whatever its other consumers expect of it.
-	ctlPath := filepath.Join(wsDir, "workspace_control.json")
-	raw, err := os.ReadFile(ctlPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var ctl map[string]any
-	if err := json.Unmarshal(raw, &ctl); err != nil {
-		t.Fatal(err)
-	}
-	ctl["workspace_name"] = "test_ws"
-	raw, err = json.MarshalIndent(ctl, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(ctlPath, raw, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cmd := exec.Command("go", "run", "./jets/cmds/compile_workspace", "-w", "test_ws", "-v", "join_values_test")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(),
-		"WORKSPACES_HOME="+home,
-		"WORKSPACE=test_ws",
-		"JETS_WORKSPACE_DB_SCHEMA_SCRIPT="+filepath.Join(root, "jets", "workspace_schema.sql"),
-	)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("compile_workspace failed: %v\n%s", err, out)
-	}
-	return home
-}
-
 // TestJoinValuesCompilesAndRuns is the whole point of the file.
 func TestJoinValuesCompilesAndRuns(t *testing.T) {
-	home := compileTestWorkspace(t)
+	if os.Getenv(compiledTestWsChildEnv) == "" {
+		rerunOverCompiledTestWs(t)
+		return
+	}
+	if out, err := workspace.CompileWorkspace(nil, "test_ws", "join_values_test",
+		workspace.SkipAssetValidation("join_values rule test: test_ws has no user flows")); err != nil {
+		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
+	}
 
-	// workspaceHome and wprefix are package-level and are read by
-	// NewReteMetaStoreFactory. They are set from the environment in this package's
-	// init, so a test cannot set them through os.Setenv -- which is why this test is
-	// in package rete rather than beside operator_registration_test.go in rete_test.
-	// Restored so the tests that set them for their own workspace are unaffected by
-	// the order they happen to run in.
-	savedHome, savedPrefix := workspaceHome, wprefix
-	t.Cleanup(func() { workspaceHome, wprefix = savedHome, savedPrefix })
-	workspaceHome, wprefix = home, "test_ws"
-
-	f, err := NewReteMetaStoreFactory(joinValuesMainRuleFile)
+	f, err := rete.NewReteMetaStoreFactory(joinValuesMainRuleFile)
 	if err != nil {
 		t.Fatalf("loading the compiled workspace: %v", err)
 	}
@@ -161,7 +118,7 @@ func TestJoinValuesCompilesAndRuns(t *testing.T) {
 	ins("med1", "jv:ndc_seen", rm.NewTextLiteral("00185015201"))
 	ins("med1", "jv:ndc_seen", rm.NewTextLiteral("00093005801"))
 
-	rs := NewReteSession(s)
+	rs := rete.NewReteSession(s)
 	rs.Initialize(ms)
 	t.Cleanup(rs.Done)
 	if err := rs.ExecuteRules(); err != nil {

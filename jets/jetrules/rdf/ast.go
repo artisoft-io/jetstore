@@ -1,6 +1,7 @@
 package rdf
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -160,7 +161,9 @@ func (v *Node) Bool() bool {
 	case float64:
 		return !NearlyEqual(vv, 0)
 	case string:
-		return vv != ""
+		// Text is true only when it reads as true; see Truth and ParseBool.
+		b, _ := ParseBool(vv)
+		return b
 	default:
 		return false
 	}
@@ -410,13 +413,51 @@ func (lhs LDatetime) Add(days int) LDatetime {
 	return LDatetime{Datetime: &t}
 }
 
-func ParseBool(value string) int {
-	switch strings.ToLower(value) {
-	case "true", "t", "1":
-		return 1
+// ErrNullBool is ParseBool's answer for an empty value. Empty is null, not
+// false and not an error: a caller that has a null (rdf.Null, a SQL NULL, an
+// absent cell) maps errors.Is(err, ErrNullBool) to it, as Go code maps
+// sql.ErrNoRows to "no row".
+var ErrNullBool = errors.New("empty value, null")
+
+// ParseBool reads text as a bool. It trims and ignores case, and accepts
+// exactly true, t, yes, y, 1 and false, f, no, n, 0. An empty value returns
+// ErrNullBool; anything else is an error naming the value. It decides nothing
+// about what an error means: each caller does, which is the specification of
+// rules_unit_test_harness I-45 (2026-10-11). Until then this returned 0 for
+// anything it did not recognise, and the C++ engine read the same text the
+// other way round, true for anything but a few spellings of false.
+//
+// The C++ counterpart is rdf::parse_bool (jets/rdf/rdf_ast.h); the two accept
+// the same sets.
+func ParseBool(value string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "t", "yes", "y", "1":
+		return true, nil
+	case "false", "f", "no", "n", "0":
+		return false, nil
+	case "":
+		return false, ErrNullBool
 	default:
-		return 0
+		return false, fmt.Errorf("%q is not a bool: expecting true, t, yes, y, 1 or false, f, no, n, 0", value)
 	}
+}
+
+// Truth is the node's truth value when a rule tests it: a filter, and, or, not.
+// Text is read with ParseBool, so it can fail; every other kind cannot. Empty
+// text is null, and false with no error. Bool is Truth with the error dropped,
+// for callers that cannot report one; the rete session's truthOf reports it.
+func (v *Node) Truth() (bool, error) {
+	if v == nil {
+		return false, nil
+	}
+	if s, ok := v.Value.(string); ok {
+		b, err := ParseBool(s)
+		if errors.Is(err, ErrNullBool) {
+			return false, nil
+		}
+		return b, err
+	}
+	return v.Bool(), nil
 }
 
 func NearlyEqual(a, b float64) bool {

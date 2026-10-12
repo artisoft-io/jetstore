@@ -2,6 +2,7 @@ package rete
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -43,6 +44,9 @@ type ReteMetaStoreFactory struct {
 	MetaGraph         *rdf.RdfGraph
 	MetaStoreLookup   map[string]*ReteMetaStore
 	ReteModelLookup   map[string]*JetruleModel
+	// RetractionMode every meta store of the factory is built in, set by
+	// WithRetractionMode; legacy when absent.
+	RetractionMode RetractionMode
 }
 
 // Context for building the components of the ReteMetaStore.
@@ -62,6 +66,7 @@ type ReteBuilderContext struct {
 	LookupTables    *LookupTableManager
 	AlphaNodes      []*AlphaNode
 	NodeVertices    []*NodeVertex
+	RetractionMode  RetractionMode
 }
 
 type VarInfo struct {
@@ -76,7 +81,10 @@ type VarInfo struct {
 // Argument jetRuleName is either a main rule file (ending with .jr) or a RuleSequence name.
 // The WorkspaceControl component provides the mapping from jetRuleName to a list of
 // main rule files.
-func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) {
+// The options are applied before any rule file is loaded. WithRetractionMode is the one
+// option: it fixes the LEGACY retraction mode of every meta store, and only the rules
+// unit test harness passes it. Without it every meta store is legacy, as pipelines run.
+func NewReteMetaStoreFactory(jetRuleName string, opts ...FactoryOption) (*ReteMetaStoreFactory, error) {
 	// Load the workspace control file
 	wcPath := fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
 	workspaceControl, err := LoadWorkspaceControl(wcPath)
@@ -92,6 +100,9 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		MetaGraph:         rdf.NewMetaRdfGraph(resourceManager),
 		MetaStoreLookup:   make(map[string]*ReteMetaStore),
 		ReteModelLookup:   make(map[string]*JetruleModel),
+	}
+	for _, opt := range opts {
+		opt(factory)
 	}
 	if len(factory.MainRuleFileNames) == 0 {
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
@@ -165,6 +176,7 @@ func (factory *ReteMetaStoreFactory) initialize() error {
 			JetStoreConfig:  &jrModel.JetstoreConfig,
 			AlphaNodes:      make([]*AlphaNode, 0),
 			NodeVertices:    make([]*NodeVertex, 0),
+			RetractionMode:  factory.RetractionMode,
 		}
 		metaStore, err := builderContext.BuildReteMetaStore()
 		if err != nil {
@@ -305,7 +317,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		case ipos > 0 && ipos < nbrVertices && alphaNode.IsAntecedent:
 			// pass
 		case ipos >= nbrVertices && alphaNode.IsConsequent:
-			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
+			alphaNode.NdVertex.AddConsequentTerm(alphaNode, ctx.RetractionMode)
 		default:
 			// something is wrong
 			err = fmt.Errorf("BuildReteMetaStore: AlphaNode at position %d, with vertex %d fails validation",
@@ -331,8 +343,13 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	}
 
 	// Create & initialize the ReteMetaStore
-	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables,
+	ms, err := NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables,
 		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig, dataPropertyMap, domainTableMap)
+	if err != nil {
+		return nil, err
+	}
+	ms.RetractionMode = ctx.RetractionMode
+	return ms, nil
 }
 
 func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {
@@ -400,7 +417,20 @@ func (ctx *ReteBuilderContext) loadResources() error {
 			}
 			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewDoubleLiteral(v)
 		case "bool":
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(rdf.ParseBool(resourceNode.Value))
+			// A rule-file bool literal: empty is null, anything outside the
+			// accepted spellings refuses to load (I-45). The compiler refuses it
+			// first, with the file and line; this is the backstop.
+			b, err := rdf.ParseBool(resourceNode.Value)
+			switch {
+			case errors.Is(err, rdf.ErrNullBool):
+				ctx.ResourcesLookup[resourceNode.Key] = rdf.Null()
+			case err != nil:
+				return fmt.Errorf("error: bool literal %d: %v", resourceNode.Key, err)
+			case b:
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(1)
+			default:
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(0)
+			}
 		case "datetime":
 			v, err := rdf.NewLDatetime(resourceNode.Value)
 			if err != nil {

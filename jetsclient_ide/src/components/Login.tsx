@@ -47,10 +47,22 @@ export function Login({ onSubmit, version, registerHref }: Props) {
         <h1>JetStore</h1>
         <p className="login-sub">Sign in with your JetStore account.</p>
 
-        <label htmlFor="email">Email</label>
+        {/*
+          **A login, not an email, and checked by the server rather than here.**
+          The apiserver's built-in administrator signs in as `admin` by default
+          (`-adminEmail`, jets/apiserver/main.go), which `type="email"` refused
+          before the request was ever sent. Whether a login and password are
+          valid is the database's to say (`Server.Login`); only registration
+          requires an email address (`Register.tsx`, and `User.Validate` on the
+          server). rules_unit_test_harness I-32, 2026-10-11.
+        */}
+        <label htmlFor="email">Email or login</label>
         <input
           id="email"
-          type="email"
+          type="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

@@ -1,0 +1,84 @@
+# Main Rule File for the characterisation test of JrPoolWorker.executeRules
+# (jets/compute_pipes/jetrules_execute_rules_test.go).
+#
+# One input entity of class xr:Case is asserted per bundle, and its xr:mode
+# selects one behaviour of the rule loop:
+#
+#   ok         completes on loop 1
+#   endless    never completes, so the loop reaches this file's $max_looping
+#   exception  asserts a jets:exception on loop 0, then completes on loop 1
+#   runaway    infers without end on loop 0, so ExecuteRules returns the
+#              max vertex visit error
+#   late_runaway  the same, on loop 2, the last one $max_looping allows
+#
+# Looping starts at 1; loop 0 is the pre-loop pass.
+import "data_model/jets_model.jr"
+import "data_model/test_execute_rules_model.jr"
+
+main {
+  $max_looping = 2
+};
+
+[XR_Ok]:
+  (?c rdf:type xr:Case).
+  (?c xr:mode "ok")
+  ->
+  (?c xr:result "done")
+;
+
+[XR_CompleteOk]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 1).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "ok")
+  ->
+  (?state jets:completed true)
+;
+
+[XR_Exception]:
+  (?state rdf:type jets:State).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "exception")
+  ->
+  (?state jets:exception "xr exception raised").
+  (?c xr:result "raised")
+;
+
+[XR_CompleteException]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 1).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "exception")
+  ->
+  (?state jets:completed true)
+;
+
+[XR_Endless]:
+  (?c rdf:type xr:Case).
+  (?c xr:mode "endless")
+  ->
+  (?c xr:result "looping")
+;
+
+[XR_RunawayStart]:
+  (?c rdf:type xr:Case).
+  (?c xr:mode "runaway")
+  ->
+  (?c xr:count 0).
+  (?c xr:result "runaway")
+;
+
+[XR_LateRunawayStart]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 2).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "late_runaway")
+  ->
+  (?c xr:count 0)
+;
+
+[XR_Runaway]:
+  (?c xr:count ?n)
+  ->
+  (?c xr:count (?n + 1))
+;

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "title": "Rules Unit Tests",
+  "startAtKey": "rules_unit_test_runs",
+  "states": {
+    "rules_unit_test_runs": {
+      "description": "Rules unit test runs of this workspace, newest first",
+      "formConfig": "rutRunsUF",
+      "goToStates": [
+        "select_tests",
+        "run_detail"
+      ],
+      "isEnd": true
+    },
+    "select_tests": {
+      "description": "Select the rules unit tests to start",
+      "formConfig": "rutSelectTestsUF",
+      "stateAction": "rutStartTestsUF",
+      "defaultNextState": "rules_unit_test_runs"
+    },
+    "run_detail": {
+      "description": "The checks of the selected run",
+      "formConfig": "rutRunDetailUF",
+      "defaultNextState": "rules_unit_test_runs"
+    }
+  }
+}

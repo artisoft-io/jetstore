@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "label": "Rules Unit Test Runs",
+  "columns": [
+    { "name": "key", "table": "rules_unit_test_execution", "label": "Run", "tooltip": "Run number; the table is sorted on it, newest first", "isNumeric": true },
+    { "name": "test_name", "table": "rules_unit_test_execution", "label": "Test", "tooltip": "Test name, from its .tst.json" },
+    { "name": "status", "table": "rules_unit_test_execution", "label": "Status", "tooltip": "queued, executing, pass, fail or error; refresh to see a later status" },
+    { "name": "reason", "table": "rules_unit_test_execution", "label": "Reason", "tooltip": "Why the run failed or ended in error" },
+    { "name": "engine", "table": "rules_unit_test_execution", "label": "Engine", "tooltip": "The rule engine the test ran on" },
+    { "name": "legacy_mode", "table": "rules_unit_test_execution", "label": "Legacy Mode", "tooltip": "The LEGACY switches the test definition declares" },
+    { "name": "duration_ms", "table": "rules_unit_test_execution", "label": "Duration (ms)", "tooltip": "Time to run the test, rule engine load included", "isNumeric": true },
+    { "name": "load_ms", "table": "rules_unit_test_execution", "label": "Load (ms)", "tooltip": "Time to build the rule engine", "isNumeric": true },
+    { "name": "sessions", "table": "rules_unit_test_execution", "label": "Sessions", "tooltip": "Input sessions run", "isNumeric": true },
+    { "name": "loops", "table": "rules_unit_test_execution", "label": "Loops", "tooltip": "Rule set loops executed", "isNumeric": true },
+    { "name": "test_path", "table": "rules_unit_test_execution", "label": "Test File", "tooltip": "Path of the .tst.json in the workspace" },
+    { "name": "user_email", "table": "rules_unit_test_execution", "label": "User", "tooltip": "Who started the run" },
+    { "name": "last_update", "table": "rules_unit_test_execution", "label": "Last Update", "tooltip": "When the run last changed status" },
+    { "name": "log", "table": "rules_unit_test_execution", "label": "Log", "isHidden": true }
+  ],
+  "sortColumn": "key",
+  "sortColumnTable": "rules_unit_test_execution",
+  "sortAscending": false,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      { "stateKey": "test_name", "columnIdx": 1 },
+      { "stateKey": "log", "columnIdx": 13 }
+    ]
+  },
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    { "schema": "jetsapi", "table": "rules_unit_test_execution" }
+  ],
+  "where": [
+    { "column": "workspace_name", "formStateKey": "workspace_name" }
+  ],
+  "actions": [
+    {
+      "key": "rutAddTests",
+      "label": "+ Add",
+      "action": "doAction",
+      "style": "add",
+      "actionName": "rutGoToSelectTests",
+      "capability": "workspace_ide"
+    },
+    {
+      "key": "rutViewResult",
+      "label": "View Result",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "rutViewResultUF",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    },
+    {
+      "key": "rutViewLog",
+      "label": "View Log",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "rutViewLogDialog",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "log": 13
+      }
+    },
+    {
+      "key": "refreshTable",
+      "label": "Refresh",
+      "action": "refreshTable",
+      "style": "secondary"
+    }
+  ]
+}

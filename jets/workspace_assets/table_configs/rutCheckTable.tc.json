@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "label": "Checks of the Selected Run",
+  "columns": [
+    { "name": "key", "table": "rules_unit_test_check", "label": "#", "tooltip": "Check number, in the order the test states its checks", "isNumeric": true },
+    { "name": "session_name", "table": "rules_unit_test_check", "label": "Session", "tooltip": "The input session the check applies to" },
+    { "name": "kind", "table": "rules_unit_test_check", "label": "Kind", "tooltip": "expected, excluded or count" },
+    { "name": "check", "table": "rules_unit_test_check", "label": "Check", "tooltip": "The pattern or count the test states" },
+    { "name": "outcome", "table": "rules_unit_test_check", "label": "Outcome", "tooltip": "pass or fail" },
+    { "name": "found", "table": "rules_unit_test_check", "label": "Found", "tooltip": "What the rules produced, when the check failed" }
+  ],
+  "sortColumn": "key",
+  "sortColumnTable": "rules_unit_test_check",
+  "sortAscending": true,
+  "rowsPerPage": 50,
+  "source": "query",
+  "apiAction": "workspace_read",
+  "from": [
+    { "schema": "jetsapi", "table": "rules_unit_test_check" }
+  ],
+  "where": [
+    { "column": "execution_key", "formStateKey": "rutExecutionTable" }
+  ]
+}

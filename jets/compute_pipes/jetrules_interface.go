@@ -1,11 +1,13 @@
 package compute_pipes
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,8 +21,46 @@ type JetRulesProxy interface {
 
 type JetRulesFactory interface {
 	JetRulesName() string
-	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool) (JetRuleEngine, error)
+	// NewJetRuleEngine builds the rule networks of processName. opts are applied before
+	// the rules load; a pipeline passes none and gets the legacy engine.
+	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool, opts ...EngineOption) (JetRuleEngine, error)
 	ClearCache() bool
+}
+
+// RetractionMode is the LEGACY retraction mode a rule engine is built in: whether a
+// graph-reading consequent is replayed rather than recomputed on retraction (defect 1
+// off) and whether a withdrawn row is erased (defect 2 off). The zero value is legacy
+// for both, which is what every pipeline runs. See jets/jetrules/rete/README.md,
+// 2026-10-09 and 2026-10-11; the C++ engine's twin is jets::rete::RetractionMode.
+type RetractionMode = rete.RetractionMode
+
+// EngineOptions are what NewJetRuleEngine's options set.
+type EngineOptions struct {
+	RetractionMode RetractionMode
+}
+
+// EngineOption configures one NewJetRuleEngine call.
+type EngineOption func(*EngineOptions)
+
+// WithRetractionMode builds the engine in mode, in both adaptors. Only the rules unit
+// test harness passes it, from a test definition's legacy object: there is
+// deliberately no JetrulesSpec field and no rule_config key that reaches it, so a
+// pipeline cannot turn a LEGACY defect off.
+func WithRetractionMode(mode RetractionMode) EngineOption {
+	return func(o *EngineOptions) {
+		o.RetractionMode = mode
+	}
+}
+
+// ApplyEngineOptions folds opts into EngineOptions, for the adaptors.
+func ApplyEngineOptions(opts ...EngineOption) EngineOptions {
+	var o EngineOptions
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&o)
+		}
+	}
+	return o
 }
 
 type JetRuleEngine interface {
@@ -89,6 +129,9 @@ type RdfNode interface {
 	IsNil() bool
 	Value() any
 	Type() string
+	// Equals reports whether both are the same RDF node, the identity that
+	// Contains and FindSPO use: the same resource, or a literal of the same
+	// type and value. No coercion, so int 1 and double 1 are not equal.
 	Equals(other RdfNode) bool
 	String() string
 }
@@ -142,19 +185,19 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 		}
 		node = re.NewIntLiteral(v)
 	case "bool":
-		v := 0
-		if len(value) > 0 {
-			c := strings.ToLower(value[0:1])
-			switch c {
-			case "t", "1", "y":
-				v = 1
-			case "f", "0", "n":
-				v = 0
-			default:
-				return nil, fmt.Errorf("while rule config triple; value is not bool: %s", value)
-			}
+		// The accepted spellings and nothing else; empty is null (I-45). This
+		// read the first letter until 2026-10-11, so "tomato" was true.
+		b, err := rdf.ParseBool(value)
+		switch {
+		case errors.Is(err, rdf.ErrNullBool):
+			node = re.RdfNull()
+		case err != nil:
+			return nil, fmt.Errorf("while rule config triple; %v", err)
+		case b:
+			node = re.NewIntLiteral(1)
+		default:
+			node = re.NewIntLiteral(0)
 		}
-		node = re.NewIntLiteral(v)
 	case "long":
 		var v int
 		_, err = fmt.Sscan(value, &v)
@@ -162,6 +205,15 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 			return nil, fmt.Errorf("while asserting rule config: %v", err)
 		}
 		node = re.NewIntLiteral(v)
+	case "uint", "ulong":
+		// The rule language has both unsigned types (JetRule.g4) and the engines one
+		// unsigned literal, as castToRdfTypeFromTxt maps both to uint.
+		var v uint
+		_, err = fmt.Sscan(value, &v)
+		if err != nil {
+			return nil, fmt.Errorf("while asserting rule config: value is not %s: %q: %v", rdfType, value, err)
+		}
+		node = re.NewUIntLiteral(v)
 	case "double":
 		var v float64
 		_, err = fmt.Sscan(value, &v)
@@ -202,6 +254,7 @@ type JetResources struct {
 	Jets__range_value             RdfNode
 	Jets__replace_chars           RdfNode
 	Jets__replace_with            RdfNode
+	Jets__row_id                  RdfNode
 	Jets__source_period_sequence  RdfNode
 	Jets__sourcePeriodType        RdfNode
 	Jets__state                   RdfNode
@@ -240,6 +293,7 @@ func (jr *JetResources) Initialize(je JetResourceManager) {
 	jr.Jets__range_value = je.NewResource("jets:range_value")
 	jr.Jets__replace_chars = je.NewResource("jets:replace_chars")
 	jr.Jets__replace_with = je.NewResource("jets:replace_with")
+	jr.Jets__row_id = je.NewResource("jets:row_id")
 	jr.Jets__source_period_sequence = je.NewResource("jets:source_period_sequence")
 	jr.Jets__sourcePeriodType = je.NewResource("jets:sourcePeriodType")
 	jr.Jets__state = je.NewResource("jets:State")

@@ -15,7 +15,11 @@ import (
 type LookupTableSqlite3 struct {
 	spec                *LookupTableNode
 	lookupDb            *sql.DB
+	// minKey and maxKey bound __key__, which lookup_rand and multi_lookup_rand
+	// draw from. hasRows is false for an empty table.
+	minKey              int64
 	maxKey              int64
+	hasRows             bool
 	selectStmt          string
 	selectRandStmt      string
 	selectMultiRandStmt string
@@ -39,11 +43,16 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 	// initialize the lookupTable
 	// Make sure that the lookup table name has a corresponding resource
 	rmgr.NewResource(spec.Name)
-	// Get table's max key
-	err := lookupDb.QueryRow(fmt.Sprintf(`SELECT MAX(__key__) FROM "%s"`, spec.Name)).Scan(&lookupTable.maxKey)
+	// Get the range of __key__ for the random lookups. Both bounds are read,
+	// rather than assuming a base: the Go packager numbers __key__ from 1 and
+	// lookup.db files built by the earlier packager number it from 0.
+	var minKey, maxKey sql.NullInt64
+	err := lookupDb.QueryRow(fmt.Sprintf(`SELECT MIN(__key__), MAX(__key__) FROM "%s"`, spec.Name)).Scan(&minKey, &maxKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get max key for table %s: %v", spec.Name, err)
+		return nil, fmt.Errorf("failed to get the key range for table %s: %v", spec.Name, err)
 	}
+	lookupTable.hasRows = minKey.Valid && maxKey.Valid
+	lookupTable.minKey, lookupTable.maxKey = minKey.Int64, maxKey.Int64
 	// log.Println("Got max_key:", lookupTable.maxKey)
 	// Create lookup statements
 	lookupTable.columnsSpec = make([]ColumnSpec, len(spec.Columns))
@@ -59,6 +68,11 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 		// columnResource as a resource from column name
 		lookupTable.columnsSpec[i].columnResource = rmgr.GetResource(spec.Columns[i].Name)
 	}
+	// The row's own rowid, last: served as jets:row_id (insertResultIntoSession)
+	if !isFirst {
+		buf.WriteString(", ")
+	}
+	buf.WriteString("_rowid_")
 	buf.WriteString(fmt.Sprintf(` FROM "%s" WHERE `, spec.Name))
 	stmt := buf.String()
 	lookupTable.selectStmt = fmt.Sprintf(`%s "jets:key" = ?`, stmt)
@@ -134,8 +148,20 @@ func (tbl *LookupTableSqlite3) insertResultIntoSession(sess *rdf.RdfSession, s *
 			return fmt.Errorf("while InsertInferred in lookup: %v", err)
 		}
 	}
+	// jets:row_id is the row's SQLite rowid. The packager inserts a table's
+	// rows in CSV order into a new table, so it numbers them from 1 in that
+	// order, and it tells apart rows that share a jets:key.
+	switch v := (*resultRow[len(tbl.spec.Columns)].(*interface{})).(type) {
+	case int64:
+		if _, err := sess.InsertInferred(s, rmgr.JetsResources.Jets__row_id, rmgr.NewIntLiteral(int(v))); err != nil {
+			return fmt.Errorf("while InsertInferred of jets:row_id in lookup: %v", err)
+		}
+	default:
+		return fmt.Errorf("expecting int64 rowid in lookup table %s, got %T", tbl.spec.Name, v)
+	}
 	return nil
 }
+
 
 func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil || key == nil {
@@ -153,7 +179,7 @@ func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *str
 		return row, nil
 	}
 	// Query the lookup table, make destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for i := range resultRow {
 		resultRow[i] = new(interface{})
 	}
@@ -204,7 +230,7 @@ func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key
 		return nil, fmt.Errorf("failed query lookup table %s for key %s: %v", tbl.spec.Name, *key, err)
 	}
 	defer rows.Close()
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for rows.Next() {
 		// Scan the row
 		for i := range resultRow {
@@ -240,7 +266,10 @@ func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rd
 	sess := rs.RdfSession
 	rmgr := sess.ResourceMgr
 	jr := rmgr.JetsResources
-	key := rand.Int63n(tbl.maxKey)
+	if !tbl.hasRows {
+		return rdf.Null(), nil
+	}
+	key := tbl.randKey()
 	// the result subject which is associated to the lookup row for key
 	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:rand:%d", key))
 
@@ -250,7 +279,7 @@ func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rd
 		return row, nil
 	}
 	// Query the lookup table, make a copy of the destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for i := range resultRow {
 		resultRow[i] = new(interface{})
 	}
@@ -283,7 +312,10 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 	sess := rs.RdfSession
 	rmgr := sess.ResourceMgr
 	jr := rmgr.JetsResources
-	key := rand.Int63n(tbl.maxKey)
+	if !tbl.hasRows {
+		return rdf.Null(), nil
+	}
+	key := tbl.randKey()
 	// the result subject which is associated to the lookup row for key
 	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:multi:rand:%d", key))
 
@@ -302,7 +334,7 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 		return nil, fmt.Errorf("failed query multi rand lookup for table %s for key %d: %v", tbl.spec.Name, key, err)
 	}
 	defer rows.Close()
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for rows.Next() {
 		// Scan the row
 		for i := range resultRow {
@@ -329,4 +361,9 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 		return nil, fmt.Errorf("while InsertInferred in MultiLookupRand: %v", err)
 	}
 	return row, nil
+}
+
+// randKey draws a __key__ uniformly from [minKey, maxKey], both included.
+func (tbl *LookupTableSqlite3) randKey() int64 {
+	return tbl.minKey + rand.Int63n(tbl.maxKey-tbl.minKey+1)
 }

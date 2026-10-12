@@ -1,0 +1,12 @@
+# Data Model for the characterisation test of JrPoolWorker.executeRules
+# (jets/compute_pipes/jetrules_execute_rules_test.go)
+
+class xr:Case {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    xr:mode     as text,
+    xr:result   as text,
+    xr:count    as int
+  ],
+  $as_table = true
+};

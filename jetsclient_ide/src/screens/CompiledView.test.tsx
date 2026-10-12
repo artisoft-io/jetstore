@@ -29,7 +29,7 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
@@ -38,6 +38,10 @@ import { AppShell } from "../shell/AppShell";
 import { answerConfirm } from "../shell/promptsTesting";
 import { compiledViews, SERVER_SECTION_DECLARATION } from "./sectionContract";
 import { WorkspaceIde, WORKSPACE_IDE } from "./WorkspaceIde";
+
+// The IDE remembers the picked workspace in session storage, which jsdom keeps
+// across the tests of one file; each test starts from none picked.
+beforeEach(() => window.sessionStorage.clear());
 
 afterEach(() => {
   cleanup();
@@ -226,7 +230,14 @@ async function mount(at = "/workspace") {
   return { posts };
 }
 
-const reads = (posts: Posted[]) => posts.filter((p) => p.action === "workspace_read");
+// The compiled views' reads. The toolbar reads the open workspace's registry
+// row with `workspace_read` too (`WorkspaceToolbar.tsx`), and is not counted.
+const reads = (posts: Posted[]) =>
+  posts.filter(
+    (p) =>
+      p.action === "workspace_read" &&
+      p.fromTable !== "workspace_registry",
+  );
 
 /**
  * How many reads opening one view issues: one per tab, because every tab is

@@ -101,6 +101,13 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			return cmdLog, fmt.Errorf("while compiling rule file '%s': %v", name, err)
 		}
 		buf.WriteString(jrCompiler.ParseLog().String())
+		// A compile that succeeded may still have warned. The warnings are in
+		// the error log, which only a failed compile wrote here; the ones the
+		// compiler also writes to the parse log (an identifier created as a
+		// resource) were shown, and the rest -- the aggregate and salience
+		// warnings -- reached the process log only, until 2026-10-12
+		// (rules_unit_test_harness I-55).
+		buf.WriteString(compileWarnings(jrCompiler.ErrorLog().String(), jrCompiler.ParseLog().String()))
 		// Perform predicate dependency
 		analyzer := analyzer.NewAnalyzer(workspacePath, name, "predicates", "", true, jrCompiler)
 		err = analyzer.Analyze()
@@ -224,14 +231,25 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		return buf.String(), fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
+	// Record the rules unit tests (rules_unit_test_harness AD.1). A test file
+	// that fails validation is recorded with its findings rather than failing
+	// the compile: a broken test must not stop a workspace deploying.
+	recorded, invalid, err := SaveUnitTests(context.TODO(), wdb.DB, workspacePath)
+	if err != nil {
+		return buf.String(), fmt.Errorf("failed to save rules unit tests: %w", err)
+	}
+	fmt.Fprintf(&buf, "Recorded %d rules unit tests in workspace.db, %d of them invalid\n", recorded, invalid)
+
 	// All files are now compiled
+	// The rebuild is skipped when the existing lookup.db was built from the same
+	// inputs (lookup_db_fingerprint.go); the log says which happened and why.
 	buf.WriteString("All main rule files compiled, now package the lookup.db file\n")
-	err = PackageLookupTablesToSqlite(lookupTables)
+	lookupDbResult, err := EnsureLookupDb(lookupTables)
 	if err != nil {
 		log.Println("Error packaging lookup tables to SQLite:", err)
 		return buf.String(), err
 	}
-	buf.WriteString("Lookup tables packaged into lookup.db\n")
+	buf.WriteString(lookupDbResult.String())
 
 	// Archive reports
 	inputPath := []string{fmt.Sprintf("%s/%s/reports/", workspaceHome, workspaceName)}
@@ -346,4 +364,29 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	}
 
 	return buf.String(), err
+}
+
+// compileWarnings returns the warning lines of a rule file's error log that
+// its parse log does not already carry, under a heading, or "" when there are
+// none. The compiler marks a warning by the text "warning:" (compilerv2's
+// severityOf); anything else in the error log is an error and fails the compile
+// before this is reached.
+func compileWarnings(errorLog, parseLog string) string {
+	shown := make(map[string]bool)
+	for _, line := range strings.Split(parseLog, "\n") {
+		shown[strings.TrimSpace(line)] = true
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(errorLog, "\n") {
+		if strings.TrimSpace(line) == "" || !strings.Contains(line, "warning:") || shown[strings.TrimSpace(line)] {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("Compilation warnings:\n")
+		}
+		b.WriteString("  ")
+		b.WriteString(strings.TrimSpace(line))
+		b.WriteString("\n")
+	}
+	return b.String()
 }

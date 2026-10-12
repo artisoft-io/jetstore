@@ -71,6 +71,8 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	p.RemoveErrorListeners() // remove default ConsoleErrorListener
 	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog(), false /* c.Trace */)
 	errorListener.Diagnostics = c.listener.diagnostics
+	errorListener.Reader = c.ruleFileReader
+	c.listener.ruleFileReader = c.ruleFileReader
 	p.AddErrorListener(errorListener)
 
 	// Build the tree
@@ -86,15 +88,24 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		log.Println("** Parse Log:\n", c.ParseLog().String())
 	}
 	if c.ErrorLog().Len() > 0 {
-		errors := strings.Split(c.ErrorLog().String(), "\n")
-		log.Println("** Compilation Errors:")
-		for _, e := range errors {
+		var lines []string
+		for _, e := range strings.Split(c.ErrorLog().String(), "\n") {
 			if strings.TrimSpace(e) != "" {
-				log.Println(e)
+				lines = append(lines, e)
 				if !strings.Contains(e, "warning:") {
 					hasError = true
 				}
 			}
+		}
+		// The heading said "Compilation Errors" for a compile that only
+		// warned, which read as a failure (2026-10-12).
+		if hasError {
+			log.Println("** Compilation Errors:")
+		} else {
+			log.Println("** Compilation Warnings:")
+		}
+		for _, e := range lines {
+			log.Println(e)
 		}
 	}
 	// Resolve buffer lines to authored files once the walk is done, whatever

@@ -95,6 +95,16 @@ describe("the workspace home's changes table", () => {
     await screen.findByRole("heading", { name: "Workspace Changes" });
   });
 
+  it("has no Refresh of its own: the IDE toolbar's re-reads it", async () => {
+    // Michel, 2026-10-11: the table kept its first read until the page reloaded,
+    // and it gained a Refresh. 2026-10-12: that Refresh left the toolbar's
+    // buttons on a stale status, so it moved to the toolbar, which re-reads the
+    // registry row, the file tree and this table (WorkspaceIde.refresh.test.tsx).
+    const { posts } = await mount();
+    await waitFor(() => expect(reads(posts).length).toBe(1));
+    expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+  });
+
   it("reverts the selected change, sending only what the handler reads", async () => {
     const { posts } = await mount();
     fireEvent.click(await screen.findByLabelText("Select row 1"));

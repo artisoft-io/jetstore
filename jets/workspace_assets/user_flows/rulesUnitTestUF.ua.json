@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    },
+    "rutGoToSelectTests": {
+      "description": "+ Add on the runs table: clear the test selection a previous start left, then open the test case table",
+      "steps": [
+        { "do": "clearSelection", "key": "rutTestCaseTable" },
+        { "do": "remove", "keys": ["rutTestCaseTable", "test_path", "serverError"] },
+        { "do": "goToState", "state": "select_tests" }
+      ]
+    },
+    "rutViewResultUF": {
+      "description": "View Result on the runs table: open the checks of the selected run",
+      "steps": [
+        { "do": "require", "keys": ["rutExecutionTable"], "message": "Please select a run." },
+        { "do": "goToState", "state": "run_detail" }
+      ]
+    },
+    "rutStartTestsUF": {
+      "description": "Start Test(s): queue one run per selected test case in the flow's workspace, then clear the selection; the flow returns to the runs table",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "workspace_insert_rows",
+          "table": "rules_unit_test",
+          "spinner": true,
+          "extras": { "workspaceName": { "fromKey": "workspace_name" } },
+          "data": {
+            "rows": "fanOut",
+            "over": "test_path",
+            "fields": {
+              "test_path": { "fromKeyAtIndex": "test_path" },
+              "workspace_name": { "fromKey": "workspace_name" },
+              "user_email": { "userEmail": true }
+            }
+          }
+        },
+        { "do": "clearSelection", "key": "rutTestCaseTable" }
+      ]
+    }
+  }
+}

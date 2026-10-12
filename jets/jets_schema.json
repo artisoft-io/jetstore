@@ -2488,5 +2488,159 @@
         "definition": "CONSTRAINT workspace_changes_unique_cstraint UNIQUE (workspace_name, file_name)"
       }
     ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "rules_unit_test_execution",
+    "description": "One row per run of one rules unit test (a .tst.json under the active workspace's jet_rules/unit_tests/). Written queued by the rules_unit_test insert target, executing when the harness process starts, and pass, fail or error when it ends. Rows left queued or executing by a stopped apiserver are set to error, reason interrupted, at the next start.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "test_path",
+        "description": "The .tst.json, relative to the workspace root, as the compile recorded it in workspace.db.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "test_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "engine",
+        "description": "The engine the harness ran, as its result file names it. Null until the run ends.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "legacy_mode",
+        "description": "The LEGACY switches the test definition declares, as the compile recorded them; replaced by the harness's own report when the run ends.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "status",
+        "description": "queued, executing, pass, fail or error.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "reason",
+        "dataType": "text"
+      },
+      {
+        "columnName": "load_ms",
+        "description": "Time the harness spent building the engine.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "run_ms",
+        "description": "Time the harness spent running the input sessions and evaluating the checks.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "duration_ms",
+        "description": "Wall time of the harness process, measured by the apiserver from executing to its exit; the wait in the queue is not counted.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "sessions",
+        "dataType": "int"
+      },
+      {
+        "columnName": "loops",
+        "dataType": "int"
+      },
+      {
+        "columnName": "log",
+        "description": "The harness's standard output and error, the tail kept under a cap with a line saying how much was cut.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "rules_unit_test_execution_workspace_status_idx",
+        "indexDef": "INDEX rules_unit_test_execution_workspace_status_idx ON jetsapi.rules_unit_test_execution (workspace_name, status)"
+      },
+      {
+        "indexName": "rules_unit_test_execution_last_update_idx",
+        "indexDef": "INDEX rules_unit_test_execution_last_update_idx ON jetsapi.rules_unit_test_execution (last_update)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "rules_unit_test_check",
+    "description": "One row per check of one rules unit test run: an expected or excluded pattern, or a count, in one input session.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "execution_key",
+        "description": "rules_unit_test_execution.key of the run.",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "session_name",
+        "description": "The input session the check ran in. A top-level expectation applies to every session and is recorded once per session.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "kind",
+        "description": "expected, excluded or count.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "check",
+        "description": "The pattern as the test definition writes it.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "outcome",
+        "description": "pass or fail.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "found",
+        "description": "What matched, or the count.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "engine",
+        "description": "The engine the check ran on, native or go. Set only on a compare_engines run, where each check is recorded once per engine; null otherwise.",
+        "dataType": "text"
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "rules_unit_test_check_execution_key_idx",
+        "indexDef": "INDEX rules_unit_test_check_execution_key_idx ON jetsapi.rules_unit_test_check (execution_key)"
+      }
+    ]
   }
 ]

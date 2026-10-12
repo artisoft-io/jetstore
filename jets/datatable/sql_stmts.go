@@ -310,6 +310,20 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 		Capability: "workspace_ide",
 	},
+	// rules unit tests: queue one run per selected test of the active workspace.
+	// The statement is executed by queueRulesUnitTests (rules_unit_test_runs.go), not by
+	// WorkspaceInsertRows' per-row loop, because the refusals and the insert must
+	// share one transaction; the entry is here for its capability and its columns.
+	// "check" in rules_unit_test_check is a reserved word and is quoted wherever
+	// it is written by hand.
+	rulesUnitTestTarget: {
+		Stmt: `INSERT INTO jetsapi.rules_unit_test_execution
+			(workspace_name, test_path, test_name, legacy_mode, status, user_email)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING key`,
+		ColumnKeys: []string{"workspace_name", "test_path", "test_name", "legacy_mode", "status", "user_email"},
+		Capability: "workspace_ide",
+	},
 	// delete workspace in workspace_registry
 	"delete_workspace": {
 		Stmt:       `DELETE FROM jetsapi.workspace_registry WHERE key = $1`,

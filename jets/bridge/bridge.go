@@ -110,6 +110,39 @@ func LoadJetRules(process_name string, rete_db_path string, lookup_db_path strin
 	return &js, nil
 }
 
+// LoadJetRulesWithMode is LoadJetRules with the LEGACY retraction mode the rete
+// networks are built in (jets::rete::RetractionMode, jets/rete/rete_meta_store.h; the Go
+// engine's twin is rete.RetractionMode). replayGraphReadingConsequents turns defect 1
+// off, eraseWithdrawnRows defect 2. For the rules unit test harness only: LoadJetRules,
+// which pipelines call, is this with both false, legacy. It calls the C entry point
+// create_jetstore_hdl_with_mode, the one change this project makes to libjets.so's C
+// interface; a libjets.so without it fails to link.
+func LoadJetRulesWithMode(process_name string, rete_db_path string, lookup_db_path string,
+	replayGraphReadingConsequents, eraseWithdrawnRows bool) (*JetStore, error) {
+	var js JetStore
+	js.process_name = process_name
+	cstr := C.CString(rete_db_path)
+	defer C.free(unsafe.Pointer(cstr))
+	lk_cstr := C.CString(lookup_db_path)
+	defer C.free(unsafe.Pointer(lk_cstr))
+	var replay, erase C.int
+	if replayGraphReadingConsequents {
+		replay = 1
+	}
+	if eraseWithdrawnRows {
+		erase = 1
+	}
+	ret := int(C.create_jetstore_hdl_with_mode(cstr, lk_cstr, replay, erase, &js.hdl))
+	if ret != 0 {
+		fmt.Println("Error in LoadJetRulesWithMode, ret code", ret)
+		if ret < -99 && ret > -200 {
+			return &js, ErrLookupTable
+		}
+		return &js, errors.New("error loading workspace, see logs")
+	}
+	return &js, nil
+}
+
 func (jr *JetStore) ReleaseJetRules() error {
 	ret := int(C.delete_jetstore_hdl(jr.hdl))
 	if ret != 0 {
@@ -340,97 +373,99 @@ func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int
 	return ret, nil
 }
 
-// New session-based Resource & Literals
-func (rs *ReteSession) NewNull() (*Resource, error) {
+// New session-based Resource & Literals, on the RDF session: they need its
+// handle only, so an RDF session makes them before any rete session exists
+// (rules_unit_test_harness I-15)
+func (rdfs *RDFSession) NewNull() (*Resource, error) {
 	var r Resource
-	ret := int(C.create_null(rs.rdfs.hdl, &r.hdl))
+	ret := int(C.create_null(rdfs.hdl, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewResource ret code", ret)
 		return &r, errors.New("ERROR calling NewResource(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewBlankNode(v int) (*Resource, error) {
+func (rdfs *RDFSession) NewBlankNode(v int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_blanknode(rs.rdfs.hdl, C.int(v), &r.hdl))
+	ret := int(C.create_blanknode(rdfs.hdl, C.int(v), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in ReteSession.NewBlankNode ret code", ret)
 		return &r, errors.New("ERROR calling NewBlankNode(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewResource(resource_name string) (*Resource, error) {
+func (rdfs *RDFSession) NewResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_resource(rs.rdfs.hdl, cstr, &r.hdl))
+	ret := int(C.create_resource(rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewResource ret code", ret)
 		return &r, errors.New("ERROR calling NewResource(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) GetResource(resource_name string) (*Resource, error) {
+func (rdfs *RDFSession) GetResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.get_resource(rs.rdfs.hdl, cstr, &r.hdl))
+	ret := int(C.get_resource(rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in GetResource ret code", ret)
 		return &r, errors.New("ERROR calling GetResource(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewTextLiteral(txt string) (*Resource, error) {
+func (rdfs *RDFSession) NewTextLiteral(txt string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(txt)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_text(rs.rdfs.hdl, cstr, &r.hdl))
+	ret := int(C.create_text(rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewTextLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewTextLiteral(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewIntLiteral(value int) (*Resource, error) {
+func (rdfs *RDFSession) NewIntLiteral(value int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_int(rs.rdfs.hdl, C.int(value), &r.hdl))
+	ret := int(C.create_int(rdfs.hdl, C.int(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewIntLiteral(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewUIntLiteral(value uint) (*Resource, error) {
+func (rdfs *RDFSession) NewUIntLiteral(value uint) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_uint(rs.rdfs.hdl, C.uint(value), &r.hdl))
+	ret := int(C.create_uint(rdfs.hdl, C.uint(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewUIntLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewUIntLiteral(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewLongLiteral(value int64) (*Resource, error) {
+func (rdfs *RDFSession) NewLongLiteral(value int64) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_long(rs.rdfs.hdl, C.long(value), &r.hdl))
+	ret := int(C.create_long(rdfs.hdl, C.long(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewLongLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewLongLiteral(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewULongLiteral(value uint64) (*Resource, error) {
+func (rdfs *RDFSession) NewULongLiteral(value uint64) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_ulong(rs.rdfs.hdl, C.ulong(value), &r.hdl))
+	ret := int(C.create_ulong(rdfs.hdl, C.ulong(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewULongLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewULongLiteral(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewDoubleLiteral(value float64) (*Resource, error) {
+func (rdfs *RDFSession) NewDoubleLiteral(value float64) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_double(rs.rdfs.hdl, C.double(value), &r.hdl))
+	ret := int(C.create_double(rdfs.hdl, C.double(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewDoubleLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewDoubleLiteral(), ret code: " + fmt.Sprint(ret))
@@ -438,11 +473,11 @@ func (rs *ReteSession) NewDoubleLiteral(value float64) (*Resource, error) {
 	return &r, nil
 }
 
-func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
+func (rdfs *RDFSession) NewDateLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_date(rs.rdfs.hdl, cstr, &r.hdl))
+	ret := int(C.create_date(rdfs.hdl, cstr, &r.hdl))
 	if ret == -2 {
 		// fmt.Println("ERROR in NewDateLiteral: date is not a valid date")
 		return &r, ErrNotValidDate
@@ -454,9 +489,9 @@ func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
 	return &r, nil
 }
 
-func (rs *ReteSession) NewDateDetails(year, month, day int) (*Resource, error) {
+func (rdfs *RDFSession) NewDateDetails(year, month, day int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_date_details(rs.rdfs.hdl, C.int(year), C.int(month), C.int(day), &r.hdl))
+	ret := int(C.create_date_details(rdfs.hdl, C.int(year), C.int(month), C.int(day), &r.hdl))
 	if ret == -2 {
 		return &r, ErrNotValidDate
 	}
@@ -467,9 +502,9 @@ func (rs *ReteSession) NewDateDetails(year, month, day int) (*Resource, error) {
 	return &r, nil
 }
 
-func (rs *ReteSession) NewDatetimeDetails(year, month, day, hour, min, sec int) (*Resource, error) {
+func (rdfs *RDFSession) NewDatetimeDetails(year, month, day, hour, min, sec int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_datetime_details(rs.rdfs.hdl, C.int(year), C.int(month), C.int(day),
+	ret := int(C.create_datetime_details(rdfs.hdl, C.int(year), C.int(month), C.int(day),
 		C.int(hour), C.int(min), C.int(sec), &r.hdl))
 	if ret == -2 {
 		return &r, ErrNotValidDateTime
@@ -481,11 +516,11 @@ func (rs *ReteSession) NewDatetimeDetails(year, month, day, hour, min, sec int) 
 	return &r, nil
 }
 
-func (rs *ReteSession) NewDatetimeLiteral(value string) (*Resource, error) {
+func (rdfs *RDFSession) NewDatetimeLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_datetime(rs.rdfs.hdl, cstr, &r.hdl))
+	ret := int(C.create_datetime(rdfs.hdl, cstr, &r.hdl))
 	if ret == -2 {
 		// fmt.Println("ERROR in NewDatetimeLiteral: datetime is not valid")
 		return &r, ErrNotValidDateTime
@@ -495,6 +530,50 @@ func (rs *ReteSession) NewDatetimeLiteral(value string) (*Resource, error) {
 		return &r, errors.New("ERROR calling create_datetime(), ret code: " + fmt.Sprint(ret))
 	}
 	return &r, nil
+}
+
+// The rete session makes them through its RDF session
+func (rs *ReteSession) NewNull() (*Resource, error) {
+	return rs.rdfs.NewNull()
+}
+func (rs *ReteSession) NewBlankNode(v int) (*Resource, error) {
+	return rs.rdfs.NewBlankNode(v)
+}
+func (rs *ReteSession) NewResource(resource_name string) (*Resource, error) {
+	return rs.rdfs.NewResource(resource_name)
+}
+func (rs *ReteSession) GetResource(resource_name string) (*Resource, error) {
+	return rs.rdfs.GetResource(resource_name)
+}
+func (rs *ReteSession) NewTextLiteral(txt string) (*Resource, error) {
+	return rs.rdfs.NewTextLiteral(txt)
+}
+func (rs *ReteSession) NewIntLiteral(value int) (*Resource, error) {
+	return rs.rdfs.NewIntLiteral(value)
+}
+func (rs *ReteSession) NewUIntLiteral(value uint) (*Resource, error) {
+	return rs.rdfs.NewUIntLiteral(value)
+}
+func (rs *ReteSession) NewLongLiteral(value int64) (*Resource, error) {
+	return rs.rdfs.NewLongLiteral(value)
+}
+func (rs *ReteSession) NewULongLiteral(value uint64) (*Resource, error) {
+	return rs.rdfs.NewULongLiteral(value)
+}
+func (rs *ReteSession) NewDoubleLiteral(value float64) (*Resource, error) {
+	return rs.rdfs.NewDoubleLiteral(value)
+}
+func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
+	return rs.rdfs.NewDateLiteral(value)
+}
+func (rs *ReteSession) NewDateDetails(year, month, day int) (*Resource, error) {
+	return rs.rdfs.NewDateDetails(year, month, day)
+}
+func (rs *ReteSession) NewDatetimeDetails(year, month, day, hour, min, sec int) (*Resource, error) {
+	return rs.rdfs.NewDatetimeDetails(year, month, day, hour, min, sec)
+}
+func (rs *ReteSession) NewDatetimeLiteral(value string) (*Resource, error) {
+	return rs.rdfs.NewDatetimeLiteral(value)
 }
 
 // Get Resource & Literals properties
@@ -530,18 +609,58 @@ func (r *Resource) GetName() (string, error) {
 	return C.GoString(sp), nil
 }
 
+// GetBlankNodeKey returns a blank node's key, which tells it apart from the
+// other blank nodes of its graph.
+func (r *Resource) GetBlankNodeKey() (int, error) {
+	// rdf_blank_node_t
+	if r.GetType() != 1 {
+		return 0, ErrUnexpectedRdfType
+	}
+	var cint C.int
+	ret := int(C.get_blank_node_key(r.hdl, &cint))
+	if ret != 0 {
+		return 0, fmt.Errorf("error while getting blank node key: %v", ret)
+	}
+	return int(cint), nil
+}
+
 func (r *Resource) GetInt() (int, error) {
 	// rdf_literal_int32_t or rdf_literal_int64_t
 	if r.GetType() != 3 && r.GetType() != 5 {
 		return 0, errors.New("ERROR GetInt applies to int literal only")
 	}
-	var cint C.int
-	ret := int(C.get_int_literal(r.hdl, &cint))
+	// get_long_literal rather than get_int_literal, which narrows an int64 to a C int
+	var clong C.long
+	ret := int(C.get_long_literal(r.hdl, &clong))
 	if ret != 0 {
 		fmt.Println("ERROR in GetInt ret code", ret)
 		return 0, errors.New("ERROR calling GetInt(), ret code: " + fmt.Sprint(ret))
 	}
-	return int(cint), nil
+	return int(clong), nil
+}
+
+func (r *Resource) GetUInt() (uint, error) {
+	// rdf_literal_uint32_t or rdf_literal_uint64_t
+	if r.GetType() != 4 && r.GetType() != 6 {
+		return 0, errors.New("ERROR GetUInt applies to unsigned int literal only")
+	}
+	var culong C.ulong
+	ret := int(C.get_ulong_literal(r.hdl, &culong))
+	if ret != 0 {
+		fmt.Println("ERROR in GetUInt ret code", ret)
+		return 0, errors.New("ERROR calling GetUInt(), ret code: " + fmt.Sprint(ret))
+	}
+	return uint(culong), nil
+}
+
+// SameAs reports whether r and other are the same RDF node. Resources and
+// literals are interned by the engine, so this is identity on the engine's
+// handle; the *Resource wrappers themselves are allocated on every read.
+func (r *Resource) SameAs(other *Resource) bool {
+	if r == nil || other == nil {
+		return r == other
+	}
+	return r.hdl == other.hdl
 }
 
 func (r *Resource) GetDouble() (float64, error) {
@@ -663,7 +782,11 @@ func (r *Resource) AsText() (string, error) {
 	case 0:
 		return "NULL", nil
 	case 1:
-		return "BN:", nil
+		v, err := r.GetBlankNodeKey()
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("BN:%d", v), nil
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
@@ -671,13 +794,19 @@ func (r *Resource) AsText() (string, error) {
 			return "", fmt.Errorf("error getting resource name: %v", err)
 		}
 		return v, nil
-	case 3:
+	case 3, 5:
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
 			return "", fmt.Errorf("error getting literal int value: %v", err)
 		}
 		return strconv.Itoa(v), nil
+	case 4, 6:
+		v, err := r.GetUInt()
+		if err != nil {
+			return "", fmt.Errorf("error getting literal uint value: %v", err)
+		}
+		return strconv.FormatUint(uint64(v), 10), nil
 	case 7:
 		v, err := r.GetDouble()
 		if err != nil {
@@ -718,8 +847,15 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	switch rtype := r.GetType(); rtype {
 	case 0:
 		return nil, nil
-	// case 1:
-	// 	return "BN:", nil
+	case 1:
+		v, err := r.GetBlankNodeKey()
+		if err != nil {
+			return ret, fmt.Errorf("while getting blank node key for AsInterface: %v", err)
+		}
+		if columnType != "text" && check {
+			return reportTypeError(r, columnType)
+		}
+		return fmt.Sprintf("BN:%d", v), nil
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
@@ -735,6 +871,15 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
+		}
+		if columnType != "integer" && check {
+			return reportTypeError(r, columnType)
+		}
+		return v, nil
+	case 4, 6:
+		v, err := r.GetUInt()
+		if err != nil {
+			return ret, fmt.Errorf("while getting uint value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" && check {
 			return reportTypeError(r, columnType)
@@ -770,7 +915,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 		}
 		if columnType == "date" {
 			return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), nil
-		}		
+		}
 		return reportTypeError(r, columnType)
 	case 10:
 		if columnType == "text" || !check {

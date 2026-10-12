@@ -139,12 +139,12 @@ export const flowTitles: Record<string, string> = {
   // (`jetstore_maintenance_02` Phase 2), on the same terms.
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
-  loadConfigUF: "Load Client Configurations",
   loadFilesUF: "Load Files",
   mapFileUF: "File Mapping Configuration",
   // `startPipelineUF` (*Start Pipeline*) left the fixture on 2026-10-02, on the
-  // same terms as `fileMappingUF` above.
-  workspacePullUF: "Pull Workspace Changes",
+  // same terms as `fileMappingUF` above. `loadConfigUF` (*Load Client
+  // Configurations*) and `workspacePullUF` (*Pull Workspace Changes*) followed
+  // on 2026-10-11, to return to the Workspace IDE they are launched from.
 };
 
 /**

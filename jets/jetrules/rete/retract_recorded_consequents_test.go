@@ -12,6 +12,16 @@ package rete
 // them: an aggregate consequent is recomputed on retraction, and a withdrawn row never
 // fires again. See README.md.
 //
+// EVERY CASE RUNS IN THE FOUR RETRACTION MODES (retraction_mode.go), as a subtest
+// named by the mode's label. In "legacy" it pins what production runs. With a defect
+// turned off it asserts what 1d993844's version of this file asserted, which is the
+// fixed behaviour: "fixed-1" replays a graph-reading consequent, "fixed-2" erases a
+// withdrawn row, "fixed" does both. The modes are the rules unit test harness's
+// LEGACY switches; no pipeline can set them. A test whose name states a LEGACY
+// behaviour (DoesNotRefire, RetractionRecomputes, StayRetracted) keeps the name its
+// "legacy" subtest pins, so that citations of it still resolve; its other subtests
+// assert the fixed behaviour, as its comment says.
+//
 // The network, built by hand as the C++ fixture is:
 //
 //	vertex 1  (?s rdf:type MainEntity).[(?s exist_not done)]  -> consequent under test
@@ -46,7 +56,7 @@ type retractFixture struct {
 	rs  *ReteSession
 }
 
-func newRetractFixture(t *testing.T, kind consequentKind) *retractFixture {
+func newRetractFixture(t *testing.T, kind consequentKind, mode RetractionMode) *retractFixture {
 	t.Helper()
 	rm := rdf.NewResourceManager(nil)
 	jr := rm.JetsResources
@@ -112,7 +122,7 @@ func newRetractFixture(t *testing.T, kind consequentKind) *retractFixture {
 		case an.IsAntecedent:
 			an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
 		case an.IsConsequent:
-			an.NdVertex.AddConsequentTerm(an)
+			an.NdVertex.AddConsequentTerm(an, mode)
 		}
 	}
 	config := map[string]string{}
@@ -120,6 +130,7 @@ func newRetractFixture(t *testing.T, kind consequentKind) *retractFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ms.RetractionMode = mode
 
 	sess := rdf.NewRdfSession(rm, metaGraph)
 	rs := NewReteSession(sess)
@@ -179,153 +190,220 @@ func (f *retractFixture) contains(s, p string, o *rdf.Node) bool {
 	return f.rdf.Contains(f.r(s), f.r(p), o)
 }
 
+// eachMode runs body once per retraction mode, as a subtest named by its label.
+func eachMode(t *testing.T, body func(t *testing.T, mode RetractionMode)) {
+	for _, mode := range AllRetractionModes() {
+		t.Run(mode.Label(), func(t *testing.T) { body(t, mode) })
+	}
+}
+
+// The flag is set where it should be and nowhere else. A consequent that mints a
+// resource records in every mode. LEGACY defect 1: an aggregate reads the graph but
+// mints nothing, so it records only with that defect turned off.
 func TestRetractOnlyMintingConsequentsRecord(t *testing.T) {
-	for _, c := range []struct {
-		kind consequentKind
-		want bool
-	}{{kCreateEntityUuid, true}, {kCreateEntityKeyed, true}, {kSumValues, false}, {kPure, false}} {
-		f := newRetractFixture(t, c.kind)
-		if got := f.ms.NodeVertices[1].RecordsConsequents; got != c.want {
-			t.Errorf("kind %d: vertex 1 RecordsConsequents = %v, want %v", c.kind, got, c.want)
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		for _, c := range []struct {
+			kind consequentKind
+			want bool
+		}{{kCreateEntityUuid, true}, {kCreateEntityKeyed, true}, {kSumValues, mode.ReplayGraphReadingConsequents}, {kPure, false}} {
+			f := newRetractFixture(t, c.kind, mode)
+			if got := f.ms.NodeVertices[1].RecordsConsequents; got != c.want {
+				t.Errorf("kind %d: vertex 1 RecordsConsequents = %v, want %v", c.kind, got, c.want)
+			}
+			if f.ms.NodeVertices[2].RecordsConsequents || f.ms.NodeVertices[3].RecordsConsequents {
+				t.Errorf("kind %d: a vertex whose consequent neither mints nor reads the graph records", c.kind)
+			}
 		}
-		if f.ms.NodeVertices[2].RecordsConsequents || f.ms.NodeVertices[3].RecordsConsequents {
-			t.Errorf("kind %d: a vertex that mints nothing records", c.kind)
+	})
+}
+
+// The predicates themselves, on the consequents the fixture builds.
+func TestRetractConsequentPredicates(t *testing.T) {
+	for _, c := range []struct {
+		kind              consequentKind
+		mints, readsGraph bool
+	}{{kCreateEntityUuid, true, false}, {kCreateEntityKeyed, true, false}, {kSumValues, false, true}, {kPure, false, false}} {
+		f := newRetractFixture(t, c.kind, LegacyRetraction)
+		an := f.ms.NodeVertices[1].ConsequentAlphaNodes[0]
+		if got := an.MintsResource(); got != c.mints {
+			t.Errorf("kind %d: MintsResource = %v, want %v", c.kind, got, c.mints)
+		}
+		if got := an.ReadsGraph(); got != c.readsGraph {
+			t.Errorf("kind %d: ReadsGraph = %v, want %v", c.kind, got, c.readsGraph)
 		}
 	}
 }
 
 // The control: nothing retracts, so the link and one jets:key are there.
 func TestRetractCreateEntityUuidInfersOneEntity(t *testing.T) {
-	f := newRetractFixture(t, kCreateEntityUuid)
-	f.execute()
-	if n := f.countLinks(); n != 1 {
-		t.Errorf("links = %d, want 1", n)
-	}
-	if n := f.countInferredKeys(); n != 1 {
-		t.Errorf("jets:key triples = %d, want 1", n)
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kCreateEntityUuid, mode)
+		f.execute()
+		if n := f.countLinks(); n != 1 {
+			t.Errorf("links = %d, want 1", n)
+		}
+		if n := f.countInferredKeys(); n != 1 {
+			t.Errorf("jets:key triples = %d, want 1", n)
+		}
+	})
 }
 
 // THE DEFECT: before the fix the link stayed and a second entity's jets:key appeared.
 func TestRetractCreateEntityUuidRetractedLeavesNothing(t *testing.T) {
-	f := newRetractFixture(t, kCreateEntityUuid)
-	f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
-	f.execute()
-	if !f.contains("main1", "done", f.rdf.ResourceMgr.NewIntLiteral(1)) {
-		t.Fatal("the retraction driver did not fire")
-	}
-	if n := f.countLinks(); n != 0 {
-		t.Errorf("links = %d, want 0: the link inferred is the link retracted", n)
-	}
-	if n := f.countInferredKeys(); n != 0 {
-		t.Errorf("jets:key triples = %d, want 0: no second entity, and the first went with its row", n)
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kCreateEntityUuid, mode)
+		f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
+		f.execute()
+		if !f.contains("main1", "done", f.rdf.ResourceMgr.NewIntLiteral(1)) {
+			t.Fatal("the retraction driver did not fire")
+		}
+		if n := f.countLinks(); n != 0 {
+			t.Errorf("links = %d, want 0: the link inferred is the link retracted", n)
+		}
+		if n := f.countInferredKeys(); n != 0 {
+			t.Errorf("jets:key triples = %d, want 0: no second entity, and the first went with its row", n)
+		}
+	})
 }
 
 func TestRetractCreateEntityKeyedReleasesKey(t *testing.T) {
-	f := newRetractFixture(t, kCreateEntityKeyed)
-	f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
-	f.execute()
-	if n := f.countLinks(); n != 0 {
-		t.Errorf("links = %d, want 0", n)
-	}
-	if rc := f.k1KeyRefCount(); rc != 0 {
-		t.Errorf("K1 jets:key ref count = %d, want 0", rc)
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kCreateEntityKeyed, mode)
+		f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
+		f.execute()
+		if n := f.countLinks(); n != 0 {
+			t.Errorf("links = %d, want 0", n)
+		}
+		if rc := f.k1KeyRefCount(); rc != 0 {
+			t.Errorf("K1 jets:key ref count = %d, want 0", rc)
+		}
+	})
 }
 
-// Repeated cycles on the keyed entity. LEGACY: once retracted the row never fires
-// again, though its support comes back. THE FIX: each later withdrawal retracts that
-// stale row again and it replays its now empty record, so jets:key stays at 0 -- before
-// the record was kept empty it fell back to recomputing and re-inserted jets:key.
+// Repeated cycles on the keyed entity. Withdrawn, nothing stands in any mode.
+// Re-admitted: LEGACY defect 2, the row never fires again, though its support comes
+// back, and each later withdrawal retracts that stale row again and it replays its now
+// empty record, so jets:key stays at 0 -- before the record was kept empty it fell back
+// to recomputing and re-inserted jets:key. With defect 2 turned off the row was erased
+// and an equal one fires: the link and one jets:key are back, every cycle.
 func TestRetractCreateEntityKeyedCyclesStayRetracted(t *testing.T) {
-	f := newRetractFixture(t, kCreateEntityKeyed)
-	one := f.rdf.ResourceMgr.NewIntLiteral(1)
-	f.execute()
-	if f.countLinks() != 1 || f.k1KeyRefCount() != 1 {
-		t.Fatalf("initial inference: links %d, ref count %d", f.countLinks(), f.k1KeyRefCount())
-	}
-	for cycle := 0; cycle < 5; cycle++ {
-		f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
-		f.execute()
-		if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 0 || rc != 0 {
-			t.Errorf("cycle %d withdrawn: links %d, ref count %d, want 0 and 0", cycle, n, rc)
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kCreateEntityKeyed, mode)
+		one := f.rdf.ResourceMgr.NewIntLiteral(1)
+		readmitted := 0
+		if mode.EraseWithdrawnRows {
+			readmitted = 1
 		}
-		f.rdf.Retract(f.r("main1"), f.r("done"), one)
 		f.execute()
-		if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 0 || rc != 0 {
-			t.Errorf("cycle %d re-admitted: links %d, ref count %d, want 0 and 0 (LEGACY: does not re-fire)", cycle, n, rc)
+		if f.countLinks() != 1 || f.k1KeyRefCount() != 1 {
+			t.Fatalf("initial inference: links %d, ref count %d", f.countLinks(), f.k1KeyRefCount())
 		}
-	}
+		for cycle := 0; cycle < 5; cycle++ {
+			f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n, rc := f.countLinks(), f.k1KeyRefCount(); n != 0 || rc != 0 {
+				t.Errorf("cycle %d withdrawn: links %d, ref count %d, want 0 and 0", cycle, n, rc)
+			}
+			f.rdf.Retract(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n, rc := f.countLinks(), f.k1KeyRefCount(); n != readmitted || rc != readmitted {
+				t.Errorf("cycle %d re-admitted: links %d, ref count %d, want %d and %d", cycle, n, rc, readmitted, readmitted)
+			}
+		}
+	})
 }
 
 func TestRetractCreateEntityUuidCyclesLeaveNoStrayKeys(t *testing.T) {
-	f := newRetractFixture(t, kCreateEntityUuid)
-	one := f.rdf.ResourceMgr.NewIntLiteral(1)
-	f.execute()
-	for cycle := 0; cycle < 5; cycle++ {
-		f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
-		f.execute()
-		if n, k := f.countLinks(), f.countInferredKeys(); n != 0 || k != 0 {
-			t.Errorf("cycle %d withdrawn: links %d, keys %d, want 0 and 0", cycle, n, k)
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kCreateEntityUuid, mode)
+		one := f.rdf.ResourceMgr.NewIntLiteral(1)
+		readmitted := 0
+		if mode.EraseWithdrawnRows {
+			readmitted = 1
 		}
-		f.rdf.Retract(f.r("main1"), f.r("done"), one)
 		f.execute()
-		if n, k := f.countLinks(), f.countInferredKeys(); n != 0 || k != 0 {
-			t.Errorf("cycle %d re-admitted: links %d, keys %d, want 0 and 0 (LEGACY: does not re-fire)", cycle, n, k)
+		for cycle := 0; cycle < 5; cycle++ {
+			f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n, k := f.countLinks(), f.countInferredKeys(); n != 0 || k != 0 {
+				t.Errorf("cycle %d withdrawn: links %d, keys %d, want 0 and 0", cycle, n, k)
+			}
+			f.rdf.Retract(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n, k := f.countLinks(), f.countInferredKeys(); n != readmitted || k != readmitted {
+				t.Errorf("cycle %d re-admitted: links %d, keys %d, want %d and %d", cycle, n, k, readmitted, readmitted)
+			}
 		}
-	}
+	})
 }
 
-// LEGACY: a consequent aggregate whose input changes between inference and retraction.
-// The row infers (main1 total 6), vertex 3 links support4 so the sum is 10, then vertex
-// 2 retracts the row. Retraction recomputes, retracts (main1 total 10), which was never
-// inferred, and leaves 6 standing.
+// A consequent aggregate whose input changes between inference and retraction. The row
+// infers (main1 total 6), vertex 3 links support4 so the sum is 10, then vertex 2
+// retracts the row. LEGACY defect 1: retraction recomputes, retracts (main1 total 10),
+// which was never inferred, and leaves 6 standing. With defect 1 turned off the row
+// replays its record and 6 goes.
 func TestRetractConsequentAggregateRetractionRecomputes(t *testing.T) {
-	f := newRetractFixture(t, kSumValues)
-	rm := f.rdf.ResourceMgr
-	f.rdf.Insert(f.r("support4"), f.r("value"), rm.NewIntLiteral(4))
-	f.rdf.Insert(f.r("main1"), f.r("pendingSupport"), f.r("support4"))
-	f.rdf.Insert(f.r("main1"), f.r("pendingDone"), rm.NewIntLiteral(1))
-	f.execute()
-	if !f.contains("main1", "hasSupport", f.r("support4")) {
-		t.Fatal("the aggregate's input did not change before the retraction")
-	}
-	if !f.contains("main1", "total", rm.NewIntLiteral(6)) {
-		t.Error("(main1 total 6) is gone: aggregate consequents have been given replay -- read README.md first")
-	}
-	if f.contains("main1", "total", rm.NewIntLiteral(10)) {
-		t.Error("(main1 total 10) is standing")
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kSumValues, mode)
+		rm := f.rdf.ResourceMgr
+		f.rdf.Insert(f.r("support4"), f.r("value"), rm.NewIntLiteral(4))
+		f.rdf.Insert(f.r("main1"), f.r("pendingSupport"), f.r("support4"))
+		f.rdf.Insert(f.r("main1"), f.r("pendingDone"), rm.NewIntLiteral(1))
+		f.execute()
+		if !f.contains("main1", "hasSupport", f.r("support4")) {
+			t.Fatal("the aggregate's input did not change before the retraction")
+		}
+		standing := f.contains("main1", "total", rm.NewIntLiteral(6))
+		switch {
+		case !mode.ReplayGraphReadingConsequents && !standing:
+			t.Error("(main1 total 6) is gone in a legacy mode: aggregate consequents have been given replay -- read README.md first")
+		case mode.ReplayGraphReadingConsequents && standing:
+			t.Error("(main1 total 6) is still standing: the total inferred was not the total retracted")
+		}
+		if f.contains("main1", "total", rm.NewIntLiteral(10)) {
+			t.Error("(main1 total 10) is standing")
+		}
+	})
 }
 
 func TestRetractPureConsequentStillRetracts(t *testing.T) {
-	f := newRetractFixture(t, kPure)
-	f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
-	f.execute()
-	if n := f.countLinks(); n != 0 {
-		t.Errorf("links = %d, want 0", n)
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kPure, mode)
+		f.rdf.Insert(f.r("main1"), f.r("pendingDone"), f.rdf.ResourceMgr.NewIntLiteral(1))
+		f.execute()
+		if n := f.countLinks(); n != 0 {
+			t.Errorf("links = %d, want 0", n)
+		}
+	})
 }
 
-// LEGACY, on a consequent the recording does not touch: a retracted row is left in its
-// relation marked kProcessed, because RemoveBetaRow returns at once for a row marked
-// kDeleted, so an equal row arriving later is taken for one already inferred.
+// Cycles on a consequent the recording does not touch. LEGACY defect 2: a retracted row
+// is left in its relation marked kProcessed, because RemoveBetaRow returns at once for
+// a row marked kDeleted, so an equal row arriving later is taken for one already
+// inferred and never fires. With defect 2 turned off it fires on every cycle.
 func TestRetractPureConsequentDoesNotRefire(t *testing.T) {
-	f := newRetractFixture(t, kPure)
-	one := f.rdf.ResourceMgr.NewIntLiteral(1)
-	f.execute()
-	if f.countLinks() != 1 {
-		t.Fatalf("initial inference: links %d", f.countLinks())
-	}
-	f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
-	f.execute()
-	if n := f.countLinks(); n != 0 {
-		t.Errorf("withdrawn: links %d, want 0", n)
-	}
-	f.rdf.Retract(f.r("main1"), f.r("done"), one)
-	f.execute()
-	if n := f.countLinks(); n != 0 {
-		t.Errorf("re-admitted: links %d, want 0 (LEGACY: does not re-fire)", n)
-	}
+	eachMode(t, func(t *testing.T, mode RetractionMode) {
+		f := newRetractFixture(t, kPure, mode)
+		one := f.rdf.ResourceMgr.NewIntLiteral(1)
+		readmitted := 0
+		if mode.EraseWithdrawnRows {
+			readmitted = 1
+		}
+		f.execute()
+		if f.countLinks() != 1 {
+			t.Fatalf("initial inference: links %d", f.countLinks())
+		}
+		for cycle := 0; cycle < 5; cycle++ {
+			f.rdf.InsertInferred(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n := f.countLinks(); n != 0 {
+				t.Errorf("cycle %d withdrawn: links %d, want 0", cycle, n)
+			}
+			f.rdf.Retract(f.r("main1"), f.r("done"), one)
+			f.execute()
+			if n := f.countLinks(); n != readmitted {
+				t.Errorf("cycle %d re-admitted: links %d, want %d", cycle, n, readmitted)
+			}
+		}
+	})
 }

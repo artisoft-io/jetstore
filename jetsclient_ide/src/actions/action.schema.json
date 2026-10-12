@@ -862,7 +862,8 @@
         "compile_workspace",
         "delete_workspace",
         "git_command_workspace",
-        "git_status_workspace"
+        "git_status_workspace",
+        "rules_unit_test"
       ],
       "description": "A table an authored flow may write to"
     },

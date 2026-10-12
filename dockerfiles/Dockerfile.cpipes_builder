@@ -94,6 +94,10 @@ RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cm
 RUN go build -ldflags="-w -s" -o install_workspace_assets ${JETS_SOURCE_DIR}/jets/cmds/install_workspace_assets
 RUN go build -ldflags="-w -s" -o bootstrap            ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
 RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
+# The rules unit-test harness: one test per process, launched by the apiserver's
+# pool, linking both rule engines as cpipes_native_server does (cgo, libjets.so).
+# Dockerfile.ui_service copies it beside the apiserver with libjets.so.
+RUN go build -ldflags="-w -s" -o rules_unit_test      ${JETS_SOURCE_DIR}/jets/cmds/rules_unit_test
 RUN go build -ldflags="-w -s" -o apiserver            ${JETS_SOURCE_DIR}/jets/apiserver
 RUN go build -ldflags="-w -s" -o run_reports          ${JETS_SOURCE_DIR}/jets/run_reports
 RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/update_db

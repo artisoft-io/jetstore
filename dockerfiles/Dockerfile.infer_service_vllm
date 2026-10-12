@@ -104,8 +104,12 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 
 # cbooter is the entrypoint: it runs as root, prepares the mounted volume, then starts the
 # server named by JETS_INFER_BACKEND as jsuser.
+#
+# No chmod after it: the go build above writes /cbooter 0755 (checked in that
+# stage on 2026-10-11) and COPY keeps the mode, and a chmod in a later layer
+# stores the file again -- 5.2 MB as measured in Dockerfile.infer_service
+# (rules_unit_test_harness I-31, I-34).
 COPY --from=builder /cbooter /usr/local/bin/
-RUN chmod +x /usr/local/bin/cbooter
 
 # The backend is carried by the image rather than only by the container definition,
 # because the image is what holds the server binary: a container told to run the other

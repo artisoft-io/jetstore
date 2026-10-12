@@ -390,6 +390,24 @@ export const InsertTargetSchema = z
     "delete_workspace",
     "git_command_workspace",
     "git_status_workspace",
+    /**
+     * Start rules unit tests. `rules_unit_test_harness` Phase 1, `AD.5`,
+     * 2026-10-11: `rulesUnitTestUF`'s *Start Test(s)* posts the selected test
+     * cases with `rows: "fanOut"`, one row per test.
+     *
+     * **An operation, like the six `/workspaces` names above, and reached the same
+     * way**: `workspace_insert_rows`, which is already a member of
+     * `ServerActionSchema`, so that list does not change. Its statement in
+     * `sqlInsertStmts` declares `Capability: "workspace_ide"` (track `AC`, `AC.2`)
+     * — the capability the *Rules Unit Tests* button declares and every other
+     * `/workspaces` write requires — and its pre-hook refuses a workspace other
+     * than the active one and inserts each test as `queued`.
+     *
+     * **A new enum member, not a new union variant**: nothing in `src/userflow/`
+     * switches over the targets, so no reader breaks (root `CLAUDE.md`, on the
+     * seam between this package and its readers).
+     */
+    "rules_unit_test",
   ])
   .meta({ id: "InsertTarget", description: "A table an authored flow may write to" });
 

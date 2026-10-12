@@ -90,9 +90,10 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 		checked++
 	}
 	// Ten flows since 2026-10-01, when registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4).
-	if checked != 13 {
-		t.Errorf("expected the app's ten remaining flows and three projections, checked %d", checked)
+	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
+	// rulesUnitTestUF (rules_unit_test_harness, task AD.4).
+	if checked != 14 {
+		t.Errorf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, checked %d", checked)
 	}
 }
 

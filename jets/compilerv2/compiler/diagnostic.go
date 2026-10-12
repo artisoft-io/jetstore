@@ -17,9 +17,13 @@ import (
 //
 // Two properties matter and are easy to lose:
 //
-//   - The text log is unchanged, byte for byte. jets/compilerv2/main.go and
-//     jets/workspace/compile_workspace_v2.go both read it, and neither should
-//     have to care that this exists.
+//   - The text log keeps its shape. jets/compilerv2/main.go and
+//     jets/workspace/compile_workspace_v2.go both print it, and neither should
+//     have to care that this exists. It was unchanged byte for byte until
+//     2026-10-11, when a syntax error's line in it was found to be a buffer
+//     line: the log, which is what a workspace compile shows its author, now
+//     names the file and line too. Nothing parses it; only "warning:" is
+//     matched, by severityOf below.
 //   - A diagnostic names the *authored* file and a line within it. Rule files
 //     are textually concatenated with their imports before parsing, so ANTLR
 //     reports a line in a buffer nobody wrote; line 4,213 of that buffer is not

@@ -574,33 +574,15 @@ export function toDocuments(tables: Record<string, TableConfig>): Record<string,
 }
 
 /**
- * The document, back as the configuration the query builder consumes.
+ * A table document's actions as the bar renders them, resolving each
+ * `enableWhen` column name against `doc`'s columns.
  *
- * **This exists to prove the translation loses nothing**, and the test that uses
- * it round-trips all 40: `fromDocument(key, toDocument(c))` must equal `c`. A
- * schema that drops a field it should have kept is invisible to a forward-only
- * translation — every document validates and the behaviour is quietly gone. This
- * is the "check it against something you did not generate the same way" rule
- * applied to a schema rather than to a count.
- *
- * The constants the schema dropped are restored here, which is the honest place
- * for them: they are properties of the *runtime*, not of the document.
+ * Exported for a toolbar that acts on one of this table's rows without drawing
+ * the table: the Workspace IDE's buttons are `workspaceRegistryTable` actions
+ * on the open workspace's registry row (`screens/workspaceToolbar.ts`), so
+ * their column names mean what they mean on the registry.
  */
-export function fromDocument(key: string, doc: TableConfigDocument): TableConfig {
-  const columns: ColumnConfig[] = doc.columns.map((column, index) => ({
-    index,
-    table: column.table,
-    name: column.name,
-    label: column.label ?? "",
-    tooltips: column.tooltip ?? "",
-    isNumeric: column.isNumeric ?? false,
-    isHidden: column.isHidden ?? false,
-    calculatedAs: column.calculatedAs,
-    maxLines: column.maxLines ?? 0,
-    columnWidth: column.columnWidth ?? 0,
-    hasCellFilter: column.cellFilter !== undefined,
-  }));
-
+export function restoreActions(doc: TableConfigDocument, actions: TableAction[]): ActionConfig[] {
   // The index a criterion's column name stands for. Built once per document
   // rather than per criterion: the lookup is the inverse of `translateCriterion`
   // and it has to agree with the `columns` array the document already ordered.
@@ -638,6 +620,38 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     hasIsEnabledFnc: action.isEnabled !== undefined,
     hasActionDelegate: false,
   });
+  return actions.map(restoreAction);
+}
+
+/**
+ * The document, back as the configuration the query builder consumes.
+ *
+ * **This exists to prove the translation loses nothing**, and the test that uses
+ * it round-trips all 40: `fromDocument(key, toDocument(c))` must equal `c`. A
+ * schema that drops a field it should have kept is invisible to a forward-only
+ * translation — every document validates and the behaviour is quietly gone. This
+ * is the "check it against something you did not generate the same way" rule
+ * applied to a schema rather than to a count.
+ *
+ * The constants the schema dropped are restored here, which is the honest place
+ * for them: they are properties of the *runtime*, not of the document.
+ */
+export function fromDocument(key: string, doc: TableConfigDocument): TableConfig {
+  const columns: ColumnConfig[] = doc.columns.map((column, index) => ({
+    index,
+    table: column.table,
+    name: column.name,
+    label: column.label ?? "",
+    tooltips: column.tooltip ?? "",
+    isNumeric: column.isNumeric ?? false,
+    isHidden: column.isHidden ?? false,
+    calculatedAs: column.calculatedAs,
+    maxLines: column.maxLines ?? 0,
+    columnWidth: column.columnWidth ?? 0,
+    hasCellFilter: column.cellFilter !== undefined,
+  }));
+
+  const restoreAction = (action: TableAction): ActionConfig => restoreActions(doc, [action])[0]!;
 
   // Every arm that has actions, not "the query arm". Task C.9 — a `formState`
   // table declares them too, and `doc.source === "query"` would have restored

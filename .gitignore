@@ -188,3 +188,5 @@ tools/sample_projects/patient_summary_go/patient_summary_go
 # still be committed, as the parent repo does with .claude/settings.json.
 .claude/worktrees/
 .claude/settings.local.json
+jets/apiserver/rules_unit_test
+jets/cmds/install_workspace_assets/install_workspace_assets

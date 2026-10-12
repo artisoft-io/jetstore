@@ -32,8 +32,14 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
 
 
 int
-ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db)
+ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db,
+  RetractionMode mode)
 {
+  this->retraction_mode_ = mode;
+  if(not mode.is_legacy()) {
+    LOG(INFO) << "Load Workspace DB: retraction mode " << mode.label()
+              << " -- LEGACY defects turned off, for a rules unit test only";
+  }
   VLOG(1) << "Current path is " << std::filesystem::current_path();
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
@@ -136,7 +142,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     // Create the ReteMetaStore
     // create & initalize the meta store
     auto rete_meta_store = rete::create_rete_meta_store(lookup_sql_helper, alpha_nodes, node_vertexes);
-    err = rete_meta_store->initialize();
+    err = rete_meta_store->initialize(this->retraction_mode_);
     if(err) {
       LOG(ERROR) << "Load Workspace DB: ERROR while initializing meta store "<<item.first;
       return err;
@@ -253,8 +259,18 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   }
   
   if( strcmp(type, "bool") == 0) {
-    this->r_map_.insert({key, this->rmgr_->create_literal(rdf::to_bool(std::string_view(value)))});
-    return SQLITE_OK;
+    // A rule-file bool literal: empty is null, anything outside the accepted
+    // spellings refuses to load (I-45). The compiler refuses it first, naming
+    // the file and line; this is the backstop.
+    switch(rdf::parse_bool(std::string_view(value))) {
+    case rdf::ParsedBool::True:  this->r_map_.insert({key, this->rmgr_->create_literal(true)}); return SQLITE_OK;
+    case rdf::ParsedBool::False: this->r_map_.insert({key, this->rmgr_->create_literal(false)}); return SQLITE_OK;
+    case rdf::ParsedBool::Null:  this->r_map_.insert({key, this->rmgr_->get_null()}); return SQLITE_OK;
+    default:
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: bool literal "
+                 << key << ": " << rdf::not_a_bool_message(value);
+      return SQLITE_ERROR;
+    }
   }
   
   if( strcmp(type, "datetime") == 0) {

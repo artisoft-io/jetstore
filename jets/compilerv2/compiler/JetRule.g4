@@ -198,7 +198,10 @@ jetRuleStmt: '[' ruleName=Identifier ruleProperties* ']' ':'
 ruleProperties: ',' key=Identifier ASSIGN valCtx=propertyValue ;
 propertyValue: ( val=STRING | val=TRUE | val=FALSE | intval=intExpr ) ;
 
-antecedent: n=NOT? '(' s=atom p=atom o=objectAtom ')' '.'? ( '[' f=exprTerm ']' '.'? )? ;
+// COMMENT* before the filter: a filter belongs to the antecedent before it, and
+// jetRuleStmt admits comments only between whole antecedents, so without it a
+// comment line between a term and its filter was a syntax error.
+antecedent: n=NOT? '(' s=atom p=atom o=objectAtom ')' '.'? ( COMMENT* '[' f=exprTerm ']' '.'? )? ;
 consequent: '(' s=atom p=atom o=exprTerm ')' '.'? ;
 
 atom

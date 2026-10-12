@@ -192,6 +192,7 @@ class LookupTable {
     subject_rand_prefix_("jets:rand:"),
     db_pool_(lookup_db_path),
     columns_(),
+    min_key_(0),
     max_key_(0),
     rand_eng_(),
     uniform_dist_()
@@ -220,17 +221,22 @@ class LookupTable {
       return err;
     }
 
-    // Get table's max key
+    // Get the range of __key__ for the random lookups. Both bounds are read
+    // rather than assuming a base: the Go packager numbers __key__ from 1, and
+    // lookup.db files built by the earlier packager number it from 0. An empty
+    // table reads as [0, 0], whose one draw finds no row and gives Null.
+    sql = "SELECT MIN(__key__) FROM \"" + lookup_table_name+"\"";
+    this->min_key_ = run_count_statement(lookup_db, sql);
     sql = "SELECT MAX(__key__) FROM \"" + lookup_table_name+"\"";
     this->max_key_ = run_count_statement(lookup_db, sql);
-    if(this->max_key_ < 0) {
+    if(this->min_key_ < 0 or this->max_key_ < 0) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while getting last key of lookup table "<<lookup_table_name;
       return -1;
     }
-    VLOG(30)<<"Lookup table "<<this->lookup_name_<<" max __key__ is "<<this->max_key_<<std::endl;
+    VLOG(30)<<"Lookup table "<<this->lookup_name_<<" __key__ is in ["<<this->min_key_<<", "<<this->max_key_<<"]"<<std::endl;
 
-    // Prepare for random lookup
-    this->uniform_dist_ = std::uniform_int_distribution<int>(0, this->max_key_);
+    // Prepare for random lookup: both bounds are included
+    this->uniform_dist_ = std::uniform_int_distribution<int>(this->min_key_, this->max_key_);
 
     // Create statement and cnx pool
     std::ostringstream sqlb("SELECT ", std::ios_base::ate);
@@ -240,6 +246,9 @@ class LookupTable {
       is_first = false;
       sqlb << "\""<< rdf::get_name(colinfo.first) << "\"";
     }
+    // The row's own rowid, last: served as jets:row_id (lookup_internal_c)
+    if(not is_first) sqlb << ", ";
+    sqlb << "_rowid_";
     sqlb << " FROM \"" << lookup_table_name << "\" WHERE ";
     auto str = sqlb.str();
     err = this->db_pool_.initialize(str+"\"jets:key\" = ?", str+"__key__ = ?");
@@ -314,6 +323,7 @@ class LookupTable {
   std::string                        subject_rand_prefix_;
   DBConnectionPool                   db_pool_;
   LookupInfoV                        columns_;
+  int                                min_key_;
   int                                max_key_;
   std::default_random_engine         rand_eng_;
   std::uniform_int_distribution<int> uniform_dist_;

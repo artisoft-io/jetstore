@@ -39,6 +39,7 @@ struct F_binded {
 
   // A functor that is not an expression mints nothing
   inline bool mints_resource()const { return false; }
+  inline bool reads_graph()const { return false; }
 
   inline
   rdf::r_index 
@@ -106,6 +107,7 @@ struct F_var {
 
   // A functor that is not an expression mints nothing
   inline bool mints_resource()const { return false; }
+  inline bool reads_graph()const { return false; }
 
   inline
   rdf::r_index 
@@ -155,6 +157,7 @@ struct F_cst {
 
   // A functor that is not an expression mints nothing
   inline bool mints_resource()const { return false; }
+  inline bool reads_graph()const { return false; }
 
   inline
   rdf::r_index 
@@ -203,6 +206,7 @@ struct F_expr {
   F_expr & operator=(F_expr const&) = default;
 
   inline bool mints_resource()const { return data->mints_resource(); }
+  inline bool reads_graph()const { return data->reads_graph(); }
 
   inline
   rdf::r_index 

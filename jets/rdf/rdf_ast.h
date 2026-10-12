@@ -3,6 +3,7 @@
 
 #include <cinttypes>
 #include <type_traits>
+#include <cctype>
 #include <string>
 #include <string_view>
 #include <optional>
@@ -500,35 +501,44 @@ to_string(r_index r)
   return buf.str();
 }
 
+// ParsedBool is what parse_bool reads, including the two outcomes a bool cannot
+// hold: an empty value, which is null, and a value outside the accepted spellings.
+enum class ParsedBool { False, True, Null, Invalid };
+
+// parse_bool reads text as a bool: trimmed, in any case, exactly true, t, yes, y,
+// 1 and false, f, no, n, 0; empty is null; anything else is Invalid. It decides
+// nothing about what Invalid means: each caller does, which is the specification
+// of rules_unit_test_harness I-45 (2026-10-11). The Go counterpart is
+// rdf.ParseBool (jets/jetrules/rdf/ast.go), on the same sets; until then this
+// engine read any text but a few spellings of false as true, and Go read any text
+// but a few spellings of true as false.
+inline ParsedBool
+parse_bool(std::string_view str_)
+{
+  auto str = trim_view(str_);
+  if(str.empty()) return ParsedBool::Null;
+  if(str.size() > 5) return ParsedBool::Invalid;
+  std::string v(str);
+  for(auto & c: v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if(v == "true" or v == "t" or v == "yes" or v == "y" or v == "1") return ParsedBool::True;
+  if(v == "false" or v == "f" or v == "no" or v == "n" or v == "0") return ParsedBool::False;
+  return ParsedBool::Invalid;
+}
+
+// The message for an Invalid value, worded as Go's rdf.ParseBool words it.
+inline std::string
+not_a_bool_message(std::string_view value)
+{
+  return "\"" + std::string(value) + "\" is not a bool: expecting true, t, yes, y, 1 or false, f, no, n, 0";
+}
+
+// to_bool is text's truth with nowhere to report an error: true only for the
+// accepted spellings of true. A rule testing text for truth goes through
+// rete::truth_of, which reports an Invalid value as a jets:exception.
 inline bool
 to_bool(std::string_view str_)
 {
-  static constexpr char kFalse[] = "false";
-  static constexpr char kNo[] = "no";
-  auto str = trim_view(str_);
-  if(not str.empty()) {
-    if(str.size() == 1) {
-      if(str[0] == '0') return false;
-      int c = std::tolower(str[0]); 
-      if( c == 'f' or c == 'n') return false;
-      return true;
-    } else {
-      if(str.size() == sizeof(kFalse)-1) {
-        return not std::equal(
-          str.begin(), str.end(), &kFalse[0], 
-          [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
-        );
-      }
-      if(str.size() == sizeof(kNo)-1) {
-        return not std::equal(
-          str.begin(), str.end(), &kNo[0], 
-          [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
-        );
-      }
-      return true;
-    }
-  }
-  return false;
+  return parse_bool(str_) == ParsedBool::True;
 }
 
 struct to_bool_visitor: public boost::static_visitor<bool>

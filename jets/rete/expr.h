@@ -30,6 +30,17 @@ namespace jets::rete {
 // Definition of ExprBasePtr is in node_vertex.h
 class ReteSession;
 
+// raise_exception records a rule-time error in the session as
+// (jets:iState jets:exception "msg"), as substring_of does
+// (expr_op_strings.h); the rule set carries on and the pipeline reports the
+// exception under its on_error policy. truth_of is v's truth when a rule tests
+// it: text is read with rdf::parse_bool, and text outside the accepted
+// spellings raises an exception and sets ok to false, which the caller turns
+// into a null result. Empty text is null, false with no exception (I-45).
+// Defined in rete_session.cc, where ReteSession is complete.
+void raise_exception(ReteSession * rs, std::string const& msg);
+bool truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok);
+
 // Utility function for operators that need to get a graph rdf::r_index
 inline 
 std::pair<rdf::r_index, rdf::r_index>
@@ -91,11 +102,30 @@ class ExprBase {
     return false;
   }
 
+  /**
+   * @brief True when an operator in the tree reads the graph: exist, exist_not,
+   * size_of, the aggregates (min_of, max_of, sorted_head, sum_values, join_values),
+   * lookup or multi_lookup.
+   *
+   * Evaluating such an expression after the graph has moved gives a different value.
+   * In the legacy retraction mode this is not consulted, and such a consequent is
+   * recomputed on retraction -- LEGACY defect 1. A meta store initialized with
+   * RetractionMode::replay_graph_reading_consequents, which only the rules unit test
+   * harness builds, records it as it records a minting one. The wide predicate of
+   * 1d993844 (is_row_pure) is (not mints_resource() and not reads_graph()).
+   */
+  virtual bool
+  reads_graph()const
+  {
+    return false;
+  }
+
   inline bool
   eval_filter(ReteSession * rete_session, BetaRow const* beta_row)const
   {
     auto result = eval(rete_session, beta_row);
-    return rdf::to_bool(&result);
+    bool ok;
+    return truth_of(rete_session, result, ok);
   }
   virtual std::ostream & describe(std::ostream & out)const=0;
 
@@ -118,6 +148,14 @@ struct MintsResource {};
 
 template<class Op>
 inline constexpr bool op_mints_resource = std::is_base_of_v<MintsResource, Op>;
+
+// Marker base for an operator visitor that reads the graph, so evaluating it after the
+// graph has moved gives a different result. An ExprBinaryOp or ExprUnaryOp over such a
+// visitor reports reads_graph() true.
+struct ReadsGraph {};
+
+template<class Op>
+inline constexpr bool op_reads_graph = std::is_base_of_v<ReadsGraph, Op>;
 
 // Utility class for operator visitor that don't need to register callbacks
 // for truth maintenance
@@ -158,6 +196,15 @@ class ExprConjunction: public ExprBase {
   {
     for(auto const& item: this->data_) {
       if(item->mints_resource()) return true;
+    }
+    return false;
+  }
+
+  bool
+  reads_graph()const override
+  {
+    for(auto const& item: this->data_) {
+      if(item->reads_graph()) return true;
     }
     return false;
   }
@@ -212,6 +259,15 @@ class ExprDisjunction: public ExprBase {
   {
     for(auto const& item: this->data_) {
       if(item->mints_resource()) return true;
+    }
+    return false;
+  }
+
+  bool
+  reads_graph()const override
+  {
+    for(auto const& item: this->data_) {
+      if(item->reads_graph()) return true;
     }
     return false;
   }
@@ -344,6 +400,12 @@ class ExprBinaryOp: public ExprBase {
     return op_mints_resource<Op> or this->lhs_->mints_resource() or this->rhs_->mints_resource();
   }
 
+  bool
+  reads_graph()const override
+  {
+    return op_reads_graph<Op> or this->lhs_->reads_graph() or this->rhs_->reads_graph();
+  }
+
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
@@ -386,6 +448,12 @@ class ExprUnaryOp: public ExprBase {
   mints_resource()const override
   {
     return op_mints_resource<Op> or this->arg_->mints_resource();
+  }
+
+  bool
+  reads_graph()const override
+  {
+    return op_reads_graph<Op> or this->arg_->reads_graph();
   }
 
   // defined in expr_impl.h

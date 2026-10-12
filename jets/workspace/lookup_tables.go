@@ -2,9 +2,12 @@ package workspace
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -46,29 +49,65 @@ import (
 //       raise Exception('_convert_jetrule_type: Type not supported: ' + jr_type)
 //   return sqlite_type
 
+// PackageLookupTablesToSqlite rebuilds the workspace's lookup.db
+// unconditionally. The compile calls EnsureLookupDb, which skips the rebuild
+// when the inputs are unchanged (lookup_db_fingerprint.go).
 func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
-	// Open the connection to the lookup.db
-	dbPath := fmt.Sprintf("%s/%s/lookup.db", workspaceHome, wprefix)
-	var lookupDb *sql.DB
-	var err error
+	wsDir := fmt.Sprintf("%s/%s", workspaceHome, wprefix)
+	tables := uniqueLookupTables(lookupTables)
+	sqliteVersion, err := sqliteLibraryVersion()
+	if err != nil {
+		return fmt.Errorf("while reading the sqlite library version: %w", err)
+	}
+	fingerprint, err := lookupDbFingerprint(tables, wsDir, sqliteVersion)
+	if err != nil {
+		fingerprint = ""
+	}
+	return packageLookupTables(tables, wsDir, filepath.Join(wsDir, "lookup.db"), fingerprint, sqliteVersion)
+}
 
-	lookupDb, err = sql.Open("sqlite", dbPath)
+// packageLookupTables builds lookup.db from tables, which must already be
+// deduplicated, and records fingerprint in it when there is one.
+//
+// **It builds a new file and renames it over dbPath**, where it used to drop
+// and recreate each table inside the existing file. That left a lookup removed
+// from the rules in lookup.db for good, let a damaged file break the build, and
+// meant a rebuild over an old file did not produce the bytes of a fresh one —
+// which is what a skipped rebuild has to equal. The rename also means a failed
+// build leaves the previous lookup.db in place rather than half of a new one.
+func packageLookupTables(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, sqliteVersion string) error {
+	buildPath := dbPath + ".building"
+	for _, p := range []string{buildPath, buildPath + "-journal", buildPath + "-wal", buildPath + "-shm"} {
+		if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("while removing %s: %v", p, err)
+		}
+	}
+	if err := buildLookupDb(tables, wsDir, buildPath, fingerprint, sqliteVersion); err != nil {
+		os.Remove(buildPath)
+		return err
+	}
+	// A journal left beside the old file by a crash would be replayed into the
+	// new one on its next open.
+	for _, p := range []string{dbPath + "-journal", dbPath + "-wal", dbPath + "-shm"} {
+		if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("while removing %s: %v", p, err)
+		}
+	}
+	if err := os.Rename(buildPath, dbPath); err != nil {
+		return fmt.Errorf("while moving the new lookup.db into place: %v", err)
+	}
+	return nil
+}
+
+func buildLookupDb(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, sqliteVersion string) error {
+	lookupDb, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("while opening lookup.db: %v", err)
 	}
 	defer lookupDb.Close()
 
-	// make sure each lookup is processed only once
-	processedLookup := make(map[string]bool)
-
 	// For each lookup table, create the table in lookup.db
-	for _, lookupTbl := range lookupTables {
-		if _, exists := processedLookup[lookupTbl.Name]; exists {
-			// already processed
-			continue
-		}
-		processedLookup[lookupTbl.Name] = true
-		
+	for _, lookupTbl := range tables {
 		log.Printf("Processing lookup table %s", lookupTbl.Name)
 		createStmt := makeCreateStatement(lookupTbl)
 		_, err = lookupDb.Exec(createStmt)
@@ -80,7 +119,7 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 		// Load the data file to memory
 		switch {
 		case len(lookupTbl.CsvFile) > 0:
-			filePath := fmt.Sprintf("%s/%s/%s", workspaceHome, wprefix, lookupTbl.CsvFile)
+			filePath := fmt.Sprintf("%s/%s", wsDir, lookupTbl.CsvFile)
 			// Load the CSV file into memory
 			fs, err := os.Open(filePath)
 			if err != nil {
@@ -123,7 +162,7 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 			rowIdByJetsKey := make(map[string]int)
 			// For each record, map the columns to the output record
 			isFirst := true
-			for _, record := range records[1:] {
+			for irec, record := range records[1:] {
 				if !isFirst {
 					buf.WriteString(",\n")
 				} else {
@@ -168,10 +207,20 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 						case "double":
 							outputRec[i+2] = val
 						case "bool":
-							if rdf.ParseBool(val) == 0 {
-								outputRec[i+2] = "0"
-							} else {
+							// Empty is null and anything outside the accepted
+							// spellings stops the compile, naming where (I-45).
+							// Both engines serve a NULL bool column as rdf null.
+							b, err := rdf.ParseBool(val)
+							switch {
+							case errors.Is(err, rdf.ErrNullBool):
+								outputRec[i+2] = "NULL"
+							case err != nil:
+								return fmt.Errorf("lookup table %s, csv file %s, row %d, column %s: %v",
+									lookupTbl.Name, filePath, irec+2, col.Name, err)
+							case b:
 								outputRec[i+2] = "1"
+							default:
+								outputRec[i+2] = "0"
 							}
 						default:
 							outputRec[i+2] = quote(val) // Default to string
@@ -198,7 +247,13 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 			return fmt.Errorf("no data file specified or file type not supported for lookup table %s", lookupTbl.Name)
 		}
 	}
-	return nil
+	// Last, so a file cut short is unlikely to carry it.
+	if fingerprint != "" {
+		if err = writeLookupDbFingerprint(lookupDb, fingerprint, sqliteVersion); err != nil {
+			return fmt.Errorf("while recording the lookup.db fingerprint: %v", err)
+		}
+	}
+	return lookupDb.Close()
 }
 
 func quote(s string) string {

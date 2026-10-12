@@ -21,5 +21,12 @@ func (op *AndOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs
 }
 
 func (op *AndOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-  return lhs.AND(rhs)
+  // Text is read as a bool (I-45): text outside the accepted spellings
+	// raises a jets:exception and makes the result null.
+	l, okl := reteSession.truthOf(lhs)
+	r, okr := reteSession.truthOf(rhs)
+	if !okl || !okr {
+		return rdf.Null()
+	}
+	return rdf.B(l && r)
 }

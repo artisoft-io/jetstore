@@ -34,10 +34,15 @@ import {
   type TableConfigDocument,
 } from "./table";
 import { validateTableActions } from "../userflow/documentSet";
-import { ROWS_PER_PAGE, fromDocument, toDocument, toDocuments,
+import { ROWS_PER_PAGE, fromDocument, restoreActions, toDocument, toDocuments,
   CORPUS_CORRECTIONS,
 } from "./tableTranslate";
 import type { TableConfig } from "./types";
+import { availability } from "./actionBarModel";
+import { FormState } from "./formState";
+import { inAppPath } from "../screens/routes";
+import { WorkspaceToolbarDocumentSchema } from "../screens/WorkspaceToolbar";
+import toolbarJson from "../screens/documents/workspaceIdeToolbar.json";
 
 const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.url));
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
@@ -185,8 +190,7 @@ const screenTables = (screenCorpus as { tables: Record<string, unknown> }).table
 const NON_FLOW_KEYS = [
   // `pipelineExecStatusTable` was the first entry here until 2026-10-01; it is
   // hand-maintained now. See `HAND_MAINTAINED_KEYS`. So is `workspaceRegistryTable`,
-  // since the same evening.
-  "workspaceChangesTable",
+  // since the same evening. And `workspaceChangesTable`, since 2026-10-11.
   "pipelineExecDetailsTable",
   "cpipesExecDetailsTable",
   "queryToolResultSetTable",
@@ -310,7 +314,24 @@ const HAND_MAINTAINED_KEYS = [
   "org",
   "pcViewInjectedProcessInputKeys",
   "pcViewMergedProcessInputKeys",
+  // A Refresh, so a save in the Workspace IDE shows without reloading the page
+  // (Michel, 2026-10-11).
+  "workspaceChangesTable",
 ] as const;
+
+/**
+ * Documents written for a feature, with no Dart original and none to come.
+ * `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ *
+ * **A fourth list, because none of the three above describes them.** They were
+ * never translations, so `HAND_MAINTAINED_KEYS`' premise does not hold; nothing in
+ * either fixture names them, so `HAND_AUTHORED_KEYS`' field-by-field check has
+ * nothing to compare. What they are checked against instead is the schema of the
+ * tables they read (`the rules unit test tables`, below), which is the contract
+ * that can actually drift: the hub and the check table read `jetsapi` tables
+ * track `AC` defined in `jets/jets_schema.json`.
+ */
+const FEATURE_KEYS = ["rutExecutionTable", "rutTestCaseTable", "rutCheckTable"] as const;
 
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
@@ -327,11 +348,13 @@ const readAuthored = (keys: readonly string[]): Record<string, TableConfigDocume
 const handAuthored = readAuthored(HAND_AUTHORED_KEYS);
 const authoredDocuments = readAuthored(AUTHORED_KEYS);
 const handMaintained = readAuthored(HAND_MAINTAINED_KEYS);
+const featureDocuments = readAuthored(FEATURE_KEYS);
 const documents: Record<string, TableConfigDocument> = {
   ...translated,
   ...handAuthored,
   ...authoredDocuments,
   ...handMaintained,
+  ...featureDocuments,
 };
 const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!;
 /**
@@ -358,8 +381,9 @@ describe("the emitted JSON Schema", () => {
   });
 
   // **61 since 2026-10-01**: the three add-or-edit option tables `D06` removed
-  // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`).
-  it("has the 61 configurations committed beside it, for the Go check", () => {
+  // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`). **64 since
+  // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
+  it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -421,7 +445,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 31 configurations still translated from the flow fixture", () => {
-  it("all translate, and the twenty-seven non-flow tables so far make 61", () => {
+  it("all translate, and with the authored ones make 64", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
     // workspace home's one, of which four are authored rather than translated. The
@@ -438,16 +462,21 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // `scAddOrEditSourceConfigOption` and `pcAddOrEditPipelineConfigOption` with
     // the add-or-edit steps `D06` removed — the first documents to leave this set
     // by going nowhere. **52 and 5 the same evening**, when `workspaceRegistryTable`
-    // left too, to drop a label that repeated its screen title.
+    // left too, to drop a label that repeated its screen title. **51 on
+    // 2026-10-11**, when `workspaceChangesTable` left to gain a Refresh.
     expect(Object.keys(flowDocuments).length).toBe(31);
-    expect(Object.keys(translated).length).toBe(52);
+    expect(Object.keys(translated).length).toBe(51);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
     // the on-disk document overrides the translation in `documents`, so the total
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
-    expect(Object.keys(handMaintained).length).toBe(8);
-    expect(Object.keys(documents).length).toBe(61);
+    // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(9);
+    // **64 since 2026-10-11**: the three rules unit test tables
+    // (`rules_unit_test_harness` `AD.4`), written rather than translated.
+    expect(Object.keys(featureDocuments).length).toBe(3);
+    expect(Object.keys(documents).length).toBe(64);
   });
 
   it("all validate against the schema", () => {
@@ -705,6 +734,17 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
 describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   const doc = documents["workspaceRegistryTable"]!;
   const config = configOf("workspaceRegistryTable");
+  /**
+   * The registry's actions wherever they are drawn. **Since 2026-10-11 the ten
+   * that act on a workspace are the Workspace IDE's toolbar**
+   * (`screens/documents/workspaceIdeToolbar.json`), still in this table's action
+   * format and still run against a registry row; the table keeps the four about
+   * the registry itself. So the claims below about the registry's actions are
+   * asserted over both documents, and where each button lives is asserted once.
+   */
+  const toolbar = WorkspaceToolbarDocumentSchema.parse(toolbarJson).rows;
+  const registryActions = doc.source === "query" ? [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])] : [];
+  const allActions = [...registryActions, ...toolbar.flat()];
 
   it("accounts for every apiAction either corpus holds, which is what makes the enum closed", () => {
     // **The membership argument, asserted rather than described.** `table.ts`
@@ -754,20 +794,22 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     expect(fromDocument("lfSourceConfigTable", flow).apiAction).toBe("read");
   });
 
-  it("gates eight buttons on the selected row's status, by column name", () => {
+  it("gates six buttons on the selected row's status, by column name", () => {
     if (doc.source !== "query") return;
-    const gated = [...(doc.actions ?? []), ...(doc.secondRowActions ?? [])].filter(
-      (a) => a.enableWhen !== undefined,
-    );
+    const gated = allActions.filter((a) => a.enableWhen !== undefined);
+    // **Nine since 2026-10-11**: *Rules Unit Tests* (`rules_unit_test_harness`
+    // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
+    // why `actionBar.test.tsx`, reading that corpus, still counts eight.
+    // Registry first, then the toolbar's rows: the order the two documents hold.
+    // **Six since the same evening**: *Commit & Push*, *Push Only* and *Pull*
+    // lost their gates on the IDE's toolbar (Michel: always enabled).
     expect(gated.map((a) => a.key)).toEqual([
       "openWorkspace",
+      "deleteWorkspace",
       "exportWorkspaceClientConfig",
       "loadWorkspaceConfig",
-      "deleteWorkspace",
       "compileWorkspace",
-      "commitWorkspace",
-      "pushOnlyWorkspace",
-      "pullWorkspace",
+      "rulesUnitTests",
     ]);
     // Every criterion in either corpus tests this one column. The Dart says `6`;
     // that this is the column at index 6 is what the translation had to know.
@@ -776,36 +818,102 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     expect(doc.columns[6]?.name).toBe("status");
   });
 
+  it("enables Rules Unit Tests exactly as it enables Open, and sends it to the flow", () => {
+    // `rules_unit_test_harness` `AD.2`, 2026-10-11, criterion 19's first half.
+    // **Asserted on behaviour as well as on the three fields**: equal JSON would
+    // pass with a gate the model reads differently on a `showScreen` than on a
+    // `doAction`, and the claim is about what the user sees enabled.
+    const model = fromDocument("workspaceRegistryTable", doc);
+    const open = model.actions.find((a) => a.key === "openWorkspace")!;
+    // On the IDE's toolbar since 2026-10-11, restored against this table's columns.
+    const tests = restoreActions(doc, toolbar.flat()).find((a) => a.key === "rulesUnitTests")!;
+    expect(tests.label).toBe("Rules Unit Tests");
+    expect(tests.style).toBe("primary");
+    expect(tests.capability).toBe("workspace_ide");
+    expect(tests.isVisibleWhenCheckboxVisible).toBe(open.isVisibleWhenCheckboxVisible);
+    expect(tests.isEnabledWhenHavingSelectedRows).toBe(open.isEnabledWhenHavingSelectedRows);
+    expect(tests.actionEnableCriterias).toEqual(open.actionEnableCriterias);
+
+    const row = (status: string | null): (string | null)[] => [
+      "1", "acme", "main", "feature", "git@x", "a workspace", status, null, "u@x", "now",
+    ];
+    for (const checkboxVisible of [true, false]) {
+      for (const selectedRowCount of [0, 1]) {
+        for (const status of [null, "", "active", "modified", "Compile in progress", "removed"]) {
+          const context = {
+            tableKey: "workspaceRegistryTable",
+            selectedRowCount,
+            checkboxVisible,
+            whereClauseSatisfied: true,
+            formState: new FormState(),
+            predicates: {},
+            ...(selectedRowCount > 0 ? { selectedRow: row(status) } : {}),
+          };
+          const label = `checkbox ${checkboxVisible}, ${selectedRowCount} selected, status ${status}`;
+          expect(availability(tests, context).enabled, label).toBe(availability(open, context).enabled);
+          expect(availability(tests, context).visible, label).toBe(availability(open, context).visible);
+        }
+      }
+    }
+
+    // The row's `workspace_name` is column 1, as `loadWorkspaceConfig` reads it,
+    // and the template resolves to the flow through `FLOW_ROUTES` (`AD.3`).
+    expect(tests.actionType).toBe("showScreen");
+    expect(tests.navigationParams).toEqual({ workspace_name: 1 });
+    expect(inAppPath(tests.configScreenPath, { workspace_name: "jets_ws" })).toBe(
+      "/flow/rulesUnitTestUF?workspace_name=jets_ws",
+    );
+  });
+
   it("keeps the disjunction of conjunctions rather than flattening it", () => {
     if (doc.source !== "query") return;
-    // Two of the eight use the inner list, and a flattened `enableWhen` would
-    // have turned "neither removed nor in progress" into "either", which is the
+    // Export uses the inner list, and a flattened `enableWhen` would have
+    // turned "neither removed nor in progress" into "either", which is the
     // difference between refusing a mid-compile export and permitting one.
-    const exportAction = (doc.actions ?? []).find((a) => a.key === "exportWorkspaceClientConfig");
+    // **`local workspace removed` since 2026-10-11**: a bare `removed` also
+    // matched `active, feature branch missing or removed`, the active workspace
+    // on its base branch, and refused Export there.
+    const exportAction = allActions.find((a) => a.key === "exportWorkspaceClientConfig");
     expect(exportAction?.enableWhen).toEqual([
       [
-        { column: "status", is: "doesNotContain", value: "removed" },
+        { column: "status", is: "doesNotContain", value: "local workspace removed" },
         { column: "status", is: "doesNotContain", value: "in progress" },
       ],
     ]);
-    const commit = (doc.secondRowActions ?? []).find((a) => a.key === "commitWorkspace");
-    expect(commit?.enableWhen).toEqual([
-      [{ column: "status", is: "contains", value: "modified" }],
+    for (const key of ["commitWorkspace", "pushOnlyWorkspace", "pullWorkspace"]) {
+      expect(allActions.find((a) => a.key === key)?.enableWhen).toBeUndefined();
+    }
+  });
+
+  it("keeps the registry's own buttons in one row, and gives the IDE the workspace actions", () => {
+    if (doc.source !== "query") return;
+    // The split is by what a button acts on: a registry row as such (add,
+    // open, delete) or the table (refresh) stay; what acts on a workspace moves.
+    expect((doc.actions ?? []).map((a) => a.key)).toEqual([
+      "addWorkspace",
+      "openWorkspace",
+      "deleteWorkspace",
+      "refreshTable",
+    ]);
+    expect(doc.secondRowActions).toBeUndefined();
+    expect(toolbar.map((row) => row.map((a) => a.key))).toEqual([
+      ["exportWorkspaceClientConfig", "loadWorkspaceConfig", "refreshTable"],
+      [
+        "compileWorkspace",
+        "rulesUnitTests",
+        "commitWorkspace",
+        "pushOnlyWorkspace",
+        "pullWorkspace",
+        "doGitStatus",
+        "doGitCommand",
+        "viewGitLogWorkspace",
+      ],
     ]);
   });
 
-  it("is the second table with a second action row, and the corpus has no third", () => {
-    if (doc.source !== "query") return;
-    expect((doc.secondRowActions ?? []).map((a) => a.key)).toEqual([
-      "compileWorkspace",
-      "commitWorkspace",
-      "pushOnlyWorkspace",
-      "pullWorkspace",
-      "doGitStatus",
-      "doGitCommand",
-      "viewGitLogWorkspace",
-      "refreshTable",
-    ]);
+  it("was the second table with a second action row in the Flutter corpus, which has no third", () => {
+    // The frozen corpus still carries the registry's two rows; the document
+    // above no longer does.
     const withSecondRow = Object.entries(screenTables)
       .filter(([, t]) => t.secondRowActions.length > 0)
       .map(([key]) => key);
@@ -813,18 +921,25 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   });
 
   it("names no escape, so this screen needs no predicate registered", () => {
-    // All eight gates are row criteria, which are data; `hasIsEnabledFnc` is
+    // All nine gates are row criteria, which are data; `hasIsEnabledFnc` is
     // false on every action of this table. The two mechanisms look alike and are
     // not the same one — see `tableTranslate.ts`.
     expect(escapeNamesOf(doc)).toEqual([]);
     expect([...config.actions, ...config.secondRowActions].some((a) => a.hasIsEnabledFnc)).toBe(false);
+    expect(toolbar.flat().some((a) => a.isEnabled !== undefined)).toBe(false);
   });
 
-  it("names three action-document entries and five dialog forms on the second row", () => {
-    expect(actionNamesOf(doc)).toEqual(["compileWorkspace", "deleteWorkspace", "openWorkspace"]);
-    if (doc.source !== "query") return;
+  it("names three action-document entries and five dialog forms on the toolbar's second row", () => {
+    // `compileWorkspace` moved to the toolbar; the registry keeps the other two.
+    expect(actionNamesOf(doc)).toEqual(["deleteWorkspace", "openWorkspace"]);
     expect(
-      (doc.secondRowActions ?? []).filter((a) => a.action === "showDialog").map((a) => a.configForm),
+      [...registryActions, ...toolbar.flat()]
+        .filter((a) => a.action === "doAction")
+        .map((a) => a.actionName)
+        .sort(),
+    ).toEqual(["compileWorkspace", "deleteWorkspace", "openWorkspace"]);
+    expect(
+      toolbar[1]!.filter((a) => a.action === "showDialog").map((a) => a.configForm),
     ).toEqual([
       "commitWorkspaceDialog",
       "pushOnlyWorkspaceDialog",
@@ -1298,5 +1413,131 @@ describe("thirdRowActions", () => {
       { pipelineExecStatusTable: withThird() },
     );
     expect(findings.map((f) => f.path)).toContain("/pipelineExecStatusTable/thirdRowActions/0/actionName");
+  });
+});
+
+/**
+ * The rules unit test tables. `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ *
+ * **They are read against the schema of what they read**, because that is the
+ * contract between two tracks: `AC.1` defined the two `jetsapi` tables in
+ * `jets/jets_schema.json`, and a column named here that the table does not have
+ * is a query the server refuses, which nothing else in this suite would see.
+ */
+describe("the rules unit test tables", () => {
+  const jetsSchema = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../../jets/jets_schema.json", import.meta.url)), "utf8"),
+  ) as { schemaName: string; tableName: string; columns: { columnName: string }[] }[];
+  const columnsOf = (table: string): string[] =>
+    jetsSchema.find((t) => t.schemaName === "jetsapi" && t.tableName === table)?.columns.map((c) => c.columnName) ?? [];
+
+  it("read only columns the jetsapi tables have", () => {
+    for (const key of ["rutExecutionTable", "rutCheckTable"]) {
+      const doc = documents[key]!;
+      if (doc.source !== "query") throw new Error(`${key} is not a query table`);
+      const table = doc.from[0]!.table ?? "";
+      const have = columnsOf(table);
+      expect(have.length, `${table} is not in jets_schema.json`).toBeGreaterThan(0);
+      const named = [...doc.columns.map((c) => c.name), ...(doc.where ?? []).map((w) => w.column ?? "")];
+      expect(named.filter((c) => !have.includes(c)), key).toEqual([]);
+    }
+  });
+
+  it("reads the test cases from the unit_tests table the compile writes", () => {
+    // `AD.1` records each `.tst.json` in `workspace.db` at compile, and
+    // `jets/workspace_schema.sql` is the only thing that knows its columns.
+    const sql = readFileSync(fileURLToPath(new URL("../../../jets/workspace_schema.sql", import.meta.url)), "utf8");
+    const body = /CREATE TABLE IF NOT EXISTS unit_tests \(([\s\S]*?)\n\);/.exec(sql)?.[1] ?? "";
+    const declared = body
+      .split("\n")
+      .map((line) => line.trim().split(/\s+/)[0] ?? "")
+      .filter((word) => /^[a-z_]+$/.test(word));
+    expect(declared).toEqual(["path", "test_name", "process_name", "legacy_mode", "comment", "findings"]);
+    const doc = documents["rutTestCaseTable"]!;
+    if (doc.source !== "query") throw new Error("rutTestCaseTable is not a query table");
+    expect(doc.from).toEqual([{ schema: "$SCHEMA", table: "unit_tests" }]);
+    expect(doc.columns.map((c) => c.name)).toEqual(declared);
+    // Multi-select, and what the fanOut posts is the path, which `AC.2` reads as
+    // `test_path`.
+    expect(doc.isCheckboxSingleSelect).toBeUndefined();
+    expect(doc.formStateBinding?.otherColumns).toEqual([{ stateKey: "test_path", columnIdx: 0 }]);
+  });
+
+  it("sort every query table on a column the table shows", () => {
+    // `resolveSortColumn` (`model.ts`) resolves the configured sort column among
+    // the *visible* columns and sends an empty one otherwise, so a query table
+    // sorted on a hidden column is not sorted at all. `rutExecutionTable` was, on
+    // its hidden `key`, until `AD.7`'s FlowRunner test read the request it sent
+    // (2026-10-11). Asserted over every query document rather than the three,
+    // because nothing else checks it: on that day the only tables sorting on a
+    // hidden column were six static option tables, whose rows the server never
+    // orders.
+    const offenders = Object.entries(documents)
+      .filter(([, doc]) => doc.source === "query" && doc.sortColumn !== undefined && doc.sortColumn !== "")
+      .filter(([, doc]) => !doc.columns.some((c) => c.name === doc.sortColumn && !c.isHidden))
+      .map(([key, doc]) => `${key}: ${doc.sortColumn}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("qualify a numeric sort column with its table, so PostgreSQL sorts it as a number", () => {
+    // Found by the browser pass (`AG.1`, 2026-10-11): `rutCheckTable` listed
+    // checks 10, 11, 12, 8, 9 under "#" ascending. `buildQuery` selects every
+    // column as `"col"::text` and orders by the bare sort column when the request
+    // names no table, which PostgreSQL resolves to the *text output* column
+    // (`jets/datatable/data_table_action.go`, `buildQuery` and
+    // `makeSelectColumns`). Naming the table reaches the table column instead.
+    //
+    // **What reaches the request is the sort column's own `table`, not the
+    // document's `sortColumnTable`**: `resolveSortColumn` (`model.ts`) takes
+    // `col.table`, and the document field is carried into the model and read by
+    // nothing on the request path. So that is what is asserted.
+    //
+    // Over every query document. Two shipped tables sort on an unqualified
+    // numeric column today and are listed rather than fixed here, because they
+    // are not this project's (`rules_unit_test_harness` reports them); a third
+    // appearing fails. Timestamps are not checked: their text form sorts in time
+    // order, so the cast is harmless for them.
+    const KNOWN_UNQUALIFIED = ["cpipesExecDetailsTable", "pipelineExecDetailsTable"];
+    const offenders = Object.entries(documents)
+      .filter(([, doc]) => doc.source === "query")
+      .filter(([, doc]) => {
+        const sorted = doc.columns.find((c) => c.name === doc.sortColumn);
+        return sorted?.isNumeric === true && !sorted.table;
+      })
+      .map(([key]) => key)
+      .sort();
+    expect(offenders).toEqual(KNOWN_UNQUALIFIED);
+    for (const key of ["rutExecutionTable", "rutCheckTable"]) {
+      const doc = documents[key]!;
+      if (doc.source !== "query") throw new Error(`${key} is not a query table`);
+      expect(doc.columns.find((c) => c.name === "key")?.table, key).toBe(doc.from[0]!.table);
+    }
+  });
+
+  it("gate every read on workspace_ide by reading through workspace_read", () => {
+    // `DoReadAction` requires `jetstore_read`, which three roles hold;
+    // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge
+    // engineer holds. The flow is protected exactly as well as its reads are
+    // (definition F49), so all three take the second path — the two `jetsapi`
+    // tables included, which that handler reads from PostgreSQL.
+    for (const key of FEATURE_KEYS) {
+      const doc = documents[key]!;
+      expect(doc.source === "query" && doc.apiAction, key).toBe("workspace_read");
+    }
+  });
+
+  it("show a run's checks for the run the hub selected, newest run first", () => {
+    const hub = documents["rutExecutionTable"]!;
+    const checks = documents["rutCheckTable"]!;
+    if (hub.source !== "query" || checks.source !== "query") throw new Error("not query tables");
+    expect(hub.sortColumn).toBe("key");
+    expect(hub.sortAscending).toBe(false);
+    expect(hub.isCheckboxSingleSelect).toBe(true);
+    expect(hub.where).toEqual([{ column: "workspace_name", formStateKey: "workspace_name" }]);
+    expect(checks.where).toEqual([{ column: "execution_key", formStateKey: "rutExecutionTable" }]);
+    // The log the *View Log* dialog shows is bound by the column the action names.
+    const log = hub.columns.findIndex((c) => c.name === "log");
+    expect(hub.formStateBinding?.otherColumns).toContainEqual({ stateKey: "log", columnIdx: log });
+    expect(hub.actions?.find((a) => a.key === "rutViewLog")?.navigationParams).toEqual({ log });
   });
 });

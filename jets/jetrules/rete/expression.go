@@ -65,7 +65,8 @@ func (expr *ExprCst) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 	if expr.data == nil {
 		return false
 	}
-	return expr.data.Bool()
+	b, _ := reteSession.truthOf(expr.data)
+	return b
 }
 
 // Binded variable term
@@ -107,7 +108,8 @@ func (expr *ExprBindedVar) EvalFilter(reteSession *ReteSession, row *BetaRow) bo
 	if v.IsNull() {
 		log.Printf("ERROR while calling ExprBindedVar.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
 	}
-	return v.Bool()
+	b, _ := reteSession.truthOf(v)
+	return b
 }
 
 // Binary Operator term
@@ -166,7 +168,8 @@ func (expr *ExprBinaryOp) EvalFilter(reteSession *ReteSession, row *BetaRow) boo
 	if v.IsNull() {
 		log.Printf("ERROR while calling ExprBinaryOp.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
 	}
-	return v.Bool()
+	b, _ := reteSession.truthOf(v)
+	return b
 }
 
 // Unary Operator term
@@ -214,5 +217,6 @@ func (expr *ExprUnaryOp) EvalFilter(reteSession *ReteSession, row *BetaRow) bool
 	if v.IsNull() {
 		log.Printf("ERROR while calling ExprUnaryOp.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
 	}
-	return v.Bool()
+	b, _ := reteSession.truthOf(v)
+	return b
 }

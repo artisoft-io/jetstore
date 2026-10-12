@@ -281,7 +281,9 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			} else {
 				// Consequents that mint nothing are recomputed. For one that reads the
 				// graph (an aggregate, exist, size_of) that is a known defect -- see
-				// README.md, 2026-10-09.
+				// README.md, 2026-10-09 -- unless the meta store was built with
+				// RetractionMode.ReplayGraphReadingConsequents, when such a vertex
+				// records and is replayed above.
 				for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 					t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
 					_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
@@ -295,7 +297,13 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			// is -- so the retracted row stays in the relation as kProcessed and an
 			// equal row inserted later is taken for one already inferred: it never
 			// fires again. usi_ws's rules terminate only because of it; see README.md.
-			betaRelation.RemoveBetaRow(rs, betaRow)
+			// A meta store built with RetractionMode.EraseWithdrawnRows, which only the
+			// rules unit test harness builds, erases the row instead.
+			if rs.ms.RetractionMode.EraseWithdrawnRows {
+				betaRelation.EraseRetractedBetaRow(betaRow)
+			} else {
+				betaRelation.RemoveBetaRow(rs, betaRow)
+			}
 			betaRow.Status = kProcessed
 		}
 	}

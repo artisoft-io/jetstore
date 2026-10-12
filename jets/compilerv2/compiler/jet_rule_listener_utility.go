@@ -1,9 +1,11 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
@@ -257,6 +259,9 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
 				return nil
 			}
+			if typ == "bool" && !s.checkBoolLiteral(s.currentLine, StripQuotes(val)) {
+				return nil
+			}
 			return &rete.ResourceNode{
 				Type:  typ,
 				Value: StripQuotes(val),
@@ -326,4 +331,15 @@ func StripQuotes(s string) string {
 		return s[1 : len(s)-1]
 	}
 	return s
+}
+
+// checkBoolLiteral refuses a bool literal outside the accepted spellings, at the
+// line it was written (I-45). Empty is null and is accepted. Both engines also
+// refuse such a literal at load; this is where the author hears of it.
+func (s *JetRuleListener) checkBoolLiteral(globalLine int, value string) bool {
+	if _, err := rdf.ParseBool(value); err != nil && !errors.Is(err, rdf.ErrNullBool) {
+		s.LogErrorAt(globalLine, fmt.Sprintf("bool literal: %v", err))
+		return false
+	}
+	return true
 }

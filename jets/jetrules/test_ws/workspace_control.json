@@ -2,7 +2,24 @@
   "rule_sets": [
     "jet_rules/test_lookup_main.jr",
     "jet_rules/test_looping_main.jr",
-    "jet_rules/test_join_values_main.jr"
+    "jet_rules/test_join_values_main.jr",
+    "jet_rules/test_execute_rules_main.jr",
+    "jet_rules/test_execute_rules_second.jr"
   ],
-  "rule_sequences": []
+  "rule_sequences": [
+    {
+      "name": "test_execute_rules_sequence",
+      "rule_sets": [
+        "jet_rules/test_execute_rules_main.jr",
+        "jet_rules/test_looping_main.jr"
+      ]
+    },
+    {
+      "name": "test_execute_rules_two_exceptions",
+      "rule_sets": [
+        "jet_rules/test_execute_rules_main.jr",
+        "jet_rules/test_execute_rules_second.jr"
+      ]
+    }
+  ]
 }

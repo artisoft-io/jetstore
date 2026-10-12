@@ -244,8 +244,9 @@ so the two exclusions are **53 MB, 47%**.
 **The list belongs to the caller, and `run_reports` is why** — for a stronger
 reason than "it reads them". `run_reports` syncs the lookups to S3 (`:287`) and
 then **recompiles the workspace** unless `SkipCompileWorkspace` is set (`:293`),
-and the compile is what consumes the CSVs: `PackageLookupTablesToSqlite` opens
-each one (`lookup_tables.go:87`) to rebuild `lookup.db`. **A report that updates
+and the compile is what consumes the CSVs: `buildLookupDb` opens each one
+(`lookup_tables.go:124`) to rebuild `lookup.db`, and even a compile that skips the
+rebuild hashes every one to decide that it may (`lookupDbFingerprint`). **A report that updates
 a lookup table needs the source present**, not merely copied onward. So a list
 baked into the seed would be right for one caller and wrong for the other — the
 same reason `contentType` is a parameter.
@@ -271,6 +272,38 @@ Byte counts for both sides are logged, so a skip that stops paying says so:
 ```
 Seeded /tmp/workspaces/jets_ws in 12.1s (60.4 MB copied, 53.1 MB skipped: [.git lookups])
 ```
+
+
+## `lookup.db` is rebuilt only when what it is built from changed
+
+Packaging `lookup.db` was most of a compile — about 2.2 s of 2.5 s on `jets_ws`,
+measured 2026-10-11 — and a compile now blocks rules unit tests, so it is time a
+user waits. `EnsureLookupDb` (`lookup_db_fingerprint.go`) skips it when the
+existing file carries a SHA-256 of exactly the inputs a rebuild would read: the
+deduplicated lookup definitions, the bytes of every CSV they name, the SQLite
+library version and `lookupDbFormatVersion`. The compile log says which happened:
+
+```
+Lookup tables packaged into lookup.db in 2.153s (no lookup.db; inputs sha256 35f52110dd4a)
+lookup.db is up to date, packaging skipped in 14ms (inputs sha256 35f52110dd4a unchanged)
+```
+
+Three things the code cannot tell you:
+
+- **Modification times are not consulted**, on purpose: a git checkout, a Docker
+  `COPY` and the database sync all rewrite them. Touching a CSV does not rebuild;
+  changing one byte does.
+- **Bump `lookupDbFormatVersion` when you change what the packager writes** —
+  `lookup_tables.go`, or what it calls (`jets/csv`, `rdf.ParseBool`). Code cannot
+  fingerprint itself, so that one input is a convention.
+- **A rebuild writes a new file and renames it into place.** It used to drop and
+  recreate each table inside the old file, so a lookup removed from the rules
+  stayed in `lookup.db` indefinitely, and a rebuild did not produce the bytes a
+  fresh build does. A skipped `lookup.db` is now byte-for-byte what a rebuild would
+  write, which is what makes skipping safe to reason about, and a failed build
+  leaves the previous file intact. Anything else — no file, an unreadable or
+  truncated one, one built before the fingerprint existed — rebuilds, so a fresh
+  container always builds.
 
 
 ## The compile sits between two halves of a schema migration, and the order is load-bearing

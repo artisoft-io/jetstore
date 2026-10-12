@@ -65,6 +65,14 @@ const HAND_AUTHORED = [
   "pipelineConfigUF",
   "sourceConfigUF",
   "startPipelineUF",
+  // **Never a translation**: written for `rules_unit_test_harness` (`AD.4`,
+  // 2026-10-11), so nothing regenerates it either, which is the promise this
+  // list makes.
+  "rulesUnitTestUF",
+  // Left the fixture on 2026-10-11 so that, launched from the Workspace IDE,
+  // they return there rather than to `/workspaces` (no `exitScreenPath`).
+  "loadConfigUF",
+  "workspacePullUF",
 ];
 const flows = toUserFlows(corpus as unknown as Corpus);
 /** The hand-authored flows as committed — the thing that ships, so the thing checked. */
@@ -139,6 +147,16 @@ describe("the emitted JSON Schema", () => {
   });
 });
 
+describe("the workspace flows the Workspace IDE launches", () => {
+  // 2026-10-11, from Michel's testing: *Cancel* on *Load Client Config* went to
+  // `/workspaces`. An `exitScreenPath` wins over the `returnTo` the launcher
+  // writes (`FlowRunner.tsx`, `exit`), and is kept for a flow that must always
+  // end in one place (*Start Pipeline*). These three go back where they came from.
+  it.each(["loadConfigUF", "workspacePullUF", "rulesUnitTestUF"])("%s has no exitScreenPath", (key) => {
+    expect(handAuthored[key]!.exitScreenPath).toBeUndefined();
+  });
+});
+
 describe("the shipping corpus", () => {
   it("is the five flows and 13 states still translated from the fixture", () => {
     // Eleven, not the nine the documents said: `workspace_pull/` defines two
@@ -155,8 +173,11 @@ describe("the shipping corpus", () => {
     // (`jetstore_maintenance_02` Phase 2).
     // **Five and 13 on 2026-10-02**, when `startPipelineUF` (4 states) left too,
     // so that it could always end on Home (same phase, Michel's decision).
-    expect(Object.keys(flows)).toHaveLength(5);
-    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(13);
+    // **Three and 8 on 2026-10-11**, when `loadConfigUF` (2 states) and
+    // `workspacePullUF` (3) left so that, launched from the Workspace IDE, they
+    // return there (`rules_unit_test_harness`, Michel's testing).
+    expect(Object.keys(flows)).toHaveLength(3);
+    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(8);
   });
 
   it.each(Object.keys(flows))("%s validates against the schema", (key) => {
@@ -190,6 +211,10 @@ describe("the shipping corpus", () => {
   // **One form since 2026-10-02**: `not` and `isNullOrEmpty` were the nested
   // choice in `startPipelineUF`, which left this fixture for `HAND_AUTHORED`
   // (`jetstore_maintenance_02` Phase 2) and still carries it on disk.
+  //
+  // **None in the fixture since 2026-10-11**: the one `contains` was
+  // `workspacePullUF`'s, which left for `HAND_AUTHORED` and still carries it on
+  // disk, so the walk below reads that flow as well and the form stays covered.
   it("uses one of the seven condition forms, and one operator", () => {
     // The other three are carried for the reason A.3 carried its unused text
     // options: two lines each, and their absence is a silent behaviour change
@@ -204,7 +229,7 @@ describe("the shipping corpus", () => {
         else walk(value);
       }
     };
-    for (const flow of Object.values(flows)) {
+    for (const flow of [...Object.values(flows), handAuthored["workspacePullUF"]!]) {
       for (const state of Object.values(flow.states)) {
         if ("choices" in state && state.choices) state.choices.forEach((c) => walk(c.when));
       }

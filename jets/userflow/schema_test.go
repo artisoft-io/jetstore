@@ -96,9 +96,11 @@ func TestShippingFlowsValidate(t *testing.T) {
 	// same schema; the count is of documents, not of migrations.
 	//
 	// Ten since 2026-10-01, when registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4).
-	if len(files) != 13 {
-		t.Fatalf("expected the app's ten remaining flows and three projections, found %d", len(files))
+	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
+	// rulesUnitTestUF (rules_unit_test_harness, task AD.4), written rather than
+	// ported.
+	if len(files) != 14 {
+		t.Fatalf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".uf.json"), func(t *testing.T) {

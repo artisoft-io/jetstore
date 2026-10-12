@@ -261,8 +261,9 @@ func ensureLocalRepoSeeded(skipTopLevel ...string) error {
 // (`run_reports/delegate/run_reports.go:287`), but it also **recompiles the
 // workspace** immediately after, unless `SkipCompileWorkspace` is set (`:293`),
 // and the compile is what actually consumes the CSVs:
-// `PackageLookupTablesToSqlite` opens each one (`lookup_tables.go:87`) to
-// rebuild `lookup.db`. So a report that updates a lookup table needs the source
+// `buildLookupDb` opens each one (`lookup_tables.go:124`) to rebuild
+// `lookup.db`, and a compile that skips the rebuild still hashes each one to
+// decide that it may (`lookupDbFingerprint`). So a report that updates a lookup table needs the source
 // present, not merely copied onward. A list baked in here would be right for one
 // caller and wrong for the other.
 //

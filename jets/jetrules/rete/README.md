@@ -2,6 +2,84 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## Every rule fires at the salience it declares — 2026-10-11
+
+**A vertex has one salience, and rules with the same antecedents used to share their last vertex.**
+So a vertex could carry rules with different saliences, and the two engines settled it differently:
+- **Go** took the lowest (`slices.Min`, `NewReteMetaStoreFactory`, over the list in `.rete.json`).
+- **C++** took the first rule's: it reads one number, `workspace.db`'s `rete_nodes.salience`, and
+  the compiler wrote `Salience[0]` there.
+
+Either way, **a declared salience could be overruled with no error.** Raising a rule's salience did
+nothing if a rule with the same antecedents sat lower. Lowering an aggregate below its producer
+dragged the producer down with it when the two shared antecedents. The compiler's aggregate salience
+check compared declared saliences, so it missed both.
+
+Measured on a three-rule case in the rules unit test harness: a producer declared at s=100 sharing
+its antecedents with an s=5 rule, feeding an aggregate at s=50. It compiled. C++ ran the vertex at
+100 and the aggregate counted the producer's value; Go ran it at 5 and counted nothing
+(`jetstore_agentic_ai` `rules_unit_test_harness` `I-25`).
+
+**Fixed in the compiler's network builder** (`terminalReteNode`,
+`jets/compilerv2/compiler/jet_rule_listener_rete.go`): rules share their last vertex only when their
+saliences are equal, and a rule with another salience gets a vertex of its own; the antecedents
+before it are still shared. So every vertex fires at one salience, the declared one, on both
+engines, and the aggregate check's declared saliences are the ones that run. The same three-rule
+case now counts the value on both engines.
+
+**One way to defeat a declared salience remains, and the compiler warns about it**
+(`WarnSameConsequentAtTwoSaliences`, same file). Two rules with the same antecedents and different
+saliences that infer the same triple: the triple exists from when the higher one fires, and the
+lower one only adds a reference, so its salience changes nothing about that triple. That is what is
+left when a rule was copied to change its salience and the original kept. It is a warning, not an
+error, because the pair can differ in other consequents. ~~A warning reaches the process log and
+not the compile output a workspace compile returns on success.~~ **Since 2026-10-12 a successful
+compile's output carries its warnings** under *Compilation warnings:* (`compileWarnings`,
+`jets/workspace/compile_workspace_v2.go`), so View Last Log in the Workspace IDE shows them; until
+then only the warnings the compiler also writes to the parse log reached it.
+
+**Nothing in production moved**, recompiled 2026-10-11 against the previous compiler:
+- **`usi_ws`, `walrus_ws` and `cedargate_ws`** at the pins `jetstore_agentic_ai` records compile to
+  identical networks, node for node (11,363 rete nodes in `usi_ws`).
+- **USI's and Walrus's own copies** have no vertex carrying two saliences.
+- **`jets_ws` gains one vertex**: the generated class-inheritance rule
+  `ci_cintel:Briefing_Pharmacy_Event` stops sharing `BP_RxFillDates10`'s vertex and fires at its own
+  s=100 instead of 10. It infers only `rdf:type owl:Thing`, which no rule reads.
+
+## Text read as a bool: one specification on both engines — 2026-10-11
+
+**Until 2026-10-11 the two engines read a string as a bool the opposite way round.** C++
+(`rdf::to_bool`) took any text but a few spellings of false as true; Go (`rdf.ParseBool` for
+literals, `Node.Bool` for a filter) took any text but a few spellings of true as false, and
+`Node.Bool` called `"false"` true. Rule configuration read the first letter, so `tomato` was true.
+None of the four workspaces reached the difference on that day: no rule file wrote `bool("…")` or
+`bool x = "…";`, and no filter tested a bare variable. This is `rules_unit_test_harness` `I-45`.
+
+**Now one parser, `rdf.ParseBool` in Go and `rdf::parse_bool` in C++, on the same sets**: trimmed,
+in any case, `true, t, yes, y, 1` and `false, f, no, n, 0`; empty is **null**; anything else is an
+error. The parser decides nothing about what an error means. Each caller does, and that is the
+specification:
+
+| Where | Empty | Not empty and not in the sets |
+|---|---|---|
+| Rule-file bool literal | null | compile error naming file and line (`checkBoolLiteral`, compilerv2); refused at load on both engines |
+| Lookup bool column (packager, `jets/workspace/lookup_tables.go`) | SQL `NULL`, served as rdf null on both engines | compile error naming lookup, CSV row, column and value |
+| Rule configuration (`ParseRdfNodeValue`) | null | pipeline fails at start |
+| Text a rule tests for truth: filter, `and`, `or`, `not` | null; a filter does not pass; no exception | `(jets:iState jets:exception "…")` and the expression is null; the rule set carries on and the pipeline reports it under `on_error` |
+| `map_record` bool cell | null (an empty cell is never cast) | record-level error under the operator's `on_error` |
+| Typed file read (`castToRdfTypeFromTxt`) | null | the read fails, as for a bad date or int: JetStore wrote the file |
+| Rules unit test expected bool | null | the check errors |
+
+**Three things that were wrong on the way, and are fixed with it.** `bool x = "false";` kept its
+quotes, so both engines received `"false"` with the quote characters: true on C++, false on Go.
+C++ `not` on any text raised `Invalid arguments for not`, failing the session, even for `"false"`.
+And C++ read a SQL `NULL` in an int or double lookup column as `0` where Go served null
+(`lookup_sql_helper.cc`), which mattered the moment an empty bool cell became `NULL`.
+
+**The run-time exception is the C++ `substring_of` pattern** (`expr_op_strings.h`), now on Go as
+`ReteSession.RaiseException`: a rule-time error is data in the session, not a failed
+`ExecuteRules`, so one bad value in one row does not stop the others.
+
 ## A minting consequent is retracted by replay; two retraction defects are kept — 2026-10-08, revised 2026-10-09
 
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
@@ -20,9 +98,9 @@ a workaround (artisoft-io/usi_ws#22).
 
 At rule load a node vertex is flagged when one of its consequent terms mints a resource:
 `create_entity`, `create_uuid_resource`, `range`, `lookup_rand` or `multi_lookup_rand`. C++: the
-`MintsResource` marker on those visitors (`jets/rete/expr.h:117`) and `ExprBase::mints_resource`,
-read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:145`). Go: `expr_mints_resource.go`
-and `AddConsequentTerm` (`node_vertex.go:71`). A row of a flagged vertex records every triple its
+`MintsResource` marker on those visitors (`jets/rete/expr.h:135`) and `ExprBase::mints_resource`,
+read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go: `expr_mints_resource.go`
+and `AddConsequentTerm` (`node_vertex.go:77`). A row of a flagged vertex records every triple its
 consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
 both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
 `rete_session.go:34`) — and **retraction retracts that record and evaluates nothing**
@@ -45,7 +123,7 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
    `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
    and the inferred one stays.
 2. **A withdrawn row never fires again.** After retracting a row's consequents both engines call
-   `remove_beta_row` / `RemoveBetaRow` (`rete_session.cc:447`, `rete_session_exec_rules.go:298`), which
+   `remove_beta_row` / `RemoveBetaRow` (`rete_session.cc:456`, `rete_session_exec_rules.go:305`), which
    returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
    `kProcessed`, and an equal row arriving later is taken for one already inferred.
 
@@ -76,14 +154,69 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
   happens, and the full fix gave the same member outcomes as the pin.
 
 **The rule language cannot end these loops by itself**: a rule has the properties `o`, `s` and
-`flag`, and nothing that makes a consequent non-retractable. So if a workspace ever needs correct
-truth maintenance on these shapes, the paths are:
+`flag`, and nothing that makes a consequent non-retractable. *(Wrong, corrected 2026-10-11 below:
+`usi_ws` ended them in the rule language, by changing what the rules are guarded on.)* So if a
+workspace ever needs correct truth maintenance on these shapes, the paths are:
 
 - **(b)** put aggregate replay and row erasure behind an opt-in rule-config switch, default off —
   two code paths, no workspace changing behaviour unless it asks; or
 - **(c)** fix both outright and add an engine primitive making a loop rule's consequents
   non-retractable, then rewrite the `usi_ws` loop rules and its `exist_not` self-guards (`op01`,
   `op02` and their like) before running it with the flag off.
+
+**2026-10-11: option (b) is built, for rules unit tests only, and no pipeline can reach it.**
+`jetstore_agentic_ai`'s `rules_unit_test_harness` project (Phase 1, track `AF`) restored
+`1d993844`'s two fixes behind a **retraction mode fixed when the network is built**, one switch
+per defect, because each was measured above to do something different alone. Go:
+`RetractionMode` (`retraction_mode.go`), passed as `WithRetractionMode` to
+`NewReteMetaStoreFactory`; `AddConsequentTerm` records a graph-reading consequent
+(`expr_reads_graph.go`, the wide half of `1d993844`'s row purity) only with
+`ReplayGraphReadingConsequents`, and `ComputeConsequentTriples` calls `EraseRetractedBetaRow`
+instead of `RemoveBetaRow` only with `EraseWithdrawnRows`. C++: `RetractionMode`
+(`jets/rete/rete_meta_store.h`), passed to `ReteMetaStore::initialize` through
+`ReteMetaStoreFactory::load_database` from the C entry point `create_jetstore_hdl_with_mode`;
+`create_jetstore_hdl` is unchanged and builds the legacy mode. **The zero value is legacy for
+both, in both engines**, and nothing a pipeline configures sets anything else: there is no
+`rule_config` key and no `JetrulesSpec` field for it. The mode is set by a unit test definition
+(its `legacy` object), which the harness reads before it builds the test's engine, so each test
+runs in its own process in one mode. Production runs exactly what the decision of 2026-10-09
+left it running. The `LEGACY` tests in both engines now run every case in the four modes:
+`legacy` pins today's behaviour, and `fixed-1`, `fixed-2` and `fixed` assert what `1d993844`
+asserted. On the five-term loop shape they reproduce the measurement above on both engines:
+`fixed` ends at the vertex visit limit, `fixed-1` terminates with both merges undone, and
+`fixed-2` terminates as `legacy` does.
+
+**2026-10-11, later: `usi_ws` depends on neither defect any more, nor on the switch.** Two
+corrections to what is above, from `jetstore_agentic_ai`'s `rules_unit_test_harness` (its `I-38` to
+`I-40` and `I-44`), which reduced these shapes to unit tests:
+
+- **What held the shapes up in production was the switch, not the defects.** The measurements
+  above were taken with `_0:no_truth_main_on_exist` off. With it on, as USI runs, an `exist` filter
+  is evaluated once, when its row is made, and the compiler puts the loop rule's filter on the
+  loop-0 `jets:State` row. So the guard never moved. With the switch on, `usi_ws` at the time passed
+  with both defects off as well. The defects held the shape up only with the switch off, which is
+  what this entry measured. They do so in `jets_ws`'s `looping_test1`, which has no switch.
+- **The rule language could end them; what was missing was the right guard, not an engine
+  primitive.** `artisoft-io/usi_ws#31` rewrote them without (c)'s non-retractable consequent:
+  - The loop rule (`mcp2` in CM, its IM and MSK twins) is guarded by `size_of` on the match list,
+    which no merge changes, instead of `exist` on the priority list, which every merge shrinks.
+  - The loop completes on an empty priority list. `size_of` is maintained in every mode.
+  - CM02's and IM02's adjustment loops run in their own rule sets, each with its own loop counter.
+  - `op01`/`op02`'s chain now ends in `_0:totalAmountAllowed`, which `rt10` copies to
+    `hc_usi:totalAmountAllowed` in `4_CM04_Orphans_Main2`, the next tier, where nothing tests for
+    its absence.
+  - IM02's `MEREXCL011`/`012` test `_0:hasOwnExclusion` instead of `hc_usi:hasExclusion`, which
+    their own result reached.
+
+  `artisoft-io/usi_ws#32` then stopped setting the switch. The `usi_ws` unit tests `cm_loop`,
+  `im_mercom` and `msk_loop` pass in the legacy mode and with both defects off (`fixed`). With the
+  switch off, CM and IM give the switch-on export on the assessment's 28 test claims.
+
+**So the case for keeping the defects now rests on USI's own copy of the workspace**, which still
+sets the switch and has neither PR; it must take both together, because the switch removed without
+`#31`'s rules brings the hangs back. Nothing in the workspaces `jetstore_agentic_ai` pins depends
+on them except `jets_ws`'s `looping_test1`, which pins them on purpose, and the `LEGACY` tests.
+Whether pipelines should run with them fixed is a decision this entry does not make.
 
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
@@ -97,7 +230,8 @@ code, not measured.
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
 C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.
-`workspaces/usi_ws` sets it in `pipes_config/usiclaim_processes.pc.json` because its rules predate
+`workspaces/usi_ws` set it in `pipes_config/usiclaim_processes.pc.json` (until 2026-10-11,
+`artisoft-io/usi_ws#32`; see the entry above; USI's own copy still does) because its rules predate
 rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
 `ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
 
@@ -198,7 +332,7 @@ rendering test in the Go file exists only to pin agreement with the C++ `JoinTex
 nothing exercised compile → metastore → execution — the leg on which an operator name is an opaque
 string. `jets/jetrules/test_ws/jet_rules/test_join_values_main.jr` is that rule, run by
 `TestJoinValuesCompilesAndRuns` (`join_values_rule_test.go`), which compiles a scratch copy of
-`test_ws` with `compile_workspace` and asserts the joined strings. **Two of the three config forms
+`test_ws` with `workspace.CompileWorkspace`, asset validation skipped, and asserts the joined strings. **Two of the three config forms
 are in it deliberately**: the `jets:entity_property` + `jets:value_property` form with an explicit
 `jets:separator`, and the `jets:value_property`-alone form with the default — which is item 1 above,
 the form `sum_values` gets wrong in Go, so the rule is what says `join_values` does not.
