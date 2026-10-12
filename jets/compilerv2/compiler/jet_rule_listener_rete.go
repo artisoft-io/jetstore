@@ -5,6 +5,7 @@ package compiler
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -62,9 +63,16 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			if l.trace {
 				fmt.Fprintf(l.parseLog, "   Antecedent %d: %s\n", i+1, antecedent.NormalizedLabel)
 			}
-			// Look for a node with the same normalized label and parent vertex
+			// Look for a node with the same normalized label and parent vertex.
+			// The rule's last antecedent is the vertex it fires at, so it is
+			// shared only with rules of the same salience (terminalReteNode).
 			parentNode := l.jetRuleModel.ReteNodes[parentVertex]
-			reteNode := l.reteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
+			var reteNode *rete.RuleTerm
+			if i == len(rule.Antecedents)-1 {
+				reteNode = l.terminalReteNode(parentVertex, antecedent.NormalizedLabel, rule.Salience)
+			} else {
+				reteNode = l.reteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
+			}
 			if reteNode == nil {
 				// No matching node found, use current antecedent as the rete node
 				if l.trace {
@@ -138,6 +146,27 @@ func (l *JetRuleListener) BuildReteNetwork() {
 func (l *JetRuleListener) reteNodeByNormalizedLabel(parentVertex int, normalizedLabel string) *rete.RuleTerm {
 	for _, node := range l.jetRuleModel.ReteNodes {
 		if node.ParentVertex == parentVertex && node.NormalizedLabel == normalizedLabel {
+			return node
+		}
+	}
+	return nil
+}
+
+// terminalReteNode returns the node a rule of the given salience ends on: one
+// with the same normalized label and parent vertex whose rules, if any, all
+// have that salience. A vertex fires every rule ending on it at one salience, so
+// rules with the same antecedents and different saliences get a vertex each,
+// and every rule runs at the salience it declares. Until 2026-10-11 they shared
+// one, which the Go engine ran at the lowest of the saliences and the C++
+// engine at the first rule's, so a declared salience could be overruled with no
+// error, and the aggregate salience check, which reads declared saliences,
+// missed it (rules_unit_test_harness I-25).
+func (l *JetRuleListener) terminalReteNode(parentVertex int, normalizedLabel string, salience int) *rete.RuleTerm {
+	for _, node := range l.jetRuleModel.ReteNodes {
+		if node.ParentVertex != parentVertex || node.NormalizedLabel != normalizedLabel {
+			continue
+		}
+		if !slices.ContainsFunc(node.Salience, func(s int) bool { return s != salience }) {
 			return node
 		}
 	}

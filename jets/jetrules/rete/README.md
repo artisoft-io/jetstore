@@ -2,6 +2,39 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## Every rule fires at the salience it declares — 2026-10-11
+
+**A vertex has one salience, and rules with the same antecedents used to share their last vertex.**
+So a vertex could carry rules with different saliences, and the two engines settled it differently:
+- **Go** took the lowest (`slices.Min`, `NewReteMetaStoreFactory`, over the list in `.rete.json`).
+- **C++** took the first rule's: it reads one number, `workspace.db`'s `rete_nodes.salience`, and
+  the compiler wrote `Salience[0]` there.
+
+Either way, **a declared salience could be overruled with no error.** Raising a rule's salience did
+nothing if a rule with the same antecedents sat lower. Lowering an aggregate below its producer
+dragged the producer down with it when the two shared antecedents. The compiler's aggregate salience
+check compared declared saliences, so it missed both.
+
+Measured on a three-rule case in the rules unit test harness: a producer declared at s=100 sharing
+its antecedents with an s=5 rule, feeding an aggregate at s=50. It compiled. C++ ran the vertex at
+100 and the aggregate counted the producer's value; Go ran it at 5 and counted nothing
+(`jetstore_agentic_ai` `rules_unit_test_harness` `I-25`).
+
+**Fixed in the compiler's network builder** (`terminalReteNode`,
+`jets/compilerv2/compiler/jet_rule_listener_rete.go`): rules share their last vertex only when their
+saliences are equal, and a rule with another salience gets a vertex of its own; the antecedents
+before it are still shared. So every vertex fires at one salience, the declared one, on both
+engines, and the aggregate check's declared saliences are the ones that run. The same three-rule
+case now counts the value on both engines.
+
+**Nothing in production moved**, recompiled 2026-10-11 against the previous compiler:
+- **`usi_ws`, `walrus_ws` and `cedargate_ws`** at the pins `jetstore_agentic_ai` records compile to
+  identical networks, node for node (11,363 rete nodes in `usi_ws`).
+- **USI's and Walrus's own copies** have no vertex carrying two saliences.
+- **`jets_ws` gains one vertex**: the generated class-inheritance rule
+  `ci_cintel:Briefing_Pharmacy_Event` stops sharing `BP_RxFillDates10`'s vertex and fires at its own
+  s=100 instead of 10. It infers only `rdf:type owl:Thing`, which no rule reads.
+
 ## Text read as a bool: one specification on both engines — 2026-10-11
 
 **Until 2026-10-11 the two engines read a string as a bool the opposite way round.** C++
