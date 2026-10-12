@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
+	"github.com/artisoft-io/jetstore/jets/compilerv2/symbolic"
 )
 
 // ---------------------------------------------------------------------------
@@ -45,7 +46,20 @@ type CompileReport struct {
 	Valid bool `json:"valid"`
 	// Diagnostics carries warnings as well as errors, in emission order. A
 	// report can be valid and non-empty; that is a compile that warned.
-	Diagnostics []compiler.Diagnostic `json:"diagnostics,omitempty"`
+	Diagnostics []RuleDiagnostic `json:"diagnostics,omitempty"`
+	// Source is the JetRules text the 'rules' arm rendered and compiled, so a
+	// caller holding a valid report holds the .jr to save. Empty for the other
+	// two arms, whose source the caller already has.
+	Source string `json:"source,omitempty"`
+}
+
+// RuleDiagnostic is a compiler diagnostic, plus — for the 'rules' arm — the
+// JSON Pointer of the element of the submitted document it was raised
+// against. The compiler reports a line of the rendering, which the author
+// never wrote; the pointer is the location the author can act on.
+type RuleDiagnostic struct {
+	compiler.Diagnostic
+	Pointer string `json:"pointer,omitempty"`
 }
 
 type compileArgs struct {
@@ -63,7 +77,15 @@ type compileArgs struct {
 	// beside a path would reproduce I-68's own defect — a call that looks
 	// answered and compiled something else.
 	RulePath string `json:"rule_path"`
-	FileName string `json:"file_name"`
+	// Rules is I-250's arm: the rules as a symbolic document
+	// (jets/compilerv2/symbolic), rendered to JetRules source by the tool.
+	// F176 measured the model carrying a cpipes config through this tool
+	// family intact 17 and 16 times in 18 and a rule file 6 and 4 times, with
+	// every dropped fragment a JetRules construct — a label, an import line.
+	// In this arm the model writes none of them: the renderer does. It serves
+	// the case the path arm cannot, a rule composed and not saved.
+	Rules    json.RawMessage `json:"rules"`
+	FileName string          `json:"file_name"`
 }
 
 // defaultCompileFileName is used when the caller names nothing. It is
@@ -78,15 +100,29 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 	}
 	hasText := strings.TrimSpace(in.RuleText) != ""
 	hasPath := strings.TrimSpace(in.RulePath) != ""
-	switch {
-	case hasText && hasPath:
+	hasRules := len(in.Rules) > 0 && string(in.Rules) != "null"
+	switch given := btoi(hasText) + btoi(hasPath) + btoi(hasRules); {
+	case given > 1:
 		return nil, fmt.Errorf(
-			"give either 'rule_text' or 'rule_path', not both: they name two different " +
+			"give exactly one of 'rule_path', 'rules' and 'rule_text': they name different " +
 				"rules and this tool will not guess which one you meant")
-	case !hasText && !hasPath:
+	case given == 0:
 		return nil, fmt.Errorf(
-			"one of 'rule_path' (a workspace-relative .jr, preferred) or 'rule_text' " +
-				"(the source itself) is required")
+			"one of 'rule_path' (a workspace-relative .jr, preferred), 'rules' (the rules as a " +
+				"JSON document) or 'rule_text' (JetRules source) is required")
+	}
+
+	// The rules arm renders first, so a document that cannot be rendered is
+	// answered with its location before a workspace is copied.
+	var rendered *symbolic.Rendered
+	if hasRules {
+		var report *CompileReport
+		rendered, report = renderRules(in.Rules)
+		if report != nil {
+			return report, nil
+		}
+		in.RuleText = rendered.Source
+		hasText = true
 	}
 
 	wsDir, err := ws.LocalDir()
@@ -152,7 +188,17 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 	c := compiler.NewCompiler(scratch, fileName, false, false, true)
 	err = c.Compile()
 
-	report := &CompileReport{Valid: err == nil, Diagnostics: c.Diagnostics()}
+	report := &CompileReport{Valid: err == nil}
+	for _, d := range c.Diagnostics() {
+		rd := RuleDiagnostic{Diagnostic: d}
+		if rendered != nil && filepath.Clean(d.File) == filepath.Clean(fileName) {
+			rd.Pointer = rendered.PointerAt(d.Line)
+		}
+		report.Diagnostics = append(report.Diagnostics, rd)
+	}
+	if rendered != nil {
+		report.Source = rendered.Source
+	}
 	if err != nil {
 		var cerr *compiler.CompilationError
 		if errors.As(err, &cerr) {
@@ -166,6 +212,46 @@ func CompileRuleFile(_ context.Context, ws *Workspace, args json.RawMessage) (an
 		return nil, fmt.Errorf("while compiling %s: %w", fileName, err)
 	}
 	return report, nil
+}
+
+// renderRules parses and renders the 'rules' argument. A document that does
+// not parse or does not render is a verdict about the rules, not a failure of
+// the tool, so it comes back as an invalid report carrying the location — the
+// same shape a compile error has, which is what lets a repair loop treat the
+// two alike.
+func renderRules(raw json.RawMessage) (*symbolic.Rendered, *CompileReport) {
+	invalid := func(ptr, msg string) *CompileReport {
+		return &CompileReport{Diagnostics: []RuleDiagnostic{{
+			Diagnostic: compiler.Diagnostic{Severity: compiler.SeverityError, Message: "error: " + msg},
+			Pointer:    ptr,
+		}}}
+	}
+	doc := []byte(raw)
+	// A model sometimes sends a JSON document as a string holding it.
+	var asString string
+	if json.Unmarshal(raw, &asString) == nil {
+		doc = []byte(asString)
+	}
+	f, err := symbolic.Parse(doc)
+	if err != nil {
+		return nil, invalid("", "the 'rules' document does not parse: "+err.Error())
+	}
+	rendered, err := symbolic.Render(f)
+	if err != nil {
+		var re *symbolic.RenderError
+		if errors.As(err, &re) {
+			return nil, invalid(re.Pointer, re.Message)
+		}
+		return nil, invalid("", err.Error())
+	}
+	return rendered, nil
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // compileFileName validates the caller's chosen name. A bare name is required:

@@ -37,6 +37,13 @@
 // happened to exist would measure the same thing and invite the reader to think
 // otherwise.
 //
+// **I-250 added a third arm to compile_rule_file, 2026-10-12**: 'rules', the
+// rule as a symbolic JSON document the tool renders to JetRules. Its six
+// probes (crr-*) carry the same six rules as the content arm's (crf-*), so the
+// two rows compare one notation against the other on one model in one run —
+// F176 found the text arm's losses were all JetRules constructs, and this arm
+// asks the model for none.
+//
 //	go run ./tools/tool_conformance
 //	go run ./tools/tool_conformance -repeats 3 -model granite4.1:3b
 package main
@@ -56,6 +63,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/eval"
 	mcpadapter "github.com/artisoft-io/jetstore/jets/agentic/mcp"
 	"github.com/artisoft-io/jetstore/jets/agentic/tools"
+	"github.com/artisoft-io/jetstore/jets/compilerv2/symbolic"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -69,6 +77,14 @@ var casesJSON []byte
 type fidelitySpec struct {
 	Arg         string   `json:"arg"`
 	MustContain []string `json:"must_contain"`
+	// SameRules is I-250's stricter test, for the symbolic 'rules' arm: the
+	// argument must parse to the same document the prompt carried, not merely
+	// contain its fragments. Substrings are weak on JSON — every id can be
+	// present and attached to the wrong term — so the new arm is held to more
+	// than the text arm it is compared with, which makes the comparison
+	// conservative against it rather than for it. Key order and whitespace
+	// still do not count: both sides are parsed and re-encoded.
+	SameRules json.RawMessage `json:"same_rules,omitempty"`
 }
 
 type testCase struct {
@@ -396,7 +412,26 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 			missing = append(missing, want)
 		}
 	}
+	if len(spec.SameRules) > 0 && !sameRules(text, spec.SameRules) {
+		missing = append(missing, "(the rules document is not the one given)")
+	}
 	return missing, true
+}
+
+// sameRules says whether a symbolic rules document is the expected one, by
+// parsing both and comparing their canonical encodings.
+func sameRules(got string, want json.RawMessage) bool {
+	g, err := symbolic.Parse([]byte(got))
+	if err != nil {
+		return false
+	}
+	w, err := symbolic.Parse(want)
+	if err != nil {
+		return false
+	}
+	gb, err1 := json.Marshal(g)
+	wb, err2 := json.Marshal(w)
+	return err1 == nil && err2 == nil && bytes.Equal(gb, wb)
 }
 
 func keys(m map[string]json.RawMessage) []string {
