@@ -92,12 +92,6 @@
       "action": "doAction",
       "style": "danger",
       "actionName": "deleteAllWorkspaceChanges"
-    },
-    {
-      "key": "refreshTable",
-      "label": "Refresh",
-      "action": "refreshTable",
-      "style": "secondary"
     }
   ],
   "refreshOnKeyUpdateEvent": [

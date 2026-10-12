@@ -193,7 +193,7 @@ async function mountToolbar(workspace: string, active?: { name: string; branch: 
 
 /** The labels of the buttons moved to the toolbar, by row. */
 const TOOLBAR_ROWS = [
-  ["Export Client Config", "Load Client Config"],
+  ["Export Client Config", "Load Client Config", "Refresh"],
   [
     "Compile Workspace", "Rules Unit Tests", "Commit & Push Workspace", "Push Only",
     "Pull Workspace", "Git Status", "Git Command", "View Last Log",
@@ -266,14 +266,15 @@ describe("the screen", () => {
     for (const label of ["Add/Update", "Open", "Delete", "Refresh"]) {
       expect(button(label)).toBeTruthy();
     }
-    for (const label of TOOLBAR_ROWS.flat()) {
+    // Refresh is on both: the registry's re-reads the table, the toolbar's the IDE.
+    for (const label of TOOLBAR_ROWS.flat().filter((l) => l !== "Refresh")) {
       expect(screen.queryByRole("button", { name: label })).toBeNull();
     }
   });
 
-  it("draws the toolbar's two rows — ten buttons, not the first two", async () => {
+  it("draws the toolbar's two rows — eleven buttons, not the first three", async () => {
     await mountToolbar("acme_ws");
-    // Rendering one bar would have lost eight of the ten and looked like a
+    // Rendering one bar would have lost eight of the eleven and looked like a
     // working toolbar, which is I-104's second finding, from the table's days.
     const groups = screen.getAllByRole("group");
     expect(groups.map((g) => within(g).getAllByRole("button").map((b) => b.textContent))).toEqual(TOOLBAR_ROWS);

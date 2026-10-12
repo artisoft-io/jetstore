@@ -1,5 +1,5 @@
 {
-  "comment": "The Workspace IDE's toolbar: workspaceRegistryTable actions that need a workspace, moved off the registry on 2026-10-11 so they act on the workspace the IDE has open. Each runs against that workspace's registry row, so navigationParams indices and enableWhen columns mean what they mean on workspaceRegistryTable.tc.json. Rows, top to bottom. Since the same evening, Commit & Push, Push Only and Pull carry no status gate (Michel: always enabled), and Export is refused only for `local workspace removed`, because the active workspace on its base branch reads `active, feature branch missing or removed` and a bare `removed` refused it.",
+  "comment": "The Workspace IDE's toolbar: workspaceRegistryTable actions that need a workspace, moved off the registry on 2026-10-11 so they act on the workspace the IDE has open. Each runs against that workspace's registry row, so navigationParams indices and enableWhen columns mean what they mean on workspaceRegistryTable.tc.json. Rows, top to bottom. Since the same evening, Commit & Push, Push Only and Pull carry no status gate (Michel: always enabled), and Export is refused only for `local workspace removed`, because the active workspace on its base branch reads `active, feature branch missing or removed` and a bare `removed` refused it. Since 2026-10-12 the first row ends with Refresh (Michel), the widget action refreshTable: the IDE answers it by re-reading the toolbar's registry row, the file tree and the changes table.",
   "rows": [
     [
       {
@@ -52,6 +52,12 @@
             }
           ]
         ]
+      },
+      {
+        "key": "refreshTable",
+        "label": "Refresh",
+        "action": "refreshTable",
+        "style": "secondary"
       }
     ],
     [
