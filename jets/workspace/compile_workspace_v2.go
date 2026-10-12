@@ -101,6 +101,13 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			return cmdLog, fmt.Errorf("while compiling rule file '%s': %v", name, err)
 		}
 		buf.WriteString(jrCompiler.ParseLog().String())
+		// A compile that succeeded may still have warned. The warnings are in
+		// the error log, which only a failed compile wrote here; the ones the
+		// compiler also writes to the parse log (an identifier created as a
+		// resource) were shown, and the rest -- the aggregate and salience
+		// warnings -- reached the process log only, until 2026-10-12
+		// (rules_unit_test_harness I-55).
+		buf.WriteString(compileWarnings(jrCompiler.ErrorLog().String(), jrCompiler.ParseLog().String()))
 		// Perform predicate dependency
 		analyzer := analyzer.NewAnalyzer(workspacePath, name, "predicates", "", true, jrCompiler)
 		err = analyzer.Analyze()
@@ -357,4 +364,29 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	}
 
 	return buf.String(), err
+}
+
+// compileWarnings returns the warning lines of a rule file's error log that
+// its parse log does not already carry, under a heading, or "" when there are
+// none. The compiler marks a warning by the text "warning:" (compilerv2's
+// severityOf); anything else in the error log is an error and fails the compile
+// before this is reached.
+func compileWarnings(errorLog, parseLog string) string {
+	shown := make(map[string]bool)
+	for _, line := range strings.Split(parseLog, "\n") {
+		shown[strings.TrimSpace(line)] = true
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(errorLog, "\n") {
+		if strings.TrimSpace(line) == "" || !strings.Contains(line, "warning:") || shown[strings.TrimSpace(line)] {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("Compilation warnings:\n")
+		}
+		b.WriteString("  ")
+		b.WriteString(strings.TrimSpace(line))
+		b.WriteString("\n")
+	}
+	return b.String()
 }
