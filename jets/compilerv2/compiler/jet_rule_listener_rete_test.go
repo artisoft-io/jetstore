@@ -5,6 +5,7 @@ package compiler
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -181,4 +182,64 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 		t.Errorf("expected both rules to end at vertices 5 and 6 with two consequents each, got %v", consequents)
 	}
 	// t.Error("Done")
+}
+
+// compileSalienceCase compiles rules over a small header and returns the
+// compile error, if any, and the warnings logged.
+func compileSalienceCase(t *testing.T, rules string) (error, []string) {
+	t.Helper()
+	c := NewCompiler("./testdata", "rete_test_salience_warn.jr", false, false, true)
+	err := c.CompileBuffer(`@JetCompilerDirective source_file = "rete_test_salience_warn.jr";
+	resource ex:Item = "ex:Item";
+	resource ex:link = "ex:link";
+	resource ex:a = "ex:a";
+	resource ex:b = "ex:b";
+` + rules)
+	var warnings []string
+	for _, d := range c.Diagnostics() {
+		if d.Severity == SeverityWarning && strings.Contains(d.Message, "same antecedents") {
+			warnings = append(warnings, d.Message)
+		}
+	}
+	return err, warnings
+}
+
+// A rule copied to change its salience, with the original kept: the triple
+// exists from the higher salience, whatever the copy declares. A warning, and
+// the compile succeeds.
+func TestJetRuleListener_SameConsequentAtTwoSaliencesWarns(t *testing.T) {
+	err, warnings := compileSalienceCase(t, `
+	[Early, s=100]: (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:a ?y);
+	[Late, s=5]:    (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:a ?y).(?x ex:b ?y);`)
+	if err != nil {
+		t.Fatalf("a warning must not fail the compile: %v", err)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected one warning, got %d: %v", len(warnings), warnings)
+	}
+	for _, want := range []string{"Early (", "s=100)", "Late (", "s=5)", "ex:a"} {
+		if !strings.Contains(warnings[0], want) {
+			t.Errorf("warning does not mention %q: %s", want, warnings[0])
+		}
+	}
+	if strings.Contains(warnings[0], "ex:b") {
+		t.Errorf("ex:b is inferred by one rule only and must not be named: %s", warnings[0])
+	}
+}
+
+// Different consequents, or the same salience (one shared vertex), is no warning.
+func TestJetRuleListener_SameConsequentAtTwoSaliencesQuiet(t *testing.T) {
+	for name, rules := range map[string]string{
+		"different consequents": `
+	[Early, s=100]: (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:a ?y);
+	[Late, s=5]:    (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:b ?y);`,
+		"same salience": `
+	[One, s=10]: (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:a ?y);
+	[Two, s=10]: (?x rdf:type ex:Item).(?x ex:link ?y) -> (?x ex:a ?y);`,
+	} {
+		err, warnings := compileSalienceCase(t, rules)
+		if err != nil || len(warnings) != 0 {
+			t.Errorf("%s: expected a clean compile, got %v, %v", name, err, warnings)
+		}
+	}
 }

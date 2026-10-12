@@ -27,6 +27,15 @@ before it are still shared. So every vertex fires at one salience, the declared 
 engines, and the aggregate check's declared saliences are the ones that run. The same three-rule
 case now counts the value on both engines.
 
+**One way to defeat a declared salience remains, and the compiler warns about it**
+(`WarnSameConsequentAtTwoSaliences`, same file). Two rules with the same antecedents and different
+saliences that infer the same triple: the triple exists from when the higher one fires, and the
+lower one only adds a reference, so its salience changes nothing about that triple. That is what is
+left when a rule was copied to change its salience and the original kept. It is a warning, not an
+error, because the pair can differ in other consequents. **A warning reaches the process log and
+not the compile output** a workspace compile returns on success (`compile_workspace_v2.go` returns
+the parse log only), which is true of every compiler warning.
+
 **Nothing in production moved**, recompiled 2026-10-11 against the previous compiler:
 - **`usi_ws`, `walrus_ws` and `cedargate_ws`** at the pins `jetstore_agentic_ai` records compile to
   identical networks, node for node (11,363 rete nodes in `usi_ws`).

@@ -231,7 +231,8 @@ A check takes one of three forms:
 - **A rule fires at the salience it declares.** Until 2026-10-11 rules with the same
   antecedents shared their last vertex and its one salience, so a declared salience could be
   overruled, and the aggregate check missed it (`I-25`). The compiler now gives a rule with a
-  different salience a vertex of its own.
+  different salience a vertex of its own, and warns when two such rules infer the same triple,
+  because the lower one's salience then changes nothing about it.
 - **Never let a `sorted_head` tie decide an outcome.** Ties break non-deterministically on
   **both** engines. Give every candidate a distinct weight.
 - **`is_debug`**:
