@@ -357,6 +357,9 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 	// Generate the Rete network from the rules
 	l.BuildReteNetwork()
 
+	// Rules split onto vertices by salience that infer the same triple
+	l.WarnSameConsequentAtTwoSaliences()
+
 	// An aggregate in a consequent must fire after the rules that feed it
 	l.ValidateAggregateSalience()
 

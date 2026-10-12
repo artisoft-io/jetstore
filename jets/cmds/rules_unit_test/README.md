@@ -228,8 +228,11 @@ A check takes one of three forms:
   of the test's own, such as `ut_<test>:`. Never declare a production name in a test rule file.
 - **`(jets:iState rdf:type jets:State)`** comes from `data_model/jets_model.jr`, as a
   `triple(...)`. A looping rule file that does not import that model must declare it itself.
-- **Give an aggregate rule an antecedent of its own.** Rules that share antecedents share a
-  vertex and its lowest salience.
+- **A rule fires at the salience it declares.** Until 2026-10-11 rules with the same
+  antecedents shared their last vertex and its one salience, so a declared salience could be
+  overruled, and the aggregate check missed it (`I-25`). The compiler now gives a rule with a
+  different salience a vertex of its own, and warns when two such rules infer the same triple,
+  because the lower one's salience then changes nothing about it.
 - **Never let a `sorted_head` tie decide an outcome.** Ties break non-deterministically on
   **both** engines. Give every candidate a distinct weight.
 - **`is_debug`**:

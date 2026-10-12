@@ -5,7 +5,9 @@ package compiler
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
@@ -62,9 +64,16 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			if l.trace {
 				fmt.Fprintf(l.parseLog, "   Antecedent %d: %s\n", i+1, antecedent.NormalizedLabel)
 			}
-			// Look for a node with the same normalized label and parent vertex
+			// Look for a node with the same normalized label and parent vertex.
+			// The rule's last antecedent is the vertex it fires at, so it is
+			// shared only with rules of the same salience (terminalReteNode).
 			parentNode := l.jetRuleModel.ReteNodes[parentVertex]
-			reteNode := l.reteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
+			var reteNode *rete.RuleTerm
+			if i == len(rule.Antecedents)-1 {
+				reteNode = l.terminalReteNode(parentVertex, antecedent.NormalizedLabel, rule.Salience)
+			} else {
+				reteNode = l.reteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
+			}
 			if reteNode == nil {
 				// No matching node found, use current antecedent as the rete node
 				if l.trace {
@@ -142,6 +151,97 @@ func (l *JetRuleListener) reteNodeByNormalizedLabel(parentVertex int, normalized
 		}
 	}
 	return nil
+}
+
+// terminalReteNode returns the node a rule of the given salience ends on: one
+// with the same normalized label and parent vertex whose rules, if any, all
+// have that salience. A vertex fires every rule ending on it at one salience, so
+// rules with the same antecedents and different saliences get a vertex each,
+// and every rule runs at the salience it declares. Until 2026-10-11 they shared
+// one, which the Go engine ran at the lowest of the saliences and the C++
+// engine at the first rule's, so a declared salience could be overruled with no
+// error, and the aggregate salience check, which reads declared saliences,
+// missed it (rules_unit_test_harness I-25).
+func (l *JetRuleListener) terminalReteNode(parentVertex int, normalizedLabel string, salience int) *rete.RuleTerm {
+	for _, node := range l.jetRuleModel.ReteNodes {
+		if node.ParentVertex != parentVertex || node.NormalizedLabel != normalizedLabel {
+			continue
+		}
+		if !slices.ContainsFunc(node.Salience, func(s int) bool { return s != salience }) {
+			return node
+		}
+	}
+	return nil
+}
+
+// WarnSameConsequentAtTwoSaliences logs a warning when rules with the same
+// antecedents and different saliences infer the same triple. They end on
+// vertices of their own (terminalReteNode), so each fires at its own salience,
+// but the triple appears when the higher one fires and the lower one only adds
+// a reference to it: the lower rule's salience changes nothing about when the
+// triple exists. Typically one rule was copied to change its salience and the
+// original kept, which defeats the change. A warning, not an error, because
+// the pair is not wrong in itself: the two may differ in other consequents.
+func (l *JetRuleListener) WarnSameConsequentAtTwoSaliences() {
+	model := l.jetRuleModel
+	rulesByName := make(map[string]*rete.JetruleNode, len(model.Jetrules))
+	for _, r := range model.Jetrules {
+		rulesByName[r.Name] = r
+	}
+	// Terminal vertices grouped by parent and label: a group of more than one
+	// is rules with the same antecedents at different saliences.
+	type siblingKey struct {
+		parent int
+		label  string
+	}
+	groups := make(map[siblingKey][]*rete.RuleTerm)
+	var keys []siblingKey
+	for _, n := range model.ReteNodes {
+		if n == nil || n.Type != "antecedent" || len(n.Rules) == 0 {
+			continue
+		}
+		k := siblingKey{n.ParentVertex, n.NormalizedLabel}
+		if _, ok := groups[k]; !ok {
+			keys = append(keys, k)
+		}
+		groups[k] = append(groups[k], n)
+	}
+	for _, k := range keys {
+		if len(groups[k]) < 2 {
+			continue
+		}
+		// consequent label -> the rules inferring it, with their salience
+		inferredBy := make(map[string][]string)
+		saliences := make(map[string]map[int]bool)
+		var labels []string
+		for _, n := range groups[k] {
+			for _, name := range n.Rules {
+				r := rulesByName[name]
+				if r == nil {
+					continue
+				}
+				for _, c := range r.Consequents {
+					if _, ok := inferredBy[c.NormalizedLabel]; !ok {
+						labels = append(labels, c.NormalizedLabel)
+						saliences[c.NormalizedLabel] = make(map[int]bool)
+					}
+					inferredBy[c.NormalizedLabel] = append(inferredBy[c.NormalizedLabel],
+						fmt.Sprintf("%s (%s, s=%d)", r.Name, r.SourceFileName, r.Salience))
+					saliences[c.NormalizedLabel][r.Salience] = true
+				}
+			}
+		}
+		for _, label := range labels {
+			if len(saliences[label]) < 2 {
+				continue
+			}
+			l.LogError(fmt.Sprintf(
+				"** warning: rules %s have the same antecedents, different saliences, and all infer %s; "+
+					"the triple exists from when the highest of them fires, so the lower saliences change nothing about it: "+
+					"remove the rule that is not meant to infer it, or give the rules the same salience",
+				strings.Join(inferredBy[label], ", "), label))
+		}
+	}
 }
 
 // Collect all the var resources used by the argument r and it's descendents.
