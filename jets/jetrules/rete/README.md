@@ -32,9 +32,11 @@ case now counts the value on both engines.
 saliences that infer the same triple: the triple exists from when the higher one fires, and the
 lower one only adds a reference, so its salience changes nothing about that triple. That is what is
 left when a rule was copied to change its salience and the original kept. It is a warning, not an
-error, because the pair can differ in other consequents. **A warning reaches the process log and
-not the compile output** a workspace compile returns on success (`compile_workspace_v2.go` returns
-the parse log only), which is true of every compiler warning.
+error, because the pair can differ in other consequents. ~~A warning reaches the process log and
+not the compile output a workspace compile returns on success.~~ **Since 2026-10-12 a successful
+compile's output carries its warnings** under *Compilation warnings:* (`compileWarnings`,
+`jets/workspace/compile_workspace_v2.go`), so View Last Log in the Workspace IDE shows them; until
+then only the warnings the compiler also writes to the parse log reached it.
 
 **Nothing in production moved**, recompiled 2026-10-11 against the previous compiler:
 - **`usi_ws`, `walrus_ws` and `cedargate_ws`** at the pins `jetstore_agentic_ai` records compile to
