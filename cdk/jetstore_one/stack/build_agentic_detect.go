@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
@@ -41,6 +42,22 @@ const agenticDetectHourVariable = "JETS_AGENTIC_DETECT_HOUR_UTC"
 // (observe.InsertAnomalyIfNew), and shadow_triage keys an incident on its session
 // and locus and leaves one already raised alone (shadow.IncidentIdFor, Q-34).
 const agenticDetectWindow = "26h"
+
+// The two containers' names. The apiserver's run action overrides each by name,
+// and reads the names from JETS_AGENTIC_DETECT_CONTAINERS, which is built from
+// these, so the two cannot drift apart.
+const (
+	agenticDetectContainerName = "anomalyDetectContainer"
+	agenticTriageContainerName = "shadowTriageContainer"
+)
+
+// The trigger the daily rule passes, so a row recorded by a scheduled run says
+// so; jets/agentic/detectrun reads it. A run started any other way records
+// `command`, or `manual` when the apiserver started it.
+const (
+	agenticDetectTriggerVariable = "JETS_AGENTIC_DETECT_TRIGGER"
+	agenticDetectTriggerSchedule = "schedule"
+)
 
 // AgenticDetectHourFromEnv reads the setting. ok is false when it is unset or
 // empty, which is the off position. Any other value must be an hour from 0 to 23,
@@ -131,8 +148,8 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 	// evidence, so a detector failure costs it corroboration and should not cost the
 	// incidents. The task's exit is triage's, and triage ends with its attestation that
 	// nothing acted, which exits non-zero when the record says otherwise.
-	detect := addContainer("agenticDetectContainerDef", "anomalyDetectContainer", "anomaly_detect", false)
-	triage := addContainer("agenticTriageContainerDef", "shadowTriageContainer", "shadow_triage", true)
+	detect := addContainer("agenticDetectContainerDef", agenticDetectContainerName, "anomaly_detect", false)
+	triage := addContainer("agenticTriageContainerDef", agenticTriageContainerName, "shadow_triage", true)
 	triage.AddContainerDependencies(&awsecs.ContainerDependency{
 		Container: detect,
 		Condition: awsecs.ContainerDependencyCondition_COMPLETE,
@@ -152,6 +169,10 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 				SubnetSelection: jsComp.IsolatedSubnetSelection,
 				SecurityGroups:  &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 				AssignPublicIp:  jsii.Bool(false),
+				ContainerOverrides: &[]*awseventstargets.ContainerOverride{
+					scheduleOverride(agenticDetectContainerName),
+					scheduleOverride(agenticTriageContainerName),
+				},
 			}),
 		},
 		Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
@@ -160,10 +181,58 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 		}),
 	})
 
+	// The Detection screen's *Run detection now* (jets/apiserver/api_agentic_detection.go)
+	// starts this task through the apiserver, so the UI container's task role may run
+	// it -- and only it, only on this cluster -- pass it the two roles it runs under,
+	// and read back the state of the tasks it started. The role is the shared
+	// EcsTaskRole, on the convention stated where it is created and followed by the
+	// infer server's grants; the run and the read are scoped to this task definition
+	// and this cluster's tasks.
+	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("ecs:RunTask"),
+		Resources: &[]*string{jsComp.AgenticDetectTaskDefinition.TaskDefinitionArn()},
+		Conditions: &map[string]any{
+			"ArnEquals": map[string]any{"ecs:cluster": jsComp.EcsCluster.ClusterArn()},
+		},
+	}))
+	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("ecs:DescribeTasks"),
+		Resources: jsii.Strings(fmt.Sprintf("arn:aws:ecs:%s:%s:task/%s/*",
+			*stack.Region(), *stack.Account(), *jsComp.EcsCluster.ClusterName())),
+	}))
+	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("iam:PassRole"),
+		Resources: &[]*string{jsComp.EcsTaskExecutionRole.RoleArn(), jsComp.EcsTaskRole.RoleArn()},
+		Conditions: &map[string]any{
+			"StringEquals": map[string]any{"iam:PassedToService": "ecs-tasks.amazonaws.com"},
+		},
+	}))
+	// What the apiserver needs to start it; build_ui_service.go puts these on the UI
+	// container when this task exists.
+	jsComp.AgenticDetectUiEnvironment = map[string]*string{
+		"JETS_AGENTIC_DETECT_TASK_DEFINITION_ARN": jsComp.AgenticDetectTaskDefinition.TaskDefinitionArn(),
+		"JETS_AGENTIC_DETECT_CLUSTER":             jsComp.EcsCluster.ClusterName(),
+		"JETS_AGENTIC_DETECT_SUBNETS": awscdk.Fn_Join(jsii.String(","),
+			jsComp.Vpc.SelectSubnets(jsComp.IsolatedSubnetSelection).SubnetIds),
+		"JETS_AGENTIC_DETECT_SECURITY_GROUPS": awscdk.Fn_Join(jsii.String(","), &[]*string{
+			jsComp.VpcEndpointsSg.SecurityGroupId(), jsComp.RdsAccessSg.SecurityGroupId()}),
+		"JETS_AGENTIC_DETECT_CONTAINERS": jsii.String(agenticDetectContainerName + "," + agenticTriageContainerName),
+		"JETS_AGENTIC_DETECT_HOUR_UTC":   jsii.String(hour),
+	}
+
 	// So that the task can be run by hand between schedules, which is how a new
 	// deployment is checked without waiting a day.
 	awscdk.NewCfnOutput(stack, jsii.String("AgenticDetectTaskDefinitionArn"), &awscdk.CfnOutputProps{
 		Value:       jsComp.AgenticDetectTaskDefinition.TaskDefinitionArn(),
 		Description: jsii.String("Task definition of the daily agentic detection task (anomaly_detect, then shadow_triage)"),
 	})
+}
+
+func scheduleOverride(container string) *awseventstargets.ContainerOverride {
+	return &awseventstargets.ContainerOverride{
+		ContainerName: jsii.String(container),
+		Environment: &[]*awseventstargets.TaskEnvironmentVariable{
+			{Name: jsii.String(agenticDetectTriggerVariable), Value: jsii.String(agenticDetectTriggerSchedule)},
+		},
+	}
 }

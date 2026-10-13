@@ -1,0 +1,126 @@
+/*
+ * Styles for the Detection screen (agentic_ai I-861), in a file of its own for
+ * the reason src/incidents/incidents.css gives: every colour is one of the app's
+ * custom properties, so the theme follows through the cascade, and nothing is
+ * added to a stylesheet this project does not own.
+ */
+
+.detection-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.detection-table th,
+.detection-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.detection-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.detection-table tbody th {
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.detection-ref {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.detection-note {
+  margin: 8px 10px;
+}
+
+.detection-ok,
+.detection-held {
+  color: var(--good);
+}
+
+.pill.detection-ok {
+  background: var(--good-bg);
+}
+
+.pill.detection-failed {
+  color: var(--crit);
+  background: var(--crit-bg);
+}
+
+.pill.detection-requested,
+.pill.detection-running {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.detection-error {
+  color: var(--crit);
+  margin-top: 4px;
+}
+
+.detection-ecs {
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.detection-summary {
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+.detection-census {
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.detection-census th,
+.detection-census td {
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+.detection-attestation {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  margin: 6px 0;
+}
+
+.detection-toggle {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.detection-expansion-row td {
+  background: var(--surface-2);
+}
+
+.detection-expansion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  align-items: flex-start;
+}
+
+.detection-expansion .detection-attestation {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+/* A wide table scrolls inside its own box at narrow widths rather than
+   pushing the page sideways. */
+.detection-scroll {
+  overflow-x: auto;
+}

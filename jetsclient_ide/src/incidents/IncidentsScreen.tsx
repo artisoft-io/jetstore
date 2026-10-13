@@ -67,10 +67,10 @@ const EMPTY_FOR: Record<Filter, string> = {
 };
 
 const EMPTY_SUB_FOR: Record<Filter, string> = {
-  open: "Nothing writes an incident yet, so an empty list here is not evidence that nothing went wrong.",
+  open: "Incidents are written by shadow triage, which runs where the detection task is deployed; the Detection screen says whether it has run. An empty list is not evidence that nothing went wrong.",
   adjudicated:
     "A verified, reclassified or suppressed incident is the only corrected label this record can hold. There are none.",
-  all: "Nothing writes an incident yet, so an empty list here is not evidence that nothing went wrong.",
+  all: "Incidents are written by shadow triage, which runs where the detection task is deployed; the Detection screen says whether it has run. An empty list is not evidence that nothing went wrong.",
 };
 
 export function IncidentsScreen({ api }: { api: ApiClient }) {

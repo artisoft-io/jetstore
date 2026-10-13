@@ -42,8 +42,11 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
@@ -139,6 +142,10 @@ type AgenticAction struct {
 	// `reclassified` by incident_event_reclassified_ck and meaningless
 	// otherwise.
 	Classification string `json:"classification"`
+
+	// run_detection: the window the detection task judges, as its -since flag;
+	// empty means the scheduled run's. list_detection_runs reads `Limit`.
+	Since string `json:"since"`
 }
 
 // agenticOps is the data access this endpoint needs, as an interface so the
@@ -182,6 +189,14 @@ type agenticOps interface {
 	// on the far side of this call — P4 §12.5 stated that as a fact about the
 	// interface and named the remaining step as "one call", and this is it.
 	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
+	// The Detection screen (I-861): the runs the detection commands recorded,
+	// the deployed task those runs come from, and starting it now. The ECS half
+	// is behind the same seam so the dispatch is testable without AWS.
+	ListDetectionRuns(ctx context.Context, limit int) ([]detectrun.Run, error)
+	RequestDetectionRun(ctx context.Context, taskArn, requestedBy, since string) error
+	DetectionTarget() (awsi.AgenticDetectTarget, bool, error)
+	RunDetectionTask(ctx context.Context, t awsi.AgenticDetectTarget, env map[string]string, command []string) (string, error)
+	DescribeDetectionTasks(ctx context.Context, t awsi.AgenticDetectTarget, arns []string) (map[string]awsi.AgenticDetectTaskState, error)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -193,6 +208,7 @@ type pgOps struct{ db pgxPool }
 type pgxPool interface {
 	audit.Querier
 	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 func (o pgOps) ListProposals(ctx context.Context, states []string, limit int) ([]audit.ProposalSummary, error) {
@@ -297,6 +313,10 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 		return getIncident(ctx, ops, a, phi)
 	case "record_incident_transition":
 		return recordIncidentTransition(ctx, ops, a, actor)
+	case "list_detection_runs":
+		return listDetectionRuns(ctx, ops, a)
+	case "run_detection":
+		return runDetection(ctx, ops, a, actor)
 	default:
 		return nil, http.StatusBadRequest, fmt.Errorf("unknown agentic action %q", a.Action)
 	}

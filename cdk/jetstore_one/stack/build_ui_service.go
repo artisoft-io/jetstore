@@ -128,6 +128,13 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		uiEnvironment["JETS_INFER_ASG_NAME"] = jsComp.InferAutoScalingGroup.AutoScalingGroupName()
 	}
 
+	// The agentic detection task, when the stack builds it, so the Detection screen can
+	// start it (build_agentic_detect.go). Absent otherwise, which the apiserver reads as
+	// "not part of this deployment".
+	for k, v := range jsComp.AgenticDetectUiEnvironment {
+		uiEnvironment[k] = v
+	}
+
 	// Define the container
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr

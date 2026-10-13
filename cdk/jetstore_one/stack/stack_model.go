@@ -98,6 +98,8 @@ type JetStoreStackComponents struct {
 
 	// AgenticDetectTaskDefinition is nil unless JETS_AGENTIC_DETECT_HOUR_UTC is set (build_agentic_detect.go)
 	AgenticDetectTaskDefinition awsecs.FargateTaskDefinition
+	// AgenticDetectUiEnvironment is what the apiserver needs to start that task; nil without it
+	AgenticDetectUiEnvironment map[string]*string
 
 	UiTaskDefinition awsecs.FargateTaskDefinition
 	UiTaskContainer  awsecs.ContainerDefinition
