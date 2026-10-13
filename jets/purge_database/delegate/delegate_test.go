@@ -57,7 +57,7 @@ func purgeTestDB(t *testing.T) *pgxpool.Pool {
 	}
 	for i := range defs {
 		switch defs[i].TableName {
-		case "rules_unit_test_execution", "rules_unit_test_check":
+		case "rules_unit_test_execution", "rules_unit_test_check", "agentic_detection_run":
 			if err = defs[i].UpdateTableSchema(pool, true); err != nil {
 				t.Fatal(err)
 			}
@@ -103,6 +103,37 @@ func TestPurgeRulesUnitTestRuns(t *testing.T) {
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.rules_unit_test_check WHERE execution_key = $1`, keys[name]).Scan(&c)
 		if n != want || c != want {
 			t.Errorf("%s: %d run rows and %d check rows left, want %d of each", name, n, c, want)
+		}
+	}
+}
+
+// Detection run records follow the same rule: finished and older than the
+// retention go, a run still requested or running stays, and so does a recent one.
+func TestPurgeDetectionRuns(t *testing.T) {
+	pool := purgeTestDB(t)
+	ctx := context.Background()
+	old := "now() - interval '40 days'"
+	rows := []struct{ ref, status, at string }{
+		{"old ok", "ok", old},
+		{"old failed", "failed", old},
+		{"old requested", "requested", old},
+		{"recent ok", "ok", "now() - interval '1 day'"},
+	}
+	for _, r := range rows {
+		if _, err := pool.Exec(ctx, `INSERT INTO jetsapi.agentic_detection_run
+			(task_ref, command, trigger, status, last_update) VALUES ($1, 'anomaly_detect', 'schedule', $2, `+r.at+`)`,
+			r.ref, r.status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := purgeDetectionRuns(pool, time.Now().Add(-30*24*time.Hour)); n != 2 {
+		t.Errorf("purged %d, want 2", n)
+	}
+	for ref, want := range map[string]int{"old ok": 0, "old failed": 0, "old requested": 1, "recent ok": 1} {
+		var n int
+		_ = pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.agentic_detection_run WHERE task_ref = $1`, ref).Scan(&n)
+		if n != want {
+			t.Errorf("%s: %d rows left, want %d", ref, n, want)
 		}
 	}
 }

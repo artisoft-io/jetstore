@@ -23,6 +23,7 @@ import { Register } from "./components/Register";
 import { AGENT_SUPERVISION } from "./proposals/api";
 import { IncidentScreen } from "./incidents/IncidentScreen";
 import { IncidentsScreen } from "./incidents/IncidentsScreen";
+import { DetectionScreen } from "./detection/DetectionScreen";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { FlowRunner } from "./screens/FlowRunner";
@@ -105,6 +106,9 @@ export const NAV: NavEntry[] = [
   // the same way. The entry and the two routes below are this file's whole
   // knowledge of them; the screens are in `incidents/`.
   { to: "/incidents", label: "Incidents", capability: AGENT_SUPERVISION },
+  // agentic_ai I-861: whether the detectors ran, and running them now. The
+  // screen is in `detection/`.
+  { to: "/detection", label: "Detection", capability: AGENT_SUPERVISION },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
     `workspaceRegistryMenuEntries` and declares no capability of its own
@@ -286,6 +290,7 @@ export default function App() {
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
           <Route path="incidents" element={<IncidentsScreen api={api} />} />
           <Route path="incidents/:incidentId" element={<IncidentScreen api={api} />} />
+          <Route path="detection" element={<DetectionScreen api={api} />} />
           {/*
             The route the Flutter app has been handing users to since S.8, and
             which nothing registered until F.0a — so the handoff fell through to

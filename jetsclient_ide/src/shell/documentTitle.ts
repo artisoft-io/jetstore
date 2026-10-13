@@ -86,6 +86,7 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   // CLAUDE.md states for a break in the other direction, applied in this one.
   ["/incidents", "Incidents"],
   ["/incidents/:incidentId", "Incident"],
+  ["/detection", "Detection"],
   // The flow's own title replaces this as soon as the document loads; see above.
   ["/flow/:key", "Flow"],
   ["/git-profile", "Git Profile"],

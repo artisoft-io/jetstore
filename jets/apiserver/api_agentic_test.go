@@ -67,6 +67,10 @@ type fakeOps struct {
 	verdictErr                  error
 	verdictClassificationBefore string
 	verdictRunRef               string
+
+	// The Detection screen (I-861); its methods are in
+	// api_agentic_detection_test.go.
+	detection detectionFake
 }
 
 func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {

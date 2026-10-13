@@ -470,10 +470,18 @@ and ends with its attestation that nothing acted.
 - **Security**: `ReadonlyRootFilesystem: true` on both containers. No workspace is copied:
   cbooter requires no `WORKSPACES_*` variable for these two commands (`needsWorkspace`,
   `jets/cmds/cbooter/main.go`).
-- **Running it by hand**: the stack outputs `AgenticDetectTaskDefinitionArn`. Use it with
-  `aws ecs run-task`, the cluster, and the isolated subnets and the two security groups above.
-  Override a container's `command` to change the window, for example `["-since","720h"]` for a
-  first pass over a month of history.
+- **Running it now**: the IDE's **Detection** screen (gated on `agent_supervision`) has *Run
+  detection now*, which starts this task through the apiserver with a window of 26 hours to 90
+  days, and lists every recorded run (`jetsapi.agentic_detection_run`, written by the two commands
+  themselves) with what each found, and what ECS says about a task that has not recorded its end.
+  For that the stack sets `JETS_AGENTIC_DETECT_*` on the UI container and grants the shared
+  `EcsTaskRole` `ecs:RunTask` on this task definition in this cluster, `ecs:DescribeTasks` on
+  this cluster's tasks, and `iam:PassRole` on the two ECS roles. The daily rule passes
+  `JETS_AGENTIC_DETECT_TRIGGER=schedule`, so a run says how it was started.
+- **Running it by hand** otherwise: the stack outputs `AgenticDetectTaskDefinitionArn`. Use it
+  with `aws ecs run-task`, the cluster, and the isolated subnets and the two security groups above.
+  Override a container's `command` to change the window, for example `["-since","720h"]`. Such a
+  run records itself with trigger `command`.
 - **Integrations**: Aurora, EventBridge, CloudWatch Logs (`AgenticDetectContainerLogGroup`).
 
 ---
