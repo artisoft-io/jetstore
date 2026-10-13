@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://artisoft.io/jetstore/jets/compilerv2/symbolic/rule_file.schema.json",
+  "title": "Symbolic JetRule file (.jrs.json)",
+  "description": "JetRules written as JSON: the compiler's own JSON form of a rule with every resource key replaced by the resource itself. It is rendered to JetRules source and compiled by the real compiler, which remains the authority; this schema describes the shape and jets/compilerv2/symbolic checks the lexical content. Hand-written and held to the Go types by TestCorpusRoundTrip.",
+  "type": "object",
+  "properties": {
+    "imports": {
+      "description": "Workspace-relative .jr files declaring the vocabulary the rules use, rendered as import statements in order, e.g. data_model/jets_model.jr.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "\\.jr$" }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "required": ["rules"],
+  "additionalProperties": false,
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Unique within the file.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "salience": {
+          "description": "Rendered as s=. Absent is the compiler's default, 100.",
+          "type": "integer"
+        },
+        "optimization": {
+          "description": "Rendered as o=. Absent is the compiler's default, true.",
+          "type": "boolean"
+        },
+        "properties": {
+          "description": "The rule's other header properties. s and o are written as salience and optimization; i is reserved for rules the compiler generates.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "not": { "enum": ["s", "o", "i"] } },
+          "additionalProperties": { "type": ["string", "boolean", "integer"] }
+        },
+        "antecedents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/antecedent" }
+        },
+        "consequents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/consequent" }
+        }
+      },
+      "required": ["name", "antecedents", "consequents"],
+      "additionalProperties": false
+    },
+    "antecedent": {
+      "type": "object",
+      "properties": {
+        "not": { "type": "boolean" },
+        "subject": { "$ref": "#/$defs/id" },
+        "predicate": { "$ref": "#/$defs/id" },
+        "object": { "$ref": "#/$defs/term" },
+        "filter": { "$ref": "#/$defs/expr" }
+      },
+      "required": ["subject", "predicate", "object"],
+      "additionalProperties": false
+    },
+    "consequent": {
+      "type": "object",
+      "properties": {
+        "subject": { "$ref": "#/$defs/id" },
+        "predicate": { "$ref": "#/$defs/id" },
+        "object": { "$ref": "#/$defs/expr" }
+      },
+      "required": ["subject", "predicate", "object"],
+      "additionalProperties": false
+    },
+    "id": {
+      "description": "A variable (?claim), a resource (rdf:type, hc:MedicalClaim, _0:index) or the name of a declared resource or literal.",
+      "type": "string",
+      "minLength": 1
+    },
+    "literal": {
+      "description": "A value with no id. value is the literal's text as the compiler stores it.",
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["int", "uint", "long", "ulong", "double", "text", "date", "datetime", "bool", "keyword"] },
+        "value": { "type": "string" }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "term": {
+      "description": "An id, a literal, or a JSON number or boolean as shorthand for an int or double literal and for the keywords true and false.",
+      "oneOf": [
+        { "$ref": "#/$defs/id" },
+        { "$ref": "#/$defs/literal" },
+        { "type": "number" },
+        { "type": "boolean" }
+      ]
+    },
+    "expr": {
+      "description": "A term, a binary operation or a unary operation.",
+      "oneOf": [
+        { "$ref": "#/$defs/term" },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "type": "string", "minLength": 1 },
+            "lhs": { "$ref": "#/$defs/expr" },
+            "rhs": { "$ref": "#/$defs/expr" }
+          },
+          "required": ["op", "lhs", "rhs"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "type": "string", "minLength": 1 },
+            "arg": { "$ref": "#/$defs/expr" }
+          },
+          "required": ["op", "arg"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

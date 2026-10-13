@@ -72,6 +72,7 @@ func TestAdapterServesEveryRegistrySignature(t *testing.T) {
 }
 
 // T.2 changed both verifiers' schemas to a `oneOf` over two required sets, and
+// I-250 gave compile_rule_file a third, the symbolic 'rules' document; and
 // the wire is where an MCP client meets them. relaxExternalRefs walks the whole
 // document, so a $ref inside a `oneOf` branch is the case that would have been
 // missed — asserted here because the two verifiers are exactly the tools whose
@@ -82,7 +83,7 @@ func TestWireSchemaKeepsTheOneOf(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string][]string{
-		"compile_rule_file":      {"rule_text", "rule_path"},
+		"compile_rule_file":      {"rule_text", "rule_path", "rules"},
 		"validate_cpipes_config": {"config", "config_path"},
 	}
 	for _, sig := range reg.List() {
@@ -103,8 +104,8 @@ func TestWireSchemaKeepsTheOneOf(t *testing.T) {
 		if err := json.Unmarshal(wire, &doc); err != nil {
 			t.Fatalf("%s: %v", sig.Name, err)
 		}
-		if len(doc.OneOf) != 2 {
-			t.Errorf("%s: the wire schema carries %d oneOf branches, want 2", sig.Name, len(doc.OneOf))
+		if len(doc.OneOf) != len(alts) {
+			t.Errorf("%s: the wire schema carries %d oneOf branches, want %d", sig.Name, len(doc.OneOf), len(alts))
 		}
 		branches := map[string]bool{}
 		for _, b := range doc.OneOf {

@@ -53,6 +53,10 @@ REVERSIBILITY = ("na", "reversible", "irreversible")
 
 DOMAIN_SCHEMA = "jets/workspace_assets/data_model/jets_agentic.schema.json"
 CPIPES_SCHEMA = "tools/cpipes_contract/cpipes_schema.json"
+# I-250's authoring form: rules as JSON, rendered to JetRules by the tool. The
+# schema is hand-written beside the Go types and held to them by the corpus
+# round trip (jets/compilerv2/symbolic, TestCorpusRoundTrip).
+SYMBOLIC_RULES_SCHEMA = "jets/compilerv2/symbolic/rule_file.schema.json"
 
 
 def entity_ref(entity_name: str) -> dict:
@@ -232,12 +236,15 @@ TOOLS: list[dict] = [
             "resolve against the workspace's own rule files, because a rule "
             "file is inlined with its data model before parsing and cannot "
             "be compiled without the vocabulary that gives its terms "
-            "meaning. Read-only. Give it EITHER 'rule_path' - the "
-            "workspace-relative path of an existing .jr, which is preferred "
-            "whenever the rule is already in the workspace, because the "
-            "tool then reads the file itself and the source is never "
-            "carried through this call - OR 'rule_text', the source itself, "
-            "for a rule that has not been saved."
+            "meaning. Read-only. Give it exactly one of: 'rule_path' - the "
+            "workspace-relative path of an existing .jr, preferred whenever "
+            "the rule is already in the workspace, because the tool then "
+            "reads the file itself; 'rules' - the rules as a JSON array, "
+            "with 'imports' beside it, for rules that have not been saved, "
+            "which the tool renders to JetRules source and compiles, "
+            "returning that source and pointing each diagnostic at the "
+            "element of the arguments it concerns; or "
+            "'rule_text' - JetRules source itself."
         ),
         "reversibility": "na",
         "min_tier": "T0",
@@ -251,6 +258,32 @@ TOOLS: list[dict] = [
                         "in a .jr file, import statements included. Use "
                         "this only for a rule that is not in the "
                         "workspace; prefer rule_path."
+                    ),
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {"$ref": f"{SYMBOLIC_RULES_SCHEMA}#/$defs/rule"},
+                    "description": (
+                        "The rules, as a JSON array; the tool renders them to "
+                        "JetRules source. A rule has 'name', optionally "
+                        "'salience', and 'antecedents' and 'consequents', "
+                        "each a list of terms with 'subject', 'predicate' and "
+                        "'object'. A term is an id string - a variable such as "
+                        "?clm, or a resource such as rdf:type - or a literal "
+                        "object with 'type' and 'value'. An antecedent's "
+                        "'filter' or a consequent's 'object' may be an "
+                        "operation: an object with 'op' and 'lhs' and 'rhs', "
+                        "or 'op' and 'arg'. Prefer this to rule_text for rules "
+                        "not in the workspace."
+                    ),
+                },
+                "imports": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Workspace-relative paths of the .jr files that "
+                        "declare the vocabulary the rules use, if they need "
+                        "any. Applies to rules only."
                     ),
                 },
                 "rule_path": {
@@ -269,12 +302,16 @@ TOOLS: list[dict] = [
                         "about it are attributed to a recognisable file. "
                         "Must be a bare file name ending in .jr, no path "
                         "separators. Defaults to a generated name. Applies "
-                        "to rule_text only; rule_path is compiled under its "
-                        "own name."
+                        "to rule_text and rules; rule_path is compiled "
+                        "under its own name."
                     ),
                 },
             },
-            "oneOf": [{"required": ["rule_text"]}, {"required": ["rule_path"]}],
+            "oneOf": [
+                {"required": ["rule_text"]},
+                {"required": ["rule_path"]},
+                {"required": ["rules"]},
+            ],
             "additionalProperties": False,
         },
     },
@@ -296,6 +333,7 @@ def emit() -> str:
             "schemas": {
                 "domain_model": DOMAIN_SCHEMA,
                 "cpipes_config": CPIPES_SCHEMA,
+                "symbolic_rules": SYMBOLIC_RULES_SCHEMA,
             },
             "tools": TOOLS,
         },
