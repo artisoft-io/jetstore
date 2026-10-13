@@ -61,6 +61,13 @@ COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
+# The agentic detection commands -- agentic_ai I-861. This image is the one the
+# run_reports task and the scheduled detection task both run (JetStoreImage in
+# cdk/jetstore_one), and it already carries the database secret's consumers. Each
+# is asked for its usage, which exits 0 and proves the binary loads here.
+COPY --from=builder $JETS_SOURCE_DIR/anomaly_detect /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/shadow_triage /usr/local/bin/
+RUN anomaly_detect -h > /dev/null 2>&1 && shadow_triage -h > /dev/null 2>&1
 # Beside the apiserver, which is where CompileWorkspace looks for it when
 # JETS_WORKSPACE_VALIDATOR is unset. Built in Dockerfile.cpipes_builder.
 COPY --from=builder $JETS_SOURCE_DIR/jets_validate_workspace.mjs /usr/local/bin/

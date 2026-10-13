@@ -64,8 +64,8 @@ type Input struct {
 	Evidence *triage.Evidence
 	// Anomalies are what N.4's detectors said about this session. Optional, and
 	// empty is the ordinary case — jetsapi.anomaly is deployed nowhere that has
-	// not run `update_db -migrateDb` (P3 F101, I-169), and no detector runs on a
-	// schedule yet.
+	// not run `update_db -migrateDb` (P3 F101, I-169), and the detectors run on a
+	// schedule only where a deployment sets JETS_AGENTIC_DETECT_HOUR_UTC.
 	Anomalies []observe.Anomaly
 }
 

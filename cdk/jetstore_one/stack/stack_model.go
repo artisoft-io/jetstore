@@ -96,6 +96,9 @@ type JetStoreStackComponents struct {
 	CpipesTaskDefinition awsecs.FargateTaskDefinition
 	CpipesContainerDef   awsecs.ContainerDefinition
 
+	// AgenticDetectTaskDefinition is nil unless JETS_AGENTIC_DETECT_HOUR_UTC is set (build_agentic_detect.go)
+	AgenticDetectTaskDefinition awsecs.FargateTaskDefinition
+
 	UiTaskDefinition awsecs.FargateTaskDefinition
 	UiTaskContainer  awsecs.ContainerDefinition
 	EcsUiService     awsecs.FargateService
