@@ -101,6 +101,11 @@ RUN go build -ldflags="-w -s" -o rules_unit_test      ${JETS_SOURCE_DIR}/jets/cm
 RUN go build -ldflags="-w -s" -o apiserver            ${JETS_SOURCE_DIR}/jets/apiserver
 RUN go build -ldflags="-w -s" -o run_reports          ${JETS_SOURCE_DIR}/jets/run_reports
 RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/update_db
+# The agentic layer's two detection commands, run by the scheduled detection task
+# (cdk/jetstore_one/stack/build_agentic_detect.go) through cbooter. They read and
+# write jetsapi only. Dockerfile.ui_service copies them; agentic_ai I-861.
+RUN go build -ldflags="-w -s" -o anomaly_detect       ${JETS_SOURCE_DIR}/jets/cmds/anomaly_detect
+RUN go build -ldflags="-w -s" -o shadow_triage        ${JETS_SOURCE_DIR}/jets/cmds/shadow_triage
 
 # The workspace document validator -- jetstore_maintenance_02 AG.3 (R12).
 #

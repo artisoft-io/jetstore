@@ -445,6 +445,37 @@ Rotates all four secrets.
   two places — `jetstore_one.go` and `stack/jetstore_vpc.go:20` — so a new taggable resource needs
   the same `if … != nil` guard the others have.
 
+### 5.17 Agentic detection task (optional)
+
+The agentic layer's detectors and its shadow-mode triage, run daily
+(`stack/build_agentic_detect.go`, agentic_ai I-861). One Fargate task with two containers in
+order: `cbooter anomaly_detect -since 26h` writes `jetsapi.anomaly`, then
+`cbooter shadow_triage -since 26h` classifies the same runs, writes `jetsapi.incident` and
+`jetsapi.hypothesis` in shadow mode (nothing past `diagnosed`, nothing to `jetsapi.remediation`),
+and ends with its attestation that nothing acted.
+
+- **Deployment**: `JETS_AGENTIC_DETECT_HOUR_UTC` set to an hour, 0 to 23; unset or empty builds
+  nothing, and any other value stops the synth. 1024 MiB / 512 CPU. Image `JetStoreImage`, which
+  carries both binaries (`dockerfiles/Dockerfile.ui_service`). Both read the execution record and
+  write `jetsapi` only; the tables arrive with the apiserver's start-up migration.
+- **Order**: triage waits for the detectors to **complete**, not to succeed. Anomalies are
+  optional evidence to triage, so a detector failure costs corroboration and not the incidents. The
+  task's exit status is triage's.
+- **Window**: 26 hours on a daily schedule, overlapping on purpose. Both commands are idempotent
+  over the overlap: an anomaly is written once per detector generation, and an incident is keyed
+  on its session and locus.
+- **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`, the RDS secret as `JETS_DSN_JSON_VALUE`;
+  an events role generated for the rule's `ecs:RunTask`; `VpcEndpointsSg` + `RdsAccessSg`;
+  isolated subnets, no public IP.
+- **Security**: `ReadonlyRootFilesystem: true` on both containers. No workspace is copied:
+  cbooter requires no `WORKSPACES_*` variable for these two commands (`needsWorkspace`,
+  `jets/cmds/cbooter/main.go`).
+- **Running it by hand**: the stack outputs `AgenticDetectTaskDefinitionArn`. Use it with
+  `aws ecs run-task`, the cluster, and the isolated subnets and the two security groups above.
+  Override a container's `command` to change the window, for example `["-since","720h"]` for a
+  first pass over a month of history.
+- **Integrations**: Aurora, EventBridge, CloudWatch Logs (`AgenticDetectContainerLogGroup`).
+
 ---
 
 ## 6. Stack-level protections

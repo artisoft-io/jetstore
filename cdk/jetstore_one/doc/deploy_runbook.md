@@ -96,7 +96,8 @@ than trusting the exit status.
 
 Other conditional components behave the same way by design, and their absence is normal:
 `RETENTION_DAYS` (purge data), `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (SQS ingest),
-`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY`, `DEPLOY_CPIPES_NATIVE`, `BASTION_HOST_KEYPAIR_NAME`.
+`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY`, `DEPLOY_CPIPES_NATIVE`, `BASTION_HOST_KEYPAIR_NAME`,
+`JETS_AGENTIC_DETECT_HOUR_UTC` (the daily agentic detection task).
 
 ## 3. Deploy
 
