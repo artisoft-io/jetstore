@@ -28,6 +28,36 @@ var (
 	compileWorkspace = compileWorkspaceAction
 )
 
+// syncWorkspaceOverrides is workspace.SyncWorkspaceFiles, a variable so that a test can
+// stand in for the database.
+var syncWorkspaceOverrides = workspace.SyncWorkspaceFiles
+
+// syncOverridesToLocal writes the database's workspace overrides over the apiserver's
+// local workspace, compiled files excepted, before an action that reads the local tree.
+// It returns a line for the action's log, empty when the sync succeeded.
+//
+// **The local tree is not the latest copy of an override.** An IDE save writes both the
+// database and the local file (`SaveContent`, jets/datatable/wsfile/file_content.go),
+// but a report with updateLookupTables runs in its own task: it writes the lookup it
+// computed to that task's workspace and to jetsapi.workspace_changes, and compiles
+// there (`SyncS3Files`, jets/awsi/files.go, called from
+// jets/run_reports/delegate/run_reports.go). The apiserver's copy catches up only at
+// its next start (`checkWorkspaceVersion`). Until then a compile from the UI compiled
+// the old file, and a commit from the UI pushed it and then deleted every override,
+// the fresh one included. On a deployment on 2026-10-14 that committed September's
+// lookup and discarded October's, which then existed only in S3 and in the compiled
+// lookup.db.
+//
+// The pull already does this after merging (pullWorkspaceAction, above); the compile
+// and the commit now do it first.
+func syncOverridesToLocal(dbpool *pgxpool.Pool, workspaceName string) string {
+	if _, err := syncWorkspaceOverrides(dbpool, workspaceName, "", true, true); err != nil {
+		log.Println("Error while synching workspace overrides from database:", err)
+		return fmt.Sprintf("Error while synching workspace overrides from database: %v\n", err)
+	}
+	return ""
+}
+
 // Pull workspace changes in local repository:
 //   - Pull changes by merging WorkspaceBranch into current branch
 //   - Update the file stash with pulled version
@@ -127,9 +157,16 @@ func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAct
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
 
+		// Bring the local tree up to the database's overrides first, so a lookup a
+		// refresh wrote since the last start is the one compiled (syncOverridesToLocal).
+		// A failed sync is reported and the compile goes ahead: it leaves the overrides
+		// in place, so compiling again after a restart repairs it.
+		syncLog := syncOverridesToLocal(ctx.Dbpool, workspaceName)
+
 		// Compile workspace
 		log.Println("Compiling workspace", workspaceName)
 		gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+		gitLog = syncLog + gitLog
 		if err != nil {
 			status = "error"
 		}

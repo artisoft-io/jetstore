@@ -222,10 +222,20 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					FeatureBranch:   dataTableAction.FeatureBranch,
 				})
 				var buf strings.Builder
-				// Commit and push workspace changes and update workspace_registry table
-				gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
-				buf.WriteString(gitLog)
-				buf.WriteString("\n")
+				// The commit pushes the local tree and then deletes every override, so
+				// the local tree must hold the overrides first (syncOverridesToLocal).
+				// Unlike the compile, a commit after a failed sync is refused: it would
+				// push the old file and delete the new one.
+				if syncLog := syncOverridesToLocal(ctx.Dbpool, dataTableAction.WorkspaceName); syncLog != "" {
+					buf.WriteString(syncLog)
+					buf.WriteString("Commit not done: the workspace overrides could not be written to the local workspace\n")
+					err = fmt.Errorf("commit not done: %s", strings.TrimSpace(syncLog))
+				} else {
+					// Commit and push workspace changes and update workspace_registry table
+					gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
+					buf.WriteString(gitLog)
+					buf.WriteString("\n")
+				}
 				if err != nil {
 					status = "error"
 				} else {

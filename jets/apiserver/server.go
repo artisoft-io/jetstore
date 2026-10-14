@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -386,6 +387,7 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	var version sql.NullString
 	compilationRequired := false
+	overridesApplied := false
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	// Check the workspace release in database vs current release
 	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
@@ -406,10 +408,12 @@ func (server *Server) checkWorkspaceVersion() error {
 	case jetstoreVersion > version.String:
 		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace or take
 		// it from local repo.
-		if compilationRequired, err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
+		if overridesApplied, err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
-			compilationRequired = true
+			// How far the sync got is unknown, so the local tree may hold overrides.
+			overridesApplied = true
 		}
+		compilationRequired = overridesApplied
 		log.Println("Workspace deployed version (in database) is", version.String, "compilation required?", compilationRequired)
 
 	default:
@@ -422,23 +426,71 @@ func (server *Server) checkWorkspaceVersion() error {
 		return nil
 	}
 	if compilationRequired {
-		log.Printf("Recompiling workspace, set the workspace version (%s) to be same as jetstore version %s", version.String, jetstoreVersion)
-		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+		compileVersion := startupCompileVersion(jetstoreVersion, overridesApplied, time.Now())
+		log.Printf("Recompiling workspace (database version %s, JetStore image version %s, overrides applied: %v) as version %s",
+			version.String, jetstoreVersion, overridesApplied, compileVersion)
+		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, compileVersion)
 		if err != nil {
 			err = fmt.Errorf("error while compiling workspace: %v", err)
 			log.Println(err)
 			return err
 		}
 	} else {
+		// The image's compiled workspace is the whole truth, so it is recorded under the
+		// image's version. Uploading it under the database's previous version and writing
+		// no row left the run records naming the release before this one, and nothing
+		// recording that the workspace had changed (a 4.0.3 deployment, 2026-10-13).
 		log.Println(" 🙌 Taking workspace from local repository, recompilation not required, synching assets to db  🙌")
-		err = workspace.UploadWorkspaceAssets(server.dbpool, workspaceName, version.String)
+		err = workspace.UploadWorkspaceAssets(server.dbpool, workspaceName, jetstoreVersion)
 		if err != nil {
 			err = fmt.Errorf("Error while uploading workspace assets to database: %v", err)
 			log.Println(err)
 			return err
 		}
+		err = workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, jetstoreVersion)
+		if err != nil {
+			err = fmt.Errorf("error while recording workspace version %s: %v", jetstoreVersion, err)
+			log.Println(err)
+			return err
+		}
 	}
 	return nil
+}
+
+// startupCompileVersion names the workspace the apiserver's start-up compile writes.
+//
+// **A version must name one workspace, and the pipelines rely on it.** A pipeline
+// task skips fetching the database's compiled workspace when the database's version
+// equals its own image's JETS_VERSION (`SyncComputePipesWorkspace`,
+// jets/workspace/compile_workspace_utils.go), and uses the one baked into its image.
+// That is right only when the two are the same workspace. When the start-up applied
+// overrides from jetsapi.workspace_changes before compiling, the database's workspace
+// carries them and the image's does not, so stamping JETS_VERSION on it gave two
+// workspaces one name, and the pipelines took the image's. At a 4.0.3 deployment on
+// 2026-10-13 that meant every pipeline read a lookup committed in July instead of
+// September's override, until a compile from the UI changed the version.
+//
+// So: JETS_VERSION when nothing was applied, and otherwise the time, as the UI's
+// compile stamps it. A fresh version still compares below the next release's
+// JETS_VERSION, which is the comparison that triggers this compile, and a restart of
+// the same image then finds the database ahead of it and takes the database's
+// workspace.
+//
+// Versions are compared as strings (`MAX(version)` above), so a time that does not
+// compare above JETS_VERSION -- a JETS_VERSION that is not a Unix time, or a clock
+// behind the build -- would make every later start recompile. That case keeps
+// JETS_VERSION and says so.
+func startupCompileVersion(jetstoreVersion string, overridesApplied bool, now time.Time) string {
+	if !overridesApplied {
+		return jetstoreVersion
+	}
+	fresh := strconv.FormatInt(now.Unix(), 10)
+	if fresh <= jetstoreVersion {
+		log.Printf("Warning: compile time %s does not compare above JetStore version %s; keeping %s, so the pipelines will use their image's workspace and not the overrides",
+			fresh, jetstoreVersion, jetstoreVersion)
+		return jetstoreVersion
+	}
+	return fresh
 }
 
 // Validate the user table exists and create admin if not already created
