@@ -180,8 +180,9 @@ type OperatorEnv interface {
 // against every caller of NewProcessError on 2026-09-15: ErrorMessage at all
 // eight sites, InputColumn and RowJetsKey at three each (render, and the two
 // inference paths). Two further columns of jetsapi.process_errors are
-// deliberately absent. `grouping_key` is set by **no** caller, so admitting it
-// would be a field offered on nobody's evidence; `rete_session_saved` and
+// deliberately absent. `grouping_key` is the domain key of a rete session's
+// input, set by the jetrules operator alone (since 2026-10-13; by no caller
+// before), and a site operator has no session to take it from; `rete_session_saved` and
 // `rete_session_triples` are the rules engine's, set from inside a RETE session
 // that no site operator has.
 //

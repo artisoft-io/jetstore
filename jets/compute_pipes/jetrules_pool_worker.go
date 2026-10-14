@@ -32,6 +32,12 @@ type JrPoolWorker struct {
 	done                     chan struct{}
 	errCh                    chan error
 	builderContext           *BuilderContext
+	// groupingKey computes the domain key of a session's input, nil when the
+	// input has none (see jetrulesGroupingDomainKey).
+	groupingKey *HashEvaluator
+	// The keys of the rete session running, which its error rows carry (setSessionKeys).
+	sessionGroupingKey sql.NullString
+	sessionRowJetsKey  sql.NullString
 }
 
 func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string,
@@ -78,6 +84,7 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 		multiValueDataProperties: mvProperties,
 		column2RdfType:           column2RdfType,
 		builderContext:           ctx,
+		groupingKey:              ctx.newJetrulesGroupingKey(source),
 	}
 }
 
@@ -152,6 +159,8 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// The engine's JetResources are created on first use, through the meta graph,
 	// so they must exist before any rdf session opens (see RunRuleSets).
 	re.JetResources()
+	// The keys every error row of this session carries
+	ctx.setSessionKeys(inputRecords)
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -243,7 +252,7 @@ func (ctx *JrPoolWorker) reportRuleSet(rdfSession JetRdfSession, rs *RuleSetOutc
 			log.Printf("jetrules: ExecuteRules returned error: %v", rs.ExecuteErr)
 			if ctx.errorOutputCh != nil {
 				// report the rule error
-				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow := ctx.newProcessError()
 				peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", rs.ExecuteErr)
 				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
 			}
@@ -262,7 +271,7 @@ func (ctx *JrPoolWorker) reportRuleSet(rdfSession JetRdfSession, rs *RuleSetOutc
 		case ctx.errorCount <= ctx.config.MaxErrorCount:
 			log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", rs.MaxLooping)
 			if ctx.errorOutputCh != nil {
-				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow := ctx.newProcessError()
 				peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", rs.MaxLooping)
 				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
 			}
@@ -281,7 +290,7 @@ func (ctx *JrPoolWorker) reportRuleSet(rdfSession JetRdfSession, rs *RuleSetOutc
 		case ctx.errorCount <= ctx.config.MaxErrorCount:
 			log.Printf("jetrule: jets:exception caught: %s", hasException)
 			if ctx.errorOutputCh != nil {
-				peRow := ctx.builderContext.NewProcessError("jetrules")
+				peRow := ctx.newProcessError()
 				peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
 				if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
 					ctx.nbrReteSessionsSaved++
@@ -657,33 +666,50 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 			}
 		} else {
 			if isArray {
-				// If the data property is of type text, then keep as array
+				// A text property keeps its values as an array, which is written as an
+				// array literal; any other type is set to null. Both are reported, and
+				// count toward max_error_count (a text property was reported by nothing
+				// until 2026-10-13).
 				if ctx.column2RdfType[pname] == "text" {
 					data = dataArr
+					ctx.reportMultipleValues(rdfSession, subject, pname,
+						fmt.Sprintf("property %s is not multi-value but has %d text values for subject %s, keeping all of them as an array",
+							pname, len(dataArr), subject))
 				} else {
-					// Report the first max_error_count as error, set to null
-					ctx.errorCount++
-					switch {
-					case ctx.errorCount <= ctx.config.MaxErrorCount:
-						log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
-						if ctx.errorOutputCh != nil {
-							peRow := ctx.builderContext.NewProcessError("jetrules")
-							peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
-							peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-						}
-					case ctx.errorCount == ctx.config.MaxErrorCount+1:
-						log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
-					default:
-						if ctx.config.IsDebug {
-							log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
-						}
-					}
 					data = nil
+					ctx.reportMultipleValues(rdfSession, subject, pname,
+						fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null",
+							pname, subject))
 				}
 			}
 		}
 	}
 	return data
+}
+
+// reportMultipleValues reports a property that is not multi-value and has
+// several values on subject: to the log, and to the error channel up to
+// max_error_count, with the subject's key in row_jets_key and the property in
+// input_column.
+func (ctx *JrPoolWorker) reportMultipleValues(rdfSession JetRdfSession, subject RdfNode, pname, msg string) {
+	ctx.errorCount++
+	switch {
+	case ctx.errorCount <= ctx.config.MaxErrorCount:
+		log.Printf("warning: %s", msg)
+		if ctx.errorOutputCh != nil {
+			peRow := ctx.newProcessError()
+			peRow.RowJetsKey = sql.NullString{String: subjectJetsKey(rdfSession, subject), Valid: true}
+			peRow.InputColumn = sql.NullString{String: pname, Valid: true}
+			peRow.ErrorMessage = msg
+			peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+		}
+	case ctx.errorCount == ctx.config.MaxErrorCount+1:
+		log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+	default:
+		if ctx.config.IsDebug {
+			log.Printf("warning: %s", msg)
+		}
+	}
 }
 
 func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
@@ -803,10 +829,7 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 
 	// Input channel have a class name, which will have jets:key, rdf:type, jets:source_period_sequence in pos 0, 1 and 2 resp.
 	var ok bool
-	jetsKey, ok = (*row)[0].(string)
-	if !ok {
-		jetsKey = ComputeRowHash((*row)[3:], config.CurrentSourcePeriod)
-	}
+	jetsKey = inputRowJetsKey(config, *row)
 
 	rdfTypes, ok = (*row)[1].([]any)
 	if !ok {
