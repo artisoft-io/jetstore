@@ -10,6 +10,12 @@
 #   runaway    infers without end on loop 0, so ExecuteRules returns the
 #              max vertex visit error
 #   late_runaway  the same, on loop 2, the last one $max_looping allows
+#   two_texts  gives xr:result, a text property that is not multi-value, two
+#              values, then completes on loop 1
+#   two_amounts  gives xr:amount, an int property that is not multi-value, two
+#              values, then completes on loop 1
+#
+# xr:group is the domain key the error-keys cases group by; no rule reads it.
 #
 # Looping starts at 1; loop 0 is the pre-loop pass.
 import "data_model/jets_model.jr"
@@ -81,4 +87,38 @@ main {
   (?c xr:count ?n)
   ->
   (?c xr:count (?n + 1))
+;
+
+[XR_TwoTexts]:
+  (?c rdf:type xr:Case).
+  (?c xr:mode "two_texts")
+  ->
+  (?c xr:result "first").
+  (?c xr:result "second")
+;
+
+[XR_TwoAmounts]:
+  (?c rdf:type xr:Case).
+  (?c xr:mode "two_amounts")
+  ->
+  (?c xr:amount 1).
+  (?c xr:amount 2)
+;
+
+[XR_CompleteTwoTexts]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 1).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "two_texts")
+  ->
+  (?state jets:completed true)
+;
+
+[XR_CompleteTwoAmounts]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 1).
+  (?c rdf:type xr:Case).
+  (?c xr:mode "two_amounts")
+  ->
+  (?state jets:completed true)
 ;

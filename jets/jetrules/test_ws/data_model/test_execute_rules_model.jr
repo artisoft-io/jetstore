@@ -6,7 +6,9 @@ class xr:Case {
   $data_properties = [
     xr:mode     as text,
     xr:result   as text,
-    xr:count    as int
+    xr:count    as int,
+    xr:amount   as int,
+    xr:group    as text
   ],
   $as_table = true
 };
