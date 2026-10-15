@@ -48,6 +48,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -196,6 +197,7 @@ func stamp(t time.Time) string {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	dsn, err := resolveDsn()
 	if err != nil {

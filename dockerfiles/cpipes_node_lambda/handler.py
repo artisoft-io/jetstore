@@ -77,11 +77,18 @@ import os
 from typing import Any
 from urllib.parse import quote_plus
 
+from cpipes_node import jetstore_logging
 from cpipes_node.awslambda import Node
 from cpipes_node.settings import Settings
 
+# One JSON object per log record, as every Go main has with
+# `utils.UseJetStoreLogger()`: a value carrying CR/LF cannot forge a record
+# (CWE-117). As in Go, JETSTORE_DEV_MODE keeps plain logging.
+jetstore_logging.setup(
+    level=os.environ.get("LOG_LEVEL", "INFO"),
+    dev_mode=bool(os.environ.get("JETSTORE_DEV_MODE")),
+)
 log = logging.getLogger(__name__)
-logging.getLogger().setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
 def dsn_from_secret_json(secret_json: str) -> str:
