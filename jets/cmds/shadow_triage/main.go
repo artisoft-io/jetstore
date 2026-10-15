@@ -64,6 +64,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/shadow"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -258,6 +259,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	dsn, err := resolveDsn()
 	if err != nil {
