@@ -344,12 +344,34 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					WorkspaceBranch: dataTableAction.WorkspaceBranch,
 					FeatureBranch:   dataTableAction.FeatureBranch,
 				})
+				// Write the database's overrides over the local tree first, as the
+				// commit, the compile and the pull do (syncOverridesToLocal). A push
+				// sends commits, not files, so the sync cannot change what this push
+				// sends; what it does is make the tree match the database, so that the
+				// check below tells the user when the workspace holds changes, an
+				// override written by a lookup refresh included, that no commit
+				// carries and that this push therefore did not send. A failed sync is
+				// reported and does not stop the push, which sends the same commits
+				// either way.
+				var buf strings.Builder
+				if syncLog := syncOverridesToLocal(ctx.Dbpool, dataTableAction.WorkspaceName); syncLog != "" {
+					buf.WriteString(syncLog)
+				}
 				gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
+				buf.WriteString(gitLog)
 				if err != nil {
 					log.Printf("Error while push (only) workspace: %s\n", gitLog)
 					httpStatus = http.StatusBadRequest
 					status = "error"
 				}
+				if changes, statusErr := workspaceGit.UncommittedChanges(); statusErr == nil && changes != "" {
+					buf.WriteString("\nNot pushed: the workspace holds changes that no commit carries, ")
+					buf.WriteString("the database's overrides included. Push Only sends commits; ")
+					buf.WriteString("use Commit & Push to send these:\n")
+					buf.WriteString(changes)
+					buf.WriteString("\n")
+				}
+				gitLog = buf.String()
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = status
