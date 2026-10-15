@@ -151,7 +151,8 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 			lback := inputChannelConfig.LookbackPeriods
 			if len(lback) > 0 {
-				err = GetPartitionSize4LookbackPeriod("", fileKey, inputChannelConfig.LookbackPeriods, cpipesStartup.EnvSettings, partitionSizes)
+				err = GetPartitionSize4LookbackPeriod("", fileKey, inputChannelConfig.LookbackPeriods,
+					inputChannelConfig.SourceObjectType, cpipesStartup.EnvSettings, partitionSizes)
 				if err != nil {
 					return nil, fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				}

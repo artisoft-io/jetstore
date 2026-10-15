@@ -617,6 +617,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "is_cumulative",
+        "description": "If true '1': each delivery of this file holds the whole feed, so a pipeline reading its staged deliveries across a lookback (input channel source_object_type) reads only the latest delivery",
+        "dataType": "bool",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "schema_provider_json",
         "dataType": "text",
         "description": "Additional file config, with lesser priority than the other settings on this table."

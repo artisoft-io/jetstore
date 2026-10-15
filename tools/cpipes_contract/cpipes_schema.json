@@ -8372,6 +8372,19 @@
           "description": "Key of a schema_providers entry; its settings are synced onto this channel.",
           "title": "Schema Provider"
         },
+        "source_object_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Names the source_config object type whose staged deliveries the channel reads with lookback_periods. When the run's client declares that object type cumulative (source_config.is_cumulative), only the latest delivery across the lookback is read: the most recent period folder holding data, and its latest session. Env vars are substituted.",
+          "title": "Source Object Type"
+        },
         "trim_columns": {
           "anyOf": [
             {
