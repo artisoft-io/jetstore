@@ -317,6 +317,9 @@ const HAND_MAINTAINED_KEYS = [
   // A Refresh, so a save in the Workspace IDE shows without reloading the page
   // (Michel, 2026-10-11).
   "workspaceChangesTable",
+  // 25 rows per page rather than 50, as the flow's first table has, so the
+  // Start Pipeline steps page alike (Michel, 2026-10-15).
+  "main_input_registry_key",
 ] as const;
 
 /**
@@ -478,7 +481,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // the on-disk document overrides the translation in `documents`, so the total
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(9);
+    // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
+    expect(Object.keys(handMaintained).length).toBe(10);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     expect(Object.keys(featureDocuments).length).toBe(3);
