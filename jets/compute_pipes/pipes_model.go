@@ -843,6 +843,11 @@ type InputChannelConfig struct {
 	// rdf type specified by the domain class of the main input source.
 	// NbrNodesAny and NbrRowsAny are used for Type = "generator" to specify the number
 	// of nodes and rows to generate, they can be int or string (with env var substitution).
+	// SourceObjectType names the source_config object type whose staged deliveries a
+	// stage channel reads with lookback_periods. When the run's client declares that
+	// object type cumulative (source_config.is_cumulative), the read keeps only the
+	// latest delivery across the lookback rather than every delivery. Empty: every
+	// delivery is read. Env vars are substituted. See cumulative_source.go.
 	FileConfig
 	Type                 string               `json:"type,omitempty"`
 	Name                 string               `json:"name"`
@@ -853,6 +858,7 @@ type InputChannelConfig struct {
 	SamplingRate         int                  `json:"sampling_rate,omitzero"`
 	SamplingMaxCount     int                  `json:"sampling_max_count,omitzero"`
 	HasGroupedRows       bool                 `json:"has_grouped_rows,omitzero"`
+	SourceObjectType     string               `json:"source_object_type,omitempty"`
 	MergeChannels        []InputChannelConfig `json:"merge_channels,omitempty"`
 	NbrNodesAny          any                  `json:"nbr_nodes,omitzero"`
 	NbrRowsAny           any                  `json:"nbr_rows,omitzero"`

@@ -655,6 +655,7 @@ class InputChannelConfigStage(InputChannelConfigBase):
     sampling_max_count: int | None = Field(default=None, description="Cap on the sampled rows.")
     sampling_rate: int | None = Field(default=None, description="Read one row in n.")
     schema_provider: str | None = Field(default=None, description="Key of a schema_providers entry; its settings are synced onto this channel.")
+    source_object_type: str | None = Field(default=None, description="Names the source_config object type whose staged deliveries the channel reads with lookback_periods. When the run's client declares that object type cumulative (source_config.is_cumulative), only the latest delivery across the lookback is read: the most recent period folder holding data, and its latest session. Env vars are substituted.")
     trim_columns: bool | None = Field(default=None, description="Trim whitespace around column values.")
     use_lazy_quotes: bool | None = Field(default=None, description="Tolerant csv quote handling; see csv.NewReader.")
     use_lazy_quotes_special: bool | None = Field(default=None, description="Variant of use_lazy_quotes; see csv.NewReader.")

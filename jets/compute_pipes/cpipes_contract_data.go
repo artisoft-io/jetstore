@@ -584,6 +584,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"sampling_max_count":         {},
 		"sampling_rate":              {},
 		"schema_provider":            {},
+		"source_object_type":         {},
 		"trim_columns":               {},
 		"type":                       {Required: true},
 		"use_lazy_quotes":            {},
