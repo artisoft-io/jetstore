@@ -111,7 +111,7 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	// 64 across the two directories, and no key in both — the Home screen reads
+	// 61 across the two directories, and no key in both — the Home screen reads
 	// the one table it shares with a flow from the workspace rather than keeping a
 	// second copy (`sharedTableDocuments.test.ts` asserts the invariant).
 	//
@@ -128,7 +128,12 @@ func TestShippingTablesValidate(t *testing.T) {
 	//
 	// **61 -> 64 on 2026-10-11**: rules_unit_test_harness's three tables
 	// (rutExecutionTable, rutTestCaseTable, rutCheckTable; task AD.4).
-	if len(files) != 64 {
+	//
+	// **64 -> 61 on 2026-10-15** (Release 4.0.4): Start Pipeline stopped choosing
+	// merged and historical sources, which the pipeline configuration names with
+	// lookback periods, and mergeProcessInputTable, merged_input_registry_keys and
+	// spInjectedProcessInput were retired (RetiredAssets).
+	if len(files) != 61 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

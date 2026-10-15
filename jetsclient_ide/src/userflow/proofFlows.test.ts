@@ -717,17 +717,16 @@ describe("client_registry, end to end", () => {
 });
 
 /**
- * F.4's flow, and the one whose arms convert a value twice.
+ * F.4's flow.
  *
- * **`unpackToList(unpack(x))` is a composition and the coverage document had it
- * as one call.** `spPipelineSelected` reads two `pipeline_config` columns that
- * hold Postgres `text[]` literals (`start_pipeline/form_action_delegates.dart`,
- * `startPipelineFormActionsUF`). A data table publishes a secondary column as a
- * *one-element list* — `resetSecondaryKeys` appends one string per selected row
- * (`components/data_table_source.dart`, `resetSecondaryKeys`) — so the state
- * holds `["{5,6}"]`, and `unpack` has to strip the selection before
- * `unpackToList` can decode the literal. `fromKeyList` alone is `unpackToList`
- * alone, which sees an array and returns it unchanged (I-97).
+ * **It converted a value twice until 2026-10-15, and the paragraph that said so
+ * is retired with the arm.** `spPipelineSelected` unpacked the selected
+ * pipeline's merged and injected process input lists — Postgres `text[]` literals
+ * arriving as one-element selections, so `unpack` then `unpackToList` (I-97) —
+ * for the merged-sources step and the summary's historical-sources row. Release
+ * 4.0.4 removed both: the pipeline configuration names those sources, with their
+ * lookback periods, so the flow chooses only the main source and sends an empty
+ * `merged_input_registry_keys`.
  */
 describe("start_pipeline, end to end", () => {
   const setup = () => harness(startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc);
@@ -762,94 +761,54 @@ describe("start_pipeline, end to end", () => {
     expect(h.at()).toBe("select_pipeline_config");
   });
 
-  it("decodes the array literal inside the selection, not the selection", async () => {
-    const h = setup();
-    selectPipelineConfig(h, "{5,6}");
-    await h.press("ufNext");
-    // Two keys the flow's own tables filter on: `mergeProcessInputTable` and
-    // `spInjectedProcessInput` each read one as `key IN (…)`.
-    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual(["5", "6"]);
-    expect(h.formState.getValue(0, "injected_process_input_keys")).toEqual(["9"]);
+  it("goes from the main source to the summary, whatever the pipeline merges", async () => {
+    // Release 4.0.4. Until then a pipeline naming merged process inputs was sent
+    // through a step choosing merged sources; the configuration now reads them
+    // across its lookback periods, so there is no such step to be sent through.
+    for (const merged of ["{5,6}", "{}"]) {
+      const h = setup();
+      selectPipelineConfig(h, merged);
+      await h.press("ufNext");
+      expect(h.at()).toBe("select_main_data_source");
+      selectMainDataSource(h);
+      await h.press("ufNext");
+      expect(h.at()).toBe("summaryUF");
+    }
+    expect(Object.keys(setup().flow.states).sort()).toEqual([
+      "select_main_data_source",
+      "select_pipeline_config",
+      "summaryUF",
+    ]);
   });
 
-  it("takes the merged branch only when the pipeline has merged process inputs", async () => {
-    const withMerged = setup();
-    selectPipelineConfig(withMerged, "{5,6}");
-    await withMerged.press("ufNext");
-    selectMainDataSource(withMerged);
-    await withMerged.press("ufNext");
-    expect(withMerged.at()).toBe("select_merged_data_sources");
-
-    const without = setup();
-    selectPipelineConfig(without, "{}");
-    await without.press("ufNext");
-    expect(without.formState.getValue(0, "merged_process_input_keys")).toEqual([]);
-    selectMainDataSource(without);
-    await without.press("ufNext");
-    expect(without.at()).toBe("summaryUF");
-  });
-
-  it("would have taken the merged branch on every pipeline without the unpack", async () => {
-    // **Measured rather than argued**, the way I-90 was. This is the coverage
-    // document's `spPipelineSelected` — `fromKeyList` alone — run on the empty
-    // case: the literal survives as a one-element list, the flow reads it as a
-    // non-empty selection, and every pipeline is sent through a step for merged
-    // sources it does not have.
-    const flow = UserFlowSchema.parse(startPipelineFlowDoc) as UserFlow;
-    const formState = new FormState();
-    formState.setValue(0, "merged_process_input_keys", ["{}"]);
-    const collapsed = ActionDocumentSchema.parse({
-      schemaVersion: 1,
-      actions: {
-        spPipelineSelected: {
-          description: "as the coverage document had it",
-          steps: [
-            { do: "set", key: "merged_process_input_keys", value: { fromKeyList: "merged_process_input_keys" } },
-          ],
-        },
-      },
-    }) as ActionDocument;
-    await runAction({
-      action: collapsed.actions["spPipelineSelected"]!,
-      host: {
-        validate: () => true,
-        confirm: async () => true,
-        post: async () => ({ statusCode: 200 }),
-        query: async () => null,
-        read: async () => [],
-        download: () => undefined,
-        notify: () => undefined,
-        setBusy: () => undefined,
-        goToState: () => undefined,
-        close: () => undefined,
-        userEmail: () => "michel@artisoft.io",
-        now: () => 0,
-      },
-      formState,
-      field,
-      registry: emptyRegistry,
-      flowKey: "test",
-    });
-    expect(formState.getValue(0, "merged_process_input_keys")).toEqual(["{}"]);
-    const state = flow.states["select_main_data_source"]!;
-    const choices = "choices" in state ? state.choices : undefined;
-    expect(choices).toHaveLength(1);
-    expect(evaluateCondition(choices![0]!.when, formState, 0)).toBe(true);
-  });
-
-  it("collects the merged sources before the main one", async () => {
+  it("shows the main source alone on the summary", async () => {
     const h = setup();
     selectPipelineConfig(h, "{5,6}");
     await h.press("ufNext");
     selectMainDataSource(h);
     await h.press("ufNext");
-    h.formState.setValue(0, "merged_input_registry_keys", ["31", "32"]);
-    await h.press("ufNext");
-    expect(h.at()).toBe("summaryUF");
-    // `[merged, main].expand(...)` — the order `spSummaryDataSources` displays.
-    expect(h.formState.getValue(0, "spAllDataSourceKeys")).toEqual(["31", "32", "12"]);
+    // `spSummaryDataSources` filters `input_registry` on this list.
+    expect(h.formState.getValue(0, "spAllDataSourceKeys")).toEqual(["12"]);
     // Unpacked so the read-only summary field shows a string.
     expect(h.formState.getValue(0, "description")).toBe("Nightly claims run");
+    // Going back and choosing another main source replaces it rather than
+    // appending, which is what the old `set`-then-`appendUnique` pair did too.
+    await h.press("ufPrevious");
+    h.formState.setValue(0, "main_input_registry_key", ["13"]);
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "spAllDataSourceKeys")).toEqual(["13"]);
+  });
+
+  it("draws neither the merged-sources tables nor the historical sources", () => {
+    const forms = setup().forms.forms;
+    const tables = Object.values(forms).flatMap((f) =>
+      (f.rows ?? []).flat().flatMap((field) => ("table" in field ? [field.table] : [])),
+    );
+    expect(tables.sort()).toEqual([
+      "main_input_registry_key",
+      "pipeline_config_key",
+      "spSummaryDataSources",
+    ]);
   });
 
   it("submits the pipeline execution as the whole state, normalised", async () => {
@@ -858,8 +817,7 @@ describe("start_pipeline, end to end", () => {
     await h.press("ufNext");
     selectMainDataSource(h);
     await h.press("ufNext");
-    h.formState.setValue(0, "merged_input_registry_keys", ["31", "32"]);
-    await h.press("ufNext");
+    expect(h.at()).toBe("summaryUF");
     await h.press("ufCompleted");
 
     expect(h.posts).toHaveLength(1);
@@ -875,8 +833,13 @@ describe("start_pipeline, end to end", () => {
     expect(body["workspaceName"]).toBeNull();
 
     const row = (body["data"] as Record<string, unknown>[])[0]!;
-    // `makePgArray`, outward: the one key the Dart brace-wraps by hand.
-    expect(row["merged_input_registry_keys"]).toBe("{31,32}");
+    // **An empty array literal, not an absent key**, although the pipeline
+    // names merged inputs: the column is `NOT NULL` and the server's insert names
+    // it (`jets/datatable/sql_stmts.go`, `pipeline_execution_status`), so an
+    // omitted key would bind NULL. `pipeline_start_with_input_registry.go` sends
+    // the same `"{}"` when it starts a pipeline without merged sources. Release
+    // 4.0.4; until then this was the merged sources the user picked.
+    expect(row["merged_input_registry_keys"]).toBe("{}");
     expect(row["pipeline_config_key"]).toBe("12");
     expect(row["main_input_registry_key"]).toBe("12");
     expect(row["client"]).toBe("ACME");
@@ -892,7 +855,7 @@ describe("start_pipeline, end to end", () => {
     expect(row["main_input_file_key"]).toBe("s3://in/claims.csv");
     expect(row["file_key"]).toBe("s3://in/claims.csv");
     // `wholeState` carries the working keys too, exactly as `data: [state]` does.
-    expect(row["spAllDataSourceKeys"]).toEqual(["31", "32", "12"]);
+    expect(row["spAllDataSourceKeys"]).toEqual(["12"]);
     expect(h.events).toContain("busy");
     expect(h.events).toContain("idle");
     expect(h.events).toContain("exit");
@@ -1801,6 +1764,8 @@ describe("configure_files, end to end", () => {
       is_part_files: "0",
       input_format_data_json: null,
       schema_provider_json: null,
+      // Release 4.0.4. A yes, so *+ Add*'s empty snapshot below proves it cleared.
+      is_cumulative: "1",
       ...overrides,
     };
     for (const [key, value] of Object.entries(row)) {

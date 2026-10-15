@@ -292,7 +292,7 @@ describe("the eleven flows' buttons against the Dart", () => {
   // The measurement. It is an equality rather than a lower bound so that adding a
   // form or a button brings somebody back to this file — which is the whole value of
   // a fidelity check that has already passed.
-  it("compares 53 buttons across 18 forms in 6 documents", () => {
+  it("compares 50 buttons across 17 forms in 6 documents", () => {
     const dart = dartForms();
     let forms = 0;
     let buttons = 0;
@@ -307,9 +307,11 @@ describe("the eleven flows' buttons against the Dart", () => {
     // 51 and 147 until `registerFileKeyUF` was retired, 2026-10-01; 50 and 145
     // until the same day's `AF.2`–`AF.4` took the three `D06` flows out of the
     // comparison (see `FLOW_DOCUMENTS`); 21 and 60 until `fileMappingUF` followed
-    // them (`jetstore_maintenance_02` Phase 2).
-    expect(forms).toBe(18);
-    expect(buttons).toBe(53);
+    // them (`jetstore_maintenance_02` Phase 2); 18 and 53 until Release 4.0.4
+    // removed `startPipelineUF`'s merged-sources form and its three buttons
+    // (2026-10-15).
+    expect(forms).toBe(17);
+    expect(buttons).toBe(50);
   });
 
   it("declares the same buttons, in the same container, in the same order", () => {

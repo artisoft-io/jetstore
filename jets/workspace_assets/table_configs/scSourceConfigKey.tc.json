@@ -82,6 +82,12 @@
       "isHidden": true
     },
     {
+      "name": "is_cumulative",
+      "label": "Cumulative?",
+      "tooltip": "Each delivery holds the whole feed, so a lookback reads only the latest one (true: 1, false: 0)",
+      "isNumeric": true
+    },
+    {
       "name": "last_update",
       "label": "Last Updated",
       "tooltip": "Indicates when the record was last updated"
@@ -149,6 +155,10 @@
       {
         "stateKey": "schema_provider_json",
         "columnIdx": 13
+      },
+      {
+        "stateKey": "is_cumulative",
+        "columnIdx": 14
       }
     ]
   },

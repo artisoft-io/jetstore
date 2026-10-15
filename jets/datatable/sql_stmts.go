@@ -45,19 +45,26 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Capability: "workspace_ide",
 	},
 	// source config
+	//
+	// is_cumulative (Release 4.0.4): the client's file for this object type is
+	// cumulative -- each delivery holds the whole feed -- so a pipeline reading its
+	// staged deliveries across a lookback reads only the latest one. The Source
+	// Configuration flow always sends it, as 0 or 1 like is_part_files. A caller
+	// that does not gets the column's default on insert, and keeps the stored value
+	// on update, rather than binding NULL against NOT NULL.
 	"source_config": {
 		Stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email) 
-			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative) 
+			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 0))
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email"},
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative"},
 		Capability: "client_config",
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, last_update) 
-			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, DEFAULT) WHERE key = $15`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "key"},
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, last_update) 
+			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, is_cumulative), DEFAULT) WHERE key = $16`,
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "key"},
 		Capability: "client_config",
 	},
 	"delete/source_config": {

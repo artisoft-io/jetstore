@@ -160,6 +160,29 @@ const PART_FILES: Record<string, number> = {
 };
 
 /**
+ * `is_cumulative` as the server binds it: a number, like `is_part_files`. Release
+ * 4.0.4, 2026-10-15.
+ *
+ * The column means *the client's file for this object type is cumulative — each
+ * delivery holds the whole feed — so a pipeline reading this object type's staged
+ * deliveries across a lookback reads only the latest delivery*. It is `bool NOT
+ * NULL DEFAULT false` in `jets/jets_schema.json`, which `schema.ToPgType` makes a
+ * PostgreSQL `integer`, so it reads back as `"0"` or `"1"` and is written as `0`
+ * or `1`, exactly as `is_part_files` is.
+ *
+ * **Always sent, never absent**: the insert and the update both name the column
+ * (`jets/datatable/sql_stmts.go`), so a missing key would bind NULL against a
+ * `NOT NULL` column. Anything that is not a yes — a record from before the
+ * column, a value the dropdown never set — saves as `0`, the column's default.
+ * `"true"` and `"t"` count as yes too, which is what a PostgreSQL `boolean` would
+ * read back as; the save path then keeps a yes rather than clearing it.
+ */
+function cumulativeOf(raw: unknown): number {
+  const v = scalar(raw);
+  return v === "1" || v === "true" || v === "t" ? 1 : 0;
+}
+
+/**
  * Saves the file configuration, projecting the payload by its file type.
  *
  * **The target is chosen by whether a record was selected**, which is I-115's shape
@@ -187,6 +210,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
   const partFiles = PART_FILES[scalar(row["scSingleOrMultiPartFileOption"]) ?? ""];
   if (partFiles === undefined) return "error";
   row["is_part_files"] = partFiles;
+  row["is_cumulative"] = cumulativeOf(row["is_cumulative"]);
   row["user_email"] = host.userEmail();
 
   const table = row["key"] == null ? "source_config" : "update/source_config";
