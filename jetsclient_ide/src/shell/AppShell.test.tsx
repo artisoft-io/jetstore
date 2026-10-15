@@ -11,6 +11,7 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
@@ -61,6 +62,16 @@ function Screen({ name }: { name: string }) {
   );
 }
 
+/** Counts its mounts and asks the server once per mount, as a screen's tables do. */
+let mounts = 0;
+function Counted({ api }: { api: ApiClient }) {
+  useEffect(() => {
+    mounts += 1;
+    api.endpoint("/dataTable", {}).catch(() => undefined);
+  }, [api]);
+  return <p>screen: counted</p>;
+}
+
 /** Surfaces the in-app location so a test can assert the basename was stripped. */
 function LocationProbe() {
   const location = useLocation();
@@ -80,6 +91,7 @@ function renderShell(
           <Route index element={<Navigate to="/workspace" replace />} />
           <Route path="workspace" element={<Screen name="workspace" />} />
           <Route path="flows" element={<Screen name="flows" />} />
+          <Route path="counted" element={<Counted api={api} />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -113,6 +125,45 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByRole("link", { name: "Flows" }));
     expect(await screen.findByText("screen: flows")).toBeTruthy();
     expect(screen.queryByText("screen: workspace")).toBeNull();
+  });
+
+  it("reloads the current screen when its own entry is pressed", async () => {
+    mounts = 0;
+    const api = await signedIn();
+    renderShell(api, [...nav, { to: "/counted", label: "Counted" }], { initial: "/counted" });
+    await screen.findByText("screen: counted");
+    expect(mounts).toBe(1);
+
+    fireEvent.click(screen.getByRole("link", { name: "Counted" }));
+    await waitFor(() => expect(mounts).toBe(2));
+    expect(screen.getByTestId("location").textContent).toBe("/counted");
+
+    // Another screen's entry navigates as before, with no extra remount here.
+    fireEvent.click(screen.getByRole("link", { name: "Flows" }));
+    expect(await screen.findByText("screen: flows")).toBeTruthy();
+    expect(mounts).toBe(2);
+  });
+
+  it("returns to the login screen when the reloaded screen finds the session expired", async () => {
+    mounts = 0;
+    let expired = false;
+    const fetchImpl = vi.fn(async () =>
+      expired
+        ? new Response("{}", { status: 401 })
+        : new Response(
+            JSON.stringify({ token: "t0", name: "Michel", user_email: "m@x.io", is_admin: true, capabilities: [] }),
+            { status: 200 },
+          ),
+    ) as unknown as typeof fetch;
+    const api = new ApiClient("", fetchImpl);
+    await api.login("m@x.io", "pw");
+    renderShell(api, [...nav, { to: "/counted", label: "Counted" }], { initial: "/counted" });
+    await screen.findByText("screen: counted");
+
+    expired = true;
+    fireEvent.click(screen.getByRole("link", { name: "Counted" }));
+    expect(await screen.findByLabelText(/email/i)).toBeTruthy();
+    expect(screen.queryByText("screen: counted")).toBeNull();
   });
 
   it("marks the current screen in the navigation", async () => {

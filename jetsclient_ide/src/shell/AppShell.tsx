@@ -36,7 +36,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useResolvedPath } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { BASENAME } from "../base";
@@ -158,13 +158,32 @@ function DisabledNavItem({ label, reason }: { label: string; reason?: string }) 
   );
 }
 
-function ShellNavItem({ item }: { item: NavItem }) {
+/**
+ * **Pressing the entry of the screen you are on reloads that screen.** Reported
+ * 2026-10-15: pressing *Home* on Home did nothing, so a session that had expired
+ * still looked alive until something else was pressed. The router treats a link
+ * to the current path as no navigation, so the shell remounts the routed screen
+ * instead (`onReselect`): it fetches again, and a dead session answers 401 and
+ * returns to the sign-in screen (`ApiClient`).
+ *
+ * **A remount and not `window.location.reload()`.** The token is held in memory
+ * only (`api/client.ts`), so a browser reload would sign out a live session too.
+ */
+function ShellNavItem({ item, onReselect }: { item: NavItem; onReselect: () => void }) {
   const permission = useCan(item.capability);
+  const location = useLocation();
+  const target = useResolvedPath(item.to);
   if (!permission.allowed) {
     return <DisabledNavItem label={item.label} {...(permission.reason ? { reason: permission.reason } : {})} />;
   }
   return (
-    <NavLink to={item.to} className={({ isActive }) => `navlink${isActive ? " is-active" : ""}`}>
+    <NavLink
+      to={item.to}
+      className={({ isActive }) => `navlink${isActive ? " is-active" : ""}`}
+      onClick={() => {
+        if (location.pathname === target.pathname) onReselect();
+      }}
+    >
       {item.label}
     </NavLink>
   );
@@ -333,6 +352,10 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
     () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "light",
   );
   const { error, status, setError, setStatus } = useNotifications();
+  // Bumped when the nav entry of the current screen is pressed; it keys the
+  // routed screen, so that press remounts it (`ShellNavItem`).
+  const [screenNonce, setScreenNonce] = useState(0);
+  const reselect = useCallback(() => setScreenNonce((n) => n + 1), []);
 
   useEffect(() => api.subscribe(setUser), [api]);
 
@@ -392,7 +415,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
             isClientFilter(entry) ? (
               <ClientPicker key="client-filter" api={api} />
             ) : (
-              <ShellNavItem key={entry.to} item={entry} />
+              <ShellNavItem key={entry.to} item={entry} onReselect={reselect} />
             ),
           )}
         </nav>
@@ -447,7 +470,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
       {/* The provider wraps only the routed screen: it is the screen that may
           claim the build information for a bar of its own. */}
       <BuildInfoProvider slot={buildInfoSlot}>
-        <Outlet />
+        <Outlet key={screenNonce} />
       </BuildInfoProvider>
 
       {/* Bottom left, after the screen; a screen with its own bottom bar takes
