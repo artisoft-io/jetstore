@@ -54,8 +54,8 @@ these lists were enumerated from the documents before the arms were written, whi
 what `R-1` asked for. The documents cannot carry the reasoning — every object is
 closed — so it is here.
 
-**`scGoToAddSourceConfig`** clears the selection of three tables and removes seventeen
-keys:
+**`scGoToAddSourceConfig`** clears the selection of three tables and removes ~~seventeen~~
+eighteen keys (`is_cumulative`, Release 4.0.4, 2026-10-15):
 
 | Key | Set on the edit path by |
 |---|---|
@@ -69,6 +69,7 @@ keys:
 | `input_format_data_json` | the binding and the select action; `scEditXlsxOptionsUF` |
 | `scSingleOrMultiPartFileOption` (and its selection) | the select action from `is_part_files`; the single-or-multi-part table |
 | `currentSheet` | the `readXlsxSheetOption` escape; the xlsx options page |
+| `is_cumulative` | the binding, then `scSelectSourceConfigUF`; the single-or-multi-part page's dropdown |
 
 **`pcGoToAddPipelineConfig`** clears the selection of nine tables and removes
 thirty-two keys. The first seventeen are what the plan estimated, and are what the

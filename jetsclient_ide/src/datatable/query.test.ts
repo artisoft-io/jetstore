@@ -444,16 +444,17 @@ describe("the whole corpus", () => {
   const keys = Object.keys(tables);
   const querying = keys.filter((k) => tables[k]!.apiPath === "/dataTable");
 
-  it("is the 31 user flow tables still in the fixture, 25 of which query", () => {
+  it("is the 28 user flow tables still in the fixture, 22 of which query", () => {
     // **37 and 28 until 2026-10-01**, when `client`, `scSourceConfigKey` and
     // `pcPipelineConfigTable` — three query tables — left the fixture to be
     // maintained by hand (`jetstore_maintenance_02` `AF.1`, `D06`). Their payloads
     // are no longer built here; their documents are checked by the schema, the
     // Go save path and the cross-document set test instead. **31 the same day**:
     // `AF.2`–`AF.4` retired the three static option tables of the add-or-edit
-    // steps `D06` removed.
-    expect(keys).toHaveLength(31);
-    expect(querying).toHaveLength(25);
+    // steps `D06` removed. **28 and 22 on 2026-10-15**: Release 4.0.4 retired
+    // three query tables with `startPipelineUF`'s merged and historical sources.
+    expect(keys).toHaveLength(28);
+    expect(querying).toHaveLength(22);
   });
 
   it.each(querying)("builds a well-formed payload for %s", (key) => {

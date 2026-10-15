@@ -28,6 +28,14 @@ from three flows, and with it the option table each one drew —
 `../install.go`, so an install deletes a workspace's unedited copy. **A table leaves this
 directory the way a flow leaves `user_flows/`: deleted here and listed there.**
 
+**32 again since 2026-10-15 (Release 4.0.4)**, after the three rules unit test tables
+had taken it to 35 on 2026-10-11. *Start Pipeline* stopped choosing merged and
+historical (injected) data sources — the pipeline configuration names them, with their
+lookback periods — so the step that chose merged sources and the summary row that listed
+historical ones went, and with them `mergeProcessInputTable`,
+`merged_input_registry_keys` and `spInjectedProcessInput`. All three are on
+`RetiredAssets`.
+
 **The tables a *screen* draws are not here.** They stay in
 `jetsclient_ide/src/datatable/tables/`, imported into the React bundle and never read
 from a workspace. That is 29 documents, and the split is by consumer: a flow reads its

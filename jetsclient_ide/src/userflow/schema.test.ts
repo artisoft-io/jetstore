@@ -210,7 +210,8 @@ describe("the shipping corpus", () => {
   //
   // **One form since 2026-10-02**: `not` and `isNullOrEmpty` were the nested
   // choice in `startPipelineUF`, which left this fixture for `HAND_AUTHORED`
-  // (`jetstore_maintenance_02` Phase 2) and still carries it on disk.
+  // (`jetstore_maintenance_02` Phase 2) and carried it on disk until Release
+  // 4.0.4 removed its merged-sources step (2026-10-15).
   //
   // **None in the fixture since 2026-10-11**: the one `contains` was
   // `workspacePullUF`'s, which left for `HAND_AUTHORED` and still carries it on
@@ -355,33 +356,34 @@ describe("the reference checks the schema cannot express", () => {
     //
     // **On `startPipelineUF` since 2026-10-01**, and on `clientRegistryUF` until
     // then: that flow left this fixture (`jetstore_maintenance_02` `AF.1`) and
-    // `D06` removed the two-way choice this case broke. `startPipelineUF` is the
-    // fixture's one flow left with a state that has both a choice and a default,
-    // so it is the one that can still show all three shapes. Go's twin,
+    // `D06` removed the two-way choice this case broke. Go's twin,
     // `TestFindingsCarryAPath`, moved with it.
     //
-    // **Read off disk since 2026-10-02**, when `startPipelineUF` itself left the
-    // fixture (`jetstore_maintenance_02` Phase 2) — which is what Go's twin always
-    // read.
-    const flow = structuredClone(handAuthored["startPipelineUF"]!);
-    const branch = flow.states["select_main_data_source"]! as { choices: { nextState: string }[] };
+    // **On `workspacePullUF` since 2026-10-15 (Release 4.0.4)**, when
+    // `startPipelineUF` lost its merged-sources step and with it the only state
+    // the choice led to. `workspacePullUF` is the shipping flow left with a state
+    // that has both a choice and a default *and* a choice target reached by
+    // nothing else, so it is the one that can still show all three shapes and the
+    // stranded state. It has no `goToStates`, so the case adds one.
+    const flow = structuredClone(handAuthored["workspacePullUF"]!);
+    const branch = flow.states["pull_workspace"]! as { choices: { nextState: string }[] };
     branch.choices[0]!.nextState = "typoInChoice";
     // The State union does not promise `defaultNextState` on every branch, and
     // the cast is the honest way to say "this branch, which the corpus has".
-    const merged = flow.states["select_merged_data_sources"]! as {
+    const selectClients = flow.states["select_clients"]! as {
       defaultNextState: string;
-      goToStates: string[];
+      goToStates?: string[];
     };
-    merged.defaultNextState = "typoInDefault";
-    merged.goToStates = ["typoInGoTo"];
+    selectClients.defaultNextState = "typoInDefault";
+    selectClients.goToStates = ["typoInGoTo"];
 
     expect(validateFlow(flow).map((f) => [f.code, f.path])).toEqual([
-      ["unknownTarget", "/states/select_main_data_source/choices/0/nextState"],
-      ["unknownTarget", "/states/select_merged_data_sources/defaultNextState"],
-      ["unknownTarget", "/states/select_merged_data_sources/goToStates/0"],
+      ["unknownTarget", "/states/pull_workspace/choices/0/nextState"],
+      ["unknownTarget", "/states/select_clients/defaultNextState"],
+      ["unknownTarget", "/states/select_clients/goToStates/0"],
       // Breaking the choice strands the state it led to, which is the
       // reachability walk doing its job rather than noise.
-      ["unreachableState", "/states/select_merged_data_sources"],
+      ["unreachableState", "/states/select_clients"],
     ]);
   });
 

@@ -119,26 +119,30 @@ func TestGoToStatesCountAsReaching(t *testing.T) {
 //
 // On startPipelineUF since 2026-10-01, and on clientRegistryUF until then:
 // jetstore_maintenance_02's D06 removed the two-way choice this test broke (task
-// AF.1/AF.2), and startPipelineUF is the shipping flow left with a state that has
-// both a choice and a default. Its TypeScript twin in schema.test.ts moved with it.
+// AF.1/AF.2). On workspacePullUF since 2026-10-15 (Release 4.0.4), when
+// startPipelineUF lost its merged-sources step and with it the state its choice
+// led to: workspacePullUF is the shipping flow left with a state that has both a
+// choice and a default, whose choice target nothing else reaches. That target
+// has no goToStates, so the test adds one. Its TypeScript twin in schema.test.ts
+// moved with it.
 func TestFindingsCarryAPath(t *testing.T) {
-	flow := readFlow(t, "startPipelineUF")
+	flow := readFlow(t, "workspacePullUF")
 
-	branch := flow.States["select_main_data_source"]
+	branch := flow.States["pull_workspace"]
 	branch.Choices[0].NextState = "typoInChoice"
-	flow.States["select_main_data_source"] = branch
+	flow.States["pull_workspace"] = branch
 
-	merged := flow.States["select_merged_data_sources"]
-	merged.DefaultNextState = "typoInDefault"
-	merged.GoToStates = []string{"typoInGoTo"}
-	flow.States["select_merged_data_sources"] = merged
+	selectClients := flow.States["select_clients"]
+	selectClients.DefaultNextState = "typoInDefault"
+	selectClients.GoToStates = []string{"typoInGoTo"}
+	flow.States["select_clients"] = selectClients
 
 	want := []Finding{
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_main_data_source" transitions to "typoInChoice", which is not a state`, Path: "/states/select_main_data_source/choices/0/nextState"},
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_merged_data_sources" transitions to "typoInDefault", which is not a state`, Path: "/states/select_merged_data_sources/defaultNextState"},
-		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_merged_data_sources" transitions to "typoInGoTo", which is not a state`, Path: "/states/select_merged_data_sources/goToStates/0"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "pull_workspace" transitions to "typoInChoice", which is not a state`, Path: "/states/pull_workspace/choices/0/nextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_clients" transitions to "typoInDefault", which is not a state`, Path: "/states/select_clients/defaultNextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_clients" transitions to "typoInGoTo", which is not a state`, Path: "/states/select_clients/goToStates/0"},
 		// Breaking the choice strands the state it led to; that is the walk working.
-		{Severity: Warning, Code: CodeUnreachableState, Message: `state "select_merged_data_sources" is not reachable from "select_pipeline_config"`, Path: "/states/select_merged_data_sources"},
+		{Severity: Warning, Code: CodeUnreachableState, Message: `state "select_clients" is not reachable from "pull_workspace"`, Path: "/states/select_clients"},
 	}
 	got := ValidateFlow(flow, DefaultPolicy())
 	if len(got) != len(want) {

@@ -26,7 +26,6 @@ import { productionRegistry } from "../actions/registry";
 import { resetHomeFilters, updateHomeFilters } from "../actions/homeFilters";
 import { ApiProvider } from "../shell/capabilities";
 import mainInputRegistryKey from "../../../jets/workspace_assets/table_configs/main_input_registry_key.tc.json";
-import mergedInputRegistryKeys from "../../../jets/workspace_assets/table_configs/merged_input_registry_keys.tc.json";
 import { FormState } from "./formState";
 import type { TableConfigDocument } from "./table";
 import { TableView } from "./TableView";
@@ -58,10 +57,9 @@ describe("the Start Pipeline pickers' Clear Filters", () => {
   const api = { can: () => true, isAuthenticated: () => true } as never;
   const fetcher = vi.fn(async () => ({ rows: [], totalRowCount: 0 }));
 
-  const pickers = [
-    ["main_input_registry_key", mainInputRegistryKey],
-    ["merged_input_registry_keys", mergedInputRegistryKeys],
-  ] as const;
+  // One picker since 2026-10-15: Release 4.0.4 retired
+  // `merged_input_registry_keys` with the step that chose merged sources.
+  const pickers = [["main_input_registry_key", mainInputRegistryKey]] as const;
 
   /** Mounts the picker as `startPipelineUF`'s form does, under the real registry. */
   function clearFiltersOn(key: string, doc: unknown): HTMLButtonElement {
