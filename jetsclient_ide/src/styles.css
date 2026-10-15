@@ -98,6 +98,18 @@
 
 html, body, #root { height: 100%; }
 
+/* **Selected text has a colour of its own, in both themes.** Reported
+   2026-10-15: selecting text showed no cue. Nothing here set one, so the browser
+   drew its default, which is a faint grey whenever the window is not focused and
+   all but invisible on the dark ground. The accent pair is the app's strongest
+   contrast in either theme, and an explicit ::selection is drawn the same whether
+   or not the window has focus. The editor keeps its own selection colour
+   (src/editor/theme.ts), which is more specific than this rule. */
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 body {
   margin: 0;
   background: var(--ground);
