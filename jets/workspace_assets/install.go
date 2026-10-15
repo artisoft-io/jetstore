@@ -293,6 +293,13 @@ var RetiredAssets = []RetiredAsset{
 	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01, D06: Clients & Vendors opens on the client table"},
 	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01, D06: Source Configuration opens on its table"},
 	{Dir: "table_configs", Name: "pcAddOrEditPipelineConfigOption.tc.json", Why: "2026-10-01, D06: Pipeline Configuration opens on its table"},
+	// Release 4.0.4. Start Pipeline no longer chooses merged or historical
+	// (injected) data sources: the pipeline configuration names them, with their
+	// lookback periods. The step that chose merged sources drew the first two, and
+	// the summary listed the historical sources in the third.
+	{Dir: "table_configs", Name: "mergeProcessInputTable.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
+	{Dir: "table_configs", Name: "merged_input_registry_keys.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
+	{Dir: "table_configs", Name: "spInjectedProcessInput.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer lists historical sources"},
 }
 
 // Result reports the disposition of one asset.

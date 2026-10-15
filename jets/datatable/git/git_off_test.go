@@ -110,6 +110,9 @@ func TestGitOffStartsNoGitProcess(t *testing.T) {
 	if _, err := wg.PushOnlyWorkspace("gu", "gt"); err != nil {
 		t.Errorf("PushOnlyWorkspace: %v", err)
 	}
+	if changes, err := wg.UncommittedChanges(); err != nil || changes != "" {
+		t.Errorf("UncommittedChanges: %q, %v", changes, err)
+	}
 	if _, err := wg.GitCommandWorkspace("git status\ngit log -1"); err != nil {
 		t.Errorf("GitCommandWorkspace: %v", err)
 	}

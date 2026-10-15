@@ -50,8 +50,9 @@ figure moved.
 choice and one of the two `formKeyMismatches` with it: 5 flows, 13 states, 13 form
 keys, `choiceTypeCounts` down to one `Expression`, and `nestedChoiceCount` and
 `emptyNestedNextStateCount` both 0. The section below describes the Dart corpus
-as measured and is kept as history; the nested choice it describes is still in the
-shipping document, read off disk by `../schema.test.ts`.
+as measured and is kept as history. ~~The nested choice it describes is still in the
+shipping document~~ It was, until 2026-10-15: Release 4.0.4 removed the merged-sources
+step from `startPipelineUF`, and the choice that led to it went too.
 
 **`loadConfigUF` and `workspacePullUF` followed on 2026-10-11**
 (`rules_unit_test_harness`, from Michel's testing), so that, launched from the

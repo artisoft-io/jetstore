@@ -67,7 +67,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		lback := inputChannelConfig.LookbackPeriods
 		if len(lback) > 0 {
 			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
-				inputChannelConfig.LookbackPeriods, envSettings)
+				inputChannelConfig.LookbackPeriods, inputChannelConfig.SourceObjectType, envSettings)
 			if err != nil {
 				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				return
@@ -182,7 +182,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		mergeConfig := inputChannelConfig.MergeChannels[i]
 		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeConfig.FileKey)
 		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, fileKey,
-			mergeConfig.LookbackPeriods, envSettings)
+			mergeConfig.LookbackPeriods, mergeConfig.SourceObjectType, envSettings)
 		if err != nil {
 			cpErr = fmt.Errorf("failed to download list of files from s3 for merge channel: %v", err)
 			return

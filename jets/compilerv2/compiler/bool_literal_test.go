@@ -54,6 +54,29 @@ func TestBoolLiteralOutsideTheSpellingsIsALocatedError(t *testing.T) {
 	}
 }
 
+// The same refused literal as an antecedent's object, and as a triple's, is a
+// located error and not a panic. ParseObjectAtom returns nil for it, and
+// ExitAntecedent and ExitTripleStmt dereferenced the nil until 2026-10-12; the
+// test above covers only the consequent, which never did.
+func TestBoolLiteralRefusedInAnAntecedentDoesNotPanic(t *testing.T) {
+	for _, src := range []string{
+		"[R1]: (?x acme:p bool(\"maybe\")) -> (?x acme:q true);\n",
+		"triple(acme:s, acme:p, bool(\"maybe\"));\n",
+	} {
+		dir := t.TempDir()
+		write(t, dir, "main.jr", src)
+		c := NewCompiler(dir, "main.jr", false, false, true)
+		err := c.Compile()
+		var cerr *CompilationError
+		if !errors.As(err, &cerr) {
+			t.Fatalf("%q: expected a *CompilationError, got %v", src, err)
+		}
+		if !strings.Contains(c.ErrorLog().String(), `error in main.jr at line 1: bool literal: "maybe" is not a bool`) {
+			t.Errorf("%q: error log lacks the located refusal:\n%s", src, c.ErrorLog().String())
+		}
+	}
+}
+
 // A declared bool is stored without its quotes, as every other typed
 // declaration is. It kept them until 2026-10-11, so `bool x = "false";`
 // reached the engines as "\"false\"": true on C++, false on Go.

@@ -43,10 +43,7 @@ import startPipelineActions from "../../../jets/workspace_assets/user_flows/star
 import startPipelineForms from "../../../jets/workspace_assets/user_flows/startPipelineUF.form.json";
 import pipelineConfigKey from "../../../jets/workspace_assets/table_configs/pipeline_config_key.tc.json";
 import mainInputRegistryKey from "../../../jets/workspace_assets/table_configs/main_input_registry_key.tc.json";
-import mergeProcessInputTable from "../../../jets/workspace_assets/table_configs/mergeProcessInputTable.tc.json";
-import mergedInputRegistryKeys from "../../../jets/workspace_assets/table_configs/merged_input_registry_keys.tc.json";
 import spSummaryDataSources from "../../../jets/workspace_assets/table_configs/spSummaryDataSources.tc.json";
-import spInjectedProcessInput from "../../../jets/workspace_assets/table_configs/spInjectedProcessInput.tc.json";
 import { FlowRoute } from "../App";
 import { FlowRunner } from "./FlowRunner";
 import { withReturnTo } from "./routes";
@@ -73,17 +70,18 @@ const files: Record<string, string> = {
   "user_flows/startPipelineUF.form.json": serialise(startPipelineForms),
   "table_configs/pipeline_config_key.tc.json": serialise(pipelineConfigKey),
   "table_configs/main_input_registry_key.tc.json": serialise(mainInputRegistryKey),
-  "table_configs/mergeProcessInputTable.tc.json": serialise(mergeProcessInputTable),
-  "table_configs/merged_input_registry_keys.tc.json": serialise(mergedInputRegistryKeys),
   "table_configs/spSummaryDataSources.tc.json": serialise(spSummaryDataSources),
-  "table_configs/spInjectedProcessInput.tc.json": serialise(spInjectedProcessInput),
 };
 
-/** `source_config`'s fifteen columns, in `scSourceConfigKey.tc.json`'s order. */
+/**
+ * `source_config`'s sixteen columns, in `scSourceConfigKey.tc.json`'s order.
+ * Sixteen since Release 4.0.4 (2026-10-15), with `is_cumulative`.
+ */
 const SOURCE_CONFIG_COLUMNS = [
   "key", "client", "org", "object_type", "automated", "table_name", "domain_keys_json",
   "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv",
-  "input_format", "is_part_files", "input_format_data_json", "schema_provider_json", "last_update",
+  "input_format", "is_part_files", "input_format_data_json", "schema_provider_json", "is_cumulative",
+  "last_update",
 ] as const;
 
 interface Posted {
@@ -109,9 +107,10 @@ function stubServer(fillers = 0) {
   const sources: JetsRow[] = [
     ...Array.from({ length: fillers }, (_, i): JetsRow => [
       String(100 + i), "GLOBEX", `ORG${i}`, "claim", "0", `GLOBEX_ORG${i}_claim`,
-      null, null, null, null, "csv", "0", "", null, "2026-09-30",
+      null, null, null, null, "csv", "0", "", null, "0", "2026-09-30",
     ]),
-    ["42", "GLOBEX", "EAST", "claim", "0", "GLOBEX_EAST_claim", null, null, null, null, "csv", "0", "", null, "2026-09-30"],
+    // Record 42 is cumulative, so an edit that drops the flag is visible.
+    ["42", "GLOBEX", "EAST", "claim", "0", "GLOBEX_EAST_claim", null, null, null, null, "csv", "0", "", null, "1", "2026-09-30"],
   ];
   let nextKey = 43;
 
@@ -391,6 +390,77 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
       ["42", "GLOBEX_EAST_claim"],
       ["43", "GLOBEX_WEST_claim"],
     ]);
+  });
+
+  it("carries is_cumulative from the record, and from the dropdown, into the save", async () => {
+    // Release 4.0.4, 2026-10-15. The flag is a dropdown on the single-or-multi-part
+    // page and a read-only one on the summary; the save sends it as 0 or 1, as it
+    // sends `is_part_files`, and always sends it — the statement names the column
+    // and it is `NOT NULL`.
+    const { posts } = await mount("sourceConfigUF");
+    const saved = () =>
+      posts
+        .filter((p) => p.body["action"] === "insert_rows")
+        .map((p) => [
+          (p.body["fromClauses"] as { table: string }[])[0]!.table,
+          (p.body["data"] as Record<string, unknown>[])[0]!["is_cumulative"],
+        ]);
+
+    // An edit keeps what the record says: the binding publishes it, and the
+    // dropdown opens on it rather than on its default.
+    await screen.findByText("GLOBEX_EAST_claim");
+    tickRow("GLOBEX_EAST_claim");
+    fireEvent.click(button("Edit"));
+    await screen.findByText("CSV file with headers (most common)");
+    tickRow("CSV file with headers (most common)");
+    fireEvent.click(button("Next"));
+    await screen.findByText("Data source is a single file (most common)");
+    expect((screen.getByLabelText("Is each delivery cumulative?") as HTMLSelectElement).value).toBe("1");
+    tickRow("Data source is a single file (most common)");
+    fireEvent.click(button("Next"));
+    for (const label of ["Domain Key(s) (json)", "Code Values Mapping (csv or json)", "Schema Provider JSON"]) {
+      await screen.findByLabelText(label);
+      fireEvent.click(button("Next"));
+    }
+    await screen.findByText("File Configuration Summary");
+    fireEvent.click(button("Save"));
+    await screen.findByText("GLOBEX_EAST_claim");
+    expect(saved()).toEqual([["update/source_config", 1]]);
+
+    // An add starts at the default, No, and saves what the user picks.
+    fireEvent.click(button("+ Add"));
+    await fillAddPage("WEST");
+    await screen.findByText("CSV file with headers (most common)");
+    tickRow("CSV file with headers (most common)");
+    fireEvent.click(button("Next"));
+    await screen.findByText("Data source is a single file (most common)");
+    const cumulative = screen.getByLabelText("Is each delivery cumulative?") as HTMLSelectElement;
+    expect(cumulative.value).toBe("0");
+    tickRow("Data source is a single file (most common)");
+    fireEvent.change(cumulative, { target: { value: "1" } });
+    fireEvent.click(button("Next"));
+    for (const label of ["Domain Key(s) (json)", "Code Values Mapping (csv or json)", "Schema Provider JSON"]) {
+      await screen.findByLabelText(label);
+      fireEvent.click(button("Next"));
+    }
+    await screen.findByText("File Configuration Summary");
+    fireEvent.click(button("Save"));
+    expect(await screen.findByText("GLOBEX_WEST_claim")).toBeTruthy();
+    expect(saved()).toEqual([
+      ["update/source_config", 1],
+      ["source_config", 1],
+    ]);
+  });
+
+  it("saves is_cumulative as 0 when nobody touches it", async () => {
+    const { posts } = await mount("sourceConfigUF");
+    await screen.findByText("GLOBEX_EAST_claim");
+    fireEvent.click(button("+ Add"));
+    await fillAddPage("WEST");
+    await walkToSave();
+    expect(await screen.findByText("GLOBEX_WEST_claim")).toBeTruthy();
+    const row = posts.filter((p) => p.body["action"] === "insert_rows").map((p) => (p.body["data"] as Record<string, unknown>[])[0]!);
+    expect(row.map((r) => r["is_cumulative"])).toEqual([0]);
   });
 
   it("cancels from the add page back to the table rather than out of the flow", async () => {

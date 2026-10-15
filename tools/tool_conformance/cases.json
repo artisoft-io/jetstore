@@ -258,6 +258,220 @@
       "arm": "content"
     },
     {
+      "id": "crr-1",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "Does this JetRule compile?\n\n{\n  \"rules\": [\n    {\n      \"name\": \"rule1\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"jets:key\",\n          \"object\": \"?k\"\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"hc:flag\",\n          \"object\": true\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "rule1",
+          "?x",
+          "jets:key",
+          "?k",
+          "hc:flag"
+        ],
+        "same_rules": {
+          "rules": [
+            {
+              "name": "rule1",
+              "antecedents": [
+                {
+                  "subject": "?x",
+                  "predicate": "jets:key",
+                  "object": "?k"
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?x",
+                  "predicate": "hc:flag",
+                  "object": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "crr-2",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "Compile this and show me the errors:\n\n{\n  \"imports\": [\n    \"jets_model.jr\"\n  ],\n  \"rules\": [\n    {\n      \"name\": \"r2\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?c\",\n          \"predicate\": \"hc:amount\",\n          \"object\": \"?a\"\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?c\",\n          \"predicate\": \"hc:big\",\n          \"object\": true\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "imports",
+          "jets_model.jr",
+          "r2",
+          "hc:amount"
+        ],
+        "same_rules": {
+          "imports": [
+            "jets_model.jr"
+          ],
+          "rules": [
+            {
+              "name": "r2",
+              "antecedents": [
+                {
+                  "subject": "?c",
+                  "predicate": "hc:amount",
+                  "object": "?a"
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?c",
+                  "predicate": "hc:big",
+                  "object": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "crr-3",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "I wrote this rule but I am not sure about the syntax:\n\n{\n  \"rules\": [\n    {\n      \"name\": \"bad\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"jets:key\",\n          \"object\": \"?k\"\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"hc:flag\"\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "bad",
+          "jets:key"
+        ],
+        "same_rules": {
+          "rules": [
+            {
+              "name": "bad",
+              "antecedents": [
+                {
+                  "subject": "?x",
+                  "predicate": "jets:key",
+                  "object": "?k"
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?x",
+                  "predicate": "hc:flag"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "crr-4",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "check my jetrule source\n\n{\n  \"rules\": [\n    {\n      \"name\": \"r\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?a\",\n          \"predicate\": \"hc:x\",\n          \"object\": \"?v\"\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?a\",\n          \"predicate\": \"hc:y\",\n          \"object\": \"?v\"\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "\"r\"",
+          "hc:x",
+          "hc:y"
+        ],
+        "same_rules": {
+          "rules": [
+            {
+              "name": "r",
+              "antecedents": [
+                {
+                  "subject": "?a",
+                  "predicate": "hc:x",
+                  "object": "?v"
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?a",
+                  "predicate": "hc:y",
+                  "object": "?v"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "crr-5",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "Please run the compiler over the following, calling it claims.jr:\n\n{\n  \"rules\": [\n    {\n      \"name\": \"c1\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?c\",\n          \"predicate\": \"hc:paid\",\n          \"object\": true\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?c\",\n          \"predicate\": \"hc:settled\",\n          \"object\": true\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "c1",
+          "hc:paid",
+          "hc:settled"
+        ],
+        "same_rules": {
+          "rules": [
+            {
+              "name": "c1",
+              "antecedents": [
+                {
+                  "subject": "?c",
+                  "predicate": "hc:paid",
+                  "object": true
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?c",
+                  "predicate": "hc:settled",
+                  "object": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "crr-6",
+      "expect": "compile_rule_file",
+      "arm": "rules",
+      "prompt": "Will the RETE compiler accept this?\n\n{\n  \"rules\": [\n    {\n      \"name\": \"r9\",\n      \"antecedents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"jets:entity\",\n          \"object\": \"?e\"\n        }\n      ],\n      \"consequents\": [\n        {\n          \"subject\": \"?x\",\n          \"predicate\": \"hc:seen\",\n          \"object\": true\n        }\n      ]\n    }\n  ]\n}",
+      "fidelity": {
+        "arg": "rules",
+        "must_contain": [
+          "r9",
+          "jets:entity",
+          "hc:seen"
+        ],
+        "same_rules": {
+          "rules": [
+            {
+              "name": "r9",
+              "antecedents": [
+                {
+                  "subject": "?x",
+                  "predicate": "jets:entity",
+                  "object": "?e"
+                }
+              ],
+              "consequents": [
+                {
+                  "subject": "?x",
+                  "predicate": "hc:seen",
+                  "object": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "crfp-1",
       "expect": "compile_rule_file",
       "arm": "path",

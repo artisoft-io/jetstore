@@ -53,7 +53,7 @@ const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
  * table a *screen* draws is imported into this bundle and never leaves it. So the
- * 64 documents this emitter owns are committed in two directories, and which one
+ * 61 documents this emitter owns are committed in two directories, and which one
  * a key belongs to is a property of who reads it rather than of this test.
  */
 const assetTablesDir = fileURLToPath(
@@ -317,6 +317,9 @@ const HAND_MAINTAINED_KEYS = [
   // A Refresh, so a save in the Workspace IDE shows without reloading the page
   // (Michel, 2026-10-11).
   "workspaceChangesTable",
+  // 25 rows per page rather than 50, as the flow's first table has, so the
+  // Start Pipeline steps page alike (Michel, 2026-10-15).
+  "main_input_registry_key",
 ] as const;
 
 /**
@@ -383,7 +386,9 @@ describe("the emitted JSON Schema", () => {
   // **61 since 2026-10-01**: the three add-or-edit option tables `D06` removed
   // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`). **64 since
   // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
-  it("has the 64 configurations committed beside it, for the Go check", () => {
+  // **61 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` stopped choosing
+  // merged and historical sources, and its three tables were retired.
+  it("has the 61 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -444,8 +449,8 @@ describe("the emitted JSON Schema", () => {
   });
 });
 
-describe("the 31 configurations still translated from the flow fixture", () => {
-  it("all translate, and with the authored ones make 64", () => {
+describe("the 28 configurations still translated from the flow fixture", () => {
+  it("all translate, and with the authored ones make 61", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
     // workspace home's one, of which four are authored rather than translated. The
@@ -464,19 +469,24 @@ describe("the 31 configurations still translated from the flow fixture", () => {
     // by going nowhere. **52 and 5 the same evening**, when `workspaceRegistryTable`
     // left too, to drop a label that repeated its screen title. **51 on
     // 2026-10-11**, when `workspaceChangesTable` left to gain a Refresh.
-    expect(Object.keys(flowDocuments).length).toBe(31);
-    expect(Object.keys(translated).length).toBe(51);
+    // **28, 48 and 61 on 2026-10-15 (Release 4.0.4)**, when `startPipelineUF`
+    // stopped choosing merged and historical sources and
+    // `mergeProcessInputTable`, `merged_input_registry_keys` and
+    // `spInjectedProcessInput` were retired with their fixture entries.
+    expect(Object.keys(flowDocuments).length).toBe(28);
+    expect(Object.keys(translated).length).toBe(48);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
     // the on-disk document overrides the translation in `documents`, so the total
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(9);
+    // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
+    expect(Object.keys(handMaintained).length).toBe(10);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     expect(Object.keys(featureDocuments).length).toBe(3);
-    expect(Object.keys(documents).length).toBe(64);
+    expect(Object.keys(documents).length).toBe(61);
   });
 
   it("all validate against the schema", () => {
@@ -557,7 +567,8 @@ describe("the 31 configurations still translated from the flow fixture", () => {
   // **28 query until 2026-10-01**: the three tables `AF.1` moved out are all query
   // tables.
   // **Nine static until the same day's `AF.2`–`AF.4`**, which retired three.
-  it("split six static and 25 query, as the corpus does", () => {
+  // **22 query since 2026-10-15**: the three tables Release 4.0.4 retired all query.
+  it("split six static and 22 query, as the corpus does", () => {
     // Derived from the documents; checked against a count taken from the corpus
     // a different way — `apiPath` being empty is how the Dart says "static", and
     // the discriminant is this schema's invention.
@@ -566,11 +577,11 @@ describe("the 31 configurations still translated from the flow fixture", () => {
       {},
     );
     const fromCorpus = Object.values(tables).filter((t) => t.apiPath === "").length;
-    expect(byKind).toEqual({ static: 6, query: 25 });
+    expect(byKind).toEqual({ static: 6, query: 22 });
     expect(fromCorpus).toBe(6);
   });
 
-  it("carry the corpus's 232 columns, 23 actions and 48 where clauses", () => {
+  it("carry the corpus's 203 columns, 22 actions and 37 where clauses", () => {
     /*
       **25 until D.10, and the two it gained are the first configuration in this
       corpus with no Dart original** — `fmInputSourceMappingUF`'s *Load Data* and
@@ -589,7 +600,11 @@ describe("the 31 configurations still translated from the flow fixture", () => {
       // columns, 1 action), `scSourceConfigKey` (15, 2) and `pcPipelineConfigTable`
       // (16, 1, and the one where clause, its join) out of the fixture; 232 after
       // `AF.2`–`AF.4` retired three static option tables of three columns each.
-    }).toEqual({ columns: 232, actions: 23, where: 48 });
+      // **203, 22 and 37 since 2026-10-15**, when Release 4.0.4 retired
+      // `mergeProcessInputTable` (10 columns, 1 where clause),
+      // `merged_input_registry_keys` (14, its *Clear Filters*, 9) and
+      // `spInjectedProcessInput` (5, 1).
+    }).toEqual({ columns: 203, actions: 22, where: 37 });
   });
 
   it("name two escapes between them, not six", () => {

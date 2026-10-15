@@ -42,6 +42,13 @@
 // a later read that can see less is not evidence against it (Q-34). What corrects
 // an incident is a person, through the supervision screen's `reclassified`
 // transition.
+//
+// # Its own run is recorded too
+//
+// Each run writes one row to jetsapi.agentic_detection_run with what it
+// concluded -- the per-locus census, what it wrote, and whether the attestation
+// held -- as the row's summary (jets/agentic/detectrun). That is what the
+// Detection screen shows.
 package main
 
 import (
@@ -52,10 +59,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
 	"github.com/artisoft-io/jetstore/jets/agentic/rca"
 	"github.com/artisoft-io/jetstore/jets/agentic/shadow"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -120,11 +129,40 @@ func writerFromFlags() shadow.Writer {
 	return w
 }
 
-func doAttest(ctx context.Context, db *pgxpool.Pool) error {
+// locusCensus is one locus's verdict counts over the runs classified.
+type locusCensus struct {
+	Present      int `json:"present"`
+	Absent       int `json:"absent"`
+	NotEvaluable int `json:"notEvaluable"`
+}
+
+// summary is what this run recorded as its row's summary.
+type summary struct {
+	DryRun          bool                   `json:"dryRun"`
+	AttestOnly      bool                   `json:"attestOnly"`
+	Since           time.Time              `json:"since"`
+	Session         string                 `json:"session,omitempty"`
+	Regime          string                 `json:"purgeRegime"`
+	ChannelDetails  bool                   `json:"channelDetails"`
+	Runs            int                    `json:"runsClassified"`
+	Incidents       int                    `json:"incidentsWritten"`
+	Hypotheses      int                    `json:"hypothesesWritten"`
+	AlreadyRaised   int                    `json:"alreadyRaised"`
+	UnmappedLoci    []string               `json:"unmappedLoci"`
+	Census          map[string]locusCensus `json:"census"`
+	AttestationRead bool                   `json:"attestationRead"`
+	AttestationHeld bool                   `json:"attestationHeld"`
+	Attestation     string                 `json:"attestation"`
+}
+
+func doAttest(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	a, err := shadow.Attest(ctx, db)
 	if err != nil {
 		return err
 	}
+	sum.AttestationRead = true
+	sum.AttestationHeld = a.Holds()
+	sum.Attestation = a.Report()
 	fmt.Print(a.Report())
 	if !a.Holds() {
 		// A non-zero exit, so that a deployment can run this as a check rather
@@ -134,7 +172,7 @@ func doAttest(ctx context.Context, db *pgxpool.Pool) error {
 	return nil
 }
 
-func doJob(ctx context.Context, db *pgxpool.Pool) error {
+func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	targets, err := shadow.ReadTargets(ctx, db)
 	if err != nil {
 		return err
@@ -154,6 +192,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 			return err
 		}
 	}
+	sum.Runs = len(sessions)
 	if len(sessions) == 0 {
 		log.Printf("no run started in the last %s", since.String())
 		return nil
@@ -180,6 +219,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 			log.Printf("%s %s locus %s -> %s, %d hypothesis(es), audit chain seq %d",
 				s, wr.IncidentId, wr.Locus, wr.Status, wr.Hypotheses, wr.ChainSeq)
 		}
+		sum.UnmappedLoci = append(sum.UnmappedLoci, res.UnmappedLoci...)
 		if len(res.UnmappedLoci) > 0 {
 			log.Printf("%s: %v fired and §9.5 maps them to no cause class, so those incidents carry no hypothesis",
 				s, res.UnmappedLoci)
@@ -190,7 +230,13 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 	// only its hits would supply numerators and no denominators, and so would a
 	// process that printed only what it wrote.
 	log.Printf("%-38s %8s %8s %14s", "locus", "present", "absent", "not_evaluable")
+	sum.Incidents, sum.Hypotheses, sum.AlreadyRaised = incidents, hypotheses, already
 	for _, l := range triage.Loci {
+		sum.Census[l] = locusCensus{
+			Present:      census[l+"/"+string(triage.Present)],
+			Absent:       census[l+"/"+string(triage.Absent)],
+			NotEvaluable: census[l+"/"+string(triage.NotEvaluable)],
+		}
 		log.Printf("%-38s %8d %8d %14d", l,
 			census[l+"/"+string(triage.Present)],
 			census[l+"/"+string(triage.Absent)],
@@ -209,10 +255,11 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 	// Say what the record now shows, in the same run that wrote it. Criterion 47
 	// asks for the audit record to show that nothing acted, and the cheapest way
 	// for that to be true of an operator's console is for the writer to print it.
-	return doAttest(ctx, db)
+	return doAttest(ctx, db, sum)
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	dsn, err := resolveDsn()
 	if err != nil {
@@ -225,31 +272,39 @@ func main() {
 	}
 	defer db.Close()
 
-	if *attest {
-		if err := doAttest(ctx, db); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-
-	extent, err := triage.ReadExtent(ctx, db)
+	rec := detectrun.Begin(ctx, db, detectrun.CommandShadowTriage, detectrun.Window(*since))
+	sum := &summary{DryRun: *dryRun, AttestOnly: *attest, Session: *session, Census: map[string]locusCensus{}}
+	err = run(ctx, db, sum)
+	rec.Finish(ctx, sum, err)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
+	if *attest {
+		return doAttest(ctx, db, sum)
+	}
+	sum.Since = time.Now().UTC().Add(-*since)
+
+	extent, err := triage.ReadExtent(ctx, db)
+	if err != nil {
+		return err
+	}
 	if !extent.ExecutionRecord {
-		log.Fatal("jetsapi.pipeline_execution_status and jetsapi.pipeline_execution_details are not " +
+		return fmt.Errorf("jetsapi.pipeline_execution_status and jetsapi.pipeline_execution_details are not " +
 			"both present in this database, so there is nothing to classify. They are created by " +
 			"`update_db -migrateDb`; run that first.")
 	}
+	sum.Regime = extent.Regime()
+	sum.ChannelDetails = extent.ChannelDetails
 	log.Printf("record: %d run headers, oldest %s; oldest worker row %s; purge regime %q",
 		extent.Headers, stamp(extent.OldestHeader), stamp(extent.OldestWorker), extent.Regime())
 	if !extent.ChannelDetails {
 		log.Printf("record: jetsapi.pipeline_execution_channel_details is absent, so locus " +
 			"sink_failed_under_completed_worker is not_evaluable on every run here (I-132)")
 	}
-	if err := doJob(ctx, db); err != nil {
-		log.Fatal(err)
-	}
+	return doJob(ctx, db, sum)
 }
 
 func stamp(t time.Time) string {

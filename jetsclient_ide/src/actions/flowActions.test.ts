@@ -231,7 +231,12 @@ describe("the flows' action documents", () => {
     // path's keys and jumps to the add page, and a *Cancel* arm that returns to
     // the table. `clientRegistryUF` swapped `crAddClientUF` for the dialog's
     // `crAddClientOk` (`AF.2`), one for one.
-    expect(names).toHaveLength(59);
+    //
+    // **58 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` no longer chooses
+    // merged or historical sources, so `spPipelineSelected`, which unpacked the
+    // pipeline's merged and injected key lists for the two tables that drew them,
+    // went with them. The second retirement, after `registerFileKeyUF`'s.
+    expect(names).toHaveLength(58);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
@@ -284,7 +289,7 @@ describe("the flows' action documents", () => {
     expect(steps.every((s) => s.when !== undefined)).toBe(true);
   });
 
-  it("clears all thirteen keys the delete arm removes, not the six transcribed", () => {
+  it("clears all fourteen keys the delete arm removes, not the six transcribed", () => {
     // I-84's original mechanism, on the largest list in the corpus. The Dart calls
     // `state.remove` thirteen times after encoding the request
     // (`configure_files/form_action_delegates.dart`, `deleteSourceConfig`); the
@@ -293,10 +298,11 @@ describe("the flows' action documents", () => {
     // schema provider — and `source_config`'s insert statement reads every one of
     // them (`jets/datatable/sql_stmts.go`, `sqlInsertStmts`), so a user who deleted
     // a configuration and then created another would have inherited the deleted
-    // one's.
+    // one's. **Fourteen since Release 4.0.4 (2026-10-15)**: `is_cumulative` is
+    // record content on the same terms, and the insert reads it too.
     const steps = (sourceConfig as ActionDocument).actions["deleteSourceConfig"]!.steps;
     const removal = steps.find((s) => s.do === "remove")!;
-    expect(removal.do === "remove" && removal.keys).toHaveLength(13);
+    expect(removal.do === "remove" && removal.keys).toHaveLength(14);
     // The post is before the removal, as `deleteClientAction`'s is: the Dart
     // encodes the body *first* and then empties the map, and `wholeState` reads
     // the state at the moment the step runs.
@@ -533,27 +539,22 @@ describe("the flows' action documents", () => {
     // six tables the forms name carry only `clearHomeFilters`
     // (`start_pipeline/data_table_config.dart`) — so this flow owes no dialog
     // form and no table arm.
+    //
+    // **Two since 2026-10-15 (Release 4.0.4)**, when the flow stopped choosing
+    // merged and historical sources — the pipeline configuration names them, with
+    // their lookback periods. Three states name the two that are left;
+    // `spPipelineSelected` unpacked the merged and injected key lists for the step
+    // and the summary row that drew them, and went with both.
     expect(Object.keys((startPipeline as ActionDocument).actions).sort()).toEqual([
-      "spPipelineSelected",
       "spPrepareStartPipeline",
       "spStartPipelineUF",
     ]);
   });
 
-  it("unpacks a selection before decoding the array literal inside it", () => {
-    // I-97, and the reason it is asserted on the *document* as well as on the
-    // behaviour (`proofFlows.test.ts`): the coverage document expressed
-    // `unpackToList(unpack(x))` as `fromKeyList` alone, and the two `set` steps
-    // per key are what make the composition explicit. A future edit collapsing
-    // them back would read as a tidy-up.
-    const steps = (startPipeline as ActionDocument).actions["spPipelineSelected"]!.steps;
-    expect(steps.map((s) => (s.do === "set" ? [s.key, Object.keys(s.value)[0]] : s.do))).toEqual([
-      ["merged_process_input_keys", "fromKey"],
-      ["merged_process_input_keys", "fromKeyList"],
-      ["injected_process_input_keys", "fromKey"],
-      ["injected_process_input_keys", "fromKeyList"],
-    ]);
-  });
+  // **"unpacks a selection before decoding the array literal inside it" was
+  // retired on 2026-10-15 (Release 4.0.4)** with the `spPipelineSelected` arm it
+  // asserted on (I-97). The two `set` steps per key it pinned had nothing left to
+  // unpack for: no table of the flow reads the merged or injected key lists now.
 
   it("re-partitions the workspace_pull delegate by flow, not by file", () => {
     // The whole of F4, checked on the one delegate file it was written about.
@@ -773,6 +774,14 @@ describe("every form-state key is a declared constant's value", () => {
      */
     "ufNewClient",
     "serverError",
+    /**
+     * **A new `source_config` column, Release 4.0.4 (2026-10-15)**, and a real
+     * form-state key on `is_part_files`' terms: column 14 of `scSourceConfigKey`'s
+     * `formStateBinding`, the single-or-multi-part page's dropdown, and removed by
+     * both *+ Add* and the delete arm. No Dart constant can declare it — the column
+     * did not exist while the Dart did.
+     */
+    "is_cumulative",
   ]);
 
   it("reads the constants file it depends on", () => {

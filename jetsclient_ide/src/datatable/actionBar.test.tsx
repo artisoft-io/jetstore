@@ -45,7 +45,7 @@ function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
 }
 
 describe("the corpus this task owns", () => {
-  it("is 19 of the 23 configurations, the other four being the widget's", () => {
+  it("is 18 of the 22 configurations, the other four being the widget's", () => {
     // **25 and 21 until D.10**, which added `fmInputSourceMappingUF`'s two
     // `showScreen` buttons (**I-260**) — the first configuration in this corpus
     // with no Dart original. The widget's four are unchanged, which is the half
@@ -55,9 +55,10 @@ describe("the corpus this task owns", () => {
     // (`jetstore_maintenance_02` `AF.1`, `D06`), taking four bar actions with
     // them: `deleteClient`, `dropStagingTable`, `deleteSourceConfig` and
     // `deletePipelineConfig`. `lfSourceConfigTable` keeps its own
-    // `dropStagingTable`.
-    expect(allActions).toHaveLength(23);
-    expect(barActions).toHaveLength(19);
+    // `dropStagingTable`. **22 and 18 since 2026-10-15**, when Release 4.0.4
+    // retired `merged_input_registry_keys` and its *Clear Filters* with it.
+    expect(allActions).toHaveLength(22);
+    expect(barActions).toHaveLength(18);
     expect(allActions.length - barActions.length).toBe(4);
   });
 

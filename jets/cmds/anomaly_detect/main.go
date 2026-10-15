@@ -28,6 +28,13 @@
 // And it refuses to run the step-regression detector with -baseline 0, rather
 // than comparing against an empty history. A step with no baseline is not a
 // step that never fails.
+//
+// # Its own run is recorded too
+//
+// Each run writes one row to jetsapi.agentic_detection_run, from start to end,
+// with what it found as the row's summary (jets/agentic/detectrun). That row is
+// what the Detection screen shows, and a refusal above is recorded as a failed
+// run rather than left as an absence.
 package main
 
 import (
@@ -38,8 +45,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -77,7 +86,24 @@ func resolveDsn() (string, error) {
 	return dsn, nil
 }
 
-func doJob(ctx context.Context, db *pgxpool.Pool) error {
+// summary is what this run recorded as its row's summary.
+type summary struct {
+	DryRun         bool           `json:"dryRun"`
+	Since          time.Time      `json:"since"`
+	Regime         string         `json:"purgeRegime"`
+	ChannelDetails bool           `json:"channelDetails"`
+	WorkerRows     int            `json:"workerRows"`
+	Headerless     int            `json:"headerlessWorkerRows"`
+	Truncated      bool           `json:"truncated"`
+	BaselineRead   bool           `json:"baselineRead"`
+	Baselines      int            `json:"baselines"`
+	Found          int            `json:"anomaliesFound"`
+	Written        int            `json:"anomaliesWritten"`
+	Already        int            `json:"anomaliesAlreadyRecorded"`
+	ByDetector     map[string]int `json:"byDetector"`
+}
+
+func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	detect := observe.Window{
 		Since:       time.Now().UTC().Add(-*since),
 		Client:      *client,
@@ -88,6 +114,12 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
+	sum.Since = detect.Since
+	sum.Regime = ev.Extent.Regime()
+	sum.ChannelDetails = ev.Extent.ChannelDetails
+	sum.WorkerRows = len(ev.Workers.Rows)
+	sum.Headerless = ev.Workers.Headerless
+	sum.Truncated = ev.Workers.Truncated
 
 	// What the deployment's own retention has left, said before anything is
 	// judged: a quiet window and a purged one look the same in the output.
@@ -111,12 +143,18 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 			return err
 		}
 		found = append(found, reg...)
+		sum.BaselineRead = true
+		sum.Baselines = len(ev.Prior.Baselines)
 		log.Printf("baseline: %d (client, process, object type, step) baselines over %s, %d worker rows "+
 			"excluded for having no run header", len(ev.Prior.Baselines), baseline.String(), ev.Prior.Headerless)
 	} else {
 		log.Printf("baseline: none read, so the step-regression detector did not run")
 	}
 
+	sum.Found = len(found)
+	for i := range found {
+		sum.ByDetector[found[i].DetectorRef]++
+	}
 	if len(found) == 0 {
 		log.Printf("no anomalies")
 		return nil
@@ -140,6 +178,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool) error {
 			already++
 		}
 	}
+	sum.Written, sum.Already = written, already
 	switch {
 	case *dryRun:
 		log.Printf("%d anomalies, none written (-dry-run)", len(found))
@@ -158,6 +197,7 @@ func stamp(t time.Time) string {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	dsn, err := resolveDsn()
 	if err != nil {
@@ -170,21 +210,29 @@ func main() {
 	}
 	defer db.Close()
 
-	extent, err := observe.ReadExtent(ctx, db)
+	rec := detectrun.Begin(ctx, db, detectrun.CommandAnomalyDetect, detectrun.Window(*since))
+	sum := &summary{DryRun: *dryRun, ByDetector: map[string]int{}}
+	err = run(ctx, db, sum)
+	rec.Finish(ctx, sum, err)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
+	extent, err := observe.ReadExtent(ctx, db)
+	if err != nil {
+		return err
+	}
 	if !extent.ExecutionRecord {
-		log.Fatal("jetsapi.pipeline_execution_status and jetsapi.pipeline_execution_details are not " +
+		return fmt.Errorf("jetsapi.pipeline_execution_status and jetsapi.pipeline_execution_details are not " +
 			"both present in this database, so there is nothing to read. They are created by " +
 			"`update_db -migrateDb`; run that first.")
 	}
 	if !extent.Anomalies {
-		log.Fatal("jetsapi.anomaly does not exist in this database, so there is nowhere to write. " +
+		return fmt.Errorf("jetsapi.anomaly does not exist in this database, so there is nowhere to write. " +
 			"It is created by `update_db -migrateDb`, which also creates " +
 			"jetsapi.pipeline_execution_channel_details; run that first.")
 	}
-	if err := doJob(ctx, db); err != nil {
-		log.Fatal(err)
-	}
+	return doJob(ctx, db, sum)
 }

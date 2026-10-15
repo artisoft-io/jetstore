@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -27,9 +28,13 @@ import (
 // backend then requires, and dockerfiles/Dockerfile.infer_service{,_vllm} for the images
 // that carry them.
 //
-// The first argument must be the command name, one of:
-// apiserver, infer_server, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server.
-// The other arguments are passed to the command being run.
+// The first argument must be the command name, one of allowedCommands. The other
+// arguments are passed to the command being run.
+//
+// anomaly_detect and shadow_triage read and write the database only, so they need
+// neither WORKSPACES_REPO nor WORKSPACES_HOME and no workspace is copied for them
+// (needsWorkspace). They run from the scheduled agentic detection task
+// (cdk/jetstore_one/stack/build_agentic_detect.go), agentic_ai I-861.
 //
 // The commands are mutually exclusive, only one can be specified at a time.
 //
@@ -66,6 +71,33 @@ var allowedCommands = map[string]bool{
 	"run_reports":          true,
 	"cpipes_server":        true,
 	"cpipes_native_server": true,
+	"anomaly_detect":       true,
+	"shadow_triage":        true,
+}
+
+// allowedCommandNames lists allowedCommands for an error message, sorted so the
+// message is the same on every run.
+func allowedCommandNames() string {
+	names := make([]string, 0, len(allowedCommands))
+	for name := range allowedCommands {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return strings.Join(names, ", ")
+}
+
+// needsWorkspace says whether cmd reads the workspace, and so whether cbooter must
+// require WORKSPACES_REPO and WORKSPACES_HOME and copy the one into the other first.
+//
+// infer_server serves models off the mounted volume. anomaly_detect and shadow_triage
+// run SQL against jetsapi and open no workspace file, so a copy of the workspace for
+// them would be a minute of cp on every scheduled run for nothing.
+func needsWorkspace(cmd string) bool {
+	switch cmd {
+	case "infer_server", "anomaly_detect", "shadow_triage":
+		return false
+	}
+	return true
 }
 
 func main() {
@@ -74,7 +106,7 @@ func main() {
 
 	// A command name is required as the first argument.
 	if len(os.Args) < 2 {
-		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, infer_server, run_reports, cpipes_server, cpipes_native_server")
+		log.Fatalf("a command name must be provided as the first argument; allowed commands: %s", allowedCommandNames())
 	}
 
 	// Separate cbooter args from command args
@@ -86,7 +118,7 @@ func main() {
 	// Validate the command against the allowlist to prevent command injection.
 	// Only known, trusted command names may be executed.
 	if !allowedCommands[cmd] {
-		log.Fatalf("invalid command %q; allowed commands: apiserver, infer_server, run_reports, cpipes_server, cpipes_native_server", cmd)
+		log.Fatalf("invalid command %q; allowed commands: %s", cmd, allowedCommandNames())
 	}
 
 	// JETS_TEMP_DATA is the mount point every command writes to.
@@ -94,8 +126,7 @@ func main() {
 		log.Fatalf("JETS_TEMP_DATA environment variable must be set")
 	}
 	// The workspace variables are only meaningful to the commands that stage a workspace.
-	// infer_server serves models off the mounted volume and never touches one.
-	if cmd != "infer_server" {
+	if needsWorkspace(cmd) {
 		if os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
 			log.Fatalf("WORKSPACES_REPO and WORKSPACES_HOME environment variables must be set for %s", cmd)
 		}
@@ -161,6 +192,18 @@ func main() {
 	case "infer_server":
 		if err := startInferServer(); err != nil {
 			log.Fatalf("infer_server failed: %s", err)
+		}
+
+	case "anomaly_detect", "shadow_triage":
+		// Database only: no workspace to copy. The volume is still handed to jsuser,
+		// because TMPDIR was created above as root and the root filesystem is read-only;
+		// with no workspace copied into it the chown is over one empty directory.
+		if err := makeJetsdataWritable(); err != nil {
+			log.Fatalf("Failed to make JETS_TEMP_DATA writable: %s", err)
+		}
+		log.Printf("Starting %s...", cmd)
+		if err := runCommandAsJsuser(cmd, cmdArgs); err != nil {
+			log.Fatalf("%s failed: %s", cmd, err)
 		}
 
 	default:

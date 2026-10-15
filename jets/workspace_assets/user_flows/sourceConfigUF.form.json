@@ -170,6 +170,19 @@
             "table": "scSingleOrMultiPartFileOption",
             "rules": [{ "rule": "required", "message": "An option must be selected." }]
           }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dropdown",
+            "key": "is_cumulative",
+            "label": "Is each delivery cumulative?",
+            "defaultItemPos": 0,
+            "items": [
+              { "value": "0", "label": "No: each delivery holds only its own records" },
+              { "value": "1", "label": "Yes: each delivery holds the whole feed, so a lookback reads only the latest" }
+            ]
+          }
         ]
       ],
       "actions": [
@@ -329,6 +342,19 @@
               { "value": "scMultiPartFileOption", "label": "Multi-Part Files" }
             ],
             "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ],
+        [
+          {
+            "field": "dropdown",
+            "key": "is_cumulative",
+            "label": "Is each delivery cumulative?",
+            "isReadOnly": true,
+            "defaultItemPos": 0,
+            "items": [
+              { "value": "0", "label": "No: each delivery holds only its own records" },
+              { "value": "1", "label": "Yes: each delivery holds the whole feed, so a lookback reads only the latest" }
+            ]
           }
         ]
       ],

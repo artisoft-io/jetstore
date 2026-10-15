@@ -17,3 +17,10 @@ func (ctx *JrPoolWorker) ExecuteRulesForTest(inputRecords *[]any, resultCh chan 
 func (ctx *JrPoolWorker) ErrorCountForTest() int {
 	return ctx.errorCount
 }
+
+// NewBuilderContextForTest is a BuilderContext carrying what NewProcessError and
+// the jetrules worker read from it: the run's pipeline_execution_status key, its
+// session id, and the step's configuration (nil for none).
+func NewBuilderContextForTest(peKey int, sessionId string, cpConfig *ComputePipesConfig) *BuilderContext {
+	return &BuilderContext{peKey: peKey, sessionId: sessionId, cpConfig: cpConfig}
+}

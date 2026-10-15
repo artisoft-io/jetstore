@@ -27,6 +27,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // MemoryEnv names the memory ceiling when -rlimit_data_mb is not given.
@@ -44,6 +45,10 @@ var (
 )
 
 func main() {
+	// JSON logging, as every shipped main has (utils.UseJetStoreLogger). Before
+	// the memory ceiling, whose own message is logged: the logger's allocation is
+	// a few kilobytes against a ceiling of hundreds of megabytes.
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	// The memory ceiling comes first, before anything allocates in earnest: the
 	// apiserver shares its memory with every test it runs (definition R-8).

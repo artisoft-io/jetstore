@@ -1,20 +1,10 @@
 {
   "schemaVersion": 1,
   "actions": {
-    "spPipelineSelected": {
-      "description": "Unwrap the selected pipeline's process input key lists",
-      "steps": [
-        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKey": "merged_process_input_keys" } },
-        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
-        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKey": "injected_process_input_keys" } },
-        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } }
-      ]
-    },
     "spPrepareStartPipeline": {
-      "description": "Collect every data source key the pipeline will read",
+      "description": "Collect the data source the summary shows: the main one. Merged and historical sources are the pipeline configuration's, read across its lookback periods, and are not chosen here",
       "steps": [
-        { "do": "set", "key": "spAllDataSourceKeys", "value": { "fromKeyList": "merged_input_registry_keys" } },
-        { "do": "appendUnique", "listKey": "spAllDataSourceKeys", "value": { "fromKey": "main_input_registry_key" } },
+        { "do": "set", "key": "spAllDataSourceKeys", "value": { "fromKeyList": "main_input_registry_key" } },
         { "do": "set", "key": "description", "value": { "fromKey": "description" } }
       ]
     },
@@ -28,7 +18,7 @@
           "data": {
             "rows": "wholeState",
             "normalise": [
-              { "key": "merged_input_registry_keys", "as": { "pgArrayFromKey": "merged_input_registry_keys" } },
+              { "key": "merged_input_registry_keys", "as": { "literal": "{}" } },
               { "key": "pipeline_config_key", "as": { "fromKey": "pipeline_config_key" } },
               { "key": "main_input_registry_key", "as": { "fromKey": "main_input_registry_key" } },
               { "key": "main_input_file_key", "as": { "fromKey": "main_input_file_key" } },

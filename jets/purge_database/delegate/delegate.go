@@ -76,6 +76,7 @@ func DoPurgeSessions() error {
 	// Rules unit test runs are not sessions, so they are purged by age before the
 	// session purge below can return early with nothing to do.
 	purgeRulesUnitTestRuns(dbpool, purgeFrom)
+	purgeDetectionRuns(dbpool, purgeFrom)
 
 	// Get all session_id prior to purgeFrom
 	sessionIds, err := readSessionIds(dbpool, &purgeFrom)
@@ -291,4 +292,21 @@ func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) (runs, ch
 	runs = tag.RowsAffected()
 	log.Printf("Purged %d rules unit test runs and %d of their checks\n", runs, checks)
 	return runs, checks
+}
+
+// purgeDetectionRuns deletes the records of agentic detection runs last updated
+// on or before purgeFrom (jets/agentic/detectrun). The anomalies and incidents
+// those runs wrote are the audit store's and are not touched. A run still
+// requested or running is kept whatever its age, as purgeRulesUnitTestRuns keeps
+// a queued test, and errors are logged and not returned for the same reason:
+// an unmigrated database has no table.
+func purgeDetectionRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) int64 {
+	tag, err := dbpool.Exec(context.Background(), `DELETE FROM jetsapi.agentic_detection_run
+		WHERE last_update <= $1::timestamptz AND status NOT IN ('requested', 'running')`, purgeFrom)
+	if err != nil {
+		log.Println("Warning: while purging agentic_detection_run:", err)
+		return 0
+	}
+	log.Printf("Purged %d agentic detection run records\n", tag.RowsAffected())
+	return tag.RowsAffected()
 }

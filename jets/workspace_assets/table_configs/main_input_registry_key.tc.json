@@ -94,7 +94,7 @@
     }
   ],
   "sortColumn": "last_update",
-  "rowsPerPage": 50,
+  "rowsPerPage": 25,
   "isCheckboxVisible": true,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {

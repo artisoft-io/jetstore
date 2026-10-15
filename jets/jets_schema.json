@@ -617,6 +617,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "is_cumulative",
+        "description": "If true '1': each delivery of this file holds the whole feed, so a pipeline reading its staged deliveries across a lookback (input channel source_object_type) reads only the latest delivery",
+        "dataType": "bool",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "schema_provider_json",
         "dataType": "text",
         "description": "Additional file config, with lesser priority than the other settings on this table."
@@ -2640,6 +2647,91 @@
       {
         "indexName": "rules_unit_test_check_execution_key_idx",
         "indexDef": "INDEX rules_unit_test_check_execution_key_idx ON jetsapi.rules_unit_test_check (execution_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "agentic_detection_run",
+    "description": "One row per run of one agentic detection command (anomaly_detect or shadow_triage) per ECS task, written by the command itself (jets/agentic/detectrun) and, for a run started from the Detection screen, first as requested by the apiserver. Read by the Detection screen to show that the detectors ran and what they found.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "task_ref",
+        "description": "The ECS task ARN, shared by the two commands of one task; local:<host>:<pid>:<ms> for a run outside ECS.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "command",
+        "description": "anomaly_detect or shadow_triage.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "trigger",
+        "description": "schedule (the daily rule), manual (the Detection screen) or command (started any other way).",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "requested_by",
+        "description": "The user who pressed Run detection now; null for any other trigger.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "status",
+        "description": "requested, running, ok or failed.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "since_window",
+        "description": "The window the command judged, as its -since flag, e.g. 26h.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "requested_at",
+        "dataType": "datetime"
+      },
+      {
+        "columnName": "started_at",
+        "dataType": "datetime"
+      },
+      {
+        "columnName": "finished_at",
+        "dataType": "datetime"
+      },
+      {
+        "columnName": "summary",
+        "description": "What the command found, as JSON: counts read, anomalies or incidents written, and for shadow_triage the per-locus census and whether the shadow-mode attestation held.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "error_message",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "agentic_detection_run_last_update_idx",
+        "indexDef": "INDEX agentic_detection_run_last_update_idx ON jetsapi.agentic_detection_run (last_update)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "agentic_detection_run_task_command_unique_cstraint",
+        "definition": "CONSTRAINT agentic_detection_run_task_command_unique_cstraint UNIQUE (task_ref, command)"
       }
     ]
   }

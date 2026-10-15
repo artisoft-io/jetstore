@@ -608,3 +608,120 @@ session before asserting input; the harness met it at once. Now:
 session.** `JetResources()` is created on first use through the meta graph, so
 `RunRuleSets`' precondition stands; the consequence of breaking it went from an abort on
 C++ to a refused node on both, whose `Value()` is nil.
+
+## The keys on a jetrules error row, 2026-10-13
+
+**Until this date no jetrules site set `grouping_key` or `row_jets_key`**, and the four
+sites that write a `process_errors` row (the `ExecuteRules` error, `MAX LOOP REACHED`, a
+`jets:exception`, and a property with several values at extraction) all left both null.
+Two things about them were not visible from the code.
+
+**The subject in *"property X is not multi-value but has multiple values for subject S"*
+is the extracted entity, not the group.** `extractLiteralValue` is called per output
+entity, so S is that entity's resource name: for an entity made by `create_entity 0`, a
+fresh UUID that is also its `jets:key` (`CreateEntityKey`, `jets/jetrules/rdf/ast_r_operators.go`).
+It names the output row, and says nothing about which input group produced it. That row now
+carries S's `jets:key` in `row_jets_key` (the resource name when it has none) and the
+property in `input_column`.
+
+**A worker task carries only the group's rows, so the group's key is recovered from the
+configuration** (`jetrulesGroupingDomainKey`, `jetrules_grouping_key.go`): the domain key of
+the `group_by` or `merge` writing the operator's input channel in the same step, else the
+class's only domain key, else none. It is computed from the first row as `compute_domain_key`
+computes it, so it is the value of the output tables' `<ObjectType>:domain_key` column, hashed
+or not as that is. A `group_by` on names, positions or a count gives no grouping key, by
+design: the group then has no domain key. The rule-set sites set `row_jets_key` only when the
+session has one input row.
+
+**Reporting a text property with several values surfaced a quirk of the loop.**
+`RunRuleSets` inserts `(jets:iState jets:loop n)` for each loop without erasing the previous
+value, so by loop 3 a rule matching `(?s jets:loop ?i)` sees 1, 2 and 3. In
+`jets/jetrules/test_ws/jet_rules/test_looping_main.jr` that gives each `lp:Person` one
+`lp:name` per loop value it joins, which was always written as an array literal and was
+silently so; the characterisation test now extracts persons by `jets:key` for that reason.
+A workspace with a text property set from the loop counter will see new error rows for the
+same reason, and they are correct.
+
+## A workspace override and the version that names it, 2026-10-14
+
+**Established at two client deployments of 4.0.3 (2026-10-13 and -14), from their
+run records, S3's version history and the code.** Three defects in how an IDE or refresh override
+reaches the pipelines, all downstream of entry 1's version check. Fixed together.
+
+### The symptom
+
+After one client deployed 4.0.3, every pipeline read a lookup committed in July instead of
+September's, which existed only as an override in `jetsapi.workspace_changes`. The run records
+named the deployment's version. Nothing failed; one rule's results changed.
+
+### Three causes
+
+1. **The start-up compile gave two workspaces one version.** On a new release `checkWorkspaceVersion`
+   writes the overrides over the apiserver's tree and compiled it under `JETS_VERSION`
+   (`jets/apiserver/server.go:296`). The image's own compile, without the overrides, carries the same
+   version, and `SyncComputePipesWorkspace` (`jets/workspace/compile_workspace_utils.go:407`) skips the
+   fetch when the versions are equal, so the pipelines used the image's. **Fixed**: a start-up that
+   applied an override compiles under the time, as the UI does (`startupCompileVersion`,
+   `server.go:483`), and keeps `JETS_VERSION` only when nothing was applied.
+2. **A start-up with no override recorded no version.** It uploaded the image's compiled workspace
+   under the database's *previous* version and wrote no `workspace_version` row, so the run records
+   named the release before (the other client). **Fixed**: the upload and a row both carry `JETS_VERSION`
+   (`server.go:450`).
+3. **A refresh never reached the apiserver's tree.** A report with `updateLookupTables` runs in its
+   own task: it writes the lookup to that task's tree and to `workspace_changes`, and compiles there
+   (`SyncS3Files`, `jets/awsi/files.go:36`, from `jets/run_reports/delegate/run_reports.go:281`). The
+   apiserver's copy catches up only at its next start. In that window the UI's compile compiled the
+   old file, and the UI's commit pushed it and then deleted every override, the fresh one included
+   (`jets/datatable/workspace_data_table_action.go`). On 2026-10-14 the commit carried
+   September's lookup and discarded October's, which survived only in S3 and in the compiled
+   `lookup.db`. An IDE save is not affected: it writes both copies (`SaveContent`,
+   `jets/datatable/wsfile/file_content.go:74`). **Fixed**: the compile and the commit write the
+   database's overrides over the tree first (`syncOverridesToLocal`,
+   `jets/datatable/workspace_helper_functions.go:53`), as the pull already did after merging (`:138`).
+   A commit is refused when that sync fails; a compile goes ahead and says so.
+
+### How to check it after a deployment
+
+`SELECT version, workspace_commit FROM jetsapi.workspace_version ORDER BY version DESC LIMIT 3`.
+With overrides in `workspace_changes`, the newest version should be later than `JETS_VERSION`; with
+none, it should equal it. A version equal to `JETS_VERSION` while overrides exist is cause 1.
+
+**Two things the fix does not change.** A run record's `workspace_commit` names the tree's commit,
+not the overrides compiled into it, so it does not describe a lookup kept as an override. And an
+override still reaches the next deployment's *image* only by being committed to the workspace's
+repository.
+
+## A cumulative file, and why its flag is read at start rather than from the run's source, 2026-10-15
+
+**The symptom.** A client whose file is *cumulative* (each delivery holds the whole feed) sends a new
+delivery every month, and a pipeline reading that object type with `lookback_periods: "6"` reads seven
+period folders and every session in each: each record once per delivery, so the read grows with
+every month and its output repeats every record.
+
+**The flag is `source_config.is_cumulative`, and the run's own source_config row cannot carry it.** A
+clinical review's main input is eligibility; the cumulative feeds are pharmacy and medical claims,
+which it reads as stage channels with a lookback. So two halves meet (`cumulative_source.go`):
+
+- **At start**, `loadCumulativeObjectTypes` (called from `shardingInitializeCpipes` after
+  `prepareCpipesEnv`) reads every source_config row of the run's `$CLIENT` and writes
+  `${CUMULATIVE_OBJECT_TYPES}` into the env. The env is saved with the startup and replayed by every
+  reducing step, so all steps see what the sharding step read.
+- **The channel names what it reads**: `source_object_type` on a stage input channel (or a merge
+  channel). When it names a cumulative object type, `GetS3Objects4LookbackPeriod` and
+  `GetPartitionSize4LookbackPeriod` keep only `latestDelivery`.
+
+**Latest means the most recent period folder holding data, then its latest session** — not the
+largest session id across the lookback. The period folder is the delivery's date
+(`$CLIENT/<ObjectType>/${MONTH_PERIOD}M/$SESSIONID`); the session id is when it was mapped. Re-mapping
+an old delivery makes a newer session in an older period, and must not displace the latest delivery.
+Session ids compare as numbers (`sessionAfter`).
+
+**Three things it refuses or does not do.**
+- **The stage folder holds no org.** If some of a client's orgs declare an object type cumulative and
+  others do not, it can be read neither way; it is listed in `${MIXED_CUMULATIVE_OBJECT_TYPES}` and a
+  cumulative read of it fails the run with the reason.
+- **An object directly in a period folder** (no session folder) fails a cumulative read, rather than
+  being kept or dropped by guess.
+- **A channel with no `lookback_periods` is not affected**: the sharding path lists its prefix
+  directly. The flag means nothing until a pipeline names the object type, so setting it changes no
+  run of a pipeline that does not.

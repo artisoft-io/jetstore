@@ -628,7 +628,8 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 // construct one and no column says which (F186); a single configuration can
 // route two operators into it (F189); the count is censored at a cap that
 // differs by operator, 20 for jetrules and map_record and 50 for the inference
-// operators (F187); and grouping_key has no writer at all (F185).
+// operators (F187); and grouping_key is written by the jetrules operator only,
+// and by nothing before 2026-10-13 (F185).
 //
 // The count is therefore reported as the lower bound it is, with the two
 // columns a single operator family writes counted separately so a reader can
@@ -660,7 +661,7 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 			"column says which (F186), and one configuration in the corpus routes two operators' error "+
 			"channels into this same table (F189). %d rows name an input_column and %d carry a saved rete "+
 			"session, which is as close as the table comes to saying which operator family wrote them; "+
-			"grouping_key has no writer anywhere in the tree (F185)",
+			"grouping_key is written by the jetrules operator only, and by nothing before 2026-10-13 (F185)",
 		ev.Errors.Rows, ev.SessionId, ev.Errors.Shards,
 		ev.Errors.First.Format(timeFmt), ev.Errors.Last.Format(timeFmt),
 		ev.Errors.WithInputColumn, ev.Errors.WithReteSession)

@@ -37,6 +37,16 @@
 // happened to exist would measure the same thing and invite the reader to think
 // otherwise.
 //
+// **I-250 added a third arm to compile_rule_file, 2026-10-12**: 'rules', the
+// rule as a symbolic JSON document the tool renders to JetRules. Its six
+// probes (crr-*) carry the same six rules as the content arm's (crf-*), so the
+// two rows compare one notation against the other on one model in one run —
+// F176 found the text arm's losses were all JetRules constructs, and this arm
+// asks the model for none. The arm's argument shape was changed twice on what
+// this harness found (the document's own fields are now the arguments), and a
+// rules-arm call is judged by tools.ReadRulesArgument — what the tool would
+// compile — so a judgement cannot drift from the tool it measures.
+//
 //	go run ./tools/tool_conformance
 //	go run ./tools/tool_conformance -repeats 3 -model granite4.1:3b
 package main
@@ -56,6 +66,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/eval"
 	mcpadapter "github.com/artisoft-io/jetstore/jets/agentic/mcp"
 	"github.com/artisoft-io/jetstore/jets/agentic/tools"
+	"github.com/artisoft-io/jetstore/jets/compilerv2/symbolic"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -69,6 +80,20 @@ var casesJSON []byte
 type fidelitySpec struct {
 	Arg         string   `json:"arg"`
 	MustContain []string `json:"must_contain"`
+	// SameRules is I-250's stricter test, for the symbolic 'rules' arm: the
+	// argument must parse to the same document the prompt carried, not merely
+	// contain its fragments. Substrings are weak on JSON — every id can be
+	// present and attached to the wrong term — so the new arm is held to more
+	// than the text arm it is compared with, which makes the comparison
+	// conservative against it rather than for it. Key order and whitespace
+	// still do not count: both sides are parsed and re-encoded.
+	//
+	// The document is read from the whole arguments, because its fields are
+	// the tool's arguments: 'rules' is the array and 'imports' sits beside it
+	// (a whole document under 'rules', or a string holding either, is the
+	// tool's other reading and is judged the same way). For the same reason
+	// MustContain is searched in the arguments rather than in 'rules' alone.
+	SameRules json.RawMessage `json:"same_rules,omitempty"`
 }
 
 type testCase struct {
@@ -380,6 +405,19 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 	if !ok {
 		return spec.MustContain, false
 	}
+	if len(spec.SameRules) > 0 {
+		// Search the arguments as the tool reads them: a 'rules' sent as a
+		// string is unwrapped first, or its quotes would be escaped in the
+		// text searched. A string that is not JSON is searched as it is.
+		delete(obj, "file_name")
+		if s, isString := obj["rules"].(string); isString {
+			var inner any
+			if json.Unmarshal([]byte(s), &inner) == nil {
+				obj["rules"] = inner
+			}
+		}
+		v = obj
+	}
 	var text string
 	if s, isString := v.(string); isString {
 		text = s
@@ -396,7 +434,38 @@ func payloadMissing(args json.RawMessage, spec *fidelitySpec) ([]string, bool) {
 			missing = append(missing, want)
 		}
 	}
+	if len(spec.SameRules) > 0 && !sameRules(obj, spec.SameRules) {
+		missing = append(missing, "(the rules document is not the one given)")
+	}
 	return missing, true
+}
+
+// sameRules says whether the arguments carry the expected rules document:
+// the document the tool would compile from them (tools.ReadRulesArgument),
+// against the one the prompt gave, by canonical encoding.
+func sameRules(args map[string]any, want json.RawMessage) bool {
+	rules, err := json.Marshal(args["rules"])
+	if err != nil {
+		return false
+	}
+	var imports []string
+	if v, ok := args["imports"]; ok {
+		b, _ := json.Marshal(v)
+		if json.Unmarshal(b, &imports) != nil {
+			return false
+		}
+	}
+	g, err := tools.ReadRulesArgument(rules, imports)
+	if err != nil {
+		return false
+	}
+	w, err := symbolic.Parse(want)
+	if err != nil {
+		return false
+	}
+	gb, err1 := json.Marshal(g)
+	wb, err2 := json.Marshal(w)
+	return err1 == nil && err2 == nil && bytes.Equal(gb, wb)
 }
 
 func keys(m map[string]json.RawMessage) []string {

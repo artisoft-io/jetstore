@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
 
@@ -41,6 +42,7 @@ var (
 )
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	dir, err := workspaceDir()
 	if err != nil {

@@ -545,6 +545,20 @@ func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, err
 	return buf.String(), nil
 }
 
+// UncommittedChanges returns `git status --porcelain` for the workspace: the
+// changes in its tree that no commit carries, empty when there are none.
+func (wg *WorkspaceGit) UncommittedChanges() (string, error) {
+	if NoGitAccess() {
+		return "", nil
+	}
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
+		return "", err
+	}
+	workspacePath := filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)
+	out, err := runGit(workspacePath, "status", "--porcelain")
+	return strings.TrimSpace(out), err
+}
+
 func (wg *WorkspaceGit) GitCommandWorkspace(gitCommand string) (string, error) {
 	// Git off: run nothing, including the commands that only read.
 	//

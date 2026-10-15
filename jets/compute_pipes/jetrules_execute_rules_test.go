@@ -148,14 +148,15 @@ func childFailures(out []byte) string {
 }
 
 // errorColumns are the process_errors columns the error channel carries here.
-var errorColumns = []string{"error_message", "rete_session_saved", "rete_session_triples"}
+var errorColumns = []string{"error_message", "rete_session_saved", "rete_session_triples",
+	"pipeline_execution_status_key", "grouping_key", "row_jets_key", "input_column"}
 
 // run is one call to executeRules and everything it wrote.
 type run struct {
 	err        error
 	errorRows  []compute_pipes.ProcessError
-	cases      [][]any // xr:Case rows: jets:key, xr:mode, xr:result
-	persons    [][]any // lp:Person rows: lp:name
+	cases      [][]any // xr:Case rows: jets:key, xr:mode, xr:result, xr:amount
+	persons    [][]any // lp:Person rows: jets:key
 	results    []compute_pipes.JetrulesWorkerResult
 	errChErrs  []error
 	doneClosed bool
@@ -216,6 +217,15 @@ type harness struct {
 
 func newHarness(t *testing.T, process string, config *compute_pipes.JetrulesSpec) *harness {
 	t.Helper()
+	return newHarnessWith(t, process, config, &compute_pipes.BuilderContext{},
+		&compute_pipes.InputChannel{Name: "input", HasGroupedRows: true})
+}
+
+// newHarnessWith is newHarness with the worker's BuilderContext and its source
+// channel given, which is what the error-keys cases vary.
+func newHarnessWith(t *testing.T, process string, config *compute_pipes.JetrulesSpec,
+	builder *compute_pipes.BuilderContext, source *compute_pipes.InputChannel) *harness {
+	t.Helper()
 	engine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
 	if err != nil {
 		t.Fatalf("building the Go engine for %s: %v", process, err)
@@ -251,8 +261,14 @@ func newHarness(t *testing.T, process string, config *compute_pipes.JetrulesSpec
 		Columns: &h.errCols,
 		Config:  &compute_pipes.ChannelSpec{Name: "process_errors", Columns: errorColumns},
 	}
-	caseCols := []string{"jets:key", "xr:mode", "xr:result"}
-	personCols := []string{"lp:name"}
+	caseCols := []string{"jets:key", "xr:mode", "xr:result", "xr:amount"}
+	// lp:Person is extracted by jets:key, not lp:name: test_looping_main.jr gives a
+	// person one lp:name per loop value it joins (LOOP02), and the jets:loop values
+	// of a rule set accumulate, so a person has several names. Since 2026-10-13 a
+	// text property with several values is reported to the error channel, which
+	// would add a row per person to every looping case here; the cases only count
+	// persons, and the report itself is tested in jetrules_error_keys_test.go.
+	personCols := []string{"jets:key"}
 	outputs := []*compute_pipes.JetrulesOutputChan{
 		{
 			ClassName: "xr:Case",
@@ -269,19 +285,26 @@ func newHarness(t *testing.T, process string, config *compute_pipes.JetrulesSpec
 			},
 		},
 	}
-	source := &compute_pipes.InputChannel{Name: "input", HasGroupedRows: true}
 	rdfType2Columns := map[string][]string{
-		"xr:Case": {"jets:key", "rdf:type", "jets:source_period_sequence", "xr:mode"},
+		"xr:Case": caseInputColumns,
 	}
-	h.worker = (&compute_pipes.BuilderContext{}).NewJrPoolWorker(config, source, rdfType2Columns,
+	h.worker = builder.NewJrPoolWorker(config, source, rdfType2Columns,
 		recordingEngine{JetRuleEngine: engine, calls: &h.calls}, errorOut, outputs, h.done, h.errsCh)
 	return h
 }
 
+// caseInputColumns are the columns of an xr:Case input row.
+var caseInputColumns = []string{"jets:key", "rdf:type", "jets:source_period_sequence", "xr:mode", "xr:group"}
+
 // execute runs one bundle holding one xr:Case with the given mode.
 func (h *harness) execute(mode string) *run {
 	h.t.Helper()
-	bundle := []any{[]any{"case-" + mode, []any{"xr:Case"}, nil, mode}}
+	return h.executeBundle([]any{[]any{"case-" + mode, []any{"xr:Case"}, nil, mode}})
+}
+
+// executeBundle runs one bundle of input rows, laid out as caseInputColumns.
+func (h *harness) executeBundle(bundle []any) *run {
+	h.t.Helper()
 	r := &run{}
 	r.err = h.worker.ExecuteRulesForTest(&bundle, h.resCh)
 	for len(h.errCh) > 0 {
@@ -290,6 +313,10 @@ func (h *harness) execute(mode string) *run {
 		pe.ErrorMessage, _ = row[h.errCols["error_message"]].(string)
 		pe.ReteSessionSaved, _ = row[h.errCols["rete_session_saved"]].(string)
 		pe.ReteSessionTriples, _ = row[h.errCols["rete_session_triples"]].(sql.NullString)
+		pe.PEKey, _ = row[h.errCols["pipeline_execution_status_key"]].(int64)
+		pe.GroupingKey, _ = row[h.errCols["grouping_key"]].(sql.NullString)
+		pe.RowJetsKey, _ = row[h.errCols["row_jets_key"]].(sql.NullString)
+		pe.InputColumn, _ = row[h.errCols["input_column"]].(sql.NullString)
 		r.errorRows = append(r.errorRows, pe)
 	}
 	for len(h.caseCh) > 0 {
@@ -605,4 +632,6 @@ func runCharacterisation(t *testing.T, home string) {
 			t.Errorf("errorCount = %d, want 2, one per exception", got)
 		}
 	})
+
+	runErrorKeysCases(t)
 }

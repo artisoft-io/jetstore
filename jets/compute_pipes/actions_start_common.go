@@ -537,6 +537,16 @@ wrapUp:
 		return cpipesStartup, fmt.Errorf("while preparing cpipes env: %s", err)
 	}
 
+	// The client's cumulative object types (source_config.is_cumulative), read here
+	// once and replayed with the env by every later step: a stage channel naming one
+	// in source_object_type reads only the latest delivery of its lookback
+	// (cumulative_source.go).
+	runClient, _ := cpipesStartup.EnvSettings["$CLIENT"].(string)
+	err = loadCumulativeObjectTypes(ctx, dbpool, runClient, cpipesStartup.EnvSettings)
+	if err != nil {
+		return cpipesStartup, err
+	}
+
 	// InputColumns - the main input file domain columns, order of priority:
 	//	- Take the columns from source_config table if specified. (this has higher priority in case it's a subset of
 	//    of the columns from schema provider)
