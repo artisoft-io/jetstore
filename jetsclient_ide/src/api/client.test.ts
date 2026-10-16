@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiClient, ApiError, PermissionDeniedError, SessionExpiredError } from "./client";
+import { ApiClient, ApiError, PermissionDeniedError, SessionExpiredError, nonJsonErrorText } from "./client";
 
 interface Call {
   url: string;
@@ -213,7 +213,26 @@ describe("ApiClient", () => {
 
   it("survives a non-json error body", async () => {
     const { api } = await signedIn([{ status: 502, body: "<html>bad gateway</html>" }]);
-    await expect(api.dataTable({ action: "read" })).rejects.toThrow(/bad gateway/);
+    await expect(api.dataTable({ action: "read" })).rejects.toThrow(/did not answer \(HTTP 502\)/);
+  });
+
+  it("names a load balancer's error page by its title, not its html", async () => {
+    // The page a client's load balancer answered on 2026-10-16, when the
+    // apiserver panicked: the banner showed all of it, padding comments included.
+    const page =
+      "<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></center> </body> </html> " +
+      "<!-- a padding to disable MSIE and Chrome friendly error page -->".repeat(6);
+    const { api } = await signedIn([{ status: 502, body: page }]);
+    const error = await api.dataTable({ action: "read" }).catch((e: unknown) => e as Error);
+    expect(error.message).toBe(
+      "The server did not answer (502 Bad Gateway). It may be restarting, or the request failed on the server. " +
+        "Try again; if it persists, check the apiserver log.",
+    );
+  });
+
+  it("passes a bare-string error through, trimmed and capped", () => {
+    expect(nonJsonErrorText(500, "  boom \n")).toBe("boom");
+    expect(nonJsonErrorText(500, "x".repeat(400))).toBe(`${"x".repeat(300)}…`);
   });
 
   it("resolves capabilities, with admin passing everything", async () => {
