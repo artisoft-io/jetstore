@@ -2183,7 +2183,10 @@ describe("configure_files, end to end", () => {
     const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
     expect(h.posts[0]!.body["fromClauses"]).toEqual([{ table: "delete/source_config" }]);
     expect(row["key"]).toBe("42");
-    expect(row["domain_keys_json"]).toEqual(['{"member":["id"]}']);
+    // Unwrapped, as every value of the selected row is (2026-10-16). Posted as
+    // the selection's one-element array, it reached the server's domain-keys
+    // hook as []any and panicked it: a 502 at a client.
+    expect(row["domain_keys_json"]).toBe('{"member":["id"]}');
     for (const key of [
       "scSourceConfigKey",
       "key",
