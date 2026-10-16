@@ -43,6 +43,29 @@
 
 import { parseCustomButtons, type CustomButton } from "../actions/customButtons";
 
+/**
+ * The banner text for an error body that is not json.
+ *
+ * **An html page is the load balancer's, not the apiserver's**: a 502 or 504
+ * when the apiserver dropped the connection (a panic) or did not answer in time.
+ * Until 2026-10-16 the banner showed that page's raw html, padding comments and
+ * all (Michel, deleting a source configuration at a client). Its `<title>`
+ * names the status; the rest is markup. A bare string is the server's own words
+ * and passes through, trimmed and capped.
+ */
+export function nonJsonErrorText(status: number, text: string): string {
+  if (/^\s*</.test(text)) {
+    const title = /<title>([^<]*)<\/title>/i.exec(text)?.[1]?.trim();
+    return (
+      `The server did not answer (${title !== undefined && title !== "" ? title : `HTTP ${status}`}). ` +
+      "It may be restarting, or the request failed on the server. " +
+      "Try again; if it persists, check the apiserver log."
+    );
+  }
+  const trimmed = text.trim();
+  return trimmed.length > 300 ? `${trimmed.slice(0, 300)}…` : trimmed;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -409,7 +432,7 @@ export class ApiClient {
     } catch {
       // The server answers errors as json, but a proxy or a panic can produce
       // html or a bare string; surface it rather than a parse error.
-      return { error: text };
+      return { error: nonJsonErrorText(res.status, text) };
     }
   }
 
