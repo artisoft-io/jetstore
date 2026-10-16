@@ -1,8 +1,18 @@
 /**
- * The Workspace IDE's toolbar: the registry actions that need a workspace,
- * acting on the one the IDE has open.
+ * The Workspace IDE's toolbar: Refresh, acting on the workspace the IDE has open.
  *
- * ## Why these buttons moved
+ * ## The workspace buttons went back to `/workspaces` on 2026-10-15
+ *
+ * Michel: a compile started from here showed no progress, because the compile's
+ * status is on the registry's table, so the IDE was the wrong place to start it.
+ * Export and Load Client Config, Compile, Rules Unit Tests and the git buttons
+ * are on `workspaceRegistryTable.tc.json` again, gated on a selected row as
+ * before, and keep the gates they gained here (Export refused only for
+ * `local workspace removed`; Commit & Push, Push Only and Pull ungated). The
+ * toolbar keeps its mechanism, so a button could return without new code. What
+ * follows is the record of the move.
+ *
+ * ## Why these buttons moved (2026-10-11)
  *
  * On `/workspaces` every one of them was gated on a selected row, so a user
  * opening a workspace in the IDE and wanting to compile it, or commit it, had to

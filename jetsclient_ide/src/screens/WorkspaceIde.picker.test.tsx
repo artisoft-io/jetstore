@@ -10,8 +10,11 @@
  * session, else on the deployment's `WORKSPACE`, and remembers a change in
  * session storage. The route still wins when it names one.
  *
- * And the registry's workspace actions are drawn under the picker, enabled from
- * the open workspace's registry row rather than from a selection.
+ * And the registry's workspace actions were drawn under the picker, enabled from
+ * the open workspace's registry row rather than from a selection. They went back
+ * to the registry on 2026-10-15 at Michel's request, because a compile started
+ * from the IDE showed no progress there (the compile's status is on the
+ * registry's table); the toolbar keeps Refresh alone.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -71,7 +74,8 @@ function stubServer(active: string | null) {
           (w) => w.column === "workspace_name",
         );
         const name = where?.values?.[0] ?? "";
-        // `zeta_ws` is mid-compile, so its gated actions are refused.
+        // `zeta_ws` is mid-compile, which gated the toolbar's workspace actions
+        // while it had them.
         const rows = name === "" ? [] : [registryRow(name, name === "zeta_ws" ? "in progress" : "modified")];
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
@@ -143,27 +147,38 @@ describe("the workspace the IDE opens on", () => {
   });
 });
 
+/**
+ * Two cases here observed the toolbar's workspace actions and their gates, and
+ * their premise went with the buttons on 2026-10-15: the gates are asserted on
+ * the registry now (`WorkspaceRegistry.test.tsx`). What is left is Refresh, and
+ * the registry row the toolbar still reads for the workspace the picker names.
+ */
 describe("the workspace toolbar in the IDE", () => {
-  it("draws the workspace actions enabled for the open workspace, with no row to select", async () => {
+  it("draws Refresh alone, and none of the workspace actions", async () => {
     await mount("jets_ws");
-    // `modified`: Compile and Commit are offered.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Commit & Push Workspace" }).hasAttribute("disabled")).toBe(false),
-    );
-    expect(screen.getByRole("button", { name: "Compile Workspace" }).hasAttribute("disabled")).toBe(false);
-    expect(screen.getByRole("button", { name: "Export Client Config" }).hasAttribute("disabled")).toBe(false);
+    await screen.findByRole("button", { name: "Refresh" });
+    for (const label of [
+      "Export Client Config", "Load Client Config", "Compile Workspace", "Rules Unit Tests",
+      "Commit & Push Workspace", "Push Only", "Pull Workspace", "Git Status", "Git Command",
+      "View Last Log",
+    ]) {
+      expect(screen.queryByRole("button", { name: label }), label).toBeNull();
+    }
   });
 
-  it("re-reads the row when the picker changes, so the gates follow the workspace", async () => {
-    await mount("jets_ws");
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Compile Workspace" }).hasAttribute("disabled")).toBe(false),
-    );
+  it("re-reads the row when the picker changes", async () => {
+    const { posts } = await mount("jets_ws");
+    const rowReadFor = (name: string) =>
+      posts.some(
+        (p) =>
+          p["action"] === "workspace_read" &&
+          (p["whereClauses"] as { column?: string; values?: string[] }[] | undefined)?.some(
+            (w) => w.column === "workspace_name" && w.values?.[0] === name,
+          ),
+      );
+    await waitFor(() => expect(rowReadFor("jets_ws")).toBe(true));
+    expect(rowReadFor("zeta_ws")).toBe(false);
     fireEvent.change(picker(), { target: { value: "zeta_ws" } });
-    // `in progress` refuses Compile; Git Status has no gate but the row.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Compile Workspace" }).hasAttribute("disabled")).toBe(true),
-    );
-    expect(screen.getByRole("button", { name: "Git Status" }).hasAttribute("disabled")).toBe(false);
+    await waitFor(() => expect(rowReadFor("zeta_ws")).toBe(true));
   });
 });
