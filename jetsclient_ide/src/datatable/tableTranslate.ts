@@ -578,9 +578,10 @@ export function toDocuments(tables: Record<string, TableConfig>): Record<string,
  * `enableWhen` column name against `doc`'s columns.
  *
  * Exported for a toolbar that acts on one of this table's rows without drawing
- * the table: the Workspace IDE's buttons are `workspaceRegistryTable` actions
- * on the open workspace's registry row (`screens/workspaceToolbar.ts`), so
- * their column names mean what they mean on the registry.
+ * the table: the Workspace IDE's toolbar is authored as `workspaceRegistryTable`
+ * actions on the open workspace's registry row (`screens/WorkspaceToolbar.tsx`),
+ * so any column name it names means what it means on the registry. Since
+ * 2026-10-15 it carries only Refresh, which names none.
  */
 export function restoreActions(doc: TableConfigDocument, actions: TableAction[]): ActionConfig[] {
   // The index a criterion's column name stands for. Built once per document

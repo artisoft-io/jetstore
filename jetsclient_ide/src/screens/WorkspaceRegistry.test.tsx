@@ -18,11 +18,14 @@
  * two halves and the corpus can only tell you about the first; the half that bit
  * F.5 was a document that validated, round-tripped and drew nothing.
  *
- * **Two screens since 2026-10-11.** The buttons that need a workspace moved to
- * the Workspace IDE's toolbar (`WorkspaceToolbar.tsx`), which runs the same
- * documents through the same host against the open workspace's registry row. The
- * cases for those buttons mount the toolbar for one workspace where they used to
- * select that workspace's row; what they assert is unchanged.
+ * **Back on this screen since 2026-10-15.** From 2026-10-11 the buttons that
+ * need a workspace were on the Workspace IDE's toolbar (`WorkspaceToolbar.tsx`),
+ * and the cases for them mounted the toolbar. They returned to the registry at
+ * Michel's request, because a compile started from the IDE showed no progress
+ * there: the compile's status is on this table. So those cases select a row
+ * again, and keep what the toolbar taught them — Export refused only for
+ * `local workspace removed`, the three git buttons ungated, and the flows
+ * returning to where they were launched. The toolbar keeps Refresh alone.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -99,7 +102,7 @@ function stubServer(active = { name: "jets_ws", branch: "jets_ai", uri: "git@exa
       // which is the whole of what C.2a's enum buys, tested from the wire rather
       // than from the schema.
       //
-      // The toolbar reads one workspace's row through the same query with a
+      // The IDE's toolbar reads one workspace's row through the same query with a
       // `workspace_name` clause, which this stub honours.
       case "workspace_read": {
         const where = (body["whereClauses"] as { column?: string; values?: string[] }[] | undefined)?.find(
@@ -128,8 +131,10 @@ function stubServer(active = { name: "jets_ws", branch: "jets_ai", uri: "git@exa
   return { fetchImpl, posts };
 }
 
+/** The in-app location, with its query, so a flow's `returnTo` is visible. */
 function LocationProbe() {
-  return <span data-testid="location">{useLocation().pathname}</span>;
+  const { pathname, search } = useLocation();
+  return <span data-testid="location">{`${pathname}${search}`}</span>;
 }
 
 async function mount(active?: { name: string; branch: string; uri: string }) {
@@ -163,14 +168,13 @@ async function mount(active?: { name: string; branch: string; uri: string }) {
 /**
  * The IDE's toolbar for one workspace, under the same providers and stub.
  *
- * Waits for *Git Status* to enable: it is gated on a row and on nothing else,
- * so it enables exactly when the workspace's registry row has arrived.
+ * Waits for its read of the workspace's registry row, which it still makes:
+ * the toolbar's mechanism outlived the buttons it was built for.
  */
-async function mountToolbar(workspace: string, active?: { name: string; branch: string; uri: string }) {
-  const { fetchImpl, posts } = stubServer(active);
+async function mountToolbar(workspace: string) {
+  const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
   await api.login("michel@artisoft.io", "pw");
-  if (active !== undefined) setActiveWorkspace(active);
 
   render(
     <ApiProvider api={api}>
@@ -187,16 +191,21 @@ async function mountToolbar(workspace: string, active?: { name: string; branch: 
       </NotificationsProvider>
     </ApiProvider>,
   );
-  await waitFor(() => expect(button("Git Status").hasAttribute("disabled")).toBe(false));
+  await waitFor(() =>
+    expect(posts.some((p) => p.body["action"] === "workspace_read")).toBe(true),
+  );
   return { posts, api };
 }
 
-/** The labels of the buttons moved to the toolbar, by row. */
-const TOOLBAR_ROWS = [
-  ["Export Client Config", "Load Client Config", "Refresh"],
+/**
+ * The registry's buttons, by row: the pre-2026-10-11 layout, with *Rules Unit
+ * Tests*, which arrived on the second row the same day.
+ */
+const REGISTRY_ROWS = [
+  ["Add/Update", "Open", "Export Client Config", "Load Client Config", "Delete"],
   [
     "Compile Workspace", "Rules Unit Tests", "Commit & Push Workspace", "Push Only",
-    "Pull Workspace", "Git Status", "Git Command", "View Last Log",
+    "Pull Workspace", "Git Status", "Git Command", "View Last Log", "Refresh",
   ],
 ];
 
@@ -258,34 +267,37 @@ describe("the screen", () => {
     expect(screen.getByText("globex_ws")).toBeTruthy();
   });
 
-  it("draws the four registry buttons, and none of the ones the IDE took", async () => {
+  it("draws both action rows — fourteen buttons, not the first five", async () => {
     await mount();
-    // Until 2026-10-11 this drew thirteen in two rows. The ten that need a
-    // workspace moved to the IDE's toolbar; the table keeps what is about the
-    // registry itself, in one row.
-    for (const label of ["Add/Update", "Open", "Delete", "Refresh"]) {
-      expect(button(label)).toBeTruthy();
-    }
-    // Refresh is on both: the registry's re-reads the table, the toolbar's the IDE.
-    for (const label of TOOLBAR_ROWS.flat().filter((l) => l !== "Refresh")) {
+    // The second row is where Compile, Rules Unit Tests, Commit, Push, Pull and
+    // the three git buttons live. Rendering one bar would have lost nine of the
+    // fourteen and looked like a working screen, which is I-104's second finding.
+    // From 2026-10-11 to 2026-10-15 the table drew four and the IDE's toolbar the
+    // rest; this is the layout from before, restored.
+    const groups = screen.getAllByRole("group");
+    expect(groups.map((g) => within(g).getAllByRole("button").map((b) => b.textContent))).toEqual(REGISTRY_ROWS);
+  });
+
+  it("leaves the IDE's toolbar one row, Refresh alone", async () => {
+    await mountToolbar("acme_ws");
+    const groups = screen.getAllByRole("group");
+    expect(groups.map((g) => within(g).getAllByRole("button").map((b) => b.textContent))).toEqual([["Refresh"]]);
+    expect(toolbarRows()).not.toHaveProperty("error");
+    for (const label of REGISTRY_ROWS.flat().filter((l) => l !== "Refresh")) {
       expect(screen.queryByRole("button", { name: label })).toBeNull();
     }
   });
 
-  it("draws the toolbar's two rows — eleven buttons, not the first three", async () => {
-    await mountToolbar("acme_ws");
-    // Rendering one bar would have lost eight of the eleven and looked like a
-    // working toolbar, which is I-104's second finding, from the table's days.
-    const groups = screen.getAllByRole("group");
-    expect(groups.map((g) => within(g).getAllByRole("button").map((b) => b.textContent))).toEqual(TOOLBAR_ROWS);
-    expect(toolbarRows()).not.toHaveProperty("error");
-  });
-
-  it("gates the eight row buttons on the selected row's status", async () => {
+  it("gates the row buttons on the selected row's status", async () => {
     await mount();
-    // Nothing selected: every gated button is disabled and says why.
+    // Nothing selected: every row button is disabled and says why. Since
+    // 2026-10-15 that includes the three git buttons, which have no status gate
+    // but, like every button here bar Add/Update and Refresh, need a row.
     expect(button("Delete").hasAttribute("disabled")).toBe(true);
     expect(button("Delete").title).toBe("Select a row first");
+    for (const label of REGISTRY_ROWS.flat().filter((l) => l !== "Add/Update" && l !== "Refresh")) {
+      expect(button(label).hasAttribute("disabled"), label).toBe(true);
+    }
 
     // `active` — Delete is refused, Open is allowed.
     await selectRow("acme_ws");
@@ -293,15 +305,11 @@ describe("the screen", () => {
     expect(button("Delete").hasAttribute("disabled")).toBe(true);
     expect(button("Delete").title).toContain("active");
 
-    // And on the toolbar, the active workspace on its base branch: its status
-    // ends `feature branch missing or removed`, which a bare `removed` gate read
-    // as a removed workspace and refused Export for (Michel, 2026-10-11). The
-    // three git buttons have no gate at all since the same evening.
-    cleanup();
-    await mountToolbar("acme_ws");
-    await waitFor(() =>
-      expect(button("Export Client Config").hasAttribute("disabled")).toBe(false),
-    );
+    // And this is the active workspace on its base branch: its status ends
+    // `feature branch missing or removed`, which a bare `removed` gate read as a
+    // removed workspace and refused Export for (Michel, 2026-10-11). The three
+    // git buttons have no gate at all since the same evening.
+    expect(button("Export Client Config").hasAttribute("disabled")).toBe(false);
     for (const label of ["Commit & Push Workspace", "Push Only", "Pull Workspace"]) {
       expect(button(label).hasAttribute("disabled")).toBe(false);
     }
@@ -311,25 +319,12 @@ describe("the screen", () => {
     await mount();
     await selectRow("globex_ws");
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
-    cleanup();
-    await mountToolbar("globex_ws");
     expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false);
 
     cleanup();
     await mount();
     await selectRow("initech_ws");
-    await waitFor(() => expect(button("Refresh").hasAttribute("disabled")).toBe(false));
-    // Wait until the selection has landed: `in progress` refuses Open, which is
-    // also refused with nothing selected, so the wait is on the checkbox.
-    await waitFor(() =>
-      expect((within(screen.getByText("initech_ws").closest("tr")!).getByRole("checkbox") as HTMLInputElement).checked).toBe(true),
-    );
-    expect(button("Open").hasAttribute("disabled")).toBe(true);
-    expect(button("Delete").hasAttribute("disabled")).toBe(true);
-
-    cleanup();
-    await mountToolbar("initech_ws");
-    // `in progress` refuses the four with a status gate; the three git buttons
+    // `in progress` refuses the seven with a status gate; the three git buttons
     // have none since 2026-10-11 (Michel: always enabled).
     //
     // **Wait on the button that becomes *enabled*, not on one that becomes
@@ -341,12 +336,13 @@ describe("the screen", () => {
     // repeatedly for its own flake check; the case itself is C.2b's and correct.
     await waitFor(() => expect(button("Push Only").hasAttribute("disabled")).toBe(false));
     for (const label of [
-      "Export Client Config", "Load Client Config", "Compile Workspace", "Rules Unit Tests",
+      "Open", "Export Client Config", "Load Client Config", "Delete",
+      "Compile Workspace", "Rules Unit Tests",
     ]) {
-      expect(button(label).hasAttribute("disabled")).toBe(true);
+      expect(button(label).hasAttribute("disabled"), label).toBe(true);
     }
     for (const label of ["Push Only", "Commit & Push Workspace", "Pull Workspace"]) {
-      expect(button(label).hasAttribute("disabled")).toBe(false);
+      expect(button(label).hasAttribute("disabled"), label).toBe(false);
     }
   });
 });
@@ -369,7 +365,6 @@ describe("the screen", () => {
  * message had been passed to a provider nothing rendered.
  */
 describe("every dialog the table can open", () => {
-  // Add/Update is the registry's; the other six are the IDE toolbar's.
   const dialogs: [button: string, title: string, ok: string, row: string][] = [
     ["Add/Update", "Add / Update Workspace", "Add / Update", "globex_ws"],
     ["Export Client Config", "Export Client Configuration from DB to Workspace", "Export Client Config", "acme_ws"],
@@ -384,12 +379,8 @@ describe("every dialog the table can open", () => {
   ];
 
   it.each(dialogs)("opens %s", async (label, title, ok, row) => {
-    if (label === "Add/Update") {
-      await mount();
-      await selectRow(row);
-    } else {
-      await mountToolbar(row);
-    }
+    await mount();
+    await selectRow(row);
     await waitFor(() => expect(button(label).hasAttribute("disabled")).toBe(false));
     fireEvent.click(button(label));
     const dialog = await screen.findByRole("dialog");
@@ -418,7 +409,8 @@ describe("every dialog the table can open", () => {
 
 describe("the dialog host", () => {
   it("opens a dialog over the screen, seeded from the selected row", async () => {
-    await mountToolbar("globex_ws");
+    await mount();
+    await selectRow("globex_ws");
     await waitFor(() => expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Commit & Push Workspace"));
 
@@ -436,7 +428,8 @@ describe("the dialog host", () => {
   });
 
   it("posts what the Dart posts, and closes", async () => {
-    const { posts } = await mountToolbar("globex_ws");
+    const { posts } = await mount();
+    await selectRow("globex_ws");
     await waitFor(() => expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Commit & Push Workspace"));
     const dialog = await screen.findByRole("dialog");
@@ -458,7 +451,8 @@ describe("the dialog host", () => {
   });
 
   it("posts nothing when the dialog is cancelled", async () => {
-    const { posts } = await mountToolbar("globex_ws");
+    const { posts } = await mount();
+    await selectRow("globex_ws");
     await waitFor(() => expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Commit & Push Workspace"));
     const dialog = await screen.findByRole("dialog");
@@ -469,7 +463,8 @@ describe("the dialog host", () => {
   });
 
   it("refuses to submit a dialog whose required field is empty", async () => {
-    const { posts } = await mountToolbar("globex_ws");
+    const { posts } = await mount();
+    await selectRow("globex_ws");
     await waitFor(() => expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Commit & Push Workspace"));
     const dialog = await screen.findByRole("dialog");
@@ -485,7 +480,9 @@ describe("the dialog host", () => {
   });
 
   it("closes on Escape, which is what the Dart's dismissible barrier does", async () => {
-    await mountToolbar("globex_ws");
+    await mount();
+    await selectRow("globex_ws");
+    await waitFor(() => expect(button("Git Status").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Git Status"));
     const dialog = await screen.findByRole("dialog");
     fireEvent.keyDown(dialog, { key: "Escape" });
@@ -525,7 +522,9 @@ describe("isReadOnlyFrom — the closures the corpus could only report as boolea
   it("locks the git status command when the deployment configures a uri", async () => {
     // The second body, and the site that makes it non-obvious: a *git command*
     // box gated on whether the server has a workspace uri of its own.
-    await mountToolbar("acme_ws", { name: "jets_ws", branch: "jets_ai", uri: "git@example/jets" });
+    await mount({ name: "jets_ws", branch: "jets_ai", uri: "git@example/jets" });
+    await selectRow("acme_ws");
+    await waitFor(() => expect(button("Git Status").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Git Status"));
     const dialog = await screen.findByRole("dialog");
     const command = within(dialog).getByLabelText(/Git Status Commands/) as HTMLInputElement;
@@ -535,8 +534,9 @@ describe("isReadOnlyFrom — the closures the corpus could only report as boolea
 });
 
 describe("the actions that are not dialogs", () => {
-  it("compiles the IDE's workspace", async () => {
-    const { posts } = await mountToolbar("acme_ws");
+  it("compiles the selected workspace", async () => {
+    const { posts } = await mount();
+    await selectRow("acme_ws");
     await waitFor(() => expect(button("Compile Workspace").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Compile Workspace"));
     await waitFor(() =>
@@ -595,11 +595,35 @@ describe("the actions that are not dialogs", () => {
     );
     expect(posts.some((p) => p.body["action"] === "workspace_query_structure")).toBe(false);
   });
+
+  /**
+   * The three flows, and where they come back to. Since 2026-10-11 none of
+   * `loadConfigUF`, `workspacePullUF` and `rulesUnitTestUF` names an
+   * `exitScreenPath`, so each returns where it was launched (D.8's `returnTo`):
+   * here, now that the buttons are here again.
+   */
+  it.each([
+    ["Load Client Config", "/flow/loadConfigUF?workspace_name=acme_ws"],
+    ["Rules Unit Tests", "/flow/rulesUnitTestUF?workspace_name=acme_ws"],
+    [
+      "Pull Workspace",
+      "/flow/workspacePullUF?key=1&workspace_name=acme_ws&workspace_branch=main&feature_branch=feat&workspace_uri=git%40example%2Facme",
+    ],
+  ])("sends %s to its flow, returning to /workspaces", async (label, path) => {
+    await mount();
+    await selectRow("acme_ws");
+    await waitFor(() => expect(button(label).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(button(label));
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe(`${path}&returnTo=%2Fworkspaces`),
+    );
+  });
 });
 
 describe("the export dialog's item query", () => {
   it("fills its dropdown from the form's named query", async () => {
-    const { posts } = await mountToolbar("acme_ws");
+    const { posts } = await mount();
+    await selectRow("acme_ws");
     await waitFor(() => expect(button("Export Client Config").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Export Client Config"));
     const dialog = await screen.findByRole("dialog");
@@ -611,7 +635,8 @@ describe("the export dialog's item query", () => {
   });
 
   it("posts save_workspace_client_config, which is not workspace_insert_rows", async () => {
-    const { posts } = await mountToolbar("acme_ws");
+    const { posts } = await mount();
+    await selectRow("acme_ws");
     await waitFor(() => expect(button("Export Client Config").hasAttribute("disabled")).toBe(false));
     fireEvent.click(button("Export Client Config"));
     const dialog = await screen.findByRole("dialog");

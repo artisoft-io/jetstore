@@ -1,14 +1,14 @@
 /**
  * The workspace registry's documents and the host that runs their actions.
  *
- * **Two screens press these buttons.** `/workspaces` draws them on the registry
- * table, against the row a user selected; the Workspace IDE draws the ones that
- * need a workspace in its toolbar, against the open workspace's registry row
- * (`workspaceToolbar.ts`). Both run the same `workspaceRegistry.ua.json` actions
- * and open the same `workspaceRegistry.form.json` dialogs, so the host lives
- * here rather than in either screen. Moved out of `WorkspaceRegistry.tsx` on
- * 2026-10-11, when the IDE became the second caller; the reasoning recorded in
- * the comments below was written for the registry and holds for both.
+ * **Two screens use this host.** `/workspaces` draws every button on the
+ * registry table, against the row a user selected. The Workspace IDE's toolbar
+ * (`WorkspaceToolbar.tsx`) draws only Refresh, against the open workspace's
+ * registry row. Moved out of `WorkspaceRegistry.tsx` on 2026-10-11, when the IDE
+ * took the workspace buttons; they went back to the registry on 2026-10-15
+ * (Michel: a compile started from the IDE showed no progress, which is on the
+ * registry's table), and the shared host stayed. The reasoning recorded in the
+ * comments below was written for the registry.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
