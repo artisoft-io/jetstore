@@ -306,7 +306,14 @@ describe("the flows' action documents", () => {
     // The post is before the removal, as `deleteClientAction`'s is: the Dart
     // encodes the body *first* and then empties the map, and `wholeState` reads
     // the state at the moment the step runs.
-    expect(steps.map((s) => s.do)).toEqual(["confirm", "set", "post", "clearSelection", "remove"]);
+    //
+    // **Fifteen `set` steps since 2026-10-16**, one per column the selection
+    // publishes: `fromKey` unwraps a selected row's one-element arrays, as the
+    // client and org deletes do. Posted as arrays they panicked the server's
+    // domain-keys hook (a 502 at a client).
+    expect(steps.map((s) => s.do)).toEqual([
+      "confirm", ...Array<string>(15).fill("set"), "post", "clearSelection", "remove",
+    ]);
   });
 
   it("holds pipelineConfigUF's thirteen reachable arms plus the two its dialogs need", () => {
