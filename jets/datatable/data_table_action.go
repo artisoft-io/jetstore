@@ -860,33 +860,11 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		// Pre-Processing hook
 		dbUpdateDone := false
 		switch {
-		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "source_config"):
+		case writesDomainKeys(dataTableAction.FromClauses[0].Table):
 			// Populate calculated column domain_keys
-			if dataTableAction.Data[irow]["domain_keys_json"] == nil {
-				dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
-			} else {
-				var f any
-				err2 := json.Unmarshal([]byte(dataTableAction.Data[irow]["domain_keys_json"].(string)), &f)
-				if err2 != nil {
-					err = fmt.Errorf("while parsing domainKeysJson using json parser: %v", err2)
-					return
-				}
-				// Extract the domain keys structure from the json
-				switch value := f.(type) {
-				case string, []any:
-					dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
-				case map[string]any:
-					keys := make([]string, 0, len(value))
-					for k := range value {
-						if k != "jets:hashing_override" {
-							keys = append(keys, k)
-						}
-					}
-					dataTableAction.Data[irow]["domain_keys"] = keys
-				default:
-					err = fmt.Errorf("domainKeysJson contains %v which is of a type that is not supported", value)
-					return
-				}
+			if err = populateDomainKeys(dataTableAction.Data[irow]); err != nil {
+				httpStatus = http.StatusBadRequest
+				return
 			}
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
@@ -946,6 +924,55 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 	}
 	// Post Processing Hook
 	return
+}
+
+// writesDomainKeys names the source_config statements that store domain_keys,
+// the column the pre-processing hook computes from domain_keys_json: the insert
+// and the update. delete/source_config is not one of them. Its statement reads
+// only key, and its row is the screen's whole state, where a selected row's
+// columns arrive as single-element arrays; matching it by suffix sent it through
+// the hook's string conversions, which panicked (2026-10-16, a 502 at a client).
+func writesDomainKeys(table string) bool {
+	return table == "source_config" || table == "update/source_config"
+}
+
+// populateDomainKeys sets row["domain_keys"] from row["domain_keys_json"]: the
+// keys of its object, less the jets:hashing_override instruction, or the row's
+// object_type when the json is absent, a string or an array. A value of the
+// wrong type is an error, not a panic.
+func populateDomainKeys(row map[string]any) error {
+	objectType, ok := row["object_type"].(string)
+	if !ok {
+		return fmt.Errorf("source_config: object_type must be a string, got %T", row["object_type"])
+	}
+	if row["domain_keys_json"] == nil {
+		row["domain_keys"] = []string{objectType}
+		return nil
+	}
+	domainKeysJson, ok := row["domain_keys_json"].(string)
+	if !ok {
+		return fmt.Errorf("source_config: domain_keys_json must be a string, got %T", row["domain_keys_json"])
+	}
+	var f any
+	if err := json.Unmarshal([]byte(domainKeysJson), &f); err != nil {
+		return fmt.Errorf("while parsing domainKeysJson using json parser: %v", err)
+	}
+	// Extract the domain keys structure from the json
+	switch value := f.(type) {
+	case string, []any:
+		row["domain_keys"] = []string{objectType}
+	case map[string]any:
+		keys := make([]string, 0, len(value))
+		for k := range value {
+			if k != "jets:hashing_override" {
+				keys = append(keys, k)
+			}
+		}
+		row["domain_keys"] = keys
+	default:
+		return fmt.Errorf("domainKeysJson contains %v which is of a type that is not supported", value)
+	}
+	return nil
 }
 
 // utility methods
