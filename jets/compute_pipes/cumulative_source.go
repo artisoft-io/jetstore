@@ -58,12 +58,14 @@ func loadCumulativeObjectTypes(ctx context.Context, dbpool *pgxpool.Pool, client
 	if dbpool == nil || client == "" {
 		return nil
 	}
+	// is_cumulative is a schema "bool", which is an integer column (0 or 1), so
+	// it is compared to 0 rather than handed to bool_and itself.
 	stmt := `
-		SELECT object_type, bool_and(is_cumulative)
+		SELECT object_type, bool_and(is_cumulative <> 0)
 		FROM jetsapi.source_config
 		WHERE client = $1
 		GROUP BY object_type
-		HAVING bool_or(is_cumulative)
+		HAVING bool_or(is_cumulative <> 0)
 		ORDER BY object_type`
 	rows, err := dbpool.Query(ctx, stmt, client)
 	if err != nil {
