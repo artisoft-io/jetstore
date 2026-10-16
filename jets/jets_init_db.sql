@@ -121,6 +121,10 @@ FROM
   FROM jetsapi.alias_rdf_type_registry
 ) AS registry
 WHERE input_rdf_type = entity_rdf_type
+  -- domain_keys_json may carry the instruction jets:hashing_override, and a
+  -- source_config row written by a workspace init script (not through the UI's
+  -- save hook) keeps it in domain_keys: it is not a domain key, so leave it out.
+  AND registry.object_type <> 'jets:hashing_override'
 ;
 
 -- Pre-Defined clients used by the platform
