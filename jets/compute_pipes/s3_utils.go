@@ -148,6 +148,8 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 		// In stage we can directly list the s3 objects with the prefix to get the partitions info, without calling the database
 		var prefix string
 		if len(inputChannelConfig.FileKey) > 0 {
+			// Not reached by StartReducingComputePipes since 2026-10-18: a file_key step's
+			// nodes come from AssignStageFileKeys, not from the producers' partition labels.
 			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 			lback := inputChannelConfig.LookbackPeriods
 			if len(lback) > 0 {

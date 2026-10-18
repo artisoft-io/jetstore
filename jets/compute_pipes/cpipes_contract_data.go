@@ -191,6 +191,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"session_id":           {},
 		"source_period_key":    {},
 		"sources_config":       {},
+		"stage_file_keys":      {},
 		"user_email":           {},
 	},
 	"ComputePipesConfig/*": {
@@ -1065,6 +1066,12 @@ var CpipesContract = map[string]map[string]ContractField{
 		"default_splitter_value": {RequiredWhen: "absent(column) and absent(shard_on)"},
 		"shard_on":               {RequiredWhen: "absent(column) and absent(default_splitter_value)"},
 		"type":                   {},
+	},
+	"StageFileKey/*": {
+		"channel": {},
+		"key":     {},
+		"node":    {},
+		"size":    {},
 	},
 	"TableColumnSpec/*": {
 		"as_array": {},
