@@ -214,6 +214,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			if err != nil {
 				return nil, fmt.Errorf("while creating the map column evaluator (BuildMapTCEvaluator): %v", err)
 			}
+			markPerRecord(ce)
 			columnEvaluators = append(columnEvaluators, ce)
 		}
 	}
@@ -225,6 +226,8 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			log.Println(err)
 			return nil, err
 		}
+		// map_record writes one record per input record (see mapColumnEval.Update)
+		markPerRecord(ce)
 		columnEvaluators = append(columnEvaluators, ce)
 	}
 

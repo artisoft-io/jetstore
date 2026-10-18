@@ -33,7 +33,25 @@ func buildInPlaceMapEval(t *testing.T, name, expr string, mapExpr *MapExpression
 	if err != nil {
 		t.Fatalf("BuildMapTCEvaluator: %v", err)
 	}
+	markPerRecord(ev)
 	return ev, source
+}
+
+// buildAccumulatingMapEval builds a map column as an aggregate or map_reduce does:
+// not marked per record, its output kept across records.
+func buildAccumulatingMapEval(t *testing.T, mapExpr *MapExpression) TransformationColumnEvaluator {
+	t.Helper()
+	expr := "qty"
+	source := &InputChannel{Name: "in", Columns: &map[string]int{"qty": 0}, Config: &ChannelSpec{Name: "in"}}
+	outCh := &OutputChannel{Name: "agg", Columns: &map[string]int{"qty": 0}, Config: &ChannelSpec{Name: "agg"}}
+	ctx := &BuilderContext{}
+	ev, err := ctx.BuildTransformationColumnEvaluator(source, outCh, &TransformationColumnSpec{
+		Name: "qty", Type: "map", Expr: &expr, MapExpr: mapExpr,
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformationColumnEvaluator: %v", err)
+	}
+	return ev
 }
 
 func TestMapCastFailureUsesDefault(t *testing.T) {
@@ -313,5 +331,48 @@ func TestMapFallbackChainAbsentInputKeepsOutput(t *testing.T) {
 		if record[2] != c.want {
 			t.Errorf("primary=%v secondary=%v: expecting %v, got %#v", c.primary, c.secondary, c.want, record[2])
 		}
+	}
+}
+
+// In an aggregate or map_reduce the map column's output is kept across records.
+// A record whose value is rejected or empties must be skipped: neither null nor
+// the default may replace the value accumulated so far, and no error is returned
+// (the aggregate pipe has no on_error policy, so an error would stop the step).
+func TestMapAccumulatingSkipsRejectedAndEmptyValues(t *testing.T) {
+	for _, withDefault := range []bool{false, true} {
+		mapExpr := &MapExpression{RdfType: "double", CleansingFunction: "find_and_replace", Argument: `"Bk",""`}
+		if withDefault {
+			mapExpr.Default = "0"
+		}
+		ev := buildAccumulatingMapEval(t, mapExpr)
+		agg := []any{nil}
+		for _, raw := range []any{"5", "header_like_value", "Bk", "", "  ", nil} {
+			record := []any{raw}
+			if err := ev.Update(&agg, &record); err != nil {
+				t.Fatalf("default %v: Update(%q) returned %v, want no error", withDefault, raw, err)
+			}
+			want := any(5.0)
+			if withDefault && raw == nil {
+				// An absent input takes the default, as it always has
+				want = 0.0
+			}
+			if agg[0] != want {
+				t.Fatalf("default %v: after %q the output is %v, want %v", withDefault, raw, agg[0], want)
+			}
+			agg[0] = 5.0
+		}
+	}
+}
+
+// The same column in map_record (marked per record) writes null for those values.
+func TestMapPerRecordWritesNullWhereAccumulatingSkips(t *testing.T) {
+	ev := buildAccumulatingMapEval(t, &MapExpression{RdfType: "double"})
+	markPerRecord(ev)
+	record := []any{"header_like_value"}
+	if err := ev.Update(&record, &record); err == nil {
+		t.Error("want the cast error in map_record")
+	}
+	if record[0] != nil {
+		t.Errorf("map_record output is %v, want null", record[0])
 	}
 }

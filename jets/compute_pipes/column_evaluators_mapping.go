@@ -14,6 +14,18 @@ import (
 type mapColumnEval struct {
 	mapConfig    *mapColumnConfig
 	cleansingCtx *cleansing_functions.CleansingFunctionContext
+	// perRecord is true when the evaluator writes one record per input record
+	// (map_record), and false when it accumulates into a value kept across
+	// records (aggregate, map_reduce). See Update for what it changes.
+	perRecord bool
+}
+
+// markPerRecord tells a map column evaluator that it writes one record per input
+// record, as in map_record. Other evaluators are left as they are.
+func markPerRecord(ce TransformationColumnEvaluator) {
+	if me, ok := ce.(*mapColumnEval); ok {
+		me.perRecord = true
+	}
 }
 
 type mapColumnConfig struct {
@@ -39,6 +51,14 @@ type mapColumnConfig struct {
 //   - An absent input (nil) takes the default when one is defined. Without a
 //     default the output is left as it is, and the err_msg error is returned when
 //     err_msg is set.
+//   - When the evaluator accumulates across records (aggregate, map_reduce, ie
+//     not perRecord), a rejected or empty value is skipped instead: the output
+//     keeps the value an earlier record gave it, nothing is written, not even the
+//     default, and no error is returned. One record whose value fails the cast
+//     must not reset the accumulated value to null or to the default part way
+//     through, and an error would stop the step, since these pipes have no
+//     on_error policy. This is the case the "don't overwrite with nil" rule was
+//     written for.
 //
 // Why an absent input and an empty value differ. Leaving the output alone for an
 // absent input is what lets several map columns fall back onto one output: the
@@ -106,6 +126,11 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		if outputVal != nil {
 			outputVal = blankToNil(ctx.applyCodeValueMapping(outputVal))
 		}
+	}
+	if outputVal == nil && !ctx.perRecord {
+		// Accumulating across records: skip the rejected or empty value, keep the
+		// value accumulated so far (see above)
+		return nil
 	}
 	if outputVal == nil {
 		// Rejected or empty: use the default, else null
