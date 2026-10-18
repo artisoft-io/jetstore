@@ -269,6 +269,7 @@ class ComputePipesCommonArgs(_Base):
     session_id: str | None = Field(default=None, description="The unique id of this pipeline execution. Namespaces the stage files (stage_prefix/process_name/session_id/...) and the rows written to the execution-status tables.")
     source_period_key: int | None = Field(default=None, description="The key into table source_period identifying the period the main input file belongs to.")
     sources_config: SourcesConfigSpec | None = Field(default=None, description="Carry-over configuration from table source_config: the main input's columns and domain keys, plus any merged or injected input sources.")
+    stage_file_keys: list[StageFileKey] | None = Field(default=None, description="The files the nodes of a reducing step read when its main input reads the stage area through file_key, each with its node and channel. Set by the reducing starter, which re-shards those files across the step's nodes.")
     user_email: str | None = Field(default=None, description="The email of the operator who started the pipeline; recorded in the execution-status tables.")
 
 
@@ -1235,6 +1236,14 @@ class SplitterSpecExtCount(SplitterSpecBase):
     partition_row_count: int = Field(description="Maximum number of rows in each extended partition.")
 
 
+class StageFileKey(_Base):
+    """One staged file assigned to a reducing node of a step reading the stage through file_key."""
+    channel: int | None = Field(default=None, description="The channel the file is read as: 0 the main input, i+1 merge channel i.")
+    key: str | None = Field(default=None, description="The S3 key of the staged file.")
+    node: int | None = Field(default=None, description="The reducing node that reads the file, from 0.")
+    size: int | None = Field(default=None, description="The size of the staged file in bytes.")
+
+
 class TableColumnSpec(_Base):
     """Column metadata for lookup_tables and output_tables."""
     as_array: bool | None = Field(default=None, description="The column holds an array.")
@@ -1744,6 +1753,7 @@ _MATRIX_KEYS = {
     "SourcesConfigSpec": ("SourcesConfigSpec", "*"),
     "SplitterSpecExtCount": ("SplitterSpec", "ext_count"),
     "SplitterSpecStandard": ("SplitterSpec", "standard"),
+    "StageFileKey": ("StageFileKey", "*"),
     "TableColumnSpec": ("TableColumnSpec", "*"),
     "TableSpec": ("TableSpec", "*"),
     "TargetColumnsLookupSpec": ("TargetColumnsLookupSpec", "*"),

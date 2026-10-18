@@ -136,6 +136,13 @@ func GetPartitionSize4LookbackPeriod(bucket, fileKey, lookbackPeriod, sourceObje
 // a feed staged in four partitions was read four times (a client's medical
 // claims, 4 x 195,971 rows). An empty label keeps everything, for a caller
 // that is not partitioned.
+//
+// Since 2026-10-18 the reducing starter no longer runs one node per producer
+// label for such a step: it assigns the files to nodes itself (StageFileKeys,
+// stage_file_assignment.go), because the producers' labels do not match each
+// other's or this session's, and a merge channel's files were dropped when no
+// main input file carried their label. This filter remains for a node given a
+// reducing config written by an earlier starter, which carries no assignment.
 func objectsOfPartition(objects []*awsi.S3Object, jetsPartitionLabel string) ([]*awsi.S3Object, error) {
 	if jetsPartitionLabel == "" {
 		return objects, nil

@@ -135,6 +135,15 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 				},
 			}}
 			log.Printf("%s node %d Got input channel of type 'generator'", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
+		} else if len(cpConfig.CommonRuntimeArgs.StageFileKeys) > 0 {
+			// Case reducing a file_key read of the stage, the starter assigned this node's files
+			fileKeys, err = stageFileKeysOfNode(cpConfig.CommonRuntimeArgs.StageFileKeys, args.NodeId, 1+nbrMergeChannels)
+			if err != nil {
+				cpErr = err
+				goto gotError
+			}
+			log.Printf("%s node %d Got %d file keys assigned by the starter for file_key: %s",
+				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, getTotNbrFileKeys(fileKeys), inputChannelConfig.FileKey)
 		} else {
 			// Case reducing, get the file keys from s3
 			fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,

@@ -152,6 +152,7 @@ startStepId:
 	}
 
 	var partitions []JetsPartitionInfo
+	var stageFileKeys []StageFileKey
 	if inputChannelConfig.Type == "generator" {
 		// Case of generator, we generate the partitions based on the number of concurrent tasks we want to run
 		if inputChannelConfig.NbrNodesAny == nil {
@@ -162,6 +163,21 @@ startStepId:
 			return result, fmt.Errorf("while evaluating nbr_nodes for generator input channel: %v", err)
 		}
 		log.Printf("Start Reducing with input channel of type 'generator' with %d nodes", nbrNodes)
+		for i := range nbrNodes {
+			partitions = append(partitions, JetsPartitionInfo{
+				PartitionLabel: fmt.Sprintf("%04dP", i),
+			})
+		}
+	} else if readsStageByFileKey(inputChannelConfig) {
+		// Files of other sessions: re-shard them across this step's nodes rather than
+		// run one node per partition label the producers happened to use
+		// (stage_file_assignment.go).
+		var nbrNodes int
+		stageFileKeys, nbrNodes, err = AssignStageFileKeys(inputChannelConfig, cpipesStartup.CpConfig.ClusterConfig,
+			pipeConfig[0].Type == "merge_files", args.ClusterInfo.NbrPartitions, cpipesStartup.EnvSettings)
+		if err != nil {
+			return result, fmt.Errorf("while assigning the stage files of step %d - %s: %v", stepId, stepName, err)
+		}
 		for i := range nbrNodes {
 			partitions = append(partitions, JetsPartitionInfo{
 				PartitionLabel: fmt.Sprintf("%04dP", i),
@@ -291,6 +307,7 @@ startStepId:
 			DomainKeysSpecByClass: cpipesStartup.DomainKeysSpecByClass,
 			PipelineConfigKey:     cpipesStartup.PipelineConfigKey,
 			UserEmail:             cpipesStartup.OperatorEmail,
+			StageFileKeys:         stageFileKeys,
 		},
 		ClusterConfig: clusterSpec,
 		MetricsConfig: cpipesStartup.CpConfig.MetricsConfig,

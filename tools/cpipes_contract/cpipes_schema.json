@@ -2765,6 +2765,22 @@
           "default": null,
           "description": "Carry-over configuration from table source_config: the main input's columns and domain keys, plus any merged or injected input sources."
         },
+        "stage_file_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/StageFileKey"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The files the nodes of a reducing step read when its main input reads the stage area through file_key, each with its node and channel. Set by the reducing starter, which re-shards those files across the step's nodes.",
+          "title": "Stage File Keys"
+        },
         "user_email": {
           "anyOf": [
             {
@@ -15422,6 +15438,66 @@
         }
       },
       "title": "SplitterSpecStandard",
+      "type": "object"
+    },
+    "StageFileKey": {
+      "additionalProperties": false,
+      "description": "One staged file assigned to a reducing node of a step reading the stage through file_key.",
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the file is read as: 0 the main input, i+1 merge channel i.",
+          "title": "Channel"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The S3 key of the staged file.",
+          "title": "Key"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reducing node that reads the file, from 0.",
+          "title": "Node"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The size of the staged file in bytes.",
+          "title": "Size"
+        }
+      },
+      "title": "StageFileKey",
       "type": "object"
     },
     "TableColumnSpec": {

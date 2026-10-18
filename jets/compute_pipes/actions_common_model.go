@@ -76,6 +76,10 @@ type ComputePipesCommonArgs struct {
 	DomainKeysSpecByClass map[string]*DomainKeysSpec `json:"domain_keys_by_class,omitempty"`
 	PipelineConfigKey     int                        `json:"pipeline_config_key"`
 	UserEmail             string                     `json:"user_email,omitempty"`
+	// StageFileKeys is the files the nodes of a reducing step read when its main
+	// input reads the stage area through file_key, each with its node and channel.
+	// Set by the starter (AssignStageFileKeys).
+	StageFileKeys []StageFileKey `json:"stage_file_keys,omitempty"`
 }
 
 // SourcesConfigSpec contains carry over configuration from
