@@ -589,7 +589,11 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # shape belongs to whichever deployment wrote it, so there is no exemplar
     # this repository could hold up and no corpus instance it could measure one
     # from. It is the `empty` population's first permanent member.
-    assert len(cov["empty"]) == 38
+    #
+    # **39 on 2026-10-18**, the one being jetstore#2296's `StageFileKey`: the
+    # reducing starter writes it into the runtime config for the worker nodes, so
+    # no authored document carries one and the library can never hold a part for it.
+    assert len(cov["empty"]) == 39
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
 
 
