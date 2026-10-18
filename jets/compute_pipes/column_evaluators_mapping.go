@@ -32,12 +32,14 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 	//			- apply cleansing function (which returns a string), set to inputV
 	//		else
 	//			- set inputV to inputVal as string
-	// - if inputV is empty or cleansing function returned an errMsg:
-	//		set inputV to defaultVal if not empty, else report the errMsg or the default errMsg if any.
-	// - update currentValue using updated inputV
 	// - map inputV to correct rdf type if specified
+	// - if inputV is empty, or the cleansing function returned an errMsg, or the cast to rdf type failed:
+	//		set inputV to defaultVal if not empty, else report the errMsg, the cast error or the default errMsg if any.
 	// - if code value mapping defined, then map the inputV to the corresponding code value based on the mapping definition,
 	//   and use the code value as outputVal. If no code value found in map, use key __DEFAULT__ if defined, else use the inputV as outputVal.
+	// - update currentValue using updated inputV; when the input was empty and there is no default,
+	//   currentValue is left as is, but a value rejected by the cleansing function or the cast is
+	//   replaced by null so the rejected value does not pass through.
 	//
 	var inputVal, outputVal any
 	var inputV, errMsg string
@@ -67,20 +69,43 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 			}
 		}
 	}
-	if outputVal == nil {
-		// Apply default if defined
-		outputVal = config.defaultValue
-		if outputVal == nil && (mapConfig.ErrMsg != "" || errMsg != "") {
-			if errMsg == "" {
-				errMsg = mapConfig.ErrMsg
-			}
-			return fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, errMsg)
-		}
-	} else {
+	// rejected is true when the input had a value and the map refused it: the
+	// cleansing function reported an error or the cast to rdf type failed. A
+	// rejected value is replaced by the default, or by null when there is no
+	// default, and the output is written even when it is null. Not writing it is
+	// right for an absent input (see below), and wrong here: when map_record
+	// updates its input record in place and the column maps onto itself, the
+	// output position still holds the raw input, so skipping the write would let
+	// the value the map just rejected flow downstream unchanged.
+	rejected := len(errMsg) > 0
+	if outputVal != nil {
 		// Cast to rdf type
 		outputVal, err = CastToRdfType(outputVal, mapConfig.RdfType, nil)
 		if err != nil {
 			err = fmt.Errorf("while casting value to rdf type '%s': %v", mapConfig.RdfType, err)
+			outputVal = nil
+			rejected = true
+		}
+	}
+	if outputVal == nil {
+		// Apply default if defined
+		outputVal = config.defaultValue
+		switch {
+		case outputVal != nil:
+			// The default stands in for a missing or rejected value, so a rejected
+			// value that has a default is not an error.
+			err = nil
+		case err != nil:
+			// Cast failed with no default: report the cast error, the output is null.
+		case mapConfig.ErrMsg != "" || errMsg != "":
+			if errMsg == "" {
+				errMsg = mapConfig.ErrMsg
+			}
+			err = fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, errMsg)
+			if !rejected {
+				// Missing input reported with err_msg: leave current value as is
+				return err
+			}
 		}
 	}
 	// Apply code value mapping if defined
@@ -101,9 +126,11 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 		outputVal = mappedVal
 	}
-	if outputVal == nil {
-		// Don't overrite currentValue with nil
-		return nil
+	if outputVal == nil && !rejected {
+		// No value, nothing rejected and no default (absent input, or a cleansing
+		// function that returned no value without an error): don't overrite
+		// currentValue with nil
+		return err
 	}
 	(*currentValue)[config.outputPos] = outputVal
 	return err
