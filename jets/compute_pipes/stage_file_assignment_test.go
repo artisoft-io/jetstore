@@ -207,7 +207,7 @@ func TestReadsStageByFileKey(t *testing.T) {
 		channel InputChannelConfig
 		want    bool
 	}{
-		{InputChannelConfig{Type: "stage", FileKey: "$CLIENT/PharmacyClaim/${PERIOD_ID}M"}, true},
+		{InputChannelConfig{Type: "stage", FileConfig: FileConfig{FileKey: "$CLIENT/PharmacyClaim/${PERIOD_ID}M"}}, true},
 		{InputChannelConfig{Type: "stage", ReadStepId: "PharmacyClaim.sharded"}, false},
 		{InputChannelConfig{Type: "generator"}, false},
 	}
