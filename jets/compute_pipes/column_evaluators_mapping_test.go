@@ -165,3 +165,153 @@ func TestMapCastFailureThenCountWhereLT(t *testing.T) {
 		t.Errorf("expecting 1 negative quantity, got %d", n)
 	}
 }
+
+// A cleansing function that empties the value without an error (find_and_replace
+// of a placeholder with "") must not leave the raw value in place: without a
+// default the output is null, with one it is the default.
+func TestMapCleansedToEmptyWithoutDefaultIsNull(t *testing.T) {
+	ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{
+		CleansingFunction: "find_and_replace",
+		Argument:          `"Bk",""`,
+		RdfType:           "text",
+	})
+	record := []any{"Bk", "x"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Errorf("expecting no error, got %v", err)
+	}
+	if record[0] != nil {
+		t.Errorf("expecting null in place of the emptied value, got %#v", record[0])
+	}
+	// a value the function does not empty is kept, cleansed
+	record = []any{"12Bk3", "x"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Errorf("expecting no error, got %v", err)
+	}
+	if record[0] != "123" {
+		t.Errorf("expecting the cleansed value 123, got %#v", record[0])
+	}
+}
+
+func TestMapCleansedToEmptyUsesDefault(t *testing.T) {
+	ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{
+		CleansingFunction: "find_and_replace",
+		Argument:          `"Bk",""`,
+		Default:           "NONE",
+		RdfType:           "text",
+	})
+	record := []any{"Bk", "x"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Errorf("expecting no error, got %v", err)
+	}
+	if record[0] != "NONE" {
+		t.Errorf("expecting the default NONE, got %#v", record[0])
+	}
+}
+
+// A present input that is blank, empty or only white space, is an empty value:
+// it is replaced, never left in place and never written as a blank string.
+func TestMapBlankInput(t *testing.T) {
+	for _, raw := range []any{"", "   "} {
+		ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{RdfType: "double"})
+		record := []any{raw, "x"}
+		if err := ev.Update(&record, &record); err != nil {
+			t.Errorf("%q: expecting no error, got %v", raw, err)
+		}
+		if record[0] != nil {
+			t.Errorf("%q: expecting null, got %#v", raw, record[0])
+		}
+		ev, _ = buildInPlaceMapEval(t, "qty", "qty", &MapExpression{Default: "0", RdfType: "double"})
+		record = []any{raw, "x"}
+		if err := ev.Update(&record, &record); err != nil {
+			t.Errorf("%q: expecting no error, got %v", raw, err)
+		}
+		if v, ok := record[0].(float64); !ok || v != 0 {
+			t.Errorf("%q: expecting the default 0.0, got %#v", raw, record[0])
+		}
+		ev, _ = buildInPlaceMapEval(t, "qty", "qty", &MapExpression{RdfType: "text"})
+		record = []any{raw, "x"}
+		_ = ev.Update(&record, &record)
+		if record[0] != nil {
+			t.Errorf("%q: text: expecting null, got %#v", raw, record[0])
+		}
+	}
+}
+
+// An empty value with err_msg and no default: null is written and err_msg is
+// reported.
+func TestMapBlankInputWithErrMsg(t *testing.T) {
+	ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{RdfType: "text", ErrMsg: "qty is required"})
+	record := []any{"  ", "x"}
+	err := ev.Update(&record, &record)
+	if err == nil || !strings.Contains(err.Error(), "qty is required") {
+		t.Errorf("expecting the err_msg error, got %v", err)
+	}
+	if record[0] != nil {
+		t.Errorf("expecting null, got %#v", record[0])
+	}
+}
+
+// A code value mapping to "" yields an empty value: the default, else null.
+func TestMapCodeValueMappingToEmpty(t *testing.T) {
+	cvm := map[string]string{"N/A": "", "A": "Active"}
+	ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{RdfType: "text", CodeValueMapping: cvm})
+	record := []any{"N/A", "x"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Errorf("expecting no error, got %v", err)
+	}
+	if record[0] != nil {
+		t.Errorf("expecting null for a code mapped to empty, got %#v", record[0])
+	}
+	record = []any{"A", "x"}
+	_ = ev.Update(&record, &record)
+	if record[0] != "Active" {
+		t.Errorf("expecting Active, got %#v", record[0])
+	}
+	ev, _ = buildInPlaceMapEval(t, "qty", "qty", &MapExpression{RdfType: "text", CodeValueMapping: cvm, Default: "Unknown"})
+	record = []any{"N/A", "x"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Errorf("expecting no error, got %v", err)
+	}
+	if record[0] != "Unknown" {
+		t.Errorf("expecting the default Unknown, got %#v", record[0])
+	}
+}
+
+// Fallback chain: two map columns onto one output, the first one with an input
+// value wins and a later column with an absent input does not erase it. This is
+// the absent-input rule, and it must not change.
+func TestMapFallbackChainAbsentInputKeepsOutput(t *testing.T) {
+	columns := &map[string]int{"primary": 0, "secondary": 1, "out": 2}
+	source := &InputChannel{Name: "in", Columns: columns, Config: &ChannelSpec{Name: "in"}}
+	outCh := &OutputChannel{Name: "out", Columns: columns, Config: &ChannelSpec{Name: "out"}}
+	ctx := &BuilderContext{}
+	build := func(expr string) TransformationColumnEvaluator {
+		ev, err := ctx.BuildMapTCEvaluator(source, outCh, &TransformationColumnSpec{
+			Name: "out", Type: "map", Expr: &expr, MapExpr: &MapExpression{RdfType: "text"},
+		})
+		if err != nil {
+			t.Fatalf("BuildMapTCEvaluator: %v", err)
+		}
+		return ev
+	}
+	chain := []TransformationColumnEvaluator{build("primary"), build("secondary")}
+	cases := []struct {
+		primary, secondary, want any
+	}{
+		{"p", nil, "p"},
+		{nil, "s", "s"},
+		{"p", "s", "s"},
+		{nil, nil, "orig"},
+	}
+	for _, c := range cases {
+		record := []any{c.primary, c.secondary, "orig"}
+		for _, ev := range chain {
+			if err := ev.Update(&record, &record); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+		if record[2] != c.want {
+			t.Errorf("primary=%v secondary=%v: expecting %v, got %#v", c.primary, c.secondary, c.want, record[2])
+		}
+	}
+}
