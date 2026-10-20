@@ -134,7 +134,7 @@ func TestDefect_I1_IteratorGoroutineLeak(t *testing.T) {
 // So a second CreateBNode(key) does not find the first one and returns a new node,
 // and the node a NewBNode stored under lastBnodeKey is overwritten. ReifyResource
 // calls CreateBNode for every blank node an expression returns
-// (resource_manager.go:178), so two evaluations of one blank node give two
+// (ReifyResource, resource_manager.go:180), so two evaluations of one blank node give two
 // different *Node, and nodes are compared by pointer.
 //
 // Correct behaviour: rm.bnodeMap[key] = r, so CreateBNode(k) == CreateBNode(k) and
