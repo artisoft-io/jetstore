@@ -6,8 +6,10 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// SORTED_HEAD operator - DEPRECATED - with truth maintenance
-// use min_head_of or max_head_of instead
+// SORTED_HEAD operator - with truth maintenance
+// Returns the entity with the smallest (jets:operator "<") or largest (">") value,
+// in one pass. It delegates to MinMaxOp, as min_head_of and max_head_of do, and it
+// is the head form the C++ engine has: C++ has no min_head_of or max_head_of.
 type SortedHeadOp struct {
 	minMaxOp *MinMaxOp
 }
@@ -43,7 +45,7 @@ func (op *SortedHeadOp) RegisterCallback(reteSession *ReteSession, vertex int, l
 	return op.minMaxOp.RegisterCallback(reteSession, vertex, lhs, rhs)
 }
 func (op *SortedHeadOp) String() string {
-	return "sorted_head (deprecated)"
+	return "sorted_head"
 }
 
 // Delegate to MinMaxOp
