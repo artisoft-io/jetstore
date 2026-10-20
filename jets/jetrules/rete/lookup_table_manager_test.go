@@ -166,10 +166,9 @@ func TestLookupTable1(t *testing.T) {
 	log.Println("Got row", row.String())
 	itor := ctx.reteSession.RdfSession.Find()
 	log.Println("The graph contains:")
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		log.Println(t3)
 	}
-	itor.Done()
 }
 func TestLookupTable2(t *testing.T) {
 	useLookupFixture(t, 1)
@@ -220,10 +219,9 @@ func TestLookupTable2(t *testing.T) {
 	t.Log("Got row", row.String())
 	itor := ctx.reteSession.RdfSession.Find()
 	log.Println("The graph contains:")
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		log.Println(t3)
 	}
-	itor.Done()
 }
 
 func TestLookupRand1(t *testing.T) {
@@ -274,10 +272,9 @@ func TestLookupRand1(t *testing.T) {
 	t.Log("Got row", row.String())
 	itor := ctx.reteSession.RdfSession.Find()
 	log.Println("The graph contains:")
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		log.Println(t3)
 	}
-	itor.Done()
 }
 
 func TestLookupMultiRand1(t *testing.T) {
@@ -328,10 +325,9 @@ func TestLookupMultiRand1(t *testing.T) {
 	t.Log("Got row", row.String())
 	itor := ctx.reteSession.RdfSession.Find()
 	log.Println("The graph contains:")
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		log.Println(t3)
 	}
-	itor.Done()
 }
 
 func exclusionTypeLookup(t *testing.T) (*TestLookupTableManagerContext, LookupTable) {
@@ -506,7 +502,7 @@ func TestLookupServesRowId(t *testing.T) {
 	// Each row's jets:row_id against its PRIORITY, which the fixture gives as 3 and 4.
 	got := map[int]int{}
 	itor := sess.FindSP(multi, rm.JetsResources.Jets__lookup_multi_rows)
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		id, priority := sess.GetObject(t3[2], rowId), sess.GetObject(t3[2], rm.GetResource("PRIORITY"))
 		if id == nil || priority == nil {
 			t.Errorf("multi lookup row %s: jets:row_id %v, PRIORITY %v", t3[2], id, priority)
@@ -514,7 +510,6 @@ func TestLookupServesRowId(t *testing.T) {
 		}
 		got[id.Value.(int)] = priority.Value.(int)
 	}
-	itor.Done()
 	if len(got) != 2 || got[3] != 3 || got[4] != 4 {
 		t.Errorf("multi lookup rows for PROCEDURE: want jets:row_id 3 and 4 on PRIORITY 3 and 4, got %v", got)
 	}

@@ -159,11 +159,9 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 		// Process the returned iterator t3_itor accordingly if AlphaNode is a negation
 		betaRowInitializer := alphaNode.NdVertex.RowInitializer
 		if alphaNode.NdVertex.IsNegation {
-			// if t3Itor.Itor is empty then create the beta row
-			select {
-			case <-t3Itor.Itor:
-				// Got a triple, condition not met since it's a negation
-			default:
+			// if t3Itor is empty then create the beta row
+			// (a triple means the condition is not met since it's a negation)
+			if t3Itor.IsEmpty() {
 				// Got no triples, condition met; create the beta row
 				betaRow := NewBetaRow(alphaNode.NdVertex, betaRowInitializer.RowSize())
 				// initialize the beta row with parent_row and place holder for t3
@@ -183,8 +181,8 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 				}
 			}
 		} else {
-			// for each t3Itor.Itor create the beta row, keep it if pass filter
-			for t3 := range t3Itor.Itor {
+			// for each triple of t3Itor create the beta row, keep it if pass filter
+			for t3 := range t3Itor.All() {
 				// Create the beta row
 				betaRow := NewBetaRow(alphaNode.NdVertex, betaRowInitializer.RowSize())
 				// initialize the beta row with parent_row and t3
@@ -201,7 +199,6 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 				}
 			}
 		}
-		t3Itor.Done()
 		parentRowsItor.Next()
 	}
 	// Propagate down the rete network

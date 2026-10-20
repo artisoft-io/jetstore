@@ -49,8 +49,7 @@ func (rs *RdfSession) ContainsSP(s, p *Node) bool {
 
 func (rs *RdfSession) GetObject(s, p *Node) *Node {
 	itor := rs.FindSP(s, p)
-	defer itor.Done()
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		return t3[2]
 	}
 	return nil

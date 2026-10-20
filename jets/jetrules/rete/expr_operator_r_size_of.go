@@ -41,10 +41,9 @@ func (op *SizeOfOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 	itor := reteSession.RdfSession.FindSP(lhs, rhs)
 	var count int
 	if itor != nil {
-		for range itor.Itor {
+		for range itor.All() {
 			count += 1
 		}
-		itor.Done()
 	}
 	return rdf.I(count)
 }

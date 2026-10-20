@@ -27,6 +27,7 @@ package prose_test
 // `briefing_projection_test.go` states for the guardrail.
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -50,17 +51,18 @@ func (x *node) Equals(other compute_pipes.RdfNode) bool {
 	return ok && x.n.EQ(o.n) == rdf.TRUE()
 }
 
-// iterator drains the session iterator's channel, which is the protocol
-// `TripleIteratorGo` implements (`NewTripleIteratorGo`,
-// `jets/compute_pipes/jetrules_go_adaptor/jetrules_golang_model.go:53`).
+// iterator walks the triples collected from the session iterator, which is
+// the protocol `TripleIteratorGo` implements (`NewTripleIteratorGo`,
+// `jets/compute_pipes/jetrules_go_adaptor/jetrules_golang_model.go`).
 type iterator struct {
-	src   *rdf.RdfSessionIterator
-	value [3]*rdf.Node
-	isEnd bool
+	triples [][3]*rdf.Node
+	pos     int
+	value   [3]*rdf.Node
+	isEnd   bool
 }
 
 func newIterator(src *rdf.RdfSessionIterator) *iterator {
-	it := &iterator{src: src}
+	it := &iterator{triples: slices.Collect(src.All())}
 	it.Next()
 	return it
 }
@@ -69,11 +71,12 @@ func (it *iterator) Next() bool {
 	if it.isEnd {
 		return false
 	}
-	t3, ok := <-it.src.Itor
-	if !ok {
+	if it.pos >= len(it.triples) {
 		it.isEnd = true
 		return false
 	}
+	t3 := it.triples[it.pos]
+	it.pos++
 	it.value = t3
 	return true
 }
@@ -85,7 +88,7 @@ func (it *iterator) GetObject() compute_pipes.RdfNode    { return &node{n: it.va
 func (it *iterator) Value() [3]compute_pipes.RdfNode {
 	return [3]compute_pipes.RdfNode{&node{n: it.value[0]}, &node{n: it.value[1]}, &node{n: it.value[2]}}
 }
-func (it *iterator) Release() error { it.src.Done(); return nil }
+func (it *iterator) Release() error { it.triples = nil; return nil }
 
 type session struct{ s *rdf.RdfSession }
 

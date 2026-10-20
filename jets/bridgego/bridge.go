@@ -596,10 +596,9 @@ func (rs *RDFSession) GetRdfGraph() string {
 func DumpGraph(g *rdf.RdfGraph) {
 	triples := make([]string, 0)
 	t3Itor := g.Find()
-	for t3 := range t3Itor.Itor {
+	for t3 := range t3Itor.All() {
 		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
 	}
-	t3Itor.Done()
 	sort.Slice(triples, func(i, j int) bool { return triples[i] < triples[j] })
 	count := 0
 	for i := range triples {

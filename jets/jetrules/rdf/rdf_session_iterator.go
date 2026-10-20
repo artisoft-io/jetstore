@@ -1,52 +1,39 @@
 package rdf
 
-// RdfSession Iterator, it's essentially a funnel from the iterator of the session's rdf graphs
+import "iter"
+
+// RdfSession Iterator, it's the concatenation of the iterators of the session's
+// rdf graphs, in the order: meta, asserted, inferred.
+// Synchronous, see BaseGraphIterator.
 
 type RdfSessionIterator struct {
-	collector chan chan [3]*Node
-	Itor      chan [3]*Node
-	done      chan struct{}
-}
-
-func (itor *RdfSessionIterator) Done() {
-	select {
-	case <-itor.done:
-		// log.Printf("##!@@ Done: RdfSessionIterator ch was already closed!")
-	default:
-		close(itor.done)
-		// log.Printf("##!@@ Done: RdfSessionIterator ch closed")
-	}
+	metaItor, assertedItor, inferredItor *BaseGraphIterator
 }
 
 func NewRdfSessionIterator(metaItor, assertedItor, inferredItor *BaseGraphIterator) *RdfSessionIterator {
 	if metaItor == nil || assertedItor == nil || inferredItor == nil {
 		return nil
 	}
-	rsItor := &RdfSessionIterator{
-		collector: make(chan chan [3]*Node, 3),
-		Itor:      make(chan [3]*Node),
-		done:      make(chan struct{}),
+	return &RdfSessionIterator{
+		metaItor:     metaItor,
+		assertedItor: assertedItor,
+		inferredItor: inferredItor,
 	}
-	rsItor.collector <- metaItor.Itor
-	rsItor.collector <- assertedItor.Itor
-	rsItor.collector <- inferredItor.Itor
-	close(rsItor.collector)
-	go func() {
-		defer func() {
-			metaItor.Done()
-			assertedItor.Done()
-			inferredItor.Done()
-		}()
-		for gItor := range rsItor.collector {
-			for t3 := range gItor {
-				select {
-				case rsItor.Itor <- t3:
-				case <-rsItor.done:
-					return
-				}
-			}
-		}
-		close(rsItor.Itor)
-	}()
-	return rsItor
+}
+
+// All returns the matching triples, to use as: for t3 := range itor.All() { ... }
+func (itor *RdfSessionIterator) All() iter.Seq[[3]*Node] {
+	return func(yield func([3]*Node) bool) {
+		_ = itor.metaItor.visit(yield) &&
+			itor.assertedItor.visit(yield) &&
+			itor.inferredItor.visit(yield)
+	}
+}
+
+// IsEmpty returns true when no triple matches.
+func (itor *RdfSessionIterator) IsEmpty() bool {
+	for range itor.All() {
+		return false
+	}
+	return true
 }

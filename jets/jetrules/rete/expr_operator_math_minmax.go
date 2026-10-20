@@ -85,10 +85,9 @@ func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 		log.Println("error while calling FindSP in MinMaxOp")
 		return nil
 	}
-	defer itor.Done()
 	isFirst := true
 	var resultObj, resultValue *rdf.Node
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		currentObj := t3[2]
 		if currentObj == nil {
 			log.Panicf("unexpected error: got null obj in MinMax operator with argument %s, %s", lhs, rhs)

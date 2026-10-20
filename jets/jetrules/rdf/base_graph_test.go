@@ -128,8 +128,7 @@ func TestBaseGraphIterator(t *testing.T) {
 	if itor == nil {
 		t.Errorf("while calling Find() got nil itor")
 	} else {
-		defer itor.Done()
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			if !inserted[t3] {
 				t.Errorf("unexpected triple (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
@@ -192,8 +191,7 @@ func TestBaseGraphFindU(t *testing.T) {
 	if itor == nil {
 		t.Errorf("while calling FindU() got nil itor")
 	} else {
-		defer itor.Done()
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			if !inserted[t3] {
 				t.Errorf("unexpected triple (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
@@ -226,8 +224,7 @@ func TestBaseGraphFindUV(t *testing.T) {
 	if itor == nil {
 		t.Errorf("while calling FindUV() got nil itor")
 	} else {
-		defer itor.Done()
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			if !inserted[t3] {
 				t.Errorf("unexpected triple (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
@@ -262,12 +259,11 @@ func TestBenchBaseGraph(t *testing.T) {
 		if itor == nil {
 			t.Errorf("while FindU got nil itor")
 		} else {
-			for t3 := range itor.Itor {
+			for t3 := range itor.All() {
 				if s != t3[0] {
 					t.Error("s != t3[0]")
 				}
 			}
-			itor.Done()	
 		}
 		for j := 0; j < 20; j += 5 {
 			p := rm.NewResource(fmt.Sprintf("predicate%d", j))
@@ -275,7 +271,7 @@ func TestBenchBaseGraph(t *testing.T) {
 			if itor == nil {
 				t.Errorf("while FindUV got nil itor")
 			} else {
-				for t3 := range itor.Itor {
+				for t3 := range itor.All() {
 					if s != t3[0] {
 						t.Error("s != t3[0]")
 					}

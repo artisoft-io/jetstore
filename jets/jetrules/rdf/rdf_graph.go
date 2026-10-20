@@ -65,8 +65,7 @@ func (g *RdfGraph) ContainsSP(s, p *Node) bool {
 
 func (rs *RdfGraph) GetObject(s, p *Node) *Node {
 	itor := rs.FindSP(s, p)
-	defer itor.Done()
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		return t3[2]
 	}
 	return nil
@@ -171,7 +170,7 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 	var erased bool
 	l := make([]*[3]*Node, 0)
 	t3Itor := g.FindSPO(s, p, o)
-	for t3 := range t3Itor.Itor {
+	for t3 := range t3Itor.All() {
 		l = append(l, &t3)
 	}
 	for _, t3 := range l {
@@ -206,10 +205,9 @@ func (g *RdfGraph) Retract(s, p, o *Node) (bool, error) {
 func (g *RdfGraph) ToTriples() []string {
 	triples := make([]string, 0)
 	t3Itor := g.Find()
-	for t3 := range t3Itor.Itor {
+	for t3 := range t3Itor.All() {
 		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
 	}
-	t3Itor.Done()
 	slices.Sort(triples)
 	return triples
 }

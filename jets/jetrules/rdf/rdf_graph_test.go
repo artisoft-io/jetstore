@@ -39,13 +39,12 @@ func TestRdfGraph(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[1] != p {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}
@@ -56,13 +55,12 @@ func TestRdfGraph(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[2] != o {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}
@@ -73,13 +71,12 @@ func TestRdfGraph(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[0] != x || t3[2] != z {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}

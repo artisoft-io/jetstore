@@ -1,6 +1,8 @@
 package jetrules_go_adaptor
 
 import (
+	"slices"
+
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -42,25 +44,24 @@ type JetReteSessionGo struct {
 	reteSession *rete.ReteSession
 }
 
+// TripleIteratorGo is the pull iterator of compute_pipes.TripleIterator.
+// The rdf iterators are synchronous and push the triples to a loop body, they
+// have no Next(), so the matching triples are collected when the iterator is
+// created and Next() walks the collected triples.
 type TripleIteratorGo struct {
-	iterator *rdf.BaseGraphIterator
-	sesIter  *rdf.RdfSessionIterator
-	Itor     chan [3]*rdf.Node
-	value    [3]*rdf.Node
-	isEnd    bool
+	triples [][3]*rdf.Node
+	pos     int
+	value   [3]*rdf.Node
+	isEnd   bool
 }
 
 func NewTripleIteratorGo(itor *rdf.BaseGraphIterator, sesIter *rdf.RdfSessionIterator) *TripleIteratorGo {
-	t3Itor := &TripleIteratorGo{
-		iterator: itor,
-		sesIter:  sesIter,
-	}
+	t3Itor := &TripleIteratorGo{}
 	switch {
 	case itor != nil:
-		t3Itor.Itor = itor.Itor
+		t3Itor.triples = slices.Collect(itor.All())
 	case sesIter != nil:
-		t3Itor.Itor = sesIter.Itor
-
+		t3Itor.triples = slices.Collect(sesIter.All())
 	}
 	// move to the first value
 	t3Itor.Next()
