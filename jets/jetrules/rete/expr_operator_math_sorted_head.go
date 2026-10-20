@@ -8,8 +8,9 @@ import (
 
 // SORTED_HEAD operator - with truth maintenance
 // Returns the entity with the smallest (jets:operator "<") or largest (">") value,
-// in one pass. It delegates to MinMaxOp, as min_head_of and max_head_of do, and it
-// is the head form the C++ engine has: C++ has no min_head_of or max_head_of.
+// in one pass. sorted_head builds the same MinMaxOp that min_head_of and
+// max_head_of are, choosing min or max from jets:operator; it is the head form the
+// C++ engine has: C++ has no min_head_of or max_head_of.
 type SortedHeadOp struct {
 	minMaxOp *MinMaxOp
 }
