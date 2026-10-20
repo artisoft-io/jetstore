@@ -393,7 +393,10 @@ func (ses *JetRdfSessionNative) FindSPO(s, p, o compute_pipes.RdfNode) compute_p
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	// The null comes from the RDF session, not ses.rs: ses.rs is nil until the
+	// first NewReteSession, and the four Find methods dereferenced it until
+	// 2026-10-20 (rules_benchmark, AB.4), so a Find before any rete session panicked.
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -406,7 +409,7 @@ func (ses *JetRdfSessionNative) FindSP(s, p compute_pipes.RdfNode) compute_pipes
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -419,7 +422,7 @@ func (ses *JetRdfSessionNative) FindS(s compute_pipes.RdfNode) compute_pipes.Tri
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -428,7 +431,7 @@ func (ses *JetRdfSessionNative) Find() compute_pipes.TripleIterator {
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
