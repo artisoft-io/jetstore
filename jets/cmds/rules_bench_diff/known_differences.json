@@ -1,0 +1,84 @@
+{
+  "comment": "Known differences between two canonical graph dumps (jets/rulesbench/graphdump), read by rules_bench_diff and embedded in it. A difference is unclassified unless an entry matches. Fields and pair kinds: README.md beside this file. Each entry names where the difference is recorded: a section of jets/jetrules/rete/README.md or a register entry of projects/rules_benchmark.",
+  "entries": [
+    {
+      "id": "minted-node-relabelled",
+      "refs": [
+        "jets/rulesbench/graphdump, package documentation (Minted nodes)"
+      ],
+      "description": "The line is the same on both sides up to the label of a minted node, under a one-to-one correspondence of labels: the node is on both sides and was renamed because its neighbourhood within three hops differs. What differs is in its own lines, which are classified on their own.",
+      "scope": "any",
+      "pair": "relabelled"
+    },
+    {
+      "id": "go-double-literal-quantised",
+      "refs": [
+        "jets/jetrules/rete/README.md, The Go and C++ engines are independently maintained and they disagree, item 3"
+      ],
+      "description": "The Go engine quantises a double literal to 15 bits of mantissa (ResourceManager.NewDoubleLiteral); C++ keeps it. The two values are equal once both are quantised.",
+      "pair": "double_quantised"
+    },
+    {
+      "id": "go-lookup-subject-shared-across-tables",
+      "refs": [
+        "projects/rules_benchmark I-15"
+      ],
+      "description": "The Go engine names a lookup result jets:lookup:<key> (jets:lookup:multi:<key> for a multi-lookup), without the table, so two tables looked up with the same key share one subject, which carries both tables' columns and both rows' jets:row_id (LookupTableSqlite3.Lookup, jets/jetrules/rete/lookup_table_sqlite3.go). C++ names it jets:<table>:<key> (LookupTable::lookup_internal, jets/rete/lookup_sql_helper.cc), one subject per table. In the dump: one minted node on Go where C++ has one per table. Only a lookup subject: the merged node must be the object of a cache triple (jets:cache:<table> jets:lookup_row|jets:lookup_multi_rows _:node) on Go; any other node merged on one engine stays unclassified.",
+      "only_on": "go",
+      "pair": "merged",
+      "subject": "jets:cache:.*",
+      "predicate": "jets:lookup_row|jets:lookup_multi_rows"
+    },
+    {
+      "id": "lookup-cache-predicate",
+      "refs": [
+        "jets/rulesbench/graphdump, package documentation (Lookup bookkeeping)"
+      ],
+      "description": "A multi-lookup's cache triple: Go writes (jets:cache:<table> jets:lookup_multi_rows <subject>) (LookupTableSqlite3.MultiLookup), C++ (<table> jets:lookup_row <subject>) (LookupTable::lookup_internal), which the dump renames jets:cache:<table>. Bookkeeping: the 26 uses of jets:lookup_row and jets:lookup_multi_rows in the four workspaces' rule files (counted 2026-10-20) all read them as (?x jets:lookup_… ?y), and none names a cache resource.",
+      "subject": "jets:cache:.*",
+      "predicate": "jets:lookup_row|jets:lookup_multi_rows",
+      "pair": "predicate_alias"
+    },
+    {
+      "id": "go-double-quantisation-propagated",
+      "refs": [
+        "jets/jetrules/rete/README.md, The Go and C++ engines are independently maintained and they disagree, item 3"
+      ],
+      "description": "A ratio the Go engine computed from quantised literals: at most 2.5 quanta of Go's 15-bit grid from the C++ value, a quantum being graphdump.Quantum at the larger magnitude (on cm_loop the largest is 2.10 quanta). Limited to the percentages, hc_usi:medicarePct, _0:medicarePct and their export usi_out:PercentMedTagGlobal. A money amount computed from quantised literals is not classified, since it changes by cents (on cm_loop: hc_usi:medicareGlobal, totalAmountAllowed, totalAmountPaid, mbrResponsibility and the export's Amt* columns, 0.5 to 1.04 quanta apart). Weaker evidence than go-double-literal-quantised, and reported apart from it.",
+      "pair": "double_near",
+      "quanta": 2.5,
+      "predicate": "hc_usi:medicarePct|_0:medicarePct|usi_out:PercentMedTagGlobal"
+    },
+    {
+      "id": "text-plus-double-format",
+      "refs": [
+        "projects/rules_benchmark I-16"
+      ],
+      "description": "Text + double writes the number differently: Go formats it with %v, the shortest form (Node.ADD, jets/jetrules/rdf/ast_math_operators.go), and C++ with std::to_string, six decimals (AddVisitor, jets/rete/expr_op_arithmetics.h). \"rate: 991\" on Go is \"rate: 991.000000\" on C++ (usi_ws gz02, 4_CM04_Orphans_Main1.jr). Matched only on hc_usi:meetRule, and only when the texts are equal between their numbers and each differing pair of numbers is one six-decimal form against one other form, equal once quantised; integers that differ are not matched.",
+      "pair": "text_double_format",
+      "predicate": "hc_usi:meetRule"
+    },
+    {
+      "id": "literal-regex-claimZip3",
+      "refs": [
+        "projects/rules_benchmark I-12, F53",
+        "jets/jetrules/rete/README.md, Operator names are not registered anywhere but the two factories (apply_regex)"
+      ],
+      "description": "literal_regex returns the whole match, or an empty string on no match, on Go (ApplyRegexOp.Eval), and capture group 1, or null on no match, on C++ (RegexVisitor). usi_ws z004 (^(\\d\\d\\d) on a rendering provider zip): a zip that does not start with three digits gives an empty hc_usi:claimZip3 on Go and none on C++.",
+      "only_on": "go",
+      "predicate": "hc_usi:claimZip3",
+      "object": "\"\""
+    },
+    {
+      "id": "literal-regex-walrus-names",
+      "refs": [
+        "projects/rules_benchmark I-12, F53"
+      ],
+      "description": "literal_regex as in literal-regex-claimZip3, on walrus_ws's name-splitting rules (merge_claim_header_and_details_main.jr): Go's pt_fname keeps the comma and the space (\", John\") and its pt_lname the comma (\"Doe,\"), and C++'s are the capture groups (\"John\", \"Doe\"). Matched as a pair: Go's text has that form and contains C++'s.",
+      "predicate": "pt_fname|pt_lname",
+      "pair": "literal_regex_group",
+      "only_on": "go",
+      "object": "\"(?:,\\s+\\w+|[^\"]*,)\""
+    }
+  ]
+}
