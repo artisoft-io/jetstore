@@ -44,7 +44,29 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 	re JetRuleEngine, errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
 
-	// Prepare a map of the multi-value properties for the output channels, to ensure proper cardinality.
+	mvProperties, column2RdfType := outputChannelProperties(outputChannels)
+
+	// log.Println("New Pool Worker Created")
+	return &JrPoolWorker{
+		config:                   config,
+		source:                   source,
+		ruleEngine:               re,
+		errorOutputCh:            errorOutputCh,
+		outputChannels:           outputChannels,
+		done:                     done,
+		errCh:                    errCh,
+		rdfType2Columns:          rdfType2Columns,
+		multiValueDataProperties: mvProperties,
+		column2RdfType:           column2RdfType,
+		builderContext:           ctx,
+		groupingKey:              ctx.newJetrulesGroupingKey(source),
+	}
+}
+
+// outputChannelProperties is what extraction reads about the output channels'
+// classes: the multi-value properties, to ensure proper cardinality, and each
+// property's rdf type.
+func outputChannelProperties(outputChannels []*JetrulesOutputChan) (map[string]bool, map[string]string) {
 	mvProperties := make(map[string]bool)
 	var column2RdfType map[string]string
 	for _, outChannel := range outputChannels {
@@ -70,22 +92,73 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 	if column2RdfType == nil {
 		column2RdfType = make(map[string]string)
 	}
+	return mvProperties, column2RdfType
+}
 
-	// log.Println("New Pool Worker Created")
-	return &JrPoolWorker{
+// ExtractClass is one class ExtractSessionEntities extracts, as a jetrules
+// output channel names it: the class and the channel's columns, which a
+// pipeline takes from the class's domain properties (GetDomainProperties)
+// followed by the channel spec's own columns.
+type ExtractClass struct {
+	ClassName string
+	Columns   []string
+}
+
+// ExtractSessionEntities extracts the entities of each class from rdfSession
+// through the pipeline's own extraction, extractSessionData, as executeRules
+// does once the rules have run: each entity row is sent on a channel, as it is
+// to a jetrules output channel, and emit receives it on another goroutine. It
+// returns the number of rows extracted per class.
+//
+// Two things a pipeline does are left out, and both are outside the rules: the
+// output channel's column evaluators (constant columns such as session_id, set
+// by the transformation's columns), and the error channel, so a property with
+// several values is logged and counted but reported nowhere. It is for the
+// rules_bench command (jets/cmds/rules_bench); no pipeline calls it.
+func ExtractSessionEntities(config *JetrulesSpec, rdfSession JetRdfSession, classes []ExtractClass,
+	emit func(className string, row []any)) (map[string]int, error) {
+	outputChannels := make([]*JetrulesOutputChan, 0, len(classes))
+	for _, c := range classes {
+		outputChannels = append(outputChannels, &JetrulesOutputChan{
+			ClassName:         c.ClassName,
+			JrColumnEncodings: map[string]*JrSpecialColumnEncoding{},
+			OutputCh: &OutputChannel{
+				Name:   c.ClassName,
+				Config: &ChannelSpec{Name: c.ClassName, ClassName: c.ClassName, Columns: c.Columns},
+			},
+		})
+	}
+	mvProperties, column2RdfType := outputChannelProperties(outputChannels)
+	worker := &JrPoolWorker{
 		config:                   config,
-		source:                   source,
-		ruleEngine:               re,
-		errorOutputCh:            errorOutputCh,
 		outputChannels:           outputChannels,
-		done:                     done,
-		errCh:                    errCh,
-		rdfType2Columns:          rdfType2Columns,
+		done:                     make(chan struct{}),
 		multiValueDataProperties: mvProperties,
 		column2RdfType:           column2RdfType,
-		builderContext:           ctx,
-		groupingKey:              ctx.newJetrulesGroupingKey(source),
 	}
+	counts := make(map[string]int, len(classes))
+	for _, outChannel := range outputChannels {
+		ch := make(chan []any, 1)
+		outChannel.OutputCh.Channel = ch
+		drained := make(chan int)
+		go func(className string) {
+			n := 0
+			for row := range ch {
+				if emit != nil {
+					emit(className, row)
+				}
+				n++
+			}
+			drained <- n
+		}(outChannel.ClassName)
+		err := worker.extractSessionData(rdfSession, outChannel, outChannel.OutputCh.Config)
+		close(ch)
+		counts[outChannel.ClassName] = <-drained
+		if err != nil {
+			return counts, fmt.Errorf("while extracting entities of class %s: %v", outChannel.ClassName, err)
+		}
+	}
+	return counts, nil
 }
 
 func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorkerResult) {
@@ -322,6 +395,86 @@ type RuleSetsConfig struct {
 	// released, with that rule set's outcome. executeRules reports failures
 	// through it; it must not retain rdfSession.
 	AfterRuleSet func(rdfSession JetRdfSession, outcome *RuleSetOutcome)
+	// Timing, when not nil, receives the time of each phase of the loop, read on
+	// the monotonic clock. It is nil in every pipeline, and RunRuleSets then reads
+	// no clock at all. The rules_bench command (jets/cmds/rules_bench) sets it.
+	Timing RuleSetsTimer
+}
+
+// RuleSetsTimer receives RunRuleSets' phase times. Its methods are called on the
+// goroutine running RunRuleSets, between the phases they time, so an
+// implementation that is slow delays the loop and is not counted in any phase.
+type RuleSetsTimer interface {
+	// InputAsserted is called once, after assertInput returned, with its time.
+	InputAsserted(d time.Duration)
+	// RuleSetDone is called once per rule set that ran, after its exception scan
+	// and before its rete session is released, so that the timer may read
+	// counters from reteSession (see ReteCounterReader). It must not retain
+	// reteSession or rdfSession.
+	RuleSetDone(rdfSession JetRdfSession, reteSession JetReteSession, timing *RuleSetTiming)
+}
+
+// RuleSetTiming is the time one rule set took in RunRuleSets, by phase. Every
+// duration is wall time on the monotonic clock. The input assertion, which runs
+// inside the first rule set, is not in any of them: it is
+// RuleSetsTimer.InputAsserted.
+type RuleSetTiming struct {
+	RuleSet string
+	// ReteSession is NewReteSession: the rete session's set-up for this rule set.
+	ReteSession time.Duration
+	// Prepare is the erase of jets:loop and jets:completed and the read of
+	// $max_looping.
+	Prepare time.Duration
+	// Loops holds one ExecuteRules time per loop run, loop 0 first.
+	Loops []time.Duration
+	// Control is the looping protocol around ExecuteRules, summed over the loops:
+	// the jets:loop inserts and the jets:completed checks.
+	Control time.Duration
+	// ExceptionScan is the scan of (jets:iState jets:exception ?) at the end.
+	ExceptionScan time.Duration
+	// Total runs from before NewReteSession to after the exception scan, less the
+	// input assertion.
+	Total time.Duration
+}
+
+// GraphSizes is the number of triples in each graph an rdf session reads.
+type GraphSizes struct {
+	Meta, Asserted, Inferred int
+}
+
+// GraphSizer is implemented by an rdf session that counts its graphs at no
+// cost. The Go adaptor's does. The native adaptor's does not: the bridge has no
+// call that returns a count.
+type GraphSizer interface {
+	GraphSizes() GraphSizes
+}
+
+// ReteCounters is what a rete session has counted since it was created, which
+// is since its rule set started: a rete session lasts for every loop of its rule
+// set.
+type ReteCounters struct {
+	// Vertices is the number of vertices of the rule set's network.
+	Vertices int
+	// VertexVisits is the sum over vertices of the rows whose consequents were
+	// computed: the count the max_vertex_visits cap is compared with, vertex by
+	// vertex.
+	VertexVisits int64
+	// Retractions is the sum over vertices of the rows whose consequents were
+	// retracted.
+	Retractions int64
+	// BusiestVertexVisits and BusiestVertexRules are the vertex with the most
+	// visits, the one that reaches the cap first, and the rules it carries.
+	BusiestVertexVisits int64
+	BusiestVertexRules  string
+	// BetaRows is the number of rows the beta relations hold when it is read.
+	BetaRows int64
+}
+
+// ReteCounterReader is implemented by a rete session that keeps ReteCounters.
+// The Go adaptor's does; the native adaptor's does not, since the bridge exposes
+// none of the C++ engine's counters.
+type ReteCounterReader interface {
+	ReteCounters() ReteCounters
 }
 
 // RuleSetOutcome is what happened in one rule set.
@@ -424,6 +577,11 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 	// are the previous rule set's scan; nothing between two scans asserts one.
 	var exceptionsBefore map[string]bool
 	isDebug := config.IsDebug
+	// The phase times, read only when there is a timer (RuleSetsConfig.Timing).
+	timer := config.Timing
+	var timing *RuleSetTiming
+	var t0, t1 time.Time
+	var inputTime time.Duration
 
 	wc, err = GetWorkspaceControl()
 	if err != nil {
@@ -446,9 +604,17 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		}
 	}()
 	for _, ruleset := range ruleFileNames {
+		if timer != nil {
+			timing = &RuleSetTiming{RuleSet: ruleset}
+			inputTime = 0
+			t0 = time.Now()
+		}
 		// Create the rete session
 		reteSession, err = rdfSession.NewReteSession(ruleset)
 		rm = rdfSession.GetResourceManager()
+		if timer != nil {
+			timing.ReteSession = time.Since(t0)
+		}
 		if err != nil {
 			outcome.Err = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			return
@@ -457,13 +623,23 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		// rule set does (rules_unit_test_harness I-10).
 		if !inputAsserted {
 			// Assert the input records to rdf session
+			if timer != nil {
+				t1 = time.Now()
+			}
 			err = assertInput(rdfSession)
+			if timer != nil {
+				inputTime = time.Since(t1)
+				timer.InputAsserted(inputTime)
+			}
 			if err != nil {
 				outcome.Err = fmt.Errorf("while asserting input records to rdf session: %v", err)
 				reteSession.Release()
 				return
 			}
 			inputAsserted = true
+		}
+		if timer != nil {
+			t1 = time.Now()
 		}
 
 		// Step 0 of loop is pre loop or no loop
@@ -498,19 +674,39 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 			log.Printf("jetrules: looping in use, max number of loops is %d", maxLooping)
 		}
 		rs := RuleSetOutcome{RuleSet: ruleset, MaxLooping: maxLooping}
+		if timer != nil {
+			timing.Prepare = time.Since(t1)
+		}
 		// do for iloop <= maxloop (since looping start at one!)
 		for iloop = 0; iloop <= maxLooping; iloop++ {
 			rs.Loops = iloop
+			if timer != nil {
+				t1 = time.Now()
+			}
 			if iloop > 0 {
 				rdfSession.Insert(jr.Jets__istate, jr.Jets__loop, rm.NewIntLiteral(iloop))
 			}
+			if timer != nil {
+				now := time.Now()
+				timing.Control += now.Sub(t1)
+				t1 = now
+			}
 			err2 := reteSession.ExecuteRules()
+			if timer != nil {
+				now := time.Now()
+				timing.Loops = append(timing.Loops, now.Sub(t1))
+				t1 = now
+			}
 			if err2 != nil {
 				rs.ExecuteErr = err2
 				break
 			}
 			// Check if looping is completed (Jets__completed)
-			if rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
+			completed := rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed)
+			if timer != nil {
+				timing.Control += time.Since(t1)
+			}
+			if completed {
 				log.Printf("jetrules: Rete Session Looping Completed with iloop %d", iloop)
 				rs.Completed = true
 				break
@@ -525,6 +721,9 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		// Check for any jets:exceptions in the rdfSession, and keep the ones this
 		// rule set raised. The exceptions stay in the session: a later rule set's
 		// rules may read them, and its scan finds them again without reporting them.
+		if timer != nil {
+			t1 = time.Now()
+		}
 		exceptionsNow := make(map[string]bool)
 		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
 		for !ctor.IsEnd() {
@@ -540,6 +739,10 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		}
 		ctor.Release()
 		exceptionsBefore = exceptionsNow
+		if timer != nil {
+			timing.ExceptionScan = time.Since(t1)
+			timing.Total = time.Since(t0) - inputTime
+		}
 
 		outcome.RuleSets = append(outcome.RuleSets, rs)
 		outcome.Loops = rs.Loops
@@ -553,6 +756,9 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		outcome.Exceptions = append(outcome.Exceptions, rs.Exceptions...)
 		if config.AfterRuleSet != nil {
 			config.AfterRuleSet(rdfSession, &outcome.RuleSets[len(outcome.RuleSets)-1])
+		}
+		if timer != nil {
+			timer.RuleSetDone(rdfSession, reteSession, timing)
 		}
 		reteSession.Release()
 	}
@@ -959,12 +1165,33 @@ nextField:
 // them once per process and returns the cached map after that, so calling it
 // per row costs a lock and a lookup.
 func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []string, cells []string) error {
+	row, err := CastTextRow(config, columns, cells)
+	if err != nil {
+		return err
+	}
+	return AssertCastRow(config, rdfSession, row)
+}
+
+// CastRow is a row of text cells cast by CastTextRow and ready for
+// AssertCastRow: the layout assertInputRow reads and the typed values.
+type CastRow struct {
+	assertType string
+	layout     []string
+	row        []any
+}
+
+// CastTextRow is the first half of AssertTextRow: it checks and casts a row of
+// text cells, and asserts nothing. A pipeline casts its input when it reads it,
+// before the jetrules step, so the rules_bench command casts its input once
+// with this and times AssertCastRow alone. A CastRow may be asserted any number
+// of times, into any session.
+func CastTextRow(config *JetrulesSpec, columns []string, cells []string) (*CastRow, error) {
 	if len(cells) != len(columns) {
-		return fmt.Errorf("error: row has %d cells for %d columns", len(cells), len(columns))
+		return nil, fmt.Errorf("error: row has %d cells for %d columns", len(cells), len(columns))
 	}
 	dpMap, err := GetWorkspaceDataProperties()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// assertInputRow's layout: jets:key, rdf:type, jets:source_period_sequence,
 	// then the other columns in the order given.
@@ -974,7 +1201,7 @@ func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []str
 	for i, column := range columns {
 		dp := dpMap[column]
 		if dp == nil {
-			return fmt.Errorf("error: column '%s' is not a data property of the workspace", column)
+			return nil, fmt.Errorf("error: column '%s' is not a data property of the workspace", column)
 		}
 		isArray := dp.AsArray
 		if column == "rdf:type" {
@@ -982,7 +1209,7 @@ func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []str
 		}
 		value, err := castToRdfTypeFromTxt(cells[i], dp.Type, &isArray)
 		if err != nil {
-			return fmt.Errorf("error: column '%s' value '%s' is not a %s: %v", column, cells[i], dp.Type, err)
+			return nil, fmt.Errorf("error: column '%s' value '%s' is not a %s: %v", column, cells[i], dp.Type, err)
 		}
 		switch column {
 		case "jets:key":
@@ -1000,12 +1227,20 @@ func AssertTextRow(config *JetrulesSpec, rdfSession JetRdfSession, columns []str
 	assertType := config.InputRdfType
 	if types, ok := row[1].([]any); ok && len(types) > 0 {
 		if assertType, ok = types[0].(string); !ok {
-			return fmt.Errorf("error: rdf:type value %v (%T) is not a resource name", types[0], types[0])
+			return nil, fmt.Errorf("error: rdf:type value %v (%T) is not a resource name", types[0], types[0])
 		}
 	} else {
 		row[1] = nil
 	}
-	return assertInputRow(config, rdfSession, &row, map[string][]string{assertType: layout})
+	return &CastRow{assertType: assertType, layout: layout, row: row}, nil
+}
+
+// AssertCastRow is the second half of AssertTextRow: it asserts a row cast by
+// CastTextRow into rdfSession, exactly as a pipeline asserts an input row
+// (assertInputRow). It leaves the CastRow unchanged.
+func AssertCastRow(config *JetrulesSpec, rdfSession JetRdfSession, cr *CastRow) error {
+	row := cr.row
+	return assertInputRow(config, rdfSession, &row, map[string][]string{cr.assertType: cr.layout})
 }
 
 func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
