@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -30,9 +31,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulesbench"
+	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
@@ -42,7 +45,7 @@ var (
 	outDir       = flag.String("out_dir", "", "directory the results are written to (required)")
 	engineFlag   = flag.String("engine", "", "override the spec's engines: native, go, or both comma-separated, in run order")
 	repetitions  = flag.Int("repetitions", 0, "override the spec's repetitions")
-	warmup       = flag.Int("warmup", 0, "override the spec's warmup runs")
+	warmup       = flag.Int("warmup", 0, "override the spec's warmup runs; -warmup 0 turns them off")
 	poolSize     = flag.Int("pool", 0, "override the spec's pool_size: sessions run concurrently by N workers on one engine")
 	maxVisits    = flag.Int("max_vertex_visits", 0, "override the spec's max_vertex_visits, set on both engines")
 	maxLooping   = flag.Int("max_looping", -1, "override the spec's max_looping; -1 keeps it")
@@ -51,7 +54,7 @@ var (
 	sampleMs     = flag.Int("sample_ms", 10, "goroutine sampling period in ms; 0 turns sampling off")
 	rlimitDataMB = flag.Int("rlimit_data_mb", 0, "memory ceiling in MiB applied to this process as RLIMIT_DATA; 0 is none")
 	requireTuned = flag.Bool("require_tuned", false, "refuse to run unless every allowed CPU uses the performance governor and perf_event_paranoid <= 1")
-	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set to <dir>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
+	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set, one dump tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
 
 	cpuProfile     = flag.String("cpuprofile", "", "write a Go CPU profile of the runs to this file")
 	memProfile     = flag.String("memprofile", "", "write a Go allocation profile of the runs to this file")
@@ -61,10 +64,15 @@ var (
 	traceFile      = flag.String("trace", "", "write a Go execution trace of the runs to this file")
 )
 
-// dumpWriter writes the canonical graph dump. It is nil until the graph dump
-// package (jets/rulesbench/graphdump) is wired in, and -dump_dir is refused
-// while it is.
-var dumpWriter rulesbench.DumpWriter
+// dumpWriter writes the canonical graph dump with graphdump's default options
+// (the meta graph left out), and dumpPath is the dump tree's layout, the one
+// jets/cmds/rules_bench_diff reads.
+var (
+	dumpWriter rulesbench.DumpWriter = func(w io.Writer, s compute_pipes.JetRdfSession) error {
+		return graphdump.WriteSession(w, s, graphdump.Options{})
+	}
+	dumpPath rulesbench.DumpPathFunc = graphdump.Path
+)
 
 func main() {
 	utils.UseJetStoreLogger()
@@ -80,10 +88,6 @@ func main() {
 	if *outDir == "" || specPath == "" || flag.NArg() > 1 {
 		fmt.Fprintln(os.Stderr, "usage: rules_bench -out_dir <dir> [flags] <spec.json>")
 		flag.PrintDefaults()
-		os.Exit(2)
-	}
-	if *dumpDir != "" && dumpWriter == nil {
-		fmt.Fprintln(os.Stderr, "rules_bench: -dump_dir needs the graph dump (jets/rulesbench/graphdump), which this build does not have")
 		os.Exit(2)
 	}
 	if err := run(specPath); err != nil {
@@ -125,7 +129,6 @@ func run(specPath string) error {
 			Go:     jetrules_go_adaptor.NewJetRulesFactory(),
 		},
 		Repetitions:     *repetitions,
-		Warmup:          *warmup,
 		PoolSize:        *poolSize,
 		MaxVertexVisits: *maxVisits,
 		PerLoop:         *perLoop,
@@ -133,6 +136,12 @@ func run(specPath string) error {
 		SampleMs:        *sampleMs,
 		Env:             env,
 	}
+	// A flag given as 0 overrides the spec's warmup; a flag not given keeps it.
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "warmup" {
+			opts.Warmup = warmup
+		}
+	})
 	if *engineFlag != "" {
 		opts.Engines = strings.Split(*engineFlag, ",")
 	}
@@ -140,7 +149,7 @@ func run(specPath string) error {
 		opts.MaxLooping = maxLooping
 	}
 	if *dumpDir != "" {
-		opts.AfterRuleSet = rulesbench.NewDumper(*dumpDir, dumpWriter)
+		opts.AfterRuleSet = rulesbench.NewDumper(*dumpDir, dumpPath, dumpWriter)
 	}
 	stopProfiles := func() error { return nil }
 	opts.BeforeRuns = func() {

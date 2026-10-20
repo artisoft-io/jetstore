@@ -27,10 +27,11 @@ type Options struct {
 	Factories harness.Factories
 
 	// Engines, Repetitions, Warmup, PoolSize, MaxVertexVisits and MaxLooping
-	// override the spec when set (MaxLooping when not nil).
+	// override the spec when set: the ints when above 0, the pointers when not
+	// nil, so that a warmup of 0 can override a spec's.
 	Engines         []string
 	Repetitions     int
-	Warmup          int
+	Warmup          *int
 	PoolSize        int
 	MaxVertexVisits int
 	MaxLooping      *int
@@ -44,9 +45,9 @@ type Options struct {
 	SampleMs int
 
 	// AfterRuleSet, when not nil, is called after each rule set of each session,
-	// before its rete session is released, with the rule set's position from 0.
-	// It is where the graph dump is wired in. Its time is the session's DumpNs.
-	AfterRuleSet func(engine, session string, index int, ruleSet string, rdfSession compute_pipes.JetRdfSession) error
+	// before its rete session is released. It is where the graph dump is wired
+	// in (NewDumper). Its time is the session's DumpNs, and is in no other phase.
+	AfterRuleSet func(p DumpPoint, rdfSession compute_pipes.JetRdfSession) error
 
 	// BeforeRuns and AfterRuns, when not nil, bracket the measured and warmup
 	// runs, after every engine is built: where the command starts and stops its
@@ -91,8 +92,11 @@ func Run(opts Options) ([]*RunResult, error) {
 	}
 	reps := firstPositive(opts.Repetitions, spec.Repetitions, 1)
 	warmup := spec.Warmup
-	if opts.Warmup > 0 {
-		warmup = opts.Warmup
+	if opts.Warmup != nil {
+		warmup = *opts.Warmup
+	}
+	if warmup < 0 {
+		return nil, errors.New("warmup cannot be negative")
 	}
 	pool := firstPositive(opts.PoolSize, spec.PoolSize, 1)
 	cfg := spec.JetrulesConfig
@@ -361,6 +365,7 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		Sessions:   make([]SessionResult, len(inputs)),
 	}
 	r.Memory.SampleMs = opts.SampleMs
+	run := runTag{repetition: rep, warmup: isWarmup}
 	// A collection before each run, so that the previous run's garbage is not
 	// collected in this one's time.
 	runtime.GC()
@@ -377,11 +382,18 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		wg.Add(1)
 		go func(worker int) {
 			defer wg.Done()
+			// One extractor per worker, as a pipeline prepares one JrPoolWorker per
+			// worker: what it prepares is not in any session's extraction time.
+			var x *compute_pipes.SessionExtractor
+			if len(classes) > 0 {
+				x = compute_pipes.NewSessionExtractor(st.spec, classes, nil)
+				defer x.Close()
+			}
 			for t := range tasks {
 				sr := &r.Sessions[t.index]
 				sr.Worker = worker
 				sr.StartNs = time.Since(start).Nanoseconds()
-				runSession(opts, st, &inputs[t.index], classes, pool == 1, sr)
+				runSession(opts, st, &inputs[t.index], x, run, pool == 1, sr)
 			}
 		}(w)
 	}
@@ -443,14 +455,26 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 	return r
 }
 
-// sessionTimer is the RuleSetsTimer of one session.
+// runTag is the repetition a run is, which a dump point carries.
+type runTag struct {
+	repetition int
+	warmup     bool
+}
+
+// sessionTimer is the RuleSetsTimer of one session. The time it spends in its
+// own callbacks is kept apart: the dump in dump, and the rest, which is mostly
+// the walk that reads the Go engine's counters, in counters. RunRuleSets runs
+// both inside the call the session's RuleSetsNs measures, so runSession
+// subtracts them.
 type sessionTimer struct {
-	opts    *Options
-	engine  string
-	session string
-	sr      *SessionResult
-	dump    time.Duration
-	dumpErr error
+	opts     *Options
+	engine   string
+	session  string
+	run      runTag
+	sr       *SessionResult
+	dump     time.Duration
+	counters time.Duration
+	dumpErr  error
 }
 
 func (t *sessionTimer) InputAsserted(d time.Duration) {
@@ -459,6 +483,7 @@ func (t *sessionTimer) InputAsserted(d time.Duration) {
 
 func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteSession compute_pipes.JetReteSession,
 	timing *compute_pipes.RuleSetTiming) {
+	c0 := time.Now()
 	rs := RuleSetResult{
 		RuleSet:         timing.RuleSet,
 		ReteSessionNs:   timing.ReteSession.Nanoseconds(),
@@ -484,19 +509,27 @@ func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteS
 		c := rc.ReteCounters()
 		rs.Rete = &c
 	}
+	t.sr.RuleSets = append(t.sr.RuleSets, rs)
+	t.counters += time.Since(c0)
 	if t.opts.AfterRuleSet != nil && t.dumpErr == nil {
 		d0 := time.Now()
-		t.dumpErr = t.opts.AfterRuleSet(t.engine, t.session, len(t.sr.RuleSets), timing.RuleSet, rdfSession)
+		t.dumpErr = t.opts.AfterRuleSet(DumpPoint{
+			Engine:     t.engine,
+			Session:    t.session,
+			Index:      len(t.sr.RuleSets) - 1,
+			RuleSet:    timing.RuleSet,
+			Repetition: t.run.repetition,
+			Warmup:     t.run.warmup,
+		}, rdfSession)
 		t.dump += time.Since(d0)
 	}
-	t.sr.RuleSets = append(t.sr.RuleSets, rs)
 }
 
 // runSession runs one session as executeRules does: an rdf session, the rule
 // sets through RunRuleSets with the input asserted in its assertInput, the
 // extraction, and the release.
-func runSession(opts *Options, st *engineState, in *prepared, classes []compute_pipes.ExtractClass,
-	perSessionMem bool, sr *SessionResult) {
+func runSession(opts *Options, st *engineState, in *prepared, extractor *compute_pipes.SessionExtractor,
+	run runTag, perSessionMem bool, sr *SessionResult) {
 	sr.Name = in.name
 	sr.InputRows = len(in.rows)
 	re := st.engine
@@ -511,7 +544,7 @@ func runSession(opts *Options, st *engineState, in *prepared, classes []compute_
 		runtime.ReadMemStats(&before)
 	}
 	sr.GoroutinesBefore = runtime.NumGoroutine()
-	timer := &sessionTimer{opts: opts, engine: st.name, session: in.name, sr: sr}
+	timer := &sessionTimer{opts: opts, engine: st.name, session: in.name, run: run, sr: sr}
 
 	t0 := time.Now()
 	rdfSession, err := re.NewRdfSession()
@@ -539,8 +572,9 @@ func runSession(opts *Options, st *engineState, in *prepared, classes []compute_
 		}
 		return nil
 	})
-	sr.RuleSetsNs = (time.Since(t1) - timer.dump).Nanoseconds()
+	sr.RuleSetsNs = (time.Since(t1) - timer.dump - timer.counters).Nanoseconds()
 	sr.DumpNs = timer.dump.Nanoseconds()
+	sr.CountersNs = timer.counters.Nanoseconds()
 	for i := range outcome.RuleSets {
 		o := &outcome.RuleSets[i]
 		sr.Loops += o.Loops
@@ -568,9 +602,9 @@ func runSession(opts *Options, st *engineState, in *prepared, classes []compute_
 		sr.Graph = sr.RuleSets[n-1].Graph
 	}
 
-	if outcome.Err == nil && len(classes) > 0 {
+	if outcome.Err == nil && extractor != nil {
 		t2 := time.Now()
-		counts, err := compute_pipes.ExtractSessionEntities(st.spec, rdfSession, classes, nil)
+		counts, err := extractor.Extract(rdfSession)
 		sr.ExtractionNs = time.Since(t2).Nanoseconds()
 		sr.Extracted = counts
 		if err != nil && sr.Err == "" {
@@ -595,7 +629,7 @@ func runSession(opts *Options, st *engineState, in *prepared, classes []compute_
 	rdfSession.Release()
 	released = true
 	sr.ReleaseNs = time.Since(t3).Nanoseconds()
-	sr.TotalNs = (time.Since(t0) - timer.dump - countDur).Nanoseconds()
+	sr.TotalNs = (time.Since(t0) - timer.dump - timer.counters - countDur).Nanoseconds()
 	sr.GoroutinesAfter = runtime.NumGoroutine()
 	if perSessionMem {
 		var after runtime.MemStats

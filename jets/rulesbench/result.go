@@ -132,9 +132,10 @@ type SessionResult struct {
 	// StartNs is when the session started, from the run's start.
 	StartNs int64 `json:"start_ns"`
 	// The phases: NewRdfSession; the input assertion; RunRuleSets as a whole
-	// (which includes the input assertion and the rule sets below); extraction;
+	// (which includes the input assertion and the rule sets below, and leaves out
+	// DumpNs and CountersNs); extraction, by an extractor built once per worker;
 	// Release; and the session from before NewRdfSession to after Release, less
-	// DumpNs.
+	// DumpNs and CountersNs.
 	RdfSessionNs  int64 `json:"rdf_session_ns"`
 	InputAssertNs int64 `json:"input_assert_ns"`
 	RuleSetsNs    int64 `json:"rule_sets_ns"`
@@ -145,6 +146,10 @@ type SessionResult struct {
 	// when there is one; it is in no other phase. A run with a dump is not a
 	// timing run.
 	DumpNs int64 `json:"dump_ns,omitempty"`
+	// CountersNs is the time the bench spent in its own timing callbacks, mostly
+	// reading the Go engine's counters after each rule set. It is in no other
+	// phase: RuleSetsNs and TotalNs leave it out.
+	CountersNs int64 `json:"counters_ns"`
 
 	Loops          int      `json:"loops"`
 	Completed      bool     `json:"completed"`
