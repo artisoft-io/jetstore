@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
 )
@@ -35,35 +36,48 @@ const (
 	// classified on their own. A node that corresponds to two (two lookup subjects
 	// merged into one, say) has no correspondence, and its lines stay unmatched.
 	PairRelabelled = "relabelled"
-	// PairDoubleNear: the same subject and predicate, both objects doubles, within
-	// RelTol of each other relative to the larger magnitude. For a value the Go
-	// engine computed from quantised literals, which is not itself a literal and
-	// so is not quantised alike.
+	// PairDoubleNear: the same subject and predicate, both objects doubles, at most
+	// Quanta apart, a quantum being the step of the Go engine's 15-bit grid at the
+	// larger magnitude (graphdump.Quantum). For a value the Go engine computed from
+	// quantised literals, which is not itself a literal and so is not quantised
+	// alike.
 	PairDoubleNear = "double_near"
 	// PairMerged: a minted node of the OnlyOn side whose lines correspond to the
 	// lines of several nodes of the other side, each of which corresponds to it
-	// alone: one node where the other engine has several.
+	// alone: one node where the other engine has several. Subject and Predicate
+	// are its anchor: the node must be the object of a line of its side whose
+	// subject and predicate match them.
 	PairMerged = "merged"
 	// PairTextDoubleFormat: the same subject and predicate, both objects text,
-	// equal once every number in them is written alike: parsed, quantised as the
-	// Go engine quantises a literal, and written as the shortest decimal. So
-	// "rate: 991" and "rate: 991.000000" are equal.
+	// that differ only in how their numbers are written: the same text between the
+	// numbers, and each pair of numbers equal as written, or one written as C++'s
+	// std::to_string writes a double (six decimals) and the other not, and equal
+	// once both are quantised as the Go engine quantises a literal. So "rate: 991"
+	// and "rate: 991.000000" match; "NPI 1234567890" and "NPI 1234567891" do not.
 	PairTextDoubleFormat = "text_double_format"
 	// PairPredicateAlias: the same subject and object, and two different
 	// predicates that both match Predicate.
 	PairPredicateAlias = "predicate_alias"
+	// PairLiteralRegexGroup: the same subject and predicate, both objects text; the
+	// OnlyOn side's text (Go's literal_regex: the whole match) contains the other's
+	// (C++'s: capture group 1) and is longer, and matches Object.
+	PairLiteralRegexGroup = "literal_regex_group"
 )
 
-var numberInText = regexp.MustCompile(`-?[0-9]+(?:\.[0-9]+)?`)
-
-func normaliseNumbers(s string) string {
-	return numberInText.ReplaceAllStringFunc(s, func(n string) string {
-		v, err := strconv.ParseFloat(n, 64)
-		if err != nil {
-			return n
-		}
-		return graphdump.FormatDouble(graphdump.Quantise(v))
-	})
+// pairFields is what each pair kind reads besides its kind: s, p, o and only_on,
+// and whether s or p (or both) are required. A field set on a kind that does not
+// read it is refused.
+var pairFields = map[string]struct {
+	s, p, o, onlyOn bool
+	need            string
+}{
+	PairRelabelled:        {},
+	PairMerged:            {s: true, p: true, onlyOn: true, need: "sp"},
+	PairDoubleQuantised:   {s: true, p: true},
+	PairDoubleNear:        {s: true, p: true},
+	PairTextDoubleFormat:  {s: true, p: true},
+	PairPredicateAlias:    {s: true, p: true, need: "p"},
+	PairLiteralRegexGroup: {s: true, p: true, o: true, onlyOn: true, need: "p"},
 }
 
 // KnownList is the known-difference file.
@@ -91,8 +105,8 @@ type Entry struct {
 	Object    string `json:"object,omitempty"`
 	// Pair names a pair kind; the entry then matches two lines, one on each side.
 	Pair string `json:"pair,omitempty"`
-	// RelTol is double_near's tolerance.
-	RelTol float64 `json:"rel_tol,omitempty"`
+	// Quanta is double_near's tolerance, in quanta of the Go engine's grid.
+	Quanta float64 `json:"quanta,omitempty"`
 
 	s, p, o *regexp.Regexp
 }
@@ -107,7 +121,9 @@ func LoadKnown(path string) (*KnownList, error) {
 		}
 	}
 	var kl KnownList
-	if err := json.Unmarshal(raw, &kl); err != nil {
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&kl); err != nil {
 		return nil, fmt.Errorf("known-difference list: %w", err)
 	}
 	seen := map[string]bool{}
@@ -117,43 +133,67 @@ func LoadKnown(path string) (*KnownList, error) {
 			return nil, fmt.Errorf("known-difference list: entry %d: missing or repeated id %q", i, e.ID)
 		}
 		seen[e.ID] = true
-		switch e.Scope {
-		case "":
-			e.Scope = ScopeCross
-		case ScopeCross, ScopeSelf, ScopeAny:
-		default:
-			return nil, fmt.Errorf("known-difference list: %s: unknown scope %q", e.ID, e.Scope)
-		}
-		switch e.Pair {
-		case PairDoubleNear:
-			if e.RelTol <= 0 {
-				return nil, fmt.Errorf("known-difference list: %s: %s needs a positive rel_tol", e.ID, e.Pair)
-			}
-		case PairPredicateAlias:
-			if e.p == nil && e.Predicate == "" {
-				return nil, fmt.Errorf("known-difference list: %s: %s needs a predicate", e.ID, e.Pair)
-			}
-		case "", PairDoubleQuantised, PairRelabelled, PairMerged, PairTextDoubleFormat:
-		default:
-			return nil, fmt.Errorf("known-difference list: %s: unknown pair kind %q", e.ID, e.Pair)
-		}
-		var err error
-		for _, f := range []struct {
-			expr string
-			re   **regexp.Regexp
-		}{{e.Subject, &e.s}, {e.Predicate, &e.p}, {e.Object, &e.o}} {
-			if f.expr == "" {
-				continue
-			}
-			if *f.re, err = regexp.Compile("^(?:" + f.expr + ")$"); err != nil {
-				return nil, fmt.Errorf("known-difference list: %s: %w", e.ID, err)
-			}
-		}
-		if e.Pair == "" && e.s == nil && e.p == nil && e.o == nil {
-			return nil, fmt.Errorf("known-difference list: %s: matches every line; give a subject, predicate, object or pair", e.ID)
+		if err := e.validate(); err != nil {
+			return nil, fmt.Errorf("known-difference list: %s: %w", e.ID, err)
 		}
 	}
 	return &kl, nil
+}
+
+func (e *Entry) validate() error {
+	switch e.Scope {
+	case "":
+		e.Scope = ScopeCross
+	case ScopeCross, ScopeSelf, ScopeAny:
+	default:
+		return fmt.Errorf("unknown scope %q", e.Scope)
+	}
+	if e.Pair != "" {
+		f, ok := pairFields[e.Pair]
+		if !ok {
+			return fmt.Errorf("unknown pair kind %q", e.Pair)
+		}
+		for _, c := range []struct {
+			set, read bool
+			name      string
+		}{{e.Subject != "", f.s, "subject"}, {e.Predicate != "", f.p, "predicate"},
+			{e.Object != "", f.o, "object"}, {e.OnlyOn != "", f.onlyOn, "only_on"}} {
+			if c.set && !c.read {
+				return fmt.Errorf("pair kind %s does not read %s", e.Pair, c.name)
+			}
+		}
+		if strings.Contains(f.need, "s") && e.Subject == "" {
+			return fmt.Errorf("pair kind %s needs a subject", e.Pair)
+		}
+		if strings.Contains(f.need, "p") && e.Predicate == "" {
+			return fmt.Errorf("pair kind %s needs a predicate", e.Pair)
+		}
+		if e.Pair == PairLiteralRegexGroup && e.OnlyOn == "" {
+			return fmt.Errorf("pair kind %s needs only_on, the side holding the whole match", e.Pair)
+		}
+	}
+	if (e.Pair == PairDoubleNear) != (e.Quanta != 0) {
+		return fmt.Errorf("quanta is double_near's, and double_near needs it")
+	}
+	if e.Quanta < 0 {
+		return fmt.Errorf("quanta must be positive")
+	}
+	for _, f := range []struct {
+		expr string
+		re   **regexp.Regexp
+	}{{e.Subject, &e.s}, {e.Predicate, &e.p}, {e.Object, &e.o}} {
+		if f.expr == "" {
+			continue
+		}
+		var err error
+		if *f.re, err = regexp.Compile("^(?:" + f.expr + ")$"); err != nil {
+			return err
+		}
+	}
+	if e.Pair == "" && e.s == nil && e.p == nil && e.o == nil {
+		return fmt.Errorf("matches every line; give a subject, predicate, object or pair")
+	}
+	return nil
 }
 
 func (e *Entry) inScope(scope string) bool {
@@ -170,27 +210,71 @@ func (e *Entry) matchLine(l *line, side string) bool {
 		(e.o == nil || e.o.MatchString(l.o))
 }
 
-// matchPair reports whether the pair entry e matches a (on A) against b (on B).
-func (e *Entry) matchPair(a, b *line) bool {
-	if e.Pair == PairPredicateAlias {
-		return a.s == b.s && a.o == b.o && a.p != b.p && e.p.MatchString(a.p) && e.p.MatchString(b.p) &&
-			(e.s == nil || e.s.MatchString(a.s))
+// matchPair reports whether the value-pair entry e matches x against y, x being
+// the OnlyOn side's line when the entry names one.
+func (e *Entry) matchPair(x, y *line) bool {
+	if e.s != nil && !(e.s.MatchString(x.s) && e.s.MatchString(y.s)) {
+		return false
 	}
-	if a.s != b.s || a.p != b.p || (e.p != nil && !e.p.MatchString(a.p)) || (e.s != nil && !e.s.MatchString(a.s)) {
+	if e.Pair == PairPredicateAlias {
+		return x.s == y.s && x.o == y.o && x.p != y.p && e.p.MatchString(x.p) && e.p.MatchString(y.p)
+	}
+	if x.s != y.s || x.p != y.p || (e.p != nil && !e.p.MatchString(x.p)) {
 		return false
 	}
 	switch e.Pair {
 	case PairDoubleQuantised:
-		x, ok1 := a.object.Num()
-		y, ok2 := b.object.Num()
-		return ok1 && ok2 && graphdump.Quantise(x) == graphdump.Quantise(y)
-	case PairTextDoubleFormat:
-		return a.object.Kind == "text" && b.object.Kind == "text" && a.object.Value != b.object.Value &&
-			normaliseNumbers(a.object.Value) == normaliseNumbers(b.object.Value)
+		a, ok1 := x.object.Num()
+		b, ok2 := y.object.Num()
+		return ok1 && ok2 && graphdump.Quantise(a) == graphdump.Quantise(b)
 	case PairDoubleNear:
-		x, ok1 := a.object.Num()
-		y, ok2 := b.object.Num()
-		return ok1 && ok2 && math.Abs(x-y) <= e.RelTol*math.Max(math.Abs(x), math.Abs(y))
+		a, ok1 := x.object.Num()
+		b, ok2 := y.object.Num()
+		return ok1 && ok2 && math.Abs(a-b) <= e.Quanta*graphdump.Quantum(math.Max(math.Abs(a), math.Abs(b)))
+	case PairTextDoubleFormat:
+		return x.object.Kind == "text" && y.object.Kind == "text" && sameUpToDoubleFormat(x.object.Value, y.object.Value)
+	case PairLiteralRegexGroup:
+		return x.object.Kind == "text" && y.object.Kind == "text" && (e.o == nil || e.o.MatchString(x.o)) &&
+			len(x.object.Value) > len(y.object.Value) && strings.Contains(x.object.Value, y.object.Value)
 	}
 	return false
+}
+
+var (
+	numberInText = regexp.MustCompile(`-?[0-9]+(?:\.[0-9]+)?`)
+	// toStringForm is std::to_string's double: six decimals.
+	toStringForm = regexp.MustCompile(`^-?[0-9]+\.[0-9]{6}$`)
+)
+
+// sameUpToDoubleFormat reports whether a and b differ, and only in numbers one
+// side writes as std::to_string does and the other does not; see
+// PairTextDoubleFormat.
+func sameUpToDoubleFormat(a, b string) bool {
+	if a == b {
+		return false
+	}
+	na, nb := numberInText.FindAllStringIndex(a, -1), numberInText.FindAllStringIndex(b, -1)
+	if len(na) != len(nb) {
+		return false
+	}
+	pa, pb := 0, 0
+	for i := range na {
+		if a[pa:na[i][0]] != b[pb:nb[i][0]] {
+			return false
+		}
+		u, v := a[na[i][0]:na[i][1]], b[nb[i][0]:nb[i][1]]
+		pa, pb = na[i][1], nb[i][1]
+		if u == v {
+			continue
+		}
+		if toStringForm.MatchString(u) == toStringForm.MatchString(v) {
+			return false
+		}
+		x, err1 := strconv.ParseFloat(u, 64)
+		y, err2 := strconv.ParseFloat(v, 64)
+		if err1 != nil || err2 != nil || graphdump.Quantise(x) != graphdump.Quantise(y) {
+			return false
+		}
+	}
+	return a[pa:] == b[pb:]
 }

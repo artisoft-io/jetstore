@@ -17,8 +17,9 @@
 // is set. A rule that infers a triple equal to a meta triple is therefore not
 // in the dump either, on either engine.
 //
-// Triples whose predicate is in Options.ExcludePredicates are left out before
-// anything else is computed, so they do not affect the names below.
+// Triples whose predicate is in Options.ExcludePredicates are left out next,
+// after the meta graph and before minted nodes are named, so they do not affect
+// the names below.
 //
 // # The line
 //
@@ -59,7 +60,12 @@
 //     and create_entity given an empty key. create_entity also writes the UUID
 //     as the text of jets:key, so a text literal holding a version 4 UUID is the
 //     same minted node, written _:<label>^^text. Version 3 and 5 UUIDs
-//     (uuid_md5, uuid_sha1) are computed from their input and are not minted;
+//     (uuid_md5, uuid_sha1) are computed from their input and are not minted.
+//     The test is the form of the name, not where it came from: a version 4
+//     UUID that arrives in the input data (a key, an identifier column) is
+//     renamed too, and its value does not appear in the dump. Equality up to
+//     naming still holds, since the label comes from the node's structure, but a
+//     difference on such a node is reported by label rather than by value;
 //   - a lookup subject: the object of a lookup cache triple. The engines name
 //     both differently: Go caches (jets:cache:<table> jets:lookup_row
 //     jets:lookup:<key>), C++ caches (<table> jets:lookup_row jets:<table>:<key>).

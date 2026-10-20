@@ -9,10 +9,10 @@ import "strings"
 //     correspondence (see correspond), and a line that then equals a B line is
 //     relabelled. The rewritten line is what the later kinds see.
 //  2. merged: a label of one side that corresponds to several of the other.
-//  3. the value pairs, double_quantised, double_near, text_double_format and
-//     predicate_alias, in list order.
+//  3. the value pairs, double_quantised, double_near, text_double_format,
+//     literal_regex_group and predicate_alias, in list order.
 //  4. the single-line entries, in list order.
-func classify(a, b []*line, labelA, labelB, scope string, known *KnownList) {
+func classify(a, b []*line, allA, allB []string, labelA, labelB, scope string, known *KnownList) {
 	if known == nil {
 		return
 	}
@@ -32,10 +32,10 @@ func classify(a, b []*line, labelA, labelB, scope string, known *KnownList) {
 	for _, e := range entries {
 		if e.Pair == PairMerged {
 			if e.OnlyOn == "" || e.OnlyOn == labelA {
-				c.merged(a, b, c.aToB, c.bToA, e.ID)
+				c.merged(a, b, c.aToB, c.bToA, anchored(allA, e), e.ID)
 			}
 			if e.OnlyOn == "" || e.OnlyOn == labelB {
-				c.merged(b, a, c.bToA, c.aToB, e.ID)
+				c.merged(b, a, c.bToA, c.aToB, anchored(allB, e), e.ID)
 			}
 		}
 	}
@@ -47,10 +47,15 @@ func classify(a, b []*line, labelA, labelB, scope string, known *KnownList) {
 	for _, e := range entries {
 		index, key := bySP, func(l *line) string { return l.s + "\t" + l.p }
 		switch e.Pair {
-		case PairDoubleQuantised, PairDoubleNear, PairTextDoubleFormat:
+		case PairDoubleQuantised, PairDoubleNear, PairTextDoubleFormat, PairLiteralRegexGroup:
 		case PairPredicateAlias:
 			index, key = bySO, func(l *line) string { return l.s + "\t" + l.o }
 		default:
+			continue
+		}
+		// x is the only_on side's line, for the kinds that read it.
+		swap := e.OnlyOn != "" && e.OnlyOn == labelB
+		if e.OnlyOn != "" && e.OnlyOn != labelA && !swap {
 			continue
 		}
 		for _, la := range a {
@@ -58,7 +63,11 @@ func classify(a, b []*line, labelA, labelB, scope string, known *KnownList) {
 				continue
 			}
 			for _, lb := range index[key(la)] {
-				if lb.known == "" && e.matchPair(la, lb) {
+				x, y := la, lb
+				if swap {
+					x, y = lb, la
+				}
+				if lb.known == "" && e.matchPair(x, y) {
 					la.known, lb.known = e.ID, e.ID
 					break
 				}
@@ -191,11 +200,28 @@ func (c *correspondence) relabel(a, b []*line, id string) {
 	}
 }
 
+// anchored is the set of minted labels that are the object of a line of all whose
+// subject and predicate match e's: a merged entry's anchor.
+func anchored(all []string, e *Entry) map[string]bool {
+	m := map[string]bool{}
+	for _, t := range all {
+		parts := strings.Split(t, "\t")
+		if len(parts) != 3 || !strings.HasPrefix(parts[2], "_:") || strings.HasSuffix(parts[2], "^^text") {
+			continue
+		}
+		if e.s.MatchString(parts[0]) && e.p.MatchString(parts[1]) {
+			m[parts[2][2:]] = true
+		}
+	}
+	return m
+}
+
 // merged classifies as id the lines of side `from` that carry a label x which
 // corresponds to several labels of side `to`, each of which corresponds to x
-// alone: one node on `from` where `to` has several. A line matches when one of
-// those labels in place of x gives an unclassified line of `to`.
-func (c *correspondence) merged(from, to []*line, there, back map[string]map[string]bool, id string) {
+// alone: one node on `from` where `to` has several. x must be in anchors. A line
+// matches when one of those labels in place of x gives an unclassified line of
+// `to`.
+func (c *correspondence) merged(from, to []*line, there, back map[string]map[string]bool, anchors map[string]bool, id string) {
 	byText := unclassifiedByText(to)
 	for _, l := range from {
 		if l.known != "" {
@@ -204,7 +230,7 @@ func (c *correspondence) merged(from, to []*line, there, back map[string]map[str
 		_, labels := blank(l.mapped())
 		for _, x := range labels {
 			ys := there[x]
-			if len(ys) < 2 {
+			if len(ys) < 2 || !anchors[x] {
 				continue
 			}
 			whole := true

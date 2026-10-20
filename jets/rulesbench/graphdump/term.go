@@ -27,6 +27,17 @@ func Quantise(x float64) float64 {
 	return v
 }
 
+// Quantum is the step of the Go engine's 15-bit grid at x: the difference
+// between two neighbouring quantised doubles of x's magnitude. 0 for 0, NaN and
+// the infinities.
+func Quantum(x float64) float64 {
+	if x == 0 || math.IsNaN(x) || math.IsInf(x, 0) {
+		return 0
+	}
+	_, exp := math.Frexp(x)
+	return math.Ldexp(1, exp-15)
+}
+
 // FormatDouble is how a double is written: the shortest decimal that reads back
 // to x.
 func FormatDouble(x float64) string { return strconv.FormatFloat(x, 'g', -1, 64) }

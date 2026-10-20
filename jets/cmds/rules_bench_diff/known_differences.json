@@ -23,9 +23,11 @@
       "refs": [
         "projects/rules_benchmark I-15"
       ],
-      "description": "The Go engine names a lookup result jets:lookup:<key> (jets:lookup:multi:<key> for a multi-lookup), without the table, so two tables looked up with the same key share one subject, which carries both tables' columns and both rows' jets:row_id (LookupTableSqlite3.Lookup, jets/jetrules/rete/lookup_table_sqlite3.go). C++ names it jets:<table>:<key> (LookupTable::lookup_internal, jets/rete/lookup_sql_helper.cc), one subject per table. In the dump: one minted node on Go where C++ has one per table.",
+      "description": "The Go engine names a lookup result jets:lookup:<key> (jets:lookup:multi:<key> for a multi-lookup), without the table, so two tables looked up with the same key share one subject, which carries both tables' columns and both rows' jets:row_id (LookupTableSqlite3.Lookup, jets/jetrules/rete/lookup_table_sqlite3.go). C++ names it jets:<table>:<key> (LookupTable::lookup_internal, jets/rete/lookup_sql_helper.cc), one subject per table. In the dump: one minted node on Go where C++ has one per table. Only a lookup subject: the merged node must be the object of a cache triple (jets:cache:<table> jets:lookup_row|jets:lookup_multi_rows _:node) on Go; any other node merged on one engine stays unclassified.",
       "only_on": "go",
-      "pair": "merged"
+      "pair": "merged",
+      "subject": "jets:cache:.*",
+      "predicate": "jets:lookup_row|jets:lookup_multi_rows"
     },
     {
       "id": "lookup-cache-predicate",
@@ -42,17 +44,19 @@
       "refs": [
         "jets/jetrules/rete/README.md, The Go and C++ engines are independently maintained and they disagree, item 3"
       ],
-      "description": "A double the Go engine computed from quantised literals: within 2^-12 (about 2.4e-4) of the C++ value, relative to the larger. One quantum is 2^-15 relative; the tolerance allows a few quanta through arithmetic. Weaker evidence than go-double-literal-quantised: a genuine difference this small would be classified here too.",
+      "description": "A ratio the Go engine computed from quantised literals: at most 2.5 quanta of Go's 15-bit grid from the C++ value, a quantum being graphdump.Quantum at the larger magnitude (on cm_loop the largest is 2.10 quanta). Limited to the percentages, hc_usi:medicarePct, _0:medicarePct and their export usi_out:PercentMedTagGlobal. A money amount computed from quantised literals is not classified, since it changes by cents (on cm_loop: hc_usi:medicareGlobal, totalAmountAllowed, totalAmountPaid, mbrResponsibility and the export's Amt* columns, 0.5 to 1.04 quanta apart). Weaker evidence than go-double-literal-quantised, and reported apart from it.",
       "pair": "double_near",
-      "rel_tol": 0.000244140625
+      "quanta": 2.5,
+      "predicate": "hc_usi:medicarePct|_0:medicarePct|usi_out:PercentMedTagGlobal"
     },
     {
       "id": "text-plus-double-format",
       "refs": [
         "projects/rules_benchmark I-16"
       ],
-      "description": "Text + double writes the number differently: Go formats it with %v, the shortest form (Node.ADD, jets/jetrules/rdf/ast_math_operators.go), and C++ with std::to_string, six decimals (AddVisitor, jets/rete/expr_op_arithmetics.h). \"rate: 991\" on Go is \"rate: 991.000000\" on C++. Matched when the texts are equal once their numbers are written alike.",
-      "pair": "text_double_format"
+      "description": "Text + double writes the number differently: Go formats it with %v, the shortest form (Node.ADD, jets/jetrules/rdf/ast_math_operators.go), and C++ with std::to_string, six decimals (AddVisitor, jets/rete/expr_op_arithmetics.h). \"rate: 991\" on Go is \"rate: 991.000000\" on C++ (usi_ws gz02, 4_CM04_Orphans_Main1.jr). Matched only on hc_usi:meetRule, and only when the texts are equal between their numbers and each differing pair of numbers is one six-decimal form against one other form, equal once quantised; integers that differ are not matched.",
+      "pair": "text_double_format",
+      "predicate": "hc_usi:meetRule"
     },
     {
       "id": "literal-regex-claimZip3",
@@ -70,8 +74,11 @@
       "refs": [
         "projects/rules_benchmark I-12, F53"
       ],
-      "description": "literal_regex as above, on walrus_ws's name-splitting rules (merge_claim_header_and_details_main.jr): on Go pt_fname keeps the comma and the space (\", John\") and pt_lname the comma (\"Doe,\"); on C++ they are the capture groups.",
-      "predicate": "pt_fname|pt_lname"
+      "description": "literal_regex as in literal-regex-claimZip3, on walrus_ws's name-splitting rules (merge_claim_header_and_details_main.jr): Go's pt_fname keeps the comma and the space (\", John\") and its pt_lname the comma (\"Doe,\"), and C++'s are the capture groups (\"John\", \"Doe\"). Matched as a pair: Go's text has that form and contains C++'s.",
+      "predicate": "pt_fname|pt_lname",
+      "pair": "literal_regex_group",
+      "only_on": "go",
+      "object": "\"(?:,\\s+\\w+|[^\"]*,)\""
     }
   ]
 }

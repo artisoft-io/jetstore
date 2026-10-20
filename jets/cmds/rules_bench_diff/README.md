@@ -52,21 +52,24 @@ register entry of `projects/rules_benchmark`) and a `description`, and then:
 | `only_on` | the label of the side the line is on, such as `go` |
 | `subject`, `predicate`, `object` | regular expressions over the term as written in the dump, anchored at both ends |
 | `pair` | a pair kind, below. The entry then matches lines on both sides |
-| `rel_tol` | `double_near`'s tolerance |
+| `quanta` | `double_near`'s tolerance, in quanta of the Go engine's 15-bit grid (`graphdump.Quantum`) |
 
 An entry without `pair` matches one line. An entry with no `pair`, `subject`, `predicate` or `object`
-is refused, since it would match every line.
+is refused, since it would match every line. **A field a pair kind does not read is refused too**, as
+is an unknown field, so an entry cannot look narrower than it is. The last column below says which
+fields each kind reads.
 
 **The pair kinds**, tried in this order whatever their order in the list:
 
-| Kind | Matches |
-|---|---|
-| `relabelled` | the same line up to the labels of minted nodes, under a one-to-one correspondence of labels. The correspondence comes from the line shapes (a line with its labels blanked) that occur once on each side. The node exists on both sides and was renamed because its neighbourhood differs; that difference is in its own lines, which are classified on their own |
-| `merged` | the lines of a node on the `only_on` side that corresponds to several nodes of the other side, each of which corresponds to it alone: one node where the other engine has several |
-| `double_quantised` | the same subject and predicate, two doubles equal once both are quantised as the Go engine quantises a literal (`graphdump.Quantise`) |
-| `double_near` | the same subject and predicate, two doubles within `rel_tol` of each other relative to the larger |
-| `text_double_format` | the same subject and predicate, two texts equal once every number in them is parsed, quantised and written alike |
-| `predicate_alias` | the same subject and object, two different predicates that both match `predicate` |
+| Kind | Matches | Reads |
+|---|---|---|
+| `relabelled` | the same line up to the labels of minted nodes, under a one-to-one correspondence of labels. The correspondence comes from the line shapes (a line with its labels blanked) that occur once on each side. The node exists on both sides and was renamed because its neighbourhood differs; that difference is in its own lines, which are classified on their own | nothing |
+| `merged` | the lines of a node on the `only_on` side that corresponds to several nodes of the other side, each of which corresponds to it alone: one node where the other engine has several. **The node must be the object of a line of its side whose subject and predicate match the entry's** (the anchor) | `subject`, `predicate` (both required), `only_on` |
+| `double_quantised` | the same subject and predicate, two doubles equal once both are quantised as the Go engine quantises a literal (`graphdump.Quantise`) | `subject`, `predicate` |
+| `double_near` | the same subject and predicate, two doubles at most `quanta` quanta apart at the larger magnitude | `subject`, `predicate` |
+| `text_double_format` | the same subject and predicate, two texts equal between their numbers, each differing pair of numbers being one in `std::to_string`'s six-decimal form and one not, equal once quantised. Integers that differ never match | `subject`, `predicate` |
+| `literal_regex_group` | the same subject and predicate, two texts; the `only_on` side's (the whole match) matches `object`, is longer, and contains the other's (the capture group) | `subject`, `predicate` (required), `object`, `only_on` (required) |
+| `predicate_alias` | the same subject and object, two different predicates that both match `predicate` | `subject`, `predicate` (required) |
 
 Then the single-line entries, in list order.
 
@@ -76,12 +79,17 @@ Then the single-line entries, in list order.
 |---|---|---|
 | `minted-node-relabelled` | `graphdump` package documentation | yes |
 | `go-double-literal-quantised` | rete README, *The Go and C++ engines … disagree*, item 3 | yes |
-| `go-double-quantisation-propagated` | the same; a tolerance of 2^-12, weaker evidence | yes |
-| `go-lookup-subject-shared-across-tables` | `projects/rules_benchmark` `I-15` | yes |
+| `go-double-quantisation-propagated` | the same; 2.5 quanta, on the percentages only, weaker evidence | yes |
+| `go-lookup-subject-shared-across-tables` | `projects/rules_benchmark` `I-15`; lookup subjects only | yes |
 | `lookup-cache-predicate` | `graphdump` package documentation | no: `CM` makes no multi-lookup |
 | `text-plus-double-format` | `projects/rules_benchmark` `I-16` | yes |
 | `literal-regex-claimZip3` | `I-12`, `F53` | no: `cm_loop`'s zip codes all start with three digits |
 | `literal-regex-walrus-names` | `I-12`, `F53` | not run: a `walrus_ws` workload |
+
+**Money computed from quantised literals has no entry, deliberately.** On `cm_loop` Go's
+`hc_usi:medicareGlobal`, `totalAmountAllowed`, `totalAmountPaid`, `mbrResponsibility` and the
+export's `Amt*` columns differ from C++ by 0.5 to 1.04 quanta, a cent or two (266.390625 against
+266.3792…). A tolerance would hide a wrong amount of the same size, so these stay unclassified.
 
 **The README's other differences have no entry**, because nothing in a dump identifies them by its
 shape: `jets:value_property` alone (item 1), `jets:entity_property` not watched in Go (item 4), the

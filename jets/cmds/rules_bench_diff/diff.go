@@ -208,7 +208,7 @@ func compareFile(f string, a, b []string, labelA, labelB, scope string, known *K
 	member, file := filepath.Split(f)
 	fr := &FileResult{Member: strings.TrimSuffix(member, "/"), File: file, LinesA: len(a), LinesB: len(b), OnlyA: len(onlyA), OnlyB: len(onlyB)}
 	la, lb := parseLines(onlyA), parseLines(onlyB)
-	classify(la, lb, labelA, labelB, scope, known)
+	classify(la, lb, a, b, labelA, labelB, scope, known)
 
 	byPredicate := map[string]*PredicateResult{}
 	result := func(p string) *PredicateResult {
