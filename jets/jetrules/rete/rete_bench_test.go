@@ -36,8 +36,9 @@ package rete
 //	v4..v5  (?m hasClaim ?c).not(?c excluded ?m) -> (?c linked ?m)
 //
 // Its data: claims in members of four, every claim with an amount, every tenth claim
-// excluded from its member. The first run of each size checks the inferred counts, so
-// the benchmark cannot time a network that does nothing. $max_rule_exec is set well
+// excluded from its member. Every call of BenchmarkExecuteRules checks the inferred
+// counts once, untimed, before its loop (testing calls it once per b.N probe), so the
+// benchmark cannot time a network that does nothing. $max_rule_exec is set well
 // above what the largest size needs (rules_benchmark F9).
 //
 // Smoke check, which runs in seconds and times nothing worth reading:
