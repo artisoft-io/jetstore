@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -95,28 +96,42 @@ func outputChannelProperties(outputChannels []*JetrulesOutputChan) (map[string]b
 	return mvProperties, column2RdfType
 }
 
-// ExtractClass is one class ExtractSessionEntities extracts, as a jetrules
-// output channel names it: the class and the channel's columns, which a
-// pipeline takes from the class's domain properties (GetDomainProperties)
-// followed by the channel spec's own columns.
+// ExtractClass is one class a SessionExtractor extracts, as a jetrules output
+// channel names it: the class and the channel's columns, which a pipeline takes
+// from the class's domain properties (GetDomainProperties) followed by the
+// channel spec's own columns.
 type ExtractClass struct {
 	ClassName string
 	Columns   []string
 }
 
-// ExtractSessionEntities extracts the entities of each class from rdfSession
-// through the pipeline's own extraction, extractSessionData, as executeRules
-// does once the rules have run: each entity row is sent on a channel, as it is
-// to a jetrules output channel, and emit receives it on another goroutine. It
-// returns the number of rows extracted per class.
+// SessionExtractor extracts the entities of a list of classes from rdf sessions
+// through the pipeline's own extraction, extractSessionData, as executeRules does
+// once a session's rules have run. It is built once and used for many sessions,
+// as a pool worker is: what NewJrPoolWorker prepares (the classes' multi-value
+// properties and rdf types) is prepared once, and each class's rows go to an
+// output channel read by a goroutine that lives as long as the extractor, as a
+// pipeline's downstream pipe does. Extract therefore costs the extraction and
+// the channel sends, and nothing that a pipeline pays once per worker.
 //
 // Two things a pipeline does are left out, and both are outside the rules: the
 // output channel's column evaluators (constant columns such as session_id, set
 // by the transformation's columns), and the error channel, so a property with
-// several values is logged and counted but reported nowhere. It is for the
-// rules_bench command (jets/cmds/rules_bench); no pipeline calls it.
-func ExtractSessionEntities(config *JetrulesSpec, rdfSession JetRdfSession, classes []ExtractClass,
-	emit func(className string, row []any)) (map[string]int, error) {
+// several values is logged and counted but reported nowhere.
+//
+// It is for the rules_bench command (jets/cmds/rules_bench); no pipeline calls
+// it. One extractor serves one goroutine at a time, as a pool worker does.
+type SessionExtractor struct {
+	worker  *JrPoolWorker
+	drains  []chan []any
+	flushed []chan int
+	done    sync.WaitGroup
+}
+
+// NewSessionExtractor prepares the extraction of classes. emit, when not nil,
+// receives every row, on the class's drain goroutine. Close releases the
+// goroutines.
+func NewSessionExtractor(config *JetrulesSpec, classes []ExtractClass, emit func(className string, row []any)) *SessionExtractor {
 	outputChannels := make([]*JetrulesOutputChan, 0, len(classes))
 	for _, c := range classes {
 		outputChannels = append(outputChannels, &JetrulesOutputChan{
@@ -129,36 +144,64 @@ func ExtractSessionEntities(config *JetrulesSpec, rdfSession JetRdfSession, clas
 		})
 	}
 	mvProperties, column2RdfType := outputChannelProperties(outputChannels)
-	worker := &JrPoolWorker{
-		config:                   config,
-		outputChannels:           outputChannels,
-		done:                     make(chan struct{}),
-		multiValueDataProperties: mvProperties,
-		column2RdfType:           column2RdfType,
+	x := &SessionExtractor{
+		worker: &JrPoolWorker{
+			config:                   config,
+			outputChannels:           outputChannels,
+			done:                     make(chan struct{}),
+			multiValueDataProperties: mvProperties,
+			column2RdfType:           column2RdfType,
+		},
 	}
-	counts := make(map[string]int, len(classes))
 	for _, outChannel := range outputChannels {
 		ch := make(chan []any, 1)
+		flushed := make(chan int)
 		outChannel.OutputCh.Channel = ch
-		drained := make(chan int)
+		x.drains = append(x.drains, ch)
+		x.flushed = append(x.flushed, flushed)
+		x.done.Add(1)
 		go func(className string) {
+			defer x.done.Done()
 			n := 0
 			for row := range ch {
+				// A nil row is Extract's end-of-session mark: extractSessionData
+				// never sends one.
+				if row == nil {
+					flushed <- n
+					n = 0
+					continue
+				}
 				if emit != nil {
 					emit(className, row)
 				}
 				n++
 			}
-			drained <- n
 		}(outChannel.ClassName)
-		err := worker.extractSessionData(rdfSession, outChannel, outChannel.OutputCh.Config)
-		close(ch)
-		counts[outChannel.ClassName] = <-drained
+	}
+	return x
+}
+
+// Extract extracts every class from rdfSession and returns the number of rows
+// extracted per class, once each class's drain goroutine has received them all.
+func (x *SessionExtractor) Extract(rdfSession JetRdfSession) (map[string]int, error) {
+	counts := make(map[string]int, len(x.drains))
+	for i, outChannel := range x.worker.outputChannels {
+		err := x.worker.extractSessionData(rdfSession, outChannel, outChannel.OutputCh.Config)
+		x.drains[i] <- nil
+		counts[outChannel.ClassName] = <-x.flushed[i]
 		if err != nil {
 			return counts, fmt.Errorf("while extracting entities of class %s: %v", outChannel.ClassName, err)
 		}
 	}
 	return counts, nil
+}
+
+// Close stops the drain goroutines and waits for them.
+func (x *SessionExtractor) Close() {
+	for _, ch := range x.drains {
+		close(ch)
+	}
+	x.done.Wait()
 }
 
 func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorkerResult) {
@@ -403,7 +446,8 @@ type RuleSetsConfig struct {
 
 // RuleSetsTimer receives RunRuleSets' phase times. Its methods are called on the
 // goroutine running RunRuleSets, between the phases they time, so an
-// implementation that is slow delays the loop and is not counted in any phase.
+// implementation that is slow delays the loop and is counted in no phase of
+// RuleSetTiming. The caller's own measure around RunRuleSets does include it.
 type RuleSetsTimer interface {
 	// InputAsserted is called once, after assertInput returned, with its time.
 	InputAsserted(d time.Duration)
@@ -628,8 +672,10 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 			}
 			err = assertInput(rdfSession)
 			if timer != nil {
+				timer.InputAsserted(time.Since(t1))
+				// Subtracted from the rule set's Total with the callback's own time,
+				// which is in no phase.
 				inputTime = time.Since(t1)
-				timer.InputAsserted(inputTime)
 			}
 			if err != nil {
 				outcome.Err = fmt.Errorf("while asserting input records to rdf session: %v", err)

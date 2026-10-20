@@ -8,11 +8,13 @@ package rulesbench
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
@@ -184,6 +186,14 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
+		t.Run("warmup_zero_overrides_the_spec", func(t *testing.T) {
+			path := writeBench(t, 1, `, "max_vertex_visits": 1000, "warmup": 2`)
+			zero := 0
+			results, err := runBench(t, path, Options{Warmup: &zero})
+			if err != nil || len(results) != 1 || results[0].Warmup {
+				t.Errorf("warmup 0 over a spec's 2: %d results, %v", len(results), err)
+			}
+		})
 		t.Run("pool_of_one_records_session_memory", func(t *testing.T) {
 			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
 			results, err := runBench(t, path, Options{})
@@ -219,23 +229,34 @@ func TestRun(t *testing.T) {
 			}
 		})
 		t.Run("after_rule_set_hook", func(t *testing.T) {
-			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
+			// The hook's time, slept here, is the session's dump_ns and is in no
+			// other phase; the counter walk is counters_ns, apart too.
+			const delay = 150 * time.Millisecond
+			path := writeBench(t, 2, `, "max_vertex_visits": 1000, "repetitions": 2`)
 			var calls []string
 			results, err := runBench(t, path, Options{
-				AfterRuleSet: func(engine, session string, index int, ruleSet string, s compute_pipes.JetRdfSession) error {
-					calls = append(calls, engine+" "+session+" "+ruleSet)
+				AfterRuleSet: func(p DumpPoint, s compute_pipes.JetRdfSession) error {
+					calls = append(calls, fmt.Sprintf("%s %s %s %d %s", p.RunDir(), p.Engine, p.Session, p.Index, p.RuleSet))
+					time.Sleep(delay)
 					return nil
 				},
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := []string{"go case1 jet_rules/test_looping_main.jr", "go case2 jet_rules/test_looping_main.jr"}
+			want := []string{
+				"r01 go case1 0 jet_rules/test_looping_main.jr", "r01 go case2 0 jet_rules/test_looping_main.jr",
+				"r02 go case1 0 jet_rules/test_looping_main.jr", "r02 go case2 0 jet_rules/test_looping_main.jr",
+			}
 			if strings.Join(calls, "|") != strings.Join(want, "|") {
 				t.Errorf("hook calls %v, want %v", calls, want)
 			}
-			if results[0].Sessions[0].DumpNs <= 0 {
-				t.Errorf("the hook's time is not the session's dump_ns")
+			s := results[0].Sessions[0]
+			if s.DumpNs < delay.Nanoseconds() || s.RuleSetsNs >= delay.Nanoseconds() || s.TotalNs >= delay.Nanoseconds() {
+				t.Errorf("dump_ns %d, rule_sets_ns %d, total_ns %d: the hook's %v must be in dump_ns only", s.DumpNs, s.RuleSetsNs, s.TotalNs, delay)
+			}
+			if s.CountersNs <= 0 {
+				t.Errorf("counters_ns %d, want the Go counter walk timed", s.CountersNs)
 			}
 		})
 	})

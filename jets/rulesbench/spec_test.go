@@ -1,12 +1,15 @@
 package rulesbench
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 )
 
@@ -142,13 +145,29 @@ func TestTakeMaxVertexVisits(t *testing.T) {
 	}
 }
 
-func TestDumpPath(t *testing.T) {
-	got := DumpPath("/d", "go", "member1", 3, "jet_rules/main/CM/2_CM02_Matching_SM_Main1.jr")
-	if want := "/d/go/member1/03_2_CM02_Matching_SM_Main1.tsv"; got != want {
-		t.Errorf("DumpPath = %s, want %s", got, want)
+func TestNewDumper(t *testing.T) {
+	dir := t.TempDir()
+	path := func(dir, engine, member string, index int, ruleSet string) string {
+		return filepath.Join(dir, engine, member, fmt.Sprintf("%02d_%s.tsv", index+1, filepath.Base(ruleSet)))
 	}
-	if got := DumpPath("/d", "native", "a/b", 0, "x.jr"); got != "/d/native/a_b/00_x.tsv" {
-		t.Errorf("a session name with a slash: %s", got)
+	write := func(w io.Writer, _ compute_pipes.JetRdfSession) error {
+		_, err := io.WriteString(w, "s\tp\to\n")
+		return err
+	}
+	dump := NewDumper(dir, path, write)
+	for _, p := range []DumpPoint{
+		{Engine: "go", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 1},
+		{Engine: "go", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 2},
+		{Engine: "native", Session: "a/b", Index: 3, RuleSet: "x/b.jr", Repetition: 1, Warmup: true},
+	} {
+		if err := dump(p, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"r01/go/member1/01_a.jr.tsv", "r02/go/member1/01_a.jr.tsv", "w01/native/a_b/04_b.jr.tsv"} {
+		if b, err := os.ReadFile(filepath.Join(dir, f)); err != nil || string(b) != "s\tp\to\n" {
+			t.Errorf("%s: %q, %v", f, b, err)
+		}
 	}
 }
 

@@ -57,13 +57,13 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 |---|---|
 | `-out_dir` | required. Receives `env.json` and one result per run, `<bench>_<order>_<engine>_<r\|w><rep>.json` |
 | `-engine` | `native`, `go`, or `native,go`, in run order. Overrides the spec's `engines` |
-| `-repetitions`, `-warmup`, `-pool`, `-max_vertex_visits`, `-max_looping` | override the spec. `-max_looping -1`, the default, keeps the spec's |
+| `-repetitions`, `-warmup`, `-pool`, `-max_vertex_visits`, `-max_looping` | override the spec. `-warmup 0` turns a spec's warmup off; `-warmup` not given keeps it. `-max_looping -1`, the default, keeps the spec's |
 | `-per_loop` | record every loop's `ExecuteRules` time, not only their sum and maximum |
 | `-count_triples` | count every triple each session reads, by iterating over all of them, after extraction. It is timed in no phase |
 | `-sample_ms` | goroutine sampling period, default 10. 0 turns it off |
 | `-rlimit_data_mb` | memory ceiling, as `RLIMIT_DATA`, applied before anything loads |
 | `-require_tuned` | refuse to run unless every allowed CPU uses the `performance` governor and `perf_event_paranoid` is 1 or less. The protocol script always passes it |
-| `-dump_dir` | write the canonical graph dump after each rule set, to `<dir>/<engine>/<session>/<NN>_<ruleset>.tsv`. **Not available yet**: it needs `jets/rulesbench/graphdump` (rules_benchmark `AB.4`), and is refused until that package is wired in |
+| `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares one engine with itself, and the engines compare within `r01`. A run with a dump is not a timing run; measured runs leave it off. **Not available yet**: it needs `jets/rulesbench/graphdump` (rules_benchmark `AB.4`), and is refused until that package is wired in |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
@@ -170,6 +170,15 @@ documents every field. In outline:
 - **Each session**:
   - **the phases**: `rdf_session_ns`, `input_assert_ns`, `rule_sets_ns` (all of
     `RunRuleSets`, assertion included), `extraction_ns`, `release_ns`, and `total_ns`;
+  - **the bench's own time, which is in no phase**:
+    - `counters_ns`, its timing callbacks, mostly the walk over the network that reads the
+      Go engine's counters after each rule set;
+    - `dump_ns`, the graph dump.
+
+    `rule_sets_ns` and `total_ns` leave both out. **`extraction_ns` is the extraction and its
+    channel sends only.** The extractor is built once per worker, with a drain goroutine per
+    class that lives as long as the worker, as a pipeline's `JrPoolWorker` and downstream
+    pipe do;
   - loops, completion, the caps, errors and exceptions, rows extracted per class;
   - goroutines before and after: with a pool of 1, a difference is goroutines the session
     left behind (`I-1`);
@@ -200,7 +209,8 @@ documents every field. In outline:
 
 The Go counters come from `compute_pipes.GraphSizer` and `compute_pipes.ReteCounterReader`,
 which the Go adaptor implements (`jetrules_golang_counters.go`). Each reads a field the
-engine keeps anyway.
+engine keeps anyway. Reading the rete counters walks every vertex once per rule set, and
+that time is `counters_ns`, apart from every phase.
 
 ## Concurrency: `-pool N`
 
@@ -208,6 +218,17 @@ engine keeps anyway.
 That is a pipeline's arrangement: `JrPoolManager` starts `pool_size` workers on one engine,
 and each takes a bundle from `WorkersTaskCh` and opens its own RDF session. Here each task
 is a session, and a worker records its result instead of writing output channels.
+
+**`-race` with a pool above 1 reports the engine's own races, not the harness's.** On
+2026-10-20, a pool of 2 on `test_ws` gave three, each with its top frame in the Go engine.
+They are the writes to the shared meta store of rules_benchmark `I-5` and `F56`:
+
+- `isLocked` on the meta graph, `rdf_session.go:27`;
+- `isLocked` on the root resource manager, `resource_manager.go:93`;
+- `AntecedentQueryKey` on the shared `NodeVertex`, `alpha_node.go:128`.
+
+None was in `jets/rulesbench`. A race whose top frame is in `jets/rulesbench` or
+`jets/cmds/rules_bench` is the harness's.
 
 ## The run protocol: `scripts/run_protocol.sh`
 
@@ -218,9 +239,12 @@ scripts/run_protocol.sh --bin ./rules_bench --lib $LIB --repetitions 10 --out re
 scripts/run_protocol.sh --production-shape --bin ./rules_bench --lib $LIB spec.json   # 4 cores, GOMAXPROCS=4, pool 10
 ```
 
-**It refuses to run** unless every CPU it pins to uses the `performance` governor and
-`kernel.perf_event_paranoid` is 1 or less. A reboot resets both, and setting them is
-Michel's (`F46`).
+**It refuses to run**:
+
+- unless every CPU it pins to uses the `performance` governor and
+  `kernel.perf_event_paranoid` is 1 or less. A reboot resets both, and setting them is
+  Michel's (`F46`);
+- on battery power, unless `--allow-battery` is given: §5.5 asks for mains power.
 
 **How it runs:**
 
@@ -237,8 +261,9 @@ Michel's (`F46`).
   `$RULES_BENCH_LOCK`, for its whole duration. A second run refuses at once, or waits with
   `--wait`. Two runs from different worktrees can therefore never overlap.
 
-`--dry-run` checks everything and prints the commands. Anything after `--` is passed to
-`rules_bench`.
+**`--dry-run` writes nothing.** It makes every check, then prints the environment record
+and the commands to standard output. It creates neither `--out` nor the lock file, and says
+whether another run holds the lock now. Anything after `--` is passed to `rules_bench`.
 
 ## Profiling
 
@@ -266,11 +291,14 @@ CPU profile, as the engine's cost.
 
 **C++: `perf` and `heaptrack`, against a `libjets.so` with symbols.**
 
-- **Build the library with symbols.** Build Release with `-g` added:
-  `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-g -DCMAKE_C_FLAGS=-g`. That keeps the
-  project's production flags (`-O3 -fPIC -export-dynamic`, `jets/CMakeLists.txt:6`), which
-  only the `Release` type sets. CMake's own `RelWithDebInfo` type would compile at `-O2`
-  without them, which is not the code production runs.
+- **The C++ symbols build is Release plus `-g`**, not CMake's `RelWithDebInfo` (decided
+  2026-10-20, rules_benchmark `F58`):
+  `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-g -DCMAKE_C_FLAGS=-g`.
+  - That keeps the project's production flags (`-O3 -fPIC -export-dynamic`,
+    `jets/CMakeLists.txt:6`), which only the `Release` type sets. The flags measured are
+    `-g -O3 -DNDEBUG -O3 -fPIC -export-dynamic`.
+  - `RelWithDebInfo` would compile at `-O2` without them, which is not the code production
+    runs.
 - **Profile the native engine only, in a process of its own:**
 
   ```bash
@@ -293,15 +321,15 @@ CPU profile, as the engine's cost.
 ## Checking the harness
 
 ```bash
-go test -count=1 ./jets/rulesbench/ ./jets/compute_pipes/ -run 'TestRun|TestParseSpec|TestSessions|TestRunRuleSetsTiming|TestCastTextRowAndExtraction'
+go test -count=1 ./jets/rulesbench/ ./jets/compute_pipes/ -run 'TestRun|TestParseSpec|TestSessions|TestNewDumper|TestRunRuleSetsTiming|TestCastTextRowAndExtraction'
 ```
 
 - **`jets/rulesbench`'s tests** run the Go engine end to end over a compiled copy of
-  `jets/jetrules/test_ws`, in a child process: warmup and repetitions, a pool of 2, the
-  caps, and the dump hook.
+  `jets/jetrules/test_ws`, in a child process: warmup and repetitions, `-warmup 0`, a pool
+  of 2, the caps, and the dump hook, whose time must stay out of every phase.
 - **`jetrules_run_rule_sets_timing_test.go`** pins that a timing sink changes no outcome of
-  `RunRuleSets`. It also covers the Go counters, `CastTextRow` and
-  `ExtractSessionEntities`.
+  `RunRuleSets`, and that a timer's callback time is in no phase. It also covers the Go
+  counters, `CastTextRow` and a `SessionExtractor` serving two sessions.
 - **The C++ engine** runs the same code through the same interface. The smoke run on
   `usi_ws` `cm_loop` exercises it: both engines completed all four members with the same
   loops, extracted rows and triples per member (2026-10-20).

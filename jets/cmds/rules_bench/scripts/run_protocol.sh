@@ -6,7 +6,8 @@
 #
 # What it guarantees:
 #   - it refuses to run unless every CPU it pins to uses the performance
-#     governor and kernel.perf_event_paranoid is 1 or less;
+#     governor and kernel.perf_event_paranoid is 1 or less, and on battery
+#     power unless --allow-battery is given;
 #   - it pins every run with taskset: cores 0-5 by default, the performance
 #     cores of the Core Ultra 7 265H; --production-shape pins to 0-3 with
 #     GOMAXPROCS=4 and a pool of 10, the ECS task's 4 vCPU (F52);
@@ -30,7 +31,10 @@
 #   --in-process         one process runs every repetition, both engines loaded
 #                        and interleaved inside it (rules_bench -engine LIST)
 #   --wait               wait for the lock instead of refusing when it is held
-#   --dry-run            check and print the commands, run nothing
+#   --allow-battery      run on battery power, which section 5.5 rules out for a
+#                        measured run
+#   --dry-run            check, and print the environment record and the
+#                        commands; write nothing, not even the lock file or --out
 #
 # Environment: WORKSPACES_HOME and WORKSPACE name the compiled workspace, as for
 # rules_bench itself. RULES_BENCH_LOCK overrides the lock file
@@ -50,6 +54,7 @@ pool=""
 gomaxprocs=""
 in_process=0
 wait_lock=0
+allow_battery=0
 dry_run=0
 spec=""
 extra=()
@@ -67,9 +72,10 @@ while [[ $# -gt 0 ]]; do
     --production-shape) cpus="0-3"; gomaxprocs=4; pool=10; shift ;;
     --in-process) in_process=1; shift ;;
     --wait) wait_lock=1; shift ;;
+    --allow-battery) allow_battery=1; shift ;;
     --dry-run) dry_run=1; shift ;;
     --) shift; extra=("$@"); break ;;
-    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
     -*) die "unknown option $1" ;;
     *) [[ -z "$spec" ]] || die "one spec only"; spec="$1"; shift ;;
   esac
@@ -94,16 +100,25 @@ bin="$(realpath "$bin")"
 
 # --- The lock: one protocol run at a time on this machine ----------------------
 lock="${RULES_BENCH_LOCK:-/tmp/rules_bench.lock}"
-exec 9>>"$lock"
-if [[ "$wait_lock" -eq 1 ]]; then
-  flock 9
-elif ! flock -n 9; then
-  die "another rules_bench protocol run holds $lock; wait for it, or pass --wait"
+if [[ "$dry_run" -eq 1 ]]; then
+  # A dry run takes no lock and creates no lock file; it only says whether a run
+  # holds one now.
+  if [[ -e "$lock" ]] && ! flock -n "$lock" true; then
+    echo "run_protocol: dry run: $lock is held by another run now" >&2
+  fi
+else
+  exec 9>>"$lock"
+  if [[ "$wait_lock" -eq 1 ]]; then
+    flock 9
+  elif ! flock -n 9; then
+    die "another rules_bench protocol run holds $lock; wait for it, or pass --wait"
+  fi
 fi
 
 # --- The tuning checks ---------------------------------------------------------
 expand_cpus() {
   local part lo hi c
+  local -a parts
   IFS=',' read -ra parts <<<"$1"
   for part in "${parts[@]}"; do
     if [[ "$part" == *-* ]]; then
@@ -128,13 +143,21 @@ power="unknown"
 for ac in /sys/class/power_supply/A{C,DP}*/online; do
   [[ -r "$ac" ]] && { [[ "$(<"$ac")" == 1 ]] && power="mains" || power="battery"; break; }
 done
-[[ "$power" != battery ]] || echo "run_protocol: warning: running on battery; section 5.5 asks for mains power" >&2
+if [[ "$power" == battery && "$allow_battery" -eq 0 ]]; then
+  die "running on battery; a measured run needs mains power (section 5.5), or pass --allow-battery"
+fi
 
 # --- The environment record ----------------------------------------------------
 name="$(basename "$spec" .json)"
 [[ -n "$out" ]] || out="./rules_bench_out/${name}_$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$out"
-out="$(realpath "$out")"
+if [[ "$dry_run" -eq 1 ]]; then
+  out="$(realpath -m "$out")"
+  record=/dev/stdout
+else
+  mkdir -p "$out"
+  out="$(realpath "$out")"
+  record="$out/protocol_env.txt"
+fi
 {
   echo "recorded_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "host: $(hostname)"
@@ -146,6 +169,7 @@ out="$(realpath "$out")"
   echo "governor_pinned: performance"
   echo "perf_event_paranoid: $paranoid"
   echo "power: $power"
+  echo "allow_battery: $allow_battery"
   echo "loadavg: $(cat /proc/loadavg)"
   echo "spec: $spec"
   echo "spec_sha256: $(sha256sum "$spec" | cut -d' ' -f1)"
@@ -162,7 +186,7 @@ out="$(realpath "$out")"
   echo "in_process: $in_process"
   echo "extra_flags: ${extra[*]:-}"
   echo "GOGC: ${GOGC:-default} GOMEMLIMIT: ${GOMEMLIMIT:-default}"
-} >"$out/protocol_env.txt"
+} >"$record"
 
 # --- The runs ------------------------------------------------------------------
 common=(-require_tuned)
@@ -195,4 +219,8 @@ else
     done
   done
 fi
-echo "run_protocol: results in $out"
+if [[ "$dry_run" -eq 1 ]]; then
+  echo "run_protocol: dry run: nothing written; results would go to $out"
+else
+  echo "run_protocol: results in $out"
+fi
