@@ -63,7 +63,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-sample_ms` | goroutine sampling period, default 10. 0 turns it off |
 | `-rlimit_data_mb` | memory ceiling, as `RLIMIT_DATA`, applied before anything loads |
 | `-require_tuned` | refuse to run unless every allowed CPU uses the `performance` governor and `perf_event_paranoid` is 1 or less. The protocol script always passes it |
-| `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares one engine with itself, and the engines compare within `r01`. A run with a dump is not a timing run; measured runs leave it off. **Not available yet**: it needs `jets/rulesbench/graphdump` (rules_benchmark `AB.4`), and is refused until that package is wired in |
+| `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares one engine with itself, and the engines compare within `r01`. The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 

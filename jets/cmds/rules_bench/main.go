@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -30,9 +31,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulesbench"
+	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
@@ -61,12 +64,14 @@ var (
 	traceFile      = flag.String("trace", "", "write a Go execution trace of the runs to this file")
 )
 
-// dumpWriter writes the canonical graph dump, and dumpPath is its dump tree's
-// layout. Both are nil until the graph dump package (jets/rulesbench/graphdump)
-// is wired in, and -dump_dir is refused while they are.
+// dumpWriter writes the canonical graph dump with graphdump's default options
+// (the meta graph left out), and dumpPath is the dump tree's layout, the one
+// jets/cmds/rules_bench_diff reads.
 var (
-	dumpWriter rulesbench.DumpWriter
-	dumpPath   rulesbench.DumpPathFunc
+	dumpWriter rulesbench.DumpWriter = func(w io.Writer, s compute_pipes.JetRdfSession) error {
+		return graphdump.WriteSession(w, s, graphdump.Options{})
+	}
+	dumpPath rulesbench.DumpPathFunc = graphdump.Path
 )
 
 func main() {
@@ -83,10 +88,6 @@ func main() {
 	if *outDir == "" || specPath == "" || flag.NArg() > 1 {
 		fmt.Fprintln(os.Stderr, "usage: rules_bench -out_dir <dir> [flags] <spec.json>")
 		flag.PrintDefaults()
-		os.Exit(2)
-	}
-	if *dumpDir != "" && (dumpWriter == nil || dumpPath == nil) {
-		fmt.Fprintln(os.Stderr, "rules_bench: -dump_dir needs the graph dump (jets/rulesbench/graphdump), which this build does not have")
 		os.Exit(2)
 	}
 	if err := run(specPath); err != nil {
