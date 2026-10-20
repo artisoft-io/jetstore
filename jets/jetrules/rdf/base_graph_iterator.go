@@ -1,20 +1,19 @@
 package rdf
 
-import (
-	"iter"
-	"sync"
-)
+import "iter"
 
 // BaseGraph Iterator, synchronous
 //
 // The iterator runs on the caller's goroutine: All walks the graph's maps with
-// Range and calls the loop body once per matching triple. There are no
+// range and calls the loop body once per matching triple. There are no
 // goroutines and no channels, so there is nothing to release when the caller
 // stops early: a `break` in the loop body ends the walk.
 //
-// A triple inserted or erased by the loop body, in the graph being walked, may
-// or may not be returned by the walk in progress (the semantics of
-// sync.Map.Range).
+// The graph's maps are plain maps, so a write made by the loop body to the
+// graph being walked has the semantics Go defines for a write to a map during
+// a range on the same goroutine: an entry erased before it is reached is not
+// returned, an entry inserted may or may not be returned, and a reference
+// count change does not affect the walk, which only reads the keys.
 
 type BaseGraphIterator struct {
 	spin    byte
@@ -53,54 +52,53 @@ func (itor *BaseGraphIterator) IsEmpty() bool {
 func (itor *BaseGraphIterator) visit(yield func([3]*Node) bool) bool {
 	if itor.u == nil {
 		// Iterate over all elements
-		cont := true
-		itor.data.Range(func(node, data any) bool {
-			cont = itor.visitU(node.(*Node), data.(*sync.Map), yield)
-			return cont
-		})
-		return cont
-	}
-	// Single value for u
-	data, _ := itor.data.Load(itor.u)
-	if data == nil {
+		for u, vmap := range itor.data {
+			if !itor.visitU(u, vmap, yield) {
+				return false
+			}
+		}
 		return true
 	}
-	return itor.visitU(itor.u, data.(*sync.Map), yield)
+	// Single value for u
+	vmap := itor.data[itor.u]
+	if vmap == nil {
+		return true
+	}
+	return itor.visitU(itor.u, vmap, yield)
 }
 
 // For the subject u, iterate over the predicates (the v's)
 func (itor *BaseGraphIterator) visitU(u *Node, vmap VMapType, yield func([3]*Node) bool) bool {
 	if itor.v == nil {
 		// Iterate over all elements
-		cont := true
-		vmap.Range(func(node, data any) bool {
-			cont = itor.visitUV(u, node.(*Node), data.(*sync.Map), yield)
-			return cont
-		})
-		return cont
-	}
-	// Single value for v
-	data, _ := vmap.Load(itor.v)
-	if data == nil {
+		for v, wset := range vmap {
+			if !itor.visitUV(u, v, wset, yield) {
+				return false
+			}
+		}
 		return true
 	}
-	return itor.visitUV(u, itor.v, data.(*sync.Map), yield)
+	// Single value for v
+	wset := vmap[itor.v]
+	if wset == nil {
+		return true
+	}
+	return itor.visitUV(u, itor.v, wset, yield)
 }
 
 // For the subject, predicate pair, iterate over the objects (the w's)
 func (itor *BaseGraphIterator) visitUV(u, v *Node, wset WSetType, yield func([3]*Node) bool) bool {
 	if itor.w == nil {
 		// Iterate over all elements
-		cont := true
-		wset.Range(func(node, _ any) bool {
-			cont = yield(mapUVW2SPOArr(itor.spin, u, v, node.(*Node)))
-			return cont
-		})
-		return cont
+		for w := range wset {
+			if !yield(mapUVW2SPOArr(itor.spin, u, v, w)) {
+				return false
+			}
+		}
+		return true
 	}
 	// Single value for w
-	c, _ := wset.Load(itor.w)
-	if c != nil && c.(int) > 0 {
+	if wset[itor.w] > 0 {
 		return yield(mapUVW2SPOArr(itor.spin, u, v, itor.w))
 	}
 	return true
