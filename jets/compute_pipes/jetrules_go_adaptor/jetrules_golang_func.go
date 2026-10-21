@@ -479,7 +479,7 @@ func (i *TripleIteratorGo) Next() bool {
 		return false
 	}
 	// read next value, if one
-	if !i.cursor.Next() {
+	if i.cursor == nil || !i.cursor.Next() {
 		i.isEnd = true
 		return false
 	}
@@ -527,7 +527,7 @@ func (it *TripleIteratorGo) GetObject() compute_pipes.RdfNode {
 // Release ends the iteration. The iterator holds no goroutine, so this only drops
 // the keys the cursor holds.
 func (it *TripleIteratorGo) Release() error {
-	it.cursor = rdf.TripleCursor{}
+	it.cursor = nil
 	it.isEnd = true
 	return nil
 }

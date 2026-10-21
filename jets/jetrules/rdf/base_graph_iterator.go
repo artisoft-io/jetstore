@@ -14,10 +14,26 @@ import "iter"
 // before it was read (I-1), and its consumers could not tell "no triple" from
 // "no triple yet" without blocking (I-2).
 //
-// A triple inserted or erased by the loop body, in the graph being walked, may
-// or may not be returned by the walk in progress (the semantics of
-// sync.Map.Range). The rete engine does not rely on either: consequents are
-// inserted after a visit, not during it.
+// Writes during a walk. The loop body may insert into or erase from the graph
+// being walked, on the same goroutine. The walk stays well defined and finishes,
+// and a triple inserted or erased by the loop body may or may not be returned by
+// the walk in progress: that is sync.Map.Range's contract, and, for plain Go maps,
+// the language's for a write during a range on the same goroutine. Which one is
+// returned is not specified, and nothing may depend on it. What the iterator does
+// not support is a write from another goroutine during a walk.
+//
+// The rete engine does write during a walk. Consequents are inserted after a
+// visit (ComputeConsequentTriples), but a filter is evaluated inside
+// VisitReteGraph's range over FindMatchingTriples, and four operators insert into
+// the inferred graph when they are evaluated: lookup and multi_lookup
+// (LookupTableSqlite3, lookup_table_sqlite3.go, InsertInferred of the row, its
+// columns and the cache entry), range (RangeOp.Eval, expr_operator_r_range.go)
+// and create_entity (CreateEntityOp.Eval, expr_operator_r_create_entity.go). A
+// rule that used one in an antecedent's filter would write while the iterator is
+// live. The four rule workspaces rules_benchmark compiles use them only in
+// consequents (checked on their compiled networks, 2026-10-21), but nothing
+// prevents the other use (rules_benchmark G13), so the guarantee above is the
+// one to keep when the graph's maps change.
 //
 // For a caller that cannot be written as a range loop, Cursor gives the pull form.
 
@@ -48,8 +64,8 @@ func (itor *BaseGraphIterator) IsEmpty() bool {
 }
 
 // Cursor returns the pull form of this iterator.
-func (itor *BaseGraphIterator) Cursor() TripleCursor {
-	c := TripleCursor{n: 1}
+func (itor *BaseGraphIterator) Cursor() *TripleCursor {
+	c := &TripleCursor{n: 1}
 	c.itors[0] = *itor
 	return c
 }
@@ -124,24 +140,34 @@ func (itor *BaseGraphIterator) visitUV(u, v *Node, wset WSetType, yield func([3]
 //		t3 := c.Value()
 //	}
 //
-// It is lazy. It descends one map level at a time and holds, at each level, the
-// keys of the one map it is inside: a bound key is looked up when the cursor gets
-// to it, and an unbound level is read when the cursor enters it. So stopping
-// after the first triple costs the first triple, not the whole match, and a
-// session's later graphs are not read at all. It never holds the matches
-// themselves, only keys, at most one level's worth per level.
+// It is lazy across graphs and across map entries, and it snapshots one level at
+// a time. It descends one map level at a time: a bound key is looked up when the
+// cursor gets to it, and an unbound level's keys are copied when the cursor
+// enters it. So stopping after the first triple does not read the rest of the
+// match beyond the levels already entered, and a session's later graphs are not
+// read until the earlier ones are done. It never holds the matches themselves,
+// only keys.
+//
+// The snapshot has two consequences:
+//   - memory: entering an unbound level holds that whole level's keys, so it is
+//     O(level), not O(1). Find() holds every subject of the graph it is in, and
+//     FindSPO(nil, rdf:type, class) every entity of the class, as one slice of
+//     pointers;
+//   - visibility: a key read into a level is returned even if its triple is
+//     erased before the cursor gets to it, and a key inserted into a level after
+//     it was read is not returned. Extraction reads the session after the rules
+//     have run, so it never writes while a cursor is open.
 //
 // It runs on the caller's goroutine and holds no resource, so a cursor that is
 // dropped before its end needs no release.
 //
-// A key read into a level is returned even if its triple is erased before the
-// cursor gets to it, and a key inserted into a level after it was read is not
-// returned. Extraction reads the session after the rules have run, so it never
-// writes while a cursor is open.
+// Use it through the pointer Cursor returns, and do not copy a TripleCursor: a
+// copy made after Next shares its key buffers with the original, so advancing
+// either corrupts the other.
 type TripleCursor struct {
 	itors [3]BaseGraphIterator
+	// n iterators; the current one is itors[gi-1]
 	n, gi int
-	it    *BaseGraphIterator
 
 	u, v       *Node
 	vmap       VMapType
@@ -160,7 +186,7 @@ func (c *TripleCursor) Next() bool {
 		case c.wi < len(c.ws):
 			w := c.ws[c.wi]
 			c.wi++
-			c.value = mapUVW2SPOArr(c.it.spin, c.u, c.v, w)
+			c.value = mapUVW2SPOArr(c.itors[c.gi-1].spin, c.u, c.v, w)
 			return true
 
 		case c.vi < len(c.vs):
@@ -174,12 +200,11 @@ func (c *TripleCursor) Next() bool {
 			c.enterU()
 
 		case c.gi < c.n:
-			c.it = &c.itors[c.gi]
 			c.gi++
 			c.enterGraph()
 
 		default:
-			c.it, c.u, c.v, c.vmap = nil, nil, nil, nil
+			c.u, c.v, c.vmap = nil, nil, nil
 			c.us, c.vs, c.ws = nil, nil, nil
 			return false
 		}
@@ -196,7 +221,7 @@ func (c *TripleCursor) enterGraph() {
 	c.us, c.ui = c.us[:0], 0
 	c.vs, c.vi = c.vs[:0], 0
 	c.ws, c.wi = c.ws[:0], 0
-	it := c.it
+	it := &c.itors[c.gi-1]
 	switch {
 	case it.data == nil:
 	case it.u != nil:
@@ -214,14 +239,14 @@ func (c *TripleCursor) enterGraph() {
 func (c *TripleCursor) enterU() {
 	c.vs, c.vi = c.vs[:0], 0
 	c.ws, c.wi = c.ws[:0], 0
-	data, _ := c.it.data.Load(c.u)
+	data, _ := c.itors[c.gi-1].data.Load(c.u)
 	if data == nil {
 		c.vmap = nil
 		return
 	}
 	c.vmap = data.(VMapType)
-	if c.it.v != nil {
-		c.vOne[0] = c.it.v
+	if c.itors[c.gi-1].v != nil {
+		c.vOne[0] = c.itors[c.gi-1].v
 		c.vs = c.vOne[:]
 		return
 	}
@@ -239,9 +264,9 @@ func (c *TripleCursor) enterUV() {
 		return
 	}
 	wset := data.(WSetType)
-	if c.it.w != nil {
-		if n, _ := wset.Load(c.it.w); n != nil && n.(int) > 0 {
-			c.wOne[0] = c.it.w
+	if c.itors[c.gi-1].w != nil {
+		if n, _ := wset.Load(c.itors[c.gi-1].w); n != nil && n.(int) > 0 {
+			c.wOne[0] = c.itors[c.gi-1].w
 			c.ws = c.wOne[:]
 		}
 		return

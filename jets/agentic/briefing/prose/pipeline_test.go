@@ -54,7 +54,7 @@ func (x *node) Equals(other compute_pipes.RdfNode) bool {
 // `TripleIteratorGo` implements (`NewTripleIteratorGo`,
 // `jets/compute_pipes/jetrules_go_adaptor/jetrules_golang_model.go`).
 type iterator struct {
-	src   rdf.TripleCursor
+	src   *rdf.TripleCursor
 	value [3]*rdf.Node
 	isEnd bool
 }

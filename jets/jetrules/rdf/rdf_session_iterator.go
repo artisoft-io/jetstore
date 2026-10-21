@@ -30,8 +30,8 @@ func (itor *RdfSessionIterator) IsEmpty() bool {
 }
 
 // Cursor returns the pull form of this iterator.
-func (itor *RdfSessionIterator) Cursor() TripleCursor {
-	return TripleCursor{itors: itor.itors, n: 3}
+func (itor *RdfSessionIterator) Cursor() *TripleCursor {
+	return &TripleCursor{itors: itor.itors, n: 3}
 }
 
 func (itor *RdfSessionIterator) visit(yield func([3]*Node) bool) bool {

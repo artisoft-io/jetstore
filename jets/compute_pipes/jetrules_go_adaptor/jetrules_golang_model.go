@@ -52,7 +52,7 @@ type JetReteSessionGo struct {
 // triple from the graph, so stopping early costs only what was read, and it holds
 // no goroutine, so an iterator that is never released leaks nothing.
 type TripleIteratorGo struct {
-	cursor rdf.TripleCursor
+	cursor *rdf.TripleCursor
 	value  [3]*rdf.Node
 	isEnd  bool
 }

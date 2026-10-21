@@ -10,7 +10,7 @@ import (
 // what the range form returns, on every binding pattern, for a base graph and for a
 // session whose triples are spread over its three graphs.
 
-func cursorTriples(c TripleCursor) []string {
+func cursorTriples(c *TripleCursor) []string {
 	var out []string
 	for c.Next() {
 		t3 := c.Value()
