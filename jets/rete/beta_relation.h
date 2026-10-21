@@ -65,6 +65,24 @@ class BetaRelation {
     return arena_;
   }
 
+  // True when this relation and every container it owns allocate from `arena`.
+  // Checked by ~ReteSession in debug and AddressSanitizer builds, not on any hot path.
+  inline bool
+  containers_in(BetaRowArena const* arena)const
+  {
+    if(arena_ != arena) return false;
+    if(all_beta_rows_.get_allocator().arena() != arena) return false;
+    if(pending_beta_rows_.get_allocator().arena() != arena) return false;
+    auto in_arena = [arena](auto const& vec) {
+      if(vec.get_allocator().arena() != arena) return false;
+      for(auto const& idx: vec) {
+        if(idx.get_allocator().arena() != arena) return false;
+      }
+      return true;
+    };
+    return in_arena(beta_row_idx1_) and in_arena(beta_row_idx2_) and in_arena(beta_row_idx3_);
+  }
+
   inline b_index
   get_node_vertex()const
   {

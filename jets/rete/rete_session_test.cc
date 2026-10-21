@@ -444,12 +444,14 @@ TEST_F(ReteSessionTest, BetaRelationsAndRowsAreInTheSessionArena)
   this->rete_session->execute_rules();
 
   auto * arena = this->rete_session->arena();
-  EXPECT_GT(arena->live_small(), 0u);
+  EXPECT_GT(arena->live_bytes(), 0u);
   EXPECT_GT(arena->nbr_blocks(), 0u);
+  EXPECT_LE(arena->live_bytes(), arena->block_bytes());
   int nbr_rows = 0;
   for(auto * relation: this->rete_session->beta_relations()) {
     ASSERT_NE(relation, nullptr);
     EXPECT_EQ(relation->arena(), arena);
+    EXPECT_TRUE(relation->containers_in(arena));
     auto itor = relation->get_all_rows_iterator();
     while(not itor->is_end()) {
       EXPECT_EQ(itor->get_row()->arena(), arena);
@@ -478,7 +480,7 @@ TEST_F(ReteSessionTest, SessionReleasedAfterRetraction)
   auto rs2 = create_rete_session(this->rete_meta_store, this->rdf_session.get());
   ASSERT_EQ(rs2->initialize(), 0);
   rs2->execute_rules();
-  EXPECT_GT(rs2->arena()->live_small(), 0u);
+  EXPECT_GT(rs2->arena()->live_bytes(), 0u);
   rs2->terminate();
   rs2.reset();
 }
@@ -489,9 +491,10 @@ TEST(BetaRowArenaTest, ReusesFreedMemoryBySizeClass)
   void * p1 = arena.allocate(40);
   void * p2 = arena.allocate(40);
   EXPECT_NE(p1, p2);
-  EXPECT_EQ(arena.live_small(), 2u);
+  // live bytes count whole 16-byte classes: 40 bytes is 48
+  EXPECT_EQ(arena.live_bytes(), 96u);
   arena.deallocate(p1, 40);
-  EXPECT_EQ(arena.live_small(), 1u);
+  EXPECT_EQ(arena.live_bytes(), 48u);
   // 33 to 48 bytes is one class
   EXPECT_EQ(arena.allocate(33), p1);
   // another class does not take it
@@ -517,7 +520,7 @@ TEST(BetaRowArenaTest, LargeAllocationsAreFreedOneByOneOrInBulk)
   arena.release();
   EXPECT_EQ(arena.nbr_large(), 0u);
   EXPECT_EQ(arena.nbr_blocks(), 0u);
-  EXPECT_EQ(arena.live_small(), 0u);
+  EXPECT_EQ(arena.live_bytes(), 0u);
   // usable again after a release
   EXPECT_NE(arena.allocate(64), nullptr);
 }
@@ -530,7 +533,7 @@ TEST(BetaRowArenaTest, RowAndRecordAreInTheArena)
   {
     auto row = create_beta_row(&arena, nullptr, 3);
     EXPECT_EQ(row->arena(), &arena);
-    EXPECT_GT(arena.live_small(), 0u);
+    EXPECT_GT(arena.live_bytes(), 0u);
     row->start_recording();
     for(int i=0; i<100; i++) row->record_inferred(rdf::Triple());
     EXPECT_EQ(row->get_recorded()->size(), 100u);
@@ -541,8 +544,30 @@ TEST(BetaRowArenaTest, RowAndRecordAreInTheArena)
     EXPECT_TRUE(row->is_recording());
     EXPECT_EQ(row->get_recorded()->size(), 0u);
   }
-  EXPECT_EQ(arena.live_small(), 0u);
+  EXPECT_EQ(arena.live_bytes(), 0u);
   EXPECT_EQ(arena.nbr_large(), 0u);
+}
+
+// The allocator does not propagate: assigning a heap container to an arena container
+// moves the elements into the arena, and the container stays there
+TEST(BetaRowArenaTest, AssignmentKeepsAContainerInItsArena)
+{
+  BetaRowArena arena;
+  auto * relation = create_beta_node(&arena, nullptr);
+  EXPECT_TRUE(relation->containers_in(&arena));
+  auto heap_relation = create_beta_node(nullptr);
+  EXPECT_FALSE(heap_relation->containers_in(&arena));
+  EXPECT_TRUE(heap_relation->containers_in(nullptr));
+
+  beta_row_list in_arena{ArenaAllocator<BetaRowPtr>(&arena)};
+  beta_row_list on_heap;
+  on_heap.push_back(create_beta_row(&arena, nullptr, 1));
+  in_arena = std::move(on_heap);
+  EXPECT_EQ(in_arena.get_allocator().arena(), &arena);
+  EXPECT_EQ(in_arena.size(), 1u);
+  in_arena = beta_row_list();
+  EXPECT_EQ(in_arena.get_allocator().arena(), &arena);
+  arena.release();
 }
 
 // What a relation holds is released with the arena without being destroyed: the

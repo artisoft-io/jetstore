@@ -80,10 +80,28 @@ class ReteSession {
    * in arena_, and none of them is destroyed: arena_ frees its blocks, declared first
    * so that it is destroyed last. Destroying them one by one cost a large session
    * about a fifth of its time. What holds a row outside the arena, the consequent
-   * queue, is destroyed first, as a member declared after arena_, and releases its
-   * rows into the arena as before.
+   * queue, is destroyed after this body, as a member declared after arena_, and
+   * releases its rows into the arena as before.
+   *
+   * In a debug or AddressSanitizer build, every relation's containers are first
+   * checked to be in arena_: one that is not would never be freed. At verbosity 1
+   * (glog VLOG) the arena's blocks are reported against its live bytes, which is the
+   * memory its free lists and block tails held (see beta_row_arena.h).
    */
-  ~ReteSession() = default;
+  ~ReteSession()
+  {
+#if !defined(NDEBUG) || defined(JETS_ARENA_ASAN)
+    for(auto const* relation: beta_relations_) {
+      if(not relation->containers_in(&arena_)) {
+        LOG(FATAL) << "~ReteSession: a container of the beta relation at vertex "
+          << relation->get_node_vertex()->vertex << " is not in the session's arena";
+      }
+    }
+#endif
+    VLOG(1) << "ReteSession released: arena block_bytes " << arena_.block_bytes()
+      << " live_bytes " << arena_.live_bytes() << " nbr_blocks " << arena_.nbr_blocks()
+      << " large_bytes " << arena_.large_bytes() << " nbr_large " << arena_.nbr_large();
+  }
 
   // The arena the session's beta relations and rows are allocated from
   inline BetaRowArena *
@@ -202,7 +220,8 @@ class ReteSession {
    * @brief Initialize ReteSession using ReteMetaStore
    *
    *  - Initialize BetaRelationVector beta_relations_ such that
-   *    `beta_relations_[ipos] = create_beta_node(rule_ms_->node_vertexes_[ipos]);`
+   *    `beta_relations_[ipos] = create_beta_node(&arena_, rule_ms_->node_vertexes_[ipos]);`,
+   *    a relation constructed in the session's arena
    *  - Register GraphCallbackManager using antecedent AlphaNode adaptor
    *  - Initialize VertexVisitsVector with zero values
    * 

@@ -6,7 +6,16 @@
 #include <new>
 #include <type_traits>
 
+// AddressSanitizer: __SANITIZE_ADDRESS__ under gcc, __has_feature under clang
 #if defined(__SANITIZE_ADDRESS__)
+#define JETS_ARENA_ASAN 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define JETS_ARENA_ASAN 1
+#endif
+#endif
+
+#if defined(JETS_ARENA_ASAN)
 #include <sanitizer/asan_interface.h>
 #define JETS_ARENA_POISON(p, n) ASAN_POISON_MEMORY_REGION((p), (n))
 #define JETS_ARENA_UNPOISON(p, n) ASAN_UNPOISON_MEMORY_REGION((p), (n))
@@ -19,7 +28,7 @@
 // bucket arrays of the containers that hold and index them.
 //
 // Why: a large session holds tens of millions of rows and container nodes, and freeing
-// them one by one when the session is deleted cost a quarter of the session's time.
+// them one by one when the session is deleted cost about a fifth of the session's time.
 // Everything a session's beta relations own is allocated here, so the session is torn
 // down by releasing the arena's blocks: the relations' destructors are not run (see
 // ReteSession::~ReteSession).
@@ -27,8 +36,18 @@
 // The arena is not a monotonic buffer. A row erased while the session runs, and a
 // candidate row a filter rejects, is freed as before and its memory is reused: small
 // blocks go back to a free list per 16-byte size class, large ones (the containers'
-// bucket arrays) to the system. So a session's peak memory is what it was with the
-// global heap, plus the unused tail of the current block.
+// bucket arrays) to the system at once. The free lists never coalesce and a block is
+// not returned before the arena is released, so a session holds, for its small
+// allocations, the sum of each size class's own high-water mark: at least the heap's
+// peak for the same allocations, and more when one class's memory is freed and another
+// class then grows. block_bytes() against live_bytes() is that retention at any point;
+// ~ReteSession reports both at verbosity 1 (glog VLOG).
+//
+// Under AddressSanitizer, freed and unused arena memory is poisoned. That matters more
+// here than with the global heap: the free lists reuse the most recently freed block
+// first, so without poisoning a dangling pointer to a freed row reads and writes the
+// next object of its size class, silently, where malloc would more often still hold
+// the freed contents.
 //
 // Not thread safe: a ReteSession is used by one thread at a time.
 namespace jets::rete {
@@ -58,14 +77,14 @@ class BetaRowArena {
     if(node) {
       JETS_ARENA_UNPOISON(node, sz);
       free_[cls] = node->next;
-      ++live_small_;
+      live_bytes_ += sz;
       return node;
     }
     if(static_cast<std::size_t>(end_ - cur_) < sz) new_block();
     void * p = cur_;
     cur_ += sz;
     JETS_ARENA_UNPOISON(p, sz);
-    ++live_small_;
+    live_bytes_ += sz;
     return p;
   }
 
@@ -82,7 +101,7 @@ class BetaRowArena {
     node->next = free_[cls];
     free_[cls] = node;
     JETS_ARENA_POISON(p, cls * kAlign);
-    --live_small_;
+    live_bytes_ -= cls * kAlign;
   }
 
   // Frees every block and every large allocation. Whatever was constructed in the
@@ -108,7 +127,7 @@ class BetaRowArena {
     nbr_blocks_ = 0;
     large_bytes_ = 0;
     nbr_large_ = 0;
-    live_small_ = 0;
+    live_bytes_ = 0;
   }
 
   // Counters, for tests and for reporting memory
@@ -116,8 +135,9 @@ class BetaRowArena {
   inline std::size_t nbr_blocks()const { return nbr_blocks_; }
   inline std::size_t large_bytes()const { return large_bytes_; }
   inline std::size_t nbr_large()const { return nbr_large_; }
-  // Small allocations made and not yet deallocated
-  inline std::size_t live_small()const { return live_small_; }
+  // Bytes of small allocations made and not yet deallocated, by size class. With
+  // block_bytes(), what the free lists and block tails hold: see the comment above.
+  inline std::size_t live_bytes()const { return live_bytes_; }
 
  private:
   struct FreeNode { FreeNode * next; };
@@ -184,19 +204,26 @@ class BetaRowArena {
   std::size_t nbr_blocks_ = 0;
   std::size_t large_bytes_ = 0;
   std::size_t nbr_large_ = 0;
-  std::size_t live_small_ = 0;
+  std::size_t live_bytes_ = 0;
 };
 
 // Standard allocator over a BetaRowArena. A default-constructed one has no arena and
 // uses the global heap, for the rows, relations and containers made outside a
 // ReteSession (tests, temporaries).
+//
+// It does not propagate, as std::pmr::polymorphic_allocator does not: a container
+// keeps the arena it was constructed with, and assigning another container to it
+// copies or moves the elements into that arena. So an assignment cannot carry a
+// relation's container out of its arena onto the heap, where it would never be freed.
+// Swapping two containers with different arenas is undefined, as for pmr; nothing
+// swaps them (~ReteSession checks the relations' containers in debug and ASan builds).
 template<class T>
 class ArenaAllocator {
  public:
   using value_type = T;
-  using propagate_on_container_copy_assignment = std::true_type;
-  using propagate_on_container_move_assignment = std::true_type;
-  using propagate_on_container_swap = std::true_type;
+  using propagate_on_container_copy_assignment = std::false_type;
+  using propagate_on_container_move_assignment = std::false_type;
+  using propagate_on_container_swap = std::false_type;
   using is_always_equal = std::false_type;
   static_assert(alignof(T) <= BetaRowArena::kAlign);
 
