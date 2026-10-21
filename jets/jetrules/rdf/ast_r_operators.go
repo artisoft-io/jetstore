@@ -247,26 +247,22 @@ func (lhs *Node) Exist(rdfSession *RdfSession, rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
-	obj := rdfSession.GetObject(lhs, rhs)
-	var result *Node
-	if obj == nil {
-		result = FALSE()
-	} else {
-		result = TRUE()
+	// ContainsSP rather than GetObject: the answer only needs to know that an
+	// object exists (rules_benchmark G7)
+	if rdfSession.ContainsSP(lhs, rhs) {
+		return TRUE()
 	}
-	return result
+	return FALSE()
 }
 
 func (lhs *Node) ExistNot(rdfSession *RdfSession, rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
-	obj := rdfSession.GetObject(lhs, rhs)
-	var result *Node
-	if obj == nil {
-		result = TRUE()
-	} else {
-		result = FALSE()
+	// ContainsSP rather than GetObject: the answer only needs to know that an
+	// object exists (rules_benchmark G7)
+	if rdfSession.ContainsSP(lhs, rhs) {
+		return FALSE()
 	}
-	return result
+	return TRUE()
 }

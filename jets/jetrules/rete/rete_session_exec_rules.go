@@ -125,14 +125,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 
 				// Process the returned iterator t3_itor accordingly if AlphaNode is a negation
 				if childAlphaNode.NdVertex.IsNegation {
-					// if t3Itor.Itor is empty then create the beta row
-					count := 0
-					for range t3Itor.Itor {
-						// Got a triple, skip creating the beta row
-						count++
-						break
-					}
-					if count == 0 {
+					// if t3Itor is empty then create the beta row
+					if t3Itor.IsEmpty() {
 						// Got no triples, condition met; create the beta row
 						// //**
 						// if childVertex == 119 {
@@ -143,7 +137,6 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						t3 := rdf.NilTriple()
 						err := childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
 						if err != nil {
-							t3Itor.Done()
 							return fmt.Errorf("while initializing BetaRow with NilTriple: %v", err)
 						}
 						// evaluate the current_relation filter if any
@@ -163,8 +156,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						}
 					}
 				} else {
-					// for each t3Itor.Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
-					for t3 := range t3Itor.Itor {
+					// for each triple of t3Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
+					for t3 := range t3Itor.All() {
 						// //**
 						// if childVertex == 119 {
 						// 	log.Printf("Vertex 119 = Got triple (%s, %s, %s), inferring? %v for beta row", t3[0], t3[1], t3[2], isInferring)
@@ -190,7 +183,6 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						}
 					}
 				}
-				t3Itor.Done()
 				itor.Next()
 			}
 

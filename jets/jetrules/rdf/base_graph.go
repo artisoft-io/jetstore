@@ -80,6 +80,12 @@ func (g *BaseGraph) ContainsUV(u, v *Node) bool {
 	return hasValue
 }
 
+// iterator returns the iterator over the triples (u, v, w), a nil key matching
+// any, by value.
+func (g *BaseGraph) iterator(u, v, w *Node) BaseGraphIterator {
+	return BaseGraphIterator{spin: g.spin, u: u, v: v, w: w, data: g.data}
+}
+
 // returns an Iterator over all the triples in the graph
 func (g *BaseGraph) Find() *BaseGraphIterator {
 	return NewBaseGraphIterator(g.spin, nil, nil, nil, g.data)

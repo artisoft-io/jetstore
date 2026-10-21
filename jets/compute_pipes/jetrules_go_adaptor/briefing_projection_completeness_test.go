@@ -584,9 +584,8 @@ func objects(s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, pred
 	if itor == nil {
 		return nil
 	}
-	defer itor.Done()
 	var out []*rdf.Node
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		out = append(out, t3[2])
 	}
 	return out
@@ -616,9 +615,8 @@ func oneSubjectOfType(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, 
 	if itor == nil {
 		t.Fatalf("no iterator for rdf:type %s", class)
 	}
-	defer itor.Done()
 	var out []*rdf.Node
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		out = append(out, t3[0])
 	}
 	if len(out) != 1 {

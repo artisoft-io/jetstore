@@ -47,13 +47,16 @@ func (rs *RdfSession) ContainsSP(s, p *Node) bool {
 		rs.InferredGraph.ContainsSP(s, p)
 }
 
+// GetObject returns the object of a triple (s, p, ?o), nil if there is none,
+// looking in the meta, asserted and inferred graphs in that order.
 func (rs *RdfSession) GetObject(s, p *Node) *Node {
-	itor := rs.FindSP(s, p)
-	defer itor.Done()
-	for t3 := range itor.Itor {
-		return t3[2]
+	if o := rs.MetaGraph.GetObject(s, p); o != nil {
+		return o
 	}
-	return nil
+	if o := rs.AssertedGraph.GetObject(s, p); o != nil {
+		return o
+	}
+	return rs.InferredGraph.GetObject(s, p)
 }
 
 // Asserting a triple to rdf session, returns true if actually inserted
@@ -118,19 +121,41 @@ func (rs *RdfSession) Retract(s, p, o *Node) (bool, error) {
 }
 
 func (g *RdfSession) Find() *RdfSessionIterator {
-	return NewRdfSessionIterator(g.MetaGraph.Find(), g.AssertedGraph.Find(), g.InferredGraph.Find())
+	return g.FindSPO(nil, nil, nil)
 }
 
 func (g *RdfSession) FindS(s *Node) *RdfSessionIterator {
-	return NewRdfSessionIterator(g.MetaGraph.FindS(s), g.AssertedGraph.FindS(s), g.InferredGraph.FindS(s))
+	itor := &RdfSessionIterator{}
+	if g.MetaGraph.Size() > 0 {
+		itor.itors[0] = g.MetaGraph.spoGraph.iterator(s, nil, nil)
+	}
+	itor.itors[1] = g.AssertedGraph.spoGraph.iterator(s, nil, nil)
+	itor.itors[2] = g.InferredGraph.spoGraph.iterator(s, nil, nil)
+	return itor
 }
 
+// FindSP reads the spo index, also when s is nil, as RdfGraph.FindSP does.
 func (g *RdfSession) FindSP(s, p *Node) *RdfSessionIterator {
-	return NewRdfSessionIterator(g.MetaGraph.FindSP(s, p), g.AssertedGraph.FindSP(s, p), g.InferredGraph.FindSP(s, p))
+	itor := &RdfSessionIterator{}
+	if g.MetaGraph.Size() > 0 {
+		itor.itors[0] = g.MetaGraph.spoGraph.iterator(s, p, nil)
+	}
+	itor.itors[1] = g.AssertedGraph.spoGraph.iterator(s, p, nil)
+	itor.itors[2] = g.InferredGraph.spoGraph.iterator(s, p, nil)
+	return itor
 }
 
+// FindSPO returns an iterator over the triples (s, p, o) of the three graphs, a nil
+// node matching any.
+//
+// The meta graph is skipped when it is empty. Otherwise a bound first key costs it
+// one map lookup, which is what an explicit skip would cost too.
 func (g *RdfSession) FindSPO(s, p, o *Node) *RdfSessionIterator {
-	// //**
-	// log.Printf("RdfSession.FindSPO(%s, %s, %s)", s, p, o)
-	return NewRdfSessionIterator(g.MetaGraph.FindSPO(s, p, o), g.AssertedGraph.FindSPO(s, p, o), g.InferredGraph.FindSPO(s, p, o))
+	itor := &RdfSessionIterator{}
+	if g.MetaGraph.Size() > 0 {
+		itor.itors[0] = g.MetaGraph.findSPO(s, p, o)
+	}
+	itor.itors[1] = g.AssertedGraph.findSPO(s, p, o)
+	itor.itors[2] = g.InferredGraph.findSPO(s, p, o)
+	return itor
 }

@@ -9,7 +9,8 @@ package rdf
 // regression. The comment on each test says what the correct behaviour is.
 //
 // A defect that has been fixed keeps its test, turned into a regression test that
-// asserts the correct behaviour: I-4 since rules_benchmark Phase 2 (AH.5).
+// asserts the correct behaviour: I-4 since rules_benchmark Phase 2 (AH.5), and I-1
+// since G1 (AI.1), which removed the iterator goroutines.
 
 import (
 	"runtime"
@@ -44,29 +45,23 @@ func leakedBy(n int, f func()) int {
 	return settledGoroutines() - before
 }
 
-// TestDefect_I1_IteratorGoroutineLeak reproduces rules_benchmark I-1 (F3): an
-// iterator over a bound key that is stopped early leaks goroutines.
+// TestRegression_I1_NoIteratorGoroutines was TestDefect_I1_IteratorGoroutineLeak,
+// which reproduced rules_benchmark I-1 (F3, F80): an iterator over a bound key that
+// was closed before it was read leaked goroutines.
 //
-// NewBaseGraphIterator (base_graph_iterator.go:38) runs one goroutine per map
-// level. When the subject or the predicate is bound, the first two stages send
-// their single value in a select with done, and on done they return WITHOUT
-// closing their output channel (base_graph_iterator.go:66 and :92). The next stage
-// is ranging over that channel, so it blocks forever, and so does the stage after
-// it. The path is taken whenever Done() reaches a stage before it has sent: most
-// directly when an iterator is closed before anything is read from it, which is
-// what TripleUpdatedForFilter's negation branch does on its default case (I-2,
-// rete_session_triple_updated.go:166 then :204).
+// The iterator then ran one goroutine per map level (NewBaseGraphIterator), and the
+// single-key stages returned on done WITHOUT closing their output channel, so the
+// next stage blocked forever on its range. Measured 2026-10-20 at GOMAXPROCS 1 to
+// 16, 2,000 calls each: a base iterator closed before reading leaked about two
+// goroutines a call, a session iterator 87 to 426 in all, and GetObject up to 132
+// when the meta graph answered first.
 //
-// Measured 2026-10-20 at GOMAXPROCS 1 to 16, 2,000 calls each: a base iterator
-// closed before reading leaks about two goroutines a call (3,842 to 3,982), a
-// session iterator 87 to 426 in all; GetObject and Exist leak none when the
-// asserted graph answers, and up to 132 when the meta graph answers first and the
-// other two iterators are closed before they have sent.
-//
-// Correct behaviour: every stage closes its output channel on every exit (a
-// `defer close(...)`), and no goroutine outlives Done(); leaked == 0 in every case
-// below. G1, the synchronous iterator, removes the goroutines altogether.
-func TestDefect_I1_IteratorGoroutineLeak(t *testing.T) {
+// G1 made the iterators synchronous, so the leak is gone by construction: there is
+// no goroutine to leak. This test now guards that, on the same shapes plus the two
+// that G1 added (the pull cursor dropped before its end, and IsEmpty): leaked == 0
+// in every case. A failure means something started a goroutine behind an iterator
+// again.
+func TestRegression_I1_NoIteratorGoroutines(t *testing.T) {
 	const n = 2000
 	rm := NewResourceManager(nil)
 	meta := NewMetaRdfGraph(rm)
@@ -76,32 +71,31 @@ func TestDefect_I1_IteratorGoroutineLeak(t *testing.T) {
 	if _, err := sess.Insert(s, p, srm.NewIntLiteral(1)); err != nil {
 		t.Fatal(err)
 	}
-	// (s p ?) in the inferred graph too, so the inferred iterator has a value to
-	// send for the bound subject when the asserted one has already answered.
+	// (s p ?) in the inferred graph too, so a later graph has a value for the bound
+	// subject when an earlier one has already answered.
 	if _, err := sess.InsertInferred(s, p, srm.NewIntLiteral(2)); err != nil {
 		t.Fatal(err)
 	}
 
-	// Closed before the first read, on the base graph: stage 1 has a value for the
-	// bound subject and finds done.
-	base := leakedBy(n, func() {
-		itor := sess.AssertedGraph.FindSP(s, p)
-		itor.Done()
+	// Made and never read, on the base graph and on the session.
+	base := leakedBy(n, func() { _ = sess.AssertedGraph.FindSP(s, p) })
+	session := leakedBy(n, func() { _ = sess.FindSP(s, p) })
+	// Stopped after the first triple: a break, GetObject, and Exist.
+	brk := leakedBy(n, func() {
+		for range sess.FindSP(s, p).All() {
+			break
+		}
 	})
-	// Closed before the first read, on the session: the session's merging goroutine
-	// stops and closes its three base iterators before they have sent.
-	session := leakedBy(n, func() {
-		itor := sess.FindSP(s, p)
-		itor.Done()
-	})
-	// Stopped after the first triple: GetObject, and Exist, which calls it
-	// (ast_r_operators.go:246).
 	getObject := leakedBy(n, func() { sess.GetObject(s, p) })
 	exist := leakedBy(n, func() { s.Exist(sess, p) })
+	// The pull form, dropped after its first triple, and IsEmpty.
+	cursor := leakedBy(n, func() {
+		c := sess.FindSP(s, p).Cursor()
+		c.Next()
+	})
+	isEmpty := leakedBy(n, func() { sess.FindSP(s, p).IsEmpty() })
 
-	// GetObject answered by the meta graph, which the session reads first: the
-	// asserted and inferred iterators are closed as soon as the first triple is
-	// read, possibly before they have sent.
+	// GetObject answered by the meta graph, which the session reads first.
 	rm2 := NewResourceManager(nil)
 	meta2 := NewMetaRdfGraph(rm2)
 	ms, mp := rm2.NewResource("ms"), rm2.NewResource("mp")
@@ -117,16 +111,16 @@ func TestDefect_I1_IteratorGoroutineLeak(t *testing.T) {
 	}
 	getObjectMeta := leakedBy(n, func() { sess2.GetObject(ms, mp) })
 
-	t.Logf("goroutines left after %d early stops (GOMAXPROCS %d): base FindSP+Done %d, session FindSP+Done %d, GetObject %d, Exist %d, GetObject answered by meta %d",
-		n, runtime.GOMAXPROCS(0), base, session, getObject, exist, getObjectMeta)
-
-	// Today's behaviour: closing an iterator before reading it leaks. The counts
-	// depend on scheduling, so the assertion is that some leak, not how many.
-	if base <= 0 {
-		t.Errorf("base FindSP closed before reading left %d goroutines, want > 0 while I-1 is open", base)
-	}
-	if session <= 0 {
-		t.Errorf("session FindSP closed before reading left %d goroutines, want > 0 while I-1 is open", session)
+	for name, leaked := range map[string]int{
+		"base FindSP never read": base, "session FindSP never read": session,
+		"break after the first triple": brk, "GetObject": getObject, "Exist": exist,
+		"cursor dropped after the first triple": cursor, "IsEmpty": isEmpty,
+		"GetObject answered by meta": getObjectMeta,
+	} {
+		if leaked > 0 {
+			t.Errorf("%s: %d goroutines left after %d calls (GOMAXPROCS %d), want 0",
+				name, leaked, n, runtime.GOMAXPROCS(0))
+		}
 	}
 }
 

@@ -187,13 +187,12 @@ func TestRdfSessionIterator(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[1] != p {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}
@@ -204,13 +203,12 @@ func TestRdfSessionIterator(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[2] != o {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}
@@ -221,13 +219,12 @@ func TestRdfSessionIterator(t *testing.T) {
 	if itor == nil {
 		t.Errorf("error: nil returned by FindSPO")
 	} else {
-		for t3 := range itor.Itor {
+		for t3 := range itor.All() {
 			count += 1
 			if t3[0] != x || t3[2] != z {
 				t.Errorf("error: unexpected triple returned by FindSPO: (%s, %s, %s)", t3[0], t3[1], t3[2])
 			}
 		}
-		itor.Done()
 		if count != 3 {
 			t.Errorf("error: unexpecting 3 triples from FindSPO, got %d", count)
 		}
@@ -253,14 +250,13 @@ func TestRdfSessionIterator2(t *testing.T) {
 	itor := rdfSession.Find()
 
 	count := 0
-	for vv := range itor.Itor {
+	for vv := range itor.All() {
 		log.Println("Got value:", vv)
 		if vv[2] != o && vv[2] != o2 {
 			t.Errorf("Unexpected triple (%s, %s, %s)", vv[0], vv[1], vv[2])
 		}
 		count += 1
 	}
-	itor.Done()
 	if count != 2 {
 		t.Errorf("Expected count == 2, got %d", count)
 	}

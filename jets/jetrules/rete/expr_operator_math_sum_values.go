@@ -79,9 +79,8 @@ func (op *SumValuesOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rd
 		log.Println("error while calling FindSP in SumValuesOp")
 		return nil
 	}
-	defer itor.Done()
 	sumValue := rdf.I(0)
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		objV := t3[2]
 		if op.dataProperty == nil {
 			// do sum ?v: (lhs, objP, ?v)

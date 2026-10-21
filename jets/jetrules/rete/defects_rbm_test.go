@@ -10,23 +10,18 @@ package rete
 //
 // A defect that has been fixed keeps its test, turned into a regression test that
 // asserts the correct behaviour: I-3 and I-5 (with I-24) since rules_benchmark Phase 2
-// (AH.1, AH.3, AH.5).
-//
-// One test is opt-in, with RBM_DEFECTS=1: TestDefect_I2_NegationFilterTiming, which
-// runs a network a thousand times.
+// (AH.1, AH.3, AH.5), and I-2 since G1 (AI.1). None of the tests here is opt-in
+// any more: I-2's was, while its outcome depended on goroutine timing.
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-func rbmDefectsOptIn() bool { return os.Getenv("RBM_DEFECTS") == "1" }
-
-// negationFilterNet is the network of TestDefect_I2_NegationFilterTiming:
+// negationFilterNet is the network of TestRegression_I2_NegationFilter:
 //
 //	v1  (?s rdf:type State)
 //	v2  not(?s hasX ?x).[(?s exist flag)]  ->  (?s result ok)
@@ -101,29 +96,24 @@ func (n *negationFilterNet) run(t *testing.T) bool {
 	return sess.Contains(s, n.result, n.okay)
 }
 
-// TestDefect_I2_NegationFilterTiming reproduces rules_benchmark I-2: a negated
-// antecedent whose filter is replayed through TripleUpdatedForFilter decides
-// "no matching triple" by a non-blocking receive on the iterator's channel
-// (rete_session_triple_updated.go:163-166). The channel is fed by goroutines
-// started a moment earlier (rdf_session_iterator.go:34), so the receive almost
-// always finds nothing yet, and the negation is taken as met.
+// TestRegression_I2_NegationFilter was TestDefect_I2_NegationFilterTiming, which
+// reproduced rules_benchmark I-2 (F81): a negated antecedent whose filter is
+// replayed through TripleUpdatedForFilter decided "no matching triple" by a
+// non-blocking receive on the iterator's channel. The channel was fed by goroutines
+// started a moment earlier, so the receive almost always found nothing yet, and the
+// negation was taken as met: wrongly, in 1,000 of 1,000 sessions on 2026-10-20.
 //
 // The network: v2 is not(?s hasX ?x) with the filter [(?s exist flag)], whose
 // callback on flag (ExistOp.RegisterCallback, expr_operator_r_exist_not.go:23)
 // replays v2 through TripleUpdatedForFilter when (s flag 1) is inserted. s has
-// hasX x1, so the negation is false and (s result ok) must not be inferred. The
-// first ExecuteRules, through VisitReteGraph, gets this right; the replay does not.
+// hasX x1, so the negation is false and (s result ok) must not be inferred.
 //
-// Correct behaviour: the replay reads the iterator (blocking) before deciding, so
-// (s result ok) is never inferred: 0 of n. Today's: inferred in most runs.
-//
-// Opt-in with RBM_DEFECTS=1, because the outcome depends on scheduling: if a run
-// ever got the right answer on every try, the test would fail without any fix.
-func TestDefect_I2_NegationFilterTiming(t *testing.T) {
-	if !rbmDefectsOptIn() {
-		t.Skip("timing-dependent: set RBM_DEFECTS=1 to run I-2's reproduction")
-	}
-	const runs = 1000
+// G1 made the iterator synchronous and the replay asks it IsEmpty(), so the answer
+// no longer depends on scheduling, and this test runs by default: (s result ok) is
+// inferred in 0 of n sessions. It was opt-in (RBM_DEFECTS=1) only because its
+// outcome depended on timing.
+func TestRegression_I2_NegationFilter(t *testing.T) {
+	const runs = 200
 	n := newNegationFilterNet(t)
 	wrong := 0
 	for i := 0; i < runs; i++ {
@@ -131,9 +121,8 @@ func TestDefect_I2_NegationFilterTiming(t *testing.T) {
 			wrong++
 		}
 	}
-	t.Logf("I-2: (s result ok) wrongly inferred in %d of %d sessions (%.1f%%)", wrong, runs, 100*float64(wrong)/runs)
-	if wrong == 0 {
-		t.Errorf("the negation was right in all %d sessions; I-2 may be fixed, flip this test", runs)
+	if wrong > 0 {
+		t.Errorf("I-2: (s result ok) wrongly inferred in %d of %d sessions, want 0", wrong, runs)
 	}
 }
 

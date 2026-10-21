@@ -50,17 +50,17 @@ func (x *node) Equals(other compute_pipes.RdfNode) bool {
 	return ok && x.n.EQ(o.n) == rdf.TRUE()
 }
 
-// iterator drains the session iterator's channel, which is the protocol
+// iterator pulls from the session iterator's cursor, which is the protocol
 // `TripleIteratorGo` implements (`NewTripleIteratorGo`,
-// `jets/compute_pipes/jetrules_go_adaptor/jetrules_golang_model.go:53`).
+// `jets/compute_pipes/jetrules_go_adaptor/jetrules_golang_model.go`).
 type iterator struct {
-	src   *rdf.RdfSessionIterator
+	src   *rdf.TripleCursor
 	value [3]*rdf.Node
 	isEnd bool
 }
 
 func newIterator(src *rdf.RdfSessionIterator) *iterator {
-	it := &iterator{src: src}
+	it := &iterator{src: src.Cursor()}
 	it.Next()
 	return it
 }
@@ -69,12 +69,11 @@ func (it *iterator) Next() bool {
 	if it.isEnd {
 		return false
 	}
-	t3, ok := <-it.src.Itor
-	if !ok {
+	if !it.src.Next() {
 		it.isEnd = true
 		return false
 	}
-	it.value = t3
+	it.value = it.src.Value()
 	return true
 }
 
@@ -85,7 +84,7 @@ func (it *iterator) GetObject() compute_pipes.RdfNode    { return &node{n: it.va
 func (it *iterator) Value() [3]compute_pipes.RdfNode {
 	return [3]compute_pipes.RdfNode{&node{n: it.value[0]}, &node{n: it.value[1]}, &node{n: it.value[2]}}
 }
-func (it *iterator) Release() error { it.src.Done(); return nil }
+func (it *iterator) Release() error { it.isEnd = true; return nil }
 
 type session struct{ s *rdf.RdfSession }
 

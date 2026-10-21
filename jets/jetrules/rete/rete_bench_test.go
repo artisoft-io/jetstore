@@ -21,8 +21,9 @@ package rete
 //	BenchmarkExecuteRules       /claims=10|100|1000
 //	                            ExecuteRules alone on the network below; the session's
 //	                            data and Initialize are outside the timer. Also reports
-//	                            leaked-goroutines/op: the filter's exist stops an
-//	                            iterator early (rules_benchmark F3, I-1)
+//	                            leaked-goroutines/op: the filter's exist stopped an
+//	                            iterator early (rules_benchmark F3, I-1) until G1
+//	                            and G7; 0 by construction since
 //
 // Rows hold half named resources and half text literals of 20 to 40 characters,
 // the shape of a mapped claim's keys and codes.
@@ -259,10 +260,9 @@ func (n *benchNetwork) check(b *testing.B, claims int) {
 	count := func(p *rdf.Node) int {
 		c := 0
 		itor := sess.InferredGraph.FindSPO(nil, p, nil)
-		for range itor.Itor {
+		for range itor.All() {
 			c++
 		}
-		itor.Done()
 		return c
 	}
 	excluded := (claims + 9) / 10

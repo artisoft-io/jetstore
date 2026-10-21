@@ -75,10 +75,11 @@ func (g *RdfGraph) ContainsSP(s, p *Node) bool {
 	return g.spoGraph.ContainsUV(s, p)
 }
 
-func (rs *RdfGraph) GetObject(s, p *Node) *Node {
-	itor := rs.FindSP(s, p)
-	defer itor.Done()
-	for t3 := range itor.Itor {
+// GetObject returns the object of a triple (s, p, ?o), nil if there is none. When
+// there are several, which one is returned is not defined.
+func (g *RdfGraph) GetObject(s, p *Node) *Node {
+	itor := g.spoGraph.iterator(s, p, nil)
+	for t3 := range itor.All() {
 		return t3[2]
 	}
 	return nil
@@ -97,40 +98,46 @@ func (g *RdfGraph) FindS(s *Node) *BaseGraphIterator {
 }
 
 func (g *RdfGraph) FindSPO(s, p, o *Node) *BaseGraphIterator {
+	itor := g.findSPO(s, p, o)
+	return &itor
+}
+
+// findSPO returns the iterator over (s, p, o), a nil node matching any, by value,
+// on the index whose bound keys come first.
+func (g *RdfGraph) findSPO(s, p, o *Node) BaseGraphIterator {
 	switch {
 	case s == nil && p == nil && o == nil:
 		// case (*, *, *)
-		return g.spoGraph.Find()
+		return g.spoGraph.iterator(nil, nil, nil)
 
 	case s != nil && p == nil && o == nil:
 		// case (s, *, *)
-		return g.spoGraph.FindU(s)
+		return g.spoGraph.iterator(s, nil, nil)
 
 	case s != nil && p != nil && o == nil:
 		// case (s, p, *)
-		return g.spoGraph.FindUV(s, p)
+		return g.spoGraph.iterator(s, p, nil)
 
 	case s != nil && p != nil && o != nil:
 		// case (s, p, o)
-		return g.spoGraph.FindUVW(s, p, o)
+		return g.spoGraph.iterator(s, p, o)
 
 	case s == nil && p != nil && o == nil:
 		// case (*, p, *)
-		return g.posGraph.FindU(p)
+		return g.posGraph.iterator(p, nil, nil)
 
 	case s == nil && p != nil && o != nil:
 		// case (*, p, o)
-		return g.posGraph.FindUV(p, o)
+		return g.posGraph.iterator(p, o, nil)
 
 	case s == nil && p == nil && o != nil:
 		// case (*, *, o)
-		return g.ospGraph.FindU(o)
+		return g.ospGraph.iterator(o, nil, nil)
 
-	case s != nil && p == nil && o != nil:
+	default:
 		// case (s, *, o)
-		return g.ospGraph.FindUV(o, s)
+		return g.ospGraph.iterator(o, s, nil)
 	}
-	return nil
 }
 
 // Returns true if the triple is actually inserted (was not present in graph).
@@ -182,8 +189,8 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 	}
 	var erased bool
 	l := make([]*[3]*Node, 0)
-	t3Itor := g.FindSPO(s, p, o)
-	for t3 := range t3Itor.Itor {
+	t3Itor := g.findSPO(s, p, o)
+	for t3 := range t3Itor.All() {
 		l = append(l, &t3)
 	}
 	for _, t3 := range l {
@@ -218,10 +225,9 @@ func (g *RdfGraph) Retract(s, p, o *Node) (bool, error) {
 func (g *RdfGraph) ToTriples() []string {
 	triples := make([]string, 0)
 	t3Itor := g.Find()
-	for t3 := range t3Itor.Itor {
+	for t3 := range t3Itor.All() {
 		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
 	}
-	t3Itor.Done()
 	slices.Sort(triples)
 	return triples
 }
