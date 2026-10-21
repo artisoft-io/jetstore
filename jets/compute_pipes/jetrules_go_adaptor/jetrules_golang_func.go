@@ -518,6 +518,15 @@ func (it *TripleIteratorGo) GetPredicate() compute_pipes.RdfNode {
 	}
 }
 
+// PredicateKey is NodeKey of GetPredicate without making the node
+// (compute_pipes.PredicateKeyer).
+func (it *TripleIteratorGo) PredicateKey() any {
+	if it.value[1] == nil {
+		return nil
+	}
+	return it.value[1]
+}
+
 func (it *TripleIteratorGo) GetObject() compute_pipes.RdfNode {
 	return &RdfNodeGo{
 		node: it.value[2],

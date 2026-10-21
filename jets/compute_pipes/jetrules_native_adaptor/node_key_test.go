@@ -8,7 +8,10 @@ import (
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
-var _ compute_pipes.NodeKeyer = (*RdfNodeNative)(nil)
+var (
+	_ compute_pipes.NodeKeyer      = (*RdfNodeNative)(nil)
+	_ compute_pipes.PredicateKeyer = (*TripleIteratorNative)(nil)
+)
 
 // NodeKey is the identity extraction groups a subject's triples by (rules_benchmark
 // G11): equal keys exactly when Equals is true, including for a predicate read back
@@ -44,6 +47,9 @@ func TestNativeNodeKeyIsEquals(t *testing.T) {
 	itor := ses.FindS(s)
 	for !itor.IsEnd() {
 		got := itor.GetPredicate()
+		if pk := itor.(compute_pipes.PredicateKeyer).PredicateKey(); pk != got.(compute_pipes.NodeKeyer).NodeKey() {
+			t.Errorf("predicate %s: PredicateKey %v, NodeKey of GetPredicate %v", got, pk, got.(compute_pipes.NodeKeyer).NodeKey())
+		}
 		for _, want := range []compute_pipes.RdfNode{p, q} {
 			sameKey := got.(compute_pipes.NodeKeyer).NodeKey() == want.(compute_pipes.NodeKeyer).NodeKey()
 			if sameKey != got.Equals(want) {

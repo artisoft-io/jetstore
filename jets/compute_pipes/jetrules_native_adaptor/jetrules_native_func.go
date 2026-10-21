@@ -648,6 +648,12 @@ func (it *TripleIteratorNative) GetPredicate() compute_pipes.RdfNode {
 	}
 }
 
+// PredicateKey is NodeKey of GetPredicate without making the node
+// (compute_pipes.PredicateKeyer): one call into the engine, no allocation.
+func (it *TripleIteratorNative) PredicateKey() any {
+	return it.iterator.PredicateKey()
+}
+
 func (it *TripleIteratorNative) GetObject() compute_pipes.RdfNode {
 	return &RdfNodeNative{
 		node: it.iterator.GetObject(),

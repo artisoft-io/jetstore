@@ -1184,6 +1184,16 @@ func (itor *RSIterator) GetSubject() *Resource {
 }
 
 // RSIterator GetPredicate
+// PredicateKey is Key of GetPredicate without making the Resource: the current
+// triple's predicate's handle, or nil.
+func (itor *RSIterator) PredicateKey() any {
+	var hdl C.HJR
+	if ret := int(C.get_predicate(itor.hdl, &hdl)); ret < 0 || hdl == nil {
+		return nil
+	}
+	return hdl
+}
+
 func (itor *RSIterator) GetPredicate() *Resource {
 	var predicate Resource
 	ret := int(C.get_predicate(itor.hdl, &predicate.hdl))

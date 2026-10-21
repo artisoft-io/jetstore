@@ -894,6 +894,13 @@ func nodeKey(n RdfNode) any {
 	return nil
 }
 
+// PredicateKeyer is implemented by an engine's TripleIterator when it can give
+// the current triple's predicate's identity key, NodeKey of GetPredicate, without
+// making the node. Both adaptors implement it.
+type PredicateKeyer interface {
+	PredicateKey() any
+}
+
 // columnReader reads the columns of an output channel that come from the graph,
 // for one subject at a time, in one pass over the subject's triples grouped by
 // predicate, rather than with one FindSP per column (rules_benchmark G11).
@@ -969,9 +976,14 @@ func (r *columnReader) read(rdfSession JetRdfSession, subject RdfNode) {
 	if len(r.objects) == 0 {
 		return
 	}
+	// A Find returns nil when the engine refuses its arguments; the column is then
+	// empty.
 	if r.slotOf == nil {
 		for s, p := range r.preds {
 			itor := rdfSession.FindSP(subject, p)
+			if itor == nil {
+				continue
+			}
 			for !itor.IsEnd() {
 				r.objects[s] = append(r.objects[s], itor.GetObject())
 				itor.Next()
@@ -981,8 +993,18 @@ func (r *columnReader) read(rdfSession JetRdfSession, subject RdfNode) {
 		return
 	}
 	itor := rdfSession.FindS(subject)
+	if itor == nil {
+		return
+	}
+	pk, _ := itor.(PredicateKeyer)
 	for !itor.IsEnd() {
-		if s, ok := r.slotOf[nodeKey(itor.GetPredicate())]; ok {
+		var key any
+		if pk != nil {
+			key = pk.PredicateKey()
+		} else {
+			key = nodeKey(itor.GetPredicate())
+		}
+		if s, ok := r.slotOf[key]; ok {
 			r.objects[s] = append(r.objects[s], itor.GetObject())
 		}
 		itor.Next()
