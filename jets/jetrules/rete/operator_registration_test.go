@@ -63,10 +63,11 @@ import (
 // command), which is how a gtest reaches it with a relative path.
 const operatorManifest = "../../rete/test_data/corpus_operators.txt"
 
-// corpusWorkspaces are the four rule workspaces the counts in this repository's
-// documents are drawn from. They are submodules of the parent repository, so a plain
-// checkout of jetstore alone has none of them and this test skips.
-var corpusWorkspaces = []string{"jets_ws", "usi_ws", "walrus_ws", "cedargate_ws"}
+// corpusSize is the number of rule workspaces the counts in this repository's
+// documents are drawn from: every directory of the corpus that has a
+// workspace_control.json. They are submodules of the parent repository, so a plain
+// checkout of jetstore alone has none of them and this test collects test_ws only.
+const corpusSize = 4
 
 // opUse records where an operator name was seen, so a failure names a rule file rather
 // than only the offending word.
@@ -97,8 +98,9 @@ func (u *opUse) walk(nd *rete.ExpressionNode, where string) {
 // collect compiles one workspace's rule sets and records every operator name.
 //
 // The rule sets come from workspace_control.json rather than from a `*_main.jr` glob,
-// and the difference is not cosmetic: usi_ws names 34 rule sets of which 32 end in
-// `_Main1.jr`, `_Main2.jr` or `_Main3.jr`. A glob for `_main.jr` finds two of them.
+// and the difference is not cosmetic: one workspace of the corpus names 34 rule sets of
+// which 32 end in `_Main1.jr`, `_Main2.jr` or `_Main3.jr`. A glob for `_main.jr` finds
+// two of them.
 func (u *opUse) collect(t *testing.T, label, base string) int {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(base, "workspace_control.json"))
@@ -131,9 +133,9 @@ func (u *opUse) collect(t *testing.T, label, base string) int {
 	return len(ctl.RuleSets)
 }
 
-// corpusRoots returns the workspace directories to compile, and the reason each one
-// that is missing is missing.
-func corpusRoots(t *testing.T) (roots map[string]string, missing []string) {
+// corpusRoots returns the workspace directories to compile, by name, and how many of
+// the corpus's corpusSize are missing.
+func corpusRoots(t *testing.T) (roots map[string]string, missing int) {
 	t.Helper()
 	home := os.Getenv("WORKSPACES_HOME")
 	if home == "" {
@@ -142,15 +144,17 @@ func corpusRoots(t *testing.T) (roots map[string]string, missing []string) {
 		home = filepath.Join("..", "..", "..", "..", "workspaces")
 	}
 	roots = make(map[string]string)
-	for _, ws := range corpusWorkspaces {
-		dir := filepath.Join(home, ws)
-		if _, err := os.Stat(filepath.Join(dir, "workspace_control.json")); err != nil {
-			missing = append(missing, ws)
+	entries, _ := os.ReadDir(home)
+	for _, e := range entries {
+		dir := filepath.Join(home, e.Name())
+		if !e.IsDir() {
 			continue
 		}
-		roots[ws] = dir
+		if _, err := os.Stat(filepath.Join(dir, "workspace_control.json")); err == nil {
+			roots[e.Name()] = dir
+		}
 	}
-	return roots, missing
+	return roots, max(corpusSize-len(roots), 0)
 }
 
 func TestCorpusOperatorNamesResolve(t *testing.T) {
@@ -161,10 +165,13 @@ func TestCorpusOperatorNamesResolve(t *testing.T) {
 	nRuleSets := uses.collect(t, "test_ws", filepath.Join("..", "test_ws"))
 
 	roots, missing := corpusRoots(t)
-	for _, ws := range corpusWorkspaces {
-		if dir, ok := roots[ws]; ok {
-			nRuleSets += uses.collect(t, ws, dir)
-		}
+	names := make([]string, 0, len(roots))
+	for ws := range roots {
+		names = append(names, ws)
+	}
+	sort.Strings(names)
+	for _, ws := range names {
+		nRuleSets += uses.collect(t, ws, roots[ws])
 	}
 
 	ctx := &rete.ReteBuilderContext{}
@@ -186,10 +193,10 @@ func TestCorpusOperatorNamesResolve(t *testing.T) {
 	// The manifest is the corpus as a whole, so it can only be checked when the whole
 	// corpus is on disk. With a workspace missing, the names found are a subset and the
 	// most that can be said is that the manifest contains them.
-	checkManifest(t, uses, len(missing) == 0)
-	if len(missing) > 0 {
-		t.Logf("workspaces not checked out, operator names collected from the rest: %s",
-			strings.Join(missing, ", "))
+	checkManifest(t, uses, missing == 0)
+	if missing > 0 {
+		t.Logf("%d of the corpus's %d workspaces not checked out, operator names collected from the rest",
+			missing, corpusSize)
 	}
 }
 

@@ -27,11 +27,11 @@ func tree(t *testing.T, root, engine string, files map[string][]string) string {
 	return dir
 }
 
-func compare(t *testing.T, a, b string) (*Summary, int, string) {
+func compare(t *testing.T, a, b string, extra ...string) (*Summary, int, string) {
 	t.Helper()
 	js := filepath.Join(t.TempDir(), "s.json")
 	var out, errs bytes.Buffer
-	code := run([]string{"-a", a, "-b", b, "-json", js, "-max-lines", "0"}, &out, &errs)
+	code := run(append([]string{"-a", a, "-b", b, "-json", js, "-max-lines", "0"}, extra...), &out, &errs)
 	if code == 2 {
 		t.Fatalf("usage or error: %s", errs.String())
 	}
@@ -44,6 +44,48 @@ func compare(t *testing.T, a, b string) (*Summary, int, string) {
 		t.Fatal(err)
 	}
 	return &s, code, out.String()
+}
+
+// workloadKnown writes a known-difference list as a workload keeps its own: the
+// built-in list plus entries narrowed to that workload's predicates. These are
+// generic stand-ins, on ex: predicates, for the kinds of entry such a list holds.
+func workloadKnown(t *testing.T) string {
+	t.Helper()
+	var kl KnownList
+	if err := json.Unmarshal(defaultKnown, &kl); err != nil {
+		t.Fatal(err)
+	}
+	var extra []Entry
+	if err := json.Unmarshal([]byte(`[
+	{"id": "workload-double-quantisation-propagated", "refs": ["test"],
+	 "description": "a ratio computed from quantised literals, within 2.5 quanta",
+	 "pair": "double_near", "quanta": 2.5, "predicate": "ex:pct|_0:pct|ex_out:pct"},
+	{"id": "workload-text-plus-double-format", "refs": ["test"],
+	 "description": "text + double, six decimals on C++",
+	 "pair": "text_double_format", "predicate": "ex:rule"},
+	{"id": "workload-literal-regex-empty", "refs": ["test"],
+	 "description": "literal_regex with no match: an empty string on Go, none on C++",
+	 "only_on": "go", "predicate": "ex:zip3", "object": "\"\""},
+	{"id": "workload-literal-regex-group", "refs": ["test"],
+	 "description": "literal_regex: the whole match on Go, the capture group on C++",
+	 "predicate": "fname|lname", "pair": "literal_regex_group", "only_on": "go",
+	 "object": "\"(?:,\\s+\\w+|[^\"]*,)\""}
+	]`), &extra); err != nil {
+		t.Fatal(err)
+	}
+	kl.Entries = append(kl.Entries, extra...)
+	raw, err := json.Marshal(kl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(t.TempDir(), "workload_known.json")
+	if err := os.WriteFile(f, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadKnown(f); err != nil {
+		t.Fatal(err)
+	}
+	return f
 }
 
 func knownOf(s *Summary, line string) (string, bool) {
@@ -64,12 +106,12 @@ func TestCrossEngineClassification(t *testing.T) {
 	root := t.TempDir()
 	a := tree(t, root, "go", map[string][]string{
 		"m1/01_r.tsv": {
-			"c1\thc_usi:amountDeductible\t" + q + "^^double", // a quantised literal
-			"c1\thc_usi:medicarePct\t2.746826171875^^double", // computed from one
-			"c1\thc_usi:meetRule\t\"rate: 991\"",
-			"c1\thc_usi:claimZip3\t\"\"",
-			"c1\thc_usi:same\t1^^int",
-			"c1\thc_usi:wrong\t2^^int", // a genuine difference
+			"c1\tex:amountDeductible\t" + q + "^^double", // a quantised literal
+			"c1\tex:pct\t2.746826171875^^double",         // computed from one
+			"c1\tex:rule\t\"rate: 991\"",
+			"c1\tex:zip3\t\"\"",
+			"c1\tex:same\t1^^int",
+			"c1\tex:wrong\t2^^int", // a genuine difference
 			// one lookup subject for two tables, where C++ has two
 			"c1\t_0:lookupGeoZip\t_:aaa",
 			"c1\t_0:carrierLocalityGeoZip\t_:aaa",
@@ -78,8 +120,8 @@ func TestCrossEngineClassification(t *testing.T) {
 			"jets:cache:GEOZIP\tjets:lookup_row\t_:aaa",
 			"jets:cache:CARRIER\tjets:lookup_row\t_:aaa",
 			// a node renamed because a neighbour differs
-			"c1\thc_usi:out\t_:x1",
-			"_:x1\tusi_out:key\t\"k\"",
+			"c1\tex:out\t_:x1",
+			"_:x1\tex_out:key\t\"k\"",
 			// a multi-lookup cache triple, as Go writes it
 			"jets:cache:M\tjets:lookup_multi_rows\t_:m",
 			"_:m\tlk:v\t1^^int",
@@ -87,43 +129,44 @@ func TestCrossEngineClassification(t *testing.T) {
 	})
 	b := tree(t, root, "native", map[string][]string{
 		"m1/01_r.tsv": {
-			"c1\thc_usi:amountDeductible\t568.32^^double",
-			"c1\thc_usi:medicarePct\t2.7467458323818223^^double",
-			"c1\thc_usi:meetRule\t\"rate: 991.000000\"",
-			"c1\thc_usi:same\t1^^int",
-			"c1\thc_usi:wrong\t3^^int",
+			"c1\tex:amountDeductible\t568.32^^double",
+			"c1\tex:pct\t2.7467458323818223^^double",
+			"c1\tex:rule\t\"rate: 991.000000\"",
+			"c1\tex:same\t1^^int",
+			"c1\tex:wrong\t3^^int",
 			"c1\t_0:lookupGeoZip\t_:bbb",
 			"c1\t_0:carrierLocalityGeoZip\t_:ccc",
 			"_:bbb\tgeoZip\t\"115\"",
 			"_:ccc\tCARRIER_LOCALITY\t\"13202:02\"",
 			"jets:cache:GEOZIP\tjets:lookup_row\t_:bbb",
 			"jets:cache:CARRIER\tjets:lookup_row\t_:ccc",
-			"c1\thc_usi:out\t_:y1",
-			"_:y1\tusi_out:key\t\"k\"",
+			"c1\tex:out\t_:y1",
+			"_:y1\tex_out:key\t\"k\"",
 			"jets:cache:M\tjets:lookup_row\t_:m",
 			"_:m\tlk:v\t1^^int",
 		},
 	})
-	s, code, text := compare(t, a, b)
+	known := workloadKnown(t)
+	s, code, text := compare(t, a, b, "-known", known)
 	if s.Scope != ScopeCross || code != 1 {
 		t.Errorf("scope %s, exit %d; want cross and 1 (one unclassified)", s.Scope, code)
 	}
 	want := map[string]string{
-		"c1\thc_usi:amountDeductible\t568.32^^double":    "go-double-literal-quantised",
-		"c1\thc_usi:medicarePct\t2.746826171875^^double": "go-double-quantisation-propagated",
-		"c1\thc_usi:meetRule\t\"rate: 991.000000\"":      "text-plus-double-format",
-		"c1\thc_usi:claimZip3\t\"\"":                     "literal-regex-claimZip3",
-		"c1\thc_usi:wrong\t2^^int":                       "",
-		"c1\thc_usi:wrong\t3^^int":                       "",
-		"_:aaa\tgeoZip\t\"115\"":                         "go-lookup-subject-shared-across-tables",
-		"_:ccc\tCARRIER_LOCALITY\t\"13202:02\"":          "go-lookup-subject-shared-across-tables",
-		"jets:cache:CARRIER\tjets:lookup_row\t_:aaa":     "go-lookup-subject-shared-across-tables",
-		"_:x1\tusi_out:key\t\"k\"":                       "minted-node-relabelled",
-		"c1\thc_usi:out\t_:y1":                           "minted-node-relabelled",
+		"c1\tex:amountDeductible\t568.32^^double":    "go-double-literal-quantised",
+		"c1\tex:pct\t2.746826171875^^double":         "workload-double-quantisation-propagated",
+		"c1\tex:rule\t\"rate: 991.000000\"":          "workload-text-plus-double-format",
+		"c1\tex:zip3\t\"\"":                          "workload-literal-regex-empty",
+		"c1\tex:wrong\t2^^int":                       "",
+		"c1\tex:wrong\t3^^int":                       "",
+		"_:aaa\tgeoZip\t\"115\"":                     "go-lookup-subject-shared-across-tables",
+		"_:ccc\tCARRIER_LOCALITY\t\"13202:02\"":      "go-lookup-subject-shared-across-tables",
+		"jets:cache:CARRIER\tjets:lookup_row\t_:aaa": "go-lookup-subject-shared-across-tables",
+		"_:x1\tex_out:key\t\"k\"":                    "minted-node-relabelled",
+		"c1\tex:out\t_:y1":                           "minted-node-relabelled",
 	}
 	// classified lines are listed only with -all; re-run with it.
 	js := filepath.Join(t.TempDir(), "all.json")
-	if c := run([]string{"-a", a, "-b", b, "-json", js, "-all"}, &bytes.Buffer{}, &bytes.Buffer{}); c != 1 {
+	if c := run([]string{"-a", a, "-b", b, "-json", js, "-all", "-known", known}, &bytes.Buffer{}, &bytes.Buffer{}); c != 1 {
 		t.Errorf("-all: exit %d", c)
 	}
 	raw, _ := os.ReadFile(js)
@@ -140,7 +183,7 @@ func TestCrossEngineClassification(t *testing.T) {
 	if s.Totals.Unclassified != 2 || s.Totals.OnlyA+s.Totals.OnlyB != s.Totals.Classified+2 {
 		t.Errorf("totals %+v", s.Totals)
 	}
-	if !strings.Contains(text, "hc_usi:wrong: 2") || strings.Contains(text, "medicarePct\t") {
+	if !strings.Contains(text, "ex:wrong: 2") || strings.Contains(text, "ex:pct\t") {
 		t.Errorf("text summary should list the unclassified lines only:\n%s", text)
 	}
 }
@@ -184,29 +227,29 @@ func TestKnownListIsValid(t *testing.T) {
 }
 
 // The review of jetstore#2304: each of these stays unclassified, except the one
-// pt_fname line in literal_regex's form.
+// fname line in literal_regex's form.
 func TestNearMissesStayUnclassified(t *testing.T) {
 	root := t.TempDir()
 	a := tree(t, root, "go", map[string][]string{"m1/01_r.tsv": {
-		"c1\thc_usi:meetRule\t\"NPI 1234567890\"",       // integers differ
-		"c1\thc_usi:medicarePct\t100000^^double",        // 6 quanta apart
-		"c1\thc_usi:totalAmountPaid\t394.09375^^double", // money, computed
-		"_:aaaa\thc:x\tc2",                              // one node where native has two,
-		"_:aaaa\thc:y\tc3",                              // but not a lookup subject
-		"c1\tpt_fname\t\"John\"",                        // not the regex form
-		"c2\tpt_fname\t\", John\"",                      // the regex form
+		"c1\tex:rule\t\"NPI 1234567890\"",           // integers differ
+		"c1\tex:pct\t100000^^double",                // 6 quanta apart
+		"c1\tex:totalAmountPaid\t394.09375^^double", // money, computed
+		"_:aaaa\tex:x\tc2",                          // one node where native has two,
+		"_:aaaa\tex:y\tc3",                          // but not a lookup subject
+		"c1\tfname\t\"John\"",                       // not the regex form
+		"c2\tfname\t\", John\"",                     // the regex form
 	}})
 	b := tree(t, root, "native", map[string][]string{"m1/01_r.tsv": {
-		"c1\thc_usi:meetRule\t\"NPI 1234567891\"",
-		"c1\thc_usi:medicarePct\t100024^^double",
-		"c1\thc_usi:totalAmountPaid\t394.11^^double",
-		"_:bbbb\thc:x\tc2",
-		"_:cccc\thc:y\tc3",
-		"c1\tpt_fname\t\"Jon\"",
-		"c2\tpt_fname\t\"John\"",
+		"c1\tex:rule\t\"NPI 1234567891\"",
+		"c1\tex:pct\t100024^^double",
+		"c1\tex:totalAmountPaid\t394.11^^double",
+		"_:bbbb\tex:x\tc2",
+		"_:cccc\tex:y\tc3",
+		"c1\tfname\t\"Jon\"",
+		"c2\tfname\t\"John\"",
 	}})
 	js := filepath.Join(t.TempDir(), "all.json")
-	if c := run([]string{"-a", a, "-b", b, "-json", js, "-all"}, &bytes.Buffer{}, &bytes.Buffer{}); c != 1 {
+	if c := run([]string{"-a", a, "-b", b, "-json", js, "-all", "-known", workloadKnown(t)}, &bytes.Buffer{}, &bytes.Buffer{}); c != 1 {
 		t.Errorf("exit %d, want 1", c)
 	}
 	raw, _ := os.ReadFile(js)
@@ -218,8 +261,8 @@ func TestNearMissesStayUnclassified(t *testing.T) {
 		for _, p := range f.Predicates {
 			for _, l := range append(append([]LineResult{}, p.OnlyA...), p.OnlyB...) {
 				want := ""
-				if strings.HasPrefix(l.Line, "c2\tpt_fname") {
-					want = "literal-regex-walrus-names"
+				if strings.HasPrefix(l.Line, "c2\tfname") {
+					want = "workload-literal-regex-group"
 				}
 				if l.Known != want {
 					t.Errorf("%q: classified %q, want %q", l.Line, l.Known, want)

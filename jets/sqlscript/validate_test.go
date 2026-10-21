@@ -18,7 +18,7 @@ func TestValidateScriptAcceptsTheCorpusShapes(t *testing.T) {
 		{"semicolon in a quoted identifier", `SELECT "odd;name" FROM t;`},
 		{"dollar quoted body", "DO $fn$ BEGIN x; y; END $fn$;"},
 		{"substitution token", "SELECT * FROM t WHERE session_id='$SESSIONID';"},
-		// Both usi error reports are written this way and both work.
+		// Both of a client workspace's error reports are written this way and both work.
 		{"unterminated final statement", "--out.csv;\nSELECT 1 FROM t WHERE x IS NULL\n"},
 		// Six of the 26 reports/*.sql carry no name comment, legitimately.
 		{"no name comment", "BEGIN;\nSELECT 1;\nCOMMIT;\n"},
@@ -79,7 +79,7 @@ func TestValidateScriptReportsTheOpeningLine(t *testing.T) {
 // it reports 87, the extra being a gitignored query in its `out/`; the figure
 // is documentation of a scope rather than an assertion, which is why the test
 // asserts only that nothing fails. **It was 89 earlier the same day**, before
-// three unused report scripts were deleted from usi_ws, which is the argument
+// three unused report scripts were deleted from a client workspace, which is the argument
 // for a re-runnable check rather than a number in a comment.
 //
 // Skips unless JETS_SQL_CORPUS_DIR names a directory to walk, because the

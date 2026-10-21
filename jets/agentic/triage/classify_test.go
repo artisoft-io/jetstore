@@ -536,12 +536,12 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		// Four prior runs with two steps each, then a run with only one.
 		for i := 4; i >= 1; i-- {
 			s := fmt.Sprintf("s-hist-%d", i)
-			k := header(t, pool, "usi", "qc", "members", s, "completed", now.Add(-time.Duration(i*24)*time.Hour))
-			workerRow(t, pool, k, "usi", "qc", s, "reducing00", 0, "completed", 100, 100, "", now.Add(-time.Duration(i*24)*time.Hour))
-			workerRow(t, pool, k, "usi", "qc", s, "reducing01", 0, "completed", 100, 100, "", now.Add(-time.Duration(i*24)*time.Hour))
+			k := header(t, pool, "client1", "qc", "members", s, "completed", now.Add(-time.Duration(i*24)*time.Hour))
+			workerRow(t, pool, k, "client1", "qc", s, "reducing00", 0, "completed", 100, 100, "", now.Add(-time.Duration(i*24)*time.Hour))
+			workerRow(t, pool, k, "client1", "qc", s, "reducing01", 0, "completed", 100, 100, "", now.Add(-time.Duration(i*24)*time.Hour))
 		}
-		k := header(t, pool, "usi", "qc", "members", "s-missing", "completed", now)
-		workerRow(t, pool, k, "usi", "qc", "s-missing", "reducing00", 0, "completed", 100, 100, "", now)
+		k := header(t, pool, "client1", "qc", "members", "s-missing", "completed", now)
+		workerRow(t, pool, k, "client1", "qc", "s-missing", "reducing00", 0, "completed", 100, 100, "", now)
 		r := classify(t, pool, "s-missing", 30*24*time.Hour)
 		f := wantVerdict(t, r, LocusStepNeverStarted, Present)
 		if f.StepRef != "reducing01" {
@@ -558,9 +558,9 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("step_never_started is absent when every step ran", func(t *testing.T) {
-		k := header(t, pool, "usi", "qc", "members", "s-complete", "completed", now.Add(time.Hour))
-		workerRow(t, pool, k, "usi", "qc", "s-complete", "reducing00", 0, "completed", 100, 100, "", now.Add(time.Hour))
-		workerRow(t, pool, k, "usi", "qc", "s-complete", "reducing01", 0, "completed", 100, 100, "", now.Add(time.Hour))
+		k := header(t, pool, "client1", "qc", "members", "s-complete", "completed", now.Add(time.Hour))
+		workerRow(t, pool, k, "client1", "qc", "s-complete", "reducing00", 0, "completed", 100, 100, "", now.Add(time.Hour))
+		workerRow(t, pool, k, "client1", "qc", "s-complete", "reducing01", 0, "completed", 100, 100, "", now.Add(time.Hour))
 		r := classify(t, pool, "s-complete", 30*24*time.Hour)
 		wantVerdict(t, r, LocusStepNeverStarted, Absent)
 	})

@@ -3,7 +3,7 @@ package harness
 // THE GO ENGINE UNDER -race AT POOL SIZE 10 (rules_benchmark Phase 1, task AE.5).
 //
 // projects/rules_benchmark in artisoft-io/jetstore_agentic_ai asks whether the Go
-// engine is safe at the pool size production sets (pool_size 10 for usi_ws CM). The
+// engine is safe at the pool size production sets (pool_size 10 for one client process). The
 // pipeline builds one engine per transformation and runs pool_size workers on it,
 // each opening an RDF session per input bundle and running the rule sets through
 // RunRuleSets (JrPoolWorker.executeRules, jets/compute_pipes/jetrules_pool_worker.go:123).
@@ -15,12 +15,12 @@ package harness
 // It is a correctness run, not a timing run. It is opt-in, and needs a compiled
 // workspace:
 //
-//	WORKSPACES_HOME=<home> WORKSPACE=usi_ws \
-//	RBM_AE5_TEST=jet_rules/unit_tests/cm_loop/cm_loop.tst.json \
+//	WORKSPACES_HOME=<home> WORKSPACE=<workspace> \
+//	RBM_AE5_TEST=jet_rules/unit_tests/<test>/<test>.tst.json \
 //	go test -race -count=1 -run TestRBM_AE5_GoEnginePoolRace ./jets/rulestest/harness/
 //
 // RBM_AE5_POOL (default 10) is the pool size and RBM_AE5_REPEAT (default 10) how many
-// times each input session is run, so cm_loop's four sessions make 40. Under -race
+// times each input session is run, so a unit test of four sessions makes 40. Under -race
 // the detector fails the test on any race; without it, the test fails when a session
 // run concurrently does not pass the checks it passes alone.
 

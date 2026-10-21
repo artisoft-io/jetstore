@@ -43,7 +43,7 @@ INSERT INTO t VALUES (1);
 	}
 }
 
-// The live instance in workspaces/walrus_ws: a multi-line JSON literal holding
+// The live instance in a client workspace: a multi-line JSON literal holding
 // `Drug on Formulary; Non-preferred`. Two client init scripts carry twelve of
 // these and could not be loaded at all before this package.
 func TestSemicolonInStringLiteral(t *testing.T) {

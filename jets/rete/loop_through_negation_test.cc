@@ -10,10 +10,10 @@
 #include "../rete/expr_op_arithmetics.h"
 #include "../rete/expr_op_resources.h"
 
-// THE usi_ws LOOP-CONTROL SHAPE, reduced to five rule terms.
+// A CLIENT WORKSPACE'S LOOP-CONTROL SHAPE, reduced to five rule terms.
 //
-// MSK_ADJ_LOOP010/LOOP020/MERGE_010 (MSK), adj11/adj12/adj20 (IM) and the topMatch /
-// mergeList rules (CM) all have this form:
+// The loop and merge rules of that workspace's three claim processes all have this
+// form:
 //
 //   v3  (?s rdf:type State).(?s matchList ?m).not(?s mergeList ?m) -> (?s priorityList ?m)
 //   v4  (?s rdf:type State).(?s loop ?n).[(?s exist priorityList)]
@@ -35,8 +35,8 @@
 //
 // Measured on 2026-10-09: replaying the sorted_head consequent AND erasing withdrawn
 // rows makes this network hit the vertex visit limit (-10); replaying alone ends with
-// every merge undone; erasing alone ends as below. usi_ws runs MSK_ADJ_LOOP010/020 +
-// MERGE_010, adj11/adj12/adj20 and mcp1/mcp2/csc20 in this shape, and with
+// every merge undone; erasing alone ends as below. The workspace ran three sets of loop
+// rules in this shape, and with
 // _0:no_truth_main_on_exist off they cycled without end under the full fix.
 //
 // THIS IS A GUARD, NOT A SPECIFICATION. It pins that the shape terminates with both

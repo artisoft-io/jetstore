@@ -17,7 +17,7 @@ import (
 // **Which of the two shapes a file has is declared, not inferred.**
 // `reportOrScript: "script"` in the directory's `config.json` says the file is a
 // single `Exec` of the whole text, and **that is why those files may open their
-// own transaction** — `walrus_ws`'s `update_drug_class_interchange_lookups.sql`
+// own transaction** — a client workspace's lookup-update script
 // opens with BEGIN and relies on `ON COMMIT DROP` temp tables. Anything else,
 // including a file no `config.json` entry mentions, is a reports file and comes
 // here. So a `reports/*.sql` with no name comments is not thereby wrong: it is

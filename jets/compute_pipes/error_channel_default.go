@@ -108,7 +108,7 @@ const (
 // hand-written specs write NULL for all three until every file that declares one is
 // edited. That was eleven files across three workspace repositories when the cost
 // was first priced; measured again 2026-09-11 it is ten specs in ten files across
-// two, usi_ws 3 and walrus_ws 7, patient_profile.pc.json having dropped both of its
+// two workspaces, 3 and 7, patient_profile.pc.json having dropped both of its
 // own. A synthesised spec carries the three from the first run.
 var DefaultProcessErrorColumns = []string{
 	"pipeline_execution_status_key",

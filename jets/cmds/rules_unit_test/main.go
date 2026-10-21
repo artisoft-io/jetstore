@@ -34,7 +34,7 @@ import (
 const MemoryEnv = "JETS_RULES_UNIT_TEST_MEMORY_MB"
 
 // glogVerbosity is the C++ engine's log level for is_debug: the level that
-// traces rule firings, as the usi_ws assessment's harness used it.
+// traces rule firings, as a workspace assessment's harness used it.
 const glogVerbosity = "35"
 
 var (

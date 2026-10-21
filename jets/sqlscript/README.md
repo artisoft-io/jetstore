@@ -43,10 +43,10 @@ of thing that works until somebody rewords a message. `Error()` still produces t
   rejected for the citation checker, arriving at a different door. The narrower form — flag only a
   file where *some* statements are named — looked promising for a day and has its own false positive:
   a declared script with one `;`-terminated comment above a statement, a shape
-  `usi_ws/reports/network_csv_output.sql` already contains. **That check belongs in a lint that reads
+  one of a client workspace's reports already contains. **That check belongs in a lint that reads
   `config.json` beside the file**, which is a workspace tool and not a per-file validator.
 - **A final statement with no `;`.** It reads like a truncated file and is not:
-  `usi_ws/reports/auth_error_report.sql` and `elig_error_report.sql` are both written that way and
+  two reports of a client workspace are both written that way and
   both work, under this reader and the one it replaced. This is why the entry below records the
   dropped-trailing-statement finding as *history* rather than as something to warn about.
 - **A `;` inside a comment**, which was the whole cause of the entry below and is now correct. A
@@ -71,8 +71,8 @@ a statement ended by reading up to the next `;` **byte**:
 **Which of the two a `reports/*.sql` gets is declared, not inferred, and the declaration is why the
 script path must never split.** `reportOrScript: "script"` in the directory's `config.json` means the
 file is one `Exec` of its whole text; **the author may therefore write their own transaction**, and
-two do — `walrus_ws/reports/drug_class_interchange_savings.sql:1` and
-`update_drug_class_interchange_lookups.sql:2` both open with `BEGIN`, the latter relying on
+two do — a report script and a lookup-update script of another client workspace both open
+with `BEGIN`, the latter relying on
 `ON COMMIT DROP` temp tables. Split either one and its transaction becomes a `BEGIN` with nothing
 inside it. The default is the reports shape: each statement paired with the output file name in the
 comment above it.
@@ -95,9 +95,9 @@ looks nothing like the cause, a long way from it in the file.
 | reading to the next `;` | **14, in 2 files** |
 | whole file in one `Exec` | **0** |
 
-The two files are `walrus_ws`'s `ciseit_` and `fbin_workspace_init_db.sql`, which carry twelve
-semicolons inside a multi-line JSON literal (`ciseit_workspace_init_db.sql:283`) and **could not be
-loaded at all**. Nobody had reported it, which says only that nobody had run `-clients ciseit`.
+The two files are a client workspace's two init scripts, which carry twelve
+semicolons inside a multi-line JSON literal and **could not be
+loaded at all**. Nobody had reported it, which says only that nobody had run that client's init.
 
 Everything else the corpus returns under both readers is `42P01` — the scratch database having no
 `jetsapi` — plus one `0A000` for `CREATE EXTENSION aws_s3`.
@@ -120,9 +120,8 @@ NOTHING` — 546 deletes and 416 inserts across the corpus. Under per-statement 
 insert left the configuration deleted.** It now applies whole or not at all.
 
 **Do not wrap the file in an explicit transaction to get this.** An explicit `BEGIN` here would break
-a script that opens its own, and two report scripts in the corpus do
-(`walrus_ws/reports/drug_class_interchange_savings.sql:1`,
-`update_drug_class_interchange_lookups.sql:2`, the latter relying on `ON COMMIT DROP` temp tables).
+a script that opens its own, and two report scripts in the corpus do (a client workspace's report
+and lookup-update scripts, the latter relying on `ON COMMIT DROP` temp tables).
 A script's own `BEGIN` supersedes the *implicit* transaction rather than conflicting with it, which
 is why the implicit one is the right mechanism. Asserted by
 `TestExecScriptHonoursAnExplicitTransaction`.
@@ -153,14 +152,14 @@ any comment above a statement would be read as one.
 
 Validated by replaying both readers over the corpus: for the ten wired report scripts that existed on
 disk when this was written, every report name and every statement is identical, modulo a trailing
-newline the old reader left in. (`config.json` named eleven — `walrus_ws`'s `Update_Mspn_Lookups` also
-lists `loader_mspn_mf2name.sql`, which is **not in the repository**; `runReportsDelegate` logs and
+newline the old reader left in. (`config.json` named eleven — one client report also
+lists a script which is **not in the repository**; `runReportsDelegate` logs and
 skips a missing script, so that one has never run.) A file with no name comments makes the new reader
 say so, instead of taking the first *n* characters of the SQL as a file name.
 `TestReportCorpusParses` runs this (`JETS_REPORTS_CORPUS_DIR`); run it with `-count=1`, the corpus
 being outside this module.
 
-**The corpus figures, dated rather than asserted.** 2026-09-12, after three unused `usi_ws` reports
+**The corpus figures, dated rather than asserted.** 2026-09-12, after three unused reports of a client workspace
 were removed: **23 files, 17 naming every statement and carrying 75 reports, 6 naming none, and none
 mixed.** Three of the six are declared `"script"`; the other three are not run by anything and are
 kept for debugging. The split being clean at 17/6/0 is what makes a *partial*-naming lint look

@@ -25,11 +25,11 @@
 //
 // A line is subject, predicate and object, separated by a tab:
 //
-//	hc_usi:claim1	hc_usi:amountBilled	125.5^^double
+//	ex:claim1	ex:amountBilled	125.5^^double
 //
 // A term is written as:
 //
-//	resource           its name, bare: hc_usi:claim1
+//	resource           its name, bare: ex:claim1
 //	                   "…"^^resource when the bare name would be ambiguous
 //	                   (empty, a tab or newline, a leading " or _:, a ^^, or null)
 //	text               Go-quoted: "abc", "a\tb"

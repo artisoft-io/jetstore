@@ -1,6 +1,6 @@
 package rete
 
-// THE usi_ws LOOP-CONTROL SHAPE, reduced to five rule terms -- the Go half of
+// A CLIENT WORKSPACE'S LOOP-CONTROL SHAPE, reduced to five rule terms -- the Go half of
 // jets/rete/loop_through_negation_test.cc; read that file's header.
 //
 //	v3  (?s rdf:type State).(?s matchList ?m).not(?s mergeList ?m) -> (?s priorityList ?m)

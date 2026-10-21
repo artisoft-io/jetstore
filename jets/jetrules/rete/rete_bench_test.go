@@ -29,7 +29,7 @@ package rete
 //	                            many vertices, all children of the head, with nothing
 //	                            pending: what a visit costs before it matches anything.
 //	                            Before G6 each call allocated a stack of NbrVertices
-//	                            ints (rules_benchmark F6, F103); CM's rule sets have 59
+//	                            ints (rules_benchmark F6, F103); a client process's rule sets have 59
 //	                            to 447 vertices. Read B/op and allocs/op
 //
 // Rows hold half named resources and half text literals of 20 to 40 characters,
@@ -89,7 +89,7 @@ func benchRowNodes(rm *rdf.ResourceManager, size, seed int) []*rdf.Node {
 	nodes := make([]*rdf.Node, size)
 	for i := range nodes {
 		if i%2 == 0 {
-			nodes[i] = rm.NewResource(fmt.Sprintf("usi:claim/%08d-%02d", seed, i))
+			nodes[i] = rm.NewResource(fmt.Sprintf("ex:claim/%08d-%02d", seed, i))
 		} else {
 			nodes[i] = rm.NewTextLiteral(fmt.Sprintf("procedure code %04d modifier %02d", seed%10000, i))
 		}
@@ -150,7 +150,7 @@ func BenchmarkBetaRowInitialize(b *testing.B) {
 			for i := range parents {
 				nodes := benchRowNodes(rm, size, i)
 				parents[i] = &BetaRow{Data: nodes[:size-1]}
-				triples[i] = rdf.Triple{nodes[0], rm.NewResource("usi:hasCode"), nodes[size-1]}
+				triples[i] = rdf.Triple{nodes[0], rm.NewResource("ex:hasCode"), nodes[size-1]}
 			}
 			b.ReportAllocs()
 			i := 0

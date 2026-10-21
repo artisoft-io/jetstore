@@ -37,7 +37,7 @@ import "net/url"
 // directories are `data_model` (31 files), `jet_rules` (149) and `lookups` (15).
 // `pipes_config`, `process_config` and `reports` are reached zero times in every
 // one of the four. **`lookups` is reached by import in three workspaces and by
-// `$csv_file` in the fourth** — usi_ws declares its lookup tables inside
+// `$csv_file` in the fourth** — that workspace declares its lookup tables inside
 // `jet_rules/` and keeps only the CSV data under `lookups/` — which is a fact
 // about where a workspace puts a declaration rather than about the section, and
 // is why this is a property of the section rather than a per-workspace query.
@@ -114,8 +114,8 @@ var WorkspaceSections = []Section{
 		// with their CSV inputs beside them, and were invisible here from the day
 		// they shipped, the same missing-suffix defect as `.apply.json` below.
 		// `.csv` matches anywhere under jet_rules/, not only under unit_tests/; on
-		// that day every CSV there was a test input (5 in jets_ws, 7 in usi_ws,
-		// none in walrus_ws or cedargate_ws), so a path-aware filter would guard
+		// that day every CSV there was a test input (5 in jets_ws, 7 in another
+		// workspace, none in the other two), so a path-aware filter would guard
 		// against nothing.
 		Dir: "jet_rules", Label: "Jets Rules",
 		Filters: []string{".jr", ".tst.json", ".csv"}, CompiledView: JetRulesView,

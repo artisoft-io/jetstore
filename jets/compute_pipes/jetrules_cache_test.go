@@ -150,7 +150,7 @@ func TestFlatRecordColumnsAreDataPropertiesOnly(t *testing.T) {
 	}
 }
 
-// The usi_ws crash of 2026-10-09, reproduced.
+// A client workspace's crash of 2026-10-09, reproduced.
 //
 // `GetRuleEngineConfig` read the package map `ruleEngineConfig` with no lock
 // while `loadRuleEngineConfig` wrote it under `ruleEngineConfigMx`. A jetrules
@@ -159,8 +159,8 @@ func TestFlatRecordColumnsAreDataPropertiesOnly(t *testing.T) {
 // for the same main rule file at once, and one reads the map while another
 // writes it. The Go runtime does not report that as a wrong answer: it aborts
 // the process with `fatal error: concurrent map read and map write`. It was
-// seen on the usi_ws local harness, two runs of six, with `pool_size` 10 — the
-// value USI's production pipeline sets.
+// seen on that workspace's local harness, two runs of six, with `pool_size` 10 — the
+// value its production pipeline sets.
 //
 // The runtime's own check catches it only sometimes, so this test is meant to
 // be run with `-race`, which flags the unlocked read on every run. Several main

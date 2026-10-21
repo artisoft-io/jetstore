@@ -7,9 +7,8 @@ import (
 )
 
 // The cases are the shapes found in production rules: a maximum over values a
-// sibling rule records at the same salience (walrus_ws R96_DaysOfSupply11,
-// ReversalClaim10), a count over links (ET_ValidateRecord01), and a config
-// resource naming the aggregated properties (Adherence21).
+// sibling rule records at the same salience (two rules of a client workspace), a
+// count over links, and a config resource naming the aggregated properties.
 
 const aggregateHeader = `
 resource rdfType = "rdf:type";

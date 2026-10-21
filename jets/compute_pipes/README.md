@@ -150,10 +150,10 @@ content type and its own sync function, for the report lambdas.
 
 | Workspace | `workspace.tgz` | `workspace.db` | `lookup.db` | **fetched per cold start** | `lookup.db` share |
 |---|---:|---:|---:|---:|---:|
-| `cedargate_ws` | 113,110 | 401,408 | 7,909,376 | **8,423,894** — 8.0 MiB | 93.9% |
-| `walrus_ws` | 318,422 | 2,170,880 | 44,232,704 | **46,722,006** — 44.6 MiB | 94.7% |
+| client workspace C | 113,110 | 401,408 | 7,909,376 | **8,423,894** — 8.0 MiB | 93.9% |
+| client workspace B | 318,422 | 2,170,880 | 44,232,704 | **46,722,006** — 44.6 MiB | 94.7% |
 | `jets_ws` | 23,367 | 290,816 | 58,675,200 | **58,989,383** — 56.3 MiB | 99.5% |
-| `usi_ws` | 1,825,420 | 9,101,312 | 76,013,568 | **86,940,300** — 82.9 MiB | 87.4% |
+| client workspace A | 1,825,420 | 9,101,312 | 76,013,568 | **86,940,300** — 82.9 MiB | 87.4% |
 
 **`lookup.db` is 87–99.5% of every one of them.** `workspace.tgz` — the one people picture, since it
 is the archive that gets extracted — is under 2% everywhere.
@@ -166,16 +166,16 @@ variables, so a cold start pays it and warm invocations do not. The sharding sta
 
 So a run costs roughly `(nodes + 1) ×` the number above, and `cluster_config.default_max_concurrency`
 sets the ceiling on nodes. Across the corpus that ceiling is **4** (`embed_input_parts`), **20**
-(`jets_loader`) and **40** (`cedargate_ws`'s nine `qc_*` configs):
+(`jets_loader`) and **40** (nine quality-check configs of client workspace C):
 
-| Pipeline | ceiling | `cedargate_ws` | `walrus_ws` | `jets_ws` | `usi_ws` |
+| Pipeline | ceiling | C | B | `jets_ws` | A |
 |---|---:|---:|---:|---:|---:|
 | `embed_input_parts` | 4 | 40 MiB | 223 MiB | 281 MiB | 415 MiB |
 | `jets_loader` | 20 | 169 MiB | 936 MiB | 1.15 GiB | **1.70 GiB** |
 
 **Fan-out and workspace size are uncorrelated**, which is why the worst case is not where you would
-guess: `cedargate_ws` has the widest configs in the corpus and the smallest workspace by a factor of
-ten, so its 40-way runs move less than `usi_ws` moves at 4.
+guess: client workspace C has the widest configs in the corpus and the smallest workspace by a factor
+of ten, so its 40-way runs move less than A moves at 4.
 
 ### What is *not* measured, and why the shape matters more than the number
 
@@ -198,7 +198,7 @@ through `jets/workspace/lookup_tables.go:103` (`buildLookupDb`, at compile, besi
 `jets/jetrules/rete/lookup_table_manager.go:40`, both reached only when a lookup is actually configured.
 
 Neither JetStore-owned pipeline configures one. So `jets_loader` and `embed_input_parts` each pull
-**87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on `usi_ws`.
+**87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on client workspace A.
 
 ## The jetrules caches, and the cold start of 2026-08-31
 
@@ -501,7 +501,7 @@ written.
 
 Measured 2026-09-21 across the four workspaces this repository is pinned beside: **34 bucket values
 carry a variable, in 5 documents** — 24 braced (`${CORPUS_OUT_BUCKET}`, `healthcare_corpus.pc.json`)
-and 10 bare-dollar (`$CGT_OUT_BUCKET`, `$CGT_SUMMARY_BUCKET`, four `cedargate_ws` documents).
+and 10 bare-dollar (two output-bucket keys, in four documents of client workspace C).
 **Nine of the ten env keys `prepareCpipesEnv` writes are bare-dollar**, so the bare form is the
 house spelling and the braced one is the exception.
 

@@ -3,7 +3,7 @@ package rete
 // The two LEGACY retraction defects, as a mode fixed when the rule network is built.
 //
 // Both engines keep two retraction defects by Michel's decision of 2026-10-09, because
-// usi_ws's loop rules and CM04 op01 terminate only because of them (README.md, entry
+// a client workspace's loop rules and a self-guarded rule terminated only because of them (README.md, entry
 // of 2026-10-08, revised 2026-10-09):
 //
 //  1. a consequent that reads the graph -- exist, exist_not, size_of, the aggregates,

@@ -479,7 +479,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // remove_beta_row returns at once for a row marked kDeleted -- which this row
         // is -- so the retracted row stays in the relation as kProcessed and an equal
         // row inserted later is taken for one already inferred: it never fires again.
-        // usi_ws's rules terminate only because of it; see jets/jetrules/rete/README.md.
+        // A client workspace's rules terminated only because of it; see jets/jetrules/rete/README.md.
         // A meta store initialized with RetractionMode::erase_withdrawn_rows, which only
         // the rules unit test harness builds, erases the row instead.
         if(this->rule_ms_->retraction_mode().erase_withdrawn_rows) {

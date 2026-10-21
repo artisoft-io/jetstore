@@ -60,7 +60,7 @@ type Spec struct {
 	// (jets:iState jets:max_vertex_visits n) in the meta graph. A cap is
 	// required, because Go's default is 10,000 and C++ has none (rules_benchmark
 	// F9): this, or -max_vertex_visits, or a jets:max_vertex_visits in
-	// rule_config, as cm_loop's has. This replaces rule_config's, so the cap is
+	// rule_config, as a unit test's may have. This replaces rule_config's, so the cap is
 	// set once.
 	MaxVertexVisits int `json:"max_vertex_visits,omitempty"`
 	// MaxLooping, when set, replaces jetrules_config.max_looping, which itself

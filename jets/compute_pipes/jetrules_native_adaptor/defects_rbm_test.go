@@ -44,9 +44,9 @@ class rbm:Item {
 };
 `
 
-// The patterns are the five production rules' that use literal_regex: usi_ws z004
-// (1_CM01_Mapping_SM_Main2.jr:70, in CM, MSK and IM), and walrus_ws's two name
-// splitters (merge_claim_header_and_details_main.jr:129-130).
+// The patterns are the five production rules' that use literal_regex: one client
+// workspace's zip-code prefix rule, used in three of its processes, and another's
+// two name splitters.
 const rbmRules = `# Main rule file for the rules_benchmark defect tests (defects_rbm_test.go).
 import "data_model/jets_model.jr"
 import "data_model/rbm_defects_model.jr"
@@ -199,7 +199,7 @@ func describe(n compute_pipes.RdfNode) string {
 // string on no match, on Go (ApplyRegexOp.Eval,
 // jets/jetrules/rete/expr_operator_str_apply_regex.go:33).
 //
-// Inputs: CM z004's "^(\d\d\d)" on "12345" and "N/A", and walrus_ws's ",\s+(\w+)"
+// Inputs: the zip-code rule's "^(\d\d\d)" on "12345" and "N/A", and the name splitters' ",\s+(\w+)"
 // and "(.*?)," on "DOE, JOHN".
 //
 // Correct behaviour, as Q-11 decided for Phase 4: C++'s on both engines, so the Go

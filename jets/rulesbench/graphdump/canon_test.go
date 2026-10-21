@@ -262,7 +262,7 @@ func TestTermsRoundTrip(t *testing.T) {
 }
 
 func TestFileName(t *testing.T) {
-	if got := FileName(4, "jet_rules/main/CM/2_CM02_Matching_SM_Main1.jr"); got != "05_2_CM02_Matching_SM_Main1.tsv" {
+	if got := FileName(4, "jet_rules/main/P1/2_P1_Matching_Main1.jr"); got != "05_2_P1_Matching_Main1.tsv" {
 		t.Errorf("FileName = %q", got)
 	}
 	if got := Path("d", "go", "member1", 0, "a b.jr"); got != "d/go/member1/01_a_b.tsv" {

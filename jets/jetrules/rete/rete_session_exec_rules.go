@@ -296,7 +296,7 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			// RemoveBetaRow returns at once for a row marked kDeleted -- which this row
 			// is -- so the retracted row stays in the relation as kProcessed and an
 			// equal row inserted later is taken for one already inferred: it never
-			// fires again. usi_ws's rules terminate only because of it; see README.md.
+			// fires again. A client workspace's rules terminated only because of it; see README.md.
 			// A meta store built with RetractionMode.EraseWithdrawnRows, which only the
 			// rules unit test harness builds, erases the row instead.
 			if rs.ms.RetractionMode.EraseWithdrawnRows {

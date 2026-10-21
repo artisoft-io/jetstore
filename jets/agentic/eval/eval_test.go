@@ -231,7 +231,7 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 // **Nothing here asserts a count, and that is the whole of BB.3.** Until
 // 2026-09-11 this test asserted `len(c.Files) == 41` and `len(c.Instances) ==
 // 455` as literals. They are a property of four *other* repositories --
-// cedargate_ws, jets_ws, usi_ws and walrus_ws are living workspaces that track
+// the corpus's four workspaces are living workspaces that track
 // real installations -- so every legitimate asset change landed here as a red
 // test. The comment this one replaces was a four-paragraph account of the three
 // times that happened in a month, and a fourth -- BA.1 removing two drain pipes,

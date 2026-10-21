@@ -53,8 +53,25 @@ func corpusRoot() string {
 	return filepath.Join("..", "..", "..", "..", "workspaces")
 }
 
+// corpusWorkspaces lists the corpus's workspaces: its directories that have a
+// workspace_control.json.
+func corpusWorkspaces() []string {
+	var names []string
+	entries, _ := os.ReadDir(corpusRoot())
+	for _, e := range entries {
+		if _, err := os.Stat(filepath.Join(corpusRoot(), e.Name(), "workspace_control.json")); e.IsDir() && err == nil {
+			names = append(names, e.Name())
+		}
+	}
+	return names
+}
+
 func TestCorpusRoundTrip(t *testing.T) {
-	for _, ws := range []string{"cedargate_ws", "jets_ws", "usi_ws", "walrus_ws"} {
+	workspaces := corpusWorkspaces()
+	if len(workspaces) == 0 {
+		t.Skipf("no workspace under %s", corpusRoot())
+	}
+	for _, ws := range workspaces {
 		t.Run(ws, func(t *testing.T) {
 			src := filepath.Join(corpusRoot(), ws)
 			control, err := os.ReadFile(filepath.Join(src, "workspace_control.json"))
@@ -127,7 +144,7 @@ func roundTrip(t *testing.T, dir, main string) int {
 		t.Fatalf("%s: FromModel: %v", main, err)
 	}
 	// The form refuses two rules of one name, which the compiler accepts and
-	// usi_ws has (its assessment counts 29 of 743). Rename the later ones so
+	// one workspace of the corpus has (29 of 743). Rename the later ones so
 	// the rendering compiles, and compare by position rather than by name.
 	seen := map[string]int{}
 	for i := range sym.Rules {

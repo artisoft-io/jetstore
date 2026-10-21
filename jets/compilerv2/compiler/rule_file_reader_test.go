@@ -223,9 +223,9 @@ func TestRuleFileReader_GetLocalFileAndLine2(t *testing.T) {
 // Every line's source_file directive must name the file that line actually came
 // from. It did not: the directive was written when a file was entered and never
 // re-written when an import returned, so everything after an import in a file
-// was attributed to the file it had imported. In usi_ws that made
+// was attributed to the file it had imported. In a client workspace that made
 // build/classes.json report every class declared after line 4 of
-// data_model/usi_data_model.jr as belonging to data_model/jets_model.jr.
+// its data model file as belonging to data_model/jets_model.jr.
 //
 // The check is a cross-check rather than a fixture: the directive in effect at
 // each line is compared with GetLocalFileAndLine's answer for the same line,

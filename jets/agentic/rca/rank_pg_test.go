@@ -358,8 +358,8 @@ func TestHypothesesAreWritableAndReadBackWholeAlbeitByATest(t *testing.T) {
 	pool := freshDB(t, "rca_writeback")
 	ctx := context.Background()
 
-	k := header(t, pool, "usi", "qc", "members", "s-w", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "usi", "qc", "s-w", "reducing01", 0, "failed", 100, 4, 0, "boom",
+	k := header(t, pool, "client1", "qc", "members", "s-w", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client1", "qc", "s-w", "reducing01", 0, "failed", 100, 4, 0, "boom",
 		now.Add(-time.Hour))
 	storeConfig(t, pool, k, "s-w", configNoErrorChannel)
 	_, r := rank(t, pool, "s-w")
