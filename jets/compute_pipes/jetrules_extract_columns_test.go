@@ -11,7 +11,10 @@ import (
 
 // Extraction reads a subject's columns in one pass over its triples (rules_benchmark
 // G11). This runs that pass and the extraction it replaced, one FindSP per column, on
-// the same Go session and requires the same rows, cell for cell and in the same order.
+// the same Go session and requires the same rows, cell for cell. A multi-valued
+// cell is compared as a multiset: the graph's maps are ranged in a new order on
+// every read, so two reads of one session can list a subject's values in different
+// orders, whichever way they are read. Every other cell is compared exactly.
 //
 // The session holds what test_looping_main.jr infers, three lp:Person with inferred
 // lp:name values, and, asserted on top: more lp:name values, so one column's values
@@ -70,14 +73,17 @@ func TestExtractionPassMatchesOneFindSPPerColumn(t *testing.T) {
 		if !keyed {
 			t.Fatalf("the Go engine's nodes have no identity key: the pass was not used")
 		}
-		if !reflect.DeepEqual(pass, each) {
-			for i := range pass {
-				for c := range columns {
-					if !reflect.DeepEqual(pass[i][c], each[i][c]) {
-						t.Errorf("row %d column %s: pass %#v, one FindSP per column %#v", i, columns[c], pass[i][c], each[i][c])
-					}
+		if len(pass) != len(each) {
+			t.Fatalf("%d rows by the pass, %d by one FindSP per column", len(pass), len(each))
+		}
+		for i := range pass {
+			for c := range columns {
+				if !sameCell(pass[i][c], each[i][c]) {
+					t.Errorf("row %d column %s: pass %#v, one FindSP per column %#v", i, columns[c], pass[i][c], each[i][c])
 				}
 			}
+		}
+		if t.Failed() {
 			t.FailNow()
 		}
 
@@ -111,4 +117,25 @@ func TestExtractionPassMatchesOneFindSPPerColumn(t *testing.T) {
 			}
 		}
 	})
+}
+
+// sameCell compares two extracted cells: a list as a multiset of its elements,
+// anything else exactly.
+func sameCell(a, b any) bool {
+	la, okA := a.([]any)
+	lb, okB := b.([]any)
+	if !okA || !okB {
+		return reflect.DeepEqual(a, b)
+	}
+	if len(la) != len(lb) {
+		return false
+	}
+	key := func(v any) string { return fmt.Sprintf("%T:%#v", v, v) }
+	ka, kb := make([]string, len(la)), make([]string, len(lb))
+	for i := range la {
+		ka[i], kb[i] = key(la[i]), key(lb[i])
+	}
+	slices.Sort(ka)
+	slices.Sort(kb)
+	return slices.Equal(ka, kb)
 }
