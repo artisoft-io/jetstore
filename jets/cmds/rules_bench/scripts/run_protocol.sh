@@ -16,12 +16,17 @@
 #     engine as a pipeline does;
 #   - it writes an environment record before the first run;
 #   - it holds an exclusive flock for its whole duration, so two runs, from any
-#     worktree, never overlap.
+#     worktree, never overlap;
+#   - nothing is preloaded into rules_bench but what --preload names: an
+#     LD_PRELOAD inherited from the caller is dropped.
 #
 # Options:
 #   --out DIR            results directory (default: ./rules_bench_out/<spec>_<UTC time>)
 #   --bin PATH           the rules_bench binary (default: rules_bench on PATH)
 #   --lib DIR            directory holding libjets.so, prepended to LD_LIBRARY_PATH
+#   --preload LIB        preload the shared library LIB (an allocator, say) into the
+#                        rules_bench process only, as LD_PRELOAD; recorded with its
+#                        sha256 in protocol_env.txt, and by rules_bench in every result
 #   --engines LIST       comma-separated, in interleaving order (default: native,go)
 #   --repetitions N      runs per engine (default: 10)
 #   --warmup N           warmup runs inside each process, before its measured one (default: 0)
@@ -46,6 +51,7 @@ die() { echo "run_protocol: $*" >&2; exit 1; }
 out=""
 bin="rules_bench"
 lib=""
+preload=""
 engines="native,go"
 reps=10
 warmup=0
@@ -64,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     --out) out="$2"; shift 2 ;;
     --bin) bin="$2"; shift 2 ;;
     --lib) lib="$2"; shift 2 ;;
+    --preload) preload="$2"; shift 2 ;;
     --engines) engines="$2"; shift 2 ;;
     --repetitions) reps="$2"; shift 2 ;;
     --warmup) warmup="$2"; shift 2 ;;
@@ -75,7 +82,7 @@ while [[ $# -gt 0 ]]; do
     --allow-battery) allow_battery=1; shift ;;
     --dry-run) dry_run=1; shift ;;
     --) shift; extra=("$@"); break ;;
-    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
+    -h|--help) awk 'NR > 1 && !/^#/ { exit } NR > 1 { print }' "$0"; exit 0 ;;
     -*) die "unknown option $1" ;;
     *) [[ -z "$spec" ]] || die "one spec only"; spec="$1"; shift ;;
   esac
@@ -94,6 +101,12 @@ fi
 if [[ -n "$lib" ]]; then
   [[ -f "$lib/libjets.so" ]] || die "no libjets.so in $lib"
   export LD_LIBRARY_PATH="$lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+if [[ -n "$preload" ]]; then
+  [[ -f "$preload" ]] || die "no library at $preload (--preload)"
+  [[ "$(head -c 4 "$preload" | od -An -c | tr -d ' ')" == '177ELF' ]] || die "$preload is not an ELF shared library (--preload)"
+  preload="$(realpath "$preload")"
+  [[ "$preload" != *[[:space:]:]* ]] || die "$preload has a space or a colon in its path, which LD_PRELOAD cannot carry"
 fi
 spec="$(realpath "$spec")"
 bin="$(realpath "$bin")"
@@ -178,6 +191,12 @@ fi
   libjets="$(LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}" ldd "$bin" | awk '/libjets.so/ {print $3}')"
   echo "libjets: ${libjets:-not linked}"
   [[ -n "$libjets" && -f "$libjets" ]] && echo "libjets_sha256: $(sha256sum "$libjets" | cut -d' ' -f1)"
+  echo "preload: ${preload:-none}"
+  if [[ -n "$preload" ]]; then
+    echo "preload_sha256: $(sha256sum "$preload" | cut -d' ' -f1)"
+    pkg="$(dpkg -S "$preload" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+    echo "preload_package: ${pkg:+$pkg $(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)}"
+  fi
   echo "workspace: $WORKSPACES_HOME/$WORKSPACE"
   echo "workspace_revision: $(git -C "$WORKSPACES_HOME/$WORKSPACE" rev-parse HEAD 2>/dev/null || echo none)"
   echo "engines: $engines"
@@ -195,11 +214,15 @@ common=(-require_tuned)
 envs=()
 [[ -n "$gomaxprocs" ]] && envs+=(GOMAXPROCS="$gomaxprocs")
 # The secrets jets/user's init reads are not passed (rules_unit_test README).
-strip=(-u JETS_ENCRYPTION_KEY -u JETS_ENCRYPTION_KEY_SECRET -u API_SECRET -u AWS_API_SECRET)
+strip=(-u JETS_ENCRYPTION_KEY -u JETS_ENCRYPTION_KEY_SECRET -u API_SECRET -u AWS_API_SECRET -u LD_PRELOAD)
+# The preload is set by an env that taskset runs, so it reaches rules_bench and
+# not taskset; rules_bench refuses to run if the loader did not map it.
+inner=()
+[[ -n "$preload" ]] && inner=(env LD_PRELOAD="$preload")
 
 run() {
   local dir="$1"; shift
-  local cmd=(env "${strip[@]}" "${envs[@]}" taskset -c "$cpus" "$bin" -out_dir "$dir" "${common[@]}" "$@" "${extra[@]}" "$spec")
+  local cmd=(env "${strip[@]}" "${envs[@]}" taskset -c "$cpus" "${inner[@]}" "$bin" -out_dir "$dir" "${common[@]}" "$@" "${extra[@]}" "$spec")
   echo "run_protocol: ${cmd[*]}"
   [[ "$dry_run" -eq 1 ]] && return 0
   mkdir -p "$dir"

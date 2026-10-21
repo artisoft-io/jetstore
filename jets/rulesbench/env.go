@@ -53,6 +53,33 @@ type Environment struct {
 	WorkspaceRevision string      `json:"workspace_revision,omitempty"`
 	WorkspaceDirty    bool        `json:"workspace_dirty,omitempty"`
 	WorkspaceDB       *FileRecord `json:"workspace_db,omitempty"`
+
+	// LDPreload is the LD_PRELOAD the process started with, verbatim, and
+	// Preloaded is each library it names, with the file the loader mapped for
+	// it: an allocator variant (run_protocol.sh --preload) is recorded with the
+	// library that ran. Both are empty when nothing is preloaded.
+	LDPreload string          `json:"ld_preload,omitempty"`
+	Preloaded []PreloadRecord `json:"preloaded,omitempty"`
+}
+
+// PreloadRecord is one library of LD_PRELOAD. Mapped is the file the loader
+// mapped for it, from /proc/self/maps, and nil when it mapped none: the loader
+// ignores a library it cannot preload, with a message on standard error, and
+// the process then runs without it.
+type PreloadRecord struct {
+	Entry  string      `json:"entry"`
+	Mapped *FileRecord `json:"mapped"`
+}
+
+// PreloadNotMapped returns the LD_PRELOAD entries the loader did not map.
+func (e *Environment) PreloadNotMapped() []string {
+	var out []string
+	for _, p := range e.Preloaded {
+		if p.Mapped == nil {
+			out = append(out, p.Entry)
+		}
+	}
+	return out
 }
 
 // FileRecord identifies a file.
@@ -86,6 +113,15 @@ func RecordEnvironment() *Environment {
 	env.PerfEventParanoid = readTrimmed("/proc/sys/kernel/perf_event_paranoid")
 	if p := mappedLibrary("libjets.so"); p != "" {
 		env.LibJets = recordFile(p)
+	}
+	if env.LDPreload = os.Getenv("LD_PRELOAD"); env.LDPreload != "" {
+		for _, p := range preloadMappings(env.LDPreload, mappedFiles()) {
+			r := PreloadRecord{Entry: p[0]}
+			if p[1] != "" {
+				r.Mapped = recordFile(p[1])
+			}
+			env.Preloaded = append(env.Preloaded, r)
+		}
 	}
 	if bi, ok := debug.ReadBuildInfo(); ok {
 		var settings []string
@@ -245,6 +281,53 @@ func mappedLibrary(name string) string {
 		}
 	}
 	return ""
+}
+
+// mappedFiles is every distinct file mapped into this process, from
+// /proc/self/maps, in the order they first appear.
+func mappedFiles() []string {
+	f, err := os.Open("/proc/self/maps")
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []string
+	seen := map[string]bool{}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		if len(fields) >= 6 && strings.HasPrefix(fields[5], "/") && !seen[fields[5]] {
+			seen[fields[5]] = true
+			out = append(out, fields[5])
+		}
+	}
+	return out
+}
+
+// preloadMappings pairs each library of ldPreload, which the loader splits on
+// spaces and colons, with the mapped file that is it, or "" when none is. A
+// library named by path is the mapping of that path with its symbolic links
+// resolved, since a mapping names the file itself; one named without a slash is
+// searched for by the loader, and is the mapping of that file name.
+func preloadMappings(ldPreload string, mapped []string) [][2]string {
+	var out [][2]string
+	for _, entry := range strings.FieldsFunc(ldPreload, func(r rune) bool { return r == ' ' || r == ':' }) {
+		want := entry
+		if strings.Contains(entry, "/") {
+			if p, err := filepath.EvalSymlinks(entry); err == nil {
+				want = p
+			}
+		}
+		found := ""
+		for _, m := range mapped {
+			if m == want || (!strings.Contains(entry, "/") && filepath.Base(m) == entry) {
+				found = m
+				break
+			}
+		}
+		out = append(out, [2]string{entry, found})
+	}
+	return out
 }
 
 func recordFile(path string) *FileRecord {
