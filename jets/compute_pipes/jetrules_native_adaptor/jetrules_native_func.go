@@ -83,10 +83,12 @@ func (engine *JetRuleEngineNative) MainRuleFile() string {
 	return engine.processName
 }
 
+// JetResources is built once, by the first caller. Every session of a pool calls it,
+// from its own goroutine, on the one engine they share (rules_benchmark I-22).
 func (engine *JetRuleEngineNative) JetResources() *compute_pipes.JetResources {
-	if engine.jetResources == nil {
+	engine.jetResourcesOnce.Do(func() {
 		engine.jetResources = compute_pipes.NewJetResources(engine.GetMetaResourceManager())
-	}
+	})
 	return engine.jetResources
 }
 

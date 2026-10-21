@@ -106,6 +106,27 @@ func (an *AlphaNode) RegisterCallback(rs *ReteSession) {
 	rs.RdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 }
 
+// queryArity is the number of positions of the antecedent term bound by the parent
+// beta row, which selects the kind of index its parent beta relation keeps for it: 1,
+// 2 or 3; 0 when no position is bound and no index is kept.
+func (an *AlphaNode) queryArity() int {
+	n := 0
+	for _, i := range [3]int{an.Fu.BetaRowIndex(), an.Fv.BetaRowIndex(), an.Fw.BetaRowIndex()} {
+		switch {
+		case i >= 0:
+			n++
+		case i != -1:
+			return 0
+		}
+	}
+	return n
+}
+
+// InitializeIndexes adds to the parent beta relation, a session's own, the index this
+// antecedent term queries. The index's key, AntecedentQueryKey, is on the NodeVertex
+// that every session shares: NewReteMetaStore assigns it (assignAntecedentQueryKeys),
+// and a session only checks it. A network not built by NewReteMetaStore, as in a unit
+// test, has no key assigned and gets it here, which is only safe one session at a time.
 func (an *AlphaNode) InitializeIndexes(parentBetaRelation *BetaRelation) {
 	if an == nil {
 		return
@@ -114,30 +135,23 @@ func (an *AlphaNode) InitializeIndexes(parentBetaRelation *BetaRelation) {
 		// Not applicable
 		return
 	}
-	u := an.Fu.BetaRowIndex()
-	v := an.Fv.BetaRowIndex()
-	w := an.Fw.BetaRowIndex()
-	uI := u >= 0
-	u0 := u == -1
-	vI := v >= 0
-	v0 := v == -1
-	wI := w >= 0
-	w0 := w == -1
+	var key int
+	switch an.queryArity() {
+	case 1:
+		key = parentBetaRelation.AddQuery1()
+	case 2:
+		key = parentBetaRelation.AddQuery2()
+	case 3:
+		key = parentBetaRelation.AddQuery3()
+	default:
+		return
+	}
+	nv := an.NdVertex
 	switch {
-	case uI && v0 && w0:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
-	case uI && vI && w0:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
-	case u0 && vI && wI:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
-	case u0 && v0 && wI:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
-	case uI && v0 && wI:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
-	case u0 && vI && w0:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
-	case uI && vI && wI:
-		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery3()
+	case !nv.queryKeyAssigned:
+		nv.AntecedentQueryKey = key
+	case key != nv.AntecedentQueryKey:
+		log.Panicf("bug: vertex %d: beta relation query key %d, assigned %d", nv.Vertex, key, nv.AntecedentQueryKey)
 	}
 }
 
@@ -209,7 +223,7 @@ func (an *AlphaNode) EraseIndex4BetaRow(parentBetaRelation *BetaRelation, row *B
 	case u0 && vI && w0:
 		parentBetaRelation.EraseIndex1(key, an.Fv.Eval(nil, row), row)
 	case uI && vI && wI:
-		parentBetaRelation.EraseIndex3(key, an.Fu.Eval(nil, row), an.Fu.Eval(nil, row), an.Fu.Eval(nil, row), row)
+		parentBetaRelation.EraseIndex3(key, an.Fu.Eval(nil, row), an.Fv.Eval(nil, row), an.Fw.Eval(nil, row), row)
 	}
 }
 

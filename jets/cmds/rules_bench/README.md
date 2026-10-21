@@ -74,7 +74,9 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 - `2` on a usage error.
 
 A session that fails is recorded in its result, with `err`, `execute_err` or `exceptions`,
-and the run's `status` is `error`.
+and the run's `status` is `error`, with the first failing session in `reason`. A session that
+only reached `max_looping` is counted in `totals.errors` and does not fail the run. Until
+rules_benchmark Phase 2, only `err` raised the status (`I-34`).
 
 **Logging.** The command logs as every shipped main does (`utils.UseJetStoreLogger`). Its
 one-line summary of each run is on standard output, among the log lines. `RunRuleSets` logs

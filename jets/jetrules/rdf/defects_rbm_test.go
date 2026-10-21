@@ -7,6 +7,9 @@ package rdf
 // here asserts TODAY'S behaviour, so it passes now and fails when the defect is
 // fixed: a failure after a fix is the signal to flip the assertion, not a
 // regression. The comment on each test says what the correct behaviour is.
+//
+// A defect that has been fixed keeps its test, turned into a regression test that
+// asserts the correct behaviour: I-4 since rules_benchmark Phase 2 (AH.5).
 
 import (
 	"runtime"
@@ -127,51 +130,48 @@ func TestDefect_I1_IteratorGoroutineLeak(t *testing.T) {
 	}
 }
 
-// TestDefect_I4_CreateBNodeStoresUnderWrongKey reproduces rules_benchmark I-4:
-// CreateBNode stores the node it creates under rm.lastBnodeKey instead of under
-// the key it was asked for (resource_manager.go:168).
+// TestDefect_I4_CreateBNodeStoresUnderWrongKey was the reproduction of
+// rules_benchmark I-4, and is its regression test since rules_benchmark Phase 2 (AH.5)
+// fixed it: CreateBNode stored the node it created under rm.lastBnodeKey instead of
+// under the key it was asked for, so a second CreateBNode(key) did not find the first
+// one and returned a new node, and the entry a NewBNode had stored under lastBnodeKey
+// was overwritten. ReifyResource calls CreateBNode for every blank node an expression
+// returns (ReifyResource, resource_manager.go), so two evaluations of one blank node
+// gave two different *Node, and nodes are compared by pointer.
 //
-// So a second CreateBNode(key) does not find the first one and returns a new node,
-// and the node a NewBNode stored under lastBnodeKey is overwritten. ReifyResource
-// calls CreateBNode for every blank node an expression returns
-// (ReifyResource, resource_manager.go:180), so two evaluations of one blank node give two
-// different *Node, and nodes are compared by pointer.
-//
-// Correct behaviour: rm.bnodeMap[key] = r, so CreateBNode(k) == CreateBNode(k) and
-// GetBNode(k) finds it.
+// Correct behaviour, asserted here: rm.bnodeMap[key] = r, so CreateBNode(k) ==
+// CreateBNode(k), GetBNode(k) finds it, and NewBNode's entries are left alone.
 func TestDefect_I4_CreateBNodeStoresUnderWrongKey(t *testing.T) {
 	rm := NewResourceManager(nil)
 
 	first := rm.CreateBNode(7)
 	second := rm.CreateBNode(7)
-	if first == second {
-		t.Errorf("CreateBNode(7) twice gave one node; I-4 is fixed, flip this test")
+	if first != second {
+		t.Errorf("CreateBNode(7) twice gave two nodes, %p and %p (I-4)", first, second)
 	}
-	if got := rm.GetBNode(7); got != nil {
-		t.Errorf("GetBNode(7) = %v, want nil while I-4 is open (the node is stored under lastBnodeKey)", got)
+	if got := rm.GetBNode(7); got != first {
+		t.Errorf("GetBNode(7) = %v, want the CreateBNode(7) node %v (I-4)", got, first)
 	}
-	// It is stored under lastBnodeKey, which is 0 for a fresh manager.
-	if got := rm.GetBNode(0); got != second {
-		t.Errorf("GetBNode(0) = %v, want the last CreateBNode(7) node %v while I-4 is open", got, second)
+	if got := rm.GetBNode(0); got != nil {
+		t.Errorf("GetBNode(0) = %v, want nil: CreateBNode(7) must not store under lastBnodeKey (I-4)", got)
 	}
 
-	// And it overwrites what NewBNode stored there: NewBNode stores under
-	// lastBnodeKey and then increments it, so the next CreateBNode lands on the key
-	// the next NewBNode will use.
+	// NewBNode stores under lastBnodeKey and then increments it; a CreateBNode in
+	// between must not land on the key the next NewBNode uses.
 	rm2 := NewResourceManager(nil)
 	minted := rm2.NewBNode() // stored under 0, lastBnodeKey becomes 1
-	rm2.CreateBNode(9)       // stored under 1
-	next := rm2.NewBNode()   // stored under 1, replacing the CreateBNode(9) entry
+	created := rm2.CreateBNode(9)
+	next := rm2.NewBNode() // stored under 1
 	if rm2.GetBNode(0) != minted || rm2.GetBNode(1) != next {
 		t.Errorf("NewBNode entries: GetBNode(0) = %v (want %v), GetBNode(1) = %v (want %v)",
 			rm2.GetBNode(0), minted, rm2.GetBNode(1), next)
 	}
-	if rm2.GetBNode(9) != nil {
-		t.Errorf("GetBNode(9) found the CreateBNode(9) node; I-4 is fixed, flip this test")
+	if rm2.GetBNode(9) != created {
+		t.Errorf("GetBNode(9) = %v, want the CreateBNode(9) node %v (I-4)", rm2.GetBNode(9), created)
 	}
-	// ReifyResource of one blank node twice gives two nodes.
+	// ReifyResource of one blank node twice gives one node.
 	bn := BN(11)
-	if rm.ReifyResource(bn) == rm.ReifyResource(bn) {
-		t.Errorf("ReifyResource(BN 11) twice gave one node; I-4 is fixed, flip this test")
+	if rm.ReifyResource(bn) != rm.ReifyResource(bn) {
+		t.Errorf("ReifyResource(BN 11) twice gave two nodes (I-4)")
 	}
 }

@@ -17,6 +17,9 @@ type NodeVertex struct {
 	RowInitializer       *BetaRowInitializer
 	AntecedentQueryKey   int
 	AssociatedRules      []string
+	// queryKeyAssigned is set when NewReteMetaStore has assigned AntecedentQueryKey,
+	// so that sessions only read it (assignAntecedentQueryKeys, rules_benchmark I-24).
+	queryKeyAssigned bool
 	// RecordsConsequents is set by AddConsequentTerm when a consequent term mints a
 	// resource (see expr_mints_resource.go) or, with LEGACY defect 1 turned off, reads
 	// the graph (expr_reads_graph.go). A beta row of such a vertex records the triples

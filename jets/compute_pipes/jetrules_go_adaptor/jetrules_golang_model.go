@@ -1,6 +1,8 @@
 package jetrules_go_adaptor
 
 import (
+	"sync"
+
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -22,6 +24,9 @@ type JetRuleEngineGo struct {
 	processName          string
 	reteMetaStoreFactory *rete.ReteMetaStoreFactory
 	isDebug              bool
+
+	// jetResourcesOnce guards jetResources, which the sessions of a pool share
+	jetResourcesOnce sync.Once
 }
 
 type RdfNodeGo struct {

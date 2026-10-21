@@ -261,3 +261,28 @@ func TestRun(t *testing.T) {
 		})
 	})
 }
+
+// TestSessionFailureRaisesTheRunStatus is rules_benchmark I-34's regression test: a
+// session's err, execute_err or exceptions each fail the run, as the README says; a
+// session that only reached max_looping does not.
+func TestSessionFailureRaisesTheRunStatus(t *testing.T) {
+	cases := []struct {
+		s    SessionResult
+		fail bool
+	}{
+		{SessionResult{Name: "ok", Completed: true}, false},
+		{SessionResult{Name: "capped", MaxLoopReached: true}, false},
+		{SessionResult{Name: "err", Err: "input does not read"}, true},
+		{SessionResult{Name: "execute", ExecuteErr: "std::bad_alloc"}, true},
+		{SessionResult{Name: "exception", Exceptions: []string{"exception one", "exception two"}}, true},
+	}
+	for _, c := range cases {
+		reason := sessionFailure(&c.s)
+		if (reason != "") != c.fail {
+			t.Errorf("session %s: sessionFailure = %q, want failure %v", c.s.Name, reason, c.fail)
+		}
+		if c.fail && !strings.Contains(reason, c.s.Name) {
+			t.Errorf("session %s: reason %q does not name the session", c.s.Name, reason)
+		}
+	}
+}

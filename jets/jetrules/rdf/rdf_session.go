@@ -24,7 +24,7 @@ func NewRdfSession(rootRm *ResourceManager, metaGraph *RdfGraph) *RdfSession {
 	if rootRm == nil || metaGraph == nil {
 		return nil
 	}
-	metaGraph.isLocked = true
+	metaGraph.Lock()
 	return &RdfSession{
 		ResourceMgr:   NewResourceManager(rootRm),
 		MetaGraph:     metaGraph,

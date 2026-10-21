@@ -30,11 +30,17 @@ func (op *SortedHeadOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rd
 	if !ok {
 		return fmt.Errorf("error: sorted_head operator misconfigured, jets:operator argument must be a string literal")
 	}
-	op.minMaxOp = &MinMaxOp{
-		isMin: operatorValue == "<",
+	// Built in full before it is published: a MinMaxOp assigned first and configured
+	// after was evaluated half-built by concurrent sessions (rules_benchmark I-5, F84).
+	minMaxOp := &MinMaxOp{
+		isMin:  operatorValue == "<",
 		retObj: true,
 	}
-	return op.minMaxOp.InitializeOperator(metaGraph, lhs, rhs)
+	if err := minMaxOp.InitializeOperator(metaGraph, lhs, rhs); err != nil {
+		return err
+	}
+	op.minMaxOp = minMaxOp
+	return nil
 }
 
 // Add truth maintenance
