@@ -14,6 +14,12 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC -fmessage-length=0
 
 set(C_LIBRARY_NAME jets)
 
+# Abseil through its CMake package, so that each library brings the abseil
+# libraries it needs (absl::raw_hash_set needs hashtablez_sampler and
+# raw_logging_internal, among others). Naming archives such as absl_hash by hand
+# links them without those.
+find_package(absl CONFIG REQUIRED)
+
 # configure a header file to pass some of the CMake settings to the source code
 configure_file (
   "./version.h.in"
@@ -57,9 +63,8 @@ add_library(${C_LIBRARY_NAME}_static STATIC $<TARGET_OBJECTS:objlib>)
 target_link_libraries(${C_LIBRARY_NAME}
   gflags
   glog
-  absl_hash
-  absl_city
-  absl_raw_hash_set
+  absl::raw_hash_set
+  absl::hash
   boost_date_time
   pthread
   sqlite3
@@ -94,9 +99,8 @@ add_executable(jets_test
 target_link_libraries(jets_test
   gflags
   glog
-  absl_hash
-  absl_city
-  absl_raw_hash_set
+  absl::raw_hash_set
+  absl::hash
   boost_date_time
   gtest
   gtest_main
