@@ -1,7 +1,5 @@
 package rdf
 
-import "sync"
-
 // Class BaseGraph is an rdf graph
 //
 // Class to manage a triple graph. The natural indexing to the graph is (u, v, w)
@@ -18,14 +16,19 @@ import "sync"
 //
 //	(u, v, w) implemented as MAP(u, MAP(v, SET(WNode)))
 
-// Using sync.Map ranther than regular map due to race condition
-// created by the use of async channels
-// type WSetType = map[*Node]int
-// type VMapType = map[*Node]WSetType
-// type UMapType = map[*Node]VMapType
-type WSetType = *sync.Map
-type VMapType = *sync.Map
-type UMapType = *sync.Map
+// Plain maps (rules_benchmark G2). They were sync.Map while the iterators ran
+// producer goroutines alongside the caller (G1 made them synchronous), so a
+// session's graphs are now only ever touched by the goroutine running the session.
+// The meta graph is shared by the sessions of a pool, and it is only read once it
+// is locked (NewRdfSession): RdfGraph refuses a write to a locked graph, and
+// concurrent reads of a map are safe.
+//
+// An inner map that becomes empty is deleted (I-11), so a walk never visits a
+// subject or a (subject, predicate) pair with nothing under it, and a count of 0
+// is never stored.
+type WSetType = map[*Node]int
+type VMapType = map[*Node]WSetType
+type UMapType = map[*Node]VMapType
 
 type BaseGraph struct {
 	GraphType string
@@ -38,7 +41,7 @@ func NewBaseGraph(graphType string, spin byte) *BaseGraph {
 	return &BaseGraph{
 		GraphType: graphType,
 		spin:      spin,
-		data:      new(sync.Map),
+		data:      make(UMapType),
 	}
 }
 
@@ -47,7 +50,8 @@ func (g *BaseGraph) Size() int {
 }
 
 func (g *BaseGraph) Clear() {
-	g.data.Clear()
+	clear(g.data)
+	g.size = 0
 }
 
 // returns true if (u, v, w) exist, false otherwise.
@@ -63,21 +67,7 @@ func (g *BaseGraph) ContainsSPO(s, p, o *Node) bool {
 
 // returns true if (u, v, *) exist, false otherwise.
 func (g *BaseGraph) ContainsUV(u, v *Node) bool {
-	vmap, _ := g.data.Load(u)
-	if vmap == nil {
-		return false
-	}
-	wmap, _ := vmap.(*sync.Map).Load(v)
-	if wmap == nil {
-		return false
-	}
-	m := wmap.(*sync.Map)
-	hasValue := false
-	m.Range(func(key, value any) bool {
-		hasValue = true
-		return false
-	})
-	return hasValue
+	return len(g.data[u][v]) > 0
 }
 
 // iterator returns the iterator over the triples (u, v, w), a nil key matching
@@ -112,20 +102,7 @@ func (g *BaseGraph) FindUVW(u, v, w *Node) *BaseGraphIterator {
 // be removed as result of retract call.
 // Returns the reference count associated with the triple (u, v, w).
 func (g *BaseGraph) GetRefCount(u, v, w *Node) int {
-	vmap, _ := g.data.Load(u)
-	if vmap == nil {
-		return 0
-	}
-	wmap, _ := vmap.(*sync.Map).Load(v)
-	if wmap == nil {
-		return 0
-	}
-	m := wmap.(*sync.Map)
-	c, _ := m.Load(w)
-	if c == nil {
-		return 0
-	}
-	return c.(int)
+	return g.data[u][v][w]
 }
 
 // Insert triple (u, v, w) into the graph.
@@ -135,27 +112,22 @@ func (g *BaseGraph) Insert(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
 	}
-	vv, _ := g.data.Load(u)
-	if vv == nil {
-		vv = new(sync.Map)
-		g.data.Store(u, vv)
+	vmap := g.data[u]
+	if vmap == nil {
+		vmap = make(VMapType)
+		g.data[u] = vmap
 	}
-	vmap := vv.(*sync.Map)
-	ww, _ := vmap.Load(v)
-	if ww == nil {
-		ww = new(sync.Map)
-		vmap.Store(v, ww)
+	wmap := vmap[v]
+	if wmap == nil {
+		wmap = make(WSetType)
+		vmap[v] = wmap
 	}
-	wmap := ww.(*sync.Map)
-	var count int
-	c, _ := wmap.Load(w)
-	if c != nil {
-		count = c.(int)
-	} else {
+	count := wmap[w]
+	if count == 0 {
 		g.size += 1
 	}
 	count += 1
-	wmap.Store(w, count)
+	wmap[w] = count
 	return count == 1
 }
 
@@ -165,21 +137,13 @@ func (g *BaseGraph) Erase(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
 	}
-	vmap, _ := g.data.Load((u))
-	if vmap == nil {
+	vmap := g.data[u]
+	wmap := vmap[v]
+	if _, ok := wmap[w]; !ok {
 		return false
 	}
-	ww, _ := vmap.(*sync.Map).Load(v)
-	if ww == nil {
-		return false
-	}
-	wmap := ww.(*sync.Map)
-	_, ok := wmap.Load(w)
-	if ok {
-		wmap.Delete(w)
-		g.size -= 1
-	}
-	return ok
+	g.remove(u, v, w, vmap, wmap)
+	return true
 }
 
 // Retract the triple (u, v, w) from the graph.
@@ -189,25 +153,30 @@ func (g *BaseGraph) Retract(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
 	}
-	vmap, _ := g.data.Load(u)
-	if vmap == nil {
+	vmap := g.data[u]
+	wmap := vmap[v]
+	c, ok := wmap[w]
+	if !ok {
 		return false
 	}
-	ww, _ := vmap.(*sync.Map).Load(v)
-	if ww == nil {
-		return false
-	}
-	wmap := ww.(*sync.Map)
-	cc, _ := wmap.Load(w)
-	if cc == nil {
-		return false
-	}
-	c := cc.(int)
 	if c < 2 {
-		wmap.Delete(w)
-		g.size -= 1
-	} else {
-		wmap.Store(w, c - 1)
+		g.remove(u, v, w, vmap, wmap)
+		return true
 	}
-	return c < 2
+	wmap[w] = c - 1
+	return false
+}
+
+// remove deletes (u, v, w), which is in the graph, and the inner maps it leaves
+// empty (I-11). Deleting entries of a map that a walk on this goroutine is ranging
+// over is defined: an entry deleted before the walk reaches it is not produced.
+func (g *BaseGraph) remove(u, v, w *Node, vmap VMapType, wmap WSetType) {
+	delete(wmap, w)
+	g.size -= 1
+	if len(wmap) == 0 {
+		delete(vmap, v)
+		if len(vmap) == 0 {
+			delete(g.data, u)
+		}
+	}
 }

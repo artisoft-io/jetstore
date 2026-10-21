@@ -10,7 +10,7 @@ package rdf
 //     inferred graphs (base_graph_iterator.go, rdf_session_iterator.go), until G1
 //     made both synchronous (see impl=chan below);
 //   - sync.Map: the three nested maps of BaseGraph (base_graph.go), each access an
-//     `any` type assertion;
+//     `any` type assertion, until G2 made them plain maps;
 //   - the work itself: walking plain nested maps of the same triples.
 //
 // So every find benchmark has an /impl= dimension:
@@ -22,19 +22,28 @@ package rdf
 //	               iter.Seq closure and the meta graph's lookup
 //	impl=cursor    (session only, since G1) the pull form, rdf.TripleCursor, that
 //	               the compute_pipes adaptor reads extraction through
-//	impl=syncmap   a synchronous nested Range over the SAME sync.Maps, no goroutines
+//	impl=syncmap   a synchronous nested Range over sync.Maps holding the same indexes.
+//	               Until G2 these were the graph's own maps; since G2 they are a copy
+//	               made at set-up, so the work measured is the same before and after,
+//	               and benchstat pairs it as a control
 //	impl=plainmap  a synchronous walk over a plain map[*Node]map[*Node]map[*Node]int
 //	               copy of the same indexes
 //
-// chan minus syncmap is the iterator's cost; syncmap minus plainmap is sync.Map's.
+// chan minus syncmap was the iterator's cost; syncmap minus plainmap is sync.Map's.
 // The syncmap and plainmap walks are REFERENCES written here, not engine code: they
 // follow FindSPO's choice of index and binding exactly, and they are what a
-// synchronous iterator (G1) and plain maps (G2) would at best cost.
+// synchronous iterator (G1) and plain maps (G2) would at best cost. Since G2, chan
+// is the engine on plain maps, so it lands near plainmap plus the iterator's
+// closures.
 //
 // The benchmarks:
 //
-//	BenchmarkBaseGraphInsert      /impl=syncmap|plainmap /triples=1000|10000
-//	                              one op = a fresh graph filled with that many triples
+//	BenchmarkBaseGraphInsert      /impl=syncmap|plainmap|engine /triples=1000|10000
+//	                              one op = a fresh graph filled with that many triples.
+//	                              syncmap was BaseGraph.Insert until G2, and is since
+//	                              a reference insert into nested sync.Maps with the
+//	                              same algorithm, so it pairs as a control; engine
+//	                              (since G2) is BaseGraph.Insert
 //	BenchmarkRdfGraphInsert       /triples=1000|10000 /callbacks=0|16|128
 //	                              three indexes plus the linear callback loop (F5)
 //	BenchmarkRdfGraphFindSPO      /triples=1000|10000|100000
@@ -98,6 +107,7 @@ type benchGraph struct {
 	triples  [][3]*Node
 	keys     [][3]*Node // benchKeys triples drawn from the graph
 	plain    map[byte]plainIndex
+	sync     map[byte]*sync.Map
 }
 
 type plainIndex = map[*Node]map[*Node]map[*Node]int
@@ -160,26 +170,46 @@ func getBenchGraph(b *testing.B, n int) *benchGraph {
 		'p': toPlainIndex(bg.g.posGraph),
 		'o': toPlainIndex(bg.g.ospGraph),
 	}
+	bg.sync = map[byte]*sync.Map{
+		's': toSyncIndex(bg.g.spoGraph),
+		'p': toSyncIndex(bg.g.posGraph),
+		'o': toSyncIndex(bg.g.ospGraph),
+	}
 	benchGraphs[n] = bg
 	return bg
 }
 
 func toPlainIndex(g *BaseGraph) plainIndex {
 	out := make(plainIndex)
-	g.data.Range(func(u, vm any) bool {
+	for u, vm := range g.data {
 		vmap := make(map[*Node]map[*Node]int)
-		out[u.(*Node)] = vmap
-		vm.(*sync.Map).Range(func(v, wm any) bool {
+		out[u] = vmap
+		for v, wm := range vm {
 			wmap := make(map[*Node]int)
-			vmap[v.(*Node)] = wmap
-			wm.(*sync.Map).Range(func(w, c any) bool {
-				wmap[w.(*Node)] = c.(int)
-				return true
-			})
-			return true
-		})
-		return true
-	})
+			vmap[v] = wmap
+			for w, c := range wm {
+				wmap[w] = c
+			}
+		}
+	}
+	return out
+}
+
+// toSyncIndex copies a graph's index into nested sync.Maps, the structure
+// BaseGraph had until G2, for the syncmap reference.
+func toSyncIndex(g *BaseGraph) *sync.Map {
+	out := new(sync.Map)
+	for u, vm := range g.data {
+		vmap := new(sync.Map)
+		out.Store(u, vmap)
+		for v, wm := range vm {
+			wmap := new(sync.Map)
+			vmap.Store(v, wmap)
+			for w, c := range wm {
+				wmap.Store(w, c)
+			}
+		}
+	}
 	return out
 }
 
@@ -208,16 +238,6 @@ func bindPattern(s, p, o *Node) (spin byte, u, v, w *Node) {
 	}
 }
 
-func (bg *benchGraph) baseGraph(spin byte) *BaseGraph {
-	switch spin {
-	case 'p':
-		return bg.g.posGraph
-	case 'o':
-		return bg.g.ospGraph
-	}
-	return bg.g.spoGraph
-}
-
 // findChan is the engine's path (synchronous since G1; see impl=chan).
 func findChan(g *RdfGraph, s, p, o *Node, fn func([3]*Node) bool) {
 	itor := g.FindSPO(s, p, o)
@@ -228,9 +248,9 @@ func findChan(g *RdfGraph, s, p, o *Node, fn func([3]*Node) bool) {
 	}
 }
 
-// walkSync walks one BaseGraph's sync.Maps synchronously, binding as
-// NewBaseGraphIterator does.
-func walkSync(spin byte, data UMapType, u, v, w *Node, fn func([3]*Node) bool) bool {
+// walkSync walks nested sync.Maps synchronously, binding as NewBaseGraphIterator
+// does.
+func walkSync(spin byte, data *sync.Map, u, v, w *Node, fn func([3]*Node) bool) bool {
 	walkW := func(uu, vv *Node, wm *sync.Map) bool {
 		if w != nil {
 			if c, _ := wm.Load(w); c != nil && c.(int) > 0 {
@@ -275,7 +295,7 @@ func walkSync(spin byte, data UMapType, u, v, w *Node, fn func([3]*Node) bool) b
 
 func (bg *benchGraph) findSync(s, p, o *Node, fn func([3]*Node) bool) {
 	spin, u, v, w := bindPattern(s, p, o)
-	walkSync(spin, bg.baseGraph(spin).data, u, v, w, fn)
+	walkSync(spin, bg.sync[spin], u, v, w, fn)
 }
 
 // walkPlain is walkSync over plain maps.
@@ -369,13 +389,21 @@ func reportLeakedGoroutines(b *testing.B, before int) {
 // INSERT
 
 func BenchmarkBaseGraphInsert(b *testing.B) {
-	for _, impl := range []string{"syncmap", "plainmap"} {
+	for _, impl := range []string{"syncmap", "plainmap", "engine"} {
 		for _, n := range benchSizes[:2] {
 			b.Run(fmt.Sprintf("impl=%s/triples=%d", impl, n), func(b *testing.B) {
 				_, _, _, triples := makeBenchTriples(NewResourceManager(nil), n)
 				b.ReportAllocs()
 				switch impl {
 				case "syncmap":
+					for b.Loop() {
+						g := newSyncBaseGraph()
+						for _, t3 := range triples {
+							g.insert(t3[0], t3[1], t3[2])
+						}
+						benchSink += g.size
+					}
+				case "engine":
 					for b.Loop() {
 						g := NewBaseGraph("ASSERTED", 's')
 						for _, t3 := range triples {
@@ -406,6 +434,45 @@ func BenchmarkBaseGraphInsert(b *testing.B) {
 			})
 		}
 	}
+}
+
+// syncBaseGraph is BaseGraph as it was until G2, nested sync.Maps, with its
+// Insert unchanged, for BenchmarkBaseGraphInsert's syncmap reference.
+type syncBaseGraph struct {
+	size int
+	data *sync.Map
+}
+
+func newSyncBaseGraph() *syncBaseGraph {
+	return &syncBaseGraph{data: new(sync.Map)}
+}
+
+func (g *syncBaseGraph) insert(u, v, w *Node) bool {
+	if u == nil || v == nil || w == nil {
+		return false
+	}
+	vv, _ := g.data.Load(u)
+	if vv == nil {
+		vv = new(sync.Map)
+		g.data.Store(u, vv)
+	}
+	vmap := vv.(*sync.Map)
+	ww, _ := vmap.Load(v)
+	if ww == nil {
+		ww = new(sync.Map)
+		vmap.Store(v, ww)
+	}
+	wmap := ww.(*sync.Map)
+	var count int
+	c, _ := wmap.Load(w)
+	if c != nil {
+		count = c.(int)
+	} else {
+		g.size += 1
+	}
+	count += 1
+	wmap.Store(w, count)
+	return count == 1
 }
 
 // noopCallback stands for an alpha node's callback; it does no work, so what is
@@ -485,6 +552,7 @@ func BenchmarkRdfGraphFindSPO(b *testing.B) {
 // one more predicate on every asserted subject.
 type benchSession struct {
 	sess          *RdfSession
+	sync          map[*RdfGraph]map[byte]*sync.Map // the syncmap reference's copies
 	keys          [][3]*Node // asserted triples
 	inferredKeys  [][3]*Node // inferred triples
 	missSubjects  []*Node    // subjects in no graph
@@ -525,8 +593,17 @@ func getBenchSession(b *testing.B) *benchSession {
 		for i := range miss {
 			miss[i] = rm.NewResource(fmt.Sprintf("bench:missing%d", i))
 		}
+		syncCopies := map[*RdfGraph]map[byte]*sync.Map{}
+		for _, g := range []*RdfGraph{sess.MetaGraph, sess.AssertedGraph, sess.InferredGraph} {
+			syncCopies[g] = map[byte]*sync.Map{
+				's': toSyncIndex(g.spoGraph),
+				'p': toSyncIndex(g.posGraph),
+				'o': toSyncIndex(g.ospGraph),
+			}
+		}
 		benchSess = &benchSession{
 			sess:          sess,
+			sync:          syncCopies,
 			keys:          drawKeys(triples),
 			inferredKeys:  drawKeys(inferred),
 			missSubjects:  miss,
@@ -537,21 +614,12 @@ func getBenchSession(b *testing.B) *benchSession {
 	return benchSess
 }
 
-// sessionFindSync is the session's find over sync.Maps without goroutines: the three
-// graphs in the order NewRdfSessionIterator reads them.
-func sessionFindSync(sess *RdfSession, s, p, o *Node, fn func([3]*Node) bool) {
+// sessionFindSync is the session's find over sync.Maps holding the same indexes
+// (copies since G2): the three graphs in the order NewRdfSessionIterator reads them.
+func (bs *benchSession) sessionFindSync(s, p, o *Node, fn func([3]*Node) bool) {
 	spin, u, v, w := bindPattern(s, p, o)
-	for _, g := range []*RdfGraph{sess.MetaGraph, sess.AssertedGraph, sess.InferredGraph} {
-		var base *BaseGraph
-		switch spin {
-		case 'p':
-			base = g.posGraph
-		case 'o':
-			base = g.ospGraph
-		default:
-			base = g.spoGraph
-		}
-		if !walkSync(spin, base.data, u, v, w, fn) {
+	for _, g := range []*RdfGraph{bs.sess.MetaGraph, bs.sess.AssertedGraph, bs.sess.InferredGraph} {
+		if !walkSync(spin, bs.sync[g][spin], u, v, w, fn) {
 			return
 		}
 	}
@@ -583,7 +651,7 @@ func BenchmarkRdfSessionFind(b *testing.B) {
 							visit(c.Value())
 						}
 					case "syncmap":
-						sessionFindSync(bs.sess, s, p, o, visit)
+						bs.sessionFindSync(s, p, o, visit)
 					}
 					i++
 				}
