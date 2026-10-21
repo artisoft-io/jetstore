@@ -53,6 +53,7 @@ register entry of `projects/rules_benchmark`) and a `description`, and then:
 | `subject`, `predicate`, `object` | regular expressions over the term as written in the dump, anchored at both ends |
 | `pair` | a pair kind, below. The entry then matches lines on both sides |
 | `quanta` | `double_near`'s tolerance, in quanta of the Go engine's 15-bit grid (`graphdump.Quantum`) |
+| `member`, `file` | regular expressions over the dump's member and file name (`<member>/<file>` in the tree), anchored at both ends: the entry applies only there. For a difference known in one member of one workload. They narrow an entry and do not count as the field that keeps it from matching every line |
 
 An entry without `pair` matches one line. An entry with no `pair`, `subject`, `predicate` or `object`
 is refused, since it would match every line. **A field a pair kind does not read is refused too**, as
@@ -85,6 +86,7 @@ Then the single-line entries, in list order.
 | `text-plus-double-format` | `projects/rules_benchmark` `I-16` | yes |
 | `literal-regex-claimZip3` | `I-12`, `F53` | no: `cm_loop`'s zip codes all start with three digits |
 | `literal-regex-walrus-names` | `I-12`, `F53` | not run: a `walrus_ws` workload |
+| `adjustment-tie-w6-member-08` | `I-33`, `I-7` (`I-21`); self comparisons, one member of the W6 input, its adjustment, negative-adjustment and export dumps | no: a W6 member |
 
 **Money computed from quantised literals has no entry, deliberately.** On `cm_loop` Go's
 `hc_usi:medicareGlobal`, `totalAmountAllowed`, `totalAmountPaid`, `mbrResponsibility` and the
@@ -93,7 +95,8 @@ export's `Amt*` columns differ from C++ by 0.5 to 1.04 quanta, a cent or two (26
 
 **The README's other differences have no entry**, because nothing in a dump identifies them by its
 shape: `jets:value_property` alone (item 1), `jets:entity_property` not watched in Go (item 4), the
-callbacks of C++ `erase`, Go `Retract` and its indexes, and `_0:no_truth_main_on_exist`. Each shows as
+callbacks of C++ `erase`, Go `Retract` and its indexes (until `I-7` was fixed), and
+`_0:no_truth_main_on_exist`. Each shows as
 a different value or a missing triple, unclassified. When one appears, an entry is written for the
 predicates it reaches, and the issue is registered.
 

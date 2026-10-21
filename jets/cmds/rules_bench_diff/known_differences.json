@@ -79,6 +79,17 @@
       "pair": "literal_regex_group",
       "only_on": "go",
       "object": "\"(?:,\\s+\\w+|[^\"]*,)\""
+    },
+    {
+      "id": "adjustment-tie-w6-member-08",
+      "refs": [
+        "projects/rules_benchmark I-33, I-7 (I-21)"
+      ],
+      "description": "On the rules_benchmark W6 input (the w6_msk bench spec), member_08's adjustment loop has a tie on _0:topAdjMatch that each engine breaks by iteration order, so a run picks one of the tied claims and the next run may pick another. The adjustment claims, the negative adjustments and the export records built from the pick differ between runs. C++ has always reached the tie. Go reaches it since Retract keeps a triple in every index while it has a support (I-7), and before that ran 29 adjustment loops on this member where C++ runs 13. Self comparisons only, and only in that member's adjustment, negative-adjustment and export dumps, on the predicates the tie was seen to reach in two runs of each engine: in that member and those files, a difference of another cause on those predicates is classified with it. The fix is a distinct tie-break weight in the rules, not an engine change.",
+      "scope": "self",
+      "member": "member_08",
+      "file": "(07_3_MSK_Adjustment_Logic_Main1|08_4_Negative_Adjustment_Logic_Main1|09_4_Negative_Adjustment_Logic_Main2|10_5_MSK_Export_Main1|11_5_MSK_Export_Main2|12_5_MSK_Export_Main3)\\.tsv",
+      "predicate": "_0:adjClaim|_0:adjustmentClaimFor|_0:createAR|_0:createARx|_0:isPotentialNegAdj|_0:negAdjAllowedAmt|_0:negAdjSumAllowed|_0:outputRecord|_0:potentialNegAdj|_0:topAdjMatch|hc_usi:isPrimaryClaimIn|hc_usi:meetRule|hc_usi:nbrClaims|hc_usi:otherAmountAllowed|hc_usi:primaryAmountAllowed|hc_usi:primaryClaim|hc_usi:totalAmountAllowed|hc_usi:usiID|jets:domainKey|jets:key|rdf:type|usi_out:AmtAllow|usi_out:AmtBilled|usi_out:AmtCOB|usi_out:AmtCoins|usi_out:AmtCopay|usi_out:AmtDeduct|usi_out:AmtPaid|usi_out:ClaimID|usi_out:ClaimLine|usi_out:ClaimUD|usi_out:ClientName|usi_out:CompletedFlag|usi_out:DOS|usi_out:DiagCode1|usi_out:DiagCode2|usi_out:ExcludeMe|usi_out:MemberState|usi_out:MergedFlag|usi_out:NewAmtAllow|usi_out:NewAmtPaid|usi_out:OrigAmtAllow|usi_out:OrigAmtPaid|usi_out:OrigProcCode|usi_out:OrigRProvState|usi_out:OrigUnits|usi_out:POS|usi_out:ProcCode|usi_out:RProvAddr1|usi_out:RProvCity|usi_out:RProvCountyID|usi_out:RProvNPI|usi_out:RProvName|usi_out:RProvState|usi_out:RProvTIN|usi_out:RProvZip|usi_out:Units|usi_out:UserField1|usi_out:UserField15|usi_out:UserField22|usi_out:UserField3|usi_out:UserField4|usi_out:UserField5|usi_out:UserField6|usi_out:UserField8|usi_out:UserField9|usi_out:key|usi_out:mskArea|usi_out:mskEventDuration|usi_out:mskEventEnd|usi_out:mskEventKey|usi_out:mskEventStart|usi_out:mskExcludedFromEvent|usi_out:mskFinalPlaceOfServiceCode|usi_out:mskTag|usi_out:programYear|usi_out:renderingProviderCBSA|usi_out:renderingProviderMSA|usi_out:renderingProviderMedicareCBSA|usi_out:usiID"
     }
   ]
 }

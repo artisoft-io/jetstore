@@ -12,13 +12,13 @@ import "strings"
 //  3. the value pairs, double_quantised, double_near, text_double_format,
 //     literal_regex_group and predicate_alias, in list order.
 //  4. the single-line entries, in list order.
-func classify(a, b []*line, allA, allB []string, labelA, labelB, scope string, known *KnownList) {
+func classify(a, b []*line, allA, allB []string, member, file, labelA, labelB, scope string, known *KnownList) {
 	if known == nil {
 		return
 	}
 	var entries []*Entry
 	for i := range known.Entries {
-		if e := &known.Entries[i]; e.inScope(scope) {
+		if e := &known.Entries[i]; e.inScope(scope) && e.inFile(member, file) {
 			entries = append(entries, e)
 		}
 	}
