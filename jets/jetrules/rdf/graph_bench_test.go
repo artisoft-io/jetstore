@@ -7,14 +7,21 @@ package rdf
 //
 //   - the iterator: three goroutines per BaseGraphIterator joined by unbuffered
 //     channels, and a fourth per RdfSessionIterator merging the meta, asserted and
-//     inferred graphs (base_graph_iterator.go, rdf_session_iterator.go);
+//     inferred graphs (base_graph_iterator.go, rdf_session_iterator.go), until G1
+//     made both synchronous (see impl=chan below);
 //   - sync.Map: the three nested maps of BaseGraph (base_graph.go), each access an
 //     `any` type assertion;
 //   - the work itself: walking plain nested maps of the same triples.
 //
 // So every find benchmark has an /impl= dimension:
 //
-//	impl=chan      the engine's code path: FindSPO and its iterator, drained
+//	impl=chan      the engine's code path: FindSPO and its iterator, drained. Named
+//	               for the channel iterator it measured until G1; the name is kept
+//	               so that benchstat pairs it across that change. Since G1 it is
+//	               the synchronous iterator, so it lands near syncmap, plus the
+//	               iter.Seq closure and the meta graph's lookup
+//	impl=cursor    (session only, since G1) the pull form, rdf.TripleCursor, that
+//	               the compute_pipes adaptor reads extraction through
 //	impl=syncmap   a synchronous nested Range over the SAME sync.Maps, no goroutines
 //	impl=plainmap  a synchronous walk over a plain map[*Node]map[*Node]map[*Node]int
 //	               copy of the same indexes
@@ -33,12 +40,14 @@ package rdf
 //	BenchmarkRdfGraphFindSPO      /triples=1000|10000|100000
 //	                              /pattern=spo|sp|s|so|p|po|o|none /impl=chan|syncmap|plainmap
 //	                              one op = one find, fully drained
-//	BenchmarkRdfSessionFind       /pattern=sp|s /impl=chan|syncmap
+//	BenchmarkRdfSessionFind       /pattern=sp|s /impl=chan|syncmap|cursor
 //	                              the same across meta, asserted and inferred graphs
 //	BenchmarkRdfSessionGetObject  /where=asserted|inferred|miss
 //	                              the early stop on a bound subject; also reports
-//	                              leaked-goroutines/op (F3, I-1)
-//	BenchmarkExist                /op=exist|exist_not /where=hit|miss  (F13)
+//	                              leaked-goroutines/op (F3, I-1), which is 0 by
+//	                              construction since G1
+//	BenchmarkExist                /op=exist|exist_not /where=hit|miss  (F13); since
+//	                              G7 this is ContainsSP, so it lands near contains_sp
 //	BenchmarkContains             /op=contains|contains_sp /where=hit|miss
 //	                              the iterator-free alternative to Exist (G7)
 //	BenchmarkReifyResource        /kind=resource|text|int|double|date
@@ -209,11 +218,10 @@ func (bg *benchGraph) baseGraph(spin byte) *BaseGraph {
 	return bg.g.spoGraph
 }
 
-// findChan is the engine's path.
+// findChan is the engine's path (synchronous since G1; see impl=chan).
 func findChan(g *RdfGraph, s, p, o *Node, fn func([3]*Node) bool) {
 	itor := g.FindSPO(s, p, o)
-	defer itor.Done()
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		if !fn(t3) {
 			return
 		}
@@ -551,7 +559,7 @@ func sessionFindSync(sess *RdfSession, s, p, o *Node, fn func([3]*Node) bool) {
 
 func BenchmarkRdfSessionFind(b *testing.B) {
 	for _, pat := range benchPatterns[1:3] { // sp, s
-		for _, impl := range []string{"chan", "syncmap"} {
+		for _, impl := range []string{"chan", "syncmap", "cursor"} {
 			b.Run(fmt.Sprintf("pattern=%s/impl=%s", pat.name, impl), func(b *testing.B) {
 				bs := getBenchSession(b)
 				count := 0
@@ -566,10 +574,14 @@ func BenchmarkRdfSessionFind(b *testing.B) {
 					switch impl {
 					case "chan":
 						itor := bs.sess.FindSPO(s, p, o)
-						for t3 := range itor.Itor {
+						for t3 := range itor.All() {
 							visit(t3)
 						}
-						itor.Done()
+					case "cursor":
+						c := bs.sess.FindSPO(s, p, o).Cursor()
+						for c.Next() {
+							visit(c.Value())
+						}
 					case "syncmap":
 						sessionFindSync(bs.sess, s, p, o, visit)
 					}
@@ -596,8 +608,8 @@ func (bs *benchSession) sessionKey(where string, i int) (s, p *Node) {
 	}
 }
 
-// BenchmarkRdfSessionGetObject is the early stop: GetObject reads one triple and
-// calls Done on an iterator whose producers may still be running.
+// BenchmarkRdfSessionGetObject is the early stop: GetObject reads one triple. Until
+// G1 it called Done on an iterator whose producers might still be running.
 func BenchmarkRdfSessionGetObject(b *testing.B) {
 	for _, where := range []string{"asserted", "inferred", "miss"} {
 		b.Run("where="+where, func(b *testing.B) {
@@ -620,7 +632,8 @@ func BenchmarkRdfSessionGetObject(b *testing.B) {
 }
 
 // BenchmarkExist is the exist and exist_not operators as rules evaluate them:
-// through GetObject (F13), with a new TRUE or FALSE node per call (F12).
+// through GetObject (F13) until G7, ContainsSP since, with a new TRUE or FALSE node
+// per call (F12).
 func BenchmarkExist(b *testing.B) {
 	for _, op := range []string{"exist", "exist_not"} {
 		for _, where := range []string{"hit", "miss"} {

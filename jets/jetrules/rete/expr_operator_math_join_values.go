@@ -169,9 +169,8 @@ func (op *JoinValuesOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *r
 		log.Println("error while calling FindSP in JoinValuesOp")
 		return nil
 	}
-	defer itor.Done()
 	items := make([]string, 0)
-	for t3 := range itor.Itor {
+	for t3 := range itor.All() {
 		value := t3[2]
 		if op.dataProperty != nil {
 			// join ?v: (lhs, objProperty, ?o).(?o, dataProperty, ?v)

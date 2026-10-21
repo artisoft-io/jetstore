@@ -362,7 +362,7 @@ func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
 	ri := ses.re.JetResources()
 	// Create the rdf_type (rdfTypeSet) and entity_key_by_type (entityKeyByType) data structures
 	ctor := ses.rdfSession.FindSPO(nil, ri.Rdf__type.Hdle().(*RdfNodeGo).node, nil)
-	for t3 := range ctor.Itor {
+	for t3 := range ctor.All() {
 		entity := t3[0]
 		entityName := entity.String()
 
@@ -376,13 +376,12 @@ func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
 		}
 		*entities = append(*entities, []string{entityName})
 	}
-	ctor.Done()
 
 	// Now create the entity_details_by_key: Map[jets:key]*[][]string
 	entityDetailsByKey := make(map[string]*[][]string)
 	for entityKey, entity := range entitySet {
 		ctor := ses.rdfSession.FindS(entity)
-		for t3 := range ctor.Itor {
+		for t3 := range ctor.All() {
 			propertyName := t3[1].String()
 			value := t3[2]
 			valueType := value.GetTypeName()
@@ -393,7 +392,6 @@ func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
 			}
 			*model = append(*model, []string{propertyName, value.String(), valueType})
 		}
-		ctor.Done()
 	}
 
 	// Put all the results in the output map
@@ -481,14 +479,11 @@ func (i *TripleIteratorGo) Next() bool {
 		return false
 	}
 	// read next value, if one
-	triple, ok := <-i.Itor
-	if !ok {
+	if !i.cursor.Next() {
 		i.isEnd = true
 		return false
 	}
-	i.value[0] = triple[0]
-	i.value[1] = triple[1]
-	i.value[2] = triple[2]
+	i.value = i.cursor.Value()
 	return true
 }
 
@@ -529,13 +524,11 @@ func (it *TripleIteratorGo) GetObject() compute_pipes.RdfNode {
 	}
 }
 
+// Release ends the iteration. The iterator holds no goroutine, so this only drops
+// the keys the cursor holds.
 func (it *TripleIteratorGo) Release() error {
-	if it.sesIter != nil {
-		it.sesIter.Done()
-	}
-	if it.iterator != nil {
-		it.iterator.Done()
-	}
+	it.cursor = rdf.TripleCursor{}
+	it.isEnd = true
 	return nil
 }
 

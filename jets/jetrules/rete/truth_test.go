@@ -22,10 +22,9 @@ func exceptionsOf(rs *ReteSession) []string {
 	jr := rs.RdfSession.ResourceMgr.JetsResources
 	var out []string
 	itor := rs.RdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
-	for t := range itor.Itor {
+	for t := range itor.All() {
 		out = append(out, t[2].String())
 	}
-	itor.Done()
 	return out
 }
 

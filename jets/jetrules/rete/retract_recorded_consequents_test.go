@@ -162,7 +162,7 @@ func (f *retractFixture) execute() {
 
 func (f *retractFixture) countLinks() int {
 	n := 0
-	for range f.rdf.FindSP(f.r("main1"), f.r("link")).Itor {
+	for range f.rdf.FindSP(f.r("main1"), f.r("link")).All() {
 		n++
 	}
 	return n
@@ -173,7 +173,7 @@ func (f *retractFixture) countLinks() int {
 func (f *retractFixture) countInferredKeys() int {
 	jetsKey := f.rdf.ResourceMgr.JetsResources.Jets__key
 	n := 0
-	for t3 := range f.rdf.InferredGraph.Find().Itor {
+	for t3 := range f.rdf.InferredGraph.Find().All() {
 		if t3[1] == jetsKey {
 			n++
 		}

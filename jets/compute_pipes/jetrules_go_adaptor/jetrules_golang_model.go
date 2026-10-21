@@ -47,25 +47,23 @@ type JetReteSessionGo struct {
 	reteSession *rete.ReteSession
 }
 
+// TripleIteratorGo is the pull iterator compute_pipes reads, over the Go engine's
+// synchronous iterators. It is lazy (rdf.TripleCursor): each Next reads the next
+// triple from the graph, so stopping early costs only what was read, and it holds
+// no goroutine, so an iterator that is never released leaks nothing.
 type TripleIteratorGo struct {
-	iterator *rdf.BaseGraphIterator
-	sesIter  *rdf.RdfSessionIterator
-	Itor     chan [3]*rdf.Node
-	value    [3]*rdf.Node
-	isEnd    bool
+	cursor rdf.TripleCursor
+	value  [3]*rdf.Node
+	isEnd  bool
 }
 
 func NewTripleIteratorGo(itor *rdf.BaseGraphIterator, sesIter *rdf.RdfSessionIterator) *TripleIteratorGo {
-	t3Itor := &TripleIteratorGo{
-		iterator: itor,
-		sesIter:  sesIter,
-	}
+	t3Itor := &TripleIteratorGo{}
 	switch {
 	case itor != nil:
-		t3Itor.Itor = itor.Itor
+		t3Itor.cursor = itor.Cursor()
 	case sesIter != nil:
-		t3Itor.Itor = sesIter.Itor
-
+		t3Itor.cursor = sesIter.Cursor()
 	}
 	// move to the first value
 	t3Itor.Next()
