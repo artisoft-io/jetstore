@@ -190,8 +190,11 @@ func TestRun(t *testing.T) {
 			path := writeBench(t, 4, `, "max_vertex_visits": 1000, "pool_size": 2, "warmup": 1`)
 			dir := t.TempDir()
 			rows := NewRowWriter(dir)
-			if _, err := runBench(t, path, Options{OnExtractedRow: rows.Write}); err != nil {
+			if _, err := runBench(t, path, Options{OnExtractedRow: rows.Write, AfterExtraction: rows.SessionDone}); err != nil {
 				t.Fatal(err)
+			}
+			if len(rows.open) != 0 {
+				t.Errorf("%d sessions' files still open after the run", len(rows.open))
 			}
 			if err := rows.Close(); err != nil {
 				t.Fatal(err)
@@ -209,6 +212,23 @@ func TestRun(t *testing.T) {
 					if len(lines) != 3 || !strings.Contains(lines[0], "\t[string:\"lp:Person\"]\t") {
 						t.Errorf("%s: %q; want three lp:Person rows", file, raw)
 					}
+				}
+			}
+		})
+		t.Run("an_after_extraction_error_is_the_sessions", func(t *testing.T) {
+			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
+			results, err := runBench(t, path, Options{AfterExtraction: func(p DumpPoint) error {
+				if p.Session == "case2" {
+					return fmt.Errorf("disk full")
+				}
+				return nil
+			}})
+			if err != nil || len(results) != 1 {
+				t.Fatalf("%d results, %v", len(results), err)
+			}
+			for _, s := range results[0].Sessions {
+				if want := s.Name == "case2"; strings.Contains(s.Err, "disk full") != want {
+					t.Errorf("session %s: error %q", s.Name, s.Err)
 				}
 			}
 		})

@@ -156,6 +156,7 @@ func run(specPath string) error {
 	if *rowsDir != "" {
 		rows = rulesbench.NewRowWriter(*rowsDir)
 		opts.OnExtractedRow = rows.Write
+		opts.AfterExtraction = rows.SessionDone
 	}
 	stopProfiles := func() error { return nil }
 	opts.BeforeRuns = func() {

@@ -663,6 +663,15 @@ func (r *Resource) SameAs(other *Resource) bool {
 	return r.hdl == other.hdl
 }
 
+// Key is the engine's handle as a comparable value: two resources have equal
+// keys exactly when SameAs is true. Nil for a nil resource or handle.
+func (r *Resource) Key() any {
+	if r == nil || r.hdl == nil {
+		return nil
+	}
+	return r.hdl
+}
+
 func (r *Resource) GetDouble() (float64, error) {
 	// rdf_literal_double_t
 	if r.GetType() != 7 {

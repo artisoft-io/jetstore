@@ -52,6 +52,10 @@ type Options struct {
 	// class's drain goroutine; p's Index and RuleSet are unset. RowWriter.Write is
 	// one. It is called inside the session's ExtractionNs.
 	OnExtractedRow func(p DumpPoint, className string, row []any)
+	// AfterExtraction, when not nil, is called once a session's rows are all
+	// extracted; p's Index and RuleSet are unset. Its error is the session's.
+	// RowWriter.SessionDone is one. It is called inside no phase.
+	AfterExtraction func(p DumpPoint) error
 
 	// BeforeRuns and AfterRuns, when not nil, bracket the measured and warmup
 	// runs, after every engine is built: where the command starts and stops its
@@ -642,6 +646,12 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 		sr.Extracted = counts
 		if err != nil && sr.Err == "" {
 			sr.Err = err.Error()
+		}
+		if opts.AfterExtraction != nil {
+			p := DumpPoint{Engine: st.name, Session: in.name, Repetition: run.repetition, Warmup: run.warmup}
+			if err := opts.AfterExtraction(p); err != nil && sr.Err == "" {
+				sr.Err = fmt.Sprintf("after extraction: %v", err)
+			}
 		}
 	}
 	// Untimed from here to the release.

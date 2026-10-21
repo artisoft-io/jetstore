@@ -761,3 +761,12 @@ func (n *RdfNodeNative) Equals(other compute_pipes.RdfNode) bool {
 	}
 	return n.node.SameAs(otherNodeNative.node)
 }
+
+// NodeKey is the node's identity key (compute_pipes.NodeKeyer): the engine's
+// handle, equal exactly when Equals is true. Nil for no node.
+func (n *RdfNodeNative) NodeKey() any {
+	if n == nil || n.node == nil {
+		return nil
+	}
+	return n.node.Key()
+}
