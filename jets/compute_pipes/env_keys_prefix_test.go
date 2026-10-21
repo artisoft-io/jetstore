@@ -8,7 +8,7 @@ package compute_pipes
 // starters. parseValue resolves a `value` node by ranging over the env map and
 // taking the first key the expression *contains*, and Go randomises map order,
 // so `$TOTAL_FILE_SIZE_GB` resolved to the size in bytes on some runs. That is
-// the `use_ecs_tasks_when` of cedargate's deid and anonymize_file pipelines,
+// the `use_ecs_tasks_when` of a client workspace's deid and anonymize_file pipelines,
 // where `> 30.0` against bytes is true for any input over 30 bytes. Found
 // 2026-09-27 when the Python node, which checks this rule at startup, refused
 // the env outright; the keys are `${TOTAL_FILE_SIZE}` and

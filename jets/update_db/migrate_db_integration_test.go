@@ -58,7 +58,7 @@ func TestExecScriptIgnoresSemicolonsThatAreNotTerminators(t *testing.T) {
 	script := `-- Registering it does not schedule it; a pipeline runs when somebody
 -- starts it.
 CREATE TABLE sqlscript_test.t (k text PRIMARY KEY, v text);
--- A literal with a semicolon in it, which two walrus client scripts carry.
+-- A literal with a semicolon in it, which two client scripts carry.
 INSERT INTO sqlscript_test.t VALUES ('a', 'Drug on Formulary; Non-preferred');
 INSERT INTO sqlscript_test.t VALUES ('b', 'x') ON CONFLICT DO NOTHING;
 -- A quoted identifier with one, and a dollar-quoted body.

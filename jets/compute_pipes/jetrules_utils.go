@@ -359,7 +359,7 @@ func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 // `$max_looping` before its first rule set (`jetrules_pool_worker.go`) — could
 // read the map while another wrote it, and the Go runtime aborts the process
 // with `fatal error: concurrent map read and map write`. Seen 2026-10-09 on the
-// usi_ws local harness with `pool_size` 10, two runs of six; the traced runs
+// local harness of a client workspace with `pool_size` 10, two runs of six; the traced runs
 // had forced `pool_size` 1, which is why it was not seen before. The inner map
 // is never written once published, so reading `config[property]` after the
 // lock is released is safe.

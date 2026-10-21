@@ -76,25 +76,26 @@ Then the single-line entries, in list order.
 
 ### The entries, and what they cover
 
-| Entry | Record | Seen on `cm_loop` |
-|---|---|---|
-| `minted-node-relabelled` | `graphdump` package documentation | yes |
-| `go-double-literal-quantised` | rete README, *The Go and C++ engines … disagree*, item 3 | yes |
-| `go-double-quantisation-propagated` | the same; 2.5 quanta, on the percentages only, weaker evidence | yes |
-| `go-lookup-subject-shared-across-tables` | `projects/rules_benchmark` `I-15`; lookup subjects only | yes |
-| `lookup-cache-predicate` | `graphdump` package documentation | no: `CM` makes no multi-lookup |
-| `text-plus-double-format` | `projects/rules_benchmark` `I-16` | yes |
-| `literal-regex-claimZip3` | `I-12`, `F53` | no: `cm_loop`'s zip codes all start with three digits |
-| `literal-regex-walrus-names` | `I-12`, `F53` | not run: a `walrus_ws` workload |
+**The built-in list holds only differences of the engines themselves**, which any workload can show:
 
-**Money computed from quantised literals has no entry, deliberately.** On `cm_loop` Go's
-`hc_usi:medicareGlobal`, `totalAmountAllowed`, `totalAmountPaid`, `mbrResponsibility` and the
-export's `Amt*` columns differ from C++ by 0.5 to 1.04 quanta, a cent or two (266.390625 against
-266.3792…). A tolerance would hide a wrong amount of the same size, so these stay unclassified.
+| Entry | Record |
+|---|---|
+| `minted-node-relabelled` | `graphdump` package documentation |
+| `go-double-literal-quantised` | rete README, *The Go and C++ engines … disagree*, item 3 |
+| `go-lookup-subject-shared-across-tables` | `projects/rules_benchmark` `I-15`; lookup subjects only |
+| `lookup-cache-predicate` | `graphdump` package documentation |
 
-**An entry about one workload's data belongs in a list of its own, passed with `-known`**, not in the
-built-in one: the built-in list is part of this repository, and a workload's members, rule files and
-predicates are not. Such a list is the built-in one plus the entries for that workload.
+**An entry that names a workload's predicates, rules, members or files belongs in a list of its own,
+passed with `-known`**, not in the built-in one: the built-in list is part of this repository, and a
+workload's vocabulary is not. Such a list is the built-in one plus the entries for that workload, and
+is kept with that workload's data. Several engine differences are classified that way, because only
+the predicates a workload computes them on narrow them enough to be safe: a double computed from
+quantised literals within a tolerance, text + double written with six decimals on C++, and
+`literal_regex`'s two meanings (`projects/rules_benchmark` `I-12`, `I-16`).
+
+**Money computed from quantised literals has no entry, deliberately**, in either kind of list. Amounts
+a workload computes from quantised literals differ from C++ by 0.5 to 1.04 quanta, a cent or two. A
+tolerance would hide a wrong amount of the same size, so these stay unclassified.
 
 **The README's other differences have no entry**, because nothing in a dump identifies them by its
 shape: `jets:value_property` alone (item 1), `jets:entity_property` not watched in Go (item 4), the
@@ -113,8 +114,8 @@ engine, through `RunRuleSets`:
 LIB=<a build of libjets.so of this commit>/jets
 CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" go test -c -tags jets_native -o graphdump.test ./jets/rulesbench/graphdump
 for e in go native; do
-  LD_LIBRARY_PATH=$LIB WORKSPACES_HOME=<home> WORKSPACE=usi_ws \
-    GRAPHDUMP_TST=<home>/usi_ws/jet_rules/unit_tests/cm_loop/cm_loop.tst.json \
+  LD_LIBRARY_PATH=$LIB WORKSPACES_HOME=<home> WORKSPACE=my_ws \
+    GRAPHDUMP_TST=<home>/my_ws/jet_rules/unit_tests/my_test/my_test.tst.json \
     GRAPHDUMP_OUT=out/run1 GRAPHDUMP_ENGINE=$e ./graphdump.test -test.run '^TestDumpRulesUnitTest$'
 done
 ```

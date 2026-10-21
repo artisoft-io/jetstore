@@ -250,15 +250,15 @@ func TestModifiedPipelineConfigIsRefusedAndDiagnosedFromTheManifest(t *testing.T
 	}
 }
 
-// A21.3, second clause and the reason it exists: usi_ws's jets_model.jr, a
+// A21.3, second clause and the reason it exists: a client workspace's jets_model.jr, a
 // client file at a path JetStore has since claimed. It carries no ownership
 // header, so it is diagnosed as never-installed rather than as edited — and
 // nothing else is installed either, in either directory, so the workspace is
 // not left half-updated.
 func TestUnownedFileAtAReservedPathIsRefusedWholesale(t *testing.T) {
 	dir := newWorkspace(t)
-	usi := []byte("# usi specific extension\nresource iWorkBook = \"iWorkBook\";\n")
-	if err := os.WriteFile(filepath.Join(dir, dataModel, "jets_model.jr"), usi, 0644); err != nil {
+	client := []byte("# client specific extension\nresource iWorkBook = \"iWorkBook\";\n")
+	if err := os.WriteFile(filepath.Join(dir, dataModel, "jets_model.jr"), client, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -278,7 +278,7 @@ func TestUnownedFileAtAReservedPathIsRefusedWholesale(t *testing.T) {
 		t.Error("pipes_config was installed despite a data_model conflict; " +
 			"the guard does not span the groups")
 	}
-	if string(read(t, dir, dataModel, "jets_model.jr")) != string(usi) {
+	if string(read(t, dir, dataModel, "jets_model.jr")) != string(client) {
 		t.Error("the client's file was overwritten")
 	}
 }
@@ -310,8 +310,8 @@ func TestPipesConfigConflictRefusesDataModelToo(t *testing.T) {
 // -force is the documented one-time adoption, and nothing else.
 func TestForceAdoptsTheJetStoreVersion(t *testing.T) {
 	dir := newWorkspace(t)
-	usi := []byte("# usi specific extension\nresource iWorkBook = \"iWorkBook\";\n")
-	if err := os.WriteFile(filepath.Join(dir, dataModel, "jets_model.jr"), usi, 0644); err != nil {
+	client := []byte("# client specific extension\nresource iWorkBook = \"iWorkBook\";\n")
+	if err := os.WriteFile(filepath.Join(dir, dataModel, "jets_model.jr"), client, 0644); err != nil {
 		t.Fatal(err)
 	}
 	mine := []byte("{\"comment\": \"the workspace's own loader\"}\n")

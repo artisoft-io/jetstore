@@ -15,7 +15,7 @@ package rete
 //
 // Operators that read the graph -- exist, exist_not, size_of, the aggregates, lookup --
 // are deliberately NOT in the set, so their consequents are still recomputed on
-// retraction. That is a known defect that usi_ws's rules depend on; see README.md,
+// retraction. That is a known defect that a client workspace's rules depended on; see README.md,
 // 2026-10-09. The C++ engine makes the same split, with the marker struct MintsResource
 // in jets/rete/expr.h.
 

@@ -39,9 +39,9 @@ compile's output carries its warnings** under *Compilation warnings:* (`compileW
 then only the warnings the compiler also writes to the parse log reached it.
 
 **Nothing in production moved**, recompiled 2026-10-11 against the previous compiler:
-- **`usi_ws`, `walrus_ws` and `cedargate_ws`** at the pins `jetstore_agentic_ai` records compile to
-  identical networks, node for node (11,363 rete nodes in `usi_ws`).
-- **USI's and Walrus's own copies** have no vertex carrying two saliences.
+- **The three client workspaces** at the pins `jetstore_agentic_ai` records compile to identical
+  networks, node for node (11,363 rete nodes in the largest).
+- **The clients' own copies of two of them** have no vertex carrying two saliences.
 - **`jets_ws` gains one vertex**: the generated class-inheritance rule
   `ci_cintel:Briefing_Pharmacy_Event` stops sharing `BP_RxFillDates10`'s vertex and fires at its own
   s=100 instead of 10. It infers only `rdf:type owl:Thing`, which no rule reads.
@@ -85,9 +85,8 @@ And C++ read a SQL `NULL` in an int or double lookup column as `0` where Go serv
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
 against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
 `jets/rete/rete_session.cc:343`; `ComputeConsequentTriples`, `rete_session_exec_rules.go:212`). Found
-by the `usi_ws` workspace assessment (`jetstore_agentic_ai`,
-`projects/workspace_assessments/02_usi_ws_assessment`, Q-37 and R-13), whose rule `ckd30` was keyed as
-a workaround (artisoft-io/usi_ws#22).
+by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13), where one rule's
+`create_entity` was keyed as a workaround, in that workspace's own repository.
 
 ### What is fixed: a consequent that mints a resource
 
@@ -114,7 +113,7 @@ recorded and still outlive the row.
 ### What is kept: two defects, and what depends on them
 
 **The 2026-10-08 version of this entry fixed two more things, and both were reverted on 2026-10-09
-by Michel's decision** ("go with (a), the narrow fix"), because with them `usi_ws`'s rules never
+by Michel's decision** ("go with (a), the narrow fix"), because with them a client workspace's rules never
 terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects**, pinned by the
 `LEGACY` cases in `jets/rete/retract_recorded_consequents_test.cc` and
 `retract_recorded_consequents_test.go`:
@@ -129,40 +128,40 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
 
 **Measured on the assessment's local harness, flag off, against the engine at `45dd7851`:**
 
-- **The loop rules depend on both together.** `MSK_ADJ_LOOP010`/`LOOP020`/`MERGE_010` (MSK),
-  `adj11`/`adj12`/`adj20` (IM) and `mcp1`/`mcp2`/`csc20` (CM) have one shape: an unmerged match is on
-  the priority list, a loop rule guarded by `[exist priorityList]` infers `topMatch` by
-  `sorted_head`, and `topMatch` puts the match on `mergeList`. That is an **odd loop through
+- **The loop rules depend on both together.** The workspace's three claim processes each have a
+  set of loop rules of one shape: an unmerged match is on the priority list, a loop rule guarded
+  by `[exist priorityList]` infers `topMatch` by `sorted_head`, and `topMatch` puts the match on
+  `mergeList`. That is an **odd loop through
   negation, with no fixed point under correct truth maintenance**. Replaying the `sorted_head`
   consequent retracts `topMatch` when the list empties, which un-merges, which restores the list,
   which re-admits the loop rule — and with defect 2 fixed, it fires again. Consequent visits went
-  from tens to millions; the CM test run never finished, IM members ended at the vertex visit limit.
+  from tens to millions; one process's test run never finished, and another's members ended at the
+  vertex visit limit.
   Recomputing gave null over the empty list and retracted nothing, and the stale row never
   re-fired, so the loop ended.
   `LoopThroughNegationTest` (`jets/rete/loop_through_negation_test.cc`) and
   `TestLoopControlRulesTerminate` (`loop_through_negation_test.go`) reproduce it in five rule terms
   and guard that it still terminates.
-- **CM04 `op01` depends on defect 2 alone**, with pure consequents. Its guard
-  `[(?x01 exist_not hc_usi:totalAmountAllowed) and (?x01 exist_not hc_usi:alternateModifier)]`
-  is falsified by its own chain (`cpt01` → `cpt10` → `gz01` → `gz02` → `rt01` infers
-  `totalAmountAllowed`), the row is withdrawn and its consequents retracted, and the guard is true
-  again. With defect 2 fixed it repeats until the vertex visit limit, a million times each on
-  vertexes 57 and 59 of `4_CM04_Orphans_Main1`; on the pin it stops after one swing.
-- **Fixing defect 1 alone** terminates but undoes every merge: all four CM and all four IM members
-  of the test claims changed.
-- **With the flag on**, as USI runs in production, no `exist` callback is registered, none of this
-  happens, and the full fix gave the same member outcomes as the pin.
+- **A self-guarded rule depends on defect 2 alone**, with pure consequents. Its guard is two
+  `exist_not` tests on properties that its own chain of five rules goes on to infer, so the guard is
+  falsified by that chain, the row is withdrawn and its consequents retracted, and the guard is true
+  again. With defect 2 fixed it repeats until the vertex visit limit, a million times each on two
+  vertexes of its rule set; on the pin it stops after one swing.
+- **Fixing defect 1 alone** terminates but undoes every merge: all four members of each of two
+  processes' test claims changed.
+- **With the flag on**, as the client runs in production, no `exist` callback is registered, none
+  of this happens, and the full fix gave the same member outcomes as the pin.
 
 **The rule language cannot end these loops by itself**: a rule has the properties `o`, `s` and
 `flag`, and nothing that makes a consequent non-retractable. *(Wrong, corrected 2026-10-11 below:
-`usi_ws` ended them in the rule language, by changing what the rules are guarded on.)* So if a
+the workspace ended them in the rule language, by changing what the rules are guarded on.)* So if a
 workspace ever needs correct truth maintenance on these shapes, the paths are:
 
 - **(b)** put aggregate replay and row erasure behind an opt-in rule-config switch, default off —
   two code paths, no workspace changing behaviour unless it asks; or
 - **(c)** fix both outright and add an engine primitive making a loop rule's consequents
-  non-retractable, then rewrite the `usi_ws` loop rules and its `exist_not` self-guards (`op01`,
-  `op02` and their like) before running it with the flag off.
+  non-retractable, then rewrite the workspace's loop rules and its `exist_not` self-guards before running it
+  with the flag off.
 
 **2026-10-11: option (b) is built, for rules unit tests only, and no pipeline can reach it.**
 `jetstore_agentic_ai`'s `rules_unit_test_harness` project (Phase 1, track `AF`) restored
@@ -186,35 +185,35 @@ asserted. On the five-term loop shape they reproduce the measurement above on bo
 `fixed` ends at the vertex visit limit, `fixed-1` terminates with both merges undone, and
 `fixed-2` terminates as `legacy` does.
 
-**2026-10-11, later: `usi_ws` depends on neither defect any more, nor on the switch.** Two
+**2026-10-11, later: the workspace depends on neither defect any more, nor on the switch.** Two
 corrections to what is above, from `jetstore_agentic_ai`'s `rules_unit_test_harness` (its `I-38` to
 `I-40` and `I-44`), which reduced these shapes to unit tests:
 
 - **What held the shapes up in production was the switch, not the defects.** The measurements
-  above were taken with `_0:no_truth_main_on_exist` off. With it on, as USI runs, an `exist` filter
+  above were taken with `_0:no_truth_main_on_exist` off. With it on, as the client runs, an `exist` filter
   is evaluated once, when its row is made, and the compiler puts the loop rule's filter on the
-  loop-0 `jets:State` row. So the guard never moved. With the switch on, `usi_ws` at the time passed
+  loop-0 `jets:State` row. So the guard never moved. With the switch on, the workspace at the time passed
   with both defects off as well. The defects held the shape up only with the switch off, which is
   what this entry measured. They do so in `jets_ws`'s `looping_test1`, which has no switch.
 - **The rule language could end them; what was missing was the right guard, not an engine
-  primitive.** `artisoft-io/usi_ws#31` rewrote them without (c)'s non-retractable consequent:
-  - The loop rule (`mcp2` in CM, its IM and MSK twins) is guarded by `size_of` on the match list,
-    which no merge changes, instead of `exist` on the priority list, which every merge shrinks.
+  primitive.** A change in the workspace's own repository rewrote them without (c)'s
+  non-retractable consequent:
+  - Each process's loop rule is guarded by `size_of` on the match list, which no merge changes,
+    instead of `exist` on the priority list, which every merge shrinks.
   - The loop completes on an empty priority list. `size_of` is maintained in every mode.
-  - CM02's and IM02's adjustment loops run in their own rule sets, each with its own loop counter.
-  - `op01`/`op02`'s chain now ends in `_0:totalAmountAllowed`, which `rt10` copies to
-    `hc_usi:totalAmountAllowed` in `4_CM04_Orphans_Main2`, the next tier, where nothing tests for
-    its absence.
-  - IM02's `MEREXCL011`/`012` test `_0:hasOwnExclusion` instead of `hc_usi:hasExclusion`, which
-    their own result reached.
+  - Two processes' adjustment loops run in their own rule sets, each with its own loop counter.
+  - The self-guarded rules' chain now ends in an `_0:` property, which a rule of the next tier
+    copies to the property the guard tested, where nothing tests for its absence.
+  - Two exclusion rules test their own `_0:` flag instead of the property their own result
+    reached.
 
-  `artisoft-io/usi_ws#32` then stopped setting the switch. The `usi_ws` unit tests `cm_loop`,
-  `im_mercom` and `msk_loop` pass in the legacy mode and with both defects off (`fixed`). With the
-  switch off, CM and IM give the switch-on export on the assessment's 28 test claims.
+  A second change then stopped setting the switch. The workspace's three loop unit tests pass in the
+  legacy mode and with both defects off (`fixed`). With the switch off, two processes give the
+  switch-on export on the assessment's 28 test claims.
 
-**So the case for keeping the defects now rests on USI's own copy of the workspace**, which still
-sets the switch and has neither PR; it must take both together, because the switch removed without
-`#31`'s rules brings the hangs back. Nothing in the workspaces `jetstore_agentic_ai` pins depends
+**So the case for keeping the defects now rests on the client's own copy of the workspace**, which
+still sets the switch and has neither change; it must take both together, because the switch removed
+without the first change's rules brings the hangs back. Nothing in the workspaces `jetstore_agentic_ai` pins depends
 on them except `jets_ws`'s `looping_test1`, which pins them on purpose, and the `LEGACY` tests.
 Whether pipelines should run with them fixed is a decision this entry does not make.
 
@@ -231,8 +230,8 @@ being found by predicate or object, read from the code, not measured.~~ **Fixed 
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
 C++ only; there is no Go counterpart, so a rule set that needs it cannot run on the Go engine at all.
-`workspaces/usi_ws` set it in `pipes_config/usiclaim_processes.pc.json` (until 2026-10-11,
-`artisoft-io/usi_ws#32`; see the entry above; USI's own copy still does) because its rules predate
+A client workspace set it in its pipeline configuration (until 2026-10-11; see the entry above; the
+client's own copy still does) because its rules predate
 rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
 `ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
 
@@ -354,7 +353,7 @@ fails at rule-execution time: `create_binary_expr` throws, `CreateBinaryOperator
 **That is now checked at test time instead, and the check is in two halves because no one process can
 do both.** `operator_registration_test.go` in this package compiles every rule set of every
 workspace — 50 of them, from each `workspace_control.json`'s `rule_sets` rather than from a
-`*_main.jr` glob, which finds 2 of usi_ws's 34 — collects every `ExpressionNode.Op` and asserts each
+`*_main.jr` glob, which finds 2 of the largest workspace's 34 — collects every `ExpressionNode.Op` and asserts each
 one resolves in `CreateBinaryOperator` / `CreateUnaryOperator`. It writes the names it found to
 `jets/rete/test_data/corpus_operators.txt`, and `OperatorFactoryTest.CorpusOperatorNames`
 (`jets/rete/expr_operator_factory_test.cc`) asserts the same list against `create_binary_expr` /

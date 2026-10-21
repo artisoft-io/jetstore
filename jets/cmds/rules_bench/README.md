@@ -38,11 +38,11 @@ with its sha256 and mtime. The result also records the jetstore commit the binar
 from, from Go's build information (`jetstore_modified` is true when the tree had changes).
 
 **Compile the workspace at the commit you mean to measure.** `rules_benchmark` `F37` found
-compiled files older than the rule sets. For `usi_ws`, in a checkout of your own:
+compiled files older than the rule sets. For a workspace `my_ws`, in a checkout of your own:
 
 ```bash
-go run ./jets/cmds/install_workspace_assets -d $WORKSPACES_HOME/usi_ws
-JETS_WORKSPACE_VALIDATOR=<path to jets_validate_workspace.mjs> go run ./jets/cmds/compile_workspace -w usi_ws -v bench
+go run ./jets/cmds/install_workspace_assets -d $WORKSPACES_HOME/my_ws
+JETS_WORKSPACE_VALIDATOR=<path to jets_validate_workspace.mjs> go run ./jets/cmds/compile_workspace -w my_ws -v bench
 ```
 
 ## Command line
@@ -101,8 +101,8 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
 
 ```json
 {
-  "bench_name": "cm_loop",
-  "jetrules_config": { "process_name": "CM", "rule_config": [ … ] },
+  "bench_name": "claims_loop",
+  "jetrules_config": { "process_name": "CLAIMS", "rule_config": [ … ] },
   "input_sessions": [ { "name": "member1", "input": ["member1.csv"] } ],
   "input_dir": { "path": "members", "glob": "*.csv", "name_regex": "^member_(\\d+)\\.csv$", "limit": 0 },
   "engines": ["native", "go"],
@@ -112,8 +112,8 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
   "max_vertex_visits": 1000000,
   "max_looping": 10000,
   "output_classes": [
-    { "class_name": "hc_usi:USIClaim", "columns": ["session_id", "USIClaim:domain_key"] },
-    { "class_name": "usi_out:AIExportClaim", "columns": ["session_id", "USIClaim:domain_key"] }
+    { "class_name": "ex:Claim", "columns": ["session_id", "Claim:domain_key"] },
+    { "class_name": "ex_out:ExportClaim", "columns": ["session_id", "Claim:domain_key"] }
   ]
 }
 ```
@@ -128,7 +128,7 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
 | `repetitions` | measured runs per engine, default 1 |
 | `warmup` | runs per engine before the measured ones. Their results are written too, marked `"warmup": true` and named `…_wNN.json` |
 | `pool_size` | workers running sessions concurrently on one engine. Default 1 |
-| `max_vertex_visits` | **a cap is required.** Go's default is 10,000 visits (`rete_session.go:104`) and C++ has none unless `jets:max_vertex_visits` is set (`rete_session.cc:100`), so an unset cap aborts on Go sessions that C++ completes. It is set once, on both engines, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where both read it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as `cm_loop`'s has; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
+| `max_vertex_visits` | **a cap is required.** Go's default is 10,000 visits (`rete_session.go:104`) and C++ has none unless `jets:max_vertex_visits` is set (`rete_session.cc:100`), so an unset cap aborts on Go sessions that C++ completes. It is set once, on both engines, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where both read it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as a unit test's may have; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
 | `max_looping` | replaces `jetrules_config.max_looping`, which itself replaces every rule set's `$max_looping` when not 0 |
 | `output_classes` | classes to extract after the rules, as a pipeline's jetrules output channels are. The columns are the class's domain properties (`GetDomainProperties`), then `columns`, which is the channel spec's own list. None means no extraction |
 
@@ -143,9 +143,9 @@ it reads the file, before the jetrules step. So the bench casts each CSV row onc
 
 **A CSV with `jets:source_period_sequence` 0 is not a pipeline's input.**
 `assertInputRow` marks an entity `jets:InputRecord` only when the column is absent or blank.
-The extraction keeps a period-0 entity only when it carries that mark. `cm_loop`'s CSVs set
-the column to 0, so on them no `hc_usi:USIClaim` is extracted, on either engine, where a
-pipeline extracts every claim. Leave the column blank in a generated session.
+The extraction keeps a period-0 entity only when it carries that mark. So from CSVs that set
+the column to 0, as some unit tests' do, no entity of an output class is extracted, on either
+engine, where a pipeline extracts every one. Leave the column blank in a generated session.
 
 ## What a result holds
 
@@ -335,8 +335,8 @@ go test -count=1 ./jets/rulesbench/ ./jets/compute_pipes/ -run 'TestRun|TestPars
 - **`jetrules_run_rule_sets_timing_test.go`** pins that a timing sink changes no outcome of
   `RunRuleSets`, and that a timer's callback time is in no phase. It also covers the Go
   counters, `CastTextRow` and a `SessionExtractor` serving two sessions.
-- **The C++ engine** runs the same code through the same interface. The smoke run on
-  `usi_ws` `cm_loop` exercises it: both engines completed all four members with the same
-  loops, extracted rows and triples per member (2026-10-20).
+- **The C++ engine** runs the same code through the same interface. A smoke run on a
+  client workspace's four-member unit test exercises it: both engines completed all four
+  members with the same loops, extracted rows and triples per member (2026-10-20).
 - **Run all of them with `-count=1`**: they read a workspace outside the Go module, which
   the test cache does not see.

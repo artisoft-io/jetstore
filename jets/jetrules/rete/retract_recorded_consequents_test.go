@@ -5,10 +5,9 @@ package rete
 // The Go half of jets/rete/retract_recorded_consequents_test.cc, with the same network
 // and the same cases; read that file's header. In short: retracting a create_entity 0
 // row minted a second entity and left its link in place, and a keyed create_entity
-// re-inserted jets:key on every retraction. Found by the usi_ws workspace assessment
-// (jetstore_agentic_ai, projects/workspace_assessments/02_usi_ws_assessment, Q-37 /
-// R-13). The cases marked LEGACY pin two neighbouring defects that are kept by
-// Michel's decision of 2026-10-09, because usi_ws's rules terminate only because of
+// re-inserted jets:key on every retraction. Found by a client workspace's assessment
+// (jetstore_agentic_ai, its Q-37 / R-13). The cases marked LEGACY pin two neighbouring defects that are kept by
+// Michel's decision of 2026-10-09, because a client workspace's rules terminated only because of
 // them: an aggregate consequent is recomputed on retraction, and a withdrawn row never
 // fires again. See README.md.
 //

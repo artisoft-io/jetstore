@@ -36,7 +36,7 @@ func withRecordedUploads(t *testing.T, prefix string, fail error) *[]recordedUpl
 }
 
 const testSchemaTriggers = "jetstore/schema_triggers"
-const testEvent = `{"client":"CGT","object_type":"Eligibility","file_key":"client=CGT/x"}`
+const testEvent = `{"client":"CLIENT2","object_type":"Eligibility","file_key":"client=CLIENT2/x"}`
 
 func putSchemaEvent(rows ...map[string]any) (int, error) {
 	_, code, err := putSchemaEventResult(rows...)
@@ -112,7 +112,7 @@ func TestPutSchemaEventRefusesAnEmptyEvent(t *testing.T) {
 		"event null":       {{"event": nil}},
 		"event empty":      {{"event": ""}},
 		"event whitespace": {{"event": "  \n\t"}},
-		"event not text":   {{"event": map[string]any{"client": "CGT"}}},
+		"event not text":   {{"event": map[string]any{"client": "CLIENT2"}}},
 		// A bad second row refuses the request before the good first one is
 		// written, so a 400 never follows a partial write.
 		"second row empty": {{"event": testEvent}, {"event": ""}},

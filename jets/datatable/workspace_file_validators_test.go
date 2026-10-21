@@ -31,10 +31,10 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		// checkWorkspaceFile. TestSaveCheckValidatesSqlFiles is what asserts it
 		// is reached; this only asserts the dispatch.
 		"process_config/base__workspace_init_db.sql": true,
-		"reports/CM.sql":        true,
-		"reports/CM.SQL":        true,
-		"jet_rules/mapping.jr":  false,
-		"reports/CM.sql.backup": false,
+		"reports/claims.sql":                         true,
+		"reports/claims.SQL":                         true,
+		"jet_rules/mapping.jr":                       false,
+		"reports/claims.sql.backup":                  false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -325,8 +325,8 @@ func TestSaveCheckValidatesSqlFiles(t *testing.T) {
 	t.Run("an unterminated literal is refused, with the line", func(t *testing.T) {
 		content := "DELETE FROM jetsapi.source_config WHERE client = 'CI';\n" +
 			"INSERT INTO jetsapi.source_config VALUES ('CI', '{\n  \"a\": \"b; c\"\n}');\n"
-		// Closing quote removed from the JSON literal, which is the ciseit and
-		// fbin shape: unloadable, and reported at deployment against a line in
+		// Closing quote removed from the JSON literal, which is the shape of two
+		// client init scripts: unloadable, and reported at deployment against a line in
 		// whatever the unclosed quote swallowed.
 		content = strings.Replace(content, "}');", "});", 1)
 		err := checkWorkspaceFile("process_config/ci_workspace_init_db.sql", content)
@@ -344,10 +344,10 @@ func TestSaveCheckValidatesSqlFiles(t *testing.T) {
 	})
 
 	t.Run("a report script is checked too", func(t *testing.T) {
-		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b' FROM t;\n"); err != nil {
+		if err := checkWorkspaceFile("reports/claims.sql", "--out.csv;\nSELECT 'a; b' FROM t;\n"); err != nil {
 			t.Errorf("want the file saved, got %v", err)
 		}
-		if err := checkWorkspaceFile("reports/CM.sql", "--out.csv;\nSELECT 'a; b FROM t;\n"); err == nil {
+		if err := checkWorkspaceFile("reports/claims.sql", "--out.csv;\nSELECT 'a; b FROM t;\n"); err == nil {
 			t.Error("want the save refused")
 		}
 	})

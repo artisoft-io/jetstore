@@ -23,7 +23,7 @@ import (
 // the schema provider json for the post map pipeline.
 //
 // The pipeline_coordinator_map_items table contains the list of the tasks that are being coordinated for
-// each request_id, their status and their pe_key to link them to the executions of the cgt_sqs_listener.
+// each request_id, their status and their pe_key to link them to the executions of a client's SQS listener.
 //
 // The pipeline_coordinator_lock table is used to lock the coordination for a request_id to avoid race conditions
 // in submitting the post map pipeline execution.

@@ -66,14 +66,14 @@ var registerFileKeysTables = []string{
 	"session_registry",
 }
 
-// The multi-part source the three qc_* pipelines run against, as
-// cgt_workspace_init_db.sql registers it: is_part_files = 1, one domain key.
+// The multi-part source a client workspace's three quality-check pipelines run
+// against, as its init script registers it: is_part_files = 1, one domain key.
 const (
-	testClient     = "CGT"
+	testClient     = "CLIENT2"
 	testOrg        = "Parquet_Parts"
 	testObjectType = "Eligibility"
-	testTableName  = "cgt_parquet_parts_eligibility"
-	testFolder     = "client=CGT/org=Parquet_Parts/object_type=Eligibility/processing_ticket="
+	testTableName  = "client2_parquet_parts_eligibility"
+	testFolder     = "client=CLIENT2/org=Parquet_Parts/object_type=Eligibility/processing_ticket="
 	testSentinel   = "_COMPLETE"
 )
 
@@ -134,7 +134,7 @@ func registerFileKeysFixture(t *testing.T) *DataTableContext {
 		`INSERT INTO jetsapi.client_registry (client) VALUES ('` + testClient + `')`,
 		`INSERT INTO jetsapi.client_org_registry (client, org) VALUES ('` + testClient + `', '` + testOrg + `')`,
 		`INSERT INTO jetsapi.object_type_registry (object_type, entity_rdf_type)
-			VALUES ('` + testObjectType + `', 'cgt:Eligibility')`,
+			VALUES ('` + testObjectType + `', 'ex:Eligibility')`,
 		`INSERT INTO jetsapi.source_config
 			(client, org, object_type, table_name, domain_keys, input_format, is_part_files, user_email)
 			VALUES ('` + testClient + `', '` + testOrg + `', '` + testObjectType + `',
@@ -160,7 +160,7 @@ func schemaEventData(ticket string, size any, withFileKey bool) map[string]any {
 		"year":                 1970,
 		"month":                1,
 		"day":                  1,
-		"schema_provider_json": `{"key":"_main_input_","type":"default","client":"CGT"}`,
+		"schema_provider_json": `{"key":"_main_input_","type":"default","client":"CLIENT2"}`,
 	}
 	if withFileKey {
 		data["file_key"] = testFolder + ticket + "/" + testSentinel
@@ -204,7 +204,7 @@ func TestRegisterFileKeysSchemaEventWithSizeZero(t *testing.T) {
 	ctx := registerFileKeysFixture(t)
 	action := &RegisterFileKeyAction{
 		Action:          "register_file_key",
-		Data:            []map[string]any{schemaEventData("CGT0001", int64(0), true)},
+		Data:            []map[string]any{schemaEventData("T0001", int64(0), true)},
 		NoAutomatedLoad: true,
 		IsSchemaEvent:   true,
 	}
@@ -212,7 +212,7 @@ func TestRegisterFileKeysSchemaEventWithSizeZero(t *testing.T) {
 	if err != nil || status != http.StatusOK {
 		t.Fatalf("RegisterFileKeys: status %d, err %v", status, err)
 	}
-	folder := testFolder + "CGT0001"
+	folder := testFolder + "T0001"
 	// The sentinel branch strips the last path segment, so the registered key is
 	// the folder and not the key handed in.
 	if n, _ := countFileKeyStaging(t, ctx, folder); n != 1 {
@@ -234,7 +234,7 @@ func TestRegisterFileKeysSchemaEventWithSizeZero(t *testing.T) {
 func TestRegisterFileKeysSchemaEventWithSizeAbsent(t *testing.T) {
 	t.Setenv("JETS_SENTINEL_FILE_NAME", testSentinel)
 	ctx := registerFileKeysFixture(t)
-	data := schemaEventData("CGT0002", nil, true)
+	data := schemaEventData("T0002", nil, true)
 	if _, present := data["size"]; present {
 		t.Fatal("fixture error: this case is about size being absent")
 	}
@@ -248,7 +248,7 @@ func TestRegisterFileKeysSchemaEventWithSizeAbsent(t *testing.T) {
 	if err != nil || status != http.StatusOK {
 		t.Fatalf("RegisterFileKeys: status %d, err %v", status, err)
 	}
-	folder := testFolder + "CGT0002"
+	folder := testFolder + "T0002"
 	n, size := countFileKeyStaging(t, ctx, folder)
 	if n != 1 {
 		t.Errorf("file_key_staging rows for %q = %d, want 1", folder, n)
@@ -271,7 +271,7 @@ func TestRegisterFileKeysSchemaEventWithSizeAbsent(t *testing.T) {
 func TestRegisterFileKeysFileKeyAbsentIsSkipped(t *testing.T) {
 	t.Setenv("JETS_SENTINEL_FILE_NAME", testSentinel)
 	ctx := registerFileKeysFixture(t)
-	data := schemaEventData("CGT0003", int64(0), false)
+	data := schemaEventData("T0003", int64(0), false)
 	if _, present := data["file_key"]; present {
 		t.Fatal("fixture error: this case is about file_key being absent")
 	}
@@ -304,7 +304,7 @@ func TestRegisterFileKeysFileKeyAbsentIsSkipped(t *testing.T) {
 	// is omitempty, so a spec that sets it to "" serialises without it, and one
 	// that reaches the map as "" asserts cleanly and registers a row naming the
 	// bucket root.
-	data = schemaEventData("CGT0004", int64(0), true)
+	data = schemaEventData("T0004", int64(0), true)
 	data["file_key"] = ""
 	action.Data = []map[string]any{data}
 	_, status, err = ctx.RegisterFileKeys(action, "")

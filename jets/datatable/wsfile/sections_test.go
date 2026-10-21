@@ -80,7 +80,7 @@ func TestEverySectionIsWellFormedAndDistinct(t *testing.T) {
 // answer *do this section's files compile into `workspace.db`?* rather than
 // copy the row above.
 //
-// Measured 2026-08-25 across cedargate_ws, jets_ws, usi_ws and walrus_ws at the
+// Measured 2026-08-25 across the corpus's four workspaces at the
 // commits jetstore_agentic_ai pins: seed the closure with workspace_control.json's
 // `rule_sets`, follow `import`, and the reached directories are data_model,
 // jet_rules and lookups. pipes_config, process_config and reports are reached

@@ -22,9 +22,8 @@
 //   - a keyed create_entity re-inserted jets:key on every retraction, so its reference
 //     count never came back to zero.
 //
-// Found by the usi_ws workspace assessment (jetstore_agentic_ai,
-// projects/workspace_assessments/02_usi_ws_assessment, Q-37 / R-13), where rule ckd30
-// was keyed as a workaround.
+// Found by a client workspace's assessment (jetstore_agentic_ai, its Q-37 / R-13),
+// where one rule's create_entity was keyed as a workaround.
 //
 // THE FIX: a node vertex with a consequent that mints a resource -- create_entity,
 // create_uuid_resource, range, lookup_rand, multi_lookup_rand
@@ -37,7 +36,7 @@
 // they are visible rather than assumed. A consequent aggregate is still recomputed on
 // retraction, and a withdrawn row is never erased from its relation, so an equal row
 // arriving later never fires. Fixing both was tried on 2026-10-08 and reverted on
-// 2026-10-09 by Michel's decision: usi_ws's loop rules and CM04 op01 terminate only
+// 2026-10-09 by Michel's decision: a client workspace's loop rules and a self-guarded rule terminated only
 // because of them (see loop_through_negation_test.cc and
 // jets/jetrules/rete/README.md).
 //

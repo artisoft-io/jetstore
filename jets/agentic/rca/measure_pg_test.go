@@ -86,12 +86,12 @@ func ad1Census(t *testing.T, pool *pgxpool.Pool) []string {
 
 	// 1. The five-locus run: a failed worker, a stalled sibling, a collapsed
 	//    worker, per-record errors, and an operator with nowhere to report.
-	k := header(t, pool, "cgt", "loader", "claims", "s-ad1-multi", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-multi", "reducing01", 0, "failed", 5000, 12, 0,
+	k := header(t, pool, "client2", "loader", "claims", "s-ad1-multi", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-multi", "reducing01", 0, "failed", 5000, 12, 0,
 		"download failed,rules pool exhausted", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-multi", "reducing01", 1, "", 0, 0, 0, "",
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-multi", "reducing01", 1, "", 0, 0, 0, "",
 		now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-multi", "reducing01", 2, "completed", 8000, 3, 40, "",
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-multi", "reducing01", 2, "completed", 8000, 3, 40, "",
 		now.Add(-time.Hour))
 	processErrors(t, pool, k, "s-ad1-multi", 20, 6)
 	storeConfig(t, pool, k, "s-ad1-multi", configNoErrorChannel)
@@ -107,30 +107,30 @@ func ad1Census(t *testing.T, pool *pgxpool.Pool) []string {
 	}
 
 	// 2. A terminal header with no worker row at all.
-	header(t, pool, "cgt", "loader", "claims", "s-ad1-notstarted", "failed", now.Add(-2*time.Hour))
+	header(t, pool, "client2", "loader", "claims", "s-ad1-notstarted", "failed", now.Add(-2*time.Hour))
 
 	// 3. A worker that never terminated under a header that did.
-	k = header(t, pool, "cgt", "loader", "claims", "s-ad1-stall", "failed", now.Add(-3*time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-stall", "reducing01", 0, "", 0, 0, 0, "",
+	k = header(t, pool, "client2", "loader", "claims", "s-ad1-stall", "failed", now.Add(-3*time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-stall", "reducing01", 0, "", 0, 0, 0, "",
 		now.Add(-3*time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-stall", "reducing01", 1, "completed", 4000, 0, 3900, "",
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-stall", "reducing01", 1, "completed", 4000, 0, 3900, "",
 		now.Add(-3*time.Hour))
 	storeConfig(t, pool, k, "s-ad1-stall", configWithErrorChannel)
 
 	// 4. Per-record failures that were reported, by an operator configured to
 	//    report them — so locus 7 is present and locus 8 is absent.
-	k = header(t, pool, "cgt", "loader", "claims", "s-ad1-perrecord", "failed", now.Add(-4*time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-perrecord", "reducing01", 0, "completed", 6000, 44, 5900,
+	k = header(t, pool, "client2", "loader", "claims", "s-ad1-perrecord", "failed", now.Add(-4*time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-perrecord", "reducing01", 0, "completed", 6000, 44, 5900,
 		"", now.Add(-4*time.Hour))
 	processErrors(t, pool, k, "s-ad1-perrecord", 44, 44)
 	storeConfig(t, pool, k, "s-ad1-perrecord", configWithErrorChannel)
 
 	// 5. A run that completed with nothing wrong with it, which is the case a
 	//    census without it cannot report an absent verdict from.
-	k = header(t, pool, "cgt", "loader", "claims", "s-ad1-clean", "completed", now.Add(-5*time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-clean", "reducing01", 0, "completed", 7000, 0, 6980, "",
+	k = header(t, pool, "client2", "loader", "claims", "s-ad1-clean", "completed", now.Add(-5*time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-clean", "reducing01", 0, "completed", 7000, 0, 6980, "",
 		now.Add(-5*time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-ad1-clean", "reducing01", 1, "completed", 7100, 0, 7050, "",
+	workerRow(t, pool, k, "client2", "loader", "s-ad1-clean", "reducing01", 1, "completed", 7100, 0, 7050, "",
 		now.Add(-5*time.Hour))
 	storeConfig(t, pool, k, "s-ad1-clean", configWithErrorChannel)
 

@@ -78,7 +78,7 @@ func useLookupFixture(t *testing.T, firstKey int) {
 			{"60601", "CHICAGO", "COOK", "17", "IL", "60601"},
 		}},
 		// TYPE repeats a key, which multi_lookup_rand returns as several rows.
-		{"IM_Exclusion_Type", `"PRIORITY" INTEGER, "TYPE" TEXT`, [][]any{
+		{"claims_Exclusion_Type", `"PRIORITY" INTEGER, "TYPE" TEXT`, [][]any{
 			{"DIAGNOSIS", 1, "DIAGNOSIS"},
 			{"MODALITY", 2, "MODALITY"},
 			{"PROCEDURE", 3, "PROCEDURE"},
@@ -180,9 +180,9 @@ func TestLookupTable2(t *testing.T) {
 					{Name: "PRIORITY", Type: "int"},
 					{Name: "TYPE", Type: "text"},
 				},
-				CsvFile: "lookups/IM/Exclusion_Type.csv",
+				CsvFile: "lookups/claims/Exclusion_Type.csv",
 				Key:     []string{"TYPE"},
-				Name:    "IM_Exclusion_Type",
+				Name:    "claims_Exclusion_Type",
 				Type:    "lookup",
 			},
 		},
@@ -200,11 +200,11 @@ func TestLookupTable2(t *testing.T) {
 	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
-	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
+	lookupTable := lookupMgr.LookupTableMap["claims_Exclusion_Type"]
 	if lookupTable == nil {
-		t.Fatalf("error: LookupTableManager has nil lookupTable for IM_Exclusion_Type")
+		t.Fatalf("error: LookupTableManager has nil lookupTable for claims_Exclusion_Type")
 	}
-	name := "IM_Exclusion_Type"
+	name := "claims_Exclusion_Type"
 	key := "MODALITY"
 	row, err := lookupTable.Lookup(ctx.reteSession, &name, &key)
 	if err != nil || row == nil {
@@ -234,9 +234,9 @@ func TestLookupRand1(t *testing.T) {
 					{Name: "PRIORITY", Type: "int"},
 					{Name: "TYPE", Type: "text"},
 				},
-				CsvFile: "lookups/IM/Exclusion_Type.csv",
+				CsvFile: "lookups/claims/Exclusion_Type.csv",
 				Key:     []string{"TYPE"},
-				Name:    "IM_Exclusion_Type",
+				Name:    "claims_Exclusion_Type",
 				Type:    "lookup",
 			},
 		},
@@ -254,11 +254,11 @@ func TestLookupRand1(t *testing.T) {
 	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
-	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
+	lookupTable := lookupMgr.LookupTableMap["claims_Exclusion_Type"]
 	if lookupTable == nil {
-		t.Fatalf("error: LookupTableManager has nil lookupTable for IM_Exclusion_Type")
+		t.Fatalf("error: LookupTableManager has nil lookupTable for claims_Exclusion_Type")
 	}
-	name := "IM_Exclusion_Type"
+	name := "claims_Exclusion_Type"
 	row, err := lookupTable.LookupRand(ctx.reteSession, &name)
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key MODALITY, err: %v", err)
@@ -287,9 +287,9 @@ func TestLookupMultiRand1(t *testing.T) {
 					{Name: "PRIORITY", Type: "int"},
 					{Name: "TYPE", Type: "text"},
 				},
-				CsvFile: "lookups/IM/Exclusion_Type.csv",
+				CsvFile: "lookups/claims/Exclusion_Type.csv",
 				Key:     []string{"TYPE"},
-				Name:    "IM_Exclusion_Type",
+				Name:    "claims_Exclusion_Type",
 				Type:    "lookup",
 			},
 		},
@@ -307,11 +307,11 @@ func TestLookupMultiRand1(t *testing.T) {
 	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
-	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
+	lookupTable := lookupMgr.LookupTableMap["claims_Exclusion_Type"]
 	if lookupTable == nil {
-		t.Fatalf("error: LookupTableManager has nil lookupTable for IM_Exclusion_Type")
+		t.Fatalf("error: LookupTableManager has nil lookupTable for claims_Exclusion_Type")
 	}
-	name := "IM_Exclusion_Type"
+	name := "claims_Exclusion_Type"
 	row, err := lookupTable.MultiLookupRand(ctx.reteSession, &name)
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key MODALITY, err: %v", err)
@@ -319,7 +319,7 @@ func TestLookupMultiRand1(t *testing.T) {
 	if !strings.HasPrefix(row.String(), "jets:lookup:multi:rand:") {
 		t.Errorf("row key not matching")
 	}
-	if !ctx.reteSession.RdfSession.Contains(rm.GetResource("jets:cache:IM_Exclusion_Type"), rm.GetResource("jets:lookup_multi_rows"), row) {
+	if !ctx.reteSession.RdfSession.Contains(rm.GetResource("jets:cache:claims_Exclusion_Type"), rm.GetResource("jets:lookup_multi_rows"), row) {
 		t.Errorf("triple not found")
 	}
 	t.Log("Got row", row.String())
@@ -339,13 +339,13 @@ func exclusionTypeLookup(t *testing.T) (*TestLookupTableManagerContext, LookupTa
 	mgr, err := NewLookupTableManager(rm, ctx.metaGraph, &JetruleModel{LookupTables: []*LookupTableNode{{
 		Columns: []LookupTableColumn{{Name: "PRIORITY", Type: "int"}, {Name: "TYPE", Type: "text"}},
 		Key:     []string{"TYPE"},
-		Name:    "IM_Exclusion_Type",
+		Name:    "claims_Exclusion_Type",
 		Type:    "lookup",
 	}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ctx, mgr.LookupTableMap["IM_Exclusion_Type"]
+	return ctx, mgr.LookupTableMap["claims_Exclusion_Type"]
 }
 
 // lookup_rand and multi_lookup_rand draw a __key__ in [MIN, MAX]. They drew
@@ -356,7 +356,7 @@ func TestLookupRandReachesEveryKeyAndNeverNull(t *testing.T) {
 		t.Run(fmt.Sprintf("keys from %d", firstKey), func(t *testing.T) {
 			useLookupFixture(t, firstKey)
 			ctx, tbl := exclusionTypeLookup(t)
-			name := "IM_Exclusion_Type"
+			name := "claims_Exclusion_Type"
 			want := map[string]bool{}
 			for k := firstKey; k < firstKey+3; k++ {
 				want[fmt.Sprint(k)] = true
@@ -465,9 +465,9 @@ func TestLookupServesRowId(t *testing.T) {
 					{Name: "PRIORITY", Type: "int"},
 					{Name: "TYPE", Type: "text"},
 				},
-				CsvFile: "lookups/IM/Exclusion_Type.csv",
+				CsvFile: "lookups/claims/Exclusion_Type.csv",
 				Key:     []string{"TYPE"},
-				Name:    "IM_Exclusion_Type",
+				Name:    "claims_Exclusion_Type",
 				Type:    "lookup",
 			},
 		},
@@ -480,9 +480,9 @@ func TestLookupServesRowId(t *testing.T) {
 	if err != nil {
 		t.Fatalf("while calling NewLookupTableManager: %v", err)
 	}
-	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
+	lookupTable := lookupMgr.LookupTableMap["claims_Exclusion_Type"]
 	rowId := rm.JetsResources.Jets__row_id
-	name := "IM_Exclusion_Type"
+	name := "claims_Exclusion_Type"
 
 	// The fixture's rows are DIAGNOSIS, MODALITY, PROCEDURE, PROCEDURE.
 	key := "MODALITY"

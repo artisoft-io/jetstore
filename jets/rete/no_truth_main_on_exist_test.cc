@@ -12,8 +12,8 @@
 // _0:no_truth_main_on_exist -- A PRODUCTION FLAG WITH NO TEST.
 //
 // The string appeared in no _test.cc and no _test.go until this file. It is not a
-// laboratory switch: workspaces/usi_ws sets it, in
-// pipes_config/usiclaim_processes.pc.json, under jetrules_config.rule_config as
+// laboratory switch: a client workspace set it, in its pipeline configuration,
+// under jetrules_config.rule_config as
 // {"_0:no_truth_main_on_exist": {"value": "1", "type": "int"}}, because that client's
 // rules predate rule filters participating in truth maintenance (jetstore, 2023-04-26,
 // "Fixes #699"). One customer's rules behave differently depending on this flag and
@@ -58,7 +58,7 @@ namespace jets::rete {
 namespace {
 
 // Absent means the resource is created but no (jets:iState, ...) triple is written,
-// which is the state of every workspace except usi_ws.
+// which is the state of every workspace but that one.
 enum FlagState { kFlagAbsent, kFlagOne, kFlagZero, kFlagNotAnInt };
 
 class NoTruthMainOnExistTest : public ::testing::Test {
@@ -247,7 +247,7 @@ TEST_F(NoTruthMainOnExistTest, ExistNotIsNotMaintainedWhenTheFlagIsOne) {
 
   EXPECT_TRUE(this->has_flag("existNotFlag"))
     << "with the flag set to 1 nothing retracts what exist_not inferred before gotValue "
-       "arrived -- which is the legacy behaviour usi_ws asks for";
+       "arrived -- which is the legacy behaviour that workspace asked for";
 }
 
 // THE CONTROL. Neither flag depends on the pending rule alone: without it the graph

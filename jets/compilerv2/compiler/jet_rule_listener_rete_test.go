@@ -115,26 +115,26 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 	jrCompiler := NewCompiler("./testdata", "rete_test2.jr", true, true, false)
 	err := jrCompiler.CompileBuffer(`@JetCompilerDirective source_file = "rete_test2.jr";
 		@JetCompilerDirective extract_resources_from_rules = "true";
-		[Savings01]: 
-			(?stateNdc rdf:type wrs:StateNdc).
-			(?stateNdc wrs:hasDrugInterchanges ?drugInterchange).
-			(?stateNdc wrs:Sum_Total_Paid_Amount ?paid).
-			(?stateNdc wrs:Sum_Quantity_Dispensed ?qty).
-			(?drugInterchange wrs:Target_Drug_Cost ?targetCost)
+		[Rule01]: 
+			(?group rdf:type ex:Group).
+			(?group ex:hasAlternative ?alt).
+			(?group ex:totalPaid ?paid).
+			(?group ex:totalQty ?qty).
+			(?alt ex:targetCost ?targetCost)
 		-> 
-			(?drugInterchange wrs:Rx_Savings (?paid - (?qty * ?targetCost))).
-			(?drugInterchange jets:ruleTag "Interchange");	
+			(?alt ex:saving (?paid - (?qty * ?targetCost))).
+			(?alt jets:ruleTag "Alternative");	
 			
-		[Savings02]: 
-			(?stateNdc rdf:type wrs:StateNdc).
-			(?stateNdc wrs:hasDrugInterchanges ?drugInterchange).
-			(?stateNdc wrs:Sum_Total_Paid_Amount ?paid).
-			(?stateNdc wrs:Sum_Quantity_Dispensed ?qty).
-			(?drugInterchange wrs:Target_Drug_Cost ?targetCost1).
-			(?drugInterchange wrs:Target_Drug_Cost ?targetCost2)
+		[Rule02]: 
+			(?group rdf:type ex:Group).
+			(?group ex:hasAlternative ?alt).
+			(?group ex:totalPaid ?paid).
+			(?group ex:totalQty ?qty).
+			(?alt ex:targetCost ?targetCost1).
+			(?alt ex:targetCost ?targetCost2)
 		-> 
-			(?drugInterchange wrs:Rx_Savings (?paid - (?qty * ?targetCost1)/?targetCost2)).
-			(?drugInterchange jets:ruleTag "Interchange");
+			(?alt ex:saving (?paid - (?qty * ?targetCost1)/?targetCost2)).
+			(?alt jets:ruleTag "Alternative");
 	`)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -148,11 +148,11 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 	fmt.Printf("** Rete Nodes: \n%v\n", string(b))
 	// Eleven nodes, not the twelve this test used to expect: a head node, six
 	// antecedent nodes and four consequents. The two rules share the first four
-	// antecedents *and* the fifth — Savings01's (?drugInterchange
-	// wrs:Target_Drug_Cost ?targetCost) and Savings02's ... ?targetCost1
-	// normalise to the same node, (?x02 wrs:Target_Drug_Cost ?x05), because a
-	// variable's name is local to its rule. Savings02 then extends that node
-	// with its second Target_Drug_Cost binding. Sharing the common prefix is
+	// antecedents *and* the fifth — Rule01's (?alt
+	// ex:targetCost ?targetCost) and Rule02's ... ?targetCost1
+	// normalise to the same node, (?x02 ex:targetCost ?x05), because a
+	// variable's name is local to its rule. Rule02 then extends that node
+	// with its second ex:targetCost binding. Sharing the common prefix is
 	// what a RETE network is for, so counting twelve was counting a network
 	// that had failed to share.
 	switch {
@@ -165,7 +165,7 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 	}
 	// The shape behind the count: the antecedents form one chain of six, and
 	// each rule's two consequents hang off the vertex where that rule ends -
-	// Savings01 at 5, Savings02 at 6.
+	// Rule01 at 5, Rule02 at 6.
 	antecedents, consequents := 0, map[int]int{}
 	for _, node := range jrCompiler.JetRuleModel().ReteNodes {
 		switch node.Type {
@@ -176,7 +176,7 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 		}
 	}
 	if antecedents != 6 {
-		t.Errorf("expected 6 antecedent nodes (4 shared, 1 shared fifth, 1 for Savings02), got %d", antecedents)
+		t.Errorf("expected 6 antecedent nodes (4 shared, 1 shared fifth, 1 for Rule02), got %d", antecedents)
 	}
 	if consequents[5] != 2 || consequents[6] != 2 {
 		t.Errorf("expected both rules to end at vertices 5 and 6 with two consequents each, got %v", consequents)

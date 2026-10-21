@@ -666,7 +666,7 @@ func TestSiteConfigSurvivesTheDocumentRoundTrip(t *testing.T) {
 	    "type": "fan_out",
 	    "input_channel": {"name": "input_row"},
 	    "apply": [{
-	      "type": "cgt_scrub",
+	      "type": "site_scrub",
 	      "output_channel": {"name": "scrubbed", "channel_spec_name": "claim_row"},
 	      "site_config": {
 	        "error_channel": {"name": "scrub_errors", "channel_spec_name": "jetsapi_process_errors"},
@@ -1592,7 +1592,7 @@ func TestSiteLookupsSurviveTheDocumentRoundTrip(t *testing.T) {
 	    "type": "fan_out",
 	    "input_channel": {"name": "input_row"},
 	    "apply": [{
-	      "type": "cgt_scrub",
+	      "type": "site_scrub",
 	      "output_channel": {"name": "scrubbed", "channel_spec_name": "claim_row"},
 	      "site_config": {"lookups": ["zip_to_state", "codes"]}
 	    }]

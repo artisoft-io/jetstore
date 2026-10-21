@@ -32,7 +32,8 @@ package rete_test
 // `jets/rete/expr_operator_factory_test.cc` asserts each one resolves in
 // `create_binary_expr` / `create_unary_expr`. The manifest is checked in and this test
 // FAILS when it drifts, rather than rewriting it silently -- run with
-// JETS_UPDATE_OPERATOR_MANIFEST=1 to regenerate it after adding an operator to a rule.
+// JETS_UPDATE_OPERATOR_MANIFEST=1 to regenerate it after adding an operator to a rule; that
+// needs the corpus named in JETS_CORPUS_WORKSPACES (see corpusSize).
 //
 // WHY package rete_test. Collecting the names means running the compiler, and
 // `jets/compilerv2/compiler` imports this package. An external test package can import
@@ -63,10 +64,16 @@ import (
 // command), which is how a gtest reaches it with a relative path.
 const operatorManifest = "../../rete/test_data/corpus_operators.txt"
 
-// corpusWorkspaces are the four rule workspaces the counts in this repository's
+// corpusSize is the number of rule workspaces the counts in this repository's
 // documents are drawn from. They are submodules of the parent repository, so a plain
-// checkout of jetstore alone has none of them and this test skips.
-var corpusWorkspaces = []string{"jets_ws", "usi_ws", "walrus_ws", "cedargate_ws"}
+// checkout of jetstore alone has none of them and this test collects test_ws only.
+//
+// Which directories are the corpus: the comma-separated names in
+// JETS_CORPUS_WORKSPACES when it is set, the exact set; otherwise every directory of
+// the workspaces home that has a workspace_control.json, and that set counts as the
+// corpus only when it has exactly corpusSize members. The names are not written here
+// because they are not this repository's.
+const corpusSize = 4
 
 // opUse records where an operator name was seen, so a failure names a rule file rather
 // than only the offending word.
@@ -97,8 +104,9 @@ func (u *opUse) walk(nd *rete.ExpressionNode, where string) {
 // collect compiles one workspace's rule sets and records every operator name.
 //
 // The rule sets come from workspace_control.json rather than from a `*_main.jr` glob,
-// and the difference is not cosmetic: usi_ws names 34 rule sets of which 32 end in
-// `_Main1.jr`, `_Main2.jr` or `_Main3.jr`. A glob for `_main.jr` finds two of them.
+// and the difference is not cosmetic: one workspace of the corpus names 34 rule sets of
+// which 32 end in `_Main1.jr`, `_Main2.jr` or `_Main3.jr`. A glob for `_main.jr` finds
+// two of them.
 func (u *opUse) collect(t *testing.T, label, base string) int {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(base, "workspace_control.json"))
@@ -131,9 +139,10 @@ func (u *opUse) collect(t *testing.T, label, base string) int {
 	return len(ctl.RuleSets)
 }
 
-// corpusRoots returns the workspace directories to compile, and the reason each one
-// that is missing is missing.
-func corpusRoots(t *testing.T) (roots map[string]string, missing []string) {
+// corpusRoots returns the workspace directories to compile, by name, whether they are
+// the whole corpus, and whether the corpus was named (JETS_CORPUS_WORKSPACES) rather
+// than found.
+func corpusRoots(t *testing.T) (roots map[string]string, complete, named bool) {
 	t.Helper()
 	home := os.Getenv("WORKSPACES_HOME")
 	if home == "" {
@@ -141,16 +150,37 @@ func corpusRoots(t *testing.T) (roots map[string]string, missing []string) {
 		// jetstore_agentic_ai, whose workspaces/ sits beside it.
 		home = filepath.Join("..", "..", "..", "..", "workspaces")
 	}
-	roots = make(map[string]string)
-	for _, ws := range corpusWorkspaces {
-		dir := filepath.Join(home, ws)
-		if _, err := os.Stat(filepath.Join(dir, "workspace_control.json")); err != nil {
-			missing = append(missing, ws)
-			continue
-		}
-		roots[ws] = dir
+	isWorkspace := func(dir string) bool {
+		_, err := os.Stat(filepath.Join(dir, "workspace_control.json"))
+		return err == nil
 	}
-	return roots, missing
+	roots = make(map[string]string)
+	if list := os.Getenv("JETS_CORPUS_WORKSPACES"); list != "" {
+		var missing []string
+		for _, ws := range strings.Split(list, ",") {
+			ws = strings.TrimSpace(ws)
+			if ws == "" {
+				continue
+			}
+			if dir := filepath.Join(home, ws); isWorkspace(dir) {
+				roots[ws] = dir
+			} else {
+				missing = append(missing, ws)
+			}
+		}
+		if len(missing) > 0 {
+			t.Logf("JETS_CORPUS_WORKSPACES names workspaces not under %s: %s", home, strings.Join(missing, ", "))
+		}
+		return roots, len(missing) == 0 && len(roots) > 0, true
+	}
+	entries, _ := os.ReadDir(home)
+	for _, e := range entries {
+		// isWorkspace follows a symbolic link, which e.IsDir() does not
+		if dir := filepath.Join(home, e.Name()); isWorkspace(dir) {
+			roots[e.Name()] = dir
+		}
+	}
+	return roots, len(roots) == corpusSize, false
 }
 
 func TestCorpusOperatorNamesResolve(t *testing.T) {
@@ -160,11 +190,14 @@ func TestCorpusOperatorNamesResolve(t *testing.T) {
 	// assertion below is never vacuous even when the workspaces are not checked out.
 	nRuleSets := uses.collect(t, "test_ws", filepath.Join("..", "test_ws"))
 
-	roots, missing := corpusRoots(t)
-	for _, ws := range corpusWorkspaces {
-		if dir, ok := roots[ws]; ok {
-			nRuleSets += uses.collect(t, ws, dir)
-		}
+	roots, complete, named := corpusRoots(t)
+	names := make([]string, 0, len(roots))
+	for ws := range roots {
+		names = append(names, ws)
+	}
+	sort.Strings(names)
+	for _, ws := range names {
+		nRuleSets += uses.collect(t, ws, roots[ws])
 	}
 
 	ctx := &rete.ReteBuilderContext{}
@@ -186,21 +219,24 @@ func TestCorpusOperatorNamesResolve(t *testing.T) {
 	// The manifest is the corpus as a whole, so it can only be checked when the whole
 	// corpus is on disk. With a workspace missing, the names found are a subset and the
 	// most that can be said is that the manifest contains them.
-	checkManifest(t, uses, len(missing) == 0)
-	if len(missing) > 0 {
-		t.Logf("workspaces not checked out, operator names collected from the rest: %s",
-			strings.Join(missing, ", "))
+	if !complete {
+		t.Logf("not the whole corpus (%d workspaces found, %d expected; set JETS_CORPUS_WORKSPACES to name it): "+
+			"operator names collected from %s", len(names), corpusSize, strings.Join(append([]string{"test_ws"}, names...), ", "))
 	}
+	checkManifest(t, uses, complete, named)
 }
 
 // checkManifest compares the corpus against the checked-in list the C++ test reads.
-func checkManifest(t *testing.T, uses *opUse, complete bool) {
+//
+// Regenerating the manifest needs the corpus named exactly (JETS_CORPUS_WORKSPACES):
+// a set that was only found could be some other four workspaces.
+func checkManifest(t *testing.T, uses *opUse, complete, named bool) {
 	t.Helper()
 	want := renderManifest(uses)
 	if os.Getenv("JETS_UPDATE_OPERATOR_MANIFEST") != "" {
-		if !complete {
-			t.Fatalf("refusing to regenerate %s from a partial corpus; check out the "+
-				"workspaces first", operatorManifest)
+		if !complete || !named {
+			t.Fatalf("refusing to regenerate %s from a corpus that is partial or not named; "+
+				"check out the workspaces and name them in JETS_CORPUS_WORKSPACES", operatorManifest)
 		}
 		if err := os.WriteFile(operatorManifest, []byte(want), 0644); err != nil {
 			t.Fatal(err)

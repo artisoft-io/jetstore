@@ -130,8 +130,8 @@ var unsafeName = regexp.MustCompile(`[^A-Za-z0-9_]+`)
 // FileName is the dump's file name for the rule set at index (0-based) of a
 // process's sequence, <NN>_<ruleset>.tsv: NN is index+1 on two digits, and the
 // rule set is its file's base name without .jr, with any run of characters other
-// than letters, digits and _ made one _. So jet_rules/main/CM/2_CM02_Matching_SM_Main1.jr
-// at index 4 is 05_2_CM02_Matching_SM_Main1.tsv.
+// than letters, digits and _ made one _. So jet_rules/main/P1/2_P1_Matching_Main1.jr
+// at index 4 is 05_2_P1_Matching_Main1.tsv.
 func FileName(index int, ruleset string) string {
 	base := strings.TrimSuffix(filepath.Base(ruleset), ".jr")
 	return fmt.Sprintf("%02d_%s.tsv", index+1, unsafeName.ReplaceAllString(base, "_"))

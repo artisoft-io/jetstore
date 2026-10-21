@@ -2,15 +2,11 @@
 
 This directory contains test data files for the rete unit tests.
 
-## `rete_meta_store_factory_test1.cc` and `rete_meta_store_factory_test2.cc`
+## `rete_meta_store_factory_test0.cc`
 
 - `rete_meta_store_factory_test0.cc` unit test is a basic sqlite 3 test.
-- `rete_meta_store_factory_test1.cc` unit test is to load a complete
-workspace db built using compiler v1.
-It uses `usi_worksdpace_v1.db` and `usi_lookupdb_v1.db` test data files.
-- `rete_meta_store_factory_test2.cc` unit test is to load a complete
-workspace db built using compiler v2.
-It uses `usi_worksdpace_v2.db` and `usi_lookupdb_v2.db` test data files.
+- Two further tests loaded a complete workspace db built with compiler v1 and v2. The db was
+  never in the repository, so they always skipped; they were removed on 2026-10-21.
 
 ## To update workspace and lookup db of test cases
 

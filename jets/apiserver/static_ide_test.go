@@ -75,7 +75,7 @@ func TestIdeHandlerServesIndexAtRoot(t *testing.T) {
 func TestIdeHandlerFallsBackToIndexForClientRoutes(t *testing.T) {
 	h := appHandler(appAssetPrefix, buildIdeDir(t))
 	// A deep client-side route must survive a reload rather than 404.
-	res := get(t, h, "/workspace/cedargate_ws/jet_rules/main.jr")
+	res := get(t, h, "/workspace/my_ws/jet_rules/main.jr")
 	if res.Code != http.StatusOK {
 		t.Fatalf("got %d, want 200", res.Code)
 	}
@@ -250,7 +250,7 @@ func TestTheCachePolicyIsDerivedFromTheRequestPath(t *testing.T) {
 		// applied at one ServeFile call and not the other shows up here.
 		{"the shell at the root", "/", revalidateCachePolicy, immutableCachePolicy},
 		{"a real unhashed file", "/favicon.ico", revalidateCachePolicy, immutableCachePolicy},
-		{"a deep client route", "/workspace/cedargate_ws/jet_rules/main.jr", revalidateCachePolicy, immutableCachePolicy},
+		{"a deep client route", "/workspace/my_ws/jet_rules/main.jr", revalidateCachePolicy, immutableCachePolicy},
 		{"an unmatched route", "/no-such-page", revalidateCachePolicy, immutableCachePolicy},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

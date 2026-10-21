@@ -127,8 +127,8 @@ func TestParseReportDefinitionsErrors(t *testing.T) {
 //
 // Of the 23 reports/*.sql in the corpus on 2026-09-12, seventeen name every
 // statement, carrying 75 reports; six name none, and none is mixed. Three of
-// the six are declared "script" — cedargate's two update_qc_*_thresholds.sql
-// and walrus's update_drug_class_interchange_lookups.sql, two of them opening
+// the six are declared "script" — one client workspace's two threshold-update
+// scripts and another's lookup-update script, two of them opening
 // their own transaction. The other three are not run by anything, deliberately:
 // the user confirmed on 2026-09-12 that unused report SQL is retained for
 // debugging, so "nothing wires this" is a supported state and not a finding.

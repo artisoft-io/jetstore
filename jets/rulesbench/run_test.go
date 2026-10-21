@@ -4,7 +4,7 @@ package rulesbench
 // jets/jetrules/test_ws in a child process: the workspace packages fix their
 // paths at init, as the RunRuleSets tests in jets/compute_pipes note. The C++
 // engine runs the same code through the same interface; the command's smoke run
-// on usi_ws cm_loop covers it (README.md). Run with -count=1.
+// on a client workspace's unit test covers it (README.md). Run with -count=1.
 
 import (
 	"encoding/json"

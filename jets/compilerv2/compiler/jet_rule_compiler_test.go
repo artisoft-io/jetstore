@@ -7,7 +7,7 @@ import (
 // Compile a whole rule set the way the workspace compile does — through the
 // import chain, with resources extracted from the rules.
 //
-// It used to name /home/michel/projects/repos/usi_ws, a checkout that is not
+// It used to name a client workspace's checkout by absolute path, which is not
 // part of this repository and no longer exists on any machine, so the test
 // failed everywhere with "no such file or directory". The workspace under
 // jets/jetrules/test_ws is in the repository and exercises the same path: a

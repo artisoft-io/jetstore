@@ -406,9 +406,8 @@ func TestAntecedentQueryKeysAreAssignedOnce(t *testing.T) {
 // matches; jetrules_native_adaptor's TestDefect_I12_LiteralRegexEngines runs both
 // engines through a compiled rule.
 //
-// The patterns are the five rules' that use it: CM's z004 "^(\d\d\d)" (usi_ws
-// 1_CM01_Mapping_SM_Main2.jr:70), and walrus_ws's two name splitters
-// (merge_claim_header_and_details_main.jr:129-130).
+// The patterns are the five rules' that use it: a client workspace's zip-code prefix
+// rule "^(\d\d\d)", and another's two name splitters.
 //
 // Correct behaviour, as Q-11 decided for Phase 4: C++'s, so "123", null, "JOHN"
 // and "DOE" below.
@@ -418,9 +417,9 @@ func TestDefect_I12_LiteralRegexGoMeaning(t *testing.T) {
 		text, pattern, today, correct string
 	}{
 		{"12345", `^(\d\d\d)`, "123", "123"},         // agree: the group is the whole pattern
-		{"N/A", `^(\d\d\d)`, "", "<null>"},           // Go "" (then a GEOZIP lookup), C++ no claimZip3
-		{"DOE, JOHN", `,\s+(\w+)`, ", JOHN", "JOHN"}, // walrus pt_fname
-		{"DOE, JOHN", `(.*?),`, "DOE,", "DOE"},       // walrus pt_lname
+		{"N/A", `^(\d\d\d)`, "", "<null>"},           // Go "" (then a lookup on it), C++ no value
+		{"DOE, JOHN", `,\s+(\w+)`, ", JOHN", "JOHN"}, // a first-name splitter
+		{"DOE, JOHN", `(.*?),`, "DOE,", "DOE"},       // a last-name splitter
 	}
 	for _, c := range cases {
 		got := op.Eval(nil, nil, rdf.S(c.text), rdf.S(c.pattern))

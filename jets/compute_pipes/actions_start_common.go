@@ -409,7 +409,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		// Get the domain_key_json from domain_keys_registry table
 		// Example of how this table is populated from base__workspace_init_db.sql:
 		// INSERT INTO jetsapi.domain_keys_registry (entity_rdf_type, object_types, domain_keys_json) VALUES
-		// ('wrs:Eligibility', '{"Eligibility"}', '{"Eligibility":"wrs:Generated_ID","jets:hashing_override":"none"}'),
+		// ('ex:Eligibility', '{"Eligibility"}', '{"Eligibility":"ex:Generated_ID","jets:hashing_override":"none"}'),
 		var buf strings.Builder
 		buf.WriteString("SELECT entity_rdf_type, object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
 		first := true

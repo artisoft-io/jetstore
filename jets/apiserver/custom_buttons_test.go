@@ -7,16 +7,16 @@ import (
 	"testing"
 )
 
-// cedargateButtons is the value build_jetstore_scripts sets for cedargate_ws
-// (internal/workspaces/cedargate_ws.sh, read 2026-10-01), verbatim.
-const cedargateButtons = `[{"type":"fetch_stage_to_clipboard","key":"analysis_report_to_clipboard","description":"Get Analysis Report from JetStore stage s3 location to clipboard","label":"Analysis Report","replace_text":"|","replace_with":",","fsk_params":["process_name","session_id"],"file_path":"process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv"}]`
+// sampleButtons is the value build_jetstore_scripts sets for a client workspace
+// (read 2026-10-01), verbatim.
+const sampleButtons = `[{"type":"fetch_stage_to_clipboard","key":"analysis_report_to_clipboard","description":"Get Analysis Report from JetStore stage s3 location to clipboard","label":"Analysis Report","replace_text":"|","replace_with":",","fsk_params":["process_name","session_id"],"file_path":"process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv"}]`
 
 func TestParseCustomButtons(t *testing.T) {
 	cases := map[string]struct {
 		raw  string
 		want int
 	}{
-		"cedargate's value":                       {cedargateButtons, 1},
+		"a client's value":                        {sampleButtons, 1},
 		"unset, which the CDK sends as empty":     {"", 0},
 		"only whitespace":                         {"  \n", 0},
 		"an empty array":                          {"[]", 0},
@@ -41,7 +41,7 @@ func TestParseCustomButtons(t *testing.T) {
 // The entries travel as the operator wrote them; the client is the one that
 // decides what a button may say.
 func TestParseCustomButtonsPassesEntriesThrough(t *testing.T) {
-	got := parseCustomButtons(cedargateButtons)
+	got := parseCustomButtons(sampleButtons)
 	var entry map[string]any
 	if err := json.Unmarshal(got[0], &entry); err != nil {
 		t.Fatal(err)
@@ -66,11 +66,11 @@ func TestLoginServesCustomButtons(t *testing.T) {
 	if os.Getenv("JETS_TEST_DSN") == "" {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
-	withCustomButtons(t, cedargateButtons)
+	withCustomButtons(t, sampleButtons)
 	out := loginResponse(t)
 	list, ok := out["custom_buttons"].([]any)
 	if !ok || len(list) != 1 {
-		t.Fatalf("custom_buttons = %#v, want cedargate's one button", out["custom_buttons"])
+		t.Fatalf("custom_buttons = %#v, want the client's one button", out["custom_buttons"])
 	}
 	if label := list[0].(map[string]any)["label"]; label != "Analysis Report" {
 		t.Errorf("label = %#v", label)

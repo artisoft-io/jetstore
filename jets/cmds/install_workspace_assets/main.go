@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	ws     = flag.String("w", "", "workspace prefix (eg: usi_ws); resolved under $WORKSPACES_HOME")
+	ws     = flag.String("w", "", "workspace prefix (eg: my_ws); resolved under $WORKSPACES_HOME")
 	wsDir  = flag.String("d", "", "workspace directory, as an alternative to -w")
 	dryRun = flag.Bool("dry_run", false, "report what would change and write nothing")
 	force  = flag.Bool("force", false,
