@@ -221,11 +221,12 @@ Whether pipelines should run with them fixed is a decision this entry does not m
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
 so erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle
-tests drive retraction with `insert_inferred` and `retract` instead. And Go `RdfGraph.Retract`
+tests drive retraction with `insert_inferred` and `retract` instead. ~~And Go `RdfGraph.Retract`
 erases the triple from its `pos` and `osp` indexes even when the `spo` reference count is still
-above zero (`Retract`, `jets/jetrules/rdf/rdf_graph.go:188`), so a triple with two supports that
-loses one should stay `Contains`-true and stop being found by predicate or object — read from the
-code, not measured.
+above zero, so a triple with two supports that loses one should stay `Contains`-true and stop
+being found by predicate or object, read from the code, not measured.~~ **Fixed 2026-10-21
+(rules_benchmark I-7)**: Go's `RdfGraph.Retract` now retracts all three indexes, as C++ does, and
+`TestRetractKeepsATripleWithASupportLeftInEveryIndex` (`rdf_graph_test.go`) holds it.
 
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
