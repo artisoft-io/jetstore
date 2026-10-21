@@ -11,6 +11,7 @@
 
 #include "../rdf/rdf_types.h"
 #include "../rete/rete_err.h"
+#include "../rete/beta_row_arena.h"
 #include "../rete/beta_row_initializer.h"
 #include "../rete/node_vertex.h"
 
@@ -31,19 +32,26 @@ enum BetaRowStatus {
 };
 
 // BetaRow is a row in the BetaRelation table
+//
+// A row made by a ReteSession lives in the session's BetaRowArena with everything it
+// owns (its data, its tid and its inferred-triple record), so the session can be
+// released without destroying its rows one by one. A row made without an arena uses
+// the global heap.
 class BetaRow {
  public:
-  using r_index_array = std::vector<rdf::r_index>;
+  using r_index_array = std::vector<rdf::r_index, ArenaAllocator<rdf::r_index>>;
+  using tid_string = std::basic_string<char, std::char_traits<char>, ArenaAllocator<char>>;
   using const_iterator = r_index_array::const_iterator;
   using iterator = r_index_array::iterator;
 
-  BetaRow() : data_(), size_(0), node_vertex_(nullptr) {}
-  BetaRow(b_index node_vertex, int size) 
+  BetaRow() : status_(kNone), size_(0), tid_(), data_(), node_vertex_(nullptr), inferred_(nullptr) {}
+  BetaRow(b_index node_vertex, int size, BetaRowArena * arena = nullptr)
     : status_(kNone),
-      tid_("0"),
-      data_(),
       size_(size),
-      node_vertex_(node_vertex)
+      tid_("0", ArenaAllocator<char>(arena)),
+      data_(ArenaAllocator<rdf::r_index>(arena)),
+      node_vertex_(node_vertex),
+      inferred_(nullptr)
   {
     if(size_ > 0) {
       data_.resize(size_);
@@ -53,6 +61,7 @@ class BetaRow {
   virtual inline
   ~BetaRow()
   {
+    release_recorded();
   }
 
   BetaRow(BetaRow const&) = delete;
@@ -64,7 +73,7 @@ class BetaRow {
     return size_;
   }
 
-  inline std::string const&
+  inline tid_string const&
   get_tid()const
   {
     return this->tid_;
@@ -114,6 +123,13 @@ class BetaRow {
     return node_vertex_;
   }
 
+  // The arena the row lives in, null for a row on the global heap
+  inline BetaRowArena *
+  arena()const
+  {
+    return data_.get_allocator().arena();
+  }
+
   // Method to initialize the row with a BetaRowInitializer
   int
   initialize(BetaRowInitializer const* initializer, BetaRow const* parent_node, rdf::Triple const* triple)
@@ -138,7 +154,8 @@ class BetaRow {
     if(this->node_vertex_) {
       std::ostringstream buf;
       buf << parent_node->get_tid() <<":"<<this->node_vertex_->vertex;
-      this->tid_ = buf.str();
+      auto const& tid = buf.str();
+      this->tid_.assign(tid.data(), tid.size());
     }
     return 0;
   }
@@ -166,12 +183,17 @@ class BetaRow {
   // Inferred-triple record, kept only for a row of a vertex flagged
   // records_consequents (see NodeVertex). Null otherwise, so a row that does not
   // record pays one pointer.
-  using triple_list = std::vector<rdf::Triple>;
+  // The record is allocated from the row's arena, as the row is.
+  using triple_list = std::vector<rdf::Triple, ArenaAllocator<rdf::Triple>>;
 
   inline void
   start_recording()
   {
-    inferred_ = std::make_unique<triple_list>();
+    release_recorded();
+    ArenaAllocator<triple_list> alloc(data_.get_allocator());
+    triple_list * p = alloc.allocate(1);
+    ::new (static_cast<void*>(p)) triple_list(ArenaAllocator<rdf::Triple>(alloc));
+    inferred_ = p;
   }
 
   inline bool
@@ -189,7 +211,7 @@ class BetaRow {
   inline triple_list const*
   get_recorded()const
   {
-    return inferred_.get();
+    return inferred_;
   }
 
   // Hands the recorded triples over and leaves the record empty: the row still
@@ -197,7 +219,7 @@ class BetaRow {
   inline triple_list
   take_recorded()
   {
-    triple_list recorded;
+    triple_list recorded(ArenaAllocator<rdf::Triple>(data_.get_allocator()));
     if(inferred_) recorded.swap(*inferred_);
     return recorded;
   }
@@ -230,18 +252,35 @@ operator==(BetaRow const& rhs)const
  protected:
 
  private:
+  inline void
+  release_recorded()
+  {
+    if(not inferred_) return;
+    ArenaAllocator<triple_list> alloc(data_.get_allocator());
+    inferred_->~triple_list();
+    alloc.deallocate(inferred_, 1);
+    inferred_ = nullptr;
+  }
+
   // To track when rows get inferred and then retracted
   BetaRowStatus   status_;
-  std::string     tid_;
-  r_index_array   data_;
   int             size_;
+  tid_string      tid_;
+  r_index_array   data_;
   b_index         node_vertex_;
-  std::unique_ptr<triple_list> inferred_;
+  triple_list *   inferred_;
 };
 
+// A row on the global heap, outside any ReteSession
 inline BetaRowPtr create_beta_row(b_index node_vertex, int size)
 {
   return std::make_shared<BetaRow>(node_vertex, size);
+}
+
+// A row in `arena`, with its control block: what a ReteSession makes
+inline BetaRowPtr create_beta_row(BetaRowArena * arena, b_index node_vertex, int size)
+{
+  return std::allocate_shared<BetaRow>(ArenaAllocator<BetaRow>(arena), node_vertex, size, arena);
 }
 
 inline std::ostream & operator<<(std::ostream & out, BetaRow const& row)
@@ -327,7 +366,8 @@ operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs)
 }
 
 // using beta_row_set = absl::flat_hash_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
-using beta_row_set = std::unordered_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
+using beta_row_set = std::unordered_set<BetaRowPtr, absl::Hash<BetaRowPtr>, std::equal_to<BetaRowPtr>,
+  ArenaAllocator<BetaRowPtr>>;
 
 
 } // namespace jets::rete

@@ -12,6 +12,7 @@
 
 #include "../rdf/rdf_types.h"
 #include "../rete/node_vertex.h"
+#include "../rete/beta_row_arena.h"
 #include "../rete/beta_row_initializer.h"
 #include "../rete/beta_row.h"
 #include "../rete/beta_row_iterator.h"
@@ -30,7 +31,8 @@ namespace jets::rete {
 class ReteSession;
 using ReteSessionPtr = std::shared_ptr<ReteSession>;
 
-using BetaRelationVector = std::vector<BetaRelationPtr>;
+// The relations live in the session's arena, which owns them (see ~ReteSession)
+using BetaRelationVector = std::vector<BetaRelation *>;
 using VertexVisitsVector = std::vector<std::pair<int, int>>;
 using AlphaNodeVector = std::vector<AlphaNodePtr>;
 
@@ -56,7 +58,8 @@ class ReteSession {
   using Iterator = rdf::RDFSession::Iterator;
 
   ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSession * rdf_session) 
-    : rule_ms_(rule_ms),
+    : arena_(),
+      rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
       vertex_visits_(),
@@ -66,6 +69,28 @@ class ReteSession {
       no_truth_main_on_exist_(0),
       recording_row_(nullptr)
     {}
+
+  ReteSession(ReteSession const&) = delete;
+  ReteSession & operator=(ReteSession const&) = delete;
+
+  /**
+   * @brief Release the session's beta relations in bulk
+   *
+   * The relations, their rows and the nodes and buckets of their containers are all
+   * in arena_, and none of them is destroyed: arena_ frees its blocks, declared first
+   * so that it is destroyed last. Destroying them one by one cost a large session
+   * about a fifth of its time. What holds a row outside the arena, the consequent
+   * queue, is destroyed first, as a member declared after arena_, and releases its
+   * rows into the arena as before.
+   */
+  ~ReteSession() = default;
+
+  // The arena the session's beta relations and rows are allocated from
+  inline BetaRowArena *
+  arena()
+  {
+    return &arena_;
+  }
 
   inline rdf::RDFSession *
   rdf_session()
@@ -95,7 +120,7 @@ class ReteSession {
   get_beta_relation(int vertex)
   {
     if(vertex<0 or vertex>= static_cast<int>(beta_relations_.size())) return nullptr;
-    return beta_relations_[vertex].get();
+    return beta_relations_[vertex];
   }
 
   inline BetaRelationVector const&
@@ -296,6 +321,7 @@ class ReteSession {
  private:
  friend class BetaRelation;
 
+  BetaRowArena            arena_;                  // first: destroyed last, see ~ReteSession
   ReteMetaStorePtr        rule_ms_;
   rdf::RDFSession *       rdf_session_;
   BetaRelationVector      beta_relations_;
@@ -338,6 +364,11 @@ inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms,
 inline int
 BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
+  // A relation in an arena is released without being destroyed, so a row it holds
+  // must be in the same arena, or the row would never be freed
+  if(beta_row->arena() != this->arena_) {
+    RETE_EXCEPTION("BetaRelation::insert_beta_row: row and relation are in different arenas");
+  }
   auto iret = this->all_beta_rows_.insert(beta_row);
   if(iret.second) {
     // beta_row inserted in set

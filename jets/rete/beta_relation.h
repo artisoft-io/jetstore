@@ -42,18 +42,28 @@ class BetaRelation {
       pending_beta_rows_(),
       beta_row_idx1_(),
       beta_row_idx2_(),
-      beta_row_idx3_()
+      beta_row_idx3_(),
+      arena_(nullptr)
     {}
 
-  explicit BetaRelation(b_index node_vertex) 
+  // `arena` is the owning ReteSession's, null outside a session (global heap). A
+  // relation in an arena is never destroyed: the session releases the arena.
+  explicit BetaRelation(b_index node_vertex, BetaRowArena * arena = nullptr)
     : node_vertex_(node_vertex),
       is_activated_(false),
-      all_beta_rows_(),
-      pending_beta_rows_(),
-      beta_row_idx1_(),
-      beta_row_idx2_(),
-      beta_row_idx3_()
+      all_beta_rows_(ArenaAllocator<BetaRowPtr>(arena)),
+      pending_beta_rows_(ArenaAllocator<BetaRowPtr>(arena)),
+      beta_row_idx1_(BetaRowIndxVec1::allocator_type(ArenaAllocator<BetaRowIndexes1>(arena))),
+      beta_row_idx2_(BetaRowIndxVec2::allocator_type(ArenaAllocator<BetaRowIndexes2>(arena))),
+      beta_row_idx3_(BetaRowIndxVec3::allocator_type(ArenaAllocator<BetaRowIndexes3>(arena))),
+      arena_(arena)
     {}
+
+  inline BetaRowArena *
+  arena()const
+  {
+    return arena_;
+  }
 
   inline b_index
   get_node_vertex()const
@@ -214,6 +224,7 @@ class BetaRelation {
   BetaRowIndxVec1 beta_row_idx1_;
   BetaRowIndxVec2 beta_row_idx2_;
   BetaRowIndxVec3 beta_row_idx3_;
+  BetaRowArena *  arena_;
 };
 
 inline std::ostream & operator<<(std::ostream & out, BetaRelation const* node)
@@ -237,10 +248,20 @@ inline std::ostream & operator<<(std::ostream & out, BetaRelationPtr node)
   return out;
 }
 
+// A relation on the global heap, outside any ReteSession
 inline BetaRelationPtr 
 create_beta_node(b_index node_vertex)
 {
   return std::make_shared<BetaRelation>(node_vertex);
+}
+
+// A relation constructed in `arena`, which owns it: it is never destroyed, and is
+// gone, with its rows and indexes, when the arena is released
+inline BetaRelation *
+create_beta_node(BetaRowArena * arena, b_index node_vertex)
+{
+  void * p = arena->allocate(sizeof(BetaRelation), alignof(BetaRelation));
+  return ::new (p) BetaRelation(node_vertex, arena);
 }
 
 } // namespace jets::rete
