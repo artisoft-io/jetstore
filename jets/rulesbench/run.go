@@ -454,6 +454,7 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		t.InputAssertNs += s.InputAssertNs
 		t.ExtractionNs += s.ExtractionNs
 		t.ReleaseNs += s.ReleaseNs
+		t.ReteReleaseNs += s.ReteReleaseNs
 		t.SessionNs += s.TotalNs
 		for _, rs := range s.RuleSets {
 			t.ReteSessionNs += rs.ReteSessionNs
@@ -560,6 +561,16 @@ func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteS
 		}, rdfSession)
 		t.dump += time.Since(d0)
 	}
+}
+
+func (t *sessionTimer) RuleSetReleased(timing *compute_pipes.RuleSetTiming) {
+	c0 := time.Now()
+	ns := timing.Release.Nanoseconds()
+	if n := len(t.sr.RuleSets); n > 0 {
+		t.sr.RuleSets[n-1].ReteReleaseNs = ns
+	}
+	t.sr.ReteReleaseNs += ns
+	t.counters += time.Since(c0)
 }
 
 // runSession runs one session as executeRules does: an rdf session, the rule

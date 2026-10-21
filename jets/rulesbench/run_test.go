@@ -176,9 +176,19 @@ func TestRun(t *testing.T) {
 					t.Fatalf("session %s: %d rule sets", s.Name, len(s.RuleSets))
 				}
 				rs := s.RuleSets[0]
+				if s.ReteReleaseNs != rs.ReteReleaseNs || rs.ReteReleaseNs < 0 {
+					t.Errorf("session %s: rete_release_ns %d, its one rule set's %d", s.Name, s.ReteReleaseNs, rs.ReteReleaseNs)
+				}
 				if rs.LoopsRun != 4 || len(rs.LoopNs) != 4 || rs.LastLoop != 3 || !rs.Completed || rs.Rete == nil || rs.Rete.VertexVisits == 0 {
 					t.Errorf("rule set %+v", rs)
 				}
+			}
+			var reteRelease int64
+			for _, s := range r.Sessions {
+				reteRelease += s.ReteReleaseNs
+			}
+			if r.Totals.ReteReleaseNs != reteRelease {
+				t.Errorf("totals rete_release_ns %d, sessions' sum %d", r.Totals.ReteReleaseNs, reteRelease)
 			}
 			for w := range workers {
 				if w < 0 || w > 1 {

@@ -90,6 +90,9 @@ type Totals struct {
 	ExtractionNs  int64 `json:"extraction_ns"`
 	ReleaseNs     int64 `json:"release_ns"`
 	SessionNs     int64 `json:"session_ns"`
+	// ReteReleaseNs is the sessions' ReteReleaseNs summed: every rete session's
+	// release. ReleaseNs is the RDF sessions'.
+	ReteReleaseNs int64 `json:"rete_release_ns"`
 }
 
 // MemoryResult is the process's memory over a run.
@@ -134,8 +137,8 @@ type SessionResult struct {
 	// The phases: NewRdfSession; the input assertion; RunRuleSets as a whole
 	// (which includes the input assertion and the rule sets below, and leaves out
 	// DumpNs and CountersNs); extraction, by an extractor built once per worker;
-	// Release; and the session from before NewRdfSession to after Release, less
-	// DumpNs and CountersNs.
+	// the RDF session's Release; and the session from before NewRdfSession to
+	// after Release, less DumpNs and CountersNs.
 	RdfSessionNs  int64 `json:"rdf_session_ns"`
 	InputAssertNs int64 `json:"input_assert_ns"`
 	RuleSetsNs    int64 `json:"rule_sets_ns"`
@@ -150,6 +153,10 @@ type SessionResult struct {
 	// reading the Go engine's counters after each rule set. It is in no other
 	// phase: RuleSetsNs and TotalNs leave it out.
 	CountersNs int64 `json:"counters_ns"`
+	// ReteReleaseNs is the rule sets' ReteReleaseNs summed: the release of the
+	// rete session after each rule set, which is inside RuleSetsNs and outside
+	// every rule set's TotalNs. With ReleaseNs it is the session's teardown.
+	ReteReleaseNs int64 `json:"rete_release_ns"`
 
 	Loops          int      `json:"loops"`
 	Completed      bool     `json:"completed"`
@@ -186,6 +193,9 @@ type RuleSetResult struct {
 	ControlNs       int64 `json:"control_ns"`
 	ExceptionScanNs int64 `json:"exception_scan_ns"`
 	TotalNs         int64 `json:"total_ns"`
+	// ReteReleaseNs is the rete session's Release() after the rule set
+	// (compute_pipes.RuleSetTiming.Release). It is not in TotalNs.
+	ReteReleaseNs int64 `json:"rete_release_ns"`
 	// LoopNs is each loop's ExecuteRules, loop 0 first, with Options.PerLoop.
 	LoopNs []int64 `json:"loop_ns,omitempty"`
 	// LoopsRun is the number of ExecuteRules calls; LastLoop is the last loop
