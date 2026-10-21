@@ -22,6 +22,8 @@ type ReteSession struct {
 	// recordingRow is the beta row whose inferred triples ComputeConsequentTriples is
 	// recording, nil otherwise
 	recordingRow *BetaRow
+	// visitStack is VisitReteGraph's stack, allocated on its first call
+	visitStack *IntStack
 }
 
 // InsertInferredFor inserts a triple inferred by row's consequent terms. When row is

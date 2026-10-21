@@ -24,6 +24,13 @@ package rete
 //	                            leaked-goroutines/op: the filter's exist stopped an
 //	                            iterator early (rules_benchmark F3, I-1) until G1
 //	                            and G7; 0 by construction since
+//	BenchmarkVisitReteGraph     /vertices=6|100|450
+//	                            one VisitReteGraph from the head of a network of that
+//	                            many vertices, all children of the head, with nothing
+//	                            pending: what a visit costs before it matches anything.
+//	                            Before G6 each call allocated a stack of NbrVertices
+//	                            ints (rules_benchmark F6, F103); CM's rule sets have 59
+//	                            to 447 vertices. Read B/op and allocs/op
 //
 // Rows hold half named resources and half text literals of 20 to 40 characters,
 // the shape of a mapped claim's keys and codes.
@@ -168,7 +175,7 @@ type benchNetwork struct {
 	hasClaim, excluded, linked, rdfType *rdf.Node
 }
 
-func newBenchNetwork(b *testing.B) *benchNetwork {
+func newBenchNetwork(b testing.TB) *benchNetwork {
 	b.Helper()
 	rm := rdf.NewResourceManager(nil)
 	jr := rm.JetsResources
@@ -314,6 +321,56 @@ func BenchmarkExecuteRules(b *testing.B) {
 			}
 			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N*claims), "ns/claim")
 			reportLeakedGoroutines(b, before)
+		})
+	}
+}
+
+// newWideNetwork returns a meta store whose vertices - 1 rule vertices are all
+// children of the head, each matching (?x rdf:type bench:T<i>), with no consequent.
+func newWideNetwork(b testing.TB, vertices int) (*rdf.ResourceManager, *ReteMetaStore) {
+	b.Helper()
+	rm := rdf.NewResourceManager(nil)
+	rdfType := rm.JetsResources.Rdf__type
+	head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
+	nodeVertices := []*NodeVertex{head}
+	alphaNodes := []*AlphaNode{NewRootAlphaNode(head)}
+	for i := 1; i < vertices; i++ {
+		nv := NewNodeVertex(i, head, false, 100, nil, fmt.Sprintf("v%d", i), []string{"r"},
+			NewBetaRowInitializer([]int{brcTriple | 0}, []string{"?x"}))
+		nodeVertices = append(nodeVertices, nv)
+		t := rm.NewResource(fmt.Sprintf("bench:T%d", i))
+		an := NewAlphaNode(&FVariable{variable: "?x"}, &FConstant{node: rdfType}, &FConstant{node: t}, nv, true, "(?x rdf:type T)")
+		head.AddChildAlphaNode(an)
+		alphaNodes = append(alphaNodes, an)
+	}
+	config := map[string]string{"$max_rule_exec": "100000000"}
+	ms, err := NewReteMetaStore(rm, rdf.NewMetaRdfGraph(rm), nil, alphaNodes, nodeVertices, &config, nil, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return rm, ms
+}
+
+func BenchmarkVisitReteGraph(b *testing.B) {
+	for _, vertices := range []int{6, 100, 450} {
+		b.Run(fmt.Sprintf("vertices=%d", vertices), func(b *testing.B) {
+			rm, ms := newWideNetwork(b, vertices)
+			rs := NewReteSession(rdf.NewRdfSession(rm, ms.MetaGraph))
+			rs.Initialize(ms)
+			defer rs.Done()
+			if got := ms.NbrVertices(); got != vertices {
+				b.Fatalf("NbrVertices: got %d, want %d", got, vertices)
+			}
+			// The first visit activates every vertex; the timed ones find nothing pending.
+			if err := rs.VisitReteGraph(0, true); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := rs.VisitReteGraph(0, true); err != nil {
+					b.Fatal(err)
+				}
+			}
 		})
 	}
 }
