@@ -58,11 +58,19 @@ func (s *IntStack) Pop() int {
 
 func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 	// log.Println("Entering ReteSession.VisitReteGraph @ vertex",fromVertex)
-	stack := NewIntStack(rs.ms.NbrVertices())
+	// The visit stack is the session's, reused across calls (rules_benchmark G6). A visit
+	// started inside another -- by a callback, on an insert made during the visit --
+	// works above the outer visit's entries and ends when it is back down to them.
+	if rs.visitStack == nil {
+		rs.visitStack = NewIntStack(rs.ms.NbrVertices())
+	}
+	stack := rs.visitStack
+	base := stack.Len()
+	defer func() { *stack = (*stack)[:base] }()
 	stack.Push(fromVertex)
 	// idebug := 0
 	for {
-		if stack.Len() == 0 {
+		if stack.Len() == base {
 			// Main exit point
 			// log.Println("Exiting ReteSession.VisitReteGraph @ vertex",fromVertex)
 			return nil
