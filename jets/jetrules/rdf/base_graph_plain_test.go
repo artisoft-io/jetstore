@@ -88,3 +88,82 @@ func TestWalkWithWritesOnTheSameGoroutine(t *testing.T) {
 		t.Fatal("the walk erased nothing; the test exercises nothing")
 	}
 }
+
+// A Find() walk reads the spo index, whose outer map is the one being walked. A
+// loop body that erases every triple of the subject it is on prunes that subject
+// from the walked map, and re-inserting them adds it back as a new entry, which
+// the walk may produce again or not at all. The walk must still end, and every
+// triple of a subject left alone must be produced exactly once.
+func TestWalkErasesAndReinsertsTheWalkedSubject(t *testing.T) {
+	rm := NewResourceManager(nil)
+	g := NewRdfGraph("TEST")
+	preds := []*Node{rm.NewResource("p1"), rm.NewResource("p2")}
+	victims := map[*Node]bool{}
+	var subjects []*Node
+	for i := range 60 {
+		s := rm.NewResource(fmt.Sprintf("s%d", i))
+		subjects = append(subjects, s)
+		if i%5 == 0 {
+			victims[s] = true
+		}
+		for j, p := range preds {
+			g.Insert(s, p, rm.NewIntLiteral(10*i+j))
+		}
+	}
+	size := g.Size()
+	touched := map[*Node]bool{}
+	seen := map[[3]*Node]int{}
+	steps := 0
+	for t3 := range g.Find().All() {
+		if steps++; steps > 10*size {
+			t.Fatalf("the walk has produced %d triples from a graph of %d; it is not ending", steps, size)
+		}
+		seen[t3]++
+		s := t3[0]
+		if !victims[s] || touched[s] {
+			continue
+		}
+		touched[s] = true
+		// erase every triple of the walked subject, which prunes it from the walked
+		// map, then put them back
+		var mine [][3]*Node
+		for u := range g.FindS(s).All() {
+			mine = append(mine, u)
+		}
+		if _, err := g.Erase(s, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := g.spoGraph.data[s]; ok {
+			t.Fatalf("%s is still in the spo index after all its triples were erased", s)
+		}
+		for _, u := range mine {
+			g.Insert(u[0], u[1], u[2])
+		}
+	}
+	if len(touched) != len(victims) {
+		t.Errorf("the walk reached %d of the %d subjects it was to erase and re-insert", len(touched), len(victims))
+	}
+	for _, s := range subjects {
+		for j, p := range preds {
+			o := rm.NewIntLiteral(10*indexOf(subjects, s) + j)
+			n := seen[[3]*Node{s, p, o}]
+			// an erased and re-inserted triple may be produced any number of times
+			// (zero, if the walk was inside the pruned map when it was erased)
+			if !victims[s] && n != 1 {
+				t.Errorf("(%s %s %s), left alone, was produced %d times, want 1", s, p, o, n)
+			}
+		}
+	}
+	if g.Size() != size {
+		t.Errorf("size %d after the walk, want %d", g.Size(), size)
+	}
+}
+
+func indexOf(nodes []*Node, n *Node) int {
+	for i, m := range nodes {
+		if m == n {
+			return i
+		}
+	}
+	return -1
+}

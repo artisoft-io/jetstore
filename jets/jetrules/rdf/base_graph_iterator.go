@@ -15,17 +15,25 @@ import "iter"
 // "no triple yet" without blocking (I-2).
 //
 // Writes during a walk. The loop body may insert into or erase from the graph
-// being walked, on the same goroutine. The walk stays well defined and finishes,
-// and a triple inserted or erased by the loop body may or may not be returned by
-// the walk in progress. The graph's maps are plain Go maps (G2), so this is the
-// language's rule for a write during a range on the same goroutine: an entry
-// deleted before the walk reaches it is not produced, and an entry added may or
-// may not be. It was sync.Map.Range's contract before G2, and it is no weaker.
-// An erase that empties an inner map deletes that map too (I-11); a walk already
-// inside it finishes on the detached map, which is empty. Which triples a write
-// makes visible is not specified, and nothing may depend on it. What the iterator
-// does not support is a write from another goroutine during a walk: with plain
-// maps that is a data race, which the runtime may report as a fatal error.
+// being walked, on the same goroutine, and a triple it inserts or erases may or
+// may not be returned by the walk in progress. The graph's maps are plain Go maps
+// (G2), so this is the language's rule for a write during a range on the same
+// goroutine: an entry deleted before the walk reaches it is not produced, and an
+// entry added may or may not be.
+//
+// That is weaker than sync.Map.Range's contract before G2 in one respect:
+// sync.Map.Range visits each key at most once, and a map range does not promise
+// it for a key that is deleted and added again during the walk, which counts as a
+// new entry. An erase that empties an inner map deletes that map too (I-11), so an
+// erase and a re-insert of a subject (or a predicate under it) that the walk has
+// already passed can produce its triples again. A walk already inside a pruned map
+// finishes on the detached map. Which triples a write makes visible, and whether
+// one is returned twice, is not specified, and nothing may depend on it. The
+// language does not promise that a walk ends if its loop body keeps adding new
+// keys; the engine writes during a walk only through the filter operators named
+// below, which the rules do not use in filters. What the iterator does not
+// support at all is a write from another goroutine during a walk: with plain maps
+// that is a data race, which the runtime may report as a fatal error.
 //
 // The rete engine does write during a walk. Consequents are inserted after a
 // visit (ComputeConsequentTriples), but a filter is evaluated inside
