@@ -1,5 +1,6 @@
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -455,6 +456,37 @@ TEST_F(RDFSessionStlTest, TestFindRRS)
       itor.next();
   }
   EXPECT_EQ(count, 1);
+}
+
+// The error path records (jets:iState, jets:exception, msg) in the asserted graph while
+// a filter is evaluated, under the iterators of the rules being visited. An iterator
+// over the session returns what the session held when it started.
+TEST(RDFSessionInsert, InsertWhileIterating)
+{
+  auto meta_graph_p = create_rdf_graph();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+  auto r_mgr_p = rdf_session_p->get_rmgr();
+  auto istate = r_mgr_p->create_resource("istate");
+  auto exception = r_mgr_p->create_resource("exception");
+  auto p = r_mgr_p->create_resource("p");
+  for(int i=0; i<5; i++) {
+    rdf_session_p->insert(istate, p, r_mgr_p->create_literal(i));
+    rdf_session_p->insert_inferred(istate, exception, r_mgr_p->create_literal(100+i));
+  }
+  int count = 0;
+  auto itor = rdf_session_p->find(istate, make_any(), make_any());
+  while(not itor.is_end()) {
+    count++;
+    // an inferred triple asserted: erased from the inferred graph under its iterator
+    if(count <= 5) rdf_session_p->insert(istate, exception, r_mgr_p->create_literal(100+count-1));
+    for(int i=0; i<200; i++) {
+      rdf_session_p->insert(istate, exception, 
+        r_mgr_p->create_literal("error " + std::to_string(count) + "." + std::to_string(i)));
+    }
+    itor.next();
+  }
+  EXPECT_EQ(count, 10);
+  EXPECT_EQ(rdf_session_p->size(), 10 + 10*200);
 }
 
 }   // namespace
