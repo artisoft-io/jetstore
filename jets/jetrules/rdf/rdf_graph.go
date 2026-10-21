@@ -212,9 +212,14 @@ func (g *RdfGraph) Retract(s, p, o *Node) (bool, error) {
 		log.Printf("error: retract called with NULL *Node to RdfGraph: (%s, %s, %s)", s, p, o)
 		return false, ErrNilNode
 	}
+	// The three indexes hold the same reference count, so each is retracted, as
+	// C++ rdf_graph::retract does. They were erased here until rules_benchmark
+	// Phase 2 (I-7), which dropped a triple with two supports that lost one from
+	// pos and osp while spo kept it: found by Contains and (s, p, ?), not by
+	// (?, p, o), (?, p, ?), (?, ?, o) or (s, ?, o).
 	erased := g.spoGraph.Retract(s, p, o)
-	g.posGraph.Erase(p, o, s)
-	g.ospGraph.Erase(o, s, p)
+	g.posGraph.Retract(p, o, s)
+	g.ospGraph.Retract(o, s, p)
 	if erased {
 		// Notify callback mgr
 		g.CallbackMgr.TripleDeleted(s, p, o)
