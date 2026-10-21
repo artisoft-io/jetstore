@@ -178,9 +178,10 @@ func run(specPath string) error {
 		if err := writeJSON(filepath.Join(*outDir, name), r); err != nil && writeErr == nil {
 			writeErr = err
 		}
-		fmt.Printf("rules_bench: %s %s %s%02d pool %d: %s, %d sessions, %d rows, wall %s, %d errors\n",
+		fmt.Printf("rules_bench: %s %s %s%02d pool %d: %s, %d sessions, %d rows, wall %s, %d errors, release rete %s rdf %s\n",
 			r.Bench, r.Engine, kind, r.Repetition, r.PoolSize, r.Status, r.Totals.Sessions, r.Totals.InputRows,
-			time.Duration(r.WallNs), r.Totals.Errors)
+			time.Duration(r.WallNs), r.Totals.Errors,
+			time.Duration(r.Totals.ReteReleaseNs), time.Duration(r.Totals.ReleaseNs))
 	}
 	_, err = rulesbench.Run(opts)
 	if rows != nil {

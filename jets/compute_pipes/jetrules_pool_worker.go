@@ -456,6 +456,10 @@ type RuleSetsTimer interface {
 	// counters from reteSession (see ReteCounterReader). It must not retain
 	// reteSession or rdfSession.
 	RuleSetDone(rdfSession JetRdfSession, reteSession JetReteSession, timing *RuleSetTiming)
+	// RuleSetReleased is called after each RuleSetDone, once the rule set's rete
+	// session is released, with the same timing and its Release set. A rule set
+	// that ends on an error releases its rete session without either call.
+	RuleSetReleased(timing *RuleSetTiming)
 }
 
 // RuleSetTiming is the time one rule set took in RunRuleSets, by phase. Every
@@ -479,6 +483,9 @@ type RuleSetTiming struct {
 	// Total runs from before NewReteSession to after the exception scan, less the
 	// input assertion.
 	Total time.Duration
+	// Release is the rete session's Release() at the end of the rule set. It is
+	// not in Total: it runs after RuleSetDone, and is read by RuleSetReleased.
+	Release time.Duration
 }
 
 // GraphSizes is the number of triples in each graph an rdf session reads.
@@ -805,8 +812,13 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 		}
 		if timer != nil {
 			timer.RuleSetDone(rdfSession, reteSession, timing)
+			t1 = time.Now()
 		}
 		reteSession.Release()
+		if timer != nil {
+			timing.Release = time.Since(t1)
+			timer.RuleSetReleased(timing)
+		}
 	}
 	return
 }

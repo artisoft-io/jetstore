@@ -25,8 +25,12 @@ type recordingTimer struct {
 	inputCalls int
 	input      time.Duration
 	ruleSets   []compute_pipes.RuleSetTiming
-	graphs     []compute_pipes.GraphSizes
-	rete       []compute_pipes.ReteCounters
+	// released holds what RuleSetReleased is given, and events the order of the
+	// two calls, "done" and "released".
+	released []compute_pipes.RuleSetTiming
+	events   []string
+	graphs   []compute_pipes.GraphSizes
+	rete     []compute_pipes.ReteCounters
 }
 
 func (r *recordingTimer) InputAsserted(d time.Duration) {
@@ -37,12 +41,18 @@ func (r *recordingTimer) InputAsserted(d time.Duration) {
 
 func (r *recordingTimer) RuleSetDone(s compute_pipes.JetRdfSession, rs compute_pipes.JetReteSession, t *compute_pipes.RuleSetTiming) {
 	r.ruleSets = append(r.ruleSets, *t)
+	r.events = append(r.events, "done")
 	if gs, ok := s.(compute_pipes.GraphSizer); ok {
 		r.graphs = append(r.graphs, gs.GraphSizes())
 	}
 	if rc, ok := rs.(compute_pipes.ReteCounterReader); ok {
 		r.rete = append(r.rete, rc.ReteCounters())
 	}
+}
+
+func (r *recordingTimer) RuleSetReleased(t *compute_pipes.RuleSetTiming) {
+	r.released = append(r.released, *t)
+	r.events = append(r.events, "released")
 }
 
 func TestRunRuleSetsTiming(t *testing.T) {
@@ -107,6 +117,32 @@ func TestRunRuleSetsTiming(t *testing.T) {
 			}
 			if len(want) < 2 || !slices.Equal(got, want) || timer.inputCalls != 1 {
 				t.Errorf("timed rule sets %v, want %v; InputAsserted called %d times, want 1", got, want, timer.inputCalls)
+			}
+		})
+		t.Run("rete_release_timed_after_each_rule_set", func(t *testing.T) {
+			// rules_benchmark I-35: the release of each rule set's rete session is
+			// its own phase, reported after RuleSetDone and outside Total.
+			timer := &recordingTimer{}
+			o := runRuleSets(t, executeRulesSequence, "exception", &compute_pipes.RuleSetsConfig{Timing: timer})
+			n := len(o.RuleSets)
+			if n < 2 || len(timer.released) != n || len(timer.ruleSets) != n {
+				t.Fatalf("%d rule sets ran, RuleSetDone called %d times, RuleSetReleased %d", n, len(timer.ruleSets), len(timer.released))
+			}
+			var want []string
+			for range n {
+				want = append(want, "done", "released")
+			}
+			if !slices.Equal(timer.events, want) {
+				t.Errorf("calls %v, want %v", timer.events, want)
+			}
+			for i, rel := range timer.released {
+				done := timer.ruleSets[i]
+				if done.Release != 0 {
+					t.Errorf("rule set %s: Release %v set before RuleSetDone", done.RuleSet, done.Release)
+				}
+				if rel.RuleSet != done.RuleSet || rel.Total != done.Total || rel.Release < 0 {
+					t.Errorf("rule set %d: released %+v, done %+v; want the same timing with Release set", i, rel, done)
+				}
 			}
 		})
 		t.Run("go_counters", func(t *testing.T) {

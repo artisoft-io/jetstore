@@ -174,7 +174,10 @@ documents every field. In outline:
   inside this one.
 - **Each session**:
   - **the phases**: `rdf_session_ns`, `input_assert_ns`, `rule_sets_ns` (all of
-    `RunRuleSets`, assertion included), `extraction_ns`, `release_ns`, and `total_ns`;
+    `RunRuleSets`, assertion included), `extraction_ns`, `release_ns` (the RDF session's
+    `Release()`), and `total_ns`;
+  - **`rete_release_ns`**, the rule sets' `rete_release_ns` summed. It is inside
+    `rule_sets_ns`. With `release_ns` it is the session's teardown: see *Teardown* below;
   - **the bench's own time, which is in no phase**:
     - `counters_ns`, its timing callbacks, mostly the walk over the network that reads the
       Go engine's counters after each rule set;
@@ -192,10 +195,38 @@ documents every field. In outline:
   - **the phases**: `rete_session_ns` (`NewReteSession`), `prepare_ns` (the erase and
     `$max_looping`), `execute_ns` (`ExecuteRules` summed over loops) and `execute_max_ns`,
     `control_ns` (the `jets:loop` inserts and `jets:completed` checks), and
-    `exception_scan_ns`;
+    `exception_scan_ns`, all inside `total_ns`;
+  - **`rete_release_ns`**, the rete session's `Release()` after the rule set, which is
+    **not** in `total_ns`;
   - `loops_run` and `last_loop`;
   - whether a cap bound;
   - the engine's counters, where it keeps them.
+
+### Teardown: the two releases
+
+**A session releases two things, and each is timed as its own phase** (rules_benchmark
+`I-35`, Phase 3 `AN.1`):
+
+- **The rete session, after each rule set.** `RunRuleSets` creates one per rule set and
+  releases it at the rule set's end, after `RuleSetsTimer.RuleSetDone` (where the counters
+  and the dump read it). It reports the release's time through
+  `RuleSetsTimer.RuleSetReleased`, in `RuleSetTiming.Release`. The result carries it as
+  each rule set's `rete_release_ns`, summed in the session's and in `totals`. A rule set that
+  ends on an error releases its rete session untimed, and its session fails.
+- **The RDF session, once per session**, after the extraction: the session's
+  `release_ns`, summed in `totals.release_ns`. It has been timed this way since Phase 1.
+
+**Before `AN.1`, `rete_release_ns` existed only by difference**: `rule_sets_ns` less
+`input_assert_ns` less the rule sets' `total_ns`. That difference is still what
+`RunRuleSets` spends outside every rule set's phases, so it is `rete_release_ns` plus the
+loop's own bookkeeping between rule sets, and the two should agree to within that. Results
+written before `AN.1` have no `rete_release_ns`; read them by difference, as before.
+
+**In a pipeline nothing changes**: `Timing` is nil, no clock is read, and the releases
+are the calls they were.
+
+The per-run summary line on standard output, which `run_protocol.sh` repeats, ends with
+both, summed over sessions: `release rete <d> rdf <d>`.
 
 ### Counters, and which engine has them
 
