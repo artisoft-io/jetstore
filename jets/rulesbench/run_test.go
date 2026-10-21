@@ -186,6 +186,52 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
+		t.Run("rows_dir_writes_each_sessions_rows", func(t *testing.T) {
+			path := writeBench(t, 4, `, "max_vertex_visits": 1000, "pool_size": 2, "warmup": 1`)
+			dir := t.TempDir()
+			rows := NewRowWriter(dir)
+			if _, err := runBench(t, path, Options{OnExtractedRow: rows.Write, AfterExtraction: rows.SessionDone}); err != nil {
+				t.Fatal(err)
+			}
+			if len(rows.open) != 0 {
+				t.Errorf("%d sessions' files still open after the run", len(rows.open))
+			}
+			if err := rows.Close(); err != nil {
+				t.Fatal(err)
+			}
+			// Three persons per session, each a row of lp:Person's domain properties,
+			// rdf:type among them as the class alone.
+			for _, run := range []string{"w01", "r01"} {
+				for i := 1; i <= 4; i++ {
+					file := filepath.Join(dir, run, "go", fmt.Sprintf("case%d", i), "lp:Person.rows")
+					raw, err := os.ReadFile(file)
+					if err != nil {
+						t.Fatal(err)
+					}
+					lines := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+					if len(lines) != 3 || !strings.Contains(lines[0], "\t[string:\"lp:Person\"]\t") {
+						t.Errorf("%s: %q; want three lp:Person rows", file, raw)
+					}
+				}
+			}
+		})
+		t.Run("an_after_extraction_error_is_the_sessions", func(t *testing.T) {
+			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
+			results, err := runBench(t, path, Options{AfterExtraction: func(p DumpPoint) error {
+				if p.Session == "case2" {
+					return fmt.Errorf("disk full")
+				}
+				return nil
+			}})
+			if err != nil || len(results) != 1 {
+				t.Fatalf("%d results, %v", len(results), err)
+			}
+			for _, s := range results[0].Sessions {
+				if want := s.Name == "case2"; strings.Contains(s.Err, "disk full") != want {
+					t.Errorf("session %s: error %q", s.Name, s.Err)
+				}
+			}
+		})
 		t.Run("warmup_zero_overrides_the_spec", func(t *testing.T) {
 			path := writeBench(t, 1, `, "max_vertex_visits": 1000, "warmup": 2`)
 			zero := 0

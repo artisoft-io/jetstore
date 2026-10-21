@@ -518,6 +518,15 @@ func (it *TripleIteratorGo) GetPredicate() compute_pipes.RdfNode {
 	}
 }
 
+// PredicateKey is NodeKey of GetPredicate without making the node
+// (compute_pipes.PredicateKeyer).
+func (it *TripleIteratorGo) PredicateKey() any {
+	if it.value[1] == nil {
+		return nil
+	}
+	return it.value[1]
+}
+
 func (it *TripleIteratorGo) GetObject() compute_pipes.RdfNode {
 	return &RdfNodeGo{
 		node: it.value[2],
@@ -573,4 +582,13 @@ func (n *RdfNodeGo) Equals(other compute_pipes.RdfNode) bool {
 		return false
 	}
 	return n.node == otherNodeGo.node
+}
+
+// NodeKey is the node's identity key (compute_pipes.NodeKeyer): the interned
+// *rdf.Node, equal exactly when Equals is true. Nil for no node.
+func (n *RdfNodeGo) NodeKey() any {
+	if n == nil || n.node == nil {
+		return nil
+	}
+	return n.node
 }

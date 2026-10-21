@@ -878,12 +878,173 @@ func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode)
 	return keepObj, err
 }
 
-func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, predicate RdfNode,
-	currentSourcePeriod int, outChannel *JetrulesOutputChan) any {
+// NodeKeyer is implemented by an engine's RdfNode when the node has an identity
+// key: a comparable value, equal for two nodes exactly when Equals says they are
+// the same node, which FindSP and Contains match on. Both adaptors implement it,
+// by the engine's own handle, at no cost. A node without one is read as before.
+type NodeKeyer interface {
+	NodeKey() any
+}
+
+// nodeKey is n's identity key, or nil when it has none.
+func nodeKey(n RdfNode) any {
+	if k, ok := n.(NodeKeyer); ok {
+		return k.NodeKey()
+	}
+	return nil
+}
+
+// PredicateKeyer is implemented by an engine's TripleIterator when it can give
+// the current triple's predicate's identity key, NodeKey of GetPredicate, without
+// making the node. Both adaptors implement it.
+type PredicateKeyer interface {
+	PredicateKey() any
+}
+
+// columnReader reads the columns of an output channel that come from the graph,
+// for one subject at a time, in one pass over the subject's triples grouped by
+// predicate, rather than with one FindSP per column (rules_benchmark G11).
+//
+// Each column's predicate is the node FindSP read, rm.NewResource(column), looked
+// up once per session rather than once per subject, and a triple is put in the
+// column whose predicate is the same node, by identity key: so a column's objects
+// are FindSP's. And they come in FindSP's order, which a multi-valued column
+// keeps: on both engines FindS and FindSP walk the same graphs in the same order
+// and, within a graph, the same container of a (subject, predicate)'s objects.
+//
+// When a predicate has no identity key, the reader falls back to one FindSP per
+// column, which is the extraction as it was.
+type columnReader struct {
+	// names are each slot's predicate name; a duplicated column shares a slot
+	names []string
+	// colSlot is each column's slot, or -1 for a column not read from the graph:
+	// a special encoding, rdf:type or jets:source_period_sequence
+	colSlot []int
+	// preds are each slot's predicate in the session bound
+	preds []RdfNode
+	// slotOf maps a predicate's identity key to its slot; nil reads by FindSP
+	slotOf map[any]int
+	// objects are each slot's objects for the current subject, reused across subjects
+	objects [][]RdfNode
+}
+
+func newColumnReader(columns []string, outChannel *JetrulesOutputChan) *columnReader {
+	r := &columnReader{colSlot: make([]int, len(columns))}
+	slot := make(map[string]int, len(columns))
+	for i, p := range columns {
+		if outChannel.JrColumnEncodings[p] != nil || p == "rdf:type" || p == "jets:source_period_sequence" {
+			r.colSlot[i] = -1
+			continue
+		}
+		s, ok := slot[p]
+		if !ok {
+			s = len(r.names)
+			slot[p] = s
+			r.names = append(r.names, p)
+		}
+		r.colSlot[i] = s
+	}
+	r.objects = make([][]RdfNode, len(r.names))
+	r.preds = make([]RdfNode, len(r.names))
+	return r
+}
+
+// bind looks up the slots' predicates in rdfSession, and reads by FindSP unless
+// every one has an identity key.
+func (r *columnReader) bind(rdfSession JetRdfSession) {
+	rm := rdfSession.GetResourceManager()
+	r.slotOf = make(map[any]int, len(r.names))
+	for s, name := range r.names {
+		r.preds[s] = rm.NewResource(name)
+		k := nodeKey(r.preds[s])
+		if k == nil {
+			r.slotOf = nil
+			continue
+		}
+		if r.slotOf != nil {
+			r.slotOf[k] = s
+		}
+	}
+}
+
+// read collects subject's objects for every graph column.
+func (r *columnReader) read(rdfSession JetRdfSession, subject RdfNode) {
+	for i := range r.objects {
+		clear(r.objects[i])
+		r.objects[i] = r.objects[i][:0]
+	}
+	if len(r.objects) == 0 {
+		return
+	}
+	// A Find returns nil when the engine refuses its arguments; the column is then
+	// empty.
+	if r.slotOf == nil {
+		for s, p := range r.preds {
+			itor := rdfSession.FindSP(subject, p)
+			if itor == nil {
+				continue
+			}
+			for !itor.IsEnd() {
+				r.objects[s] = append(r.objects[s], itor.GetObject())
+				itor.Next()
+			}
+			itor.Release()
+		}
+		return
+	}
+	itor := rdfSession.FindS(subject)
+	if itor == nil {
+		return
+	}
+	pk, _ := itor.(PredicateKeyer)
+	for !itor.IsEnd() {
+		var key any
+		if pk != nil {
+			key = pk.PredicateKey()
+		} else {
+			key = nodeKey(itor.GetPredicate())
+		}
+		if s, ok := r.slotOf[key]; ok {
+			r.objects[s] = append(r.objects[s], itor.GetObject())
+		}
+		itor.Next()
+	}
+	itor.Release()
+}
+
+// column is column i's objects for the subject last read, nil for a column not
+// read from the graph.
+func (r *columnReader) column(i int) []RdfNode {
+	if s := r.colSlot[i]; s >= 0 {
+		return r.objects[s]
+	}
+	return nil
+}
+
+// entityRow is subject's row of columns, before the channel's column evaluators.
+func (ctx *JrPoolWorker) entityRow(rdfSession JetRdfSession, subject RdfNode, columns []string,
+	cols *columnReader, currentSourcePeriod int, outChannel *JetrulesOutputChan) []any {
+	entityRow := make([]any, len(columns))
+	cols.read(rdfSession, subject)
+	for i, p := range columns {
+		specialEncoding := outChannel.JrColumnEncodings[p]
+		if specialEncoding != nil {
+			// Special encoding for this column, extract the entire object as a json/toon/map[string]any
+			entityRow[i] = specialEncoding.EncodeColumnData(rdfSession, subject)
+		} else {
+			entityRow[i] = ctx.extractLiteralValue(rdfSession, subject, p, cols.column(i), currentSourcePeriod, outChannel)
+		}
+	}
+	return entityRow
+}
+
+// extractLiteralValue is column pname's value for subject: objects are the
+// column's objects, as columnReader gives them.
+func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject RdfNode, pname string,
+	objects []RdfNode, currentSourcePeriod int, outChannel *JetrulesOutputChan) any {
 	var data any
 	var dataArr []any
 	var isArray bool
-	pname := predicate.String()
 	switch pname {
 	case "jets:source_period_sequence":
 		// Set the current source period to the extracted data based on the value in the rdf session
@@ -894,9 +1055,8 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 	default:
 		data = nil
 		isArray = false
-		itor := rdfSession.FindSP(subject, predicate)
-		for !itor.IsEnd() {
-			value := GetRdfNodeValue(itor.GetObject())
+		for _, o := range objects {
+			value := GetRdfNodeValue(o)
 			if data == nil {
 				data = value
 			} else {
@@ -907,9 +1067,7 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 					isArray = true
 				}
 			}
-			itor.Next()
 		}
-		itor.Release()
 		if ctx.multiValueDataProperties[pname] {
 			if isArray {
 				data = dataArr
@@ -971,7 +1129,8 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	rm := rdfSession.GetResourceManager()
 	entityCount := 0
 	columns := config.Columns
-	var data any
+	cols := newColumnReader(columns, outChannel)
+	cols.bind(rdfSession)
 	var keepObj bool
 	var err error
 	isDebug := ctx.config.IsDebug
@@ -993,18 +1152,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
 			// log.Printf("*** Extracting entity for subject %s", subject)
-			entityRow := make([]any, len(columns))
-			// log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
-			for i, p := range columns {
-				specialEncoding := outChannel.JrColumnEncodings[p]
-				if specialEncoding != nil {
-					// Special encoding for this column, extract the entire object as a json/toon/map[string]any
-					entityRow[i] = specialEncoding.EncodeColumnData(rdfSession, subject)
-				} else {
-					data = ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
-					entityRow[i] = data
-				}
-			}
+			entityRow := ctx.entityRow(rdfSession, subject, columns, cols, currentSourcePeriod, outChannel)
 			// Apply the TransformationColumn, these are const values
 			// NOTE there is no initialize and done called on the column evaluators
 			//      since they should be only of type 'select' or 'value'
