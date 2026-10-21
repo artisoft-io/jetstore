@@ -1,6 +1,8 @@
 package jetrules_native_adaptor
 
 import (
+	"sync"
+
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
@@ -23,6 +25,9 @@ type JetRuleEngineNative struct {
 	isDebug      bool
 	// retractionMode is the LEGACY retraction mode the networks were built in
 	retractionMode compute_pipes.RetractionMode
+
+	// jetResourcesOnce guards jetResources, which the sessions of a pool share
+	jetResourcesOnce sync.Once
 }
 
 type RdfNodeNative struct {

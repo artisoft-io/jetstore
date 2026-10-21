@@ -443,8 +443,8 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 			t.ExecuteNs += rs.ExecuteNs
 			t.ControlNs += rs.ControlNs
 		}
-		if s.Err != "" && r.Reason == "" {
-			r.Status, r.Reason = "error", fmt.Sprintf("session %q: %s", s.Name, s.Err)
+		if reason := sessionFailure(s); reason != "" && r.Reason == "" {
+			r.Status, r.Reason = "error", reason
 		}
 	}
 	if r.WallNs > 0 {
@@ -453,6 +453,26 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		r.Totals.RowsPerSec = float64(r.Totals.InputRows) / secs
 	}
 	return r
+}
+
+// sessionFailure is why a session failed, or "" when it did not. A session that
+// fails makes its run's status error, as the command's README says: an err, an
+// execute_err or exceptions. Only err raised it before, so a run whose engine threw
+// reported ok (rules_benchmark I-34). A session that reached max_looping is counted
+// in Totals.Errors and does not fail the run. A session that reached the vertex cap
+// does: the engine reports the cap as an execute error (runSession sets
+// VertexCapReached from it), so a run whose spec sets a low max_vertex_visits on
+// purpose, which reported ok before, now reports error.
+func sessionFailure(s *SessionResult) string {
+	switch {
+	case s.Err != "":
+		return fmt.Sprintf("session %q: %s", s.Name, s.Err)
+	case s.ExecuteErr != "":
+		return fmt.Sprintf("session %q: execute: %s", s.Name, s.ExecuteErr)
+	case len(s.Exceptions) > 0:
+		return fmt.Sprintf("session %q: %d exception(s), the first: %s", s.Name, len(s.Exceptions), s.Exceptions[0])
+	}
+	return ""
 }
 
 // runTag is the repetition a run is, which a dump point carries.

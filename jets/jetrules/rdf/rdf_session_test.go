@@ -53,7 +53,7 @@ func TestRdfSessionInsert(t *testing.T) {
 		t.Fatal("error: unexpected nil rdfSession")
 	}
 	// Check that the rm is locked
-	if !rm.isLocked {
+	if !rm.isLocked.Load() {
 		t.Errorf("error: expected ResourceManager to be locked by rdf session")
 	}
 	vv := rm.NewResource("vv")

@@ -148,6 +148,11 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 		}
 	}
 
+	// Initialize the operators of the shared expressions, once per meta store
+	if err := ms.initializeExpressions(); err != nil {
+		log.Panicf("configuration error found while initializing rete session: %v", err)
+	}
+
 	// Set the callbacks
 	for i := range ms.AlphaNodes {
 		alphaNode := ms.AlphaNodes[i]
@@ -156,14 +161,8 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 			nodeVertex := alphaNode.NdVertex
 			if nodeVertex.HasExpression() {
 				// log.Printf("Set Callbacks for vertex %d with filter",  nodeVertex.Vertex)
-				err := nodeVertex.FilterExpr.InitializeExpression(rs)
-				if err != nil {
-					log.Panicf("configuration error found while initializing rete session: %v", err)
-				}
 				nodeVertex.FilterExpr.RegisterCallback(rs, nodeVertex.Vertex)
 			}
-		} else {
-			alphaNode.Fw.InitializeExpression(rs)
 		}
 	}
 }

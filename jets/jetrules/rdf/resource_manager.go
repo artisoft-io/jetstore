@@ -4,12 +4,16 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"sync/atomic"
 )
 
 // ResourceManager manages all the resources, incl literals and all. Equivalent to RManager in c++
 
 type ResourceManager struct {
-	isLocked      bool
+	// isLocked is set on the root manager by every NewResourceManager that names it as
+	// root, which every NewRdfSession does from its own goroutine, so it is atomic
+	// (rules_benchmark I-5).
+	isLocked      atomic.Bool
 	lastBnodeKey  int
 	resourceMap   map[string]*Node
 	bnodeMap      map[int]*Node
@@ -89,8 +93,8 @@ func (jr *JetResources) Initialize(rm *ResourceManager) {
 }
 
 func NewResourceManager(rootManager *ResourceManager) *ResourceManager {
-	if rootManager != nil {
-		rootManager.isLocked = true
+	if rootManager != nil && !rootManager.isLocked.Load() {
+		rootManager.isLocked.Store(true)
 	}
 	rm := &ResourceManager{
 		resourceMap: make(map[string]*Node, 100),
@@ -125,7 +129,7 @@ func (rm *ResourceManager) NewResource(name string) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewResource called when ResourceManger is locked")
 		return nil
 	}
@@ -145,7 +149,7 @@ func (rm *ResourceManager) GetBNode(key int) *Node {
 }
 
 func (rm *ResourceManager) NewBNode() *Node {
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewBNode called when ResourceManger is locked")
 		return nil
 	}
@@ -160,12 +164,12 @@ func (rm *ResourceManager) CreateBNode(key int) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: CreateBNode called when ResourceManger is locked")
 		return nil
 	}
 	r := BN(key)
-	rm.bnodeMap[rm.lastBnodeKey] = r
+	rm.bnodeMap[key] = r
 	return r
 }
 
@@ -263,7 +267,7 @@ func (rm *ResourceManager) NewIntLiteral(data int) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewIntLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -277,7 +281,7 @@ func (rm *ResourceManager) NewUIntLiteral(data uint) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewUIntLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -302,7 +306,7 @@ func (rm *ResourceManager) NewDoubleLiteral(x float64) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewDoubleLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -317,7 +321,7 @@ func (rm *ResourceManager) NewDateLiteral(data LDate) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewDateLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -332,7 +336,7 @@ func (rm *ResourceManager) NewDatetimeLiteral(data LDatetime) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewDatetimeLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -346,7 +350,7 @@ func (rm *ResourceManager) NewTextLiteral(data string) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewTextLiteral called when ResourceManger is locked")
 		return nil
 	}
@@ -364,7 +368,7 @@ func (rm *ResourceManager) NewBoolLiteral(data bool) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.isLocked {
+	if rm.isLocked.Load() {
 		log.Println("error: NewBoolLiteral called when ResourceManger is locked")
 		return nil
 	}

@@ -74,7 +74,12 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 - `2` on a usage error.
 
 A session that fails is recorded in its result, with `err`, `execute_err` or `exceptions`,
-and the run's `status` is `error`.
+and the run's `status` is `error`, with the first failing session in `reason`. A session that
+only reached `max_looping` is counted in `totals.errors` and does not fail the run. **A session
+that reached the vertex cap does fail it**: the engine reports the cap as an `execute_err`
+(`vertex_cap_reached` is read from it), so a spec with a deliberately low `-max_vertex_visits`
+reports `error`. Until rules_benchmark Phase 2, only `err` raised the status, and such a run
+reported `ok` (`I-34`).
 
 **Logging.** The command logs as every shipped main does (`utils.UseJetStoreLogger`). Its
 one-line summary of each run is on standard output, among the log lines. `RunRuleSets` logs
@@ -219,16 +224,16 @@ That is a pipeline's arrangement: `JrPoolManager` starts `pool_size` workers on 
 and each takes a bundle from `WorkersTaskCh` and opens its own RDF session. Here each task
 is a session, and a worker records its result instead of writing output channels.
 
-**`-race` with a pool above 1 reports the engine's own races, not the harness's.** On
-2026-10-20, a pool of 2 on `test_ws` gave three, each with its top frame in the Go engine.
-They are the writes to the shared meta store of rules_benchmark `I-5` and `F56`:
-
-- `isLocked` on the meta graph, `rdf_session.go:27`;
-- `isLocked` on the root resource manager, `resource_manager.go:93`;
-- `AntecedentQueryKey` on the shared `NodeVertex`, `alpha_node.go:128`.
-
-None was in `jets/rulesbench`. A race whose top frame is in `jets/rulesbench` or
-`jets/cmds/rules_bench` is the harness's.
+**`-race` with a pool above 1 should report nothing.** On 2026-10-20, at the Phase 1 pin
+`4e5a807e`, a pool of 2 on `test_ws` gave three races, each with its top frame in the Go
+engine: the writes sessions made to the shared meta store, rules_benchmark `I-5` and `F56`
+(`isLocked` on the meta graph and on the root resource manager, and `AntecedentQueryKey` on
+the shared `NodeVertex`). rules_benchmark Phase 2 (`AH`) removed them, and the operator
+initialisation behind `I-5`'s wrong answers: sessions now only read the meta store
+(`ReteMetaStore.initializeExpressions`, `assignAntecedentQueryKeys`, `RdfGraph.Lock`).
+`TestGoEngineSessionsShareTheMetaStore` in `jets/compute_pipes` is the regression test. So a
+race reported now is new: one whose top frame is in `jets/rulesbench` or
+`jets/cmds/rules_bench` is the harness's, and one in the engine is a regression.
 
 ## The run protocol: `scripts/run_protocol.sh`
 

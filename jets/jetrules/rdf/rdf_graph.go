@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 )
 
 // RDFGraph is a fully indexed rdf graph with type (*Node, *Node, *Node)
@@ -14,7 +15,9 @@ var ErrGraphLocked = errors.New("error: RdfGraph is locked, cannot mutate")
 var ErrNilNode = errors.New("error: cannot insert/erase/retract triple with nil *Node in RdfGraph")
 
 type RdfGraph struct {
-	isLocked    bool
+	// isLocked is set by Lock, which every NewRdfSession calls on the meta graph that
+	// all the sessions of a pool share, so it is atomic (rules_benchmark I-5).
+	isLocked    atomic.Bool
 	spoGraph    *BaseGraph
 	posGraph    *BaseGraph
 	ospGraph    *BaseGraph
@@ -46,7 +49,16 @@ func (g *RdfGraph) Size() int {
 }
 
 func (g *RdfGraph) IsLocked() bool {
-	return g.isLocked
+	return g.isLocked.Load()
+}
+
+// Lock makes the graph read-only. It is safe to call from concurrent sessions, and
+// writes only the first time, so that sessions sharing a meta graph do not all write
+// to one cache line.
+func (g *RdfGraph) Lock() {
+	if !g.isLocked.Load() {
+		g.isLocked.Store(true)
+	}
 }
 
 func (g *RdfGraph) Contains(s, p, o *Node) bool {
@@ -124,7 +136,7 @@ func (g *RdfGraph) FindSPO(s, p, o *Node) *BaseGraphIterator {
 // Returns true if the triple is actually inserted (was not present in graph).
 // Otherwise the reference count is increased by 1.
 func (g *RdfGraph) Insert(s, p, o *Node) (bool, error) {
-	if g.isLocked {
+	if g.isLocked.Load() {
 		return false, ErrGraphLocked
 	}
 	if s == nil || p == nil || o == nil {
@@ -143,7 +155,7 @@ func (g *RdfGraph) Insert(s, p, o *Node) (bool, error) {
 
 // Return true if the triple is actually deleted from the RdfGraph.
 func (g *RdfGraph) erase_internal(s, p, o *Node) (bool, error) {
-	if g.isLocked {
+	if g.isLocked.Load() {
 		return false, ErrGraphLocked
 	}
 	if s == nil || p == nil || o == nil {
@@ -162,7 +174,7 @@ func (g *RdfGraph) erase_internal(s, p, o *Node) (bool, error) {
 
 // Return true if the triple is actually deleted from the RdfGraph.
 func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
-	if g.isLocked {
+	if g.isLocked.Load() {
 		return false, ErrGraphLocked
 	}
 	if s != nil && p != nil && o != nil {
@@ -186,7 +198,7 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 
 // Return true if the triple is actually deleted from the RdfGraph.
 func (g *RdfGraph) Retract(s, p, o *Node) (bool, error) {
-	if g.isLocked {
+	if g.isLocked.Load() {
 		return false, ErrGraphLocked
 	}
 	if s == nil || p == nil || o == nil {

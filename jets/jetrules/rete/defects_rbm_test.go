@@ -8,10 +8,12 @@ package rete
 // fixed: a failure after a fix is the signal to flip the assertion, not a
 // regression. The comment on each test says what the correct behaviour is.
 //
-// Two tests are opt-in, with RBM_DEFECTS=1:
-//   - TestDefect_I2_NegationFilterTiming, which runs a network a thousand times;
-//   - TestDefect_I5_SharedMetaStoreWrites under -race, where the race detector
-//     fails it on purpose until I-5 is fixed.
+// A defect that has been fixed keeps its test, turned into a regression test that
+// asserts the correct behaviour: I-3 and I-5 (with I-24) since rules_benchmark Phase 2
+// (AH.1, AH.3, AH.5).
+//
+// One test is opt-in, with RBM_DEFECTS=1: TestDefect_I2_NegationFilterTiming, which
+// runs a network a thousand times.
 
 import (
 	"fmt"
@@ -135,21 +137,21 @@ func TestDefect_I2_NegationFilterTiming(t *testing.T) {
 	}
 }
 
-// TestDefect_I3_EraseIndex3LeavesEntry reproduces rules_benchmark I-3:
-// EraseIndex4BetaRow passes an.Fu.Eval for all three positions when all three are
-// bound (alpha_node.go:212), so it erases the key (u, u, u) and the row stays
-// indexed under (u, v, w). A parent row that was removed is then still found by
-// FindMatchingRows3 when a matching triple arrives, and a child row is built on a
-// row that no longer exists.
+// TestDefect_I3_EraseIndex3LeavesEntry was the reproduction of rules_benchmark I-3,
+// and is its regression test since Phase 2 (AH.5) fixed it: EraseIndex4BetaRow passed
+// an.Fu.Eval for all three positions when all three are bound, so it erased the key
+// (u, u, u) and the row stayed indexed under (u, v, w). A parent row that was removed
+// was then still found by FindMatchingRows3 when a matching triple arrived, and a
+// child row was built on a row that no longer existed.
 //
 // Reachability: the case needs an antecedent whose subject, predicate and object
 // are all variables bound by earlier terms, such as (?a p ?b).(?b q ?c).(?a ?b ?c).
 // A text scan of the four workspaces on 2026-10-20 found no such term among the
 // 9,601 antecedent terms of 2,781 rules (54 have the subject and a variable
-// predicate bound, none the object as well). So the path is real and unreached.
+// predicate bound, none the object as well). So the path was real and unreached.
 //
-// Correct behaviour: EraseIndex3(key, Fu, Fv, Fw), and FindMatchingRows3 returns
-// no row after the erase.
+// Correct behaviour, asserted here: EraseIndex3(key, Fu, Fv, Fw), and
+// FindMatchingRows3 returns no row after the erase.
 func TestDefect_I3_EraseIndex3LeavesEntry(t *testing.T) {
 	rm := rdf.NewResourceManager(nil)
 	a, b, c := rm.NewResource("a"), rm.NewResource("b"), rm.NewResource("c")
@@ -172,8 +174,8 @@ func TestDefect_I3_EraseIndex3LeavesEntry(t *testing.T) {
 		t.Fatalf("AddIndex4BetaRow did not index the row under (a, b, c)")
 	}
 	an.EraseIndex4BetaRow(parent, row)
-	if !parent.FindMatchingRows3(key, a, b, c)[row] {
-		t.Errorf("the row is no longer indexed under (a, b, c) after EraseIndex4BetaRow; I-3 is fixed, flip this test")
+	if parent.FindMatchingRows3(key, a, b, c)[row] {
+		t.Errorf("the row is still indexed under (a, b, c) after EraseIndex4BetaRow (I-3)")
 	}
 }
 
@@ -256,39 +258,30 @@ func (n *sortedHeadNet) session() (*rdf.Node, bool, error) {
 	return top, top == srm.NewResource("m1"), nil
 }
 
-// TestDefect_I5_SharedMetaStoreWrites reproduces rules_benchmark I-5: every rete
-// session writes to the ReteMetaStore that all sessions of a pool share, with no
-// lock.
+// TestDefect_I5_SharedMetaStoreWrites was the reproduction of rules_benchmark I-5,
+// and is its regression test since Phase 2 (AH.1, AH.2) fixed it. Every rete session
+// wrote to the ReteMetaStore that all sessions of a pool share, with no lock:
 //
-//   - ReteSession.Initialize calls InitializeExpression on the shared expressions
-//     (rete_session.go:159, :166), which calls the shared operator's
-//     InitializeOperator (ExprBinaryOp.InitializeExpression, expression.go:130).
-//     SortedHeadOp.InitializeOperator replaces its minMaxOp with a new MinMaxOp
-//     whose objProperty and dataProperty are nil (expr_operator_math_sorted_head.go:30)
-//     and only then sets them (:34, MinMaxOp.InitializeOperator,
-//     expr_operator_math_minmax.go:24). MinMaxOp, SumValuesOp and JoinValuesOp write
-//     their own fields the same way.
-//   - NewRdfSession sets isLocked on the shared meta graph (rdf_session.go:27).
+//   - ReteSession.Initialize called InitializeExpression on the shared expressions,
+//     which called the shared operator's InitializeOperator
+//     (ExprBinaryOp.InitializeExpression, expression.go). SortedHeadOp.InitializeOperator
+//     replaced its minMaxOp with a new MinMaxOp whose objProperty and dataProperty
+//     were nil, and only then set them (expr_operator_math_sorted_head.go,
+//     MinMaxOp.InitializeOperator). A session whose Eval read minMaxOp between the
+//     two writes called FindSP(s, nil) (MinMaxOp.Eval), so sorted_head took the head
+//     of ALL of s's objects and answered State, the object of (s rdf:type State),
+//     instead of m1: 98 to 176 of 1,000 sessions on ten workers (F84).
+//   - NewRdfSession set isLocked on the shared meta graph (rdf_session.go), and
+//     NewResourceManager on the shared root manager (resource_manager.go).
 //
-// The first half is deterministic and always runs: a second session's Initialize
-// writes a new minMaxOp into the operator the first session is using.
-//
-// The second half, opt-in with RBM_DEFECTS=1, runs 1,000 sessions on ten workers,
-// as a pool of 10 does, and counts wrong answers. They happen: a session whose
-// Eval reads minMaxOp between the two writes above calls FindSP(s, nil)
-// (MinMaxOp.Eval, expr_operator_math_minmax.go:83), so sorted_head takes the head
-// of ALL of s's objects and answers State, the object of (s rdf:type State), instead
-// of m1. Under -race the same half also fails on the detector's reports, which is
-// the point of running it there. It is opt-in because the wrong-answer rate depends
-// on scheduling and can be zero on a quiet run.
-//
-// Correct behaviour: the meta store is written once, when the rules load, and is
-// read-only afterwards. A second session's Initialize leaves the operator's fields
-// as they were, every concurrent session answers m1, and -race reports nothing.
+// Correct behaviour, asserted here: the operators are initialised once per meta
+// store (ReteMetaStore.initializeExpressions), so a second session's Initialize
+// leaves the operator's fields as they were; every concurrent session answers m1;
+// and under -race the detector reports nothing, which fails the test if it does.
 func TestDefect_I5_SharedMetaStoreWrites(t *testing.T) {
 	n := newSortedHeadNet(t)
 
-	// Deterministic half: a session's Initialize writes the shared operator.
+	// Deterministic half: a session's Initialize does not write the shared operator.
 	if top, isM1, err := n.session(); err != nil || !isM1 {
 		t.Fatalf("first session: topMatch %v, err %v; want m1", top, err)
 	}
@@ -296,15 +289,11 @@ func TestDefect_I5_SharedMetaStoreWrites(t *testing.T) {
 	if _, _, err := n.session(); err != nil {
 		t.Fatal(err)
 	}
-	if n.op.minMaxOp == firstMinMax {
-		t.Errorf("a second session left SortedHeadOp.minMaxOp unchanged; I-5 may be fixed, flip this test")
+	if n.op.minMaxOp != firstMinMax {
+		t.Errorf("a second session replaced SortedHeadOp.minMaxOp (I-5)")
 	}
 
-	if !rbmDefectsOptIn() {
-		t.Log("concurrent half skipped: set RBM_DEFECTS=1 (and -race) to run it")
-		return
-	}
-	// Concurrent half: ten workers on one meta store.
+	// Concurrent half: ten workers on one meta store, as a pool of 10 runs.
 	const workers, perWorker = 10, 100
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -334,8 +323,89 @@ func TestDefect_I5_SharedMetaStoreWrites(t *testing.T) {
 	}
 	t.Logf("I-5: %d of %d concurrent sessions (%d workers, race build %v) answered a topMatch other than m1: %v",
 		total, workers*perWorker, workers, rbmRaceEnabled, wrong)
-	if total == 0 && !rbmRaceEnabled {
-		t.Errorf("every concurrent session answered m1; I-5 may be fixed (or this run was lucky): rerun, then flip this test")
+	if total != 0 {
+		t.Errorf("%d of %d concurrent sessions answered a topMatch other than m1 (I-5)", total, workers*perWorker)
+	}
+}
+
+// panickingOp is a binary operator whose InitializeOperator panics.
+type panickingOp struct{ SortedHeadOp }
+
+func (op *panickingOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	panic("misconfigured operator")
+}
+
+// TestInitializeExpressionsPanicFailsEverySession: an operator whose initialisation
+// panics fails every session's Initialize, not only the first. sync.Once counts a
+// panicking function as done, so without the recover in initializeExpressions the
+// second session would run on half-initialised operators with no error.
+func TestInitializeExpressionsPanicFailsEverySession(t *testing.T) {
+	n := newSortedHeadNet(t)
+	bad := NewExprBinaryOp(NewExprBindedVar(0, "?s"), &panickingOp{}, NewExprCst(n.top))
+	n.ms.AlphaNodes[1].NdVertex.FilterExpr = bad
+	for i := 0; i < 2; i++ {
+		func() {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("session %d: Initialize did not panic on a panicking operator", i)
+				}
+			}()
+			rs := NewReteSession(rdf.NewRdfSession(n.rm, n.metaGraph))
+			rs.Initialize(n.ms)
+		}()
+	}
+	if n.ms.exprErr == nil {
+		t.Errorf("exprErr is nil after a panicking initialisation")
+	}
+}
+
+// TestAntecedentQueryKeysAreAssignedOnce is rules_benchmark I-24's regression test:
+// NewReteMetaStore assigns each antecedent term's AntecedentQueryKey, and a session's
+// NewBetaRelation adds the same queries in the same order and writes nothing to the
+// shared NodeVertex. Three children of one parent, two querying one bound position
+// and one querying two, have keys 0, 1 and 0.
+func TestAntecedentQueryKeysAreAssignedOnce(t *testing.T) {
+	rm := rdf.NewResourceManager(nil)
+	p, q, r := rm.NewResource("p"), rm.NewResource("q"), rm.NewResource("r")
+	two := NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?a", "?b"})
+	head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
+	nv1 := NewNodeVertex(1, head, false, 100, nil, "v1", []string{"r1"}, two)
+	nv2 := NewNodeVertex(2, nv1, false, 100, nil, "v2", []string{"r1"}, two)
+	nv3 := NewNodeVertex(3, nv1, false, 100, nil, "v3", []string{"r2"}, two)
+	nv4 := NewNodeVertex(4, nv1, false, 100, nil, "v4", []string{"r3"}, two)
+	alphaNodes := []*AlphaNode{
+		NewRootAlphaNode(head),
+		NewAlphaNode(&FVariable{variable: "?a"}, &FConstant{node: p}, &FVariable{variable: "?b"}, nv1, true, "(?a p ?b)"),
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: q}, &FVariable{variable: "?c"}, nv2, true, "(?a q ?c)"),
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: r}, &FBinded{pos: 1}, nv3, true, "(?a r ?b)"),
+		NewAlphaNode(&FVariable{variable: "?c"}, &FConstant{node: q}, &FBinded{pos: 1}, nv4, true, "(?c q ?b)"),
+	}
+	for _, an := range alphaNodes[1:] {
+		an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
+	}
+	config := map[string]string{}
+	if _, err := NewReteMetaStore(rm, rdf.NewMetaRdfGraph(rm), nil, alphaNodes,
+		[]*NodeVertex{head, nv1, nv2, nv3, nv4}, &config, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	want := map[*NodeVertex]int{nv2: 0, nv3: 0, nv4: 1}
+	for nv, key := range want {
+		if !nv.queryKeyAssigned || nv.AntecedentQueryKey != key {
+			t.Errorf("vertex %d: AntecedentQueryKey %d (assigned %v), want %d", nv.Vertex, nv.AntecedentQueryKey, nv.queryKeyAssigned, key)
+		}
+	}
+	// Two sessions' beta relations: the same indexes, and the keys untouched (a
+	// mismatch panics in InitializeIndexes).
+	for i := 0; i < 2; i++ {
+		br := NewBetaRelation(nv1)
+		if len(br.rowIndexes1) != 2 || len(br.rowIndexes2) != 1 || len(br.rowIndexes3) != 0 {
+			t.Errorf("session %d: indexes %d/%d/%d, want 2/1/0", i, len(br.rowIndexes1), len(br.rowIndexes2), len(br.rowIndexes3))
+		}
+	}
+	for nv, key := range want {
+		if nv.AntecedentQueryKey != key {
+			t.Errorf("vertex %d: AntecedentQueryKey %d after two sessions, want %d", nv.Vertex, nv.AntecedentQueryKey, key)
+		}
 	}
 }
 
