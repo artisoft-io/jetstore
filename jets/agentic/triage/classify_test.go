@@ -363,11 +363,11 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	// before every session below. Without it, locus run_not_started reports
 	// not_evaluable for the purge reason rather than firing — which is a real
 	// case and is tested separately.
-	oldKey := header(t, pool, "cgt", "loader", "claims", "old", "completed", now.Add(-72*time.Hour))
-	workerRow(t, pool, oldKey, "cgt", "loader", "old", "reducing00", 0, "completed", 5000, 5000, "", now.Add(-72*time.Hour))
+	oldKey := header(t, pool, "client2", "loader", "claims", "old", "completed", now.Add(-72*time.Hour))
+	workerRow(t, pool, oldKey, "client2", "loader", "old", "reducing00", 0, "completed", 5000, 5000, "", now.Add(-72*time.Hour))
 
 	t.Run("run_not_started", func(t *testing.T) {
-		header(t, pool, "cgt", "loader", "claims", "s-nostart", "failed", now.Add(-time.Hour))
+		header(t, pool, "client2", "loader", "claims", "s-nostart", "failed", now.Add(-time.Hour))
 		r := classify(t, pool, "s-nostart", 0)
 		f := wantVerdict(t, r, LocusRunNotStarted, Present)
 		if !strings.Contains(f.Basis, "no pipeline_execution_details row") {
@@ -384,7 +384,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		// A header older than the oldest worker row anywhere: the purge takes
 		// the two on independent clocks (F54), so a run whose workers have been
 		// purged is indistinguishable from one that never started.
-		header(t, pool, "cgt", "loader", "claims", "s-purged", "completed", now.Add(-200*24*time.Hour))
+		header(t, pool, "client2", "loader", "claims", "s-purged", "completed", now.Add(-200*24*time.Hour))
 		r := classify(t, pool, "s-purged", 0)
 		f := wantVerdict(t, r, LocusRunNotStarted, NotEvaluable)
 		if !strings.Contains(f.Basis, "RETENTION_DAYS") {
@@ -393,9 +393,9 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("worker_not_terminated", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-stall", "failed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-stall", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-stall", "reducing01", 1, "", 0, 0, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-stall", "failed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-stall", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-stall", "reducing01", 1, "", 0, 0, "", now.Add(-time.Hour))
 		r := classify(t, pool, "s-stall", 0)
 		f := wantVerdict(t, r, LocusWorkerNotTerminated, Present)
 		if !strings.Contains(f.Basis, "cpipes_execution_status_details") {
@@ -421,8 +421,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("worker_failed", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-fail", "failed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-fail", "reducing01", 0, "failed", 100, 0,
+		k := header(t, pool, "client2", "loader", "claims", "s-fail", "failed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-fail", "reducing01", 0, "failed", 100, 0,
 			"while reading file s3://b/k, unexpected EOF,while writing to jetsapi.claims, deadlock detected",
 			now.Add(-time.Hour))
 		r := classify(t, pool, "s-fail", 0)
@@ -436,8 +436,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("rows_lost_silently", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-collapse", "completed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-collapse", "reducing01", 0, "completed", 10000, 12, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-collapse", "completed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-collapse", "reducing01", 0, "completed", 10000, 12, "", now.Add(-time.Hour))
 		storeConfig(t, pool, k, "s-collapse", configNoErrorChannel)
 		r := classify(t, pool, "s-collapse", 0)
 		f := wantVerdict(t, r, LocusRowsLostSilently, Present)
@@ -450,8 +450,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("rows_lost_silently is absent on a healthy ratio", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-clean", "completed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-clean", "reducing01", 0, "completed", 10000, 9800, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-clean", "completed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-clean", "reducing01", 0, "completed", 10000, 9800, "", now.Add(-time.Hour))
 		storeConfig(t, pool, k, "s-clean", configWithErrorChannel)
 		r := classify(t, pool, "s-clean", 0)
 		wantVerdict(t, r, LocusRowsLostSilently, Absent)
@@ -463,8 +463,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("per_record_failures_reported", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-perr", "completed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-perr", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-perr", "completed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-perr", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
 		processErrors(t, pool, k, "s-perr", 20, 7)
 		r := classify(t, pool, "s-perr", 0)
 		f := wantVerdict(t, r, LocusPerRecordFailuresReported, Present)
@@ -477,8 +477,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("per_record_failures_unreportable", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-unrep", "completed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-unrep", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-unrep", "completed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-unrep", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
 		storeConfig(t, pool, k, "s-unrep", configNoErrorChannel)
 		r := classify(t, pool, "s-unrep", 0)
 		f := wantVerdict(t, r, LocusPerRecordFailuresUnreportable, Present)
@@ -496,8 +496,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("per_record_failures_unreportable is not evaluable with no stored config", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-noconf", "failed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-noconf", "reducing01", 0, "failed", 10, 0, "boom", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-noconf", "failed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-noconf", "reducing01", 0, "failed", 10, 0, "boom", now.Add(-time.Hour))
 		r := classify(t, pool, "s-noconf", 0)
 		f := wantVerdict(t, r, LocusPerRecordFailuresUnreportable, NotEvaluable)
 		if !strings.Contains(f.Basis, "sharding validation") {
@@ -506,8 +506,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 	})
 
 	t.Run("sink_failed_under_completed_worker", func(t *testing.T) {
-		k := header(t, pool, "cgt", "loader", "claims", "s-sink", "completed", now.Add(-time.Hour))
-		w := workerRow(t, pool, k, "cgt", "loader", "s-sink", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-sink", "completed", now.Add(-time.Hour))
+		w := workerRow(t, pool, k, "client2", "loader", "s-sink", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
 		// Two sinks on one edge, one of which failed: AggregateChannelResults
 		// folds them and blanks output_entity, which is the thing the locus
 		// cannot see and which this writes through the production code.
@@ -578,8 +578,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		// hard-coded six months while the worker record follows RETENTION_DAYS,
 		// and in three of four measured environments the worker rows outlive
 		// their headers.
-		k := header(t, pool, "cgt", "loader", "claims", "s-orphan", "completed", now.Add(-time.Hour))
-		workerRow(t, pool, k, "cgt", "loader", "s-orphan", "reducing01", 0, "", 0, 0, "", now.Add(-time.Hour))
+		k := header(t, pool, "client2", "loader", "claims", "s-orphan", "completed", now.Add(-time.Hour))
+		workerRow(t, pool, k, "client2", "loader", "s-orphan", "reducing01", 0, "", 0, 0, "", now.Add(-time.Hour))
 		if _, err := pool.Exec(context.Background(),
 			`DELETE FROM jetsapi.pipeline_execution_status WHERE session_id = 's-orphan'`); err != nil {
 			t.Fatalf("purging the header: %v", err)
@@ -606,8 +606,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 func TestUnmigratedDeploymentReportsNotEvaluableRatherThanAbsent(t *testing.T) {
 	pool := freshDB(t, "triage_unmigrated", unmigratedTables)
 
-	k := header(t, pool, "cgt", "loader", "claims", "s-1", "completed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-1", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
+	k := header(t, pool, "client2", "loader", "claims", "s-1", "completed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-1", "reducing01", 0, "completed", 1000, 1000, "", now.Add(-time.Hour))
 
 	ev, err := Gather(context.Background(), pool, "s-1", 0)
 	if err != nil {
@@ -662,15 +662,15 @@ func TestCensusHasADenominatorForEveryLocus(t *testing.T) {
 	// One run per shape, deliberately overlapping: s-multi exhibits three loci
 	// at once, which is the case Q-30 asks about and which a single-valued
 	// incident_locus cannot represent in one row.
-	k1 := header(t, pool, "cgt", "loader", "claims", "s-multi", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k1, "cgt", "loader", "s-multi", "reducing01", 0, "failed", 5000, 0, "boom,bang", now.Add(-time.Hour))
-	workerRow(t, pool, k1, "cgt", "loader", "s-multi", "reducing01", 1, "", 0, 0, "", now.Add(-time.Hour))
-	workerRow(t, pool, k1, "cgt", "loader", "s-multi", "reducing01", 2, "completed", 8000, 40, "", now.Add(-time.Hour))
+	k1 := header(t, pool, "client2", "loader", "claims", "s-multi", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k1, "client2", "loader", "s-multi", "reducing01", 0, "failed", 5000, 0, "boom,bang", now.Add(-time.Hour))
+	workerRow(t, pool, k1, "client2", "loader", "s-multi", "reducing01", 1, "", 0, 0, "", now.Add(-time.Hour))
+	workerRow(t, pool, k1, "client2", "loader", "s-multi", "reducing01", 2, "completed", 8000, 40, "", now.Add(-time.Hour))
 	processErrors(t, pool, k1, "s-multi", 20, 0)
 	storeConfig(t, pool, k1, "s-multi", configNoErrorChannel)
 
-	k2 := header(t, pool, "cgt", "loader", "claims", "s-ok", "completed", now.Add(-time.Hour))
-	workerRow(t, pool, k2, "cgt", "loader", "s-ok", "reducing01", 0, "completed", 5000, 4900, "", now.Add(-time.Hour))
+	k2 := header(t, pool, "client2", "loader", "claims", "s-ok", "completed", now.Add(-time.Hour))
+	workerRow(t, pool, k2, "client2", "loader", "s-ok", "reducing01", 0, "completed", 5000, 4900, "", now.Add(-time.Hour))
 	storeConfig(t, pool, k2, "s-ok", configWithErrorChannel)
 
 	sessions := []string{"s-multi", "s-ok"}
@@ -718,9 +718,9 @@ func TestCensusHasADenominatorForEveryLocus(t *testing.T) {
 // string. Two classifications of one run must be identical.
 func TestClassificationIsStable(t *testing.T) {
 	pool := freshDB(t, "triage_stable", migratedTables)
-	k := header(t, pool, "cgt", "loader", "claims", "s-1", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-1", "reducing01", 0, "failed", 100, 0, "a,b", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-1", "reducing02", 1, "completed", 9000, 3, "", now.Add(-time.Hour))
+	k := header(t, pool, "client2", "loader", "claims", "s-1", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-1", "reducing01", 0, "failed", 100, 0, "a,b", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-1", "reducing02", 1, "completed", 9000, 3, "", now.Add(-time.Hour))
 	storeConfig(t, pool, k, "s-1", configNoErrorChannel)
 
 	first := classify(t, pool, "s-1", 0)
@@ -745,9 +745,9 @@ func TestFindingConfoundersAreAcceptedByTheIncidentTable(t *testing.T) {
 	pool := freshDB(t, "triage_confounders", migratedTables)
 	ctx := context.Background()
 
-	k := header(t, pool, "cgt", "loader", "claims", "s-1", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-1", "reducing01", 0, "", 0, 0, "", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-1", "", 1, "failed", 10, 0, "x", now.Add(-time.Hour))
+	k := header(t, pool, "client2", "loader", "claims", "s-1", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-1", "reducing01", 0, "", 0, 0, "", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-1", "", 1, "failed", 10, 0, "x", now.Add(-time.Hour))
 	r := classify(t, pool, "s-1", 0)
 
 	written := 0

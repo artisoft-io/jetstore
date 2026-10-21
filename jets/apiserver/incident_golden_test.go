@@ -189,7 +189,7 @@ func goldenRecord(t *testing.T, pool *pgxpool.Pool, session string) {
 	if err := pool.QueryRow(ctx, `INSERT INTO jetsapi.pipeline_execution_status
 		(pipeline_config_key, client, process_name, main_object_type, session_id,
 		 source_period_key, status, failure_details, user_email, start_time, last_update)
-		VALUES (1, 'cgt', 'loader', 'claims', $1, 1, 'failed', '', 'test@test', $2, $2) RETURNING key`,
+		VALUES (1, 'client2', 'loader', 'claims', $1, 1, 'failed', '', 'test@test', $2, $2) RETURNING key`,
 		session, start).Scan(&execKey); err != nil {
 		t.Fatalf("inserting the run header: %v", err)
 	}
@@ -209,7 +209,7 @@ func goldenRecord(t *testing.T, pool *pgxpool.Pool, session string) {
 					NodeId: w.shard, PipelineExecKey: execKey,
 				},
 				ComputePipesCommonArgs: compute_pipes.ComputePipesCommonArgs{
-					Client: "cgt", ProcessName: "loader", SessionId: session,
+					Client: "client2", ProcessName: "loader", SessionId: session,
 					InputSessionId: session, SourcePeriodKey: 1, PipelineConfigKey: 1,
 					UserEmail: "test@test", MainInputStepId: "reducing01",
 				},

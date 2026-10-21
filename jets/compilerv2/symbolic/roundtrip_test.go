@@ -59,7 +59,8 @@ func corpusWorkspaces() []string {
 	var names []string
 	entries, _ := os.ReadDir(corpusRoot())
 	for _, e := range entries {
-		if _, err := os.Stat(filepath.Join(corpusRoot(), e.Name(), "workspace_control.json")); e.IsDir() && err == nil {
+		// os.Stat follows a symbolic link, which e.IsDir() does not
+		if _, err := os.Stat(filepath.Join(corpusRoot(), e.Name(), "workspace_control.json")); err == nil {
 			names = append(names, e.Name())
 		}
 	}

@@ -12,7 +12,7 @@ import (
 // the SQL statement that produces it.
 //
 //	--process={PROCESSNAME}/{ORIGINALFILENAME}_Opportunity.csv;
-//	SELECT ... FROM "wrs:Opportunity" WHERE session_id='$SESSIONID';
+//	SELECT ... FROM "ex:Opportunity" WHERE session_id='$SESSIONID';
 //
 // **Which of the two shapes a file has is declared, not inferred.**
 // `reportOrScript: "script"` in the directory's `config.json` says the file is a

@@ -43,7 +43,7 @@ type cpOptions struct {
 //
 //	err := (&arg).CoordinateComputePipes(ctx, dbpool, jrProxy,
 //		compute_pipes.WithOperators(map[string]compute_pipes.SiteOperatorFactory{
-//			"cgt_scrub": scrub.New,
+//			"site_scrub": scrub.New,
 //		}))
 //
 // **A name that collides with a built-in is registered and never reached**: the

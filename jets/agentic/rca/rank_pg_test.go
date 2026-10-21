@@ -240,12 +240,12 @@ func TestRankingOverARealRecord(t *testing.T) {
 	pool := freshDB(t, "rca_e2e")
 	ctx := context.Background()
 
-	k := header(t, pool, "cgt", "loader", "claims", "s-multi", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-multi", "reducing01", 0, "failed", 5000, 12, 0,
+	k := header(t, pool, "client2", "loader", "claims", "s-multi", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-multi", "reducing01", 0, "failed", 5000, 12, 0,
 		"download failed,rules pool exhausted", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-multi", "reducing01", 1, "", 0, 0, 0, "",
+	workerRow(t, pool, k, "client2", "loader", "s-multi", "reducing01", 1, "", 0, 0, 0, "",
 		now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-multi", "reducing01", 2, "completed", 8000, 3, 40, "",
+	workerRow(t, pool, k, "client2", "loader", "s-multi", "reducing01", 2, "completed", 8000, 3, 40, "",
 		now.Add(-time.Hour))
 	processErrors(t, pool, k, "s-multi", 20, 6)
 	storeConfig(t, pool, k, "s-multi", configNoErrorChannel)
@@ -459,8 +459,8 @@ func TestAnUnaskedLocusIsNotAnAbsentOne(t *testing.T) {
 	pool := freshDB(t, "rca_unmigrated")
 	ctx := context.Background()
 
-	k := header(t, pool, "cgt", "loader", "claims", "s-u", "failed", now.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", "s-u", "reducing01", 0, "failed", 100, 0, 0, "boom",
+	k := header(t, pool, "client2", "loader", "claims", "s-u", "failed", now.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", "s-u", "reducing01", 0, "failed", 100, 0, 0, "boom",
 		now.Add(-time.Hour))
 
 	// Take away the two tables an ordinary deployment lacks, after the rows are

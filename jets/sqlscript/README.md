@@ -138,7 +138,7 @@ pairs and the name is **a comment terminated by a semicolon**:
 
 ```sql
 --process={PROCESSNAME}/{ORIGINALFILENAME}_Opportunity.csv;
-SELECT … FROM "wrs:Opportunity" WHERE session_id='$SESSIONID';
+SELECT … FROM "ex:Opportunity" WHERE session_id='$SESSIONID';
 ```
 
 So the format invites prose one line above the SQL and punishes its punctuation, which is why this
