@@ -82,3 +82,41 @@ func TestRdfGraph(t *testing.T) {
 		}
 	}
 }
+
+// TestRetractKeepsATripleWithASupportLeftInEveryIndex is rules_benchmark I-7's
+// regression test: a triple inserted twice and retracted once keeps one support,
+// so every binding pattern still finds it, through all three indexes; retracted
+// again, none does.
+func TestRetractKeepsATripleWithASupportLeftInEveryIndex(t *testing.T) {
+	rm := NewResourceManager(nil)
+	g := NewRdfGraph("INFERRED")
+	s, p, o := rm.NewResource("s"), rm.NewResource("p"), rm.NewResource("o")
+	g.Insert(s, p, o)
+	g.Insert(s, p, o)
+	found := func() (n int, missing []string) {
+		keys := map[string][3]*Node{
+			"(s,p,o)": {s, p, o}, "(s,p,?)": {s, p, nil}, "(s,?,?)": {s, nil, nil}, "(s,?,o)": {s, nil, o},
+			"(?,p,o)": {nil, p, o}, "(?,p,?)": {nil, p, nil}, "(?,?,o)": {nil, nil, o}, "(?,?,?)": {nil, nil, nil},
+		}
+		for name, k := range keys {
+			if g.FindSPO(k[0], k[1], k[2]).IsEmpty() {
+				missing = append(missing, name)
+			} else {
+				n++
+			}
+		}
+		return n, missing
+	}
+	if erased, err := g.Retract(s, p, o); err != nil || erased {
+		t.Fatalf("first Retract: erased %v, err %v; want the triple kept", erased, err)
+	}
+	if n, missing := found(); n != 8 || !g.Contains(s, p, o) {
+		t.Errorf("after one Retract of two supports: found by %d of 8 patterns, missing %v", n, missing)
+	}
+	if erased, err := g.Retract(s, p, o); err != nil || !erased {
+		t.Fatalf("second Retract: erased %v, err %v; want the triple removed", erased, err)
+	}
+	if n, _ := found(); n != 0 || g.Contains(s, p, o) {
+		t.Errorf("after the last support is retracted: still found by %d patterns", n)
+	}
+}
