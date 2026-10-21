@@ -328,6 +328,37 @@ func TestDefect_I5_SharedMetaStoreWrites(t *testing.T) {
 	}
 }
 
+// panickingOp is a binary operator whose InitializeOperator panics.
+type panickingOp struct{ SortedHeadOp }
+
+func (op *panickingOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	panic("misconfigured operator")
+}
+
+// TestInitializeExpressionsPanicFailsEverySession: an operator whose initialisation
+// panics fails every session's Initialize, not only the first. sync.Once counts a
+// panicking function as done, so without the recover in initializeExpressions the
+// second session would run on half-initialised operators with no error.
+func TestInitializeExpressionsPanicFailsEverySession(t *testing.T) {
+	n := newSortedHeadNet(t)
+	bad := NewExprBinaryOp(NewExprBindedVar(0, "?s"), &panickingOp{}, NewExprCst(n.top))
+	n.ms.AlphaNodes[1].NdVertex.FilterExpr = bad
+	for i := 0; i < 2; i++ {
+		func() {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("session %d: Initialize did not panic on a panicking operator", i)
+				}
+			}()
+			rs := NewReteSession(rdf.NewRdfSession(n.rm, n.metaGraph))
+			rs.Initialize(n.ms)
+		}()
+	}
+	if n.ms.exprErr == nil {
+		t.Errorf("exprErr is nil after a panicking initialisation")
+	}
+}
+
 // TestAntecedentQueryKeysAreAssignedOnce is rules_benchmark I-24's regression test:
 // NewReteMetaStore assigns each antecedent term's AntecedentQueryKey, and a session's
 // NewBetaRelation adds the same queries in the same order and writes nothing to the

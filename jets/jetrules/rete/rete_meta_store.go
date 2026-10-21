@@ -88,9 +88,17 @@ func assignAntecedentQueryKeys(nodeVertices []*NodeVertex) {
 // because the engine adds meta triples (JetRuleEngine.Insert) after the rules load and
 // until the first rdf session locks the meta graph. By the first rete session the meta
 // graph is locked, so what the operators read is final. Only a filter's error is
-// kept, as Initialize only ever reported a filter's.
+// kept, as Initialize only ever reported a filter's. A panic inside it is kept as the
+// error too: sync.Once counts a panicking function as done, so without the recover
+// every later session would run on half-initialised operators with no error, where
+// every session used to panic.
 func (ms *ReteMetaStore) initializeExpressions() error {
 	ms.exprOnce.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				ms.exprErr = fmt.Errorf("panic while initializing the rete network's expressions: %v", r)
+			}
+		}()
 		rs := &ReteSession{ms: ms}
 		for _, alphaNode := range ms.AlphaNodes {
 			if alphaNode.IsAntecedent {
