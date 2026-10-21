@@ -15,12 +15,25 @@ import "iter"
 // "no triple yet" without blocking (I-2).
 //
 // Writes during a walk. The loop body may insert into or erase from the graph
-// being walked, on the same goroutine. The walk stays well defined and finishes,
-// and a triple inserted or erased by the loop body may or may not be returned by
-// the walk in progress: that is sync.Map.Range's contract, and, for plain Go maps,
-// the language's for a write during a range on the same goroutine. Which one is
-// returned is not specified, and nothing may depend on it. What the iterator does
-// not support is a write from another goroutine during a walk.
+// being walked, on the same goroutine, and a triple it inserts or erases may or
+// may not be returned by the walk in progress. The graph's maps are plain Go maps
+// (G2), so this is the language's rule for a write during a range on the same
+// goroutine: an entry deleted before the walk reaches it is not produced, and an
+// entry added may or may not be.
+//
+// That is weaker than sync.Map.Range's contract before G2 in one respect:
+// sync.Map.Range visits each key at most once, and a map range does not promise
+// it for a key that is deleted and added again during the walk, which counts as a
+// new entry. An erase that empties an inner map deletes that map too (I-11), so an
+// erase and a re-insert of a subject (or a predicate under it) that the walk has
+// already passed can produce its triples again. A walk already inside a pruned map
+// finishes on the detached map. Which triples a write makes visible, and whether
+// one is returned twice, is not specified, and nothing may depend on it. The
+// language does not promise that a walk ends if its loop body keeps adding new
+// keys; the engine writes during a walk only through the filter operators named
+// below, which the rules do not use in filters. What the iterator does not
+// support at all is a write from another goroutine during a walk: with plain maps
+// that is a data race, which the runtime may report as a fatal error.
 //
 // The rete engine does write during a walk. Consequents are inserted after a
 // visit (ComputeConsequentTriples), but a filter is evaluated inside
@@ -78,54 +91,53 @@ func (itor *BaseGraphIterator) visit(yield func([3]*Node) bool) bool {
 	}
 	if itor.u == nil {
 		// Iterate over all elements
-		cont := true
-		itor.data.Range(func(node, data any) bool {
-			cont = itor.visitU(node.(*Node), data.(VMapType), yield)
-			return cont
-		})
-		return cont
-	}
-	// Single value for u
-	data, _ := itor.data.Load(itor.u)
-	if data == nil {
+		for u, vmap := range itor.data {
+			if !itor.visitU(u, vmap, yield) {
+				return false
+			}
+		}
 		return true
 	}
-	return itor.visitU(itor.u, data.(VMapType), yield)
+	// Single value for u
+	vmap := itor.data[itor.u]
+	if vmap == nil {
+		return true
+	}
+	return itor.visitU(itor.u, vmap, yield)
 }
 
 // For the subject u, iterate over the predicates (the v's)
 func (itor *BaseGraphIterator) visitU(u *Node, vmap VMapType, yield func([3]*Node) bool) bool {
 	if itor.v == nil {
 		// Iterate over all elements
-		cont := true
-		vmap.Range(func(node, data any) bool {
-			cont = itor.visitUV(u, node.(*Node), data.(WSetType), yield)
-			return cont
-		})
-		return cont
-	}
-	// Single value for v
-	data, _ := vmap.Load(itor.v)
-	if data == nil {
+		for v, wset := range vmap {
+			if !itor.visitUV(u, v, wset, yield) {
+				return false
+			}
+		}
 		return true
 	}
-	return itor.visitUV(u, itor.v, data.(WSetType), yield)
+	// Single value for v
+	wset := vmap[itor.v]
+	if wset == nil {
+		return true
+	}
+	return itor.visitUV(u, itor.v, wset, yield)
 }
 
 // For the subject, predicate pair, iterate over the objects (the w's)
 func (itor *BaseGraphIterator) visitUV(u, v *Node, wset WSetType, yield func([3]*Node) bool) bool {
 	if itor.w == nil {
 		// Iterate over all elements
-		cont := true
-		wset.Range(func(node, _ any) bool {
-			cont = yield(mapUVW2SPOArr(itor.spin, u, v, node.(*Node)))
-			return cont
-		})
-		return cont
+		for w := range wset {
+			if !yield(mapUVW2SPOArr(itor.spin, u, v, w)) {
+				return false
+			}
+		}
+		return true
 	}
 	// Single value for w
-	c, _ := wset.Load(itor.w)
-	if c != nil && c.(int) > 0 {
+	if wset[itor.w] > 0 {
 		return yield(mapUVW2SPOArr(itor.spin, u, v, itor.w))
 	}
 	return true
@@ -228,10 +240,9 @@ func (c *TripleCursor) enterGraph() {
 		c.uOne[0] = it.u
 		c.us = c.uOne[:]
 	default:
-		it.data.Range(func(node, _ any) bool {
-			c.us = append(c.us, node.(*Node))
-			return true
-		})
+		for u := range it.data {
+			c.us = append(c.us, u)
+		}
 	}
 }
 
@@ -239,40 +250,35 @@ func (c *TripleCursor) enterGraph() {
 func (c *TripleCursor) enterU() {
 	c.vs, c.vi = c.vs[:0], 0
 	c.ws, c.wi = c.ws[:0], 0
-	data, _ := c.itors[c.gi-1].data.Load(c.u)
-	if data == nil {
-		c.vmap = nil
+	c.vmap = c.itors[c.gi-1].data[c.u]
+	if c.vmap == nil {
 		return
 	}
-	c.vmap = data.(VMapType)
-	if c.itors[c.gi-1].v != nil {
-		c.vOne[0] = c.itors[c.gi-1].v
+	if v := c.itors[c.gi-1].v; v != nil {
+		c.vOne[0] = v
 		c.vs = c.vOne[:]
 		return
 	}
-	c.vmap.Range(func(node, _ any) bool {
-		c.vs = append(c.vs, node.(*Node))
-		return true
-	})
+	for v := range c.vmap {
+		c.vs = append(c.vs, v)
+	}
 }
 
 // enterUV reads the w level under (c.u, c.v).
 func (c *TripleCursor) enterUV() {
 	c.ws, c.wi = c.ws[:0], 0
-	data, _ := c.vmap.Load(c.v)
-	if data == nil {
+	wset := c.vmap[c.v]
+	if wset == nil {
 		return
 	}
-	wset := data.(WSetType)
-	if c.itors[c.gi-1].w != nil {
-		if n, _ := wset.Load(c.itors[c.gi-1].w); n != nil && n.(int) > 0 {
-			c.wOne[0] = c.itors[c.gi-1].w
+	if w := c.itors[c.gi-1].w; w != nil {
+		if wset[w] > 0 {
+			c.wOne[0] = w
 			c.ws = c.wOne[:]
 		}
 		return
 	}
-	wset.Range(func(node, _ any) bool {
-		c.ws = append(c.ws, node.(*Node))
-		return true
-	})
+	for w := range wset {
+		c.ws = append(c.ws, w)
+	}
 }
