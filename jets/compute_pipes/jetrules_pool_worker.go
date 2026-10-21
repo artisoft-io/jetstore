@@ -878,12 +878,84 @@ func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode)
 	return keepObj, err
 }
 
-func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, predicate RdfNode,
-	currentSourcePeriod int, outChannel *JetrulesOutputChan) any {
+// columnReader reads the columns of an output channel that come from the graph,
+// for one subject at a time, in one pass over the subject's triples grouped by
+// predicate, rather than with one FindSP per column (rules_benchmark G11).
+//
+// A column's objects come in the order FindSP(subject, column) gives them, so a
+// multi-valued column keeps its order. On both engines FindS and FindSP walk the
+// same graphs in the same order and, within a graph, the same container of a
+// (subject, predicate)'s objects: so the objects of one predicate in a FindS pass
+// are FindSP's, in FindSP's order. A predicate is matched by name, as FindSP's
+// rm.NewResource(column) would, and must be a named resource: the engines intern
+// resources, so one name is one node.
+type columnReader struct {
+	// slot is the predicate read for each graph column, by name
+	slot map[string]int
+	// colSlot is each column's slot, or -1 for a column not read from the graph:
+	// a special encoding, rdf:type or jets:source_period_sequence
+	colSlot []int
+	// objects are each slot's objects for the current subject, reused across subjects
+	objects [][]RdfNode
+}
+
+func newColumnReader(columns []string, outChannel *JetrulesOutputChan) *columnReader {
+	r := &columnReader{slot: make(map[string]int, len(columns)), colSlot: make([]int, len(columns))}
+	for i, p := range columns {
+		if outChannel.JrColumnEncodings[p] != nil || p == "rdf:type" || p == "jets:source_period_sequence" {
+			r.colSlot[i] = -1
+			continue
+		}
+		s, ok := r.slot[p]
+		if !ok {
+			s = len(r.objects)
+			r.slot[p] = s
+			r.objects = append(r.objects, nil)
+		}
+		r.colSlot[i] = s
+	}
+	return r
+}
+
+// read collects subject's objects for every graph column.
+func (r *columnReader) read(rdfSession JetRdfSession, subject RdfNode) {
+	for i := range r.objects {
+		clear(r.objects[i])
+		r.objects[i] = r.objects[i][:0]
+	}
+	if len(r.objects) == 0 {
+		return
+	}
+	itor := rdfSession.FindS(subject)
+	if itor == nil {
+		return
+	}
+	for !itor.IsEnd() {
+		p := itor.GetPredicate()
+		if s, ok := r.slot[p.String()]; ok && p.Type() == "named_resource" {
+			r.objects[s] = append(r.objects[s], itor.GetObject())
+		}
+		itor.Next()
+	}
+	itor.Release()
+}
+
+// column is column i's objects for the subject last read, nil for a column not
+// read from the graph.
+func (r *columnReader) column(i int) []RdfNode {
+	if s := r.colSlot[i]; s >= 0 {
+		return r.objects[s]
+	}
+	return nil
+}
+
+// extractLiteralValue is column pname's value for subject: objects are the
+// column's objects, as columnReader gives them.
+func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject RdfNode, pname string,
+	objects []RdfNode, currentSourcePeriod int, outChannel *JetrulesOutputChan) any {
 	var data any
 	var dataArr []any
 	var isArray bool
-	pname := predicate.String()
 	switch pname {
 	case "jets:source_period_sequence":
 		// Set the current source period to the extracted data based on the value in the rdf session
@@ -894,9 +966,8 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 	default:
 		data = nil
 		isArray = false
-		itor := rdfSession.FindSP(subject, predicate)
-		for !itor.IsEnd() {
-			value := GetRdfNodeValue(itor.GetObject())
+		for _, o := range objects {
+			value := GetRdfNodeValue(o)
 			if data == nil {
 				data = value
 			} else {
@@ -907,9 +978,7 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 					isArray = true
 				}
 			}
-			itor.Next()
 		}
-		itor.Release()
 		if ctx.multiValueDataProperties[pname] {
 			if isArray {
 				data = dataArr
@@ -971,6 +1040,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	rm := rdfSession.GetResourceManager()
 	entityCount := 0
 	columns := config.Columns
+	cols := newColumnReader(columns, outChannel)
 	var data any
 	var keepObj bool
 	var err error
@@ -995,13 +1065,14 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 			// log.Printf("*** Extracting entity for subject %s", subject)
 			entityRow := make([]any, len(columns))
 			// log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
+			cols.read(rdfSession, subject)
 			for i, p := range columns {
 				specialEncoding := outChannel.JrColumnEncodings[p]
 				if specialEncoding != nil {
 					// Special encoding for this column, extract the entire object as a json/toon/map[string]any
 					entityRow[i] = specialEncoding.EncodeColumnData(rdfSession, subject)
 				} else {
-					data = ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
+					data = ctx.extractLiteralValue(rdfSession, subject, p, cols.column(i), currentSourcePeriod, outChannel)
 					entityRow[i] = data
 				}
 			}
