@@ -33,6 +33,34 @@ CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" go build -o rules_bench ./jets/cmd
 LD_LIBRARY_PATH=$LIB ldd rules_bench | grep libjets    # check it resolves the build you meant
 ```
 
+### Build variants of `libjets.so`: `JETS_MARCH` and `JETS_LTO`
+
+**`jets/CMakeLists.txt` has two options for measuring the engine built differently**
+(rules_benchmark Phase 3, `C5`). **Both are off by default**: a configure line that does not
+set them compiles and links with exactly the flags it did before, which is production's
+(`dockerfiles/Dockerfile.cpipes_builder`).
+
+| Option | Effect |
+|---|---|
+| `-DJETS_MARCH=<isa>` | adds `-march=<isa>` to every C and C++ compile of `jets/` (`objlib`, so `libjets.so` and `libjets_static.a`, and `jets_test`). Empty, the default, adds nothing |
+| `-DJETS_LTO=ON` | link-time optimisation (`INTERPROCEDURAL_OPTIMIZATION`) on `objlib`, `jets`, `jets_static` and `jets_test`, after CMake's `check_ipo_supported`; configuring fails if the toolchain has none |
+
+```bash
+cmake -S . -B build-v3    -DCMAKE_BUILD_TYPE=Release -DJETS_MARCH=x86-64-v3
+cmake -S . -B build-lto   -DCMAKE_BUILD_TYPE=Release -DJETS_LTO=ON
+cmake -S . -B build-v3lto -DCMAKE_BUILD_TYPE=Release -DJETS_MARCH=x86-64-v3 -DJETS_LTO=ON
+make -C build-v3lto jets jets_test -j8 && ctest --test-dir build-v3lto/jets
+```
+
+- **A `-march` build runs only on a CPU with that instruction set.** `x86-64-v3` is AVX2 and
+  its companions.
+- **With LTO, `libjets.so` links the prebuilt static abseil and the system SQLite as
+  before**: they are ordinary objects, and only `jets/`'s own code is optimised across files.
+  **`libjets_static.a` then holds LTO objects only**, which only an LTO-aware link reads;
+  `jets_test` is one, and Go links the shared library, not the archive.
+- **Compare the variants by configure line, commit and size, not by hash**: the library
+  embeds its build directory's paths and the build time (`version.h`).
+
 **Every result records the library that actually ran.** It is read from `/proc/self/maps`,
 with its sha256 and mtime. The result also records the jetstore commit the binary was built
 from, from Go's build information (`jetstore_modified` is true when the tree had changes).
@@ -296,6 +324,31 @@ scripts/run_protocol.sh --production-shape --bin ./rules_bench --lib $LIB spec.j
 - **The lock.** It holds an exclusive `flock` on `/tmp/rules_bench.lock`, or
   `$RULES_BENCH_LOCK`, for its whole duration. A second run refuses at once, or waits with
   `--wait`. Two runs from different worktrees can therefore never overlap.
+
+**`--preload <lib>` runs `rules_bench` with a shared library preloaded**, an allocator for
+instance (rules_benchmark Phase 3, `C6`), so that an allocator variant is an arm like any
+other:
+
+```bash
+scripts/run_protocol.sh --bin ./rules_bench --lib $LIB --preload /usr/lib/x86_64-linux-gnu/libjemalloc.so.2 spec.json
+```
+
+- **It refuses a path that is not a file, or not an ELF file**, and resolves symbolic links,
+  so the record names the file that was loaded.
+- **`LD_PRELOAD` is set for the `rules_bench` process only**, by an `env` that `taskset`
+  runs; `taskset` and the protocol's own commands do not get it. An `LD_PRELOAD` inherited
+  from the caller is dropped, so nothing is preloaded unless `--preload` says so.
+- **It is recorded twice.** `protocol_env.txt` gets `preload` (the path, or `none`),
+  `preload_sha256` and `preload_package` (the Debian package and version, when `dpkg` knows
+  the file). Every result's `env` gets `ld_preload`, verbatim, and `preloaded`: each library
+  with the file the loader actually mapped, from `/proc/self/maps`, with its sha256.
+- **`rules_bench` refuses to run when a library in `LD_PRELOAD` was not mapped.** The loader
+  ignores a library it cannot preload, with a message on standard error, and the run would
+  otherwise be labelled with an allocator it did not use.
+- **A preloaded allocator replaces the C library's `malloc`, which C++ and cgo use. It does
+  not touch the Go heap**: the Go runtime allocates its own memory with `mmap`. So on the Go
+  engine a preload changes only the bridge's and cgo's allocations, which are few; on the
+  C++ engine it changes the engine's every `new` and `delete`.
 
 **`--dry-run` writes nothing.** It makes every check, then prints the environment record
 and the commands to standard output. It creates neither `--out` nor the lock file, and says

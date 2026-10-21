@@ -20,6 +20,29 @@ set(C_LIBRARY_NAME jets)
 # links them without those.
 find_package(absl CONFIG REQUIRED)
 
+# Build variants, for measuring the engine (rules_benchmark Phase 3, C5). Both
+# are off by default, and a build that does not set them compiles and links with
+# exactly the flags above.
+#   -DJETS_MARCH=x86-64-v3  adds -march=x86-64-v3 to every C and C++ compile here
+#   -DJETS_LTO=ON           link-time optimisation of objlib, jets, jets_static
+#                           and jets_test (CMake's INTERPROCEDURAL_OPTIMIZATION)
+# A build with either runs only on what it was built for: -march on a CPU with
+# that instruction set, and an LTO jets_static only through an LTO-aware link.
+set(JETS_MARCH "" CACHE STRING "Target instruction set, passed as -march=<value>; empty passes none")
+option(JETS_LTO "Link-time optimisation of the jets libraries and tests" OFF)
+if(JETS_MARCH)
+  message(STATUS "jets: -march=${JETS_MARCH}")
+  add_compile_options(-march=${JETS_MARCH})
+endif()
+if(JETS_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT JETS_IPO_SUPPORTED OUTPUT JETS_IPO_ERROR LANGUAGES C CXX)
+  if(NOT JETS_IPO_SUPPORTED)
+    message(FATAL_ERROR "JETS_LTO=ON, and the toolchain does not support it: ${JETS_IPO_ERROR}")
+  endif()
+  message(STATUS "jets: link-time optimisation on")
+endif()
+
 # configure a header file to pass some of the CMake settings to the source code
 configure_file (
   "./version.h.in"
@@ -118,6 +141,11 @@ target_include_directories(jets_test PUBLIC
 add_custom_command(TARGET jets_test POST_BUILD
   COMMAND cp -r  ${CMAKE_SOURCE_DIR}/jets/rete/test_data $<TARGET_FILE_DIR:jets_test>
 )
+
+if(JETS_LTO)
+  set_property(TARGET objlib ${C_LIBRARY_NAME} ${C_LIBRARY_NAME}_static jets_test
+    PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(jets_test)

@@ -109,6 +109,11 @@ func run(specPath string) error {
 		specPath = abs
 	}
 	env := rulesbench.RecordEnvironment()
+	// A preloaded library the loader ignored would label a run with an
+	// allocator it did not use.
+	if missing := env.PreloadNotMapped(); len(missing) > 0 {
+		return fmt.Errorf("LD_PRELOAD names %v, which the loader did not map into this process", missing)
+	}
 	if *requireTuned {
 		paranoid := env.PerfEventParanoid
 		if !env.GovernorsOK() || !(paranoid == "-1" || paranoid == "0" || paranoid == "1") {
