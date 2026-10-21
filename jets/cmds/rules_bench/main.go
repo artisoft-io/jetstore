@@ -55,6 +55,7 @@ var (
 	rlimitDataMB = flag.Int("rlimit_data_mb", 0, "memory ceiling in MiB applied to this process as RLIMIT_DATA; 0 is none")
 	requireTuned = flag.Bool("require_tuned", false, "refuse to run unless every allowed CPU uses the performance governor and perf_event_paranoid <= 1")
 	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set, one dump tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
+	rowsDir      = flag.String("rows_dir", "", "write every extracted row, one tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<class>.rows, cells typed, in extraction order; not a timing run")
 
 	cpuProfile     = flag.String("cpuprofile", "", "write a Go CPU profile of the runs to this file")
 	memProfile     = flag.String("memprofile", "", "write a Go allocation profile of the runs to this file")
@@ -151,6 +152,11 @@ func run(specPath string) error {
 	if *dumpDir != "" {
 		opts.AfterRuleSet = rulesbench.NewDumper(*dumpDir, dumpPath, dumpWriter)
 	}
+	var rows *rulesbench.RowWriter
+	if *rowsDir != "" {
+		rows = rulesbench.NewRowWriter(*rowsDir)
+		opts.OnExtractedRow = rows.Write
+	}
 	stopProfiles := func() error { return nil }
 	opts.BeforeRuns = func() {
 		var err error
@@ -175,7 +181,13 @@ func run(specPath string) error {
 			r.Bench, r.Engine, kind, r.Repetition, r.PoolSize, r.Status, r.Totals.Sessions, r.Totals.InputRows,
 			time.Duration(r.WallNs), r.Totals.Errors)
 	}
-	if _, err := rulesbench.Run(opts); err != nil {
+	_, err = rulesbench.Run(opts)
+	if rows != nil {
+		if cerr := rows.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("rows_dir: %w", cerr)
+		}
+	}
+	if err != nil {
 		return err
 	}
 	if profileErr != nil {

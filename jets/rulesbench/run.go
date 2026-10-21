@@ -48,6 +48,10 @@ type Options struct {
 	// before its rete session is released. It is where the graph dump is wired
 	// in (NewDumper). Its time is the session's DumpNs, and is in no other phase.
 	AfterRuleSet func(p DumpPoint, rdfSession compute_pipes.JetRdfSession) error
+	// OnExtractedRow, when not nil, receives every row a session extracts, on the
+	// class's drain goroutine; p's Index and RuleSet are unset. RowWriter.Write is
+	// one. It is called inside the session's ExtractionNs.
+	OnExtractedRow func(p DumpPoint, className string, row []any)
 
 	// BeforeRuns and AfterRuns, when not nil, bracket the measured and warmup
 	// runs, after every engine is built: where the command starts and stops its
@@ -385,11 +389,20 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 			// One extractor per worker, as a pipeline prepares one JrPoolWorker per
 			// worker: what it prepares is not in any session's extraction time.
 			var x *compute_pipes.SessionExtractor
+			// point is the session this worker extracts, which emit reads on a drain
+			// goroutine: written before the session's rows are sent, and not again
+			// until Extract has received every row back.
+			var point DumpPoint
 			if len(classes) > 0 {
-				x = compute_pipes.NewSessionExtractor(st.spec, classes, nil)
+				var emit func(string, []any)
+				if opts.OnExtractedRow != nil {
+					emit = func(className string, row []any) { opts.OnExtractedRow(point, className, row) }
+				}
+				x = compute_pipes.NewSessionExtractor(st.spec, classes, emit)
 				defer x.Close()
 			}
 			for t := range tasks {
+				point = DumpPoint{Engine: st.name, Session: inputs[t.index].name, Repetition: rep, Warmup: isWarmup}
 				sr := &r.Sessions[t.index]
 				sr.Worker = worker
 				sr.StartNs = time.Since(start).Nanoseconds()
