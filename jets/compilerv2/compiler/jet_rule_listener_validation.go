@@ -62,6 +62,8 @@ func (s *JetRuleListener) ValidateRuleTerm(term *rete.RuleTerm) {
 //     the filter or in previous antecedents.
 //   - All ResourceNode of Type "?var" in a negated antecedent must appear in the previous antecedents.
 //   - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
+//   - No filter expression may call an operator that writes to the graph
+//     (see jet_rule_listener_filter_writes.go)
 //
 // Returns true if the rule is valid, false otherwise
 func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
@@ -178,6 +180,10 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 				}
 			}
 		}
+	}
+	// No antecedent filter may call an operator that writes to the graph
+	if !s.validateFilterWrites(rule) {
+		isValid = false
 	}
 	return isValid
 }

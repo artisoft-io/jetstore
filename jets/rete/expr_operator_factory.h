@@ -36,6 +36,10 @@
 // Add the operator to BOTH engines (jets/rete/expr_operator_factory.h and
 // jets/jetrules/rete/expr_operator_factory.go) and to that list, in the same change.
 // Lines marked AGGREGATE below are the ones the list must cover.
+//
+// ADDING AN OPERATOR THAT INSERTS INTO THE SESSION? The compiler refuses it in a
+// filter only if its Go counterpart carries the writesGraph marker in
+// jets/jetrules/rete/expr_writes_graph.go: mark it there in the same change.
 // =====================================================================================
 namespace jets::rete {
 
