@@ -278,3 +278,44 @@ func TestQuantum(t *testing.T) {
 		t.Error("Quantum is not the grid step of Quantise")
 	}
 }
+
+// An entry with member and file applies to those dumps only: the same line
+// elsewhere stays unclassified.
+func TestEntryConfinedToMemberAndFile(t *testing.T) {
+	root := t.TempDir()
+	k := filepath.Join(root, "k.json")
+	os.WriteFile(k, []byte(`{"entries":[{"id":"tie","refs":["r"],"description":"d","scope":"self",
+		"member":"m1","file":"02_.*\\.tsv","predicate":"pick"}]}`), 0o644)
+	base := []string{"c1\tpick\t1^^int"}
+	other := []string{"c1\tpick\t2^^int"}
+	files := func(lines []string) map[string][]string {
+		return map[string][]string{"m1/01_r.tsv": lines, "m1/02_r.tsv": lines, "m2/02_r.tsv": lines}
+	}
+	a := tree(t, filepath.Join(root, "run1"), "go", files(base))
+	b := tree(t, filepath.Join(root, "run2"), "go", files(other))
+	js := filepath.Join(root, "s.json")
+	var out, errs bytes.Buffer
+	if code := run([]string{"-a", a, "-b", b, "-known", k, "-json", js}, &out, &errs); code != 1 {
+		t.Fatalf("exit %d, want 1: %s", code, errs.String())
+	}
+	raw, _ := os.ReadFile(js)
+	var s Summary
+	json.Unmarshal(raw, &s)
+	for _, f := range s.Files {
+		want := 2
+		if f.Member == "m1" && f.File == "02_r.tsv" {
+			want = 0
+		}
+		if f.Unclassified != want {
+			t.Errorf("%s/%s: %d unclassified, want %d", f.Member, f.File, f.Unclassified, want)
+		}
+	}
+	if s.ByKnown["tie"] != 2 {
+		t.Errorf("the entry classified %d lines, want 2: %v", s.ByKnown["tie"], s.ByKnown)
+	}
+	// member and file alone do not make an entry acceptable
+	os.WriteFile(k, []byte(`{"entries":[{"id":"x","refs":["r"],"description":"d","member":"m1"}]}`), 0o644)
+	if _, err := LoadKnown(k); err == nil {
+		t.Errorf("accepted an entry with only member")
+	}
+}

@@ -53,6 +53,7 @@ register entry of `projects/rules_benchmark`) and a `description`, and then:
 | `subject`, `predicate`, `object` | regular expressions over the term as written in the dump, anchored at both ends |
 | `pair` | a pair kind, below. The entry then matches lines on both sides |
 | `quanta` | `double_near`'s tolerance, in quanta of the Go engine's 15-bit grid (`graphdump.Quantum`) |
+| `member`, `file` | regular expressions over the dump's member and file name (`<member>/<file>` in the tree), anchored at both ends: the entry applies only there. For a difference known in one member of one workload. They narrow an entry and do not count as the field that keeps it from matching every line |
 
 An entry without `pair` matches one line. An entry with no `pair`, `subject`, `predicate` or `object`
 is refused, since it would match every line. **A field a pair kind does not read is refused too**, as
@@ -91,9 +92,14 @@ Then the single-line entries, in list order.
 export's `Amt*` columns differ from C++ by 0.5 to 1.04 quanta, a cent or two (266.390625 against
 266.3792…). A tolerance would hide a wrong amount of the same size, so these stay unclassified.
 
+**An entry about one workload's data belongs in a list of its own, passed with `-known`**, not in the
+built-in one: the built-in list is part of this repository, and a workload's members, rule files and
+predicates are not. Such a list is the built-in one plus the entries for that workload.
+
 **The README's other differences have no entry**, because nothing in a dump identifies them by its
 shape: `jets:value_property` alone (item 1), `jets:entity_property` not watched in Go (item 4), the
-callbacks of C++ `erase`, Go `Retract` and its indexes, and `_0:no_truth_main_on_exist`. Each shows as
+callbacks of C++ `erase`, Go `Retract` and its indexes (until `I-7` was fixed), and
+`_0:no_truth_main_on_exist`. Each shows as
 a different value or a missing triple, unclassified. When one appears, an entry is written for the
 predicates it reaches, and the issue is registered.
 

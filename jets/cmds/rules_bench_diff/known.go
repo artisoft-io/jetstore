@@ -107,8 +107,14 @@ type Entry struct {
 	Pair string `json:"pair,omitempty"`
 	// Quanta is double_near's tolerance, in quanta of the Go engine's grid.
 	Quanta float64 `json:"quanta,omitempty"`
+	// Member and File confine the entry to the dumps whose member and file name
+	// (<member>/<file> in the tree) they match: regular expressions, anchored at
+	// both ends. For a difference known in one member of one workload only. They
+	// narrow an entry; they do not make one that matches every line acceptable.
+	Member string `json:"member,omitempty"`
+	File   string `json:"file,omitempty"`
 
-	s, p, o *regexp.Regexp
+	s, p, o, m, f *regexp.Regexp
 }
 
 // LoadKnown reads a known-difference file, or the embedded one when path is "".
@@ -181,7 +187,7 @@ func (e *Entry) validate() error {
 	for _, f := range []struct {
 		expr string
 		re   **regexp.Regexp
-	}{{e.Subject, &e.s}, {e.Predicate, &e.p}, {e.Object, &e.o}} {
+	}{{e.Subject, &e.s}, {e.Predicate, &e.p}, {e.Object, &e.o}, {e.Member, &e.m}, {e.File, &e.f}} {
 		if f.expr == "" {
 			continue
 		}
@@ -194,6 +200,11 @@ func (e *Entry) validate() error {
 		return fmt.Errorf("matches every line; give a subject, predicate, object or pair")
 	}
 	return nil
+}
+
+// inFile reports whether the entry applies to the dump member/file.
+func (e *Entry) inFile(member, file string) bool {
+	return (e.m == nil || e.m.MatchString(member)) && (e.f == nil || e.f.MatchString(file))
 }
 
 func (e *Entry) inScope(scope string) bool {
