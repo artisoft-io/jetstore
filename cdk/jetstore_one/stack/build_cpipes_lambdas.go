@@ -188,6 +188,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 				"LOG_LEVEL":                                jsii.String("INFO"),
 				"LD_LIBRARY_PATH":                          jsii.String("/usr/local/lib"),
+				// jemalloc, installed by dockerfiles/Dockerfile.cpipes_native_lambda, which
+				// sets it too; set here because Lambda documents the environment it passes
+				// from the function's configuration, not from the image's.
+				"LD_PRELOAD": jsii.String("/usr/lib64/libjemalloc.so.2"),
 			},
 			Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
 			Role:           jsComp.LambdaExecutionRole,
