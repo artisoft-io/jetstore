@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_BETA_ROW_H
 #define JETS_RETE_BETA_ROW_H
 
+#include <charconv>
 #include <string>
 #include <memory>
 #include <ostream>
@@ -58,10 +59,35 @@ class BetaRow {
     }
   }
 
+  // A kept row, made from a candidate built in scratch storage (see
+  // ReteSession::CandidateRow): its values and tid, in `arena`
+  struct copy_candidate_t {};
+  BetaRow(copy_candidate_t, BetaRow const& candidate, BetaRowArena * arena)
+    : status_(kNone),
+      size_(candidate.size_),
+      tid_(candidate.tid_.data(), candidate.tid_.size(), ArenaAllocator<char>(arena)),
+      data_(candidate.data_.begin(), candidate.data_.end(), ArenaAllocator<rdf::r_index>(arena)),
+      node_vertex_(candidate.node_vertex_),
+      inferred_(nullptr)
+  {}
+
   virtual inline
   ~BetaRow()
   {
     release_recorded();
+  }
+
+  // Makes a scratch row a fresh candidate for `node_vertex`, as the constructor would,
+  // reusing its storage: no allocation once it has held a row of this size and tid
+  inline void
+  reset(b_index node_vertex, int size)
+  {
+    release_recorded();
+    status_ = kNone;
+    size_ = size;
+    node_vertex_ = node_vertex;
+    data_.assign(size > 0 ? size : 0, nullptr);
+    tid_.assign(1, '0');
   }
 
   BetaRow(BetaRow const&) = delete;
@@ -152,10 +178,13 @@ class BetaRow {
       pos++;
     }
     if(this->node_vertex_) {
-      std::ostringstream buf;
-      buf << parent_node->get_tid() <<":"<<this->node_vertex_->vertex;
-      auto const& tid = buf.str();
-      this->tid_.assign(tid.data(), tid.size());
+      // "<parent tid>:<vertex>", as an ostringstream wrote it, without one
+      char digits[16];
+      auto end = std::to_chars(digits, digits + sizeof(digits), this->node_vertex_->vertex).ptr;
+      auto const& parent_tid = parent_node->get_tid();
+      this->tid_.assign(parent_tid.data(), parent_tid.size());
+      this->tid_.push_back(':');
+      this->tid_.append(digits, end);
     }
     return 0;
   }
@@ -283,6 +312,13 @@ inline BetaRowPtr create_beta_row(BetaRowArena * arena, b_index node_vertex, int
   return std::allocate_shared<BetaRow>(ArenaAllocator<BetaRow>(arena), node_vertex, size, arena);
 }
 
+// A kept row in `arena`, copied from a candidate
+inline BetaRowPtr create_beta_row(BetaRowArena * arena, BetaRow const& candidate)
+{
+  return std::allocate_shared<BetaRow>(ArenaAllocator<BetaRow>(arena),
+    BetaRow::copy_candidate_t{}, candidate, arena);
+}
+
 inline std::ostream & operator<<(std::ostream & out, BetaRow const& row)
 {
   if(row.get_node_vertex() and row.get_node_vertex()->get_beta_row_initializer()) {
@@ -365,9 +401,45 @@ operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs)
   return true; 
 }
 
+// The row set's hash and equality, transparent so that a candidate row is looked up
+// without a BetaRowPtr. A row hashes as absl::Hash<BetaRowPtr> hashed it: by its
+// values, through AbslHashValue above (taken by a non-const pointer, which is what
+// selects it over absl's hash of the address)
+struct BetaRowHash {
+  using is_transparent = void;
+  inline std::size_t
+  operator()(BetaRowPtr const& row)const
+  {
+    return absl::Hash<BetaRowPtr>{}(row);
+  }
+  inline std::size_t
+  operator()(BetaRow const& row)const
+  {
+    return absl::Hash<BetaRow*>{}(const_cast<BetaRow*>(&row));
+  }
+};
+
+struct BetaRowEqual {
+  using is_transparent = void;
+  inline bool
+  operator()(BetaRowPtr const& lhs, BetaRowPtr const& rhs)const
+  {
+    return lhs == rhs;
+  }
+  inline bool
+  operator()(BetaRowPtr const& lhs, BetaRow const& rhs)const
+  {
+    return *lhs == rhs;
+  }
+  inline bool
+  operator()(BetaRow const& lhs, BetaRowPtr const& rhs)const
+  {
+    return lhs == *rhs;
+  }
+};
+
 // using beta_row_set = absl::flat_hash_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
-using beta_row_set = std::unordered_set<BetaRowPtr, absl::Hash<BetaRowPtr>, std::equal_to<BetaRowPtr>,
-  ArenaAllocator<BetaRowPtr>>;
+using beta_row_set = std::unordered_set<BetaRowPtr, BetaRowHash, BetaRowEqual, ArenaAllocator<BetaRowPtr>>;
 
 
 } // namespace jets::rete

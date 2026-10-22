@@ -154,6 +154,22 @@ class BetaRelation {
   remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
   /**
+   * @brief Insert, or remove, the row equal to `candidate`, a row built in scratch
+   * storage (ReteSession::CandidateRow)
+   *
+   * The same as insert_beta_row and remove_beta_row, except that a row is allocated
+   * only when the candidate is inserted and no equal row is in the relation; the
+   * candidate itself is never held.
+   */
+  // Defined in rete_session.h
+  int
+  insert_candidate(ReteSession * rete_session, BetaRow const& candidate);
+
+  // Defined in rete_session.h
+  int
+  remove_candidate(ReteSession * rete_session, BetaRow const& candidate);
+
+  /**
    * @brief Erase `beta_row` once its consequents have been retracted
    *
    * LEGACY defect 2 turned off (RetractionMode::erase_withdrawn_rows). remove_beta_row
@@ -215,6 +231,14 @@ class BetaRelation {
   initialize(ReteSession * rete_session);
 
  protected:
+
+  // Defined in rete_session.h: the rest of an insert once the row is found or added
+  // to all_beta_rows_, and of a remove once it is looked up
+  int
+  row_inserted(ReteSession * rete_session, BetaRowPtr const& beta_row, bool is_new);
+
+  int
+  row_removed(ReteSession * rete_session, beta_row_set::const_iterator itor);
 
   // Defined in rete_session.h
   /**

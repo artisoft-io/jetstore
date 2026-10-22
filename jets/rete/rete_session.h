@@ -67,7 +67,9 @@ class ReteSession {
       err_msg_(),
       max_vertex_visit_(0),
       no_truth_main_on_exist_(0),
-      recording_row_(nullptr)
+      recording_row_(nullptr),
+      scratch_rows_(),
+      scratch_depth_(0)
     {}
 
   ReteSession(ReteSession const&) = delete;
@@ -109,6 +111,41 @@ class ReteSession {
   {
     return &arena_;
   }
+
+  /**
+   * @brief A candidate beta row, built in the session's scratch storage
+   *
+   * A candidate is initialized, filtered, then inserted into or removed from its
+   * relation (BetaRelation::insert_candidate, remove_candidate), which allocates a row
+   * only when it is kept. The scratch rows are reused, one per nesting level: a filter
+   * can re-enter the session (the error path inserts into the asserted graph, whose
+   * callbacks build candidates of their own) while the outer candidate is live. They
+   * are in the arena and released with it.
+   */
+  class CandidateRow {
+   public:
+    CandidateRow(ReteSession * rete_session, b_index node_vertex, int size)
+      : rete_session_(rete_session)
+    {
+      auto & rows = rete_session->scratch_rows_;
+      auto depth = rete_session->scratch_depth_++;
+      if(depth == rows.size()) {
+        void * p = rete_session->arena_.allocate(sizeof(BetaRow), alignof(BetaRow));
+        rows.push_back(::new (p) BetaRow(nullptr, 0, &rete_session->arena_));
+      }
+      row_ = rows[depth];
+      row_->reset(node_vertex, size);
+    }
+    ~CandidateRow() { --rete_session_->scratch_depth_; }
+    CandidateRow(CandidateRow const&) = delete;
+    CandidateRow & operator=(CandidateRow const&) = delete;
+
+    inline BetaRow * get()const { return row_; }
+
+   private:
+    ReteSession * rete_session_;
+    BetaRow *     row_;
+  };
 
   inline rdf::RDFSession *
   rdf_session()
@@ -350,6 +387,8 @@ class ReteSession {
   int                     max_vertex_visit_;
   int                     no_truth_main_on_exist_; // This is temporary until we fix legacy rules
   BetaRow *               recording_row_;          // row whose inferred triples are being recorded
+  std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed
+  std::size_t             scratch_depth_;          // CandidateRows live
 };
 
 inline int
@@ -389,7 +428,26 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     RETE_EXCEPTION("BetaRelation::insert_beta_row: row and relation are in different arenas");
   }
   auto iret = this->all_beta_rows_.insert(beta_row);
-  if(iret.second) {
+  return this->row_inserted(rete_session, iret.second ? beta_row : *iret.first, iret.second);
+}
+
+inline int
+BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candidate)
+{
+  auto itor = this->all_beta_rows_.find(candidate);
+  if(itor != this->all_beta_rows_.end()) {
+    return this->row_inserted(rete_session, *itor, false);
+  }
+  // Only a row that is kept is allocated
+  auto beta_row = create_beta_row(this->arena_, candidate);
+  this->all_beta_rows_.insert(beta_row);
+  return this->row_inserted(rete_session, beta_row, true);
+}
+
+inline int
+BetaRelation::row_inserted(ReteSession * rete_session, BetaRowPtr const& beta_row, bool is_new)
+{
+  if(is_new) {
     // beta_row inserted in set
     VLOG(56)<<"BetaRow insert row "<<beta_row;
     // schedule the consequent terms
@@ -404,7 +462,6 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     }
 
   } else {
-    beta_row = *(iret.first);  
     VLOG(56)<<"BetaRow insert (again) row "<<beta_row;
     // Check if row was maked as deleted
     if(beta_row->is_deleted()) {
@@ -434,14 +491,25 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 inline int
 BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
-  auto itor = this->all_beta_rows_.find(beta_row);
+  return this->row_removed(rete_session, this->all_beta_rows_.find(beta_row));
+}
+
+inline int
+BetaRelation::remove_candidate(ReteSession * rete_session, BetaRow const& candidate)
+{
+  return this->row_removed(rete_session, this->all_beta_rows_.find(candidate));
+}
+
+inline int
+BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterator itor)
+{
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
     // VLOG(50)<<"    BetaRowPtr not found, must be already deleted.(D01)";
     return 0;
   }
   // make sure we point to the right instance
-  beta_row = *itor;
+  BetaRowPtr beta_row = *itor;
   VLOG(56)<<"BetaRow remove row "<<beta_row;
   
   // Check if row was already deleted

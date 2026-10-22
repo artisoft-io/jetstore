@@ -603,6 +603,95 @@ TEST(BetaRowArenaTest, ContainersReleasedWithoutDestruction)
   arena.release();
 }
 
+// Candidates are built in scratch rows, one per nesting level, reused once released
+TEST_F(ReteSessionTest, CandidateRowsNestAndAreReused)
+{
+  auto * rs = this->rete_session.get();
+  auto const* nv = this->rete_meta_store->get_node_vertex(1);
+  BetaRow * outer_row = nullptr;
+  {
+    ReteSession::CandidateRow outer(rs, nv, 2);
+    outer_row = outer.get();
+    outer_row->put(0, this->rdf_session->rmgr()->create_resource("x"));
+    {
+      ReteSession::CandidateRow inner(rs, nv, 3);
+      EXPECT_NE(inner.get(), outer_row);
+      EXPECT_EQ(inner.get()->get_size(), 3);
+      EXPECT_EQ(inner.get()->arena(), rs->arena());
+    }
+    // the inner candidate left the outer one alone
+    EXPECT_EQ(outer_row->get_size(), 2);
+    EXPECT_NE(outer_row->get(0), nullptr);
+  }
+  ReteSession::CandidateRow again(rs, nv, 2);
+  EXPECT_EQ(again.get(), outer_row);
+  EXPECT_EQ(again.get()->get(0), nullptr);
+  EXPECT_EQ(again.get()->get_tid(), "0");
+  EXPECT_EQ(again.get()->get_status(), kNone);
+}
+
+// The row set's transparent hash is absl::Hash<BetaRowPtr>'s, so the set's buckets,
+// and the order it is iterated in, are what they were; and equality is by values
+TEST(BetaRowCandidateTest, HashAndEqualityMatchTheRowPtrs)
+{
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  BetaRowArena arena;
+  BetaRowHash hash;
+  BetaRowEqual equal;
+  for(int n=0; n<200; n++) {
+    int size = n % 7;
+    auto row = create_beta_row(&arena, nullptr, size);
+    BetaRow candidate(nullptr, size, &arena);
+    for(int k=0; k<size; k++) {
+      row->put(k, rmanager->create_literal<int>(n * 10 + k));
+      candidate.put(k, rmanager->create_literal<int>(n * 10 + k));
+    }
+    EXPECT_EQ(hash(row), absl::Hash<BetaRowPtr>{}(row));
+    EXPECT_EQ(hash(candidate), absl::Hash<BetaRowPtr>{}(row));
+    EXPECT_TRUE(equal(row, candidate));
+    EXPECT_TRUE(equal(candidate, row));
+    if(size > 0) {
+      candidate.put(0, rmanager->create_literal<int>(-1));
+      EXPECT_FALSE(equal(row, candidate));
+    }
+  }
+}
+
+// A kept row copies the candidate's values and tid into the arena; the tid is
+// "<parent tid>:<vertex>", as it was written with an ostringstream
+TEST(BetaRowCandidateTest, KeptRowCopiesTheCandidate)
+{
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  BetaRowArena arena;
+  auto ri = create_row_initializer(2);
+  ri->put(0, 0 | brc_parent_node, "?a");
+  ri->put(1, 2 | brc_triple, "?b");
+  auto nv7 = create_node_vertex(nullptr, 0, 7, false, 10, {}, "", ri);
+  auto nv12 = create_node_vertex(nullptr, 0, 12, false, 10, {}, "", ri);
+  auto parent = create_beta_row(&arena, nv7.get(), 2);
+  parent->put(0, rmanager->create_resource("p0"));
+  parent->put(1, rmanager->create_resource("p1"));
+  BetaRow candidate(nv12.get(), 2, &arena);
+  rdf::Triple t3(rmanager->create_resource("s"), rmanager->create_resource("p"), rmanager->create_resource("o"));
+  ASSERT_EQ(candidate.initialize(ri.get(), parent.get(), &t3), 0);
+  EXPECT_EQ(candidate.get_tid(), "0:12");
+  EXPECT_EQ(candidate.get(0), parent->get(0));
+  EXPECT_EQ(candidate.get(1), t3.object);
+
+  auto kept = create_beta_row(&arena, candidate);
+  EXPECT_EQ(kept->arena(), &arena);
+  EXPECT_EQ(kept->get_node_vertex(), nv12.get());
+  EXPECT_EQ(kept->get_tid(), "0:12");
+  EXPECT_TRUE(*kept == candidate);
+  EXPECT_EQ(kept->get_status(), kNone);
+
+  BetaRow grandchild(nv7.get(), 2, &arena);
+  ASSERT_EQ(grandchild.initialize(ri.get(), kept.get(), &t3), 0);
+  EXPECT_EQ(grandchild.get_tid(), "0:12:7");
+}
+
 TEST(BetaRowArenaTest, RelationRefusesARowFromAnotherArena)
 {
   BetaRowArena a1, a2;
