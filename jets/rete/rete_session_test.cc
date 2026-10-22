@@ -1037,6 +1037,35 @@ TEST(BetaRowCandidateTest, HashAndEqualityMatchTheRowPtrs)
   }
 }
 
+// The cached hash is the hash of the row's values: on a fresh row, after put() changes
+// a value (which drops it), and on a kept row made from a candidate
+TEST(BetaRowCandidateTest, CachedHashIsTheValuesHash)
+{
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  BetaRowArena arena;
+  auto values_hash = [](BetaRow const& row) { return absl::Hash<BetaRow*>{}(const_cast<BetaRow*>(&row)); };
+  for(int n=0; n<100; n++) {
+    int size = 1 + n % 6;
+    BetaRow candidate(nullptr, size, &arena);
+    for(int k=0; k<size; k++) candidate.put(k, rmanager->create_literal<int>(n * 10 + k));
+    EXPECT_EQ(candidate.hash(), values_hash(candidate));
+    EXPECT_EQ(BetaRowHash{}(candidate), values_hash(candidate));
+    auto kept = create_beta_row(&arena, candidate);
+    EXPECT_EQ(kept->hash(), candidate.hash());
+    EXPECT_EQ(BetaRowHash{}(kept), values_hash(*kept));
+    // a value changed after the hash was taken
+    auto before = candidate.hash();
+    candidate.put(0, rmanager->create_literal<int>(-1 - n));
+    EXPECT_EQ(candidate.hash(), values_hash(candidate));
+    EXPECT_NE(candidate.hash(), before);
+    EXPECT_FALSE(BetaRowEqual{}(kept, candidate));
+    // reset drops it too
+    candidate.reset(nullptr, size);
+    EXPECT_EQ(candidate.hash(), values_hash(candidate));
+  }
+}
+
 // A kept row copies the candidate's values and tid into the arena; the tid is
 // "<parent tid>:<vertex>", as it was written with an ostringstream
 TEST(BetaRowCandidateTest, KeptRowCopiesTheCandidate)
