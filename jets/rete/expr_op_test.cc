@@ -360,7 +360,7 @@ TEST_F(ExprOpTest, SubsVisitor2) {
   rdf::LInt32 lhs(1);
   rdf::LDouble rhs(1);
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
-  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(0)));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDouble(0)));   // an LInt32 until 2026-10
 }
 TEST_F(ExprOpTest, SubsVisitor3) {
   SubsVisitor op(this->rete_session.get(), nullptr);
@@ -431,7 +431,7 @@ TEST_F(ExprOpTest, AddVisistorTest5) {
   rdf::LInt32 lhs(1);
   rdf::LDouble rhs(2.0);
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
-  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(3)));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDouble(3)));   // an LInt32 until 2026-10
 }
 TEST_F(ExprOpTest, AddVisistorTest6) {
   AddVisitor op(this->rete_session.get(), nullptr);
@@ -872,6 +872,70 @@ TEST(TieBreak, ResourcesThenBlankNodesThenLiterals) {
   EXPECT_FALSE(tie_break_less(u10.get(), l10.get()));
   EXPECT_TRUE(tie_break_less(d10.get(), s10.get()));    // then double, then string
   EXPECT_FALSE(tie_break_less(r_a.get(), r_a.get()));
+}
+
+// + - * /: a double operand makes the result a double, on either side. Until 2026-10 an
+// integer first truncated the double in + and - (2 + 0.5 was 2).
+template<class V>
+void expect_double_result(char const* op, double (*f)(double, double))
+{
+  V v(nullptr, nullptr);
+  std::vector<RDFTTYPE> ints = {rdf::LInt32(7), rdf::LUInt32(7), rdf::LInt64(7), rdf::LUInt64(7)};
+  for(auto const& n: ints) {
+    EXPECT_EQ(boost::apply_visitor(v, n, RDFTTYPE(rdf::LDouble(0.5))), RDFTTYPE(rdf::LDouble(f(7, 0.5))))
+      << n << " " << op << " 0.5";
+    EXPECT_EQ(boost::apply_visitor(v, RDFTTYPE(rdf::LDouble(0.5)), n), RDFTTYPE(rdf::LDouble(f(0.5, 7))))
+      << "0.5 " << op << " " << n;
+  }
+}
+
+TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
+  expect_double_result<AddVisitor>("+", [](double a, double b) { return a + b; });
+  expect_double_result<SubsVisitor>("-", [](double a, double b) { return a - b; });
+  expect_double_result<MultVisitor>("*", [](double a, double b) { return a * b; });
+  expect_double_result<DivVisitor>("/", [](double a, double b) { return a / b; });
+}
+
+// The typing table shared with the Go engine's TestArithmeticTyping
+// (jets/jetrules/rdf/ast_math_operators_test.go). Go's int and uint are 64-bit, so they are
+// int64 and uint64 here. Not here: Go's "uint + negative int" and "int + uint past int",
+// which give no result on Go and throw in numeric_cast here, a recorded difference.
+TEST(ArithmeticTypes, TheSharedTypingTable) {
+  AddVisitor add(nullptr, nullptr);
+  SubsVisitor sub(nullptr, nullptr);
+  MultVisitor mul(nullptr, nullptr);
+  DivVisitor div(nullptr, nullptr);
+  auto I = [](int64_t v) { return RDFTTYPE(rdf::LInt64(v)); };
+  auto UI = [](uint64_t v) { return RDFTTYPE(rdf::LUInt64(v)); };
+  auto F = [](double v) { return RDFTTYPE(rdf::LDouble(v)); };
+  auto DD = [](int y, int m, int d) { return RDFTTYPE(rdf::LDate(rdf::date(y, m, d))); };
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(op, a, b); };
+  EXPECT_EQ(ap(add, I(5), F(0.5)), F(5.5));
+  EXPECT_EQ(ap(add, F(0.5), I(5)), F(5.5));
+  EXPECT_EQ(ap(sub, I(5), F(0.5)), F(4.5));
+  EXPECT_EQ(ap(sub, F(0.5), I(5)), F(-4.5));
+  EXPECT_EQ(ap(mul, I(5), F(0.5)), F(2.5));
+  EXPECT_EQ(ap(mul, F(0.5), I(5)), F(2.5));
+  EXPECT_EQ(ap(div, I(5), F(2)), F(2.5));
+  EXPECT_EQ(ap(div, I(5), I(2)), I(2));
+  EXPECT_EQ(ap(add, I(5), I(2)), I(7));
+  EXPECT_EQ(ap(add, I(5), UI(3)), I(8));
+  EXPECT_EQ(ap(add, UI(5), I(3)), UI(8));
+  EXPECT_EQ(ap(add, UI(5), UI(3)), UI(8));
+  EXPECT_EQ(ap(sub, UI(5), I(3)), UI(2));
+  EXPECT_EQ(ap(mul, UI(5), I(3)), UI(15));
+  EXPECT_EQ(ap(div, UI(7), I(2)), UI(3));
+  EXPECT_EQ(ap(mul, UI(5), F(0.5)), F(2.5));
+  EXPECT_EQ(ap(add, I(5), RDFTTYPE(rdf::LString("x"))).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(add, DD(2025, 1, 1), I(1)), DD(2025, 1, 2));
+}
+
+TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
+  AddVisitor add(nullptr, nullptr);
+  EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt32(2)), RDFTTYPE(rdf::LInt64(3))), RDFTTYPE(rdf::LInt32(5)));
+  EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt64(2)), RDFTTYPE(rdf::LInt32(3))), RDFTTYPE(rdf::LInt64(5)));
+  DivVisitor div(nullptr, nullptr);
+  EXPECT_EQ(boost::apply_visitor(div, RDFTTYPE(rdf::LInt32(7)), RDFTTYPE(rdf::LInt32(2))), RDFTTYPE(rdf::LInt32(3)));
 }
 
 }   // namespace
