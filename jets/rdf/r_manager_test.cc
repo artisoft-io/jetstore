@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -264,6 +265,48 @@ TEST(RManagerTest, CreateFindsByValueAndBuildsOnlyWhatIsNew)
   EXPECT_NE(sess->create_literal("own"), nullptr);
   EXPECT_EQ(sess->size(), 1u);
   EXPECT_THROW(root->create_literal("new"), rdf_exception);
+}
+
+// Doubles unify as the map's equality says: -0.0 and 0.0 are one literal, and a NaN is
+// equal to nothing, so each NaN is a literal of its own. As before the lookup by value.
+TEST(RManagerTest, SignedZeroUnifiesAndNaNNever)
+{
+  auto rmgr = RManager::create();
+  auto zero = rmgr->create_literal(0.0);
+  EXPECT_EQ(rmgr->create_literal(-0.0), zero);
+  EXPECT_EQ(rmgr->insert_rdfast(LDouble(-0.0)), zero);
+  EXPECT_EQ(rmgr->get_literal(-0.0), zero);
+  EXPECT_EQ(rmgr->insert_item(mkLiteral(-0.0)), zero);
+  EXPECT_EQ(rmgr->size(), 1u);
+
+  auto const nan = std::numeric_limits<double>::quiet_NaN();
+  auto n1 = rmgr->create_literal(nan);
+  auto n2 = rmgr->create_literal(nan);
+  EXPECT_NE(n1, n2);
+  EXPECT_NE(rmgr->insert_rdfast(LDouble(nan)), n1);
+  EXPECT_EQ(rmgr->get_literal(nan), nullptr);
+  EXPECT_EQ(rmgr->size(), 4u);
+}
+
+// A session manager finds, by value, what its locked root holds
+TEST(RManagerTest, InsertRdfastFindsWhatTheRootHolds)
+{
+  auto root = RManager::create();
+  auto r = root->create_resource("held");
+  auto b = root->create_bnode(5);
+  auto sess = RManager::create(root);           // locks the root
+  EXPECT_TRUE(root->is_locked());
+  EXPECT_EQ(sess->insert_rdfast(NamedResource("held")), r);
+  EXPECT_EQ(sess->insert_rdfast(BlankNode(5)), b);
+  EXPECT_EQ(sess->get_rdfast(BlankNode(5)), b);
+  EXPECT_EQ(sess->size(), 0u);
+  // and a long std::string, as an lvalue and as an rvalue
+  std::string text(64, 'x');
+  auto t = sess->create_literal(text);
+  EXPECT_EQ(sess->create_literal(std::string(64, 'x')), t);
+  EXPECT_EQ(sess->create_resource(text), sess->create_resource(std::string(64, 'x')));
+  EXPECT_NE(sess->create_resource(text), t);
+  EXPECT_EQ(sess->size(), 2u);
 }
 
 }   // namespace

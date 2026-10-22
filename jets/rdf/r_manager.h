@@ -121,7 +121,7 @@ class RManager {
   // the value is new (LiteralDataMap, containers_type.h).
   template<class T>
   inline r_index 
-  get_literal(T v) const
+  get_literal(T const& v) const
   {
     return get_by(literal_key(v));
   }
@@ -133,9 +133,22 @@ class RManager {
     return insert_by(literal_key(v), [&v]() { return mkLiteral(std::move(v)); });
   }
 
+  // A std::string is not copied to look it up: only a new one is copied, or moved
+  inline r_index 
+  create_literal(std::string const& v)
+  {
+    return insert_by(literal_key(v), [&v]() { return mkLiteral(v); });
+  }
+
+  inline r_index 
+  create_literal(std::string && v)
+  {
+    return insert_by(literal_key(v), [&v]() { return mkLiteral(std::move(v)); });
+  }
+
   template<class T>
   inline r_index 
-  get_resource(T v) const
+  get_resource(T const& v) const
   {
     return get_by(resource_key(v));
   }
@@ -143,6 +156,18 @@ class RManager {
   template<class T>
   inline r_index 
   create_resource(T v)
+  {
+    return insert_by(resource_key(v), [&v]() { return mkResource(std::move(v)); });
+  }
+
+  inline r_index 
+  create_resource(std::string const& v)
+  {
+    return insert_by(resource_key(v), [&v]() { return mkResource(v); });
+  }
+
+  inline r_index 
+  create_resource(std::string && v)
   {
     return insert_by(resource_key(v), [&v]() { return mkResource(std::move(v)); });
   }
@@ -263,7 +288,9 @@ class RManager {
   static RdfStringKey resource_key(std::string_view v)   { return RdfStringKey{rdf_named_resource_t, v}; }
   static RdfStringKey resource_key(const char * v)       { return RdfStringKey{rdf_named_resource_t, v}; }
 
-  // insert_item, by value: make() builds the Rptr, and is called only for a new value
+  // insert_item, by value: make() builds the Rptr, and is called only for a new value.
+  // `key` must not be read after make(): the callers' make() moves from the value that
+  // `key` views (an RdfStringKey holds a std::string_view of it).
   template<class K, class Make>
   inline r_index
   insert_by(K const& key, Make && make)
@@ -279,7 +306,7 @@ class RManager {
     }
     auto itor = lmap_.find(key);
     if(itor != lmap_.end()) return itor->second;
-    Rptr lptr = make();
+    Rptr lptr = make();             // `key` may dangle from here
     r_index r = lptr.get();
     lmap_.emplace(std::move(lptr), r);
     return r;
