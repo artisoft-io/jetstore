@@ -262,25 +262,18 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // Clear the pending rows in current_relation, since they were for the last pass
         current_relation->clear_pending_rows();
 
-        // Get an iterator over all applicable rows from the parent beta node
-        BetaRowIteratorPtr parent_row_itor;
+        // The applicable rows of the parent beta node: all of them, or the pending ones
         bool need_all_rows = !current_relation->is_activated();
-        if(need_all_rows) {
-          parent_row_itor = parent_beta_relation->get_all_rows_iterator();
-        } else {
-          parent_row_itor = parent_beta_relation->get_pending_rows_iterator();
-        }
 
         // process rows from parent beta node:
         // for each BetaRow of parent beta node, 
         // compute the inferred/retracted BetaRow for current_relation
         auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
         auto const* beta_row_initializer = child_meta_node->get_beta_row_initializer();
-        while(!parent_row_itor->is_end()) {
+        auto process_parent_row = [&](BetaRow const* parent_row) {
 
           // for each triple from the rdf graph matching the AlphaNode
           // compute the BetaRow to infer or retract
-          auto const* parent_row = parent_row_itor->get_row();
           auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
 
           // Process the returned iterator t3_itor accordingly if AlphaNode is a negation
@@ -345,7 +338,13 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               t3_itor.next();
             }
           }
-          parent_row_itor->next();
+        };
+        // Iterated in place, as a BetaRowIterator iterated them, without allocating one
+        // per child and visit
+        if(need_all_rows) {
+          for(auto const& parent_row: parent_beta_relation->all_rows()) process_parent_row(parent_row.get());
+        } else {
+          for(auto const& parent_row: parent_beta_relation->pending_rows()) process_parent_row(parent_row.get());
         }
 
         // mark current beta node as activated and push it on the stack so to visit it's childrens

@@ -113,6 +113,19 @@ class BetaRelation {
     return not pending_beta_rows_.empty();
   }
 
+  // The relation's rows and its pending rows, for iterating in place
+  inline beta_row_set const&
+  all_rows()const
+  {
+    return all_beta_rows_;
+  }
+
+  inline beta_row_list const&
+  pending_rows()const
+  {
+    return pending_beta_rows_;
+  }
+
   inline BetaRowIteratorPtr
   get_all_rows_iterator()const
   {
