@@ -16,11 +16,13 @@ import (
 var globalNull *Node
 var globalNan *Node
 var globalInf *Node
+var globalNegInf *Node
 
 func init() {
 	globalNull = &Node{Value: RdfNull{}}
 	globalNan = &Node{Value: math.NaN()}
-	globalInf = &Node{Value: math.Inf(0)}
+	globalInf = &Node{Value: math.Inf(1)}
+	globalNegInf = &Node{Value: math.Inf(-1)}
 }
 
 type Node struct {
