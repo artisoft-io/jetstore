@@ -43,6 +43,7 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 	// compute the inferred/retracted BetaRow for the added/retracted triple (s, p, o)
 	t3 := rdf.Triple{s, p, o}
 	betaRowInitializer := nodeVertex.RowInitializer
+	mark := rs.reentries
 	for parentRow, valid := range parentBetaRows {
 		if !valid {
 			continue
@@ -56,7 +57,7 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 		// evaluate the nodeVertex filter if any; a row to insert is checked again
 		// if the filter re-entered the rete
 		inserting := isInserted != nodeVertex.IsNegation
-		if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentRow, &t3, inserting) {
+		if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentRow, &t3, inserting, mark) {
 			// Add/Remove row to current beta relation (betaRelation)
 			switch {
 			case (isInserted && !nodeVertex.IsNegation) ||
@@ -150,6 +151,7 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 	}
 	alphaNode := rs.GetAlphaNode(vertex)
 	parentRowsItor := NewBetaRowSetIterator(parentBetaRelation.AllRows)
+	mark := rs.reentries
 	for !parentRowsItor.IsEnd() {
 		// for each triple from the rdf graph matching the AlphaNode
 		// compute the BetaRow to infer or retract
@@ -175,7 +177,7 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 					log.Panicf("while initializing BetaRow with NilTriple ()TripleUpdatedForFilter): %v", err)
 				}
 				// evaluate the current alpha node filter if any
-				if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentBetaRow, &t3, true) {
+				if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentBetaRow, &t3, true, mark) {
 					// Add row to child beta relation
 					betaRelation.InsertBetaRow(rs, betaRow)
 				}
@@ -189,7 +191,7 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 				betaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
 				// evaluate the current_relation filter if any, and insert the row
 				// to the current beta relation
-				if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentBetaRow, &t3, true) {
+				if rs.keepCandidate(alphaNode, betaRow, parentBetaRelation, parentBetaRow, &t3, true, mark) {
 					// Add child beta row to child beta relation
 					betaRelation.InsertBetaRow(rs, betaRow)
 				}
@@ -206,33 +208,55 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 	}
 }
 
-// keepCandidate evaluates the filter of row, a candidate built from parentRow of
-// parentRelation and, for a positive antecedent, the triple t3. It reports whether
-// the row is kept.
-//
 // A filter can write to the graph -- in a compiled rule set, the jets:exception a
 // failed truth test raises -- and the write's callbacks re-enter the rete at once,
-// through TripleUpdated or TripleUpdatedForFilter. The re-entry can remove
-// parentRow, or make the candidate's own antecedent fail, while the filter is still
-// running; a candidate kept then was inserted from a row that no longer exists and
-// was never retracted, so the session's result depended on the order its triples
-// arrived in (rules_benchmark I-91). So when a candidate to be inserted is kept and
-// the session was re-entered during its filter, it is checked again: parentRow is
-// still in parentRelation and not deleted, and the antecedent still holds -- for a
-// negation no triple matches, otherwise t3 is still in the graph. A candidate to be
-// removed needs no check: removing a row that is not there does nothing.
+// through TripleUpdated or TripleUpdatedForFilter. The re-entry can remove a parent
+// row, or a triple, that the scan evaluating the filter is building candidates
+// from: those candidates, the one whose filter wrote and the others of the same
+// scan, before it or after it, were then inserted from a row or a triple that no
+// longer existed, and never retracted, so the session's result depended on the
+// order its triples arrived in (rules_benchmark I-91).
+//
+// So a scan notes rs.reentries when it begins, and a candidate it inserts is
+// checked again when the count has moved since (stillHolds). VisitReteGraph holds
+// its candidates until the scan ends and checks them then (holdCandidate,
+// insertHeldCandidates): a candidate inserted before the re-entry could not be
+// withdrawn by it, since the relation it went into is not activated during its
+// first scan. TripleUpdated and TripleUpdatedForFilter check each candidate as
+// they insert it (keepCandidate): their relation is activated, so a re-entry
+// withdraws what they inserted before it. A candidate to be removed needs no
+// check: removing a row that is not there does nothing. Without a re-entry the
+// cost is one comparison per candidate.
+
+// heldCandidate is a candidate row VisitReteGraph inserts at the end of its scan,
+// with what it was built from.
+type heldCandidate struct {
+	row, parent *BetaRow
+	t3          rdf.Triple
+}
+
+// passesFilter evaluates the filter of row's vertex, if any.
+func (rs *ReteSession) passesFilter(alphaNode *AlphaNode, row *BetaRow) bool {
+	return !alphaNode.NdVertex.HasExpression() || alphaNode.NdVertex.FilterExpr.EvalFilter(rs, row)
+}
+
+// keepCandidate evaluates the filter of row, a candidate built from parentRow of
+// parentRelation and, for a positive antecedent, the triple t3, and reports whether
+// the row is kept: a row to insert is checked again when the session was re-entered
+// since mark, the count when the caller's scan began.
 func (rs *ReteSession) keepCandidate(alphaNode *AlphaNode, row *BetaRow, parentRelation *BetaRelation,
-	parentRow *BetaRow, t3 *rdf.Triple, inserting bool) bool {
-	if !alphaNode.NdVertex.HasExpression() {
-		return true
-	}
-	mark := rs.reentries
-	if !alphaNode.NdVertex.FilterExpr.EvalFilter(rs, row) {
+	parentRow *BetaRow, t3 *rdf.Triple, inserting bool, mark uint64) bool {
+	if !rs.passesFilter(alphaNode, row) {
 		return false
 	}
-	if !inserting || rs.reentries == mark {
-		return true
-	}
+	return !inserting || rs.reentries == mark || rs.stillHolds(alphaNode, parentRelation, parentRow, t3)
+}
+
+// stillHolds reports whether a candidate built from parentRow and t3 still holds:
+// parentRow is still in parentRelation and not deleted, and the antecedent still
+// holds -- for a negation no triple matches, otherwise t3 is still in the graph.
+func (rs *ReteSession) stillHolds(alphaNode *AlphaNode, parentRelation *BetaRelation,
+	parentRow *BetaRow, t3 *rdf.Triple) bool {
 	if p := parentRelation.AllRows.Get(parentRow); p == nil || p.IsDeleted() {
 		return false
 	}
@@ -240,4 +264,26 @@ func (rs *ReteSession) keepCandidate(alphaNode *AlphaNode, row *BetaRow, parentR
 		return alphaNode.FindMatchingTriples(rs, parentRow).IsEmpty()
 	}
 	return rs.RdfSession.Contains((*t3)[0], (*t3)[1], (*t3)[2])
+}
+
+// holdCandidate holds row, a candidate of VisitReteGraph's current scan that passed
+// its filter, until the scan ends.
+func (rs *ReteSession) holdCandidate(row, parent *BetaRow, t3 *rdf.Triple) {
+	rs.heldCandidates = append(rs.heldCandidates, heldCandidate{row: row, parent: parent, t3: *t3})
+}
+
+// insertHeldCandidates inserts into childRelation the candidates the scan held
+// above heldBase, each checked again if the session was re-entered since mark, and
+// releases them. Inserting a row evaluates nothing, so nothing is held meanwhile.
+func (rs *ReteSession) insertHeldCandidates(heldBase int, mark uint64, alphaNode *AlphaNode,
+	parentRelation, childRelation *BetaRelation) {
+	moved := rs.reentries != mark
+	for i := heldBase; i < len(rs.heldCandidates); i++ {
+		c := &rs.heldCandidates[i]
+		if !moved || rs.stillHolds(alphaNode, parentRelation, c.parent, &c.t3) {
+			childRelation.InsertBetaRow(rs, c.row)
+		}
+		*c = heldCandidate{}
+	}
+	rs.heldCandidates = rs.heldCandidates[:heldBase]
 }

@@ -121,6 +121,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				itor = pendingParentBetaRowItor
 			}
 			itor.Reset()
+			// A filter evaluated in this scan can re-enter the session and remove a
+			// parent row or a triple other candidates of the scan were built from
+			// (rules_benchmark I-91). So a candidate to insert is held until the scan
+			// ends, and checked then if the session was re-entered since the scan began.
+			mark := rs.reentries
+			heldBase := len(rs.heldCandidates)
 
 			// process rows from parent beta node:
 			// for each BetaRow of parent beta node, compute the inferred/retracted BetaRow for childBetaRelation
@@ -147,13 +153,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						if err != nil {
 							return fmt.Errorf("while initializing BetaRow with NilTriple: %v", err)
 						}
-						// evaluate the current_relation filter if any, checking a row to
-						// insert again if the filter re-entered the rete (I-91)
+						// evaluate the current_relation filter if any
 						// insert or remove the row from current_relation based on is_inferring
-						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
+						if rs.passesFilter(childAlphaNode, childBetaRow) {
 							if isInferring {
-								// Add row to child beta relation
-								childBetaRelation.InsertBetaRow(rs, childBetaRow)
+								// Add row to child beta relation, at the end of the scan
+								rs.holdCandidate(childBetaRow, parentBetaRow, &t3)
 							} else {
 								// Remove row from child beta relation
 								childBetaRelation.RemoveBetaRow(rs, childBetaRow)
@@ -171,13 +176,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and t3
 						childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
-						// evaluate the current_relation filter if any, checking a row to
-						// insert again if the filter re-entered the rete (I-91)
+						// evaluate the current_relation filter if any
 						// insert or remove the row from current_relation based on is_inferring
-						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
+						if rs.passesFilter(childAlphaNode, childBetaRow) {
 							if isInferring {
-								// Add child beta row to child beta relation
-								childBetaRelation.InsertBetaRow(rs, childBetaRow)
+								// Add child beta row to child beta relation, at the end of the scan
+								rs.holdCandidate(childBetaRow, parentBetaRow, &t3)
 							} else {
 								// Remove the row from the child beta relation
 								childBetaRelation.RemoveBetaRow(rs, childBetaRow)
@@ -187,6 +191,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				}
 				itor.Next()
 			}
+			rs.insertHeldCandidates(heldBase, mark, childAlphaNode, parentBetaRelation, childBetaRelation)
 
 			// Mark current beta node as activated (if was not already) and push it on the stack so to visit it's childrens
 			childBetaRelation.IsActivated = true

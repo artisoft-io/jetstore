@@ -276,3 +276,88 @@ func TestRegression_I91_CandidateRowReentry(t *testing.T) {
 		})
 	}
 }
+
+// I-91, second half (AW.1b): the re-entry is checked for every candidate of a
+// scan, not only for the candidate whose filter re-entered. Subjects s and s2
+// are in group g, which has (g q "maybe"), whose filter raises, and
+// (g q "true"), whose filter writes nothing; the raise removes both subjects'
+// rows from v2. A check taken around each filter alone missed:
+//   - in the first visit, a candidate of the same scan after the raise, built
+//     from a removed row; and one before it, inserted into v3 while v3 was not
+//     yet activated, so the removal never reached it;
+//   - in TripleUpdated, the second subject's candidate for (g q "maybe"): its
+//     filter raises the same exception again, which is no insert and no
+//     re-entry, so it was kept, built from a removed row.
+//
+// Go walks triples and rows in map order, so the test runs enough sessions to
+// meet the candidates in each order, in each of the two ways they are made (the
+// first visit and TripleUpdated). Every session must end with the reference
+// graph: the exception asserted first, so v2 never has a row and nothing is
+// inferred.
+func TestRegression_I91_LaterCandidateOfARemovedParent(t *testing.T) {
+	n := newI91Net(t)
+	jr := n.rm.JetsResources
+	run := func(t *testing.T, before [][3]*rdf.Node, split bool) ([]string, *rdf.Node) {
+		t.Helper()
+		sess := rdf.NewRdfSession(n.rm, n.metaGraph)
+		rs := NewReteSession(sess)
+		rs.Initialize(n.ms)
+		defer rs.Done()
+		for _, t3 := range before {
+			sess.Insert(t3[0], t3[1], t3[2])
+		}
+		srm := sess.ResourceMgr
+		sess.Insert(n.s, n.inGroup, n.g)
+		sess.Insert(srm.NewResource("s2"), n.inGroup, n.g)
+		if split {
+			if err := rs.ExecuteRules(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		sess.Insert(n.g, n.q, srm.NewTextLiteral("maybe"))
+		sess.Insert(n.g, n.q, srm.NewTextLiteral("true"))
+		if err := rs.ExecuteRules(); err != nil {
+			t.Fatal(err)
+		}
+		var lines []string
+		for t3 := range sess.Find().All() {
+			lines = append(lines, rdf.ToString(&t3))
+		}
+		sort.Strings(lines)
+		return lines, sess.GetObject(jr.Jets__istate, jr.Jets__exception)
+	}
+	for _, split := range []bool{false, true} {
+		name := "first visit"
+		if split {
+			name = "TripleUpdated"
+		}
+		t.Run(name, func(t *testing.T) {
+			var reference []string
+			wrong := 0
+			const sessions = 100
+			for range sessions {
+				got, msg := run(t, nil, split)
+				if msg == nil {
+					t.Fatal("no jets:exception raised: the test no longer reaches the re-entry")
+				}
+				if reference == nil {
+					reference, _ = run(t, [][3]*rdf.Node{{jr.Jets__istate, jr.Jets__exception, msg}}, split)
+					for _, l := range reference {
+						if strings.Contains(l, ", outP, ") {
+							t.Fatalf("the reference infers %s", l)
+						}
+					}
+				}
+				if !slices.Equal(got, reference) {
+					if wrong == 0 {
+						t.Errorf("the graph depends on the order of the triples:\n  got  %v\n  want %v", got, reference)
+					}
+					wrong++
+				}
+			}
+			if wrong > 0 {
+				t.Errorf("%d of %d sessions differ from the reference", wrong, sessions)
+			}
+		})
+	}
+}
