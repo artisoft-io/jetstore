@@ -849,6 +849,97 @@ TEST(BetaRowScanTest, ReentrantVisitReachesARelationInItsFirstVisit)
   run_scan_growing_under_it(1000);
 }
 
+// I-85: removing a row from a relation removes its own index entries, not those of
+// the other rows under the same key.
+//   rule0> (?s inGroup ?g).not(?s blocked ?b).(?g q ?v) -> (?s outP ?v)
+// The negation's relation holds [x1, g] and [x2, g], indexed under g for the last
+// antecedent. Blocking x1 removes [x1, g]; a later (g q v) must still join [x2, g].
+// Run A blocks x1 after the relation is built, run B before: the rules must end
+// with the same graph, (x2 outP v) and not (x1 outP v).
+struct IndexRemovalRun {
+  bool x1_inferred;
+  bool x2_inferred;
+};
+
+IndexRemovalRun
+run_index_removal(bool block_first)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto blocked = rmgr->create_resource("blocked");
+  auto q = rmgr->create_resource("q");
+  auto outP = rmgr->create_resource("outP");
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, {}, "", ri3));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_binded(0), F_cst(blocked), F_var("?b") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(1), F_cst(q), F_var("?v") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[3].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto g = srmgr->create_resource("g");
+  auto b = srmgr->create_resource("b");
+  auto x1 = srmgr->create_resource("x1");
+  auto x2 = srmgr->create_resource("x2");
+  auto v = srmgr->create_resource("v");
+  rdf_session->insert(x1, inGroup, g);
+  rdf_session->insert(x2, inGroup, g);
+  if(block_first) rdf_session->insert(x1, blocked, b);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+  if(not block_first) {
+    rdf_session->insert(x1, blocked, b);    // removes [x1, g] from the relation the join reads
+    EXPECT_EQ(rete_session->execute_rules(), 0);
+  }
+  rdf_session->insert(g, q, v);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+
+  IndexRemovalRun result{rdf_session->contains(x1, outP, v), rdf_session->contains(x2, outP, v)};
+  rete_session->terminate();
+  return result;
+}
+
+TEST(BetaRowIndexTest, RemovingARowKeepsItsSiblingsUnderTheKey)
+{
+  auto run_a = run_index_removal(false);
+  auto run_b = run_index_removal(true);
+  EXPECT_FALSE(run_b.x1_inferred);
+  EXPECT_TRUE(run_b.x2_inferred);
+  // the same graph whichever came first
+  EXPECT_EQ(run_a.x1_inferred, run_b.x1_inferred);
+  EXPECT_EQ(run_a.x2_inferred, run_b.x2_inferred);
+}
+
 // The index returns a key's rows in the order std::unordered_multimap's equal_range
 // did, newest first, through any number of rehashes; erase(key) removes all of them
 TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
@@ -872,10 +963,29 @@ TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
     std::vector<BetaRow const*> got(std::make_reverse_iterator(rows.last), std::make_reverse_iterator(rows.first));
     EXPECT_EQ(got, expected) << "key " << k;
   }
-  EXPECT_EQ(index.erase(key_of(3)), multimap.count(key_of(3)));
-  auto none = index.rows(key_of(3));
+  // one row out from under a key: the others keep the multimap's order
+  for(int k: {3, 40}) {
+    auto range = multimap.equal_range(key_of(k));
+    auto middle = std::next(range.first, std::distance(range.first, range.second) / 2);
+    auto const* row = middle->second;
+    multimap.erase(middle);
+    EXPECT_EQ(index.erase(key_of(k), row), 1u);
+    EXPECT_EQ(index.erase(key_of(k), row), 0u);
+    range = multimap.equal_range(key_of(k));
+    std::vector<BetaRow const*> expected;
+    for(auto it = range.first; it != range.second; ++it) expected.push_back(it->second);
+    auto rows = index.rows(key_of(k));
+    std::vector<BetaRow const*> got(std::make_reverse_iterator(rows.last), std::make_reverse_iterator(rows.first));
+    EXPECT_EQ(got, expected) << "key " << k;
+  }
+  // the last row out takes the key with it
+  auto single = row_of(100000);
+  index.insert({key_of(1000), single});
+  EXPECT_EQ(index.size(), 98u);
+  EXPECT_EQ(index.erase(key_of(1000), single), 1u);
+  auto none = index.rows(key_of(1000));
   EXPECT_EQ(none.first, none.last);
-  EXPECT_EQ(index.size(), 96u);
+  EXPECT_EQ(index.size(), 97u);
 }
 
 // A frozen scan of the row set returns what was left when it was frozen, except a row
