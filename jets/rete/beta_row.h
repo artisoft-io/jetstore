@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "absl/hash/hash.h"
+#include "absl/container/flat_hash_set.h"
 
 #include "../rdf/rdf_types.h"
 #include "../rete/rete_err.h"
@@ -438,8 +439,10 @@ struct BetaRowEqual {
   }
 };
 
-// using beta_row_set = absl::flat_hash_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
-using beta_row_set = std::unordered_set<BetaRowPtr, BetaRowHash, BetaRowEqual, ArenaAllocator<BetaRowPtr>>;
+// A relation's rows: a flat hash set, in the relation's arena. Its iterators do not
+// survive an insert that grows it, so the relation freezes its live scans of it first
+// (BetaRowScanRegistry, beta_row_iterator.h)
+using beta_row_set = absl::flat_hash_set<BetaRowPtr, BetaRowHash, BetaRowEqual, ArenaAllocator<BetaRowPtr>>;
 
 
 } // namespace jets::rete

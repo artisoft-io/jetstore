@@ -43,11 +43,11 @@
 // class then grows. block_bytes() against live_bytes() is that retention at any point;
 // ~ReteSession reports both at verbosity 1 (glog VLOG).
 //
-// Under AddressSanitizer, freed and unused arena memory is poisoned. That matters more
+// Under AddressSanitizer, freed and unused arena memory is poisoned, and a freed small
+// block waits in a quarantine of 4,096 blocks before it is reused. Both matter more
 // here than with the global heap: the free lists reuse the most recently freed block
-// first, so without poisoning a dangling pointer to a freed row reads and writes the
-// next object of its size class, silently, where malloc would more often still hold
-// the freed contents.
+// first, so without them a dangling pointer to a freed row reads and writes the next
+// object of its size class, silently. Production builds have neither.
 //
 // Not thread safe: a ReteSession is used by one thread at a time.
 namespace jets::rete {
@@ -97,11 +97,24 @@ class BetaRowArena {
       return;
     }
     std::size_t const cls = size_class(bytes);
-    auto * node = static_cast<FreeNode*>(p);
-    node->next = free_[cls];
-    free_[cls] = node;
-    JETS_ARENA_POISON(p, cls * kAlign);
     live_bytes_ -= cls * kAlign;
+#if defined(JETS_ARENA_ASAN)
+    // Quarantined first, as AddressSanitizer's own allocator does: a block reused at
+    // once would turn a dangling pointer into a read of the next object of its size,
+    // which nothing reports
+    JETS_ARENA_POISON(p, cls * kAlign);
+    if(quarantine_size_ == kQuarantine) {
+      auto const& oldest = quarantine_[quarantine_head_];
+      push_free(oldest.p, oldest.cls);
+      quarantine_[quarantine_head_] = {p, cls};
+      quarantine_head_ = (quarantine_head_ + 1) % kQuarantine;
+    } else {
+      quarantine_[(quarantine_head_ + quarantine_size_) % kQuarantine] = {p, cls};
+      ++quarantine_size_;
+    }
+#else
+    push_free(p, cls);
+#endif
   }
 
   // Frees every block and every large allocation. Whatever was constructed in the
@@ -121,6 +134,9 @@ class BetaRowArena {
       large_ = next;
     }
     for(auto & f: free_) f = nullptr;
+#if defined(JETS_ARENA_ASAN)
+    quarantine_head_ = quarantine_size_ = 0;
+#endif
     cur_ = end_ = nullptr;
     next_block_size_ = kFirstBlock;
     block_bytes_ = 0;
@@ -145,6 +161,16 @@ class BetaRowArena {
   struct alignas(kAlign) Large { Large * prev; Large * next; std::size_t size; };
   static_assert(sizeof(Block) % kAlign == 0);
   static_assert(sizeof(Large) % kAlign == 0);
+
+  inline void
+  push_free(void * p, std::size_t cls) noexcept
+  {
+    JETS_ARENA_UNPOISON(p, sizeof(FreeNode));
+    auto * node = static_cast<FreeNode*>(p);
+    node->next = free_[cls];
+    free_[cls] = node;
+    JETS_ARENA_POISON(p, cls * kAlign);
+  }
 
   static inline std::size_t
   size_class(std::size_t bytes)
@@ -205,6 +231,13 @@ class BetaRowArena {
   std::size_t large_bytes_ = 0;
   std::size_t nbr_large_ = 0;
   std::size_t live_bytes_ = 0;
+#if defined(JETS_ARENA_ASAN)
+  struct Quarantined { void * p; std::size_t cls; };
+  static constexpr std::size_t kQuarantine = 4096;
+  Quarantined quarantine_[kQuarantine];
+  std::size_t quarantine_head_ = 0;
+  std::size_t quarantine_size_ = 0;
+#endif
 };
 
 // Standard allocator over a BetaRowArena. A default-constructed one has no arena and

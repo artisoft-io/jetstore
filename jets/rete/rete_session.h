@@ -429,21 +429,30 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   if(beta_row->arena() != this->arena_) {
     RETE_EXCEPTION("BetaRelation::insert_beta_row: row and relation are in different arenas");
   }
-  auto iret = this->all_beta_rows_.insert(beta_row);
-  return this->row_inserted(rete_session, iret.second ? beta_row : *iret.first, iret.second);
+  auto itor = this->all_beta_rows_.find(beta_row);
+  if(itor != this->all_beta_rows_.end()) {
+    // a reference to the set's element: row_inserted does not change the set
+    return this->row_inserted(rete_session, *itor, false);
+  }
+  this->scans_.freeze(BetaRowScanRegistry::kAllRows);
+  this->all_beta_rows_.insert(beta_row);
+  return this->row_inserted(rete_session, beta_row, true);
 }
 
 inline int
 BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candidate)
 {
-  auto itor = this->all_beta_rows_.find(candidate);
-  if(itor != this->all_beta_rows_.end()) {
-    return this->row_inserted(rete_session, *itor, false);
-  }
-  // Only a row that is kept is allocated
-  auto beta_row = create_beta_row(this->arena_, candidate);
-  this->all_beta_rows_.insert(beta_row);
-  return this->row_inserted(rete_session, beta_row, true);
+  // One lookup, which inserts if it finds no equal row. The set can grow, so its live
+  // scans are frozen first, found or not: it costs nothing when none is live
+  this->scans_.freeze(BetaRowScanRegistry::kAllRows);
+  bool is_new = false;
+  auto itor = this->all_beta_rows_.lazy_emplace(candidate, [&](auto const& construct) {
+    // Only a row that is kept is allocated
+    is_new = true;
+    construct(create_beta_row(this->arena_, candidate));
+  });
+  // a reference to the set's element: row_inserted does not change the set
+  return this->row_inserted(rete_session, *itor, is_new);
 }
 
 inline int
@@ -483,6 +492,7 @@ BetaRelation::row_inserted(ReteSession * rete_session, BetaRowPtr const& beta_ro
   this->pending_beta_rows_.push_back(beta_row);
   // Add/Restore row indexes
   if(this->node_vertex_->is_head_vertice()) return 0;
+  this->scans_.freeze(BetaRowScanRegistry::kIndexRows);
   for(auto const& child_node_vertex: node_vertex_->child_nodes) {
     auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
     alpha_node->index_beta_row(this, child_node_vertex, beta_row.get());
@@ -535,6 +545,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
         this->remove_indexes(rete_session, beta_row);
       }
 
+      this->scans_.freeze(BetaRowScanRegistry::kAllRows);
       this->all_beta_rows_.erase(beta_row);
       return 0;
     }
@@ -561,6 +572,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
       this->remove_indexes(rete_session, beta_row);
     }
 
+    this->scans_.freeze(BetaRowScanRegistry::kAllRows);
     this->all_beta_rows_.erase(beta_row);
   }
   return 0;
@@ -578,6 +590,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
   inline int
   BetaRelation::initialize(ReteSession * rete_session)
   {
+    scans_.freeze(BetaRowScanRegistry::kIndexRows);
     beta_row_idx1_.clear();
     beta_row_idx2_.clear();
     beta_row_idx3_.clear();
@@ -592,6 +605,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
   BetaRelation::remove_indexes(ReteSession * rete_session, BetaRowPtr beta_row)
   {
     // remove the indexes associated with the beta row
+    this->scans_.freeze(BetaRowScanRegistry::kIndexRows);
     for(auto const& child_node_vertex: this->node_vertex_->child_nodes) {
       auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
       alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());

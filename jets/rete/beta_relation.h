@@ -6,7 +6,6 @@
 #include <utility>
 #include <list>
 #include <tuple>
-#include <unordered_map>
 #include <vector>
 
 #include "../rdf/rdf_types.h"
@@ -104,6 +103,7 @@ class BetaRelation {
   inline void
   clear_pending_rows()
   {
+    scans_.freeze(BetaRowScanRegistry::kPendingRows);
     pending_beta_rows_.clear();
   }
 
@@ -113,35 +113,47 @@ class BetaRelation {
     return not pending_beta_rows_.empty();
   }
 
-  // The relation's rows and its pending rows, for iterating in place
-  inline beta_row_set const&
-  all_rows()const
+  // Scans of the relation's rows and of its pending rows, made where they are used
+  // (no allocation) and frozen if the relation changes what they scan
+  inline BetaRowSetScan
+  scan_all_rows()const
   {
-    return all_beta_rows_;
+    return BetaRowSetScan(&scans_, BetaRowScanRegistry::kAllRows, all_beta_rows_.begin(), all_beta_rows_.end(),
+      &all_beta_rows_);
   }
 
-  inline beta_row_list const&
-  pending_rows()const
+  inline BetaRowListScan
+  scan_pending_rows()const
   {
-    return pending_beta_rows_;
+    return BetaRowListScan(&scans_, BetaRowScanRegistry::kPendingRows,
+      pending_beta_rows_.begin(), pending_beta_rows_.end(), nullptr);
+  }
+
+  // A copy of the relation's rows, for a caller that changes the relation as it goes
+  inline std::vector<BetaRowPtr>
+  copy_all_rows()const
+  {
+    return std::vector<BetaRowPtr>(all_beta_rows_.begin(), all_beta_rows_.end());
   }
 
   inline BetaRowIteratorPtr
   get_all_rows_iterator()const
   {
-    return create_all_rows_iterator(all_beta_rows_.begin(), all_beta_rows_.end());
-  }
-
-  inline BetaRowPtrIteratorPtr
-  get_all_rows_ptr_iterator()const
-  {
-    return create_all_rows_ptr_iterator(all_beta_rows_.begin(), all_beta_rows_.end());
+    return std::make_shared<BetaRowSetScan>(&scans_, BetaRowScanRegistry::kAllRows,
+      all_beta_rows_.begin(), all_beta_rows_.end(), &all_beta_rows_);
   }
 
   inline BetaRowIteratorPtr
   get_pending_rows_iterator()const
   {
-    return create_pending_rows_iterator(pending_beta_rows_.begin(), pending_beta_rows_.end());
+    return std::make_shared<BetaRowListScan>(&scans_, BetaRowScanRegistry::kPendingRows,
+      pending_beta_rows_.begin(), pending_beta_rows_.end(), nullptr);
+  }
+
+  inline std::size_t
+  size()const
+  {
+    return all_beta_rows_.size();
   }
 
 /**
@@ -198,6 +210,7 @@ class BetaRelation {
   {
     auto itor = this->all_beta_rows_.find(beta_row);
     if(itor != this->all_beta_rows_.end() and itor->get() == beta_row.get() and beta_row->is_deleted()) {
+      this->scans_.freeze(BetaRowScanRegistry::kAllRows);
       this->all_beta_rows_.erase(itor);
     }
   }
@@ -212,22 +225,19 @@ class BetaRelation {
   inline BetaRowIteratorPtr
   get_idx1_rows_iterator(int key, rdf::r_index u)const
   {
-    auto result = this->beta_row_idx1_[key].equal_range( u ); 
-    return create_idx1_rows_iterator(result.first, result.second);
+    return this->index_scan(this->beta_row_idx1_[key].rows(u));
   }
 
   inline BetaRowIteratorPtr
   get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v)const
   {
-    auto result = this->beta_row_idx2_[key].equal_range( {u, v} ); 
-    return create_idx2_rows_iterator(result.first, result.second);
+    return this->index_scan(this->beta_row_idx2_[key].rows({u, v}));
   }
 
   inline BetaRowIteratorPtr
   get_idx3_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
   {
-    auto result = this->beta_row_idx3_[key].equal_range( {u, v, w} ); 
-    return create_idx3_rows_iterator(result.first, result.second);
+    return this->index_scan(this->beta_row_idx3_[key].rows({u, v, w}));
   }
 
   /**
@@ -244,6 +254,16 @@ class BetaRelation {
   initialize(ReteSession * rete_session);
 
  protected:
+
+  // The rows under one index key, newest first
+  template<class Rows>
+  inline BetaRowIteratorPtr
+  index_scan(Rows rows)const
+  {
+    using RI = std::reverse_iterator<BetaRow const* const*>;
+    return std::make_shared<BetaRowIndexScan>(&scans_, BetaRowScanRegistry::kIndexRows,
+      RI(rows.last), RI(rows.first), &all_beta_rows_);
+  }
 
   // Defined in rete_session.h: the rest of an insert once the row is found or added
   // to all_beta_rows_, and of a remove once it is looked up
@@ -280,6 +300,7 @@ class BetaRelation {
   BetaRowIndxVec2 beta_row_idx2_;
   BetaRowIndxVec3 beta_row_idx3_;
   BetaRowArena *  arena_;
+  mutable BetaRowScanRegistry scans_;      // live scans, frozen before a change they would not survive
 };
 
 inline std::ostream & operator<<(std::ostream & out, BetaRelation const* node)
