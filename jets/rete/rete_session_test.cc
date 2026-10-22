@@ -488,6 +488,62 @@ TEST_F(ReteSessionTest, SessionReleasedAfterRetraction)
   rs2.reset();
 }
 
+// A session leaves each visited relation's peak on its node vertex, and the next
+// session's relation is reserved from half of it before its first visit, at most
+// kMaxReservedRows; the rules infer the same
+TEST_F(ReteSessionTest, PeakSizesTheNextSessionsRelation)
+{
+  rdf::RManager * rmanager = this->rdf_session->rmgr();
+  auto p0 = rmanager->create_resource("has_node");
+  for(int i=0; i<300; i++) {
+    this->rdf_session->insert(rmanager->create_resource("s" + std::to_string(i)), p0, rmanager->create_literal<int>(i));
+  }
+  auto const* nv1 = this->rete_meta_store->get_node_vertex(1);
+  nv1->beta_rows_hint.store(0);
+
+  std::size_t peak = 0;
+  {
+    auto rs = create_rete_session(this->rete_meta_store, this->rdf_session.get());
+    ASSERT_EQ(rs->initialize(), 0);
+    ASSERT_EQ(rs->execute_rules(), 0);
+    peak = rs->get_beta_relation(1)->peak_size();
+    EXPECT_EQ(peak, 300u);
+    EXPECT_EQ(nv1->beta_rows_hint.load(), 0u);       // stored when the session is released
+    rs->terminate();
+  }
+  EXPECT_EQ(nv1->beta_rows_hint.load(), peak);
+
+  {
+    auto rs = create_rete_session(this->rete_meta_store, this->rdf_session.get());
+    ASSERT_EQ(rs->initialize(), 0);
+    auto * relation = rs->get_beta_relation(1);
+    EXPECT_LE(relation->capacity(), 1u);             // empty (abseil keeps one inline slot)
+    relation->reserve_from_hint();
+    EXPECT_GE(relation->capacity(), peak / 2);
+    EXPECT_LT(relation->capacity(), peak);
+    ASSERT_EQ(rs->execute_rules(), 0);
+    EXPECT_EQ(relation->size(), 300u);
+    auto p1 = rmanager->create_resource("plus1_node");
+    for(int i=0; i<300; i++) {
+      EXPECT_TRUE(this->rdf_session->contains(rmanager->create_resource("s" + std::to_string(i)), p1,
+        rmanager->create_literal<int>(i + 1)));
+    }
+    rs->terminate();
+  }
+
+  // the reserve is bounded whatever the hint
+  nv1->beta_rows_hint.store(100000000u);
+  {
+    auto rs = create_rete_session(this->rete_meta_store, this->rdf_session.get());
+    ASSERT_EQ(rs->initialize(), 0);
+    auto * relation = rs->get_beta_relation(1);
+    relation->reserve_from_hint();
+    EXPECT_GE(relation->capacity(), BetaRelation::kMaxReservedRows);
+    EXPECT_LT(relation->capacity(), 4 * BetaRelation::kMaxReservedRows);
+    rs->terminate();
+  }
+}
+
 TEST(BetaRowArenaTest, ReusesFreedMemoryBySizeClass)
 {
   BetaRowArena arena;
@@ -717,7 +773,12 @@ TEST(CandidateRowReentryTest, FilterInsertingATripleKeepsTheOuterCandidate)
 // Visiting rule2's vertex scans rule1's rows; every create_entity inserts a jets:key
 // triple, which the callback inserts into rule1's relation during the scan. Without
 // the freeze, the set rehashes under the scan (AddressSanitizer: use after free).
-TEST(BetaRowScanTest, ScanSurvivesTheRelationGrowingUnderIt)
+//
+// With `hint`, the size hint left on rule2's vertex: the re-entrant visit of rule1, which
+// walks rule1's subtree, reaches rule2's relation in the middle of its first visit, not
+// yet activated and holding rows; only the first visit reserves from the hint.
+void
+run_scan_growing_under_it(std::uint32_t hint)
 {
   auto meta_graph = rdf::create_rdf_graph();
   auto * rmgr = meta_graph->rmgr();
@@ -752,6 +813,7 @@ TEST(BetaRowScanTest, ScanSurvivesTheRelationGrowingUnderIt)
 
   auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
   rete_meta_store->initialize();
+  node_vertexes[2]->beta_rows_hint.store(hint);
   auto rdf_session = rdf::create_rdf_session(meta_graph);
   auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
   ASSERT_EQ(rete_session->initialize(), 0);
@@ -768,7 +830,23 @@ TEST(BetaRowScanTest, ScanSurvivesTheRelationGrowingUnderIt)
   }
   // rule1's relation: a's row and one per entity minted during the scan
   EXPECT_EQ(rete_session->get_beta_relation(1)->size(), static_cast<std::size_t>(n + 1));
+  if(hint / 2 >= 2) {
+    EXPECT_GE(rete_session->get_beta_relation(2)->capacity(), std::min<std::size_t>(hint / 2, n));
+  }
   rete_session->terminate();
+}
+
+TEST(BetaRowScanTest, ScanSurvivesTheRelationGrowingUnderIt)
+{
+  run_scan_growing_under_it(0);
+}
+
+// The same, with a size hint on the relation the re-entrant visit reaches in the middle
+// of its first visit: the hint is taken once, at the first visit, and the second visit
+// leaves the relation and its rows alone (a debug build asserted there before)
+TEST(BetaRowScanTest, ReentrantVisitReachesARelationInItsFirstVisit)
+{
+  run_scan_growing_under_it(1000);
 }
 
 // The index returns a key's rows in the order std::unordered_multimap's equal_range

@@ -264,6 +264,8 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
 
         // The applicable rows of the parent beta node: all of them, or the pending ones
         bool need_all_rows = !current_relation->is_activated();
+        // First visit: size the relation from the last session's peak
+        if(need_all_rows) current_relation->reserve_from_hint();
 
         // process rows from parent beta node:
         // for each BetaRow of parent beta node, 
