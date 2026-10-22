@@ -1,7 +1,11 @@
 #ifndef JETS_RDF_BASE_GRAPH_ITERATOR_H
 #define JETS_RDF_BASE_GRAPH_ITERATOR_H
 
+#include <array>
+#include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "absl/hash/hash.h"
 
@@ -11,130 +15,26 @@
 #include "../rdf/containers_type.h"
 
 namespace jets::rdf {
+
+class BaseGraph;
+class BaseGraphIterator;
+
 namespace bgi_internal {
-
-// Semantic of the iterators:
-// --------------------------
-//  itor = graph.find();
-//  while(not itor.is_end()) {
-//    auto s = itor.get_s();
-//    itor.next();
-//  }
-//
-struct w_itor_set {
-  inline w_itor_set() : itor_(), end_() {}
-
-  inline w_itor_set(WSetType::const_iterator const& itor_,
-                    WSetType::const_iterator const& end_)
-      : itor_(itor_), end_(end_) {}
-
-  w_itor_set(const w_itor_set& rhs) = default;
-
-  w_itor_set& operator=(const w_itor_set& rhs) = default;
-
-  inline void set_itor(WSetType::const_iterator const& itor,
-                       WSetType::const_iterator const& end) {
-    itor_ = itor;
-    end_ = end;
-  }
-
-  inline r_index get_index() const {
-    if (is_end()) return nullptr;
-    return itor_->get_index();
-  }
-
-  inline bool is_end() const { return itor_ == end_; }
-
-  inline bool next() {
-    if (is_end()) return false;
-    ++itor_;
-    return !is_end();
-  }
-
- private:
-  WSetType::const_iterator itor_;
-  WSetType::const_iterator end_;
-};
-
 /**
- * Struct to provide iteration semantics to UMapType and VMapType
+ * The live iterators of one BaseGraph, as an intrusive doubly-linked list.
  *
- * Provide iteration over the keys of UMapType and VMapType collection.
+ * A graph that is copied or assigned does not take the iterators of the graph it
+ * came from: they iterate that graph, not this one.
  */
-template <class T>  // T is either UMapType and VMapType
-class itor_map {
- public:
-  inline itor_map() : v_(0), itor_(), end_(){};
+struct IteratorRegistry {
+  IteratorRegistry() = default;
+  IteratorRegistry(IteratorRegistry const&) : head(nullptr) {}
+  IteratorRegistry& operator=(IteratorRegistry const&) { return *this; }
 
-  inline itor_map(r_index v_, typename T::const_iterator const& itor,
-                  typename T::const_iterator const& end)
-    : v_(v_), itor_(itor), end_(end) 
-  {
-    if (v_ == nullptr) itor_ = end_;
-  }
-
-  inline itor_map(const itor_map& rhs)
-    : v_(rhs.v_), itor_(rhs.itor_), end_(rhs.end_)
-  {}
-
-  inline itor_map& operator=(const itor_map& rhs) = default;
-
-  inline void set_itor(typename T::const_iterator const& itor,
-                       typename T::const_iterator const& end) 
-  {
-    itor_ = itor;
-    end_ = end;
-  }
-
-  inline r_index get_index() const { return v_; }
-  inline bool is_end() const { return itor_ == end_; }
-
-  /**
-   * Move to the next key in the collection.
-   *
-   * The template argument W is: 
-   *  - itor_map<VMapType> when T=UMapType, or
-   *  - WSetType           when T=VMapType
-   *
-   * When itor_ is advanced to the next key of the collection, the iterator
-   * W is reset to the iterator over the values associated to the new key of
-   * itor_.
-   */
-  template <class W> 
-  inline bool next(W& w_itor) 
-  {
-    if (itor_ != end_) ++itor_;
-    if (itor_ == end_) {
-      v_ = nullptr;
-      return false;
-    }
-    this->set_position(w_itor);
-    return true;
-  }
-
-  /**
-   * Set w_itor to iterate over the values (itor_->second)
-   * associated with the key (itor_->first).
-   *
-   * The template argument W is: 
-   *  - itor_map<VMapType> when T=UMapType, or
-   *  - WSetType           when T=VMapType
-   */
-  template <class W>
-  inline void set_position(W& w_itor) 
-  {
-    if (itor_ != end_) {
-      v_ = itor_->first;
-      w_itor.set_itor(itor_->second.begin(), itor_->second.end());
-    }
-  }
-
- private:
-  r_index v_;
-  typename T::const_iterator itor_;
-  typename T::const_iterator end_;
+  BaseGraphIterator* head{nullptr};
 };
 }   // namespace bgi_internal
+
 // //////////////////////////////////////////////////////////////////////////////////////
 /**
  * Map (u, v, w) ==> (s, p, o) according to \c m_spin code.
@@ -151,8 +51,8 @@ class itor_map {
  * @param[out] o outgoing index
  */
 inline void
-lookup_uvw2spo(char const spin, 
-  r_index  const& u, r_index  const& v, r_index  const& w, 
+lookup_uvw2spo(char const spin,
+  r_index  const& u, r_index  const& v, r_index  const& w,
   r_index  &s, r_index  &p, r_index  &o)
 {
   if(spin == 's') {					// case 'spo'  <==> "uvw'
@@ -185,8 +85,8 @@ lookup_uvw2spo(char const spin,
  * @param[out] w outgoing index
  */
 inline void
-lookup_spo2uvw(char const spin, 
-  r_index  const& s, r_index  const& p, r_index  const& o, 
+lookup_spo2uvw(char const spin,
+  r_index  const& s, r_index  const& p, r_index  const& o,
   r_index  &u, r_index  &v, r_index  &w)
 {
   if(spin == 's') {					// case 'spo'  <==> "uvw'
@@ -210,41 +110,119 @@ lookup_spo2uvw(char const spin,
  * The unified iterator for BaseGraph
  *
  * BaseGraph is a collection of triples (u, v, w) structured as
- * map(u, map(v, set(w))). 
+ * map(u, map(v, set(w))).
  *
  * The triple (u, v, w) can either be:
  *	- (subject, predicate, object), known as spo
  *	- (predicate, object, subject), known as pos
  *	- (object, subject, predicate), known as osp
  *
+ * Semantic of the iterator:
+ * \code {.cpp}
+ *  itor = graph.find();
+ *  while(not itor.is_end()) {
+ *    auto s = itor.get_subject();
+ *    itor.next();
+ *  }
+ * \endcode
+ *
+ * The current triple is held by value, so reading it never touches the graph.
+ *
+ * Changing the graph while an iterator is live. A rule's filter does not write to the
+ * graph, but writes do reach a session graph while some of its iterators are live:
+ *  - the error path (raise_exception, and the substring_of and replace_char_of
+ *    errors) records (jets:iState, jets:exception, msg) while a filter is evaluated,
+ *    under the iterators of every rule being visited. RDFSession::insert first erases
+ *    the same triple from the inferred graph, under the inferred graph's iterators;
+ *  - consequent operators insert inferred triples as they compute: lookups
+ *    (lookup_sql_helper.cc), range (expr_op_others.h) and create_entity's jets:key
+ *    (expr_op_resources.h);
+ *  - an iterator handed to Go through jets_rete_cwrapper lives as long as Go holds
+ *    it, across any insert Go makes.
+ * The graph's tables are open-addressing tables whose iterators an insert can
+ * invalidate, so the graph freezes its live iterators before it changes structure:
+ * each one copies the triples it has yet to return (`freeze`) and continues over that
+ * copy. A frozen iterator returns what the graph held when it was frozen, including a
+ * triple erased afterwards, and nothing inserted afterwards; this is how the Go
+ * engine's cursor behaves (base_graph_iterator.go). Before 2026-10, with node-based
+ * tables, such an iteration was undefined: a rehash could skip or repeat elements,
+ * and the erase from the inferred graph could free the set a live iterator was in.
+ *
+ * A session graph is single-threaded, even when it is only read: find(), copying an
+ * iterator and destroying one write the graph's registry of live iterators, so two
+ * threads reading one session graph at once would corrupt it.
+ *
+ * A graph that is not tracked (the meta graph, which every session shares across
+ * threads and which does not change once rules run) registers no iterator, and must
+ * not be changed while one of its iterators is live.
+ *
+ * An iterator that outlives its graph is detached and left at its end.
  */
-struct BaseGraphIterator {
-    using U_ITOR = bgi_internal::itor_map<UMapType>;
-    using V_ITOR = bgi_internal::itor_map<VMapType>;
-    using W_ITOR = bgi_internal::w_itor_set;
+class BaseGraphIterator {
+ public:
+  using Registry = bgi_internal::IteratorRegistry;
 
-  inline BaseGraphIterator(char const lookup, U_ITOR u_itor_,V_ITOR v_itor_, W_ITOR w_itor_)
-    : spin_(lookup),
-      u_itor_(u_itor_),
-      v_itor_(v_itor_),
-      w_itor_(w_itor_) 
-  {}
-
+  /** An iterator at its end. */
   inline BaseGraphIterator()
-    : spin_('s'), u_itor_(), v_itor_(), w_itor_() 
+    : spin_('s'), mode_(kUVW), u_(nullptr), v_(nullptr), w_(nullptr),
+      utor_(), uend_(), vtor_(), vend_(), wtor_(), wend_(),
+      frozen_(), frozen_pos_(0), registry_(nullptr), prev_(nullptr), next_(nullptr)
   {}
 
-  inline BaseGraphIterator(BaseGraphIterator const& rhs) = default;
-  inline BaseGraphIterator& operator=(BaseGraphIterator const& rhs) = default;
+  inline BaseGraphIterator(BaseGraphIterator const& rhs)
+    : spin_(rhs.spin_), mode_(rhs.mode_), u_(rhs.u_), v_(rhs.v_), w_(rhs.w_),
+      utor_(rhs.utor_), uend_(rhs.uend_), vtor_(rhs.vtor_), vend_(rhs.vend_),
+      wtor_(rhs.wtor_), wend_(rhs.wend_),
+      frozen_(rhs.frozen_), frozen_pos_(rhs.frozen_pos_),
+      registry_(nullptr), prev_(nullptr), next_(nullptr)
+  {
+    if(rhs.registry_) link(rhs.registry_);
+  }
+
+  // The moved-from iterator is left at its end, and this one takes its place in the registry
+  inline BaseGraphIterator(BaseGraphIterator && rhs) noexcept
+    : spin_(rhs.spin_), mode_(rhs.mode_), u_(rhs.u_), v_(rhs.v_), w_(rhs.w_),
+      utor_(rhs.utor_), uend_(rhs.uend_), vtor_(rhs.vtor_), vend_(rhs.vend_),
+      wtor_(rhs.wtor_), wend_(rhs.wend_),
+      frozen_(std::move(rhs.frozen_)), frozen_pos_(rhs.frozen_pos_),
+      registry_(nullptr), prev_(nullptr), next_(nullptr)
+  {
+    take_place_of(rhs);
+  }
+
+  inline BaseGraphIterator& operator=(BaseGraphIterator const& rhs)
+  {
+    if(this == &rhs) return *this;
+    unlink();
+    copy_state(rhs);
+    frozen_ = rhs.frozen_;
+    if(rhs.registry_) link(rhs.registry_);
+    return *this;
+  }
+
+  inline BaseGraphIterator& operator=(BaseGraphIterator && rhs) noexcept
+  {
+    if(this == &rhs) return *this;
+    unlink();
+    copy_state(rhs);
+    frozen_ = std::move(rhs.frozen_);
+    take_place_of(rhs);
+    return *this;
+  }
+
+  inline ~BaseGraphIterator()
+  {
+    unlink();
+  }
 
   /**
    * Test if the iterator has exhausted all triples in his collection.
    *
    * @return true if the iterator has no more triples to return
    */
-  inline bool is_end() const 
+  inline bool is_end() const
   {
-    return u_itor_.is_end() and v_itor_.is_end() and w_itor_.is_end();
+    return w_ == nullptr;
   }
 
   /**
@@ -252,74 +230,234 @@ struct BaseGraphIterator {
    *
    * @return false if the iterator has no more triples to return
    */
-  inline bool next() 
+  inline bool next()
   {
-    if (is_end()) return false;
-
-    if (!w_itor_.next()) {
-      if (!v_itor_.next(w_itor_)) {
-        if (u_itor_.next(v_itor_)) {
-          v_itor_.set_position(w_itor_);
-        }
+    if(is_end()) return false;
+    if(frozen_) {
+      if(frozen_pos_ < frozen_->size()) {
+        auto const& t3 = (*frozen_)[frozen_pos_++];
+        u_ = t3[0];
+        v_ = t3[1];
+        w_ = t3[2];
+        return true;
       }
+      return set_end();
     }
-    return !is_end();
+    if(step()) return true;
+    return set_end();
   }
 
-  inline r_index get_subject() const 
+  inline r_index get_subject() const
   {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_object: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
-                   w_itor_.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_, v_, w_, s, p, o);
     return s;
   }
 
-  inline r_index get_predicate() const 
+  inline r_index get_predicate() const
   {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_predicate: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
-                   w_itor_.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_, v_, w_, s, p, o);
     return p;
   }
 
-  inline r_index get_object() const 
+  inline r_index get_object() const
   {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_object: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
-                   w_itor_.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_, v_, w_, s, p, o);
     return o;
   }
 
-  inline Triple 
-  as_triple() const 
-  {    
+  inline Triple
+  as_triple() const
+  {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::as_triple: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
-                   w_itor_.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_, v_, w_, s, p, o);
     return Triple(s, p, o);
   }
 
  private:
+  friend class BaseGraph;
+  using Frozen = std::vector<std::array<r_index, 3>>;
+
+  // Which levels of map(u, map(v, set(w))) the iterator walks
+  enum Mode : std::uint8_t {
+    kAll,     // (*, *, *): every u, every v, every w
+    kU,       // (u, *, *): every v of one u, every w
+    kUV,      // (u, v, *): every w of one (u, v)
+    kUVW      // (u, v, w): the one triple, or none
+  };
+
+  // Called by BaseGraph only, after positioning: registers the iterator if it is
+  // not at its end and still walks a table
+  inline void start(Registry * registry)
+  {
+    if(registry and not is_end() and mode_ != kUVW) link(registry);
+  }
+
+  // Positions on vtor_, which is not vend_; false if its set is empty
+  inline bool enter_v()
+  {
+    v_ = vtor_->first;
+    wtor_ = vtor_->second.begin();
+    wend_ = vtor_->second.end();
+    if(wtor_ == wend_) return false;
+    w_ = wtor_->get_index();
+    return true;
+  }
+
+  // Positions on the first triple of utor_, which is not uend_; false if it has none
+  inline bool enter_u()
+  {
+    u_ = utor_->first;
+    vtor_ = utor_->second.begin();
+    vend_ = utor_->second.end();
+    for(; vtor_ != vend_; ++vtor_) {
+      if(enter_v()) return true;
+    }
+    return false;
+  }
+
+  // Moves to the next triple in the tables; false when there is none, leaving the
+  // current triple unspecified
+  inline bool step()
+  {
+    switch(mode_) {
+    case kUVW:
+      return false;
+    case kUV:
+      if(++wtor_ != wend_) { w_ = wtor_->get_index(); return true; }
+      return false;
+    case kU:
+    case kAll:
+      if(++wtor_ != wend_) { w_ = wtor_->get_index(); return true; }
+      while(++vtor_ != vend_) {
+        if(enter_v()) return true;
+      }
+      if(mode_ == kAll) {
+        while(++utor_ != uend_) {
+          if(enter_u()) return true;
+        }
+      }
+      return false;
+    }
+    return false;
+  }
+
+  inline bool set_end()
+  {
+    u_ = v_ = w_ = nullptr;
+    frozen_.reset();
+    frozen_pos_ = 0;
+    unlink();
+    return false;
+  }
+
+  /**
+   * Called by BaseGraph before it changes structure, while this iterator walks its
+   * tables: copy the triples left to return and continue over the copy, so that
+   * nothing reads the tables again. The current triple is kept.
+   */
+  inline void freeze()
+  {
+    auto frozen = std::make_shared<Frozen>();
+    r_index const u = u_, v = v_, w = w_;
+    while(step()) {
+      frozen->push_back({u_, v_, w_});
+    }
+    u_ = u; v_ = v; w_ = w;
+    frozen_ = std::move(frozen);
+    frozen_pos_ = 0;
+    unlink();
+  }
+
+  inline void copy_state(BaseGraphIterator const& rhs)
+  {
+    spin_ = rhs.spin_;
+    mode_ = rhs.mode_;
+    u_ = rhs.u_;
+    v_ = rhs.v_;
+    w_ = rhs.w_;
+    utor_ = rhs.utor_;
+    uend_ = rhs.uend_;
+    vtor_ = rhs.vtor_;
+    vend_ = rhs.vend_;
+    wtor_ = rhs.wtor_;
+    wend_ = rhs.wend_;
+    frozen_pos_ = rhs.frozen_pos_;
+  }
+
+  inline void link(Registry * registry)
+  {
+    registry_ = registry;
+    prev_ = nullptr;
+    next_ = registry->head;
+    if(next_) next_->prev_ = this;
+    registry->head = this;
+  }
+
+  inline void unlink()
+  {
+    if(not registry_) return;
+    if(prev_) prev_->next_ = next_;
+    else registry_->head = next_;
+    if(next_) next_->prev_ = prev_;
+    registry_ = nullptr;
+    prev_ = next_ = nullptr;
+  }
+
+  inline void take_place_of(BaseGraphIterator & rhs)
+  {
+    if(rhs.registry_) {
+      registry_ = rhs.registry_;
+      prev_ = rhs.prev_;
+      next_ = rhs.next_;
+      if(prev_) prev_->next_ = this;
+      else registry_->head = this;
+      if(next_) next_->prev_ = this;
+      rhs.registry_ = nullptr;
+      rhs.prev_ = rhs.next_ = nullptr;
+    }
+    rhs.u_ = rhs.v_ = rhs.w_ = nullptr;
+    rhs.frozen_.reset();
+  }
+
   char spin_;
-  U_ITOR u_itor_;
-  V_ITOR v_itor_;
-  W_ITOR w_itor_;
+  Mode mode_;
+  // the current triple, in (u, v, w); w_ is null at the end
+  r_index u_;
+  r_index v_;
+  r_index w_;
+  // where the iterator is in the tables, for the levels its mode walks
+  UMapType::const_iterator utor_;
+  UMapType::const_iterator uend_;
+  VMapType::const_iterator vtor_;
+  VMapType::const_iterator vend_;
+  WSetType::const_iterator wtor_;
+  WSetType::const_iterator wend_;
+  // set once frozen: the triples left to return, shared by copies
+  std::shared_ptr<Frozen const> frozen_;
+  std::size_t frozen_pos_;
+  // the registry of the graph this iterator walks, while it walks it
+  Registry * registry_;
+  BaseGraphIterator * prev_;
+  BaseGraphIterator * next_;
 };
 
 }  // namespace jets::rdf

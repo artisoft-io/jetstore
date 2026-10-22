@@ -104,6 +104,10 @@ int execute_rules(HJRETE rete_hdl);
 char const* execute_rules2(HJRETE rete_hdl, int*v);
 int dump_rdf_graph(HJRDF hdl);
 
+// An iterator over a session's graph, from find_all, find, find_s or find_sp.
+// A session's graph is single-threaded, even when it is only read: creating,
+// advancing and releasing an iterator write the graph's registry of live
+// iterators, so one session must not be used from two threads at once.
 typedef void* HJITERATOR;
 
 int find_all(HJRDF hdl, HJITERATOR * handle);
