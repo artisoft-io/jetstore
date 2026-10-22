@@ -1,6 +1,9 @@
 #ifndef JETS_RETE_BETA_RELATION_H
 #define JETS_RETE_BETA_RELATION_H
 
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <utility>
@@ -156,6 +159,63 @@ class BetaRelation {
     return all_beta_rows_.size();
   }
 
+  // The row set's capacity, for tests and reports
+  inline std::size_t
+  capacity()const
+  {
+    return all_beta_rows_.capacity();
+  }
+
+  // The largest number of rows the relation held in this session
+  inline std::size_t
+  peak_size()const
+  {
+    return peak_rows_;
+  }
+
+  // At most this many rows are reserved from a hint: it keeps nearly all of what the
+  // hint saves on small sessions, and bounds a table sized for a larger session than
+  // this one to about 8,000 slots
+  static constexpr std::size_t kMaxReservedRows = 4096;
+
+  /**
+   * @brief Size the row set from the last session's peak for this vertex, before the
+   * relation's first visit fills it
+   *
+   * Half the hint, at most kMaxReservedRows: a table grows by doubling, so half the
+   * peak saves the growths below it without reserving past what a smaller session
+   * needs.
+   *
+   * Called at every visit of the relation before it is activated, and only the first
+   * call reserves. A later one can come while the first visit is still running: a
+   * filter there re-enters the session (I-90), its insert reaches an activated
+   * ancestor, and that ancestor's visit walks its whole subtree, this relation and the
+   * rows it already holds included. At the first call the set is empty and unscanned
+   * (a relation receives rows only from its first visit or once activated); a reserve
+   * rehashes, so live scans are frozen first all the same.
+   */
+  inline void
+  reserve_from_hint()
+  {
+    if(hint_consumed_ or not node_vertex_) return;
+    hint_consumed_ = true;
+    std::size_t hint = node_vertex_->beta_rows_hint.load(std::memory_order_relaxed) / 2;
+    if(hint < 2) return;
+    assert(all_beta_rows_.empty() and "BetaRelation::reserve_from_hint: rows before the first visit");
+    if(not all_beta_rows_.empty()) return;
+    scans_.freeze(BetaRowScanRegistry::kAllRows);
+    all_beta_rows_.reserve(std::min(hint, kMaxReservedRows));
+  }
+
+  // Leave this session's peak as the hint for the next session's relation
+  inline void
+  store_size_hint()const
+  {
+    if(not node_vertex_) return;
+    auto peak = std::min<std::size_t>(peak_rows_, UINT32_MAX);
+    node_vertex_->beta_rows_hint.store(static_cast<std::uint32_t>(peak), std::memory_order_relaxed);
+  }
+
 /**
  * @brief Insert BetaRow into BetaRelation and transfer ownsership of the row as well.
  * 
@@ -300,6 +360,8 @@ class BetaRelation {
   BetaRowIndxVec2 beta_row_idx2_;
   BetaRowIndxVec3 beta_row_idx3_;
   BetaRowArena *  arena_;
+  std::size_t     peak_rows_ = 0;           // see peak_size()
+  bool            hint_consumed_ = false;   // see reserve_from_hint()
   mutable BetaRowScanRegistry scans_;      // live scans, frozen before a change they would not survive
 };
 

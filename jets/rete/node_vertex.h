@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_NODE_VERTEX_H
 #define JETS_RETE_NODE_VERTEX_H
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <memory>
@@ -139,6 +140,13 @@ struct NodeVertex {
   // the consequents -- recomputing create_entity 0 mints a second entity and inserts
   // a stray jets:key, and recomputing a keyed one re-inserts its jets:key.
   bool                     records_consequents;
+  // The peak row count of this vertex's beta relation in the last rete session that
+  // released one, a size hint for the next session's relation (BetaRelation::
+  // reserve_from_hint). The meta store is shared by the sessions of every pool worker:
+  // a relaxed atomic, read once per session at the relation's first visit and stored
+  // once at the session's end. Which session stored last can vary between runs; it
+  // only sizes a table.
+  mutable std::atomic<std::uint32_t> beta_rows_hint{0};
 };
 
 inline std::ostream & operator<<(std::ostream & out, b_index node)

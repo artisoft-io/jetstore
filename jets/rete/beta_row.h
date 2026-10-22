@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_BETA_ROW_H
 #define JETS_RETE_BETA_ROW_H
 
+#include <cassert>
 #include <charconv>
 #include <string>
 #include <memory>
@@ -46,10 +47,11 @@ class BetaRow {
   using const_iterator = r_index_array::const_iterator;
   using iterator = r_index_array::iterator;
 
-  BetaRow() : status_(kNone), size_(0), tid_(), data_(), node_vertex_(nullptr), inferred_(nullptr) {}
+  BetaRow() : status_(kNone), size_(0), hash_(0), tid_(), data_(), node_vertex_(nullptr), inferred_(nullptr) {}
   BetaRow(b_index node_vertex, int size, BetaRowArena * arena = nullptr)
     : status_(kNone),
       size_(size),
+      hash_(0),
       tid_("0", ArenaAllocator<char>(arena)),
       data_(ArenaAllocator<rdf::r_index>(arena)),
       node_vertex_(node_vertex),
@@ -66,13 +68,16 @@ class BetaRow {
   BetaRow(copy_candidate_t, BetaRow const& candidate, BetaRowArena * arena)
     : status_(kNone),
       size_(candidate.size_),
+      hash_(candidate.hash_),
       tid_(candidate.tid_.data(), candidate.tid_.size(), ArenaAllocator<char>(arena)),
       data_(candidate.data_.begin(), candidate.data_.end(), ArenaAllocator<rdf::r_index>(arena)),
       node_vertex_(candidate.node_vertex_),
       inferred_(nullptr)
   {}
 
-  virtual inline
+  // Not virtual: nothing derives from BetaRow, and a row is destroyed through its own
+  // type (by its shared_ptr's control block, or on the stack)
+  inline
   ~BetaRow()
   {
     release_recorded();
@@ -89,6 +94,7 @@ class BetaRow {
     node_vertex_ = node_vertex;
     data_.assign(size > 0 ? size : 0, nullptr);
     tid_.assign(1, '0');
+    hash_ = 0;
   }
 
   BetaRow(BetaRow const&) = delete;
@@ -99,6 +105,16 @@ class BetaRow {
   {
     return size_;
   }
+
+  /**
+   * The hash of the row's values, the one BetaRowHash gives the row set: computed
+   * once and kept, so that a table resize reads one field of the row rather than its
+   * values (a separate allocation) and hashes nothing. A row's values change only
+   * through put() and reset(), which drop it. 0 stands for not computed: a row whose
+   * values hash to 0 is hashed each time, which is only slower.
+   */
+  inline std::size_t
+  hash()const;
 
   inline tid_string const&
   get_tid()const
@@ -197,6 +213,7 @@ class BetaRow {
   {
     if(pos < 0 or pos >= size_) return -1;
     data_[pos] = val;
+    hash_ = 0;
     return 0;
   }
 
@@ -295,6 +312,7 @@ operator==(BetaRow const& rhs)const
   // To track when rows get inferred and then retracted
   BetaRowStatus   status_;
   int             size_;
+  mutable std::size_t hash_;           // the values' hash once computed, 0 before (see hash())
   tid_string      tid_;
   r_index_array   data_;
   b_index         node_vertex_;
@@ -406,36 +424,60 @@ operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs)
 // without a BetaRowPtr. A row hashes as absl::Hash<BetaRowPtr> hashed it: by its
 // values, through AbslHashValue above (taken by a non-const pointer, which is what
 // selects it over absl's hash of the address)
+inline std::size_t
+BetaRow::hash()const
+{
+  std::size_t h = hash_;
+  if(h == 0) {
+    h = absl::Hash<BetaRow*>{}(const_cast<BetaRow*>(this));
+    hash_ = h;
+  }
+#ifndef NDEBUG
+  else {
+    assert(h == absl::Hash<BetaRow*>{}(const_cast<BetaRow*>(this)) and "BetaRow: a stale cached hash");
+  }
+#endif
+  return h;
+}
+
+// With allocate_shared's control block (its vtable pointer, the two counts and the
+// arena allocator, 24 bytes with libstdc++ on x86-64), a row fits the arena's
+// 128-byte size class; the cached hash took the place of BetaRow's vtable pointer
+static_assert(sizeof(BetaRow) + 3 * sizeof(void*) <= 128,
+  "BetaRow with its control block must fit the arena's 128-byte size class");
+
 struct BetaRowHash {
   using is_transparent = void;
   inline std::size_t
   operator()(BetaRowPtr const& row)const
   {
-    return absl::Hash<BetaRowPtr>{}(row);
+    return row->hash();
   }
   inline std::size_t
   operator()(BetaRow const& row)const
   {
-    return absl::Hash<BetaRow*>{}(const_cast<BetaRow*>(&row));
+    return row.hash();
   }
 };
 
+// The cached hashes are compared first: a probe that collides on abseil's control
+// byte stops at one load
 struct BetaRowEqual {
   using is_transparent = void;
   inline bool
   operator()(BetaRowPtr const& lhs, BetaRowPtr const& rhs)const
   {
-    return *lhs == *rhs;
+    return lhs->hash() == rhs->hash() and *lhs == *rhs;
   }
   inline bool
   operator()(BetaRowPtr const& lhs, BetaRow const& rhs)const
   {
-    return *lhs == rhs;
+    return lhs->hash() == rhs.hash() and *lhs == rhs;
   }
   inline bool
   operator()(BetaRow const& lhs, BetaRowPtr const& rhs)const
   {
-    return lhs == *rhs;
+    return lhs.hash() == rhs->hash() and lhs == *rhs;
   }
 };
 

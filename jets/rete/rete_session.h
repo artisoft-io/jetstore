@@ -100,6 +100,10 @@ class ReteSession {
       }
     }
 #endif
+    // Each visited relation's peak sizes the next session's (reserve_from_hint)
+    for(auto const* relation: beta_relations_) {
+      if(relation->is_activated()) relation->store_size_hint();
+    }
     VLOG(1) << "ReteSession released: arena block_bytes " << arena_.block_bytes()
       << " live_bytes " << arena_.live_bytes() << " nbr_blocks " << arena_.nbr_blocks()
       << " large_bytes " << arena_.large_bytes() << " nbr_large " << arena_.nbr_large();
@@ -436,6 +440,7 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   }
   this->scans_.freeze(BetaRowScanRegistry::kAllRows);
   this->all_beta_rows_.insert(beta_row);
+  if(this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
   return this->row_inserted(rete_session, beta_row, true);
 }
 
@@ -451,6 +456,7 @@ BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candid
     is_new = true;
     construct(create_beta_row(this->arena_, candidate));
   });
+  if(is_new and this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
   // a reference to the set's element: row_inserted does not change the set
   return this->row_inserted(rete_session, *itor, is_new);
 }
