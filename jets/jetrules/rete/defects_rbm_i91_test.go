@@ -285,9 +285,11 @@ func TestRegression_I91_CandidateRowReentry(t *testing.T) {
 //   - in the first visit, a candidate of the same scan after the raise, built
 //     from a removed row; and one before it, inserted into v3 while v3 was not
 //     yet activated, so the removal never reached it;
-//   - in TripleUpdated, the second subject's candidate for (g q "maybe"): its
-//     filter raises the same exception again, which is no insert and no
-//     re-entry, so it was kept, built from a removed row.
+//   - in TripleUpdated, the second subject's candidate for (g q "maybe") would
+//     be one: its filter raises the same exception again, which is no insert
+//     and no re-entry. On Go it is never built -- the removed row also leaves
+//     the index map TripleUpdated ranges over -- so that subtest passes on the
+//     code before the fix too, and is a guard rather than a reproduction.
 //
 // Go walks triples and rows in map order, so the test runs enough sessions to
 // meet the candidates in each order, in each of the two ways they are made (the
@@ -357,6 +359,124 @@ func TestRegression_I91_LaterCandidateOfARemovedParent(t *testing.T) {
 			}
 			if wrong > 0 {
 				t.Errorf("%d of %d sessions differ from the reference", wrong, sessions)
+			}
+		})
+	}
+}
+
+// I-91, a filter that flips: the re-entry makes false a filter that was true
+// when a candidate was evaluated, and a filter that reads the graph registers
+// TripleUpdatedForFilter. Found by the review of AW.1b, whose first version held
+// the candidates of every scan and so hid them from that replay.
+//
+//	v1  (?s inGroup ?g)
+//	v2  (?g q ?v).[(not(?v) != 1) and (jets:iState exist_not jets:exception)]  ->  (?s outP ?v)
+//
+// and the same with the two terms of the filter the other way round. With
+// (g q "maybe") and (g q "true"), the "maybe" candidate raises, after which
+// exist_not is false for every candidate: nothing may be inferred. Two ways in:
+// the first visit, where v2 is not activated (every triple asserted, then one
+// ExecuteRules), and a scan of the activated v2 ((s inGroup g) asserted after a
+// first ExecuteRules). Go walks in map order, so each runs 200 sessions.
+func TestRegression_I91_FilterFlippedByTheReentry(t *testing.T) {
+	for _, existFirst := range []bool{false, true} {
+		name := "raise, then exist_not"
+		if existFirst {
+			name = "exist_not, then raise"
+		}
+		t.Run(name, func(t *testing.T) { testFilterFlipped(t, existFirst) })
+	}
+}
+
+// testFilterFlipped is TestRegression_I91_FilterFlippedByTheReentry with the
+// filter's two terms in one order or the other. With exist_not first, the
+// "maybe" candidate's own filter reads exist_not before it raises, so its answer
+// is stale as soon as it is given: only evaluating the filter again catches it.
+func testFilterFlipped(t *testing.T, existFirst bool) {
+	rm := rdf.NewResourceManager(nil)
+	jr := rm.JetsResources
+	metaGraph := rdf.NewMetaRdfGraph(rm)
+	inGroup, q, outP, s, g := rm.NewResource("inGroup"), rm.NewResource("q"), rm.NewResource("outP"), rm.NewResource("s"), rm.NewResource("g")
+	raises := NewExprBinaryOp(NewExprUnaryOp(NewNotOp(), NewExprBindedVar(2, "?v")), NewNeOp(), NewExprCst(rm.NewIntLiteral(1)))
+	noException := NewExprBinaryOp(NewExprCst(jr.Jets__istate), NewExistOp(true), NewExprCst(jr.Jets__exception))
+	filter := NewExprBinaryOp(raises, NewAndOp(), noException)
+	if existFirst {
+		filter = NewExprBinaryOp(noException, NewAndOp(), raises)
+	}
+	head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
+	nv1 := NewNodeVertex(1, head, false, 100, nil, "v1", []string{"r1"},
+		NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?s", "?g"}))
+	nv2 := NewNodeVertex(2, nv1, false, 100, filter, "v2", []string{"r1"},
+		NewBetaRowInitializer([]int{brcParentNode | 0, brcParentNode | 1, brcTriple | 2}, []string{"?s", "?g", "?v"}))
+	alphaNodes := []*AlphaNode{
+		NewRootAlphaNode(head),
+		NewAlphaNode(&FVariable{variable: "?s"}, &FConstant{node: inGroup}, &FVariable{variable: "?g"}, nv1, true, "(?s inGroup ?g)"),
+		NewAlphaNode(&FBinded{pos: 1}, &FConstant{node: q}, &FVariable{variable: "?v"}, nv2, true, "(?g q ?v)"),
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: outP}, &FBinded{pos: 2}, nv2, false, "(?s outP ?v)"),
+	}
+	for _, an := range alphaNodes {
+		switch {
+		case an.IsAntecedent:
+			an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
+		case an.IsConsequent:
+			an.NdVertex.AddConsequentTerm(an, LegacyRetraction)
+		}
+	}
+	config := map[string]string{"$max_rule_exec": "1000"}
+	ms, err := NewReteMetaStore(rm, metaGraph, nil, alphaNodes, []*NodeVertex{head, nv1, nv2}, &config, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// outPs runs one session and returns its outP triples.
+	outPs := func(t *testing.T, activated bool) []string {
+		sess := rdf.NewRdfSession(rm, metaGraph)
+		rs := NewReteSession(sess)
+		rs.Initialize(ms)
+		defer rs.Done()
+		srm := sess.ResourceMgr
+		execute := func() {
+			if err := rs.ExecuteRules(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if !activated {
+			sess.Insert(s, inGroup, g)
+		}
+		sess.Insert(g, q, srm.NewTextLiteral("maybe"))
+		sess.Insert(g, q, srm.NewTextLiteral("true"))
+		execute()
+		if activated {
+			// TripleUpdated(v1), then VisitReteGraph(v1): a scan of the activated v2
+			sess.Insert(s, inGroup, g)
+			execute()
+		}
+		if sess.GetObject(jr.Jets__istate, jr.Jets__exception) == nil {
+			t.Fatal("no jets:exception raised: the test no longer reaches the re-entry")
+		}
+		var lines []string
+		for t3 := range sess.FindSP(nil, outP).All() {
+			lines = append(lines, rdf.ToString(&t3))
+		}
+		sort.Strings(lines)
+		return lines
+	}
+	for _, activated := range []bool{false, true} {
+		name := "first visit"
+		if activated {
+			name = "activated relation"
+		}
+		t.Run(name, func(t *testing.T) {
+			const sessions = 200
+			wrong := 0
+			var example []string
+			for range sessions {
+				if got := outPs(t, activated); len(got) > 0 {
+					wrong++
+					example = got
+				}
+			}
+			if wrong > 0 {
+				t.Errorf("%d of %d sessions infer %v; none may, since the exception blocks every candidate", wrong, sessions, example)
 			}
 		})
 	}

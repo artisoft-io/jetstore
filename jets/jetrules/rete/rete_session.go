@@ -28,9 +28,9 @@ type ReteSession struct {
 	// that a scan can tell whether a filter it evaluated re-entered the rete
 	// (keepCandidate, insertHeldCandidates, rules_benchmark I-91)
 	reentries uint64
-	// heldCandidates are the candidates VisitReteGraph's scans hold until they
-	// end, as a stack: a scan started by a re-entry works above its caller's
-	heldCandidates []heldCandidate
+	// heldCandidates are the candidates VisitReteGraph's first scans hold until
+	// they end, as a stack: a scan started by a re-entry works above its caller's
+	heldCandidates []*BetaRow
 }
 
 // InsertInferredFor inserts a triple inferred by row's consequent terms. When row is
