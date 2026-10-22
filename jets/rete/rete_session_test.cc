@@ -431,5 +431,185 @@ TEST_F(ReteSessionTest, TestAllRules)
   std::cout<<"Done done!"<<std::endl;
 }
 
+// The session's beta relations and every row they hold are in the session's arena,
+// which is what lets the session be released without destroying them one by one
+TEST_F(ReteSessionTest, BetaRelationsAndRowsAreInTheSessionArena)
+{
+  rdf::RManager * rmanager = this->rdf_session->rmgr();
+  auto s0 = rmanager->create_resource("s0");
+  this->rdf_session->insert(s0, rmanager->create_resource("has_node"), rmanager->create_literal<int>(1));
+  this->rdf_session->insert(s0, rmanager->create_resource("has_node"), rmanager->create_literal<int>(2));
+  this->rdf_session->insert(s0, rmanager->create_resource("fnode"), rmanager->create_literal<int>(1));
+  this->rdf_session->insert(s0, rmanager->create_resource("node1"), rmanager->create_resource("n1"));
+  this->rete_session->execute_rules();
+
+  auto * arena = this->rete_session->arena();
+  EXPECT_GT(arena->live_bytes(), 0u);
+  EXPECT_GT(arena->nbr_blocks(), 0u);
+  EXPECT_LE(arena->live_bytes(), arena->block_bytes());
+  int nbr_rows = 0;
+  for(auto * relation: this->rete_session->beta_relations()) {
+    ASSERT_NE(relation, nullptr);
+    EXPECT_EQ(relation->arena(), arena);
+    EXPECT_TRUE(relation->containers_in(arena));
+    auto itor = relation->get_all_rows_iterator();
+    while(not itor->is_end()) {
+      EXPECT_EQ(itor->get_row()->arena(), arena);
+      ++nbr_rows;
+      itor->next();
+    }
+  }
+  EXPECT_GT(nbr_rows, 5);
+}
+
+// A session released after a retraction, and a second session released while its rdf
+// session lives on. Under AddressSanitizer these are the leak and use-after-free checks.
+TEST_F(ReteSessionTest, SessionReleasedAfterRetraction)
+{
+  rdf::RManager * rmanager = this->rdf_session->rmgr();
+  auto s0 = rmanager->create_resource("s0");
+  auto p0 = rmanager->create_resource("has_node");
+  auto o1 = rmanager->create_literal<int>(1);
+  this->rdf_session->insert(s0, p0, o1);
+  this->rdf_session->insert(s0, p0, rmanager->create_literal<int>(2));
+  this->rete_session->execute_rules();
+  this->rdf_session->erase(s0, p0, o1);
+  this->rete_session->execute_rules();
+
+  // A second session on the same rdf session, deleted while the rdf session lives on
+  auto rs2 = create_rete_session(this->rete_meta_store, this->rdf_session.get());
+  ASSERT_EQ(rs2->initialize(), 0);
+  rs2->execute_rules();
+  EXPECT_GT(rs2->arena()->live_bytes(), 0u);
+  rs2->terminate();
+  rs2.reset();
+}
+
+TEST(BetaRowArenaTest, ReusesFreedMemoryBySizeClass)
+{
+  BetaRowArena arena;
+  void * p1 = arena.allocate(40);
+  void * p2 = arena.allocate(40);
+  EXPECT_NE(p1, p2);
+  // live bytes count whole 16-byte classes: 40 bytes is 48
+  EXPECT_EQ(arena.live_bytes(), 96u);
+  arena.deallocate(p1, 40);
+  EXPECT_EQ(arena.live_bytes(), 48u);
+  // 33 to 48 bytes is one class
+  EXPECT_EQ(arena.allocate(33), p1);
+  // another class does not take it
+  arena.deallocate(p2, 40);
+  void * p3 = arena.allocate(16);
+  EXPECT_NE(p3, p2);
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(p3) % BetaRowArena::kAlign, 0u);
+}
+
+TEST(BetaRowArenaTest, LargeAllocationsAreFreedOneByOneOrInBulk)
+{
+  BetaRowArena arena;
+  void * p1 = arena.allocate(4096);
+  void * p2 = arena.allocate(100000);
+  EXPECT_EQ(arena.nbr_large(), 2u);
+  EXPECT_EQ(arena.large_bytes(), 104096u);
+  arena.deallocate(p1, 4096);
+  EXPECT_EQ(arena.nbr_large(), 1u);
+  EXPECT_EQ(arena.large_bytes(), 100000u);
+  (void)p2;
+  arena.allocate(8192);
+  arena.allocate(64);
+  arena.release();
+  EXPECT_EQ(arena.nbr_large(), 0u);
+  EXPECT_EQ(arena.nbr_blocks(), 0u);
+  EXPECT_EQ(arena.live_bytes(), 0u);
+  // usable again after a release
+  EXPECT_NE(arena.allocate(64), nullptr);
+}
+
+// A row, its data and its inferred-triple record are in the arena, and freeing the
+// row returns all of it
+TEST(BetaRowArenaTest, RowAndRecordAreInTheArena)
+{
+  BetaRowArena arena;
+  {
+    auto row = create_beta_row(&arena, nullptr, 3);
+    EXPECT_EQ(row->arena(), &arena);
+    EXPECT_GT(arena.live_bytes(), 0u);
+    row->start_recording();
+    for(int i=0; i<100; i++) row->record_inferred(rdf::Triple());
+    EXPECT_EQ(row->get_recorded()->size(), 100u);
+    EXPECT_EQ(row->get_recorded()->get_allocator().arena(), &arena);
+    auto recorded = row->take_recorded();
+    EXPECT_EQ(recorded.size(), 100u);
+    EXPECT_EQ(recorded.get_allocator().arena(), &arena);
+    EXPECT_TRUE(row->is_recording());
+    EXPECT_EQ(row->get_recorded()->size(), 0u);
+  }
+  EXPECT_EQ(arena.live_bytes(), 0u);
+  EXPECT_EQ(arena.nbr_large(), 0u);
+}
+
+// The allocator does not propagate: assigning a heap container to an arena container
+// moves the elements into the arena, and the container stays there
+TEST(BetaRowArenaTest, AssignmentKeepsAContainerInItsArena)
+{
+  BetaRowArena arena;
+  auto * relation = create_beta_node(&arena, nullptr);
+  EXPECT_TRUE(relation->containers_in(&arena));
+  auto heap_relation = create_beta_node(nullptr);
+  EXPECT_FALSE(heap_relation->containers_in(&arena));
+  EXPECT_TRUE(heap_relation->containers_in(nullptr));
+
+  beta_row_list in_arena{ArenaAllocator<BetaRowPtr>(&arena)};
+  beta_row_list on_heap;
+  on_heap.push_back(create_beta_row(&arena, nullptr, 1));
+  in_arena = std::move(on_heap);
+  EXPECT_EQ(in_arena.get_allocator().arena(), &arena);
+  EXPECT_EQ(in_arena.size(), 1u);
+  in_arena = beta_row_list();
+  EXPECT_EQ(in_arena.get_allocator().arena(), &arena);
+  arena.release();
+}
+
+// What a relation holds is released with the arena without being destroyed: the
+// containers are built here in arena storage and never destroyed. Under
+// AddressSanitizer a node that escaped to the global heap is reported as a leak.
+TEST(BetaRowArenaTest, ContainersReleasedWithoutDestruction)
+{
+  BetaRowArena arena;
+  auto * relation = create_beta_node(&arena, nullptr);
+  EXPECT_EQ(relation->arena(), &arena);
+  auto * rows = ::new (arena.allocate(sizeof(beta_row_set))) beta_row_set(ArenaAllocator<BetaRowPtr>(&arena));
+  auto * pending = ::new (arena.allocate(sizeof(beta_row_list))) beta_row_list(ArenaAllocator<BetaRowPtr>(&arena));
+  auto * idx = ::new (arena.allocate(sizeof(BetaRowIndxVec1))) BetaRowIndxVec1(
+    BetaRowIndxVec1::allocator_type(ArenaAllocator<BetaRowIndexes1>(&arena)));
+  // as AQVInitializeIndexesVisitor adds an index: a default-constructed temporary
+  idx->push_back({});
+  idx->push_back({});
+  EXPECT_EQ((*idx)[1].get_allocator().arena(), &arena);
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  for(int i=0; i<2000; i++) {
+    auto row = create_beta_row(&arena, nullptr, 2);
+    row->put(0, rmanager->create_literal<int>(i));
+    row->put(1, rmanager->create_literal<int>(i % 7));
+    row->start_recording();
+    row->record_inferred(rdf::Triple());
+    rows->insert(row);
+    pending->push_back(row);
+    (*idx)[i % 2].insert({row->get(1), row.get()});
+  }
+  EXPECT_EQ(rows->size(), 2000u);
+  EXPECT_GT(arena.nbr_large(), 0u);    // the bucket arrays
+  arena.release();
+}
+
+TEST(BetaRowArenaTest, RelationRefusesARowFromAnotherArena)
+{
+  BetaRowArena a1, a2;
+  auto * relation = create_beta_node(&a1, nullptr);
+  EXPECT_THROW(relation->insert_beta_row(nullptr, create_beta_row(&a2, nullptr, 1)), rete_exception);
+  EXPECT_THROW(relation->insert_beta_row(nullptr, create_beta_row(nullptr, 1)), rete_exception);
+}
+
 }   // namespace
 }   // namespace jets::rdf

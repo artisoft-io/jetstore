@@ -6,6 +6,7 @@
 #include <utility>
 #include <list>
 #include <tuple>
+#include <scoped_allocator>
 #include <unordered_map>
 #include <vector>
 
@@ -21,18 +22,27 @@ namespace jets::rete {
 using BetaRowIndxKey2 = std::tuple<rdf::r_index, rdf::r_index>;
 using BetaRowIndxKey3 = std::tuple<rdf::r_index, rdf::r_index, rdf::r_index>;
 
-using BetaRowIndexes1 = std::unordered_multimap<rdf::r_index, BetaRow const*, absl::Hash<rdf::r_index>>;
-using BetaRowIndexes2 = std::unordered_multimap<BetaRowIndxKey2, BetaRow const*, absl::Hash<BetaRowIndxKey2> >;
-using BetaRowIndexes3 = std::unordered_multimap<BetaRowIndxKey3, BetaRow const*, absl::Hash<BetaRowIndxKey3> >;
+// Every container of a BetaRelation allocates from its session's BetaRowArena (see
+// beta_row_arena.h), so that the session is released without walking them.
+template<class K>
+using BetaRowIndexes = std::unordered_multimap<K, BetaRow const*, absl::Hash<K>, std::equal_to<K>,
+  ArenaAllocator<std::pair<K const, BetaRow const*>>>;
+using BetaRowIndexes1 = BetaRowIndexes<rdf::r_index>;
+using BetaRowIndexes2 = BetaRowIndexes<BetaRowIndxKey2>;
+using BetaRowIndexes3 = BetaRowIndexes<BetaRowIndxKey3>;
 // Container for sets of indexes on BetaRow
 // Parent beta node have multiple child node, each having an antecedent term pointing to the parent node.
 // We can have multiple indexes of each type. Therefore we need to have a vector of indexes, keyed by position, for each type.
-using BetaRowIndxVec1 = std::vector<BetaRowIndexes1>;
-using BetaRowIndxVec2 = std::vector<BetaRowIndexes2>;
-using BetaRowIndxVec3 = std::vector<BetaRowIndexes3>;
+// The scoped adaptor hands the vector's arena to each index it holds, including one
+// pushed as a default-constructed temporary.
+template<class I>
+using BetaRowIndxVec = std::vector<I, std::scoped_allocator_adaptor<ArenaAllocator<I>>>;
+using BetaRowIndxVec1 = BetaRowIndxVec<BetaRowIndexes1>;
+using BetaRowIndxVec2 = BetaRowIndxVec<BetaRowIndexes2>;
+using BetaRowIndxVec3 = BetaRowIndxVec<BetaRowIndexes3>;
 
 // queue of new beta_row for descendent nodes
-using beta_row_list = std::list<BetaRowPtr>;
+using beta_row_list = std::list<BetaRowPtr, ArenaAllocator<BetaRowPtr>>;
 /////////////////////////////////////////////////////////////////////////////////////////
 // class BetaRowIterator
 //

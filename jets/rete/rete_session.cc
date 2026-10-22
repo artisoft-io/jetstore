@@ -81,11 +81,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
         auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
         // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
-        auto bn = create_beta_node(meta_node);
+        auto * bn = create_beta_node(&this->arena_, meta_node);
         bn->initialize(this);
         if(meta_node->is_head_vertice()) {
           // put an empty BetaRow to kick start the propagation in the rete network
-          bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+          bn->insert_beta_row(this, create_beta_row(&this->arena_, meta_node, 0));
         }
         beta_relations_.push_back(bn);
       }
@@ -287,7 +287,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           if(child_meta_node->is_negation) {
             if(t3_itor.is_end()) {
               // create the beta row
-              auto beta_row = create_beta_row(child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              auto beta_row = create_beta_row(&this->arena_, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
               // initialize the beta row with parent_row and place holder for t3
               rdf::Triple triple;
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -316,7 +316,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           } else {
             while(not t3_itor.is_end()) {
               // create the beta row
-              auto beta_row = create_beta_row(child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              auto beta_row = create_beta_row(&this->arena_, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
               // initialize the beta row with parent_row and t3
               rdf::Triple triple = t3_itor.as_triple();
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -523,7 +523,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     while(!parent_row_itor->is_end()) {
 
       // create the beta row to add/retract
-      auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
+      auto beta_row = create_beta_row(&this->arena_, cmeta_node, beta_row_initializer->get_size());
 
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
@@ -660,7 +660,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       if(cmeta_node->is_negation) {
         if(t3_itor.is_end()) {
           // create the beta row
-          auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          auto beta_row = create_beta_row(&this->arena_, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
           // initialize the beta row with parent_row and place holder for t3
           rdf::Triple triple;
           beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -681,7 +681,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       } else {
         while(not t3_itor.is_end()) {
           // create the beta row
-          auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          auto beta_row = create_beta_row(&this->arena_, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
           // initialize the beta row with parent_row and t3
           rdf::Triple triple = t3_itor.as_triple();
           beta_row->initialize(beta_row_initializer, parent_row, &triple);
