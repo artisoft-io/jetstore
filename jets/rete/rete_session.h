@@ -163,7 +163,8 @@ class ReteSession {
    * what another candidate's filter reads, before or after that candidate. A relation
    * that is not activated yet is reached by no callback, so neither the removal nor a
    * filter's replay (triple_updated_for_filters) would reach a row inserted from such
-   * a candidate. Its first scan therefore holds its candidates, as the rows that would
+   * a candidate. Its first scan, when its vertex has a filter (nothing else in a scan
+   * writes to the graph), therefore holds its candidates, as the rows that would
    * be inserted (allocated as insert_candidate would allocate them), in the session's
    * held_rows_ above where the scan began. If the session was re-entered meanwhile it
    * drops them and scans again; the rows are inserted once a scan completes with no

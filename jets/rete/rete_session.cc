@@ -279,8 +279,9 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // a re-entry reaches what it holds already. A relation's first scan is not
         // reached by a re-entry, so it holds its candidates until it ends, and scans
         // again from the parent's rows as they are now if the session was re-entered
-        // meanwhile (HeldCandidates)
-        bool const holding = is_inferring and need_all_rows;
+        // meanwhile (HeldCandidates). Only a filter re-enters: without one the scan
+        // inserts as it goes, as an unfiltered scan cannot be re-entered
+        bool const holding = is_inferring and need_all_rows and child_meta_node->has_expr();
         std::uint64_t mark = 0;
         HeldCandidates held(this);
         auto scan_candidate = [&](CandidateRow & candidate, BetaRow const* parent_row, rdf::Triple const* t3) {

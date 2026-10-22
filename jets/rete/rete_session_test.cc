@@ -1416,6 +1416,84 @@ TEST(CandidateRowReentryTest, FilterFlippedByALaterWriteInfersNothing)
   }
 }
 
+// A filter that writes something new each time it is evaluated never settles:
+//   rule1> (?s fnodeX ?n1).[create_entity(?n1)] -> (?s outP ?n1)
+//   rule2> (?e jets:key ?k) -> (?e seenP ?k)
+// create_entity(0) mints a new entity, and a new jets:key triple, at every call, which
+// rule2's callback sees. Retrying stops at kMaxReentryRetries and raises an error:
+//  - kFirstScan: (s1 fnodeX 0) before the first run, so rule1's first scan is made
+//    again and again;
+//  - kActivated: (s1 fnodeX 1) and a run (create_entity("1") settles after one
+//    retry), then (s2 fnodeX 0): triple_updated evaluates the filter again and again.
+enum class EndlessOrder { kFirstScan, kActivated };
+
+std::string
+run_endless_filter(EndlessOrder order)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto fnodeX = rmgr->create_resource("fnodeX");
+  auto outP = rmgr->create_resource("outP");
+  auto seenP = rmgr->create_resource("seenP");
+  auto jets_key = rmgr->jets()->jets__key;
+
+  auto ri = create_row_initializer(2);
+  ri->put(0, 0 | brc_triple, "?s");
+  ri->put(1, 2 | brc_triple, "?n1");
+  auto filter1 = create_expr_unary_operator<CreateEntityVisitor>(0, create_expr_binded_var(1));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, filter1, "", ri));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 2, false, 10, {}, "", ri));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(fnodeX), F_var("?n1") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_var("?e"), F_cst(jets_key), F_var("?k") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[1].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(1) ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[2].get(), 0, false, "",
+    F_binded(0), F_cst(seenP), F_binded(1) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  std::string error;
+  try {
+    if(order == EndlessOrder::kActivated) {
+      rdf_session->insert(srmgr->create_resource("s1"), fnodeX, srmgr->create_literal<int>(1));
+      EXPECT_EQ(rete_session->execute_rules(), 0);
+      rdf_session->insert(srmgr->create_resource("s2"), fnodeX, srmgr->create_literal<int>(0));
+    } else {
+      rdf_session->insert(srmgr->create_resource("s1"), fnodeX, srmgr->create_literal<int>(0));
+    }
+    rete_session->execute_rules();
+  } catch(std::exception const& e) {
+    error = e.what();
+  }
+  rete_session->terminate();
+  return error;
+}
+
+TEST(CandidateRowReentryTest, FilterThatNeverSettlesRaisesAnError)
+{
+  auto first_scan = run_endless_filter(EndlessOrder::kFirstScan);
+  EXPECT_NE(first_scan.find("first scan of vertex 1 was re-entered by its filters 17 times in a row"),
+    std::string::npos) << first_scan;
+  auto activated = run_endless_filter(EndlessOrder::kActivated);
+  EXPECT_NE(activated.find("filter of vertex 1 re-entered the session 17 times in a row"),
+    std::string::npos) << activated;
+}
+
 // The same through a negated antecedent whose triple is deleted (triple_updated T4):
 // (?s inGroup ?g).not(jets:iState jets:exception ?e).[not(?g) != 1] -> (?s outP ?g),
 // with s1 and s2 in group "maybe". The filter is on the negation: each parent row's
