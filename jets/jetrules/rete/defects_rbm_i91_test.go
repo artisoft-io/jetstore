@@ -508,9 +508,10 @@ func outPLines(lines []string) []string {
 
 // LaterCandidateOnARemovedParentRowInfersNothing: the error-path network, with s1
 // and s2 in group g, (g q "maybe") asserted, whose filter raises, and (g q 7)
-// inferred, whose filter keeps it without writing (not(7) is 0, and 0 != 1). In
-// C++ the inferred triple puts 7 after "maybe" in the scan; Go walks in map order,
-// so each order runs 50 sessions. Orders: O1 everything, then one run; O2 the q
+// inferred, whose filter keeps it without writing (not(7) is 0, and 0 != 1), and
+// the same with 7 asserted and "maybe" inferred. In C++ the inferred triple comes
+// after the asserted one in the scan; Go walks in map order, so each case runs 50
+// sessions. Orders: O1 everything, then one run; O2 the q
 // triples, run, then the members, run (a scan of the activated relation); O3 the
 // members, run, then the q triples, run (TripleUpdated). The reference asserts the
 // raised jets:exception first. No order may infer an outP.
@@ -523,7 +524,7 @@ func TestRegression_I91_LaterCandidateOnARemovedParentRowInfersNothing(t *testin
 		o2
 		o3
 	)
-	run := func(t *testing.T, o order, exception *rdf.Node) ([]string, *rdf.Node) {
+	run := func(t *testing.T, o order, sevenAsserted bool, exception *rdf.Node) ([]string, *rdf.Node) {
 		t.Helper()
 		sess := rdf.NewRdfSession(n.rm, n.metaGraph)
 		rs := NewReteSession(sess)
@@ -543,8 +544,12 @@ func TestRegression_I91_LaterCandidateOnARemovedParentRowInfersNothing(t *testin
 			sess.Insert(srm.NewResource("s2"), n.inGroup, n.g)
 		}
 		qs := func() {
-			sess.Insert(n.g, n.q, srm.NewTextLiteral("maybe"))
-			if _, err := sess.InsertInferred(n.g, n.q, srm.NewIntLiteral(7)); err != nil {
+			asserted, inferred := srm.NewTextLiteral("maybe"), srm.NewIntLiteral(7)
+			if sevenAsserted {
+				asserted, inferred = inferred, asserted
+			}
+			sess.Insert(n.g, n.q, asserted)
+			if _, err := sess.InsertInferred(n.g, n.q, inferred); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -568,28 +573,34 @@ func TestRegression_I91_LaterCandidateOnARemovedParentRowInfersNothing(t *testin
 		name string
 		o    order
 	}{{"O1 all at once", o1}, {"O2 activated relation", o2}, {"O3 TripleUpdated", o3}} {
-		t.Run(o.name, func(t *testing.T) {
-			const sessions = 50
-			wrong := 0
-			var example []string
-			for range sessions {
-				got, msg := run(t, o.o, nil)
-				if msg == nil {
-					t.Fatal("no jets:exception raised: the test no longer reaches the re-entry")
-				}
-				reference, _ := run(t, o.o, msg)
-				if out := outPLines(reference); len(out) > 0 {
-					t.Fatalf("the reference infers %v", out)
-				}
-				if out := outPLines(got); len(out) > 0 || !slices.Equal(got, reference) {
-					wrong++
-					example = out
-				}
+		for _, sevenAsserted := range []bool{false, true} {
+			name := o.name + ", maybe asserted"
+			if sevenAsserted {
+				name = o.name + ", 7 asserted"
 			}
-			if wrong > 0 {
-				t.Errorf("%d of %d sessions differ from the reference, e.g. inferring %v", wrong, sessions, example)
-			}
-		})
+			t.Run(name, func(t *testing.T) {
+				const sessions = 50
+				wrong := 0
+				var example []string
+				for range sessions {
+					got, msg := run(t, o.o, sevenAsserted, nil)
+					if msg == nil {
+						t.Fatal("no jets:exception raised: the test no longer reaches the re-entry")
+					}
+					reference, _ := run(t, o.o, sevenAsserted, msg)
+					if out := outPLines(reference); len(out) > 0 {
+						t.Fatalf("the reference infers %v", out)
+					}
+					if out := outPLines(got); len(out) > 0 || !slices.Equal(got, reference) {
+						wrong++
+						example = out
+					}
+				}
+				if wrong > 0 {
+					t.Errorf("%d of %d sessions differ from the reference, e.g. inferring %v", wrong, sessions, example)
+				}
+			})
+		}
 	}
 }
 
