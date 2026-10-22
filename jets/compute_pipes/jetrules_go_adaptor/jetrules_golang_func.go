@@ -253,12 +253,17 @@ func (ses *JetRdfSessionGo) Erase(s, p, o compute_pipes.RdfNode) (bool, error) {
 	return b, err
 }
 
+// Retract deletes an asserted fact, as the interface method says: it is
+// RdfSession.Erase, which removes the triple from the asserted and the inferred
+// graphs and notifies the rete. It called RdfSession.Retract until rules_benchmark
+// I-6, which is the rete's own inferred-only, one-support retraction and so never
+// removed a triple asserted through this adaptor.
 func (ses *JetRdfSessionGo) Retract(s, p, o compute_pipes.RdfNode) (bool, error) {
 	sGo, pGo, oGo, err := toSPO(s, p, o)
 	if err != nil {
 		return false, err
 	}
-	b, err := ses.rdfSession.Retract(sGo, pGo, oGo)
+	b, err := ses.rdfSession.Erase(sGo, pGo, oGo)
 	return b, err
 }
 

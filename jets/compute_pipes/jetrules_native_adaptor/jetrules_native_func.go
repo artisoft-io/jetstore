@@ -337,6 +337,9 @@ func (ses *JetRdfSessionNative) Erase(s, p, o compute_pipes.RdfNode) (bool, erro
 	return b > 0, err
 }
 
+// Retract deletes an asserted fact, as the interface method says: it is the
+// session's erase, which removes the triple from the asserted and the inferred
+// graphs and, since rules_benchmark I-103, tells the rete.
 func (ses *JetRdfSessionNative) Retract(s, p, o compute_pipes.RdfNode) (bool, error) {
 	sNative, pNative, oNative, err := toSPO(s, p, o)
 	if err != nil {

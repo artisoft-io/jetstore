@@ -38,7 +38,9 @@ class rbm:Item {
     rbm:zip3                  as text,
     rbm:fullName              as text,
     rbm:firstName             as text,
-    rbm:lastName              as text
+    rbm:lastName              as text,
+    rbm:i6Flag                as text,
+    rbm:i6Out                 as int
   ],
   $as_table = true
 };
@@ -55,6 +57,12 @@ import "data_model/rbm_defects_model.jr"
   (?x rdf:type rbm:Item).(?x rbm:zip ?z)
   ->
   (?x rbm:zip3 (?z literal_regex "^(\d\d\d)"))
+;
+
+[RBM_I6]:
+  (?x rbm:i6Flag "on")
+  ->
+  (?x rbm:i6Out 1)
 ;
 
 [RBM_FirstName]:
@@ -119,33 +127,33 @@ func rbmEngines(t *testing.T) map[string]compute_pipes.JetRuleEngine {
 	return map[string]compute_pipes.JetRuleEngine{"native": native, "go": goEngine}
 }
 
-// TestDefect_I6_NativeRetractErases reproduces rules_benchmark I-6 (F25): the native
-// adaptor's Retract calls Erase (JetRdfSessionNative.Retract,
-// jetrules_native_func.go:338-345), so a triple asserted twice loses every support
-// at once on C++.
+// TestRegression_I6_RetractDeletes was TestDefect_I6_NativeRetractErases, which
+// reproduced rules_benchmark I-6 (F25): the adaptors' Retract disagreed. The native
+// adaptor's erased every support of the triple without telling the rete (F331); the
+// Go adaptor's called the session's inferred-only retraction, so it never removed a
+// triple asserted through the adaptor.
 //
-// What it does on Go is narrower than the plan read it. JetRdfSessionGo.Retract
-// (jetrules_go_adaptor/jetrules_golang_func.go:254) calls RdfSession.Retract, which
-// retracts from the INFERRED graph only (jets/jetrules/rdf/rdf_session.go:117), and
-// the adaptor's Insert asserts. So through the adaptor interface, which has no way
-// to insert an inferred triple, Go's Retract never removes anything: the asserted
-// triple keeps both supports, and Retract returns false.
+// Decided in Phase 4 (Q-63): the engines retract an inferred triple themselves,
+// through the session's inferred-only retraction (F333); the adaptor's Retract is
+// for an asserted fact and means delete. Both adaptors now erase
+// (JetRdfSessionGo.Retract calls RdfSession.Erase; JetRdfSessionNative.Retract the
+// bridge's erase, which since I-103 tells the rete), and the rete withdraws what
+// depended on the fact at the next ExecuteRules.
+//
+// The rule [RBM_I6] (?x rbm:i6Flag "on") -> (?x rbm:i6Out 1): assert the flag
+// twice, run the rules, Retract the flag once, run them again. On both engines the
+// flag is gone at once, whatever the count, and its consequent after the second run.
 //
 // Reachability: nothing outside tests calls the adaptor's Retract (searched
-// 2026-10-20 across jets/ and the four workspaces). The rule engines retract inside
-// themselves, below the adaptor. So the difference is real and latent.
-//
-// Correct behaviour: one decision for both engines (Phase 4). If Retract is a
-// reference-counted retract of whatever the session holds, then after one Retract
-// the triple is still there on both engines, and after a second it is gone on both.
-func TestDefect_I6_NativeRetractErases(t *testing.T) {
+// 2026-10-20 across jets/ and the four workspaces).
+func TestRegression_I6_RetractDeletes(t *testing.T) {
 	if os.Getenv(engineModeChildEnv) == "" {
 		runInCompiledTestWs(t)
 		return
 	}
 	rbmScratchWorkspace(t)
 	type outcome struct {
-		retracted1, after1, retracted2, after2 bool
+		inferred, retracted, flagAfterRetract, inferredAfterRun bool
 	}
 	got := map[string]outcome{}
 	for name, engine := range rbmEngines(t) {
@@ -154,30 +162,40 @@ func TestDefect_I6_NativeRetractErases(t *testing.T) {
 			t.Fatalf("%s: NewRdfSession: %v", name, err)
 		}
 		rm := ses.GetResourceManager()
-		s, p, o := rm.NewResource("i6_s"), rm.NewResource("i6_p"), rm.NewIntLiteral(6)
-		for i := 0; i < 2; i++ { // two supports
-			if err := ses.Insert(s, p, o); err != nil {
+		s, flag, on := rm.NewResource("i6_s"), rm.NewResource("rbm:i6Flag"), rm.NewTextLiteral("on")
+		out, one := rm.NewResource("rbm:i6Out"), rm.NewIntLiteral(1)
+		for i := 0; i < 2; i++ { // asserted twice
+			if err := ses.Insert(s, flag, on); err != nil {
 				t.Fatalf("%s: Insert: %v", name, err)
 			}
 		}
+		rete, err := ses.NewReteSession(rbmMainRuleFile)
+		if err != nil {
+			t.Fatalf("%s: NewReteSession: %v", name, err)
+		}
+		if err := rete.ExecuteRules(); err != nil {
+			t.Fatalf("%s: ExecuteRules: %v", name, err)
+		}
 		var oc outcome
-		if oc.retracted1, err = ses.Retract(s, p, o); err != nil {
+		oc.inferred = ses.Contains(s, out, one)
+		if oc.retracted, err = ses.Retract(s, flag, on); err != nil {
 			t.Fatalf("%s: Retract: %v", name, err)
 		}
-		oc.after1 = ses.Contains(s, p, o)
-		if oc.retracted2, err = ses.Retract(s, p, o); err != nil {
-			t.Fatalf("%s: Retract: %v", name, err)
+		oc.flagAfterRetract = ses.Contains(s, flag, on)
+		if err := rete.ExecuteRules(); err != nil {
+			t.Fatalf("%s: ExecuteRules after Retract: %v", name, err)
 		}
-		oc.after2 = ses.Contains(s, p, o)
+		oc.inferredAfterRun = ses.Contains(s, out, one)
 		got[name] = oc
+		rete.Release()
 		ses.Release()
 	}
-	t.Logf("I-6: insert twice, then Retract, Contains, Retract, Contains: native %+v, go %+v", got["native"], got["go"])
-	if want := (outcome{true, false, false, false}); got["native"] != want {
-		t.Errorf("native: %+v, want %+v while I-6 is open (the first Retract erases both supports)", got["native"], want)
-	}
-	if want := (outcome{false, true, false, true}); got["go"] != want {
-		t.Errorf("go: %+v, want %+v while I-6 is open (Retract touches only the inferred graph)", got["go"], want)
+	t.Logf("I-6: inferred, Retract, flag after Retract, inferred after the second run: native %+v, go %+v", got["native"], got["go"])
+	want := outcome{inferred: true, retracted: true, flagAfterRetract: false, inferredAfterRun: false}
+	for _, name := range []string{"native", "go"} {
+		if got[name] != want {
+			t.Errorf("%s: %+v, want %+v (Retract deletes the asserted fact, and the rete withdraws its consequent)", name, got[name], want)
+		}
 	}
 }
 
