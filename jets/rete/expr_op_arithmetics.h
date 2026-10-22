@@ -3,6 +3,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <algorithm>
 #include <string>
@@ -539,6 +540,78 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 
 // SUM VALUES ==========================================================================
 
+// The sum of a property's values, which do not depend on the order the graph holds them
+// in (a hash set's, which varies from run to run):
+//  - a null is skipped wherever it comes; no value, or only nulls, is null. Until
+//    2026-10 a null met first made the whole sum null and one met later was skipped;
+//  - numbers: a double present makes the sum a double, every value converted, summed in
+//    the order met, so the order can move the last bit only. Integers alone are summed
+//    exactly and take the widest integer type present (int32 < uint32 < int64 < uint64),
+//    or int64, then double, when the sum does not fit it. Until 2026-10 the first value
+//    met set the type, so an int met before a double truncated the double;
+//  - a value that is not a number (text, a date, a resource) cannot be summed, and makes
+//    the sum null, wherever it comes. Until 2026-10 sum_values folded with +, so text
+//    concatenated and a mix depended on the order (5, "x", 2 gave "x25" or no answer).
+// The Go engine's SumValuesOp follows the same rules.
+class SumOfValues {
+ public:
+  // false: a value that is not a number was met, and the sum is null
+  inline bool add(rdf::RdfAstType const& v)
+  {
+    switch(v.which()) {
+    case rdf::rdf_null_t:           return true;
+    case rdf::rdf_literal_int32_t:  return add_int(boost::get<rdf::LInt32>(v).data, 0);
+    case rdf::rdf_literal_uint32_t: return add_int(boost::get<rdf::LUInt32>(v).data, 1);
+    case rdf::rdf_literal_int64_t:  return add_int(boost::get<rdf::LInt64>(v).data, 2);
+    case rdf::rdf_literal_uint64_t: return add_int(boost::get<rdf::LUInt64>(v).data, 3);
+    case rdf::rdf_literal_double_t:
+      count_++;
+      has_double_ = true;
+      dsum_ += boost::get<rdf::LDouble>(v).data;
+      return true;
+    default: return false;
+    }
+  }
+
+  inline RDFTTYPE result()const
+  {
+    if(count_ == 0) return rdf::Null();
+    if(has_double_) return rdf::LDouble{dsum_};
+    switch(rank_) {
+    case 0: if(fits<int32_t>())  return rdf::LInt32{static_cast<int32_t>(isum_)};   break;
+    case 1: if(fits<uint32_t>()) return rdf::LUInt32{static_cast<uint32_t>(isum_)}; break;
+    case 2: break;
+    default: if(fits<uint64_t>()) return rdf::LUInt64{static_cast<uint64_t>(isum_)}; break;
+    }
+    if(fits<int64_t>()) return rdf::LInt64{static_cast<int64_t>(isum_)};
+    return rdf::LDouble{static_cast<double>(isum_)};
+  }
+
+ private:
+  template<class I>
+  inline bool add_int(I v, int rank)
+  {
+    count_++;
+    isum_ += v;
+    dsum_ += static_cast<double>(v);
+    if(rank > rank_) rank_ = rank;
+    return true;
+  }
+
+  template<class I>
+  inline bool fits()const
+  {
+    return isum_ >= static_cast<__int128>(std::numeric_limits<I>::min()) and
+           isum_ <= static_cast<__int128>(std::numeric_limits<I>::max());
+  }
+
+  int count_{0};
+  int rank_{-1};
+  bool has_double_{false};
+  __int128 isum_{0};
+  double dsum_{0};
+};
+
 struct ApplySumValuesVisitor
 {
   ApplySumValuesVisitor(ReteSession * rs): rs(rs) {}
@@ -548,50 +621,42 @@ struct ApplySumValuesVisitor
   //  - case datap is not nullptr: the sum of ?v in (s, objp, ?o).(?o, datap, ?v)
   RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap)const
   {
-    AddVisitor visitor;
-    RDFTTYPE res;
     if(not datap) {
       RETE_EXCEPTION("Invalid arguments for ApplySumValuesVisitor, cannot have null datap");
     }
+    SumOfValues sum;
+    bool numbers = true;
+    for_each_value(s, objp, datap, [&](rdf::RdfAstType const& v) {
+      numbers = numbers and sum.add(v);
+    });
+    if(not numbers) return rdf::Null();
+    return sum.result();
+  }
+
+  // f(value) for each value, in the order the graph holds them
+  template<class F>
+  void for_each_value(rdf::r_index s, rdf::r_index objp, rdf::r_index datap, F && f)const
+  {
     if(objp == nullptr) {
-      // make sum ?v: (s, datap, ?v)
+      // ?v: (s, datap, ?v)
       auto itor = rs->rdf_session()->find(s, datap);
-      bool is_first = true;
       while(!itor.is_end()) {
         auto val = itor.get_object();
         if(not val) {
           RETE_EXCEPTION("BUG in ApplySumValuesVisitor: unexpected null value");
         }
-        if(is_first) {
-          res = *val;
-          is_first = false;
-        } else {
-          if(val->which() != rdf::rdf_null_t) {
-            res = boost::apply_visitor(visitor, res, *val);
-          }
-        }
+        f(*val);
         itor.next();
       }
     } else {
-      // make sum ?v: (s, objp, ?o).(?o, datap, ?v)
+      // ?v: (s, objp, ?o).(?o, datap, ?v)
       auto itor = rs->rdf_session()->find(s, objp);
-      bool is_first = true;
       while(!itor.is_end()) {
         auto val = rs->rdf_session()->get_object(itor.get_object(), datap);
-        if(val) {
-          if(is_first) {
-            res = *val;
-            is_first = false;
-          } else {
-            if(val->which() != rdf::rdf_null_t) {
-              res = boost::apply_visitor(visitor, res, *val);
-            }
-          }
-        }
+        if(val) f(*val);
         itor.next();
       }
     }
-    return res;
   }
 
   ReteSession * rs;

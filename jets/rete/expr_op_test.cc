@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -590,6 +591,86 @@ TEST_F(ExprOpTest, RangeVisitor2) {
   EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(2)));
   EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(3)));
   EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(4)));
+}
+
+// sum_values over a property whose values a hash set holds, so the order they are met
+// in is the set's. Many subjects, each with values of its own, inserted from a different
+// one for each subject: some subject meets each kind of value first, and the sum must
+// not depend on which.
+class SumValuesOrderTest : public ExprOpTest {
+ protected:
+  // (s_i, amount, v) for each v of values(i); the sum, and the expected sum, per subject
+  template<class Values, class Expected>
+  void expect_sums(Values values, Expected expected, int subjects = 64)
+  {
+    auto * sess = this->rete_session->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto p = rmgr->create_resource("amount");
+    for(int i=0; i<subjects; i++) {
+      auto name = "subject" + std::to_string(i) + "_" + std::to_string(this->batch);
+      auto s = rmgr->create_resource(name);
+      // inserted from a different value for each subject: a small table can keep the
+      // order of insertion
+      auto vs = values(rmgr, i);
+      for(size_t k=0; k<vs.size(); k++) sess->insert(s, p, vs[(k + i) % vs.size()]);
+      auto first = sess->find(s, p);
+      if(not first.is_end() and first.get_object()->which() == rdf::rdf_null_t) this->null_first++;
+      SumValuesVisitor op(this->rete_session.get(), nullptr);
+      auto sum = boost::apply_visitor(op, rdf::RdfAstType(rdf::NamedResource(name)),
+        rdf::RdfAstType(rdf::NamedResource("amount")));
+      EXPECT_EQ(sum, expected(i)) << "subject " << i << ": " << sum;
+    }
+    this->batch++;
+  }
+  int batch = 0;
+  int null_first = 0;   // subjects whose first value met is null
+};
+
+using Values = std::vector<rdf::r_index>;
+
+TEST_F(SumValuesOrderTest, ANullIsSkippedWhereverItComes) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->get_null(), 
+      rmgr->create_literal(1.5 + i), rmgr->create_literal(0.25 + i)}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(1.75 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->get_null(), 
+      rmgr->create_literal(int32_t(100 + i)), rmgr->create_literal(int32_t(1000 + i))}; },
+    [](int i) { return RDFTTYPE(rdf::LInt32(1100 + 2*i)); });
+  EXPECT_GT(this->null_first, 0) << "no subject met its null first: the case is not exercised";
+  // only nulls: null
+  expect_sums([](auto rmgr, int) { return Values{rmgr->get_null()}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); }, 4);
+}
+
+// A value that is not a number cannot be summed: the sum is null, wherever it comes.
+// Until 2026-10 text concatenated, and 5, "x", 2 gave "x25" or no answer by order.
+TEST_F(SumValuesOrderTest, AValueThatIsNotANumberMakesItNull) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(5 + i)),
+      rmgr->create_literal("x" + std::to_string(i)), rmgr->create_literal(int32_t(2))}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal("a" + std::to_string(i)),
+      rmgr->create_literal("b" + std::to_string(i))}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(uint32_t(10 + i)),
+      rmgr->create_literal(uint32_t(2)), rmgr->create_literal(uint32_t(4))}; },
+    [](int i) { return RDFTTYPE(rdf::LUInt32(16 + i)); });
+}
+
+TEST_F(SumValuesOrderTest, ADoubleMakesTheSumADouble) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(0.5 + i)}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(0.5 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(int64_t(1000 + i)), rmgr->create_literal(0.25 + i), rmgr->get_null()}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(1000.25 + 3*i)); });
+}
+
+TEST_F(SumValuesOrderTest, IntegersTakeTheWidestTypePresent) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(int64_t(5000000000 + i))}; },
+    [](int i) { return RDFTTYPE(rdf::LInt64(5000000000 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(-1 - i)), 
+      rmgr->create_literal(uint32_t(10 + 2*i))}; },
+    [](int i) { return RDFTTYPE(rdf::LUInt32(9 + i)); });
 }
 
 }   // namespace
