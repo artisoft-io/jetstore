@@ -1072,6 +1072,98 @@ TEST(CandidateRowReentryTest, FilterOnANegationRemovingItsOwnSupportInfersNothin
   expect_same_graph_whatever_the_order(true);
 }
 
+// The same defect through the only write a compiled filter can make, the error path,
+// in the case the Go engine's test runs too:
+//   rule0> (?s inGroup ?g).not(jets:iState jets:exception ?e).(?g q ?v).[not(?v) != 1] -> (?s outP ?v)
+// with (s inGroup g) and (g q "maybe"). not("maybe") raises a jets:exception (text
+// that is not a bool) and gives null, and null != 1 is true: the filter keeps the
+// candidate after its own jets:exception removed the candidate's parent row from the
+// not(jets:exception) relation. Run A asserts the data only; run B asserts the same
+// jets:exception first. Both must end without (s outP "maybe").
+struct ErrorPathRun {
+  bool inferred;                 // (s outP "maybe")
+  std::string exception;         // the jets:exception text, empty if none
+};
+
+ErrorPathRun
+run_error_path(std::string const& exception_first)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto q = rmgr->create_resource("q");
+  auto outP = rmgr->create_resource("outP");
+  auto istate = rmgr->jets()->jets__istate;
+  auto exception = rmgr->jets()->jets__exception;
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+  auto filter = create_expr_binary_operator<NeVisitor>(0,
+    create_expr_unary_operator<NotVisitor>(0, create_expr_binded_var(2)),
+    create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, filter, "", ri3));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_cst, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_cst(istate), F_cst(exception), F_var("?e") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(1), F_cst(q), F_var("?v") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[3].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto s = srmgr->create_resource("s");
+  auto g = srmgr->create_resource("g");
+  auto maybe = srmgr->create_literal(std::string("maybe"));
+  if(not exception_first.empty()) rdf_session->insert(istate, exception, srmgr->create_literal(exception_first));
+  rdf_session->insert(s, inGroup, g);
+  rdf_session->insert(g, q, maybe);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+
+  ErrorPathRun result{rdf_session->contains(s, outP, maybe), ""};
+  auto e = rdf_session->get_object(istate, exception);
+  if(e) {
+    if(auto const* text = boost::get<rdf::LString>(e)) result.exception = text->data;
+  }
+  rete_session->terminate();
+  return result;
+}
+
+TEST(CandidateRowReentryTest, ErrorPathRemovingItsOwnSupportInfersNothing)
+{
+  auto run_a = run_error_path("");
+  ASSERT_FALSE(run_a.exception.empty());           // the filter raised
+  auto run_b = run_error_path(run_a.exception);
+  EXPECT_EQ(run_b.exception, run_a.exception);
+  EXPECT_FALSE(run_b.inferred);
+  // the same graph whichever came first
+  EXPECT_EQ(run_a.inferred, run_b.inferred);
+}
+
 // The index returns a key's rows in the order std::unordered_multimap's equal_range
 // did, newest first, through any number of rehashes; erase(key) removes all of them
 TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
