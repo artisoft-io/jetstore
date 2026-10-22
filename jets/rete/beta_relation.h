@@ -159,7 +159,11 @@ class BetaRelation {
     return all_beta_rows_.size();
   }
 
-  // Whether `row` itself is in the relation and not withdrawn (marked kDeleted)
+  // Whether `row` itself is in the relation and not withdrawn (marked kDeleted).
+  // The same instance, where the Go engine compares rows by equality: a parent row
+  // removed and an equal one inserted again during a filter drops the candidate here,
+  // and the engines still converge, because the re-inserted row is pending and its own
+  // visit of the child makes the same candidate.
   inline bool
   holds(BetaRow const* row)const
   {
