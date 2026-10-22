@@ -157,7 +157,7 @@ func TestLookupTable1(t *testing.T) {
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key 07960, err: %v", err)
 	}
-	if row.String() != "jets:lookup:07960" {
+	if row.String() != "jets:common_zipcode:07960" {
 		t.Errorf("row key not matching")
 	}
 	if !ctx.reteSession.RdfSession.Contains(row, rm.GetResource("ZIP"), rm.GetLiteral("07960")) {
@@ -210,7 +210,7 @@ func TestLookupTable2(t *testing.T) {
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key MODALITY, err: %v", err)
 	}
-	if row.String() != "jets:lookup:MODALITY" {
+	if row.String() != "jets:claims_Exclusion_Type:MODALITY" {
 		t.Errorf("row key not matching")
 	}
 	if !ctx.reteSession.RdfSession.Contains(row, rm.GetResource("PRIORITY"), rm.GetLiteral(2)) {
@@ -263,7 +263,7 @@ func TestLookupRand1(t *testing.T) {
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key MODALITY, err: %v", err)
 	}
-	if !strings.HasPrefix(row.String(), "jets:lookup:rand:") {
+	if !strings.HasPrefix(row.String(), "jets:claims_Exclusion_Type:") {
 		t.Errorf("row key not matching")
 	}
 	if !ctx.reteSession.RdfSession.ContainsSP(row, rm.GetResource("PRIORITY")) {
@@ -316,10 +316,10 @@ func TestLookupMultiRand1(t *testing.T) {
 	if err != nil || row == nil {
 		t.Fatalf("error: LookupTable returned nil for key MODALITY, err: %v", err)
 	}
-	if !strings.HasPrefix(row.String(), "jets:lookup:multi:rand:") {
+	if !strings.HasPrefix(row.String(), "jets:rand:claims_Exclusion_Type:") {
 		t.Errorf("row key not matching")
 	}
-	if !ctx.reteSession.RdfSession.Contains(rm.GetResource("jets:cache:claims_Exclusion_Type"), rm.GetResource("jets:lookup_multi_rows"), row) {
+	if !ctx.reteSession.RdfSession.Contains(rm.GetResource("claims_Exclusion_Type"), rm.GetResource("jets:lookup_row"), row) {
 		t.Errorf("triple not found")
 	}
 	t.Log("Got row", row.String())
@@ -367,7 +367,7 @@ func TestLookupRandReachesEveryKeyAndNeverNull(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				key, ok := strings.CutPrefix(row.String(), "jets:lookup:rand:")
+				key, ok := strings.CutPrefix(row.String(), "jets:claims_Exclusion_Type:")
 				if !ok {
 					t.Fatalf("lookup_rand returned %s", row.String())
 				}
@@ -377,7 +377,7 @@ func TestLookupRandReachesEveryKeyAndNeverNull(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				mkey, ok := strings.CutPrefix(multi.String(), "jets:lookup:multi:rand:")
+				mkey, ok := strings.CutPrefix(multi.String(), "jets:rand:claims_Exclusion_Type:")
 				if !ok {
 					t.Fatalf("multi_lookup_rand returned %s", multi.String())
 				}
@@ -423,7 +423,7 @@ INSERT INTO "one_lk" VALUES (1, 'A', 'only');`); err != nil {
 	rm.NewResource("V")
 	for _, c := range []struct {
 		name, wantPrefix string
-	}{{"empty_lk", ""}, {"one_lk", "jets:lookup:rand:1"}} {
+	}{{"empty_lk", ""}, {"one_lk", "jets:one_lk:1"}} {
 		tbl, err := NewLookupTableSqlite3(rm, ctx.metaGraph, &LookupTableNode{
 			Name: c.name, Columns: []LookupTableColumn{{Name: "V", Type: "text"}}, Key: []string{"V"},
 		}, db)
