@@ -1,7 +1,9 @@
 #ifndef JETS_RDF_R_MANAGER_H
 #define JETS_RDF_R_MANAGER_H
 
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <memory>
 #include <list>
 #include <unordered_set>
@@ -115,57 +117,77 @@ class RManager {
     return gnull();
   }
 
+  // The lookups below find a value without allocating, and build its Rptr only when
+  // the value is new (LiteralDataMap, containers_type.h).
   template<class T>
   inline r_index 
-  get_literal(T v) const
+  get_literal(T const& v) const
   {
-    Rptr lptr = mkLiteral(v);
-    return get_item(lptr);
+    return get_by(literal_key(v));
   }
 
   template<class T>
   inline r_index 
   create_literal(T v)
   {
-    Rptr lptr = mkLiteral(v);
-    return insert_item(lptr);
+    return insert_by(literal_key(v), [&v]() { return mkLiteral(std::move(v)); });
+  }
+
+  // A std::string is not copied to look it up: only a new one is copied, or moved
+  inline r_index 
+  create_literal(std::string const& v)
+  {
+    return insert_by(literal_key(v), [&v]() { return mkLiteral(v); });
+  }
+
+  inline r_index 
+  create_literal(std::string && v)
+  {
+    return insert_by(literal_key(v), [&v]() { return mkLiteral(std::move(v)); });
   }
 
   template<class T>
   inline r_index 
-  get_resource(T v) const
+  get_resource(T const& v) const
   {
-    Rptr lptr = mkResource(v);
-    return get_item(lptr);
+    return get_by(resource_key(v));
   }
 
   template<class T>
   inline r_index 
   create_resource(T v)
   {
-    Rptr lptr = mkResource(v);
-    return insert_item(lptr);
+    return insert_by(resource_key(v), [&v]() { return mkResource(std::move(v)); });
+  }
+
+  inline r_index 
+  create_resource(std::string const& v)
+  {
+    return insert_by(resource_key(v), [&v]() { return mkResource(v); });
+  }
+
+  inline r_index 
+  create_resource(std::string && v)
+  {
+    return insert_by(resource_key(v), [&v]() { return mkResource(std::move(v)); });
   }
 
   inline r_index 
   create_uuid_resource()
   {
-    Rptr lptr = mkResource(create_uuid());
-    return insert_item(lptr);
+    return create_resource(create_uuid());
   }
 
   inline r_index 
   get_bnode(int v) const
   {
-    Rptr lptr = mkBlankNode(v);
-    return get_item(lptr);
+    return get_by(RdfAstType(BlankNode(v)));
   }
 
   inline r_index 
   create_bnode(int v)
   {
-    Rptr lptr = mkBlankNode(v);
-    return insert_item(lptr);
+    return insert_by(RdfAstType(BlankNode(v)), [v]() { return mkBlankNode(v); });
   }
 
   inline r_index 
@@ -177,13 +199,13 @@ class RManager {
   inline r_index
   insert_rdfast(RdfAstType v)
   {
-    return insert_item(std::make_shared<RdfAstType>(v));
+    return insert_by(v, [&v]() { return std::make_shared<RdfAstType>(std::move(v)); });
   }
 
   inline r_index
   get_rdfast(RdfAstType v)
   {
-    return get_item(std::make_shared<RdfAstType>(v));
+    return get_by(v);
   }
 
   inline r_index 
@@ -250,6 +272,60 @@ class RManager {
   }
 
  protected:
+  // The key to look a value up by, as mkLiteral and mkResource would build it
+  static RdfAstType literal_key(std::int32_t v)  { return LInt32(v); }
+  static RdfAstType literal_key(std::uint32_t v) { return LUInt32(v); }
+  static RdfAstType literal_key(std::int64_t v)  { return LInt64(v); }
+  static RdfAstType literal_key(std::uint64_t v) { return LUInt64(v); }
+  static RdfAstType literal_key(double v)        { return LDouble(v); }
+  static RdfAstType literal_key(date v)          { return v.is_not_a_date() ? LDate() : LDate(v); }
+  static RdfAstType literal_key(datetime v)      { return LDatetime(v); }
+  static RdfStringKey literal_key(std::string const& v) { return RdfStringKey{rdf_literal_string_t, v}; }
+  static RdfStringKey literal_key(std::string_view v)   { return RdfStringKey{rdf_literal_string_t, v}; }
+  static RdfStringKey literal_key(const char * v)       { return RdfStringKey{rdf_literal_string_t, v}; }
+
+  static RdfStringKey resource_key(std::string const& v) { return RdfStringKey{rdf_named_resource_t, v}; }
+  static RdfStringKey resource_key(std::string_view v)   { return RdfStringKey{rdf_named_resource_t, v}; }
+  static RdfStringKey resource_key(const char * v)       { return RdfStringKey{rdf_named_resource_t, v}; }
+
+  // insert_item, by value: make() builds the Rptr, and is called only for a new value.
+  // `key` must not be read after make(): the callers' make() moves from the value that
+  // `key` views (an RdfStringKey holds a std::string_view of it).
+  template<class K, class Make>
+  inline r_index
+  insert_by(K const& key, Make && make)
+  {
+    if(is_locked_) {
+      auto itor = lmap_.find(key);
+      if(itor != lmap_.end()) return itor->second;
+      throw rdf_exception("Accessing meta_graph to rdf index -- must use session graph instead");
+    }
+    if(root_mgr_p_) {
+      auto itor = root_mgr_p_->lmap_.find(key);
+      if(itor != root_mgr_p_->lmap_.end()) return itor->second;
+    }
+    auto itor = lmap_.find(key);
+    if(itor != lmap_.end()) return itor->second;
+    Rptr lptr = make();             // `key` may dangle from here
+    r_index r = lptr.get();
+    lmap_.emplace(std::move(lptr), r);
+    return r;
+  }
+
+  // get_item, by value
+  template<class K>
+  inline r_index
+  get_by(K const& key) const
+  {
+    if(root_mgr_p_) {
+      auto itor = root_mgr_p_->lmap_.find(key);
+      if(itor != root_mgr_p_->lmap_.end()) return itor->second;
+    }
+    auto itor = lmap_.find(key);
+    if(itor != lmap_.end()) return itor->second;
+    return nullptr;
+  }
+
   inline int 
   get_next_key()
   {

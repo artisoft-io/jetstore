@@ -376,12 +376,14 @@ to_string(Triple const& t)
   return out.str();
 }
 
-// Function to compute hash value for rdf data
+// Function to compute hash value for rdf data, by value: an Rptr hashes as the value it
+// points to, so that a value can be looked up without building an Rptr (RdfAstHash,
+// containers_type.h). A named resource and a string literal hash as their text alone,
+// as a std::string_view of that text does.
 // ======================================================================================
 template <typename H>
-H AbslHashValue(H h, const Rptr& rptr) 
+H rdf_ast_hash_value(H h, RdfAstType const& m) 
 {
-  auto &m = *rptr;
   switch (m.which()) {
   case rdf_null_t             : return H::combine(std::move(h), 0);
   case rdf_blank_node_t       : return H::combine(std::move(h), boost::get<BlankNode    >(m).key);
@@ -409,6 +411,12 @@ H AbslHashValue(H h, const Rptr& rptr)
     }
   default: return H::combine(std::move(h), 0);
   }
+}
+
+template <typename H>
+H AbslHashValue(H h, const Rptr& rptr) 
+{
+  return rdf_ast_hash_value(std::move(h), *rptr);
 }
 
 inline bool 

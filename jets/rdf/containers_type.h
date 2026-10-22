@@ -1,6 +1,8 @@
 #ifndef JETS_RDF_CONTAINERS_TYPE_H
 #define JETS_RDF_CONTAINERS_TYPE_H
 
+#include <cstddef>
+#include <string_view>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -36,15 +38,60 @@ using UMapType = absl::flat_hash_map<r_index, VMapType>;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // ResourceManager Container for all literal data => r_index mapping
-// STL CONTAINERS -- suffix STL
+// --------------------------------------------------------------------------------------
+// The map is keyed by Rptr and compared by value. Its hash and equality are transparent,
+// so a lookup can be made with the value itself, without allocating an Rptr: with an
+// RdfAstType (a number, a date, a blank node), or with an RdfStringKey, which views the
+// text of a resource or of a string literal. An Rptr is built only when the value is new.
 /////////////////////////////////////////////////////////////////////////////////////////
-struct RdfAstEq {
-  bool operator()( const Rptr& lhs, const Rptr& rhs ) const
-  {
-    return *lhs == *rhs;
+
+// The text of a named resource or of a string literal, borrowed for a lookup.
+// `which` is rdf_named_resource_t or rdf_literal_string_t.
+struct RdfStringKey {
+  int which;
+  std::string_view text;
+
+  // As rdf_ast_hash_value hashes the std::string it views; absl hashes a std::string
+  // and a std::string_view of the same text alike.
+  template <typename H>
+  friend H AbslHashValue(H h, RdfStringKey const& k) {
+    return H::combine(std::move(h), k.text);
   }
 };
-using LiteralDataStlMap = std::unordered_map<Rptr, r_index, absl::Hash<Rptr>, RdfAstEq>;
+
+// An RdfAstType borrowed for hashing, hashed as an Rptr to it would be
+struct RdfAstRef {
+  RdfAstType const* v;
+
+  template <typename H>
+  friend H AbslHashValue(H h, RdfAstRef const& r) {
+    return rdf_ast_hash_value(std::move(h), *r.v);
+  }
+};
+
+struct RdfAstHash {
+  using is_transparent = void;
+  std::size_t operator()(Rptr const& p) const { return absl::Hash<RdfAstRef>{}(RdfAstRef{p.get()}); }
+  std::size_t operator()(RdfAstType const& v) const { return absl::Hash<RdfAstRef>{}(RdfAstRef{&v}); }
+  std::size_t operator()(RdfStringKey const& k) const { return absl::Hash<RdfStringKey>{}(k); }
+};
+
+struct RdfAstEq {
+  using is_transparent = void;
+  bool operator()(Rptr const& lhs, Rptr const& rhs) const { return *lhs == *rhs; }
+  bool operator()(Rptr const& lhs, RdfAstType const& rhs) const { return *lhs == rhs; }
+  bool operator()(RdfAstType const& lhs, Rptr const& rhs) const { return lhs == *rhs; }
+  bool operator()(Rptr const& lhs, RdfStringKey const& rhs) const { return equals(*lhs, rhs); }
+  bool operator()(RdfStringKey const& lhs, Rptr const& rhs) const { return equals(*rhs, lhs); }
+
+  static bool equals(RdfAstType const& v, RdfStringKey const& k)
+  {
+    if(v.which() != k.which) return false;
+    if(k.which == rdf_named_resource_t) return boost::get<NamedResource>(v).name == k.text;
+    return boost::get<LString>(v).data == k.text;
+  }
+};
+using LiteralDataStlMap = std::unordered_map<Rptr, r_index, RdfAstHash, RdfAstEq>;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // ResourceManager Canonical Container Types - used in ResourceManager class

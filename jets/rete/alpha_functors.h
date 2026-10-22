@@ -221,7 +221,7 @@ struct F_expr {
   {
     auto * rmgr = rete_session->rdf_session()->rmgr();
     auto rv = data->eval(rete_session, parent_row);
-    return rmgr->insert_item( std::make_shared<rdf::RdfAstType>(rv) );
+    return rmgr->insert_rdfast(std::move(rv));
   }
 
   inline
