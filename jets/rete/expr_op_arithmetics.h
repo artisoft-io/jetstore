@@ -394,64 +394,6 @@ tie_break_less(rdf::r_index a, rdf::r_index b)
   return tie_break_type(*a) < tie_break_type(*b);
 }
 
-// Whether two values tie in min_of, max_of and sorted_head: exact equality, the same in
-// the Go engine (tieEqual). Not EqVisitor, which compares an integer with a double by
-// truncating the double (5 == 5.7) and doubles to 15 digits:
-//  - numbers by exact value across types; an integer and a double as (double)i == d;
-//    a NaN is equal to nothing, itself included;
-//  - text by bytes, dates and datetimes by value, named resources by name, blank nodes
-//    by key; any other pair of types is not equal.
-struct TieNumber {
-  enum Kind { kNone, kSigned, kUnsigned, kDouble } kind{kNone};
-  int64_t i{0};
-  uint64_t u{0};
-  double d{0};
-};
-
-inline TieNumber
-tie_number(rdf::RdfAstType const& v)
-{
-  TieNumber n;
-  switch(v.which()) {
-  case rdf::rdf_literal_int32_t:  n.kind = TieNumber::kSigned;   n.i = boost::get<rdf::LInt32>(v).data;  break;
-  case rdf::rdf_literal_int64_t:  n.kind = TieNumber::kSigned;   n.i = boost::get<rdf::LInt64>(v).data;  break;
-  case rdf::rdf_literal_uint32_t: n.kind = TieNumber::kUnsigned; n.u = boost::get<rdf::LUInt32>(v).data; break;
-  case rdf::rdf_literal_uint64_t: n.kind = TieNumber::kUnsigned; n.u = boost::get<rdf::LUInt64>(v).data; break;
-  case rdf::rdf_literal_double_t: n.kind = TieNumber::kDouble;   n.d = boost::get<rdf::LDouble>(v).data; break;
-  default: break;
-  }
-  return n;
-}
-
-inline bool
-tie_equal(rdf::RdfAstType const& a, rdf::RdfAstType const& b)
-{
-  auto na = tie_number(a), nb = tie_number(b);
-  if(na.kind != TieNumber::kNone or nb.kind != TieNumber::kNone) {
-    if(na.kind == TieNumber::kNone or nb.kind == TieNumber::kNone) return false;
-    if(na.kind == TieNumber::kDouble or nb.kind == TieNumber::kDouble) {
-      auto as_double = [](TieNumber const& n) {
-        return n.kind == TieNumber::kDouble ? n.d :
-               n.kind == TieNumber::kSigned ? static_cast<double>(n.i) : static_cast<double>(n.u);
-      };
-      return as_double(na) == as_double(nb);      // false for a NaN
-    }
-    if(na.kind == TieNumber::kSigned) {
-      return nb.kind == TieNumber::kSigned ? std::cmp_equal(na.i, nb.i) : std::cmp_equal(na.i, nb.u);
-    }
-    return nb.kind == TieNumber::kSigned ? std::cmp_equal(na.u, nb.i) : std::cmp_equal(na.u, nb.u);
-  }
-  if(a.which() != b.which()) return false;
-  switch(a.which()) {
-  case rdf::rdf_literal_string_t:   return boost::get<rdf::LString>(a).data == boost::get<rdf::LString>(b).data;
-  case rdf::rdf_literal_date_t:     return boost::get<rdf::LDate>(a).data == boost::get<rdf::LDate>(b).data;
-  case rdf::rdf_literal_datetime_t: return boost::get<rdf::LDatetime>(a).data == boost::get<rdf::LDatetime>(b).data;
-  case rdf::rdf_named_resource_t:   return boost::get<rdf::NamedResource>(a).name == boost::get<rdf::NamedResource>(b).name;
-  case rdf::rdf_blank_node_t:       return boost::get<rdf::BlankNode>(a).key == boost::get<rdf::BlankNode>(b).key;
-  default: return false;
-  }
-}
-
 struct ApplyMinMaxVisitor
 {
   ApplyMinMaxVisitor(ReteSession * rs, bool is_min, bool ret_obj): rs(rs), is_min(is_min), ret_obj(ret_obj) {}
@@ -468,6 +410,7 @@ struct ApplyMinMaxVisitor
       RETE_EXCEPTION("Invalid arguments for min_of/max_of operator, cannot have null lhs or rhs");
     }
     GtVisitor visitor;
+    EqVisitor equal;
     auto itor = rs->rdf_session()->find(s, objp);
     bool is_first = true;
     rdf::r_index resultObj = rdf::gnull();
@@ -504,12 +447,13 @@ struct ApplyMinMaxVisitor
           if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) {
             resultObj = currentObj;
             resultValue = currentValue; 
-          } else if(tie_equal(*lhs, *rhs) and tie_break_less(currentObj, resultObj)) {
-            // equal values (tie_equal): the object first in the tie-break order, whatever
-            // the order they are met in. Until 2026-10 the first met won (I-33). A tie is
-            // equality, not "neither is greater", which is not transitive: a NaN never
-            // ties, and values that cannot be compared (text and a number) keep the first
-            // met, a known limit.
+          } else if(rdf::to_bool(boost::apply_visitor(equal, *lhs, *rhs)) and
+                    tie_break_less(currentObj, resultObj)) {
+            // equal values, by the rules' own == (EqVisitor): the object first in the
+            // tie-break order, whatever the order they are met in. Until 2026-10 the first
+            // met won (I-33). A tie is equality, not "neither is greater", which is not
+            // transitive: a NaN or an infinity never ties, and values that cannot be
+            // compared (text and a number) keep the first met, a known limit.
             resultObj = currentObj;
             resultValue = currentValue; 
           }

@@ -780,8 +780,9 @@ TEST_F(ExprOpTest, SortedHeadBreaksATieByName) {
   EXPECT_GT(later_first, 0) << "no subject met the later name first: the case is not exercised";
 }
 
-// A tie is exact equality (tie_equal), not "neither is greater": an int 5 and a double
-// 5.0 tie, so the name decides; a NaN ties with nothing, so the first object met wins.
+// A tie is the rules' own == (EqVisitor), not "neither is greater": an int 5 and a double
+// 5.0 tie, as do two doubles equal to 15 significant digits, so the name decides; a NaN
+// ties with nothing, so the first object met wins.
 class SortedHeadTieTest : public ExprOpTest {
  protected:
   // sorted_head "<" over two objects, _a and _b, with these weights, inserted from a
@@ -830,8 +831,20 @@ TEST_F(SortedHeadTieTest, AnIntAndAnEqualDoubleTie) {
   EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
 }
 
-// An int 5 and a double 5.7 are not equal. EqVisitor says they are (it truncates the
-// double), which would let the name pick 5.7 as the minimum.
+// An int 5 and a double 5.7 are not equal. EqVisitor said they were until 2026-10 (it
+// truncated the double), which would have let the name pick 5.7 as the minimum.
+// Equal to 15 significant digits, as == says, though not bit-equal: a tie, as on Go
+TEST_F(SortedHeadTieTest, DoublesEqualTo15DigitsTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(0.3), rmgr->create_literal(0.30000000000000004),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_a");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
 TEST_F(SortedHeadTieTest, AnIntAndADifferentDoubleDoNotTie) {
   auto rmgr = this->rete_session->rdf_session()->rmgr();
   int b_first = 0;
@@ -936,6 +949,48 @@ TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
   EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt64(2)), RDFTTYPE(rdf::LInt32(3))), RDFTTYPE(rdf::LInt64(5)));
   DivVisitor div(nullptr, nullptr);
   EXPECT_EQ(boost::apply_visitor(div, RDFTTYPE(rdf::LInt32(7)), RDFTTYPE(rdf::LInt32(2))), RDFTTYPE(rdf::LInt32(3)));
+}
+
+// Q-68: == != < <= > >= over numbers. Integers with integers by value (std::cmp_*); any
+// double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
+// digits); a NaN or an infinity is never equal or ordered. A table shared with the Go
+// engine's ComparisonCases (jets/jetrules/rdf/compare_test.go): the same rows in both.
+struct ComparisonCase { RDFTTYPE lhs, rhs; char const* expected; };   // == != < <= > >=
+
+TEST(Comparisons, TheSharedTable) {
+  double const nan = std::numeric_limits<double>::quiet_NaN();
+  double const inf = std::numeric_limits<double>::infinity();
+  std::vector<ComparisonCase> const cases = {
+    {rdf::LInt32(5), rdf::LDouble(5), "TFFTFT"},
+    {rdf::LInt32(5), rdf::LDouble(5.5), "FTTTFF"},
+    {rdf::LDouble(5.5), rdf::LInt32(5), "FTFFTT"},
+    {rdf::LInt32(5), rdf::LUInt32(5), "TFFTFT"},
+    {rdf::LInt32(-1), rdf::LUInt32(1), "FTTTFF"},
+    {rdf::LUInt64(std::numeric_limits<uint64_t>::max()), rdf::LInt64(std::numeric_limits<int64_t>::max()), "FTFFTT"},
+    {rdf::LInt32(3), rdf::LInt32(7), "FTTTFF"},
+    {rdf::LDouble(0.30000000000000004), rdf::LDouble(0.3), "TFFTFT"},
+    {rdf::LDouble(1), rdf::LDouble(1.000000000000001), "TFFTFT"},
+    {rdf::LDouble(1), rdf::LDouble(1.000000000001), "FTTTFF"},
+    {rdf::LDouble(nan), rdf::LDouble(nan), "FTFFFF"},
+    {rdf::LDouble(nan), rdf::LInt32(5), "FTFFFF"},
+    {rdf::LDouble(inf), rdf::LDouble(inf), "FTFFFF"},
+    {rdf::LDouble(inf), rdf::LInt32(5), "FTFFFF"},
+    {rdf::LInt32(5), rdf::LString("5"), "FTFFFF"},
+    // a double too large for the integer's type compares, where it threw
+    {rdf::LInt32(5), rdf::LDouble(1e12), "FTTTFF"},
+    {rdf::LUInt64(5), rdf::LDouble(5), "TFFTFT"},
+  };
+  auto t = [](RDFTTYPE r) { return rdf::to_bool(r) ? 'T' : 'F'; };
+  for(auto const& c: cases) {
+    std::string got;
+    got += t(boost::apply_visitor(EqVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(NeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(LtVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(LeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(GtVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(GeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    EXPECT_EQ(got, c.expected) << c.lhs << " vs " << c.rhs;
+  }
 }
 
 }   // namespace

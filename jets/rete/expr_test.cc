@@ -308,7 +308,7 @@ TEST(ExprTest, EqVisitor4Test) {
   EXPECT_EQ(create_expr_binary_operator<EqVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
     create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.1))))->eval(nullptr, nullptr), 
-    rdf::True() );
+    rdf::False() );   // 1 == 1.1 was true until 2026-10: == truncated the double (Q-68)
     
   EXPECT_EQ(create_expr_binary_operator<EqVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(-1))), 
