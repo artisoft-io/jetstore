@@ -294,8 +294,12 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
+                auto reentries = this->reentries_;
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+                if(keepit and is_inferring and reentries != this->reentries_) {
+                  keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
+                }
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -323,8 +327,12 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
+                auto reentries = this->reentries_;
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+                if(keepit and is_inferring and reentries != this->reentries_) {
+                  keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
+                }
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -498,10 +506,25 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     return 0;
   }
 
+  bool
+  ReteSession::candidate_still_supported(BetaRelation const* parent_relation, BetaRow const* parent_row,
+    AlphaNode const* alpha_node, rdf::Triple const* t3)
+  {
+    // the parent row is still in its relation, the same row and not withdrawn
+    if(not parent_relation->holds(parent_row)) return false;
+    if(t3) {
+      // a positive antecedent: the triple the candidate joined is still there
+      return this->rdf_session_->contains(t3->subject, t3->predicate, t3->object);
+    }
+    // a negated antecedent: still nothing matches it
+    return alpha_node->find_matching_triples(this->rdf_session(), parent_row).is_end();
+  }
+
   // This is called by callback manager in response to a triple inserted or deleted from the rdf graph
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
+    ++this->reentries_;                  // see candidate_still_supported
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -541,7 +564,14 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       // evaluate the current_relation filter if any
       bool keepit = true;
       if(cmeta_node->has_expr()) {
+        auto reentries = this->reentries_;
         keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
+        // An insert: a positive antecedent's triple arrived, or a negated one's left
+        bool inserts = is_inserted != cmeta_node->is_negation;
+        if(keepit and inserts and reentries != this->reentries_) {
+          keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node,
+            cmeta_node->is_negation ? nullptr : &t3);
+        }
       }
 
       // if(not keepit) {
@@ -606,6 +636,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
   int
   ReteSession::triple_updated_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
+    ++this->reentries_;                  // see candidate_still_supported
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -671,8 +702,12 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter if any
           bool keepit = true;
           if(cmeta_node->has_expr()) {
+            auto reentries = this->reentries_;
             keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
             // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+            if(keepit and reentries != this->reentries_) {
+              keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
+            }
           }
 
           // insert or remove the row from current_relation based on is_inferring
@@ -693,7 +728,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter
           bool keepit = true;
           if(cmeta_node->has_expr()) {
+            auto reentries = this->reentries_;
             keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
+            if(keepit and reentries != this->reentries_) {
+              keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
+            }
           }
           if(keepit) {
             // Add row to current beta relation (current_relation)
