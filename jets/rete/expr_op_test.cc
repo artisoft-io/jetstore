@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <limits>
 #include <iostream>
 #include <string>
 #include <memory>
@@ -671,6 +672,68 @@ TEST_F(SumValuesOrderTest, IntegersTakeTheWidestTypePresent) {
   expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(-1 - i)), 
       rmgr->create_literal(uint32_t(10 + 2*i))}; },
     [](int i) { return RDFTTYPE(rdf::LUInt32(9 + i)); });
+}
+
+// I-16: a double as text is its shortest round-trip digits, in plain notation. This is
+// the Go engine's table, DoubleTextCases in jets/jetrules/rdf/text_test.go, as is, so both
+// engines write the same text.
+struct DoubleText { double v; char const* text; };
+std::vector<DoubleText> const& double_text_table()
+{
+  static std::vector<DoubleText> const t = {
+    {991, "991"},
+    {-991, "-991"},
+    {0, "0"},
+    {-0.0, "-0"},
+    {1, "1"},
+    {0.5, "0.5"},
+    {-2.75, "-2.75"},
+    {1.5, "1.5"},
+    {100.1, "100.1"},
+    {12.34, "12.34"},
+    {0.891089, "0.891089"},
+    {1234567.5, "1234567.5"},
+    {1234567.89, "1234567.89"},
+    {1e6, "1000000"},
+    {0.00001, "0.00001"},
+    {1e-7, "0.0000001"},
+    {0.30000000000000004, "0.30000000000000004"},
+    {0.3333333333333333, "0.3333333333333333"},
+    {0.6666666666666666, "0.6666666666666666"},
+    {123456789.123, "123456789.123"},
+    {9007199254740992.0, "9007199254740992"},
+    {123456789012345678.0, "123456789012345680"},
+    {1e21, "1000000000000000000000"},
+    {1e23, "99999999999999991611392"},
+    {-1e23, "-99999999999999991611392"},
+    {std::numeric_limits<double>::quiet_NaN(), "nan"},
+    {std::numeric_limits<double>::infinity(), "inf"},
+    {-std::numeric_limits<double>::infinity(), "-inf"},
+  };
+  return t;
+}
+
+TEST(DoubleToText, ShortestDigitsNeverAnExponent) {
+  for(auto const& c: double_text_table()) {
+    EXPECT_EQ(rdf::double_to_text(c.v), c.text);
+    EXPECT_EQ(boost::apply_visitor(JoinTextVisitor(), RDFTTYPE(rdf::LDouble(c.v))), c.text);
+  }
+  // a NaN's sign is dropped: on x86 0.0/0.0 is a negative NaN
+  EXPECT_EQ(rdf::double_to_text(-std::numeric_limits<double>::quiet_NaN()), "nan");
+}
+
+TEST_F(ExprOpTest, EveryOperatorWritesADoubleTheSameWay) {
+  for(auto const& c: double_text_table()) {
+    AddVisitor add(this->rete_session.get(), nullptr);
+    EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LString("x=")), RDFTTYPE(rdf::LDouble(c.v))),
+      RDFTTYPE(rdf::LString(std::string("x=") + c.text)));
+    ToTextVisitor to_text(this->rete_session.get(), nullptr);
+    EXPECT_EQ(boost::apply_visitor(to_text, RDFTTYPE(rdf::LDouble(c.v))), RDFTTYPE(rdf::LString(c.text)));
+  }
+  // create_entity names the entity from a non-zero double
+  CreateEntityVisitor ce(this->rete_session.get(), nullptr);
+  EXPECT_EQ(boost::apply_visitor(ce, RDFTTYPE(rdf::LDouble(1234567.5))), 
+    RDFTTYPE(rdf::NamedResource("1234567.5")));
 }
 
 }   // namespace

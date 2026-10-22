@@ -134,7 +134,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt32 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LInt64  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt64 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
-  RDFTTYPE operator()(rdf::LString lhs, rdf::LDouble rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LDouble rhs)const{return rdf::LString{lhs.data+rdf::double_to_text(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LString rhs)const{return rdf::LString{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDate   rhs)const{return rdf::LString{lhs.data+rdf::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDatetime rhs)const{return rdf::LString{lhs.data+rdf::to_string(rhs.data)};}
@@ -739,7 +739,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 //                   the same day are two fills, and dropping one would lose a fact.
 //  - non-string  -> rendered by JoinTextVisitor below. Dates and datetimes render
 //    values         ISO-8601 (YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS), integers as decimal,
-//                   doubles with the default 6 significant digits, named resources by
+//                   doubles by rdf::double_to_text (shortest digits), named resources by
 //                   name. The Go engine renders identically — see the note in
 //                   jets/jetrules/rete/expr_operator_math_join_values.go, since two
 //                   engines that render a date differently is the same defect as two
@@ -750,8 +750,9 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 // sensible default, and the default is the one the fill-date case wants.
 
 // Render one rdf value the way join_values wants it in the joined string.
-// Deliberately not ToTextVisitor: that one renders a double with std::to_string, i.e.
-// six decimal places ("1.500000"), which the Go engine does not match.
+// Not ToTextVisitor, which returns a literal; the text is the same: a double is written
+// by rdf::double_to_text, as the Go engine's join_values writes it. Until 2026-10 it was
+// %g's six significant digits.
 struct JoinTextVisitor: public boost::static_visitor<std::string>
 {
   std::string operator()(rdf::RDFNull       const& )const{return {};}
@@ -761,14 +762,7 @@ struct JoinTextVisitor: public boost::static_visitor<std::string>
   std::string operator()(rdf::LUInt32       const&v)const{return std::to_string(v.data);}
   std::string operator()(rdf::LInt64        const&v)const{return std::to_string(v.data);}
   std::string operator()(rdf::LUInt64       const&v)const{return std::to_string(v.data);}
-  std::string operator()(rdf::LDouble       const&v)const
-  {
-    // Default ostream formatting is %g with 6 significant digits, which is what
-    // strconv.FormatFloat(v, 'g', 6, 64) gives on the Go side.
-    std::ostringstream buf;
-    buf << v.data;
-    return buf.str();
-  }
+  std::string operator()(rdf::LDouble       const&v)const{return rdf::double_to_text(v.data);}
   std::string operator()(rdf::LString       const&v)const{return v.data;}
   std::string operator()(rdf::LDate         const&v)const{return rdf::to_string(v.data);}
   std::string operator()(rdf::LDatetime     const&v)const{return rdf::to_string(v.data);}
@@ -967,7 +961,7 @@ struct ToTextVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
   RDFTTYPE operator()(rdf::LUInt32   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LInt64    lhs)const{return rdf::LString{std::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble   lhs)const{return rdf::LString{rdf::double_to_text(lhs.data)};}
   RDFTTYPE operator()(rdf::LString   lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LDate     lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LDatetime lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}

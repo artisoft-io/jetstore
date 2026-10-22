@@ -1,7 +1,9 @@
 #ifndef JETS_RDF_AST_H
 #define JETS_RDF_AST_H
 
+#include <charconv>
 #include <cinttypes>
+#include <cmath>
 #include <type_traits>
 #include <cctype>
 #include <string>
@@ -498,6 +500,25 @@ get_text(r_index r)
     RDF_EXCEPTION("get_text call on r_index that is not a literal!");
   }
   return boost::get<LString>(*r).data;
+}
+
+// A double as text, wherever an operator writes one into text: the shortest digits that
+// read back as the same double, in plain notation, never an exponent. 991 is "991",
+// 1234567.5 is "1234567.5", 0.00001 is "0.00001", -0.0 is "-0"; from 2^53 a double's
+// exact digits (1e23 is "99999999999999991611392"). Not a number is "nan", whatever its
+// sign, and the infinities "inf" and "-inf", as std::to_string wrote them. The Go engine
+// writes the same text (jets/jetrules/rdf), and both engines test one table of cases.
+// Until 2026-10 the operators wrote std::to_string's six decimals ("991.000000").
+// The text written to an output file is not this: the bridge hands Go the double.
+inline std::string
+double_to_text(double v)
+{
+  if(std::isnan(v)) return "nan";
+  if(std::isinf(v)) return v > 0 ? "inf" : "-inf";
+  // the longest is a denormal: "0." and 324 digits, or a sign and 309 integer digits
+  char buf[400];
+  auto res = std::to_chars(buf, buf + sizeof(buf), v, std::chars_format::fixed);
+  return std::string(buf, res.ptr);
 }
 
 inline std::string

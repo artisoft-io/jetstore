@@ -384,7 +384,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
   RDFTTYPE operator()(rdf::LDouble       const&v)const
   {
     switch (this->type) {
-    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_string_t   : return rdf::LString(rdf::double_to_text(v.data));
     case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
     case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
