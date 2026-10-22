@@ -252,8 +252,9 @@ func TestMultiLookupMissFiresNullRule(t *testing.T) {
 	}
 }
 
-// I-104: an integer key is written as text, as C++'s LookupVisitor does with
-// std::to_string (expr_op_others.h:35-38), where Go panicked. A resource key is
+// I-104: an integer key, signed or unsigned, is written as text, as C++'s
+// LookupVisitor does with std::to_string (expr_op_others.h:35-38), where Go
+// panicked. A resource key is
 // its name, as on C++. A null key gives no result, unchanged (C++ throws).
 func TestLookupKeyConversion(t *testing.T) {
 	ctx, _ := twoTables(t)
@@ -265,7 +266,7 @@ func TestLookupKeyConversion(t *testing.T) {
 		if multi {
 			op = NewMultiLookupOp()
 		}
-		for _, key := range []*rdf.Node{rm.NewIntLiteral(7), rm.NewResource("7")} {
+		for _, key := range []*rdf.Node{rm.NewIntLiteral(7), rm.NewUIntLiteral(7), rm.NewResource("7")} {
 			row := op.Eval(rs, nil, tbl, key)
 			if row == nil || row.String() != "jets:lk_n:7" {
 				t.Errorf("multi %v, key %v: got %v, want jets:lk_n:7", multi, key, row)
