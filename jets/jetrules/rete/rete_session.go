@@ -25,9 +25,12 @@ type ReteSession struct {
 	// visitStack is VisitReteGraph's stack, allocated on its first call
 	visitStack *IntStack
 	// reentries counts the calls to TripleUpdated and TripleUpdatedForFilter, so
-	// that a filter's evaluation can tell whether it re-entered the rete
-	// (keepCandidate, rules_benchmark I-91)
+	// that a scan can tell whether a filter it evaluated re-entered the rete
+	// (keepCandidate, insertHeldCandidates, rules_benchmark I-91)
 	reentries uint64
+	// heldCandidates are the candidates VisitReteGraph's first scans hold until
+	// they end, as a stack: a scan started by a re-entry works above its caller's
+	heldCandidates []*BetaRow
 }
 
 // InsertInferredFor inserts a triple inferred by row's consequent terms. When row is

@@ -66,7 +66,13 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 	}
 	stack := rs.visitStack
 	base := stack.Len()
-	defer func() { *stack = (*stack)[:base] }()
+	// The candidates a scan holds are the session's too (heldCandidates), released
+	// when the scan ends, and here when the visit ends early or panics.
+	heldBase := len(rs.heldCandidates)
+	defer func() {
+		*stack = (*stack)[:base]
+		rs.releaseHeldCandidates(heldBase)
+	}()
 	stack.Push(fromVertex)
 	// idebug := 0
 	for {
@@ -120,72 +126,79 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				// log.Printf("VisitReteGraph @ <%d|%d> pending rows only", parentVertex, childVertex)
 				itor = pendingParentBetaRowItor
 			}
-			itor.Reset()
-
-			// process rows from parent beta node:
-			// for each BetaRow of parent beta node, compute the inferred/retracted BetaRow for childBetaRelation
+			// A filter evaluated in this scan can re-enter the session, and the
+			// re-entry can remove a parent row the scan's candidates were built from,
+			// or change what another candidate's filter reads (rules_benchmark I-91).
+			// A relation that is activated takes its candidates at once, each checked
+			// against the scan's mark (keepCandidate): a re-entry reaches what it holds
+			// already. A relation's first scan is not reached by a re-entry, since the
+			// relation is not activated yet, so it holds its candidates until the scan
+			// ends, and scans again from the parent's rows as they are now if the
+			// session was re-entered meanwhile (scanCandidate, heldCandidates,
+			// insertHeldCandidates). Only a filter can re-enter, so a vertex without
+			// one inserts at once.
+			holding := isInferring && !childBetaRelation.IsActivated && childAlphaNode.NdVertex.HasExpression()
+			heldBase := len(rs.heldCandidates)
 			betaRowInitializer := childAlphaNode.NdVertex.RowInitializer
-			for !itor.IsEnd() {
-				// for each triple from the rdf graph matching the AlphaNode
-				// compute the BetaRow to infer or retract
-				parentBetaRow := itor.GetRow()
-				t3Itor := childAlphaNode.FindMatchingTriples(rs, parentBetaRow)
+			for rescans := 0; ; rescans++ {
+				mark := rs.reentries
+				itor.Reset()
 
-				// Process the returned iterator t3_itor accordingly if AlphaNode is a negation
-				if childAlphaNode.NdVertex.IsNegation {
-					// if t3Itor is empty then create the beta row
-					if t3Itor.IsEmpty() {
-						// Got no triples, condition met; create the beta row
-						// //**
-						// if childVertex == 119 {
-						// 	log.Println("Vertex 119 = Got no triples for NEGATION, condition met; create the beta row, inferring?",isInferring)
-						// }
-						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
-						// initialize the beta row with parent_row and place holder for t3
-						t3 := rdf.NilTriple()
-						err := childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
-						if err != nil {
-							return fmt.Errorf("while initializing BetaRow with NilTriple: %v", err)
-						}
-						// evaluate the current_relation filter if any, checking a row to
-						// insert again if the filter re-entered the rete (I-91)
-						// insert or remove the row from current_relation based on is_inferring
-						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
-							if isInferring {
-								// Add row to child beta relation
-								childBetaRelation.InsertBetaRow(rs, childBetaRow)
-							} else {
-								// Remove row from child beta relation
-								childBetaRelation.RemoveBetaRow(rs, childBetaRow)
+				// process rows from parent beta node:
+				// for each BetaRow of parent beta node, compute the inferred/retracted BetaRow for childBetaRelation
+				for !itor.IsEnd() {
+					// for each triple from the rdf graph matching the AlphaNode
+					// compute the BetaRow to infer or retract
+					parentBetaRow := itor.GetRow()
+					t3Itor := childAlphaNode.FindMatchingTriples(rs, parentBetaRow)
+
+					// Process the returned iterator t3_itor accordingly if AlphaNode is a negation
+					if childAlphaNode.NdVertex.IsNegation {
+						// if t3Itor is empty then create the beta row
+						if t3Itor.IsEmpty() {
+							// Got no triples, condition met; create the beta row
+							childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
+							// initialize the beta row with parent_row and place holder for t3
+							t3 := rdf.NilTriple()
+							err := childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
+							if err != nil {
+								return fmt.Errorf("while initializing BetaRow with NilTriple: %v", err)
 							}
+							// evaluate the current_relation filter if any, and insert or remove
+							// the row from current_relation based on is_inferring
+							rs.scanCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3,
+								childBetaRelation, isInferring, holding, mark)
+						}
+					} else {
+						// for each triple of t3Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
+						for t3 := range t3Itor.All() {
+							// Create the beta row
+							childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
+							// initialize the beta row with parent_row and t3
+							childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
+							// evaluate the current_relation filter if any, and insert or remove
+							// the row from current_relation based on is_inferring
+							rs.scanCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3,
+								childBetaRelation, isInferring, holding, mark)
 						}
 					}
-				} else {
-					// for each triple of t3Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
-					for t3 := range t3Itor.All() {
-						// //**
-						// if childVertex == 119 {
-						// 	log.Printf("Vertex 119 = Got triple (%s, %s, %s), inferring? %v for beta row", t3[0], t3[1], t3[2], isInferring)
-						// }
-						// Create the beta row
-						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
-						// initialize the beta row with parent_row and t3
-						childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
-						// evaluate the current_relation filter if any, checking a row to
-						// insert again if the filter re-entered the rete (I-91)
-						// insert or remove the row from current_relation based on is_inferring
-						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
-							if isInferring {
-								// Add child beta row to child beta relation
-								childBetaRelation.InsertBetaRow(rs, childBetaRow)
-							} else {
-								// Remove the row from the child beta relation
-								childBetaRelation.RemoveBetaRow(rs, childBetaRow)
-							}
-						}
-					}
+					itor.Next()
 				}
-				itor.Next()
+				if !holding || rs.reentries == mark {
+					break
+				}
+				// Re-entered during the first scan: what it held may rest on a removed row
+				// or on a filter whose answer changed. Scan again.
+				rs.releaseHeldCandidates(heldBase)
+				if rescans == maxReentryRetries {
+					return fmt.Errorf("error: the first scan of vertex %d was re-entered by its filters %d times in a row (VisitReteGraph)",
+						childVertex, maxReentryRetries+1)
+				}
+				allParentBetaRowItor = NewBetaRowSetIterator(parentBetaRelation.AllRows)
+				itor = allParentBetaRowItor
+			}
+			if holding {
+				rs.insertHeldCandidates(heldBase, childBetaRelation)
 			}
 
 			// Mark current beta node as activated (if was not already) and push it on the stack so to visit it's childrens
