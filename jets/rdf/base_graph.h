@@ -51,7 +51,8 @@ class BaseGraph {
       registry_()
   {}
 
-  // An iterator that outlives its graph is detached, and must not be used again.
+  // An iterator that outlives its graph, such as one Go still holds when its session
+  // is released, is detached and left at its end, so that using it reads nothing freed.
   inline ~BaseGraph()
   {
     auto * itor = registry_.head;
@@ -59,6 +60,9 @@ class BaseGraph {
       auto * next = itor->next_;
       itor->registry_ = nullptr;
       itor->prev_ = itor->next_ = nullptr;
+      itor->u_ = itor->v_ = itor->w_ = nullptr;
+      itor->frozen_.reset();
+      itor->frozen_pos_ = 0;
       itor = next;
     }
     registry_.head = nullptr;

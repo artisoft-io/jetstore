@@ -128,19 +128,35 @@ lookup_spo2uvw(char const spin,
  *
  * The current triple is held by value, so reading it never touches the graph.
  *
- * Changing the graph while an iterator is live. The rules do not write to the graph
- * while they iterate it, with one exception: the error path, which records
- * (jets:iState, jets:exception, msg) while a filter is evaluated, under the
- * iterators of every rule being visited. The graph's tables are open-addressing
- * tables whose iterators an insert can invalidate, so the graph freezes its live
- * iterators before it changes structure: each one copies the triples it has yet to
- * return (`freeze`) and continues over that copy. A frozen iterator returns what the
- * graph held when it was frozen, including a triple erased afterwards, and nothing
- * inserted afterwards; this is how the Go engine's cursor behaves (base_graph_iterator.go).
+ * Changing the graph while an iterator is live. A rule's filter does not write to the
+ * graph, but writes do reach a session graph while some of its iterators are live:
+ *  - the error path (raise_exception, and the substring_of and replace_char_of
+ *    errors) records (jets:iState, jets:exception, msg) while a filter is evaluated,
+ *    under the iterators of every rule being visited. RDFSession::insert first erases
+ *    the same triple from the inferred graph, under the inferred graph's iterators;
+ *  - consequent operators insert inferred triples as they compute: lookups
+ *    (lookup_sql_helper.cc), range (expr_op_others.h) and create_entity's jets:key
+ *    (expr_op_resources.h);
+ *  - an iterator handed to Go through jets_rete_cwrapper lives as long as Go holds
+ *    it, across any insert Go makes.
+ * The graph's tables are open-addressing tables whose iterators an insert can
+ * invalidate, so the graph freezes its live iterators before it changes structure:
+ * each one copies the triples it has yet to return (`freeze`) and continues over that
+ * copy. A frozen iterator returns what the graph held when it was frozen, including a
+ * triple erased afterwards, and nothing inserted afterwards; this is how the Go
+ * engine's cursor behaves (base_graph_iterator.go). Before 2026-10, with node-based
+ * tables, such an iteration was undefined: a rehash could skip or repeat elements,
+ * and the erase from the inferred graph could free the set a live iterator was in.
+ *
+ * A session graph is single-threaded, even when it is only read: find(), copying an
+ * iterator and destroying one write the graph's registry of live iterators, so two
+ * threads reading one session graph at once would corrupt it.
  *
  * A graph that is not tracked (the meta graph, which every session shares across
  * threads and which does not change once rules run) registers no iterator, and must
  * not be changed while one of its iterators is live.
+ *
+ * An iterator that outlives its graph is detached and left at its end.
  */
 class BaseGraphIterator {
  public:
