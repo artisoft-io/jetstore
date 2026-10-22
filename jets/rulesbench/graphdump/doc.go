@@ -66,11 +66,15 @@
 //     renamed too, and its value does not appear in the dump. Equality up to
 //     naming still holds, since the label comes from the node's structure, but a
 //     difference on such a node is reported by label rather than by value;
-//   - a lookup subject: the object of a lookup cache triple. The engines name
-//     both differently: Go caches (jets:cache:<table> jets:lookup_row
-//     jets:lookup:<key>), C++ caches (<table> jets:lookup_row jets:<table>:<key>).
-//     A C++ cache resource, recognised by that pattern, is renamed
-//     jets:cache:<table>, the Go name, so that the cache itself compares equal.
+//   - a lookup subject: the object of a lookup cache triple. Both engines cache
+//     a lookup as (<table> jets:lookup_row jets:<table>:<key>), or
+//     jets:rand:<table>:<n> for multi_lookup_rand. Until rules_benchmark I-15
+//     (2026-10-22) the Go engine cached it as (jets:cache:<table>
+//     jets:lookup_row jets:lookup:<key>), with jets:lookup_multi_rows for a
+//     multi-lookup, and dumps made before then carry those names. So a cache
+//     resource in the current form, recognised by that pattern, is renamed
+//     jets:cache:<table>, the old Go name, and a dump of either age compares
+//     equal with a dump of either engine.
 //
 // Each minted node is renamed from its structure, never from its name, by colour
 // refinement (the one-dimensional Weisfeiler–Leman algorithm):
@@ -108,7 +112,8 @@
 //
 // # Lookup bookkeeping
 //
-// The cache triples differ between the engines beyond their names: Go caches a
-// multi-lookup with jets:lookup_multi_rows and C++ with jets:lookup_row. They are
-// written as each engine holds them, and the diff classifies them.
+// Both engines now cache a multi-lookup with jets:lookup_row. A Go dump made
+// before rules_benchmark I-15 (2026-10-22) caches it with jets:lookup_multi_rows.
+// Cache triples are written as the dump holds them, and the diff classifies them;
+// their predicate is written jets:lookup_cache in the colours either way.
 package graphdump
