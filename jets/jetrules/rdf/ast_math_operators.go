@@ -26,9 +26,75 @@ func (rhs *Node) ABS() *Node {
 	}
 }
 
+// arith applies an arithmetic operator to two numbers, typed as both engines
+// type it (decided 2026-10-22 in rules_benchmark Phase 4): a double on either
+// side makes the result a double, both operands converted; two integers give
+// the left operand's type, the right converted to it, as C++'s numeric_cast
+// does, and nil when it does not fit there (a negative into a uint, a uint
+// past the int range), where C++ throws. Until then int + double and
+// int - double truncated the double to an int on both engines, and int * double
+// on Go. ok is false when either operand is not a number.
+func arith(lhs, rhs *Node, fi func(a, b int) *Node, fu func(a, b uint) *Node,
+	ff func(a, b float64) *Node) (r *Node, ok bool) {
+	var lf, rf float64
+	lDouble, rDouble := false, false
+	switch lv := lhs.Value.(type) {
+	case int:
+		lf = float64(lv)
+	case uint:
+		lf = float64(lv)
+	case float64:
+		lf, lDouble = lv, true
+	default:
+		return nil, false
+	}
+	switch rv := rhs.Value.(type) {
+	case int:
+		rf = float64(rv)
+	case uint:
+		rf = float64(rv)
+	case float64:
+		rf, rDouble = rv, true
+	default:
+		return nil, false
+	}
+	if lDouble || rDouble {
+		return ff(lf, rf), true
+	}
+	switch lv := lhs.Value.(type) {
+	case int:
+		switch rv := rhs.Value.(type) {
+		case int:
+			return fi(lv, rv), true
+		case uint:
+			if rv > math.MaxInt {
+				return nil, true
+			}
+			return fi(lv, int(rv)), true
+		}
+	case uint:
+		switch rv := rhs.Value.(type) {
+		case uint:
+			return fu(lv, rv), true
+		case int:
+			if rv < 0 {
+				return nil, true
+			}
+			return fu(lv, uint(rv)), true
+		}
+	}
+	return nil, true
+}
+
 func (lhs *Node) ADD(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
+	}
+	if r, ok := arith(lhs, rhs,
+		func(a, b int) *Node { return I(a + b) },
+		func(a, b uint) *Node { return UI(a + b) },
+		func(a, b float64) *Node { return F(a + b) }); ok {
+		return r
 	}
 
 	switch lhsv := lhs.Value.(type) {
@@ -41,7 +107,7 @@ func (lhs *Node) ADD(rhs *Node) *Node {
 		default:
 			return nil
 		}
-	
+
 	case LDatetime:
 		switch rhsv := rhs.Value.(type) {
 		case int:
@@ -52,24 +118,6 @@ func (lhs *Node) ADD(rhs *Node) *Node {
 			return nil
 		}
 
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return I(lhsv + rhsv)
-		case float64:
-			return I(lhsv + int(rhsv))
-		default:
-			return nil
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return F(lhsv + float64(rhsv))
-		case float64:
-			return F(lhsv + rhsv)
-		default:
-			return nil
-		}
 	case string:
 		switch rhsv := rhs.Value.(type) {
 		case string:
@@ -92,65 +140,39 @@ func (lhs *Node) DIV(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
-	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if rhsv == 0 {
+	r, _ := arith(lhs, rhs,
+		func(a, b int) *Node {
+			if b == 0 {
 				return F(math.NaN())
 			}
-			return I(lhsv / rhsv)
-		case float64:
-			if NearlyEqual(rhsv, 0) {
+			return I(a / b)
+		},
+		func(a, b uint) *Node {
+			if b == 0 {
 				return F(math.NaN())
 			}
-			return F(float64(lhsv) / rhsv)
-		default:
-			return nil
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if rhsv == 0 {
+			return UI(a / b)
+		},
+		func(a, b float64) *Node {
+			if NearlyEqual(b, 0) {
 				return F(math.NaN())
 			}
-			return F(lhsv / float64(rhsv))
-		case float64:
-			if NearlyEqual(rhsv, 0) {
-				return F(math.NaN())
-			}
-			return F(lhsv / rhsv)
-		default:
-			return nil
-		}
-	default:
-		return nil
-	}
+			return F(a / b)
+		})
+	return r
 }
 
 func (lhs *Node) MUL(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
+	if r, ok := arith(lhs, rhs,
+		func(a, b int) *Node { return I(a * b) },
+		func(a, b uint) *Node { return UI(a * b) },
+		func(a, b float64) *Node { return F(a * b) }); ok {
+		return r
+	}
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return I(lhsv * rhsv)
-		case float64:
-			return I(lhsv * int(rhsv))
-		default:
-			return nil
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return F(lhsv * float64(rhsv))
-		case float64:
-			return F(lhsv * rhsv)
-		default:
-			return nil
-		}
 	case string:
 		switch rhsv := rhs.Value.(type) {
 		case int:
@@ -175,6 +197,12 @@ func (lhs *Node) SUB(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
+	if r, ok := arith(lhs, rhs,
+		func(a, b int) *Node { return I(a - b) },
+		func(a, b uint) *Node { return UI(a - b) },
+		func(a, b float64) *Node { return F(a - b) }); ok {
+		return r
+	}
 	switch lhsv := lhs.Value.(type) {
 	case LDate:
 		switch rhsv := rhs.Value.(type) {
@@ -196,25 +224,6 @@ func (lhs *Node) SUB(rhs *Node) *Node {
 			return I(int((*lhsv.Datetime).Sub(*rhsv.Datetime).Hours()/24))
 		case float64:
 			return &Node{Value: lhsv.Add(-int(rhsv))}
-		default:
-			return nil
-		}
-
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return I(lhsv - rhsv)
-		case float64:
-			return I(lhsv - int(rhsv))
-		default:
-			return nil
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			return F(lhsv - float64(rhsv))
-		case float64:
-			return F(lhsv - rhsv)
 		default:
 			return nil
 		}
