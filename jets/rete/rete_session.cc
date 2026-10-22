@@ -262,32 +262,26 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // Clear the pending rows in current_relation, since they were for the last pass
         current_relation->clear_pending_rows();
 
-        // Get an iterator over all applicable rows from the parent beta node
-        BetaRowIteratorPtr parent_row_itor;
+        // The applicable rows of the parent beta node: all of them, or the pending ones
         bool need_all_rows = !current_relation->is_activated();
-        if(need_all_rows) {
-          parent_row_itor = parent_beta_relation->get_all_rows_iterator();
-        } else {
-          parent_row_itor = parent_beta_relation->get_pending_rows_iterator();
-        }
 
         // process rows from parent beta node:
         // for each BetaRow of parent beta node, 
         // compute the inferred/retracted BetaRow for current_relation
         auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
         auto const* beta_row_initializer = child_meta_node->get_beta_row_initializer();
-        while(!parent_row_itor->is_end()) {
+        auto process_parent_row = [&](BetaRow const* parent_row) {
 
           // for each triple from the rdf graph matching the AlphaNode
           // compute the BetaRow to infer or retract
-          auto const* parent_row = parent_row_itor->get_row();
           auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
 
           // Process the returned iterator t3_itor accordingly if AlphaNode is a negation
           if(child_meta_node->is_negation) {
             if(t3_itor.is_end()) {
               // create the beta row
-              auto beta_row = create_beta_row(&this->arena_, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              CandidateRow candidate(this, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              auto * beta_row = candidate.get();
               // initialize the beta row with parent_row and place holder for t3
               rdf::Triple triple;
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -298,7 +292,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
-                keepit = child_meta_node->filter_expr->eval_filter(this, beta_row.get());
+                keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
               }
 
@@ -306,17 +300,18 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               if(keepit) {
                 if(is_inferring) {
                   // Add row to current beta relation (current_relation)
-                  current_relation->insert_beta_row(this, beta_row);
+                  current_relation->insert_candidate(this, *beta_row);
                 } else {
                   // Remove row from current beta relation (current_relation)
-                  current_relation->remove_beta_row(this, beta_row);
+                  current_relation->remove_candidate(this, *beta_row);
                 }
               }
             }
           } else {
             while(not t3_itor.is_end()) {
               // create the beta row
-              auto beta_row = create_beta_row(&this->arena_, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              CandidateRow candidate(this, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+              auto * beta_row = candidate.get();
               // initialize the beta row with parent_row and t3
               rdf::Triple triple = t3_itor.as_triple();
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -326,7 +321,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
-                keepit = child_meta_node->filter_expr->eval_filter(this, beta_row.get());
+                keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
               }
 
@@ -334,16 +329,22 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               if(keepit) {
                 if(is_inferring) {
                   // Add row to current beta relation (current_relation)
-                  current_relation->insert_beta_row(this, beta_row);
+                  current_relation->insert_candidate(this, *beta_row);
                 } else {
                   // Remove row from current beta relation (current_relation)
-                  current_relation->remove_beta_row(this, beta_row);
+                  current_relation->remove_candidate(this, *beta_row);
                 }
               }
               t3_itor.next();
             }
           }
-          parent_row_itor->next();
+        };
+        // Iterated in place, as a BetaRowIterator iterated them, without allocating one
+        // per child and visit
+        if(need_all_rows) {
+          for(auto const& parent_row: parent_beta_relation->all_rows()) process_parent_row(parent_row.get());
+        } else {
+          for(auto const& parent_row: parent_beta_relation->pending_rows()) process_parent_row(parent_row.get());
         }
 
         // mark current beta node as activated and push it on the stack so to visit it's childrens
@@ -523,7 +524,8 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     while(!parent_row_itor->is_end()) {
 
       // create the beta row to add/retract
-      auto beta_row = create_beta_row(&this->arena_, cmeta_node, beta_row_initializer->get_size());
+      CandidateRow candidate(this, cmeta_node, beta_row_initializer->get_size());
+      auto * beta_row = candidate.get();
 
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
@@ -535,7 +537,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       // evaluate the current_relation filter if any
       bool keepit = true;
       if(cmeta_node->has_expr()) {
-        keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+        keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
       }
 
       // if(not keepit) {
@@ -548,7 +550,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T1.INSERTING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->insert_beta_row(this, beta_row);
+            current_relation->insert_candidate(this, *beta_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -557,7 +559,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
             }
           } else {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T2.REMOVING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->remove_beta_row(this, beta_row);
+            current_relation->remove_candidate(this, *beta_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -568,7 +570,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         } else {
           if(not cmeta_node->is_negation) {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T3.REMOVING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->remove_beta_row(this, beta_row);
+            current_relation->remove_candidate(this, *beta_row);
 
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -577,7 +579,7 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
             }
           } else {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T4.INSERTING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->insert_beta_row(this, beta_row);
+            current_relation->insert_candidate(this, *beta_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -660,7 +662,8 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       if(cmeta_node->is_negation) {
         if(t3_itor.is_end()) {
           // create the beta row
-          auto beta_row = create_beta_row(&this->arena_, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          CandidateRow candidate(this, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          auto * beta_row = candidate.get();
           // initialize the beta row with parent_row and place holder for t3
           rdf::Triple triple;
           beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -668,20 +671,21 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter if any
           bool keepit = true;
           if(cmeta_node->has_expr()) {
-            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
             // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
           }
 
           // insert or remove the row from current_relation based on is_inferring
           if(keepit) {
             // Add row to current beta relation (current_relation)
-            current_relation->insert_beta_row(this, beta_row);
+            current_relation->insert_candidate(this, *beta_row);
           }
         }
       } else {
         while(not t3_itor.is_end()) {
           // create the beta row
-          auto beta_row = create_beta_row(&this->arena_, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          CandidateRow candidate(this, cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          auto * beta_row = candidate.get();
           // initialize the beta row with parent_row and t3
           rdf::Triple triple = t3_itor.as_triple();
           beta_row->initialize(beta_row_initializer, parent_row, &triple);
@@ -689,11 +693,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter
           bool keepit = true;
           if(cmeta_node->has_expr()) {
-            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
           }
           if(keepit) {
             // Add row to current beta relation (current_relation)
-            current_relation->insert_beta_row(this, beta_row);
+            current_relation->insert_candidate(this, *beta_row);
           }
           t3_itor.next();
         }
