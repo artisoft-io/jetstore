@@ -174,7 +174,7 @@ eventual release merge takes it one-sided.
 **The other three cpipes Lambdas deliberately do not take one.** `CpipesNativeNodeLambda` is a
 `NewDockerImageFunction` reading an image out of ECR — `DockerImageFunctionProps` has no `Entry` to
 redirect, and its binary is built under `CGO_ENABLED=1` against a `libjets.so` that exists only
-inside that image (`dockerfiles/Dockerfile.cpipes_builder:23`, `:66`). The two starters call
+inside that image (`dockerfiles/Dockerfile.cpipes_builder`: its `ENV CGO_ENABLED=1` and its `go build ... -o bootstrap` step). The two starters call
 `StartShardingComputePipes` / `StartReducingComputePipes`, which plan a run rather than build a pipe
 graph: neither constructs a `BuilderContext`, so neither has anywhere to put a site operator.
 
