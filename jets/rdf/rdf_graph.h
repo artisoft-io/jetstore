@@ -295,10 +295,11 @@ class RDFGraph {
     return 0;
   }
 
-  // erase_internal triple (s, p, o) from graph, return 1 if do it, 0 if do nothing, -1 if error
+  // erase_internal triple (s, p, o) from graph, return 1 if do it, 0 if do nothing, -1 if error.
+  // `notify` tells the graph's callbacks, the rete, that the triple is gone.
   // ------------------------------------------------------------------------------------
   inline int
-  erase_internal(r_index s, r_index p, r_index o)
+  erase_internal(r_index s, r_index p, r_index o, bool notify)
   {
     if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
       "This is probably a meta graph and you want to mutate the asserted"
@@ -313,14 +314,36 @@ class RDFGraph {
     osp_graph_.erase(o, s, p);
     if(erased) {
       size_-= 1;
+      if(notify) this->graph_callback_mgr_->triple_deleted(s, p, o);
     }
     return erased;
   }
 
   /**
-   * @brief erase all triples matching (s, p, o)
+   * @brief erase the triple (s, p, o) without telling the rete
+   *
+   * For RDFSession::insert only, which moves a triple from the inferred graph to the
+   * asserted one: the triple never leaves the session, so a notice would only make the
+   * rete withdraw and rebuild the rows built on it (I-103). Anything that removes a
+   * triple from the session calls erase, which notifies.
+   *
+   * @return 1 if erased, 0 if it was not there, -1 if error
+   */
+  inline int
+  erase_without_notice(r_index s, r_index p, r_index o)
+  {
+    return this->erase_internal(s, p, o, false);
+  }
+
+  /**
+   * @brief erase all triples matching (s, p, o), telling the rete of each one
    * Arguments can be null to erase all triple matching the position,
    * e.g. (s, null, o) -> (s, *, o)
+   *
+   * A delete: every reference count goes, and the graph's callbacks hear
+   * triple_deleted for each triple removed, as for retract and as the Go engine's Erase
+   * does. From 2022-05 (2507bf7c) until 2026-10 this told the rete nothing, so the rows
+   * and consequents built on an erased triple stayed (I-6).
    * 
    * Throws exception if graph is locked
    * 
@@ -346,7 +369,7 @@ class RDFGraph {
     }
     int count = 0;
     for(auto t3: triples) {
-      auto c = this->erase_internal(t3.subject, t3.predicate, t3.object);
+      auto c = this->erase_internal(t3.subject, t3.predicate, t3.object, true);
       if(c < 0) return -1;
       count += c;
     }
