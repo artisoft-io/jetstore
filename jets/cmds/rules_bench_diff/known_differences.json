@@ -11,33 +11,14 @@
       "pair": "relabelled"
     },
     {
-      "id": "go-double-literal-quantised",
+      "id": "double-summation-last-bits",
       "refs": [
-        "jets/jetrules/rete/README.md, The Go and C++ engines are independently maintained and they disagree, item 3"
+        "projects/rules_benchmark I-33, F212, F217; Phase 4 (AZ.2)"
       ],
-      "description": "The Go engine quantises a double literal to 15 bits of mantissa (ResourceManager.NewDoubleLiteral); C++ keeps it. The two values are equal once both are quantised.",
-      "pair": "double_quantised"
-    },
-    {
-      "id": "go-lookup-subject-shared-across-tables",
-      "refs": [
-        "projects/rules_benchmark I-15"
-      ],
-      "description": "The Go engine names a lookup result jets:lookup:<key> (jets:lookup:multi:<key> for a multi-lookup), without the table, so two tables looked up with the same key share one subject, which carries both tables' columns and both rows' jets:row_id (LookupTableSqlite3.Lookup, jets/jetrules/rete/lookup_table_sqlite3.go). C++ names it jets:<table>:<key> (LookupTable::lookup_internal, jets/rete/lookup_sql_helper.cc), one subject per table. In the dump: one minted node on Go where C++ has one per table. Only a lookup subject: the merged node must be the object of a cache triple (jets:cache:<table> jets:lookup_row|jets:lookup_multi_rows _:node) on Go; any other node merged on one engine stays unclassified.",
-      "only_on": "go",
-      "pair": "merged",
-      "subject": "jets:cache:.*",
-      "predicate": "jets:lookup_row|jets:lookup_multi_rows"
-    },
-    {
-      "id": "lookup-cache-predicate",
-      "refs": [
-        "jets/rulesbench/graphdump, package documentation (Lookup bookkeeping)"
-      ],
-      "description": "A multi-lookup's cache triple: Go writes (jets:cache:<table> jets:lookup_multi_rows <subject>) (LookupTableSqlite3.MultiLookup), C++ (<table> jets:lookup_row <subject>) (LookupTable::lookup_internal), which the dump renames jets:cache:<table>. Bookkeeping: the 26 uses of jets:lookup_row and jets:lookup_multi_rows in the four workspaces' rule files (counted 2026-10-20) all read them as (?x jets:lookup_… ?y), and none names a cache resource.",
-      "subject": "jets:cache:.*",
-      "predicate": "jets:lookup_row|jets:lookup_multi_rows",
-      "pair": "predicate_alias"
+      "description": "Two doubles that differ in their last bits: an aggregate summed in another order, by the other engine or by the same engine in another run (sum_values over a set, an accumulation over rows that arrive in another order). At most 1e-7 quanta apart at the larger magnitude, about 3e-12 relative (a quantum is 2^-15 of it, graphdump.Quantum): a few ulps, and under a cent for any amount below a billion.",
+      "scope": "any",
+      "pair": "double_near",
+      "quanta": 1e-07
     }
   ]
 }

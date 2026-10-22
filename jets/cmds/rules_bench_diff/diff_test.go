@@ -57,6 +57,9 @@ func workloadKnown(t *testing.T) string {
 	}
 	var extra []Entry
 	if err := json.Unmarshal([]byte(`[
+	{"id": "go-double-literal-quantised", "refs": ["test: an entry of the shipped list until rules_benchmark Phase 4, kept to test its pair kind"], "description": "The Go engine quantises a double literal to 15 bits of mantissa (ResourceManager.NewDoubleLiteral); C++ keeps it. The two values are equal once both are quantised.", "pair": "double_quantised"},
+	{"id": "go-lookup-subject-shared-across-tables", "refs": ["test: an entry of the shipped list until rules_benchmark Phase 4, kept to test its pair kind"], "description": "The Go engine names a lookup result jets:lookup:<key> (jets:lookup:multi:<key> for a multi-lookup), without the table, so two tables looked up with the same key share one subject, which carries both tables' columns and both rows' jets:row_id (LookupTableSqlite3.Lookup, jets/jetrules/rete/lookup_table_sqlite3.go). C++ names it jets:<table>:<key> (LookupTable::lookup_internal, jets/rete/lookup_sql_helper.cc), one subject per table. In the dump: one minted node on Go where C++ has one per table. Only a lookup subject: the merged node must be the object of a cache triple (jets:cache:<table> jets:lookup_row|jets:lookup_multi_rows _:node) on Go; any other node merged on one engine stays unclassified.", "only_on": "go", "pair": "merged", "subject": "jets:cache:.*", "predicate": "jets:lookup_row|jets:lookup_multi_rows"},
+	{"id": "lookup-cache-predicate", "refs": ["test: an entry of the shipped list until rules_benchmark Phase 4, kept to test its pair kind"], "description": "A multi-lookup's cache triple: Go writes (jets:cache:<table> jets:lookup_multi_rows <subject>) (LookupTableSqlite3.MultiLookup), C++ (<table> jets:lookup_row <subject>) (LookupTable::lookup_internal), which the dump renames jets:cache:<table>. Bookkeeping: the 26 uses of jets:lookup_row and jets:lookup_multi_rows in the four workspaces' rule files (counted 2026-10-20) all read them as (?x jets:lookup_… ?y), and none names a cache resource.", "subject": "jets:cache:.*", "predicate": "jets:lookup_row|jets:lookup_multi_rows", "pair": "predicate_alias"},
 	{"id": "workload-double-quantisation-propagated", "refs": ["test"],
 	 "description": "a ratio computed from quantised literals, within 2.5 quanta",
 	 "pair": "double_near", "quanta": 2.5, "predicate": "ex:pct|_0:pct|ex_out:pct"},
@@ -360,5 +363,24 @@ func TestEntryConfinedToMemberAndFile(t *testing.T) {
 	os.WriteFile(k, []byte(`{"entries":[{"id":"x","refs":["r"],"description":"d","member":"m1"}]}`), 0o644)
 	if _, err := LoadKnown(k); err == nil {
 		t.Errorf("accepted an entry with only member")
+	}
+}
+
+// The built-in list classifies doubles that differ in their last bits, across engines and within one, and no more:
+// a cent stays unclassified (rules_benchmark Phase 4).
+func TestSummationLastBits(t *testing.T) {
+	root := t.TempDir()
+	a := tree(t, filepath.Join(root, "a"), "go", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:sum\t0.30000000000000004^^double", "c1\tex:amount\t100.01^^double"}})
+	b := tree(t, filepath.Join(root, "b"), "native", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:sum\t0.3^^double", "c1\tex:amount\t100.02^^double"}})
+	s, code, _ := compare(t, a, b)
+	if code != 1 || s.ByKnown["double-summation-last-bits"] != 2 || s.Totals.Unclassified != 2 {
+		t.Errorf("exit %d, by known %v, totals %+v; want the sum classified and the cent not", code, s.ByKnown, s.Totals)
+	}
+	self := tree(t, filepath.Join(root, "c"), "go", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:sum\t0.3^^double", "c1\tex:amount\t100.01^^double"}})
+	if s, _, _ := compare(t, a, self); s.ByKnown["double-summation-last-bits"] != 2 || s.Totals.Unclassified != 0 {
+		t.Errorf("within one engine: by known %v, totals %+v", s.ByKnown, s.Totals)
 	}
 }

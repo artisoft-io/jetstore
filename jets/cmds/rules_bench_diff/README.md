@@ -81,9 +81,15 @@ Then the single-line entries, in list order.
 | Entry | Record |
 |---|---|
 | `minted-node-relabelled` | `graphdump` package documentation |
-| `go-double-literal-quantised` | rete README, *The Go and C++ engines … disagree*, item 3 |
-| `go-lookup-subject-shared-across-tables` | `projects/rules_benchmark` `I-15`; lookup subjects only |
-| `lookup-cache-predicate` | `graphdump` package documentation |
+| `double-summation-last-bits` | `projects/rules_benchmark` `I-33`, `F212`, `F217`: an aggregate summed in another order, across engines or between runs; about 3e-12 relative |
+
+**Three entries left the list in `projects/rules_benchmark` Phase 4** (2026-10-22), when the differences they
+classified were fixed: `go-double-literal-quantised` (`I-40`, Go no longer quantises a double literal),
+`go-lookup-subject-shared-across-tables` (`I-15`, Go names a lookup subject per table, as C++ does) and
+`lookup-cache-predicate` (`I-15`, both engines cache a multi-lookup with `jets:lookup_row`). Measured on the
+benchmark's nine inputs, Go and C++ then differ only in last-bit sums. The tests keep the three as fixtures
+of their pair kinds. **Comparing a dump made before Phase 4 with one made after** needs them back: pass the
+list as it was at `b3b348f1` with `-known`.
 
 **An entry that names a workload's predicates, rules, members or files belongs in a list of its own,
 passed with `-known`**, not in the built-in one: the built-in list is part of this repository, and a
@@ -93,7 +99,8 @@ the predicates a workload computes them on narrow them enough to be safe: a doub
 quantised literals within a tolerance, text + double written with six decimals on C++, and
 `literal_regex`'s two meanings (`projects/rules_benchmark` `I-12`, `I-16`).
 
-**Money computed from quantised literals has no entry, deliberately**, in either kind of list. Amounts
+**Money computed from quantised literals has no entry, deliberately**, in either kind of list (and since Phase 4
+Go computes from exact literals, so there is none to make). Amounts
 a workload computes from quantised literals differ from C++ by 0.5 to 1.04 quanta, a cent or two. A
 tolerance would hide a wrong amount of the same size, so these stay unclassified.
 
