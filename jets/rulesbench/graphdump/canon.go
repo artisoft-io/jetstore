@@ -17,8 +17,10 @@ const (
 	labelLen = 12
 	// cachePredicate is how a cache triple's predicate is written into colours.
 	cachePredicate = "jets:lookup_cache"
-	// GoCachePrefix is the Go engine's name for a lookup table's cache resource,
-	// which C++ cache resources are renamed to.
+	// GoCachePrefix is the name every lookup table's cache resource is written
+	// under: the Go engine's name for it until rules_benchmark I-15 (2026-10-22).
+	// Both engines now use the table's own resource, which is renamed to it, so
+	// that dumps made before and after the change compare equal.
 	GoCachePrefix = "jets:cache:"
 )
 
@@ -70,8 +72,8 @@ func canonicalLines(triples []harness.SnapshotTriple) []string {
 func newCanon(in []harness.SnapshotTriple) *canon {
 	triples := append([]harness.SnapshotTriple(nil), in...)
 
-	// The lookup caches: rename C++ cache resources to the Go name, and mark the
-	// subjects they cache as minted.
+	// The lookup caches: rename cache resources in the current form (both
+	// engines') to the old Go name, and mark the subjects they cache as minted.
 	rename := map[string]string{}
 	lookupSubject := map[string]bool{}
 	cacheTriple := make([]bool, len(triples))

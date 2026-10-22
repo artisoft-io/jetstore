@@ -24,7 +24,17 @@ type LookupTableSqlite3 struct {
 	selectRandStmt      string
 	selectMultiRandStmt string
 	columnsSpec         []ColumnSpec
-	lookupCache         *rdf.Node
+	// lookupCache is the table's own resource, <T>: a row served is cached as
+	// (<T> jets:lookup_row subject), for every kind of lookup, as C++ caches it
+	// (lookup_sql_helper.cc:105). It was jets:cache:<T>, with jets:lookup_multi_rows
+	// for a multi-lookup, until rules_benchmark I-15.
+	lookupCache *rdf.Node
+	// subjectPrefix and randSubjectPrefix are C++'s (lookup_sql_helper.h:201):
+	// jets:<T>: for lookup, multi_lookup and lookup_rand, and jets:rand:<T>: for
+	// multi_lookup_rand. They were jets:lookup:, with no table name, so two tables
+	// looked up by one key in a session shared a subject (rules_benchmark I-15).
+	subjectPrefix     string
+	randSubjectPrefix string
 }
 
 type ColumnSpec struct {
@@ -38,11 +48,10 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 	lookupTable := &LookupTableSqlite3{
 		spec:        spec,
 		lookupDb:    lookupDb,
-		lookupCache: rmgr.NewResource(fmt.Sprintf("jets:cache:%s", spec.Name)),
+		lookupCache:       rmgr.NewResource(spec.Name),
+		subjectPrefix:     fmt.Sprintf("jets:%s:", spec.Name),
+		randSubjectPrefix: fmt.Sprintf("jets:rand:%s:", spec.Name),
 	}
-	// initialize the lookupTable
-	// Make sure that the lookup table name has a corresponding resource
-	rmgr.NewResource(spec.Name)
 	// Get the range of __key__ for the random lookups. Both bounds are read,
 	// rather than assuming a base: the Go packager numbers __key__ from 1 and
 	// lookup.db files built by the earlier packager number it from 0.
@@ -162,205 +171,104 @@ func (tbl *LookupTableSqlite3) insertResultIntoSession(sess *rdf.RdfSession, s *
 	return nil
 }
 
+// The four lookups follow C++'s LookupTable::lookup_internal and
+// lookup_internal_rand (jets/rete/lookup_sql_helper.cc): the subject is
+// jets:<T>:<key> (jets:rand:<T>:<n> for multi_lookup_rand), a cached subject is
+// returned as it is, and a miss returns null and writes nothing. As on C++,
+// lookup and multi_lookup on one table and key share the subject and its cache
+// triple, so whichever runs first in a session decides what the other returns.
 
 func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil || key == nil {
 		return nil, fmt.Errorf("error: arguments to Lookup cannot be nil")
 	}
-	sess := rs.RdfSession
-	rmgr := sess.ResourceMgr
-	jr := rmgr.JetsResources
-	// the result subject which is associated to the lookup row for key
-	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:%s", *key))
-
-	// Check if the result of the lookup was already put in the rdf_session by a previous call
-	if sess.Contains(tbl.lookupCache, jr.Jets__lookup_row, row) {
-		// Already got it
-		return row, nil
-	}
-	// Query the lookup table, make destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
-	for i := range resultRow {
-		resultRow[i] = new(interface{})
-	}
-	err := tbl.lookupDb.QueryRow(tbl.selectStmt, *key).Scan(resultRow...)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// No row returned
-			return rdf.Null(), nil
-		}
-		return nil, fmt.Errorf("failed query lookup table %s for key %s: %v", tbl.spec.Name, *key, err)
-	}
-
-	// Put the result into the rdf session
-	err = tbl.insertResultIntoSession(sess, row, resultRow)
-	if err != nil {
-		return nil, err
-	}
-	// Put the result into the cache
-	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_row, row)
-	if err != nil {
-		return nil, fmt.Errorf("while InsertInferred in lookup (2): %v", err)
-	}
-	return row, nil
+	return tbl.lookup(rs, tbl.subjectPrefix+*key, false, tbl.selectStmt, *key)
 }
 
 func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil || key == nil {
 		return nil, fmt.Errorf("error: arguments to MultiLookup cannot be nil")
 	}
-	sess := rs.RdfSession
-	rmgr := sess.ResourceMgr
-	jr := rmgr.JetsResources
-	// the result subject which is associated to the lookup row for key
-	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:multi:%s", *key))
-
-	// Check if the result of the lookup was already put in the rdf_session by a previous call
-	if sess.Contains(tbl.lookupCache, jr.Jets__lookup_multi_rows, row) {
-		// Already got it
-		return row, nil
-	}
-	// Query the lookup table, make a copy of the destination
-	rows, err := tbl.lookupDb.Query(tbl.selectStmt, *key)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// No row returned
-			return rdf.Null(), nil
-		}
-		return nil, fmt.Errorf("failed query lookup table %s for key %s: %v", tbl.spec.Name, *key, err)
-	}
-	defer rows.Close()
-	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
-	for rows.Next() {
-		// Scan the row
-		for i := range resultRow {
-			resultRow[i] = new(interface{})
-		}
-		if err = rows.Scan(resultRow...); err != nil {
-			return nil, fmt.Errorf("while scanning row for multi lookup: %v", err)
-		}
-		// Put the result into the rdf session
-		s := rmgr.NewBNode()
-		err = tbl.insertResultIntoSession(sess, s, resultRow)
-		if err != nil {
-			return nil, err
-		}
-		_, err := sess.InsertInferred(row, jr.Jets__lookup_multi_rows, s)
-		if err != nil {
-			return nil, fmt.Errorf("while InsertInferred in MultiLookup: %v", err)
-		}
-	}
-
-	// Put the result into the cache
-	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_multi_rows, row)
-	if err != nil {
-		return nil, fmt.Errorf("while InsertInferred in lookup (4): %v", err)
-	}
-	return row, nil
+	return tbl.lookup(rs, tbl.subjectPrefix+*key, true, tbl.selectStmt, *key)
 }
 
 func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil {
 		return nil, fmt.Errorf("error: arguments to LookupRand cannot be nil")
 	}
-	sess := rs.RdfSession
-	rmgr := sess.ResourceMgr
-	jr := rmgr.JetsResources
 	if !tbl.hasRows {
 		return rdf.Null(), nil
 	}
 	key := tbl.randKey()
-	// the result subject which is associated to the lookup row for key
-	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:rand:%d", key))
-
-	// Check if the result of the lookup was already put in the rdf_session by a previous call
-	if sess.Contains(tbl.lookupCache, jr.Jets__lookup_row, row) {
-		// Already got it
-		return row, nil
-	}
-	// Query the lookup table, make a copy of the destination
-	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
-	for i := range resultRow {
-		resultRow[i] = new(interface{})
-	}
-	err := tbl.lookupDb.QueryRow(tbl.selectRandStmt, key).Scan(resultRow...)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// No row returned
-			return rdf.Null(), nil
-		}
-		return nil, fmt.Errorf("failed query lookup table %s for rand key %d: %v", tbl.spec.Name, key, err)
-	}
-
-	// Put the result into the rdf session
-	err = tbl.insertResultIntoSession(sess, row, resultRow)
-	if err != nil {
-		return nil, err
-	}
-	// Put the result into the cache
-	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_row, row)
-	if err != nil {
-		return nil, fmt.Errorf("while InsertInferred in lookup (3): %v", err)
-	}
-	return row, nil
+	return tbl.lookup(rs, fmt.Sprintf("%s%d", tbl.subjectPrefix, key), false, tbl.selectRandStmt, key)
 }
 
 func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string) (*rdf.Node, error) {
 	if rs == nil || tblName == nil {
 		return nil, fmt.Errorf("error: arguments to MultiLookupRand cannot be nil")
 	}
-	sess := rs.RdfSession
-	rmgr := sess.ResourceMgr
-	jr := rmgr.JetsResources
 	if !tbl.hasRows {
 		return rdf.Null(), nil
 	}
 	key := tbl.randKey()
-	// the result subject which is associated to the lookup row for key
-	row := rmgr.NewResource(fmt.Sprintf("jets:lookup:multi:rand:%d", key))
+	return tbl.lookup(rs, fmt.Sprintf("%s%d", tbl.randSubjectPrefix, key), true, tbl.selectMultiRandStmt, key)
+}
+
+// lookup serves the rows stmt selects with arg under the subject named subjectName:
+// the first row's columns on the subject itself, or with multi each row's on a
+// blank node, linked by (subject jets:lookup_multi_rows row). It returns null,
+// and writes nothing, when stmt selects no row.
+func (tbl *LookupTableSqlite3) lookup(rs *ReteSession, subjectName string, multi bool,
+	stmt string, arg any) (*rdf.Node, error) {
+	sess := rs.RdfSession
+	rmgr := sess.ResourceMgr
+	jr := rmgr.JetsResources
+	subject := rmgr.NewResource(subjectName)
 
 	// Check if the result of the lookup was already put in the rdf_session by a previous call
-	if sess.Contains(tbl.lookupCache, jr.Jets__lookup_multi_rows, row) {
-		// Already got it
-		return row, nil
+	if sess.Contains(tbl.lookupCache, jr.Jets__lookup_row, subject) {
+		return subject, nil
 	}
-	// Query the lookup table, make a copy of the destination
-	rows, err := tbl.lookupDb.Query(tbl.selectMultiRandStmt, key)
+	rows, err := tbl.lookupDb.Query(stmt, arg)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			// No row returned
-			return rdf.Null(), nil
-		}
-		return nil, fmt.Errorf("failed query multi rand lookup for table %s for key %d: %v", tbl.spec.Name, key, err)
+		return nil, fmt.Errorf("failed query lookup table %s for key %v: %v", tbl.spec.Name, arg, err)
 	}
 	defer rows.Close()
+	count := 0
 	resultRow := make([]interface{}, len(tbl.columnsSpec)+1) // the columns, then the rowid
 	for rows.Next() {
-		// Scan the row
 		for i := range resultRow {
 			resultRow[i] = new(interface{})
 		}
 		if err = rows.Scan(resultRow...); err != nil {
-			return nil, fmt.Errorf("while scanning row for multi lookup: %v", err)
+			return nil, fmt.Errorf("while scanning row of lookup table %s for key %v: %v", tbl.spec.Name, arg, err)
 		}
-		// Put the result into the rdf session
-		s := rmgr.NewBNode()
-		err = tbl.insertResultIntoSession(sess, s, resultRow)
-		if err != nil {
+		row := subject
+		if multi {
+			row = rmgr.NewBNode()
+		}
+		if err = tbl.insertResultIntoSession(sess, row, resultRow); err != nil {
 			return nil, err
 		}
-		_, err := sess.InsertInferred(row, jr.Jets__lookup_multi_rows, s)
-		if err != nil {
-			return nil, fmt.Errorf("while InsertInferred in MultiLookupRand: %v", err)
+		count++
+		if !multi {
+			break
+		}
+		if _, err = sess.InsertInferred(subject, jr.Jets__lookup_multi_rows, row); err != nil {
+			return nil, fmt.Errorf("while InsertInferred in multi lookup: %v", err)
 		}
 	}
-
-	// Put the result into the cache
-	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_multi_rows, row)
-	if err != nil {
-		return nil, fmt.Errorf("while InsertInferred in MultiLookupRand: %v", err)
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("while reading lookup table %s for key %v: %v", tbl.spec.Name, arg, err)
 	}
-	return row, nil
+	if count == 0 {
+		return rdf.Null(), nil
+	}
+	// Put the result into the cache
+	if _, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_row, subject); err != nil {
+		return nil, fmt.Errorf("while InsertInferred of the lookup cache: %v", err)
+	}
+	return subject, nil
 }
 
 // randKey draws a __key__ uniformly from [minKey, maxKey], both included.

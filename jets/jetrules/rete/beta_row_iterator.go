@@ -44,46 +44,45 @@ func NewBetaRowSetIterator(set *BetaRowSet) BetaRowIterator {
 	}
 }
 
+// The iterator walks the hashes the set held when it was made. A row can leave
+// the set while it is walked: a filter's write re-enters the rete, and the
+// re-entry can remove the very row the walk is on (rules_benchmark I-91). So
+// each step settles on the next position that still holds a row, rather than
+// stopping on a hash whose rows are gone; until I-91 it returned nil there and
+// the visit dereferenced it.
+func (itor *BetaRowSetIterator) settle() {
+	for itor.hpos < len(itor.hashes) {
+		if rows, ok := itor.set.data.Get(itor.hashes[itor.hpos]); ok && itor.kpos < len(*rows) {
+			return
+		}
+		itor.hpos += 1
+		itor.kpos = 0
+	}
+}
+
 func (itor *BetaRowSetIterator) IsEnd() bool {
+	itor.settle()
 	return itor.hpos == len(itor.hashes)
 }
 
 func (itor *BetaRowSetIterator) GetRow() *BetaRow {
+	itor.settle()
 	if itor.hpos == len(itor.hashes) {
 		// we're past the end already
 		return nil
 	}
-	rows, ok := itor.set.data.Get(itor.hashes[itor.hpos])
-	if ok {
-		return (*rows)[itor.kpos]
-	}
-	return nil
+	rows, _ := itor.set.data.Get(itor.hashes[itor.hpos])
+	return (*rows)[itor.kpos]
 }
 
 func (itor *BetaRowSetIterator) Next() *BetaRow {
+	itor.settle()
 	if itor.hpos == len(itor.hashes) {
 		// we're past the end already
 		return nil
 	}
-	rows, ok := itor.set.data.Get(itor.hashes[itor.hpos])
-	if !ok {
-		return nil
-	}
-	if itor.kpos == len(*rows)-1 {
-		itor.hpos += 1
-		itor.kpos = 0
-		if itor.hpos == len(itor.hashes) {
-			// we're past the end
-			return nil
-		}
-		rows, ok = itor.set.data.Get(itor.hashes[itor.hpos])
-		if ok {
-			return (*rows)[itor.kpos]	
-		}
-		return nil
-	}
 	itor.kpos += 1
-	return (*rows)[itor.kpos]
+	return itor.GetRow()
 }
 
 func (itor *BetaRowSetIterator) Reset() {

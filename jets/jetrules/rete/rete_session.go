@@ -24,6 +24,10 @@ type ReteSession struct {
 	recordingRow *BetaRow
 	// visitStack is VisitReteGraph's stack, allocated on its first call
 	visitStack *IntStack
+	// reentries counts the calls to TripleUpdated and TripleUpdatedForFilter, so
+	// that a filter's evaluation can tell whether it re-entered the rete
+	// (keepCandidate, rules_benchmark I-91)
+	reentries uint64
 }
 
 // InsertInferredFor inserts a triple inferred by row's consequent terms. When row is
