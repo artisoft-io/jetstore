@@ -140,25 +140,24 @@ func (lhs *Node) DIV(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
+	// Division by zero, the same in both engines (rules_benchmark Q-69):
+	// integers give null (C++ raised SIGFPE, Go gave NaN); doubles, and an
+	// integer divided as a double, follow IEEE: +Inf, -Inf, and NaN for 0/0
+	// (Go gave NaN for all three).
 	r, _ := arith(lhs, rhs,
 		func(a, b int) *Node {
 			if b == 0 {
-				return F(math.NaN())
+				return Null()
 			}
 			return I(a / b)
 		},
 		func(a, b uint) *Node {
 			if b == 0 {
-				return F(math.NaN())
+				return Null()
 			}
 			return UI(a / b)
 		},
-		func(a, b float64) *Node {
-			if NearlyEqual(b, 0) {
-				return F(math.NaN())
-			}
-			return F(a / b)
-		})
+		func(a, b float64) *Node { return F(a / b) })
 	return r
 }
 

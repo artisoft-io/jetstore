@@ -238,10 +238,44 @@ func TestArithmeticTyping(t *testing.T) {
 				got, got.GetTypeName(), c.want, c.want.GetTypeName())
 		}
 	}
-	// Division by zero is unchanged: NaN.
-	for _, z := range []*Node{I(5).DIV(I(0)), UI(5).DIV(UI(0)), F(5).DIV(F(0))} {
-		if v, ok := z.Value.(float64); !ok || !math.IsNaN(v) {
-			t.Errorf("x / 0 gives %v, want NaN", z)
+}
+
+// DivisionByZeroCases is the shared table of rules_benchmark Q-69: integer
+// division by zero is null; a double operand divides as IEEE doubles do. The
+// C++ engine's test checks the same rows. Text is the result's TextOf, so
+// "+Inf"-style spellings are the I-16 ones.
+var DivisionByZeroCases = []struct {
+	Name     string
+	Lhs, Rhs *Node
+	Want     string // "null", or the double's text
+}{
+	{"int 5 / int 0", I(5), I(0), "null"},
+	{"uint 5 / uint 0", UI(5), UI(0), "null"},
+	{"int 0 / int 0", I(0), I(0), "null"},
+	{"double 5 / double 0", F(5), F(0), "inf"},
+	{"double -5 / double 0", F(-5), F(0), "-inf"},
+	{"double 0 / double 0", F(0), F(0), "nan"},
+	{"int 5 / double 0", I(5), F(0), "inf"},
+}
+
+func TestDivisionByZero(t *testing.T) {
+	for _, c := range DivisionByZeroCases {
+		got := c.Lhs.DIV(c.Rhs)
+		var text string
+		switch {
+		case got == nil:
+			text = "<nil>"
+		case got.IsNull():
+			text = "null"
+		default:
+			if _, ok := got.Value.(float64); !ok {
+				t.Errorf("%s = %v (%s), want a double", c.Name, got, got.GetTypeName())
+				continue
+			}
+			text = TextOf(got)
+		}
+		if text != c.Want {
+			t.Errorf("%s = %s, want %s", c.Name, text, c.Want)
 		}
 	}
 }
