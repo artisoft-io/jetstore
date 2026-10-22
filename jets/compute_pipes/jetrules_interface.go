@@ -95,6 +95,11 @@ type JetRdfSession interface {
 
 	Insert(s, p RdfNode, o RdfNode) error
 	Erase(s, p RdfNode, o RdfNode) (bool, error)
+	// Retract deletes an asserted fact, whatever the number of times it was
+	// inserted, and reports whether the session held it. The rete withdraws what
+	// was inferred from it at the next ExecuteRules. It is not the engines'
+	// one-support retraction of an inferred triple, which the rete performs
+	// itself and which this interface does not expose.
 	Retract(s, p RdfNode, o RdfNode) (bool, error)
 	Contains(s, p RdfNode, o RdfNode) bool
 	ContainsSP(s, p RdfNode) bool
