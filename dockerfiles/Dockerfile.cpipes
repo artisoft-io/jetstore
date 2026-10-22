@@ -36,7 +36,7 @@ FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
 # # Install runtime dependencies
 RUN dnf update -y && \
-  dnf install -y libstdc++ shadow-utils && \
+  dnf install -y libstdc++ shadow-utils jemalloc && \
   dnf clean all
 
 # Create a system group and user
@@ -108,3 +108,11 @@ RUN \
     && ldd libjets.so \
     && ! ldd libjets.so | grep -q 'not found' \
     && cd / 
+
+# jemalloc is the C and C++ allocator of the processes this image starts: the
+# rule engine (libjets.so) and cgo allocate through it, the Go heap does not.
+# Measured on the rules benchmark (Phase 3, C6). Set last, so that no build step
+# above runs under it. Setting LD_PRELOAD to an empty value in the task's or the
+# function's environment turns it off without a new image.
+ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2
+RUN ldd /usr/local/bin/cpipes_native_server | grep -q libjemalloc.so.2

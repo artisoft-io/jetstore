@@ -52,7 +52,7 @@ FROM public.ecr.aws/lambda/provided:al2023
 # # Install runtime dependencies
 # # Installs headers and compiled libraries for C++ standard library and Boost
 RUN dnf update -y && \
-  dnf install -y libstdc++ && \
+  dnf install -y libstdc++ jemalloc && \
   dnf clean all
 
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
@@ -128,6 +128,15 @@ RUN \
     && echo "LAMBDA_RUNTIME_DIR DIRECTORY Contains" \
     && ls -la ${LAMBDA_RUNTIME_DIR} \
     && cd / 
+
+# jemalloc is the C and C++ allocator of the processes this image starts: the
+# rule engine (libjets.so) and cgo allocate through it, the Go heap does not.
+# Measured on the rules benchmark (Phase 3, C6). Set last, so that no build step
+# above runs under it. The function's configuration sets it too
+# (cdk/jetstore_one/stack/build_cpipes_lambdas.go), as it does LD_LIBRARY_PATH;
+# setting it empty there turns it off without a new image.
+ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2
+RUN ldd ${LAMBDA_RUNTIME_DIR}/bootstrap | grep -q libjemalloc.so.2
 
 # Set the entrypoint to use the Lambda runtime interface
 CMD [ "bootstrap" ]
