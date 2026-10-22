@@ -46,9 +46,9 @@
 // and retracts its row inside the same compute_consequent_triples drain. The repeated
 // cycle cases drive it from the test instead, by inserting (main1 done 1) into the
 // inferred graph and retracting it between execute_rules calls; the callback queues the
-// work and the next execute_rules drains it. Not insert and erase: RDFGraph::erase does
-// not notify the graph callbacks, only insert and retract do, so an erased triple is
-// never seen by truth maintenance.
+// work and the next execute_rules drains it. Not insert and erase: retract is the rete's
+// own retraction, which these cases exercise. (RDFGraph::erase did not notify the graph
+// callbacks until 2026-10; it does now, and EraseTellsTheReteTest below covers it.)
 //
 // EVERY CASE RUNS IN THE FOUR RETRACTION MODES (RetractionMode, rete_meta_store.h), as
 // a value-parameterised test whose suffix is the mode's label. In "legacy" it pins what
@@ -435,6 +435,101 @@ INSTANTIATE_TEST_SUITE_P(RetractionModes, RetractRecordedConsequentsTest,
     RetractionMode{false, true},
     RetractionMode{true, true}),
   mode_name);
+
+// The session's erase is a delete of an asserted fact, and the rete hears it: the rows
+// built on the erased triple are withdrawn and their consequents retracted, as for Go's
+// Erase. The rule is (?s p o) -> (?s q 1).
+class EraseTellsTheReteTest : public ::testing::Test {
+ protected:
+  ~EraseTellsTheReteTest() {
+    if(this->rete_session) this->rete_session->terminate();
+  }
+
+  void build()
+  {
+    auto meta_graph = rdf::create_rdf_graph();
+    auto * rmgr = meta_graph->rmgr();
+    rmgr->initialize();
+    p = rmgr->create_resource("p");
+    o = rmgr->create_resource("o");
+    q = rmgr->create_resource("q");
+    one = rmgr->create_literal(int32_t(1));
+    auto ri = create_row_initializer(1);
+    ri->put(0, 0|brc_triple, "?s");
+    NodeVertexVector nv;
+    nv.push_back(create_node_vertex(nullptr, 0, 0, false, 100, {}, "", {}));
+    nv.push_back(create_node_vertex(nv[0].get(), 0, 1, false, 100, {}, "", ri));
+    ReteMetaStore::AlphaNodeVector an;
+    an.push_back(create_alpha_node<F_var, F_var, F_var>(nv[0].get(), 0, true, "", F_var("*"), F_var("*"), F_var("*")));
+    an.push_back(create_alpha_node<F_var, F_cst, F_cst>(nv[1].get(), 0, true, "", F_var("?s"), F_cst(p), F_cst(o)));
+    an.push_back(create_alpha_node<F_binded, F_cst, F_cst>(nv[1].get(), 0, false, "", F_binded(0), F_cst(q), F_cst(one)));
+    this->rete_meta_store = create_rete_meta_store({}, an, nv);
+    this->rete_meta_store->initialize();
+    rmgr->set_locked();
+    meta_graph->set_locked();
+    this->rdf_session = rdf::create_rdf_session(meta_graph);
+    new_rete_session();
+    s = this->rdf_session->rmgr()->create_resource("s");
+  }
+
+  // As the pool worker does at each rule set: release the rete session, start another
+  void new_rete_session()
+  {
+    if(this->rete_session) this->rete_session->terminate();
+    this->rete_session = create_rete_session(this->rete_meta_store, this->rdf_session.get());
+    this->rete_session->initialize();
+  }
+
+  rdf::r_index p{}, o{}, q{}, one{}, s{};
+  ReteSessionPtr     rete_session;
+  ReteMetaStorePtr   rete_meta_store;
+  rdf::RDFSessionPtr rdf_session;
+};
+
+TEST_F(EraseTellsTheReteTest, AnErasedFactWithdrawsWhatItInferred) {
+  build();
+  rdf_session->insert(s, p, o);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  ASSERT_TRUE(rdf_session->contains(s, q, one));
+  EXPECT_EQ(rdf_session->erase(s, p, o), 1);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  EXPECT_FALSE(rdf_session->contains(s, p, o));
+  EXPECT_FALSE(rdf_session->contains(s, q, one)) << "the rete was not told of the erase";
+  // Asserting the fact again does not infer (s q 1) again in production's retraction
+  // mode: the withdrawn row stays in its relation (the rete README's known defect 2,
+  // kept deliberately), which is a property of retraction, not of erase.
+}
+
+// The pool worker erases (jets:iState jets:loop *) and (jets:iState jets:completed *)
+// at the start of each rule set, after the new rete session registered its callbacks
+// and before its first execute_rules: the rete has no rows yet, and nothing changes.
+TEST_F(EraseTellsTheReteTest, AnEraseBeforeTheFirstExecuteChangesNothing) {
+  build();
+  rdf_session->insert(s, p, o);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  ASSERT_TRUE(rdf_session->contains(s, q, one));
+  new_rete_session();
+  EXPECT_EQ(rdf_session->erase(s, p, o), 1);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  // the new rete never saw (s p o), so it infers nothing and withdraws nothing:
+  // (s q 1) was inferred under the previous rete session and stays
+  EXPECT_TRUE(rdf_session->contains(s, q, one));
+  EXPECT_FALSE(rdf_session->contains(s, p, o));
+}
+
+// Asserting a triple the rules inferred moves it from the inferred graph to the asserted
+// one: it never leaves the session, and the rete is not told (rdf_session.h, insert).
+TEST_F(EraseTellsTheReteTest, AssertingAnInferredTripleMovesItSilently) {
+  build();
+  rdf_session->insert(s, p, o);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  ASSERT_TRUE(rdf_session->get_inferred_graph()->contains(s, q, one));
+  rdf_session->insert(s, q, one);
+  EXPECT_FALSE(rdf_session->get_inferred_graph()->contains(s, q, one));
+  EXPECT_TRUE(rdf_session->contains(s, q, one));
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  EXPECT_TRUE(rdf_session->contains(s, q, one));
+}
 
 }   // namespace
 }   // namespace jets::rete

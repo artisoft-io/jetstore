@@ -288,6 +288,10 @@ class RDFSession {
   // ------------------------------------------------------------------------------------
   // insert methods
   // ------------------------------------------------------------------------------------
+  // Asserting a triple the rules inferred moves it to the asserted graph: the inferred
+  // copy is erased without a notice to the rete (erase_without_notice), since the triple
+  // never leaves the session and a notice would only withdraw and rebuild the rows built
+  // on it (I-103).
   template<typename L>
   inline typename literal_restrictor<L, int>::result
   insert(r_index s, r_index p, L const& v)
@@ -300,7 +304,7 @@ class RDFSession {
     auto o = rmgr()->create_literal(v);
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(s, p, o);
+      this->inferred_graph()->erase_without_notice(s, p, o);
     }
     return asserted_graph_->insert(s, p, o);
   }
@@ -317,7 +321,7 @@ class RDFSession {
     auto o = rmgr()->create_literal(v);
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(s, p, o);
+      this->inferred_graph()->erase_without_notice(s, p, o);
     }
     return asserted_graph_->insert(s, p, o);
   }
@@ -333,7 +337,7 @@ class RDFSession {
     }
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(s, p, o);
+      this->inferred_graph()->erase_without_notice(s, p, o);
     }
     return asserted_graph_->insert(s, p, o);
   }
@@ -349,7 +353,7 @@ class RDFSession {
     }
     if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
+      this->inferred_graph()->erase_without_notice(t3.subject, t3.predicate, t3.object);
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -365,7 +369,7 @@ class RDFSession {
     }
     if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
+      this->inferred_graph()->erase_without_notice(t3.subject, t3.predicate, t3.object);
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -381,7 +385,7 @@ class RDFSession {
     }
     if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
-      this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
+      this->inferred_graph()->erase_without_notice(t3.subject, t3.predicate, t3.object);
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -468,6 +472,8 @@ class RDFSession {
   // ------------------------------------------------------------------------------------
   // erase triple (s, p, o) from asserted and inferred graphs, 
   // return count erased or -1 if error
+  // A delete: the rete is told of each triple removed (RDFGraph::erase), and withdraws
+  // what it inferred from it. The rete's own retraction of a consequent is retract below.
   // Note triples in meta graph are never erased or inserted from the rete session, this
   // graph is read only.
   inline int
