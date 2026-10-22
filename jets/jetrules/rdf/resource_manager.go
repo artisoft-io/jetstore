@@ -3,7 +3,6 @@ package rdf
 import (
 	"log"
 	"math"
-	"math/big"
 	"sync/atomic"
 )
 
@@ -290,17 +289,20 @@ func (rm *ResourceManager) NewUIntLiteral(data uint) *Node {
 	return r
 }
 
+// NewDoubleLiteral keys the literal on x exactly, as the C++ RManager does.
+// Until rules_benchmark I-40 it rounded x to 15 bits of mantissa first, so a
+// literal such as 0.891089 was stored as 0.891082763671875 and every amount
+// computed from it moved.
 func (rm *ResourceManager) NewDoubleLiteral(x float64) *Node {
-	// see test case TestMakingDoubleLiterals for details
-	// Get cleaned up version of x
-	var data float64
+	data := x
 	switch {
 	case math.IsNaN(x):
 		return globalNan
-	case math.IsInf(x, 0):
+	case math.IsInf(x, 1):
 		return globalInf
-	default:
-		data, _ = big.NewFloat(x).SetPrec(15).Float64()
+	case math.IsInf(x, -1):
+		// its own node: -Inf used to be returned as +Inf
+		return globalNegInf
 	}
 	v := rm.getLiteralInternal(data)
 	if v != nil {

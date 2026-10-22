@@ -32,40 +32,14 @@ func (lhs *Node) EQ(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return FALSE()
 	}
+	// Numbers: by value, a double operand as doubles (compareNumbers, Q-68)
+	if c, ordered, numeric := compareNumbers(lhs, rhs); numeric {
+		return B(ordered && c == 0)
+	}
   if lhs == rhs {
     return TRUE()
   }
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv == rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if NearlyEqual(float64(lhsv), rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if NearlyEqual(lhsv, float64(rhsv)) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if NearlyEqual(lhsv, rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
 		if ok && lhsv == rhsv {
@@ -109,37 +83,11 @@ func (lhs *Node) GE(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return FALSE()
 	}
+	// Numbers: by value, a double operand as doubles (compareNumbers, Q-68)
+	if c, ordered, numeric := compareNumbers(lhs, rhs); numeric {
+		return B(ordered && c >= 0)
+	}
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv >= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if float64(lhsv) >= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv >= float64(rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if lhsv >= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
 		if ok && lhsv >= rhsv {
@@ -179,37 +127,11 @@ func (lhs *Node) GT(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return FALSE()
 	}
+	// Numbers: by value, a double operand as doubles (compareNumbers, Q-68)
+	if c, ordered, numeric := compareNumbers(lhs, rhs); numeric {
+		return B(ordered && c > 0)
+	}
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv > rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if float64(lhsv) > rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv > float64(rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if lhsv > rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
 		if ok && lhsv > rhsv {
@@ -249,37 +171,11 @@ func (lhs *Node) LE(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return FALSE()
 	}
+	// Numbers: by value, a double operand as doubles (compareNumbers, Q-68)
+	if c, ordered, numeric := compareNumbers(lhs, rhs); numeric {
+		return B(ordered && c <= 0)
+	}
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv <= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if float64(lhsv) <= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv <= float64(rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if lhsv <= rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
 		if ok && lhsv <= rhsv {
@@ -319,37 +215,11 @@ func (lhs *Node) LT(rhs *Node) *Node {
 	if lhs == nil || rhs == nil {
 		return FALSE()
 	}
+	// Numbers: by value, a double operand as doubles (compareNumbers, Q-68)
+	if c, ordered, numeric := compareNumbers(lhs, rhs); numeric {
+		return B(ordered && c < 0)
+	}
 	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv < rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if float64(lhsv) < rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv < float64(rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if lhsv < rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return FALSE()
-		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
 		if ok && lhsv < rhsv {

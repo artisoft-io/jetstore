@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -135,22 +134,18 @@ func renderJoinValue(v *rdf.Node) string {
 		if vv.Date == nil {
 			return ""
 		}
-		// boost::gregorian::to_iso_extended_string
-		return vv.Date.Format("2006-01-02")
+		// rdf::to_string: boost's ISO extended forms
+		return rdf.TextOf(v)
 	case rdf.LDatetime:
 		if vv.Datetime == nil {
 			return ""
 		}
-		// boost::posix_time::to_iso_extended_string, which omits the fractional part
-		// when it is zero.
-		if vv.Datetime.Nanosecond() == 0 {
-			return vv.Datetime.Format("2006-01-02T15:04:05")
-		}
-		return vv.Datetime.Format("2006-01-02T15:04:05.999999")
+		return rdf.TextOf(v)
 	case float64:
-		// std::ostream default formatting is %g with 6 significant digits, which is
-		// what the C++ side emits for a double.
-		return strconv.FormatFloat(vv, 'g', 6, 64)
+		// The shortest digits, no exponent, as every operator writes a double into
+		// text on both engines (rules_benchmark I-16, Q-60). It used to be the C++
+		// ostream default, %g with 6 significant digits.
+		return rdf.FormatDouble(vv)
 	default:
 		return v.String()
 	}

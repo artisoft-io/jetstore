@@ -2,7 +2,6 @@ package rdf
 
 import (
 	"math"
-	"math/big"
 	"testing"
 )
 
@@ -80,36 +79,25 @@ func TestToValidData(t *testing.T) {
 	}
 }
 
-func TestMakingDoubleLiterals(t *testing.T) {
-	a := float64(0.3)
-	b := float64(0.30000000000000004)
-	if a == b {
-		t.Errorf("Should Not Be Equal")
-	}
-	a1 := big.NewFloat(a)
-	a1.SetPrec(15)
-	b1 := big.NewFloat(b)
-	b1.SetPrec(15)
-	if a1.Cmp(b1) != 0 {
-		t.Errorf("Should Be Equal")
-	}
-	// make them comparable
-	a, _ = a1.Float64()
-	b, _ = b1.Float64()
-	if a != b {
-		t.Errorf("Should NOW Be Equal")
-	}
-}
-
 func TestDoubleLiterals(t *testing.T) {
 	rm := NewResourceManager(nil)
 	if rm == nil {
 		t.Fatalf("error: nil returned by NewResourceManager")
 	}
+	// A double literal is the double it was given, as on C++: no rounding, so
+	// two doubles one ulp apart are two literals (rules_benchmark I-40).
 	d1 := rm.NewDoubleLiteral(0.3)
 	d2 := rm.NewDoubleLiteral(0.30000000000000004)
-	if d1 != d2 {
-		t.Error("Expecting equals")
+	if d1 == d2 {
+		t.Error("Expecting two literals one ulp apart")
+	}
+	if d1 != rm.NewDoubleLiteral(0.3) {
+		t.Error("Expecting the same literal for the same double")
+	}
+	for _, x := range []float64{0.3, 0.30000000000000004, 0.891089, 1234567.89, 0.01, 1e-7} {
+		if got := rm.NewDoubleLiteral(x).Value.(float64); got != x {
+			t.Errorf("NewDoubleLiteral(%v) stored %v", x, got)
+		}
 	}
 	d3 := rm.NewDoubleLiteral(math.NaN())
 	d4 := rm.NewDoubleLiteral(math.NaN())
@@ -120,6 +108,13 @@ func TestDoubleLiterals(t *testing.T) {
 	d6 := rm.NewDoubleLiteral(math.Inf(0))
 	if d5 != d6 {
 		t.Error("Expecting same Inf resource")
+	}
+	d7 := rm.NewDoubleLiteral(math.Inf(-1))
+	if v, ok := d7.Value.(float64); !ok || !math.IsInf(v, -1) {
+		t.Errorf("NewDoubleLiteral(-Inf) = %v, want -Inf", d7)
+	}
+	if d7 != rm.NewDoubleLiteral(math.Inf(-1)) || d7 == d5 {
+		t.Error("Expecting one -Inf literal, not the +Inf one")
 	}
 	if d1 == d3 {
 		t.Error("NOT Expecting equals")
@@ -198,12 +193,16 @@ func TestReifyResource(t *testing.T) {
 	}
 	
 	r2 := rm.NewDoubleLiteral(0.3)
-	m2 := F(0.30000000000000004)
+	m2 := F(0.3)
 	if r2 == m2 {
 		t.Error("Not expected to be equal")
 	}
 	if r2 != rm.ReifyResource(m2) {
 		t.Error("NOW expected to be equal")
+	}
+	// A computed double one ulp away is another literal, as on C++ (I-40).
+	if r2 == rm.ReifyResource(F(0.30000000000000004)) {
+		t.Error("Not expected to be equal: 0.30000000000000004 is not 0.3")
 	}
 
 	d1, _ := NewLDate("2024/09/02")

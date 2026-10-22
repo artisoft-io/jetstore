@@ -115,7 +115,7 @@ func (rhs *Node) CreateEntityKey(rdfSession *RdfSession) (entity, key *Node) {
 		name = rhsv
 	case float64:
 		if !NearlyEqual(rhsv, 0) {
-			name = strconv.FormatFloat(rhsv, 'G', 15, 64)
+			name = FormatDouble(rhsv) // rules_benchmark I-16
 		}
 	default:
 		return nil, nil
@@ -155,7 +155,7 @@ func (rhs *Node) CreateResource(rdfSession *RdfSession) *Node {
 	case int:
 		return R(strconv.Itoa(rhsv))
 	case float64:
-		return R(strconv.FormatFloat(rhsv, 'G', 15, 64))
+		return R(FormatDouble(rhsv)) // rules_benchmark I-16
 	case string:
 		return R(rhsv)
 	default:

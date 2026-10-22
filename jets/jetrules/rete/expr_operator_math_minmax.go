@@ -1,6 +1,7 @@
 package rete
 
 import (
+	"cmp"
 	"log"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -114,7 +115,15 @@ func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 					ll = currentValue
 					rr = resultValue
 				}
-				if gt.Eval(reteSession, row, ll, rr).Bool() {
+				switch {
+				case gt.Eval(reteSession, row, ll, rr).Bool():
+					resultObj = currentObj
+					resultValue = currentValue
+				case tieEqual(currentValue, resultValue) && compareObjects(currentObj, resultObj) < 0:
+					// A tie: the object that orders first wins, whatever the iteration
+					// order (rules_benchmark I-33, Q-61), as in C++'s ApplyMinMaxVisitor.
+					// Only equal values tie: a NaN or two values of types that do not
+					// compare keep the first met, which is order-dependent.
 					resultObj = currentObj
 					resultValue = currentValue
 				}
@@ -125,4 +134,72 @@ func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 		return resultValue
 	}
 	return resultObj
+}
+
+// tieEqual is the test that makes two values a tie for compareObjects: the
+// engine's own equality, the EQ operator, as C++ uses its EqVisitor. Since
+// rules_benchmark Q-68 the two agree on numbers, and a NaN or an infinity is
+// never equal. Values EQ does not compare are not a tie.
+func tieEqual(a, b *rdf.Node) bool {
+	return a != nil && b != nil && a.EQ(b).Bool()
+}
+
+// compareObjects is the total order that breaks a tie between two candidates of
+// equal value in min_head_of, max_head_of and sorted_head, the same in both
+// engines (rules_benchmark I-33, Q-61, agreed with the C++ change): a named
+// resource before a blank node before a literal; named resources by name,
+// byte-wise; literals by their text form (rdf.TextOf, the I-16 and I-32
+// rendering), byte-wise, and on equal text by type (int, uint, double, text,
+// date, datetime); blank nodes by key, which is not stable across engines or
+// runs and is a last resort. It returns -1, 0 or +1.
+func compareObjects(a, b *rdf.Node) int {
+	ka, kb := objectRank(a), objectRank(b)
+	if ka != kb {
+		return cmp.Compare(ka, kb)
+	}
+	switch av := a.Value.(type) {
+	case rdf.NamedResource:
+		return cmp.Compare(av.Name, b.Value.(rdf.NamedResource).Name)
+	case rdf.BlankNode:
+		return cmp.Compare(av.Key, b.Value.(rdf.BlankNode).Key)
+	}
+	if c := cmp.Compare(rdf.TextOf(a), rdf.TextOf(b)); c != 0 {
+		return c
+	}
+	return cmp.Compare(literalRank(a), literalRank(b))
+}
+
+// objectRank orders the kinds of node for compareObjects.
+func objectRank(v *rdf.Node) int {
+	switch {
+	case v.IsNull():
+		// nil or rdf null: after every literal, as C++'s tie_break_kind
+		return 3
+	case v.IsResource():
+		if _, ok := v.Value.(rdf.BlankNode); ok {
+			return 1
+		}
+		return 0
+	}
+	return 2
+}
+
+// literalRank orders the literal types for compareObjects, as C++'s variant
+// order does: int, uint, double, text, date, datetime.
+func literalRank(v *rdf.Node) int {
+	switch v.Value.(type) {
+	case int:
+		return 0
+	case uint:
+		return 1
+	case float64:
+		return 2
+	case string:
+		return 3
+	case rdf.LDate:
+		return 4
+	case rdf.LDatetime:
+		return 5
+	}
+	return 6
 }

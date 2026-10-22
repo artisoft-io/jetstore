@@ -56,5 +56,15 @@ func (op *ApplyRegexOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *r
 	} else {
 		re = v.(*regexp.Regexp)
 	}
-	return rdf.S(re.FindString(lhsv))
+	// Capture group 1, and null when nothing matches, as C++'s RegexVisitor
+	// (rules_benchmark I-12, Q-11). A pattern with no group 1, or a group 1 that
+	// took no part in the match, gives "", as C++'s unmatched sub_match does.
+	m := re.FindStringSubmatch(lhsv)
+	if m == nil {
+		return rdf.Null()
+	}
+	if len(m) < 2 {
+		return rdf.S("")
+	}
+	return rdf.S(m[1])
 }

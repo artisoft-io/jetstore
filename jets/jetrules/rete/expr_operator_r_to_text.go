@@ -24,5 +24,6 @@ func (op *ToTextOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) 
 		return nil
 	}
 
-	return &rdf.Node{Value: rhs.String()}
+	// A date, a datetime and a null as C++ writes them (rules_benchmark I-32).
+	return &rdf.Node{Value: rdf.TextOf(rhs)}
 }

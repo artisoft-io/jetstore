@@ -398,38 +398,40 @@ func TestAntecedentQueryKeysAreAssignedOnce(t *testing.T) {
 	}
 }
 
-// TestDefect_I12_LiteralRegexGoMeaning pins the Go half of rules_benchmark I-12
-// (F53): Go's literal_regex, ApplyRegexOp.Eval
-// (expr_operator_str_apply_regex.go:33), returns the WHOLE match through
-// FindString, and an empty string when nothing matches. C++'s RegexVisitor
-// (jets/rete/expr_op_strings.h:30) returns capture group 1, and null when nothing
-// matches; jetrules_native_adaptor's TestDefect_I12_LiteralRegexEngines runs both
-// engines through a compiled rule.
+// TestDefect_I12_LiteralRegexGoMeaning holds rules_benchmark I-12 (F53) fixed on
+// the Go half: literal_regex, ApplyRegexOp.Eval (expr_operator_str_apply_regex.go),
+// returns capture group 1, and null when nothing matches, as C++'s RegexVisitor
+// (jets/rete/expr_op_strings.h) does (Q-11). Until Phase 4 Go returned the whole
+// match through FindString, and "" on no match. jetrules_native_adaptor's
+// TestDefect_I12_LiteralRegexEngines runs both engines through a compiled rule.
 //
-// The patterns are the five rules' that use it: a client workspace's zip-code prefix
-// rule "^(\d\d\d)", and another's two name splitters.
-//
-// Correct behaviour, as Q-11 decided for Phase 4: C++'s, so "123", null, "JOHN"
-// and "DOE" below.
+// The patterns are the shapes production rules use: a zip-code prefix, "^(\d\d\d)",
+// and two name splitters.
 func TestDefect_I12_LiteralRegexGoMeaning(t *testing.T) {
 	op := NewApplyRegexOp()
 	cases := []struct {
-		text, pattern, today, correct string
+		text, pattern, want string
 	}{
-		{"12345", `^(\d\d\d)`, "123", "123"},         // agree: the group is the whole pattern
-		{"N/A", `^(\d\d\d)`, "", "<null>"},           // Go "" (then a lookup on it), C++ no value
-		{"DOE, JOHN", `,\s+(\w+)`, ", JOHN", "JOHN"}, // a first-name splitter
-		{"DOE, JOHN", `(.*?),`, "DOE,", "DOE"},       // a last-name splitter
+		{"12345", `^(\d\d\d)`, "123"},
+		{"N/A", `^(\d\d\d)`, "<null>"},
+		{"DOE, JOHN", `,\s+(\w+)`, "JOHN"}, // a first-name splitter
+		{"DOE, JOHN", `(.*?),`, "DOE"},     // a last-name splitter
+		{"DOE, JOHN", `,`, ""},             // no group 1: "", as C++'s match[1]
+		{"DOE", `(X)?DOE`, ""},             // group 1 took no part: ""
 	}
 	for _, c := range cases {
 		got := op.Eval(nil, nil, rdf.S(c.text), rdf.S(c.pattern))
-		if got == nil {
-			t.Errorf("%q literal_regex %q = nil, want %q today", c.text, c.pattern, c.today)
-			continue
+		var desc string
+		switch {
+		case got == nil:
+			desc = "<nil>"
+		case got.IsNull():
+			desc = "<null>"
+		default:
+			desc = fmt.Sprint(got.Value)
 		}
-		if got.Value != c.today {
-			t.Errorf("%q literal_regex %q = %q, want %q today (correct, as on C++: %s); I-12 may be fixed, flip this case",
-				c.text, c.pattern, got.Value, c.today, c.correct)
+		if desc != c.want {
+			t.Errorf("%q literal_regex %q = %q, want %q (C++'s meaning)", c.text, c.pattern, desc, c.want)
 		}
 	}
 }
