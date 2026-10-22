@@ -339,12 +339,14 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
             }
           }
         };
-        // Iterated in place, as a BetaRowIterator iterated them, without allocating one
-        // per child and visit
+        // Iterated in place without allocating, by a scan the parent relation freezes
+        // if a filter re-enters the session and changes what it scans (I-90)
         if(need_all_rows) {
-          for(auto const& parent_row: parent_beta_relation->all_rows()) process_parent_row(parent_row.get());
+          auto scan = parent_beta_relation->scan_all_rows();
+          for(; not scan.is_end(); scan.next()) process_parent_row(scan.get_row());
         } else {
-          for(auto const& parent_row: parent_beta_relation->pending_rows()) process_parent_row(parent_row.get());
+          auto scan = parent_beta_relation->scan_pending_rows();
+          for(; not scan.is_end(); scan.next()) process_parent_row(scan.get_row());
         }
 
         // mark current beta node as activated and push it on the stack so to visit it's childrens
@@ -620,12 +622,8 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
 
     // Start by retracting all beta rows of current node
     current_relation->clear_pending_rows();    
-    auto current_row_itor = current_relation->get_all_rows_ptr_iterator();
-    beta_row_list l;
-    while(!current_row_itor->is_end()) {
-      l.push_back(current_row_itor->get_row_ptr());
-      current_row_itor->next();
-    }
+    // a copy, since removing a row changes the relation
+    auto l = current_relation->copy_all_rows();
     for(const auto & e: l) {
       VLOG(50)<<"Marking row "<< e << "for removal";
       current_relation->remove_beta_row(this, e);

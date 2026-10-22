@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <memory>
+#include <set>
+#include <unordered_map>
 
 #include <gtest/gtest.h>
 
@@ -496,7 +499,9 @@ TEST(BetaRowArenaTest, ReusesFreedMemoryBySizeClass)
   arena.deallocate(p1, 40);
   EXPECT_EQ(arena.live_bytes(), 48u);
   // 33 to 48 bytes is one class
-  EXPECT_EQ(arena.allocate(33), p1);
+#if !defined(JETS_ARENA_ASAN)
+  EXPECT_EQ(arena.allocate(33), p1);       // under ASan a freed block is quarantined first
+#endif
   // another class does not take it
   arena.deallocate(p2, 40);
   void * p3 = arena.allocate(16);
@@ -705,8 +710,307 @@ TEST(CandidateRowReentryTest, FilterInsertingATripleKeepsTheOuterCandidate)
   rete_session->terminate();
 }
 
-// The row set's transparent hash is absl::Hash<BetaRowPtr>'s, so the set's buckets,
-// and the order it is iterated in, are what they were; and equality is by values
+// A visit scans a relation's rows while a filter re-enters the session and grows that
+// very relation: the scan is frozen before the set grows, and goes on over its copy.
+//   rule1> (?s jets:key ?k) -> nothing
+//   rule2> (?s jets:key ?k).(?s fnodeY ?m).[create_entity(?m)] -> (?s outP ?m)
+// Visiting rule2's vertex scans rule1's rows; every create_entity inserts a jets:key
+// triple, which the callback inserts into rule1's relation during the scan. Without
+// the freeze, the set rehashes under the scan (AddressSanitizer: use after free).
+TEST(BetaRowScanTest, ScanSurvivesTheRelationGrowingUnderIt)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto fnodeY = rmgr->create_resource("fnodeY");
+  auto outP = rmgr->create_resource("outP");
+  auto jets_key = rmgr->jets()->jets__key;
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?k");
+  auto ri2 = create_row_initializer(3);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?k");
+  ri2->put(2, 2 | brc_triple, "?m");
+  auto filter2 = create_expr_unary_operator<CreateEntityVisitor>(0, create_expr_binded_var(2));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, false, 10, filter2, "", ri2));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(jets_key), F_var("?k") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_binded(0), F_cst(fnodeY), F_var("?m") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[2].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  ASSERT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto a = srmgr->create_resource("a");
+  rdf_session->insert(a, jets_key, srmgr->create_literal(std::string("ka")));
+  int const n = 300;
+  for(int i=1; i<=n; i++) rdf_session->insert(a, fnodeY, srmgr->create_literal<int>(i));
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+
+  for(int i=1; i<=n; i++) {
+    EXPECT_TRUE(rdf_session->contains(a, outP, srmgr->create_literal<int>(i))) << i;
+  }
+  // rule1's relation: a's row and one per entity minted during the scan
+  EXPECT_EQ(rete_session->get_beta_relation(1)->size(), static_cast<std::size_t>(n + 1));
+  rete_session->terminate();
+}
+
+// The index returns a key's rows in the order std::unordered_multimap's equal_range
+// did, newest first, through any number of rehashes; erase(key) removes all of them
+TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
+{
+  BetaRowArena arena;
+  BetaRowIndexes1 index{BetaRowIndexes1::allocator_type(&arena)};
+  std::unordered_multimap<rdf::r_index, BetaRow const*, absl::Hash<rdf::r_index>> multimap;
+  auto key_of = [](int k) { return reinterpret_cast<rdf::r_index>(static_cast<std::uintptr_t>(16 * (k + 1))); };
+  auto row_of = [](int r) { return reinterpret_cast<BetaRow const*>(static_cast<std::uintptr_t>(16 * (r + 1))); };
+  for(int r=0; r<5000; r++) {
+    int k = (r * 7919) % 97;
+    index.insert({key_of(k), row_of(r)});
+    multimap.insert({key_of(k), row_of(r)});
+  }
+  EXPECT_EQ(index.get_allocator().arena(), &arena);
+  for(int k=0; k<97; k++) {
+    auto range = multimap.equal_range(key_of(k));
+    std::vector<BetaRow const*> expected;
+    for(auto it = range.first; it != range.second; ++it) expected.push_back(it->second);
+    auto rows = index.rows(key_of(k));
+    std::vector<BetaRow const*> got(std::make_reverse_iterator(rows.last), std::make_reverse_iterator(rows.first));
+    EXPECT_EQ(got, expected) << "key " << k;
+  }
+  EXPECT_EQ(index.erase(key_of(3)), multimap.count(key_of(3)));
+  auto none = index.rows(key_of(3));
+  EXPECT_EQ(none.first, none.last);
+  EXPECT_EQ(index.size(), 96u);
+}
+
+// A frozen scan of the row set returns what was left when it was frozen, except a row
+// that has left the set since; it holds those rows; and it has left the registry
+TEST(BetaRowScanTest, FrozenSetScanSkipsRowsThatLeft)
+{
+  BetaRowArena arena;
+  BetaRowScanRegistry registry;
+  beta_row_set rows{ArenaAllocator<BetaRowPtr>(&arena)};
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  for(int i=0; i<10; i++) {
+    auto row = create_beta_row(&arena, nullptr, 1);
+    row->put(0, rmanager->create_literal<int>(i));
+    rows.insert(row);
+  }
+  auto value_of = [](BetaRow const* row) { return boost::get<rdf::LInt32>(*row->get(0)).data; };
+  std::vector<int> returned;
+  std::set<int> erased;
+  {
+    BetaRowSetScan scan(&registry, BetaRowScanRegistry::kAllRows, rows.begin(), rows.end(), &rows);
+    EXPECT_EQ(registry.head[BetaRowScanRegistry::kAllRows], &scan);
+    for(int i=0; i<4; i++) { returned.push_back(value_of(scan.get_row())); scan.next(); }
+    registry.freeze(BetaRowScanRegistry::kAllRows);
+    EXPECT_EQ(registry.head[BetaRowScanRegistry::kAllRows], nullptr);
+    // two of the rows the scan has yet to return leave the set, which then grows
+    int n = 0;
+    for(auto itor = rows.begin(); itor != rows.end() and n < 2; ) {
+      int v = value_of(itor->get());
+      if(std::find(returned.begin(), returned.end(), v) == returned.end()) {
+        erased.insert(v);
+        rows.erase(itor++);
+        ++n;
+      } else {
+        ++itor;
+      }
+    }
+    for(int i=0; i<1000; i++) {
+      auto row = create_beta_row(&arena, nullptr, 1);
+      row->put(0, rmanager->create_literal<int>(1000 + i));
+      rows.insert(row);
+    }
+    for(; not scan.is_end(); scan.next()) returned.push_back(value_of(scan.get_row()));
+  }
+  ASSERT_EQ(erased.size(), 2u);
+  EXPECT_EQ(returned.size(), 8u);
+  std::set<int> values(returned.begin(), returned.end());
+  EXPECT_EQ(values.size(), 8u);
+  for(int v: erased) EXPECT_EQ(values.count(v), 0u) << v;
+  EXPECT_LT(*values.rbegin(), 10);
+}
+
+// A frozen scan of the pending list, which a nested visit clears, returns and holds
+// what was left; a removed row is on the list to notify the children, so none is skipped
+TEST(BetaRowScanTest, FrozenListScanHoldsItsRowsThroughAClear)
+{
+  BetaRowArena arena;
+  BetaRowScanRegistry registry;
+  beta_row_list pending{ArenaAllocator<BetaRowPtr>(&arena)};
+  auto graph = rdf::create_rdf_graph();
+  auto * rmanager = graph->rmgr();
+  for(int i=0; i<10; i++) {
+    auto row = create_beta_row(&arena, nullptr, 1);
+    row->put(0, rmanager->create_literal<int>(i));
+    pending.push_back(row);                           // the list alone holds the rows
+  }
+  std::set<int> values;
+  auto value_of = [](BetaRow const* row) { return boost::get<rdf::LInt32>(*row->get(0)).data; };
+  {
+    BetaRowListScan scan(&registry, BetaRowScanRegistry::kPendingRows, pending.begin(), pending.end(), nullptr);
+    for(int i=0; i<3; i++) { values.insert(value_of(scan.get_row())); scan.next(); }
+    registry.freeze(BetaRowScanRegistry::kPendingRows);
+    pending.clear();
+    for(; not scan.is_end(); scan.next()) values.insert(value_of(scan.get_row()));
+  }
+  EXPECT_EQ(values.size(), 10u);
+  EXPECT_EQ(registry.head[BetaRowScanRegistry::kPendingRows], nullptr);
+}
+
+// An index scan of a relation is live when a filter re-enters the session and a
+// negated antecedent removes one of the rows it scans:
+//   rule0> (?s inGroup ?g).not(?s jets:key ?k).(?g q ?v).[create_entity(?v)] -> (?s outP ?v)
+// The relation of not(...) holds [x1, g] and [x2, g]. A triple (g q "x") reaches the
+// last vertex, whose scan of that relation's index under g returns both rows. The
+// first row's filter mints entity x, one of the rows' subject: (x jets:key "x")
+// removes that row from the relation, and the nested visit drops the pending list's
+// hold on it. The scan, frozen by the index change, holds the rows it has left.
+struct NegationUnderIndexScan {
+  std::size_t rows_left;          // in the negation's relation
+  bool first_inferred;            // (first outP v)
+  bool second_inferred;           // (second outP v)
+};
+
+// With `negation_infers`, the negation's vertex has a consequent, (?s marked ?g): a
+// row removed from it is then marked kDeleted and kept in the relation's set, though
+// it has left the index
+NegationUnderIndexScan
+run_negation_under_index_scan(bool remove_first, bool negation_infers = false)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto q = rmgr->create_resource("q");
+  auto outP = rmgr->create_resource("outP");
+  auto marked = rmgr->create_resource("marked");
+  auto jets_key = rmgr->jets()->jets__key;
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+  auto filter3 = create_expr_unary_operator<CreateEntityVisitor>(0, create_expr_binded_var(2));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, filter3, "", ri3));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_binded(0), F_cst(jets_key), F_var("?k") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(1), F_cst(q), F_var("?v") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[3].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+  if(negation_infers) {
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[2].get(), 0, false, "",
+      F_binded(0), F_cst(marked), F_binded(1) ));
+  }
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto g = srmgr->create_resource("g");
+  auto x1 = srmgr->create_resource("x1");
+  auto x2 = srmgr->create_resource("x2");
+  rdf_session->insert(x1, inGroup, g);
+  rdf_session->insert(x2, inGroup, g);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+  auto * negation = rete_session->get_beta_relation(2);
+  EXPECT_EQ(negation->size(), 2u);
+
+  // the rows in the order the scan returns them
+  rdf::r_index first = nullptr, second = nullptr;
+  {
+    auto scan = negation->get_idx1_rows_iterator(node_vertexes[3]->antecedent_query_key, g);
+    if(not scan->is_end()) first = scan->get_row()->get(0);
+    scan->next();
+    if(not scan->is_end()) second = scan->get_row()->get(0);
+  }
+  EXPECT_NE(first, nullptr);
+  EXPECT_NE(second, nullptr);
+  auto removed = remove_first ? first : second;
+  auto v = srmgr->create_literal(std::string(removed == x1 ? "x1" : "x2"));
+  rdf_session->insert(g, q, v);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+
+  NegationUnderIndexScan result{negation->size(),
+    rdf_session->contains(first, outP, v), rdf_session->contains(second, outP, v)};
+  rete_session->terminate();
+  return result;
+}
+
+// The row removed is ahead of the scan: the scan, frozen, holds it, then skips it
+// (AddressSanitizer: use after poison if it did not hold it)
+TEST(BetaRowScanTest, IndexScanSurvivesANegationRemovingARowAheadOfIt)
+{
+  auto result = run_negation_under_index_scan(false);
+  EXPECT_EQ(result.rows_left, 1u);
+  EXPECT_TRUE(result.first_inferred);
+  EXPECT_FALSE(result.second_inferred);
+}
+
+// The row removed ahead of the scan has consequents: it stays in the relation's set,
+// marked kDeleted, but has left the index, which an unfrozen scan would not return it
+// from; the frozen scan skips it too
+TEST(BetaRowScanTest, IndexScanSkipsARowThatLeftTheIndexButNotTheSet)
+{
+  auto result = run_negation_under_index_scan(false, true);
+  EXPECT_TRUE(result.first_inferred);
+  EXPECT_FALSE(result.second_inferred);
+}
+
+// The row removed is the one the scan returned, whose filter is running: the scan
+// does not skip it from under its caller, and goes on to the next row
+TEST(BetaRowScanTest, IndexScanSurvivesANegationRemovingTheRowItReturned)
+{
+  auto result = run_negation_under_index_scan(true);
+  EXPECT_EQ(result.rows_left, 1u);
+  // the first row's candidate was built and filtered before its row left: it is kept,
+  // as it was with the node containers
+  EXPECT_TRUE(result.first_inferred);
+  EXPECT_TRUE(result.second_inferred);
+}
+
+// The row set's transparent hash is absl::Hash<BetaRowPtr>'s, value for value, so a
+// candidate and its row hash alike; and equality is by values
 TEST(BetaRowCandidateTest, HashAndEqualityMatchTheRowPtrs)
 {
   auto graph = rdf::create_rdf_graph();
