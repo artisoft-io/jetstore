@@ -736,5 +736,143 @@ TEST_F(ExprOpTest, EveryOperatorWritesADoubleTheSameWay) {
     RDFTTYPE(rdf::NamedResource("1234567.5")));
 }
 
+// I-33: sorted_head on equal values picks the object first in the tie-break order
+// (tie_break_less), not the first the graph meets. Equal weights, inserted from a
+// different object for each subject, so that some subject meets the later name first.
+TEST_F(ExprOpTest, SortedHeadBreaksATieByName) {
+  auto * sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  auto list = rmgr->create_resource("list");
+  auto weight = rmgr->create_resource("weight");
+  for(auto op: {"<", ">"}) {
+    auto cfg = rmgr->create_resource(std::string("cfg") + op);
+    sess->insert(cfg, jr->jets__entity_property, list);
+    sess->insert(cfg, jr->jets__value_property, weight);
+    sess->insert(cfg, jr->jets__operator, rmgr->create_literal(std::string(op)));
+  }
+  int later_first = 0;
+  for(int i=0; i<64; i++) {
+    for(auto op: {"<", ">"}) {
+      auto name = std::string("s") + op + std::to_string(i);
+      auto s = rmgr->create_resource(name);
+      // the two tied objects, and one that loses either way
+      bool is_min = std::string(op) == "<";
+      std::vector<std::pair<std::string, int>> objs = {
+        {name + "_a", 5}, {name + "_b", 5}, {name + "_c", is_min ? 9 : 1}};
+      for(size_t k=0; k<objs.size(); k++) {
+        auto const& o = objs[(k + i) % objs.size()];
+        auto obj = rmgr->create_resource(o.first);
+        sess->insert(s, list, obj);
+        sess->insert(obj, weight, rmgr->create_literal(int32_t(o.second)));
+      }
+      for(auto itor = sess->find(s, list); not itor.is_end(); itor.next()) {
+        auto n = rdf::get_name(itor.get_object());
+        if(n == name + "_a") break;
+        if(n == name + "_b") { later_first++; break; }
+      }
+      SortedHeadVisitor head(this->rete_session.get(), nullptr);
+      auto res = boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource(name)),
+        RDFTTYPE(rdf::NamedResource(std::string("cfg") + op)));
+      EXPECT_EQ(res, RDFTTYPE(rdf::NamedResource(name + "_a"))) << name;
+    }
+  }
+  EXPECT_GT(later_first, 0) << "no subject met the later name first: the case is not exercised";
+}
+
+// A tie is exact equality (tie_equal), not "neither is greater": an int 5 and a double
+// 5.0 tie, so the name decides; a NaN ties with nothing, so the first object met wins.
+class SortedHeadTieTest : public ExprOpTest {
+ protected:
+  // sorted_head "<" over two objects, _a and _b, with these weights, inserted from a
+  // different one for each subject; for each subject the result and the first object met
+  template<class F>
+  void run(rdf::r_index wa, rdf::r_index wb, F && check)
+  {
+    auto * sess = this->rete_session->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto const* jr = rmgr->jets();
+    auto list = rmgr->create_resource("tlist");
+    auto weight = rmgr->create_resource("tweight");
+    auto cfg = rmgr->create_resource("tcfg" + std::to_string(batch));
+    sess->insert(cfg, jr->jets__entity_property, list);
+    sess->insert(cfg, jr->jets__value_property, weight);
+    sess->insert(cfg, jr->jets__operator, rmgr->create_literal(std::string("<")));
+    for(int i=0; i<64; i++) {
+      auto name = "t" + std::to_string(batch) + "_" + std::to_string(i);
+      auto s = rmgr->create_resource(name);
+      std::vector<std::pair<std::string, rdf::r_index>> objs = {{name + "_a", wa}, {name + "_b", wb}};
+      for(size_t k=0; k<objs.size(); k++) {
+        auto const& o = objs[(k + i) % objs.size()];
+        auto obj = rmgr->create_resource(o.first);
+        sess->insert(s, list, obj);
+        sess->insert(obj, weight, o.second);
+      }
+      auto first = rdf::get_name(sess->find(s, list).get_object());
+      SortedHeadVisitor head(this->rete_session.get(), nullptr);
+      auto res = boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource(name)),
+        RDFTTYPE(rdf::NamedResource("tcfg" + std::to_string(batch))));
+      check(name, boost::get<rdf::NamedResource>(res).name, first);
+    }
+    batch++;
+  }
+  int batch = 0;
+};
+
+TEST_F(SortedHeadTieTest, AnIntAndAnEqualDoubleTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(5.0), rmgr->create_literal(int32_t(5)),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_a");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
+// An int 5 and a double 5.7 are not equal. EqVisitor says they are (it truncates the
+// double), which would let the name pick 5.7 as the minimum.
+TEST_F(SortedHeadTieTest, AnIntAndADifferentDoubleDoNotTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(5.7), rmgr->create_literal(int32_t(5)),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_b");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
+TEST_F(SortedHeadTieTest, ANaNTiesWithNothing) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0, a_first = 0;
+  run(rmgr->create_literal(std::numeric_limits<double>::quiet_NaN()), rmgr->create_literal(2.0),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      (first == name + "_b" ? b_first : a_first)++;
+      EXPECT_EQ(res, first) << "not a tie: the first object met wins, as before";
+    });
+  EXPECT_GT(a_first, 0);
+  EXPECT_GT(b_first, 0);
+}
+
+TEST(TieBreak, ResourcesThenBlankNodesThenLiterals) {
+  auto r_a = rdf::mkResource("a"), r_b = rdf::mkResource("b");
+  auto b1 = rdf::mkBlankNode(1), b2 = rdf::mkBlankNode(2);
+  auto i10 = rdf::mkLiteral(int32_t(10)), i9 = rdf::mkLiteral(int32_t(9));
+  auto d10 = rdf::mkLiteral(10.0), s10 = rdf::mkLiteral("10");
+  EXPECT_TRUE(tie_break_less(r_a.get(), r_b.get()));
+  EXPECT_FALSE(tie_break_less(r_b.get(), r_a.get()));
+  EXPECT_TRUE(tie_break_less(r_b.get(), b1.get()));
+  EXPECT_TRUE(tie_break_less(b1.get(), b2.get()));
+  EXPECT_TRUE(tie_break_less(b2.get(), i9.get()));
+  EXPECT_TRUE(tie_break_less(i10.get(), i9.get()));     // by text: "10" < "9"
+  EXPECT_TRUE(tie_break_less(i10.get(), d10.get()));    // equal text "10": int32 first
+  auto l10 = rdf::mkLiteral(int64_t(10)), u10 = rdf::mkLiteral(uint32_t(10));
+  EXPECT_TRUE(tie_break_less(l10.get(), u10.get()));    // signed before unsigned
+  EXPECT_FALSE(tie_break_less(u10.get(), l10.get()));
+  EXPECT_TRUE(tie_break_less(d10.get(), s10.get()));    // then double, then string
+  EXPECT_FALSE(tie_break_less(r_a.get(), r_a.get()));
+}
+
 }   // namespace
 }   // namespace jets::rdf
