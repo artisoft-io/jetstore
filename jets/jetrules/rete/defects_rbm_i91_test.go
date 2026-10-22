@@ -22,8 +22,10 @@ package rete
 // candidate after its own write has removed P from v2.
 
 import (
+	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -126,6 +128,148 @@ func TestRegression_I91_ReentryRemovesParent(t *testing.T) {
 			b, _ := n.run(t, [][3]*rdf.Node{{jr.Jets__istate, jr.Jets__exception, msg}}, split)
 			if !slices.Equal(a, b) {
 				t.Errorf("the graph depends on the order of the triples:\nrun A (the filter raises):\n  %v\nrun B (the exception asserted first):\n  %v", a, b)
+			}
+		})
+	}
+}
+
+// The C++ engine's I-91 test, run on Go: the same networks, data and orders as
+// CandidateRowReentryTest (jets/rete/rete_session_test.cc), so that both engines
+// pass one case. The filter is create_entity(?v): hand-built here, since the
+// compiler refuses a graph-writing operator in a filter. Each subject xi has
+// (xi q "xi"), so the entity the filter mints is xi itself, and its
+// (xi jets:key "xi") triple removes xi's own row from not(?s jets:key ?k) while
+// the filter runs.
+//
+//	variant 1  v1 (?s inGroup ?g)  v2 not(?s jets:key ?k)  v3 (?s q ?v).[create_entity(?v)] -> (?s outP ?v)
+//	variant 2  as variant 1 without v3's filter, then
+//	           v4 not(?s r ?z).[create_entity(?v)] -> (?s outP ?v)
+type reentryOrder int
+
+const (
+	kAllAtOnce           reentryOrder = iota // one ExecuteRules: the relations' first visit
+	kJoinAfterActivation                     // inGroup, execute, then q, execute: TripleUpdated
+	kKeysFirst                               // the jets:key triples asserted first: the reference
+)
+
+func newReentryNet(t *testing.T, filterOnNegation bool) (*rdf.ResourceManager, *rdf.RdfGraph, *ReteMetaStore) {
+	t.Helper()
+	rm := rdf.NewResourceManager(nil)
+	jr := rm.JetsResources
+	metaGraph := rdf.NewMetaRdfGraph(rm)
+	inGroup, q, r, outP := rm.NewResource("inGroup"), rm.NewResource("q"), rm.NewResource("r"), rm.NewResource("outP")
+	createEntity := NewExprUnaryOp(NewCreateEntityOp(), NewExprBindedVar(2, "?v"))
+	var v3Filter, v4Filter Expression
+	if filterOnNegation {
+		v4Filter = createEntity
+	} else {
+		v3Filter = createEntity
+	}
+	head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
+	nv1 := NewNodeVertex(1, head, false, 100, nil, "v1", []string{"r1"},
+		NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?s", "?g"}))
+	nv2 := NewNodeVertex(2, nv1, true, 100, nil, "v2", []string{"r1"},
+		NewBetaRowInitializer([]int{brcParentNode | 0, brcParentNode | 1}, []string{"?s", "?g"}))
+	nv3 := NewNodeVertex(3, nv2, false, 100, v3Filter, "v3", []string{"r1"},
+		NewBetaRowInitializer([]int{brcParentNode | 0, brcParentNode | 1, brcTriple | 2}, []string{"?s", "?g", "?v"}))
+	vertices := []*NodeVertex{head, nv1, nv2, nv3}
+	alphaNodes := []*AlphaNode{
+		NewRootAlphaNode(head),
+		NewAlphaNode(&FVariable{variable: "?s"}, &FConstant{node: inGroup}, &FVariable{variable: "?g"}, nv1, true, "(?s inGroup ?g)"),
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: jr.Jets__key}, &FVariable{variable: "?k"}, nv2, true, "not(?s jets:key ?k)"),
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: q}, &FVariable{variable: "?v"}, nv3, true, "(?s q ?v)"),
+	}
+	consequentVertex := nv3
+	if filterOnNegation {
+		nv4 := NewNodeVertex(4, nv3, true, 100, v4Filter, "v4", []string{"r1"},
+			NewBetaRowInitializer([]int{brcParentNode | 0, brcParentNode | 1, brcParentNode | 2}, []string{"?s", "?g", "?v"}))
+		vertices = append(vertices, nv4)
+		alphaNodes = append(alphaNodes,
+			NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: r}, &FVariable{variable: "?z"}, nv4, true, "not(?s r ?z)"))
+		consequentVertex = nv4
+	}
+	alphaNodes = append(alphaNodes,
+		NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: outP}, &FBinded{pos: 2}, consequentVertex, false, "(?s outP ?v)"))
+	for _, an := range alphaNodes {
+		switch {
+		case an.IsAntecedent:
+			an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
+		case an.IsConsequent:
+			an.NdVertex.AddConsequentTerm(an, LegacyRetraction)
+		}
+	}
+	config := map[string]string{"$max_rule_exec": "1000"}
+	ms, err := NewReteMetaStore(rm, metaGraph, nil, alphaNodes, vertices, &config, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rm, metaGraph, ms
+}
+
+func runReentry(t *testing.T, rm *rdf.ResourceManager, metaGraph *rdf.RdfGraph, ms *ReteMetaStore, order reentryOrder) []string {
+	t.Helper()
+	sess := rdf.NewRdfSession(rm, metaGraph)
+	rs := NewReteSession(sess)
+	rs.Initialize(ms)
+	defer rs.Done()
+	srm := sess.ResourceMgr
+	g := srm.NewResource("g")
+	inGroup, q, jetsKey := srm.NewResource("inGroup"), srm.NewResource("q"), srm.JetsResources.Jets__key
+	execute := func() {
+		if err := rs.ExecuteRules(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range 4 {
+		name := fmt.Sprintf("x%d", i)
+		sess.Insert(srm.NewResource(name), inGroup, g)
+		if order == kKeysFirst {
+			sess.Insert(srm.NewResource(name), jetsKey, srm.NewTextLiteral(name))
+		}
+	}
+	if order == kJoinAfterActivation {
+		execute()
+	}
+	for i := range 4 {
+		name := fmt.Sprintf("x%d", i)
+		sess.Insert(srm.NewResource(name), q, srm.NewTextLiteral(name))
+	}
+	execute()
+	var lines []string
+	for t3 := range sess.Find().All() {
+		lines = append(lines, rdf.ToString(&t3))
+	}
+	sort.Strings(lines)
+	return lines
+}
+
+func TestRegression_I91_CandidateRowReentry(t *testing.T) {
+	for _, variant := range []struct {
+		name             string
+		filterOnNegation bool
+	}{{"filter on the join", false}, {"filter on a negation below", true}} {
+		t.Run(variant.name, func(t *testing.T) {
+			rm, metaGraph, ms := newReentryNet(t, variant.filterOnNegation)
+			reference := runReentry(t, rm, metaGraph, ms, kKeysFirst)
+			keys, outs := 0, 0
+			for _, l := range reference {
+				switch {
+				case strings.Contains(l, ", jets:key, "):
+					keys++
+				case strings.Contains(l, ", outP, "):
+					outs++
+				}
+			}
+			if keys != 4 || outs != 0 {
+				t.Fatalf("reference: %d jets:key and %d outP triples, want 4 and 0:\n  %v", keys, outs, reference)
+			}
+			for _, order := range []struct {
+				name  string
+				order reentryOrder
+			}{{"all at once", kAllAtOnce}, {"join after activation", kJoinAfterActivation}} {
+				if got := runReentry(t, rm, metaGraph, ms, order.order); !slices.Equal(got, reference) {
+					t.Errorf("%s: the graph differs from the reference (the jets:key triples asserted first):\n  got  %v\n  want %v", order.name, got, reference)
+				}
 			}
 		})
 	}
