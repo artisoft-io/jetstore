@@ -630,6 +630,81 @@ TEST_F(ReteSessionTest, CandidateRowsNestAndAreReused)
   EXPECT_EQ(again.get()->get_status(), kNone);
 }
 
+// A filter that inserts a triple re-enters the session while its candidate is live:
+//   rule1> (?s fnodeX ?n1).[create_entity(?n1)] -> (?s outP ?n1)
+//   rule2> (?e jets:key ?k) -> (?e seenP ?k)
+// Once both relations are activated, a new (?s fnodeX ?n1) reaches rule1 through the
+// graph callback; its filter's create_entity inserts (?e jets:key ?k), which reaches
+// rule2 through its own callback and builds a candidate of its own, nested in rule1's.
+// rule1's candidate must come back with its values and be inserted.
+TEST(CandidateRowReentryTest, FilterInsertingATripleKeepsTheOuterCandidate)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto fnodeX = rmgr->create_resource("fnodeX");
+  auto outP = rmgr->create_resource("outP");
+  auto seenP = rmgr->create_resource("seenP");
+  auto jets_key = rmgr->jets()->jets__key;
+
+  // Rows of both vertices: [?s, ?n1] from the triple
+  auto ri = create_row_initializer(2);
+  ri->put(0, 0 | brc_triple, "?s");
+  ri->put(1, 2 | brc_triple, "?n1");
+  auto filter1 = create_expr_unary_operator<CreateEntityVisitor>(0, create_expr_binded_var(1));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, filter1, "", ri));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 2, false, 10, {}, "", ri));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(fnodeX), F_var("?n1") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_var("?e"), F_cst(jets_key), F_var("?k") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[1].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(1) ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[2].get(), 0, false, "",
+    F_binded(0), F_cst(seenP), F_binded(1) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  ASSERT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto s1 = srmgr->create_resource("s1");
+  rdf_session->insert(s1, fnodeX, srmgr->create_literal<int>(1));
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+  EXPECT_TRUE(rdf_session->contains(s1, outP, srmgr->create_literal<int>(1)));
+
+  // Both relations are activated: this insert runs rule1's filter inside the callback
+  auto s2 = srmgr->create_resource("s2");
+  auto two = srmgr->create_literal<int>(2);
+  rdf_session->insert(s2, fnodeX, two);
+  ASSERT_EQ(rete_session->execute_rules(), 0);
+
+  // The nested candidate went in: rule2 saw the entity create_entity minted
+  auto entity2 = srmgr->create_resource("2");
+  EXPECT_TRUE(rdf_session->contains(entity2, seenP, srmgr->create_literal(std::string("2"))));
+  // and the outer candidate kept its values
+  EXPECT_TRUE(rdf_session->contains(s2, outP, two));
+  bool found = false;
+  auto itor = rete_session->get_beta_relation(1)->get_all_rows_iterator();
+  while(not itor->is_end()) {
+    auto const* row = itor->get_row();
+    if(row->get(0) == s2 and row->get(1) == two) found = true;
+    EXPECT_NE(row->get(0), entity2);
+    itor->next();
+  }
+  EXPECT_TRUE(found);
+  rete_session->terminate();
+}
+
 // The row set's transparent hash is absl::Hash<BetaRowPtr>'s, so the set's buckets,
 // and the order it is iterated in, are what they were; and equality is by values
 TEST(BetaRowCandidateTest, HashAndEqualityMatchTheRowPtrs)

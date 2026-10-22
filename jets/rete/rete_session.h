@@ -128,13 +128,15 @@ class ReteSession {
       : rete_session_(rete_session)
     {
       auto & rows = rete_session->scratch_rows_;
-      auto depth = rete_session->scratch_depth_++;
+      auto depth = rete_session->scratch_depth_;
       if(depth == rows.size()) {
         void * p = rete_session->arena_.allocate(sizeof(BetaRow), alignof(BetaRow));
         rows.push_back(::new (p) BetaRow(nullptr, 0, &rete_session->arena_));
       }
       row_ = rows[depth];
       row_->reset(node_vertex, size);
+      // Last: what precedes can throw (bad_alloc), and the destructor does not run then
+      rete_session->scratch_depth_ = depth + 1;
     }
     ~CandidateRow() { --rete_session_->scratch_depth_; }
     CandidateRow(CandidateRow const&) = delete;

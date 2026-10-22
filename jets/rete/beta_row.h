@@ -424,7 +424,7 @@ struct BetaRowEqual {
   inline bool
   operator()(BetaRowPtr const& lhs, BetaRowPtr const& rhs)const
   {
-    return lhs == rhs;
+    return *lhs == *rhs;
   }
   inline bool
   operator()(BetaRowPtr const& lhs, BetaRow const& rhs)const
