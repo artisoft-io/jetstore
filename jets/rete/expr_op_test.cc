@@ -979,6 +979,11 @@ TEST(Comparisons, TheSharedTable) {
     // a double too large for the integer's type compares, where it threw
     {rdf::LInt32(5), rdf::LDouble(1e12), "FTTTFF"},
     {rdf::LUInt64(5), rdf::LDouble(5), "TFFTFT"},
+    // a tiny double is compared unrounded: rounding it to 15 digits overflowed to NaN,
+    // which compared equal to anything
+    {rdf::LDouble(1e-300), rdf::LInt32(5), "FTTTFF"},
+    {rdf::LDouble(5e-324), rdf::LDouble(1e300), "FTTTFF"},
+    {rdf::LDouble(1e-300), rdf::LInt32(-7), "FTFFTT"},
   };
   auto t = [](RDFTTYPE r) { return rdf::to_bool(r) ? 'T' : 'F'; };
   for(auto const& c: cases) {

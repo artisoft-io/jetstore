@@ -155,6 +155,10 @@ round_to_digits(double value, int digits)
   if(value == 0.0) return 0.0;
   if(not std::isfinite(value)) return value;
   double factor = pow(10.0, digits - ceil(log10(fabs(value))));
+  // Below about 1e-294 the factor overflows, and value * factor / factor would be NaN,
+  // which fcmp takes for equal to anything (1e-300 == 5 was true until 2026-10). Such a
+  // value is compared unrounded.
+  if(not std::isfinite(factor)) return value;
   return round(value * factor) / factor;
 }
 
