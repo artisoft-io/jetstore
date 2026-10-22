@@ -1398,7 +1398,8 @@ TEST(CandidateRowReentryTest, ErrorPathRemovingItsOwnSupportInfersNothing)
 }
 
 // The index returns a key's rows in the order std::unordered_multimap's equal_range
-// did, newest first, through any number of rehashes; erase(key) removes all of them
+// did, newest first, through any number of rehashes; erase(key, row) removes that row
+// alone, leaving the others in that order, and the key with its last row
 TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
 {
   BetaRowArena arena;
