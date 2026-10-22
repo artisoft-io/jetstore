@@ -131,14 +131,15 @@ struct AQVRemoveIndexBetaRowsVisitor: public boost::static_visitor<>
   using O = AQOther;
   AQVRemoveIndexBetaRowsVisitor(BetaRelation * g, b_index m, BetaRow const* r) 
     : beta_relation(g), node_vertex(m), row(r), key(m->antecedent_query_key) {}
-  void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)} );}
-  void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)} );}
-  void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row) );}
+  // Each removes the row's own entry under its key, not the other rows' (I-85)
+  void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)}, row );}
+  void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)}, row );}
+  void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row), row );}
   void operator()(O const&, O const&, O const&){ }
-  void operator()(I const&s, O const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), o.to_r(row)} );}
-  void operator()(I const&s, O const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( s.to_r(row) );}
-  void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), p.to_r(row)} );}
-  void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( p.to_r(row) );}
+  void operator()(I const&s, O const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), o.to_r(row)}, row );}
+  void operator()(I const&s, O const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( s.to_r(row), row );}
+  void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), p.to_r(row)}, row );}
+  void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( p.to_r(row), row );}
   BetaRelation * beta_relation;
   b_index node_vertex;
   BetaRow const* row;

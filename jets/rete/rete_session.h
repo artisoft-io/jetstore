@@ -69,7 +69,8 @@ class ReteSession {
       no_truth_main_on_exist_(0),
       recording_row_(nullptr),
       scratch_rows_(),
-      scratch_depth_(0)
+      scratch_depth_(0),
+      reentries_(0)
     {}
 
   ReteSession(ReteSession const&) = delete;
@@ -380,6 +381,24 @@ class ReteSession {
   int
   compute_consequent_triples();
 
+  /**
+   * @brief Whether a candidate a filter kept is still supported (I-91)
+   *
+   * Called only when the session was re-entered while the candidate's filter ran:
+   * the filter wrote a triple (create_entity, or an operator's error path through a
+   * jets:exception) whose callbacks inserted into or removed from relations. That can
+   * remove the candidate's own support: its parent row, the triple it joined, or the
+   * absence a negation tested. The removal was propagated at once, before the
+   * candidate was in its relation, so inserting it now would leave a row, and its
+   * consequents, that nothing retracts. It is dropped instead: the rule fires as it
+   * does when the filter's triple was there from the start.
+   *
+   * @param t3 the triple a positive antecedent joined; null for a negated one
+   */
+  bool
+  candidate_still_supported(BetaRelation const* parent_relation, BetaRow const* parent_row,
+    AlphaNode const* alpha_node, rdf::Triple const* t3);
+
  private:
  friend class BetaRelation;
 
@@ -395,6 +414,7 @@ class ReteSession {
   BetaRow *               recording_row_;          // row whose inferred triples are being recorded
   std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed
   std::size_t             scratch_depth_;          // CandidateRows live
+  std::uint64_t           reentries_;              // triple_updated* calls, see candidate_still_supported
 };
 
 inline int

@@ -849,6 +849,321 @@ TEST(BetaRowScanTest, ReentrantVisitReachesARelationInItsFirstVisit)
   run_scan_growing_under_it(1000);
 }
 
+// I-85: removing a row from a relation removes its own index entries, not those of
+// the other rows under the same key.
+//   rule0> (?s inGroup ?g).not(?s blocked ?b).(?g q ?v) -> (?s outP ?v)
+// The negation's relation holds [x1, g] and [x2, g], indexed under g for the last
+// antecedent. Blocking x1 removes [x1, g]; a later (g q v) must still join [x2, g].
+// Run A blocks x1 after the relation is built, run B before: the rules must end
+// with the same graph, (x2 outP v) and not (x1 outP v).
+struct IndexRemovalRun {
+  bool x1_inferred;
+  bool x2_inferred;
+};
+
+IndexRemovalRun
+run_index_removal(bool block_first)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto blocked = rmgr->create_resource("blocked");
+  auto q = rmgr->create_resource("q");
+  auto outP = rmgr->create_resource("outP");
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, {}, "", ri3));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_binded(0), F_cst(blocked), F_var("?b") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(1), F_cst(q), F_var("?v") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[3].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto g = srmgr->create_resource("g");
+  auto b = srmgr->create_resource("b");
+  auto x1 = srmgr->create_resource("x1");
+  auto x2 = srmgr->create_resource("x2");
+  auto v = srmgr->create_resource("v");
+  rdf_session->insert(x1, inGroup, g);
+  rdf_session->insert(x2, inGroup, g);
+  if(block_first) rdf_session->insert(x1, blocked, b);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+  if(not block_first) {
+    rdf_session->insert(x1, blocked, b);    // removes [x1, g] from the relation the join reads
+    EXPECT_EQ(rete_session->execute_rules(), 0);
+  }
+  rdf_session->insert(g, q, v);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+
+  IndexRemovalRun result{rdf_session->contains(x1, outP, v), rdf_session->contains(x2, outP, v)};
+  rete_session->terminate();
+  return result;
+}
+
+TEST(BetaRowIndexTest, RemovingARowKeepsItsSiblingsUnderTheKey)
+{
+  auto run_a = run_index_removal(false);
+  auto run_b = run_index_removal(true);
+  EXPECT_FALSE(run_b.x1_inferred);
+  EXPECT_TRUE(run_b.x2_inferred);
+  // the same graph whichever came first
+  EXPECT_EQ(run_a.x1_inferred, run_b.x1_inferred);
+  EXPECT_EQ(run_a.x2_inferred, run_b.x2_inferred);
+}
+
+// I-91: a candidate whose filter re-enters the session and removes the candidate's
+// own support is not inserted.
+//   rule0> (?s inGroup ?g).not(?s jets:key ?k).(?s q ?v).[create_entity(?v)] -> (?s outP ?v)
+// or, with `negated_child`, the filter on a negated antecedent below:
+//   rule0> (?s inGroup ?g).not(?s jets:key ?k).(?s q ?v).not(?s r ?z).[create_entity(?v)] -> (?s outP ?v)
+// With (xi q "xi"), the filter of xi's candidate mints entity xi, whose jets:key
+// triple removes xi's row from the not(jets:key) relation: the candidate's support
+// is gone before its filter returns. Inserting the candidate anyway inferred
+// (xi outP "xi"), which nothing retracted. Whatever the order the facts arrive in,
+// the rules must end with the same graph as when the jets:key triples are there from
+// the start, where the rule never fires.
+enum class ReentryOrder { kAllAtOnce, kJoinAfterActivation, kKeysFirst };
+
+struct ReentryRun {
+  int inferred;          // (xi outP "xi") in the graph
+  int keys;              // (xi jets:key "xi") in the graph
+};
+
+ReentryRun
+run_reentry(ReentryOrder order, bool negated_child)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto q = rmgr->create_resource("q");
+  auto r = rmgr->create_resource("r");
+  auto outP = rmgr->create_resource("outP");
+  auto jets_key = rmgr->jets()->jets__key;
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+  auto ri4 = create_row_initializer(3);
+  ri4->put(0, 0 | brc_parent_node, "?s");
+  ri4->put(1, 1 | brc_parent_node, "?g");
+  ri4->put(2, 2 | brc_parent_node, "?v");
+  auto filter = create_expr_unary_operator<CreateEntityVisitor>(0, create_expr_binded_var(2));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10,
+    negated_child ? ExprBasePtr() : filter, "", ri3));
+  if(negated_child) {
+    node_vertexes.push_back(create_node_vertex(node_vertexes[3].get(), 0, 4, true, 10, filter, "", ri4));
+  }
+  int last = negated_child ? 4 : 3;
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_binded(0), F_cst(jets_key), F_var("?k") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(0), F_cst(q), F_var("?v") ));
+  if(negated_child) {
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[4].get(), 0, true, "",
+      F_binded(0), F_cst(r), F_var("?z") ));
+  }
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[last].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto g = srmgr->create_resource("g");
+  int const n = 4;
+  auto name = [](int i) { return std::string("x") + std::to_string(i); };
+  for(int i=0; i<n; i++) {
+    auto x = srmgr->create_resource(name(i));
+    rdf_session->insert(x, inGroup, g);
+    if(order == ReentryOrder::kKeysFirst) rdf_session->insert(x, jets_key, srmgr->create_literal(name(i)));
+  }
+  auto join = [&]() {
+    for(int i=0; i<n; i++) rdf_session->insert(srmgr->create_resource(name(i)), q, srmgr->create_literal(name(i)));
+  };
+  if(order != ReentryOrder::kJoinAfterActivation) join();
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+  if(order == ReentryOrder::kJoinAfterActivation) {
+    join();
+    EXPECT_EQ(rete_session->execute_rules(), 0);
+  }
+
+  ReentryRun result{0, 0};
+  for(int i=0; i<n; i++) {
+    auto x = srmgr->create_resource(name(i));
+    auto v = srmgr->create_literal(name(i));
+    if(rdf_session->contains(x, outP, v)) ++result.inferred;
+    if(rdf_session->contains(x, jets_key, v)) ++result.keys;
+  }
+  rete_session->terminate();
+  return result;
+}
+
+void
+expect_same_graph_whatever_the_order(bool negated_child)
+{
+  auto reference = run_reentry(ReentryOrder::kKeysFirst, negated_child);
+  EXPECT_EQ(reference.inferred, 0);
+  EXPECT_EQ(reference.keys, 4);
+  for(auto order: {ReentryOrder::kAllAtOnce, ReentryOrder::kJoinAfterActivation}) {
+    auto run = run_reentry(order, negated_child);
+    EXPECT_EQ(run.keys, reference.keys) << static_cast<int>(order);
+    EXPECT_EQ(run.inferred, reference.inferred) << static_cast<int>(order);
+  }
+}
+
+TEST(CandidateRowReentryTest, FilterRemovingItsOwnSupportInfersNothing)
+{
+  expect_same_graph_whatever_the_order(false);
+}
+
+TEST(CandidateRowReentryTest, FilterOnANegationRemovingItsOwnSupportInfersNothing)
+{
+  expect_same_graph_whatever_the_order(true);
+}
+
+// The same defect through the only write a compiled filter can make, the error path,
+// in the case the Go engine's test runs too:
+//   rule0> (?s inGroup ?g).not(jets:iState jets:exception ?e).(?g q ?v).[not(?v) != 1] -> (?s outP ?v)
+// with (s inGroup g) and (g q "maybe"). not("maybe") raises a jets:exception (text
+// that is not a bool) and gives null, and null != 1 is true: the filter keeps the
+// candidate after its own jets:exception removed the candidate's parent row from the
+// not(jets:exception) relation. Run A asserts the data only; run B asserts the same
+// jets:exception first. Both must end without (s outP "maybe").
+struct ErrorPathRun {
+  bool inferred;                 // (s outP "maybe")
+  std::string exception;         // the jets:exception text, empty if none
+};
+
+ErrorPathRun
+run_error_path(std::string const& exception_first)
+{
+  auto meta_graph = rdf::create_rdf_graph();
+  auto * rmgr = meta_graph->rmgr();
+  rmgr->initialize();
+  auto inGroup = rmgr->create_resource("inGroup");
+  auto q = rmgr->create_resource("q");
+  auto outP = rmgr->create_resource("outP");
+  auto istate = rmgr->jets()->jets__istate;
+  auto exception = rmgr->jets()->jets__exception;
+
+  auto ri1 = create_row_initializer(2);
+  ri1->put(0, 0 | brc_triple, "?s");
+  ri1->put(1, 2 | brc_triple, "?g");
+  auto ri2 = create_row_initializer(2);
+  ri2->put(0, 0 | brc_parent_node, "?s");
+  ri2->put(1, 1 | brc_parent_node, "?g");
+  auto ri3 = create_row_initializer(3);
+  ri3->put(0, 0 | brc_parent_node, "?s");
+  ri3->put(1, 1 | brc_parent_node, "?g");
+  ri3->put(2, 2 | brc_triple, "?v");
+  auto filter = create_expr_binary_operator<NeVisitor>(0,
+    create_expr_unary_operator<NotVisitor>(0, create_expr_binded_var(2)),
+    create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))));
+
+  NodeVertexVector node_vertexes;
+  node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, "", ri1));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, true, 10, {}, "", ri2));
+  node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, filter, "", ri3));
+
+  ReteMetaStore::AlphaNodeVector alpha_nodes;
+  alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
+    F_var("*"), F_var("*"), F_var("*") ));
+  alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
+    F_var("?s"), F_cst(inGroup), F_var("?g") ));
+  alpha_nodes.push_back(create_alpha_node<F_cst, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
+    F_cst(istate), F_cst(exception), F_var("?e") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
+    F_binded(1), F_cst(q), F_var("?v") ));
+  alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[3].get(), 0, false, "",
+    F_binded(0), F_cst(outP), F_binded(2) ));
+
+  auto rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
+  rete_meta_store->initialize();
+  auto rdf_session = rdf::create_rdf_session(meta_graph);
+  auto rete_session = create_rete_session(rete_meta_store, rdf_session.get());
+  EXPECT_EQ(rete_session->initialize(), 0);
+
+  auto * srmgr = rdf_session->rmgr();
+  auto s = srmgr->create_resource("s");
+  auto g = srmgr->create_resource("g");
+  auto maybe = srmgr->create_literal(std::string("maybe"));
+  if(not exception_first.empty()) rdf_session->insert(istate, exception, srmgr->create_literal(exception_first));
+  rdf_session->insert(s, inGroup, g);
+  rdf_session->insert(g, q, maybe);
+  EXPECT_EQ(rete_session->execute_rules(), 0);
+
+  ErrorPathRun result{rdf_session->contains(s, outP, maybe), ""};
+  auto e = rdf_session->get_object(istate, exception);
+  if(e) {
+    if(auto const* text = boost::get<rdf::LString>(e)) result.exception = text->data;
+  }
+  rete_session->terminate();
+  return result;
+}
+
+TEST(CandidateRowReentryTest, ErrorPathRemovingItsOwnSupportInfersNothing)
+{
+  auto run_a = run_error_path("");
+  ASSERT_FALSE(run_a.exception.empty());           // the filter raised
+  auto run_b = run_error_path(run_a.exception);
+  EXPECT_EQ(run_b.exception, run_a.exception);
+  EXPECT_FALSE(run_b.inferred);
+  // the same graph whichever came first
+  EXPECT_EQ(run_a.inferred, run_b.inferred);
+}
+
 // The index returns a key's rows in the order std::unordered_multimap's equal_range
 // did, newest first, through any number of rehashes; erase(key) removes all of them
 TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
@@ -872,10 +1187,29 @@ TEST(BetaRowIndexTest, RowsAreInTheMultimapsOrder)
     std::vector<BetaRow const*> got(std::make_reverse_iterator(rows.last), std::make_reverse_iterator(rows.first));
     EXPECT_EQ(got, expected) << "key " << k;
   }
-  EXPECT_EQ(index.erase(key_of(3)), multimap.count(key_of(3)));
-  auto none = index.rows(key_of(3));
+  // one row out from under a key: the others keep the multimap's order
+  for(int k: {3, 40}) {
+    auto range = multimap.equal_range(key_of(k));
+    auto middle = std::next(range.first, std::distance(range.first, range.second) / 2);
+    auto const* row = middle->second;
+    multimap.erase(middle);
+    EXPECT_EQ(index.erase(key_of(k), row), 1u);
+    EXPECT_EQ(index.erase(key_of(k), row), 0u);
+    range = multimap.equal_range(key_of(k));
+    std::vector<BetaRow const*> expected;
+    for(auto it = range.first; it != range.second; ++it) expected.push_back(it->second);
+    auto rows = index.rows(key_of(k));
+    std::vector<BetaRow const*> got(std::make_reverse_iterator(rows.last), std::make_reverse_iterator(rows.first));
+    EXPECT_EQ(got, expected) << "key " << k;
+  }
+  // the last row out takes the key with it
+  auto single = row_of(100000);
+  index.insert({key_of(1000), single});
+  EXPECT_EQ(index.size(), 98u);
+  EXPECT_EQ(index.erase(key_of(1000), single), 1u);
+  auto none = index.rows(key_of(1000));
   EXPECT_EQ(none.first, none.last);
-  EXPECT_EQ(index.size(), 96u);
+  EXPECT_EQ(index.size(), 97u);
 }
 
 // A frozen scan of the row set returns what was left when it was frozen, except a row
@@ -1076,14 +1410,14 @@ TEST(BetaRowScanTest, IndexScanSkipsARowThatLeftTheIndexButNotTheSet)
 }
 
 // The row removed is the one the scan returned, whose filter is running: the scan
-// does not skip it from under its caller, and goes on to the next row
+// does not skip it from under its caller, and goes on to the next row. The first row's
+// candidate lost its parent row to its own filter, so it is not inserted (I-91; before
+// the fix it was, and (first outP v) was inferred and never retracted)
 TEST(BetaRowScanTest, IndexScanSurvivesANegationRemovingTheRowItReturned)
 {
   auto result = run_negation_under_index_scan(true);
   EXPECT_EQ(result.rows_left, 1u);
-  // the first row's candidate was built and filtered before its row left: it is kept,
-  // as it was with the node containers
-  EXPECT_TRUE(result.first_inferred);
+  EXPECT_FALSE(result.first_inferred);
   EXPECT_TRUE(result.second_inferred);
 }
 

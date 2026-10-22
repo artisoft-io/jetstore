@@ -159,6 +159,15 @@ class BetaRelation {
     return all_beta_rows_.size();
   }
 
+  // Whether `row` itself is in the relation and not withdrawn (marked kDeleted)
+  inline bool
+  holds(BetaRow const* row)const
+  {
+    if(row->is_deleted()) return false;
+    auto itor = all_beta_rows_.find(*row);
+    return itor != all_beta_rows_.end() and itor->get() == row;
+  }
+
   // The row set's capacity, for tests and reports
   inline std::size_t
   capacity()const

@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_BETA_ROW_ITERATOR_H
 #define JETS_RETE_BETA_ROW_ITERATOR_H
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <memory>
@@ -32,7 +33,8 @@ using BetaRowIndxKey3 = std::tuple<rdf::r_index, rdf::r_index, rdf::r_index>;
  * A flat hash map from the key to the rows under it, in place of the
  * std::unordered_multimap it was, and allocating from the relation's arena. It keeps
  * the two properties of the multimap the engine relies on:
- *  - erase(key) removes every row under the key, not only one (I-85, kept as is);
+ *  - erase(key, row) removes that row alone, the others under the key keeping their
+ *    order, as the multimap's erase of one element did;
  *  - the rows under a key are returned newest first, which is the order libstdc++'s
  *    unordered_multimap returned equal keys in (a new element goes before the first
  *    equal one, and a rehash keeps equal elements in order).
@@ -71,16 +73,21 @@ class BetaRowIndex {
     res.first->second.push_back(key_row.second);
   }
 
-  // Removes every row under `key` (I-85) and returns how many, as the multimap's
-  // erase(key) did
+  // Removes `row` from under `key`, the other rows there keeping their order, and
+  // returns how many it removed (0 or 1: a row is indexed once under a key). The key
+  // goes once it holds no row. Before I-85 the whole key was erased, the other rows
+  // under it with it, so they could no longer be joined.
   inline std::size_t
-  erase(K const& key)
+  erase(K const& key, BetaRow const* row)
   {
     auto itor = map_.find(key);
     if(itor == map_.end()) return 0;
-    std::size_t n = itor->second.size();
-    map_.erase(itor);
-    return n;
+    auto & list = itor->second;
+    auto pos = std::find(list.begin(), list.end(), row);
+    if(pos == list.end()) return 0;
+    list.erase(pos);
+    if(list.empty()) map_.erase(itor);
+    return 1;
   }
 
   inline Rows
