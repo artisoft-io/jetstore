@@ -299,6 +299,18 @@ class ReteSession {
   inline int
   insert_inferred_for(BetaRow const* beta_row, rdf::Triple const& t3);
 
+  /**
+   * @brief Count a callback ignored because its relation is not activated yet
+   *
+   * As triple_updated and triple_updated_for_filters count the ones they receive, so
+   * that every graph change a callback sees moves the count, as in the Go engine.
+   */
+  inline void
+  count_ignored_reentry()
+  {
+    ++reentries_;
+  }
+
  protected:
   int
   set_graph_callbacks();
@@ -384,14 +396,23 @@ class ReteSession {
   /**
    * @brief Whether a candidate a filter kept is still supported (I-91)
    *
-   * Called only when the session was re-entered while the candidate's filter ran:
-   * the filter wrote a triple (create_entity, or an operator's error path through a
-   * jets:exception) whose callbacks inserted into or removed from relations. That can
-   * remove the candidate's own support: its parent row, the triple it joined, or the
-   * absence a negation tested. The removal was propagated at once, before the
-   * candidate was in its relation, so inserting it now would leave a row, and its
-   * consequents, that nothing retracts. It is dropped instead: the rule fires as it
-   * does when the filter's triple was there from the start.
+   * Called only when a callback has seen a graph change since the scan that made the
+   * candidate began: a filter wrote a triple (create_entity, or an operator's error
+   * path through a jets:exception), and its callbacks inserted into or removed from
+   * relations, or were ignored because their relation is not activated yet (counted
+   * by count_ignored_reentry). The filter need not be the candidate's own: an earlier
+   * candidate's, on the same parent row or another, or one below a row triple_updated
+   * propagated first, counts the same. Such a write can remove the candidate's
+   * support: its parent row, the triple it joined, or the absence a negation tested,
+   * including the negation whose first visit made the candidate. The removal was
+   * propagated at once, before the candidate was in its relation, so inserting it now
+   * would leave a row, and its consequents, that nothing retracts. It is dropped
+   * instead: the rule fires as it does when the filter's triple was there from the
+   * start.
+   *
+   * A removed parent row is also appended to its relation's pending rows, and when a
+   * scan of those rows is frozen it holds the row twice; with is_inferring the second
+   * pass makes candidates from the removed row, which this drops as well.
    *
    * @param t3 the triple a positive antecedent joined; null for a negated one
    */
@@ -414,7 +435,7 @@ class ReteSession {
   BetaRow *               recording_row_;          // row whose inferred triples are being recorded
   std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed
   std::size_t             scratch_depth_;          // CandidateRows live
-  std::uint64_t           reentries_;              // triple_updated* calls, see candidate_still_supported
+  std::uint64_t           reentries_;              // callbacks seen, see candidate_still_supported
 };
 
 inline int
@@ -645,8 +666,11 @@ ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  // If beta node is not activated yet, ignore the notification
+  // If beta node is not activated yet, ignore the notification, but count it: a
+  // filter's write matching the antecedent being visited for the first time removes
+  // a candidate's support as surely (see candidate_still_supported)
   if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    this->rete_session_->count_ignored_reentry();
     return;
   }
   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
@@ -658,8 +682,11 @@ ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)
   if(this->s_filter_!=nullptr and this->s_filter_!=s) return;
   if(this->p_filter_!=nullptr and this->p_filter_!=p) return;
   if(this->o_filter_!=nullptr and this->o_filter_!=o) return;
-  // If beta node is not activated yet, ignore the notification
+  // If beta node is not activated yet, ignore the notification, but count it: a
+  // filter's write matching the antecedent being visited for the first time removes
+  // a candidate's support as surely (see candidate_still_supported)
   if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    this->rete_session_->count_ignored_reentry();
     return;
   }
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
@@ -671,8 +698,11 @@ inline void
 ReteCallBack4VisitorsImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
 {
   if(this->p_filter_ and this->p_filter_!=p) return;
-  // If beta node is not activated yet, ignore the notification
+  // If beta node is not activated yet, ignore the notification, but count it: a
+  // filter's write matching the antecedent being visited for the first time removes
+  // a candidate's support as surely (see candidate_still_supported)
   if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    this->rete_session_->count_ignored_reentry();
     return;
   }
   this->rete_session_->triple_inserted_for_filters(this->vertex_, s, p, o);
@@ -682,8 +712,11 @@ inline void
 ReteCallBack4VisitorsImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
 {
   if(this->p_filter_!=nullptr and this->p_filter_!=p) return;
-  // If beta node is not activated yet, ignore the notification
+  // If beta node is not activated yet, ignore the notification, but count it: a
+  // filter's write matching the antecedent being visited for the first time removes
+  // a candidate's support as surely (see candidate_still_supported)
   if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    this->rete_session_->count_ignored_reentry();
     return;
   }
   this->rete_session_->triple_deleted_for_filters(this->vertex_, s, p, o);

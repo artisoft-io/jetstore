@@ -272,6 +272,10 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // compute the inferred/retracted BetaRow for current_relation
         auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
         auto const* beta_row_initializer = child_meta_node->get_beta_row_initializer();
+        // A write by a filter during this scan may remove what a later candidate stands
+        // on, whichever candidate's filter made it: each one kept once the count has
+        // moved is checked (see candidate_still_supported)
+        auto const reentries = this->reentries_;
         auto process_parent_row = [&](BetaRow const* parent_row) {
 
           // for each triple from the rdf graph matching the AlphaNode
@@ -294,12 +298,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
-                auto reentries = this->reentries_;
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
-                if(keepit and is_inferring and reentries != this->reentries_) {
-                  keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
-                }
+              }
+              if(keepit and is_inferring and reentries != this->reentries_) {
+                keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -327,12 +330,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
-                auto reentries = this->reentries_;
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row);
                 // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
-                if(keepit and is_inferring and reentries != this->reentries_) {
-                  keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
-                }
+              }
+              if(keepit and is_inferring and reentries != this->reentries_) {
+                keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -548,6 +550,12 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     // compute the inferred/retracted BetaRow for the added/retracted triple (s, p, o)
     rdf::Triple t3(s, p, o);
     auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
+    // An insert: a positive antecedent's triple arrived, or a negated one's left
+    bool const inserts = is_inserted != cmeta_node->is_negation;
+    // A filter, or the propagation of an earlier row, may re-enter the session and
+    // remove a later parent row or t3 itself: each candidate kept once the count has
+    // moved is checked (see candidate_still_supported)
+    auto const reentries = this->reentries_;
     while(!parent_row_itor->is_end()) {
 
       // create the beta row to add/retract
@@ -564,14 +572,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       // evaluate the current_relation filter if any
       bool keepit = true;
       if(cmeta_node->has_expr()) {
-        auto reentries = this->reentries_;
         keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
-        // An insert: a positive antecedent's triple arrived, or a negated one's left
-        bool inserts = is_inserted != cmeta_node->is_negation;
-        if(keepit and inserts and reentries != this->reentries_) {
-          keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node,
-            cmeta_node->is_negation ? nullptr : &t3);
-        }
+      }
+      if(keepit and inserts and reentries != this->reentries_) {
+        keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node,
+          cmeta_node->is_negation ? nullptr : &t3);
       }
 
       // if(not keepit) {
@@ -682,6 +687,8 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     // for each BetaRow of parent beta node, 
     // compute the BetaRows by querying the graph
     auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
+    // as in visit_rete_graph: each candidate kept once the count has moved is checked
+    auto const reentries = this->reentries_;
     while(!parent_row_itor->is_end()) {
 
       // for each triple from the rdf graph matching the AlphaNode
@@ -702,12 +709,11 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter if any
           bool keepit = true;
           if(cmeta_node->has_expr()) {
-            auto reentries = this->reentries_;
             keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
             // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
-            if(keepit and reentries != this->reentries_) {
-              keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
-            }
+          }
+          if(keepit and reentries != this->reentries_) {
+            keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, nullptr);
           }
 
           // insert or remove the row from current_relation based on is_inferring
@@ -728,11 +734,10 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
           // evaluate the current_relation filter
           bool keepit = true;
           if(cmeta_node->has_expr()) {
-            auto reentries = this->reentries_;
             keepit = cmeta_node->filter_expr->eval_filter(this, beta_row);
-            if(keepit and reentries != this->reentries_) {
-              keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
-            }
+          }
+          if(keepit and reentries != this->reentries_) {
+            keepit = this->candidate_still_supported(parent_beta_relation, parent_row, alpha_node, &triple);
           }
           if(keepit) {
             // Add row to current beta relation (current_relation)
