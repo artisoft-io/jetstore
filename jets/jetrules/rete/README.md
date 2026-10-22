@@ -2,6 +2,247 @@
 
 What you cannot see from the code in front of you. Newest first.
 
+## The engines' differences settled in rules_benchmark Phase 4 — 2026-10-22
+
+`jetstore_agentic_ai`'s `rules_benchmark` project compared the two engines value by value, and Michel
+decided each difference on 2026-10-22 (its `Q-60` to `Q-69`). This entry says what **both engines do
+now**, and since which pull request. Go: jetstore#2330, #2331, #2334, #2336. C++: #2332, #2333,
+#2335, #2336. The end-to-end rule test is `jets_ws` `jet_rules/unit_tests/reentry_error_path/`
+(jets_ws#55). The older entries below that these settle say so in place. **Shared tables** hold both
+engines to the same values: each table lives in a Go test, and a C++ test checks the same rows.
+
+### Values and operators (Go #2331, C++ #2333)
+
+**`sum_values` (I-30, I-88).** The sum does not depend on the order the graph holds the values in.
+- A null is skipped wherever it comes. No value, or only nulls, gives null.
+- Numbers alone: a double anywhere makes the sum a double, every value converted.
+- Integers alone are summed exactly, in the widest integer type present (int32 < uint32 < int64 <
+  uint64), else int64, else a double. A Go int reaches C++ as an int32 and a uint as a uint32 (the
+  bridge's `create_int` and `create_uint`), so Go gives a uint while the sum fits 32 unsigned bits.
+- Any value that is not a number (text, a date, a resource) makes the sum null, text alone
+  included. `join_values` is what concatenates text.
+
+Before: Go started from an int 0 and truncated every double added to it, a null nulled the sum, and
+no value summed to 0. C++ nulled the sum when a null came first and skipped it later, and an int met
+before a double truncated the double. On a mix of text and numbers the old fold gave `"x25"` or
+nothing, depending on which came first.
+
+**Double literals (I-40).** A double literal is the double given, on both engines.
+- Go's `ResourceManager.NewDoubleLiteral` rounded every double to 15 bits of mantissa (0.891089
+  became 0.891082763671875, 1234567.89 became 1234560).
+- That reached rule literals, input record values, lookup values and a consequent's computed double
+  (`ReifyResource`).
+- Two doubles one ulp apart are now two literals, as on C++.
+- -Inf is its own literal; Go returned +Inf for it.
+
+**A value written into text (I-16, I-32).** Every operator that writes a value into text writes the
+same text on both engines. That is text plus a value, `to_text`, `create_entity`, `create_resource`
+(Go; C++ has no double case) and `join_values`.
+- A double is `std::to_chars(..., std::chars_format::fixed)` with no precision: the fewest digits
+  that read back as the same double, in plain notation, never an exponent. 991 is `"991"`,
+  1234567.5 is `"1234567.5"`, 0.00001 is `"0.00001"`.
+- From 2^53 up it is the double's exact digits (1e23 is `"99999999999999991611392"`).
+- NaN is `"nan"` (sign dropped), and the infinities are `"inf"` and `"-inf"`, as `std::to_string`
+  wrote them.
+- A date is `YYYY-MM-DD`, a datetime `YYYY-MM-DDTHH:MM:SS`, with `.ffffff` only when the
+  microseconds are not zero (boost's `to_iso_extended_string`), and a null is `"null"`.
+- Go's side is `rdf.TextOf` and `rdf.FormatDouble` (`jets/jetrules/rdf/text.go`); C++'s is
+  `rdf::double_to_text` and `rdf::to_string`. The shared table is `DoubleTextCases` (28 rows,
+  `jets/jetrules/rdf/text_test.go`).
+- Before: C++ wrote `std::to_string`'s six decimals (`"rate: 991.000000"`). Go wrote `%v`, with an
+  exponent from 1e6 and below 1e-4 (`1.2345675e+06`), or `%G` with 15 digits (`1E+06`) for a minted
+  name. A date came out as Go's struct (`{2025-06-05 00:00:00 +0000 UTC}`). `join_values` wrote `%g`'s
+  six significant digits on both.
+- `apply_format` follows the rule's own format string and is unchanged.
+- **`Node.String()` is not this rendering.** It is the Go engine's debugging and export form, and
+  still writes a date as the struct.
+
+**`literal_regex` (I-12, `Q-11`).** Both engines return capture group 1, and null when nothing
+matches. A pattern with no group 1, or a group 1 that took no part in the match, gives `""`, as
+C++'s unmatched `sub_match` does. Go returned the whole match, or `""` on no match. `apply_regex`
+is Go's alias and has the same meaning.
+
+**Arithmetic (Q-67).** In `+`, `-`, `*` and `/`, any double operand makes the result a double, both
+operands converted, whichever side it is on.
+- Before: `+` and `-` truncated *int op double* to an int on both engines (`2 + 0.5` was 2, `0.5 + 2`
+  was 2.5), and Go's `*` too.
+- Two integers keep C++'s rule: the left operand's type, the right converted to it, and integer
+  division. Go gained its missing uint cases.
+- The shared table is `TestArithmeticTyping` (`jets/jetrules/rdf/ast_math_operators_test.go`).
+
+**Comparisons (Q-68).** This covers `==`, `!=`, `<`, `<=`, `>` and `>=`.
+- Integers with integers, int against uint included, compare by value (`std::cmp_*`): int 5 equals
+  uint 5.
+- Any double operand compares as two doubles, by C++'s rule: each value rounded to 15 significant
+  digits (`round_to_digits`), then Knuth's `fcmp` at machine epsilon (`rdf::is_eq` and its siblings,
+  `jets/rdf/rdf_ast.h`).
+- A NaN or an infinity is never equal and never ordered, and `!=` is the negation of `==`.
+- Before:
+  - Go used a relative 1e-10 tolerance, and called a NaN literal equal to itself (one shared node).
+  - Go had no uint case at all.
+  - C++ cast the double to the integer's type for `==` (`5 == 5.5` was true, a `uint64` was cut to
+    `uint32`, and a double out of the integer's range threw).
+  - C++'s int-against-double `<` and `>` skipped the rounding, so an infinity ordered above every
+    number.
+- Go reproduces C++'s rounding with a port of glibc's `__ieee754_log10` (`glibcLog10`) and glibc's
+  powers of ten (`pow10Table`), both mirroring x86-64 glibc 2.39 (`jets/jetrules/rdf/compare.go`).
+  The shared table is `ComparisonCases` (`jets/jetrules/rdf/compare_test.go`).
+- **Fast path, the same in both engines and result-preserving.** Equal doubles are equal. Doubles
+  further apart than 2e-14 of the larger keep their plain order: rounding moves each by at most
+  5e-15 of itself and is monotonic. Only closer pairs are rounded. Each engine checks this against
+  the slow rule on 10^6 pairs. Roughly measured on Go, a double against an int went from 49 to 15 ns.
+- **Tiny doubles.** Below about 1e-294 the rounding's scaling factor overflowed, the rounded value
+  was NaN, and `fcmp` takes NaN for equal, so `1e-300 == 5` and `1e-300 <= -7` were true. Such a
+  value is now compared unrounded.
+
+**Division by zero (Q-69).** An integer divided by an integer zero is null on both engines. A double
+operand divides as IEEE does: `+inf`, `-inf`, and NaN for 0/0. Before, C++ raised SIGFPE and ended
+the process, and Go gave NaN for all of them. The shared table is `DivisionByZeroCases`.
+
+**Ties in `min_of`, `max_of`, `sorted_head`, `min_head_of` and `max_head_of` (I-33, Q-61).**
+Among equal values the first met used to win, and the graph's iteration order varies from run to
+run (C++'s hash sets by address and seed; Go's maps on every range). So a tie gave a different head
+on each run, and a rule set's duplicate removal kept a different record.
+
+A tie is now two values the engine's own `==` calls equal (C++ `EqVisitor`, Go `EQ`); since Q-68 the
+two agree. On a tie, the object first in this total order wins:
+1. by kind: named resource, blank node, literal, null;
+2. a resource by its name and a literal by its text (the rendering above), compared as bytes;
+3. on equal text, by type, signed before unsigned: int32, int64, uint32, uint64, double, text, date,
+   datetime (Go: int, uint, double, text, date, datetime);
+4. blank nodes by key, last.
+
+So equal weights give the smallest name, in any insertion order. C++ has `tie_break_less`; Go has
+`compareObjects` and `tieEqual` (`expr_operator_math_minmax.go`).
+- **Known limits.** A NaN, an infinity, or two values that do not compare are not a tie, and keep the
+  first met, which is order-dependent (I-125). An entity named by a UUID still orders differently
+  from run to run (I-124).
+- **`max_of` and `min_of`** return the winner's value, so they move only between equal values of
+  different types: in the direct form, 5 and 5.0 give the int every time.
+
+### Lookups name their table (I-15, I-31, I-104; Go #2330)
+
+Go's lookup subjects were `jets:lookup:<key>`, with no table name. So two tables looked up by one
+key shared a subject, and the second lookup read the first one's cached row (I-15). In `jets_ws` the
+diagnosis and procedure description lookups crossed this way. They are now C++'s names:
+`jets:<T>:<key>` for `lookup`, `multi_lookup` and `lookup_rand`, and `jets:rand:<T>:<n>` for
+`multi_lookup_rand`, each cached as `(<T> jets:lookup_row subject)` (`LookupTableSqlite3.lookup`,
+`lookup_table_sqlite3.go`).
+- **A `multi_lookup` miss** returns null and writes nothing, on both, so a rule testing a miss with
+  `(?x p null)` works after it (I-31).
+- **An integer key**, signed or unsigned, is converted to text instead of panicking (I-104). A null
+  key still gives no result on Go, where C++ throws.
+- **`graphdump`** maps the current cache form to the old Go name, so dumps made before and after
+  compare equal.
+
+### A filter's re-entry is reconciled before its rows are kept (I-91; C++ #2332, #2335; Go #2330, #2334)
+
+A filter can write to the graph. In a compiled rule set the only write left is the `jets:exception` a
+failed truth test raises (the compiler refuses graph-writing operators in filters). The write's
+callbacks re-enter the session at once, while a scan is still building candidates. Candidates were
+then kept from parent rows that no longer existed, or with filters no longer true, and never
+withdrawn, so the result depended on the order the triples arrived in.
+
+The first fix (#2332, #2330) dropped a candidate whose *own* filter's write removed its support. The
+review found that check too narrow in three ways, all closed by #2334 and #2335:
+1. **A later candidate of a re-entered scan.** An earlier candidate's write removes a later
+   candidate's parent row, or the absence a negation tests, just as surely, and the later candidate's
+   own filter may write nothing new. In C++ a frozen pending scan could also see the removed row
+   twice.
+2. **A relation's first scan.** A candidate kept before the write is already inserted into a relation
+   no callback reaches yet. The removal's nested visit walks the parent's remaining rows, not the
+   removed one, and the filter replay does not run.
+3. **A filter whose answer flips.** For example, `exist_not` of the `jets:exception` that it, or a
+   later candidate, raises: its answer is out of date as soon as it is given.
+
+C++ also did not count a callback it ignored for a relation not yet activated. Go counts it before
+its activation check, and C++ now does too (`count_ignored_reentry`).
+
+Both engines now do the same three things:
+- **A relation's first scan, at a vertex with a filter, holds its candidates.** If the session was
+  re-entered during the scan, it drops them and scans again from the parent's rows as they are now,
+  then inserts them. The hold is limited to *filtered* first scans: an unfiltered scan writes
+  nothing, so it cannot be re-entered, and keeps its single insert.
+- **An activated relation inserts each candidate at once.** It first re-evaluates a filter whose
+  evaluation re-entered, then re-checks the parent row and triple once the re-entry count has moved
+  (Go `stillHolds`, C++ `candidate_still_supported`). A later re-entry still reaches the row: the
+  parent row's removal withdraws it, and a graph-reading filter has `TripleUpdatedForFilter` replay
+  the relation. Holding here would let the replay rebuild the relation without the held rows.
+- **Both retries stop at 16** and raise an error.
+
+Without a re-entry the cost is one comparison per scan and per kept candidate. A filtered first scan
+also holds its rows. C++'s `BetaRelation::holds` asks for the same row instance, where Go compares
+rows by equality. The engines still converge, because a re-inserted equal row's own pending visit
+makes the same candidate.
+
+Tests: `CandidateRowReentryTest` (C++, `jets/rete/rete_session_test.cc`) and `TestRegression_I91_*` in `defects_rbm_i91_test.go` (Go).
+End to end, the `jets_ws` rule `[(jets:iState exist_not jets:exception) and ((not ?v) != 1)]` runs
+on both engines through the rules unit-test harness (`compare_engines`). It fails on both before
+these fixes and passes on both after them.
+
+### Removing a row from an index removes only that row (I-85; C++ #2332)
+
+When a row left a C++ beta relation, `AQVRemoveIndexBetaRowsVisitor` erased its index entries with
+`erase(key)`, which removed **every** row under the key. The rows sharing the key stayed in the
+relation but could no longer be joined, so a triple arriving later found nothing to join them to.
+The Go engine removed the row alone.
+
+`BetaRowIndex::erase(key, row)` (`jets/rete/beta_row_iterator.h`) now removes that row. The others keep their order (newest first),
+and the key goes with its last row. A removal searches the rows under its key; on the benchmark's
+workloads that is about one row, and three at most.
+
+### `Retract` deletes, and an erase tells the rete (I-6, I-25, I-103; C++ #2333, both adaptors #2336)
+
+**The adaptors' `Retract` deletes an asserted fact**, however many times it was inserted, and the
+rete withdraws what depended on it at the next `ExecuteRules` (`Q-63`).
+- **Go** calls `RdfSession.Erase`. It called `RdfSession.Retract`, the inferred-only, one-support
+  retraction the rete uses for consequents, which never removed an asserted triple.
+- **C++** calls the session's erase. That erase removed the triple and told nothing: the notice was
+  dropped in 2022 (`2507bf7c`).
+- **`RDFGraph::erase` now sends `triple_deleted`** for each triple it removes, as Go's `Erase` does.
+  That reaches `RDFSession::erase`, the bridge's `erase` and the native adaptor's `Retract`.
+- The engines' own retraction, the session `retract` / `RdfSession.Retract`, is unchanged.
+
+**One erase stays silent, deliberately (I-103):** `RDFSession::insert`'s move of an inferred copy to
+the asserted graph (`erase_without_notice`). The triple never leaves the session, so a notice would
+only retract and rebuild rows. Production's one other erase, the pool worker clearing `jets:loop`
+and `jets:completed` at a rule set's start (`jetrules_pool_worker.go`), runs before the new rete
+session has rows, so its notice changes nothing.
+
+### Still different, recorded
+
+Recorded, not changed. Each is an issue in `rules_benchmark`'s registers.
+
+- **A date against a datetime.** C++'s `EqVisitor` can call a date equal to a datetime (the date as
+  its midnight). Go never does.
+- **`numeric_cast` throws.** C++ mixed-integer arithmetic converts the right operand to the left's
+  type with `boost::numeric_cast`, which throws out of range (int32 + a large int64, uint32 + -1).
+  Go returns no result.
+- **`INT_MIN / -1`** traps in C++'s `DivVisitor`, for int32 and int64, and through `numeric_cast`
+  in the mixed integer cases (I-126). Go gives the minimum int.
+- **28 near-power-of-ten double pairs.** Go reproduces glibc's `log10` and `pow`, and agrees with the
+  compiled C++ comparison on 600,017 of 600,045 tested pairs. The 28 others lie within a few ulps of
+  a power of ten, where glibc's `log` and Go's `math.Log` round differently. The Go port mirrors
+  x86-64 glibc 2.39; another glibc, or an aarch64 build that fuses into an FMA, may differ again.
+- **A negation's free variable (I-115).** Deleting one of several triples that match a negated
+  antecedent with a free variable re-satisfies the negation, in both engines, although another
+  still matches. With `not(?s blocked ?b)` and both `(s blocked b1)` and `(s blocked b2)`,
+  retracting `(s blocked b1)` infers the consequent; asserting `(s blocked b2)` alone does not. It is
+  an order dependence. Since I-91, a row inserted this way after a re-entry is rejected. The fix
+  would change what both engines infer, so it waits for its own change.
+- **`ClearPendingRows` during the filter replay (I-106).** A nested visit clears a child's pending
+  rows during `TripleUpdatedForFilter`'s replay, so rows the replay inserted and has not yet passed
+  on cannot reach that child's children. It predates Phase 4 and is read, not run, on Go; C++'s
+  `rete_session.cc` reads as having the same shape, also not run.
+- **Text plus a named resource.** Go concatenates the name; C++ has no such case and throws (or
+  gives null in a filter).
+- **`join_values` over a blank node** writes `BN<k>` on Go and `bn(<k>)` on C++.
+- **Regex dialects.** Go's `literal_regex` compiles RE2 and C++'s ECMAScript, so a lookahead or a
+  backreference compiles on C++ and panics on Go.
+- **`lookup` and `multi_lookup` on one table and key share a subject and a cache triple (I-105)**, on
+  both engines now. Whichever runs first in a session decides what the other returns. None of the
+  four workspaces calls both on one table (counted 2026-10-22).
+
 ## Every rule fires at the salience it declares — 2026-10-11
 
 **A vertex has one salience, and rules with the same antecedents used to share their last vertex.**
@@ -220,7 +461,9 @@ Whether pipelines should run with them fixed is a decision this entry does not m
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notifies no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` does —
 so erasing an asserted triple drives truth maintenance in Go and not in C++, which is why the cycle
-tests drive retraction with `insert_inferred` and `retract` instead. ~~And Go `RdfGraph.Retract`
+tests drive retraction with `insert_inferred` and `retract` instead. **Settled 2026-10-22
+(rules_benchmark I-6, I-103; jetstore#2333):** C++'s erase now tells the rete, as Go's does; only
+`RDFSession::insert`'s move of an inferred copy stays silent. See the Phase 4 entry above. ~~And Go `RdfGraph.Retract`
 erases the triple from its `pos` and `osp` indexes even when the `spo` reference count is still
 above zero, so a triple with two supports that loses one should stay `Contains`-true and stop
 being found by predicate or object, read from the code, not measured.~~ **Fixed 2026-10-21
@@ -280,7 +523,9 @@ through `register_callbacks_for_aggregate` (`jets/rete/expr_op_arithmetics.h`), 
 fallback for every operator that accepts the form. `SumValuesRecomputesOnDirectMultiValuedProperty`
 in `jets/rete/expr_op_specialty_test.cc` fails without it.
 
-**3. A double *literal* is quantised to 15 bits of mantissa by the Go engine and not by the C++ one.**
+**3. ~~A double *literal* is quantised to 15 bits of mantissa by the Go engine and not by the C++ one.~~
+SETTLED 2026-10-22 (rules_benchmark I-40, jetstore#2331): `NewDoubleLiteral` stores the double given,
+on both engines; see the Phase 4 entry above.** As it was:
 `ResourceManager.NewDoubleLiteral` (`jets/jetrules/rdf/resource_manager.go:287`) does
 `big.NewFloat(x).SetPrec(15).Float64()` — 15 **bits**, not digits — so `0.891089` is stored as
 `0.891082763671875`. Computed doubles do not take that path (`rdf.F`, `jets/jetrules/rdf/ast.go:367`,
@@ -325,7 +570,11 @@ production number.
 `jets/rete/expr_op_specialty_test.cc` are deliberately the same cases in the same order, and the
 rendering test in the Go file exists only to pin agreement with the C++ `JoinTextVisitor`.
 `Node.String()` is **not** that rendering: it formats an `LDate` with `%v` on the struct
-(`{2025-06-15 00:00:00 +0000 UTC}`), where C++ emits ISO-8601.
+(`{2025-06-15 00:00:00 +0000 UTC}`), where C++ emits ISO-8601. **Since 2026-10-22 (rules_benchmark
+I-16, I-32; jetstore#2331, #2333)** every operator that writes a value into text, `join_values`
+included, shares one rendering on both engines (`rdf.TextOf` in Go), and a double in `join_values`
+is no longer `%g` with six digits but the shortest round-trip digits. `Node.String()` is still not
+that rendering. See the Phase 4 entry above.
 
 **And write a rule as well as a pair of unit tests, because a visitor test cannot see the name.**
 `join_values` shipped with matched unit tests on both engines and no `.jr` file anywhere used it, so
@@ -372,7 +621,7 @@ than joining them:
 
 | Name | | |
 |---|---|---|
-| `apply_regex` | binary | Go only, an alias for `literal_regex`; C++ has `literal_regex` alone |
+| `apply_regex` | binary | Go only, an alias for `literal_regex`; C++ has `literal_regex` alone. Since 2026-10-22 (rules_benchmark I-12, jetstore#2331) both names mean what C++'s does: capture group 1, or null |
 | `min_head_of`, `max_head_of` | binary | Go only, `NewMinMaxOp(_, true)`; C++ has no head form |
 | `to_date`, `to_datetime` | unary | Go only; C++ has `to_timestamp` and neither of these |
 | `raise_exception` | unary | C++ only, `RaiseExceptionVisitor`; the Go engine has no counterpart |
