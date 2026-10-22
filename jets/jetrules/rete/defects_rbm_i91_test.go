@@ -15,11 +15,13 @@ package rete
 //
 //	v1  (?s inGroup ?g)
 //	v2  not(jets:iState jets:exception ?e)
-//	v3  (?g q ?v).[not(?v and true)]  ->  (?s outP ?v)
+//	v3  (?g q ?v).[not(?v) != 1]  ->  (?s outP ?v)
 //
-// ?v is the text "maybe", which is not a bool: `?v and true` raises a
-// jets:exception and is null, and not(null) is true, so the filter keeps the
-// candidate after its own write has removed P from v2.
+// ?v is the text "maybe", which is not a bool: not(?v) raises a jets:exception
+// and is null, and null != 1 is true, so the filter keeps the candidate after
+// its own write has removed P from v2. The expression is the one both engines
+// raise on: C++'s `and` does not raise on text (AndVisitor, expr_op_logics.h),
+// its `not` does (NotVisitor, :546).
 
 import (
 	"fmt"
@@ -47,8 +49,8 @@ func newI91Net(t *testing.T) *i91Net {
 	n.inGroup, n.q, n.outP = rm.NewResource("inGroup"), rm.NewResource("q"), rm.NewResource("outP")
 	n.s, n.g = rm.NewResource("s"), rm.NewResource("g")
 
-	filter := NewExprUnaryOp(NewNotOp(),
-		NewExprBinaryOp(NewExprBindedVar(2, "?v"), NewAndOp(), NewExprCst(rdf.B(true))))
+	filter := NewExprBinaryOp(NewExprUnaryOp(NewNotOp(), NewExprBindedVar(2, "?v")),
+		NewNeOp(), NewExprCst(rm.NewIntLiteral(1)))
 	head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
 	nv1 := NewNodeVertex(1, head, false, 100, nil, "v1", []string{"r1"},
 		NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?s", "?g"}))
