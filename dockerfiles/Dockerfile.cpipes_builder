@@ -60,7 +60,9 @@ RUN go mod download
 WORKDIR ${JETS_BUILD_DIR}
 ENV LD_LIBRARY_PATH=/usr/local/lib64
 
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
+# Link-time optimisation of libjets.so (jets/CMakeLists.txt, JETS_LTO; off by
+# default there). Measured on the rules benchmark (Phase 3, C5).
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_LTO=ON -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
 RUN make clean 
 RUN make objlib jets_static jets -j8
 
