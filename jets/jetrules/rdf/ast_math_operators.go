@@ -78,6 +78,10 @@ func (lhs *Node) ADD(rhs *Node) *Node {
 			return S(fmt.Sprintf("%v%v", lhsv, rhsv))
 		case float64:
 			return S(fmt.Sprintf("%v%v", lhsv, rhsv))
+		case LDate, LDatetime, RdfNull:
+			// As C++ writes them: YYYY-MM-DD, the ISO datetime, "null"
+			// (rules_benchmark I-32).
+			return S(lhsv + TextOf(rhs))
 		default:
 			return S(fmt.Sprintf("%v%v", lhs, rhs))
 		}

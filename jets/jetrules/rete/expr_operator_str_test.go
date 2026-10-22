@@ -82,3 +82,24 @@ func TestSubstring3(t *testing.T) {
 		t.Error("operator failed")
 	}
 }
+
+// rules_benchmark I-32: to_text writes a date, a datetime and a null as C++'s
+// ToTextVisitor does.
+func TestToTextDateIsIso(t *testing.T) {
+	op := NewToTextOp()
+	cases := []struct {
+		rhs  *rdf.Node
+		want string
+	}{
+		{rdf.DD("2025-06-05"), "2025-06-05"},
+		{rdf.DDT("2025-06-05T13:04:05"), "2025-06-05T13:04:05"},
+		{rdf.Null(), "null"},
+		{rdf.I(42), "42"},
+		{rdf.S("text"), "text"},
+	}
+	for _, c := range cases {
+		if got := op.Eval(nil, nil, c.rhs); got == nil || got.Value != c.want {
+			t.Errorf("to_text(%v) = %v, want %q", c.rhs.Value, got, c.want)
+		}
+	}
+}

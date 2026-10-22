@@ -272,6 +272,8 @@ func TestJoinValuesRendering(t *testing.T) {
 	}{
 		{rm.NewDateLiteral(ld), "2025-06-15"},
 		{rm.NewDatetimeLiteral(ldt), "2025-06-15T08:30:00"},
+		// boost writes a non-zero fraction with six digits (rules_benchmark I-32)
+		{rdf.DDT("2025-06-15T08:30:00.5"), "2025-06-15T08:30:00.500000"},
 		{rm.NewIntLiteral(42), "42"},
 		{rm.NewDoubleLiteral(1.5), "1.5"},
 		// NOTE rdf.F rather than rm.NewDoubleLiteral: the Go engine quantises a double
