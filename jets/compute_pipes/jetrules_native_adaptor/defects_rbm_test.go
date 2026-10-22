@@ -193,17 +193,15 @@ func describe(n compute_pipes.RdfNode) string {
 	}
 }
 
-// TestDefect_I12_LiteralRegexEngines reproduces rules_benchmark I-12 (F53) through a
-// compiled rule: literal_regex returns capture group 1, or null on no match, on C++
-// (RegexVisitor, jets/rete/expr_op_strings.h:30), and the whole match, or an empty
-// string on no match, on Go (ApplyRegexOp.Eval,
-// jets/jetrules/rete/expr_operator_str_apply_regex.go:33).
+// TestDefect_I12_LiteralRegexEngines holds rules_benchmark I-12 (F53) fixed
+// through a compiled rule: literal_regex returns capture group 1, or null on no
+// match, on both engines, C++'s meaning (RegexVisitor, jets/rete/expr_op_strings.h;
+// Q-11). Until Phase 4 the Go engine (ApplyRegexOp.Eval,
+// jets/jetrules/rete/expr_operator_str_apply_regex.go) returned the whole match,
+// or an empty string on no match.
 //
 // Inputs: the zip-code rule's "^(\d\d\d)" on "12345" and "N/A", and the name splitters' ",\s+(\w+)"
 // and "(.*?)," on "DOE, JOHN".
-//
-// Correct behaviour, as Q-11 decided for Phase 4: C++'s on both engines, so the Go
-// column below becomes the native one.
 func TestDefect_I12_LiteralRegexEngines(t *testing.T) {
 	if os.Getenv(engineModeChildEnv) == "" {
 		runInCompiledTestWs(t)
@@ -247,16 +245,13 @@ func TestDefect_I12_LiteralRegexEngines(t *testing.T) {
 		rete.Release()
 		ses.Release()
 	}
-	today := map[string][]string{
-		"native": {"123", "<absent>", "JOHN", "DOE"},
-		"go":     {"123", "", ", JOHN", "DOE,"},
-	}
+	want := []string{"123", "<absent>", "JOHN", "DOE"}
 	for i, p := range probes {
 		t.Logf("I-12: %q literal_regex -> %s: native %q, go %q", p.in, p.outProp, got["native"][i], got["go"][i])
 	}
 	for _, name := range []string{"native", "go"} {
-		if !slices.Equal(got[name], today[name]) {
-			t.Errorf("%s: %q, want %q while I-12 is open", name, got[name], today[name])
+		if !slices.Equal(got[name], want) {
+			t.Errorf("%s: %q, want %q, C++'s meaning on both engines (I-12)", name, got[name], want)
 		}
 	}
 }
