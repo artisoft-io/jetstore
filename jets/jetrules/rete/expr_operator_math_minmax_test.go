@@ -234,7 +234,8 @@ func TestTieEqual(t *testing.T) {
 		{rdf.I(5), rdf.F(5.5), false},
 		{rdf.F(math.NaN()), rdf.F(math.NaN()), false},
 		{rdf.F(math.Inf(1)), rdf.F(math.Inf(1)), false},
-		{rdf.F(0.3), rdf.F(0.30000000000000004), true}, // EQ's tolerance
+		{rdf.F(0.3), rdf.F(0.30000000000000004), true}, // equal to 15 digits
+		{rdf.I(5), rdf.UI(5), true},
 		{rdf.S("a"), rdf.S("a"), true},
 		{rdf.S("5"), rdf.I(5), false},
 		{rdf.DD("2025-01-01"), rdf.DD("2025-01-01"), true},

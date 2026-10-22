@@ -3,7 +3,6 @@ package rete
 import (
 	"cmp"
 	"log"
-	"math"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -138,20 +137,11 @@ func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 }
 
 // tieEqual is the test that makes two values a tie for compareObjects: the
-// engine's own equality, the EQ operator, as on C++ (EqVisitor), with a NaN or
-// an infinity never equal, as C++'s is_eq has it. Go's EQ would call a NaN
-// literal equal to itself, since the two are one node. Values EQ does not
-// compare are not a tie.
+// engine's own equality, the EQ operator, as C++ uses its EqVisitor. Since
+// rules_benchmark Q-68 the two agree on numbers, and a NaN or an infinity is
+// never equal. Values EQ does not compare are not a tie.
 func tieEqual(a, b *rdf.Node) bool {
-	if a == nil || b == nil || notFinite(a) || notFinite(b) {
-		return false
-	}
-	return a.EQ(b).Bool()
-}
-
-func notFinite(v *rdf.Node) bool {
-	f, ok := v.Value.(float64)
-	return ok && (math.IsNaN(f) || math.IsInf(f, 0))
+	return a != nil && b != nil && a.EQ(b).Bool()
 }
 
 // compareObjects is the total order that breaks a tie between two candidates of
