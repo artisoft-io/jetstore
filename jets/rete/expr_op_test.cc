@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <iostream>
@@ -996,6 +997,28 @@ TEST(Comparisons, TheSharedTable) {
     got += t(boost::apply_visitor(GeVisitor(nullptr, nullptr), c.lhs, c.rhs));
     EXPECT_EQ(got, c.expected) << c.lhs << " vs " << c.rhs;
   }
+}
+
+// Q-69: division by zero. An integer divided by an integer zero is null; it raised
+// SIGFPE until 2026-10, which killed the process. A division that involves a double
+// follows IEEE: +inf, -inf, and NaN for 0/0. The table shared with the Go engine's
+// DivisionByZeroCases (jets/jetrules/rdf/ast_math_operators_test.go), seven rows, then two
+// mixed integer types and one nonzero division.
+TEST(ArithmeticTypes, DivisionByZero) {
+  DivVisitor div(nullptr, nullptr);
+  auto q = [&](RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(div, a, b); };
+  EXPECT_EQ(q(rdf::LInt32(5), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LUInt32(5), rdf::LUInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt32(0), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  double const inf = std::numeric_limits<double>::infinity();
+  EXPECT_EQ(q(rdf::LDouble(5.0), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(inf)));
+  EXPECT_EQ(q(rdf::LDouble(-5.0), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(-inf)));
+  EXPECT_TRUE(std::isnan(boost::get<rdf::LDouble>(q(rdf::LDouble(0.0), rdf::LDouble(0.0))).data));
+  EXPECT_EQ(q(rdf::LInt32(5), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(inf)));
+  EXPECT_EQ(q(rdf::LInt64(7), rdf::LUInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LUInt64(7), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  // and an integer divided by a nonzero integer is still integer division
+  EXPECT_EQ(q(rdf::LInt32(7), rdf::LInt32(2)), RDFTTYPE(rdf::LInt32(3)));
 }
 
 }   // namespace
