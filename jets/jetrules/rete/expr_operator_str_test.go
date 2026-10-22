@@ -84,7 +84,7 @@ func TestSubstring3(t *testing.T) {
 }
 
 // rules_benchmark I-32: to_text writes a date, a datetime and a null as C++'s
-// ToTextVisitor does.
+// ToTextVisitor does; and I-16: a double as both engines now write one.
 func TestToTextDateIsIso(t *testing.T) {
 	op := NewToTextOp()
 	cases := []struct {
@@ -96,6 +96,10 @@ func TestToTextDateIsIso(t *testing.T) {
 		{rdf.Null(), "null"},
 		{rdf.I(42), "42"},
 		{rdf.S("text"), "text"},
+		// rules_benchmark I-16: the shortest digits, no exponent
+		{rdf.F(991), "991"},
+		{rdf.F(1234567.5), "1234567.5"},
+		{rdf.F(0.00001), "0.00001"},
 	}
 	for _, c := range cases {
 		if got := op.Eval(nil, nil, c.rhs); got == nil || got.Value != c.want {

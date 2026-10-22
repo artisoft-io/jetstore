@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -143,9 +142,10 @@ func renderJoinValue(v *rdf.Node) string {
 		}
 		return rdf.TextOf(v)
 	case float64:
-		// std::ostream default formatting is %g with 6 significant digits, which is
-		// what the C++ side emits for a double.
-		return strconv.FormatFloat(vv, 'g', 6, 64)
+		// The shortest digits, no exponent, as every operator writes a double into
+		// text on both engines (rules_benchmark I-16, Q-60). It used to be the C++
+		// ostream default, %g with 6 significant digits.
+		return rdf.FormatDouble(vv)
 	default:
 		return v.String()
 	}

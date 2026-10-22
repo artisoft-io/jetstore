@@ -276,11 +276,10 @@ func TestJoinValuesRendering(t *testing.T) {
 		{rdf.DDT("2025-06-15T08:30:00.5"), "2025-06-15T08:30:00.500000"},
 		{rm.NewIntLiteral(42), "42"},
 		{rm.NewDoubleLiteral(1.5), "1.5"},
-		// NOTE rdf.F rather than rm.NewDoubleLiteral: the Go engine quantises a double
-		// *literal* to 15 bits of mantissa (NewDoubleLiteral, resource_manager.go), so
-		// 0.891089 is stored as 0.891082763671875 and no rendering can agree with the
-		// C++ engine for it. Computed doubles do not go through that path.
-		{rdf.F(0.891089), "0.891089"},
+		// A literal is the double given since rules_benchmark I-40, and a double is
+		// written with the shortest digits and no exponent since I-16.
+		{rm.NewDoubleLiteral(0.891089), "0.891089"},
+		{rm.NewDoubleLiteral(1234567.5), "1234567.5"},
 		{rm.NewTextLiteral("lisinopril"), "lisinopril"},
 		{rm.NewResource("support1"), "support1"},
 	}
