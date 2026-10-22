@@ -147,13 +147,10 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						if err != nil {
 							return fmt.Errorf("while initializing BetaRow with NilTriple: %v", err)
 						}
-						// evaluate the current_relation filter if any
-						keepIt := true
-						if childAlphaNode.NdVertex.HasExpression() {
-							keepIt = childBetaRow.NdVertex.FilterExpr.EvalFilter(rs, childBetaRow)
-						}
+						// evaluate the current_relation filter if any, checking a row to
+						// insert again if the filter re-entered the rete (I-91)
 						// insert or remove the row from current_relation based on is_inferring
-						if keepIt {
+						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
 							if isInferring {
 								// Add row to child beta relation
 								childBetaRelation.InsertBetaRow(rs, childBetaRow)
@@ -174,13 +171,10 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and t3
 						childBetaRow.Initialize(betaRowInitializer, parentBetaRow, &t3)
-						// evaluate the current_relation filter if any
-						keepIt := true
-						if childAlphaNode.NdVertex.HasExpression() {
-							keepIt = childBetaRow.NdVertex.FilterExpr.EvalFilter(rs, childBetaRow)
-						}
+						// evaluate the current_relation filter if any, checking a row to
+						// insert again if the filter re-entered the rete (I-91)
 						// insert or remove the row from current_relation based on is_inferring
-						if keepIt {
+						if rs.keepCandidate(childAlphaNode, childBetaRow, parentBetaRelation, parentBetaRow, &t3, isInferring) {
 							if isInferring {
 								// Add child beta row to child beta relation
 								childBetaRelation.InsertBetaRow(rs, childBetaRow)
