@@ -226,10 +226,11 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 // relation is activated: the parent row's removal withdraws it, and a filter that
 // reads the graph has TripleUpdatedForFilter replay the relation. A relation's
 // first scan is reached by neither, so VisitReteGraph holds its candidates until
-// the scan ends and scans again if it was re-entered (holdCandidate,
+// the scan ends and scans again if it was re-entered (scanCandidate,
 // insertHeldCandidates). A candidate to be removed needs no check: removing a row
 // that is not there does nothing. Without a re-entry, the cost is one comparison
-// per candidate.
+// per candidate, and in the first scan of a vertex with a filter one append per
+// kept candidate; a first scan that is re-entered runs at least twice.
 
 // maxReentryRetries bounds how many times in a row a filter is evaluated again, or
 // a first scan made again, because the session was re-entered meanwhile. Each

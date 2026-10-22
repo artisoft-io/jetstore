@@ -66,7 +66,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 	}
 	stack := rs.visitStack
 	base := stack.Len()
-	// The candidates a scan holds are the session's too (holdCandidate), released
+	// The candidates a scan holds are the session's too (heldCandidates), released
 	// when the scan ends, and here when the visit ends early or panics.
 	heldBase := len(rs.heldCandidates)
 	defer func() {
@@ -134,8 +134,10 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 			// already. A relation's first scan is not reached by a re-entry, since the
 			// relation is not activated yet, so it holds its candidates until the scan
 			// ends, and scans again from the parent's rows as they are now if the
-			// session was re-entered meanwhile (holdCandidate, insertHeldCandidates).
-			holding := isInferring && !childBetaRelation.IsActivated
+			// session was re-entered meanwhile (scanCandidate, heldCandidates,
+			// insertHeldCandidates). Only a filter can re-enter, so a vertex without
+			// one inserts at once.
+			holding := isInferring && !childBetaRelation.IsActivated && childAlphaNode.NdVertex.HasExpression()
 			heldBase := len(rs.heldCandidates)
 			betaRowInitializer := childAlphaNode.NdVertex.RowInitializer
 			for rescans := 0; ; rescans++ {

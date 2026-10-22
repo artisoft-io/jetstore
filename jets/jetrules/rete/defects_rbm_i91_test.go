@@ -698,3 +698,114 @@ func TestRegression_I91_NegatedTripleDeletedAndRaisedAgainInfersNothing(t *testi
 		}
 	}
 }
+
+// writeFreshOp is a test filter operator that writes a new triple each time it is
+// evaluated, (fresh_<n> flag 1), which a vertex's antecedent matches, so that
+// every evaluation re-enters the session. It returns true.
+type writeFreshOp struct {
+	n         int
+	flag, one *rdf.Node
+}
+
+func (op *writeFreshOp) InitializeOperator(*rdf.RdfGraph, *rdf.Node) error   { return nil }
+func (op *writeFreshOp) RegisterCallback(*ReteSession, int, *rdf.Node) error { return nil }
+func (op *writeFreshOp) Eval(rs *ReteSession, _ *BetaRow, _ *rdf.Node) *rdf.Node {
+	op.n++
+	rmgr := rs.RdfSession.ResourceMgr
+	rs.RdfSession.Insert(rmgr.NewResource(fmt.Sprintf("fresh_%d", op.n)), op.flag, op.one)
+	return rdf.B(true)
+}
+
+// A filter that re-enters the session at every evaluation makes the retries
+// endless; they are bounded (maxReentryRetries) and the session fails loudly, on
+// the first scan (the scan made again: ExecuteRules returns the error) and on a
+// scan of the activated relation (the filter evaluated again: a panic, recovered
+// by ExecuteRules, or by nothing when the scan is started by an insert made
+// outside it), rather than hanging or inferring anything.
+//
+//	v1  (?s inGroup ?g)
+//	v2  (?g q ?v).[writeFresh(?v)]  ->  (?s outP ?v)
+//	v3  (?x flag ?y), whose callback the filter's writes reach
+func TestRegression_I91_ReentryRetriesAreBounded(t *testing.T) {
+	for _, activated := range []bool{false, true} {
+		name := "first visit"
+		if activated {
+			name = "activated relation"
+		}
+		t.Run(name, func(t *testing.T) {
+			rm := rdf.NewResourceManager(nil)
+			metaGraph := rdf.NewMetaRdfGraph(rm)
+			inGroup, q, outP, flag := rm.NewResource("inGroup"), rm.NewResource("q"), rm.NewResource("outP"), rm.NewResource("flag")
+			op := &writeFreshOp{flag: flag, one: rm.NewIntLiteral(1)}
+			filter := NewExprUnaryOp(op, NewExprBindedVar(2, "?v"))
+			head := NewNodeVertex(0, nil, false, 100, nil, "head", nil, nil)
+			nv1 := NewNodeVertex(1, head, false, 100, nil, "v1", []string{"r1"},
+				NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?s", "?g"}))
+			nv2 := NewNodeVertex(2, nv1, false, 100, filter, "v2", []string{"r1"},
+				NewBetaRowInitializer([]int{brcParentNode | 0, brcParentNode | 1, brcTriple | 2}, []string{"?s", "?g", "?v"}))
+			nv3 := NewNodeVertex(3, head, false, 100, nil, "v3", []string{"r2"},
+				NewBetaRowInitializer([]int{brcTriple | 0, brcTriple | 2}, []string{"?x", "?y"}))
+			alphaNodes := []*AlphaNode{
+				NewRootAlphaNode(head),
+				NewAlphaNode(&FVariable{variable: "?s"}, &FConstant{node: inGroup}, &FVariable{variable: "?g"}, nv1, true, "(?s inGroup ?g)"),
+				NewAlphaNode(&FBinded{pos: 1}, &FConstant{node: q}, &FVariable{variable: "?v"}, nv2, true, "(?g q ?v)"),
+				NewAlphaNode(&FVariable{variable: "?x"}, &FConstant{node: flag}, &FVariable{variable: "?y"}, nv3, true, "(?x flag ?y)"),
+				NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: outP}, &FBinded{pos: 2}, nv2, false, "(?s outP ?v)"),
+			}
+			for _, an := range alphaNodes {
+				switch {
+				case an.IsAntecedent:
+					an.NdVertex.ParentNodeVertex.AddChildAlphaNode(an)
+				case an.IsConsequent:
+					an.NdVertex.AddConsequentTerm(an, LegacyRetraction)
+				}
+			}
+			config := map[string]string{"$max_rule_exec": "1000"}
+			ms, err := NewReteMetaStore(rm, metaGraph, nil, alphaNodes, []*NodeVertex{head, nv1, nv2, nv3}, &config, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sess := rdf.NewRdfSession(rm, metaGraph)
+			rs := NewReteSession(sess)
+			rs.Initialize(ms)
+			defer rs.Done()
+			srm := sess.ResourceMgr
+			s, g := srm.NewResource("s"), srm.NewResource("g")
+			if !activated {
+				sess.Insert(s, inGroup, g)
+			}
+			sess.Insert(g, q, srm.NewIntLiteral(1))
+			err = rs.ExecuteRules()
+			if activated {
+				if err != nil {
+					t.Fatalf("the first ExecuteRules, with no candidate yet: %v", err)
+				}
+				// The insert reaches the activated relation at once, through
+				// TripleUpdated, outside ExecuteRules, so the failure is a panic of
+				// the insert, as for any failure in TripleUpdated.
+				err = func() (err error) {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("%v", r)
+						}
+					}()
+					sess.Insert(s, inGroup, g)
+					return rs.ExecuteRules()
+				}()
+			}
+			want := "re-entered"
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("ExecuteRules: %v, want an error saying the filter %s the session", err, want)
+			}
+			if sess.Contains(s, outP, srm.NewIntLiteral(1)) {
+				t.Errorf("(s outP 1) inferred although the retries failed")
+			}
+			if op.n < maxReentryRetries+1 {
+				t.Errorf("the filter was evaluated %d times, fewer than the bound allows", op.n)
+			}
+			if len(rs.heldCandidates) != 0 {
+				t.Errorf("%d candidates still held after the failure", len(rs.heldCandidates))
+			}
+		})
+	}
+}
