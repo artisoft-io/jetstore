@@ -45,7 +45,7 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20260107.1/a
     && tar xf "abseil-cpp-20260107.1.tar.gz"  \
     && cd "abseil-cpp-20260107.1"  \
     && mkdir build && cd build \
-    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
     && make clean 
@@ -55,7 +55,7 @@ RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
     && tar xf "v0.6.0.tar.gz"  \
     && cd "glog-0.6.0/"  \
     && mkdir build && cd build \
-    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
     && make clean 
