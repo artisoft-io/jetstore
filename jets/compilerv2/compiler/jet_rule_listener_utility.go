@@ -334,8 +334,8 @@ func StripQuotes(s string) string {
 }
 
 // checkBoolLiteral refuses a bool literal outside the accepted spellings, at the
-// line it was written (I-45). Empty is null and is accepted. Both engines also
-// refuse such a literal at load; this is where the author hears of it.
+// line it was written (I-45). Empty is null and is accepted. The engine also
+// refuses such a literal at load; this is where the author hears of it.
 func (s *JetRuleListener) checkBoolLiteral(globalLine int, value string) bool {
 	if _, err := rdf.ParseBool(value); err != nil && !errors.Is(err, rdf.ErrNullBool) {
 		s.LogErrorAt(globalLine, fmt.Sprintf("bool literal: %v", err))

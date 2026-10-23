@@ -580,9 +580,9 @@ invisible to pipelines, which is why they lasted.
 **`RdfNode.Equals` was false for a node and itself, on both engines.** The Go adaptor
 compared `EQ`'s result with `rdf.TRUE()` by pointer, and `TRUE()` makes a new node on every
 call. The native adaptor compared `*bridge.Resource` wrappers, and every read (`GetObject`,
-an iterator's `GetSubject`) allocates a new one. **It is now node identity on both**: the Go
-`*rdf.Node`, and on C++ the engine's handle (`bridge.Resource.SameAs`). Both engines intern
-resources and literals, so identity is *same resource, or literal of the same type and
+an iterator's `GetSubject`) allocates a new one. **It became node identity on both**: the Go
+`*rdf.Node`, and on C++ the engine's handle (`bridge.Resource.SameAs`), which is what it is
+since the Go engine's retirement (October 2026). The C++ engine interns resources and literals, so identity is *same resource, or literal of the same type and
 value*, which is what `Contains` and `FindSPO` match on. **There is no coercion**: `int 2`,
 `uint 2` and `double 2` are three nodes, although the rules' `==` (`EQ`) says `int 2 ==
 double 2`.
@@ -607,10 +607,9 @@ session before asserting input; the harness met it at once. Now:
 - every C entry point that writes to the meta graph catches and returns `-3`
   (`guard_meta`, `jets/rete/jets_rete_cwrapper.cpp`), so a refusal is an error in Go.
 
-**What still holds on both engines: make the meta resources you need before the first RDF
-session.** `JetResources()` is created on first use through the meta graph, so
+**What still holds: make the meta resources you need before the first RDF session.** `JetResources()` is created on first use through the meta graph, so
 `RunRuleSets`' precondition stands; the consequence of breaking it went from an abort on
-C++ to a refused node on both, whose `Value()` is nil.
+C++ to a refused node, whose `Value()` is nil (on both engines, while there were two).
 
 ## The keys on a jetrules error row, 2026-10-13
 

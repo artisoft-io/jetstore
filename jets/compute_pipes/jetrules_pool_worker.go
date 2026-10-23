@@ -880,8 +880,9 @@ type PredicateKeyer interface {
 // up once per session rather than once per subject, and a triple is put in the
 // column whose predicate is the same node, by identity key: so a column's objects
 // are FindSP's. And they come in FindSP's order, which a multi-valued column
-// keeps: on both engines FindS and FindSP walk the same graphs in the same order
-// and, within a graph, the same container of a (subject, predicate)'s objects.
+// keeps: on the C++ engine, as on the retired Go one, FindS and FindSP walk the
+// same graphs in the same order and, within a graph, the same container of a
+// (subject, predicate)'s objects.
 //
 // When a predicate has no identity key, the reader falls back to one FindSP per
 // column, which is the extraction as it was.

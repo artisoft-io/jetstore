@@ -374,7 +374,7 @@ as `ReteSession.RaiseException`: a rule-time error is data in the session, not a
 
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
 against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
-`jets/rete/rete_session.cc:343`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
+`ReteSession::compute_consequent_triples`, `jets/rete/rete_session.cc:389`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
 by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13), where one rule's
 `create_entity` was keyed as a workaround, in that workspace's own repository.
 
@@ -387,13 +387,13 @@ by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13),
 
 At rule load a node vertex is flagged when one of its consequent terms mints a resource:
 `create_entity`, `create_uuid_resource`, `range`, `lookup_rand` or `multi_lookup_rand`. C++: the
-`MintsResource` marker on those visitors (`jets/rete/expr.h:135`) and `ExprBase::mints_resource`,
+`MintsResource` marker on those visitors (`jets/rete/expr.h:147`) and `ExprBase::mints_resource`,
 read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go had `expr_mints_resource.go` at `go-engine-final`
 and `AddConsequentTerm` (`node_vertex.go:77` at `go-engine-final`). A row of a flagged vertex records every triple its
 consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
-both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
+both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:351`,
 `rete_session.go:34` at `go-engine-final`) — and **retraction retracts that record and evaluates nothing**
-(`rete_session.cc:423`, `rete_session_exec_rules.go:270` at `go-engine-final`). The record is emptied rather than
+(`beta_row->is_recording()` in `compute_consequent_triples`, `rete_session.cc:469`; `rete_session_exec_rules.go:270` at `go-engine-final`). The record is emptied rather than
 released, because a withdrawn row stays in its relation (below) and is retracted again on later
 withdrawals; released, the second retraction fell back to recomputing `create_entity` and
 re-inserted `jets:key`. **A keyed entity's `jets:key` goes with its last support** — decided by
@@ -412,7 +412,7 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
    `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
    and the inferred one stays.
 2. **A withdrawn row never fires again.** After retracting a row's consequents the engine calls
-   `remove_beta_row` (`rete_session.cc:456`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305` at `go-engine-final`), which
+   `remove_beta_row` (`rete_session.cc:502`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305` at `go-engine-final`), which
    returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
    `kProcessed`, and an equal row arriving later is taken for one already inferred.
 
@@ -509,7 +509,7 @@ on them except `jets_ws`'s `looping_test1`, which pins them on purpose, and the 
 Whether pipelines should run with them fixed is a decision this entry does not make.
 
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notified no graph
-callback (`erase_internal`, `jets/rdf/rdf_graph.h:301`), where Go's `RdfGraph.erase_internal` did —
+callback (`erase_internal`, `jets/rdf/rdf_graph.h:302` today), where Go's `RdfGraph.erase_internal` did —
 so erasing an asserted triple drove truth maintenance in Go and not in C++, which is why the cycle
 tests drive retraction with `insert_inferred` and `retract` instead. **Settled 2026-10-22
 (rules_benchmark I-6, I-103; jetstore#2333):** C++'s erase now tells the rete, as Go's did; only
@@ -687,6 +687,6 @@ than joining them:
 | `raise_exception` | unary | C++ only, `RaiseExceptionVisitor`; the Go engine has no counterpart |
 
 **Read that as five ways to write a rule that runs on the Go engine and throws on the deployed one**,
-and one the other way round. `cpipes_native_server` is what ships (`Dockerfile.cpipes:46`) and its
+and one the other way round. `cpipes_native_server` is what ships (`Dockerfile.cpipes:46` on 2026-09-09; the `COPY` of `cpipes_native_server` is at `:73` today) and its
 default factory is `jetrules_native_adaptor`, so the Go-only column is the dangerous one — a rule
 using `to_date` passes every test a developer runs with `use_jet_rules_go` and fails in production.
