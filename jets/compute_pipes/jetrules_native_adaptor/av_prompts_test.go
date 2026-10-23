@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // Capture the evaluation population's prompts, so `AV` can benchmark a backend
 // without running a rule session per record (agentic_ai `AV.1`, `AV.2`).

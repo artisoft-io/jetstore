@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // Does an unresolvable code get flagged before the prose is written?
 //
@@ -13,16 +13,16 @@ package jetrules_go_adaptor
 // across 257 fills against a 182,280-row lookup. So the case that occurs in
 // production is the case that population excludes, and this file supplies it.
 //
-// Run as the sibling tests are run:
+// Run as the sibling tests are run, with the cgo environment of engine_mode_test.go:
 //
 //	WORKSPACES_HOME=<...>/workspaces WORKSPACE=jets_ws \
-//	  go test -count=1 ./jets/compute_pipes/jetrules_go_adaptor/
+//	  go test -count=1 ./jets/compute_pipes/jetrules_native_adaptor/
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // ndcNotInTheLookup is 11 digits of the right shape and is absent from
@@ -31,7 +31,7 @@ import (
 // refresh happens to add it.
 const ndcNotInTheLookup = "99999999999"
 
-func aFillWithAnUnresolvableNdc(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func aFillWithAnUnresolvableNdc(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	c := claims(t, s, rm)
 	c.medical("mc-1", "81", 2025, 8, 14, "B182")
@@ -39,7 +39,7 @@ func aFillWithAnUnresolvableNdc(t *testing.T, s *rdf.RdfSession, rm *rdf.Resourc
 	c.pharmacy("pc-x", ndcNotInTheLookup, 2025, 7, 20)
 }
 
-func briefingFlags(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) []string {
+func briefingFlags(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) []string {
 	t.Helper()
 	b := objectOfSomeBriefing(t, s, rm)
 	return values(s, rm, b, "cintel:Briefing_Data_Flags")

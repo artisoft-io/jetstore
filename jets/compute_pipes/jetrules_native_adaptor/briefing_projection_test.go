@@ -1,19 +1,19 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 import (
+	"os"
 	"testing"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
 // The end-to-end check for the briefing projection (agentic_ai AK.2), and it lives
 // here because this is where the real rdf session meets the real encoder.
 //
 // **Nothing between the entity and the guardrail is stubbed.** A projected
-// cintel:Briefing is asserted as triples into an rdf.RdfSession, serialised by
+// cintel:Briefing is asserted as triples into a C++ rdf session, serialised by
 // `EncodeColumnData` (`EncodeColumnData`,
 // `jets/compute_pipes/jetrules_extract_entity.go:13`) with the settings
 // `workspaces/jets_ws/pipes_config/patient_profile.pc.json` uses - toon,
@@ -25,20 +25,52 @@ import (
 //
 // What it does not exercise is the *rules* that build the projection. Those are
 // `workspaces/jets_ws/jet_rules/clinical_intel/briefing_projection.jr` and they
-// need a rete session over a compiled workspace, which is a deployment rather
-// than a test. What is verified about them is that they compile.
+// need a rete session over a compiled workspace; briefing_projection_completeness_test.go
+// beside this one runs them, over a compiled jets_ws.
+//
+// **On the C++ engine since the Go engine's retirement** (rules_benchmark Phase 6,
+// 2026-10-22). The Go engine's rdf session needed no workspace; the C++ one is made
+// by an engine, so each test runs in a child process over a compiled copy of
+// jets/jetrules/test_ws (runInCompiledTestWs, engine_mode_test.go), whose rules it
+// does not run: the session only holds the hand-built briefing. Needs the cgo
+// environment engine_mode_test.go names. Run it with -count=1.
 
-func newSession(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
+// inScratchTestWs runs the test in a child process over a compiled copy of
+// test_ws and reports true in the parent, which then has nothing left to do.
+func inScratchTestWs(t *testing.T) bool {
 	t.Helper()
-	// NewRdfSession makes its own child manager and locks the root, so the
-	// session's manager is the one a test may still add resources to.
-	s := rdf.NewRdfSession(rdf.NewResourceManager(nil), rdf.NewRdfGraph("meta"))
-	return s, s.ResourceMgr
+	if os.Getenv(engineModeChildEnv) == "" {
+		runInCompiledTestWs(t)
+		return true
+	}
+	return false
 }
 
-func insert(t *testing.T, s *rdf.RdfSession, subject, predicate string, object *rdf.Node, rm *rdf.ResourceManager) {
+// newSession is a C++ rdf session over the child's scratch test_ws. The session's
+// manager is the one a test may still add resources to: the meta graph is locked
+// once a session exists (rules_unit_test_harness I-15).
+func newSession(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	t.Helper()
-	if _, err := s.Insert(rm.NewResource(subject), rm.NewResource(predicate), object); err != nil {
+	if out, err := workspace.CompileWorkspace(nil, "test_ws", "ak2",
+		workspace.SkipAssetValidation("briefing projection test: test_ws has no user flows")); err != nil {
+		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
+	}
+	engine, err := NewJetRulesFactory().NewJetRuleEngine(nil, "jet_rules/test_join_values_main.jr", false)
+	if err != nil {
+		t.Fatalf("building the C++ engine: %v", err)
+	}
+	t.Cleanup(func() { engine.Release() })
+	s, err := engine.NewRdfSession()
+	if err != nil {
+		t.Fatalf("NewRdfSession: %v", err)
+	}
+	t.Cleanup(func() { s.Release() })
+	return s, s.GetResourceManager()
+}
+
+func insert(t *testing.T, s compute_pipes.JetRdfSession, subject, predicate string, object compute_pipes.RdfNode, rm compute_pipes.JetResourceManager) {
+	t.Helper()
+	if err := s.Insert(rm.NewResource(subject), rm.NewResource(predicate), object); err != nil {
 		t.Fatalf("insert (%s, %s): %v", subject, predicate, err)
 	}
 }
@@ -46,14 +78,11 @@ func insert(t *testing.T, s *rdf.RdfSession, subject, predicate string, object *
 // projectedBriefing asserts the shape briefing_projection.jr produces: one
 // cintel:Briefing with two medical events and one pharmacy event, and the member
 // id that the channel's exclude_properties keeps out of the prompt.
-func projectedBriefing(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
+func projectedBriefing(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	t.Helper()
 	s, rm := newSession(t)
-	ins := func(subj, pred string, obj *rdf.Node) { insert(t, s, subj, pred, obj, rm) }
-	date := func(y, m, d int) *rdf.Node {
-		v := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
-		return rm.NewDateLiteral(rdf.LDate{Date: &v})
-	}
+	ins := func(subj, pred string, obj compute_pipes.RdfNode) { insert(t, s, subj, pred, obj, rm) }
+	date := func(y, m, d int) compute_pipes.RdfNode { return rm.NewDateDetails(y, m, d) }
 
 	ins("briefing", "rdf:type", rm.NewResource("cintel:Briefing"))
 	ins("briefing", "jets:key", rm.NewTextLiteral("k-1"))
@@ -94,7 +123,7 @@ func projectedBriefing(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
 
 // encodeAsPipeline runs the real encoder with patient_profile.pc.json's settings
 // over this file's hand-built fixture, whose briefing node is named "briefing".
-func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, encoding string) string {
+func encodeAsPipeline(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, encoding string) string {
 	t.Helper()
 	return encodeBriefingEntity(t, s, rm.NewResource("briefing"), encoding)
 }
@@ -103,7 +132,7 @@ func encodeAsPipeline(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, 
 // briefing_projection_completeness_test.go - whose briefing is a uuid the rule
 // session minted - encodes through one copy of the exclusion list rather than a
 // second one that can drift from it.
-func encodeBriefingEntity(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, encoding string) string {
+func encodeBriefingEntity(t *testing.T, s compute_pipes.JetRdfSession, briefing compute_pipes.RdfNode, encoding string) string {
 	t.Helper()
 	ce := &compute_pipes.JrSpecialColumnEncoding{
 		Config: &compute_pipes.ColumnEncodingSpec{
@@ -119,7 +148,7 @@ func encodeBriefingEntity(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, e
 			"cintel:Briefing_Disclaimer":  true,
 		},
 	}
-	out := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: briefing})
+	out := ce.EncodeColumnData(s, briefing)
 	text, ok := out.(string)
 	if !ok {
 		t.Fatalf("EncodeColumnData returned %T: %v", out, out)
@@ -191,6 +220,9 @@ func schemaFor(t *testing.T) *briefing.Schema {
 }
 
 func TestProjectedEntityGroundsABriefing(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	for _, encoding := range []string{"toon", "json"} {
 		t.Run(encoding, func(t *testing.T) {
@@ -234,6 +266,9 @@ const shippedNotice = "Informational only. Prepared from claims data for a call-
 // I-439's second instance rather than its first, and the second is what turns
 // a one-property exception into the argument for an `include_properties`.
 func TestTheNoticeIsOnTheRecordAndNotInThePrompt(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	for _, encoding := range []string{"toon", "json"} {
 		entity := encodeAsPipeline(t, s, rm, encoding)
@@ -250,7 +285,7 @@ func TestTheNoticeIsOnTheRecordAndNotInThePrompt(t *testing.T) {
 		},
 		ExcludeProperties: map[string]bool{"jets:key": true, "rdf:type": true},
 	}
-	out, ok := ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: rm.NewResource("briefing")}).(string)
+	out, ok := ce.EncodeColumnData(s, rm.NewResource("briefing")).(string)
 	if !ok {
 		t.Fatal("EncodeColumnData did not return a string")
 	}
@@ -261,6 +296,9 @@ func TestTheNoticeIsOnTheRecordAndNotInThePrompt(t *testing.T) {
 }
 
 func TestExcludedMemberIdIsNotInThePrompt(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	for _, encoding := range []string{"toon", "json"} {
 		entity := encodeAsPipeline(t, s, rm, encoding)
@@ -271,6 +309,9 @@ func TestExcludedMemberIdIsNotInThePrompt(t *testing.T) {
 }
 
 func TestInventedFieldsAreRefused(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	entity := encodeAsPipeline(t, s, rm, "toon")
 
@@ -343,6 +384,9 @@ func TestInventedFieldsAreRefused(t *testing.T) {
 // wrong about, and this asserts it through the real encoder rather than through
 // a hand-written document.
 func TestSingleValuedPropertySerialisesUnwrappedAndStillGrounds(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	toon := encodeAsPipeline(t, s, rm, "toon")
 	if contains(toon, "has_Briefing_Pharmacy_Events[") {
@@ -384,6 +428,9 @@ func indexOf(haystack, needle string) int {
 // multi-valued, and note that `[]` over a scalar yields that scalar, so it costs
 // nothing to write it anyway.
 func TestSourceSelectorWithoutBracketsMissesTheSecondValue(t *testing.T) {
+	if inScratchTestWs(t) {
+		return
+	}
 	s, rm := projectedBriefing(t)
 	entity := encodeAsPipeline(t, s, rm, "toon")
 	schema := `{"key":"k","rules":[{"field":"conditions[].code","kind":"grounded",

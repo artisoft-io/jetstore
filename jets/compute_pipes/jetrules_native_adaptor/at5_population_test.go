@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // The 22-member evaluation population, driven into a rule session the way the
 // loader would (agentic_ai Phase 7 `AT.5`, issue I-549).
@@ -75,7 +75,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // at5PopulationDir is the population's home in the workspace, relative to
@@ -340,7 +340,7 @@ func (c *claimWriter) at5AssertRow(subject string, row at5Row, cols []at5Column)
 			if err != nil {
 				c.t.Fatalf("%s: %s is %q, which is not an ISO date: %v", subject, col.input, raw, err)
 			}
-			c.ins(subject, col.prop, c.rm.NewDateLiteral(rdf.LDate{Date: &d}))
+			c.ins(subject, col.prop, c.date(d.Year(), int(d.Month()), d.Day()))
 		case at5Double:
 			v, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
@@ -361,8 +361,8 @@ func (c *claimWriter) at5AssertRow(subject string, row at5Row, cols []at5Column)
 // for a single member, therefore hc:Eligibility and cintel:Patient_Profile are
 // singletons"* - and `readProjection` reads one `am:AnalysisRoot`. A session
 // holding two members would produce one briefing over both.
-func at5Fixture(p *at5Population, memberID string) func(*testing.T, *rdf.RdfSession, *rdf.ResourceManager) {
-	return func(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func at5Fixture(p *at5Population, memberID string) func(*testing.T, compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
+	return func(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 		t.Helper()
 		c := claims(t, s, rm)
 		if row, ok := p.eligibility[memberID]; ok {

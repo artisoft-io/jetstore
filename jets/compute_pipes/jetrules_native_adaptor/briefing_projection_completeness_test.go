@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // Completeness of the briefing projection (agentic_ai `AT.2`), and it is here
 // because this is the only place in the repository where the real rules meet the
@@ -37,14 +37,15 @@ package jetrules_go_adaptor
 // It needs a **compiled** `jets_ws`, which is neither committed (`build/` is in
 // that repository's `.gitignore`) nor reachable from a plain checkout of this one
 // (`workspaces/` are submodules of the parent). So it skips unless
-// `WORKSPACES_HOME` and `WORKSPACE` are set and the compiled artefacts are on
-// disk. The rete package reads those two from the environment in its `init`
-// (`init`, `jets/jetrules/rete/rete_meta_store_factory.go:32`), so they have to be
-// in the environment of the `go test` process and cannot be set by the test:
+// `WORKSPACES_HOME` and `WORKSPACE` are set and the compiled workspace is on
+// disk. Package workspace reads those two from the environment in its `init`
+// (`WorkspaceDbPath`, `jets/workspace/compile_workspace_utils.go`), so they have to
+// be in the environment of the `go test` process and cannot be set by the test.
+// The C++ engine also needs the cgo environment of `engine_mode_test.go`:
 //
 //	compile_workspace -w jets_ws -v $(date +%s)
 //	WORKSPACES_HOME=<...>/workspaces WORKSPACE=jets_ws \
-//	  go test -count=1 -run TestTheProjection ./jets/compute_pipes/jetrules_go_adaptor/
+//	  go test -count=1 -run TestTheProjection ./jets/compute_pipes/jetrules_native_adaptor/
 //
 // **`-count=1` is not decoration and the compiled workspace is a second reason for
 // it.** The parent repository's CLAUDE.md records a cached `ok` replayed across a
@@ -60,56 +61,51 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
-	"time"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 const cintelMainRuleFile = "jet_rules/clinical_intel/cintel_main.jr"
 
 // ruleSessionOverTheFixture asserts the claim fixture below into a real rdf
-// session and runs `cintel_main.jr` over it with the Go engine.
+// session and runs `cintel_main.jr` over it with the C++ engine.
 //
-// **The Go engine, and that is a production path rather than a stand-in.**
-// `patient_profile.pc.json` sets `use_jet_rules_go: false`, which does not select
-// the C++ engine - it declines to select either, and the step then takes
-// `GetDefaultFactory()` (`newJetrulesTransformationPipe`,
-// `jets/compute_pipes/pipe_transformation_jetrules.go:99-111`). In `cpipes_server`
-// all three factories return the Go adaptor (`GetDefaultFactory`,
-// `jets/cmds/cpipes_server/main.go:39-47`); only `cpipes_native_server` can hand
-// back the native one. So this test runs the engine that at least one deployment
-// of this pipeline runs.
-//
-// **What it does not cover is the other one.** A divergence between the two
-// implementations - a rule the Go engine gets right and the C++ engine does not -
-// is invisible here and is not claimed. What the two do share is the compiled
-// workspace: both read the same `build/*.rete.json`, so a rule that does not
-// compile fails before either engine is reached.
-func ruleSessionOverTheFixture(t *testing.T) (*rdf.RdfSession, *rdf.ResourceManager) {
+// **The C++ engine, which is the one production runs.** These tests ran on the Go
+// engine until its retirement (rules_benchmark Phase 6, 2026-10-22), on the
+// argument that `patient_profile.pc.json` sets `use_jet_rules_go: false` and one
+// deployment's default factory was Go's. They moved to the C++ engine with it, so
+// what they check is now checked on the engine every pipeline runs; the compiled
+// workspace they read is the same.
+func ruleSessionOverTheFixture(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	return ruleSessionOver(t, assertTheClaimFixture)
 }
 
-func ruleSessionOver(t *testing.T, fixture func(*testing.T, *rdf.RdfSession, *rdf.ResourceManager)) (*rdf.RdfSession, *rdf.ResourceManager) {
+func ruleSessionOver(t *testing.T, fixture func(*testing.T, compute_pipes.JetRdfSession, compute_pipes.JetResourceManager)) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	t.Helper()
 	requireCompiledWorkspace(t)
-	f, err := rete.NewReteMetaStoreFactory(cintelMainRuleFile)
+	// requireCompiledWorkspace has found the workspace, so an engine that does not
+	// build is a failure rather than a reason to skip.
+	engine, err := NewJetRulesFactory().NewJetRuleEngine(nil, cintelMainRuleFile, false)
 	if err != nil {
-		t.Fatalf("loading the compiled workspace: %v", err)
+		t.Fatalf("building the C++ engine over the compiled workspace: %v", err)
 	}
-	// NewRdfSession locks the factory's manager and makes its own child, so the
-	// session's manager is the one a test may still add resources to.
-	s := rdf.NewRdfSession(f.ResourceMgr, f.MetaGraph)
-	rm := s.ResourceMgr
+	t.Cleanup(func() { engine.Release() })
+	s, err := engine.NewRdfSession()
+	if err != nil {
+		t.Fatalf("NewRdfSession: %v", err)
+	}
+	t.Cleanup(func() { s.Release() })
+	// The session's manager is the one a test may still add resources to: the meta
+	// graph is locked once a session exists (rules_unit_test_harness I-15).
+	rm := s.GetResourceManager()
 	fixture(t, s, rm)
 
-	ms := f.MetaStoreLookup[cintelMainRuleFile]
-	if ms == nil {
-		t.Fatalf("no metastore for %s", cintelMainRuleFile)
+	rs, err := s.NewReteSession(cintelMainRuleFile)
+	if err != nil {
+		t.Fatalf("NewReteSession(%s): %v", cintelMainRuleFile, err)
 	}
-	rs := rete.NewReteSession(s)
-	rs.Initialize(ms)
-	t.Cleanup(rs.Done)
+	t.Cleanup(func() { rs.Release() })
 	if err := rs.ExecuteRules(); err != nil {
 		t.Fatalf("ExecuteRules: %v", err)
 	}
@@ -123,10 +119,14 @@ func requireCompiledWorkspace(t *testing.T) {
 	if home == "" || ws == "" {
 		t.Skip("WORKSPACES_HOME and WORKSPACE are not set; see the header of this file")
 	}
-	compiled := filepath.Join(home, ws, "build", "jet_rules", "clinical_intel", "cintel_main.rete.json")
-	if _, err := os.Stat(compiled); err != nil {
-		t.Skipf("%s is not compiled (%s is absent); run compile_workspace first - "+
-			"see the header of this file", ws, compiled)
+	for _, compiled := range []string{
+		filepath.Join(home, ws, "workspace.db"),
+		filepath.Join(home, ws, "build", "jet_rules", "clinical_intel", "cintel_main.rete.json"),
+	} {
+		if _, err := os.Stat(compiled); err != nil {
+			t.Skipf("%s is not compiled (%s is absent); run compile_workspace first - "+
+				"see the header of this file", ws, compiled)
+		}
 	}
 }
 
@@ -150,7 +150,7 @@ func requireCompiledWorkspace(t *testing.T) {
 // **three pharmacy claims share one NDC**, because `AM_PCreateEvent20` indexes
 // events by NDC: three fills of one drug are one pharmacy event, so a count of
 // events is not a count of fills (agentic_ai F732).
-func assertTheClaimFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func assertTheClaimFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	c := claims(t, s, rm)
 	c.medical("mc-1", "81", 2025, 8, 14, "B182")
@@ -166,24 +166,23 @@ func assertTheClaimFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceMana
 // differ in their data rather than in how they are written.
 type claimWriter struct {
 	t  *testing.T
-	s  *rdf.RdfSession
-	rm *rdf.ResourceManager
+	s  compute_pipes.JetRdfSession
+	rm compute_pipes.JetResourceManager
 }
 
-func claims(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) *claimWriter {
+func claims(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) *claimWriter {
 	return &claimWriter{t: t, s: s, rm: rm}
 }
 
-func (c *claimWriter) ins(subj, pred string, obj *rdf.Node) {
+func (c *claimWriter) ins(subj, pred string, obj compute_pipes.RdfNode) {
 	c.t.Helper()
-	if _, err := c.s.Insert(c.rm.NewResource(subj), c.rm.NewResource(pred), obj); err != nil {
+	if err := c.s.Insert(c.rm.NewResource(subj), c.rm.NewResource(pred), obj); err != nil {
 		c.t.Fatalf("insert (%s, %s): %v", subj, pred, err)
 	}
 }
 
-func (c *claimWriter) date(y, m, d int) *rdf.Node {
-	v := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
-	return c.rm.NewDateLiteral(rdf.LDate{Date: &v})
+func (c *claimWriter) date(y, m, d int) compute_pipes.RdfNode {
+	return c.rm.NewDateDetails(y, m, d)
 }
 
 func (c *claimWriter) medical(key, pos string, y, m, d int, codes ...string) {
@@ -225,7 +224,7 @@ const (
 // put on the source events, what they put on the briefing, and which briefing
 // event came from which source event.
 type projection struct {
-	briefing        *rdf.Node
+	briefing        compute_pipes.RdfNode
 	sourceMedical   map[string][]string // source event -> cintel:Diagnosis values
 	sourcePharmacy  map[string][]string // source event -> hc:Drug_Name values
 	briefingMedical map[string][]string // briefing event -> cintel:Diagnosis values
@@ -238,7 +237,7 @@ type projection struct {
 // carry* is what the care-management view holds - an event nothing links to the
 // profile is not an input to the briefing and a test that counted it would be
 // asserting against the wrong denominator.
-func readProjection(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) *projection {
+func readProjection(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) *projection {
 	t.Helper()
 	p := &projection{
 		sourceMedical:   map[string][]string{},
@@ -370,9 +369,9 @@ func TestEveryProjectedValueReachesThePrompt(t *testing.T) {
 //
 // **The mechanism is the same for both and it is worth knowing before writing a
 // rule that aggregates.** `size_of`, `min_of` and `max_of` all carry truth
-// maintenance, but `TripleUpdatedForFilter` ignores a notification for a beta node
-// that is not activated yet (`TripleUpdatedForFilter`,
-// `jets/jetrules/rete/rete_session_triple_updated.go:109-113`) - so whether a
+// maintenance, but the Go engine's `TripleUpdatedForFilter`, which ran these tests
+// when this was written (2026-09; the engine was retired on 2026-10-22), ignored a
+// notification for a beta node that was not activated yet - so whether a
 // recomputed aggregate lands depends on activation order, and the activation order
 // changed with the shape of the member. Both rules read the **source** events on
 // the profile now, which holds for all three shapes over repeated runs.
@@ -389,7 +388,7 @@ func TestEveryProjectedValueReachesThePrompt(t *testing.T) {
 func TestTheProjectionComputesTheCountsAndTheDates(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		fixture  func(*testing.T, *rdf.RdfSession, *rdf.ResourceManager)
+		fixture  func(*testing.T, compute_pipes.JetRdfSession, compute_pipes.JetResourceManager)
 		medical  int
 		pharmacy int
 		wantSpan bool
@@ -488,13 +487,13 @@ func TestTheProjectionComputesTheCountsAndTheDates(t *testing.T) {
 }
 
 // pharmacyOnlyFixture: one fill, no medical claim.
-func pharmacyOnlyFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func pharmacyOnlyFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	claims(t, s, rm).pharmacy("pc-1", ndcTramadol, 2025, 7, 2)
 }
 
 // medicalOnlyFixture: one visit, no fill.
-func medicalOnlyFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func medicalOnlyFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	claims(t, s, rm).medical("mc-1", "81", 2025, 8, 14, "B182")
 }
@@ -579,19 +578,29 @@ func (p *projection) incomplete(source, briefing map[string][]string, from, to s
 
 // --- small readers over the session --------------------------------------
 
-func objects(s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predicate string) []*rdf.Node {
-	itor := s.FindSP(subject, rm.NewResource(predicate))
+func objects(s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, subject compute_pipes.RdfNode, predicate string) []compute_pipes.RdfNode {
+	return column(s.FindSP(subject, rm.NewResource(predicate)), 2)
+}
+
+// column reads one position (0 subject, 2 object) of every triple an iterator
+// yields, and releases it.
+func column(itor compute_pipes.TripleIterator, position int) []compute_pipes.RdfNode {
 	if itor == nil {
 		return nil
 	}
-	var out []*rdf.Node
-	for t3 := range itor.All() {
-		out = append(out, t3[2])
+	defer itor.Release()
+	var out []compute_pipes.RdfNode
+	for ; !itor.IsEnd(); itor.Next() {
+		if position == 0 {
+			out = append(out, itor.GetSubject())
+		} else {
+			out = append(out, itor.GetObject())
+		}
 	}
 	return out
 }
 
-func values(s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predicate string) []string {
+func values(s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, subject compute_pipes.RdfNode, predicate string) []string {
 	var out []string
 	for _, n := range objects(s, rm, subject, predicate) {
 		out = append(out, nodeText(n))
@@ -600,7 +609,7 @@ func values(s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predi
 	return out
 }
 
-func object(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predicate string) *rdf.Node {
+func object(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, subject compute_pipes.RdfNode, predicate string) compute_pipes.RdfNode {
 	t.Helper()
 	got := objects(s, rm, subject, predicate)
 	if len(got) != 1 {
@@ -609,38 +618,35 @@ func object(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, subject *r
 	return got[0]
 }
 
-func oneSubjectOfType(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, class string) *rdf.Node {
+func oneSubjectOfType(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, class string) compute_pipes.RdfNode {
 	t.Helper()
 	itor := s.FindSPO(nil, rm.NewResource("rdf:type"), rm.NewResource(class))
 	if itor == nil {
 		t.Fatalf("no iterator for rdf:type %s", class)
 	}
-	var out []*rdf.Node
-	for t3 := range itor.All() {
-		out = append(out, t3[0])
-	}
+	out := column(itor, 0)
 	if len(out) != 1 {
 		t.Fatalf("expected exactly one %s in the session, got %d", class, len(out))
 	}
 	return out[0]
 }
 
-func objectOfSomeBriefing(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) *rdf.Node {
+func objectOfSomeBriefing(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) compute_pipes.RdfNode {
 	t.Helper()
 	return oneSubjectOfType(t, s, rm, "cintel:Briefing")
 }
 
-func intValue(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predicate string) int {
+func intValue(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, subject compute_pipes.RdfNode, predicate string) int {
 	t.Helper()
 	n := object(t, s, rm, subject, predicate)
-	v, ok := n.Value.(int)
+	v, ok := compute_pipes.GetRdfNodeValue(n).(int)
 	if !ok {
-		t.Fatalf("%s is %T (%v) rather than an int", predicate, n.Value, n)
+		t.Fatalf("%s is %T (%v) rather than an int", predicate, n.Value(), n)
 	}
 	return v
 }
 
-func textValue(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, subject *rdf.Node, predicate string) string {
+func textValue(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager, subject compute_pipes.RdfNode, predicate string) string {
 	t.Helper()
 	return nodeText(object(t, s, rm, subject, predicate))
 }
@@ -648,8 +654,8 @@ func textValue(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager, subject
 // nodeText renders a node the way the encoder does for the comparisons here: a
 // date as its ISO day, everything else as its string form. It exists so a date
 // read off the session and a date read out of the prompt are the same bytes.
-func nodeText(n *rdf.Node) string {
-	if d, ok := n.Value.(rdf.LDate); ok && d.Date != nil {
+func nodeText(n compute_pipes.RdfNode) string {
+	if d, ok := n.Value().(rdf.LDate); ok && d.Date != nil {
 		return d.Date.Format("2006-01-02")
 	}
 	return n.String()
@@ -679,23 +685,17 @@ func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
 
 	want := map[string]string{
 		"traMADol HCl": "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
-		// **`adherence 0.00` is what the pipeline produces today and it is
-		// wrong.** `cintel:Total_Days_Supply` is 90 and `cintel:Span_Days` is
-		// 101, both correct since `AT.7`, and the ratio is **0** because
-		// `sum_values` seeds its accumulator with `rdf.I(0)` (`SumValuesOp.Eval`,
-		// `jets/jetrules/rete/expr_operator_math_sum_values.go:83`), so a sum
-		// over a double property comes back an int and two ints divide to zero.
-		// Measured on `jets_ai` before this change as well as after, so it is not
-		// this task's (agentic_ai F794, I-557).
-		//
-		// **The literal is left as the measurement rather than as the intent.**
-		// Writing `0.89` here would make this file assert what the design wants
-		// and go red on a pipeline that is wrong, which is the failure the plan's
-		// own worked example made: an example computed from the rules is a claim
-		// about the rules and not about the engine that runs them. When I-557
-		// lands this line changes to `0.89` in the same commit.
+		// **`adherence 0.89`, 90 days supply over a 101-day span.** This read
+		// `0.00` until 2026-10-22, the measurement of agentic_ai I-557 (F794): the
+		// Go engine's `sum_values` seeded its accumulator with an int, so a sum
+		// over a double property came back an int and two ints divided to zero.
+		// The literal was left as the measurement, to change to `0.89` "when I-557
+		// lands". By 2026-10-22 both engines gave 0.89, and this test failed on
+		// the Go engine at the commit it was moved from; it moved here with the Go
+		// engine's retirement (rules_benchmark Phase 6) and asserts the C++
+		// engine's 0.89.
 		"Lisinopril-hydroCHLOROthiazide": "Lisinopril-hydroCHLOROthiazide " +
-			"(maintenance Y, adherence 0.00, 3 fills: 2025-06-15, 2025-07-20, 2025-08-24)",
+			"(maintenance Y, adherence 0.89, 3 fills: 2025-06-15, 2025-07-20, 2025-08-24)",
 	}
 	if len(p.briefingRx) != len(want) {
 		t.Fatalf("the briefing carries %d pharmacy events, expecting %d", len(p.briefingRx), len(want))
@@ -894,7 +894,7 @@ func TestTheConditionSummaryDoesNotCarryTheElixhauserRollup(t *testing.T) {
 
 // repeatedDiagnosisFixture: two visits, both carrying B182, the second also
 // carrying L0390. Real codes, for the reason the main fixture's comment gives.
-func repeatedDiagnosisFixture(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) {
+func repeatedDiagnosisFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	c := claims(t, s, rm)
 	c.medical("mc-1", "81", 2025, 6, 10, "B182")
