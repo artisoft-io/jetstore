@@ -54,8 +54,6 @@ var consequentAggregateOps = map[string]bool{
 	"size_of":     true,
 	"max_of":      true,
 	"min_of":      true,
-	"max_head_of": true, // Go engine only
-	"min_head_of": true, // Go engine only
 	"sum_values":  true,
 	"sorted_head": true,
 	"join_values": true,

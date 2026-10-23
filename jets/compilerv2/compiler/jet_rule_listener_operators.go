@@ -65,6 +65,14 @@ func lookupOperator(exprType, name string) (operatorSpec, bool) {
 	return operatorSpec{}, false
 }
 
+// IsEngineOperator reports whether the rule engine registers an operator named name
+// as a binary or a unary operator according to exprType ("binary" or "unary"), which
+// is what the compiler accepts. The symbolic renderer asks it too.
+func IsEngineOperator(exprType, name string) bool {
+	_, ok := lookupOperator(exprType, name)
+	return ok
+}
+
 // isGraphWritingOperator reports whether the operator registered under name, as a
 // binary or a unary operator according to exprType, writes to the graph when
 // evaluated. A name not registered under that arity is reported as not writing.

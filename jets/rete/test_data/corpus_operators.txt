@@ -1,13 +1,15 @@
 # Operator names used by the compiled rule corpus.
 #
-# GENERATED, and no longer regenerated: TestCorpusOperatorNamesResolve, the Go test
-# that compiled every rule set of every workspace and wrote this file, went with the Go
-# engine (rules_benchmark Phase 6). Since then the compiler refuses an
-# operator that jets/compilerv2/compiler/operators.txt does not list, and
-# jets/rete/operator_list_test.cc checks that list against the factory.
+# GENERATED. Do not hand edit: TestCorpusOperatorNamesResolve
+# (jets/jetrules/rete/operator_registration_test.go) compiles every rule set of every
+# workspace and fails when this file drifts from what it finds. Regenerate with
 #
-# CorpusOperatorNames in expr_operator_factory_test.cc reads this file and asserts each
-# name resolves in create_binary_expr / create_unary_expr.
+#   JETS_UPDATE_OPERATOR_MANIFEST=1 go test -count=1 \
+#     -run TestCorpusOperatorNamesResolve ./jets/jetrules/rete/
+#
+# It exists because the C++ engine cannot compile a .jr file and therefore cannot
+# collect these names for itself. CorpusOperatorNames in expr_operator_factory_test.cc
+# reads it and asserts each name resolves in create_binary_expr / create_unary_expr.
 # CMake copies this directory next to the jets_test binary after every build.
 binary !=
 binary *
