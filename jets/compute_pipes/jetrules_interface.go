@@ -47,7 +47,7 @@ type JetRulesFactory interface {
 // RetractionMode is the LEGACY retraction mode a rule engine is built in: whether a
 // graph-reading consequent is replayed rather than recomputed on retraction (defect 1
 // off) and whether a withdrawn row is erased (defect 2 off). The zero value is legacy
-// for both, which is what every pipeline runs. See jets/jetrules/rete/README.md,
+// for both, which is what every pipeline runs. See jets/rete/README.md,
 // 2026-10-09 and 2026-10-11; the C++ engine's twin is jets::rete::RetractionMode.
 type RetractionMode = rete.RetractionMode
 
