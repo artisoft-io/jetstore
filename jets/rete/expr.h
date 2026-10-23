@@ -94,7 +94,7 @@ class ExprBase {
    * ReteSession::compute_consequent_triples). Operators that read the graph -- exist,
    * size_of, the aggregates -- are deliberately NOT in the set: their consequents are
    * still recomputed on retraction, which is a known defect that rule sets depend on
-   * (jets/jetrules/rete/README.md, 2026-10-09).
+   * (jets/rete/README.md, 2026-10-09).
    */
   virtual bool
   mints_resource()const

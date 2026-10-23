@@ -38,7 +38,7 @@
 // arriving later never fires. Fixing both was tried on 2026-10-08 and reverted on
 // 2026-10-09 by Michel's decision: a client workspace's loop rules and a self-guarded rule terminated only
 // because of them (see loop_through_negation_test.cc and
-// jets/jetrules/rete/README.md).
+// jets/rete/README.md).
 //
 // The fixture follows the shape of no_truth_main_on_exist_test.cc: THE RETRACTION IS
 // DRIVEN BY A RULE. Vertex 1 carries [(?s exist_not done) == 1], so when vertex 2 puts
@@ -437,8 +437,8 @@ INSTANTIATE_TEST_SUITE_P(RetractionModes, RetractRecordedConsequentsTest,
   mode_name);
 
 // The session's erase is a delete of an asserted fact, and the rete hears it: the rows
-// built on the erased triple are withdrawn and their consequents retracted, as for Go's
-// Erase. The rule is (?s p o) -> (?s q 1).
+// built on the erased triple are withdrawn and their consequents retracted, as for the
+// Go engine's Erase. The rule is (?s p o) -> (?s q 1).
 class EraseTellsTheReteTest : public ::testing::Test {
  protected:
   ~EraseTellsTheReteTest() {

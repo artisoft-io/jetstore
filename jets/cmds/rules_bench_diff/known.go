@@ -27,7 +27,7 @@ const (
 // Pair kinds: an entry that matches a line only on A against a line only on B.
 const (
 	// PairDoubleQuantised: the same subject and predicate, both objects doubles,
-	// equal once both are quantised as the Go engine quantises a double literal.
+	// equal once both are quantised as the Go engine quantised a double literal.
 	PairDoubleQuantised = "double_quantised"
 	// PairRelabelled: the same line up to the labels of minted nodes, under a
 	// one-to-one correspondence of labels between A and B built from the lines
@@ -37,8 +37,8 @@ const (
 	// merged into one, say) has no correspondence, and its lines stay unmatched.
 	PairRelabelled = "relabelled"
 	// PairDoubleNear: the same subject and predicate, both objects doubles, at most
-	// Quanta apart, a quantum being the step of the Go engine's 15-bit grid at the
-	// larger magnitude (graphdump.Quantum). For a value the Go engine computed from
+	// Quanta apart, a quantum being the step of the 15-bit grid the Go engine used, at
+	// the larger magnitude (graphdump.Quantum). For a value the Go engine computed from
 	// quantised literals, which is not itself a literal and so is not quantised
 	// alike.
 	PairDoubleNear = "double_near"
@@ -52,7 +52,7 @@ const (
 	// that differ only in how their numbers are written: the same text between the
 	// numbers, and each pair of numbers equal as written, or one written as C++'s
 	// std::to_string writes a double (six decimals) and the other not, and equal
-	// once both are quantised as the Go engine quantises a literal. So "rate: 991"
+	// once both are quantised as the Go engine quantised a literal. So "rate: 991"
 	// and "rate: 991.000000" match; "NPI 1234567890" and "NPI 1234567891" do not.
 	PairTextDoubleFormat = "text_double_format"
 	// PairPredicateAlias: the same subject and object, and two different
@@ -91,12 +91,13 @@ type KnownList struct {
 type Entry struct {
 	ID string `json:"id"`
 	// Refs are where the difference is recorded: a section of
-	// jets/jetrules/rete/README.md, a register entry of projects/rules_benchmark.
+	// jets/rete/README.md, a register entry of projects/rules_benchmark.
 	Refs        []string `json:"refs"`
 	Description string   `json:"description"`
 	// Scope is cross (the default), self or any.
 	Scope string `json:"scope,omitempty"`
-	// OnlyOn is the label of the side the line is on, such as go or native.
+	// OnlyOn is the label of the side the line is on, such as native, or go in a
+	// tree written before the Go engine's retirement.
 	OnlyOn string `json:"only_on,omitempty"`
 	// Subject, Predicate and Object are regular expressions over the term as
 	// written in the dump, anchored at both ends.

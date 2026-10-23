@@ -1,11 +1,12 @@
 # `rules_bench_diff` — compare two trees of graph dumps
 
-The equivalence check of `projects/rules_benchmark` (§5.7 of its plan, task AB.5). Each engine writes
+The equivalence check of `projects/rules_benchmark` (§5.7 of its plan, task AB.5). The engine writes
 a **canonical dump** of the RDF session after each rule set of each member
 (`jets/rulesbench/graphdump`; the format is in its package documentation). This command compares two
 trees of them, file by file, and **classifies each difference** against a list of known differences.
-It compares one engine against another, and one engine's run 1 against its run 2, which is the noise
-floor to measure first.
+It compares two runs: the engine before and after a change, or its run 1 against its run 2, which is
+the noise floor to measure first. Until the Go engine was retired (October 2026) it also compared one
+engine against the other, and trees and lists written then name `go` and `native`.
 
 It links no engine and opens no workspace.
 
@@ -17,7 +18,7 @@ rules_bench_diff -a <dir>/<engine> -b <dir>/<engine> [-known list.json] [-json o
 
 | | |
 |---|---|
-| `-a`, `-b` | the two trees. Each holds `<member>/<NN>_<ruleset>.tsv`, so a run's tree `<dir>/<engine>/…` is passed as `<dir>/go` or `<dir>/native` (`graphdump.Path` writes that layout) |
+| `-a`, `-b` | the two trees. Each holds `<member>/<NN>_<ruleset>.tsv`, so a run's tree `<dir>/<engine>/…` is passed as `<dir>/native` (`<dir>/go` in a tree written before the retirement; `graphdump.Path` writes that layout) |
 | `-a-label`, `-b-label` | the engine labels, which entries name in `only_on`. Default: the base name of `-a` and `-b` |
 | `-scope` | `cross` or `self`. Default: `self` when the two labels are equal, `cross` otherwise |
 | `-known` | the known-difference list. Default: `known_differences.json`, built into the binary |
@@ -30,8 +31,8 @@ rules_bench_diff -a <dir>/<engine> -b <dir>/<engine> [-known list.json] [-json o
 when a difference is unclassified or a file is in one tree only; `2` on a usage or read error.
 
 ```bash
-rules_bench_diff -a out/run1/go -b out/run1/native -json cross.json   # engine against engine
-rules_bench_diff -a out/run1/go -b out/run2/go                         # Go against itself
+rules_bench_diff -a base/r01/native -b head/r01/native -json change.json   # before and after a change
+rules_bench_diff -a out/r01/native -b out/r02/native -scope self           # run against run
 ```
 
 ## The summary
@@ -43,16 +44,16 @@ always listed in full. Files in one tree only are listed, and so are the totals 
 ## The known-difference list
 
 A JSON file of entries. **A difference is unclassified unless an entry matches it.** Each entry has an
-`id`, `refs` (where the difference is recorded: a section of `jets/jetrules/rete/README.md` or a
+`id`, `refs` (where the difference is recorded: a section of `jets/rete/README.md` or a
 register entry of `projects/rules_benchmark`) and a `description`, and then:
 
 | Field | |
 |---|---|
 | `scope` | `cross` (the default), `self` or `any` |
-| `only_on` | the label of the side the line is on, such as `go` |
+| `only_on` | the label of the side the line is on, such as `native` (`go` in a list written before the retirement) |
 | `subject`, `predicate`, `object` | regular expressions over the term as written in the dump, anchored at both ends |
 | `pair` | a pair kind, below. The entry then matches lines on both sides |
-| `quanta` | `double_near`'s tolerance, in quanta of the Go engine's 15-bit grid (`graphdump.Quantum`) |
+| `quanta` | `double_near`'s tolerance, in quanta of the 15-bit grid the Go engine quantised literals to (`graphdump.Quantum`) |
 | `member`, `file` | regular expressions over the dump's member and file name (`<member>/<file>` in the tree), anchored at both ends: the entry applies only there. For a difference known in one member of one workload. They narrow an entry and do not count as the field that keeps it from matching every line |
 
 An entry without `pair` matches one line. An entry with no `pair`, `subject`, `predicate` or `object`
@@ -66,7 +67,7 @@ fields each kind reads.
 |---|---|---|
 | `relabelled` | the same line up to the labels of minted nodes, under a one-to-one correspondence of labels. The correspondence comes from the line shapes (a line with its labels blanked) that occur once on each side. The node exists on both sides and was renamed because its neighbourhood differs; that difference is in its own lines, which are classified on their own | nothing |
 | `merged` | the lines of a node on the `only_on` side that corresponds to several nodes of the other side, each of which corresponds to it alone: one node where the other engine has several. **The node must be the object of a line of its side whose subject and predicate match the entry's** (the anchor) | `subject`, `predicate` (both required), `only_on` |
-| `double_quantised` | the same subject and predicate, two doubles equal once both are quantised as the Go engine quantises a literal (`graphdump.Quantise`) | `subject`, `predicate` |
+| `double_quantised` | the same subject and predicate, two doubles equal once both are quantised as the Go engine quantised a literal (`graphdump.Quantise`) | `subject`, `predicate` |
 | `double_near` | the same subject and predicate, two doubles at most `quanta` quanta apart at the larger magnitude | `subject`, `predicate` |
 | `text_double_format` | the same subject and predicate, two texts equal between their numbers, each differing pair of numbers being one in `std::to_string`'s six-decimal form and one not, equal once quantised. Integers that differ never match | `subject`, `predicate` |
 | `literal_regex_group` | the same subject and predicate, two texts; the `only_on` side's (the whole match) matches `object`, is longer, and contains the other's (the capture group) | `subject`, `predicate` (required), `object`, `only_on` (required) |
@@ -76,7 +77,8 @@ Then the single-line entries, in list order.
 
 ### The entries, and what they cover
 
-**The built-in list holds only differences of the engines themselves**, which any workload can show:
+**The built-in list holds only differences of the engine itself**, which any workload can show; until the
+retirement they also covered the two engines against each other:
 
 | Entry | Record |
 |---|---|
@@ -99,8 +101,8 @@ the predicates a workload computes them on narrow them enough to be safe: a doub
 quantised literals within a tolerance, text + double written with six decimals on C++, and
 `literal_regex`'s two meanings (`projects/rules_benchmark` `I-12`, `I-16`).
 
-**Money computed from quantised literals has no entry, deliberately**, in either kind of list (and since Phase 4
-Go computes from exact literals, so there is none to make). Amounts
+**Money computed from quantised literals has no entry, deliberately**, in either kind of list (and from Phase 4
+Go computed from exact literals, so there was none to make). Amounts
 a workload computes from quantised literals differ from C++ by 0.5 to 1.04 quanta, a cent or two. A
 tolerance would hide a wrong amount of the same size, so these stay unclassified.
 
@@ -113,16 +115,14 @@ predicates it reaches, and the issue is registered.
 
 ## Producing the dumps
 
-`rules_bench` writes them once it calls `graphdump.WriteSession` after each rule set. Until then,
-`TestDumpRulesUnitTest` in `jets/rulesbench/graphdump` does it for a rules unit test, on either
+`rules_bench -dump_dir` writes them after each rule set of each repetition (`jets/cmds/rules_bench/README.md`).
+For a rules unit test, `TestDumpRulesUnitTest` in `jets/rulesbench/graphdump` does it, on the C++
 engine, through `RunRuleSets`:
 
 ```bash
 LIB=<a build of libjets.so of this commit>/jets
-CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" go test -c -tags jets_native -o graphdump.test ./jets/rulesbench/graphdump
-for e in go native; do
-  LD_LIBRARY_PATH=$LIB WORKSPACES_HOME=<home> WORKSPACE=my_ws \
-    GRAPHDUMP_TST=<home>/my_ws/jet_rules/unit_tests/my_test/my_test.tst.json \
-    GRAPHDUMP_OUT=out/run1 GRAPHDUMP_ENGINE=$e ./graphdump.test -test.run '^TestDumpRulesUnitTest$'
-done
+CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" go test -c -o graphdump.test ./jets/rulesbench/graphdump
+LD_LIBRARY_PATH=$LIB WORKSPACES_HOME=<home> WORKSPACE=my_ws \
+  GRAPHDUMP_TST=<home>/my_ws/jet_rules/unit_tests/my_test/my_test.tst.json \
+  GRAPHDUMP_OUT=out/run1 ./graphdump.test -test.run '^TestDumpRulesUnitTest$'
 ```

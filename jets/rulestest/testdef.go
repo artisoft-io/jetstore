@@ -50,7 +50,7 @@ type TestDefinition struct {
 }
 
 // LegacyConfig carries the two LEGACY switches, one per retraction defect kept
-// on 2026-10-09 (jets/jetrules/rete/README.md). nil means legacy; false turns
+// on 2026-10-09 (jets/rete/README.md). nil means legacy; false turns
 // the defect off for this test. The names are the project definition's (§8.5.1).
 type LegacyConfig struct {
 	// Defect 1: a consequent that reads the graph is recomputed on retraction.
