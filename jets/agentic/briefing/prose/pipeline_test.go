@@ -27,7 +27,7 @@ package prose_test
 // `jets/jetrules/test_ws`, as the native adaptor's own tests do; none of its rules
 // runs, and the fixture's triples are asserted directly into the session.
 //
-// Until 2026-10-22 this file ran on the Go engine's rdf session, through a ~90-line
+// Until the Go engine's retirement this file ran on its rdf session, through a ~90-line
 // bridge to `compute_pipes.JetRdfSession` written here because the Go adaptor's
 // session could not be constructed outside its package (I-561). The Go engine is
 // retired; the C++ session is the shipped one and is built through its factory, so
@@ -288,7 +288,7 @@ func TestPipelineEntityShape(t *testing.T) {
 	// A date is text on the map, year-month-day without zero padding: the C++
 	// session reads a date through bridge.Resource.AsInterface, which formats it
 	// "%d-%d-%d", and briefing.AsDate reads it by its "2006-1-2" layout. On the Go
-	// engine's session, until 2026-10-22, it was a time.Time and json rendered it
+	// engine's session, before its retirement, it was a time.Time and json rendered it
 	// RFC 3339 ("2025-08-14T00:00:00Z"), which is what this assertion said then.
 	if !strings.Contains(text, `"Service_Date":"2025-8-14"`) {
 		t.Errorf("a service date is not the text 2025-8-14 on the entity map: %s", text)

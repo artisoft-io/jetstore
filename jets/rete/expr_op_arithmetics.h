@@ -824,9 +824,9 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 //  - non-string  -> rendered by JoinTextVisitor below. Dates and datetimes render
 //    values         ISO-8601 (YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS), integers as decimal,
 //                   doubles by rdf::double_to_text (shortest digits), named resources by
-//                   name. The retired Go engine rendered identically (until 2026-10-22,
-//                   when it was deleted): two engines that rendered a date differently
-//                   would have been the same defect as two engines that supported
+//                   name. The Go engine, since retired, rendered identically until its
+//                   retirement: two engines that rendered a date differently would
+//                   have been the same defect as two engines that supported
 //                   different operators.
 //
 // The separator comes from (config, jets:separator, "..."). It is OPTIONAL and defaults

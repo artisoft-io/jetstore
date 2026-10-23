@@ -18,7 +18,7 @@
 // OPERATOR NAMES MUST RESOLVE IN THE ENGINE THAT SHIPS.
 //
 // An operator name reaches the engine as an opaque string: the JetRule grammar reduces
-// both binaryOp and unaryOp to Identifier. Until 2026-10-22 the compiler wrote the name
+// both binaryOp and unaryOp to Identifier. Until rules_benchmark Phase 6 the compiler wrote the name
 // to workspace.db unexamined, so a typo in a .jr file COMPILED CLEANLY and raised here,
 // at rule-execution time, out of create_binary_expr below.
 //

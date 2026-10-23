@@ -271,7 +271,7 @@ TEST_F(ExprOpSpecialtyTest, SumValuesVisitor2) {
 
 // JOIN VALUES
 // -----------------------------------------------------------------------------------
-// These cases are join_values' specification. Until 2026-10-22 the Go engine carried
+// These cases are join_values' specification. Until its retirement the Go engine carried
 // the same cases, maintained in parallel with these.
 
 // Form 3: rhs is itself the non functional data property, default separator.
@@ -800,7 +800,7 @@ TEST_F(AggregateTruthMaintenanceTest, SortedHeadRecomputesWhenChildEntityIsLinke
 // An aggregate in a CONSEQUENT gets no truth maintenance in the engine, because
 // ReteSession::set_graph_callbacks registers callbacks for a node vertex's filter
 // expression and for its antecedent alpha node, and for nothing else -- as the Go
-// engine did, until it was retired on 2026-10-22. So
+// engine did until its retirement. So
 // register_callback is never called for the consequent below, and the two fixes above
 // cannot reach it.
 //

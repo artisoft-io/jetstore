@@ -677,8 +677,8 @@ TEST_F(SumValuesOrderTest, IntegersTakeTheWidestTypePresent) {
 
 // I-16: a double as text is its shortest round-trip digits, in plain notation. This table
 // is the specification of rdf::double_to_text. It was written as the Go engine's table and
-// shared with it, so that both engines wrote the same text, until the Go engine was retired
-// on 2026-10-22.
+// shared with it, so that both engines wrote the same text, until the Go engine's retirement
+// (decided 2026-10-22).
 struct DoubleText { double v; char const* text; };
 std::vector<DoubleText> const& double_text_table()
 {
@@ -912,7 +912,7 @@ TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
 }
 
 // The typing table of + - * / : the specification of the arithmetic operators' result
-// types. It was shared with the Go engine, retired on 2026-10-22, whose int and uint were
+// types. It was shared with the Go engine, since retired, whose int and uint were
 // 64-bit, hence int64 and uint64 here. Not here: "uint + negative int" and "int + uint past
 // int", which gave no result on Go and throw in numeric_cast here, a recorded difference.
 TEST(ArithmeticTypes, TheSharedTypingTable) {
@@ -956,7 +956,7 @@ TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
 // Q-68: == != < <= > >= over numbers. Integers with integers by value (std::cmp_*); any
 // double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
 // digits); a NaN or an infinity is never equal or ordered. The table is the comparisons'
-// specification; it was shared with the Go engine, the same rows in both, until 2026-10-22.
+// specification; it was shared with the Go engine, the same rows in both, until its retirement.
 struct ComparisonCase { RDFTTYPE lhs, rhs; char const* expected; };   // == != < <= > >=
 
 TEST(Comparisons, TheSharedTable) {
@@ -1003,7 +1003,7 @@ TEST(Comparisons, TheSharedTable) {
 // Q-69: division by zero. An integer divided by an integer zero is null; it raised
 // SIGFPE until 2026-10, which killed the process. A division that involves a double
 // follows IEEE: +inf, -inf, and NaN for 0/0. The table is division's specification: seven
-// rows shared with the Go engine until it was retired on 2026-10-22, then two mixed integer
+// rows shared with the Go engine until its retirement, then two mixed integer
 // types and one nonzero division.
 TEST(ArithmeticTypes, DivisionByZero) {
   DivVisitor div(nullptr, nullptr);

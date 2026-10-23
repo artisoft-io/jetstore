@@ -2,7 +2,7 @@
 #
 # GENERATED, and no longer regenerated: TestCorpusOperatorNamesResolve, the Go test
 # that compiled every rule set of every workspace and wrote this file, went with the Go
-# engine (rules_benchmark Phase 6, 2026-10-22). Since then the compiler refuses an
+# engine (rules_benchmark Phase 6). Since then the compiler refuses an
 # operator that jets/compilerv2/compiler/operators.txt does not list, and
 # jets/rete/operator_list_test.cc checks that list against the factory.
 #
