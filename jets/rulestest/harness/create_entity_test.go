@@ -8,8 +8,8 @@ package harness
 // compiles a scratch copy of test_ws, runs that rule file through the looping
 // protocol on the C++ engine, snapshots the session and evaluates checks on it.
 // It ran on the Go engine until that engine's retirement (October 2026), and needs
-// the cgo environment of jets/cmds/rules_unit_test/README.md; the child skips when
-// the C++ engine cannot be built.
+// the cgo environment of jets/cmds/rules_unit_test/README.md; a C++ engine that
+// does not build fails the test.
 //
 // WHY A CHILD PROCESS. The rete package and compute_pipes read WORKSPACES_HOME
 // and WORKSPACE in init (definition F16), and only package-internal variables
@@ -100,13 +100,18 @@ func createEntityChild(t *testing.T) {
 	}
 	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
 	if err != nil {
-		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	defer engine.Release()
 	// JetResources before the first session: the meta graph locks when a
 	// session opens, and a new meta resource is refused after that (on C++ it
 	// aborted the process until I-15 was fixed).
 	jr := engine.JetResources()
+	// The Go engine's default cap, which C++ lacks, so that a rule that stopped
+	// terminating fails the test instead of hanging it.
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {
+		t.Fatal(err)
+	}
 	ses, err := engine.NewRdfSession()
 	if err != nil {
 		t.Fatal(err)

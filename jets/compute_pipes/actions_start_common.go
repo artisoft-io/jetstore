@@ -123,7 +123,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// Read schema_provider_json from source_config and env_json from process_config.
 	var client, org, objectType, tableName, sourceType string
 	var schemaProviderJson string
-	var cpipesConfigFN, envJson sql.NullString
+	var cpipesConfigFN, envJson, stateMachine sql.NullString
 	var monthPeriod, weekPeriod, dayPeriod int
 	var year, month, day int
 	log.Println("CPIPES, loading pipeline configurations")
@@ -131,7 +131,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		pc.main_rules, pc.env_json,
+		pc.main_rules, pc.env_json, pc.state_machine_name,
 		sp.month_period, sp.week_period, sp.day_period,
 		sp.year, sp.month, sp.day
 	FROM 
@@ -146,7 +146,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&cpipesConfigFN, &envJson, &monthPeriod, &weekPeriod, &dayPeriod, &year, &month, &day)
+		&cpipesConfigFN, &envJson, &stateMachine, &monthPeriod, &weekPeriod, &dayPeriod, &year, &month, &day)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
@@ -163,6 +163,10 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	err = json.Unmarshal(cpJson, &cpipesStartup.CpConfig)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (initializeCpipes): %s", err)
+	}
+	err = validateNoRulesOnCpipesSM(&cpipesStartup.CpConfig, cpipesStartup.ProcessName, stateMachine.String)
+	if err != nil {
+		return cpipesStartup, err
 	}
 
 	// Get the schema provider from schemaProviderJson:
@@ -1489,32 +1493,77 @@ func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) erro
 	return nil
 }
 
-// validateNoGoEngine refuses a jetrules_config setting use_jet_rules_go: true, in any
-// step of the document and in any conditional_config override, so that the pipeline
-// fails when its first step starts. The Go engine is retired (GoEngineRetired); running
-// C++ where Go was asked for would be a silent substitution. use_jet_rules_go: false
-// asks for nothing and is accepted.
-func validateNoGoEngine(cpConfig *ComputePipesConfig) error {
-	for stepId, step := range allComputePipesSteps(cpConfig) {
-		for i := range step {
-			for j := range step[i].Apply {
-				specs := []*TransformationSpec{&step[i].Apply[j]}
-				for _, conditional := range step[i].Apply[j].ConditionalConfig {
+// forEachTransformation calls visit with every transformation of the document, in
+// every step and every conditional_config override, and where it is, as the document
+// names it: "<step>, pipe <i>, apply <j>". It stops at visit's first error.
+func forEachTransformation(cpConfig *ComputePipesConfig, visit func(where string, spec *TransformationSpec) error) error {
+	type namedStep struct {
+		name  string
+		pipes []PipeSpec
+	}
+	steps := []namedStep{{"pipes_config", cpConfig.PipesConfig}}
+	for i := range cpConfig.ReducingPipesConfig {
+		steps = append(steps, namedStep{fmt.Sprintf("reducing_pipes_config[%d]", i), cpConfig.ReducingPipesConfig[i]})
+	}
+	for i := range cpConfig.ConditionalPipesConfig {
+		c := &cpConfig.ConditionalPipesConfig[i]
+		steps = append(steps, namedStep{fmt.Sprintf("conditional_pipes_config[%d] (step_name %q)", i, c.StepName), c.PipesConfig})
+	}
+	for _, step := range steps {
+		for i := range step.pipes {
+			for j := range step.pipes[i].Apply {
+				where := fmt.Sprintf("%s, pipe %d, apply %d", step.name, i, j)
+				specs := []*TransformationSpec{&step.pipes[i].Apply[j]}
+				for _, conditional := range step.pipes[i].Apply[j].ConditionalConfig {
 					if conditional != nil {
 						specs = append(specs, &conditional.Then)
 					}
 				}
 				for _, spec := range specs {
-					if spec.JetrulesConfig != nil && spec.JetrulesConfig.UseJetRulesGo {
-						return fmt.Errorf(
-							"configuration error: jetrules_config (step %d, pipe %d, apply %d) sets use_jet_rules_go: %s; "+
-								"remove it or set it to false", stepId, i, j, GoEngineRetired)
+					if err := visit(where, spec); err != nil {
+						return err
 					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// validateNoGoEngine refuses a jetrules_config setting use_jet_rules_go: true, in any
+// step of the document and in any conditional_config override, so that the pipeline
+// fails when its first step starts. The Go engine is retired (GoEngineRetired); running
+// C++ where Go was asked for would be a silent substitution. use_jet_rules_go: false
+// asks for nothing and is accepted.
+func validateNoGoEngine(cpConfig *ComputePipesConfig) error {
+	return forEachTransformation(cpConfig, func(where string, spec *TransformationSpec) error {
+		if spec.JetrulesConfig != nil && spec.JetrulesConfig.UseJetRulesGo {
+			return fmt.Errorf(
+				"configuration error: %s (process %q) sets jetrules_config.use_jet_rules_go: %s; "+
+					"remove it or set it to false", where, spec.JetrulesConfig.ProcessName, GoEngineRetired)
+		}
+		return nil
+	})
+}
+
+// validateNoRulesOnCpipesSM refuses a document with a jetrules step when its process
+// runs on the cpipesSM state machine, whose node (cp_node) has no rule engine since
+// the Go engine's retirement: it would pass every other check and fail on every node
+// part way through the run. stateMachine is process_config.state_machine_name; the
+// node refuses the step too (NoRuleEngineOnNode), for a run that starts another way.
+func validateNoRulesOnCpipesSM(cpConfig *ComputePipesConfig, processName, stateMachine string) error {
+	if stateMachine != "cpipesSM" {
+		return nil
+	}
+	return forEachTransformation(cpConfig, func(where string, spec *TransformationSpec) error {
+		if spec.Type == "jetrules" {
+			return fmt.Errorf(
+				"configuration error: process %q runs on state machine cpipesSM, whose node (cp_node) has no rule engine, "+
+					"and %s is a jetrules step; rules run on the C++ engine in cpipesNativeSM: set the process's "+
+					"state_machine_name to cpipesNativeSM", processName, where)
+		}
+		return nil
+	})
 }
 
 // validateErrorChannels checks that an error channel has a single writer:

@@ -24,28 +24,29 @@ func jetrulesPipe(useGo bool) []PipeSpec {
 
 func TestUseJetRulesGoIsRefusedAtStart(t *testing.T) {
 	startup := &CpipesStartup{}
-	refused := func(what string, doc *ComputePipesConfig, current []PipeSpec) {
+	// where is the step and position as the document names them.
+	refused := func(what, where string, doc *ComputePipesConfig, current []PipeSpec) {
 		t.Helper()
 		err := startup.ValidatePipeSpecConfig(doc, current)
 		if err == nil || !strings.Contains(err.Error(), GoEngineRetired) ||
-			!strings.Contains(err.Error(), "use_jet_rules_go") {
-			t.Errorf("%s: want a refusal naming use_jet_rules_go and the retirement, got %v", what, err)
+			!strings.Contains(err.Error(), "use_jet_rules_go") || !strings.Contains(err.Error(), where) {
+			t.Errorf("%s: want a refusal naming %s, use_jet_rules_go and the retirement, got %v", what, where, err)
 		}
 	}
 
 	pipe := jetrulesPipe(true)
-	refused("on the starting step", &ComputePipesConfig{PipesConfig: pipe}, pipe)
+	refused("on the starting step", "pipes_config, pipe 0, apply 0", &ComputePipesConfig{PipesConfig: pipe}, pipe)
 
 	clean := []PipeSpec{{
 		Type:         "fan_out",
 		InputChannel: InputChannelConfig{Name: "input_row"},
 		Apply:        []TransformationSpec{{Type: "map_record", OutputChannel: OutputChannelConfig{Name: "mapped_row"}}},
 	}}
-	refused("on a later step", &ComputePipesConfig{
+	refused("on a later step", "reducing_pipes_config[0], pipe 0, apply 0", &ComputePipesConfig{
 		PipesConfig:         clean,
 		ReducingPipesConfig: [][]PipeSpec{jetrulesPipe(true)},
 	}, clean)
-	refused("on a conditional step", &ComputePipesConfig{
+	refused("on a conditional step", `conditional_pipes_config[0] (step_name "later"), pipe 0, apply 0`, &ComputePipesConfig{
 		PipesConfig:            clean,
 		ConditionalPipesConfig: []ConditionalPipeSpec{{StepName: "later", PipesConfig: jetrulesPipe(true)}},
 	}, clean)
@@ -54,7 +55,7 @@ func TestUseJetRulesGoIsRefusedAtStart(t *testing.T) {
 	override[0].Apply[0].ConditionalConfig = []*ConditionalTransformationSpec{{
 		Then: TransformationSpec{JetrulesConfig: &JetrulesSpec{UseJetRulesGo: true}},
 	}}
-	refused("in a conditional_config override", &ComputePipesConfig{PipesConfig: override}, override)
+	refused("in a conditional_config override", "pipes_config, pipe 0, apply 0", &ComputePipesConfig{PipesConfig: override}, override)
 
 	// false is what twelve configurations set; it asks for nothing.
 	if err := validateNoGoEngine(&ComputePipesConfig{PipesConfig: jetrulesPipe(false)}); err != nil {
@@ -86,6 +87,44 @@ func TestJetrulesStepRefusesTheGoEngineAndANodeWithNone(t *testing.T) {
 		_, err := ctx.NewJetrulesTransformationPipe(nil, nil, spec(false))
 		if err == nil || !strings.Contains(err.Error(), "cpipesNativeSM") {
 			t.Errorf("%s: want an error naming cpipesNativeSM, got %v", what, err)
+		}
+	}
+}
+
+// A jetrules step in a process on cpipesSM is refused when the run starts, naming
+// cpipesNativeSM, rather than failing on every cp_node part way through the run.
+func TestRulesOnCpipesSMAreRefusedAtStart(t *testing.T) {
+	clean := []PipeSpec{{
+		Type:         "fan_out",
+		InputChannel: InputChannelConfig{Name: "input_row"},
+		Apply:        []TransformationSpec{{Type: "map_record", OutputChannel: OutputChannelConfig{Name: "mapped_row"}}},
+	}}
+	withRules := &ComputePipesConfig{
+		PipesConfig:            clean,
+		ConditionalPipesConfig: []ConditionalPipeSpec{{StepName: "rules", PipesConfig: jetrulesPipe(false)}},
+	}
+	err := validateNoRulesOnCpipesSM(withRules, "a_process", "cpipesSM")
+	if err == nil || !strings.Contains(err.Error(), "cpipesNativeSM") || !strings.Contains(err.Error(), `step_name "rules"`) {
+		t.Errorf("rules on cpipesSM: want a refusal naming cpipesNativeSM and the step, got %v", err)
+	}
+	// A jetrules step brought in by a conditional_config override counts too.
+	override := []PipeSpec{{Type: "fan_out", InputChannel: InputChannelConfig{Name: "input_row"},
+		Apply: []TransformationSpec{{Type: "map_record", ConditionalConfig: []*ConditionalTransformationSpec{{
+			Then: TransformationSpec{Type: "jetrules", JetrulesConfig: &JetrulesSpec{ProcessName: "p"}}}}}}}}
+	if err := validateNoRulesOnCpipesSM(&ComputePipesConfig{PipesConfig: override}, "a_process", "cpipesSM"); err == nil {
+		t.Errorf("a jetrules override on cpipesSM was accepted")
+	}
+
+	// The native state machine runs rules; cpipesSM runs everything else.
+	for _, c := range []struct {
+		doc *ComputePipesConfig
+		sm  string
+	}{
+		{withRules, "cpipesNativeSM"},
+		{&ComputePipesConfig{PipesConfig: clean}, "cpipesSM"},
+	} {
+		if err := validateNoRulesOnCpipesSM(c.doc, "a_process", c.sm); err != nil {
+			t.Errorf("%s: refused: %v", c.sm, err)
 		}
 	}
 }

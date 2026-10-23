@@ -11,7 +11,7 @@ package graphdump
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 //	  go test -count=1 ./jets/rulesbench/graphdump/
 //
-// The child skips when the C++ engine cannot be built there.
+// A C++ engine that does not build fails the test.
 //
 // WHY A CHILD PROCESS. compute_pipes, the rete package and jets/workspace read
 // WORKSPACES_HOME and WORKSPACE in init, so a test can point them at a scratch
@@ -187,10 +187,15 @@ func TestSessionDump(t *testing.T) {
 	compileTestWs(t)
 	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
 	if err != nil {
-		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	defer engine.Release()
-	engine.JetResources()
+	// The Go engine's default cap, which C++ lacks, so that a rule that stopped
+	// terminating fails the test instead of hanging it.
+	jr := engine.JetResources()
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {
+		t.Fatal(err)
+	}
 	first, withMeta := loopingDumps(t, engine)
 	checkLoopingDump(t, first, withMeta)
 	second, _ := loopingDumps(t, engine)

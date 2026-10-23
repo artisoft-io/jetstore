@@ -13,8 +13,8 @@ package compute_pipes_test
 //
 // These ran on the Go engine until its retirement (October 2026). They run on the
 // C++ engine now, and need the cgo environment of jets/cmds/rules_unit_test/README.md
-// (CGO_CFLAGS, CGO_LDFLAGS, LD_LIBRARY_PATH); a child skips when the C++ engine
-// cannot be built there.
+// (CGO_CFLAGS, CGO_LDFLAGS, LD_LIBRARY_PATH); a C++ engine that does not build
+// fails the test.
 
 import (
 	"encoding/json"
@@ -106,9 +106,7 @@ func testLines(out []byte) string {
 	return strings.Join(keep, "\n")
 }
 
-// engineSession builds the C++ engine for process and opens one rdf session on it,
-// skipping the test when the engine cannot be built (a libjets.so that is not
-// this commit's).
+// engineSession builds the C++ engine for process and opens one rdf session on it.
 func engineSession(t *testing.T, process string) (compute_pipes.JetRuleEngine, compute_pipes.JetRdfSession) {
 	t.Helper()
 	engine := buildEngine(t, process)
@@ -134,7 +132,7 @@ func buildEngine(t *testing.T, process string) compute_pipes.JetRuleEngine {
 	t.Helper()
 	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
 	if err != nil {
-		t.Skipf("the C++ engine cannot be built for %s here (needs libjets.so from this commit): %v", process, err)
+		t.Fatalf("building the C++ engine for %s: %v", process, err)
 	}
 	t.Cleanup(func() { engine.Release() })
 	jr := engine.JetResources()

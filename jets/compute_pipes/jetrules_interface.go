@@ -8,7 +8,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,9 +25,10 @@ type JetRulesProxy interface {
 // GoEngineRetired names the retirement of the Go JetRules engine, in the message a
 // request for it fails with. Rules ran on two engines, C++ and Go, until October 2026,
 // when the Go engine was deleted; a request for it is refused rather than run on C++,
-// so nobody gets the engine they did not ask for without being told. It is the rules
-// unit test's constant, so that a pipeline and a test say the same.
-const GoEngineRetired = rulestest.GoEngineRetired
+// so nobody gets the engine they did not ask for without being told. The rules unit
+// test harness refuses with the same words (rulestest.GoEngineRetired), which a test
+// checks; it is not imported from there, so that this package stays below rulestest.
+const GoEngineRetired = "the Go JetRules engine was retired in October 2026; rules run on the C++ engine only"
 
 // NoRuleEngineOnNode is the message a jetrules step fails with on a node that carries
 // no rule engine.

@@ -4,8 +4,8 @@ package rulesbench
 // jets/jetrules/test_ws in a child process: the workspace packages fix their
 // paths at init, as the RunRuleSets tests in jets/compute_pipes note. These ran on
 // the Go engine until its retirement (October 2026); they now need the cgo
-// environment of jets/cmds/rules_unit_test/README.md, and the child skips when the
-// C++ engine cannot be built. Run with -count=1.
+// environment of jets/cmds/rules_unit_test/README.md; a C++ engine that does not
+// build fails the test. Run with -count=1.
 
 import (
 	"encoding/json"
@@ -33,11 +33,6 @@ func inCompiledTestWs(t *testing.T, test func(t *testing.T)) {
 				t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 			}
 		}
-		re, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, "jet_rules/test_looping_main.jr", false)
-		if err != nil {
-			t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
-		}
-		re.Release()
 		test(t)
 		return
 	}

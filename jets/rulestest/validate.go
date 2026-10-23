@@ -41,7 +41,7 @@ const NoTruthMainOnExist = "_0:no_truth_main_on_exist"
 // GoEngineRetired names the retirement of the Go JetRules engine in the message a
 // request for it fails with: use_jet_rules_go or compare_engines in a test, -engine go
 // on the command line. compute_pipes refuses use_jet_rules_go in a pipeline with the
-// same words (compute_pipes.GoEngineRetired is this constant).
+// same words, compute_pipes.GoEngineRetired, which a compute_pipes test checks equal.
 const GoEngineRetired = "the Go JetRules engine was retired in October 2026; rules run on the C++ engine only"
 
 var variableRe = regexp.MustCompile(`^\?[A-Za-z_][A-Za-z0-9_]*$`)

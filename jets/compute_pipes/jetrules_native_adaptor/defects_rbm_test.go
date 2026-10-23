@@ -12,7 +12,7 @@ package jetrules_native_adaptor
 // Needs the cgo environment, as engine_mode_test.go does: CGO_CFLAGS, CGO_LDFLAGS and
 // LD_LIBRARY_PATH set to a libjets.so built from this commit. Each test runs in a
 // child process over a compiled copy of jets/jetrules/test_ws (runInCompiledTestWs),
-// and skips when the C++ engine cannot be built there. Run with -count=1.
+// and a C++ engine that does not build fails it. Run with -count=1.
 
 import (
 	"encoding/json"
@@ -109,15 +109,15 @@ func rbmScratchWorkspace(t *testing.T) {
 	}
 }
 
-// rbmEngine builds the C++ engine on rbmMainRuleFile, skipping the test when it
-// cannot be built.
+// rbmEngine builds the C++ engine on rbmMainRuleFile, with the vertex visit cap.
 func rbmEngine(t *testing.T) compute_pipes.JetRuleEngine {
 	t.Helper()
 	native, err := NewJetRulesFactory().NewJetRuleEngine(nil, rbmMainRuleFile, false)
 	if err != nil {
-		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	t.Cleanup(func() { native.Release() })
+	withVertexCap(t, native)
 	return native
 }
 

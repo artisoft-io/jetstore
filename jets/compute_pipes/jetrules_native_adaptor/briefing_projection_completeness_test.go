@@ -91,6 +91,7 @@ func ruleSessionOver(t *testing.T, fixture func(*testing.T, compute_pipes.JetRdf
 		t.Fatalf("building the C++ engine over the compiled workspace: %v", err)
 	}
 	t.Cleanup(func() { engine.Release() })
+	withVertexCap(t, engine)
 	s, err := engine.NewRdfSession()
 	if err != nil {
 		t.Fatalf("NewRdfSession: %v", err)

@@ -9,7 +9,7 @@ package harness
 // the Go engine's retirement (rules_benchmark Phase 6, October 2026); they now link
 // the C++ engine and need the cgo environment of jets/cmds/rules_unit_test/README.md
 // (CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH set to a libjets.so of this commit).
-// The child skips when the C++ engine cannot be built.
+// A C++ engine that does not build fails the test, as a test that does not run does.
 //
 // -count=1: these tests compile files outside the module's cache key, and
 // TestRunOnJetsWsEligibility reads workspaces/jets_ws.
@@ -108,17 +108,6 @@ func runTest(root, test string) *rulestest.Result {
 	})
 }
 
-// skipWithoutCpp skips the child when the C++ engine cannot be built over the
-// compiled workspace (a libjets.so that is not this commit's).
-func skipWithoutCpp(t *testing.T, process string) {
-	t.Helper()
-	re, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
-	if err != nil {
-		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
-	}
-	re.Release()
-}
-
 func wantResult(t *testing.T, r *rulestest.Result, status, reasonPart string) {
 	t.Helper()
 	if r.Status != status || !strings.Contains(r.Reason, reasonPart) {
@@ -148,11 +137,19 @@ p2,lp:Person,Bob
 p3,lp:Person,
 `
 
+// vertexCap is the Go engine's default vertex visit cap, given to the fixtures through
+// rule_config since C++ has none: a rule that stopped terminating then fails the
+// test instead of hanging it.
+func vertexCap() []any {
+	return []any{map[string]any{"jets:key": "jets:iState",
+		"jets:max_vertex_visits": map[string]any{"value": "10000", "type": "int"}}}
+}
+
 func lpTest(mod func(map[string]any)) string {
 	d := map[string]any{
 		"test_name": "greetings",
 		"jetrules_config": map[string]any{
-			"process_name": "jet_rules/unit_tests/lp/lp_test.jr",
+			"process_name": "jet_rules/unit_tests/lp/lp_test.jr", "rule_config": vertexCap(),
 		},
 		"input_sessions": []any{map[string]any{
 			"name": "three persons", "input": []any{"persons.csv"},
@@ -230,7 +227,7 @@ func loopTest(max int, expect bool) string {
 		"test_name": "loop to the limit",
 		"expect":    map[string]any{"status": "error", "reason": "maximum loop count"},
 		"jetrules_config": map[string]any{
-			"process_name": "jet_rules/test_looping_main.jr", "max_looping": max,
+			"process_name": "jet_rules/test_looping_main.jr", "max_looping": max, "rule_config": vertexCap(),
 		},
 		"input_sessions": []any{map[string]any{"name": "state", "input": []any{"state.csv"}}},
 		"expected_triples": []any{map[string]any{"pattern": []any{
@@ -248,7 +245,6 @@ func loopTest(max int, expect bool) string {
 func runOnTestWsChild(t *testing.T) {
 	root := compileInChild(t, "test_ws")
 	u := "jet_rules/unit_tests/lp/"
-	skipWithoutCpp(t, u+"lp_test.jr")
 
 	// Criterion 4's content: a result with its engine, mode, timings and checks.
 	r := runTest(root, u+"pass.tst.json")
@@ -373,7 +369,6 @@ b10305943c9a5e5e,"{""hc:Eligibility""}",2024-01-01T00:00:00,G01,,,,,1953-04-14T0
 
 func jetsWsChild(t *testing.T) {
 	root := compileInChild(t, "jets_ws")
-	skipWithoutCpp(t, "jet_rules/unit_tests/elig/elig.jr")
 	r := runTest(root, "jet_rules/unit_tests/elig/elig.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
 	if len(r.Checks) != 8 {

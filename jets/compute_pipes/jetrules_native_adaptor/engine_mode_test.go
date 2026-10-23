@@ -63,6 +63,23 @@ func TestNativeEngineRetractionMode(t *testing.T) {
 	}
 }
 
+// testVertexCap is the vertex visit cap withVertexCap sets: the Go engine's default,
+// 10,000 visits, which the tests moved here from the Go adaptor ran under.
+const testVertexCap = 10000
+
+// withVertexCap asserts (jets:iState jets:max_vertex_visits testVertexCap) into the
+// engine's meta graph, before its first rdf session, as a pipeline's rule_config
+// is. C++ has no cap without it, so a rule that stopped terminating would hang
+// the test to its timeout instead of failing it.
+func withVertexCap(t *testing.T, engine compute_pipes.JetRuleEngine) {
+	t.Helper()
+	jr := engine.JetResources()
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits,
+		engine.GetMetaResourceManager().NewIntLiteral(testVertexCap)); err != nil {
+		t.Fatalf("asserting the vertex visit cap: %v", err)
+	}
+}
+
 // runInCompiledTestWs copies test_ws to a scratch WORKSPACES_HOME and re-runs the
 // test in a child process pointed at it.
 func runInCompiledTestWs(t *testing.T) {
