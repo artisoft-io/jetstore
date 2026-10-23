@@ -47,8 +47,8 @@ using NodeVertexVector = std::vector<NodeVertexPtr>;
  * This is README option (b), built for the rules unit test harness only: the harness
  * reaches it through create_jetstore_hdl_with_mode. create_jetstore_hdl, which every
  * pipeline calls, builds the default -- legacy for both. No rule_config key reaches it.
- * The fixed behaviours are the ones 1d993844 built and c2de6953 narrowed. The Go engine
- * has the same struct, rete.RetractionMode in jets/jetrules/rete/retraction_mode.go.
+ * The fixed behaviours are the ones 1d993844 built and c2de6953 narrowed. Its Go twin,
+ * rete.RetractionMode (jets/jetrules/rete/retraction_mode.go), carries it to the bridge.
  */
 struct RetractionMode {
   // Defect 1 off: a vertex whose consequent reads the graph records what its rows

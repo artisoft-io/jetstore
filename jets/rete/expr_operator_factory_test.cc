@@ -18,22 +18,19 @@
 // OPERATOR NAMES MUST RESOLVE IN THE ENGINE THAT SHIPS.
 //
 // An operator name reaches the engine as an opaque string: the JetRule grammar reduces
-// both binaryOp and unaryOp to Identifier, the compiler writes the name to
-// workspace.db unexamined, and no validator whitelists it. A typo in a .jr file
-// therefore COMPILES CLEANLY and raises here, at rule-execution time, out of
-// create_binary_expr below.
+// both binaryOp and unaryOp to Identifier. Until 2026-10-22 the compiler wrote the name
+// to workspace.db unexamined, so a typo in a .jr file COMPILED CLEANLY and raised here,
+// at rule-execution time, out of create_binary_expr below.
 //
-// This file closes that for the C++ engine, which is the deployed one
-// (Dockerfile.cpipes_builder builds cpipes_native_server, Dockerfile.cpipes:46 ships
-// it, and its default factory is jetrules_native_adaptor).
+// Since then the compiler refuses an operator that jets/compilerv2/compiler/operators.txt
+// does not list, and operator_list_test.cc checks that list against this factory in both
+// directions. That is the check now; this file is the earlier, narrower one, kept.
 //
-// WHERE THE NAMES COME FROM. C++ cannot compile a .jr file, so the corpus names are
-// collected by the Go test that can -- TestCorpusOperatorNamesResolve in
-// jets/jetrules/rete/operator_registration_test.go compiles every rule set of every
-// workspace and writes test_data/corpus_operators.txt, and fails when that file drifts
-// from what it finds. Neither half is enough on its own: the Go test checks the Go
-// factory, this one checks the C++ factory, and the manifest is what keeps them
-// looking at the same list.
+// WHERE THE NAMES COME FROM. C++ cannot compile a .jr file, so the corpus names were
+// collected by a Go test that could, TestCorpusOperatorNamesResolve, which compiled
+// every rule set of every workspace and wrote test_data/corpus_operators.txt. It went
+// with the Go engine (rules_benchmark Phase 6), so the manifest is the corpus's
+// operator names as last collected, and is no longer regenerated.
 namespace jets::rete {
 namespace {
 

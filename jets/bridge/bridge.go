@@ -111,8 +111,8 @@ func LoadJetRules(process_name string, rete_db_path string, lookup_db_path strin
 }
 
 // LoadJetRulesWithMode is LoadJetRules with the LEGACY retraction mode the rete
-// networks are built in (jets::rete::RetractionMode, jets/rete/rete_meta_store.h; the Go
-// engine's twin is rete.RetractionMode). replayGraphReadingConsequents turns defect 1
+// networks are built in (jets::rete::RetractionMode, jets/rete/rete_meta_store.h; its Go
+// twin is rete.RetractionMode). replayGraphReadingConsequents turns defect 1
 // off, eraseWithdrawnRows defect 2. For the rules unit test harness only: LoadJetRules,
 // which pipelines call, is this with both false, legacy. It calls the C entry point
 // create_jetstore_hdl_with_mode, the one change this project makes to libjets.so's C

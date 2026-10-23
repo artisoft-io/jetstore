@@ -524,8 +524,8 @@ get_text(r_index r)
 // read back as the same double, in plain notation, never an exponent. 991 is "991",
 // 1234567.5 is "1234567.5", 0.00001 is "0.00001", -0.0 is "-0"; from 2^53 a double's
 // exact digits (1e23 is "99999999999999991611392"). Not a number is "nan", whatever its
-// sign, and the infinities "inf" and "-inf", as std::to_string wrote them. The Go engine
-// writes the same text (jets/jetrules/rdf), and both engines test one table of cases.
+// sign, and the infinities "inf" and "-inf", as std::to_string wrote them. The table of
+// cases is TEST(DoubleToText, ...) in jets/rete/expr_op_test.cc, this text's specification.
 // Until 2026-10 the operators wrote std::to_string's six decimals ("991.000000").
 // The text written to an output file is not this: the bridge hands Go the double.
 inline std::string

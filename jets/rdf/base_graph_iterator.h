@@ -143,8 +143,8 @@ lookup_spo2uvw(char const spin,
  * invalidate, so the graph freezes its live iterators before it changes structure:
  * each one copies the triples it has yet to return (`freeze`) and continues over that
  * copy. A frozen iterator returns what the graph held when it was frozen, including a
- * triple erased afterwards, and nothing inserted afterwards; this is how the Go
- * engine's cursor behaves (base_graph_iterator.go). Before 2026-10, with node-based
+ * triple erased afterwards, and nothing inserted afterwards; this is how the retired
+ * Go engine's cursor behaved. Before 2026-10, with node-based
  * tables, such an iteration was undefined: a rehash could skip or repeat elements,
  * and the erase from the inferred graph could free the set a live iterator was in.
  *
