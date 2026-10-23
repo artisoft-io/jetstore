@@ -1,11 +1,22 @@
 package graphdump
 
-// Dumps of real engine sessions.
+// Dumps of real engine sessions, on the C++ engine.
+//
+// Until the Go engine's retirement (October 2026) the Go engine's tests were here
+// and the C++ engine's were in native_test.go, built only with -tags jets_native so
+// that the package's tests could run without libjets.so. They now link the C++
+// engine: build against a libjets.so of this commit with the cgo override in
+// jets/cmds/rules_unit_test/README.md:
+//
+//	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
+//	  go test -count=1 ./jets/rulesbench/graphdump/
+//
+// A C++ engine that does not build fails the test.
 //
 // WHY A CHILD PROCESS. compute_pipes, the rete package and jets/workspace read
 // WORKSPACES_HOME and WORKSPACE in init, so a test can point them at a scratch
 // workspace only by running the test binary again with the environment set (the
-// same arrangement as jets/rulestest/harness/go_engine_test.go). -count=1: the
+// same arrangement as jets/rulestest/harness/create_entity_test.go). -count=1: the
 // workspaces read are outside the module's cache key.
 
 import (
@@ -18,7 +29,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -28,12 +39,6 @@ const (
 	childEnv        = "GRAPHDUMP_TEST_CHILD"
 	loopingRuleFile = "jet_rules/test_looping_main.jr"
 )
-
-// factories are the engines a test can build. native_test.go adds the C++ one
-// when the package is built with -tags jets_native.
-var factories = map[string]func() compute_pipes.JetRulesFactory{
-	rulestest.EngineGo: jetrules_go_adaptor.NewJetRulesFactory,
-}
 
 // rerunOverTestWs copies jets/jetrules/test_ws to a scratch WORKSPACES_HOME and
 // runs the calling test again in a child process pointed at it.
@@ -74,6 +79,9 @@ func rerunOverTestWs(t *testing.T) {
 	cmd.Env = append(os.Environ(), childEnv+"=1", "WORKSPACES_HOME="+home, "WORKSPACE=test_ws",
 		"JETS_WORKSPACE_DB_SCHEMA_SCRIPT="+filepath.Join(root, "jets", "workspace_schema.sql"))
 	out, err := cmd.CombinedOutput()
+	if err == nil && strings.Contains(string(out), "--- SKIP: "+t.Name()) {
+		t.Skipf("skipped in the child:\n%s", out)
+	}
 	if err != nil || !strings.Contains(string(out), "--- PASS: "+t.Name()) {
 		t.Fatalf("child run failed: %v\n%s", err, out)
 	}
@@ -116,7 +124,7 @@ func loopingDumps(t *testing.T, engine compute_pipes.JetRuleEngine) (dump, withM
 }
 
 // checkLoopingDump checks what test_looping_main.jr leaves, as the harness's
-// TestGoEngineCreateEntitySubjects reads it: three persons made by create_entity,
+// TestEngineCreateEntitySubjects reads it: three persons made by create_entity,
 // each named three times, and completion at loop 3.
 func checkLoopingDump(t *testing.T, dump, withMeta []string) {
 	t.Helper()
@@ -167,19 +175,27 @@ func contains(lines []string, l string) bool {
 	return false
 }
 
-// Two sessions of the Go engine mint different UUIDs and give the same dump.
-func TestGoSessionDump(t *testing.T) {
+// Two sessions of the C++ engine mint different UUIDs and give the same dump: so
+// the meta graph is left out, and UUIDs and their jets:key texts are renamed. It
+// compared that dump with the Go engine's, the same, until the Go engine's
+// retirement.
+func TestSessionDump(t *testing.T) {
 	if os.Getenv(childEnv) == "" {
 		rerunOverTestWs(t)
 		return
 	}
 	compileTestWs(t)
-	engine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
+	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	defer engine.Release()
-	engine.JetResources()
+	// The Go engine's default cap, which C++ lacks, so that a rule that stopped
+	// terminating fails the test instead of hanging it.
+	jr := engine.JetResources()
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {
+		t.Fatal(err)
+	}
 	first, withMeta := loopingDumps(t, engine)
 	checkLoopingDump(t, first, withMeta)
 	second, _ := loopingDumps(t, engine)
@@ -236,21 +252,18 @@ func (emptyIterator) Release() error { return nil }
 // pipeline's loop, and writes a dump after each rule set, as
 // <GRAPHDUMP_OUT>/<engine>/<session>/<NN>_<ruleset>.tsv. It skips unless
 // GRAPHDUMP_TST names the .tst.json and GRAPHDUMP_OUT the output tree, and
-// WORKSPACES_HOME and WORKSPACE name a compiled workspace. GRAPHDUMP_ENGINE is go
-// (the default) or native, which needs -tags jets_native.
+// WORKSPACES_HOME and WORKSPACE name a compiled workspace. The engine is C++;
+// GRAPHDUMP_ENGINE, which chose between C++ and Go, may only name native.
 func TestDumpRulesUnitTest(t *testing.T) {
 	tst, out := os.Getenv("GRAPHDUMP_TST"), os.Getenv("GRAPHDUMP_OUT")
 	if tst == "" || out == "" {
 		t.Skip("set GRAPHDUMP_TST and GRAPHDUMP_OUT to run")
 	}
-	engineName := os.Getenv("GRAPHDUMP_ENGINE")
-	if engineName == "" {
-		engineName = rulestest.EngineGo
+	engineName := rulestest.EngineNative
+	if e := os.Getenv("GRAPHDUMP_ENGINE"); e != "" && e != engineName {
+		t.Fatalf("GRAPHDUMP_ENGINE=%s: the engine is %s (%s)", e, engineName, rulestest.GoEngineRetired)
 	}
-	factory := factories[engineName]
-	if factory == nil {
-		t.Skipf("no %s engine in this build: build with -tags jets_native and the cgo override", engineName)
-	}
+	factory := jetrules_native_adaptor.NewJetRulesFactory
 	td, findings, err := rulestest.LoadTestDefinition(tst)
 	if err != nil || td == nil || rulestest.HasErrors(findings) {
 		t.Fatalf("test definition %s: %v %v", tst, err, findings)

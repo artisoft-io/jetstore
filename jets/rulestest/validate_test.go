@@ -271,26 +271,27 @@ func TestTopLevelFieldsMisplaced(t *testing.T) {
 	}
 }
 
-func TestEngineChoice(t *testing.T) {
-	_, findings := parse(t, mutate(t, func(d map[string]any) {
-		obj(d, "jetrules_config")["use_jet_rules_native"] = true
-		obj(d, "jetrules_config")["use_jet_rules_go"] = true
-	}))
-	requireFinding(t, findings, CodeConflict, "/jetrules_config/use_jet_rules_go", "both set")
+// The Go engine is retired (rules_benchmark Q-77): a test asking for it fails
+// validation with a message naming the retirement, rather than run on C++.
+func TestGoEngineIsRefused(t *testing.T) {
+	_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = true }))
+	requireFinding(t, findings, CodeRefused, "/jetrules_config/use_jet_rules_go", GoEngineRetired)
 
-	_, findings = parse(t, mutate(t, func(d map[string]any) {
-		d["compare_engines"] = true
-		obj(d, "jetrules_config")["use_jet_rules_native"] = true
-	}))
-	requireFinding(t, findings, CodeConflict, "/compare_engines", "runs both engines")
-
-	// _0:no_truth_main_on_exist is accepted on C++ (validDefinition sets it) and
-	// refused when the test runs Go, alone or compared.
-	noTruth := "/jetrules_config/rule_config/0/_0:no_truth_main_on_exist"
-	_, findings = parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = true }))
-	requireFinding(t, findings, CodeRefused, noTruth, "only in the C++ engine")
 	_, findings = parse(t, mutate(t, func(d map[string]any) { d["compare_engines"] = true }))
-	requireFinding(t, findings, CodeRefused, noTruth, "only in the C++ engine")
+	requireFinding(t, findings, CodeRefused, "/compare_engines", GoEngineRetired)
+
+	// false asks for nothing, as absent does.
+	for _, set := range []func(map[string]any){
+		func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = false },
+		func(d map[string]any) { d["compare_engines"] = false },
+	} {
+		if _, findings := parse(t, mutate(t, set)); len(findings) != 0 {
+			t.Errorf("false was refused: %+v", findings)
+		}
+	}
+
+	// _0:no_truth_main_on_exist is the C++ engine's and is accepted (validDefinition
+	// sets it); use_jet_rules_native names the only engine and is accepted.
 	td, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_native"] = true }))
 	if len(findings) != 0 || !td.JetrulesConfig.UseJetRulesNative {
 		t.Errorf("use_jet_rules_native alone: %+v", findings)

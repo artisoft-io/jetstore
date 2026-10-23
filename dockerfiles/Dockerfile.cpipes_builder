@@ -89,7 +89,6 @@ WORKDIR ${JETS_SOURCE_DIR}
 
 # Build the Go binaries with CGO enabled
 RUN go build -ldflags="-w -s" -o cbooter              ${JETS_SOURCE_DIR}/jets/cmds/cbooter
-# RUN go build -ldflags="-w -s" -o cpipes_server        ${JETS_SOURCE_DIR}/jets/cmds/cpipes_server
 RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cmds/compile_workspace
 # Installs the JetStore-owned workspace assets (jets/workspace_assets) into the
 # client workspace; runs in Dockerfile.compile_ws just before compile_workspace.

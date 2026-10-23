@@ -6,7 +6,7 @@ import (
 )
 
 // Which domain key gives a jetrules session its grouping key. The values a worker
-// then writes are tested on the Go engine in jetrules_error_keys_test.go.
+// then writes are tested on the C++ engine in jetrules_error_keys_test.go.
 func TestJetrulesGroupingDomainKey(t *testing.T) {
 	twoKeys := &DomainKeysSpec{DomainKeys: map[string]*DomainKeyInfo{
 		"Claim":  {KeyExpr: []string{"claim_no"}},

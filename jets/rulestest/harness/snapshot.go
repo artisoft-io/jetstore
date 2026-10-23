@@ -34,8 +34,9 @@ import (
 //     compared wrapper pointers that each call allocates anew. Fixed 2026-10-11
 //     (I-11): Equals is node identity in both, which is the interning above.
 //
-// And one property the harness needs anyway: compare_engines diffs two runs,
-// which is a comparison of two snapshots.
+// And one property the harness needed anyway while compare_engines ran a test on
+// both engines, until the Go engine's retirement: it diffed two runs, which is a
+// comparison of two snapshots.
 
 // Term kinds: the rule language's type names, as ParseRdfNodeValue reads them,
 // with long folded into int and ulong into uint (one literal each in both engines).

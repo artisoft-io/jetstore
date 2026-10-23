@@ -95,19 +95,20 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		config.MaxErrorCount = 20
 	}
 
-	// Prepare JetRules engine
+	// Prepare JetRules engine: there is one, C++. A request for the Go engine is
+	// refused at start (validateNoGoEngine) and again here, for a configuration that
+	// reached the node another way; use_jet_rules_native is the only engine and is
+	// accepted, set or not. A node with no engine fails rather than fall back.
+	if config.UseJetRulesGo {
+		return nil, fmt.Errorf("error: jetrules_config sets use_jet_rules_go: %s; remove it or set it to false",
+			GoEngineRetired)
+	}
 	var jrFactory JetRulesFactory
-	if config.UseJetRulesNative {
+	if ctx.jetRules != nil {
 		jrFactory = ctx.jetRules.GetNativeFactory()
 	}
-	if config.UseJetRulesGo {
-		jrFactory = ctx.jetRules.GetGoFactory()
-	}
 	if jrFactory == nil {
-		jrFactory = ctx.jetRules.GetDefaultFactory()
-		if jrFactory == nil {
-			log.Println("WARNING: no JetRulesFactory available in CoordinateComputePipes")
-		}
+		return nil, fmt.Errorf("error: %s", NoRuleEngineOnNode)
 	}
 	log.Printf("%s node %d %s - Using Jetrule engine: %s",
 		ctx.cpConfig.CommonRuntimeArgs.SessionId,

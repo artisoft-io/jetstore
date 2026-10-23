@@ -1,5 +1,5 @@
-// Command rules_bench benchmarks the two JetRules engines on a bench spec: it
-// builds each engine as a pipeline does, runs every input session through the
+// Command rules_bench benchmarks the JetRules engine, C++, on a bench spec: it
+// builds the engine as a pipeline does, runs every input session through the
 // pipeline's rule loop (compute_pipes.RunRuleSets) with its timing sink set,
 // extracts the output through the pipeline's extraction, and writes one JSON
 // result per run. Package jets/rulesbench does the work.
@@ -7,7 +7,10 @@
 // It opens no database connection: the workspace is read from
 // $WORKSPACES_HOME/$WORKSPACE, compiled.
 //
-//	rules_bench -out_dir <dir> [-engine native,go] [-repetitions N] [-pool N] <spec.json>
+//	rules_bench -out_dir <dir> [-repetitions N] [-pool N] <spec.json>
+//
+// It benchmarked the Go engine beside C++ until the Go engine's retirement in
+// October 2026; -engine go, or a spec naming go, is now refused.
 //
 // The exit status is 0 when every result was written, whatever the sessions'
 // outcomes; 1 when the bench could not run or a result could not be written;
@@ -32,22 +35,20 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulesbench"
 	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
-	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 var (
 	specFlag     = flag.String("spec", "", "the bench spec (or give it as the argument)")
 	outDir       = flag.String("out_dir", "", "directory the results are written to (required)")
-	engineFlag   = flag.String("engine", "", "override the spec's engines: native, go, or both comma-separated, in run order")
+	engineFlag   = flag.String("engine", "", "override the spec's engine: native, the only one (go is refused, the Go engine being retired)")
 	repetitions  = flag.Int("repetitions", 0, "override the spec's repetitions")
 	warmup       = flag.Int("warmup", 0, "override the spec's warmup runs; -warmup 0 turns them off")
 	poolSize     = flag.Int("pool", 0, "override the spec's pool_size: sessions run concurrently by N workers on one engine")
-	maxVisits    = flag.Int("max_vertex_visits", 0, "override the spec's max_vertex_visits, set on both engines")
+	maxVisits    = flag.Int("max_vertex_visits", 0, "override the spec's max_vertex_visits")
 	maxLooping   = flag.Int("max_looping", -1, "override the spec's max_looping; -1 keeps it")
 	perLoop      = flag.Bool("per_loop", false, "record every loop's ExecuteRules time, not only the sum and maximum")
 	countTriples = flag.Bool("count_triples", false, "count every triple of each session by iteration after extraction (untimed)")
@@ -128,12 +129,9 @@ func run(specPath string) error {
 	}
 
 	opts := rulesbench.Options{
-		Spec:     spec,
-		SpecPath: specPath,
-		Factories: harness.Factories{
-			Native: jetrules_native_adaptor.NewJetRulesFactory(),
-			Go:     jetrules_go_adaptor.NewJetRulesFactory(),
-		},
+		Spec:            spec,
+		SpecPath:        specPath,
+		Factory:         jetrules_native_adaptor.NewJetRulesFactory(),
 		Repetitions:     *repetitions,
 		PoolSize:        *poolSize,
 		MaxVertexVisits: *maxVisits,

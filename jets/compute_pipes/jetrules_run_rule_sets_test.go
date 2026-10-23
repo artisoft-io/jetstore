@@ -10,6 +10,11 @@ package compute_pipes_test
 // outcome RunRuleSets returns. It runs the same way, in a child process over a
 // compiled copy of jets/jetrules/test_ws, for the same reason: package rete
 // fixes its workspace at init. Run it with -count=1.
+//
+// These ran on the Go engine until its retirement (October 2026). They run on the
+// C++ engine now, and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// (CGO_CFLAGS, CGO_LDFLAGS, LD_LIBRARY_PATH); a C++ engine that does not build
+// fails the test.
 
 import (
 	"encoding/json"
@@ -21,10 +26,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
@@ -81,6 +85,9 @@ func inCompiledTestWs(t *testing.T, test func(t *testing.T)) {
 	if err != nil {
 		t.Fatalf("%s failed in the child process: %v\n%s", t.Name(), err, testLines(out))
 	}
+	if strings.Contains(string(out), "--- SKIP: "+t.Name()) {
+		t.Skipf("skipped in the child process:\n%s", testLines(out))
+	}
 	if testing.Verbose() {
 		t.Logf("child process:\n%s", testLines(out))
 	}
@@ -99,20 +106,41 @@ func testLines(out []byte) string {
 	return strings.Join(keep, "\n")
 }
 
-// goSession builds the Go engine for process and opens one rdf session on it.
-func goSession(t *testing.T, process string) (compute_pipes.JetRuleEngine, compute_pipes.JetRdfSession) {
+// engineSession builds the C++ engine for process and opens one rdf session on it.
+func engineSession(t *testing.T, process string) (compute_pipes.JetRuleEngine, compute_pipes.JetRdfSession) {
 	t.Helper()
-	engine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
-	if err != nil {
-		t.Fatalf("building the Go engine for %s: %v", process, err)
-	}
-	t.Cleanup(func() { engine.Release() })
+	engine := buildEngine(t, process)
 	s, err := engine.NewRdfSession()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Release() })
 	return engine, s
+}
+
+// maxVertexVisits is the cap buildEngine sets: the Go engine's default, which these
+// tests were written against.
+const maxVertexVisits = 10000
+
+// buildEngine builds the C++ engine for process, released at the test's end, with
+// the vertex visit cap. The Go engine, on which these tests were written, capped at
+// 10,000 visits by default; C++ has no cap unless (jets:iState
+// jets:max_vertex_visits n) is in a graph its sessions read, so without it the
+// runaway cases never end. It is asserted into the meta graph before the first rdf
+// session, as a pipeline's rule_config is (AssertRuleConfiguration).
+func buildEngine(t *testing.T, process string) compute_pipes.JetRuleEngine {
+	t.Helper()
+	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
+	if err != nil {
+		t.Fatalf("building the C++ engine for %s: %v", process, err)
+	}
+	t.Cleanup(func() { engine.Release() })
+	jr := engine.JetResources()
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits,
+		engine.GetMetaResourceManager().NewIntLiteral(maxVertexVisits)); err != nil {
+		t.Fatalf("asserting the vertex visit cap: %v", err)
+	}
+	return engine
 }
 
 var caseColumns = []string{"jets:key", "rdf:type", "xr:mode"}
@@ -126,11 +154,11 @@ func assertCase(mode string) func(compute_pipes.JetRdfSession) error {
 
 func runRuleSets(t *testing.T, process, mode string, config *compute_pipes.RuleSetsConfig) compute_pipes.RuleSetsOutcome {
 	t.Helper()
-	engine, s := goSession(t, process)
+	engine, s := engineSession(t, process)
 	return compute_pipes.RunRuleSets(s, engine, config, assertCase(mode))
 }
 
-// processEngine is the Go engine under another process name.
+// processEngine is the engine under another process name.
 type processEngine struct {
 	compute_pipes.JetRuleEngine
 	process string
@@ -248,7 +276,7 @@ func TestRunRuleSets(t *testing.T) {
 		})
 		t.Run("execute_rules_error", func(t *testing.T) {
 			o := runRuleSets(t, executeRulesRuleFile, "runaway", &compute_pipes.RuleSetsConfig{})
-			if o.ExecuteErr == nil || o.ExecuteErr.Error() != "error: max vertex visit reached" {
+			if o.ExecuteErr == nil || !strings.Contains(o.ExecuteErr.Error(), "Maximum vertex visits reached") {
 				t.Errorf("ExecuteErr = %v, want the max vertex visit error", o.ExecuteErr)
 			}
 			if o.Err != nil || o.Completed || o.Loops != 0 || o.MaxLoopReached || !o.Failed() {
@@ -309,7 +337,7 @@ func TestRunRuleSets(t *testing.T) {
 			}
 		})
 		t.Run("rete_session_created_before_input_asserted", func(t *testing.T) {
-			engine, s := goSession(t, executeRulesSequence)
+			engine, s := engineSession(t, executeRulesSequence)
 			var calls []string
 			o := compute_pipes.RunRuleSets(orderSession{JetRdfSession: s, calls: &calls}, engine,
 				&compute_pipes.RuleSetsConfig{}, func(s compute_pipes.JetRdfSession) error {
@@ -325,7 +353,7 @@ func TestRunRuleSets(t *testing.T) {
 		// session, because on C++ the first creation after a session exists aborts
 		// the process (I-15). Recorded through a wrapping engine.
 		t.Run("executeRules_creates_jet_resources_before_the_rdf_session", func(t *testing.T) {
-			engine, _ := goSession(t, loopingRuleFile)
+			engine, _ := engineSession(t, loopingRuleFile)
 			var calls []string
 			wrapped := resourcesOrderEngine{JetRuleEngine: engine, calls: &calls}
 			config := &compute_pipes.JetrulesSpec{OnError: compute_pipes.OnErrorPassThrough, MaxErrorCount: 20, CurrentSourcePeriod: 1}
@@ -378,7 +406,7 @@ func TestRunRuleSets(t *testing.T) {
 					if c.ruleset != "" {
 						engineProcess = c.ruleset
 					}
-					engine, s := goSession(t, engineProcess)
+					engine, s := engineSession(t, engineProcess)
 					var created, released int
 					o := compute_pipes.RunRuleSets(
 						releaseCountingSession{JetRdfSession: s, ruleset: c.ruleset, created: &created, released: &released},
@@ -396,7 +424,7 @@ func TestRunRuleSets(t *testing.T) {
 			}
 		})
 		t.Run("no_rule_set", func(t *testing.T) {
-			engine, s := goSession(t, loopingRuleFile)
+			engine, s := engineSession(t, loopingRuleFile)
 			o := compute_pipes.RunRuleSets(s, processEngine{engine, "no_such_process"},
 				&compute_pipes.RuleSetsConfig{}, assertCase("ok"))
 			if o.Err == nil || o.Err.Error() != "error: no rulesets found for main rule file name no_such_process" || o.Completed {
@@ -404,7 +432,7 @@ func TestRunRuleSets(t *testing.T) {
 			}
 		})
 		t.Run("input_not_asserted", func(t *testing.T) {
-			engine, s := goSession(t, loopingRuleFile)
+			engine, s := engineSession(t, loopingRuleFile)
 			o := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{},
 				func(compute_pipes.JetRdfSession) error { return errors.New("bad row") })
 			if o.Err == nil || o.Err.Error() != "while asserting input records to rdf session: bad row" ||
@@ -432,7 +460,7 @@ func TestAssertTextRow(t *testing.T) {
 		}
 
 		t.Run("columns_by_name_cast_by_property", func(t *testing.T) {
-			_, s := goSession(t, loopingRuleFile)
+			_, s := engineSession(t, loopingRuleFile)
 			// No jets:source_period_sequence, and the columns out of assertInputRow's order.
 			err := compute_pipes.AssertTextRow(spec, s,
 				[]string{"xr:mode", "rdf:type", "xr:count", "jets:key", "jets:currentSourcePeriodDate"},
@@ -454,10 +482,12 @@ func TestAssertTextRow(t *testing.T) {
 			}
 			rm := s.GetResourceManager()
 			n := s.GetObject(rm.NewResource("k1"), rm.NewResource("jets:currentSourcePeriodDate"))
+			// The native adaptor gives a date's value as the engine's text, unpadded
+			// (RdfNodeNative.Value); the Go adaptor gave a time.Time.
 			if n == nil || n.Type() != "date" {
 				t.Errorf("a date property at midnight = %v, want a date literal", n)
-			} else if got := compute_pipes.GetRdfNodeValue(n); got != time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC) {
-				t.Errorf("date value = %#v, want 2024-01-01", got)
+			} else if got := compute_pipes.GetRdfNodeValue(n); got != "2024-1-1" {
+				t.Errorf("date value = %#v, want the C++ engine's text 2024-1-1", got)
 			}
 		})
 		// assertInputRow reads position 2 only as a Go int; anything else counts as
@@ -465,7 +495,7 @@ func TestAssertTextRow(t *testing.T) {
 		// in a row of current period 1 is therefore 0 and unmarked only if the cell
 		// cast to int.
 		t.Run("source_period_sequence_casts_to_int", func(t *testing.T) {
-			_, s := goSession(t, loopingRuleFile)
+			_, s := engineSession(t, loopingRuleFile)
 			if err := compute_pipes.AssertTextRow(spec, s, []string{"jets:key", "rdf:type", "jets:source_period_sequence"},
 				[]string{"k4", "xr:Case", "1"}); err != nil {
 				t.Fatal(err)
@@ -478,7 +508,7 @@ func TestAssertTextRow(t *testing.T) {
 			}
 		})
 		t.Run("blank_cell_asserts_nothing", func(t *testing.T) {
-			_, s := goSession(t, loopingRuleFile)
+			_, s := engineSession(t, loopingRuleFile)
 			if err := compute_pipes.AssertTextRow(spec, s, []string{"jets:key", "rdf:type", "xr:count"},
 				[]string{"k2", "xr:Case", " "}); err != nil {
 				t.Fatal(err)
@@ -488,7 +518,7 @@ func TestAssertTextRow(t *testing.T) {
 			}
 		})
 		t.Run("key_absent_is_a_hash_and_type_from_config", func(t *testing.T) {
-			_, s := goSession(t, loopingRuleFile)
+			_, s := engineSession(t, loopingRuleFile)
 			typed := &compute_pipes.JetrulesSpec{CurrentSourcePeriod: 1, InputRdfType: "xr:Case"}
 			if err := compute_pipes.AssertTextRow(typed, s, []string{"xr:mode"}, []string{"ok"}); err != nil {
 				t.Fatal(err)
@@ -505,7 +535,7 @@ func TestAssertTextRow(t *testing.T) {
 			}
 		})
 		t.Run("refusals", func(t *testing.T) {
-			_, s := goSession(t, loopingRuleFile)
+			_, s := engineSession(t, loopingRuleFile)
 			for _, c := range []struct {
 				columns, cells []string
 				want           string

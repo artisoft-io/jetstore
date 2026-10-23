@@ -1,15 +1,14 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // Does an aggregate over an entity property see a child linked after the
 // aggregate was first computed?
 //
-// It does not, and this file is the demonstration. `min_of`, `max_of` and
-// `sum_values` register their truth-maintenance callback on
-// `jets:value_property` and never on `jets:entity_property`
-// (`MinMaxOp.RegisterCallback`, `jets/jetrules/rete/expr_operator_math_minmax.go`,
-// and `registerCallback4MinMaxOf`, `jets/rete/expr_op_arithmetics.h`). So a
-// change to an already-linked child's value is recomputed and **a newly linked
-// child is not**.
+// It did not when this file was written, and this file was the demonstration.
+// `min_of`, `max_of` and `sum_values` registered their truth-maintenance callback
+// on `jets:value_property` and never on `jets:entity_property`
+// (`registerCallback4MinMaxOf`, `jets/rete/expr_op_arithmetics.h`, and its Go
+// engine twin). So a change to an already-linked child's value was recomputed and
+// **a newly linked child was not**.
 //
 // `CE_RxDateRange10` is where that costs something real. It aggregates a
 // pharmacy event's date range and days supply over `hasPharmacyClaim`, and the
@@ -17,15 +16,18 @@ package jetrules_go_adaptor
 // session starts, so the aggregate is computed against however many claims
 // happened to be linked at the moment it first fired.
 //
-// **These tests fail until agentic_ai I-535 is fixed.** That is deliberate: they
-// assert what the rules mean, not what the engine currently does. Inverting them
-// to assert 30-where-90-is-right would make the suite green and lock in the
-// defect.
+// **These tests failed until agentic_ai I-535 was fixed.** That was deliberate:
+// they assert what the rules mean, not what the engine did. Inverting them to
+// assert 30-where-90-is-right would have made the suite green and locked in the
+// defect. They pass on the C++ engine as of 2026-10-22, when they moved here from
+// the Go adaptor's package with the Go engine's retirement (rules_benchmark
+// Phase 6); they passed on the Go engine at that date too.
 //
-// Run them the way the sibling completeness tests are run:
+// Run them the way the sibling completeness tests are run, with the cgo
+// environment of engine_mode_test.go:
 //
 //	WORKSPACES_HOME=<...>/workspaces WORKSPACE=jets_ws \
-//	  go test -count=1 ./jets/compute_pipes/jetrules_go_adaptor/
+//	  go test -count=1 ./jets/compute_pipes/jetrules_native_adaptor/
 //
 // The `-count=1` is not optional: the corpus lives outside the Go module, so a
 // cached `ok` survives a workspace change and is indistinguishable from a pass.
@@ -33,13 +35,13 @@ package jetrules_go_adaptor
 import (
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // theThreeFillEvent returns the pharmacy event carrying the fixture's three
 // lisinopril fills. `AM_PCreateEvent20` keys the event index by NDC, so three
 // claims for one NDC are one event with three `hasPharmacyClaim` links.
-func theThreeFillEvent(t *testing.T, s *rdf.RdfSession, rm *rdf.ResourceManager) *rdf.Node {
+func theThreeFillEvent(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) compute_pipes.RdfNode {
 	t.Helper()
 	root := oneSubjectOfType(t, s, rm, "am:AnalysisRoot")
 	profile := object(t, s, rm, root, "am:hasPatientProfile")
@@ -82,14 +84,16 @@ func TestSumValuesSeesEveryLinkedClaim(t *testing.T) {
 	s, rm := ruleSessionOverTheFixture(t)
 	ev := theThreeFillEvent(t, s, rm)
 
-	got := values(s, rm, ev, "cintel:Total_Days_Supply")
+	got := objects(s, rm, ev, "cintel:Total_Days_Supply")
 	if len(got) != 1 {
 		t.Fatalf("cintel:Total_Days_Supply = %v, want exactly one value", got)
 	}
-	if got[0] != "90" {
-		t.Errorf("cintel:Total_Days_Supply = %s, want 90 (three fills of 30). "+
+	// The value, not its text: the C++ engine writes a double as "90.00" where the
+	// Go engine wrote "90".
+	if v, ok := compute_pipes.GetRdfNodeValue(got[0]).(float64); !ok || v != 90 {
+		t.Errorf("cintel:Total_Days_Supply = %v (%s), want 90 (three fills of 30). "+
 			"sum_values registered no callback on hasPharmacyClaim, so claims "+
-			"linked after the first do not recompute it — agentic_ai I-535", got[0])
+			"linked after the first did not recompute it — agentic_ai I-535", got[0], got[0].Type())
 	}
 }
 

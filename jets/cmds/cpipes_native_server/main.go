@@ -12,7 +12,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,15 +38,8 @@ var awsBucket string
 var dsn string
 
 type JetRulesProxyImpl struct {
-	defaultFactory compute_pipes.JetRulesFactory
 }
 
-func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
-	return j.defaultFactory
-}
-func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
-	return jetrules_go_adaptor.NewJetRulesFactory()
-}
 func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 	return jetrules_native_adaptor.NewJetRulesFactory()
 }
@@ -120,9 +112,7 @@ func main() {
 		utils.LogFatal("cpipes_native_server: invalid argument(s)", errors.New(strings.Join(errMsg, "; ")))
 	}
 
-	jrProxy := &JetRulesProxyImpl{
-		defaultFactory: jetrules_native_adaptor.NewJetRulesFactory(),
-	}
+	jrProxy := &JetRulesProxyImpl{}
 
 	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrProxy)
 	if err != nil {

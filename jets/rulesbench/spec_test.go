@@ -25,17 +25,17 @@ func TestParseSpec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Name() != "b" || !slices.Equal(spec.EnginesOrDefault(), []string{"native", "go"}) {
-		t.Errorf("name %q, engines %v; want b, native then go", spec.Name(), spec.EnginesOrDefault())
+	if spec.Name() != "b" || !slices.Equal(spec.EnginesOrDefault(), []string{"native"}) {
+		t.Errorf("name %q, engines %v; want b, native", spec.Name(), spec.EnginesOrDefault())
 	}
 
 	// A .tst.json, expectations and all, is a spec once a cap is given.
 	tst := `{
 	  "test_name": "t", "comment": "c",
 	  "legacy": {"recompute_on_retraction": true},
-	  "compare_engines": true,
+	  "compare_engines": false,
 	  "expect": {"status": "error"},
-	  "jetrules_config": {"process_name": "p.jr", "rule_config": [{"jets:key": "jets:iState"}]},
+	  "jetrules_config": {"process_name": "p.jr", "rule_config": [{"jets:key": "jets:iState"}, {"_0:no_truth_main_on_exist": "true"}]},
 	  "input_sessions": [{"name": "m1", "input": ["m1.csv"],
 	    "expected_triples": [{"s": "a", "p": "b", "o": "c"}], "excluded_triples": []}],
 	  "expected_triples": [], "excluded_triples": []
@@ -52,7 +52,10 @@ func TestParseSpec(t *testing.T) {
 		{"no_input", `{"bench_name":"b","jetrules_config":{"process_name":"p"}}`, "input_sessions or input_dir"},
 		{"bad_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["cpp"]}`, "unknown engine"},
 		{"legacy_off", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"legacy":{"withdrawn_row_stays":false}}`, "production's retraction mode"},
-		{"cpp_only_switch", `{"bench_name":"b","jetrules_config":{"process_name":"p","rule_config":[{"_0:no_truth_main_on_exist":"true"}]},"input_sessions":[{"name":"m","input":["x"]}]}`, "C++ engine"},
+		// The Go engine is retired (rules_benchmark Q-77): asking for it is refused.
+		{"go_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["native","go"]}`, rulestest.GoEngineRetired},
+		{"compare_engines", `{"bench_name":"b","compare_engines":true,"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
+		{"use_jet_rules_go", `{"bench_name":"b","jetrules_config":{"process_name":"p","use_jet_rules_go":true},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
 		{"bad_regex", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_dir":{"path":"d","name_regex":"("}}`, "name_regex"},
 		{"negative", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"repetitions":-1}`, "negative"},
 		{"two_values", minimalSpec + `{}`, "more than one"},
@@ -156,15 +159,15 @@ func TestNewDumper(t *testing.T) {
 	}
 	dump := NewDumper(dir, path, write)
 	for _, p := range []DumpPoint{
-		{Engine: "go", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 1},
-		{Engine: "go", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 2},
+		{Engine: "native", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 1},
+		{Engine: "native", Session: "member1", Index: 0, RuleSet: "a.jr", Repetition: 2},
 		{Engine: "native", Session: "a/b", Index: 3, RuleSet: "x/b.jr", Repetition: 1, Warmup: true},
 	} {
 		if err := dump(p, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, f := range []string{"r01/go/member1/01_a.jr.tsv", "r02/go/member1/01_a.jr.tsv", "w01/native/a_b/04_b.jr.tsv"} {
+	for _, f := range []string{"r01/native/member1/01_a.jr.tsv", "r02/native/member1/01_a.jr.tsv", "w01/native/a_b/04_b.jr.tsv"} {
 		if b, err := os.ReadFile(filepath.Join(dir, f)); err != nil || string(b) != "s\tp\to\n" {
 			t.Errorf("%s: %q, %v", f, b, err)
 		}

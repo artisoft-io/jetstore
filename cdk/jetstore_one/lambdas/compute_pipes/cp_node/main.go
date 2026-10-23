@@ -10,7 +10,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -26,15 +25,13 @@ import (
 // JETS_REGION
 // JETS_S3_KMS_KEY_ARN
 
+// JetRulesProxyImpl carries no rule engine. cp_node is the cpipesSM node, which runs
+// the pipelines that are not rules; its engine was the Go one, retired in October 2026.
+// A jetrules step here fails with compute_pipes.NoRuleEngineOnNode, which names the
+// native node (cpipesNativeSM, cp_node_native) that runs rules.
 type JetRulesProxyImpl struct {
 }
 
-func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
-	return jetrules_go_adaptor.NewJetRulesFactory()
-}
-func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
-	return jetrules_go_adaptor.NewJetRulesFactory()
-}
 func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 	return nil
 }

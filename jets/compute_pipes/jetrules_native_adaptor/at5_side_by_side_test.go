@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // The template arm and the model arm over one fact set (agentic_ai Phase 7
 // `AT.5`, question Q-94).
@@ -86,7 +86,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 // at5BriefingColumn is the column the pipeline serialises the projected entity
@@ -128,7 +127,7 @@ func at5RecordedExclusions() []string {
 }
 
 // at5Encode runs one arm.
-func at5Encode(s *rdf.RdfSession, briefing *rdf.Node, encoding string, exclude map[string]bool) any {
+func at5Encode(s compute_pipes.JetRdfSession, briefing compute_pipes.RdfNode, encoding string, exclude map[string]bool) any {
 	ce := &compute_pipes.JrSpecialColumnEncoding{
 		Config: &compute_pipes.ColumnEncodingSpec{
 			Column:              at5BriefingColumn,
@@ -137,7 +136,7 @@ func at5Encode(s *rdf.RdfSession, briefing *rdf.Node, encoding string, exclude m
 		},
 		ExcludeProperties: exclude,
 	}
-	return ce.EncodeColumnData(&JetRdfSessionGo{rdfSession: s}, &RdfNodeGo{node: briefing})
+	return ce.EncodeColumnData(s, briefing)
 }
 
 // at5EncodeString runs one arm and insists on a string.
@@ -146,7 +145,7 @@ func at5Encode(s *rdf.RdfSession, briefing *rdf.Node, encoding string, exclude m
 // which is a shape worth knowing before reading a failure here: the prose branch
 // returns the error as the column's value so that a record carries its own
 // failure. A test has to check the type.
-func at5EncodeString(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, encoding string, exclude map[string]bool) string {
+func at5EncodeString(t *testing.T, s compute_pipes.JetRdfSession, briefing compute_pipes.RdfNode, encoding string, exclude map[string]bool) string {
 	t.Helper()
 	out := at5Encode(s, briefing, encoding, exclude)
 	switch v := out.(type) {
@@ -171,7 +170,7 @@ func at5EncodeString(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, encodi
 // one `json.Marshal` further on, and both arms are read the same way - so a
 // difference this test reports is a difference in the walk and not in how the
 // two sides were recovered.
-func at5ExtractMap(t *testing.T, s *rdf.RdfSession, briefing *rdf.Node, exclude map[string]bool) map[string]any {
+func at5ExtractMap(t *testing.T, s compute_pipes.JetRdfSession, briefing compute_pipes.RdfNode, exclude map[string]bool) map[string]any {
 	t.Helper()
 	raw := at5EncodeString(t, s, briefing, "json", exclude)
 	var entity map[string]any

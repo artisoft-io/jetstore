@@ -1,18 +1,18 @@
 package jetrules_native_adaptor
 
-// DEFECTS READ FROM THE CODE, RUN ON BOTH ENGINES (rules_benchmark Phase 1, task AF.3).
+// DEFECTS READ FROM THE CODE, PINNED ON THE C++ ENGINE (rules_benchmark Phase 1, task AF.3).
 //
 // projects/rules_benchmark in artisoft-io/jetstore_agentic_ai read these engine
 // differences from the code and registered them in its plan, §10.1, without running
-// them. Each test runs the C++ engine and the Go engine through the adaptor
-// interface (compute_pipes.JetRulesFactory) and asserts TODAY'S behaviour, so it
-// passes now and fails when the difference is resolved: a failure after a fix is the
-// signal to flip the assertion, not a regression.
+// them. Each test ran the C++ engine and the Go engine through the adaptor interface
+// (compute_pipes.JetRulesFactory) and asserted their behaviour; both were resolved in
+// Phase 4 to C++'s meaning. The Go engine was retired in Phase 6 (2026-10-22), so
+// the tests now run the C++ engine alone and pin what it does.
 //
 // Needs the cgo environment, as engine_mode_test.go does: CGO_CFLAGS, CGO_LDFLAGS and
 // LD_LIBRARY_PATH set to a libjets.so built from this commit. Each test runs in a
 // child process over a compiled copy of jets/jetrules/test_ws (runInCompiledTestWs),
-// and skips when the C++ engine cannot be built there. Run with -count=1.
+// and a C++ engine that does not build fails it. Run with -count=1.
 
 import (
 	"encoding/json"
@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
@@ -110,21 +109,16 @@ func rbmScratchWorkspace(t *testing.T) {
 	}
 }
 
-// rbmEngines builds both engines on rbmMainRuleFile, skipping the test when the C++
-// engine cannot be built.
-func rbmEngines(t *testing.T) map[string]compute_pipes.JetRuleEngine {
+// rbmEngine builds the C++ engine on rbmMainRuleFile, with the vertex visit cap.
+func rbmEngine(t *testing.T) compute_pipes.JetRuleEngine {
 	t.Helper()
 	native, err := NewJetRulesFactory().NewJetRuleEngine(nil, rbmMainRuleFile, false)
 	if err != nil {
-		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	t.Cleanup(func() { native.Release() })
-	goEngine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, rbmMainRuleFile, false)
-	if err != nil {
-		t.Fatalf("building the Go engine: %v", err)
-	}
-	t.Cleanup(func() { goEngine.Release() })
-	return map[string]compute_pipes.JetRuleEngine{"native": native, "go": goEngine}
+	withVertexCap(t, native)
+	return native
 }
 
 // TestRegression_I6_RetractDeletes was TestDefect_I6_NativeRetractErases, which
@@ -135,14 +129,15 @@ func rbmEngines(t *testing.T) map[string]compute_pipes.JetRuleEngine {
 //
 // Decided in Phase 4 (Q-63): the engines retract an inferred triple themselves,
 // through the session's inferred-only retraction (F333); the adaptor's Retract is
-// for an asserted fact and means delete. Both adaptors now erase
-// (JetRdfSessionGo.Retract calls RdfSession.Erase; JetRdfSessionNative.Retract the
-// bridge's erase, which since I-103 tells the rete), and the rete withdraws what
+// for an asserted fact and means delete. Both adaptors then erased (the Go one
+// through its session's Erase; JetRdfSessionNative.Retract through the bridge's
+// erase, which since I-103 tells the rete), and the rete withdraws what
 // depended on the fact at the next ExecuteRules.
 //
 // The rule [RBM_I6] (?x rbm:i6Flag "on") -> (?x rbm:i6Out 1): assert the flag
-// twice, run the rules, Retract the flag once, run them again. On both engines the
-// flag is gone at once, whatever the count, and its consequent after the second run.
+// twice, run the rules, Retract the flag once, run them again. The flag is gone at
+// once, whatever the count, and its consequent after the second run (both engines
+// agreed from Phase 4 until the Go engine's retirement).
 //
 // Reachability: nothing outside tests calls the adaptor's Retract (searched
 // 2026-10-20 across jets/ and the four workspaces).
@@ -155,8 +150,9 @@ func TestRegression_I6_RetractDeletes(t *testing.T) {
 	type outcome struct {
 		inferred, retracted, flagAfterRetract, inferredAfterRun bool
 	}
-	got := map[string]outcome{}
-	for name, engine := range rbmEngines(t) {
+	engine := rbmEngine(t)
+	const name = "native"
+	{
 		ses, err := engine.NewRdfSession()
 		if err != nil {
 			t.Fatalf("%s: NewRdfSession: %v", name, err)
@@ -186,15 +182,11 @@ func TestRegression_I6_RetractDeletes(t *testing.T) {
 			t.Fatalf("%s: ExecuteRules after Retract: %v", name, err)
 		}
 		oc.inferredAfterRun = ses.Contains(s, out, one)
-		got[name] = oc
 		rete.Release()
 		ses.Release()
-	}
-	t.Logf("I-6: inferred, Retract, flag after Retract, inferred after the second run: native %+v, go %+v", got["native"], got["go"])
-	want := outcome{inferred: true, retracted: true, flagAfterRetract: false, inferredAfterRun: false}
-	for _, name := range []string{"native", "go"} {
-		if got[name] != want {
-			t.Errorf("%s: %+v, want %+v (Retract deletes the asserted fact, and the rete withdraws its consequent)", name, got[name], want)
+		want := outcome{inferred: true, retracted: true, flagAfterRetract: false, inferredAfterRun: false}
+		if oc != want {
+			t.Errorf("%+v, want %+v (Retract deletes the asserted fact, and the rete withdraws its consequent)", oc, want)
 		}
 	}
 }
@@ -213,10 +205,9 @@ func describe(n compute_pipes.RdfNode) string {
 
 // TestDefect_I12_LiteralRegexEngines holds rules_benchmark I-12 (F53) fixed
 // through a compiled rule: literal_regex returns capture group 1, or null on no
-// match, on both engines, C++'s meaning (RegexVisitor, jets/rete/expr_op_strings.h;
-// Q-11). Until Phase 4 the Go engine (ApplyRegexOp.Eval,
-// jets/jetrules/rete/expr_operator_str_apply_regex.go) returned the whole match,
-// or an empty string on no match.
+// match, C++'s meaning (RegexVisitor, jets/rete/expr_op_strings.h; Q-11). Until
+// Phase 4 the Go engine, retired in Phase 6, returned the whole match, or an empty
+// string on no match.
 //
 // Inputs: the zip-code rule's "^(\d\d\d)" on "12345" and "N/A", and the name splitters' ",\s+(\w+)"
 // and "(.*?)," on "DOE, JOHN".
@@ -233,8 +224,10 @@ func TestDefect_I12_LiteralRegexEngines(t *testing.T) {
 		{"name", "rbm:fullName", "DOE, JOHN", "rbm:firstName"},
 		{"name", "rbm:fullName", "DOE, JOHN", "rbm:lastName"},
 	}
-	got := map[string][]string{}
-	for name, engine := range rbmEngines(t) {
+	engine := rbmEngine(t)
+	const name = "native"
+	var got []string
+	{
 		ses, err := engine.NewRdfSession()
 		if err != nil {
 			t.Fatalf("%s: NewRdfSession: %v", name, err)
@@ -258,18 +251,13 @@ func TestDefect_I12_LiteralRegexEngines(t *testing.T) {
 			t.Fatalf("%s: ExecuteRules: %v", name, err)
 		}
 		for _, p := range probes {
-			got[name] = append(got[name], describe(ses.GetObject(rm.NewResource(p.subject), rm.NewResource(p.outProp))))
+			got = append(got, describe(ses.GetObject(rm.NewResource(p.subject), rm.NewResource(p.outProp))))
 		}
 		rete.Release()
 		ses.Release()
 	}
 	want := []string{"123", "<absent>", "JOHN", "DOE"}
-	for i, p := range probes {
-		t.Logf("I-12: %q literal_regex -> %s: native %q, go %q", p.in, p.outProp, got["native"][i], got["go"][i])
-	}
-	for _, name := range []string{"native", "go"} {
-		if !slices.Equal(got[name], want) {
-			t.Errorf("%s: %q, want %q, C++'s meaning on both engines (I-12)", name, got[name], want)
-		}
+	if !slices.Equal(got, want) {
+		t.Errorf("%q, want %q, C++'s meaning (I-12)", got, want)
 	}
 }

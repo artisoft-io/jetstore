@@ -11,7 +11,7 @@ import (
 
 // Extraction reads a subject's columns in one pass over its triples (rules_benchmark
 // G11). This runs that pass and the extraction it replaced, one FindSP per column, on
-// the same Go session and requires the same rows, cell for cell. A multi-valued
+// the same session and requires the same rows, cell for cell. A multi-valued
 // cell is compared as a multiset: the graph's maps are ranged in a new order on
 // every read, so two reads of one session can list a subject's values in different
 // orders, whichever way they are read. Every other cell is compared exactly.
@@ -24,7 +24,7 @@ import (
 // rdf:type and jets:source_period_sequence.
 func TestExtractionPassMatchesOneFindSPPerColumn(t *testing.T) {
 	inCompiledTestWs(t, func(t *testing.T) {
-		engine, s := goSession(t, loopingRuleFile)
+		engine, s := engineSession(t, loopingRuleFile)
 		if o := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{}, assertCase("ok")); o.Err != nil {
 			t.Fatal(o.Err)
 		}
@@ -71,7 +71,7 @@ func TestExtractionPassMatchesOneFindSPPerColumn(t *testing.T) {
 				"xr:as_json": {Config: &compute_pipes.ColumnEncodingSpec{Column: "xr:as_json", EntityEncoding: "json"}},
 			})
 		if !keyed {
-			t.Fatalf("the Go engine's nodes have no identity key: the pass was not used")
+			t.Fatalf("the engine's nodes have no identity key: the pass was not used")
 		}
 		if len(pass) != len(each) {
 			t.Fatalf("%d rows by the pass, %d by one FindSP per column", len(pass), len(each))

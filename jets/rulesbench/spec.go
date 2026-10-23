@@ -1,9 +1,10 @@
-// Package rulesbench is the benchmark of the two JetRules engines run by the
+// Package rulesbench is the benchmark of the JetRules engine run by the
 // rules_bench command (jets/cmds/rules_bench): it reads a bench spec, builds
-// each engine as a pipeline does, runs every input session through the
+// the engine as a pipeline does, runs every input session through the
 // pipeline's own rule loop (compute_pipes.RunRuleSets) with its timing sink set,
 // extracts the output through the pipeline's own extraction, and returns one
-// result per run.
+// result per run. The engine is the C++ one; the benchmark measured the Go
+// engine beside it until that engine's retirement in October 2026.
 //
 // It reuses the rules unit-test harness (jets/rulestest/harness) for the CSV
 // reader, the jetrules_config conversion and the engine labels, and changes
@@ -45,8 +46,8 @@ type Spec struct {
 	// of members. Its sessions follow InputSessions'.
 	InputDir *InputDir `json:"input_dir,omitempty"`
 
-	// Engines are run in this order, interleaved within each repetition:
-	// "native" (C++), "go", or both. Empty is both, native first.
+	// Engines names the engine: "native" (C++), the only one, or empty for it.
+	// "go" is refused, the Go engine being retired.
 	Engines []string `json:"engines,omitempty"`
 	// Repetitions is the number of measured runs per engine; 0 is 1.
 	Repetitions int `json:"repetitions,omitempty"`
@@ -56,10 +57,9 @@ type Spec struct {
 	// PoolSize is the number of workers running sessions concurrently on one
 	// engine, as a pipeline's pool_size; 0 is 1.
 	PoolSize int `json:"pool_size,omitempty"`
-	// MaxVertexVisits is the cap on visits per vertex, set on both engines as
+	// MaxVertexVisits is the cap on visits per vertex, set as
 	// (jets:iState jets:max_vertex_visits n) in the meta graph. A cap is
-	// required, because Go's default is 10,000 and C++ has none (rules_benchmark
-	// F9): this, or -max_vertex_visits, or a jets:max_vertex_visits in
+	// required, because C++ has none by default (rules_benchmark F9): this, or -max_vertex_visits, or a jets:max_vertex_visits in
 	// rule_config, as a unit test's may have. This replaces rule_config's, so the cap is
 	// set once.
 	MaxVertexVisits int `json:"max_vertex_visits,omitempty"`
@@ -70,9 +70,11 @@ type Spec struct {
 	// output channels are. None means no extraction.
 	OutputClasses []OutputClass `json:"output_classes,omitempty"`
 
-	// A .tst.json's other fields, accepted and ignored. The engines always run
+	// A .tst.json's other fields, accepted and ignored. The engine always runs
 	// in production's retraction mode (rules_benchmark Q-4), so a legacy object
-	// that turns a defect off is refused rather than ignored.
+	// that turns a defect off is refused rather than ignored; and compare_engines,
+	// like jetrules_config.use_jet_rules_go, asks for the retired Go engine and is
+	// refused (rules_benchmark Q-77).
 	Legacy          *rulestest.LegacyConfig `json:"legacy,omitempty"`
 	CompareEngines  bool                    `json:"compare_engines,omitzero"`
 	Expect          json.RawMessage         `json:"expect,omitempty"`
@@ -162,15 +164,14 @@ func (s *Spec) check() error {
 	if s.Legacy.ModeLabel() != rulestest.LegacyModeLegacy {
 		return fmt.Errorf("invalid bench spec: legacy asks for %s; the benchmark runs the engines in production's retraction mode, legacy", s.Legacy.ModeLabel())
 	}
-	for _, e := range s.Engines {
-		if e != rulestest.EngineNative && e != rulestest.EngineGo {
-			return fmt.Errorf("invalid bench spec: unknown engine %q: %s or %s", e, rulestest.EngineNative, rulestest.EngineGo)
-		}
+	if err := CheckEngines(s.Engines); err != nil {
+		return fmt.Errorf("invalid bench spec: %v", err)
 	}
-	for _, rc := range s.JetrulesConfig.RuleConfig {
-		if _, ok := rc[rulestest.NoTruthMainOnExist]; ok {
-			return fmt.Errorf("invalid bench spec: %s exists only in the C++ engine", rulestest.NoTruthMainOnExist)
-		}
+	if s.CompareEngines {
+		return fmt.Errorf("invalid bench spec: compare_engines: %s", rulestest.GoEngineRetired)
+	}
+	if s.JetrulesConfig.UseJetRulesGo {
+		return fmt.Errorf("invalid bench spec: jetrules_config.use_jet_rules_go: %s", rulestest.GoEngineRetired)
 	}
 	if s.InputDir != nil {
 		if s.InputDir.Path == "" {
@@ -190,12 +191,27 @@ func (s *Spec) check() error {
 	return nil
 }
 
-// EnginesOrDefault is Engines, or both engines, native first.
+// EnginesOrDefault is Engines, or the C++ engine.
 func (s *Spec) EnginesOrDefault() []string {
 	if len(s.Engines) > 0 {
 		return s.Engines
 	}
-	return []string{rulestest.EngineNative, rulestest.EngineGo}
+	return []string{rulestest.EngineNative}
+}
+
+// CheckEngines accepts engine names a spec or the -engine flag gives: native, the
+// only engine. go is refused naming the retirement, rather than run on C++.
+func CheckEngines(engines []string) error {
+	for _, e := range engines {
+		switch e {
+		case rulestest.EngineNative:
+		case "go":
+			return fmt.Errorf("engine %q: %s", e, rulestest.GoEngineRetired)
+		default:
+			return fmt.Errorf("unknown engine %q: the engine is %s", e, rulestest.EngineNative)
+		}
+	}
+	return nil
 }
 
 // Sessions resolves the input sessions, InputSessions first and then InputDir's

@@ -21,7 +21,7 @@ The types, validation and result file are in `jets/rulestest`. The runner is in
 ## Command line
 
 ```
-rules_unit_test -out <result.json> [-rlimit_data_mb N] [-engine native|go] <test.tst.json>
+rules_unit_test -out <result.json> [-rlimit_data_mb N] <test.tst.json>
 ```
 
 | | |
@@ -29,7 +29,7 @@ rules_unit_test -out <result.json> [-rlimit_data_mb N] [-engine native|go] <test
 | `<test.tst.json>` | the test, relative to the workspace root (`$WORKSPACES_HOME/$WORKSPACE`) or absolute. `-test <path>` is accepted too. Flags go **before** it: Go's flag package stops at the first non-flag |
 | `-out` | the result file to write. Required. It is written atomically |
 | `-rlimit_data_mb` | a memory ceiling in MiB. It is applied to the process itself as `RLIMIT_DATA` before anything else runs. When absent or 0, `JETS_RULES_UNIT_TEST_MEMORY_MB` is read; when that is absent too, there is no limit |
-| `-engine` | for shell use. It overrides the test's engine and turns `compare_engines` off. The apiserver does not pass it |
+| `-engine` | `native`, the only engine, or absent. `-engine go` is refused with exit status 2, naming the Go engine's retirement (October 2026). The apiserver does not pass it |
 | `WORKSPACES_HOME`, `WORKSPACE` | required. They name the workspace whose `build/` the test runs against |
 | `GLOG_v` | the C++ engine's log level. When it is unset and the test sets `is_debug`, the command restarts itself with `GLOG_v=35` (rule firings) and `GLOG_logtostderr=1`. glog reads these when `libjets.so` loads, before `main` runs |
 
@@ -98,7 +98,6 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   "test_name": "greetings",
   "comment": "free text",
   "legacy": { "recompute_on_retraction": false, "withdrawn_row_stays": true },
-  "compare_engines": false,
   "expect": { "status": "error", "reason": "max vertex visit reached" },
   "jetrules_config": { "process_name": "jet_rules/unit_tests/lp/lp_test.jr" },
   "input_sessions": [
@@ -119,23 +118,23 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
 - **`jetrules_config`** is the `JetrulesSpec` a pipeline carries, limited to what a test uses:
   - **used**: `process_name`, `max_looping`, `rule_config`, `current_source_period` (with
     `current_source_period_type`, or it is reset to 0), `current_source_period_date`,
-    `input_rdf_type`, `is_debug`, `use_jet_rules_go`, `use_jet_rules_native`, `comment`;
+    `input_rdf_type`, `is_debug`, `use_jet_rules_native` (it names the only engine), `comment`;
   - **refused**: `metadata_input_sources`, `pool_size`, `max_input_count`,
     `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`.
 - **`process_name`** is a rule file listed in `rule_sets`, or a rule sequence name.
-- **`legacy`, `compare_engines` and `expect` are top-level only.**
+- **`legacy` and `expect` are top-level only.**
 - **Top-level `expected_triples` / `excluded_triples` apply to every session.** A session may
   add its own.
 
 ### Engines
 
-- **C++ by default**, the engine the workspaces run in production.
-- **Go** with `"use_jet_rules_go": true`.
-- **Both** with `"compare_engines": true`. The test runs on each engine in turn, every check is
-  listed once per engine, and the test **fails when the statuses or any check's outcome
-  differ**, with each difference in `engine_differences`.
-- **`_0:no_truth_main_on_exist` is refused when Go runs.** It exists only in C++, and Go would
-  ignore it.
+- **A test runs on the C++ engine**, the engine the workspaces run in production, and the only
+  one: the Go engine was retired in October 2026.
+- **A test that asks for Go fails validation**, naming the retirement: `"use_jet_rules_go": true`,
+  or `"compare_engines": true`, which ran the test on both engines. It is refused rather than run
+  on C++ in its place. Results written before the retirement may record `go`, or `native+go`
+  with `engine_differences`.
+- **`_0:no_truth_main_on_exist`** is the C++ engine's, and is accepted.
 - **The Go engine ignores `$max_rule_exec`.** To lower the vertex-visit limit, set
   `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`. **Both engines
   honour it** (measured 2026-10-11): the harness asserts `rule_config` into the meta graph before
@@ -144,9 +143,8 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   unless the triple is in a graph its session reads (`ReteSession::initialize`), so **a test that
   may not terminate on C++ should set it**; whether the rule file's `$max_rule_exec` reaches C++
   that way was not checked here.
-- **The two engines word the limit differently**: Go `max vertex visit reached`, C++
-  `Maximum vertex visits reached`. An `expect.reason` that must hold on both, or under
-  `compare_engines`, names `vertex visit`.
+- **C++ words the limit** `Maximum vertex visits reached`; an `expect.reason` naming it, or
+  `vertex visit`, matches.
 
 ### Checks
 
@@ -234,19 +232,18 @@ A check takes one of three forms:
   different salience a vertex of its own, and warns when two such rules infer the same triple,
   because the lower one's salience then changes nothing about it.
 - **Never let a `sorted_head` tie decide an outcome.** Ties break non-deterministically on
-  **both** engines. Give every candidate a distinct weight.
+  the C++ engine, as they did on Go. Give every candidate a distinct weight.
 - **`is_debug`**:
   - logs each asserted row;
-  - turns on the Go engine's debug output;
   - restarts the process with `GLOG_v=35` for the C++ trace (`INFER Vertex …` lines).
 
   The apiserver keeps the tail of the log.
 
 ## For the code
 
-- **Order matters on both engines.** The harness calls `engine.JetResources()` before the
+- **Order matters.** The harness calls `engine.JetResources()` before the
   first RDF session opens, because the meta graph locks then and a new meta resource is
-  refused afterwards: a nil node on Go, an error on C++. Input is asserted through
+  refused afterwards with an error. Input is asserted through
   `RunRuleSets`' `assertInput`, the pipeline's order. **Until 2026-10-11 (`I-15`) C++ was
   stricter**: a meta resource made after a session opened aborted the process, and so did
   asserting input before the first rete session, because the native session made its nodes
@@ -258,6 +255,6 @@ A check takes one of three forms:
 - **The `LEGACY` switches** are passed to the engine constructor
   (`compute_pipes.WithRetractionMode`, from `harness.RetractionModeOf`), so the rules load in the
   test's mode; this harness is the only caller that passes anything but legacy. `legacy_mode` is
-  the mode the engine reports it was built in (`RetractionMode()` on either adaptor's engine),
+  the mode the engine reports it was built in (`RetractionMode()` on the adaptor's engine),
   and a run whose engine reports a different mode from the one the test declares is an `error`.
-  `legacy_mode_test.go` runs defect 1 in all four modes on both engines.
+  `legacy_mode_test.go` runs defect 1 in all four modes.

@@ -1,12 +1,15 @@
 package harness
 
-// The matcher against a real Go engine session, on rules that mint subjects.
+// The matcher against a real C++ engine session, on rules that mint subjects.
 //
 // test_looping_main.jr (jets/jetrules/test_ws) infers (?state newPerson
 // (create_entity 0)) and then names each new person, so its output can only be
 // checked as "some lp:Person has lp:name person_2" (definition F57). This test
 // compiles a scratch copy of test_ws, runs that rule file through the looping
-// protocol on the Go engine, snapshots the session and evaluates checks on it.
+// protocol on the C++ engine, snapshots the session and evaluates checks on it.
+// It ran on the Go engine until that engine's retirement (October 2026), and needs
+// the cgo environment of jets/cmds/rules_unit_test/README.md; a C++ engine that
+// does not build fails the test.
 //
 // WHY A CHILD PROCESS. The rete package and compute_pipes read WORKSPACES_HOME
 // and WORKSPACE in init (definition F16), and only package-internal variables
@@ -27,7 +30,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
@@ -49,8 +52,7 @@ func copyTestWorkspace(t *testing.T) (home, root string) {
 		t.Fatalf("copying test_ws: %v\n%s", err, out)
 	}
 	// The compiler builds its paths from workspace_control.json's workspace_name,
-	// which the checked-in file lacks (see rerunOverCompiledTestWs in
-	// jets/jetrules/rete/retraction_mode_factory_test.go).
+	// which the checked-in file lacks.
 	ctlPath := filepath.Join(wsDir, "workspace_control.json")
 	raw, err := os.ReadFile(ctlPath)
 	if err != nil {
@@ -70,41 +72,46 @@ func copyTestWorkspace(t *testing.T) (home, root string) {
 	return home, root
 }
 
-func TestGoEngineCreateEntitySubjects(t *testing.T) {
+func TestEngineCreateEntitySubjects(t *testing.T) {
 	if os.Getenv("RULESTEST_HARNESS_CHILD") == "1" {
-		goEngineChild(t)
+		createEntityChild(t)
 		return
 	}
 	if testing.Short() {
 		t.Skip("compiles a workspace")
 	}
 	home, root := copyTestWorkspace(t)
-	cmd := exec.Command(os.Args[0], "-test.run=^TestGoEngineCreateEntitySubjects$", "-test.count=1", "-test.v")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestEngineCreateEntitySubjects$", "-test.count=1", "-test.v")
 	cmd.Env = append(os.Environ(), "RULESTEST_HARNESS_CHILD=1", "WORKSPACES_HOME="+home, "WORKSPACE=test_ws",
 		"JETS_WORKSPACE_DB_SCHEMA_SCRIPT="+filepath.Join(root, "jets", "workspace_schema.sql"))
 	out, err := cmd.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "--- PASS: TestGoEngineCreateEntitySubjects") {
+	if err != nil || !strings.Contains(string(out), "--- PASS: TestEngineCreateEntitySubjects") {
 		t.Fatalf("child run failed: %v\n%s", err, out)
 	}
 	t.Logf("child:\n%s", out)
 }
 
-func goEngineChild(t *testing.T) {
+func createEntityChild(t *testing.T) {
 	// In-process, without the user-flow asset validation, which needs a node
 	// script beside the binary and checks documents this test does not touch.
 	if _, err := workspace.CompileWorkspace(nil, "test_ws", "rulestest",
 		workspace.SkipAssetValidation("a scratch copy of test_ws compiled for its rules only")); err != nil {
 		t.Fatalf("compiling test_ws: %v", err)
 	}
-	engine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
+	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, loopingRuleFile, false)
 	if err != nil {
-		t.Fatalf("building the engine: %v", err)
+		t.Fatalf("building the C++ engine: %v", err)
 	}
 	defer engine.Release()
 	// JetResources before the first session: the meta graph locks when a
-	// session opens, and a new meta resource is refused after that on both
-	// engines (on C++ it aborted the process until I-15 was fixed).
+	// session opens, and a new meta resource is refused after that (on C++ it
+	// aborted the process until I-15 was fixed).
 	jr := engine.JetResources()
+	// The Go engine's default cap, which C++ lacks, so that a rule that stopped
+	// terminating fails the test instead of hanging it.
+	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {
+		t.Fatal(err)
+	}
 	ses, err := engine.NewRdfSession()
 	if err != nil {
 		t.Fatal(err)

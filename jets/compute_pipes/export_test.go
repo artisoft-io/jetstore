@@ -2,8 +2,8 @@ package compute_pipes
 
 // Hooks for the external test package compute_pipes_test.
 //
-// jetrules_execute_rules_test.go needs a real rule engine, and the Go engine's
-// adaptor (jetrules_go_adaptor) imports this package, so a test that uses both
+// jetrules_execute_rules_test.go needs a real rule engine, and the engine's
+// adaptor (jetrules_native_adaptor) imports this package, so a test that uses both
 // has to live in compute_pipes_test. These hooks are what it reaches the
 // unexported worker through. They are compiled into this package's tests only.
 

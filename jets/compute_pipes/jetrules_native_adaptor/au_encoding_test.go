@@ -1,4 +1,4 @@
-package jetrules_go_adaptor
+package jetrules_native_adaptor
 
 // `AU.1`: does TOON cost accuracy against JSON? (agentic_ai Phase 7 track AU)
 //

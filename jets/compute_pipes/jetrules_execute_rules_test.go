@@ -1,6 +1,9 @@
 package compute_pipes_test
 
-// A characterisation test of JrPoolWorker.executeRules, on the Go engine.
+// A characterisation test of JrPoolWorker.executeRules, on the C++ engine. It ran
+// on the Go engine until that engine's retirement (October 2026), and needs the cgo
+// environment of jets/cmds/rules_unit_test/README.md; a C++ engine that does not
+// build fails the test.
 //
 // rules_unit_test_harness Phase 1, task AA.1. Nothing tested the rule loop
 // before this file (that project's F77), and AA.2 extracts it into an exported
@@ -29,10 +32,10 @@ package compute_pipes_test
 //     once each, and a later rule set raising the first one again does not
 //     report it a second time;
 //   - the order: the first rule set's rete session is created before the input
-//     is asserted. On the Go engine the order changes no outcome, so it is pinned
-//     by recording the calls; on C++ it is load-bearing, because creating a
-//     resource through the meta graph after the first rdf session opens aborts
-//     the process (rules_unit_test_harness I-15).
+//     is asserted. It is pinned by recording the calls. On C++ it was
+//     load-bearing, because creating a resource through the meta graph after the
+//     first rdf session opened aborted the process until rules_unit_test_harness
+//     I-15 was fixed; the Go engine, on which this was written, did not care.
 //
 // # How it runs
 //
@@ -40,7 +43,7 @@ package compute_pipes_test
 // this test binary as a child process with WORKSPACES_HOME and WORKSPACE set.
 // The child compiles the copy in process, then runs the cases. **It has to be a
 // child process**: package rete reads WORKSPACES_HOME and WORKSPACE in its init,
-// and they are unexported there, so nothing in this process can point the Go
+// and they are unexported there, so nothing in this process can point the
 // engine at a scratch workspace after it has started.
 //
 // The rule files are jet_rules/test_looping_main.jr, whose loop completes on
@@ -65,7 +68,6 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
@@ -96,8 +98,7 @@ func TestExecuteRulesCharacterisation(t *testing.T) {
 		t.Fatalf("copying test_ws: %v\n%s", err, out)
 	}
 	// The compiler builds its paths from workspace_control.json's workspace_name,
-	// which the committed file does not carry; patched in the copy only, as
-	// rerunOverCompiledTestWs in jets/jetrules/rete/retraction_mode_factory_test.go does.
+	// which the committed file does not carry; patched in the copy only.
 	ctlPath := filepath.Join(wsDir, "workspace_control.json")
 	raw, err := os.ReadFile(ctlPath)
 	if err != nil {
@@ -125,6 +126,9 @@ func TestExecuteRulesCharacterisation(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("the characterisation cases failed in the child process: %v\n%s", err, childFailures(out))
+	}
+	if strings.Contains(string(out), "--- SKIP: TestExecuteRulesCharacterisation") {
+		t.Skipf("skipped in the child process:\n%s", childFailures(out))
 	}
 	if testing.Verbose() {
 		t.Logf("child process:\n%s", childFailures(out))
@@ -170,7 +174,7 @@ func (r *run) messages() []string {
 	return m
 }
 
-// recordingEngine wraps the Go engine so that the rdf sessions it opens record,
+// recordingEngine wraps the engine so that the rdf sessions it opens record,
 // in order, each rete session created and each triple inserted.
 type recordingEngine struct {
 	compute_pipes.JetRuleEngine
@@ -226,11 +230,7 @@ func newHarness(t *testing.T, process string, config *compute_pipes.JetrulesSpec
 func newHarnessWith(t *testing.T, process string, config *compute_pipes.JetrulesSpec,
 	builder *compute_pipes.BuilderContext, source *compute_pipes.InputChannel) *harness {
 	t.Helper()
-	engine, err := jetrules_go_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
-	if err != nil {
-		t.Fatalf("building the Go engine for %s: %v", process, err)
-	}
-	t.Cleanup(func() { engine.Release() })
+	engine := buildEngine(t, process)
 
 	// What NewJetrulesTransformationPipe defaults before building a worker.
 	if config.OnError == "" {
@@ -344,9 +344,11 @@ func runOnce(t *testing.T, process, mode string, config *compute_pipes.JetrulesS
 	return newHarness(t, process, config).execute(mode)
 }
 
-// The messages executeRules writes, as it writes them.
+// The messages executeRules writes, as it writes them. msgExecuteRulesError is the
+// C++ engine's, naming the vertex that reached the cap and its visits; the Go
+// engine's was "error: max vertex visit reached".
 const (
-	msgExecuteRulesError = "ExecuteRules returned error: error: max vertex visit reached"
+	msgExecuteRulesError = `ExecuteRules returned error: {"error":"Maximum vertex visits reached","data":{"15": [10000,0]}}: error during execute rules in c: -10`
 	msgException         = "jets:exception caught: xr exception raised"
 	msgSecondException   = "jets:exception caught: xr second exception raised"
 	msgOnErrorFail       = "jetrules: record bundle failed rule execution (on_error: fail)"

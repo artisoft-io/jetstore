@@ -7,7 +7,10 @@
 // checked-out workspace. **It opens no database connection**: the workspace is
 // read from $WORKSPACES_HOME/$WORKSPACE, compiled, and the result goes to a file.
 //
-//	rules_unit_test -out result.json [-engine native|go] [-rlimit_data_mb N] <test.tst.json>
+//	rules_unit_test -out result.json [-rlimit_data_mb N] <test.tst.json>
+//
+// The test runs on the C++ engine, the only one. -engine names it and nothing else:
+// -engine go is refused, the Go engine having been retired in October 2026.
 //
 // The exit status is 0 whenever a result file was written, whatever the test's
 // status; it is 1 only when it could not be, and 2 for a usage error. See README.md.
@@ -23,7 +26,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
@@ -40,7 +42,7 @@ const glogVerbosity = "35"
 var (
 	outPath     = flag.String("out", "", "path of the result file to write (required)")
 	testFlag    = flag.String("test", "", "the .tst.json, absolute or relative to the workspace root (or give it as the argument)")
-	engine      = flag.String("engine", "", "override the test's engine: native or go (turns compare_engines off)")
+	engine      = flag.String("engine", "", "the engine: native, the only one (go is refused: "+rulestest.GoEngineRetired+")")
 	rlimitDataM = flag.Int("rlimit_data_mb", 0, "memory ceiling in MiB applied to this process as RLIMIT_DATA; 0 reads "+MemoryEnv+", absent means none")
 )
 
@@ -61,8 +63,12 @@ func main() {
 		testPath = flag.Arg(0)
 	}
 	if *outPath == "" || testPath == "" || flag.NArg() > 1 {
-		fmt.Fprintln(os.Stderr, "usage: rules_unit_test -out <result.json> [-engine native|go] [-rlimit_data_mb N] <test.tst.json>")
+		fmt.Fprintln(os.Stderr, "usage: rules_unit_test -out <result.json> [-rlimit_data_mb N] <test.tst.json>")
 		flag.PrintDefaults()
+		os.Exit(2)
+	}
+	if err := checkEngineFlag(*engine); err != nil {
+		fmt.Fprintf(os.Stderr, "rules_unit_test: %v\n", err)
 		os.Exit(2)
 	}
 	result := run(testPath, limitErr)
@@ -89,12 +95,20 @@ func run(testPath string, limitErr error) *rulestest.Result {
 	return harness.Run(harness.Options{
 		WorkspaceRoot: root,
 		TestPath:      testPath,
-		Engine:        *engine,
-		Factories: harness.Factories{
-			Native: jetrules_native_adaptor.NewJetRulesFactory(),
-			Go:     jetrules_go_adaptor.NewJetRulesFactory(),
-		},
+		Factory:       jetrules_native_adaptor.NewJetRulesFactory(),
 	})
+}
+
+// checkEngineFlag accepts -engine native, the only engine, or no -engine. -engine go
+// is refused naming the retirement rather than run on C++ (rules_benchmark Q-77).
+func checkEngineFlag(e string) error {
+	switch e {
+	case "", rulestest.EngineNative:
+		return nil
+	case "go":
+		return fmt.Errorf("-engine go: %s", rulestest.GoEngineRetired)
+	}
+	return fmt.Errorf("-engine %q: unknown engine; the engine is %s", e, rulestest.EngineNative)
 }
 
 func applyMemoryCeiling() error {
@@ -123,7 +137,7 @@ func applyMemoryCeiling() error {
 }
 
 // reexecForDebug restarts the process with GLOG_v set when the test sets
-// is_debug and runs on C++. glog reads its flags from the environment when
+// is_debug. glog reads its flags from the environment when
 // libjets.so loads, before main, so setting the variable here would be too
 // late. An explicit GLOG_v is left as it is, so a caller can choose the level.
 func reexecForDebug(root, testPath string) {
@@ -136,17 +150,6 @@ func reexecForDebug(root, testPath string) {
 	}
 	td, _, err := rulestest.LoadTestDefinition(path)
 	if err != nil || td == nil || !td.JetrulesConfig.IsDebug {
-		return
-	}
-	engines, err := harness.EnginesFor(td, *engine)
-	if err != nil {
-		return
-	}
-	native := false
-	for _, e := range engines {
-		native = native || e == rulestest.EngineNative
-	}
-	if !native {
 		return
 	}
 	exe, err := os.Executable()
