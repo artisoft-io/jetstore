@@ -14,7 +14,7 @@
 //	shadow_triage -attest                     # read the record back and say whether anything acted
 //
 // The DSN comes from JETS_DSN_URI_VALUE, or from JETS_DSN_JSON_VALUE by the same
-// route update_db and cpipes_server take (awsi.GetDsnFromJson), or from -dsn.
+// route update_db and cpipes_native_server take (awsi.GetDsnFromJson), or from -dsn.
 //
 // # What it will not do
 //

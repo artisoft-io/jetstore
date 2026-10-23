@@ -47,12 +47,14 @@
 // # Order is inherited from the input, deliberately
 //
 // This renderer does not sort, and the reason is measured rather than assumed.
-// `extractAsEntity` builds its lists by draining iterators over a `sync.Map`
-// (`WSetType`, `jets/jetrules/rdf/base_graph.go:26`), and
-// `TestConditionOrderIsAProcessProperty` measures what that costs: **one
+// `extractAsEntity` builds its lists by draining the session's iterators. On the
+// Go engine's session, retired in October 2026, they ranged a `sync.Map`
+// (`WSetType`, `jets/jetrules/rdf/base_graph.go:26` at the tag `go-engine-final`),
+// and `TestConditionOrderIsAProcessProperty` measured what that cost: **one
 // ordering for the life of a process, and a different one in the next process**
 // - twelve runs produced five of the six orderings of three conditions on
-// 2026-09-09.
+// 2026-09-09. On the C++ engine's session twelve processes gave one ordering
+// (2026-10-22), on one fixture, which is not a guarantee.
 //
 // **That is a property of the encoder and it is shared with the prompt**: the
 // toon column the model arm reads is built by the same walk. Sorting here alone

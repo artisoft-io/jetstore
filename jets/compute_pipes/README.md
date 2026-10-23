@@ -194,10 +194,13 @@ it will take, and it is an RDS question rather than a Lambda one.
 **A pipeline that configures no `lookup_tables` still fetches `lookup.db`.** The sync is by content
 type and takes every `sqlite` row; nothing consults the pipeline config. `lookup.db` is opened only
 through `jets/workspace/lookup_tables.go:103` (`buildLookupDb`, at compile, beside the read-only
-`storedLookupDbFingerprint` in `lookup_db_fingerprint.go`) and
-`jets/jetrules/rete/lookup_table_manager.go:40`, both reached only when a lookup is actually configured.
+`storedLookupDbFingerprint` in `lookup_db_fingerprint.go`), reached only when a lookup is actually
+configured, and by the rule engine. The C++ engine opens it every time it is built, lookups or not
+(`LookupSqlHelper::initialize`, `jets/rete/lookup_sql_helper.h`, read from the code 2026-10-22), so
+only a pipeline with a rules step reaches it; the Go engine, until its retirement in October 2026,
+opened it only for a configured lookup (`lookup_table_manager.go:40`, at the tag `go-engine-final`).
 
-Neither JetStore-owned pipeline configures one. So `jets_loader` and `embed_input_parts` each pull
+Neither JetStore-owned pipeline configures one, and neither has a rules step. So `jets_loader` and `embed_input_parts` each pull
 **87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on client workspace A.
 
 ## The jetrules caches, and the cold start of 2026-08-31
@@ -619,7 +622,8 @@ Two things about them were not visible from the code.
 **The subject in *"property X is not multi-value but has multiple values for subject S"*
 is the extracted entity, not the group.** `extractLiteralValue` is called per output
 entity, so S is that entity's resource name: for an entity made by `create_entity 0`, a
-fresh UUID that is also its `jets:key` (`CreateEntityKey`, `jets/jetrules/rdf/ast_r_operators.go`).
+fresh UUID that is also its `jets:key` (`CreateEntityVisitor`, `jets/rete/expr_op_resources.h`; on the
+retired Go engine `CreateEntityKey`, `jets/jetrules/rdf/ast_r_operators.go` at the tag `go-engine-final`).
 It names the output row, and says nothing about which input group produced it. That row now
 carries S's `jets:key` in `row_jets_key` (the resource name when it has none) and the
 property in `input_column`.
