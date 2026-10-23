@@ -9,7 +9,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5"
@@ -18,12 +17,10 @@ import (
 
 type DomainColumn struct {
 	ColumnInfo *rete.TableColumnNode
-	Predicate  *bridgego.Resource
 }
 
 type DomainTable struct {
 	TableInfo      *rete.TableNode
-	ClassResource  *bridgego.Resource
 	Columns        []DomainColumn
 	DomainKeysInfo *schema.HeadersAndDomainKeysInfo
 }
