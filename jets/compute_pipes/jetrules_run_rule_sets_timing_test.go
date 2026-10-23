@@ -2,7 +2,7 @@ package compute_pipes_test
 
 // Tests of what the rules_bench command (jets/cmds/rules_bench) adds to the
 // rule loop and its neighbours (rules_benchmark Phase 1, AB.1 and AB.2): the
-// timing sink of RunRuleSets, the engine's counters, CastTextRow with
+// timing sink of RunRuleSets, CastTextRow with
 // AssertCastRow, and SessionExtractor. The sink is nil in every pipeline,
 // so the first test pins that setting it changes no outcome. They run like the
 // other RunRuleSets tests, in a child process over a compiled copy of
@@ -29,8 +29,6 @@ type recordingTimer struct {
 	// two calls, "done" and "released".
 	released []compute_pipes.RuleSetTiming
 	events   []string
-	graphs   []compute_pipes.GraphSizes
-	rete     []compute_pipes.ReteCounters
 }
 
 func (r *recordingTimer) InputAsserted(d time.Duration) {
@@ -42,12 +40,6 @@ func (r *recordingTimer) InputAsserted(d time.Duration) {
 func (r *recordingTimer) RuleSetDone(s compute_pipes.JetRdfSession, rs compute_pipes.JetReteSession, t *compute_pipes.RuleSetTiming) {
 	r.ruleSets = append(r.ruleSets, *t)
 	r.events = append(r.events, "done")
-	if gs, ok := s.(compute_pipes.GraphSizer); ok {
-		r.graphs = append(r.graphs, gs.GraphSizes())
-	}
-	if rc, ok := rs.(compute_pipes.ReteCounterReader); ok {
-		r.rete = append(r.rete, rc.ReteCounters())
-	}
 }
 
 func (r *recordingTimer) RuleSetReleased(t *compute_pipes.RuleSetTiming) {
@@ -143,16 +135,6 @@ func TestRunRuleSetsTiming(t *testing.T) {
 				if rel.RuleSet != done.RuleSet || rel.Total != done.Total || rel.Release < 0 {
 					t.Errorf("rule set %d: released %+v, done %+v; want the same timing with Release set", i, rel, done)
 				}
-			}
-		})
-		t.Run("no_engine_counters", func(t *testing.T) {
-			// The Go engine counted its graphs and rete (GraphSizer, ReteCounterReader),
-			// and this case checked those counts until its retirement. The C++ engine
-			// keeps none, so the timer is given none.
-			timer := &recordingTimer{}
-			runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{Timing: timer})
-			if len(timer.graphs) != 0 || len(timer.rete) != 0 {
-				t.Errorf("the C++ engine's session counts: %d graphs, %d rete", len(timer.graphs), len(timer.rete))
 			}
 		})
 	})

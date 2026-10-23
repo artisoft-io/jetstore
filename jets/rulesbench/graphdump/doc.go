@@ -6,9 +6,9 @@
 //
 // # What is written
 //
-// The session's asserted and inferred triples. Both engines' Find returns the
-// meta graph as well (Go: RdfSession.Find, jets/jetrules/rdf/rdf_session.go;
-// C++: rdf_session.h find()), and nothing in compute_pipes.JetRdfSession tells
+// The session's asserted and inferred triples. The engine's Find returns the
+// meta graph as well (rdf_session.h find(); the Go engine's RdfSession.Find did
+// too), and nothing in compute_pipes.JetRdfSession tells
 // the three graphs apart. So the meta graph is subtracted by value: it is read
 // once per engine from a new, empty RDF session of the same engine, whose Find
 // holds the meta graph and nothing else, and every triple equal to one of those

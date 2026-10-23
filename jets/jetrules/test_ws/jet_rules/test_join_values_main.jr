@@ -2,13 +2,13 @@
 #
 # join_values was added with unit tests on both engines' operators and nothing
 # exercised it through COMPILE -> METASTORE -> EXECUTION, and no .jr file anywhere used
-# it. An operator name is an opaque string all the way from the lexer to the factory
-# (see the note at the top of jets/jetrules/rete/operator_registration_test.go), so a
-# rule is the only thing that shows the name survives that journey.
+# it. An operator name travels as a string from the lexer to the engine's operator
+# factory, so a rule is the only thing that shows the name survives that journey.
 #
-# TestJoinValuesCompilesAndRuns in jets/jetrules/rete/join_values_rule_test.go compiles
-# this file and runs it; TestCompiler1 in jets/compilerv2/compiler compiles it as part
-# of the compiler's own suite.
+# TestCompiler1 in jets/compilerv2/compiler compiles it as part of the compiler's own
+# suite, and the C++ engine's tests in jets/compute_pipes/jetrules_native_adaptor
+# load it. The Go engine's TestJoinValuesCompilesAndRuns compiled and ran it until
+# that engine's deletion (October 2026; the go-engine-final tag).
 #
 # The two configs are two of the three forms the operator accepts, and they are here
 # for different reasons.

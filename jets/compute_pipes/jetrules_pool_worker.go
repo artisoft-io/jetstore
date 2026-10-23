@@ -452,9 +452,8 @@ type RuleSetsTimer interface {
 	// InputAsserted is called once, after assertInput returned, with its time.
 	InputAsserted(d time.Duration)
 	// RuleSetDone is called once per rule set that ran, after its exception scan
-	// and before its rete session is released, so that the timer may read
-	// counters from reteSession (see ReteCounterReader). It must not retain
-	// reteSession or rdfSession.
+	// and before its rete session is released, so that the timer may read the
+	// sessions. It must not retain reteSession or rdfSession.
 	RuleSetDone(rdfSession JetRdfSession, reteSession JetReteSession, timing *RuleSetTiming)
 	// RuleSetReleased is called after each RuleSetDone, once the rule set's rete
 	// session is released, with the same timing and its Release set. A rule set
@@ -486,46 +485,6 @@ type RuleSetTiming struct {
 	// Release is the rete session's Release() at the end of the rule set. It is
 	// not in Total: it runs after RuleSetDone, and is read by RuleSetReleased.
 	Release time.Duration
-}
-
-// GraphSizes is the number of triples in each graph an rdf session reads.
-type GraphSizes struct {
-	Meta, Asserted, Inferred int
-}
-
-// GraphSizer is implemented by an rdf session that counts its graphs at no
-// cost. The Go adaptor's does. The native adaptor's does not: the bridge has no
-// call that returns a count.
-type GraphSizer interface {
-	GraphSizes() GraphSizes
-}
-
-// ReteCounters is what a rete session has counted since it was created, which
-// is since its rule set started: a rete session lasts for every loop of its rule
-// set.
-type ReteCounters struct {
-	// Vertices is the number of vertices of the rule set's network.
-	Vertices int
-	// VertexVisits is the sum over vertices of the rows whose consequents were
-	// computed: the count the max_vertex_visits cap is compared with, vertex by
-	// vertex.
-	VertexVisits int64
-	// Retractions is the sum over vertices of the rows whose consequents were
-	// retracted.
-	Retractions int64
-	// BusiestVertexVisits and BusiestVertexRules are the vertex with the most
-	// visits, the one that reaches the cap first, and the rules it carries.
-	BusiestVertexVisits int64
-	BusiestVertexRules  string
-	// BetaRows is the number of rows the beta relations hold when it is read.
-	BetaRows int64
-}
-
-// ReteCounterReader is implemented by a rete session that keeps ReteCounters.
-// The Go adaptor's does; the native adaptor's does not, since the bridge exposes
-// none of the C++ engine's counters.
-type ReteCounterReader interface {
-	ReteCounters() ReteCounters
 }
 
 // RuleSetOutcome is what happened in one rule set.

@@ -18,7 +18,8 @@ var uuidV4 = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-
 func IsMintedName(name string) bool { return uuidV4.MatchString(name) }
 
 // Quantise is the Go engine's rounding of a double literal: 15 bits of mantissa
-// (rdf.ResourceManager.NewDoubleLiteral, jets/jetrules/rdf/resource_manager.go).
+// (rdf.ResourceManager.NewDoubleLiteral, rdf/resource_manager.go at the
+// go-engine-final tag). It reads dumps that engine wrote.
 func Quantise(x float64) float64 {
 	if math.IsNaN(x) || math.IsInf(x, 0) {
 		return x

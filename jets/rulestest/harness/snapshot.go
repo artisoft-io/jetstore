@@ -88,7 +88,8 @@ func (t Term) String() string {
 	}
 }
 
-// roundDouble is NewDoubleLiteral's rounding (jets/jetrules/rdf/resource_manager.go).
+// roundDouble is the Go engine's NewDoubleLiteral rounding (rdf/resource_manager.go,
+// at the go-engine-final tag).
 func roundDouble(x float64) float64 {
 	if math.IsNaN(x) || math.IsInf(x, 0) {
 		return x
