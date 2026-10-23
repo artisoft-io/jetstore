@@ -93,7 +93,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-sample_ms` | goroutine sampling period, default 10. 0 turns it off |
 | `-rlimit_data_mb` | memory ceiling, as `RLIMIT_DATA`, applied before anything loads |
 | `-require_tuned` | refuse to run unless every allowed CPU uses the `performance` governor and `perf_event_paranoid` is 1 or less. The protocol script always passes it |
-| `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares one engine with itself, and the engines compare within `r01`. The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
+| `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares the engine with itself (before the Go engine's retirement, the engines compared within `r01`). The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
@@ -263,25 +263,26 @@ are the calls they were.
 The per-run summary line on standard output, which `run_protocol.sh` repeats, ends with
 both, summed over sessions: `release rete <d> rdf <d>`.
 
-### Counters, and which engine has them
+### Counters
 
-| Counter | Go | C++ |
+| Counter | C++ | Go, until its retirement |
 |---|---|---|
 | Loops, per rule set and session | yes | yes |
 | Input rows, rows extracted per class | yes | yes |
-| Triples by graph (meta, asserted, inferred) after each rule set | yes, `graph` | **no**: the bridge has no call that returns a count |
-| Every triple the session reads, by iteration (`-count_triples`) | yes | yes, at one cgo call per node read |
-| Vertices, vertex visits (rows whose consequents were computed), retractions | yes, `rete` | **no**: the C++ engine keeps them (`vertex_visits_`) but the bridge exposes none |
-| The busiest vertex's visits and rules: what the cap is compared with | yes | **no** |
-| Beta rows held at the rule set's end | yes | **no** |
-| Lookups made | **no** | **no**: neither engine counts them |
-| Go heap, allocations, GC, goroutines | yes | the adaptor's and the bridge's only |
+| Triples by graph (meta, asserted, inferred) after each rule set | **no**: the bridge has no call that returns a count | yes, as `graph` |
+| Every triple the session reads, by iteration (`-count_triples`) | yes, at one cgo call per node read | yes |
+| Vertices, vertex visits (rows whose consequents were computed), retractions | **no**: the engine keeps them (`vertex_visits_`) but the bridge exposes none | yes, as `rete` |
+| The busiest vertex's visits and rules: what the cap is compared with | **no** | yes |
+| Beta rows held at the rule set's end | **no** | yes |
+| Lookups made | **no** | **no** |
+| Go heap, allocations, GC, goroutines | the adaptor's and the bridge's only | yes |
 | Peak RSS | yes | yes |
 
-The Go counters come from `compute_pipes.GraphSizer` and `compute_pipes.ReteCounterReader`,
-which the Go adaptor implements (`jetrules_golang_counters.go`). Each reads a field the
-engine keeps anyway. Reading the rete counters walks every vertex once per rule set, and
-that time is `counters_ns`, apart from every phase.
+The Go engine's counters came from `compute_pipes.GraphSizer` and `compute_pipes.ReteCounterReader`,
+which its adaptor implemented (`jetrules_golang_counters.go`, at the tag `go-engine-final`); both
+went with it, and so did a result's `graph` and `rete` fields, which results written before the
+retirement may still carry. Reading them walked every vertex once per rule set, and that time was
+`counters_ns`, apart from every phase.
 
 ## Concurrency: `-pool N`
 
