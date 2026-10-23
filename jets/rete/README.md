@@ -90,8 +90,8 @@ same text on both engines. That is text plus a value, `to_text`, `create_entity`
 - A date is `YYYY-MM-DD`, a datetime `YYYY-MM-DDTHH:MM:SS`, with `.ffffff` only when the
   microseconds are not zero (boost's `to_iso_extended_string`), and a null is `"null"`.
 - C++'s side is `rdf::double_to_text` and `rdf::to_string`; Go's was `rdf.TextOf` and
-  `rdf.FormatDouble` (`jets/jetrules/rdf/text.go`). The shared table was `DoubleTextCases` (28 rows,
-  `jets/jetrules/rdf/text_test.go`); its C++ copy, `DoubleToText.ShortestDigitsNeverAnExponent`, stays.
+  `rdf.FormatDouble` (`jets/jetrules/rdf/text.go` at `go-engine-final`). The shared table was `DoubleTextCases` (28 rows,
+  `jets/jetrules/rdf/text_test.go` at `go-engine-final`); its C++ copy, `DoubleToText.ShortestDigitsNeverAnExponent`, stays.
 - Before: C++ wrote `std::to_string`'s six decimals (`"rate: 991.000000"`). Go wrote `%v`, with an
   exponent from 1e6 and below 1e-4 (`1.2345675e+06`), or `%G` with 15 digits (`1E+06`) for a minted
   name. A date came out as Go's struct (`{2025-06-05 00:00:00 +0000 UTC}`). `join_values` wrote `%g`'s
@@ -111,7 +111,7 @@ operands converted, whichever side it is on.
   was 2.5), and Go's `*` too.
 - Two integers keep C++'s rule: the left operand's type, the right converted to it, and integer
   division. Go gained its missing uint cases.
-- The shared table was `TestArithmeticTyping` (`jets/jetrules/rdf/ast_math_operators_test.go`); its
+- The shared table was `TestArithmeticTyping` (`jets/jetrules/rdf/ast_math_operators_test.go` at `go-engine-final`); its
   C++ copy is `ArithmeticTypes.TheSharedTypingTable`.
 
 **Comparisons (Q-68).** This covers `==`, `!=`, `<`, `<=`, `>` and `>=`.
@@ -129,8 +129,8 @@ operands converted, whichever side it is on.
   - C++'s int-against-double `<` and `>` skipped the rounding, so an infinity ordered above every
     number.
 - Go reproduced C++'s rounding with a port of glibc's `__ieee754_log10` (`glibcLog10`) and glibc's
-  powers of ten (`pow10Table`), both mirroring x86-64 glibc 2.39 (`jets/jetrules/rdf/compare.go`).
-  The shared table was `ComparisonCases` (`jets/jetrules/rdf/compare_test.go`); its C++ copy is
+  powers of ten (`pow10Table`), both mirroring x86-64 glibc 2.39 (`jets/jetrules/rdf/compare.go` at `go-engine-final`).
+  The shared table was `ComparisonCases` (`jets/jetrules/rdf/compare_test.go` at `go-engine-final`); its C++ copy is
   `Comparisons.TheSharedTable`.
 - **Fast path, the same in both engines and result-preserving.** Equal doubles are equal. Doubles
   further apart than 2e-14 of the larger keep their plain order: rounding moves each by at most
@@ -159,7 +159,7 @@ two agreed. On a tie, the object first in this total order wins:
 4. blank nodes by key, last.
 
 So equal weights give the smallest name, in any insertion order. C++ has `tie_break_less`; Go had
-`compareObjects` and `tieEqual` (`expr_operator_math_minmax.go`).
+`compareObjects` and `tieEqual` (`expr_operator_math_minmax.go` at `go-engine-final`).
 - **Known limits.** A NaN, an infinity, or two values that do not compare are not a tie, and keep the
   first met, which is order-dependent (I-125). An entity named by a UUID still orders differently
   from run to run (I-124).
@@ -173,7 +173,7 @@ key shared a subject, and the second lookup read the first one's cached row (I-1
 diagnosis and procedure description lookups crossed this way. They are now C++'s names:
 `jets:<T>:<key>` for `lookup`, `multi_lookup` and `lookup_rand`, and `jets:rand:<T>:<n>` for
 `multi_lookup_rand`, each cached as `(<T> jets:lookup_row subject)` (Go's `LookupTableSqlite3.lookup`,
-`lookup_table_sqlite3.go`).
+`lookup_table_sqlite3.go` at `go-engine-final`).
 - **A `multi_lookup` miss** returns null and writes nothing, as it did on both, so a rule testing a
   miss with `(?x p null)` works after it (I-31).
 - **An integer key**, signed or unsigned, was converted to text instead of panicking on Go (I-104). A
@@ -221,7 +221,7 @@ also holds its rows. C++'s `BetaRelation::holds` asks for the same row instance,
 rows by equality. The engines still converged, because a re-inserted equal row's own pending visit
 makes the same candidate.
 
-Tests: `CandidateRowReentryTest` (C++, `jets/rete/rete_session_test.cc`); on Go, `TestRegression_I91_*` in `defects_rbm_i91_test.go`.
+Tests: `CandidateRowReentryTest` (C++, `jets/rete/rete_session_test.cc`); on Go, `TestRegression_I91_*` in `defects_rbm_i91_test.go` at `go-engine-final`.
 End to end, the `jets_ws` rule `[(jets:iState exist_not jets:exception) and ((not ?v) != 1)]` runs
 through the rules unit-test harness (`reentry_error_path`). It failed on both engines before these
 fixes and passed on both after them (`compare_engines`), and it runs on C++ alone since the
@@ -374,7 +374,7 @@ as `ReteSession.RaiseException`: a rule-time error is data in the session, not a
 
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
 against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
-`jets/rete/rete_session.cc:343`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212`). Found
+`jets/rete/rete_session.cc:343`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
 by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13), where one rule's
 `create_entity` was keyed as a workaround, in that workspace's own repository.
 
@@ -388,12 +388,12 @@ by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13),
 At rule load a node vertex is flagged when one of its consequent terms mints a resource:
 `create_entity`, `create_uuid_resource`, `range`, `lookup_rand` or `multi_lookup_rand`. C++: the
 `MintsResource` marker on those visitors (`jets/rete/expr.h:135`) and `ExprBase::mints_resource`,
-read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go had `expr_mints_resource.go`
-and `AddConsequentTerm` (`node_vertex.go:77`). A row of a flagged vertex records every triple its
+read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go had `expr_mints_resource.go` at `go-engine-final`
+and `AddConsequentTerm` (`node_vertex.go:77` at `go-engine-final`). A row of a flagged vertex records every triple its
 consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
 both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:311`,
-`rete_session.go:34`) — and **retraction retracts that record and evaluates nothing**
-(`rete_session.cc:423`, `rete_session_exec_rules.go:270`). The record is emptied rather than
+`rete_session.go:34` at `go-engine-final`) — and **retraction retracts that record and evaluates nothing**
+(`rete_session.cc:423`, `rete_session_exec_rules.go:270` at `go-engine-final`). The record is emptied rather than
 released, because a withdrawn row stays in its relation (below) and is retracted again on later
 withdrawals; released, the second retraction fell back to recomputing `create_entity` and
 re-inserted `jets:key`. **A keyed entity's `jets:key` goes with its last support** — decided by
@@ -406,13 +406,13 @@ recorded and still outlive the row.
 by Michel's decision** ("go with (a), the narrow fix"), because with them a client workspace's rules never
 terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects**, pinned by the
 `LEGACY` cases in `jets/rete/retract_recorded_consequents_test.cc` (and, until the retirement, in Go's
-`retract_recorded_consequents_test.go`):
+`retract_recorded_consequents_test.go` at `go-engine-final`):
 
 1. **A consequent that reads the graph is recomputed on retraction** — the aggregates, `exist`,
    `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
    and the inferred one stays.
 2. **A withdrawn row never fires again.** After retracting a row's consequents the engine calls
-   `remove_beta_row` (`rete_session.cc:456`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305`), which
+   `remove_beta_row` (`rete_session.cc:456`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305` at `go-engine-final`), which
    returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
    `kProcessed`, and an equal row arriving later is taken for one already inferred.
 
@@ -430,7 +430,7 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
   Recomputing gave null over the empty list and retracted nothing, and the stale row never
   re-fired, so the loop ended.
   `LoopThroughNegationTest` (`jets/rete/loop_through_negation_test.cc`), and on Go
-  `TestLoopControlRulesTerminate` (`loop_through_negation_test.go`), reproduce it in five rule terms
+  `TestLoopControlRulesTerminate` (`loop_through_negation_test.go` at `go-engine-final`), reproduce it in five rule terms
   and guard that it still terminates.
 - **A self-guarded rule depends on defect 2 alone**, with pure consequents. Its guard is two
   `exist_not` tests on properties that its own chain of five rules goes on to infer, so the guard is
@@ -459,7 +459,7 @@ workspace ever needs correct truth maintenance on these shapes, the paths are:
 per defect, because each was measured above to do something different alone. Go had
 `RetractionMode` (`retraction_mode.go`), passed as `WithRetractionMode` to
 `NewReteMetaStoreFactory`; `AddConsequentTerm` recorded a graph-reading consequent
-(`expr_reads_graph.go`, the wide half of `1d993844`'s row purity) only with
+(`expr_reads_graph.go` at `go-engine-final`, the wide half of `1d993844`'s row purity) only with
 `ReplayGraphReadingConsequents`, and `ComputeConsequentTriples` called `EraseRetractedBetaRow`
 instead of `RemoveBetaRow` only with `EraseWithdrawnRows`. C++: `RetractionMode`
 (`jets/rete/rete_meta_store.h`), passed to `ReteMetaStore::initialize` through
@@ -518,7 +518,7 @@ erases the triple from its `pos` and `osp` indexes even when the `spo` reference
 above zero, so a triple with two supports that loses one should stay `Contains`-true and stop
 being found by predicate or object, read from the code, not measured.~~ **Fixed 2026-10-21
 (rules_benchmark I-7)**: Go's `RdfGraph.Retract` retracted all three indexes from then on, as C++
-does, and `TestRetractKeepsATripleWithASupportLeftInEveryIndex` (`rdf_graph_test.go`) held it.
+does, and `TestRetractKeepsATripleWithASupportLeftInEveryIndex` (`rdf_graph_test.go` at `go-engine-final`) held it.
 
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
@@ -541,7 +541,7 @@ nothing logged.
 *History: written while both engines ran. The C++ facts in it stand; the Go side was settled by the
 Phase 4 entry above or ended with the retirement.*
 
-Found while adding `join_values` (`JoinValuesOp`, `expr_operator_math_join_values.go`; the C++ half
+Found while adding `join_values` (`JoinValuesOp`, `expr_operator_math_join_values.go` at `go-engine-final`; the C++ half
 is `JoinValuesVisitor`, `jets/rete/expr_op_arithmetics.h`). Every operator here has a C++ twin and
 nothing checks that the two behave alike, so **a rule can compile against one engine and not the
 other, or — worse — run on both and produce different values**. Three divergences were measured on
@@ -561,7 +561,7 @@ after 4, which is the one to read first if you arrived here from a wrong aggrega
 **1. A config carrying `jets:value_property` alone works in C++ and silently yielded nothing in Go.**
 `SumValuesVisitor` resolves `datap = (rhs, jets:value_property, ?)` and falls back to `rhs` itself
 (`jets/rete/expr_op_arithmetics.h`); `SumValuesOp.InitializeOperator`
-(`expr_operator_math_sum_values.go:20`) only looked at `jets:value_property` when
+(`expr_operator_math_sum_values.go:20` at `go-engine-final`) only looked at `jets:value_property` when
 `jets:entity_property` was present, and otherwise used `rhs` as the data property — so the config
 resource was walked as if it were a property of the subject, matching nothing. The C++
 `expr_op_specialty_test.cc` `SumValuesVisitor1` case is exactly this form, and it had no Go
@@ -579,9 +579,9 @@ in `jets/rete/expr_op_specialty_test.cc` fails without it.
 **3. ~~A double *literal* is quantised to 15 bits of mantissa by the Go engine and not by the C++ one.~~
 SETTLED 2026-10-22 (rules_benchmark I-40, jetstore#2331): `NewDoubleLiteral` stores the double given,
 on both engines; see the Phase 4 entry above.** As it was:
-`ResourceManager.NewDoubleLiteral` (`jets/jetrules/rdf/resource_manager.go:287`) does
+`ResourceManager.NewDoubleLiteral` (`jets/jetrules/rdf/resource_manager.go:287` at `go-engine-final`) does
 `big.NewFloat(x).SetPrec(15).Float64()` — 15 **bits**, not digits — so `0.891089` is stored as
-`0.891082763671875`. Computed doubles do not take that path (`rdf.F`, `jets/jetrules/rdf/ast.go:367`,
+`0.891082763671875`. Computed doubles do not take that path (`rdf.F`, `jets/jetrules/rdf/ast.go:372`,
 stores the value as given), so the same number reaches the graph differently depending on whether a
 rule wrote it down or worked it out. Measured 2026-09-09 by a rendering test that expected the two
 engines to agree on `0.891089` and got `0.891083` from Go.
@@ -601,7 +601,7 @@ and `JoinValuesOp` never did.
 above is about `register_callback`, and **`register_callback` is never called for a consequent
 expression.** `ReteSession::set_graph_callbacks` (`jets/rete/rete_session.cc`) registers a node
 vertex's *antecedent* alpha node and its *filter* expression, and nothing else; Go's `ReteSession`
-initialisation in `rete_session.go` did the same and called `InitializeExpression` alone on a
+initialisation in `rete_session.go` at `go-engine-final` did the same and called `InitializeExpression` alone on a
 consequent. So **an aggregate in a consequent has no truth maintenance** (it had none in either engine), whatever
 its config, and the four fixes above cannot reach one.
 
@@ -619,7 +619,7 @@ divergences above. `AggregateInConsequentIsNotMaintained` in
 production number.
 
 **The consequence for anyone adding an operator, while there were two engines: write the tests in
-pairs.** `expr_operator_math_join_values_test.go` and the `JoinValues*` cases in
+pairs.** `expr_operator_math_join_values_test.go` at `go-engine-final` and the `JoinValues*` cases in
 `jets/rete/expr_op_specialty_test.cc` were deliberately the same cases in the same order, and the
 rendering test in the Go file existed only to pin agreement with the C++ `JoinTextVisitor`. The C++
 cases are now `join_values`' specification. Go's `Node.String()` was **not** that rendering: it formatted an `LDate` with `%v` on the struct
@@ -632,7 +632,7 @@ is no longer `%g` with six digits but the shortest round-trip digits. See the Ph
 `join_values` shipped with matched unit tests on both engines and no `.jr` file anywhere used it, so
 nothing exercised compile → metastore → execution — the leg on which an operator name is an opaque
 string. `jets/jetrules/test_ws/jet_rules/test_join_values_main.jr` is that rule; it was run on Go by
-`TestJoinValuesCompilesAndRuns` (`join_values_rule_test.go`), which compiled a scratch copy of
+`TestJoinValuesCompilesAndRuns` (`join_values_rule_test.go` at `go-engine-final`), which compiled a scratch copy of
 `test_ws` with `workspace.CompileWorkspace`, asset validation skipped, and asserted the joined strings. **Two of the three config forms
 are in it deliberately**: the `jets:entity_property` + `jets:value_property` form with an explicit
 `jets:separator`, and the `jets:value_property`-alone form with the default — which is item 1 above,
@@ -653,14 +653,14 @@ the ANTLR lexer has no token for `sum_values` or any of its siblings
 (`jets/compilerv2/parser/JetRuleLexer.tokens` carries only punctuation and structural keywords), the
 compiler carries the name through as `ExpressionNode.Op` and writes it to `workspace.db` unexamined
 (`workspace_db_helper.go`), and no validator whitelists it. So **adding an operator is exactly two
-registrations** — a `case` in `CreateBinaryOperator` (`expr_operator_factory.go`) and a line in
+registrations** — a `case` in `CreateBinaryOperator` (`expr_operator_factory.go` at `go-engine-final`) and a line in
 `create_binary_expr` (`jets/rete/expr_operator_factory.h`) — plus the implementation.
 
 The cost of that design is that **an unknown operator is not a compile error**. It compiles, and
 fails at rule-execution time: `create_binary_expr` throws, `CreateBinaryOperator` returns nil.
 
 **That is now checked at test time instead, and the check is in two halves because no one process can
-do both.** `operator_registration_test.go` in this package compiles every rule set of every
+do both.** `operator_registration_test.go` at `go-engine-final` in this package compiles every rule set of every
 workspace — 50 of them, from each `workspace_control.json`'s `rule_sets` rather than from a
 `*_main.jr` glob, which finds 2 of the largest workspace's 34 — collects every `ExpressionNode.Op` and asserts each
 one resolves in `CreateBinaryOperator` / `CreateUnaryOperator`. It writes the names it found to
