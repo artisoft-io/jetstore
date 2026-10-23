@@ -39,13 +39,10 @@ const (
 	OutcomeFail = "fail"
 )
 
-// Engines (rules_unit_test_execution.engine). A compare_engines run records
-// EngineBoth.
-const (
-	EngineNative = "native"
-	EngineGo     = "go"
-	EngineBoth   = "native+go"
-)
+// EngineNative is the engine a result records (rules_unit_test_execution.engine):
+// the C++ engine, the only one. Results written before the Go engine's retirement
+// (October 2026) may record go, or native+go for a compare_engines run.
+const EngineNative = "native"
 
 // Result is the harness's result file.
 type Result struct {
@@ -54,11 +51,11 @@ type Result struct {
 	// Status is pass, fail or error; Reason says why when it is not pass.
 	Status string `json:"status"`
 	Reason string `json:"reason,omitempty"`
-	// Engine is native, go, or native+go for compare_engines.
+	// Engine is native (EngineNative).
 	Engine string `json:"engine"`
 	// LegacyMode is legacy, fixed, fixed-1 or fixed-2 (definition §8.5.6).
 	LegacyMode string `json:"legacy_mode"`
-	// LoadMs is building the engine (summed over engines for compare_engines),
+	// LoadMs is building the engine,
 	// RunMs running the sessions and evaluating the checks, and DurationMs the
 	// harness's wall time from start to writing this file.
 	LoadMs     int64 `json:"load_ms"`
@@ -74,7 +71,9 @@ type Result struct {
 	SessionResults []SessionResult `json:"session_results,omitempty"`
 	// Findings are the validation findings of an invalid test definition.
 	Findings []wsvalidate.Finding `json:"findings,omitempty"`
-	// EngineDifferences lists what differed between the engines, compare_engines only.
+	// EngineDifferences listed what differed between the engines on a
+	// compare_engines run. Nothing sets it since the Go engine's retirement; it is
+	// kept for the result files and rows written before.
 	EngineDifferences []string `json:"engine_differences,omitempty"`
 }
 
@@ -87,8 +86,8 @@ type CheckResult struct {
 	Outcome string `json:"outcome"`
 	// Found is what the check saw: the binding that matched, or the count.
 	Found string `json:"found"`
-	// Engine is set only on a compare_engines run, where each check appears
-	// once per engine.
+	// Engine was set only on a compare_engines run, where each check appeared
+	// once per engine. Nothing sets it since the Go engine's retirement.
 	Engine string `json:"engine,omitempty"`
 }
 

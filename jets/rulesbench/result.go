@@ -61,8 +61,9 @@ type LoadResult struct {
 	// the flag or the spec replaced it.
 	MaxVertexVisitsFrom               string `json:"max_vertex_visits_from"`
 	RuleConfigMaxVertexVisitsReplaced int    `json:"rule_config_max_vertex_visits_replaced,omitempty"`
-	// EnginesInProcess are the engines built in the process, in run order. A
-	// process with both holds both engines' memory, so MaxRSSKB is per process.
+	// EnginesInProcess are the engines built in the process, in run order: the
+	// C++ engine. Results from before the Go engine's retirement may list both,
+	// whose memory the process then held, so MaxRSSKB is per process.
 	EnginesInProcess []string `json:"engines_in_process"`
 }
 
@@ -109,7 +110,7 @@ type MemoryResult struct {
 	GoroutinesBefore int `json:"goroutines_before"`
 	GoroutinesAfter  int `json:"goroutines_after"`
 	// MaxRSSKB is getrusage's ru_maxrss after the run: the process's peak since
-	// it started, in KiB, which covers both engines' heaps. RSSKB is the resident
+	// it started, in KiB, which covers every engine's heap. RSSKB is the resident
 	// set at the run's end, from /proc/self/statm.
 	MaxRSSKB int64 `json:"max_rss_kb"`
 	RSSKB    int64 `json:"rss_kb"`
@@ -149,8 +150,9 @@ type SessionResult struct {
 	// when there is one; it is in no other phase. A run with a dump is not a
 	// timing run.
 	DumpNs int64 `json:"dump_ns,omitempty"`
-	// CountersNs is the time the bench spent in its own timing callbacks, mostly
-	// reading the Go engine's counters after each rule set. It is in no other
+	// CountersNs is the time the bench spent in its own timing callbacks, which
+	// read the Go engine's counters after each rule set until its retirement and
+	// read none on C++, which keeps none. It is in no other
 	// phase: RuleSetsNs and TotalNs leave it out.
 	CountersNs int64 `json:"counters_ns"`
 	// ReteReleaseNs is the rule sets' ReteReleaseNs summed: the release of the
@@ -168,9 +170,10 @@ type SessionResult struct {
 	RuleSets  []RuleSetResult `json:"rule_sets"`
 	Extracted map[string]int  `json:"extracted,omitempty"`
 	// Graph is the session's graph sizes after its last rule set, where the
-	// engine counts them (Go). TriplesTotal is a count by iteration over every
-	// triple the session reads, meta graph included, made after extraction and
-	// timed in no phase; it is set with Options.CountTriples, on both engines.
+	// engine counts them, which the Go engine did and C++ does not. TriplesTotal is
+	// a count by iteration over every triple the session reads, meta graph
+	// included, made after extraction and timed in no phase; it is set with
+	// Options.CountTriples.
 	Graph        *compute_pipes.GraphSizes `json:"graph,omitempty"`
 	TriplesTotal *int                      `json:"triples_total,omitempty"`
 	// GoroutinesBefore and After are runtime.NumGoroutine around the session;
@@ -209,7 +212,8 @@ type RuleSetResult struct {
 	// VertexCapReached is true when ExecuteRules stopped on max_vertex_visits.
 	VertexCapReached bool `json:"vertex_cap_reached"`
 	// Graph and Rete are the engine's own counters at the rule set's end, where
-	// it keeps them (Go): see compute_pipes.GraphSizer and ReteCounterReader.
+	// it keeps them (the Go engine did; C++ does not): see compute_pipes.GraphSizer
+	// and ReteCounterReader.
 	Graph *compute_pipes.GraphSizes   `json:"graph,omitempty"`
 	Rete  *compute_pipes.ReteCounters `json:"rete,omitempty"`
 }

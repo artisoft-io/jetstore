@@ -1,8 +1,10 @@
-# `rules_bench` — benchmark the two JetRules engines
+# `rules_bench` — benchmark the JetRules engine
 
 `rules_bench` runs a set of rule sessions on the C++ engine (`libjets.so`, through
-`jets/bridge`), on the Go engine (`jets/jetrules`), or on both. It writes one JSON result
-per run. It is the harness of the `rules_benchmark` project in `jetstore_agentic_ai`
+`jets/bridge`). It writes one JSON result per run. **Until October 2026 it also ran the Go
+engine (`jets/jetrules`)**, beside C++ or alone; that engine is retired, and `-engine go`, a
+spec naming `go`, `compare_engines` or `use_jet_rules_go` are refused with a message saying
+so. The measurements below that name Go are dated, and describe runs made before then. It is the harness of the `rules_benchmark` project in `jetstore_agentic_ai`
 (tasks `AA.4`, `AB.1`, `AB.2`, `AB.3`, `AB.7`).
 
 **It measures the path a pipeline takes:**
@@ -84,7 +86,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | Flag | |
 |---|---|
 | `-out_dir` | required. Receives `env.json` and one result per run, `<bench>_<order>_<engine>_<r\|w><rep>.json` |
-| `-engine` | `native`, `go`, or `native,go`, in run order. Overrides the spec's `engines` |
+| `-engine` | `native`, the only engine. Overrides the spec's `engines`; `go` is refused |
 | `-repetitions`, `-warmup`, `-pool`, `-max_vertex_visits`, `-max_looping` | override the spec. `-warmup 0` turns a spec's warmup off; `-warmup` not given keeps it. `-max_looping -1`, the default, keeps the spec's |
 | `-per_loop` | record every loop's `ExecuteRules` time, not only their sum and maximum |
 | `-count_triples` | count every triple each session reads, by iterating over all of them, after extraction. It is timed in no phase |
@@ -123,8 +125,8 @@ harmless.
 
 `jetrules_config` and `input_sessions` are a `.tst.json`'s, in exactly its shape
 (`jets/cmds/rules_unit_test/README.md`). So a test definition plus the bench fields is a
-spec. Its `test_name` is accepted as the bench's name, and its expectations, `legacy`,
-`compare_engines` and `expect` are read and ignored. **The spec is decoded strictly**: an
+spec. Its `test_name` is accepted as the bench's name, and its expectations, `legacy`
+and `expect` are read and ignored. **The spec is decoded strictly**: an
 unknown key at any depth is an error, and so is a pipeline-only field in `jetrules_config`.
 
 ```json
@@ -133,7 +135,7 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
   "jetrules_config": { "process_name": "CLAIMS", "rule_config": [ … ] },
   "input_sessions": [ { "name": "member1", "input": ["member1.csv"] } ],
   "input_dir": { "path": "members", "glob": "*.csv", "name_regex": "^member_(\\d+)\\.csv$", "limit": 0 },
-  "engines": ["native", "go"],
+  "engines": ["native"],
   "repetitions": 10,
   "warmup": 1,
   "pool_size": 1,
@@ -152,16 +154,19 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
 | `jetrules_config` | a `.tst.json`'s. `process_name` is required |
 | `input_sessions` | a `.tst.json`'s. Each session's CSVs are relative to the spec's directory, or absolute |
 | `input_dir` | one CSV per session, for runs of hundreds of members. `glob` defaults to `*.csv`. **The session-name rule**: without `name_regex`, a session is named after its file without the extension. With `name_regex`, a file the regex does not match is skipped, and the session is named by the regex's first group, or by the whole match when it has none. Files are taken in name order; `limit`, when not 0, keeps the first that many. Its sessions follow `input_sessions`' |
-| `engines` | run in this order, interleaved within each repetition. Default `["native", "go"]` |
+| `engines` | `["native"]`, the default and the only engine. `"go"` is refused |
 | `repetitions` | measured runs per engine, default 1 |
 | `warmup` | runs per engine before the measured ones. Their results are written too, marked `"warmup": true` and named `…_wNN.json` |
 | `pool_size` | workers running sessions concurrently on one engine. Default 1 |
-| `max_vertex_visits` | **a cap is required.** Go's default is 10,000 visits (`rete_session.go:104`) and C++ has none unless `jets:max_vertex_visits` is set (`rete_session.cc:100`), so an unset cap aborts on Go sessions that C++ completes. It is set once, on both engines, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where both read it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as a unit test's may have; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
+| `max_vertex_visits` | **a cap is required.** C++ has none unless `jets:max_vertex_visits` is set (`rete_session.cc:100`); the Go engine's default was 10,000 visits, so an unset cap aborted Go sessions that C++ completed. It is set once, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where the engine reads it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as a unit test's may have; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
 | `max_looping` | replaces `jetrules_config.max_looping`, which itself replaces every rule set's `$max_looping` when not 0 |
 | `output_classes` | classes to extract after the rules, as a pipeline's jetrules output channels are. The columns are the class's domain properties (`GetDomainProperties`), then `columns`, which is the channel spec's own list. None means no extraction |
 
-**Refused**: a `legacy` object that turns a retraction defect off (the engines run in
-production's mode), and `_0:no_truth_main_on_exist`, which exists in C++ only.
+**Refused**: a `legacy` object that turns a retraction defect off (the engine runs in
+production's mode), and a request for the retired Go engine: `"engines": ["go"]`,
+`"compare_engines": true` or `"use_jet_rules_go": true`. `_0:no_truth_main_on_exist`, the C++
+engine's, is accepted since the Go engine's retirement; it was refused while a bench could
+run Go.
 
 **The input is read and cast before any engine is built.** A pipeline casts its input when
 it reads the file, before the jetrules step. So the bench casts each CSV row once
@@ -187,7 +192,8 @@ documents every field. In outline:
   - `engine_ns` is `NewJetRuleEngine`; `config_ns` is the rest.
   - `max_vertex_visits_seen` says an RDF session of that engine reads the cap. It is
     checked once, on a throwaway session.
-  - `engines_in_process`: a process that built both engines holds both in memory.
+  - `engines_in_process`: the engines the process built, `["native"]`. Before the Go
+    engine's retirement a process that built both held both in memory.
 - **`totals`**: sessions, input rows, loops, errors, how many sessions hit each cap, rows
   extracted, sessions and rows per second over `wall_ns`, and each phase summed over
   sessions. With a pool the phase sums exceed `wall_ns`.
@@ -207,8 +213,9 @@ documents every field. In outline:
   - **`rete_release_ns`**, the rule sets' `rete_release_ns` summed. It is inside
     `rule_sets_ns`. With `release_ns` it is the session's teardown: see *Teardown* below;
   - **the bench's own time, which is in no phase**:
-    - `counters_ns`, its timing callbacks, mostly the walk over the network that reads the
-      Go engine's counters after each rule set;
+    - `counters_ns`, its timing callbacks. Until the Go engine's retirement it was mostly
+      the walk over the network that read that engine's counters after each rule set; C++
+      keeps none, so `graph` and `rete` are absent;
     - `dump_ns`, the graph dump.
 
     `rule_sets_ns` and `total_ns` leave both out. **`extraction_ns` is the extraction and its
@@ -290,9 +297,9 @@ engine: the writes sessions made to the shared meta store, rules_benchmark `I-5`
 the shared `NodeVertex`). rules_benchmark Phase 2 (`AH`) removed them, and the operator
 initialisation behind `I-5`'s wrong answers: sessions now only read the meta store
 (`ReteMetaStore.initializeExpressions`, `assignAntecedentQueryKeys`, `RdfGraph.Lock`).
-`TestGoEngineSessionsShareTheMetaStore` in `jets/compute_pipes` is the regression test. So a
-race reported now is new: one whose top frame is in `jets/rulesbench` or
-`jets/cmds/rules_bench` is the harness's, and one in the engine is a regression.
+`TestGoEngineSessionsShareTheMetaStore` in `jets/compute_pipes` was the regression test, until
+the Go engine and its tests were deleted (October 2026). So a race reported now is new: one
+whose top frame is in `jets/rulesbench` or `jets/cmds/rules_bench` is the harness's.
 
 ## The run protocol: `scripts/run_protocol.sh`
 
@@ -315,7 +322,8 @@ scripts/run_protocol.sh --production-shape --bin ./rules_bench --lib $LIB spec.j
 - **Pinning.** It pins with `taskset -c 0-5`, the performance cores of the Core Ultra 7
   265H. `--production-shape` pins to `0-3` with `GOMAXPROCS=4` and a pool of 10, the ECS
   task's shape (`F52`).
-- **Interleaving.** It interleaves the engines A, B, A, B over the repetitions, one fresh
+- **Interleaving.** It interleaves the engines it is given, A, B, A, B, over the repetitions
+  (since the Go engine's retirement there is one, `native`), one fresh
   process per run, so each run builds its engine as a pipeline does and holds only that
   engine's memory. `--in-process` runs everything in one process instead.
 - **The record.** It writes `protocol_env.txt` before the first run: the CPUs, governor,
@@ -368,7 +376,7 @@ whether another run holds the lock now. Anything after `--` is passed to `rules_
 | `-trace f` | the execution trace, for goroutines per session and handoffs per triple |
 
 ```bash
-rules_bench -out_dir /tmp/p -engine go -repetitions 3 -cpuprofile cpu.pprof spec.json
+rules_bench -out_dir /tmp/p -repetitions 3 -cpuprofile cpu.pprof spec.json
 go tool pprof -top rules_bench cpu.pprof
 go tool pprof -http=: rules_bench cpu.pprof     # graph view; needs graphviz
 go tool trace trace.out
@@ -413,14 +421,15 @@ CPU profile, as the engine's cost.
 go test -count=1 ./jets/rulesbench/ ./jets/compute_pipes/ -run 'TestRun|TestParseSpec|TestSessions|TestNewDumper|TestRunRuleSetsTiming|TestCastTextRowAndExtraction'
 ```
 
-- **`jets/rulesbench`'s tests** run the Go engine end to end over a compiled copy of
+- **`jets/rulesbench`'s tests** run the C++ engine end to end over a compiled copy of
   `jets/jetrules/test_ws`, in a child process: warmup and repetitions, `-warmup 0`, a pool
-  of 2, the caps, and the dump hook, whose time must stay out of every phase.
+  of 2, the caps, and the dump hook, whose time must stay out of every phase. They ran the
+  Go engine until its retirement, and now need the cgo environment above.
 - **`jetrules_run_rule_sets_timing_test.go`** pins that a timing sink changes no outcome of
-  `RunRuleSets`, and that a timer's callback time is in no phase. It also covers the Go
-  counters, `CastTextRow` and a `SessionExtractor` serving two sessions.
-- **The C++ engine** runs the same code through the same interface. A smoke run on a
-  client workspace's four-member unit test exercises it: both engines completed all four
-  members with the same loops, extracted rows and triples per member (2026-10-20).
+  `RunRuleSets`, and that a timer's callback time is in no phase. It also covers
+  `CastTextRow` and a `SessionExtractor` serving two sessions.
+- **A smoke run** on a client workspace's four-member unit test exercised the command on
+  both engines while there were two: both completed all four members with the same loops,
+  extracted rows and triples per member (2026-10-20).
 - **Run all of them with `-count=1`**: they read a workspace outside the Go module, which
   the test cache does not see.

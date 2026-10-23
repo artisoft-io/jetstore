@@ -1,22 +1,21 @@
 package main
 
-// THE LEGACY SWITCHES AND THE VERTEX VISIT LIMIT, ON BOTH ENGINES
-// (rules_unit_test_harness Phase 1, task AF.6).
+// THE LEGACY SWITCHES AND THE VERTEX VISIT LIMIT (rules_unit_test_harness Phase 1,
+// task AF.6).
 //
-// harness.Run with both adaptors, as this command runs it, over a scratch copy of
+// harness.Run with the C++ adaptor, as this command runs it, over a scratch copy of
 // jets/jetrules/test_ws with three fixtures added:
 //
 //   - defect 1 in two definitions sharing one rule file: legacy, where the total
 //     inferred stays after its row is withdrawn, and fixed-1, where it is retracted.
-//     Both with compare_engines, so the engines must also agree.
 //   - a rule that never stops inferring, with jets:max_vertex_visits = 50 set through
-//     rule_config, on each engine: the run must end at the vertex visit limit. On Go
-//     the limit is read from the meta graph; on C++ ReteSession::initialize reads it
-//     from the RDF session, which sees the meta graph the harness asserted rule_config
-//     into before the first session opened. Measured 2026-10-11: C++ stops at exactly
-//     50 visits of the rule's vertex. Its message is "Maximum vertex visits reached",
-//     which "max vertex visit" -- Go's -- does not match, so an expect that must hold
-//     on both engines names "vertex visit".
+//     rule_config: the run must end at the vertex visit limit. ReteSession::initialize
+//     reads it from the RDF session, which sees the meta graph the harness asserted
+//     rule_config into before the first session opened. Measured 2026-10-11: C++ stops
+//     at exactly 50 visits of the rule's vertex, with "Maximum vertex visits reached".
+//
+// Until the Go engine's retirement (October 2026) these ran on both engines, defect 1
+// with compare_engines; they now run on C++ alone.
 //
 // Needs libjets.so with create_jetstore_hdl_with_mode: set CGO_CFLAGS, CGO_LDFLAGS and
 // LD_LIBRARY_PATH to a build of this commit. Runs in a child process, because the
@@ -30,7 +29,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
@@ -106,7 +104,6 @@ c1,af_rv:Counter,0
 func afDefect1Test(legacy map[string]any, total6 bool) string {
 	d := map[string]any{
 		"test_name":       "defect 1, " + map[bool]string{true: "legacy", false: "fixed"}[total6],
-		"compare_engines": true,
 		"jetrules_config": map[string]any{"process_name": afDir + "af_defect1.jr"},
 		"input_sessions": []any{map[string]any{
 			"name":  "withdrawn",
@@ -134,7 +131,7 @@ func afDefect1Test(legacy map[string]any, total6 bool) string {
 	return string(b)
 }
 
-func afRunawayTest(engine string) string {
+func afRunawayTest() string {
 	cfg := map[string]any{
 		"process_name": afDir + "af_runaway.jr",
 		"rule_config": []any{map[string]any{
@@ -142,14 +139,9 @@ func afRunawayTest(engine string) string {
 			"jets:max_vertex_visits": map[string]any{"value": "50", "type": "int"},
 		}},
 	}
-	if engine == rulestest.EngineGo {
-		cfg["use_jet_rules_go"] = true
-	}
 	d := map[string]any{
-		"test_name": "runaway on " + engine,
-		// "vertex visit" is the part both engines' messages share: Go says
-		// "max vertex visit reached", C++ "Maximum vertex visits reached".
-		"expect":          map[string]any{"status": "error", "reason": "vertex visit"},
+		"test_name":       "runaway",
+		"expect":          map[string]any{"status": "error", "reason": "Maximum vertex visits reached"},
 		"jetrules_config": cfg,
 		"input_sessions":  []any{map[string]any{"name": "one counter", "input": []any{"runaway.csv"}}},
 	}
@@ -157,7 +149,7 @@ func afRunawayTest(engine string) string {
 	return string(b)
 }
 
-func TestLegacyModeAndVisitLimitOnBothEngines(t *testing.T) {
+func TestLegacyModeAndVisitLimit(t *testing.T) {
 	if os.Getenv(legacyModeChildEnv) == "" {
 		stageAndRerun(t)
 		return
@@ -171,10 +163,7 @@ func TestLegacyModeAndVisitLimitOnBothEngines(t *testing.T) {
 		return harness.Run(harness.Options{
 			WorkspaceRoot: root,
 			TestPath:      afDir + test,
-			Factories: harness.Factories{
-				Native: jetrules_native_adaptor.NewJetRulesFactory(),
-				Go:     jetrules_go_adaptor.NewJetRulesFactory(),
-			},
+			Factory:       jetrules_native_adaptor.NewJetRulesFactory(),
 		})
 	}
 	want := func(r *rulestest.Result, status, mode, reasonPart string) {
@@ -186,11 +175,11 @@ func TestLegacyModeAndVisitLimitOnBothEngines(t *testing.T) {
 		}
 	}
 
-	// Defect 1 on both engines: legacy pins the total that stays, fixed-1 its absence.
+	// Defect 1: legacy pins the total that stays, fixed-1 its absence.
 	r := run("defect1.tst.json")
 	want(r, rulestest.StatusPass, rulestest.LegacyModeLegacy, "")
-	if r.Engine != rulestest.EngineBoth {
-		t.Errorf("defect1: engine %q, want both", r.Engine)
+	if r.Engine != rulestest.EngineNative {
+		t.Errorf("defect1: engine %q, want native", r.Engine)
 	}
 	want(run("defect1_fixed.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed1, "")
 	// The same fixed-1 definition expecting the legacy answer fails: the mode is applied,
@@ -201,16 +190,11 @@ func TestLegacyModeAndVisitLimitOnBothEngines(t *testing.T) {
 	want(run("defect1_fixed2.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed2, "")
 	want(run("defect1_fixed_both.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed, "")
 
-	// jets:max_vertex_visits from rule_config stops a runaway rule on each engine.
-	for _, e := range []string{rulestest.EngineNative, rulestest.EngineGo} {
-		r := run("runaway_" + e + ".tst.json")
-		want(r, rulestest.StatusPass, rulestest.LegacyModeLegacy, "the expected error occurred")
-		if r.Engine != e {
-			t.Errorf("runaway: engine %q, want %s", r.Engine, e)
-		}
-		for _, s := range r.SessionResults {
-			t.Logf("runaway on %s: session %q: %s", e, s.Name, s.Reason)
-		}
+	// jets:max_vertex_visits from rule_config stops a runaway rule.
+	r = run("runaway.tst.json")
+	want(r, rulestest.StatusPass, rulestest.LegacyModeLegacy, "the expected error occurred")
+	for _, s := range r.SessionResults {
+		t.Logf("runaway: session %q: %s", s.Name, s.Reason)
 	}
 }
 
@@ -256,8 +240,7 @@ func stageAndRerun(t *testing.T) {
 		"defect1_fixed_both.tst.json":  afDefect1Test(map[string]any{"recompute_on_retraction": f, "withdrawn_row_stays": f}, false),
 		"af_runaway.jr":                afRunawayRules,
 		"runaway.csv":                  afRunawayCsv,
-		"runaway_native.tst.json":      afRunawayTest(rulestest.EngineNative),
-		"runaway_go.tst.json":          afRunawayTest(rulestest.EngineGo),
+		"runaway.tst.json":             afRunawayTest(),
 	}
 	dir := filepath.Join(ws, afDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -283,5 +266,21 @@ func stageAndRerun(t *testing.T) {
 			}
 		}
 		t.Logf("child process:\n%s", strings.Join(keep, "\n"))
+	}
+}
+
+// -engine names the only engine or is refused: go naming the retirement
+// (rules_benchmark Q-77), anything else as unknown.
+func TestEngineFlag(t *testing.T) {
+	for _, ok := range []string{"", rulestest.EngineNative} {
+		if err := checkEngineFlag(ok); err != nil {
+			t.Errorf("-engine %q: %v", ok, err)
+		}
+	}
+	if err := checkEngineFlag("go"); err == nil || !strings.Contains(err.Error(), rulestest.GoEngineRetired) {
+		t.Errorf("-engine go: want the retirement, got %v", err)
+	}
+	if err := checkEngineFlag("python"); err == nil || !strings.Contains(err.Error(), "unknown engine") {
+		t.Errorf("-engine python: %v", err)
 	}
 }

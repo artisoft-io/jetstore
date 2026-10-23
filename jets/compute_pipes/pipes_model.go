@@ -1224,11 +1224,9 @@ type SortSpec struct {
 
 // JetrulesSpec configuration
 // ProcessName is the jetrules process name to use.
-// UseJetRulesNative when true use the jetrules native engine.
-// UseJetRulesGo when true use the jetrules go engine.
-// Note: only one of UseJetRulesNative or UseJetRulesGo can be true.
-// When both are false, the default is to use the jetrules native engine when
-// available.
+// UseJetRulesNative names the C++ engine, the only one; set or not, it is used.
+// UseJetRulesGo asked for the Go engine, retired in October 2026: true is refused
+// when the pipeline starts (validateNoGoEngine), false is accepted.
 // InputRdfType is the rdf type (class name) of the input records.
 // MaxInputCount is the max nbr of input records to process.
 // PoolSize is the nbr of worker pool size.

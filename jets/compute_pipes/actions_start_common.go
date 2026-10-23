@@ -924,6 +924,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
 		return err
 	}
+	if err := validateNoGoEngine(cpConfig); err != nil {
+		return err
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
@@ -1479,6 +1482,34 @@ func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) erro
 							"govern how a file is written and belong on an output channel or a "+
 							"schema_provider; no reader consults them on an input channel",
 						ic.Name, stepId, i, strings.Join(fields, ", "))
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateNoGoEngine refuses a jetrules_config setting use_jet_rules_go: true, in any
+// step of the document and in any conditional_config override, so that the pipeline
+// fails when its first step starts. The Go engine is retired (GoEngineRetired); running
+// C++ where Go was asked for would be a silent substitution. use_jet_rules_go: false
+// asks for nothing and is accepted.
+func validateNoGoEngine(cpConfig *ComputePipesConfig) error {
+	for stepId, step := range allComputePipesSteps(cpConfig) {
+		for i := range step {
+			for j := range step[i].Apply {
+				specs := []*TransformationSpec{&step[i].Apply[j]}
+				for _, conditional := range step[i].Apply[j].ConditionalConfig {
+					if conditional != nil {
+						specs = append(specs, &conditional.Then)
+					}
+				}
+				for _, spec := range specs {
+					if spec.JetrulesConfig != nil && spec.JetrulesConfig.UseJetRulesGo {
+						return fmt.Errorf(
+							"configuration error: jetrules_config (step %d, pipe %d, apply %d) sets use_jet_rules_go: %s; "+
+								"remove it or set it to false", stepId, i, j, GoEngineRetired)
+					}
 				}
 			}
 		}

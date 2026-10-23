@@ -33,8 +33,10 @@ type TestDefinition struct {
 	// Legacy selects the engine's retraction behaviour for this test. Absent
 	// means legacy, field by field. Top level only (definition §8.5.2).
 	Legacy *LegacyConfig `json:"legacy,omitempty"`
-	// CompareEngines runs the test on both engines, one after the other, and
-	// fails when the checks or the status differ (definition Q-11). Top level only.
+	// CompareEngines ran the test on both engines, C++ and Go, and failed when they
+	// differed (definition Q-11). The Go engine is retired, so true is refused by
+	// validation (GoEngineRetired); the field is decoded so that the refusal can
+	// name it. Top level only.
 	CompareEngines bool `json:"compare_engines,omitzero"`
 	// Expect turns a run ending in an error into the expected outcome
 	// (definition §6). Top level only.
@@ -108,7 +110,8 @@ type Expectation struct {
 
 // JetrulesConfig is the part of compute_pipes.JetrulesSpec a test uses, under
 // the same JSON names (definition §3.2). The pipeline-only fields are refused
-// by name; see refusedFields.
+// by name; see refusedFields. use_jet_rules_go asked for the Go engine, retired:
+// true is refused by validation, as compare_engines is.
 type JetrulesConfig struct {
 	Comment                 string           `json:"comment,omitempty"`
 	ProcessName             string           `json:"process_name"`

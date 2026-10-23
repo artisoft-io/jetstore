@@ -1,10 +1,11 @@
 package rulesbench
 
-// Run on the Go engine, end to end, over a compiled copy of
+// Run on the C++ engine, end to end, over a compiled copy of
 // jets/jetrules/test_ws in a child process: the workspace packages fix their
-// paths at init, as the RunRuleSets tests in jets/compute_pipes note. The C++
-// engine runs the same code through the same interface; the command's smoke run
-// on a client workspace's unit test covers it (README.md). Run with -count=1.
+// paths at init, as the RunRuleSets tests in jets/compute_pipes note. These ran on
+// the Go engine until its retirement (October 2026); they now need the cgo
+// environment of jets/cmds/rules_unit_test/README.md, and the child skips when the
+// C++ engine cannot be built. Run with -count=1.
 
 import (
 	"encoding/json"
@@ -17,8 +18,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
-	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
@@ -33,6 +33,11 @@ func inCompiledTestWs(t *testing.T, test func(t *testing.T)) {
 				t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 			}
 		}
+		re, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, "jet_rules/test_looping_main.jr", false)
+		if err != nil {
+			t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
+		}
+		re.Release()
 		test(t)
 		return
 	}
@@ -80,6 +85,9 @@ func inCompiledTestWs(t *testing.T, test func(t *testing.T)) {
 	if err != nil {
 		t.Fatalf("%s failed in the child process: %v\n%s", t.Name(), err, strings.Join(keep, "\n"))
 	}
+	if strings.Contains(string(out), "--- SKIP: "+t.Name()) {
+		t.Skipf("skipped in the child process:\n%s", strings.Join(keep, "\n"))
+	}
 	if testing.Verbose() {
 		t.Logf("child process:\n%s", strings.Join(keep, "\n"))
 	}
@@ -103,7 +111,7 @@ func writeBench(t *testing.T, n int, extra string) string {
 	  "bench_name": "looping",
 	  "jetrules_config": {"process_name": "jet_rules/test_looping_main.jr", "current_source_period": 1},
 	  "input_sessions": [` + strings.Join(sessions, ",") + `],
-	  "engines": ["go"],
+	  "engines": ["native"],
 	  "output_classes": [{"class_name": "lp:Person", "columns": []}]` + extra + `
 	}`
 	path := filepath.Join(dir, "bench.json")
@@ -120,7 +128,7 @@ func runBench(t *testing.T, path string, opts Options) ([]*RunResult, error) {
 		t.Fatal(err)
 	}
 	opts.Spec, opts.SpecPath = spec, path
-	opts.Factories = harness.Factories{Go: jetrules_go_adaptor.NewJetRulesFactory()}
+	opts.Factory = jetrules_native_adaptor.NewJetRulesFactory()
 	return Run(opts)
 }
 
@@ -148,7 +156,7 @@ func TestRun(t *testing.T) {
 				t.Errorf("warmup and repetitions: %+v %+v %+v", results[0].Warmup, results[1].Warmup, results[2].Repetition)
 			}
 			r := results[1]
-			if r.Status != "ok" || r.Engine != "go" || r.LegacyMode != "legacy" || r.PoolSize != 2 || r.MaxVertexVisits != 1000 {
+			if r.Status != "ok" || r.Engine != "native" || r.LegacyMode != "legacy" || r.PoolSize != 2 || r.MaxVertexVisits != 1000 {
 				t.Errorf("run %+v", r)
 			}
 			if !r.Load.MaxVertexVisitsSeen || r.Load.MaxVertexVisitsFrom != "spec" || r.Load.EngineNs <= 0 {
@@ -169,7 +177,9 @@ func TestRun(t *testing.T) {
 				if s.Memory != nil {
 					t.Errorf("session %s has per-session memory with a pool of 2", s.Name)
 				}
-				if s.TriplesTotal == nil || s.Graph == nil || *s.TriplesTotal != s.Graph.Meta+s.Graph.Asserted+s.Graph.Inferred {
+				// C++ keeps no graph counters (the Go engine did), so the count by
+				// iteration is the only one.
+				if s.TriplesTotal == nil || *s.TriplesTotal == 0 || s.Graph != nil {
 					t.Errorf("session %s: %v triples by iteration, graph %+v", s.Name, s.TriplesTotal, s.Graph)
 				}
 				if len(s.RuleSets) != 1 {
@@ -179,7 +189,7 @@ func TestRun(t *testing.T) {
 				if s.ReteReleaseNs != rs.ReteReleaseNs || rs.ReteReleaseNs < 0 {
 					t.Errorf("session %s: rete_release_ns %d, its one rule set's %d", s.Name, s.ReteReleaseNs, rs.ReteReleaseNs)
 				}
-				if rs.LoopsRun != 4 || len(rs.LoopNs) != 4 || rs.LastLoop != 3 || !rs.Completed || rs.Rete == nil || rs.Rete.VertexVisits == 0 {
+				if rs.LoopsRun != 4 || len(rs.LoopNs) != 4 || rs.LastLoop != 3 || !rs.Completed || rs.Rete != nil {
 					t.Errorf("rule set %+v", rs)
 				}
 			}
@@ -213,7 +223,7 @@ func TestRun(t *testing.T) {
 			// rdf:type among them as the class alone.
 			for _, run := range []string{"w01", "r01"} {
 				for i := 1; i <= 4; i++ {
-					file := filepath.Join(dir, run, "go", fmt.Sprintf("case%d", i), "lp:Person.rows")
+					file := filepath.Join(dir, run, "native", fmt.Sprintf("case%d", i), "lp:Person.rows")
 					raw, err := os.ReadFile(file)
 					if err != nil {
 						t.Fatal(err)
@@ -286,7 +296,7 @@ func TestRun(t *testing.T) {
 		})
 		t.Run("after_rule_set_hook", func(t *testing.T) {
 			// The hook's time, slept here, is the session's dump_ns and is in no
-			// other phase; the counter walk is counters_ns, apart too.
+			// other phase; the timing callbacks' own time is counters_ns, apart too.
 			const delay = 150 * time.Millisecond
 			path := writeBench(t, 2, `, "max_vertex_visits": 1000, "repetitions": 2`)
 			var calls []string
@@ -301,8 +311,8 @@ func TestRun(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := []string{
-				"r01 go case1 0 jet_rules/test_looping_main.jr", "r01 go case2 0 jet_rules/test_looping_main.jr",
-				"r02 go case1 0 jet_rules/test_looping_main.jr", "r02 go case2 0 jet_rules/test_looping_main.jr",
+				"r01 native case1 0 jet_rules/test_looping_main.jr", "r01 native case2 0 jet_rules/test_looping_main.jr",
+				"r02 native case1 0 jet_rules/test_looping_main.jr", "r02 native case2 0 jet_rules/test_looping_main.jr",
 			}
 			if strings.Join(calls, "|") != strings.Join(want, "|") {
 				t.Errorf("hook calls %v, want %v", calls, want)
@@ -311,8 +321,8 @@ func TestRun(t *testing.T) {
 			if s.DumpNs < delay.Nanoseconds() || s.RuleSetsNs >= delay.Nanoseconds() || s.TotalNs >= delay.Nanoseconds() {
 				t.Errorf("dump_ns %d, rule_sets_ns %d, total_ns %d: the hook's %v must be in dump_ns only", s.DumpNs, s.RuleSetsNs, s.TotalNs, delay)
 			}
-			if s.CountersNs <= 0 {
-				t.Errorf("counters_ns %d, want the Go counter walk timed", s.CountersNs)
+			if s.CountersNs < 0 || s.CountersNs >= delay.Nanoseconds() {
+				t.Errorf("counters_ns %d, want the callbacks' own time, without the hook's %v", s.CountersNs, delay)
 			}
 		})
 	})

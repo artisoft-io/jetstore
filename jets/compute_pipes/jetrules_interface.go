@@ -8,16 +8,33 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// This file contains the definition of the interface for jetrules native and go versions integration.
+// This file contains the definition of the interface for the jetrules engine integration.
+// There is one engine, the C++ engine, reached through jetrules_native_adaptor.
 
+// JetRulesProxy gives compute pipes the rule engine of the binary it runs in.
+// GetNativeFactory returns nil in a binary that carries no rule engine (cp_node, the
+// cpipesSM node): a jetrules step there fails with NoRuleEngineOnNode rather than run
+// on anything else.
 type JetRulesProxy interface {
-	GetDefaultFactory() JetRulesFactory
-	GetGoFactory() JetRulesFactory
 	GetNativeFactory() JetRulesFactory
 }
+
+// GoEngineRetired names the retirement of the Go JetRules engine, in the message a
+// request for it fails with. Rules ran on two engines, C++ and Go, until October 2026,
+// when the Go engine was deleted; a request for it is refused rather than run on C++,
+// so nobody gets the engine they did not ask for without being told. It is the rules
+// unit test's constant, so that a pipeline and a test say the same.
+const GoEngineRetired = rulestest.GoEngineRetired
+
+// NoRuleEngineOnNode is the message a jetrules step fails with on a node that carries
+// no rule engine.
+const NoRuleEngineOnNode = "this compute pipes node has no rule engine: a jetrules step runs on the C++ engine, " +
+	"in the native node (state machine cpipesNativeSM, Lambda cp_node_native); this node is the cpipesSM one (cp_node), " +
+	"which runs the steps that are not rules"
 
 type JetRulesFactory interface {
 	JetRulesName() string

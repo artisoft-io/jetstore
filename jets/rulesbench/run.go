@@ -23,8 +23,8 @@ import (
 type Options struct {
 	Spec     *Spec
 	SpecPath string
-	// Factories are the engines; a nil one cannot be run.
-	Factories harness.Factories
+	// Factory builds the engine, the C++ one; nil cannot be run.
+	Factory compute_pipes.JetRulesFactory
 
 	// Engines, Repetitions, Warmup, PoolSize, MaxVertexVisits and MaxLooping
 	// override the spec when set: the ints when above 0, the pointers when not
@@ -96,6 +96,9 @@ func Run(opts Options) ([]*RunResult, error) {
 	}
 	engines := spec.EnginesOrDefault()
 	if len(opts.Engines) > 0 {
+		if err := CheckEngines(opts.Engines); err != nil {
+			return nil, err
+		}
 		engines = opts.Engines
 	}
 	reps := firstPositive(opts.Repetitions, spec.Repetitions, 1)
@@ -121,7 +124,7 @@ func Run(opts Options) ([]*RunResult, error) {
 		mvv, mvvFrom = spec.MaxVertexVisits, "spec"
 	}
 	if mvv == 0 {
-		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: Go's default is 10,000 and C++ has none (rules_benchmark F9)")
+		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: C++ has no default cap (rules_benchmark F9)")
 	}
 	maxLooping := spec.JetrulesConfig.MaxLooping
 	if spec.MaxLooping != nil {
@@ -130,10 +133,8 @@ func Run(opts Options) ([]*RunResult, error) {
 	if opts.MaxLooping != nil {
 		maxLooping = *opts.MaxLooping
 	}
-	for _, e := range engines {
-		if factoryFor(opts.Factories, e) == nil {
-			return nil, fmt.Errorf("the %s engine is not available", e)
-		}
+	if opts.Factory == nil {
+		return nil, fmt.Errorf("the %s engine is not available", rulestest.EngineNative)
 	}
 	env := opts.Env
 	if env == nil {
@@ -181,7 +182,7 @@ func Run(opts Options) ([]*RunResult, error) {
 		}
 	}()
 	for _, e := range engines {
-		st, err := loadEngine(e, factoryFor(opts.Factories, e), &cfg, mvv)
+		st, err := loadEngine(e, opts.Factory, &cfg, mvv)
 		if err != nil {
 			return nil, err
 		}
@@ -262,16 +263,6 @@ func firstPositive(vals ...int) int {
 	return 0
 }
 
-func factoryFor(f harness.Factories, engine string) compute_pipes.JetRulesFactory {
-	switch engine {
-	case rulestest.EngineGo:
-		return f.Go
-	case rulestest.EngineNative:
-		return f.Native
-	}
-	return nil
-}
-
 func extractClasses(ocs []OutputClass) ([]compute_pipes.ExtractClass, error) {
 	out := make([]compute_pipes.ExtractClass, 0, len(ocs))
 	for _, oc := range ocs {
@@ -332,7 +323,7 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	}
 	// The check, on a session no run uses. Contains rather than an iterator: the
 	// native adaptor's iterators need a rete session to exist (rules_benchmark
-	// I-13), and an early stop on a Go iterator leaves goroutines blocked (I-1).
+	// I-13).
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
 		re.Release()
@@ -501,7 +492,7 @@ type runTag struct {
 
 // sessionTimer is the RuleSetsTimer of one session. The time it spends in its
 // own callbacks is kept apart: the dump in dump, and the rest, which is mostly
-// the walk that reads the Go engine's counters, in counters. RunRuleSets runs
+// the counters an engine keeps (GraphSizer, ReteCounterReader), in counters. RunRuleSets runs
 // both inside the call the session's RuleSetsNs measures, so runSession
 // subtracts them.
 type sessionTimer struct {

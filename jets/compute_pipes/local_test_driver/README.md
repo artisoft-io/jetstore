@@ -114,8 +114,9 @@ ships behaves as the working tree does. The in-process run cannot see three ways
   `run_env.sh` exported.
 - **The image's contents** — its `bootstrap` and the workspace it carries.
 
-Only the native node is an image; the Go-rules node Lambda is a zip bundle, so it has no container to
-run and is what the in-process default already exercises.
+Only the native node is an image; the `cpipesSM` node Lambda, `cp_node`, is a zip bundle with no rule
+engine since the Go engine's retirement (October 2026), so it has no container to run, and a rules
+step on it fails naming `cpipesNativeSM`.
 
 ### Start it
 

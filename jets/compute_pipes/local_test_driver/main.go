@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +29,9 @@ import (
 // JETS_s3_SCHEMA_TRIGGERS
 // JETS_S3_KMS_KEY_ARN
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
-// DEPLOY_CPIPES_NATIVE Use the native jetrules engine
+//
+// Rules run on the C++ engine, the only one (the Go engine was retired in October
+// 2026), so DEPLOY_CPIPES_NATIVE, which chose between them, is no longer read.
 //
 // A use_python_node step runs on a Python cp_node served over HTTP; pass its
 // URL with -python_node_url. Go nodes run in this process, or on the native
@@ -47,20 +47,12 @@ var awsRegion string
 var awsBucket string
 var dsn string
 var dbpool *pgxpool.Pool
-var usingJetRuleEngineNative bool
 
 // var nbrNodes int
 
 type JetRulesProxyImpl struct {
-	defaultFactory compute_pipes.JetRulesFactory
 }
 
-func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
-	return j.defaultFactory
-}
-func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
-	return jetrules_go_adaptor.NewJetRulesFactory()
-}
 func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 	return jetrules_native_adaptor.NewJetRulesFactory()
 }
@@ -124,7 +116,6 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	log.Println("Got env: DEPLOY_CPIPES_NATIVE", os.Getenv("DEPLOY_CPIPES_NATIVE"))
 
 	if hasErr {
 		for _, msg := range errMsg {
@@ -160,21 +151,7 @@ func main() {
 	}
 	var b []byte
 
-	// Set up JetRuleFactory according to env var
 	jrProxy := &JetRulesProxyImpl{}
-	usingJetRuleEngineNative = strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1"
-	if usingJetRuleEngineNative {
-		log.Println("Using Jetrule Engine: NATIVE")
-		jrProxy.defaultFactory = jetrules_native_adaptor.NewJetRulesFactory()
-	} else {
-		log.Println("Using Jetrule Engine: GORULES")
-		jrProxy.defaultFactory = jetrules_go_adaptor.NewJetRulesFactory()
-	}
-
-	if jrProxy.defaultFactory == nil {
-		log.Println("Using default Jetrule Engine: GORULES")
-		jrProxy.defaultFactory = jetrules_go_adaptor.NewJetRulesFactory()
-	}
 
 	// Start Sharding
 	shardingArgs := &compute_pipes.StartComputePipesArgs{

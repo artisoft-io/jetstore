@@ -2,7 +2,7 @@ package compute_pipes_test
 
 // Tests of what the rules_bench command (jets/cmds/rules_bench) adds to the
 // rule loop and its neighbours (rules_benchmark Phase 1, AB.1 and AB.2): the
-// timing sink of RunRuleSets, the Go engine's counters, CastTextRow with
+// timing sink of RunRuleSets, the engine's counters, CastTextRow with
 // AssertCastRow, and SessionExtractor. The sink is nil in every pipeline,
 // so the first test pins that setting it changes no outcome. They run like the
 // other RunRuleSets tests, in a child process over a compiled copy of
@@ -145,18 +145,14 @@ func TestRunRuleSetsTiming(t *testing.T) {
 				}
 			}
 		})
-		t.Run("go_counters", func(t *testing.T) {
+		t.Run("no_engine_counters", func(t *testing.T) {
+			// The Go engine counted its graphs and rete (GraphSizer, ReteCounterReader),
+			// and this case checked those counts until its retirement. The C++ engine
+			// keeps none, so the timer is given none.
 			timer := &recordingTimer{}
 			runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{Timing: timer})
-			if len(timer.graphs) != 1 || len(timer.rete) != 1 {
-				t.Fatalf("the Go engine's session and rete session do not count: %d graphs, %d rete", len(timer.graphs), len(timer.rete))
-			}
-			g, c := timer.graphs[0], timer.rete[0]
-			if g.Asserted == 0 || g.Inferred == 0 {
-				t.Errorf("graph sizes %+v, want asserted and inferred triples", g)
-			}
-			if c.Vertices == 0 || c.VertexVisits == 0 || c.BetaRows == 0 || c.BusiestVertexVisits == 0 || c.BusiestVertexVisits > c.VertexVisits {
-				t.Errorf("rete counters %+v, want vertices, visits and beta rows", c)
+			if len(timer.graphs) != 0 || len(timer.rete) != 0 {
+				t.Errorf("the C++ engine's session counts: %d graphs, %d rete", len(timer.graphs), len(timer.rete))
 			}
 		})
 	})
@@ -170,7 +166,7 @@ func TestCastTextRowAndExtraction(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			engine, s := goSession(t, loopingRuleFile)
+			engine, s := engineSession(t, loopingRuleFile)
 			viaCast := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{},
 				func(s compute_pipes.JetRdfSession) error { return compute_pipes.AssertCastRow(spec, s, cr) })
 			viaText := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{})
@@ -178,7 +174,7 @@ func TestCastTextRowAndExtraction(t *testing.T) {
 				t.Errorf("outcome through CastTextRow %+v, through AssertTextRow %+v", viaCast, viaText)
 			}
 			// A CastRow is not consumed by an assertion.
-			_, s2 := goSession(t, loopingRuleFile)
+			_, s2 := engineSession(t, loopingRuleFile)
 			if err := compute_pipes.AssertCastRow(spec, s2, cr); err != nil {
 				t.Fatal(err)
 			}
@@ -206,7 +202,7 @@ func TestCastTextRowAndExtraction(t *testing.T) {
 			})
 			defer x.Close()
 			for i := range 2 {
-				engine, s := goSession(t, loopingRuleFile)
+				engine, s := engineSession(t, loopingRuleFile)
 				o := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{}, assertCase("ok"))
 				if o.Err != nil {
 					t.Fatal(o.Err)

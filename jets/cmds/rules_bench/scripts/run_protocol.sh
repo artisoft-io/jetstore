@@ -27,13 +27,14 @@
 #   --preload LIB        preload the shared library LIB (an allocator, say) into the
 #                        rules_bench process only, as LD_PRELOAD; recorded with its
 #                        sha256 in protocol_env.txt, and by rules_bench in every result
-#   --engines LIST       comma-separated, in interleaving order (default: native,go)
+#   --engines LIST       comma-separated, in interleaving order (default: native, the
+#                        only engine since the Go engine's retirement; go is refused)
 #   --repetitions N      runs per engine (default: 10)
 #   --warmup N           warmup runs inside each process, before its measured one (default: 0)
 #   --cpus LIST          taskset CPU list (default: 0-5)
 #   --pool N             pool size passed to rules_bench (default: the spec's)
 #   --production-shape   --cpus 0-3, GOMAXPROCS=4, --pool 10
-#   --in-process         one process runs every repetition, both engines loaded
+#   --in-process         one process runs every repetition, every engine loaded
 #                        and interleaved inside it (rules_bench -engine LIST)
 #   --wait               wait for the lock instead of refusing when it is held
 #   --allow-battery      run on battery power, which section 5.5 rules out for a
@@ -52,7 +53,7 @@ out=""
 bin="rules_bench"
 lib=""
 preload=""
-engines="native,go"
+engines="native"
 reps=10
 warmup=0
 cpus="0-5"
