@@ -135,14 +135,15 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   on C++ in its place. Results written before the retirement may record `go`, or `native+go`
   with `engine_differences`.
 - **`_0:no_truth_main_on_exist`** is the C++ engine's, and is accepted.
-- **The Go engine ignores `$max_rule_exec`.** To lower the vertex-visit limit, set
-  `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`. **Both engines
-  honour it** (measured 2026-10-11): the harness asserts `rule_config` into the meta graph before
-  the first RDF session opens, Go reads it there, and C++ reads it from the RDF session when each
-  rete session initialises. Without it Go stops at its default of 10,000 visits. C++ has no limit
-  unless the triple is in a graph its session reads (`ReteSession::initialize`), so **a test that
-  may not terminate on C++ should set it**; whether the rule file's `$max_rule_exec` reaches C++
-  that way was not checked here.
+- **`$max_rule_exec` is read by nothing.** The compiler stores it in the workspace's
+  `jetstore_config` and the rule file's `.config.json`, and neither the engine nor the pipeline
+  reads it: `ReteSession::initialize` reads only `jets:max_vertex_visits`, and the pipeline only
+  `$max_looping` (read from the code, 2026-10-22). To set a vertex-visit limit, put
+  `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`: the harness asserts
+  `rule_config` into the meta graph before the first RDF session opens, and the C++ engine reads it
+  from the RDF session when each rete session initialises. **Without it the engine has no limit**,
+  so a test that may not terminate should set it. (The Go engine stopped at a default of 10,000
+  visits, and honoured the triple too, measured 2026-10-11.)
 - **C++ words the limit** `Maximum vertex visits reached`; an `expect.reason` naming it, or
   `vertex visit`, matches.
 
