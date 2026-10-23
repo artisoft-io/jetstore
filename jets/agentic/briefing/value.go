@@ -54,7 +54,7 @@ import (
 // The shapes it must accept are the shapes a value can arrive in. From
 // `extractAsEntity` a value is what `GetRdfNodeValue` returns - a string, an
 // int, a uint, a float64 or a `time.Time` (`GetRdfNodeValue`,
-// `jets/compute_pipes/jetrules_interface.go:96`). From a decoded json or toon
+// `jets/compute_pipes/jetrules_interface.go:161`). From a decoded json or toon
 // document every number is a float64 and every date is text. Both render the
 // same way here, which is what makes a template's output independent of how its
 // input was encoded - and is what `TestDecodedDocumentTypesRenderTheSame`
@@ -161,7 +161,7 @@ const dateOnly = "2006-01-02"
 // dateLayouts is what a date can look like on the way in.
 //
 // The padded pair is what the entity writer emits: `EncodeColumnData`
-// (`jets/compute_pipes/jetrules_extract_entity.go:13`) formats a time as
+// (`jets/compute_pipes/jetrules_extract_entity.go:15`) formats a time as
 // `2006-01-02` when it has no clock and `2006-01-02T15:04:05` when it does. The
 // **unpadded** layouts are here because the one worked briefing input in the
 // tree does not use the padded ones - `prompt.md`'s events carry `2025-8-14`

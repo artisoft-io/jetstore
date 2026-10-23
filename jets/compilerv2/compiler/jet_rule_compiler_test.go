@@ -20,9 +20,10 @@ func TestCompiler1(t *testing.T) {
 		// The join_values rule set. An operator name is an opaque string from the
 		// lexer to the factory -- binaryOp reduces to Identifier and nothing
 		// whitelists the name -- so a rule using an operator is the only thing that
-		// exercises it through the compiler at all. Its own test is
-		// TestJoinValuesCompilesAndRuns in jets/jetrules/rete; this line is what
-		// makes a break in it show up in the compiler's suite as well.
+		// exercises it through the compiler at all. Its own test,
+		// TestJoinValuesCompilesAndRuns, went with the Go engine (jets/jetrules/rete
+		// at the tag go-engine-final); this line keeps a break in it visible in the
+		// compiler's suite.
 		"jet_rules/test_join_values_main.jr",
 	} {
 		jrCompiler := NewCompiler("../../jetrules/test_ws", mainRuleFile, false, false, true)

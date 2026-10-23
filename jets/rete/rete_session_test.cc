@@ -1073,7 +1073,7 @@ TEST(CandidateRowReentryTest, FilterOnANegationRemovingItsOwnSupportInfersNothin
 }
 
 // The same defect through the only write a compiled filter can make, the error path,
-// in the case the Go engine's test runs too:
+// in the case the Go engine's test also ran, until the Go engine's retirement:
 //   rule0> (?s inGroup ?g).not(jets:iState jets:exception ?e).(?g q ?v).[not(?v) != 1] -> (?s outP ?v)
 // with (s inGroup g) and (g q "maybe"). not("maybe") raises a jets:exception (text
 // that is not a bool) and gives null, and null != 1 is true: the filter keeps the

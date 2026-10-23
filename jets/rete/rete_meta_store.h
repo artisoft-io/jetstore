@@ -33,9 +33,9 @@ using NodeVertexVector = std::vector<NodeVertexPtr>;
 /**
  * @brief The two LEGACY retraction defects, as a mode fixed when the network is built
  *
- * Both engines keep two retraction defects by Michel's decision of 2026-10-09, because
+ * The engine keeps two retraction defects by Michel's decision of 2026-10-09, because
  * a client workspace's loop rules and a self-guarded rule terminated only because of them
- * (jets/jetrules/rete/README.md, entry of 2026-10-08, revised 2026-10-09):
+ * (jets/rete/README.md, entry of 2026-10-08, revised 2026-10-09):
  *
  *  1. a consequent that reads the graph (ExprBase::reads_graph) is recomputed on
  *     retraction, so once its input has moved the triple retracted is not the triple

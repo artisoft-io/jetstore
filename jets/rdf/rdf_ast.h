@@ -163,8 +163,8 @@ round_to_digits(double value, int digits)
 }
 
 // Two finite doubles compared to 15 significant digits: -1, 0 or 1, or kUnordered when
-// either is a NaN or an infinity, which are never equal and never ordered. The Go engine
-// compares the same way.
+// either is a NaN or an infinity, which are never equal and never ordered. The retired Go
+// engine compared the same way.
 constexpr int kUnordered = 2;
 
 // The rule itself: both rounded to 15 digits, then compared with Knuth's fcmp

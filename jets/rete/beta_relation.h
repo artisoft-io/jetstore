@@ -160,7 +160,7 @@ class BetaRelation {
   }
 
   // Whether `row` itself is in the relation and not withdrawn (marked kDeleted).
-  // The same instance, where the Go engine compares rows by equality: a parent row
+  // The same instance, where the Go engine compared rows by equality: a parent row
   // removed and an equal one inserted again during a filter drops the candidate here,
   // and the engines still converge, because the re-inserted row is pending and its own
   // visit of the child makes the same candidate.

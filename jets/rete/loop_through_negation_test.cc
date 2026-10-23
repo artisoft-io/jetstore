@@ -26,7 +26,7 @@
 // priority list withdraws the v4 row that inferred topMatch: an odd loop through
 // negation, which has no fixed point under correct truth maintenance. It terminates in
 // this engine because of two known defects, kept deliberately by Michel's decision of
-// 2026-10-09 (jets/jetrules/rete/README.md):
+// 2026-10-09 (jets/rete/README.md):
 //
 //   - an aggregate consequent is recomputed on retraction: sorted_head over the now
 //     empty list gives null, so the topMatch inferred is not retracted;

@@ -39,8 +39,8 @@ const legacyModeChildEnv = "JETS_RULES_UNIT_TEST_LEGACY_MODE_CHILD"
 
 const afDir = "jet_rules/unit_tests/af/"
 
-// Defect 1, as the rete LEGACY case TestRetractConsequentAggregateRetractionRecomputes
-// builds it by hand, in rules: AF_D1_10 sums while done is absent, AF_D1_20 then adds a
+// Defect 1, as the C++ LEGACY case ConsequentAggregateRetractionRecomputes
+// (jets/rete/retract_recorded_consequents_test.cc:381) builds it by hand, in rules: AF_D1_10 sums while done is absent, AF_D1_20 then adds a
 // value, AF_D1_30 then infers done and withdraws AF_D1_10's row.
 const afDefect1Rules = `import "data_model/jets_model.jr"
 

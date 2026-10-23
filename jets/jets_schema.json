@@ -2524,7 +2524,7 @@
       },
       {
         "columnName": "engine",
-        "description": "The engine the harness ran, as its result file names it. Null until the run ends.",
+        "description": "The engine the harness ran, as its result file names it: native. Results written before the Go engine's retirement (October 2026) may name go, or native+go for a compare_engines run. Null until the run ends.",
         "dataType": "text"
       },
       {
@@ -2639,7 +2639,7 @@
       },
       {
         "columnName": "engine",
-        "description": "The engine the check ran on, native or go. Set only on a compare_engines run, where each check is recorded once per engine; null otherwise.",
+        "description": "The engine the check ran on, native or go. Set only on a compare_engines run, where each check was recorded once per engine; compare_engines was refused from the Go engine's retirement (October 2026), so this is null on every later run.",
         "dataType": "text"
       }
     ],

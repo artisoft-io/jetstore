@@ -21,7 +21,7 @@ about deployment wiring goes stale without announcing it. Entries are appended, 
 | Package | Covers |
 |---|---|
 | `jets/compute_pipes/README.md` | How a compiled workspace reaches a running process, and the `JETS_VERSION` chain that decides whether it is fetched — including the cbooter/Lambda asymmetry and the Docker `ARG`/`ENV` resolution rule |
-| `jets/jetrules/rete/README.md` | Where the Go and C++ rule engines disagree — four measured divergences on the aggregate operators (two fixed in C++ on 2026-09-09), the double-literal quantisation, why adding an operator is exactly two registrations and the **six operator names only one factory has**, what `_0:no_truth_main_on_exist` turns off, why **a consequent aggregate is recomputed by neither engine**, which is what every use in `workspaces/` actually is, why **a minting consequent is retracted by replay** while two retraction defects are kept because `usi_ws`'s loop rules terminate only because of them (2026-10-09) |
+| `jets/rete/README.md` | The C++ rule engine's semantics and their history, newest first — the Go engine's retirement (October 2026; tag `go-engine-final`) and what stays of it (the rule model), the differences between the two engines settled before it and the shared tables that are now C++'s specification, why every rule fires at the salience it declares, one specification for text read as a bool, why **a minting consequent is retracted by replay** while two retraction defects are kept because a client workspace's loop rules terminated only because of them (2026-10-09), what `_0:no_truth_main_on_exist` turns off, and why **a consequent aggregate has no truth maintenance**, which is what every aggregate in the rule corpus is. Moved from `jets/jetrules/rete/` with the retirement |
 | `jets/compilerv2/symbolic/README.md` | JetRules written as JSON for a model to author (`compile_rule_file`'s `rules` argument) — why the suffix is `.jrs.json` and not the compiler's own `.jr.json` output name, why it renders to source rather than entering the compiler after the parser, and what the four-workspace round trip found: an ambiguous bare unary form, the compiler's generated `ci_` rules, and duplicate rule names the compiler accepts (2026-10-12) |
 | `jets/sqlscript/README.md` | How JetStore reads a SQL file — why a `;` is not a statement boundary, the three consumers and which two must not split, and the measured consequence: `Exec` with no bind arguments sends the **simple** protocol, so PostgreSQL parses the whole file and wraps it in **one implicit transaction**, which is what makes a `DELETE`-then-`INSERT` init script safe. Plus why an *explicit* transaction here would break a script that opens its own, and what the `.sql` save-hook row cost as the **first non-JSON file type**: a `.JSON` gate that would have made it unreachable, and a `Finding` that carried a JSON Pointer and no line |
 
@@ -89,7 +89,7 @@ go test ./...                  # all packages
 go test ./jets/compute_pipes/... # single package tree
 go test -run TestFooBar ./jets/datatable/  # single test
 ```
-Key test packages: `compute_pipes`, `datatable`, `workspace`, `jetrules`.
+Key test packages: `compute_pipes`, `datatable`, `workspace`, `compilerv2`; the rule engine's tests are C++ (`jets_test`, run by `ctest`). A Go test that runs rules links `libjets.so`: build with the cgo override in `jets/cmds/rules_unit_test/README.md`.
 
 ### Flutter Tests (`jetsclient/`)
 
@@ -134,7 +134,7 @@ API Server (Go/Gorilla Mux, port 8443)
       │
 ┌─────┴──────────────┐   ┌──────────────────────┐
 │  Compute Pipes      │   │  JetRules Engine      │
-│  (DAG execution)    │   │  (Go wrapper + CGO)   │
+│  (DAG execution)    │   │  (cgo bridge)         │
 └─────────────────────┘   └──────┬───────────────┘
                                   │
                          ┌────────┴────────┐
@@ -149,7 +149,8 @@ API Server (Go/Gorilla Mux, port 8443)
 |---------|------|----------------|
 | `apiserver` | `jets/apiserver/` | REST API gateway, JWT auth, UI backend |
 | `compute_pipes` | `jets/compute_pipes/` | DAG-based distributed pipeline execution |
-| `jetrules` | `jets/jetrules/` | Go RETE wrapper — rule execution, expression eval, RDF |
+| `jetrules` | `jets/jetrules/` | The rule model the compiler writes and the pipelines read (`rete_meta_store_model.go`, the retraction mode, rdf literals); the Go engine that lived here was retired in October 2026 |
+| `bridge`, `jetrules_native_adaptor` | `jets/bridge/`, `jets/compute_pipes/jetrules_native_adaptor/` | cgo bridge to `libjets.so`, and the rule engine as `compute_pipes` sees it |
 | `datatable` | `jets/datatable/` | DB abstraction, pipeline coordinator, file key management |
 | `workspace` | `jets/workspace/` | Rule workspace compilation, versioning, S3 asset uploads |
 | `awsi` | `jets/awsi/` | AWS SDK wrappers (S3, Secrets Manager, SNS, Step Functions) |
@@ -162,7 +163,6 @@ API Server (Go/Gorilla Mux, port 8443)
 |--------|------|---------|
 | `apiserver` | `jets/apiserver/main.go` | REST API (port 8443/8080) |
 | `cbooter` | `jets/cmds/cbooter/main.go` | Docker init — runs as root, spawns services as non-root |
-| `cpipes_server` | `jets/cmds/cpipes_server/main.go` | Compute pipes cluster coordinator |
 | `cpipes_native_server` | `jets/cmds/cpipes_native_server/` | Native compute pipes execution |
 | `compile_workspace` | `jets/cmds/compile_workspace/main.go` | CLI: compile and upload workspace |
 | `compilerv2` | `jets/compilerv2/main.go` | JetRule file analyzer/compiler |

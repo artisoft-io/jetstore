@@ -26,11 +26,11 @@
 // does not list, and operator_list_test.cc checks that list against this factory in both
 // directions. That is the check now; this file is the earlier, narrower one, kept.
 //
-// WHERE THE NAMES COME FROM. C++ cannot compile a .jr file, so the corpus names are
-// collected by a Go test that can, TestCorpusOperatorNamesResolve, which compiles every
-// rule set of every workspace and writes test_data/corpus_operators.txt. That test is
-// deleted with the Go engine (rules_benchmark Phase 6); from then on the manifest is
-// the corpus's operator names as last collected.
+// WHERE THE NAMES COME FROM. C++ cannot compile a .jr file, so the corpus names were
+// collected by a Go test that could, TestCorpusOperatorNamesResolve, which compiled every
+// rule set of every workspace and wrote test_data/corpus_operators.txt. It was deleted
+// with the Go engine (rules_benchmark Phase 6; it is at the tag go-engine-final), so the
+// manifest is the corpus's operator names as last collected, and is not regenerated.
 namespace jets::rete {
 namespace {
 

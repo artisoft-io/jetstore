@@ -354,7 +354,7 @@ class ReteSession {
    * @brief Count a callback ignored because its relation is not activated yet
    *
    * As triple_updated and triple_updated_for_filters count the ones they receive, so
-   * that every graph change a callback sees moves the count, as in the Go engine.
+   * that every graph change a callback sees moves the count, as in the retired Go engine.
    */
   inline void
   count_ignored_reentry()

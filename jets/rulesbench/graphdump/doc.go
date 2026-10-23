@@ -42,10 +42,10 @@
 //	null               null
 //	minted node        _:<label>, and _:<label>^^text for its text form (below)
 //
-// Doubles are written as held, not rounded: the Go engine quantises a double
-// literal to 15 bits of mantissa (jets/jetrules/rete/README.md, "The Go and C++
-// engines are independently maintained and they disagree", item 3) and the C++
-// engine does not, so the same amount reads 12345.67 on C++ and 12345.5 on Go.
+// Doubles are written as held, not rounded: the Go engine quantised a double
+// literal to 15 bits of mantissa until rules_benchmark Phase 4 (jets/rete/README.md,
+// "The Go and C++ engines are independently maintained and they disagree", item 3)
+// and the C++ engine does not, so the same amount read 12345.67 on C++ and 12345.5 on Go.
 // That difference is kept in the dump and classified by the diff, which knows
 // the rounding. The names of minted nodes, below, are computed on the quantised
 // value, so a quantisation difference does not rename a node.
