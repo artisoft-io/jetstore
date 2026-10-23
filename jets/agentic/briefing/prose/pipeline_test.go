@@ -1,19 +1,16 @@
-//go:build jets_native
-
 package prose_test
 
 // The renderer over the **real** extractor, so that what the table-driven tests
 // in the package assume about the entity map is demonstrated rather than
 // believed.
 //
-// Built only with -tags jets_native, because it links libjets.so: build against a
-// libjets.so of this commit with the cgo override in
-// jets/cmds/rules_unit_test/README.md, and run it with -count=1:
+// It links the C++ engine: build against a libjets.so of this commit with the cgo
+// override in jets/cmds/rules_unit_test/README.md, and run it with -count=1:
 //
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
-//	  go test -count=1 -tags jets_native ./jets/agentic/briefing/prose/
+//	  go test -count=1 ./jets/agentic/briefing/prose/
 //
-// Without the tag, pipeline_stub_test.go skips the three tests.
+// The child skips when the C++ engine cannot be built there, and the test with it.
 //
 // # What is real here and what is not
 //
@@ -29,9 +26,9 @@ package prose_test
 //
 // Until the Go engine's retirement this file ran on its rdf session, through a ~90-line
 // bridge to `compute_pipes.JetRdfSession` written here because the Go adaptor's
-// session could not be constructed outside its package (I-561). The Go engine is
-// retired; the C++ session is the shipped one and is built through its factory, so
-// the bridge is gone and what the tests assert is unchanged.
+// session could not be constructed outside its package (I-561). The C++ session is
+// the shipped one and is built through its factory, so the bridge is gone and what the
+// tests assert is unchanged.
 //
 // What no test in this tree can reach is the *rules* that build the projection.
 // `briefing_projection.jr` needs a rete session over a compiled `jets_ws`, which
@@ -71,7 +68,7 @@ func nativeSession(t *testing.T) (compute_pipes.JetRdfSession, bool) {
 	}
 	engine, err := jetrules_native_adaptor.NewJetRulesFactory().NewJetRuleEngine(nil, "jet_rules/test_join_values_main.jr", false)
 	if err != nil {
-		t.Fatalf("building the native engine: %v", err)
+		t.Skipf("the C++ engine cannot be built here (needs libjets.so from this commit): %v", err)
 	}
 	t.Cleanup(func() { engine.Release() })
 	ses, err := engine.NewRdfSession()
@@ -121,6 +118,9 @@ func runInCompiledTestWs(t *testing.T) {
 		nativeChildEnv+"=1",
 	)
 	out, err := cmd.CombinedOutput()
+	if err == nil && strings.Contains(string(out), "--- SKIP: "+t.Name()) {
+		t.Skipf("skipped in the child process:\n%s", out)
+	}
 	if err != nil {
 		t.Fatalf("%s failed in the child process: %v\n%s", t.Name(), err, out)
 	}

@@ -33,9 +33,9 @@
 // from that list is never checked, and a rule using it can aggregate over part of
 // its values with no error anywhere. Three production rules did exactly that.
 //
-// Register the operator here and list it in jets/compilerv2/compiler/operators.txt and
+// Register the operator here and list it in jets/compilerv2/compiler/operators.txt and in
 // consequentAggregateOps, in the same change (jets/rete/operator_list_test.cc checks
-// operators.txt). Lines marked AGGREGATE below are the ones the list must cover.
+// operators.txt). Lines marked AGGREGATE are the ones consequentAggregateOps must cover.
 //
 // ADDING AN OPERATOR THAT INSERTS INTO THE SESSION? The compiler refuses it in a
 // filter only if operators.txt marks it writes_graph
