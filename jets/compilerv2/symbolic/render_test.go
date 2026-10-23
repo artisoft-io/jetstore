@@ -30,7 +30,7 @@ const example = `{
       "consequents": [
         {"subject": "?clm", "predicate": "hc:large", "object": true},
         {"subject": "?clm", "predicate": "hc:label",
-         "object": {"op": "+", "lhs": {"type": "text", "value": "large:"}, "rhs": {"op": "toText", "arg": "?amt"}}}
+         "object": {"op": "+", "lhs": {"type": "text", "value": "large:"}, "rhs": {"op": "to_text", "arg": "?amt"}}}
       ]
     }
   ]
@@ -54,7 +54,7 @@ import "data_model/hc_model.jr"
   not(?clm hc:reviewed true)
   ->
   (?clm hc:large true).
-  (?clm hc:label ("large:" + (toText ?amt)))
+  (?clm hc:label ("large:" + (to_text ?amt)))
 ;
 `
 	if r.Source != want {

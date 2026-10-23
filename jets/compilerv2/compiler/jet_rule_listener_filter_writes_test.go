@@ -2,15 +2,9 @@ package compiler
 
 import (
 	"errors"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 const filterWritesHeader = `
@@ -86,7 +80,7 @@ func TestFilterWrites_TheWritingOperators(t *testing.T) {
 		"lookup_rand": "unary", "multi_lookup_rand": "unary", "create_entity": "unary",
 	}
 	for op, typ := range writers {
-		if !rete.IsGraphWritingOperator(typ, op) {
+		if !isGraphWritingOperator(typ, op) {
 			t.Errorf("%s %s writes to the graph and is not reported as writing", typ, op)
 		}
 	}
@@ -98,84 +92,30 @@ func TestFilterWrites_TheWritingOperators(t *testing.T) {
 		// a name under the wrong arity is not that operator
 		{"unary", "lookup"}, {"binary", "create_entity"}, {"identifier", "lookup"},
 	} {
-		if rete.IsGraphWritingOperator(c[0], c[1]) {
+		if isGraphWritingOperator(c[0], c[1]) {
 			t.Errorf("%s %s is reported as writing to the graph", c[0], c[1])
 		}
 	}
 }
 
-// insertingMethods are the calls that insert into the rdf session: the session's own
-// inserts, and the lookup table methods that insert the rows they return.
-// ReteSession.RaiseException is left out deliberately: it is the error path, see
-// jets/jetrules/rete/expr_writes_graph.go.
-var insertingMethods = []string{
-	"Insert", "InsertInferred", "InsertInferredFor",
-	"Lookup", "MultiLookup", "LookupRand", "MultiLookupRand",
-}
-
-// TestWritingOperatorsAreMarked reads the Go engine's operator sources and asserts
-// that an operator type whose Eval calls an inserting method carries the writesGraph
-// marker, and that a marked type still calls one. A new operator that inserts into
-// the session, and has no marker, would otherwise be allowed in a filter silently.
-// It sees direct calls in Eval only: an operator that inserts through a helper of its
-// own is not found, and should be marked by hand.
+// TestWritingOperatorsAreMarked asserts that operators.txt marks exactly the six
+// operators that insert into the session, so that removing a mark, or marking an
+// operator by mistake, is a test failure and not a silent change to what a filter may
+// call. An operator added to the engine that inserts into the session must be marked,
+// and this list extended, in the same change: operators.txt says why each is marked.
 func TestWritingOperatorsAreMarked(t *testing.T) {
-	dir := filepath.Join("..", "..", "jetrules", "rete")
-	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no Go source in %s: %v", dir, err)
+	want := []string{
+		"binary lookup", "binary multi_lookup", "binary range",
+		"unary create_entity", "unary lookup_rand", "unary multi_lookup_rand",
 	}
-	fset := token.NewFileSet()
-	inserting := map[string]bool{}
-	marked := map[string]bool{}
-	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") {
-			continue
-		}
-		file, err := parser.ParseFile(fset, f, nil, 0)
-		if err != nil {
-			t.Fatalf("parsing %s: %v", f, err)
-		}
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Recv == nil || len(fn.Recv.List) != 1 {
-				continue
-			}
-			star, ok := fn.Recv.List[0].Type.(*ast.StarExpr)
-			if !ok {
-				continue
-			}
-			ident, ok := star.X.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			recv := ident.Name
-			switch fn.Name.Name {
-			case "writesGraph":
-				marked[recv] = true
-			case "Eval":
-				ast.Inspect(fn.Body, func(n ast.Node) bool {
-					if call, ok := n.(*ast.CallExpr); ok {
-						if sel, ok := call.Fun.(*ast.SelectorExpr); ok && slices.Contains(insertingMethods, sel.Sel.Name) {
-							inserting[recv] = true
-						}
-					}
-					return true
-				})
-			}
+	var got []string
+	for _, op := range engineOperators {
+		if op.writesGraph {
+			got = append(got, op.exprType+" "+op.name)
 		}
 	}
-	if len(inserting) == 0 {
-		t.Fatal("found no operator that inserts into the session; the source scan is broken")
-	}
-	for op := range inserting {
-		if !marked[op] {
-			t.Errorf("%s.Eval inserts into the session and %s has no writesGraph marker (jets/jetrules/rete/expr_writes_graph.go)", op, op)
-		}
-	}
-	for op := range marked {
-		if !inserting[op] {
-			t.Errorf("%s has the writesGraph marker and its Eval inserts nothing", op)
-		}
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		t.Errorf("operators marked writes_graph in operators.txt:\n got  %v\n want %v", got, want)
 	}
 }

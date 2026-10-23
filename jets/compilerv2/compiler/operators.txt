@@ -1,0 +1,111 @@
+# The operators of the rule engine: every name the C++ engine registers in
+# create_binary_expr and create_unary_expr (jets/rete/expr_operator_factory.h).
+#
+# One operator a line: its arity, binary or unary, and its name, then writes_graph
+# when evaluating it inserts triples into the session.
+#
+# Two readers keep this file and the engine in step:
+#   - The compiler embeds it (jet_rule_listener_operators.go) and refuses a rule that
+#     calls an operator not listed here under that arity, and a filter that calls one
+#     marked writes_graph (jet_rule_listener_filter_writes.go).
+#   - OperatorList in jets/rete/operator_list_test.cc fails when a name listed here
+#     does not resolve in the factory, and when the factory registers a name not listed
+#     here, under either arity.
+#
+# ADDING AN OPERATOR? Register it in jets/rete/expr_operator_factory.h and list it here
+# in the same change. If it inserts into the session, mark it writes_graph; if it is an
+# aggregate, list it in consequentAggregateOps too (jet_rule_listener_aggregate_salience.go).
+#
+# writes_graph: lookup and multi_lookup insert the looked-up rows (LookupVisitor and
+# MultiLookupVisitor, jets/rete/lookup_sql_helper.cc), lookup_rand and multi_lookup_rand
+# likewise, range inserts its jets:range_value triples (RangeVisitor,
+# jets/rete/expr_op_others.h), and create_entity the entity's jets:key triple
+# (CreateEntityVisitor, jets/rete/expr_op_resources.h). Not marked, deliberately: the
+# jets:exception a failed truth test, substring_of or replace_char_of inserts on a bad
+# argument, which is an error path that writes to jets:iState only; raise_exception,
+# which throws and ends the rule set; and create_uuid_resource, create_resource and
+# create_literal, which make a node and insert nothing.
+
+# Arithmetic
+binary +
+binary -
+binary /
+binary *
+binary max_of
+binary min_of
+binary sorted_head
+binary sum_values
+binary join_values
+
+# Logical
+binary and
+binary or
+binary ==
+binary !=
+binary <
+binary <=
+binary >
+binary >=
+
+# Strings
+binary literal_regex
+binary apply_format
+binary contains
+binary starts_with
+binary ends_with
+binary substring_of
+binary char_at
+binary replace_char_of
+
+# Iterator
+binary range writes_graph
+
+# Resources
+binary size_of
+binary exist
+binary exist_not
+
+# Lookups
+binary lookup writes_graph
+binary multi_lookup writes_graph
+
+# Utilities
+binary age_as_of
+binary age_in_months_as_of
+
+# Arithmetic
+unary abs
+unary to_int
+unary to_double
+unary to_text
+
+# Dates and datetimes
+unary to_timestamp
+unary month_period_of
+unary week_period_of
+unary day_period_of
+
+# Logical
+unary not
+
+# Strings
+unary to_upper
+unary to_lower
+unary trim
+unary length_of
+unary parse_usd_currency
+unary uuid_md5
+unary uuid_sha1
+
+# Resources
+unary create_entity writes_graph
+unary create_literal
+unary create_resource
+unary create_uuid_resource
+unary is_literal
+unary is_resource
+unary raise_exception
+
+# Lookups
+unary lookup_rand writes_graph
+unary multi_lookup_rand writes_graph
