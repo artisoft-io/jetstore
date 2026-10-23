@@ -76,8 +76,8 @@ build in `internal/build_workspace.sh`.
 
 **Link 4 for Lambda only, and it is the asymmetry worth remembering.** A container process gets
 `WORKSPACES_REPO` copied to `WORKSPACES_HOME` by `cbooter` before the binary is exec'd
-(`jets/cmds/cbooter/main.go:180`, the `default` case covering `cpipes_server` and
-`cpipes_native_server`). **A Lambda has no cbooter** — its entrypoint is the runtime interface and its
+(`jets/cmds/cbooter/main.go`, the `default` case of `main`'s command switch, which covers
+`cpipes_native_server`; `cpipes_server` was deleted in October 2026). **A Lambda has no cbooter** — its entrypoint is the runtime interface and its
 `CMD` is the handler — so nothing copied anything. Confirmed inside `cpipes_lambda_jets_ws:latest`:
 `/workspaces/jets_ws/build/classes.json` exists and `/tmp` is empty, while the CDK gives the function
 `WORKSPACES_HOME=/tmp/workspaces` (`cdk/jetstore_one/stack/build_cpipes_lambdas.go`). That file is
