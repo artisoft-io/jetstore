@@ -14,6 +14,11 @@ import (
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+
+	// The "sqlite" driver lookup.db is written and fingerprinted with. It was
+	// registered by the Go engine's lookup table manager until that engine's
+	// deletion (October 2026), which this package relied on without importing it.
+	_ "modernc.org/sqlite"
 )
 
 // This file contains functions to package lookup tables into lookup.db

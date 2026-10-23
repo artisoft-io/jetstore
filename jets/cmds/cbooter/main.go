@@ -69,7 +69,6 @@ var allowedCommands = map[string]bool{
 	"apiserver":            true,
 	"infer_server":         true,
 	"run_reports":          true,
-	"cpipes_server":        true,
 	"cpipes_native_server": true,
 	"anomaly_detect":       true,
 	"shadow_triage":        true,

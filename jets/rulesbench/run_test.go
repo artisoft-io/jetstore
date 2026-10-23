@@ -172,10 +172,8 @@ func TestRun(t *testing.T) {
 				if s.Memory != nil {
 					t.Errorf("session %s has per-session memory with a pool of 2", s.Name)
 				}
-				// C++ keeps no graph counters (the Go engine did), so the count by
-				// iteration is the only one.
-				if s.TriplesTotal == nil || *s.TriplesTotal == 0 || s.Graph != nil {
-					t.Errorf("session %s: %v triples by iteration, graph %+v", s.Name, s.TriplesTotal, s.Graph)
+				if s.TriplesTotal == nil || *s.TriplesTotal == 0 {
+					t.Errorf("session %s: %v triples by iteration", s.Name, s.TriplesTotal)
 				}
 				if len(s.RuleSets) != 1 {
 					t.Fatalf("session %s: %d rule sets", s.Name, len(s.RuleSets))
@@ -184,7 +182,7 @@ func TestRun(t *testing.T) {
 				if s.ReteReleaseNs != rs.ReteReleaseNs || rs.ReteReleaseNs < 0 {
 					t.Errorf("session %s: rete_release_ns %d, its one rule set's %d", s.Name, s.ReteReleaseNs, rs.ReteReleaseNs)
 				}
-				if rs.LoopsRun != 4 || len(rs.LoopNs) != 4 || rs.LastLoop != 3 || !rs.Completed || rs.Rete != nil {
+				if rs.LoopsRun != 4 || len(rs.LoopNs) != 4 || rs.LastLoop != 3 || !rs.Completed {
 					t.Errorf("rule set %+v", rs)
 				}
 			}

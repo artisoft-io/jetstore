@@ -56,8 +56,8 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 		return &opIn{
 			noCase: true,
 		}, nil
-	// String operators: CONTAINS and CONTAINS_NO_CASE, mirroring the rules engine's ContainsOp
-	// (jets/jetrules/rete/expr_operator_str_contains.go)
+	// String operators: CONTAINS and CONTAINS_NO_CASE, mirroring the Go rules engine's ContainsOp
+	// (expr_operator_str_contains.go, at the go-engine-final tag)
 	case "CONTAINS":
 		return &opContains{}, nil
 	case "CONTAINS_NO_CASE":

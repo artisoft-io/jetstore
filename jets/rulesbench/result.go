@@ -2,8 +2,6 @@ package rulesbench
 
 import (
 	"time"
-
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // ResultSchema names the shape of a run's JSON result. It changes when a field
@@ -150,10 +148,10 @@ type SessionResult struct {
 	// when there is one; it is in no other phase. A run with a dump is not a
 	// timing run.
 	DumpNs int64 `json:"dump_ns,omitempty"`
-	// CountersNs is the time the bench spent in its own timing callbacks, which
-	// read the Go engine's counters after each rule set until its retirement and
-	// read none on C++, which keeps none. It is in no other
-	// phase: RuleSetsNs and TotalNs leave it out.
+	// CountersNs is the time the bench spent in its own timing callbacks. Until the
+	// Go engine's deletion (October 2026) it was mostly reading that engine's
+	// counters after each rule set; C++ keeps none. It is in no other phase:
+	// RuleSetsNs and TotalNs leave it out.
 	CountersNs int64 `json:"counters_ns"`
 	// ReteReleaseNs is the rule sets' ReteReleaseNs summed: the release of the
 	// rete session after each rule set, which is inside RuleSetsNs and outside
@@ -169,13 +167,11 @@ type SessionResult struct {
 
 	RuleSets  []RuleSetResult `json:"rule_sets"`
 	Extracted map[string]int  `json:"extracted,omitempty"`
-	// Graph is the session's graph sizes after its last rule set, where the
-	// engine counts them, which the Go engine did and C++ does not. TriplesTotal is
-	// a count by iteration over every triple the session reads, meta graph
-	// included, made after extraction and timed in no phase; it is set with
-	// Options.CountTriples.
-	Graph        *compute_pipes.GraphSizes `json:"graph,omitempty"`
-	TriplesTotal *int                      `json:"triples_total,omitempty"`
+	// TriplesTotal is a count by iteration over every triple the session reads,
+	// meta graph included, made after extraction and timed in no phase; it is set
+	// with Options.CountTriples. Results written before the Go engine's deletion
+	// (October 2026) may also carry graph, that engine's own graph sizes.
+	TriplesTotal *int `json:"triples_total,omitempty"`
 	// GoroutinesBefore and After are runtime.NumGoroutine around the session;
 	// with a pool of 1 a difference is goroutines the session left behind.
 	GoroutinesBefore int `json:"goroutines_before"`
@@ -210,10 +206,7 @@ type RuleSetResult struct {
 	MaxLoopReached bool   `json:"max_loop_reached"`
 	ExecuteErr     string `json:"execute_err,omitempty"`
 	// VertexCapReached is true when ExecuteRules stopped on max_vertex_visits.
+	// Results written before the Go engine's deletion (October 2026) may also
+	// carry graph and rete, that engine's own counters at the rule set's end.
 	VertexCapReached bool `json:"vertex_cap_reached"`
-	// Graph and Rete are the engine's own counters at the rule set's end, where
-	// it keeps them (the Go engine did; C++ does not): see compute_pipes.GraphSizer
-	// and ReteCounterReader.
-	Graph *compute_pipes.GraphSizes   `json:"graph,omitempty"`
-	Rete  *compute_pipes.ReteCounters `json:"rete,omitempty"`
 }

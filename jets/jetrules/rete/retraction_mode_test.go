@@ -1,8 +1,7 @@
 package rete
 
-// The retraction mode's labels. That the mode reaches a compiled network through
-// NewReteMetaStoreFactory is retraction_mode_factory_test.go, in package rete_test,
-// because it compiles with package workspace, which imports this package.
+// The retraction mode's labels. That the mode reaches the C++ engine is
+// jets/compute_pipes/jetrules_native_adaptor/engine_mode_test.go.
 
 import "testing"
 

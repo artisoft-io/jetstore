@@ -148,9 +148,10 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 //
 // A jetrules multi-valued property is a *set*. It has no order, and
 // extractAsEntity above builds its lists by appending in the order the graph's
-// iterators happen to drain - which is a range over a `sync.Map` (`WSetType`,
-// `jets/jetrules/rdf/base_graph.go:26`) and therefore a function of the
-// process's map hash seed rather than of the data.
+// iterators happen to drain - which on the Go engine, where this was measured, was
+// a range over a `sync.Map` (`WSetType`, `rdf/base_graph.go` at the
+// go-engine-final tag) and therefore a function of the process's map hash seed
+// rather than of the data.
 //
 // That was measured rather than assumed, by agentic_ai's Phase 7 (plan §1.21.1,
 // F801): **200 encodings of one unchanged rule session inside one process gave
@@ -168,9 +169,10 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 //
 // This is `join_values`' rule one level up. That operator folds a multi-valued
 // property into one string and sorts the rendered values byte-wise ascending,
-// on exactly this argument - see the header of
-// `jets/jetrules/rete/expr_operator_math_join_values.go`, "THE OUTPUT IS SORTED,
-// AND THE REASON IS REPRODUCIBILITY RATHER THAN TASTE". Since a set has no
+// on exactly this argument - see the header of the Go engine's
+// `expr_operator_math_join_values.go` (at the go-engine-final tag), "THE OUTPUT IS
+// SORTED, AND THE REASON IS REPRODUCIBILITY RATHER THAN TASTE"; the C++ engine's
+// JoinValuesVisitor sorts the same way. Since a set has no
 // order, any total order is as defensible as any other, and the one already in
 // the codebase wins on consistency alone: the dates *inside* a joined
 // medication value were sorted while the list of events carrying them was not,

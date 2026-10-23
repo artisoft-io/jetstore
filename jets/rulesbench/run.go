@@ -491,10 +491,10 @@ type runTag struct {
 }
 
 // sessionTimer is the RuleSetsTimer of one session. The time it spends in its
-// own callbacks is kept apart: the dump in dump, and the rest, which is mostly
-// the counters an engine keeps (GraphSizer, ReteCounterReader), in counters. RunRuleSets runs
-// both inside the call the session's RuleSetsNs measures, so runSession
-// subtracts them.
+// own callbacks is kept apart: the dump in dump, and the rest in counters, a name
+// from when it read the Go engine's counters (deleted with that engine, October
+// 2026). RunRuleSets runs both inside the call the session's RuleSetsNs measures,
+// so runSession subtracts them.
 type sessionTimer struct {
 	opts     *Options
 	engine   string
@@ -529,14 +529,6 @@ func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteS
 		if t.opts.PerLoop {
 			rs.LoopNs = append(rs.LoopNs, ns)
 		}
-	}
-	if gs, ok := rdfSession.(compute_pipes.GraphSizer); ok {
-		g := gs.GraphSizes()
-		rs.Graph = &g
-	}
-	if rc, ok := reteSession.(compute_pipes.ReteCounterReader); ok {
-		c := rc.ReteCounters()
-		rs.Rete = &c
 	}
 	t.sr.RuleSets = append(t.sr.RuleSets, rs)
 	t.counters += time.Since(c0)
@@ -637,10 +629,6 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 	case timer.dumpErr != nil:
 		sr.Err = fmt.Sprintf("graph dump: %v", timer.dumpErr)
 	}
-	if n := len(sr.RuleSets); n > 0 {
-		sr.Graph = sr.RuleSets[n-1].Graph
-	}
-
 	if outcome.Err == nil && extractor != nil {
 		t2 := time.Now()
 		counts, err := extractor.Extract(rdfSession)
