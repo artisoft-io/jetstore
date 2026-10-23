@@ -835,7 +835,7 @@ TEST_F(SortedHeadTieTest, AnIntAndAnEqualDoubleTie) {
 
 // An int 5 and a double 5.7 are not equal. EqVisitor said they were until 2026-10 (it
 // truncated the double), which would have let the name pick 5.7 as the minimum.
-// Equal to 15 significant digits, as == says, though not bit-equal: a tie, as on Go
+// Equal to 15 significant digits, as == says, though not bit-equal: a tie, as it was on Go
 TEST_F(SortedHeadTieTest, DoublesEqualTo15DigitsTie) {
   auto rmgr = this->rete_session->rdf_session()->rmgr();
   int b_first = 0;

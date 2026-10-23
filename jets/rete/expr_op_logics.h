@@ -29,7 +29,7 @@ using RDFTTYPE = rdf::RdfAstType;
 // double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
 // digits), so a NaN or an infinity is never equal or ordered. Until 2026-10 == cast the
 // double to the integer's type (5 == 5.5 was true, a double out of the type's range
-// threw) and < <= > >= compared without rounding. The Go engine follows the same table.
+// threw) and < <= > >= compared without rounding. The retired Go engine followed the same table.
 struct EqVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // Fully expanded example to serve as template

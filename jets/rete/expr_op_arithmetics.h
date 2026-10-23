@@ -96,7 +96,7 @@ register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
 // + - * / on numbers: a double operand, on either side, makes the result a double. Until
 // 2026-10 an integer met first truncated the double in + and - (2 + 0.5 was 2); * and /
 // already gave a double. Integers alone keep the left operand's type, the right converted
-// by numeric_cast, and / is integer division. The Go engine follows the same table.
+// by numeric_cast, and / is integer division. The retired Go engine followed the same table.
 struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -273,7 +273,7 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 // --------------------------------------------------------------------------------------
 // An integer divided by an integer zero is null (Q-69); until 2026-10 it raised SIGFPE,
 // which killed the process. A division with a double operand follows IEEE: +inf, -inf,
-// and NaN for 0/0. The Go engine follows the same table.
+// and NaN for 0/0. The retired Go engine followed the same table.
 struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -332,7 +332,7 @@ struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 
 // The order that breaks a tie between equal values in min_of, max_of and sorted_head,
 // so that the object chosen does not depend on the order the graph holds them in (a hash
-// set's, which varies from run to run). A total order, the same in the Go engine:
+// set's, which varies from run to run). A total order, as it was in the Go engine:
 //  - by kind: a named resource, then a blank node, then a literal, then null;
 //  - a named resource by its name, a literal by its text (a double by double_to_text),
 //    compared as bytes; two literals of equal text by type, signed integers before
@@ -636,7 +636,7 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 //  - a value that is not a number (text, a date, a resource) cannot be summed, and makes
 //    the sum null, wherever it comes. Until 2026-10 sum_values folded with +, so text
 //    concatenated and a mix depended on the order (5, "x", 2 gave "x25" or no answer).
-// The Go engine's SumValuesOp follows the same rules.
+// The retired Go engine's SumValuesOp followed the same rules.
 class SumOfValues {
  public:
   // false: a value that is not a number was met, and the sum is null
@@ -805,7 +805,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 // make the same entity produce a different string — and, downstream, a different LLM
 // prompt — between two runs over identical data, which is noise injected straight into
 // an experiment whose design is one variable. Sorting is on the *rendered* strings,
-// byte-wise ascending, which is also what the Go engine does; ISO-8601 dates sort
+// byte-wise ascending, which is also what the Go engine did; ISO-8601 dates sort
 // lexically into chronological order, so the sort costs nothing for the date case that
 // motivated the operator.
 //
@@ -835,7 +835,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 
 // Render one rdf value the way join_values wants it in the joined string.
 // Not ToTextVisitor, which returns a literal; the text is the same: a double is written
-// by rdf::double_to_text, as the Go engine's join_values writes it. Until 2026-10 it was
+// by rdf::double_to_text, as the Go engine's join_values wrote it. Until 2026-10 it was
 // %g's six significant digits.
 struct JoinTextVisitor: public boost::static_visitor<std::string>
 {
@@ -972,7 +972,7 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     // rhs is a config, and the rhs itself when it is the multi-valued property.
     //
     // The second case used to be join_values' own: SumValuesVisitor registered nothing
-    // for it while the Go SumValuesOp did. That is fixed as of 2026-09-09 and both now
+    // for it while the Go SumValuesOp did. That is fixed as of 2026-09-09 and both
     // go through register_callbacks_for_aggregate, which additionally watches the
     // entity property -- which none of these operators did, on either side.
     return register_callbacks_for_aggregate(rs, vertex,

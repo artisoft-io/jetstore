@@ -764,7 +764,7 @@ TEST_F(AggregateTruthMaintenanceTest, SumValuesRecomputesWhenALinkedChildGetsIts
 // DEFECT 2 -- (?s sum_values someMultiValuedProperty), the direct property form.
 // SumValuesVisitor::register_callback returned 0 when the rhs carried no
 // jets:value_property, so this form had no truth maintenance at all in C++.
-// registerCallback4MinMaxOf already fell back to the rhs, and so does the Go engine.
+// registerCallback4MinMaxOf already fell back to the rhs, and so did the Go engine.
 TEST_F(AggregateTruthMaintenanceTest, SumValuesRecomputesOnDirectMultiValuedProperty) {
   this->stage("main1", "pendingValues", 40);
 

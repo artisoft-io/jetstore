@@ -341,8 +341,8 @@ class RDFGraph {
    * e.g. (s, null, o) -> (s, *, o)
    *
    * A delete: every reference count goes, and the graph's callbacks hear
-   * triple_deleted for each triple removed, as for retract and as the Go engine's Erase
-   * does. From 2022-05 (2507bf7c) until 2026-10 this told the rete nothing, so the rows
+   * triple_deleted for each triple removed, as for retract and as the retired Go engine's
+   * Erase did. From 2022-05 (2507bf7c) until 2026-10 this told the rete nothing, so the rows
    * and consequents built on an erased triple stayed (I-6).
    * 
    * Throws exception if graph is locked
