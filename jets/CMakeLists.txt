@@ -114,6 +114,7 @@ add_executable(jets_test
   rete/expr_op_test.cc
   rete/expr_op_specialty_test.cc
   rete/expr_operator_factory_test.cc
+  rete/operator_list_test.cc
   rete/no_truth_main_on_exist_test.cc
   rete/retract_recorded_consequents_test.cc
   rete/loop_through_negation_test.cc
@@ -136,6 +137,10 @@ target_include_directories(jets_test PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}/
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
+
+# operator_list_test.cc reads jets/compilerv2/compiler/operators.txt and
+# jets/rete/expr_operator_factory.h from the source tree
+target_compile_definitions(jets_test PRIVATE JETS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 # copy test files
 add_custom_command(TARGET jets_test POST_BUILD

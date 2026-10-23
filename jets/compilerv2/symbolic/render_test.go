@@ -30,7 +30,7 @@ const example = `{
       "consequents": [
         {"subject": "?clm", "predicate": "hc:large", "object": true},
         {"subject": "?clm", "predicate": "hc:label",
-         "object": {"op": "+", "lhs": {"type": "text", "value": "large:"}, "rhs": {"op": "toText", "arg": "?amt"}}}
+         "object": {"op": "+", "lhs": {"type": "text", "value": "large:"}, "rhs": {"op": "to_text", "arg": "?amt"}}}
       ]
     }
   ]
@@ -54,7 +54,7 @@ import "data_model/hc_model.jr"
   not(?clm hc:reviewed true)
   ->
   (?clm hc:large true).
-  (?clm hc:label ("large:" + (toText ?amt)))
+  (?clm hc:label ("large:" + (to_text ?amt)))
 ;
 `
 	if r.Source != want {
@@ -117,6 +117,10 @@ func TestRenderRefuses(t *testing.T) {
 		{"an unknown literal type", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "float", "value": "1"}}`), "/rules/0/antecedents/0/object"},
 		{"an unescaped quote", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "text", "value": "a\"b"}}`), "/rules/0/antecedents/0/object"},
 		{"a bad operator", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "> 0] -> (", "lhs": "?n", "rhs": 0}}`), "/rules/0/antecedents/0/filter/op"},
+		{"the toText keyword, which no engine registers", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "toText", "arg": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
+		{"the r? keyword, which no engine registers", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "r?", "lhs": "?n", "rhs": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
+		{"a misspelt operator", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "sum_value", "lhs": "?n", "rhs": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
+		{"a binary operator called as unary", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "lookup", "arg": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
 		{"a half operation", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": ">", "lhs": "?n"}}`), "/rules/0/antecedents/0/filter"},
 		{"s as a property", rule(`, "properties": {"s": 10}`), "/rules/0/properties/s"},
 		{"i as a property", rule(`, "properties": {"i": true}`), "/rules/0/properties/i"},

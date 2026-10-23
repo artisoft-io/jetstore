@@ -10,8 +10,8 @@ import (
 
 // No rule writes to the graph during an iteration.
 //
-// Both rule engines evaluate an antecedent's filter while they iterate the graph to
-// match that antecedent, and insert a rule's consequents only after the visit, by
+// The rule engine evaluates an antecedent's filter while it iterates the graph to
+// match that antecedent, and inserts a rule's consequents only after the visit, by
 // salience. That ordering is what lets an iterator run over a graph that does not
 // change under it. A filter that calls an operator which inserts into the session
 // breaks it: lookup and multi_lookup insert the looked-up rows, range its
@@ -19,15 +19,14 @@ import (
 // stopped a rule doing that, so the invariant held by convention.
 //
 // So the compiler refuses an antecedent filter that calls such an operator, anywhere
-// in its expression tree. The set comes from the Go operator table: an operator is a
-// writer when its type carries the writesGraph marker (rete.IsGraphWritingOperator,
-// jets/jetrules/rete/expr_writes_graph.go), and TestWritingOperatorsAreMarked keeps
-// the marker honest. Consequent object expressions are not checked: they are
+// in its expression tree. The set is the operators marked writes_graph in
+// operators.txt, the engine's operator list (jet_rule_listener_operators.go), which
+// says why each one is marked. Consequent object expressions are not checked: they are
 // evaluated after the visit, which is where these operators belong.
 //
 // It is an error and not a warning. No rule in the four workspaces calls a writing
 // operator in a filter (2026-10-21), so the error costs nothing in the field, and a
-// rule that did would depend on a write the engines do not order: warnings are not
+// rule that did would depend on a write the engine does not order: warnings are not
 // shown to anyone who would act on them.
 
 // filterGraphWriters returns, in tree order and without repeats, the operators in a
@@ -39,7 +38,7 @@ func filterGraphWriters(e *rete.ExpressionNode) []string {
 		if e == nil {
 			return
 		}
-		if (e.Type == "binary" || e.Type == "unary") && rete.IsGraphWritingOperator(e.Type, e.Op) && !slices.Contains(out, e.Op) {
+		if (e.Type == "binary" || e.Type == "unary") && isGraphWritingOperator(e.Type, e.Op) && !slices.Contains(out, e.Op) {
 			out = append(out, e.Op)
 		}
 		walk(e.Lhs)
