@@ -468,3 +468,18 @@ func TestNewCounterRefusesSharedIdentities(t *testing.T) {
 		t.Errorf("constants: %v", err)
 	}
 }
+
+func TestKeys(t *testing.T) {
+	if got := PartialsPrefix("jetstore/stage/", "StatsProcess", "123"); got != "jetstore/stage/process_name=StatsProcess/session_id=123/optimizer_statistics/" {
+		t.Errorf("PartialsPrefix = %q", got)
+	}
+	if got := PartialKey("jetstore/stage", "StatsProcess", "123", "", 2); got != "jetstore/stage/process_name=StatsProcess/session_id=123/optimizer_statistics/partition=none_node=2.json" {
+		t.Errorf("PartialKey = %q", got)
+	}
+	if got := PartialKey("jetstore/stage", "P", "1", "7p", 0); !strings.HasSuffix(got, "/partition=7p_node=0.json") {
+		t.Errorf("PartialKey = %q", got)
+	}
+	if got := WorkspaceKey("jets_ws"); got != "jetstore/workspaces/jets_ws/jet_rules/optimizer_statistics.json" {
+		t.Errorf("WorkspaceKey = %q", got)
+	}
+}

@@ -612,6 +612,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"max_rete_sessions_saved":    {},
 		"metadata_input_sources":     {},
 		"on_error":                   {Values: []string{"pass_through", "drop", "fail"}},
+		"optimizer_statistics":       {},
 		"output_channels":            {Required: true},
 		"pool_size":                  {},
 		"process_name":               {},

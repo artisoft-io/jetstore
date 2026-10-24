@@ -36,6 +36,11 @@ type JrPoolWorker struct {
 	// groupingKey computes the domain key of a session's input, nil when the
 	// input has none (see jetrulesGroupingDomainKey).
 	groupingKey *HashEvaluator
+	// stats counts the optimizer's statistics after each rule set when the step's
+	// optimizer_statistics is on; nil otherwise. statsSession collects the
+	// running bundle's, committed only when the bundle ends without failing.
+	stats        *OptimizerStats
+	statsSession *OptimizerStatsSession
 	// The keys of the rete session running, which its error rows carry (setSessionKeys).
 	sessionGroupingKey sql.NullString
 	sessionRowJetsKey  sql.NullString
@@ -272,6 +277,12 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var cpErr error
 	var outcome RuleSetsOutcome
 	re := ctx.ruleEngine
+	// The bundle's optimizer statistics, when the step counts them: collected by
+	// reportRuleSet, committed at the end only if the bundle did not fail.
+	ctx.statsSession = nil
+	if ctx.stats != nil {
+		ctx.statsSession = ctx.stats.NewSession()
+	}
 	// The engine's JetResources are created on first use, through the meta graph,
 	// so they must exist before any rdf session opens (see RunRuleSets).
 	re.JetResources()
@@ -295,6 +306,10 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	})
 	if outcome.Err != nil {
 		cpErr = outcome.Err
+		goto gotError
+	}
+	if ctx.statsSession != nil && ctx.statsSession.Err() != nil {
+		cpErr = ctx.statsSession.Err()
 		goto gotError
 	}
 
@@ -339,6 +354,16 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 	// log.Println("*** Pool Worker == Done Extracting Session DATA")
 
+	// The bundle's statistics count only if it did not fail: no ExecuteRules error
+	// (the vertex cap is one) and no jets:exception, as rules_bench -stats counts
+	// a session. A bundle that reached max_looping counts, as there.
+	if ctx.statsSession != nil && outcome.ExecuteErr == nil && len(outcome.Exceptions) == 0 {
+		if err = ctx.statsSession.Commit(); err != nil {
+			cpErr = err
+			goto gotError
+		}
+	}
+
 	return
 
 gotError:
@@ -361,6 +386,9 @@ gotError:
 // a saved session holds the triples as they were when the rule set ended.
 // Every failure counts toward max_error_count whether or not it is reported.
 func (ctx *JrPoolWorker) reportRuleSet(rdfSession JetRdfSession, rs *RuleSetOutcome) {
+	if ctx.statsSession != nil {
+		ctx.statsSession.Count(rs.RuleSet, rdfSession)
+	}
 	if rs.ExecuteErr != nil {
 		ctx.errorCount++
 		switch {

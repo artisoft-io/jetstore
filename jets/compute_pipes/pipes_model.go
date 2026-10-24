@@ -1270,6 +1270,16 @@ type JetrulesSpec struct {
 	OnError       string               `json:"on_error,omitempty"`
 	MaxErrorCount int                  `json:"max_error_count,omitzero"`
 	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
+	// OptimizerStatistics counts the rule optimizer's statistics (jets/optstats)
+	// over the step's sessions: after each rule set of each session, the graph the
+	// rule set ended with, for the predicates and constants of its antecedents.
+	// Each node writes one partial file under its session's stage folder,
+	// <stage>/process_name=<process>/session_id=<session>/optimizer_statistics/,
+	// when its sessions are done; the run_reports function
+	// merge_optimizer_statistics merges them into the workspace. Off by default,
+	// and free when off: nothing is loaded, allocated or counted. It is for a
+	// statistics process run on demand, not for every production run.
+	OptimizerStatistics bool `json:"optimizer_statistics,omitzero"`
 }
 
 // PromptTemplateSpec is a named prompt template, defined at the ComputePipesConfig level

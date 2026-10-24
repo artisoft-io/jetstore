@@ -783,3 +783,11 @@ default `pass_through` keeps the record, logs the error and reports it to the er
 **Measured** by `column_evaluators_mapping_test.go`, which builds both modes directly, including a map
 column updated in place followed by a `count` with a `where` on it. No pipeline in the workspace corpus
 has a `map` column in an `aggregate` or a `map_reduce` as of 2026-10-18.
+
+## The rule optimizer's statistics, 2026-10-24
+
+**A jetrules step can count, over its sessions, what the rule optimizer orders by**:
+`optimizer_statistics` in its `jetrules_config`, off by default and free when off. The partials it
+writes are merged into the workspace by the run_reports function `merge_optimizer_statistics`.
+Full documentation: [`optimizer_statistics_readme.md`](optimizer_statistics_readme.md) — the option,
+the function, why it runs on demand, and what a later deployment does to the file.
