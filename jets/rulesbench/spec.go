@@ -70,11 +70,13 @@ type Spec struct {
 	// output channels are. None means no extraction.
 	OutputClasses []OutputClass `json:"output_classes,omitempty"`
 
-	// A .tst.json's other fields, accepted and ignored. The engine always runs
-	// in production's retraction mode (rules_benchmark Q-4), so a legacy object
-	// that turns a defect off is refused rather than ignored; and compare_engines,
-	// like jetrules_config.use_jet_rules_go, asks for the retired Go engine and is
-	// refused (rules_benchmark Q-77).
+	// Legacy selects the retraction mode, as a .tst.json's does. A timed run is
+	// in production's mode, legacy (rules_benchmark Q-4), so a legacy object that
+	// turns a defect off is refused unless the run is untimed
+	// (Options.EquivalenceOnly, rules_benchmark Q-92): Run refuses it, not the
+	// spec's check, since only the run knows. A .tst.json's other fields are
+	// accepted and ignored; compare_engines, like jetrules_config.use_jet_rules_go,
+	// asks for the retired Go engine and is refused (rules_benchmark Q-77).
 	Legacy          *rulestest.LegacyConfig `json:"legacy,omitempty"`
 	CompareEngines  bool                    `json:"compare_engines,omitzero"`
 	Expect          json.RawMessage         `json:"expect,omitempty"`
@@ -160,9 +162,6 @@ func (s *Spec) check() error {
 		return errors.New("invalid bench spec: repetitions, warmup, pool_size and max_vertex_visits cannot be negative")
 	case s.MaxLooping != nil && *s.MaxLooping < 0:
 		return errors.New("invalid bench spec: max_looping cannot be negative")
-	}
-	if s.Legacy.ModeLabel() != rulestest.LegacyModeLegacy {
-		return fmt.Errorf("invalid bench spec: legacy asks for %s; the benchmark runs the engines in production's retraction mode, legacy", s.Legacy.ModeLabel())
 	}
 	if err := CheckEngines(s.Engines); err != nil {
 		return fmt.Errorf("invalid bench spec: %v", err)

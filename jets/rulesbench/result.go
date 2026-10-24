@@ -11,11 +11,15 @@ const ResultSchema = "rules_bench/1"
 // RunResult is one run: one engine, one repetition, every session. Every time
 // is in nanoseconds of wall time, read on the monotonic clock.
 type RunResult struct {
-	Schema     string `json:"schema"`
-	Bench      string `json:"bench"`
-	SpecPath   string `json:"spec_path"`
-	Engine     string `json:"engine"`
+	Schema   string `json:"schema"`
+	Bench    string `json:"bench"`
+	SpecPath string `json:"spec_path"`
+	Engine   string `json:"engine"`
+	// LegacyMode is the retraction mode the engine reports it was built in.
 	LegacyMode string `json:"legacy_mode"`
+	// EquivalenceOnly marks an untimed run (Options.EquivalenceOnly): its outputs
+	// are for comparison, and its times are not measurements.
+	EquivalenceOnly bool `json:"equivalence_only,omitzero"`
 	// Repetition counts from 1 within its kind: warmup runs and measured runs
 	// are numbered apart.
 	Repetition int  `json:"repetition"`
