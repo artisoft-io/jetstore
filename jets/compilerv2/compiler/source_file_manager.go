@@ -3,6 +3,8 @@ package compiler
 import (
 	"context"
 	"database/sql"
+	"maps"
+	"slices"
 )
 
 // This file contains the source file manager for maping source file name to db key
@@ -48,7 +50,11 @@ func (sfm *SourceFileManager) LoadSourceFileNameToKey(ctx context.Context, db *s
 func (sfm *SourceFileManager) SaveNewSourceFileNames(ctx context.Context, db *sql.DB) error {
 	stmt := "INSERT INTO workspace_control (key, source_file_name, is_main) VALUES (?, ?, ?);"
 	var data [][]any
-	for sourceFileName, key := range sfm.sourceFileNameToKey {
+	// In name order: the keys are already fixed, but rows inserted in map
+	// order lay the table's pages out differently, so workspace.db differed
+	// between two compiles of the same sources (Q-49)
+	for _, sourceFileName := range slices.Sorted(maps.Keys(sfm.sourceFileNameToKey)) {
+		key := sfm.sourceFileNameToKey[sourceFileName]
 		if key > sfm.lastDbKey {
 			isMain := false
 			if sourceFileName == sfm.w.mainSourceFileName {

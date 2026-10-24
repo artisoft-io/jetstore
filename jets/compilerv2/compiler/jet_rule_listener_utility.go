@@ -49,7 +49,7 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 		}
 		// Resource not found - log error and create it as inline resource
 		if !s.autoAddResources {
-			fmt.Fprintf(s.errorLog, "warning: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+			s.logErrorf("warning: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
 			fmt.Fprintf(s.parseLog, "warning: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
 		}
 		if after, ok := strings.CutPrefix(r.Id, "_0:"); ok {
@@ -132,7 +132,7 @@ func (s *JetRuleListener) AddResource(r *rete.ResourceNode) *rete.ResourceNode {
 			if resById, existsById := s.resourceManager.ResourceById[r.Id]; existsById {
 				if resById.Type != r.Type || resById.Value != r.Value {
 					// Conflict - same Id with different type/value
-					fmt.Fprintf(s.errorLog, "error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
+					s.logErrorf("error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
 						r.Id, resById.Type, resById.Value, r.Type, r.Value)
 					fmt.Fprintf(s.parseLog, "error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
 						r.Id, resById.Type, resById.Value, r.Type, r.Value)
@@ -255,7 +255,7 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 			case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
 			default:
 				// invalid type - report error, return nil
-				fmt.Fprintf(s.errorLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
+				s.logErrorf("error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
 				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
 				return nil
 			}

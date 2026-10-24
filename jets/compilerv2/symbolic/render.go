@@ -65,8 +65,9 @@ var (
 // arity: the compiler's operator list (compiler.IsEngineOperator,
 // jets/compilerv2/compiler/operators.txt), which the compiler enforces. Every
 // name on it is one the grammar admits as binaryOp or unaryOp, a symbol, and,
-// or, not, or an Identifier. The grammar's toText and r? are not on it: no
-// engine registers them, so a rule using one compiles to nothing that runs.
+// or, not, or an Identifier. toText and r?, which the grammar once had as
+// keywords and no engine ever registered, are not on it either: toText is an
+// unregistered identifier and r? is not an operator at all.
 
 // literalTypes are the literal types the grammar has a cast for, and keyword.
 var literalTypes = map[string]bool{

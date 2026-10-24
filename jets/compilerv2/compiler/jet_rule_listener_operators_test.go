@@ -61,8 +61,9 @@ func TestOperators_UnknownNamesAreErrors(t *testing.T) {
 		{"another operator only the Go engine had",
 			"[R4]: (?x rdfType ex:Item).(?x ex:code ?c) -> (?x ex:out (to_date ?c));\n",
 			[]string{"rule R4", "to_date is not a unary operator"}},
-		// the grammar's toText keyword names no operator of the engine; to_text does
-		{"the toText keyword",
+		// toText was a grammar keyword no engine registered; it is now an
+		// identifier, and still not an operator (to_text is)
+		{"toText, the dropped keyword",
 			"[R5]: (?x rdfType ex:Item).(?x ex:code ?c) -> (?x ex:out (toText ?c));\n",
 			[]string{"rule R5", "toText is not a unary operator"}},
 		{"a binary operator called as unary",

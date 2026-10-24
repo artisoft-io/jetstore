@@ -13,6 +13,6 @@ var reserved = map[string]bool{
 	"and": true, "as": true, "bool": true, "class": true, "date": true, "datetime": true,
 	"deleted": true, "double": true, "false": true, "int": true, "jetstore_config": true,
 	"long": true, "lookup_table": true, "main": true, "not": true, "null": true, "or": true,
-	"resource": true, "rule_sequence": true, "text": true, "toText": true, "triple": true,
+	"resource": true, "rule_sequence": true, "text": true, "triple": true,
 	"true": true, "uint": true, "ulong": true, "volatile_resource": true,
 }

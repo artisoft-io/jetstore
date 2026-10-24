@@ -21,6 +21,16 @@ func (j *JetRuleListener) LogError(msg string) {
 	j.diagnostics.addMessage(msg)
 }
 
+// logErrorf writes a formatted complaint to the text log byte for byte as the
+// fmt.Fprintf it replaces did, and records it as a diagnostic too. Before it,
+// the rule validation and class checks wrote to errorLog directly, so they
+// failed the compile and left CompilationError.Errors() empty (I-63).
+func (j *JetRuleListener) logErrorf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	j.errorLog.WriteString(msg)
+	j.diagnostics.addMessage(msg)
+}
+
 // LogErrorAt logs a semantic error at a buffer line, naming the authored file
 // and line when the reader can place it, as a syntax error is named
 // (CustomErrorListener.SyntaxError). The diagnostic keeps the buffer line and is
