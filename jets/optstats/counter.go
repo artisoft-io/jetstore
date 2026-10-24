@@ -2,6 +2,7 @@ package optstats
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 )
 
@@ -211,6 +212,27 @@ func (a *Accumulator) Add(ruleSet string, rs *RuleSet) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.file.add(ruleSet, rs)
+}
+
+// AddFile adds every rule set of f, as Add does, all or none: when one rule set
+// is refused (another network, an overflow), the accumulator is left as it was.
+// It is how a session that counted several rule sets is added at once.
+func (a *Accumulator) AddFile(f *File) error {
+	if err := f.Validate(); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	// add replaces a rule set's entry with a new sum and never changes the entry
+	// it read, so a copy of the map is enough to apply the adds tentatively.
+	next := &File{Format: a.file.Format, Version: a.file.Version, RuleSets: maps.Clone(a.file.RuleSets)}
+	for _, name := range sortedKeys(f.RuleSets) {
+		if err := next.add(name, f.RuleSets[name]); err != nil {
+			return err
+		}
+	}
+	a.file = next
+	return nil
 }
 
 // Len is the number of rule sets with statistics.

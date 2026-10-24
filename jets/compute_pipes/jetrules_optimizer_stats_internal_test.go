@@ -121,4 +121,29 @@ func TestOptimizerStatsRuleSetWithoutAntecedents(t *testing.T) {
 	if _, err := optstats.Marshal(f); err != nil {
 		t.Errorf("the file does not encode: %v", err)
 	}
+
+	// Commit is all or none: a session whose second rule set the statistics
+	// refuse (here, rules.jr counted against another network) adds neither.
+	other := optstats.NewRuleSet()
+	other.Sessions = 1
+	other.Predicates["acme:other"] = &optstats.Predicate{}
+	st2, err := LoadOptimizerStats(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st2.Add("jet_rules/rules.jr", other); err != nil {
+		t.Fatal(err)
+	}
+	ss2 := st2.NewSession()
+	for _, rs := range []string{"jet_rules/no_rules.jr", "jet_rules/rules.jr"} {
+		if err := ss2.Count(rs, sess); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ss2.Commit(); err == nil || !strings.Contains(err.Error(), "different networks") {
+		t.Errorf("Commit: %v", err)
+	}
+	if got := st2.File(); got.ForRuleSet("jet_rules/no_rules.jr") != nil || got.ForRuleSet("jet_rules/rules.jr").Sessions != 1 {
+		t.Errorf("a refused Commit added part of the session: %+v", got.RuleSets)
+	}
 }

@@ -483,3 +483,34 @@ func TestKeys(t *testing.T) {
 		t.Errorf("WorkspaceKey = %q", got)
 	}
 }
+
+// AddFile adds a session's rule sets all or none: when the second rule set is
+// refused, the first is not added either.
+func TestAccumulatorAddFileIsAllOrNone(t *testing.T) {
+	acc := NewAccumulator()
+	if err := acc.Add("b.jr", count(acmeWanted(), acmeSession(1, 2))); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := Marshal(acc.File())
+	w := acmeWanted()
+	w.AddAntecedent("", "acme:other", "")
+	f := New()
+	f.RuleSets["a.jr"] = count(acmeWanted(), acmeSession(1, 2))
+	f.RuleSets["b.jr"] = count(w, acmeSession(1, 2)) // another network than b.jr's
+	if err := acc.AddFile(f); err == nil || !strings.Contains(err.Error(), "different networks") {
+		t.Fatalf("AddFile: %v", err)
+	}
+	after, _ := Marshal(acc.File())
+	if !bytes.Equal(before, after) {
+		t.Errorf("a refused AddFile changed the accumulator:\n%s\n%s", before, after)
+	}
+	g := New()
+	g.RuleSets["a.jr"] = count(acmeWanted(), acmeSession(1, 2))
+	g.RuleSets["b.jr"] = count(acmeWanted(), acmeSession(2, 2))
+	if err := acc.AddFile(g); err != nil {
+		t.Fatal(err)
+	}
+	if got := acc.File(); got.RuleSets["a.jr"].Sessions != 1 || got.RuleSets["b.jr"].Sessions != 2 {
+		t.Errorf("AddFile: %+v", got.RuleSets)
+	}
+}

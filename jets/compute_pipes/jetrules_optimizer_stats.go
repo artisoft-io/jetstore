@@ -224,16 +224,25 @@ func (s *OptimizerStatsSession) Err() error {
 	return s.err
 }
 
-// Commit adds the session's statistics, each rule set it counted as one session.
-// A session with a counting error is refused.
+// Commit adds the session's statistics, each rule set it counted as one session,
+// all or none: a rule set the statistics refuse leaves them as they were. A
+// session with a counting error is refused.
 func (s *OptimizerStatsSession) Commit() error {
 	if s.err != nil {
 		return s.err
 	}
+	// One file of the session's rule sets, a rule set counted twice summed.
+	parts := make([]*optstats.File, len(s.counts))
 	for i, rs := range s.counts {
-		if err := s.stats.Add(s.ruleSets[i], rs); err != nil {
-			return err
-		}
+		parts[i] = optstats.New()
+		parts[i].RuleSets[s.ruleSets[i]] = rs
+	}
+	f, err := optstats.Merge(parts...)
+	if err != nil {
+		return fmt.Errorf("optimizer statistics: %v", err)
+	}
+	if err := s.stats.acc.AddFile(f); err != nil {
+		return fmt.Errorf("optimizer statistics: %v", err)
 	}
 	s.counts, s.ruleSets = nil, nil
 	return nil

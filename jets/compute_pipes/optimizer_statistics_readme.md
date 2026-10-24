@@ -59,10 +59,14 @@ process key 50109, and its `reports/config.json` entry).
   A main rule set with no antecedent, a rule file with no rule, is not a failure: it counts its
   sessions and nothing else.
 - **A bundle that fails contributes nothing.** A bundle's counts are held until it ends and added
-  only when it did not fail: no ExecuteRules error (the vertex cap is one) and no `jets:exception`,
-  whatever `on_error` does with its output. A bundle that reached `max_looping` counts. This is
-  how `rules_bench -stats` counts a session, so the two write the same file over the same
-  sessions.
+  only when it did not fail: no ExecuteRules error (the vertex cap is one) and no `jets:exception`
+  (rules_benchmark `Q-113`), whatever `on_error` does with its output. A bundle that reached
+  `max_looping` counts. The bundle's counts are added all at once or not at all. The node's
+  partial is still written with its other bundles' counts: a bundle that raised an exception
+  is left out, and the step goes on as `on_error` says. This is how `rules_bench -stats` counts a
+  session, so the two write the same file over the same sessions. There, a failed session also
+  stops the file being written, because a bench names its sessions and a failure is a defect of
+  the bench.
 
 ## 3. The function: `merge_optimizer_statistics`
 
