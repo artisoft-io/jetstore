@@ -521,13 +521,17 @@ func TestReorderedFilterIsValidatedAgain(t *testing.T) {
 		->
 		(?a acme:over ?v);
 	`
+	// Whichever antecedent the optimizer puts first binds one of ?v and ?l,
+	// and the filter, moved onto it, reads the other: which one is the score's
+	// choice, so the test does not name it
 	reorderHookForTest = func(rule *rete.JetruleNode) {
-		for _, a := range rule.Antecedents[1:] {
+		var filter *rete.ExpressionNode
+		for _, a := range rule.Antecedents {
 			if a.Filter != nil {
-				rule.Antecedents[0].Filter, a.Filter = a.Filter, nil
-				return
+				filter, a.Filter = a.Filter, nil
 			}
 		}
+		rule.Antecedents[0].Filter = filter
 	}
 	t.Cleanup(func() { reorderHookForTest = nil })
 	c := NewCompiler("./testdata", "filter_early.jr", false, false, true)
@@ -535,7 +539,7 @@ func TestReorderedFilterIsValidatedAgain(t *testing.T) {
 	if err == nil {
 		t.Fatal("a filter placed before its binding compiled")
 	}
-	want := "rule FILTER_EARLY (filter_early.jr): after ordering, the filter of antecedent 0 reads variable ?l before an antecedent binds it"
+	want := "rule FILTER_EARLY (filter_early.jr): after ordering, the filter of antecedent 0 reads variable ?"
 	if !strings.Contains(c.ErrorLog().String(), want) {
 		t.Errorf("the error log does not say\n  %s\nit says\n%s", want, c.ErrorLog().String())
 	}
@@ -561,5 +565,54 @@ func TestCostOrderTraceEnv(t *testing.T) {
 		if got := strings.Contains(c.ParseLog().String(), "  COST_A ("); got != tc.on {
 			t.Errorf("%s=%q: the trace is on %v, want %v", CostOrderTraceEnv, tc.value, got, tc.on)
 		}
+	}
+}
+
+// The report counts every valid rule of the rule set once: cost-ordered, fallen
+// back by reason, o=false, or of one antecedent, which has no order to choose.
+func TestCostOrderReportCountsEveryRule(t *testing.T) {
+	src := `
+		[ORDERED]:
+		(?a acme:wide ?b).
+		(acme:Config acme:lists ?a)
+		->
+		(?a acme:listed ?b);
+
+		[VAR_PRED]:
+		(?a acme:wide ?b).
+		(?a ?p ?v)
+		->
+		(?a acme:has ?v);
+
+		[NOT_IN_FILE]:
+		(?a acme:wide ?b).
+		(?a acme:unlisted ?v)
+		->
+		(?a acme:unlistedValue ?v);
+
+		[OFF, o=false]:
+		(?a acme:wide ?b).
+		(acme:Config acme:lists ?a)
+		->
+		(?a acme:listedToo ?b);
+
+		[SINGLE]:
+		(?a acme:wide ?b)
+		->
+		(?a acme:isWide ?b);
+	`
+	st := ruleSetStatistics(1, map[string][3]int64{
+		"acme:wide":  {500, 500, 500},
+		"acme:lists": {1000, 1, 1000},
+	}, map[string]map[string]int64{"acme:lists": {"acme:Config": 10}}, nil)
+	c, rules := compileWithStatistics(t, "report.jr", src, st)
+	want := "1 rules cost-ordered (0 differ from the score order); fell back to the score order: " +
+		"1 with a variable predicate, 1 with a predicate not in the file; 1 with o=false; 1 of one antecedent"
+	if !strings.Contains(c.ParseLog().String(), want) {
+		t.Fatalf("the parse log does not say\n  %s\nit says\n%s", want, c.ParseLog().String())
+	}
+	r := c.listener.costReport
+	if sum := r.costOrdered + r.varPred + r.missingPred + r.optOff + r.single; sum != len(rules) {
+		t.Errorf("the report counts %d rules of %d", sum, len(rules))
 	}
 }
