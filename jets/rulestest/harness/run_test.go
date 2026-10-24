@@ -191,7 +191,19 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "persons_badcol.csv":  "jets:key,rdf:type,lp:nme\np1,lp:Person,Ann\n",
 		u + "persons_badcell.csv": "jets:key,rdf:type,lp:name\np1,lp:Person\n",
 		u + "state.csv":           "jets:key,rdf:type\njets:iState,jets:State\n",
-		u + "pass.tst.json":       lpTest(nil),
+		// I-20: rule-local columns, typed and untyped, a blank cell, an array
+		u + "local.csv": "jets:key,rdf:type,lp:name,_0:score as int,_0:tag\n" +
+			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\n",
+		u + "local_nokey.csv":         "rdf:type,lp:name,_0:score\nlp:Person,Ann,3\n",
+		u + "local_badtype.csv":       "jets:key,rdf:type,_0:score as float\np1,lp:Person,3\n",
+		u + "local_badcell.csv":       "jets:key,rdf:type,_0:score as int\np1,lp:Person,abc\n",
+		u + "local_blankkey.csv":      "jets:key,rdf:type,_0:score as int\n,lp:Person,3\n",
+		u + "local.tst.json":          localTest("local.csv"),
+		u + "local_nokey.tst.json":    localTest("local_nokey.csv"),
+		u + "local_badtype.tst.json":  localTest("local_badtype.csv"),
+		u + "local_badcell.tst.json":  localTest("local_badcell.csv"),
+		u + "local_blankkey.tst.json": localTest("local_blankkey.csv"),
+		u + "pass.tst.json":           lpTest(nil),
 		u + "fail.tst.json": lpTest(func(d map[string]any) {
 			d["excluded_triples"] = []any{map[string]any{"s": "p1", "p": "lp:greeting", "o": "?g"}}
 		}),
@@ -218,6 +230,30 @@ func TestRunOnTestWs(t *testing.T) {
 	home := stageWorkspace(t, filepath.Join(moduleRoot(t), "jets", "jetrules", "test_ws"), "test_ws",
 		[]string{u + "lp_test.jr"}, files)
 	runChild(t, "TestRunOnTestWs", home, "test_ws")
+}
+
+// localTest asserts file, whose _0: columns are rule-local properties (I-20),
+// and checks what the session holds for them.
+func localTest(file string) string {
+	count := func(s, p, n string) map[string]any {
+		return map[string]any{"s": s, "p": p, "count": map[string]any{
+			"lhs": map[string]any{"type": "select", "expr": "count"}, "op": "==",
+			"rhs": map[string]any{"type": "value", "expr": n}}}
+	}
+	return lpTest(func(d map[string]any) {
+		d["input_sessions"] = []any{map[string]any{"name": "local columns", "input": []any{file}}}
+		d["expected_triples"] = []any{
+			map[string]any{"s": "p1", "p": "_0:score", "o": map[string]any{"value": "3", "type": "int"}},
+			map[string]any{"s": "p1", "p": "_0:tag", "o": "a"},
+			map[string]any{"s": "p1", "p": "_0:tag", "o": "b"},
+			map[string]any{"s": "p2", "p": "_0:tag", "o": "c"},
+			// a blank cell asserts nothing
+			count("p2", "_0:score", "0"),
+			// the data property beside them is asserted as before
+			map[string]any{"s": "p1", "p": "lp:greeting", "o": "hello Ann"},
+		}
+		delete(d, "excluded_triples")
+	})
 }
 
 // loopTest runs test_looping_main.jr, which completes at loop 3, with a
@@ -265,6 +301,23 @@ func runOnTestWsChild(t *testing.T) {
 	wantResult(t, runTest(root, u+"badcol.tst.json"), rulestest.StatusError,
 		"input file persons_badcol.csv: column 'lp:nme' is not a data property of the workspace; did you mean 'lp:name'?")
 	wantResult(t, runTest(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
+
+	// I-20: a _0: column is asserted on the row's jets:key, cast by the type its
+	// header gives (text by default); without a jets:key, with a type the grammar
+	// does not have, or with a cell that does not cast, the test is an error.
+	r = runTest(root, u+"local.tst.json")
+	wantResult(t, r, rulestest.StatusPass, "")
+	if len(r.Checks) != 6 {
+		t.Errorf("local columns: %d checks, want 6", len(r.Checks))
+	}
+	wantResult(t, runTest(root, u+"local_nokey.tst.json"), rulestest.StatusError,
+		"input file local_nokey.csv: a _0: column is asserted on the row's jets:key, and the file has no jets:key column")
+	wantResult(t, runTest(root, u+"local_badtype.tst.json"), rulestest.StatusError,
+		"input file local_badtype.csv: column '_0:score as float' is a rule-local property")
+	wantResult(t, runTest(root, u+"local_badcell.tst.json"), rulestest.StatusError,
+		"input file local_badcell.csv line 2: column '_0:score' value 'abc' is not a int")
+	wantResult(t, runTest(root, u+"local_blankkey.tst.json"), rulestest.StatusError,
+		"column '_0:score' has a value and jets:key is blank")
 
 	// Criterion 10: the engine is C++, use_jet_rules_native names it, and a harness
 	// without it refuses rather than running anything in its place.

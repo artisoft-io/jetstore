@@ -202,8 +202,16 @@ A check takes one of three forms:
 ## Input CSVs
 
 - **Columns are read by header, in any order.** Each one must be a data property of the
-  workspace (`build/properties.json`). A misspelt column is refused, naming the file, the column
-  and the closest property.
+  workspace (`build/properties.json`), or a rule-local `_0:` property (below). A misspelt
+  column is refused, naming the file, the column and the closest property.
+- **A `_0:` column is a rule-local property** (`I-20`): the compiler adds one for a name no
+  declaration names, so `properties.json` does not list it and a pipeline's input never carries
+  one. Write `_0:<name>` for text or `_0:<name> as <type>`, the type one of `int`, `uint`,
+  `long`, `ulong`, `double`, `text`, `date`, `datetime`, `bool`; each cell is cast by it as a
+  data property's cell is cast by the property's type. The triples are asserted on the row's
+  `jets:key`, so **a file with a `_0:` column needs a `jets:key` column**, and a row with a
+  `_0:` value needs a key. `rules_bench` refuses a `_0:` column: it asserts its input as a
+  pipeline does.
 - **Each cell is cast by its property's type**, as a pipeline casts text input. A midnight time
   is asserted as a date, whatever the property's type, so `2024-01-01T00:00:00` is the date
   `2024-01-01` (definition `F25`).
