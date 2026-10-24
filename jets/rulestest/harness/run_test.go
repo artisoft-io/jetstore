@@ -193,7 +193,7 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "state.csv":           "jets:key,rdf:type\njets:iState,jets:State\n",
 		// I-20: rule-local columns, typed and untyped, a blank cell, an array
 		u + "local.csv": "jets:key,rdf:type,lp:name,_0:score as int,_0:tag\n" +
-			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\n",
+			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\np3,lp:Person,Cy,{},{}\n",
 		u + "local_nokey.csv":         "rdf:type,lp:name,_0:score\nlp:Person,Ann,3\n",
 		u + "local_badtype.csv":       "jets:key,rdf:type,_0:score as float\np1,lp:Person,3\n",
 		u + "local_badcell.csv":       "jets:key,rdf:type,_0:score as int\np1,lp:Person,abc\n",
@@ -247,8 +247,10 @@ func localTest(file string) string {
 			map[string]any{"s": "p1", "p": "_0:tag", "o": "a"},
 			map[string]any{"s": "p1", "p": "_0:tag", "o": "b"},
 			map[string]any{"s": "p2", "p": "_0:tag", "o": "c"},
-			// a blank cell asserts nothing
+			// a blank cell asserts nothing, and neither does {}
 			count("p2", "_0:score", "0"),
+			count("p3", "_0:score", "0"),
+			count("p3", "_0:tag", "0"),
 			// the data property beside them is asserted as before
 			map[string]any{"s": "p1", "p": "lp:greeting", "o": "hello Ann"},
 		}
@@ -307,8 +309,8 @@ func runOnTestWsChild(t *testing.T) {
 	// does not have, or with a cell that does not cast, the test is an error.
 	r = runTest(root, u+"local.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
-	if len(r.Checks) != 6 {
-		t.Errorf("local columns: %d checks, want 6", len(r.Checks))
+	if len(r.Checks) != 8 {
+		t.Errorf("local columns: %d checks, want 8", len(r.Checks))
 	}
 	wantResult(t, runTest(root, u+"local_nokey.tst.json"), rulestest.StatusError,
 		"input file local_nokey.csv: a _0: column is asserted on the row's jets:key, and the file has no jets:key column")

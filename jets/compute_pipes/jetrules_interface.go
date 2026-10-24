@@ -59,10 +59,11 @@ type EngineOptions struct {
 // EngineOption configures one NewJetRuleEngine call.
 type EngineOption func(*EngineOptions)
 
-// WithRetractionMode builds the engine in mode, in both adaptors. Only the rules unit
-// test harness passes it, from a test definition's legacy object: there is
-// deliberately no JetrulesSpec field and no rule_config key that reaches it, so a
-// pipeline cannot turn a LEGACY defect off.
+// WithRetractionMode builds the engine in mode, in both adaptors. Two tools pass it:
+// the rules unit test harness, from a test definition's legacy object, and
+// rules_bench, for an untimed equivalence run only. There is deliberately no
+// JetrulesSpec field and no rule_config key that reaches it, so a pipeline cannot
+// turn a LEGACY defect off.
 func WithRetractionMode(mode RetractionMode) EngineOption {
 	return func(o *EngineOptions) {
 		o.RetractionMode = mode

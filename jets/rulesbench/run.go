@@ -145,19 +145,9 @@ func Run(opts Options) ([]*RunResult, error) {
 	if opts.Factory == nil {
 		return nil, fmt.Errorf("the %s engine is not available", rulestest.EngineNative)
 	}
-	legacy := spec.Legacy
-	if opts.Legacy != "" {
-		if legacy, err = rulestest.LegacyConfigOf(opts.Legacy); err != nil {
-			return nil, err
-		}
-	}
-	mode := harness.RetractionModeOfLegacy(legacy)
-	if opts.EquivalenceOnly {
-		if opts.PerLoop || opts.SampleMs > 0 {
-			return nil, errors.New("an equivalence-only run is untimed: per-loop times and goroutine sampling are refused")
-		}
-	} else if label := legacy.ModeLabel(); label != rulestest.LegacyModeLegacy {
-		return nil, fmt.Errorf("legacy asks for %s; a timed run is in production's retraction mode, legacy, and another mode is for an untimed equivalence run (-equivalence_only)", label)
+	mode, err := RetractionModeOf(spec, opts)
+	if err != nil {
+		return nil, err
 	}
 	env := opts.Env
 	if env == nil {
@@ -307,9 +297,10 @@ func extractClasses(ocs []OutputClass) ([]compute_pipes.ExtractClass, error) {
 // loadEngine builds an engine in the order a pipeline does
 // (NewJetrulesTransformationPipe, then executeRules' first call): the engine,
 // its JetResources, the source period and rule_config into the meta graph, and
-// then the vertex-visit cap. The engine is built in production's retraction
-// mode: no option is passed. It then checks, on a throwaway rdf session, that
-// a session reads the cap.
+// then the vertex-visit cap. The engine is built in mode, which is legacy,
+// production's, unless the run is untimed (Options.EquivalenceOnly), and it
+// refuses an engine that reports another. It then checks, on a throwaway rdf
+// session, that a session reads the cap.
 func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *rulestest.JetrulesConfig, mvv int,
 	mode compute_pipes.RetractionMode) (st *engineState, err error) {
 	defer func() {
@@ -371,6 +362,28 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	}
 	st.load.MaxVertexVisitsSeen = true
 	return st, nil
+}
+
+// RetractionModeOf is the mode a run builds its engine in: opts.Legacy when set,
+// else the spec's legacy object. Any mode but legacy needs opts.EquivalenceOnly,
+// and an equivalence-only run refuses the timing options. Run calls it; the
+// command calls it first too, so a refused run writes nothing to its out_dir.
+func RetractionModeOf(spec *Spec, opts Options) (compute_pipes.RetractionMode, error) {
+	legacy := spec.Legacy
+	if opts.Legacy != "" {
+		var err error
+		if legacy, err = rulestest.LegacyConfigOf(opts.Legacy); err != nil {
+			return compute_pipes.RetractionMode{}, err
+		}
+	}
+	if opts.EquivalenceOnly {
+		if opts.PerLoop || opts.SampleMs > 0 {
+			return compute_pipes.RetractionMode{}, errors.New("an equivalence-only run is untimed: per-loop times and goroutine sampling are refused")
+		}
+	} else if label := legacy.ModeLabel(); label != rulestest.LegacyModeLegacy {
+		return compute_pipes.RetractionMode{}, fmt.Errorf("legacy asks for %s; a timed run is in production's retraction mode, legacy, and another mode is for an untimed equivalence run (-equivalence_only)", label)
+	}
+	return harness.RetractionModeOfLegacy(legacy), nil
 }
 
 // task is one session handed to a worker, as WorkersTaskCh hands a bundle.

@@ -213,7 +213,8 @@ func (t *InputTable) dataCells(row []string) (columns, cells []string) {
 // assertLocal asserts the row's _0: cells on its jets:key, each cast by its
 // column's type as a data property's cell is cast by the property's
 // (castToRdfTypeFromTxt, through CastToRdfTxtFnc). A blank cell asserts
-// nothing, and an array literal asserts one triple per value.
+// nothing, and so does an empty array literal, {}; an array literal asserts one
+// triple per value.
 func (t *InputTable) assertLocal(rdfSession compute_pipes.JetRdfSession, row []string) error {
 	if len(t.Local) == 0 {
 		return nil
@@ -232,6 +233,10 @@ func (t *InputTable) assertLocal(rdfSession compute_pipes.JetRdfSession, row []s
 		value, err := compute_pipes.NewCastToRdfTxtFnc(lc.Name, lc.Type, nil).Cast(cell)
 		if err != nil {
 			return fmt.Errorf("column '%s' value '%s' is not a %s: %v", lc.Name, cell, lc.Type, err)
+		}
+		// {} casts to nil, and asserts nothing, as a data property's {} does
+		if value == nil {
+			continue
 		}
 		values, isArray := value.([]any)
 		if !isArray {

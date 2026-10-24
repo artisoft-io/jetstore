@@ -129,6 +129,15 @@ func run(specPath string) error {
 			return fmt.Errorf("-require_tuned: governors %v, perf_event_paranoid %q; want performance on every allowed CPU and 1 or less", env.Governors, paranoid)
 		}
 	}
+	// The retraction mode before anything is written: a timed run asking for a
+	// fixed mode is refused with out_dir untouched (Run checks it again).
+	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, Legacy: *legacyFlag, PerLoop: *perLoop}
+	if !*equivalence {
+		modeOpts.SampleMs = *sampleMs
+	}
+	if _, err := rulesbench.RetractionModeOf(spec, modeOpts); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
 		return err
 	}
