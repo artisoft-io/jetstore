@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"time"
 
@@ -214,24 +215,44 @@ func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.Rd
 	}
 }
 
+// NewIntLiteral makes an int32 literal when data fits in 32 bits, as it always
+// did, and an int64 literal when it does not, which the bridge's int32 call
+// truncated (rules_benchmark I-150, Q-86). Only a value that does not fit
+// changes: C++ holds int32 and int64 as different resources, so a rule's
+// constant 5 matches an int32 5 and not an int64 one, and every value that fits
+// keeps its type.
 func (rm *JetResourceManagerNative) NewIntLiteral(data int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rdfs != nil {
+	fits := data >= math.MinInt32 && data <= math.MaxInt32
+	switch {
+	case rm.rdfs != nil && fits:
 		node, _ = rm.rdfs.NewIntLiteral(data)
-	} else {
+	case rm.rdfs != nil:
+		node, _ = rm.rdfs.NewLongLiteral(int64(data))
+	case fits:
 		node, _ = rm.js.NewIntLiteral(data)
+	default:
+		node, _ = rm.js.NewLongLiteral(data)
 	}
 	return &RdfNodeNative{
 		node: node,
 	}
 }
 
+// NewUIntLiteral makes a uint32 literal when data fits in 32 bits and a uint64
+// one when it does not, for NewIntLiteral's reason.
 func (rm *JetResourceManagerNative) NewUIntLiteral(data uint) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rdfs != nil {
+	fits := data <= math.MaxUint32
+	switch {
+	case rm.rdfs != nil && fits:
 		node, _ = rm.rdfs.NewUIntLiteral(data)
-	} else {
+	case rm.rdfs != nil:
+		node, _ = rm.rdfs.NewULongLiteral(uint64(data))
+	case fits:
 		node, _ = rm.js.NewUIntLiteral(data)
+	default:
+		node, _ = rm.js.NewULongLiteral(data)
 	}
 	return &RdfNodeNative{
 		node: node,
