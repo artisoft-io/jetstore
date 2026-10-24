@@ -56,6 +56,7 @@ type costOrderReport struct {
 	varPred     int // fell back: a positive antecedent's predicate is a variable
 	missingPred int // fell back: a positive antecedent's predicate is not in the file
 	optOff      int // rules with o=false
+	single      int // rules of one antecedent, which have no order to choose
 	trace       []string
 }
 
@@ -74,13 +75,17 @@ func termKey(r *rete.ResourceNode) (string, bool) {
 	return optstats.TermKey(r.Type, r.Value)
 }
 
+// CostOrderTraceEnv, set to 1, turns the cost order's trace on (see
+// SetCostOrderTrace). Any other value, 0 included, leaves it off.
+const CostOrderTraceEnv = "JETS_COST_ORDER_TRACE"
+
 // loadOptimizerStatistics reads the workspace's statistics file, when it has
 // one, for the rule set being compiled. A file that is not version 1 of the
 // format, or is malformed, refuses the compile with an error naming it. Unless
 // SetOptimizerStatistics was called first.
 func (c *Compiler) loadOptimizerStatistics() error {
 	l := c.listener
-	if os.Getenv("JETS_COST_ORDER_TRACE") != "" {
+	if os.Getenv(CostOrderTraceEnv) == "1" {
 		l.costTrace = true
 	}
 	if l.statisticsFile != "" {
@@ -106,9 +111,9 @@ func (c *Compiler) loadOptimizerStatistics() error {
 }
 
 // SetOptimizerStatistics makes the compile order rules by the cost estimate,
-// in place of the file Compile would read. file names the statistics file in the report; st is the rule set's
-// statistics, nil when the file does not have the rule set, which compiles
-// with the score order and says so in the report.
+// in place of the file Compile would read. file names the statistics file in
+// the report; st is the rule set's statistics, nil when the file does not have
+// the rule set, which compiles with the score order and says so in the report.
 func (c *Compiler) SetOptimizerStatistics(file string, st RuleSetStatistics) {
 	c.listener.statisticsFile = file
 	c.listener.statistics = st
@@ -116,7 +121,8 @@ func (c *Compiler) SetOptimizerStatistics(file string, st RuleSetStatistics) {
 
 // SetCostOrderTrace lists, in the parse log, each cost-ordered rule's
 // antecedents in their score order and in their cost order. It changes nothing
-// in the compiled model.
+// in the compiled model. JETS_COST_ORDER_TRACE=1 turns it on as well, for a
+// compile whose caller does not set it, such as compile_workspace.
 func (c *Compiler) SetCostOrderTrace(on bool) {
 	c.listener.costTrace = on
 }
@@ -336,8 +342,9 @@ func (s *JetRuleListener) writeCostOrderReport() {
 	r := &s.costReport
 	fmt.Fprintf(s.parseLog,
 		"Cost order: rule set %s, statistics %s: %d rules cost-ordered (%d differ from the score order); "+
-			"fell back to the score order: %d with a variable predicate, %d with a predicate not in the file; %d with o=false\n",
-		s.mainRuleFileName, s.statisticsFile, r.costOrdered, r.changed, r.varPred, r.missingPred, r.optOff)
+			"fell back to the score order: %d with a variable predicate, %d with a predicate not in the file; "+
+			"%d with o=false; %d of one antecedent\n",
+		s.mainRuleFileName, s.statisticsFile, r.costOrdered, r.changed, r.varPred, r.missingPred, r.optOff, r.single)
 	for _, line := range r.trace {
 		s.parseLog.WriteString(line)
 		s.parseLog.WriteString("\n")
