@@ -25,6 +25,11 @@ type RunResult struct {
 	// Observed marks a run that observed each rule set's network
 	// (Options.ObserveDir): untimed, as an equivalence-only run is.
 	Observed bool `json:"observed,omitzero"`
+	// Stats marks the run whose sessions were counted for the rule optimizer's
+	// statistics (Options.StatsFile): the first measured repetition of a
+	// statistics run, which is untimed. Its warmups and later repetitions are
+	// not marked.
+	Stats bool `json:"stats,omitzero"`
 	// Repetition counts from 1 within its kind: warmup runs and measured runs
 	// are numbered apart.
 	Repetition int  `json:"repetition"`

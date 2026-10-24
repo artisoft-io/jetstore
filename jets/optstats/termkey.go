@@ -16,13 +16,17 @@ const (
 )
 
 // VolatilePrefix is the prefix the engine gives a volatile resource's name in
-// the graph (jets/rete/rete_meta_store_factory.cc). workspace.db holds the name
-// without it; the compiler holds a declared volatile resource with it and an
-// inline one without it, until it writes workspace.db.
+// the graph (jets/rete/rete_meta_store_factory.cc), always, when it loads the
+// rules from workspace.db. The compiler holds a declared volatile resource with
+// the prefix added (AddResource) and an inline one without it, and writes
+// workspace.db with one prefix trimmed (SaveResources).
 const VolatilePrefix = "_0:"
 
-// VolatileName is a volatile resource's name in the graph: text with the
-// prefix, added only when text does not already carry it.
+// VolatileName is a volatile resource's name in the graph from the compiler's
+// in-memory value: text with the prefix, added only when text does not already
+// carry it. It is never for a workspace.db value, to which the engine adds the
+// prefix unconditionally: a declared "_0:x" is "_0:x" in workspace.db and
+// "_0:_0:x" in the graph.
 func VolatileName(text string) string {
 	if strings.HasPrefix(text, VolatilePrefix) {
 		return text
@@ -33,10 +37,13 @@ func VolatileName(text string) string {
 // TermKey is a constant's key in the statistics file: its form in the graph.
 //
 //   - A resource is its name, as the engine names it in the graph.
-//   - A volatile resource is its name prefixed with _0:, as the engine names it
-//     (VolatileName). The text may carry the prefix or not: the compiler holds a
-//     declared volatile resource with it (AddResource) and an inline one without
-//     it, and workspace.db holds neither prefixed. A graph node is always a
+//   - A volatile resource is its name as the engine names it, from the
+//     compiler's in-memory value (VolatileName): the compiler holds a declared
+//     volatile resource with the prefix (AddResource) and an inline one without
+//     it, and the prefix is added only when absent. This form is for the
+//     compiler's value, never for a workspace.db value, which holds one prefix
+//     trimmed and to which the engine adds _0: unconditionally: a reader of
+//     workspace.db renders "_0:"+value as a resource. A graph node is always a
 //     resource, its name already prefixed.
 //   - Text is Go-quoted (strconv.Quote).
 //   - An int is <decimal>^^int, the decimal normalised.

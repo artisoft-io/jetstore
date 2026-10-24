@@ -8,17 +8,23 @@ package rulesbench
 // build fails the test. Run with -count=1.
 
 import (
+	"bufio"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
+	"github.com/artisoft-io/jetstore/jets/optstats"
+	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
@@ -57,6 +63,13 @@ func inCompiledTestWs(t *testing.T, test func(t *testing.T)) {
 		t.Fatal(err)
 	}
 	ctl["workspace_name"] = "test_ws"
+	// The optimizer statistics tests' rule set and sequence, in the copy only.
+	if err := os.WriteFile(filepath.Join(wsDir, optimizerStatsRuleFile), []byte(optimizerStatsRules), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctl["rule_sets"] = append(ctl["rule_sets"].([]any), optimizerStatsRuleFile)
+	ctl["rule_sequences"] = append(ctl["rule_sequences"].([]any), map[string]any{
+		"name": optimizerStatsSequence, "rule_sets": []any{"jet_rules/test_execute_rules_main.jr", optimizerStatsRuleFile}})
 	if raw, err = json.MarshalIndent(ctl, "", "  "); err != nil {
 		t.Fatal(err)
 	}
@@ -287,6 +300,144 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
+		// BX.2: a statistics run counts the first measured repetition of each
+		// session, after each rule set of a sequence, for the rule set's antecedents
+		// only; its counts are the dump's, its keys are the rules', its bytes do not
+		// depend on the pool's order, and it is untimed. The second rule set,
+		// optimizerStatsRuleFile, has a text constant, a subject constant, a negated
+		// antecedent and a volatile resource declared "_0:dbl".
+		t.Run("stats_counts_each_session_once", func(t *testing.T) {
+			path := writeStatsBench(t, optimizerStatsSequence, []string{"ok", "ok", "ok"},
+				`, "max_vertex_visits": 1000, "warmup": 1, "repetitions": 2, "pool_size": 2`)
+			dir := t.TempDir()
+			dumps := filepath.Join(dir, "dumps")
+			stats := filepath.Join(dir, "stats.json")
+			results, err := runBench(t, path, Options{
+				StatsFile: stats,
+				// The graph the statistics count, meta graph included.
+				AfterRuleSet: NewDumper(dumps, graphdump.Path, func(w io.Writer, s compute_pipes.JetRdfSession) error {
+					return graphdump.WriteSession(w, s, graphdump.Options{IncludeMeta: true})
+				}),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, r := range results {
+				counted := !r.Warmup && r.Repetition == 1
+				if r.Status != "ok" || r.Stats != counted {
+					t.Errorf("result warmup %v repetition %d: status %s stats %v, want stats on r01 only", r.Warmup, r.Repetition, r.Status, r.Stats)
+				}
+			}
+			f, err := optstats.Read(stats)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ruleSets := []string{"jet_rules/test_execute_rules_main.jr", optimizerStatsRuleFile}
+			if len(f.RuleSets) != len(ruleSets) {
+				t.Fatalf("rule sets %v; want the sequence's %v", f.RuleSets, ruleSets)
+			}
+			for i, ruleSet := range ruleSets {
+				rs := f.ForRuleSet(ruleSet)
+				if rs == nil || rs.Sessions != 3 {
+					t.Fatalf("%s: %+v; want 3 sessions (r01 only)", ruleSet, rs)
+				}
+				// The keys: every predicate and constant pair of the rule set's
+				// antecedents in workspace.db, and nothing else.
+				wanted := wantedFromWorkspaceDb(t, ruleSet)
+				if !reflect.DeepEqual(keySet(rs.Predicates), wanted.Predicates) {
+					t.Errorf("%s: predicates %v, want the antecedents' %v", ruleSet, keySet(rs.Predicates), wanted.Predicates)
+				}
+				for _, side := range []struct {
+					name string
+					got  map[string]map[string]int64
+					want map[string]map[string]bool
+				}{{"subject", rs.SubjectConstants, wanted.SubjectPairs}, {"object", rs.ObjectConstants, wanted.ObjectPairs}} {
+					got := map[string]map[string]bool{}
+					for p, m := range side.got {
+						got[p] = keySet(m)
+					}
+					if !reflect.DeepEqual(got, side.want) {
+						t.Errorf("%s: %s constants %v, want the antecedents' %v", ruleSet, side.name, got, side.want)
+					}
+				}
+				// The counts, against the r01 dumps of this rule set read independently.
+				want := countDumps(t, filepath.Join(dumps, "r01", "native"), fmt.Sprintf("%02d_*.tsv", i+1), wanted)
+				if !reflect.DeepEqual(rs, want) {
+					a, _ := json.Marshal(rs)
+					b, _ := json.Marshal(want)
+					t.Errorf("%s: statistics\n %s\nfrom the dumps\n %s", ruleSet, a, b)
+				}
+			}
+			rs := f.ForRuleSet(optimizerStatsRuleFile)
+			for _, c := range []struct {
+				what string
+				got  int64
+				ok   bool
+				want int64
+			}{
+				{"(jets:iState, rdf:type, *), a subject constant, two per session (the dumps agree)", rs.SubjectConstants["rdf:type"]["jets:iState"], rs.SubjectConstants["rdf:type"] != nil, 6},
+				{`(*, xr:result, "done"), a text constant`, rs.ObjectConstants["xr:result"][`"done"`], rs.ObjectConstants["xr:result"] != nil, 3},
+				{"xr:count, the negated antecedent's predicate, which no session holds", rs.Predicates["xr:count"].Triples, rs.Predicates["xr:count"] != nil, 0},
+				{"(*, xr:count, 0), the negated antecedent's constant pair, a zero written", rs.ObjectConstants["xr:count"]["0^^int"], rs.ObjectConstants["xr:count"] != nil, 0},
+				{"_0:_0:dbl, the volatile resource declared \"_0:dbl\", as the engine names it", rs.Predicates["_0:_0:dbl"].Triples, rs.Predicates["_0:_0:dbl"] != nil, 3},
+			} {
+				if !c.ok || c.got != c.want {
+					t.Errorf("%s: %d (present %v), want %d", c.what, c.got, c.ok, c.want)
+				}
+			}
+			if rs.Predicates["_0:dbl"] != nil {
+				t.Errorf("_0:dbl is counted: the engine holds the declared volatile resource as _0:_0:dbl")
+			}
+
+			// And one count by hand: the dumps' lines whose predicate is rdf:type, in
+			// the first rule set.
+			var typeLines int64
+			files, _ := filepath.Glob(filepath.Join(dumps, "r01", "native", "*", "01_*.tsv"))
+			for _, file := range files {
+				raw, err := os.ReadFile(file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				typeLines += int64(strings.Count(string(raw), "\trdf:type\t"))
+			}
+			first := f.ForRuleSet(ruleSets[0])
+			if typeLines == 0 || first.Predicates["rdf:type"].Triples != typeLines {
+				t.Errorf("rdf:type: %d triples counted, %d lines in the dumps", first.Predicates["rdf:type"].Triples, typeLines)
+			}
+
+			// Deterministic: a second run, its pool in another order, gives the same bytes.
+			stats2 := filepath.Join(dir, "stats2.json")
+			if _, err := runBench(t, path, Options{StatsFile: stats2}); err != nil {
+				t.Fatal(err)
+			}
+			b1, _ := os.ReadFile(stats)
+			b2, _ := os.ReadFile(stats2)
+			if string(b1) != string(b2) {
+				t.Errorf("two runs wrote different statistics:\n%s\n%s", b1, b2)
+			}
+			for _, o := range []Options{{StatsFile: stats, PerLoop: true}, {StatsFile: stats, SampleMs: 10}} {
+				if _, err := runBench(t, path, o); err == nil || !strings.Contains(err.Error(), "statistics run is untimed") {
+					t.Errorf("statistics with timing (%+v): %v", o, err)
+				}
+			}
+		})
+		// A session that fails contributes nothing, and a statistics run with a
+		// failed counted session writes no file and returns an error: here the
+		// runaway session stops at the vertex cap.
+		t.Run("stats_refuses_a_failed_session", func(t *testing.T) {
+			path := writeStatsBench(t, optimizerStatsSequence, []string{"ok", "runaway", "ok"}, `, "max_vertex_visits": 1000`)
+			stats := filepath.Join(t.TempDir(), "stats.json")
+			results, err := runBench(t, path, Options{StatsFile: stats})
+			if err == nil || !strings.Contains(err.Error(), "1 counted session(s) failed") {
+				t.Errorf("a failed session: %v", err)
+			}
+			if _, serr := os.Stat(stats); !os.IsNotExist(serr) {
+				t.Errorf("the statistics file was written: %v", serr)
+			}
+			if len(results) != 1 || results[0].Status != "error" {
+				t.Errorf("results %d, want the one run, its status error", len(results))
+			}
+		})
 		t.Run("an_after_extraction_error_is_the_sessions", func(t *testing.T) {
 			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
 			results, err := runBench(t, path, Options{AfterExtraction: func(p DumpPoint) error {
@@ -445,4 +596,162 @@ func TestSessionFailureRaisesTheRunStatus(t *testing.T) {
 			t.Errorf("session %s: reason %q does not name the session", c.s.Name, reason)
 		}
 	}
+}
+
+func keySet[V any](m map[string]V) map[string]bool {
+	out := map[string]bool{}
+	for k := range m {
+		out[k] = true
+	}
+	return out
+}
+
+// wantedFromWorkspaceDb is what the statistics of ruleSet must hold, read from
+// workspace.db's antecedents with the rules' own kinds and values, not from the
+// engine.
+func wantedFromWorkspaceDb(t *testing.T, ruleSet string) *optstats.Wanted {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+workspace.WorkspaceDbPath()+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT coalesce(s.type, ''), coalesce(s.value, ''), coalesce(p.type, ''), coalesce(p.value, ''),
+	    coalesce(o.type, ''), coalesce(o.value, '')
+	  FROM rete_nodes rn JOIN workspace_control wc ON wc.key = rn.source_file_key
+	  LEFT JOIN resources s ON s.key = rn.subject_key
+	  LEFT JOIN resources p ON p.key = rn.predicate_key
+	  LEFT JOIN resources o ON o.key = rn.object_key
+	  WHERE rn.type = 'antecedent' AND wc.source_file_name = ?`, ruleSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	w := optstats.NewWanted()
+	// workspace.db holds a volatile resource with one _0: trimmed and the engine
+	// always prefixes it, so it is rendered "_0:"+value, never by TermKey's
+	// add-when-absent form, which is for the compiler's value.
+	key := func(kind, value string) string {
+		if kind == optstats.KindVolatileResource {
+			kind, value = optstats.KindResource, optstats.VolatilePrefix+value
+		}
+		k, _ := optstats.TermKey(kind, value)
+		return k
+	}
+	for rows.Next() {
+		var st, sv, pt, pv, ot, ov string
+		if err := rows.Scan(&st, &sv, &pt, &pv, &ot, &ov); err != nil {
+			t.Fatal(err)
+		}
+		w.AddAntecedent(key(st, sv), key(pt, pv), key(ot, ov))
+	}
+	if len(w.Predicates) == 0 {
+		t.Fatalf("no antecedent of %s in workspace.db", ruleSet)
+	}
+	return w
+}
+
+// countDumps counts, for w, the dumps of one rule set under dir, the files
+// pattern names in each session's folder, from their lines: the dump writes resources bare, text quoted and an
+// int as N^^int, which are the statistics' keys.
+func countDumps(t *testing.T, dir, pattern string, w *optstats.Wanted) *optstats.RuleSet {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, "*", pattern))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no dump under %s: %v", dir, err)
+	}
+	acc := optstats.NewAccumulator()
+	for _, file := range files {
+		fd, err := os.Open(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var g [][3]string
+		sc := bufio.NewScanner(fd)
+		sc.Buffer(nil, 1<<20)
+		for sc.Scan() {
+			parts := strings.Split(sc.Text(), "\t")
+			if len(parts) != 3 {
+				t.Fatalf("%s: %q", file, sc.Text())
+			}
+			g = append(g, [3]string(parts))
+		}
+		fd.Close()
+		present := map[string]bool{}
+		for _, tr := range g {
+			present[tr[0]], present[tr[1]], present[tr[2]] = true, true, true
+		}
+		c, err := optstats.NewCounter(w, func(k string) (any, bool) { return k, present[k] })
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tr := range g {
+			c.Add(tr[0], tr[1], tr[2])
+		}
+		if err := acc.Add("x", c.Session()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return acc.File().RuleSets["x"]
+}
+
+// The optimizer statistics tests' rule set, run after test_execute_rules_main.jr
+// in optimizerStatsSequence (both added to the workspace copy only). Its
+// antecedents hold a text constant ("done", which test_execute_rules_main.jr
+// asserts for mode ok), a subject constant (jets:iState), a negated antecedent on
+// a predicate no ok session holds (xr:count, a negated term's variables being
+// bound earlier, so with a constant object), and a volatile resource declared
+// with its prefix, which the engine names _0:_0:dbl.
+const (
+	optimizerStatsRuleFile = "jet_rules/test_optimizer_stats_main.jr"
+	optimizerStatsSequence = "test_optimizer_stats_sequence"
+	optimizerStatsRules    = `import "data_model/jets_model.jr"
+import "data_model/test_execute_rules_model.jr"
+
+volatile_resource dbl = "_0:dbl";
+volatile_resource seen = "seen";
+
+[OS_First]:
+  (?c rdf:type xr:Case).
+  (?c xr:result "done").
+  not(?c xr:count 0)
+  ->
+  (?c dbl "first")
+;
+
+[OS_State]:
+  (jets:iState rdf:type ?t).
+  (?c dbl ?v)
+  ->
+  (?c seen ?v)
+;
+`
+)
+
+// writeStatsBench writes a spec running process over one xr:Case session per
+// mode, as test_execute_rules_main.jr reads xr:mode.
+func writeStatsBench(t *testing.T, process string, modes []string, extra string) string {
+	t.Helper()
+	dir := t.TempDir()
+	var sessions []string
+	for i, mode := range modes {
+		name := fmt.Sprintf("case%d", i+1)
+		csv := "jets:key,rdf:type,xr:mode\n" + name + ",xr:Case," + mode + "\n"
+		if err := os.WriteFile(filepath.Join(dir, name+".csv"), []byte(csv), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		sessions = append(sessions, `{"name": "`+name+`", "input": ["`+name+`.csv"]}`)
+	}
+	spec := `{
+	  "bench_name": "stats",
+	  "jetrules_config": {"process_name": "` + process + `", "current_source_period": 1},
+	  "input_sessions": [` + strings.Join(sessions, ",") + `],
+	  "engines": ["native"],
+	  "output_classes": [{"class_name": "xr:Case", "columns": []}]` + extra + `
+	}`
+	path := filepath.Join(dir, "bench.json")
+	if err := os.WriteFile(path, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

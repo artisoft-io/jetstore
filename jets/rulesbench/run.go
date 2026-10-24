@@ -11,10 +11,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -48,6 +50,16 @@ type Options struct {
 	// Run loads it from the workspace's workspace.db when it is nil.
 	ObserveDir  string
 	NetworkInfo *NetworkInfo
+	// StatsFile, when not empty, makes the run count the rule optimizer's
+	// statistics (jets/optstats) and write them to this file when every run has
+	// ended: after each rule set of each session, the graph when the rule set
+	// ended, for the predicates and constants of that rule set's antecedents in
+	// workspace.db. Only the first measured repetition is counted, so a session is
+	// counted once whatever the repetitions; warmup runs are not counted. A
+	// session's counts are added only when it ends without failing
+	// (sessionFailure); when any counted session fails, no file is written and Run
+	// returns an error. The run is untimed, under EquivalenceOnly's rule.
+	StatsFile string
 
 	// PerLoop records each loop's ExecuteRules time, not only their sum and maximum.
 	PerLoop bool
@@ -80,6 +92,11 @@ type Options struct {
 	Env *Environment
 	// OnResult receives each run's result as it ends.
 	OnResult func(*RunResult)
+
+	// stats counts the statistics when StatsFile is set, and statsFailed counts
+	// the counted sessions that failed; Run makes both.
+	stats       *compute_pipes.OptimizerStats
+	statsFailed *atomic.Int64
 }
 
 // prepared is the input, read and cast once, before any engine is built: a
@@ -158,6 +175,14 @@ func Run(opts Options) ([]*RunResult, error) {
 			return nil, fmt.Errorf("observe: %v", err)
 		}
 		opts.NetworkInfo = ni
+	}
+	if opts.StatsFile != "" {
+		st, err := compute_pipes.LoadOptimizerStats(workspace.WorkspaceDbPath())
+		if err != nil {
+			return nil, fmt.Errorf("stats: %v", err)
+		}
+		opts.stats = st
+		opts.statsFailed = new(atomic.Int64)
 	}
 	env := opts.Env
 	if env == nil {
@@ -246,6 +271,14 @@ func Run(opts Options) ([]*RunResult, error) {
 	runAll(reps, false)
 	if opts.AfterRuns != nil {
 		opts.AfterRuns()
+	}
+	if opts.stats != nil {
+		if n := opts.statsFailed.Load(); n > 0 {
+			return results, fmt.Errorf("stats: %d counted session(s) failed, so %s is not written: statistics are taken from sessions that end without error", n, opts.StatsFile)
+		}
+		if err := optstats.Write(opts.StatsFile, opts.stats.File()); err != nil {
+			return results, fmt.Errorf("stats: %v", err)
+		}
 	}
 	return results, nil
 }
@@ -372,6 +405,9 @@ func CheckOptions(opts Options) error {
 	if opts.ObserveDir != "" && (opts.PerLoop || opts.SampleMs > 0) {
 		return errors.New("an observing run is untimed: per-loop times and goroutine sampling are refused")
 	}
+	if opts.StatsFile != "" && (opts.PerLoop || opts.SampleMs > 0) {
+		return errors.New("a statistics run is untimed: per-loop times and goroutine sampling are refused")
+	}
 	return nil
 }
 
@@ -395,6 +431,7 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		// set from opts, the only place it is known
 		EquivalenceOnly: opts.EquivalenceOnly,
 		Observed:        opts.ObserveDir != "",
+		Stats:           opts.counted(runTag{repetition: rep, warmup: isWarmup}),
 		Warmup:          isWarmup,
 		Order:           order,
 		PoolSize:        pool,
@@ -440,7 +477,12 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 				sr := &r.Sessions[t.index]
 				sr.Worker = worker
 				sr.StartNs = time.Since(start).Nanoseconds()
-				runSession(opts, st, &inputs[t.index], x, run, pool == 1, sr)
+				var stats *compute_pipes.OptimizerStatsSession
+				if opts.counted(run) {
+					stats = opts.stats.NewSession()
+				}
+				runSession(opts, st, &inputs[t.index], x, run, pool == 1, stats, sr)
+				opts.commitStats(stats, sr)
 			}
 		}(w)
 	}
@@ -503,6 +545,29 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 	return r
 }
 
+// counted reports whether the run's sessions are counted for the statistics:
+// the first measured repetition of a run with Options.StatsFile.
+func (opts *Options) counted(run runTag) bool {
+	return opts.stats != nil && !run.warmup && run.repetition == 1
+}
+
+// commitStats adds a counted session's statistics when the session ended without
+// failing, and counts it as failed otherwise: a failed session contributes
+// nothing.
+func (opts *Options) commitStats(stats *compute_pipes.OptimizerStatsSession, sr *SessionResult) {
+	if stats == nil {
+		return
+	}
+	if sessionFailure(sr) != "" {
+		opts.statsFailed.Add(1)
+		return
+	}
+	if err := stats.Commit(); err != nil {
+		sr.Err = fmt.Sprintf("stats: %v", err)
+		opts.statsFailed.Add(1)
+	}
+}
+
 // sessionFailure is why a session failed, or "" when it did not. A session that
 // fails makes its run's status error, as the command's README says: an err, an
 // execute_err or exceptions. Only err raised it before, so a run whose engine threw
@@ -545,6 +610,8 @@ type sessionTimer struct {
 	dumpErr  error
 	// observed collects the session's observation when Options.ObserveDir is set
 	observed *SessionObservation
+	// stats collects the session's statistics when the session is counted
+	stats *compute_pipes.OptimizerStatsSession
 }
 
 func (t *sessionTimer) InputAsserted(d time.Duration) {
@@ -575,6 +642,9 @@ func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteS
 	if t.observed != nil {
 		t.observed.RuleSets = append(t.observed.RuleSets, observeRuleSet(t.opts.NetworkInfo, timing.RuleSet, reteSession))
 	}
+	if t.stats != nil {
+		t.stats.Count(timing.RuleSet, rdfSession)
+	}
 	t.counters += time.Since(c0)
 	if t.opts.AfterRuleSet != nil && t.dumpErr == nil {
 		d0 := time.Now()
@@ -604,7 +674,7 @@ func (t *sessionTimer) RuleSetReleased(timing *compute_pipes.RuleSetTiming) {
 // sets through RunRuleSets with the input asserted in its assertInput, the
 // extraction, and the release.
 func runSession(opts *Options, st *engineState, in *prepared, extractor *compute_pipes.SessionExtractor,
-	run runTag, perSessionMem bool, sr *SessionResult) {
+	run runTag, perSessionMem bool, stats *compute_pipes.OptimizerStatsSession, sr *SessionResult) {
 	sr.Name = in.name
 	sr.InputRows = len(in.rows)
 	re := st.engine
@@ -619,7 +689,7 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 		runtime.ReadMemStats(&before)
 	}
 	sr.GoroutinesBefore = runtime.NumGoroutine()
-	timer := &sessionTimer{opts: opts, engine: st.name, session: in.name, run: run, sr: sr}
+	timer := &sessionTimer{opts: opts, engine: st.name, session: in.name, run: run, sr: sr, stats: stats}
 	if opts.ObserveDir != "" {
 		timer.observed = &SessionObservation{Schema: ObserveSchema, Bench: opts.Spec.Name(), Engine: st.name,
 			Session: in.name, Repetition: run.repetition, Warmup: run.warmup, RuleSets: []RuleSetObservation{}}
@@ -676,6 +746,8 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 		sr.Err = outcome.Err.Error()
 	case timer.dumpErr != nil:
 		sr.Err = fmt.Sprintf("graph dump: %v", timer.dumpErr)
+	case stats != nil && stats.Err() != nil:
+		sr.Err = fmt.Sprintf("stats: %v", stats.Err())
 	}
 	if so := timer.observed; so != nil {
 		p := DumpPoint{Engine: st.name, Session: in.name, Repetition: run.repetition, Warmup: run.warmup}
