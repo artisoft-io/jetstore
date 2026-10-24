@@ -75,6 +75,25 @@ func TestOptimizerStatisticsOption(t *testing.T) {
 		}
 	})
 
+	// A bundle that reached max_looping counts, as a rules_bench session does,
+	// even under on_error drop, which discards its output: test_looping_main.jr
+	// completes on loop 3, so max_looping 2 is reached.
+	t.Run("max_loop_bundle_counts_under_drop", func(t *testing.T) {
+		st := load(t)
+		h := newHarness(t, loopingRuleFile, &compute_pipes.JetrulesSpec{OnError: compute_pipes.OnErrorDrop, MaxLooping: 2})
+		h.worker.SetOptimizerStatsForTest(st)
+		r := h.execute("ok")
+		if r.err != nil || len(r.persons) != 0 {
+			t.Fatalf("error %v, %d persons extracted; want the bundle dropped without error", r.err, len(r.persons))
+		}
+		if len(r.messages()) != 1 || !strings.Contains(r.messages()[0], "MAX LOOP REACHED") {
+			t.Fatalf("messages %q, want the maximum loop reached", r.messages())
+		}
+		if rs := st.File().ForRuleSet(loopingRuleFile); rs == nil || rs.Sessions != 1 {
+			t.Errorf("%s: %+v, want the max-loop bundle counted once", loopingRuleFile, rs)
+		}
+	})
+
 	// Partials from k nodes, merged, equal one node's statistics over the same
 	// bundles, and each node's partial goes to its own key under the session's
 	// prefix.

@@ -9,7 +9,8 @@ import (
 // jetrules step with optimizer_statistics on writes one partial file per node
 // under its session's stage folder, and the run_reports function
 // merge_optimizer_statistics merges them into the workspace's file, which
-// run_reports then syncs into the workspace as an override and compiles.
+// run_reports then syncs into the workspace as an override, applied at the
+// workspace's next compile.
 
 // WorkspacesS3Prefix is the S3 folder of the workspaces' overrides: a key
 // <WorkspacesS3Prefix>/<workspace>/<file> is synced to <file> in the workspace
