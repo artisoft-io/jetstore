@@ -136,6 +136,7 @@ func (JetrulesConfig) refusedFields() map[string]string {
 		"error_channel":           reporting,
 		"on_error":                reporting,
 		"max_error_count":         reporting,
+		"optimizer_statistics":    "counts the rule optimizer's statistics into partial files of a pipeline's stage folder; a test writes none (rules_bench -stats counts a bench's sessions)",
 	}
 }
 

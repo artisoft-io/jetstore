@@ -221,12 +221,19 @@ func TestPipelineOnlyFieldsRefused(t *testing.T) {
 		"output_channels": []any{}, "error_channel": map[string]any{"name": "x"},
 		"on_error": "drop", "max_error_count": 5,
 		"metadata_input_sources": []any{},
+		"optimizer_statistics":   true,
 	}
 	for name, value := range fields {
 		t.Run(name, func(t *testing.T) {
 			_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")[name] = value }))
 			requireFinding(t, findings, CodeRefused, "/jetrules_config/"+name, name)
 		})
+	}
+	// optimizer_statistics is refused, set true or false, saying what it is and
+	// where statistics are counted instead.
+	for _, value := range []bool{true, false} {
+		_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["optimizer_statistics"] = value }))
+		requireFinding(t, findings, CodeRefused, "/jetrules_config/optimizer_statistics", "a test writes none (rules_bench -stats counts a bench's sessions)")
 	}
 	// Every refused name is one JetrulesConfig does not declare, and vice versa.
 	used := map[string]bool{}
