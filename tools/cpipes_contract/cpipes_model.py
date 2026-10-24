@@ -697,8 +697,8 @@ class JetrulesSpec(_Base):
     pool_size: int | None = Field(default=None, description="PoolSize is the nbr of worker pool size. Engine default: 1 (validator).")
     process_name: str | None = Field(default=None, description="ProcessName is the jetrules process name to use.")
     rule_config: list[dict[str, Any]] | None = Field(default=None, description="RuleConfig provide additional configuration for jetrules processing.")
-    use_jet_rules_go: bool | None = Field(default=None, description="UseJetRulesGo when true use the jetrules go engine.")
-    use_jet_rules_native: bool | None = Field(default=None, description="UseJetRulesNative when true use the jetrules native engine.")
+    use_jet_rules_go: bool | None = Field(default=None, description="Asked for the Go rules engine, retired in October 2026: true is refused when the pipeline starts, false is accepted.")
+    use_jet_rules_native: bool | None = Field(default=None, description="Names the native (C++) rules engine, the only one; set or not, it is used.")
 
 
 class KeywordTokenNode(_Base):
