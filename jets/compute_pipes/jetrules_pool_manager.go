@@ -13,7 +13,7 @@ import (
 type JrPoolManager struct {
 	config        *JetrulesSpec
 	WorkersTaskCh chan []any
-	ErrorOutputCh	*OutputChannel
+	ErrorOutputCh *OutputChannel
 	jrPoolWg      *sync.WaitGroup
 	WaitForDone   *sync.WaitGroup
 }
@@ -21,9 +21,9 @@ type JrPoolManager struct {
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string, ruleEngine JetRuleEngine,
-	errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan, 
+	errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan,
 	jetrulesWorkerResultCh chan JetrulesWorkerResult, stats *OptimizerStats) (jrpm *JrPoolManager) {
-		
+
 	log.Println("Starting the Pool Manager")
 	if config.PoolSize < 1 {
 		log.Printf("warning: cannot have a worker pool of size less than 1, setting to 1")
@@ -84,7 +84,7 @@ func (ctx *BuilderContext) NewJrPoolManager(
 			jrpm.jrPoolWg.Add(1)
 			go func() {
 				defer jrpm.jrPoolWg.Done()
-				worker := ctx.NewJrPoolWorker(config, source, rdfType2Columns, ruleEngine, 
+				worker := ctx.NewJrPoolWorker(config, source, rdfType2Columns, ruleEngine,
 					jrpm.ErrorOutputCh, outputChannels, ctx.done, ctx.errCh)
 				worker.stats = stats
 				worker.DoWork(jrpm, workersResultCh)
