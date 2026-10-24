@@ -45,6 +45,9 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	n := len(antecedents)
 	if n <= 1 {
 		// No need to optimize
+		if s.statistics != nil {
+			s.costReport.single++
+		}
 		return
 	}
 

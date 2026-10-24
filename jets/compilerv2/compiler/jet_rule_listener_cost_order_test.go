@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/optstats"
 )
 
 const costOrderBase = "testdata/cost_order"
@@ -78,7 +80,12 @@ func ruleOrder(rule *rete.JetruleNode) []string {
 }
 
 var filterLabel = regexp.MustCompile(`\.\[[^\]]*\]`)
-var termLabel = regexp.MustCompile(`(not)?\([^()\s]+ [^()\s]+ [^()\s]+\)`)
+
+// A term's subject, predicate or object: a name, or a literal written as
+// type(value), as text(open) or int(3).
+const labelToken = `(?:\w+\([^()]*\)|[^()\s]+)`
+
+var termLabel = regexp.MustCompile(`(not)?\(` + labelToken + ` ` + labelToken + ` ` + labelToken + `\)`)
 
 // authoredOrder gives a rule's antecedents in their written order, from the
 // fixture compiled with the optimizer off.
@@ -170,7 +177,7 @@ func TestCostOrderFindsTheDataDependentOrders(t *testing.T) {
 	for _, want := range []string{
 		"Cost order: rule set jet_rules/cost_order_main.jr, statistics jet_rules/optimizer_statistics.json: " +
 			"3 rules cost-ordered (3 differ from the score order); fell back to the score order: " +
-			"0 with a variable predicate, 1 with a predicate not in the file; 1 with o=false",
+			"0 with a variable predicate, 1 with a predicate not in the file; 1 with o=false; 0 of one antecedent",
 		"  COST_A (jet_rules/cost_order_main.jr): score order T0 T1 T2 T3 T4, est. rows held 84102000; cost order T0 T1 T3 T4 T2, est. rows held 62000",
 	} {
 		if !strings.Contains(log, want) {
@@ -327,6 +334,232 @@ func TestTermKey(t *testing.T) {
 		key, ok := termKey(&tc.r)
 		if key != tc.key || ok != tc.ok {
 			t.Errorf("termKey(%s|%s) = %q, %v; want %q, %v", tc.r.Type, tc.r.Value, key, ok, tc.key, tc.ok)
+		}
+	}
+}
+
+// THE CASES THE FIXTURE DOES NOT REACH (BY.2's review, 2026-10-24), each with
+// statistics built here rather than read from a file.
+
+// compileWithStatistics compiles src with st as its rule set's statistics.
+func compileWithStatistics(t *testing.T, name, src string, st *optstats.RuleSet) (*Compiler, map[string]*rete.JetruleNode) {
+	t.Helper()
+	c := NewCompiler("./testdata", name, false, false, true)
+	if st != nil {
+		c.SetOptimizerStatistics("test statistics", st)
+	}
+	if err := c.CompileBuffer(fmt.Sprintf("@JetCompilerDirective source_file = %q;\n%s", name, src)); err != nil {
+		t.Fatalf("%v\n%s", err, c.ErrorLog().String())
+	}
+	rules := make(map[string]*rete.JetruleNode)
+	for _, r := range c.JetRuleModel().Jetrules {
+		rules[r.Name] = r
+	}
+	return c, rules
+}
+
+// ruleSetStatistics builds one session's statistics: predicates as
+// {triples, subjects, objects}, and the constant pairs.
+func ruleSetStatistics(sessions int64, preds map[string][3]int64, subj, obj map[string]map[string]int64) *optstats.RuleSet {
+	rs := optstats.NewRuleSet()
+	rs.Sessions = sessions
+	for p, c := range preds {
+		rs.Predicates[p] = &optstats.Predicate{Triples: c[0], Subjects: c[1], Objects: c[2]}
+	}
+	for p, m := range subj {
+		rs.SubjectConstants[p] = m
+	}
+	for p, m := range obj {
+		rs.ObjectConstants[p] = m
+	}
+	return rs
+}
+
+// firstEstimates gives each antecedent's estimate with nothing bound, by its
+// label: what the cost order compares for the first place.
+func firstEstimates(c *Compiler, rule *rete.JetruleNode) map[string]float64 {
+	e := c.listener.newCostEstimator(rule.Antecedents)
+	out := make(map[string]float64)
+	for i, label := range ruleOrder(rule) {
+		out[label] = e.rows(rule.Antecedents[i], map[string]bool{})
+	}
+	return out
+}
+
+// A constant whose pair the file does not have is estimated from its
+// predicate's averages, N/DS for a constant subject and N/DO for a constant
+// object (BX.1 rule 7), not as 0 and not as N. With the pairs, each rule's
+// constant term is dearer than (?a acme:wide ?b), 500 rows a session; with the
+// averages it is cheaper, and goes first.
+func TestCostEstimateTakesTheAveragesForAMissingPair(t *testing.T) {
+	src := `
+		[SUBJ]:
+		(?a acme:wide ?b).
+		(acme:Config acme:lists ?a)
+		->
+		(?a acme:listed ?b);
+
+		[OBJ]:
+		(?a acme:wide ?b).
+		(?a acme:kind acme:Open)
+		->
+		(?a acme:open ?b);
+	`
+	preds := map[string][3]int64{
+		"acme:wide":  {1000, 1000, 1000}, // 500 a session
+		"acme:lists": {1600, 8, 1600},    // N/DS = 800/4 = 200
+		"acme:kind":  {2000, 2000, 8},    // N/DO = 1000/4 = 250
+	}
+	withPairs := ruleSetStatistics(2, preds,
+		map[string]map[string]int64{"acme:lists": {"acme:Config": 1800}},
+		map[string]map[string]int64{"acme:kind": {"acme:Open": 1200}})
+	without := ruleSetStatistics(2, preds, nil, nil)
+
+	cases := []struct {
+		rule, term string
+		pair, avg  float64
+	}{
+		{"SUBJ", "(acme:Config acme:lists ?a)", 900, 200},
+		{"OBJ", "(?a acme:kind acme:Open)", 600, 250},
+	}
+	cWith, byWith := compileWithStatistics(t, "pairs.jr", src, withPairs)
+	cWithout, byWithout := compileWithStatistics(t, "pairs.jr", src, without)
+	for _, tc := range cases {
+		if got := firstEstimates(cWith, byWith[tc.rule])[tc.term]; got != tc.pair {
+			t.Errorf("%s: with the pair, %s is estimated at %v, want %v", tc.rule, tc.term, got, tc.pair)
+		}
+		if got := firstEstimates(cWithout, byWithout[tc.rule])[tc.term]; got != tc.avg {
+			t.Errorf("%s: without the pair, %s is estimated at %v, want %v", tc.rule, tc.term, got, tc.avg)
+		}
+		if got := ruleOrder(byWith[tc.rule]); got[0] != "(?a acme:wide ?b)" {
+			t.Errorf("%s: with the pair the order is %v; the membership term should come second", tc.rule, got)
+		}
+		if got := ruleOrder(byWithout[tc.rule]); got[0] != tc.term {
+			t.Errorf("%s: without the pair the order is %v; %s should come first", tc.rule, got, tc.term)
+		}
+	}
+}
+
+// A text and an int constant are looked up by their keys, "\"open\"" and
+// "3^^int", through ObjectCount, and the count decides the order.
+func TestCostOrderLooksUpTextAndIntConstants(t *testing.T) {
+	src := `
+		[TEXT]:
+		(?a acme:wide ?b).
+		(?a acme:status "open")
+		->
+		(?a acme:isOpen ?b);
+
+		[INT]:
+		(?a acme:wide ?b).
+		(?a acme:count 3)
+		->
+		(?a acme:hasThree ?b);
+	`
+	preds := map[string][3]int64{
+		"acme:wide":   {1000, 1000, 1000}, // 500 a session
+		"acme:status": {2000, 2000, 2},    // N/DO = 1000/1 = 1000
+		"acme:count":  {2000, 2000, 2},
+	}
+	withPairs := ruleSetStatistics(2, preds, nil, map[string]map[string]int64{
+		"acme:status": {`"open"`: 20},
+		"acme:count":  {"3^^int": 20},
+	})
+	without := ruleSetStatistics(2, preds, nil, nil)
+	cases := []struct{ rule, term string }{
+		{"TEXT", `(?a acme:status text(open))`},
+		{"INT", `(?a acme:count int(3))`},
+	}
+	cWith, byWith := compileWithStatistics(t, "literals.jr", src, withPairs)
+	_, byWithout := compileWithStatistics(t, "literals.jr", src, without)
+	for _, tc := range cases {
+		if got := firstEstimates(cWith, byWith[tc.rule])[tc.term]; got != 10 {
+			t.Errorf("%s: %s is estimated at %v, want its pair's 10", tc.rule, tc.term, got)
+		}
+		if got := ruleOrder(byWith[tc.rule]); got[0] != tc.term {
+			t.Errorf("%s: with the pair the order is %v; %s should come first", tc.rule, got, tc.term)
+		}
+		if got := ruleOrder(byWithout[tc.rule]); got[0] != "(?a acme:wide ?b)" {
+			t.Errorf("%s: without the pair the order is %v; %s should come second", tc.rule, got, tc.term)
+		}
+	}
+}
+
+// A rule with a variable predicate keeps the score order, though the
+// statistics cover its other terms, and the report counts it.
+func TestCostOrderLeavesAVariablePredicateToTheScore(t *testing.T) {
+	src := `
+		[VARP]:
+		(?a acme:wide ?b).
+		(?a ?p ?v).
+		(acme:Config acme:lists ?a)
+		->
+		(?a acme:has ?v);
+	`
+	st := ruleSetStatistics(1, map[string][3]int64{
+		"acme:wide":  {10, 10, 10},
+		"acme:lists": {1000, 1, 1000},
+	}, map[string]map[string]int64{"acme:lists": {"acme:Config": 1000}}, nil)
+	_, byScore := compileWithStatistics(t, "varp.jr", src, nil)
+	c, byCost := compileWithStatistics(t, "varp.jr", src, st)
+	if got, want := ruleOrder(byCost["VARP"]), ruleOrder(byScore["VARP"]); !slices.Equal(got, want) {
+		t.Errorf("with statistics %v, without %v", got, want)
+	}
+	if want := "0 rules cost-ordered (0 differ from the score order); fell back to the score order: 1 with a variable predicate"; !strings.Contains(c.ParseLog().String(), want) {
+		t.Errorf("the parse log does not say\n  %s\nit says\n%s", want, c.ParseLog().String())
+	}
+}
+
+// The re-validation refuses a filter placed before an antecedent binds its
+// variables, as it refuses a negation (TestReorderedRuleIsValidatedAgain).
+func TestReorderedFilterIsValidatedAgain(t *testing.T) {
+	src := `
+		[FILTER_EARLY]:
+		(?a acme:amount ?v).
+		(?a acme:limit ?l).
+		[?v > ?l]
+		->
+		(?a acme:over ?v);
+	`
+	reorderHookForTest = func(rule *rete.JetruleNode) {
+		for _, a := range rule.Antecedents[1:] {
+			if a.Filter != nil {
+				rule.Antecedents[0].Filter, a.Filter = a.Filter, nil
+				return
+			}
+		}
+	}
+	t.Cleanup(func() { reorderHookForTest = nil })
+	c := NewCompiler("./testdata", "filter_early.jr", false, false, true)
+	err := c.CompileBuffer("@JetCompilerDirective source_file = \"filter_early.jr\";\n" + src)
+	if err == nil {
+		t.Fatal("a filter placed before its binding compiled")
+	}
+	want := "rule FILTER_EARLY (filter_early.jr): after ordering, the filter of antecedent 0 reads variable ?l before an antecedent binds it"
+	if !strings.Contains(c.ErrorLog().String(), want) {
+		t.Errorf("the error log does not say\n  %s\nit says\n%s", want, c.ErrorLog().String())
+	}
+
+	reorderHookForTest = nil
+	c = NewCompiler("./testdata", "filter_early.jr", false, false, true)
+	if err := c.CompileBuffer("@JetCompilerDirective source_file = \"filter_early.jr\";\n" + src); err != nil {
+		t.Fatalf("%v\n%s", err, c.ErrorLog().String())
+	}
+}
+
+// The trace is on for JETS_COST_ORDER_TRACE=1 only.
+func TestCostOrderTraceEnv(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		on    bool
+	}{{"1", true}, {"0", false}, {"true", false}, {"", false}} {
+		t.Setenv(CostOrderTraceEnv, tc.value)
+		c := NewCompiler(fixture(t, true), costOrderMain, false, false, true)
+		if err := c.Compile(); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(c.ParseLog().String(), "  COST_A ("); got != tc.on {
+			t.Errorf("%s=%q: the trace is on %v, want %v", CostOrderTraceEnv, tc.value, got, tc.on)
 		}
 	}
 }
