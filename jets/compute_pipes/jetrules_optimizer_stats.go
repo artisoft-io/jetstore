@@ -111,10 +111,13 @@ func (st *OptimizerStats) CountRuleSet(ruleSet string, rdfSession JetRdfSession)
 	for _, a := range ants {
 		wanted.AddAntecedent(key(a.s), key(a.p), key(a.o))
 	}
-	counter := optstats.NewCounter(wanted, func(k string) (any, bool) {
+	counter, err := optstats.NewCounter(wanted, func(k string) (any, bool) {
 		id, ok := ids[k]
 		return id, ok
 	})
+	if err != nil {
+		return fmt.Errorf("optimizer statistics: rule set %s: %v", ruleSet, err)
+	}
 	itor := rdfSession.Find()
 	if itor == nil {
 		return fmt.Errorf("optimizer statistics: rule set %s: the session's Find returned no iterator", ruleSet)
@@ -166,7 +169,7 @@ func statsNode(rm JetResourceManager, t statsTerm) RdfNode {
 		if t.value == "" {
 			return nil
 		}
-		return rm.NewResource(optstats.VolatilePrefix + t.value)
+		return rm.NewResource(optstats.VolatileName(t.value))
 	case optstats.KindText:
 		return rm.NewTextLiteral(t.value)
 	case optstats.KindInt:

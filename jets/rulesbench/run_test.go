@@ -623,7 +623,10 @@ func countDumps(t *testing.T, dir string, w *optstats.Wanted) *optstats.RuleSet 
 		for _, tr := range g {
 			present[tr[0]], present[tr[1]], present[tr[2]] = true, true, true
 		}
-		c := optstats.NewCounter(w, func(k string) (any, bool) { return k, present[k] })
+		c, err := optstats.NewCounter(w, func(k string) (any, bool) { return k, present[k] })
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, tr := range g {
 			c.Add(tr[0], tr[1], tr[2])
 		}
