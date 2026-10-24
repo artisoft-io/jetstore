@@ -12,10 +12,10 @@ Syntax highlighting for the JetStore **JetRule** DSL (`.jr` files).
 - Config/section properties: `$base_classes`, `$data_properties`, `$columns`, `$key`, `$main_rule_sets`, etc.
 - Data types: `int`, `uint`, `long`, `ulong`, `double`, `text`, `date`, `datetime`, `bool`, `resource`, `array of`
 - Constants: `true`, `false`, `null`
-- Built-in functions: `create_uuid_resource`, `create_entity`, `toText`
+- Built-in functions: `create_uuid_resource`, `create_entity`
 - Rule variables (`?var`)
 - Namespaced identifiers (`rdf:type`, `am:AnalysisRoot`)
-- Operators: `== != <= >= < > + - * / = -> and or not r?`
+- Operators: `== != <= >= < > + - * / = -> and or not`
 
 ## Development
 
