@@ -144,6 +144,26 @@ char const* get_rete_session_err_msg(HJRETE rete_session_hdl) {
   return static_cast<ReteSession*>(rete_session_hdl)->get_err_msg().c_str();
 }
 
+int get_vertex_observations(HJRETE rete_session_hdl, int n, int64_t* rows_now,
+                            int64_t* rows_peak, int64_t* inferred, int64_t* retracted) {
+  if (not rete_session_hdl or n < 0) return -1;
+  if (n > 0 and (not rows_now or not rows_peak or not inferred or not retracted)) return -1;
+  auto* rete_session = static_cast<ReteSession*>(rete_session_hdl);
+  auto const& relations = rete_session->beta_relations();
+  auto const& visits = rete_session->vertex_visits();
+  int count = static_cast<int>(relations.size());
+  int filled = std::min(n, count);
+  for (int i = 0; i < filled; ++i) {
+    auto const* relation = relations[i];
+    rows_now[i] = relation ? static_cast<int64_t>(relation->size()) : 0;
+    rows_peak[i] = relation ? static_cast<int64_t>(relation->peak_size()) : 0;
+    bool has_visits = i < static_cast<int>(visits.size());
+    inferred[i] = has_visits ? visits[i].first : 0;
+    retracted[i] = has_visits ? visits[i].second : 0;
+  }
+  return count;
+}
+
 // Creating meta resources and literals
 int create_meta_null(HJETS js_hdl, HJR* handle) {
   return guard_meta("create_meta_null", [&]() -> int {

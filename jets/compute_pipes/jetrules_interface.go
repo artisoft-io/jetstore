@@ -97,6 +97,24 @@ type JetReteSession interface {
 	Release() error
 }
 
+// VertexObservation is what one vertex of a rete session's network holds: the
+// rows of its beta relation now and at their most in this rule set's session, and
+// the times its consequents were computed and retracted.
+type VertexObservation struct {
+	Vertex    int   `json:"vertex"`
+	RowsNow   int64 `json:"rows_now"`
+	RowsPeak  int64 `json:"rows_peak"`
+	Inferred  int64 `json:"inferred"`
+	Retracted int64 `json:"retracted"`
+}
+
+// VertexObserver is a JetReteSession whose network can be observed per vertex.
+// The native adaptor's is one; nothing in a pipeline calls it (rules_bench
+// -observe does).
+type VertexObserver interface {
+	ObserveVertices() ([]VertexObservation, error)
+}
+
 type TripleIterator interface {
 	IsEnd() bool
 	Next() bool

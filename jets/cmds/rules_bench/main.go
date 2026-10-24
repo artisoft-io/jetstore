@@ -30,7 +30,6 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -59,6 +58,7 @@ var (
 	requireTuned = flag.Bool("require_tuned", false, "refuse to run unless every allowed CPU uses the performance governor and perf_event_paranoid <= 1")
 	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set, one dump tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
 	equivalence  = flag.Bool("equivalence_only", false, "an untimed run, for comparing what the engine computes: profiles, -per_loop, -sample_ms and -require_tuned are refused, sampling is off, and each result records equivalence_only")
+	observeDir   = flag.String("observe", "", "an untimed run that writes, per session, what each rule set's network holds: per vertex its beta rows when the rule set ended and at their most, its visits and the rules it serves, to <dir>/<r01|w01>/<engine>/<session>.json; the timing outputs are refused as with -equivalence_only")
 	_            = flag.String("legacy", "", "refused: it chose a retraction mode, and the LEGACY retraction mode was deleted in October 2026")
 	rowsDir      = flag.String("rows_dir", "", "write every extracted row, one tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<class>.rows, cells typed, in extraction order; not a timing run")
 
@@ -106,11 +106,16 @@ func run(specPath string) error {
 	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
 		return errors.New("WORKSPACES_HOME and WORKSPACE must name the compiled workspace the bench runs against")
 	}
-	if err := refuseLegacyFlag(); err != nil {
+	given := visitedFlags(flag.CommandLine)
+	if err := refuseLegacyFlag(given); err != nil {
 		return err
 	}
-	if *equivalence {
-		if err := refuseTimingFlags(); err != nil {
+	if *equivalence || *observeDir != "" {
+		untimed := "-equivalence_only"
+		if *observeDir != "" {
+			untimed = "-observe"
+		}
+		if err := refuseTimingFlags(given, untimed); err != nil {
 			return err
 		}
 	}
@@ -135,8 +140,8 @@ func run(specPath string) error {
 	}
 	// The options before anything is written: a refused run leaves out_dir
 	// untouched (Run checks them again).
-	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, PerLoop: *perLoop}
-	if !*equivalence {
+	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, ObserveDir: *observeDir, PerLoop: *perLoop}
+	if !*equivalence && *observeDir == "" {
 		modeOpts.SampleMs = *sampleMs
 	}
 	if err := rulesbench.CheckOptions(modeOpts); err != nil {
@@ -160,9 +165,10 @@ func run(specPath string) error {
 		CountTriples:    *countTriples,
 		SampleMs:        *sampleMs,
 		EquivalenceOnly: *equivalence,
+		ObserveDir:      *observeDir,
 		Env:             env,
 	}
-	if *equivalence {
+	if *equivalence || *observeDir != "" {
 		opts.SampleMs = 0
 	}
 	// A flag given as 0 overrides the spec's warmup; a flag not given keeps it.
@@ -227,30 +233,38 @@ func run(specPath string) error {
 }
 
 // timingFlags are the flags that ask for a measurement, which an
-// -equivalence_only run refuses rather than produce numbers from an untimed run.
+// -equivalence_only or -observe run refuses rather than produce numbers from an
+// untimed run.
 var timingFlags = []string{"cpuprofile", "memprofile", "memprofilerate", "blockprofile",
 	"mutexprofile", "trace", "per_loop", "sample_ms", "require_tuned"}
 
+// visitedFlags are the names of the flags fs was given.
+func visitedFlags(fs *flag.FlagSet) map[string]bool {
+	given := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { given[f.Name] = true })
+	return given
+}
+
 // refuseLegacyFlag refuses -legacy, whatever its value: it chose a retraction
 // mode, and there is one behaviour since the LEGACY retraction mode was deleted.
-func refuseLegacyFlag() error {
-	var given bool
-	flag.Visit(func(f *flag.Flag) { given = given || f.Name == "legacy" })
-	if given {
+func refuseLegacyFlag(given map[string]bool) error {
+	if given["legacy"] {
 		return fmt.Errorf("-legacy chose a retraction mode: %s; remove it", rulestest.LegacyRetractionDeleted)
 	}
 	return nil
 }
 
-func refuseTimingFlags() error {
-	var given []string
-	flag.Visit(func(f *flag.Flag) {
-		if slices.Contains(timingFlags, f.Name) {
-			given = append(given, "-"+f.Name)
+// refuseTimingFlags refuses, in the untimed run named by untimed, the timing
+// flags among given.
+func refuseTimingFlags(given map[string]bool, untimed string) error {
+	var refused []string
+	for _, name := range timingFlags {
+		if given[name] {
+			refused = append(refused, "-"+name)
 		}
-	})
-	if len(given) > 0 {
-		return fmt.Errorf("-equivalence_only is an untimed run and refuses %s", strings.Join(given, ", "))
+	}
+	if len(refused) > 0 {
+		return fmt.Errorf("%s is an untimed run and refuses %s", untimed, strings.Join(refused, ", "))
 	}
 	return nil
 }

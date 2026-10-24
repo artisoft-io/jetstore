@@ -15,6 +15,22 @@ they name is at the tag `go-engine-final`, not in this tree. What they say of th
 current unless the entry says otherwise. Where the Go engine was the reference for a behaviour,
 the C++ engine's tests named in the entry are now its specification.
 
+## What a vertex holds, observed — 2026-10-24
+
+`rules_benchmark`'s Phase 8 (track `BU`, `Q-98`). **`get_vertex_observations`**
+(`jets/rete/jets_rete_cwrapper.h`) reads, for every vertex of a rete session's network, its beta
+relation's rows now (`BetaRelation::size`) and at their most in the session (`peak_size`), and the
+times its consequents were computed and retracted (`ReteSession::vertex_visits`). Go reads it as
+`bridge.ReteSession.ObserveVertices`, and `compute_pipes.VertexObserver` on the native adaptor's rete
+session; `rules_bench -observe` writes it per session (`jets/cmds/rules_bench/README.md`).
+
+**It needs no observation flag, and changes no hot path**: the peak has been kept since the reserve
+hint (`b0136f18`, 2026-10-22), which leaves each session's peak for the next session's relation, and
+the visits are kept for the vertex visit limit, which counts the inferred ones. Rows now and at peak
+count the relation's row set, withdrawn rows not yet erased included, which is the number memory
+follows. So a session that is never observed runs exactly the
+code it ran before; the reader is the whole of the change.
+
 ## One retraction behaviour; `_0:no_truth_main_on_exist` deleted — 2026-10-24
 
 `rules_benchmark`'s Phase 8 (track `BQ`), by Michel's decision of 2026-10-24 (that project's `Q-95`,

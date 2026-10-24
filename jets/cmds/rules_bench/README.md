@@ -96,6 +96,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares the engine with itself (before the Go engine's retirement, the engines compared within `r01`). The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). Until October 2026 it was what let the spec's `legacy` object choose a retraction mode other than production's; there is one retraction behaviour since. It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
+| `-observe <dir>` | **an untimed run that observes each rule set's network** (rules_benchmark `Q-98`): one file per session, `<dir>/<r01\|w01>/<engine>/<session>.json`, see *Observing the network*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks every result `"observed": true` |
 | `-legacy` | **refused**, whatever its value: it chose a retraction mode by name, and the `LEGACY` retraction mode was deleted in October 2026 (rules_benchmark `Q-95`) |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
@@ -286,6 +287,42 @@ which its adaptor implemented (`jetrules_golang_counters.go`, at the tag `go-eng
 went with it, and so did a result's `graph` and `rete` fields, which results written before the
 retirement may still carry. Reading them walked every vertex once per rule set, and that time was
 `counters_ns`, apart from every phase.
+
+## Observing the network: `-observe`
+
+**What each rule set's network holds, per vertex, for a session** (rules_benchmark `BU`, `Q-98`).
+After each rule set's loop and exception scan, before its rete session is released, the run
+reads `get_vertex_observations` (`jets/rete/jets_rete_cwrapper.h`) and writes, per session:
+
+```json
+{ "schema": "rules_bench_observe/1", "bench": "…", "engine": "native", "session": "member1", "repetition": 1,
+  "rule_sets": [ { "rule_set": "jet_rules/….jr", "source_file_key": 12, "rows_now": 5120, "rows_peak": 7300,
+    "vertices": [ { "vertex": 7, "rows_now": 300, "rows_peak": 410, "inferred": 410, "retracted": 110,
+                    "parent_vertex": 3, "label": "(?s rdf:type …)", "rules": ["R10", "R11"] } ] } ] }
+```
+
+- **`rows_now`** is the vertex's beta relation when the rule set ended, and **`rows_peak`** the most it
+  held in that rule set's session. Both count the relation's row set, which includes rows marked
+  withdrawn that are waiting to have their consequents retracted and to be erased. So a peak can
+  exceed the most rows live at once, and after a stop at the vertex visit limit `rows_now` can include
+  withdrawn rows not yet erased. For memory, it is the right number.
+- **`inferred`** and **`retracted`** are the times the vertex's consequents were computed and
+  retracted. **The vertex visit limit counts `inferred` only**. Both are counted where a rule's
+  consequents are, so a vertex that only leads to other vertices has rows and no visits.
+- **The head vertex, 0,** holds one empty row. Its `rete_nodes` row is a `head_node` row; the JSON
+  gives it `parent_vertex` -1 and no label or rules, by choice.
+- **`rule_set`** is `workspace_control.source_file_name` and **`source_file_key`** its key. The join
+  to `rete_nodes` is on (`source_file_key`, `vertex`) **with `type = 'antecedent'`** (`'head_node'`
+  for vertex 0). **(`source_file_key`, `vertex`) alone is not a key**: the table is
+  `UNIQUE (vertex, type, consequent_seq, source_file_key)`, with one antecedent row per vertex and
+  one row per consequent, so a join on the two columns multiplies a vertex's rows by its consequents. **`rules`** are the `jet_rules` names whose
+  antecedents run through the vertex (`rule_terms`): more than one where rules share a prefix. A rule
+  sequence's rule sets are each a record of their own, in the order they ran.
+- **It is free when not used.** Every counter is one the C++ session keeps anyway: the peak for the
+  reserve hint (`BetaRelation::peak_size`), the visits for the vertex visit limit (which reads
+  `inferred`). No flag reaches the
+  engine and nothing on its hot paths changed; observing is a read after each rule set, in no timed
+  phase. The run is untimed all the same, so its results are not measurements.
 
 ## Concurrency: `-pool N`
 

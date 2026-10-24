@@ -17,6 +17,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/rulestest/harness"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
 // Options says what to run and how. The zero value of an override keeps the spec's.
@@ -41,6 +42,12 @@ type Options struct {
 	// retraction mode other than production's until the LEGACY retraction mode
 	// was deleted (October 2026).
 	EquivalenceOnly bool
+	// ObserveDir, when not empty, makes the run observe each rule set's network and
+	// write one file per session under it (observe.go). The run is untimed, under
+	// EquivalenceOnly's rule. NetworkInfo, when not nil, names each vertex's rules;
+	// Run loads it from the workspace's workspace.db when it is nil.
+	ObserveDir  string
+	NetworkInfo *NetworkInfo
 
 	// PerLoop records each loop's ExecuteRules time, not only their sum and maximum.
 	PerLoop bool
@@ -144,6 +151,13 @@ func Run(opts Options) ([]*RunResult, error) {
 	}
 	if err := CheckOptions(opts); err != nil {
 		return nil, err
+	}
+	if opts.ObserveDir != "" && opts.NetworkInfo == nil {
+		ni, err := LoadNetworkInfo(workspace.WorkspaceDbPath())
+		if err != nil {
+			return nil, fmt.Errorf("observe: %v", err)
+		}
+		opts.NetworkInfo = ni
 	}
 	env := opts.Env
 	if env == nil {
@@ -355,6 +369,9 @@ func CheckOptions(opts Options) error {
 	if opts.EquivalenceOnly && (opts.PerLoop || opts.SampleMs > 0) {
 		return errors.New("an equivalence-only run is untimed: per-loop times and goroutine sampling are refused")
 	}
+	if opts.ObserveDir != "" && (opts.PerLoop || opts.SampleMs > 0) {
+		return errors.New("an observing run is untimed: per-loop times and goroutine sampling are refused")
+	}
 	return nil
 }
 
@@ -377,6 +394,7 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		Repetition: rep,
 		// set from opts, the only place it is known
 		EquivalenceOnly: opts.EquivalenceOnly,
+		Observed:        opts.ObserveDir != "",
 		Warmup:          isWarmup,
 		Order:           order,
 		PoolSize:        pool,
@@ -525,6 +543,8 @@ type sessionTimer struct {
 	dump     time.Duration
 	counters time.Duration
 	dumpErr  error
+	// observed collects the session's observation when Options.ObserveDir is set
+	observed *SessionObservation
 }
 
 func (t *sessionTimer) InputAsserted(d time.Duration) {
@@ -552,6 +572,9 @@ func (t *sessionTimer) RuleSetDone(rdfSession compute_pipes.JetRdfSession, reteS
 		}
 	}
 	t.sr.RuleSets = append(t.sr.RuleSets, rs)
+	if t.observed != nil {
+		t.observed.RuleSets = append(t.observed.RuleSets, observeRuleSet(t.opts.NetworkInfo, timing.RuleSet, reteSession))
+	}
 	t.counters += time.Since(c0)
 	if t.opts.AfterRuleSet != nil && t.dumpErr == nil {
 		d0 := time.Now()
@@ -597,6 +620,10 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 	}
 	sr.GoroutinesBefore = runtime.NumGoroutine()
 	timer := &sessionTimer{opts: opts, engine: st.name, session: in.name, run: run, sr: sr}
+	if opts.ObserveDir != "" {
+		timer.observed = &SessionObservation{Schema: ObserveSchema, Bench: opts.Spec.Name(), Engine: st.name,
+			Session: in.name, Repetition: run.repetition, Warmup: run.warmup, RuleSets: []RuleSetObservation{}}
+	}
 
 	t0 := time.Now()
 	rdfSession, err := re.NewRdfSession()
@@ -649,6 +676,16 @@ func runSession(opts *Options, st *engineState, in *prepared, extractor *compute
 		sr.Err = outcome.Err.Error()
 	case timer.dumpErr != nil:
 		sr.Err = fmt.Sprintf("graph dump: %v", timer.dumpErr)
+	}
+	if so := timer.observed; so != nil {
+		p := DumpPoint{Engine: st.name, Session: in.name, Repetition: run.repetition, Warmup: run.warmup}
+		err := writeObservation(ObservePath(opts.ObserveDir, p), so)
+		if msg := observeErrs(so); msg != "" && err == nil {
+			err = errors.New(msg)
+		}
+		if err != nil && sr.Err == "" {
+			sr.Err = fmt.Sprintf("observe: %v", err)
+		}
 	}
 	if outcome.Err == nil && extractor != nil {
 		t2 := time.Now()

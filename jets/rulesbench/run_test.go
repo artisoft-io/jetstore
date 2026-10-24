@@ -229,6 +229,64 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
+		// BU.2 (Q-98): an observing run writes one file per session and repetition,
+		// each rule set's vertices with their rows, visits and rules, keyed to
+		// workspace.db by rule set file and vertex; it is untimed.
+		t.Run("observe_writes_each_session", func(t *testing.T) {
+			path := writeBench(t, 2, `, "max_vertex_visits": 1000, "warmup": 1`)
+			dir := t.TempDir()
+			results, err := runBench(t, path, Options{ObserveDir: dir})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, r := range results {
+				if r.Status != "ok" || !r.Observed {
+					t.Errorf("result %d: status %s observed %v", r.Repetition, r.Status, r.Observed)
+				}
+			}
+			for _, run := range []string{"w01", "r01"} {
+				for i := 1; i <= 2; i++ {
+					file := filepath.Join(dir, run, "native", fmt.Sprintf("case%d.json", i))
+					raw, err := os.ReadFile(file)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var so SessionObservation
+					if err := json.Unmarshal(raw, &so); err != nil {
+						t.Fatal(err)
+					}
+					if so.Schema != ObserveSchema || so.Session != fmt.Sprintf("case%d", i) || so.Warmup != (run == "w01") || len(so.RuleSets) == 0 {
+						t.Fatalf("%s: %+v", file, so)
+					}
+					for _, ro := range so.RuleSets {
+						if ro.Err != "" || ro.SourceFileKey < 0 || len(ro.Vertices) < 2 {
+							t.Errorf("%s %s: error %q, file key %d, %d vertices", file, ro.RuleSet, ro.Err, ro.SourceFileKey, len(ro.Vertices))
+						}
+						var now, peak int64
+						named, visited := 0, false
+						for j, v := range ro.Vertices {
+							now, peak = now+v.RowsNow, peak+v.RowsPeak
+							if v.Vertex != j || v.RowsPeak < v.RowsNow {
+								t.Errorf("%s %s: vertex %d at %d, now %d peak %d", file, ro.RuleSet, v.Vertex, j, v.RowsNow, v.RowsPeak)
+							}
+							if len(v.Rules) > 0 {
+								named++
+							}
+							visited = visited || v.Inferred > 0
+						}
+						if now != ro.RowsNow || peak != ro.RowsPeak || ro.Vertices[0].ParentVertex != -1 || named < len(ro.Vertices)-1 || !visited {
+							t.Errorf("%s %s: sums %d/%d against %d/%d, head parent %d, %d of %d named, visited %v",
+								file, ro.RuleSet, now, peak, ro.RowsNow, ro.RowsPeak, ro.Vertices[0].ParentVertex, named, len(ro.Vertices), visited)
+						}
+					}
+				}
+			}
+			for _, o := range []Options{{ObserveDir: dir, PerLoop: true}, {ObserveDir: dir, SampleMs: 10}} {
+				if _, err := runBench(t, path, o); err == nil || !strings.Contains(err.Error(), "observing run is untimed") {
+					t.Errorf("observing with timing (%+v): %v", o, err)
+				}
+			}
+		})
 		t.Run("an_after_extraction_error_is_the_sessions", func(t *testing.T) {
 			path := writeBench(t, 2, `, "max_vertex_visits": 1000`)
 			results, err := runBench(t, path, Options{AfterExtraction: func(p DumpPoint) error {
