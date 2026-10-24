@@ -97,6 +97,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). Until October 2026 it was what let the spec's `legacy` object choose a retraction mode other than production's; there is one retraction behaviour since. It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
 | `-observe <dir>` | **an untimed run that observes each rule set's network** (rules_benchmark `Q-98`): one file per session, `<dir>/<r01\|w01>/<engine>/<session>.json`, see *Observing the network*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks every result `"observed": true` |
+| `-stats <file>` | **an untimed run that writes the rule optimizer's statistics** (rules_benchmark `BX`, `jets/optstats`) to `<file>`, see *The optimizer's statistics*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks every result `"stats": true` |
 | `-legacy` | **refused**, whatever its value: it chose a retraction mode by name, and the `LEGACY` retraction mode was deleted in October 2026 (rules_benchmark `Q-95`) |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
@@ -323,6 +324,37 @@ reads `get_vertex_observations` (`jets/rete/jets_rete_cwrapper.h`) and writes, p
   `inferred`). No flag reaches the
   engine and nothing on its hot paths changed; observing is a read after each rule set, in no timed
   phase. The run is untimed all the same, so its results are not measurements.
+
+## The optimizer's statistics: `-stats`
+
+**What the graph holds when each main rule set ends, counted for the rule optimizer** (rules_benchmark
+Phase 9, `BX`). The compiler orders a rule's antecedents by the rows each would add when the
+workspace holds `jet_rules/optimizer_statistics.json`; this run writes that file, in the format
+`jets/optstats` reads and writes (version 1):
+
+```json
+{ "format": "jetstore.optimizer_statistics", "version": 1,
+  "rule_sets": { "jet_rules/test_looping_main.jr": { "sessions": 3,
+    "predicates": { "jets:loop": { "triples": 9, "subjects": 3, "objects": 9 } },
+    "subject_constants": {},
+    "object_constants": { "jets:loop": { "3^^int": 3 } } } } }
+```
+
+- **Per main rule set, per session, after its loop and exception scan**, the run counts the
+  session's graph: everything its `Find` returns, the meta graph, asserted and inferred triples,
+  each triple once. **It is the graph when the rule set ends** (`I-231`): a triple inserted and
+  retracted within the rule set is not counted.
+- **What is counted comes from the network the run loaded**: workspace.db's antecedents of the rule
+  set, positive and negated. For each constant predicate, its triples and distinct subjects and
+  objects; for each antecedent whose subject (object) and predicate are both constants, the
+  triples with that subject (object). **Nothing else enters the file**, so no data value does. A
+  constant is made a node through the session's resource manager and its key rendered from that
+  node (`compute_pipes.OptimizerStats`): a resource by its name (`_0:` kept), text Go-quoted, an
+  int as `N^^int`; constants of other kinds are not counted.
+- **Counts are integers summed over sessions**, with `sessions` beside them, so files merge exactly
+  (`optstats.Merge`), and the output is the same bytes whatever the pool's order.
+- **Only the first measured repetition is counted**, so each session counts once, and warmup runs
+  are not. The file is written when every run has ended.
 
 ## Concurrency: `-pool N`
 

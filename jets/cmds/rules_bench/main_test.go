@@ -15,6 +15,7 @@ func testFlags(t *testing.T, set ...string) map[string]bool {
 	fs := flag.NewFlagSet("rules_bench", flag.ContinueOnError)
 	fs.String("legacy", "", "")
 	fs.String("observe", "", "")
+	fs.String("stats", "", "")
 	fs.Bool("per_loop", false, "")
 	fs.Int("sample_ms", 10, "")
 	if err := fs.Parse(set); err != nil {
@@ -52,5 +53,20 @@ func TestObserveRefusesTheTimingFlags(t *testing.T) {
 		if !strings.HasPrefix(name, "test.") { // go test's own
 			t.Errorf("the command line's -%s was set", name)
 		}
+	}
+}
+
+// -stats is untimed: with it, the timing outputs are refused, naming -stats
+// (rules_benchmark BX.2).
+func TestStatsRefusesTheTimingFlags(t *testing.T) {
+	if err := refuseTimingFlags(testFlags(t, "-stats", "s.json"), "-stats"); err != nil {
+		t.Errorf("-stats alone: %v", err)
+	}
+	err := refuseTimingFlags(testFlags(t, "-stats", "s.json", "-sample_ms", "5"), "-stats")
+	if err == nil || !strings.Contains(err.Error(), "-stats is an untimed run and refuses -sample_ms") {
+		t.Errorf("-stats -sample_ms: %v", err)
+	}
+	if f := flag.Lookup("stats"); f == nil || !strings.Contains(f.Usage, "I-231") || !strings.Contains(f.Usage, "when the rule set ends") {
+		t.Errorf("-stats must say when statistics are taken (I-231): %v", f)
 	}
 }

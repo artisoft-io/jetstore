@@ -59,6 +59,7 @@ var (
 	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set, one dump tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
 	equivalence  = flag.Bool("equivalence_only", false, "an untimed run, for comparing what the engine computes: profiles, -per_loop, -sample_ms and -require_tuned are refused, sampling is off, and each result records equivalence_only")
 	observeDir   = flag.String("observe", "", "an untimed run that writes, per session, what each rule set's network holds: per vertex its beta rows when the rule set ended and at their most, its visits and the rules it serves, to <dir>/<r01|w01>/<engine>/<session>.json; the timing outputs are refused as with -equivalence_only")
+	statsFile    = flag.String("stats", "", "an untimed run that writes the rule optimizer's statistics to this file (jets/optstats, version 1): per main rule set, the graph each session holds when the rule set ends, counted for the predicates and constants of the rule set's antecedents only; the first measured repetition is counted, warmups are not; statistics are taken when the rule set ends, so a triple retracted before then is not counted (rules_benchmark I-231); the timing outputs are refused as with -equivalence_only")
 	_            = flag.String("legacy", "", "refused: it chose a retraction mode, and the LEGACY retraction mode was deleted in October 2026")
 	rowsDir      = flag.String("rows_dir", "", "write every extracted row, one tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<class>.rows, cells typed, in extraction order; not a timing run")
 
@@ -110,10 +111,14 @@ func run(specPath string) error {
 	if err := refuseLegacyFlag(given); err != nil {
 		return err
 	}
-	if *equivalence || *observeDir != "" {
+	untimedRun := *equivalence || *observeDir != "" || *statsFile != ""
+	if untimedRun {
 		untimed := "-equivalence_only"
-		if *observeDir != "" {
+		switch {
+		case *observeDir != "":
 			untimed = "-observe"
+		case *statsFile != "":
+			untimed = "-stats"
 		}
 		if err := refuseTimingFlags(given, untimed); err != nil {
 			return err
@@ -140,8 +145,8 @@ func run(specPath string) error {
 	}
 	// The options before anything is written: a refused run leaves out_dir
 	// untouched (Run checks them again).
-	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, ObserveDir: *observeDir, PerLoop: *perLoop}
-	if !*equivalence && *observeDir == "" {
+	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, ObserveDir: *observeDir, StatsFile: *statsFile, PerLoop: *perLoop}
+	if !untimedRun {
 		modeOpts.SampleMs = *sampleMs
 	}
 	if err := rulesbench.CheckOptions(modeOpts); err != nil {
@@ -166,9 +171,10 @@ func run(specPath string) error {
 		SampleMs:        *sampleMs,
 		EquivalenceOnly: *equivalence,
 		ObserveDir:      *observeDir,
+		StatsFile:       *statsFile,
 		Env:             env,
 	}
-	if *equivalence || *observeDir != "" {
+	if untimedRun {
 		opts.SampleMs = 0
 	}
 	// A flag given as 0 overrides the spec's warmup; a flag not given keeps it.
@@ -233,7 +239,7 @@ func run(specPath string) error {
 }
 
 // timingFlags are the flags that ask for a measurement, which an
-// -equivalence_only or -observe run refuses rather than produce numbers from an
+// -equivalence_only, -observe or -stats run refuses rather than produce numbers from an
 // untimed run.
 var timingFlags = []string{"cpuprofile", "memprofile", "memprofilerate", "blockprofile",
 	"mutexprofile", "trace", "per_loop", "sample_ms", "require_tuned"}
