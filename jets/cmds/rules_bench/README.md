@@ -95,8 +95,8 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-require_tuned` | refuse to run unless every allowed CPU uses the `performance` governor and `perf_event_paranoid` is 1 or less. The protocol script always passes it |
 | `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares the engine with itself (before the Go engine's retirement, the engines compared within `r01`). The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
-| `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). It is what lets the spec's `legacy` object choose a retraction mode other than production's, `fixed-1`, `fixed-2` or `fixed` (see *The bench spec*). It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
-| `-legacy` | replaces the spec's `legacy` object with a mode by name: `legacy`, `fixed-1` (defect 1 off), `fixed-2` (defect 2 off) or `fixed` (both off). Any but `legacy` needs `-equivalence_only`. So one spec runs in both modes: `-equivalence_only -legacy fixed -dump_dir <dir>` beside the ordinary run |
+| `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). Until October 2026 it was what let the spec's `legacy` object choose a retraction mode other than production's; there is one retraction behaviour since. It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
+| `-legacy` | **refused**, whatever its value: it chose a retraction mode by name, and the `LEGACY` retraction mode was deleted in October 2026 (rules_benchmark `Q-95`) |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
 **Exit status**:
@@ -128,9 +128,9 @@ harmless.
 `jetrules_config` and `input_sessions` are a `.tst.json`'s, in exactly its shape
 (`jets/cmds/rules_unit_test/README.md`). So a test definition plus the bench fields is a
 spec. Its `test_name` is accepted as the bench's name, its expectations and `expect` are
-read and ignored, and its `legacy` object chooses the retraction mode, as a test's does: a
-timed run is always in production's mode, so a mode other than legacy needs
-`-equivalence_only`. **The spec is decoded strictly**: an
+read and ignored, and its `legacy` object is read as a test's is: a switch set `true` is
+refused, and one whose switches are `false` selects nothing (there is one retraction
+behaviour). **The spec is decoded strictly**: an
 unknown key at any depth is an error, and so is a pipeline-only field in `jetrules_config`.
 
 ```json
@@ -166,12 +166,10 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
 | `max_looping` | replaces `jetrules_config.max_looping`, which itself replaces every rule set's `$max_looping` when not 0 |
 | `output_classes` | classes to extract after the rules, as a pipeline's jetrules output channels are. The columns are the class's domain properties (`GetDomainProperties`), then `columns`, which is the channel spec's own list. None means no extraction |
 
-**Refused**: a `legacy` object that turns a retraction defect off **in a timed run** (a timed
-run is in production's mode; `-equivalence_only` accepts it, and the result's `legacy_mode` is
-the mode the engine reports it was built in), and a request for the retired Go engine: `"engines": ["go"]`,
-`"compare_engines": true` or `"use_jet_rules_go": true`. `_0:no_truth_main_on_exist`, the C++
-engine's, is accepted since the Go engine's retirement; it was refused while a bench could
-run Go.
+**Refused**: a `legacy` switch set `true` and a `rule_config` setting
+`_0:no_truth_main_on_exist` (but to an integer `0`), both asking for what the `LEGACY`
+retraction mode's deletion removed (every result's `legacy_mode` is `fixed`); and a request for
+the retired Go engine: `"engines": ["go"]`, `"compare_engines": true` or `"use_jet_rules_go": true`.
 
 **The input is read and cast before any engine is built.** A pipeline casts its input when
 it reads the file, before the jetrules step. So the bench casts each CSV row once

@@ -152,7 +152,7 @@ func TestRun(t *testing.T) {
 				t.Errorf("warmup and repetitions: %+v %+v %+v", results[0].Warmup, results[1].Warmup, results[2].Repetition)
 			}
 			r := results[1]
-			if r.Status != "ok" || r.Engine != "native" || r.LegacyMode != "legacy" || r.PoolSize != 2 || r.MaxVertexVisits != 1000 {
+			if r.Status != "ok" || r.Engine != "native" || r.LegacyMode != "fixed" || r.PoolSize != 2 || r.MaxVertexVisits != 1000 {
 				t.Errorf("run %+v", r)
 			}
 			if !r.Load.MaxVertexVisitsSeen || r.Load.MaxVertexVisitsFrom != "spec" || r.Load.EngineNs <= 0 {
@@ -275,53 +275,35 @@ func TestRun(t *testing.T) {
 				t.Errorf("a cap from the flag: %v", err)
 			}
 		})
-		// Q-92: a fixed retraction mode is for an untimed run only. Timed, the
-		// spec is refused naming the flag; with EquivalenceOnly the engine is
-		// built in the mode asked for and each result records both.
-		t.Run("fixed_mode_only_untimed", func(t *testing.T) {
-			for _, c := range []struct{ legacy, label string }{
-				{`{"recompute_on_retraction": false}`, rulestest.LegacyModeFixed1},
-				{`{"withdrawn_row_stays": false}`, rulestest.LegacyModeFixed2},
-				{`{"recompute_on_retraction": false, "withdrawn_row_stays": false}`, rulestest.LegacyModeFixed},
-			} {
-				path := writeBench(t, 1, `, "max_vertex_visits": 1000, "legacy": `+c.legacy)
-				if _, err := runBench(t, path, Options{}); err == nil || !strings.Contains(err.Error(), "-equivalence_only") {
-					t.Errorf("%s timed: %v, want a refusal naming -equivalence_only", c.label, err)
-				}
-				results, err := runBench(t, path, Options{EquivalenceOnly: true})
-				if err != nil {
-					t.Fatalf("%s untimed: %v", c.label, err)
-				}
-				r := results[0]
-				if r.Status != "ok" || r.LegacyMode != c.label || !r.EquivalenceOnly || r.Totals.Loops != 3 {
-					t.Errorf("%s untimed: status %s mode %s equivalence_only %v loops %d", c.label, r.Status, r.LegacyMode, r.EquivalenceOnly, r.Totals.Loops)
+		// One retraction behaviour (rules_benchmark Q-95, Q-102): a spec's legacy
+		// object with its switches false is accepted, timed or not, and selects
+		// nothing; a switch set true is refused naming the deletion. Every result
+		// records legacy_mode fixed, and an untimed run refuses the timing options.
+		t.Run("one_retraction_behaviour", func(t *testing.T) {
+			for _, legacy := range []string{``, `, "legacy": {}`, `, "legacy": {"recompute_on_retraction": false}`,
+				`, "legacy": {"recompute_on_retraction": false, "withdrawn_row_stays": false}`} {
+				path := writeBench(t, 1, `, "max_vertex_visits": 1000`+legacy)
+				for _, o := range []Options{{}, {EquivalenceOnly: true}} {
+					results, err := runBench(t, path, o)
+					if err != nil {
+						t.Fatalf("%q %+v: %v", legacy, o, err)
+					}
+					r := results[0]
+					if r.Status != "ok" || r.LegacyMode != rulestest.LegacyModeFixed || r.EquivalenceOnly != o.EquivalenceOnly || r.Totals.Loops != 3 {
+						t.Errorf("%q %+v: status %s mode %s equivalence_only %v loops %d", legacy, o, r.Status, r.LegacyMode, r.EquivalenceOnly, r.Totals.Loops)
+					}
 				}
 				for _, o := range []Options{{EquivalenceOnly: true, PerLoop: true}, {EquivalenceOnly: true, SampleMs: 10}} {
 					if _, err := runBench(t, path, o); err == nil || !strings.Contains(err.Error(), "untimed") {
-						t.Errorf("%s untimed with timing (%+v): %v", c.label, o, err)
+						t.Errorf("%q untimed with timing (%+v): %v", legacy, o, err)
 					}
 				}
 			}
-			// legacy, untimed: recorded as such, and a timed run is unchanged
-			path := writeBench(t, 1, `, "max_vertex_visits": 1000`)
-			results, err := runBench(t, path, Options{EquivalenceOnly: true})
-			if err != nil || results[0].LegacyMode != rulestest.LegacyModeLegacy || !results[0].EquivalenceOnly {
-				t.Errorf("legacy untimed: %v %+v", err, results)
-			}
-			results, err = runBench(t, path, Options{})
-			if err != nil || results[0].LegacyMode != rulestest.LegacyModeLegacy || results[0].EquivalenceOnly {
-				t.Errorf("legacy timed: %v %+v", err, results)
-			}
-			// Options.Legacy (the -legacy flag) replaces the spec's, under the same rule
-			results, err = runBench(t, path, Options{EquivalenceOnly: true, Legacy: rulestest.LegacyModeFixed})
-			if err != nil || results[0].LegacyMode != rulestest.LegacyModeFixed {
-				t.Errorf("-legacy fixed untimed: %v %+v", err, results)
-			}
-			if _, err := runBench(t, path, Options{Legacy: rulestest.LegacyModeFixed}); err == nil || !strings.Contains(err.Error(), "-equivalence_only") {
-				t.Errorf("-legacy fixed timed: %v", err)
-			}
-			if _, err := runBench(t, path, Options{Legacy: "fixed-3"}); err == nil || !strings.Contains(err.Error(), "unknown legacy mode") {
-				t.Errorf("-legacy fixed-3: %v", err)
+			for _, legacy := range []string{`{"recompute_on_retraction": true}`, `{"withdrawn_row_stays": true}`} {
+				path := writeBench(t, 1, `, "max_vertex_visits": 1000, "legacy": `+legacy)
+				if _, err := LoadSpec(path); err == nil || !strings.Contains(err.Error(), rulestest.LegacyRetractionDeleted) {
+					t.Errorf("%s: %v, want the spec refused naming the deletion", legacy, err)
+				}
 			}
 		})
 		// I-20: the unit-test harness reads _0: columns, and a benchmark refuses one.

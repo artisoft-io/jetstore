@@ -15,6 +15,82 @@ they name is at the tag `go-engine-final`, not in this tree. What they say of th
 current unless the entry says otherwise. Where the Go engine was the reference for a behaviour,
 the C++ engine's tests named in the entry are now its specification.
 
+## One retraction behaviour; `_0:no_truth_main_on_exist` deleted — 2026-10-24
+
+`rules_benchmark`'s Phase 8 (track `BQ`), by Michel's decision of 2026-10-24 (that project's `Q-95`,
+option b2, and `Q-96`). **The engine has one retraction behaviour, the one the `LEGACY` mode
+called `fixed`**, and the mode is deleted, as the Go engine was. This closes the entry of
+2026-10-08 below and the `_0:no_truth_main_on_exist` entry of 2026-09-09, which are kept as the
+history of how the engine got here.
+
+- **A consequent that reads the graph records and is replayed**, as a minting one always was: an
+  aggregate, `exist`, `exist_not`, `size_of`, `lookup`. `ReteMetaStore::initialize` sets
+  `records_consequents` on a vertex when a consequent `mints_resource()` or `reads_graph()`
+  (`jets/rete/rete_meta_store.h`). So the triple retracted is the triple inferred, however the
+  graph has moved since. *(This was `LEGACY` defect 1, kept from 2026-10-09.)*
+- **A withdrawn row is erased** from its relation once its consequents are retracted
+  (`BetaRelation::erase_retracted_beta_row`, from `compute_consequent_triples`), so an equal row
+  arriving later fires again. *(This was `LEGACY` defect 2.)*
+- **An `exist` or `exist_not` filter always registers its callback**, so it is re-evaluated when
+  the graph moves under it. `_0:no_truth_main_on_exist` set to 1 turned that off; the switch is
+  deleted (the member, its accessors and the two early returns in `expr_op_resources.h`).
+
+**Why now.** Phase 7 of `rules_benchmark` ran the fixed mode against legacy on the benchmark's
+nine inputs, a client workspace's opportunity kit and the workspaces' unit tests, and found them
+computing the same, but for the tests built to pin the two defects. The client workspace that
+relied on the defects and the switch had stopped doing so on 2026-10-11 (the corrections at the end
+of the 2026-10-08 entry); its deployed rules no longer set the switch, which Michel had tested at
+deployment, and no other client was known to rely on either.
+
+**What was deleted**, C++: `RetractionMode` (`rete_meta_store.h`) and the mode parameter of
+`ReteMetaStore::initialize` and `ReteMetaStoreFactory::load_database`; the C entry point
+`create_jetstore_hdl_with_mode` (`create_jetstore_hdl` is unchanged in signature, and is now the
+only way to build the networks); the `remove_beta_row` branch of retraction; `no_truth_main_on_exist_`
+and `set_`/`get_no_truth_main_on_exist`. Go: `rete.RetractionMode` (`jets/jetrules/rete/retraction_mode.go`),
+`compute_pipes.RetractionMode`, `EngineOption`, `WithRetractionMode` and `ApplyEngineOptions`
+(`NewJetRuleEngine` has its signature from before the mode), `bridge.LoadJetRulesWithMode`, the native
+adaptor's `RetractionMode()`, `harness.RetractionModeOf`, and `rulesbench.RetractionModeOf`.
+
+**What is refused, naming the change**, so that a configuration that asked for the deleted
+behaviour is told rather than run on the one that remains:
+
+- **`_0:no_truth_main_on_exist` in a rule configuration**, by `ReteSession::initialize`, where
+  every session starts, so every caller gets it: the session does not start, and its error says
+  `the rule configuration sets _0:no_truth_main_on_exist to 1 (int): that switch was deleted with the
+  LEGACY retraction mode (2026-10), and exist and exist_not filters always take part in truth
+  maintenance; remove it`. An integer 0 asks for what remains and is accepted; any other value,
+  text `"1"` included, is refused. The message reaches Go: `create_rete_session` keeps the handle
+  of a session whose `initialize` failed, the new C entry point `get_rete_session_err_msg` reads
+  its error, and `bridge.NewReteSession` returns it and releases the session (it returned a bare
+  return code, and leaked the session, before). A rules unit test or a bench spec that sets it is
+  refused earlier, by validation, in the words of the next item.
+- **A `legacy` switch set `true`** in a rules unit test (`.tst.json`) or a `rules_bench` spec,
+  and **`rules_bench -legacy`** with any value, with `the LEGACY retraction mode was deleted in
+  October 2026; the C++ engine has one retraction behaviour, the one the mode called fixed`
+  (`rulestest.LegacyRetractionDeleted`). **A `legacy` object whose every present switch is
+  `false`** names the behaviour that remains and is accepted, selecting nothing, as
+  `use_jet_rules_go: false` was at the Go engine's retirement (`rules_benchmark` `Q-102`): a
+  client workspace's three strict unit tests carry one.
+- **`legacy_mode` stays in results and in the database, and is always `fixed`.** It is a column of
+  `unit_tests` and `rules_unit_test_execution` and of the Workspaces screen's two tables, and rows
+  written before carry `legacy`, `fixed-1` or `fixed-2`; dropping it would lose what those rows
+  say ran.
+
+**The tests.** The `LEGACY` cases of `retract_recorded_consequents_test.cc` ran in four modes; they
+run once, asserting the fixed behaviour, and the four whose names stated a defect were renamed:
+`AggregateConsequentDoesNotRecord` is `AggregateConsequentRecords`,
+`CreateEntityKeyedCyclesStayRetracted` is `CreateEntityKeyedCyclesRefire`,
+`ConsequentAggregateRetractionRecomputes` is `ConsequentAggregateRetractionReplays`, and
+`PureConsequentDoesNotRefire` is `PureConsequentRefires`. `LoopThroughNegationTest.LoopControlRulesTerminate`,
+the guard that the five-term loop shape terminated, is
+`LoopThroughNegationTest.LoopThroughNegationReachesTheVertexLimit`: **an odd loop through negation
+has no fixed point, and the vertex visit limit is what stops it now**, as the 2026-10-08 entry
+measured with both defects off. A rule set written in that shape fails its session rather than
+ending on what the defects left. `NoTruthMainOnExistTest` keeps its truth-maintenance cases and
+pins the refusal. `jets_ws`'s `retraction_defect1`, `retraction_defect2` and `looping_test1` are their
+former `_fixed` twins under the plain names, and `looping_test1_usi`, which set the switch, is
+deleted.
+
 ## Leaks, a crash, a default limit and the sanitizer gate — 2026-10-23
 
 `rules_benchmark`'s Phase 7 (track `BK`, with `BO.3`), on the one engine. None of it changes what a
@@ -90,7 +166,8 @@ to keep one engine, the C++ one, computing what it computed (that project's Phas
 brings it back.
 
 - **What stays of the Go side is the rule *model***, not an engine: `rete_meta_store_model.go`,
-  `workspace_control.go` and `retraction_mode.go` in `jets/jetrules/rete`, and `ast.go` and
+  `workspace_control.go` and `retraction_mode.go` in `jets/jetrules/rete` (`retraction_mode.go`
+  deleted with the mode on 2026-10-24, the first entry), and `ast.go` and
   `datetime_parser.go` in `jets/jetrules/rdf`. The compiler writes a workspace with them and the
   pipelines read their configuration through them.
 - **A configuration that asks for the Go engine is refused**, with a message naming the
@@ -484,6 +561,11 @@ as `ReteSession.RaiseException`: a rule-time error is data in the session, not a
 
 ## A minting consequent is retracted by replay; two retraction defects are kept — 2026-10-08, revised 2026-10-09
 
+**Closed 2026-10-24: the two defects and the mode that kept them are deleted, and the fixed
+behaviour is the engine's only one** (the first entry). What follows is the history. Its line
+numbers and test names are as they were before the deletion; the tests it names as pinning a
+defect now assert the fixed behaviour, under the names the first entry gives.
+
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
 against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
 `ReteSession::compute_consequent_triples`, `jets/rete/rete_session.cc:409`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
@@ -646,9 +728,12 @@ does, and `TestRetractKeepsATripleWithASupportLeftInEveryIndex` (`rdf_graph_test
 
 ## `_0:no_truth_main_on_exist` — a production flag, and where its test is — 2026-09-09
 
+**Closed 2026-10-24: the flag is deleted, and a rule configuration that still turns it on is
+refused at session start** (the first entry). What follows is what it did.
+
 C++ only; the Go engine had no counterpart, so a rule set that needed it could not run on the Go engine at all.
-A client workspace set it in its pipeline configuration (until 2026-10-11; see the entry above; the
-client's own copy still does) because its rules predate
+A client workspace set it in its pipeline configuration (until 2026-10-11; see the entry above. Its
+deployed rules no longer use it either, tested at deployment, as the first entry says) because its rules predate
 rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
 `ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
 

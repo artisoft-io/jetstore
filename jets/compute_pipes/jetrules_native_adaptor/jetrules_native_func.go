@@ -29,20 +29,9 @@ func (factory *JetRulesFactoryNative) ClearCache() bool {
 	return true
 }
 
-func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool,
-	opts ...compute_pipes.EngineOption) (compute_pipes.JetRuleEngine, error) {
+func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool) (compute_pipes.JetRuleEngine, error) {
 
-	o := compute_pipes.ApplyEngineOptions(opts...)
-	var jsHdhle *bridge.JetStore
-	var err error
-	if o.RetractionMode.IsLegacy() {
-		// Every pipeline: create_jetstore_hdl, exactly as before the mode existed.
-		jsHdhle, err = bridge.LoadJetRules(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath())
-	} else {
-		// A rules unit test with a LEGACY defect turned off: create_jetstore_hdl_with_mode.
-		jsHdhle, err = bridge.LoadJetRulesWithMode(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath(),
-			o.RetractionMode.ReplayGraphReadingConsequents, o.RetractionMode.EraseWithdrawnRows)
-	}
+	jsHdhle, err := bridge.LoadJetRules(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath())
 	if err != nil {
 		return nil, fmt.Errorf("while loading workspace db: %v", err)
 	}
@@ -64,17 +53,8 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 		factory:     factory,
 		js:          jsHdhle,
 		isDebug:     isDebug,
-
-		retractionMode: o.RetractionMode,
 	}
 	return ruleEngine, nil
-}
-
-// RetractionMode is the LEGACY retraction mode the engine's networks were built in.
-// Not part of compute_pipes.JetRuleEngine: the rules unit test harness reads it to
-// record on a result which mode a test ran in.
-func (engine *JetRuleEngineNative) RetractionMode() compute_pipes.RetractionMode {
-	return engine.retractionMode
 }
 
 // function for compute_pipes.JetRuleEngine

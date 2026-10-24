@@ -15,7 +15,9 @@ type RunResult struct {
 	Bench    string `json:"bench"`
 	SpecPath string `json:"spec_path"`
 	Engine   string `json:"engine"`
-	// LegacyMode is the retraction mode the engine reports it was built in.
+	// LegacyMode is fixed, the one retraction behaviour since the LEGACY mode was
+	// deleted (October 2026); results written before may record legacy, fixed-1
+	// or fixed-2.
 	LegacyMode string `json:"legacy_mode"`
 	// EquivalenceOnly marks an untimed run (Options.EquivalenceOnly): its outputs
 	// are for comparison, and its times are not measurements.

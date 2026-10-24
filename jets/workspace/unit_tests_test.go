@@ -122,7 +122,7 @@ func TestSaveUnitTestsRecordsEveryTestAndRefusesTheInvalidOnes(t *testing.T) {
 		t.Errorf("the valid test is not runnable, or has findings that are not NULL: %+v", good)
 	}
 	if good.testName != "a valid test" || good.processName != "jet_rules/test_looping_main.jr" ||
-		good.legacyMode.String != "fixed-1" {
+		good.legacyMode.String != "fixed" {
 		t.Errorf("the valid test was recorded as %+v", good)
 	}
 

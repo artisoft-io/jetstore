@@ -110,39 +110,6 @@ func LoadJetRules(process_name string, rete_db_path string, lookup_db_path strin
 	return &js, nil
 }
 
-// LoadJetRulesWithMode is LoadJetRules with the LEGACY retraction mode the rete
-// networks are built in (jets::rete::RetractionMode, jets/rete/rete_meta_store.h; its Go
-// twin is rete.RetractionMode). replayGraphReadingConsequents turns defect 1
-// off, eraseWithdrawnRows defect 2. For the rules unit test harness only: LoadJetRules,
-// which pipelines call, is this with both false, legacy. It calls the C entry point
-// create_jetstore_hdl_with_mode, the one change this project makes to libjets.so's C
-// interface; a libjets.so without it fails to link.
-func LoadJetRulesWithMode(process_name string, rete_db_path string, lookup_db_path string,
-	replayGraphReadingConsequents, eraseWithdrawnRows bool) (*JetStore, error) {
-	var js JetStore
-	js.process_name = process_name
-	cstr := C.CString(rete_db_path)
-	defer C.free(unsafe.Pointer(cstr))
-	lk_cstr := C.CString(lookup_db_path)
-	defer C.free(unsafe.Pointer(lk_cstr))
-	var replay, erase C.int
-	if replayGraphReadingConsequents {
-		replay = 1
-	}
-	if eraseWithdrawnRows {
-		erase = 1
-	}
-	ret := int(C.create_jetstore_hdl_with_mode(cstr, lk_cstr, replay, erase, &js.hdl))
-	if ret != 0 {
-		fmt.Println("Error in LoadJetRulesWithMode, ret code", ret)
-		if ret < -99 && ret > -200 {
-			return &js, ErrLookupTable
-		}
-		return &js, errors.New("error loading workspace, see logs")
-	}
-	return &js, nil
-}
-
 func (jr *JetStore) ReleaseJetRules() error {
 	ret := int(C.delete_jetstore_hdl(jr.hdl))
 	if ret != 0 {
@@ -178,7 +145,17 @@ func (jr *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string)
 	ret := int(C.create_rete_session(jr.hdl, rdfSession.hdl, cstr, &rs.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewReteSession ret code", ret)
-		return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		if rs.hdl == nil {
+			return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		}
+		// The session was built and its initialize failed: say why, and release it
+		msg := C.GoString(C.get_rete_session_err_msg(rs.hdl))
+		C.delete_rete_session(rs.hdl)
+		rs.hdl = nil
+		if msg == "" {
+			return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		}
+		return &rs, fmt.Errorf("ERROR calling NewReteSession(), ret code %d: %s", ret, msg)
 	}
 	rs.rdfs = rdfSession
 	return &rs, nil

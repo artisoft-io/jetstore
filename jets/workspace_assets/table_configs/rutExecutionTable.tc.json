@@ -7,7 +7,7 @@
     { "name": "status", "table": "rules_unit_test_execution", "label": "Status", "tooltip": "queued, executing, pass, fail or error; refresh to see a later status" },
     { "name": "reason", "table": "rules_unit_test_execution", "label": "Reason", "tooltip": "Why the run failed or ended in error" },
     { "name": "engine", "table": "rules_unit_test_execution", "label": "Engine", "tooltip": "The rule engine the test ran on" },
-    { "name": "legacy_mode", "table": "rules_unit_test_execution", "label": "Legacy Mode", "tooltip": "The LEGACY switches the test definition declares" },
+    { "name": "legacy_mode", "table": "rules_unit_test_execution", "label": "Legacy Mode", "tooltip": "fixed, the one retraction behaviour since October 2026; earlier runs may show legacy, fixed-1 or fixed-2" },
     { "name": "duration_ms", "table": "rules_unit_test_execution", "label": "Duration (ms)", "tooltip": "Time to run the test, rule engine load included", "isNumeric": true },
     { "name": "load_ms", "table": "rules_unit_test_execution", "label": "Load (ms)", "tooltip": "Time to build the rule engine", "isNumeric": true },
     { "name": "sessions", "table": "rules_unit_test_execution", "label": "Sessions", "tooltip": "Input sessions run", "isNumeric": true },

@@ -8,8 +8,8 @@ package datatable
 //
 // The pool is a process-wide FIFO queue served by a fixed number of workers, so
 // two batches started together share the workers rather than doubling them
-// (§5.5, item 1). Each worker runs one harness process per test: the engine,
-// the LEGACY mode and rule_config are fixed when the engine is built, and a fault
+// (§5.5, item 1). Each worker runs one harness process per test: the engine and
+// rule_config are fixed when the engine is built, and a fault
 // in the C++ engine ends the process it is in -- so it must not be the apiserver.
 //
 // # The defaults, and why they are small

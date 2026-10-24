@@ -144,10 +144,6 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGraph
   int
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
-    //TODO revert the ExistVisitor::register SKIPPING callback
-    if (this->rs->get_no_truth_main_on_exist()) {
-      return 0;
-    }
     // VLOG(40)<<"ExistVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
     return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }
@@ -175,10 +171,6 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGrap
   int
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
-    //TODO revert the ExistVisitor::register SKIPPING callback
-    if (this->rs->get_no_truth_main_on_exist()) {
-      return 0;
-    }
     // VLOG(40)<<"ExistNotVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
     return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }

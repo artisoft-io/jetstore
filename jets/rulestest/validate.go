@@ -35,7 +35,9 @@ var topLevelOnly = map[string]bool{"legacy": true, "compare_engines": true, "exp
 // RdfTypes are the type names ParseRdfNodeValue reads.
 var RdfTypes = []string{"null", "bn", "resource", "int", "bool", "long", "uint", "ulong", "double", "text", "date", "datetime"}
 
-// NoTruthMainOnExist is the C++ engine's rule_config switch (definition F14).
+// NoTruthMainOnExist was the C++ engine's rule_config switch (definition F14),
+// deleted with the LEGACY retraction mode: a rule_config that still turns it on is
+// refused here, and by the engine at session start.
 const NoTruthMainOnExist = "_0:no_truth_main_on_exist"
 
 // GoEngineRetired names the retirement of the Go JetRules engine in the message a
@@ -316,6 +318,27 @@ func checkTypedValue(v map[string]any, ptr string) []wsvalidate.Finding {
 	return findings
 }
 
+// SetsNoTruthMainOnExist reports whether a rule_config row turns on the deleted
+// _0:no_truth_main_on_exist: any value but {"value": "0", "type": <an integer
+// type>}, which asks for what remains.
+func SetsNoTruthMainOnExist(rc map[string]any) bool {
+	v, present := rc[NoTruthMainOnExist]
+	return present && !isIntegerZero(v)
+}
+
+func isIntegerZero(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	switch m["type"] {
+	case "int", "long", "uint", "ulong":
+		n, err := strconv.ParseInt(fmt.Sprint(m["value"]), 10, 64)
+		return err == nil && n == 0
+	}
+	return false
+}
+
 func isRdfType(t string) bool {
 	for _, k := range RdfTypes {
 		if t == k {
@@ -338,6 +361,14 @@ func validateDefinition(td *TestDefinition, raw map[string]any) []wsvalidate.Fin
 			f = append(f, errorf(CodeInvalidValue, "/expect/status",
 				"expect.status must be %q; a test that expects to pass needs no expect", StatusError))
 		}
+	}
+	// The LEGACY retraction mode is deleted: a switch that asks for one of its
+	// behaviours is refused rather than run on the one that remains (rules_benchmark
+	// Q-102); every present switch false asks for what remains, and is accepted.
+	for _, name := range td.Legacy.SwitchesOn() {
+		f = append(f, errorf(CodeRefused, "/legacy/"+name,
+			"legacy.%s: true asks for a LEGACY retraction behaviour: %s; remove it or set it to false",
+			name, LegacyRetractionDeleted))
 	}
 	f = append(f, validateJetrulesConfig(td, raw)...)
 	if len(td.InputSessions) == 0 {
@@ -412,6 +443,11 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 			default:
 				f = append(f, errorf(CodeInvalidValue, kptr,
 					`a rule_config value is a string (text) or {"value": "...", "type": "..."}`))
+			}
+			if key == NoTruthMainOnExist && SetsNoTruthMainOnExist(rc) {
+				f = append(f, errorf(CodeRefused, kptr,
+					"%s turned off truth maintenance on exist and exist_not filters: %s; remove it",
+					NoTruthMainOnExist, LegacyRetractionDeleted))
 			}
 		}
 	}

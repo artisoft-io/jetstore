@@ -30,8 +30,9 @@ import (
 type TestDefinition struct {
 	TestName string `json:"test_name"`
 	Comment  string `json:"comment,omitempty"`
-	// Legacy selects the engine's retraction behaviour for this test. Absent
-	// means legacy, field by field. Top level only (definition §8.5.2).
+	// Legacy selected the engine's retraction behaviour for this test until the
+	// LEGACY retraction mode was deleted (LegacyConfig). A switch set true is
+	// refused by validation. Top level only (definition §8.5.2).
 	Legacy *LegacyConfig `json:"legacy,omitempty"`
 	// CompareEngines ran the test on both engines, C++ and Go, and failed when they
 	// differed (definition Q-11). The Go engine is retired, so true is refused by
@@ -50,72 +51,49 @@ type TestDefinition struct {
 }
 
 // LegacyConfig carries the two LEGACY switches, one per retraction defect kept
-// on 2026-10-09 (jets/rete/README.md). nil means legacy; false turns
-// the defect off for this test. The names are the project definition's (§8.5.1).
+// from 2026-10-09 until October 2026, when the LEGACY retraction mode was deleted
+// and the C++ engine kept one retraction behaviour, the one these switches turned
+// on by setting them false (jets/rete/README.md). The object is still decoded, so
+// that validation can refuse a switch set true, naming the change; one whose every
+// present switch is false names the behaviour that remains and selects nothing
+// (rules_benchmark Q-102). The names are the project definition's (§8.5.1).
 type LegacyConfig struct {
-	// Defect 1: a consequent that reads the graph is recomputed on retraction.
+	// Defect 1: a consequent that reads the graph was recomputed on retraction.
 	RecomputeOnRetraction *bool `json:"recompute_on_retraction,omitempty"`
-	// Defect 2: a withdrawn row stays in its relation and never fires again.
+	// Defect 2: a withdrawn row stayed in its relation and never fired again.
 	WithdrawnRowStays *bool `json:"withdrawn_row_stays,omitempty"`
 }
 
-// Legacy-mode labels recorded on every result (definition §8.5.6).
-const (
-	LegacyModeLegacy = "legacy"  // both defects kept, as production runs
-	LegacyModeFixed  = "fixed"   // both defects off
-	LegacyModeFixed1 = "fixed-1" // defect 1 off, defect 2 kept
-	LegacyModeFixed2 = "fixed-2" // defect 2 off, defect 1 kept
-)
+// LegacyModeFixed is the legacy_mode every result records since the LEGACY
+// retraction mode was deleted: the one behaviour, which the mode called fixed.
+// Results and rows written before may record legacy, fixed-1 or fixed-2
+// (definition §8.5.6).
+const LegacyModeFixed = "fixed"
 
-// RecomputeOnRetractionOn reports defect 1's switch, true (legacy) when absent.
-func (l *LegacyConfig) RecomputeOnRetractionOn() bool {
-	return l == nil || l.RecomputeOnRetraction == nil || *l.RecomputeOnRetraction
-}
+// LegacyRetractionDeleted names the deletion of the LEGACY retraction mode, in the
+// message a request for it fails with: a legacy switch set true in a test or a
+// rules_bench spec, -legacy on the command line, and _0:no_truth_main_on_exist in
+// a rule_config. The C++ engine refuses _0:no_truth_main_on_exist at session start
+// in its own words.
+const LegacyRetractionDeleted = "the LEGACY retraction mode was deleted in October 2026; " +
+	"the C++ engine has one retraction behaviour, the one the mode called fixed"
 
-// WithdrawnRowStaysOn reports defect 2's switch, true (legacy) when absent.
-func (l *LegacyConfig) WithdrawnRowStaysOn() bool {
-	return l == nil || l.WithdrawnRowStays == nil || *l.WithdrawnRowStays
-}
-
-// ModeLabel is the legacy_mode recorded on the result. A nil receiver is legacy.
-func (l *LegacyConfig) ModeLabel() string {
-	d1, d2 := l.RecomputeOnRetractionOn(), l.WithdrawnRowStaysOn()
-	switch {
-	case d1 && d2:
-		return LegacyModeLegacy
-	case !d1 && !d2:
-		return LegacyModeFixed
-	case !d1:
-		return LegacyModeFixed1
-	default:
-		return LegacyModeFixed2
+// SwitchesOn lists the switches set true, which ask for a LEGACY behaviour, by
+// their JSON names. A nil receiver has none.
+func (l *LegacyConfig) SwitchesOn() []string {
+	var on []string
+	if l != nil && l.RecomputeOnRetraction != nil && *l.RecomputeOnRetraction {
+		on = append(on, "recompute_on_retraction")
 	}
-}
-
-// LegacyConfigOf is the legacy object a mode label names, the inverse of
-// ModeLabel: legacy (nil), fixed-1, fixed-2 or fixed.
-func LegacyConfigOf(label string) (*LegacyConfig, error) {
-	off := false
-	switch label {
-	case LegacyModeLegacy:
-		return nil, nil
-	case LegacyModeFixed1:
-		return &LegacyConfig{RecomputeOnRetraction: &off}, nil
-	case LegacyModeFixed2:
-		return &LegacyConfig{WithdrawnRowStays: &off}, nil
-	case LegacyModeFixed:
-		return &LegacyConfig{RecomputeOnRetraction: &off, WithdrawnRowStays: &off}, nil
+	if l != nil && l.WithdrawnRowStays != nil && *l.WithdrawnRowStays {
+		on = append(on, "withdrawn_row_stays")
 	}
-	return nil, fmt.Errorf("unknown legacy mode %q: want %s, %s, %s or %s", label,
-		LegacyModeLegacy, LegacyModeFixed1, LegacyModeFixed2, LegacyModeFixed)
+	return on
 }
 
-// LegacyMode is the test's legacy_mode label.
+// LegacyMode is the test's legacy_mode label: fixed, the one behaviour.
 func (td *TestDefinition) LegacyMode() string {
-	if td == nil {
-		return LegacyModeLegacy
-	}
-	return td.Legacy.ModeLabel()
+	return LegacyModeFixed
 }
 
 // Expectation names the outcome a test expects when it is not a pass.

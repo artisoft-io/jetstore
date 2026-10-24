@@ -4,6 +4,7 @@
 #include <limits>
 #include <optional>
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <vector>
 
@@ -51,6 +52,23 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
   return rdf::to_bool(&v);
 }
 
+namespace {
+
+// An integer literal of any width equal to 0
+bool
+is_integer_zero(rdf::r_index v)
+{
+  switch(v->which()) {
+    case rdf::rdf_literal_int32_t:  return boost::get<rdf::LInt32>(v)->data == 0;
+    case rdf::rdf_literal_uint32_t: return boost::get<rdf::LUInt32>(v)->data == 0;
+    case rdf::rdf_literal_int64_t:  return boost::get<rdf::LInt64>(v)->data == 0;
+    case rdf::rdf_literal_uint64_t: return boost::get<rdf::LUInt64>(v)->data == 0;
+    default: return false;
+  }
+}
+
+}   // namespace
+
 
   int 
   ReteSession::initialize()
@@ -64,19 +82,23 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     try {
       auto rmgr = rdf_session_->rmgr();
 
-      // Temp fix for legacy rules
+      // _0:no_truth_main_on_exist, deleted in 2026-10 with the LEGACY retraction mode:
+      // set to 1, it stopped exist and exist_not filters registering their callbacks.
+      // A rule configuration that still turns it on is refused here, where every
+      // session starts, rather than run with a behaviour it no longer gets. An integer
+      // 0 asks for what remains and is accepted (jets/rete/README.md).
       auto p = rmgr->get_resource("_0:no_truth_main_on_exist");
       if(p != nullptr) {
         auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, p);
-        if(v != nullptr) {
-          if(v->which() == rdf::rdf_literal_int32_t) {
-            no_truth_main_on_exist_ = boost::get<rdf::LInt32>(v)->data;
-          } else {
-            no_truth_main_on_exist_ = 0;
-          }
-        }
-        if (no_truth_main_on_exist_ == 1) {
-          LOG(INFO) << "ReteSession::Initialize: WARNING disabling truth main on exist for legacy rules, no_truth_main_on_exist_=" << no_truth_main_on_exist_;
+        if(v != nullptr and not is_integer_zero(v)) {
+          std::ostringstream msg;
+          auto const* type = rdf::which2type_name(v->which());
+          msg << "the rule configuration sets _0:no_truth_main_on_exist to " << v
+              << " (" << (type ? type : "?") << "): that switch was deleted with the LEGACY retraction mode (2026-10), and "
+                 "exist and exist_not filters always take part in truth maintenance; remove it";
+          LOG(ERROR) << "ReteSession::initialize: " << msg.str();
+          this->err_msg_ = msg.str();
+          return -1;
         }
       }
 
@@ -500,19 +522,18 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         if(beta_row->is_recording()) {
           // Replay what the row inferred: no expression is evaluated, so no entity is
           // minted and no jets:key is inserted. The record is emptied, not released:
-          // the row stays in its relation (see below) and can be retracted again, and
-          // must then replay nothing rather than fall back to recomputing.
+          // the row is erased below unless it was re-inserted meanwhile
+          // (erase_retracted_beta_row), and a row that stays must replay nothing if it
+          // is retracted again, rather than fall back to recomputing.
           auto recorded = beta_row->take_recorded();
           for(auto const& t3: recorded) {
             VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" (recorded) from row "<<beta_row;
             this->rdf_session_->retract(t3);
           }
         } else {
-          // Consequents that mint nothing are recomputed. For one that reads the graph
-          // (an aggregate, exist, size_of) that is LEGACY defect 1 -- see
-          // jets/rete/README.md, 2026-10-09 -- unless the meta store was
-          // initialized with RetractionMode::replay_graph_reading_consequents, when such
-          // a vertex records and is replayed above.
+          // Consequents that neither mint nor read the graph are recomputed: their
+          // triple depends on the row alone. One that reads the graph (an aggregate,
+          // exist, size_of) records and is replayed above (jets/rete/README.md).
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
@@ -520,18 +541,9 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
             this->rdf_session_->retract(std::move(t3));
           }
         }
-        // Remove row from beta node. KNOWN DEFECT, kept deliberately (2026-10-09):
-        // remove_beta_row returns at once for a row marked kDeleted -- which this row
-        // is -- so the retracted row stays in the relation as kProcessed and an equal
-        // row inserted later is taken for one already inferred: it never fires again.
-        // A client workspace's rules terminated only because of it; see jets/rete/README.md.
-        // A meta store initialized with RetractionMode::erase_withdrawn_rows, which only
-        // the rules unit test harness builds, erases the row instead.
-        if(this->rule_ms_->retraction_mode().erase_withdrawn_rows) {
-          beta_relation->erase_retracted_beta_row(beta_row);
-        } else {
-          beta_relation->remove_beta_row(this, beta_row);
-        }
+        // Erase the withdrawn row from its relation, so that an equal row inserted
+        // later fires again (jets/rete/README.md, the retraction record).
+        beta_relation->erase_retracted_beta_row(beta_row);
         beta_row->set_status(BetaRowStatus::kProcessed);
       }
     }

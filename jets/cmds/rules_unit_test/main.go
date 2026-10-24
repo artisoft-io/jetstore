@@ -83,12 +83,12 @@ func run(testPath string, limitErr error) *rulestest.Result {
 	home, ws := os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")
 	if limitErr != nil {
 		return &rulestest.Result{TestPath: testPath, Status: rulestest.StatusError, Reason: limitErr.Error(),
-			LegacyMode: rulestest.LegacyModeLegacy, Checks: []rulestest.CheckResult{}}
+			LegacyMode: rulestest.LegacyModeFixed, Checks: []rulestest.CheckResult{}}
 	}
 	if home == "" || ws == "" {
 		return &rulestest.Result{TestPath: testPath, Status: rulestest.StatusError,
 			Reason:     "WORKSPACES_HOME and WORKSPACE must name the workspace whose build/ the test runs against",
-			LegacyMode: rulestest.LegacyModeLegacy, Checks: []rulestest.CheckResult{}}
+			LegacyMode: rulestest.LegacyModeFixed, Checks: []rulestest.CheckResult{}}
 	}
 	root := filepath.Join(home, ws)
 	reexecForDebug(root, testPath)

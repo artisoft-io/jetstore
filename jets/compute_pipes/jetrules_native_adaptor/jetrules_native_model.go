@@ -23,8 +23,6 @@ type JetRuleEngineNative struct {
 	processName  string
 	js           *bridge.JetStore
 	isDebug      bool
-	// retractionMode is the LEGACY retraction mode the networks were built in
-	retractionMode compute_pipes.RetractionMode
 
 	// jetResourcesOnce guards jetResources, which the sessions of a pool share
 	jetResourcesOnce sync.Once

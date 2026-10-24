@@ -259,8 +259,8 @@ class AlphaNode {
 
   /**
    * @brief True when a functor is an expression that reads the graph (see
-   * ExprBase::reads_graph). Applicable to consequent terms. ReteMetaStore::initialize
-   * consults it only when its RetractionMode turns LEGACY defect 1 off.
+   * ExprBase::reads_graph). Applicable to consequent terms: ReteMetaStore::initialize
+   * makes such a vertex record its inferred triples, as a minting one does.
    */
   virtual bool
   reads_graph()const=0;

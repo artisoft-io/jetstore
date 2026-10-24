@@ -53,7 +53,9 @@ type Result struct {
 	Reason string `json:"reason,omitempty"`
 	// Engine is native (EngineNative).
 	Engine string `json:"engine"`
-	// LegacyMode is legacy, fixed, fixed-1 or fixed-2 (definition §8.5.6).
+	// LegacyMode is fixed, the one retraction behaviour since the LEGACY mode was
+	// deleted (October 2026); results written before may record legacy, fixed-1
+	// or fixed-2 (definition §8.5.6).
 	LegacyMode string `json:"legacy_mode"`
 	// LoadMs is building the engine,
 	// RunMs running the sessions and evaluating the checks, and DurationMs the

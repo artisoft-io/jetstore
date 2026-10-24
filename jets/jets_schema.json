@@ -2529,7 +2529,7 @@
       },
       {
         "columnName": "legacy_mode",
-        "description": "The LEGACY switches the test definition declares, as the compile recorded them; replaced by the harness's own report when the run ends.",
+        "description": "The retraction mode: fixed, the one behaviour since the LEGACY retraction mode was deleted (October 2026); rows written before may record legacy, fixed-1 or fixed-2.",
         "dataType": "text"
       },
       {

@@ -32,10 +32,10 @@ func TestParseSpec(t *testing.T) {
 	// A .tst.json, expectations and all, is a spec once a cap is given.
 	tst := `{
 	  "test_name": "t", "comment": "c",
-	  "legacy": {"recompute_on_retraction": true},
+	  "legacy": {"recompute_on_retraction": false},
 	  "compare_engines": false,
 	  "expect": {"status": "error"},
-	  "jetrules_config": {"process_name": "p.jr", "rule_config": [{"jets:key": "jets:iState"}, {"_0:no_truth_main_on_exist": "true"}]},
+	  "jetrules_config": {"process_name": "p.jr", "rule_config": [{"jets:key": "jets:iState"}, {"_0:no_truth_main_on_exist": {"value": "0", "type": "int"}}]},
 	  "input_sessions": [{"name": "m1", "input": ["m1.csv"],
 	    "expected_triples": [{"s": "a", "p": "b", "o": "c"}], "excluded_triples": []}],
 	  "expected_triples": [], "excluded_triples": []
@@ -55,6 +55,9 @@ func TestParseSpec(t *testing.T) {
 		{"go_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["native","go"]}`, rulestest.GoEngineRetired},
 		{"compare_engines", `{"bench_name":"b","compare_engines":true,"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
 		{"use_jet_rules_go", `{"bench_name":"b","jetrules_config":{"process_name":"p","use_jet_rules_go":true},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
+		// The LEGACY retraction mode is deleted (rules_benchmark Q-95, Q-96, Q-102).
+		{"legacy_switch_on", `{"bench_name":"b","legacy":{"withdrawn_row_stays":true},"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.LegacyRetractionDeleted},
+		{"no_truth_main_on_exist", `{"bench_name":"b","jetrules_config":{"process_name":"p","rule_config":[{"jets:key":"jets:iState","_0:no_truth_main_on_exist":{"value":"1","type":"int"}}]},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.LegacyRetractionDeleted},
 		{"bad_regex", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_dir":{"path":"d","name_regex":"("}}`, "name_regex"},
 		{"negative", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"repetitions":-1}`, "negative"},
 		{"two_values", minimalSpec + `{}`, "more than one"},
