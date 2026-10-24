@@ -3,9 +3,11 @@ package compute_pipes
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/optstats"
 	_ "modernc.org/sqlite"
 )
@@ -27,6 +29,13 @@ import (
 // that node; triples are matched to it by the node's identity key. So a rule's
 // constant and the graph's node are one node, and their keys agree by
 // construction.
+//
+// In a pipeline, the jetrules step's optimizer_statistics option makes each node
+// count over its sessions, its pool's workers sharing one OptimizerStats, and
+// write one partial file when they are done (writeOptimizerStatsPartial). The
+// count is made from the worker's AfterRuleSet, which a pipeline always installs
+// (reportRuleSet), so the option adds no hook and reads no clock: off, it costs a
+// nil check per rule set.
 //
 // The graph counted is everything the session's Find returns when the rule set
 // ends: the meta graph, the asserted and the inferred triples. That is what the
@@ -215,18 +224,47 @@ func (s *OptimizerStatsSession) Err() error {
 	return s.err
 }
 
-// Commit adds the session's statistics, each rule set it counted as one session.
-// A session with a counting error is refused.
+// Commit adds the session's statistics, each rule set it counted as one session,
+// all or none: a rule set the statistics refuse leaves them as they were. A
+// session with a counting error is refused.
 func (s *OptimizerStatsSession) Commit() error {
 	if s.err != nil {
 		return s.err
 	}
+	// One file of the session's rule sets, a rule set counted twice summed.
+	parts := make([]*optstats.File, len(s.counts))
 	for i, rs := range s.counts {
-		if err := s.stats.Add(s.ruleSets[i], rs); err != nil {
-			return err
-		}
+		parts[i] = optstats.New()
+		parts[i].RuleSets[s.ruleSets[i]] = rs
+	}
+	f, err := optstats.Merge(parts...)
+	if err != nil {
+		return fmt.Errorf("optimizer statistics: %v", err)
+	}
+	if err := s.stats.acc.AddFile(f); err != nil {
+		return fmt.Errorf("optimizer statistics: %v", err)
 	}
 	s.counts, s.ruleSets = nil, nil
+	return nil
+}
+
+// OptimizerStatsUploader is awsi.UploadBufToS3, indirected so that a test can see
+// a node's partial file without an AWS account. Nothing outside a test assigns it.
+var OptimizerStatsUploader = awsi.UploadBufToS3
+
+// writeOptimizerStatsPartial writes the node's statistics as its partial file,
+// optstats.PartialKey, in the jetstore bucket. A node that ran no session writes a
+// file with no rule set, which merges as nothing.
+func (ctx *BuilderContext) writeOptimizerStatsPartial(st *OptimizerStats) error {
+	buf, err := optstats.Marshal(st.File())
+	if err != nil {
+		return fmt.Errorf("optimizer statistics: %v", err)
+	}
+	key := optstats.PartialKey(awsi.JetStoreStagePrefix(), ctx.processName, ctx.sessionId, ctx.jetsPartition, ctx.nodeId)
+	if err := OptimizerStatsUploader("", key, buf); err != nil {
+		return fmt.Errorf("optimizer statistics: while writing %s: %v", key, err)
+	}
+	log.Printf("optimizer statistics: wrote %s, %d rule sets", key, st.Len())
 	return nil
 }
 

@@ -59,3 +59,16 @@ func ExtractRowsBothWaysForTest(rdfSession JetRdfSession, className string, colu
 	}
 	return pass, each, keyed
 }
+
+// SetOptimizerStatsForTest gives the worker the statistics a step with
+// optimizer_statistics on gives its pool's workers.
+func (ctx *JrPoolWorker) SetOptimizerStatsForTest(st *OptimizerStats) {
+	ctx.stats = st
+}
+
+// WriteOptimizerStatsPartialForTest writes st as the node's partial file, as the
+// pool manager does when the node's workers are done.
+func WriteOptimizerStatsPartialForTest(processName, sessionId, jetsPartition string, nodeId int, st *OptimizerStats) error {
+	ctx := &BuilderContext{processName: processName, sessionId: sessionId, jetsPartition: jetsPartition, nodeId: nodeId}
+	return ctx.writeOptimizerStatsPartial(st)
+}

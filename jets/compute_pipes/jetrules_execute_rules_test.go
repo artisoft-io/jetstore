@@ -86,7 +86,14 @@ func TestExecuteRulesCharacterisation(t *testing.T) {
 		runCharacterisation(t, home)
 		return
 	}
+	rerunOverScratchTestWs(t, characterisationHomeEnv)
+}
 
+// rerunOverScratchTestWs copies jets/jetrules/test_ws to a scratch home and runs
+// the calling test again in a child process pointed at it, with homeEnv set to
+// the home; the child sees homeEnv and runs the cases.
+func rerunOverScratchTestWs(t *testing.T, homeEnv string) {
+	t.Helper()
 	wd, err := os.Getwd() // jets/compute_pipes
 	if err != nil {
 		t.Fatal(err)
@@ -116,18 +123,18 @@ func TestExecuteRulesCharacterisation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestExecuteRulesCharacterisation$", "-test.count=1", "-test.v")
+	cmd := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$", "-test.count=1", "-test.v")
 	cmd.Env = append(os.Environ(),
 		"WORKSPACES_HOME="+home,
 		"WORKSPACE=test_ws",
 		"JETS_WORKSPACE_DB_SCHEMA_SCRIPT="+filepath.Join(root, "jets", "workspace_schema.sql"),
-		characterisationHomeEnv+"="+home,
+		homeEnv+"="+home,
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("the characterisation cases failed in the child process: %v\n%s", err, childFailures(out))
+		t.Fatalf("the cases failed in the child process: %v\n%s", err, childFailures(out))
 	}
-	if strings.Contains(string(out), "--- SKIP: TestExecuteRulesCharacterisation") {
+	if strings.Contains(string(out), "--- SKIP: "+t.Name()) {
 		t.Skipf("skipped in the child process:\n%s", childFailures(out))
 	}
 	if testing.Verbose() {

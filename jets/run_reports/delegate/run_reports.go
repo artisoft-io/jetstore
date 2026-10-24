@@ -216,7 +216,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		}
 		// Determine if the file is a sql reports or a sql script, sql script are executed in one go
 		// while sql report are executed statement by statement with results generally saved to s3 (most common)
-		reportFnc := ca.InstallSpecificFunc[reportScript]
+		reportFnc := ca.reportFunc(reportScript)
 		switch {
 		case reportFnc != nil:
 			// case reportScript is a registered function:
@@ -282,7 +282,8 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		// sync s3 reports to to db and locally
 		// to make sure we get the report we just created
 		for i := range updatedKeys {
-			err = awsi.SyncS3Files(dbpool, ca.WorkspaceName, updatedKeys[i], reportDirectives.OutputPath+"/", "lookups")
+			trimPrefix, contentType := workspaceOverride(updatedKeys[i], ca.WorkspaceName, reportDirectives.OutputPath)
+			err = awsi.SyncS3Files(dbpool, ca.WorkspaceName, updatedKeys[i], trimPrefix, contentType)
 			if err != nil {
 				return fmt.Errorf("run_reports: failed to sync s3 files: %v", err)
 			}

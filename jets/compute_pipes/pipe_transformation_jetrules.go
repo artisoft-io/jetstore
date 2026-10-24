@@ -9,6 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -268,11 +269,20 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Setup a worker pool
+	// The optimizer's statistics, counted only when the step asks for them.
+	var stats *OptimizerStats
+	if config.OptimizerStatistics {
+		stats, err = LoadOptimizerStats(workspace.WorkspaceDbPath())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var jrPoolManager *JrPoolManager
 	workerResultCh := make(chan JetrulesWorkerResult, 10)
 	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
 	jrPoolManager = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine,
-		errorOutputCh, jetrulesOutputChan, workerResultCh)
+		errorOutputCh, jetrulesOutputChan, workerResultCh, stats)
 
 	// All good!
 	log.Printf("*** NewJetrulesTransformationPipe: exiting SUCCESS")
