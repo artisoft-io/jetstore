@@ -81,6 +81,8 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	// Finally walk the tree
 	var hasError bool
 	antlr.ParseTreeWalkerDefault.Walk(c.listener, tree)
+	// What the cost order did, when the workspace has statistics
+	c.listener.writeCostOrderReport()
 	if c.Trace() {
 		log.Println("** Compilation successful")
 	}

@@ -1,0 +1,66 @@
+# The cost order's fixture (rules_benchmark Phase 9, BY.2): three rules whose
+# best order is a property of the data, as optimizer_statistics.json describes
+# it, and two the cost order must leave to the score.
+main {
+  $max_rule_exec = 5000,
+  $max_looping = 5,
+  $input_types = [acme:Claim]
+};
+
+# A membership term against a join through a bound object, which score the
+# same (constant subject 100 + predicate 140 + free object 20, against free
+# subject 20 + predicate 140 + bound object 100). The score keeps the
+# membership first, as written; the statistics make the join far smaller.
+[COST_A]:
+(?c rdf:type acme:Claim).
+(?c acme:code ?code).
+(acme:Config acme:watchedProvider ?p).
+(?d acme:code ?code).
+(?d acme:provider ?p)
+->
+(?c acme:sharesCodeWithWatched ?d);
+
+# A broad scan by type, which the score's rdf:type bonus puts ahead of the
+# selective join through a bound object that should precede it.
+[COST_B]:
+(?c rdf:type acme:Claim).
+(?c acme:provider ?p).
+(?q rdf:type acme:Provider).
+(?p acme:network ?n).
+(?q acme:network ?n)
+->
+(?c acme:inNetworkWith ?q);
+
+# A long rule: after the anchor's attributes, the join on the shared bound
+# value (the service date) must come next, before the term that pairs the
+# anchor with every other claim.
+[COST_C]:
+(?c rdf:type acme:Claim).
+(?d rdf:type acme:Claim).
+(?d acme:member ?m2).
+(?c acme:member ?m).
+(?c acme:serviceDate ?dt).
+(?c acme:code ?code).
+(?d acme:serviceDate ?dt).
+[?c != ?d]
+(?d acme:code ?code2).
+[?m == ?m2]
+(?d acme:amount ?amt)
+->
+(?c acme:sameDayAs ?d);
+
+# A predicate the statistics do not count: the score order.
+[COST_FALLBACK]:
+(?c rdf:type acme:Claim).
+(acme:Config acme:unlisted ?x).
+(?d acme:code ?x)
+->
+(?c acme:unlistedMatch ?d);
+
+# o=false: the authored order.
+[COST_OFF, o=false]:
+(?d acme:code ?code).
+(?c rdf:type acme:Claim).
+(?c acme:code ?code)
+->
+(?c acme:sameCode ?d);
