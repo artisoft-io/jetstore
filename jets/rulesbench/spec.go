@@ -59,8 +59,10 @@ type Spec struct {
 	PoolSize int `json:"pool_size,omitempty"`
 	// MaxVertexVisits is the cap on visits per vertex, set as
 	// (jets:iState jets:max_vertex_visits n) in the meta graph. A cap is
-	// required, because C++ has none by default (rules_benchmark F9): this, or -max_vertex_visits, or a jets:max_vertex_visits in
-	// rule_config, as a unit test's may have. This replaces rule_config's, so the cap is
+	// required, so a bench does not measure under C++'s default of 10,000, which
+	// production processes do not use (rules_benchmark F9, Q-83): this, or
+	// -max_vertex_visits, or a jets:max_vertex_visits in rule_config, as a unit
+	// test's may have. This replaces rule_config's, so the cap is
 	// set once.
 	MaxVertexVisits int `json:"max_vertex_visits,omitempty"`
 	// MaxLooping, when set, replaces jetrules_config.max_looping, which itself

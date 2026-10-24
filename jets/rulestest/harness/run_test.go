@@ -137,9 +137,9 @@ p2,lp:Person,Bob
 p3,lp:Person,
 `
 
-// vertexCap is the Go engine's default vertex visit cap, given to the fixtures through
-// rule_config since C++ has none: a rule that stopped terminating then fails the
-// test instead of hanging it.
+// vertexCap is 10,000 visits, given to the fixtures through rule_config: the Go
+// engine's default, and C++'s since rules_benchmark Q-83, set explicitly so a rule
+// that stopped terminating fails the test instead of hanging it, whatever the default.
 func vertexCap() []any {
 	return []any{map[string]any{"jets:key": "jets:iState",
 		"jets:max_vertex_visits": map[string]any{"value": "10000", "type": "int"}}}

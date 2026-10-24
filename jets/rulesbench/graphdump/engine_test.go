@@ -190,7 +190,8 @@ func TestSessionDump(t *testing.T) {
 		t.Fatalf("building the C++ engine: %v", err)
 	}
 	defer engine.Release()
-	// The Go engine's default cap, which C++ lacks, so that a rule that stopped
+	// 10,000 visits, set explicitly: the Go engine's default, and C++'s since
+	// rules_benchmark Q-83, which had none before, so that a rule that stopped
 	// terminating fails the test instead of hanging it.
 	jr := engine.JetResources()
 	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {

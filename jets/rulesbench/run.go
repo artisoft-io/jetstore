@@ -133,7 +133,7 @@ func Run(opts Options) ([]*RunResult, error) {
 		mvv, mvvFrom = spec.MaxVertexVisits, "spec"
 	}
 	if mvv == 0 {
-		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: C++ has no default cap (rules_benchmark F9)")
+		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: a bench names its cap rather than run at C++'s default of 10,000, which production does not use (rules_benchmark F9, Q-83)")
 	}
 	maxLooping := spec.JetrulesConfig.MaxLooping
 	if spec.MaxLooping != nil {

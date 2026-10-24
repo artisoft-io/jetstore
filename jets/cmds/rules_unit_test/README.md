@@ -141,9 +141,11 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   `$max_looping` (read from the code, 2026-10-22). To set a vertex-visit limit, put
   `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`: the harness asserts
   `rule_config` into the meta graph before the first RDF session opens, and the C++ engine reads it
-  from the RDF session when each rete session initialises. **Without it the engine has no limit**,
-  so a test that may not terminate should set it. (The Go engine stopped at a default of 10,000
-  visits, and honoured the triple too, measured 2026-10-11.)
+  from the RDF session when each rete session initialises. **Without it the engine stops at its
+  default of 10,000 visits of a rule's vertex** (since rules_benchmark Phase 7, `Q-83`; it had no
+  limit before), and the error names the default and the setting that changes it. A test that
+  needs more, or a deliberately lower limit, sets it. (The Go engine had the same default of
+  10,000, and honoured the triple too, measured 2026-10-11.)
 - **C++ words the limit** `Maximum vertex visits reached`; an `expect.reason` naming it, or
   `vertex visit`, matches.
 
