@@ -44,6 +44,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"os"
 	"sort"
 )
@@ -106,8 +107,9 @@ func (f *File) ForRuleSet(ruleSet string) *RuleSet {
 
 // Decode reads and validates a statistics file. The format and version are
 // checked first, so that a file of another version is refused as such rather
-// than as malformed; then the file is read strictly, an unknown field being an
-// error, and validated.
+// than as malformed. Then the file is read strictly: every field name must be
+// the format's, in its exact case, and no object may hold a key twice, though
+// encoding/json alone would accept both (checkKeys). Then it is validated.
 func Decode(r io.Reader) (*File, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
@@ -133,6 +135,9 @@ func Decode(r io.Reader) (*File, error) {
 			got = fmt.Sprint(*head.Version)
 		}
 		return nil, fmt.Errorf("statistics file version %s is not supported: this JetStore reads version %d", got, Version)
+	}
+	if err := checkKeys(b); err != nil {
+		return nil, fmt.Errorf("malformed statistics file: %w", err)
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -302,7 +307,9 @@ func Merge(files ...*File) (*File, error) {
 	return out, nil
 }
 
-// add adds rs into f's rule set name, or copies it in when f has none.
+// add adds rs into f's rule set name, or copies it in when f has none. The sums
+// are made on a copy and kept only when none overflows, so a refused add leaves
+// f as it was.
 func (f *File) add(name string, rs *RuleSet) error {
 	dst := f.RuleSets[name]
 	if dst == nil {
@@ -312,24 +319,44 @@ func (f *File) add(name string, rs *RuleSet) error {
 	if !dst.sameKeys(rs) {
 		return fmt.Errorf("rule set %q: the predicates or constant pairs differ, so the two were counted against different networks", name)
 	}
-	dst.Sessions += rs.Sessions
+	sum := dst.clone()
+	var err error
+	add := func(a *int64, b int64) {
+		if err == nil {
+			*a, err = checkedAdd(*a, b)
+		}
+	}
+	add(&sum.Sessions, rs.Sessions)
 	for p, c := range rs.Predicates {
-		d := dst.Predicates[p]
-		d.Triples += c.Triples
-		d.Subjects += c.Subjects
-		d.Objects += c.Objects
+		d := sum.Predicates[p]
+		add(&d.Triples, c.Triples)
+		add(&d.Subjects, c.Subjects)
+		add(&d.Objects, c.Objects)
 	}
-	for p, m := range rs.SubjectConstants {
-		for t, n := range m {
-			dst.SubjectConstants[p][t] += n
+	for _, side := range []struct{ dst, src map[string]map[string]int64 }{
+		{sum.SubjectConstants, rs.SubjectConstants}, {sum.ObjectConstants, rs.ObjectConstants}} {
+		for p, m := range side.src {
+			for t, n := range m {
+				v := side.dst[p][t]
+				add(&v, n)
+				side.dst[p][t] = v
+			}
 		}
 	}
-	for p, m := range rs.ObjectConstants {
-		for t, n := range m {
-			dst.ObjectConstants[p][t] += n
-		}
+	if err != nil {
+		return fmt.Errorf("rule set %q: %w", name, err)
 	}
+	f.RuleSets[name] = sum
 	return nil
+}
+
+// checkedAdd is a + b for counts, which are not negative, or an error when the
+// sum does not fit: the merge is exact or refused.
+func checkedAdd(a, b int64) (int64, error) {
+	if b > math.MaxInt64-a {
+		return 0, fmt.Errorf("a count overflows: %d + %d", a, b)
+	}
+	return a + b, nil
 }
 
 func (rs *RuleSet) clone() *RuleSet {
@@ -460,4 +487,91 @@ func (rs *RuleSet) PredicateNames() []string {
 		return nil
 	}
 	return sortedKeys(rs.Predicates)
+}
+
+// keyShape is the format's object structure, for checkKeys: an object with
+// named fields, a map whose values all have one shape, or a scalar.
+type keyShape struct {
+	fields map[string]*keyShape
+	elem   *keyShape
+}
+
+var (
+	scalarShape    = &keyShape{}
+	predicateShape = &keyShape{fields: map[string]*keyShape{
+		"triples": scalarShape, "subjects": scalarShape, "objects": scalarShape}}
+	pairsShape   = &keyShape{elem: &keyShape{elem: scalarShape}}
+	ruleSetShape = &keyShape{fields: map[string]*keyShape{
+		"sessions":          scalarShape,
+		"predicates":        {elem: predicateShape},
+		"subject_constants": pairsShape,
+		"object_constants":  pairsShape,
+	}}
+	fileShape = &keyShape{fields: map[string]*keyShape{
+		"format": scalarShape, "version": scalarShape, "rule_sets": {elem: ruleSetShape}}}
+)
+
+// checkKeys walks the document's tokens and refuses what encoding/json would let
+// through: a field name in another case than the format's ("Sessions"), which
+// it matches case-insensitively, and a key repeated in one object, of which it
+// keeps the last. Values are checked by the decode that follows.
+func checkKeys(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	return walkKeys(dec, fileShape, "")
+}
+
+func walkKeys(dec *json.Decoder, shape *keyShape, path string) error {
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := tok.(json.Delim)
+	if !ok {
+		return nil
+	}
+	if delim == '[' {
+		for dec.More() {
+			if err := walkKeys(dec, scalarShape, path+"[]"); err != nil {
+				return err
+			}
+		}
+		_, err = dec.Token()
+		return err
+	}
+	seen := map[string]bool{}
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		key := tok.(string)
+		if seen[key] {
+			return fmt.Errorf("%s: key %q appears twice", orRoot(path), key)
+		}
+		seen[key] = true
+		child := scalarShape
+		switch {
+		case shape.fields != nil:
+			c, ok := shape.fields[key]
+			if !ok {
+				return fmt.Errorf("%s: unknown field %q", orRoot(path), key)
+			}
+			child = c
+		case shape.elem != nil:
+			child = shape.elem
+		}
+		if err := walkKeys(dec, child, path+"/"+key); err != nil {
+			return err
+		}
+	}
+	_, err = dec.Token()
+	return err
+}
+
+func orRoot(path string) string {
+	if path == "" {
+		return "/"
+	}
+	return path
 }

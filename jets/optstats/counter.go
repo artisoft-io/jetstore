@@ -83,33 +83,47 @@ type pairCounter struct {
 // NewCounter is a counter for w over a session in which identity gives each
 // wanted term's identity, from its key. A term for which identity reports false
 // is one the session does not hold, and its counts are zero. Identities must be
-// comparable.
-func NewCounter(w *Wanted, identity func(key string) (any, bool)) *Counter {
+// comparable, and two different keys must not share one: that would merge two
+// terms' counts, and NewCounter refuses it.
+func NewCounter(w *Wanted, identity func(key string) (any, bool)) (*Counter, error) {
 	c := &Counter{wanted: w, preds: map[any]*predCounter{}}
-	for p := range w.Predicates {
+	for _, p := range sortedKeys(w.Predicates) {
 		id, ok := identity(p)
 		if !ok {
 			continue
 		}
+		if other := c.preds[id]; other != nil {
+			return nil, fmt.Errorf("predicates %q and %q have one identity", other.key, p)
+		}
 		pc := &predCounter{key: p, subjects: map[any]struct{}{}, objects: map[any]struct{}{}}
-		pc.subjectPairs = pairCounters(w.SubjectPairs[p], identity)
-		pc.objectPairs = pairCounters(w.ObjectPairs[p], identity)
+		var err error
+		if pc.subjectPairs, err = pairCounters(p, w.SubjectPairs[p], identity); err != nil {
+			return nil, err
+		}
+		if pc.objectPairs, err = pairCounters(p, w.ObjectPairs[p], identity); err != nil {
+			return nil, err
+		}
 		c.preds[id] = pc
 	}
-	return c
+	return c, nil
 }
 
-func pairCounters(terms map[string]bool, identity func(string) (any, bool)) map[any]*pairCounter {
+func pairCounters(p string, terms map[string]bool, identity func(string) (any, bool)) (map[any]*pairCounter, error) {
 	if len(terms) == 0 {
-		return nil
+		return nil, nil
 	}
 	m := make(map[any]*pairCounter, len(terms))
-	for t := range terms {
-		if id, ok := identity(t); ok {
-			m[id] = &pairCounter{key: t}
+	for _, t := range sortedKeys(terms) {
+		id, ok := identity(t)
+		if !ok {
+			continue
 		}
+		if other := m[id]; other != nil {
+			return nil, fmt.Errorf("constants %q and %q of predicate %q have one identity", other.key, t, p)
+		}
+		m[id] = &pairCounter{key: t}
 	}
-	return m
+	return m, nil
 }
 
 // Wants reports whether the triples with predicate p are counted. A caller may

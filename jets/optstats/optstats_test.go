@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io/fs"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -23,7 +24,10 @@ func count(w *Wanted, g []triple) *RuleSet {
 	for _, t := range g {
 		present[t.s], present[t.p], present[t.o] = true, true, true
 	}
-	c := NewCounter(w, func(k string) (any, bool) { return k, present[k] })
+	c, err := NewCounter(w, func(k string) (any, bool) { return k, present[k] })
+	if err != nil {
+		panic(err)
+	}
 	for _, t := range g {
 		if c.Wants(t.p) {
 			c.Add(t.s, t.p, t.o)
@@ -329,7 +333,11 @@ func TestTermKey(t *testing.T) {
 	}{
 		{"resource", "rdf:type", "rdf:type", true},
 		{"resource", "", "", false},
-		{"volatile_resource", "gate1", "_0:gate1", true},
+		{"volatile_resource", "gate1", "_0:gate1", true},    // inline, and as workspace.db holds it
+		{"volatile_resource", "_0:gate1", "_0:gate1", true}, // declared, as the compiler holds it
+		{"volatile_resource", "_0:", "", false},
+		{"volatile_resource", "", "", false},
+		{"identifier", "gate1", "", false},
 		{"text", `say "hi"`, `"say \"hi\""`, true},
 		{"text", "", `""`, true},
 		{"int", "3", "3^^int", true},
@@ -370,7 +378,10 @@ func TestCounterByIdentity(t *testing.T) {
 	w.AddAntecedent("", "absent", "")
 	type node struct{ id int }
 	ids := map[string]any{"p": node{1}, "c": node{2}}
-	c := NewCounter(w, func(k string) (any, bool) { id, ok := ids[k]; return id, ok })
+	c, err := NewCounter(w, func(k string) (any, bool) { id, ok := ids[k]; return id, ok })
+	if err != nil {
+		t.Fatal(err)
+	}
 	if c.Wants(node{9}) || !c.Wants(node{1}) {
 		t.Errorf("Wants")
 	}
@@ -387,5 +398,73 @@ func TestCounterByIdentity(t *testing.T) {
 	}
 	if rs.ObjectConstants["p"]["c"] != 2 {
 		t.Errorf("(*, p, c) = %d", rs.ObjectConstants["p"]["c"])
+	}
+}
+
+// A merge is exact or refused: a sum that would overflow int64 is an error, and
+// the accumulator keeps what it had.
+func TestMergeRefusesAnOverflow(t *testing.T) {
+	big := count(acmeWanted(), acmeSession(1, 2))
+	big.Predicates["rdf:type"].Triples = math.MaxInt64 - 1
+	big.Predicates["rdf:type"].Subjects = 2
+	a, b := New(), New()
+	a.RuleSets["r.jr"] = big
+	b.RuleSets["r.jr"] = count(acmeWanted(), acmeSession(1, 2))
+	if _, err := Merge(a, b); err == nil || !strings.Contains(err.Error(), "overflows") {
+		t.Errorf("Merge: %v", err)
+	}
+	acc := NewAccumulator()
+	if err := acc.Add("r.jr", big); err != nil {
+		t.Fatal(err)
+	}
+	if err := acc.Add("r.jr", count(acmeWanted(), acmeSession(1, 2))); err == nil {
+		t.Errorf("Accumulator.Add: no error")
+	}
+	got := acc.File().RuleSets["r.jr"]
+	if got.Sessions != 1 || got.Predicates["rdf:type"].Triples != math.MaxInt64-1 {
+		t.Errorf("the refused add changed the accumulator: %d sessions, %d triples", got.Sessions, got.Predicates["rdf:type"].Triples)
+	}
+}
+
+// Field names in another case and keys given twice, which encoding/json alone
+// accepts, are refused.
+func TestDecodeRefusesCaseAndDuplicateKeys(t *testing.T) {
+	good := `{"format": "jetstore.optimizer_statistics", "version": 1, "rule_sets": {"r.jr": {"sessions": 2,
+	  "predicates": {"p": {"triples": 4, "subjects": 2, "objects": 3}},
+	  "subject_constants": {}, "object_constants": {"p": {"\"a\"": 1}}}}}`
+	for _, c := range []struct{ name, in, want string }{
+		{"Sessions", strings.Replace(good, `"sessions"`, `"Sessions"`, 1), `unknown field "Sessions"`},
+		{"Triples", strings.Replace(good, `"triples"`, `"Triples"`, 1), `unknown field "Triples"`},
+		{"RULE_SETS", strings.Replace(good, `"rule_sets"`, `"RULE_SETS"`, 1), `unknown field "RULE_SETS"`},
+		{"sessions twice", strings.Replace(good, `"sessions": 2`, `"sessions": 2, "sessions": 9`, 1), `key "sessions" appears twice`},
+		{"a predicate twice", strings.Replace(good, `"predicates": {"p": {"triples": 4, "subjects": 2, "objects": 3}}`,
+			`"predicates": {"p": {"triples": 4, "subjects": 2, "objects": 3}, "p": {"triples": 1, "subjects": 1, "objects": 1}}`, 1), `key "p" appears twice`},
+		{"a pair twice", strings.Replace(good, `{"\"a\"": 1}`, `{"\"a\"": 1, "\"a\"": 2}`, 1), `appears twice`},
+		{"a rule set twice", strings.TrimSuffix(good, "}}") + `, "r.jr": {}}}`, `key "r.jr" appears twice`},
+	} {
+		_, err := Decode(strings.NewReader(c.in))
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: got %v, want an error containing %q", c.name, err, c.want)
+		}
+	}
+	if _, err := Decode(strings.NewReader(good)); err != nil {
+		t.Errorf("the good file: %v", err)
+	}
+}
+
+// Two wanted keys with one identity would merge two terms' counts.
+func TestNewCounterRefusesSharedIdentities(t *testing.T) {
+	w := NewWanted()
+	w.AddAntecedent("", "p", "")
+	w.AddAntecedent("", "q", "")
+	if _, err := NewCounter(w, func(string) (any, bool) { return 1, true }); err == nil || !strings.Contains(err.Error(), "have one identity") {
+		t.Errorf("predicates: %v", err)
+	}
+	w = NewWanted()
+	w.AddAntecedent("", "p", `"a"`)
+	w.AddAntecedent("", "p", "1^^int")
+	ids := map[string]any{"p": 1, `"a"`: 2, "1^^int": 2}
+	if _, err := NewCounter(w, func(k string) (any, bool) { return ids[k], true }); err == nil || !strings.Contains(err.Error(), "of predicate") {
+		t.Errorf("constants: %v", err)
 	}
 }
