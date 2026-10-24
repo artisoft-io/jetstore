@@ -312,6 +312,18 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		cpErr = ctx.statsSession.Err()
 		goto gotError
 	}
+	// The bundle's statistics count only if it did not fail: no ExecuteRules error
+	// (the vertex cap is one) and no jets:exception, as rules_bench -stats counts
+	// a session. A bundle that reached max_looping counts, as there, so this is
+	// before the on_error policy, whose drop would return before it. Every
+	// failure after it goes to gotError, which ends the step, and a node whose
+	// step has failed writes no partial.
+	if ctx.statsSession != nil && outcome.ExecuteErr == nil && len(outcome.Exceptions) == 0 {
+		if err = ctx.statsSession.Commit(); err != nil {
+			cpErr = err
+			goto gotError
+		}
+	}
 
 	// // Print rdf session if in debug mode
 	// // if isDebug {
@@ -353,16 +365,6 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	}
 
 	// log.Println("*** Pool Worker == Done Extracting Session DATA")
-
-	// The bundle's statistics count only if it did not fail: no ExecuteRules error
-	// (the vertex cap is one) and no jets:exception, as rules_bench -stats counts
-	// a session. A bundle that reached max_looping counts, as there.
-	if ctx.statsSession != nil && outcome.ExecuteErr == nil && len(outcome.Exceptions) == 0 {
-		if err = ctx.statsSession.Commit(); err != nil {
-			cpErr = err
-			goto gotError
-		}
-	}
 
 	return
 
