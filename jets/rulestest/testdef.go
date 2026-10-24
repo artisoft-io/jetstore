@@ -92,6 +92,24 @@ func (l *LegacyConfig) ModeLabel() string {
 	}
 }
 
+// LegacyConfigOf is the legacy object a mode label names, the inverse of
+// ModeLabel: legacy (nil), fixed-1, fixed-2 or fixed.
+func LegacyConfigOf(label string) (*LegacyConfig, error) {
+	off := false
+	switch label {
+	case LegacyModeLegacy:
+		return nil, nil
+	case LegacyModeFixed1:
+		return &LegacyConfig{RecomputeOnRetraction: &off}, nil
+	case LegacyModeFixed2:
+		return &LegacyConfig{WithdrawnRowStays: &off}, nil
+	case LegacyModeFixed:
+		return &LegacyConfig{RecomputeOnRetraction: &off, WithdrawnRowStays: &off}, nil
+	}
+	return nil, fmt.Errorf("unknown legacy mode %q: want %s, %s, %s or %s", label,
+		LegacyModeLegacy, LegacyModeFixed1, LegacyModeFixed2, LegacyModeFixed)
+}
+
 // LegacyMode is the test's legacy_mode label.
 func (td *TestDefinition) LegacyMode() string {
 	if td == nil {

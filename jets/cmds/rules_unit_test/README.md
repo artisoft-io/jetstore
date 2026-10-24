@@ -141,9 +141,11 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   `$max_looping` (read from the code, 2026-10-22). To set a vertex-visit limit, put
   `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`: the harness asserts
   `rule_config` into the meta graph before the first RDF session opens, and the C++ engine reads it
-  from the RDF session when each rete session initialises. **Without it the engine has no limit**,
-  so a test that may not terminate should set it. (The Go engine stopped at a default of 10,000
-  visits, and honoured the triple too, measured 2026-10-11.)
+  from the RDF session when each rete session initialises. **Without it the engine stops at its
+  default of 10,000 visits of a rule's vertex** (since rules_benchmark Phase 7, `Q-83`; it had no
+  limit before), and the error names the default and the setting that changes it. A test that
+  needs more, or a deliberately lower limit, sets it. (The Go engine had the same default of
+  10,000, and honoured the triple too, measured 2026-10-11.)
 - **C++ words the limit** `Maximum vertex visits reached`; an `expect.reason` naming it, or
   `vertex visit`, matches.
 
@@ -202,8 +204,16 @@ A check takes one of three forms:
 ## Input CSVs
 
 - **Columns are read by header, in any order.** Each one must be a data property of the
-  workspace (`build/properties.json`). A misspelt column is refused, naming the file, the column
-  and the closest property.
+  workspace (`build/properties.json`), or a rule-local `_0:` property (below). A misspelt
+  column is refused, naming the file, the column and the closest property.
+- **A `_0:` column is a rule-local property** (`I-20`): the compiler adds one for a name no
+  declaration names, so `properties.json` does not list it and a pipeline's input never carries
+  one. Write `_0:<name>` for text or `_0:<name> as <type>`, the type one of `int`, `uint`,
+  `long`, `ulong`, `double`, `text`, `date`, `datetime`, `bool`; each cell is cast by it as a
+  data property's cell is cast by the property's type. The triples are asserted on the row's
+  `jets:key`, so **a file with a `_0:` column needs a `jets:key` column**, and a row with a
+  `_0:` value needs a key. `rules_bench` refuses a `_0:` column: it asserts its input as a
+  pipeline does.
 - **Each cell is cast by its property's type**, as a pipeline casts text input. A midnight time
   is asserted as a date, whatever the property's type, so `2024-01-01T00:00:00` is the date
   `2024-01-01` (definition `F25`).

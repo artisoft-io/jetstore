@@ -51,7 +51,6 @@ func TestParseSpec(t *testing.T) {
 		{"no_process", `{"bench_name":"b","jetrules_config":{},"input_sessions":[{"name":"m","input":["x"]}]}`, "process_name"},
 		{"no_input", `{"bench_name":"b","jetrules_config":{"process_name":"p"}}`, "input_sessions or input_dir"},
 		{"bad_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["cpp"]}`, "unknown engine"},
-		{"legacy_off", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"legacy":{"withdrawn_row_stays":false}}`, "production's retraction mode"},
 		// The Go engine is retired (rules_benchmark Q-77): asking for it is refused.
 		{"go_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["native","go"]}`, rulestest.GoEngineRetired},
 		{"compare_engines", `{"bench_name":"b","compare_engines":true,"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},

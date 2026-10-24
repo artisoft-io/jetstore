@@ -8924,7 +8924,7 @@
             }
           ],
           "default": null,
-          "description": "UseJetRulesGo when true use the jetrules go engine.",
+          "description": "Asked for the Go rules engine, retired in October 2026: true is refused when the pipeline starts, false is accepted.",
           "title": "Use Jet Rules Go"
         },
         "use_jet_rules_native": {
@@ -8937,7 +8937,7 @@
             }
           ],
           "default": null,
-          "description": "UseJetRulesNative when true use the jetrules native engine.",
+          "description": "Names the native (C++) rules engine, the only one; set or not, it is used.",
           "title": "Use Jet Rules Native"
         }
       },

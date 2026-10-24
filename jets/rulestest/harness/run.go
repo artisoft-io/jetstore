@@ -94,9 +94,15 @@ func Run(opts Options) *rulestest.Result {
 // asks for: a switch that is absent or true keeps its defect, false turns it off.
 // Labels agree: RetractionModeOf(td).Label() == td.LegacyMode().
 func RetractionModeOf(td *rulestest.TestDefinition) compute_pipes.RetractionMode {
+	return RetractionModeOfLegacy(td.Legacy)
+}
+
+// RetractionModeOfLegacy is RetractionModeOf for a legacy object alone, which
+// the rules_bench spec also carries. A nil object is legacy.
+func RetractionModeOfLegacy(l *rulestest.LegacyConfig) compute_pipes.RetractionMode {
 	return compute_pipes.RetractionMode{
-		ReplayGraphReadingConsequents: !td.Legacy.RecomputeOnRetractionOn(),
-		EraseWithdrawnRows:            !td.Legacy.WithdrawnRowStaysOn(),
+		ReplayGraphReadingConsequents: !l.RecomputeOnRetractionOn(),
+		EraseWithdrawnRows:            !l.WithdrawnRowStaysOn(),
 	}
 }
 

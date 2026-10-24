@@ -95,6 +95,8 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-require_tuned` | refuse to run unless every allowed CPU uses the `performance` governor and `perf_event_paranoid` is 1 or less. The protocol script always passes it |
 | `-dump_dir` | write the canonical graph dump after each rule set. Each repetition is a dump tree of its own: `<dir>/r01/…` for the first measured repetition, `<dir>/w01/…` for the first warmup run. Inside each is `jets/cmds/rules_bench_diff`'s layout, `<engine>/<session>/<NN>_<ruleset>.tsv`. So `r01` against `r02` compares the engine with itself (before the Go engine's retirement, the engines compared within `r01`). The dump is `graphdump.WriteSession` with its default options, so the meta graph is left out. A run with a dump is not a timing run; measured runs leave it off |
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
+| `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). It is what lets the spec's `legacy` object choose a retraction mode other than production's, `fixed-1`, `fixed-2` or `fixed` (see *The bench spec*). It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
+| `-legacy` | replaces the spec's `legacy` object with a mode by name: `legacy`, `fixed-1` (defect 1 off), `fixed-2` (defect 2 off) or `fixed` (both off). Any but `legacy` needs `-equivalence_only`. So one spec runs in both modes: `-equivalence_only -legacy fixed -dump_dir <dir>` beside the ordinary run |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
 **Exit status**:
@@ -125,8 +127,10 @@ harmless.
 
 `jetrules_config` and `input_sessions` are a `.tst.json`'s, in exactly its shape
 (`jets/cmds/rules_unit_test/README.md`). So a test definition plus the bench fields is a
-spec. Its `test_name` is accepted as the bench's name, and its expectations, `legacy`
-and `expect` are read and ignored. **The spec is decoded strictly**: an
+spec. Its `test_name` is accepted as the bench's name, its expectations and `expect` are
+read and ignored, and its `legacy` object chooses the retraction mode, as a test's does: a
+timed run is always in production's mode, so a mode other than legacy needs
+`-equivalence_only`. **The spec is decoded strictly**: an
 unknown key at any depth is an error, and so is a pipeline-only field in `jetrules_config`.
 
 ```json
@@ -158,12 +162,13 @@ unknown key at any depth is an error, and so is a pipeline-only field in `jetrul
 | `repetitions` | measured runs per engine, default 1 |
 | `warmup` | runs per engine before the measured ones. Their results are written too, marked `"warmup": true` and named `…_wNN.json` |
 | `pool_size` | workers running sessions concurrently on one engine. Default 1 |
-| `max_vertex_visits` | **a cap is required.** C++ has none unless `jets:max_vertex_visits` is set (`rete_session.cc:100`); the Go engine's default was 10,000 visits, so an unset cap aborted Go sessions that C++ completed. It is set once, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where the engine reads it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as a unit test's may have; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
+| `max_vertex_visits` | **a cap is required.** Without `jets:max_vertex_visits`, C++ stops at its default of 10,000 visits of a rule's vertex (`kDefaultMaxVertexVisits`, `rete_session.h`, since rules_benchmark Phase 7, `Q-83`); until then it had no limit at all. Production processes set 1,000,000 (`F504`), so a bench names its cap rather than measure under a default production does not run. It is set once, as `(jets:iState jets:max_vertex_visits n)` in the meta graph, where the engine reads it when each rete session starts. The cap is **per vertex, over all the loops of a rule set**. It is taken from `-max_vertex_visits`, else from the spec, else from a `jets:max_vertex_visits` in `rule_config`, as a unit test's may have; a `rule_config` value the flag or the spec replaces is removed from `rule_config` and recorded |
 | `max_looping` | replaces `jetrules_config.max_looping`, which itself replaces every rule set's `$max_looping` when not 0 |
 | `output_classes` | classes to extract after the rules, as a pipeline's jetrules output channels are. The columns are the class's domain properties (`GetDomainProperties`), then `columns`, which is the channel spec's own list. None means no extraction |
 
-**Refused**: a `legacy` object that turns a retraction defect off (the engine runs in
-production's mode), and a request for the retired Go engine: `"engines": ["go"]`,
+**Refused**: a `legacy` object that turns a retraction defect off **in a timed run** (a timed
+run is in production's mode; `-equivalence_only` accepts it, and the result's `legacy_mode` is
+the mode the engine reports it was built in), and a request for the retired Go engine: `"engines": ["go"]`,
 `"compare_engines": true` or `"use_jet_rules_go": true`. `_0:no_truth_main_on_exist`, the C++
 engine's, is accepted since the Go engine's retirement; it was refused while a bench could
 run Go.
@@ -171,8 +176,8 @@ run Go.
 **The input is read and cast before any engine is built.** A pipeline casts its input when
 it reads the file, before the jetrules step. So the bench casts each CSV row once
 (`compute_pipes.CastTextRow`) and times only its assertion (`AssertCastRow`, which is
-`assertInputRow`). A CSV column must be a data property of the workspace, as for
-`rules_unit_test`.
+`assertInputRow`). A CSV column must be a data property of the workspace; the rule-local
+`_0:` column `rules_unit_test` accepts is refused, since a pipeline's input never has one.
 
 **A CSV with `jets:source_period_sequence` 0 is not a pipeline's input.**
 `assertInputRow` marks an entity `jets:InputRecord` only when the column is absent or blank.

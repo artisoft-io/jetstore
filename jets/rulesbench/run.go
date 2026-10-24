@@ -36,6 +36,15 @@ type Options struct {
 	MaxVertexVisits int
 	MaxLooping      *int
 
+	// EquivalenceOnly makes the run untimed, for comparing what it computes: it
+	// is what lets the spec's legacy object choose a retraction mode other than
+	// production's (fixed-1, fixed-2, fixed), and it refuses PerLoop and SampleMs.
+	// Each result records it. A timed run is always in legacy mode.
+	EquivalenceOnly bool
+	// Legacy, when not empty, is a mode label (legacy, fixed-1, fixed-2, fixed)
+	// that replaces the spec's legacy object, under the same rule.
+	Legacy string
+
 	// PerLoop records each loop's ExecuteRules time, not only their sum and maximum.
 	PerLoop bool
 	// CountTriples counts every triple a session reads, by iteration, after
@@ -124,7 +133,7 @@ func Run(opts Options) ([]*RunResult, error) {
 		mvv, mvvFrom = spec.MaxVertexVisits, "spec"
 	}
 	if mvv == 0 {
-		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: C++ has no default cap (rules_benchmark F9)")
+		return nil, errors.New("max_vertex_visits is required, in the spec, with -max_vertex_visits, or in rule_config: a bench names its cap rather than run at C++'s default of 10,000, which production does not use (rules_benchmark F9, Q-83)")
 	}
 	maxLooping := spec.JetrulesConfig.MaxLooping
 	if spec.MaxLooping != nil {
@@ -135,6 +144,10 @@ func Run(opts Options) ([]*RunResult, error) {
 	}
 	if opts.Factory == nil {
 		return nil, fmt.Errorf("the %s engine is not available", rulestest.EngineNative)
+	}
+	mode, err := RetractionModeOf(spec, opts)
+	if err != nil {
+		return nil, err
 	}
 	env := opts.Env
 	if env == nil {
@@ -159,6 +172,12 @@ func Run(opts Options) ([]*RunResult, error) {
 			if err != nil {
 				return nil, fmt.Errorf("session %q: %v", s.Name, err)
 			}
+			// A pipeline's input has no rule-local columns, and a benchmark
+			// asserts its input as a pipeline does (AssertCastRow).
+			if len(t.Local) > 0 {
+				return nil, fmt.Errorf("session %q: %s: column '%s' is a rule-local (_0:) property; rules_unit_test accepts one, rules_bench does not",
+					s.Name, f, t.Columns[t.Local[0].Index])
+			}
 			for j, cells := range t.Rows {
 				cr, err := compute_pipes.CastTextRow(jspec, t.Columns, cells)
 				if err != nil {
@@ -182,7 +201,7 @@ func Run(opts Options) ([]*RunResult, error) {
 		}
 	}()
 	for _, e := range engines {
-		st, err := loadEngine(e, opts.Factory, &cfg, mvv)
+		st, err := loadEngine(e, opts.Factory, &cfg, mvv, mode)
 		if err != nil {
 			return nil, err
 		}
@@ -278,10 +297,12 @@ func extractClasses(ocs []OutputClass) ([]compute_pipes.ExtractClass, error) {
 // loadEngine builds an engine in the order a pipeline does
 // (NewJetrulesTransformationPipe, then executeRules' first call): the engine,
 // its JetResources, the source period and rule_config into the meta graph, and
-// then the vertex-visit cap. The engine is built in production's retraction
-// mode: no option is passed. It then checks, on a throwaway rdf session, that
-// a session reads the cap.
-func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *rulestest.JetrulesConfig, mvv int) (st *engineState, err error) {
+// then the vertex-visit cap. The engine is built in mode, which is legacy,
+// production's, unless the run is untimed (Options.EquivalenceOnly), and it
+// refuses an engine that reports another. It then checks, on a throwaway rdf
+// session, that a session reads the cap.
+func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *rulestest.JetrulesConfig, mvv int,
+	mode compute_pipes.RetractionMode) (st *engineState, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			err = fmt.Errorf("the %s engine panicked while loading: %v\n%s", name, p, debug.Stack())
@@ -293,7 +314,7 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 		return nil, err
 	}
 	t0 := time.Now()
-	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug)
+	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug, compute_pipes.WithRetractionMode(mode))
 	if err != nil {
 		return nil, fmt.Errorf("while building the %s engine for %s: %v", name, cfg.ProcessName, err)
 	}
@@ -321,6 +342,10 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	}); ok {
 		st.legacyMode = m.RetractionMode().Label()
 	}
+	if st.legacyMode != mode.Label() {
+		re.Release()
+		return nil, fmt.Errorf("%s engine: built in retraction mode %s, asked for %s", name, st.legacyMode, mode.Label())
+	}
 	// The check, on a session no run uses. Contains rather than an iterator: the
 	// native adaptor's iterators need a rete session to exist (rules_benchmark
 	// I-13).
@@ -337,6 +362,28 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	}
 	st.load.MaxVertexVisitsSeen = true
 	return st, nil
+}
+
+// RetractionModeOf is the mode a run builds its engine in: opts.Legacy when set,
+// else the spec's legacy object. Any mode but legacy needs opts.EquivalenceOnly,
+// and an equivalence-only run refuses the timing options. Run calls it; the
+// command calls it first too, so a refused run writes nothing to its out_dir.
+func RetractionModeOf(spec *Spec, opts Options) (compute_pipes.RetractionMode, error) {
+	legacy := spec.Legacy
+	if opts.Legacy != "" {
+		var err error
+		if legacy, err = rulestest.LegacyConfigOf(opts.Legacy); err != nil {
+			return compute_pipes.RetractionMode{}, err
+		}
+	}
+	if opts.EquivalenceOnly {
+		if opts.PerLoop || opts.SampleMs > 0 {
+			return compute_pipes.RetractionMode{}, errors.New("an equivalence-only run is untimed: per-loop times and goroutine sampling are refused")
+		}
+	} else if label := legacy.ModeLabel(); label != rulestest.LegacyModeLegacy {
+		return compute_pipes.RetractionMode{}, fmt.Errorf("legacy asks for %s; a timed run is in production's retraction mode, legacy, and another mode is for an untimed equivalence run (-equivalence_only)", label)
+	}
+	return harness.RetractionModeOfLegacy(legacy), nil
 }
 
 // task is one session handed to a worker, as WorkersTaskCh hands a bundle.
@@ -356,12 +403,14 @@ func runOnce(opts *Options, st *engineState, inputs []prepared, classes []comput
 		Engine:     st.name,
 		LegacyMode: st.legacyMode,
 		Repetition: rep,
-		Warmup:     isWarmup,
-		Order:      order,
-		PoolSize:   pool,
-		Status:     "ok",
-		Load:       st.load,
-		Sessions:   make([]SessionResult, len(inputs)),
+		// set from opts, the only place it is known
+		EquivalenceOnly: opts.EquivalenceOnly,
+		Warmup:          isWarmup,
+		Order:           order,
+		PoolSize:        pool,
+		Status:          "ok",
+		Load:            st.load,
+		Sessions:        make([]SessionResult, len(inputs)),
 	}
 	r.Memory.SampleMs = opts.SampleMs
 	run := runTag{repetition: rep, warmup: isWarmup}
