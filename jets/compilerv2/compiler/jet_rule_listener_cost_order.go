@@ -1,14 +1,18 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"math"
+	"os"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/optstats"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // This file contains the cost order: the antecedents of a rule ordered by the
@@ -27,8 +31,8 @@ const OptimizerStatisticsFile = "jet_rules/optimizer_statistics.json"
 
 // RuleSetStatistics is what the cost order reads of one rule set's
 // statistics: per-session values, each a sum in the file divided by the rule
-// set's sessions, and false where the file has no entry. *optstats.RuleSet has
-// this method set.
+// set's sessions, and false where the file has no entry. *optstats.RuleSet is
+// the one the compiler reads.
 type RuleSetStatistics interface {
 	// Has reports whether predicate p has statistics.
 	Has(p string) bool
@@ -56,43 +60,53 @@ type costOrderReport struct {
 }
 
 // termKey renders a rule constant as the statistics file keys it: its form in
-// the engine's graph (BX.1 rule 5). The engine makes a node from the row the
-// compiler writes in workspace.db's resources table (ReteMetaStoreFactory::
-// read_resources_cb): a resource by its value, a volatile resource by its value
-// with the _0: prefix, which the compiler holds on a declared volatile resource
-// and not on an inlined one and strips when it saves (SaveResources), a text
-// by its value, and an int by the value std::stoi reads. Any other kind is not
-// counted, and false is returned.
+// the engine's graph (BX.1 rule 5), by optstats.TermKey, given the resource's
+// Value, which is what the engine names it by, never its Id. The engine makes a
+// node from the row the compiler writes in workspace.db's resources table
+// (ReteMetaStoreFactory::read_resources_cb). A volatile resource's Value has
+// the _0: prefix when declared and not when inlined; TermKey adds it only when
+// it is absent, so both give the engine's name. Any kind TermKey does not count
+// gives false.
 func termKey(r *rete.ResourceNode) (string, bool) {
 	if r == nil {
 		return "", false
 	}
-	switch r.Type {
-	case "resource":
-		if r.Value == "" {
-			return "", false
-		}
-		return r.Value, true
-	case "volatile_resource":
-		v := strings.TrimPrefix(r.Value, "_0:")
-		if v == "" {
-			return "", false
-		}
-		return "_0:" + v, true
-	case "text":
-		return strconv.Quote(r.Value), true
-	case "int":
-		i, err := strconv.ParseInt(strings.TrimSpace(r.Value), 10, 32)
-		if err != nil {
-			return "", false
-		}
-		return strconv.FormatInt(i, 10) + "^^int", true
-	}
-	return "", false
+	return optstats.TermKey(r.Type, r.Value)
 }
 
-// SetOptimizerStatistics makes the compile order rules by the cost estimate.
-// file names the statistics file in the report; st is the rule set's
+// loadOptimizerStatistics reads the workspace's statistics file, when it has
+// one, for the rule set being compiled. A file that is not version 1 of the
+// format, or is malformed, refuses the compile with an error naming it. Unless
+// SetOptimizerStatistics was called first.
+func (c *Compiler) loadOptimizerStatistics() error {
+	l := c.listener
+	if os.Getenv("JETS_COST_ORDER_TRACE") != "" {
+		l.costTrace = true
+	}
+	if l.statisticsFile != "" {
+		return nil
+	}
+	path, err := utils.ConfineFilePath(l.basePath, OptimizerStatisticsFile)
+	if err != nil {
+		return fmt.Errorf("while resolving the optimizer statistics file: %w", err)
+	}
+	f, err := optstats.Read(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("while reading the optimizer statistics: %w", err)
+	}
+	if rs := f.ForRuleSet(l.mainRuleFileName); rs != nil {
+		c.SetOptimizerStatistics(OptimizerStatisticsFile, rs)
+	} else {
+		c.SetOptimizerStatistics(OptimizerStatisticsFile, nil)
+	}
+	return nil
+}
+
+// SetOptimizerStatistics makes the compile order rules by the cost estimate,
+// in place of the file Compile would read. file names the statistics file in the report; st is the rule set's
 // statistics, nil when the file does not have the rule set, which compiles
 // with the score order and says so in the report.
 func (c *Compiler) SetOptimizerStatistics(file string, st RuleSetStatistics) {

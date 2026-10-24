@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,65 +27,37 @@ import (
 const costOrderBase = "testdata/cost_order"
 const costOrderMain = "jet_rules/cost_order_main.jr"
 
-// fixtureStatistics is the test double for one rule set of a statistics file.
-type fixtureStatistics struct {
-	SessionCount int64 `json:"sessions"`
-	Predicates   map[string]struct {
-		Triples  int64 `json:"triples"`
-		Subjects int64 `json:"subjects"`
-		Objects  int64 `json:"objects"`
-	} `json:"predicates"`
-	SubjectConstants map[string]map[string]int64 `json:"subject_constants"`
-	ObjectConstants  map[string]map[string]int64 `json:"object_constants"`
-}
-
-func (f *fixtureStatistics) Has(p string) bool   { _, ok := f.Predicates[p]; return ok }
-func (f *fixtureStatistics) per(n int64) float64 { return float64(n) / float64(f.SessionCount) }
-func (f *fixtureStatistics) N(p string) (float64, bool) {
-	return f.per(f.Predicates[p].Triples), f.Has(p)
-}
-func (f *fixtureStatistics) DS(p string) (float64, bool) {
-	return max(f.per(f.Predicates[p].Subjects), 1), f.Has(p)
-}
-func (f *fixtureStatistics) DO(p string) (float64, bool) {
-	return max(f.per(f.Predicates[p].Objects), 1), f.Has(p)
-}
-func (f *fixtureStatistics) SubjectCount(p, s string) (float64, bool) {
-	c, ok := f.SubjectConstants[p][s]
-	return f.per(c), ok
-}
-func (f *fixtureStatistics) ObjectCount(p, o string) (float64, bool) {
-	c, ok := f.ObjectConstants[p][o]
-	return f.per(c), ok
-}
-
-func loadFixtureStatistics(t *testing.T, ruleSet string) RuleSetStatistics {
+// fixture copies the fixture's main rule file into a new workspace and, when
+// withStats, its statistics file, which Compile then reads.
+func fixture(t *testing.T, withStats bool) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(costOrderBase, OptimizerStatisticsFile))
+	dir := t.TempDir()
+	src, err := os.ReadFile(filepath.Join(costOrderBase, costOrderMain))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var file struct {
-		RuleSets map[string]*fixtureStatistics `json:"rule_sets"`
+	writeFixture(t, dir, string(src))
+	if withStats {
+		stats, err := os.ReadFile(filepath.Join(costOrderBase, OptimizerStatisticsFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		write(t, dir, OptimizerStatisticsFile, string(stats))
 	}
-	if err := json.Unmarshal(data, &file); err != nil {
-		t.Fatal(err)
-	}
-	if st, ok := file.RuleSets[ruleSet]; ok {
-		return st
-	}
-	return nil
+	return dir
 }
 
 // compileCostOrder compiles the fixture, with the fixture's statistics when
 // withStats, and returns the compiler and its rules by name.
-func compileCostOrder(t *testing.T, base string, withStats bool) (*Compiler, map[string]*rete.JetruleNode) {
+func compileCostOrder(t *testing.T, withStats bool) (*Compiler, map[string]*rete.JetruleNode) {
 	t.Helper()
-	c := NewCompiler(base, costOrderMain, false, false, true)
-	if withStats {
-		c.SetOptimizerStatistics(OptimizerStatisticsFile, loadFixtureStatistics(t, costOrderMain))
-		c.SetCostOrderTrace(true)
-	}
+	return compileWorkspace(t, fixture(t, withStats), withStats)
+}
+
+func compileWorkspace(t *testing.T, dir string, trace bool) (*Compiler, map[string]*rete.JetruleNode) {
+	t.Helper()
+	c := NewCompiler(dir, costOrderMain, false, false, true)
+	c.SetCostOrderTrace(trace)
 	if err := c.Compile(); err != nil {
 		t.Fatalf("%v\n%s", err, c.ErrorLog().String())
 	}
@@ -119,7 +90,7 @@ func authoredOrder(t *testing.T, name string) []string {
 	}
 	dir := t.TempDir()
 	writeFixture(t, dir, strings.ReplaceAll(string(src), "["+name+"]", "["+name+", o=false]"))
-	_, rules := compileCostOrder(t, dir, false)
+	_, rules := compileWorkspace(t, dir, false)
 	return ruleOrder(rules[name])
 }
 
@@ -141,8 +112,8 @@ func positions(authored []string, order ...int) []string {
 }
 
 func TestCostOrderFindsTheDataDependentOrders(t *testing.T) {
-	cScore, byScore := compileCostOrder(t, costOrderBase, false)
-	cCost, byCost := compileCostOrder(t, costOrderBase, true)
+	cScore, byScore := compileCostOrder(t, false)
+	cCost, byCost := compileCostOrder(t, true)
 	cases := []struct {
 		rule        string
 		cost, score []int // authored positions
@@ -214,8 +185,8 @@ func TestCostOrderFindsTheDataDependentOrders(t *testing.T) {
 // A rule the statistics do not cover keeps the score order, and so does every
 // rule of a rule set the file does not have.
 func TestCostOrderFallsBackToTheScore(t *testing.T) {
-	_, byScore := compileCostOrder(t, costOrderBase, false)
-	_, byCost := compileCostOrder(t, costOrderBase, true)
+	_, byScore := compileCostOrder(t, false)
+	_, byCost := compileCostOrder(t, true)
 	for _, name := range []string{"COST_FALLBACK", "COST_OFF"} {
 		if got, want := ruleOrder(byCost[name]), ruleOrder(byScore[name]); !slices.Equal(got, want) {
 			t.Errorf("%s: with statistics %v, without %v", name, got, want)
@@ -223,18 +194,46 @@ func TestCostOrderFallsBackToTheScore(t *testing.T) {
 	}
 
 	// The rule set absent from the file: every rule as without statistics
-	c := NewCompiler(costOrderBase, costOrderMain, false, false, true)
-	c.SetOptimizerStatistics(OptimizerStatisticsFile, nil)
-	if err := c.Compile(); err != nil {
+	dir := fixture(t, true)
+	stats, err := os.ReadFile(filepath.Join(dir, OptimizerStatisticsFile))
+	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range c.JetRuleModel().Jetrules {
-		if got, want := ruleOrder(r), ruleOrder(byScore[r.Name]); !slices.Equal(got, want) {
-			t.Errorf("%s: rule set not in the file %v, without statistics %v", r.Name, got, want)
+	write(t, dir, OptimizerStatisticsFile, strings.Replace(string(stats), costOrderMain, "jet_rules/another_main.jr", 1))
+	c, rules := compileWorkspace(t, dir, true)
+	for name, r := range rules {
+		if got, want := ruleOrder(r), ruleOrder(byScore[name]); !slices.Equal(got, want) {
+			t.Errorf("%s: rule set not in the file %v, without statistics %v", name, got, want)
 		}
 	}
 	if !strings.Contains(c.ParseLog().String(), "Cost order: rule set jet_rules/cost_order_main.jr is not in jet_rules/optimizer_statistics.json; rules ordered by score") {
 		t.Errorf("the parse log does not report the rule set as absent:\n%s", c.ParseLog().String())
+	}
+}
+
+// A statistics file the compiler cannot read refuses the compile, naming it.
+func TestUnreadableStatisticsRefuseTheCompile(t *testing.T) {
+	good, err := os.ReadFile(filepath.Join(costOrderBase, OptimizerStatisticsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct{ name, content, want string }{
+		{"version", strings.Replace(string(good), `"version": 1`, `"version": 2`, 1), "version 2 is not supported"},
+		{"format", strings.Replace(string(good), `"jetstore.optimizer_statistics"`, `"something.else"`, 1), "not a statistics file"},
+		{"malformed", string(good[:len(good)/2]), "malformed statistics file"},
+	}
+	for _, tc := range cases {
+		dir := fixture(t, false)
+		write(t, dir, OptimizerStatisticsFile, tc.content)
+		c := NewCompiler(dir, costOrderMain, false, false, true)
+		err := c.Compile()
+		if err == nil {
+			t.Errorf("%s: the compile succeeded", tc.name)
+			continue
+		}
+		if !strings.Contains(err.Error(), filepath.Join(dir, OptimizerStatisticsFile)) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: the error does not name the file and say %q: %v", tc.name, tc.want, err)
+		}
 	}
 }
 
@@ -245,17 +244,9 @@ func TestCostOrderIsDeterministic(t *testing.T) {
 	workspaceSchema = filepath.Join("..", "..", "workspace_schema.sql")
 	t.Cleanup(func() { workspaceSchema = saved })
 
-	src, err := os.ReadFile(filepath.Join(costOrderBase, costOrderMain))
-	if err != nil {
-		t.Fatal(err)
-	}
 	compileDB := func(withStats bool) []byte {
-		dir := t.TempDir()
-		writeFixture(t, dir, string(src))
+		dir := fixture(t, withStats)
 		c := NewCompiler(dir, costOrderMain, true, false, true)
-		if withStats {
-			c.SetOptimizerStatistics(OptimizerStatisticsFile, loadFixtureStatistics(t, costOrderMain))
-		}
 		if err := c.Compile(); err != nil {
 			t.Fatalf("%v\n%s", err, c.ErrorLog().String())
 		}

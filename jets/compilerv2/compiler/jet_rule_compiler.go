@@ -39,6 +39,10 @@ func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace, auto
 }
 
 func (c *Compiler) Compile() error {
+	// The cost order's statistics, when the workspace has them
+	if err := c.loadOptimizerStatistics(); err != nil {
+		return err
+	}
 	// Read all rule files and imports
 	ruleFileReader := NewRuleFileReader(c.listener.basePath, c.listener.mainRuleFileName, readRuleFile)
 	// Keep it: CompileBuffer resolves diagnostics through it at the end of the
