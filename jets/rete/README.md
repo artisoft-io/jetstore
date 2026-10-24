@@ -156,13 +156,21 @@ failed before computes anything different. Each has its rows in a table of `expr
 | `+ - * /` on two integer types, the right operand out of the left operand's range: an `int32` plus a large `int64`, a `uint32` plus -1 (I-134) | `boost::numeric_cast` threw | `ArithmeticTypes.TheSharedTypingTable` |
 | text plus a named resource, either way round (I-109) | threw in a session's rule | `ArithmeticTypes.TheSharedTypingTable` |
 | `lookup` or `multi_lookup` with a null key (I-104) | threw in a session's rule | `Lookups.ANullKeyIsNull` |
+| *Added 2026-10-23, `BL.1b`, from the review of the first four:* `to_int` of a number out of `int32`'s range | `boost::numeric_cast` threw | `ArithmeticTypes.ToIntOutOfRangeIsNull` |
+| text with a blank node, null with text and a double with text, either way round, in each of `+ - * /`; text plus null and text plus a double still concatenate | threw in a session's rule | `ArithmeticTypes.TheSharedTypingTable` |
+| `lookup` or `multi_lookup` with a blank-node key | threw in a session's rule | `Lookups.ANullKeyIsNull` |
 
 `+ - * /` are their `Impl` visitors wrapped in `NullWhenOutOfRange`, which turns a
 `bad_numeric_cast` into null (`expr_op_arithmetics.h`); integer division goes through
 `integer_quotient`. An operand that fits converts as before. **"In a session's rule" is not a
 detail**: with no beta row, as the shared tables call a visitor, an operator's catch-all gives null
-for operands it does not take; with a row, it throws. The rows of the last two cases call the
-visitor with a row.
+for operands it does not take; with a row, it throws. The rows of the cases that threw in a
+session's rule call the visitor with a row. **Every other mix of types the operators do not take
+still throws in a session's rule**: an integer plus text, for one, or a named resource, a blank
+node or null with a number. A grid of `+ - * /`, `lookup` and `multi_lookup` over 44 operand
+values, each pair with a row, counts 1,650 such cells (measured 2026-10-23). Whether they give null
+too is not decided. `to_int` of text that does not read as an `int32`
+still throws as well.
 
 **Ties in `min_of`, `max_of` and `sorted_head`, and Go's `min_head_of` and `max_head_of` (I-33, Q-61).**
 Among equal values the first met used to win, and the graph's iteration order varies from run to
@@ -663,8 +671,10 @@ the form `sum_values` got wrong in Go, so the rule is what said `join_values` di
 **Superseded 2026-10-22, with the Go engine's retirement.** The compiler now refuses an operator
 the C++ engine does not register: the names are in `jets/compilerv2/compiler/operators.txt`, and
 `jets/rete/operator_list_test.cc` checks them against `expr_operator_factory.h` in both directions.
-The Go tests this entry names were deleted with the Go engine; `corpus_operators.txt` and
-`OperatorFactoryTest.CorpusOperatorNames` stay, the manifest as last collected. The six names the
+The Go tests this entry names were deleted with the Go engine. `corpus_operators.txt` and
+`OperatorFactoryTest.CorpusOperatorNames` were deleted on 2026-10-23 (`rules_benchmark` `I-163`): with
+no Go half left to collect the names, the compiler's `operators.txt` and `operator_list_test.cc` are
+what check them, and the manifest as last collected is at `go-engine-final`. The six names the
 table below lists as one-sided are now a compile error, or, for `raise_exception`, an operator
 like any other. The entry is kept as written.
 
@@ -688,7 +698,9 @@ one resolves in `CreateBinaryOperator` / `CreateUnaryOperator`. It writes the na
 (`jets/rete/expr_operator_factory_test.cc`) asserts the same list against `create_binary_expr` /
 `create_unary_expr` — **the C++ engine cannot compile a `.jr` file, so it cannot collect the names
 for itself**, and the manifest is the only thing keeping the two halves looking at the same list. It
-is checked in and the Go test fails when it drifts.
+is checked in and the Go test fails when it drifts. *(Both halves are gone since 2026-10-23, the
+manifest and its C++ test kept at `go-engine-final`; the names are checked by `operators.txt` and
+`operator_list_test.cc`, as the note above says.)*
 
 **And the *two registrations* claim is itself now a test, which is how the next entry got measured.**
 `TestBothFactoriesRegisterTheSameOperators` reads both factories as text — `case "name":` and

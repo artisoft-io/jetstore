@@ -96,20 +96,34 @@ register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
 // a large int64, uint32 plus -1). The exception failed the session; the operation is null
 // instead, and the rule's consequent sees no value (Q-85, I-134, 2026-10-23), as an
 // integer division by zero has been since Q-69. Each of the four operators below is its
-// Impl wrapped in this; the Impl's overloads are unchanged.
+// Impl wrapped in this, and so is to_int, whose number out of int32's range threw the
+// same way (BL.1b); the Impl's overloads are unchanged.
 template<class Op>
 struct NullWhenOutOfRange: public Op
 {
   using Op::Op;
-  template<class T, class U> RDFTTYPE operator()(T const& lhs, U const& rhs)const
+  template<class... T> RDFTTYPE operator()(T const&... args)const
   {
     try {
-      return Op::operator()(lhs, rhs);
+      return Op::operator()(args...);
     } catch(boost::numeric::bad_numeric_cast const&) {
       return rdf::Null();
     }
   }
 };
+
+// The operand mixes + - * / take and give null for, where the catch-all throws in a
+// session's rule: text with a blank node, null with text, a double with text, either
+// way round (Q-85, BL.1b). Text plus null and text plus a double are not here for +,
+// which concatenates them.
+#define JETS_NULL_FOR_TEXT_MIXES \
+  RDFTTYPE operator()(rdf::LString, rdf::BlankNode)const{return rdf::Null();} \
+  RDFTTYPE operator()(rdf::BlankNode, rdf::LString)const{return rdf::Null();} \
+  RDFTTYPE operator()(rdf::RDFNull, rdf::LString)const{return rdf::Null();} \
+  RDFTTYPE operator()(rdf::LDouble, rdf::LString)const{return rdf::Null();}
+#define JETS_NULL_FOR_TEXT_LEFT_MIXES \
+  RDFTTYPE operator()(rdf::LString, rdf::RDFNull)const{return rdf::Null();} \
+  RDFTTYPE operator()(rdf::LString, rdf::LDouble)const{return rdf::Null();}
 
 // An integer quotient. Division by zero is null (Q-69), and so is the minimum signed
 // integer divided by -1, whose quotient does not fit its type: it raised SIGFPE, which
@@ -137,6 +151,7 @@ struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
   AddVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AddVisitorImpl(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for addition: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  JETS_NULL_FOR_TEXT_MIXES
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
@@ -215,6 +230,8 @@ struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 {
   SubsVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  JETS_NULL_FOR_TEXT_MIXES
+  JETS_NULL_FOR_TEXT_LEFT_MIXES
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
@@ -272,6 +289,8 @@ struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 {
   MultVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for multiplication: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  JETS_NULL_FOR_TEXT_MIXES
+  JETS_NULL_FOR_TEXT_LEFT_MIXES
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
@@ -316,6 +335,8 @@ struct DivVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
 {
   DivVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for division: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  JETS_NULL_FOR_TEXT_MIXES
+  JETS_NULL_FOR_TEXT_LEFT_MIXES
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, rhs.data);}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
@@ -355,6 +376,9 @@ using AddVisitor  = NullWhenOutOfRange<AddVisitorImpl>;
 using SubsVisitor = NullWhenOutOfRange<SubsVisitorImpl>;
 using MultVisitor = NullWhenOutOfRange<MultVisitorImpl>;
 using DivVisitor  = NullWhenOutOfRange<DivVisitorImpl>;
+
+#undef JETS_NULL_FOR_TEXT_MIXES
+#undef JETS_NULL_FOR_TEXT_LEFT_MIXES
 
 // AbsVisitor
 // --------------------------------------------------------------------------------------
@@ -1028,9 +1052,9 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 
 // ToIntVisitor
 // --------------------------------------------------------------------------------------
-struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct ToIntVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  ToIntVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  ToIntVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_int: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
@@ -1050,6 +1074,9 @@ struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNe
   ReteSession * rs;
   BetaRow const* br;
 };
+
+// a number out of int32's range is null (Q-85, BL.1b)
+using ToIntVisitor = NullWhenOutOfRange<ToIntVisitorImpl>;
 
 // ToDoubleVisitor
 // --------------------------------------------------------------------------------------

@@ -983,6 +983,52 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   EXPECT_TRUE(null(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
   // text plus a number still concatenates
   EXPECT_EQ(ap(add_in_session, RDFTTYPE(rdf::LString("x")), I32(5)), RDFTTYPE(rdf::LString("x5")));
+
+  // Q-85 (BL.1b): text with a blank node, null with text and a double with text are
+  // null in a session's rule, in either order and in each of + - * /; each threw. Text
+  // plus null and text plus a double still concatenate, as they did
+  SubsVisitor sub_in_session(nullptr, sr.row.get());
+  MultVisitor mul_in_session(nullptr, sr.row.get());
+  DivVisitor div_in_session(nullptr, sr.row.get());
+  RDFTTYPE const text = rdf::LString("x"), bnode = rdf::BlankNode(3), nul = rdf::Null(), dbl = rdf::LDouble(2.5);
+  auto mixes_are_null = [&](auto & op, char const* name, bool concatenates) {
+    EXPECT_TRUE(null(ap(op, text, bnode))) << "text " << name << " blank node";
+    EXPECT_TRUE(null(ap(op, bnode, text))) << "blank node " << name << " text";
+    EXPECT_TRUE(null(ap(op, nul, text))) << "null " << name << " text";
+    EXPECT_TRUE(null(ap(op, dbl, text))) << "double " << name << " text";
+    if(not concatenates) {
+      EXPECT_TRUE(null(ap(op, text, nul))) << "text " << name << " null";
+      EXPECT_TRUE(null(ap(op, text, dbl))) << "text " << name << " double";
+    }
+  };
+  mixes_are_null(add_in_session, "+", true);
+  mixes_are_null(sub_in_session, "-", false);
+  mixes_are_null(mul_in_session, "*", false);
+  mixes_are_null(div_in_session, "/", false);
+  EXPECT_EQ(ap(add_in_session, text, nul), RDFTTYPE(rdf::LString("xnull")));
+  EXPECT_EQ(ap(add_in_session, text, dbl), RDFTTYPE(rdf::LString("x2.5")));
+}
+
+// Q-85 (BL.1b): to_int of a number out of int32's range is null; numeric_cast threw,
+// in a session's rule as with no row. A number in range is truncated toward zero, as it was
+TEST(ArithmeticTypes, ToIntOutOfRangeIsNull) {
+  SessionRow sr;
+  ToIntVisitor to_int(nullptr, sr.row.get());
+  auto ti = [&](RDFTTYPE v) { return boost::apply_visitor(to_int, v); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  double const inf = std::numeric_limits<double>::infinity();
+  EXPECT_TRUE(null(ti(rdf::LUInt32(std::numeric_limits<uint32_t>::max()))));
+  EXPECT_TRUE(null(ti(rdf::LInt64(3000000000))));
+  EXPECT_TRUE(null(ti(rdf::LInt64(-3000000000))));
+  EXPECT_TRUE(null(ti(rdf::LUInt64(std::numeric_limits<uint64_t>::max()))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(1e300))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(-1e300))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(inf))));
+  EXPECT_EQ(ti(rdf::LInt64(-7)), RDFTTYPE(rdf::LInt32(-7)));
+  EXPECT_EQ(ti(rdf::LUInt32(5)), RDFTTYPE(rdf::LInt32(5)));
+  EXPECT_EQ(ti(rdf::LDouble(2.9)), RDFTTYPE(rdf::LInt32(2)));
+  EXPECT_EQ(ti(rdf::LDouble(-2.9)), RDFTTYPE(rdf::LInt32(-2)));
+  EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
 }
 
 TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
@@ -1079,6 +1125,7 @@ TEST(ArithmeticTypes, DivisionByZero) {
 
 // Q-85, I-104: a null lookup key is null, and the session goes on; in a session's rule
 // it threw. The table is not read: a null key looks nothing up.
+// and so is a blank-node key (BL.1b), which threw likewise
 TEST(Lookups, ANullKeyIsNull) {
   SessionRow sr;
   LookupVisitor lookup(nullptr, sr.row.get());
@@ -1089,6 +1136,11 @@ TEST(Lookups, ANullKeyIsNull) {
   EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  RDFTTYPE const bnode_key = rdf::BlankNode(3);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
 }
 
 }   // namespace
