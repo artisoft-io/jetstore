@@ -97,7 +97,7 @@ Flags go before the spec: Go's flag package stops at the first non-flag.
 | `-cpuprofile`, `-memprofile`, `-blockprofile`, `-mutexprofile`, `-trace` | Go profiles, see *Profiling* |
 | `-equivalence_only` | **an untimed run, for comparing what the engine computes** (rules_benchmark `Q-92`). Until October 2026 it was what let the spec's `legacy` object choose a retraction mode other than production's; there is one retraction behaviour since. It refuses `-per_loop`, `-sample_ms`, `-require_tuned` and the profiles rather than produce numbers from an untimed run, turns goroutine sampling off, and marks every result `"equivalence_only": true`. Use it with `-dump_dir` or `-rows_dir`; the result's times are not measurements |
 | `-observe <dir>` | **an untimed run that observes each rule set's network** (rules_benchmark `Q-98`): one file per session, `<dir>/<r01\|w01>/<engine>/<session>.json`, see *Observing the network*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks every result `"observed": true` |
-| `-stats <file>` | **an untimed run that writes the rule optimizer's statistics** (rules_benchmark `BX`, `jets/optstats`) to `<file>`, see *The optimizer's statistics*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks every result `"stats": true` |
+| `-stats <file>` | **an untimed run that writes the rule optimizer's statistics** (rules_benchmark `BX`, `jets/optstats`) to `<file>`, see *The optimizer's statistics*. It refuses the timing outputs as `-equivalence_only` does, turns sampling off, and marks the counted run's result (the first measured repetition) `"stats": true` |
 | `-legacy` | **refused**, whatever its value: it chose a retraction mode by name, and the `LEGACY` retraction mode was deleted in October 2026 (rules_benchmark `Q-95`) |
 | `WORKSPACES_HOME`, `WORKSPACE` | required: the compiled workspace |
 
@@ -355,7 +355,15 @@ workspace holds `jet_rules/optimizer_statistics.json`; this run writes that file
 - **Counts are integers summed over sessions**, with `sessions` beside them, so files merge exactly
   (`optstats.Merge`), and the output is the same bytes whatever the pool's order.
 - **Only the first measured repetition is counted**, so each session counts once, and warmup runs
-  are not. The file is written when every run has ended.
+  are not; only that run's result says `"stats": true`. The file is written when every run has
+  ended.
+- **A session that fails contributes nothing.** A session's counts are held until it ends, and
+  added only when it ends without failing: no error, no execute error (the vertex cap is one), no
+  `jets:exception`, as a run's status counts a failure. **If any counted session fails, no file is
+  written** and the command exits 1, so a statistics file never describes sessions that did not
+  run to the end.
+- **A main rule set with no antecedent**, a rule file with no rule, counts its sessions and nothing
+  else.
 
 ## Concurrency: `-pool N`
 
