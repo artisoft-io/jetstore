@@ -117,7 +117,9 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 			}
 		}
 		if !hasVar {
-			s.logErrorf(
+			// Text only: ValidateRuleTerm made the diagnostic when it met the
+			// term, and this second report is the text log's, as it always was
+			fmt.Fprintf(s.errorLog,
 				"** error: antecedent must have at least one of subject, predicate, object as variable: (%s, %s, %s)\n",
 				s.Resource(rule.Antecedents[i].SubjectKey).SKey(),
 				s.Resource(rule.Antecedents[i].PredicateKey).SKey(),
@@ -490,7 +492,8 @@ func (l *JetRuleListener) PostProcessClasses() {
 					ObjectKey:    l.AddR(baseClassName).Key,
 				})
 			} else {
-				l.logErrorf("** error: base class %s not found for class %s\n", baseClassName, className)
+				// Text only: the loop above made the diagnostic for this class
+				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, className)
 			}
 		}
 		l.ValidateJetruleNode(rule)
