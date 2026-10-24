@@ -47,7 +47,8 @@ class rbm:OptItem {
 // Each pair: the rule as the optimizer orders it, and its twin as authored. OPT_NEG has a
 // negated term after an rdf:type term; OPT_NEG_AMOUNT's negated term scores above the
 // term binding ?c (rdf:type's bonus), and OPT_NEG_PLAN's above the terms binding ?p
-// (I-200); OPT_FLT's filter reads three bound variables.
+// (I-200); OPT_FLT's filter reads two variables bound by
+// different terms.
 const optRules = `# Main rule file for the rule optimizer test (optimizer_rbm_test.go).
 import "data_model/jets_model.jr"
 import "data_model/rbm_optimizer_model.jr"

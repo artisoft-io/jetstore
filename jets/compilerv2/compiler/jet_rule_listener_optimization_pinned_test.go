@@ -5,11 +5,17 @@ package compiler
 // OptimizeJetruleNode reorders a rule's antecedents, re-places its filters and renames
 // its variables, after validation has checked the rule in its authored order. It is on
 // for every rule that does not set o=false, which is most rules in production. These
-// tests pin what a reordering must not change: a negated term comes after the terms
-// that bind its variables, a filter's variables are bound where it lands, the
-// consequents name the antecedents' variables, and terms the heuristic scores equally
-// keep their authored order. Each checks the property on the optimized rule, rather
-// than a label, so that a heuristic that orders differently still passes.
+// tests pin what a reordering must not change:
+//   - TestOptimizerKeepsANegatedTermAfterItsBindings: a negated term comes after the
+//     positive terms that bind its variables (I-200, fixed in BS.2);
+//   - TestOptimizerPlacesAFilterWhereItsVariablesAreBound: a filter's variables are
+//     bound where it lands;
+//   - TestOptimizerKeepsTheConsequentsVariables: the consequents name the antecedents'
+//     variables;
+//   - TestOptimizerKeepsTiesInTheAuthoredOrder: terms of equal priority keep their
+//     authored order (I-201, fixed in BS.2).
+// Each checks the property on the optimized rule, rather than a label, so that a
+// heuristic that orders differently still passes.
 
 import (
 	"fmt"
@@ -201,11 +207,12 @@ func TestOptimizerKeepsTheConsequentsVariables(t *testing.T) {
 	}
 }
 
-// I-201: terms the heuristic scores equally keep their authored order. After the
-// rdf:type term binds ?x, each (?x ex:pNN ?vNN) scores 400, and each (?zNN ex:qNN ?x)
-// 260. slices.SortFunc is not stable: it sorts 12 elements or fewer by insertion, which
-// keeps the order, and more with pdqsort, which need not. So the rule has more than 12
-// terms, of two scores, interleaved.
+// I-201: terms the heuristic scores equally keep their authored order. Once ?x is bound,
+// the (?x ex:pNN ?vNN) terms tie with each other, and so do the (?zNN ex:qNN ?x) terms,
+// at another score. slices.SortFunc is not stable: it sorts 12 elements or fewer by
+// insertion, which keeps the order, and more with pdqsort, which need not. So the rule
+// has more than 12 terms, of two kinds, interleaved. Only the order within each kind is
+// asserted, not where the heuristic puts one kind against the other.
 func TestOptimizerKeepsTiesInTheAuthoredOrder(t *testing.T) {
 	const n = 10
 	var b strings.Builder
@@ -219,15 +226,19 @@ func TestOptimizerKeepsTiesInTheAuthoredOrder(t *testing.T) {
 	for _, a := range rules[0].Antecedents {
 		got = append(got, c.listener.resourceManager.ResourceByKey[a.PredicateKey].Value)
 	}
-	// every 400 before every 260, each group in its authored order
-	want := []string{"rdf:type"}
-	for i := 1; i <= n; i++ {
-		want = append(want, fmt.Sprintf("ex:p%02d", i))
-	}
-	for i := 1; i <= n; i++ {
-		want = append(want, fmt.Sprintf("ex:q%02d", i))
-	}
-	if strings.Join(got, " ") != strings.Join(want, " ") {
-		t.Errorf("predicates in order\n  got  %s\n  want %s", strings.Join(got, " "), strings.Join(want, " "))
+	// each kind in its authored order
+	for _, kind := range []string{"ex:p", "ex:q"} {
+		var order, want []string
+		for _, p := range got {
+			if strings.HasPrefix(p, kind) {
+				order = append(order, p)
+			}
+		}
+		for i := 1; i <= n; i++ {
+			want = append(want, fmt.Sprintf("%s%02d", kind, i))
+		}
+		if strings.Join(order, " ") != strings.Join(want, " ") {
+			t.Errorf("%s terms in order\n  got  %s\n  want %s\n  rule %s", kind, strings.Join(order, " "), strings.Join(want, " "), strings.Join(got, " "))
+		}
 	}
 }

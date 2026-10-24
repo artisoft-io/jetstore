@@ -99,8 +99,10 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			s.LogParse(fmt.Sprintf("*** Selected antecedent %d %s with priority %d", best.index, antecedents[best.index].NormalizedLabel, best.priority))
 		}
 
-		// update bindedVars
-		s.collectVars(bindedVars, antecedents[best.index])
+		// update bindedVars: a negated term binds nothing
+		if !antecedents[best.index].IsNot {
+			s.collectVars(bindedVars, antecedents[best.index])
+		}
 
 		// remove it from the antecedents list
 		antecedents = slices.Delete(antecedents, best.index, best.index+1)
@@ -123,8 +125,10 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	// ---------------------------------------------------------------------------------
 	// For each antecedent in order
 	for i := range ordered {
-		// update bindedVars
-		s.collectVars(bindedVars, ordered[i])
+		// update bindedVars: a negated term binds nothing
+		if !ordered[i].IsNot {
+			s.collectVars(bindedVars, ordered[i])
+		}
 
 		// use a stack to keep track of the filters that can be applied to this antecedent
 		matchedFilters := stack.NewStack[rete.ExpressionNode](5)
