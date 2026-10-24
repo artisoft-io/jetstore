@@ -912,12 +912,30 @@ TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
 }
 
 // A beta row, so that a visitor is evaluated as in a session's rule. With no row an
-// operator's catch-all gives null for operands it does not take; with one, it throws, and
-// the session fails. The rows below that name `in_session` are about that difference.
+// operator's catch-all gives null for operands it does not take; with one, it threw, and
+// the session failed (F517). Since Q-93 the catch-alls of + - * /, abs, to_int, to_double,
+// lookup and multi_lookup give null either way; other operators' still differ. The rows
+// below that name `in_session`, and the tables that take a SessionRow, are about that
+// difference.
 struct SessionRow {
   NodeVertexPtr vertex = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {});
   BetaRowPtr row = create_beta_row(vertex.get(), 0);
 };
+
+// A visitor's result, or the text "threw: ..." when it throws, so that each row of a table
+// that throws fails on its own line rather than ending the test at the first.
+template<class V>
+RDFTTYPE or_threw(V & op, RDFTTYPE a)
+{
+  try { return boost::apply_visitor(op, a); }
+  catch(std::exception const& e) { return rdf::LString(std::string("threw: ") + e.what()); }
+}
+template<class V>
+RDFTTYPE or_threw(V & op, RDFTTYPE a, RDFTTYPE b)
+{
+  try { return boost::apply_visitor(op, a, b); }
+  catch(std::exception const& e) { return rdf::LString(std::string("threw: ") + e.what()); }
+}
 
 // The typing table of + - * / : the specification of the arithmetic operators' result
 // types. It was shared with the Go engine, since retired, whose int and uint were
@@ -1031,6 +1049,102 @@ TEST(ArithmeticTypes, ToIntOutOfRangeIsNull) {
   EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
 }
 
+// Q-93: every type mismatch of + - * / is null, in a session's rule as with no row: a
+// number with text, a named resource, a blank node or null, either way round, and two
+// operands neither of which the operator takes. Each threw in a session's rule, and the
+// session failed (I-184). Text first in + is concatenation, by design, and is not a
+// mismatch: "x" + 5 is "x5", while 5 + "x" is null.
+TEST(ArithmeticTypes, EveryTypeMismatchIsNull) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  MultVisitor mul(nullptr, sr.row.get());
+  DivVisitor div(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const numbers = {rdf::LInt32(5), rdf::LUInt32(5), rdf::LInt64(5), rdf::LUInt64(5), rdf::LDouble(2.5)};
+  std::vector<RDFTTYPE> const others = {rdf::LString("x"), rdf::LString(""), rdf::NamedResource("r"), rdf::BlankNode(3), rdf::Null()};
+  // two operands neither of which is a number the operator takes
+  std::vector<std::pair<RDFTTYPE, RDFTTYPE>> const pairs = {
+    {rdf::NamedResource("r"), rdf::NamedResource("s")},
+    {rdf::BlankNode(3), rdf::BlankNode(4)},
+    {rdf::Null(), rdf::Null()},
+    {rdf::NamedResource("r"), rdf::Null()},
+    {rdf::Null(), rdf::BlankNode(3)},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::LString("x")},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::NamedResource("r")},
+    {rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")), rdf::BlankNode(3)},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00"))},
+  };
+  auto mismatches_are_null = [&](auto & op, char const* name, bool text_first_concatenates) {
+    for(auto const& n: numbers) {
+      for(auto const& x: others) {
+        EXPECT_TRUE(null(ap(op, n, x))) << n << " " << name << " " << x;
+        bool const concatenates = text_first_concatenates and x.which() == rdf::rdf_literal_string_t;
+        if(not concatenates) EXPECT_TRUE(null(ap(op, x, n))) << x << " " << name << " " << n;
+      }
+    }
+    for(auto const& [l, r]: pairs) {
+      EXPECT_TRUE(null(ap(op, l, r))) << l << " " << name << " " << r;
+      if(not (text_first_concatenates and r.which() == rdf::rdf_literal_string_t)) {
+        EXPECT_TRUE(null(ap(op, r, l))) << r << " " << name << " " << l;
+      }
+    }
+  };
+  mismatches_are_null(add, "+", true);
+  mismatches_are_null(sub, "-", false);
+  mismatches_are_null(mul, "*", false);
+  mismatches_are_null(div, "/", false);
+  // text first in + concatenates, as it did
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LInt32(5))), RDFTTYPE(rdf::LString("x5")));
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LDouble(2.5))), RDFTTYPE(rdf::LString("x2.5")));
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1)))), RDFTTYPE(rdf::LString("x2025-01-01")));
+  // and the operations defined on dates are unchanged
+  EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 3))), RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1)))), RDFTTYPE(rdf::LInt32(2)));
+
+  // abs of anything but a number is null
+  AbsVisitor abs(nullptr, sr.row.get());
+  for(auto const& x: others) {
+    EXPECT_TRUE(null(or_threw(abs, x))) << "abs " << x;
+  }
+  EXPECT_TRUE(null(or_threw(abs, RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1))))));
+  EXPECT_EQ(or_threw(abs, RDFTTYPE(rdf::LInt32(-5))), RDFTTYPE(rdf::LInt32(5)));
+}
+
+// Q-93: to_int and to_double of what they cannot read are null, in a session's rule as
+// with no row: text that does not read as their type, empty or blank text, null, a named
+// resource, a blank node or a date (I-185); and to_int of a NaN, which converted to
+// int32 by undefined behaviour, numeric_cast not checking it (I-186). Each threw in a
+// session's rule except the NaN, which gave whatever the conversion gave.
+TEST(ArithmeticTypes, ToIntAndToDoubleOfWhatTheyCannotReadIsNull) {
+  SessionRow sr;
+  ToIntVisitor to_int(nullptr, sr.row.get());
+  ToDoubleVisitor to_double(nullptr, sr.row.get());
+  auto ti = [&](RDFTTYPE v) { return or_threw(to_int, v); };
+  auto td = [&](RDFTTYPE v) { return or_threw(to_double, v); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const unreadable = {
+    rdf::LString(""), rdf::LString("  "), rdf::LString("x"), rdf::LString("12abc"),
+    rdf::Null(), rdf::NamedResource("r"), rdf::BlankNode(3), rdf::LDate(rdf::date(2025, 1, 1)),
+    rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")),
+  };
+  for(auto const& v: unreadable) {
+    EXPECT_TRUE(null(ti(v))) << "to_int " << v;
+    EXPECT_TRUE(null(td(v))) << "to_double " << v;
+  }
+  // text that reads as a number but not as an int32
+  EXPECT_TRUE(null(ti(rdf::LString("2.5"))));
+  EXPECT_TRUE(null(ti(rdf::LString("1e3"))));
+  EXPECT_TRUE(null(ti(rdf::LString("99999999999"))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(std::numeric_limits<double>::quiet_NaN()))));
+  // what they read is as it was
+  EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
+  EXPECT_EQ(ti(rdf::LString("-7")), RDFTTYPE(rdf::LInt32(-7)));
+  EXPECT_EQ(td(rdf::LString(" 2.5 ")), RDFTTYPE(rdf::LDouble(2.5)));
+  EXPECT_EQ(td(rdf::LString("1e3")), RDFTTYPE(rdf::LDouble(1000)));
+  EXPECT_EQ(td(rdf::LInt32(3)), RDFTTYPE(rdf::LDouble(3)));
+}
+
 TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
   AddVisitor add(nullptr, nullptr);
   EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt32(2)), RDFTTYPE(rdf::LInt64(3))), RDFTTYPE(rdf::LInt32(5)));
@@ -1141,6 +1255,35 @@ TEST(Lookups, ANullKeyIsNull) {
   EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+}
+
+// Q-93: lookup and multi_lookup with a key or a table of a type they do not take are null,
+// in a session's rule as with no row, and look nothing up: a double, a date or a datetime
+// key, and a table named by anything but a resource or text. Each threw in a session's
+// rule (I-184). The rows need no lookup helper, since nothing is looked up.
+TEST(Lookups, AKeyOrTableOfAnotherTypeIsNull) {
+  SessionRow sr;
+  LookupVisitor lookup(nullptr, sr.row.get());
+  MultiLookupVisitor multi_lookup(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const tables = {rdf::NamedResource("acme:ProcedureLookup"), rdf::LString("acme:ProcedureLookup")};
+  std::vector<RDFTTYPE> const keys = {
+    rdf::LDouble(2.5), rdf::LDate(rdf::date(2025, 1, 1)), rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")),
+  };
+  for(auto const& t: tables) {
+    for(auto const& k: keys) {
+      EXPECT_TRUE(null(ap(lookup, t, k))) << "lookup " << t << " " << k;
+      EXPECT_TRUE(null(ap(multi_lookup, t, k))) << "multi_lookup " << t << " " << k;
+    }
+  }
+  std::vector<RDFTTYPE> const not_tables = {
+    rdf::LInt32(5), rdf::LDouble(2.5), rdf::Null(), rdf::BlankNode(3), rdf::LDate(rdf::date(2025, 1, 1)),
+  };
+  for(auto const& t: not_tables) {
+    EXPECT_TRUE(null(ap(lookup, t, RDFTTYPE(rdf::LString("k"))))) << "lookup " << t;
+    EXPECT_TRUE(null(ap(multi_lookup, t, RDFTTYPE(rdf::LInt32(7))))) << "multi_lookup " << t;
+  }
 }
 
 }   // namespace

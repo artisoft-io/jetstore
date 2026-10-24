@@ -225,18 +225,25 @@ failed before computes anything different. Each has its rows in a table of `expr
 | *Added 2026-10-23, `BL.1b`, from the review of the first four:* `to_int` of a number out of `int32`'s range | `boost::numeric_cast` threw | `ArithmeticTypes.ToIntOutOfRangeIsNull` |
 | text with a blank node, null with text and a double with text, either way round, in each of `+ - * /`; text plus null and text plus a double still concatenate | threw in a session's rule | `ArithmeticTypes.TheSharedTypingTable` |
 | `lookup` or `multi_lookup` with a blank-node key | threw in a session's rule | `Lookups.ANullKeyIsNull` |
+| *Added 2026-10-24 (`rules_benchmark` `Q-93`):* **every type mismatch of `+ - * /` and `abs`**: a number with text, a named resource, a blank node or null, either way round, and two operands neither of which the operator takes (I-184); text first in `+` still concatenates, by design | threw in a session's rule | `ArithmeticTypes.EveryTypeMismatchIsNull` |
+| `to_int` and `to_double` of what they cannot read: text that does not read as their type, empty or blank text, null, a named resource, a blank node or a date (I-185) | threw in a session's rule; empty text threw with no row too | `ArithmeticTypes.ToIntAndToDoubleOfWhatTheyCannotReadIsNull` |
+| `to_int` of a NaN (I-186) | converted to `int32` by undefined behaviour, which `numeric_cast` does not check (the minimum `int32` on x86-64) | `ArithmeticTypes.ToIntAndToDoubleOfWhatTheyCannotReadIsNull` |
+| `lookup` or `multi_lookup` with a key or a table of a type it does not take: a double, a date or a datetime key, a table named by anything but a resource or text | threw in a session's rule | `Lookups.AKeyOrTableOfAnotherTypeIsNull` |
 
 `+ - * /` are their `Impl` visitors wrapped in `NullWhenOutOfRange`, which turns a
 `bad_numeric_cast` into null (`expr_op_arithmetics.h`); integer division goes through
-`integer_quotient`. An operand that fits converts as before. **"In a session's rule" is not a
-detail**: with no beta row, as the shared tables call a visitor, an operator's catch-all gives null
-for operands it does not take; with a row, it throws. The rows of the cases that threw in a
-session's rule call the visitor with a row. **Every other mix of types the operators do not take
-still throws in a session's rule**: an integer plus text, for one, or a named resource, a blank
-node or null with a number. A grid of `+ - * /`, `lookup` and `multi_lookup` over 44 operand
-values, each pair with a row, counts 1,650 such cells (measured 2026-10-23). Whether they give null
-too is not decided. `to_int` of text that does not read as an `int32`
-still throws as well.
+`integer_quotient`. An operand that fits converts as before. **"In a session's rule" was not a
+detail**: with no beta row, as the shared tables call a visitor, an operator's catch-all gave null
+for operands it does not take; with a row, it threw. So a table that calls a visitor with no row can
+pass for a case that fails a session, and every row of the cases above calls it with a row. Until
+`Q-93` the null mixes were added one overload at a time; **since `Q-93` the catch-alls of `+ - * /`,
+`abs`, `to_int`, `to_double`, `lookup` and `multi_lookup` are null, with a row or without**, and the
+overloads that only gave null are gone. A grid of those operators over 33 operand values, each pair
+with a row, counts **3,641 cells that threw from a type mismatch and none now** (2026-10-24; 1,650
+in Phase 7's grid of 44 values over `+ - * /`, `lookup` and `multi_lookup`, 2026-10-23).
+**Other operators' catch-alls still throw in a session's rule**: `age_as_of` and
+`age_in_months_as_of` on anything but their dates, and `to_text` of a blank node, among those the
+grid counts. They are not arithmetic, and `Q-93` did not name them.
 
 **Ties in `min_of`, `max_of` and `sorted_head`, and Go's `min_head_of` and `max_head_of` (I-33, Q-61).**
 Among equal values the first met used to win, and the graph's iteration order varies from run to
