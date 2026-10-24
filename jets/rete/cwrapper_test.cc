@@ -57,6 +57,39 @@ TEST(CWrapperIsoGetters, ALaterCallReusesTheBuffer)
   EXPECT_EQ(first, second);
 }
 
+// The getters jets/bridge calls write into the caller's buffer, so no other call can
+// change the text afterwards
+TEST(CWrapperIsoGetters, TheCallersBufferGetsTheText)
+{
+  auto dt = rdf::mkLiteral(rdf::parse_datetime("2024-03-15T10:20:30.123456"));
+  auto d = rdf::mkLiteral(rdf::parse_date("2024-03-15"));
+  char buf[64];
+  ASSERT_EQ(get_datetime_iso_string3(dt.get(), buf, sizeof(buf)), 0);
+  EXPECT_STREQ(buf, "2024-03-15T10:20:30.123456");
+  char other[64];
+  ASSERT_EQ(get_date_iso_string3(d.get(), other, sizeof(other)), 0);
+  EXPECT_STREQ(other, "2024-03-15");
+  EXPECT_STREQ(buf, "2024-03-15T10:20:30.123456");
+}
+
+TEST(CWrapperIsoGetters, TheCallersBufferMustFit)
+{
+  auto d = rdf::mkLiteral(rdf::parse_date("2024-03-15"));
+  char buf[11];
+  EXPECT_EQ(get_date_iso_string3(d.get(), buf, 10), -4);   // 10 characters and the zero
+  EXPECT_STREQ(buf, "");
+  ASSERT_EQ(get_date_iso_string3(d.get(), buf, 11), 0);
+  EXPECT_STREQ(buf, "2024-03-15");
+  EXPECT_EQ(get_date_iso_string3(d.get(), buf, 0), -4);
+  EXPECT_EQ(get_date_iso_string3(d.get(), nullptr, 11), -1);
+  EXPECT_EQ(get_date_iso_string3(nullptr, buf, 11), -1);
+  auto nad = rdf::mkLiteral(rdf::date(boost::date_time::not_a_date_time));
+  EXPECT_EQ(get_date_iso_string3(nad.get(), buf, 11), -2);
+  auto i = rdf::mkLiteral(int32_t(5));
+  EXPECT_EQ(get_date_iso_string3(i.get(), buf, 11), -1);
+  EXPECT_EQ(get_datetime_iso_string3(d.get(), buf, 11), -1);
+}
+
 TEST(CWrapperIsoGetters, NotADateGivesNoText)
 {
   auto nad = rdf::mkLiteral(rdf::date(boost::date_time::not_a_date_time));

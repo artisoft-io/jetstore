@@ -642,11 +642,18 @@ int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr,
 // the resource's own storage as the other getters do. Each used to return
 // c_str() of the temporary it formatted, which was freed before the caller read
 // it: a datetime's 19 characters and more are past the small-string buffer, so
-// the bridge's C.GoString read freed heap (I-162). The text is now copied into a
-// fixed buffer of the calling thread. It stays valid until the next ISO getter
-// call on the same thread, and it is never reallocated, so a pointer read late
-// sees a later call's text rather than freed memory. The longest ISO text boost
-// writes is a datetime with microseconds, 26 characters.
+// the bridge's C.GoString read freed heap (I-162).
+//
+// get_date_iso_string3 and get_datetime_iso_string3 write the text into storage
+// the caller passes, and are the ones to call. jets/bridge calls them.
+//
+// The four older getters, kept for C callers, copy the text into a fixed buffer
+// of the calling thread instead. It is never freed, but it holds only until the
+// next ISO getter call on the same thread, so THEY ARE NOT SAFE FROM GO: a
+// goroutine that reads the pointer after the cgo call returns can have moved, and
+// another goroutine on the first thread can have overwritten the buffer, giving
+// another value's text. The longest ISO text boost writes is a datetime with
+// microseconds, 26 characters.
 static char const* to_thread_iso_buffer(std::string const& text) {
   thread_local char buffer[64];
   auto n = std::min(text.size(), sizeof(buffer) - 1);
@@ -718,6 +725,37 @@ char const* get_datetime_iso_string2(HJR handle, int* v) {
       *v = -1;
       return nullptr;
   }
+}
+
+// Copies text and its terminating zero into buf, of len bytes: 0, or -4 when it does
+// not fit, with buf left an empty string when len > 0
+static int to_caller_buffer(std::string const& text, char* buf, int len) {
+  if (len <= 0) return -4;
+  if (text.size() + 1 > static_cast<std::size_t>(len)) {
+    buf[0] = '\0';
+    return -4;
+  }
+  std::memcpy(buf, text.data(), text.size());
+  buf[text.size()] = '\0';
+  return 0;
+}
+
+int get_date_iso_string3(HJR handle, char* buf, int len) {
+  if (not handle or not buf) return -1;
+  auto const* r = static_cast<r_index>(handle);
+  if (r->which() != rdf_literal_date_t) return -1;
+  date const& d = boost::get<LDate>(r)->data;
+  if (d.is_not_a_date()) return -2;
+  return to_caller_buffer(boost::gregorian::to_iso_extended_string(d), buf, len);
+}
+
+int get_datetime_iso_string3(HJR handle, char* buf, int len) {
+  if (not handle or not buf) return -1;
+  auto const* r = static_cast<r_index>(handle);
+  if (r->which() != rdf_literal_datetime_t) return -1;
+  datetime const& d = boost::get<LDatetime>(r)->data;
+  if (d.is_not_a_date_time()) return -2;
+  return to_caller_buffer(boost::posix_time::to_iso_extended_string(d), buf, len);
 }
 
 int get_text_literal(HJR handle, HSTR* v) {

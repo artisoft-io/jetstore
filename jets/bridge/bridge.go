@@ -691,9 +691,11 @@ func (r *Resource) GetDateIsoString() (string, error) {
 	if r.GetType() != 9 {
 		return "", ErrUnexpectedRdfType
 	}
-	var cret C.int
-	sp := C.get_date_iso_string2(r.hdl, &cret)
-	ret := int(cret)
+	// The text is written into this buffer, not read from the library's: a buffer
+	// of the C thread could be overwritten by another goroutine's call before
+	// C.GoString copied it, once this goroutine had moved (I-162)
+	var buf [64]C.char
+	ret := int(C.get_date_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {
 		return "", ErrNotValidDate
 	}
@@ -701,7 +703,7 @@ func (r *Resource) GetDateIsoString() (string, error) {
 		fmt.Println("ERROR getting date in iso str format", ret)
 		return "", fmt.Errorf("error while date in iso str format: %v", ret)
 	}
-	return C.GoString(sp), nil
+	return C.GoString(&buf[0]), nil
 }
 
 func (r *Resource) GetDatetimeIsoString() (string, error) {
@@ -709,9 +711,11 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 	if r.GetType() != 10 {
 		return "", ErrUnexpectedRdfType
 	}
-	var cret C.int
-	sp := C.get_datetime_iso_string2(r.hdl, &cret)
-	ret := int(cret)
+	// The text is written into this buffer, not read from the library's: a buffer
+	// of the C thread could be overwritten by another goroutine's call before
+	// C.GoString copied it, once this goroutine had moved (I-162)
+	var buf [64]C.char
+	ret := int(C.get_datetime_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {
 		return "", ErrNotValidDateTime
 	}
@@ -719,7 +723,7 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 		fmt.Println("ERROR getting datetime in iso str format", ret)
 		return "", fmt.Errorf("error while datetime in iso str format: %v", ret)
 	}
-	return C.GoString(sp), nil
+	return C.GoString(&buf[0]), nil
 }
 
 func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {

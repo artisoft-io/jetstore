@@ -29,11 +29,17 @@ session computes unless the session failed or ran without a limit before.
   still turns the limit off; an integer of any width is read as the limit, where only an `int32`
   was, and a value that is not an integer gets the default with a warning. Production processes
   set 1,000,000. `VertexVisitLimitTest` in `meta_store_sharing_test.cc`.
-- **The ISO date and datetime getters of the C wrapper return text that outlives the call**
-  (I-162). They returned `c_str()` of a temporary, so the bridge read freed memory; a datetime's
-  text is past the small-string buffer, so it read freed heap. The text is copied into a fixed
-  buffer of the calling thread, valid until that thread's next ISO getter call and never
-  reallocated. The C signatures are unchanged. `cwrapper_test.cc`.
+- **The bridge's ISO date and datetime getters read text that nothing else can change**
+  (I-162). The C wrapper's getters returned `c_str()` of a temporary, so the bridge read freed
+  memory; a datetime's text is past the small-string buffer, so it read freed heap.
+  `get_date_iso_string3` and `get_datetime_iso_string3` now write the text into a buffer the
+  caller passes, and `GetDateIsoString` and `GetDatetimeIsoString` in `jets/bridge` pass one of
+  64 bytes. The four older getters are kept, deprecated, for C callers: they copy the text into a
+  fixed buffer of the calling thread, never freed, but **not safe from Go**. A first version of
+  this fix had the bridge use that buffer, and the review found wrong values under concurrency:
+  between the cgo call and `C.GoString` a goroutine can move, and another goroutine's call on the
+  first thread overwrites the buffer, about one call in 8,000 at 32 goroutines.
+  `cwrapper_test.cc`; `TestIsoGettersFromManyGoroutines` in `jets/bridge`.
 - **A factory closes what it opened, and so does the lookup helper** (I-144, I-170, I-180).
   `~ReteMetaStoreFactory` calls `reset()` (it was commented out); `LookupSqlHelper` and each
   connection pool close their connections when they go, so a factory deleted any way, not only

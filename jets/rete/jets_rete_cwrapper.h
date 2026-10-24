@@ -89,6 +89,13 @@ int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);
 int get_date_details(HJR hdl, int* year, int* month, int* day);
 int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr, int* min, int* sec, int* frac);
+// The ISO text of a date or datetime, written with its terminating zero into buf,
+// of len bytes: 0; -1 for a null handle or buffer or another type; -2 for not a
+// date; -4 when it does not fit (64 bytes always do)
+int get_date_iso_string3(HJR handle, char* buf, int len);
+int get_datetime_iso_string3(HJR handle, char* buf, int len);
+// DEPRECATED, not safe from Go: the text is in a buffer of the calling thread,
+// overwritten by its next ISO getter call (see jets_rete_cwrapper.cpp)
 int get_date_iso_string(HJR handle, HSTR*);
 int get_datetime_iso_string(HJR handle, HSTR*);
 char const* get_date_iso_string2(HJR handle, int*);
