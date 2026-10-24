@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <algorithm>
+#include <cstring>
+#include <string>
+
 #include <utility>
 
 #include "../rete/rete_err.h"
@@ -634,6 +638,23 @@ int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr,
   }
 }
 
+// The ISO getters format text the resource does not store, so they cannot return
+// the resource's own storage as the other getters do. Each used to return
+// c_str() of the temporary it formatted, which was freed before the caller read
+// it: a datetime's 19 characters and more are past the small-string buffer, so
+// the bridge's C.GoString read freed heap (I-162). The text is now copied into a
+// fixed buffer of the calling thread. It stays valid until the next ISO getter
+// call on the same thread, and it is never reallocated, so a pointer read late
+// sees a later call's text rather than freed memory. The longest ISO text boost
+// writes is a datetime with microseconds, 26 characters.
+static char const* to_thread_iso_buffer(std::string const& text) {
+  thread_local char buffer[64];
+  auto n = std::min(text.size(), sizeof(buffer) - 1);
+  std::memcpy(buffer, text.data(), n);
+  buffer[n] = '\0';
+  return buffer;
+}
+
 int get_date_iso_string(HJR handle, HSTR* v) {
   if (not handle or not v) return -1;
   auto const* r = static_cast<r_index>(handle);
@@ -641,7 +662,7 @@ int get_date_iso_string(HJR handle, HSTR* v) {
     case rdf_literal_date_t: {
       date const& d = boost::get<LDate>(r)->data;
       if (d.is_not_a_date()) return -2;
-      *v = boost::gregorian::to_iso_extended_string(d).c_str();
+      *v = to_thread_iso_buffer(boost::gregorian::to_iso_extended_string(d));
       return 0;
     }
     default:
@@ -659,7 +680,7 @@ char const* get_date_iso_string2(HJR handle, int* v) {
         return nullptr;
       }
       *v = 0;
-      return boost::gregorian::to_iso_extended_string(d).c_str();
+      return to_thread_iso_buffer(boost::gregorian::to_iso_extended_string(d));
     }
     default:
       *v = -1;
@@ -673,7 +694,7 @@ int get_datetime_iso_string(HJR handle, HSTR* v) {
     case rdf_literal_datetime_t: {
       datetime const& d = boost::get<LDatetime>(r)->data;
       if (d.is_not_a_date_time()) return -2;
-      *v = boost::posix_time::to_iso_extended_string(d).c_str();
+      *v = to_thread_iso_buffer(boost::posix_time::to_iso_extended_string(d));
       return 0;
     }
     default:
@@ -691,7 +712,7 @@ char const* get_datetime_iso_string2(HJR handle, int* v) {
         return nullptr;
       }
       *v = 0;
-      return boost::posix_time::to_iso_extended_string(d).c_str();
+      return to_thread_iso_buffer(boost::posix_time::to_iso_extended_string(d));
     }
     default:
       *v = -1;

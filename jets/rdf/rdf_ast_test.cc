@@ -281,6 +281,21 @@ TEST(RdfAstTest, DateTime)
   EXPECT_EQ(parse_date("01/01/2017T00:00:00,123"), date(2017, 1, 1));
 }
 
+// The rule on a double too small to round to 15 digits: round_to_digits' factor
+// overflows below about 1e-294, and it returned NaN, which fcmp took for equal to
+// anything, so 1e-300 == 5 (I-132). Such a value is compared unrounded. The
+// comparison table in expr_op_test.cc checks it through the operators, where
+// compare15's fast path decides; this is the rule itself.
+TEST(Compare15, ATinyDoubleIsComparedUnrounded) {
+  EXPECT_EQ(compare15_slow(1e-300, 5), -1);
+  EXPECT_EQ(compare15_slow(5, 1e-300), 1);
+  EXPECT_EQ(compare15_slow(1e-300, -7), 1);
+  EXPECT_EQ(compare15_slow(5e-324, 1e300), -1);
+  EXPECT_EQ(compare15_slow(1e-300, 1e-300), 0);
+  EXPECT_EQ(compare15_slow(1e-300, 2e-300), -1);
+  EXPECT_EQ(compare15(1e-300, 5), compare15_slow(1e-300, 5));
+}
+
 // compare15's fast path gives compare15_slow's result: 10^6 pairs, most of them close
 // enough to need the rule, near powers of ten, a few ulps apart, tiny, and money-like.
 TEST(Compare15, TheFastPathGivesTheRulesResult) {

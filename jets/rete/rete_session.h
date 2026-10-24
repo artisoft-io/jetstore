@@ -57,6 +57,13 @@ class ReteSession {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
+  // The vertex-visit limit of a session whose meta graph does not set
+  // (jets:iState jets:max_vertex_visits <n>): without one, a rule that never
+  // settles ran until the pipeline timed out, with no message (Q-83, 2026-10-23).
+  // A process that sets the triple gets its own value, and a value of 0 or less
+  // turns the limit off, as before.
+  static constexpr int kDefaultMaxVertexVisits = 10000;
+
   ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSession * rdf_session) 
     : arena_(),
       rule_ms_(rule_ms),
@@ -66,6 +73,7 @@ class ReteSession {
       pending_compute_consequent_beta_rows_(),
       err_msg_(),
       max_vertex_visit_(0),
+      max_vertex_visit_is_default_(false),
       no_truth_main_on_exist_(0),
       recording_row_(nullptr),
       scratch_rows_(),
@@ -507,6 +515,7 @@ class ReteSession {
   BetaRowPriorityQueue    pending_compute_consequent_beta_rows_;
   std::string             err_msg_;
   int                     max_vertex_visit_;
+  bool                    max_vertex_visit_is_default_; // the limit is kDefaultMaxVertexVisits, not set
   int                     no_truth_main_on_exist_; // This is temporary until we fix legacy rules
   BetaRow *               recording_row_;          // row whose inferred triples are being recorded
   std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed

@@ -21,14 +21,14 @@
 //
 // THE MECHANISM, in three places:
 //
-//   - ReteSession::initialize (jets/rete/rete_session.cc:32-45) looks up the resource
+//   - ReteSession::initialize (jets/rete/rete_session.cc:67-80) looks up the resource
 //     _0:no_truth_main_on_exist and reads (jets:iState, that, ?v) out of the rule_config
 //     graph. The rule_config triples land in the META graph -- InsertRuleConfig calls
-//     insert_meta_graph (jets/bridge/bridge.go:331) -- which is why the fixture below
+//     insert_meta_graph (jets/bridge/bridge.go:368) -- which is why the fixture below
 //     puts them there rather than asserting them.
 //
 //   - The default is 0, TRUTH MAINTENANCE ON, and it is the default twice over: the
-//     member is initialised to 0 (jets/rete/rete_session.h:66) and initialize leaves it
+//     member is initialised to 0 (jets/rete/rete_session.h:77) and initialize leaves it
 //     alone when the resource is absent, and sets it to 0 again when the value is
 //     present but is not an int32.
 //

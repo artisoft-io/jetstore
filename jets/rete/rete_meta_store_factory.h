@@ -51,10 +51,17 @@ class ReteMetaStoreFactory {
   using MainRuleUriLookup = std::unordered_map<std::string, int>;
   using MetaStoreLookup = std::unordered_map<int, ReteMetaStorePtr>;
 
+  // Closes the workspace-db connection load_database opened. The call was
+  // commented out, so only delete_jetstore_hdl closed it, and a factory deleted
+  // any other way leaked it (I-144). The lookup helper's connections close with
+  // the meta stores that own it, after the last session using them has gone.
   ~ReteMetaStoreFactory()
   {
-    // this->reset();
+    this->reset();
   }
+
+  ReteMetaStoreFactory(ReteMetaStoreFactory const&) = delete;
+  ReteMetaStoreFactory & operator=(ReteMetaStoreFactory const&) = delete;
 
   ReteMetaStoreFactory();
 

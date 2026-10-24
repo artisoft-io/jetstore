@@ -1,4 +1,8 @@
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <optional>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -97,16 +101,32 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
       }
       
       // Get the max_vertex_visit_ from the rdf session (meta graph)
+      // An integer of any width is the limit; anything else, or no triple, is the
+      // default, kDefaultMaxVertexVisits (Q-83)
       auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, rmgr->jets()->jets__max_vertex_visits);
-      if(v == nullptr) {
-        // no max set
-        max_vertex_visit_ = -1;
-      } else {
-        if(v->which() == rdf::rdf_literal_int32_t) {
-          max_vertex_visit_ = boost::get<rdf::LInt32>(v)->data;
-        } else {
-          max_vertex_visit_ = -1;
+      std::optional<std::int64_t> limit;
+      if(v != nullptr) {
+        switch (v->which()) {
+          case rdf::rdf_literal_int32_t:  limit = boost::get<rdf::LInt32>(v)->data; break;
+          case rdf::rdf_literal_uint32_t: limit = boost::get<rdf::LUInt32>(v)->data; break;
+          case rdf::rdf_literal_int64_t:  limit = boost::get<rdf::LInt64>(v)->data; break;
+          case rdf::rdf_literal_uint64_t:
+            limit = static_cast<std::int64_t>(std::min<std::uint64_t>(
+              boost::get<rdf::LUInt64>(v)->data, std::numeric_limits<std::int64_t>::max()));
+            break;
+          default:
+            LOG(WARNING) << "ReteSession::initialize: jets:max_vertex_visits is " << v
+                         << ", not an integer; the default limit of " << kDefaultMaxVertexVisits
+                         << " applies";
         }
+      }
+      if(limit) {
+        max_vertex_visit_ = static_cast<int>(std::clamp<std::int64_t>(
+          *limit, -1, std::numeric_limits<int>::max()));
+        max_vertex_visit_is_default_ = false;
+      } else {
+        max_vertex_visit_ = kDefaultMaxVertexVisits;
+        max_vertex_visit_is_default_ = true;
       }
 
       ret = this->set_graph_callbacks();
@@ -419,7 +439,18 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
         // Max vertex visit reached, return error
         // make json for err msg text
         std::ostringstream streamOut;
-        streamOut << "{\"error\":\"Maximum vertex visits reached\",\"data\":{";
+        streamOut << "{\"error\":\"Maximum vertex visits reached\",";
+        if(max_vertex_visit_is_default_) {
+          // A limit nobody set is named, with the setting that changes it
+          streamOut << "\"limit\":" << max_vertex_visit_
+                    << ",\"reason\":\"the default limit of " << max_vertex_visit_
+                    << " visits of a rule's vertex, since jets:max_vertex_visits is not set;"
+                       " set (jets:iState jets:max_vertex_visits <n>) to change it\",";
+          LOG(WARNING) << "ReteSession::compute_consequent_triples: vertex " << meta_node->vertex
+                       << " reached the default limit of " << max_vertex_visit_
+                       << " visits; jets:max_vertex_visits is not set";
+        }
+        streamOut << "\"data\":{";
         bool isFirst = true;
         for(int i=0; i<vertex_visits_.size(); i++) {
           if(vertex_visits_[i].first*1.1 >= max_vertex_visit_) {

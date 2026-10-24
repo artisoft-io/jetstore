@@ -15,6 +15,66 @@ they name is at the tag `go-engine-final`, not in this tree. What they say of th
 current unless the entry says otherwise. Where the Go engine was the reference for a behaviour,
 the C++ engine's tests named in the entry are now its specification.
 
+## Leaks, a crash, a default limit and the sanitizer gate — 2026-10-23
+
+`rules_benchmark`'s Phase 7 (track `BK`, with `BO.3`), on the one engine. None of it changes what a
+session computes unless the session failed or ran without a limit before.
+
+- **A session with no `jets:max_vertex_visits` stops at 10,000 visits of a vertex** (Michel,
+  2026-10-23: without one, a rule that never settles ran until the pipeline timed out, with no
+  message). `ReteSession::kDefaultMaxVertexVisits`. The error is the one a set limit gives, with
+  the limit and the setting named: `{"error":"Maximum vertex visits reached","limit":10000,
+  "reason":"the default limit of 10000 visits of a rule's vertex, since jets:max_vertex_visits is
+  not set; ...","data":{...}}`. A set limit gives the message it always gave. A value of 0 or less
+  still turns the limit off; an integer of any width is read as the limit, where only an `int32`
+  was, and a value that is not an integer gets the default with a warning. Production processes
+  set 1,000,000. `VertexVisitLimitTest` in `meta_store_sharing_test.cc`.
+- **The ISO date and datetime getters of the C wrapper return text that outlives the call**
+  (I-162). They returned `c_str()` of a temporary, so the bridge read freed memory; a datetime's
+  text is past the small-string buffer, so it read freed heap. The text is copied into a fixed
+  buffer of the calling thread, valid until that thread's next ISO getter call and never
+  reallocated. The C signatures are unchanged. `cwrapper_test.cc`.
+- **A factory closes what it opened, and so does the lookup helper** (I-144, I-170, I-180).
+  `~ReteMetaStoreFactory` calls `reset()` (it was commented out); `LookupSqlHelper` and each
+  connection pool close their connections when they go, so a factory deleted any way, not only
+  through `delete_jetstore_hdl`, leaks nothing; the helper is owned by the meta stores, so it goes
+  after the last session using it. And `TypeOf::type_of` on an unknown data property, and a reset
+  or bind error in a lookup, now give their connection back to the pool: each kept one, which
+  nothing closed. `LookupDbOpenTest.AFactoryClosesWhatItOpened` counts SQLite's own memory.
+- **`lookup.db` is opened only when a lookup table is declared, and read-only** (I-167). It was
+  opened on every engine build with `sqlite3_open`'s default flags, which create a missing file.
+  Every pooled connection is read-only too: their statements are all `SELECT`s. A missing
+  `lookup.db` with a table declared is now an error that creates nothing.
+- **The antecedent query keys are set once, when the meta store is built** (I-86).
+  `ReteMetaStore::initialize` numbers each vertex's children by the index of the parent relation
+  they query (`AlphaNode::antecedent_query_index`); each session's `BetaRelation::initialize` used
+  to write the key into the shared node vertex, a data race while the value was the same. A
+  session now adds the indexes in the same order and checks the key. `MetaStoreSharingTest`.
+- **The sanitizer gate is one command** (I-69), from the repository root:
+
+  ```bash
+  cmake -S . -B build-san -DCMAKE_BUILD_TYPE=Release -DJETS_SANITIZE=ON \
+    -DJETS_ABSEIL_SOURCE=/path/to/abseil-cpp-20260107.1 \
+    && make -C build-san -j8 jets_test && (cd build-san/jets && ctest)
+  ```
+
+  `JETS_SANITIZE` compiles and links with AddressSanitizer, leak detection on, and
+  UndefinedBehaviorSanitizer, every report fatal, less `null`, `nonnull-attribute` and
+  `returns-nonnull-attribute`, under which GCC 13 rejects a constexpr comparison in abseil's
+  `hash_policy_traits.h`. abseil must be built with the same flags, since under AddressSanitizer
+  its headers change the flat tables' layout: `JETS_ABSEIL_SOURCE` builds it in the tree, or
+  `CMAKE_PREFIX_PATH` can name one installed so. The three lookup tests' leaks, which the gate had
+  to switch leak detection off for, are gone.
+- **The `writes_graph` marks are tested against what the operators do** (I-65).
+  `OperatorWritesGraph` (`operator_writes_graph_test.cc`) evaluates every operator of
+  `operators.txt` on a set of operands, in a session with a lookup table, and an operator that grows
+  the inferred graph must be marked, and a marked one must grow it. Today that is `lookup`,
+  `multi_lookup`, `lookup_rand`, `multi_lookup_rand`, `range` and `create_entity`, the six the
+  file marks. An operator that writes only for an operand the test does not try would pass
+  unmarked.
+- **The reason for keeping the two retraction defects is gone**, corrected below in the 2026-10-08
+  entry.
+
 ## The Go engine is retired — decided 2026-10-22
 
 `jetstore_agentic_ai`'s `rules_benchmark` project benchmarked both engines on a client's claim
@@ -277,6 +337,17 @@ only retract and rebuild rows. Production's one other erase, the pool worker cle
 and `jets:completed` at a rule set's start (`jetrules_pool_worker.go`), runs before the new rete
 session has rows, so its notice changes nothing.
 
+### A live iterator sees the graph as it was when frozen (I-74; C++ #2322)
+
+Since the graph's tables became open-addressing tables (#2322), an insert can invalidate their
+iterators, so the graph freezes its live iterators before it changes structure: each copies the
+triples it has yet to return and continues over that copy (`freeze`,
+`jets/rdf/base_graph_iterator.h`). **A live C++ iterator returns the graph as it was when it was
+frozen**, a triple erased afterwards included and nothing inserted afterwards, which is how the Go
+engine's cursor behaved: one difference between the engines fewer, recorded here on 2026-10-23.
+Before, with node-based tables, such an iteration was undefined. The meta graph, shared across
+threads and not changed once rules run, registers no iterator and must not change under one.
+
 ### Still different, recorded
 
 Recorded, not changed. Each is an issue in `rules_benchmark`'s registers. Since the Go engine's
@@ -394,7 +465,7 @@ as `ReteSession.RaiseException`: a rule-time error is data in the session, not a
 
 Both engines. **Retraction recomputes a beta row's consequents** — it evaluates them again
 against the withdrawn row and retracts whatever comes out (`ReteSession::compute_consequent_triples`,
-`ReteSession::compute_consequent_triples`, `jets/rete/rete_session.cc:389`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
+`ReteSession::compute_consequent_triples`, `jets/rete/rete_session.cc:409`; Go's `ComputeConsequentTriples`, `rete_session_exec_rules.go:212` at `go-engine-final`). Found
 by a client workspace's assessment in `jetstore_agentic_ai` (its Q-37 and R-13), where one rule's
 `create_entity` was keyed as a workaround, in that workspace's own repository.
 
@@ -411,9 +482,9 @@ At rule load a node vertex is flagged when one of its consequent terms mints a r
 read by `ReteMetaStore::initialize` (`jets/rete/rete_meta_store.h:201`). Go had `expr_mints_resource.go` at `go-engine-final`
 and `AddConsequentTerm` (`node_vertex.go:77` at `go-engine-final`). A row of a flagged vertex records every triple its
 consequents raised the reference count of — the consequent triple and `create_entity`'s `jets:key`,
-both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:351`,
+both inserted through `insert_inferred_for` / `InsertInferredFor` (`jets/rete/rete_session.h:359`,
 `rete_session.go:34` at `go-engine-final`) — and **retraction retracts that record and evaluates nothing**
-(`beta_row->is_recording()` in `compute_consequent_triples`, `rete_session.cc:469`; `rete_session_exec_rules.go:270` at `go-engine-final`). The record is emptied rather than
+(`beta_row->is_recording()` in `compute_consequent_triples`, `rete_session.cc:500`; `rete_session_exec_rules.go:270` at `go-engine-final`). The record is emptied rather than
 released, because a withdrawn row stays in its relation (below) and is retracted again on later
 withdrawals; released, the second retraction fell back to recomputing `create_entity` and
 re-inserted `jets:key`. **A keyed entity's `jets:key` goes with its last support** — decided by
@@ -424,7 +495,8 @@ recorded and still outlive the row.
 
 **The 2026-10-08 version of this entry fixed two more things, and both were reverted on 2026-10-09
 by Michel's decision** ("go with (a), the narrow fix"), because with them a client workspace's rules never
-terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects**, pinned by the
+terminate with `_0:no_truth_main_on_exist` off. *(That reason is gone since 2026-10-11: see the
+correction of 2026-10-23 at the end of this entry. The defects are still what production runs.)* They are kept as **known defects**, pinned by the
 `LEGACY` cases in `jets/rete/retract_recorded_consequents_test.cc` (and, until the retirement, in Go's
 `retract_recorded_consequents_test.go` at `go-engine-final`):
 
@@ -432,7 +504,7 @@ terminate with `_0:no_truth_main_on_exist` off. They are kept as **known defects
    `size_of`, `lookup`. Once its input has moved, the triple retracted is not the triple inferred,
    and the inferred one stays.
 2. **A withdrawn row never fires again.** After retracting a row's consequents the engine calls
-   `remove_beta_row` (`rete_session.cc:502`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305` at `go-engine-final`), which
+   `remove_beta_row` (`rete_session.cc:533`; Go's `RemoveBetaRow`, `rete_session_exec_rules.go:305` at `go-engine-final`), which
    returns at once for a row marked `kDeleted`, which that row is. It stays in its relation as
    `kProcessed`, and an equal row arriving later is taken for one already inferred.
 
@@ -501,7 +573,7 @@ corrections to what is above, from `jetstore_agentic_ai`'s `rules_unit_test_harn
 `I-40` and `I-44`), which reduced these shapes to unit tests:
 
 - **What held the shapes up in production was the switch, not the defects.** The measurements
-  above were taken with `_0:no_truth_main_on_exist` off. With it on, as the client runs, an `exist` filter
+  above were taken with `_0:no_truth_main_on_exist` off. With it on, as the client ran until 2026-10-11, an `exist` filter
   is evaluated once, when its row is made, and the compiler puts the loop rule's filter on the
   loop-0 `jets:State` row. So the guard never moved. With the switch on, the workspace at the time passed
   with both defects off as well. The defects held the shape up only with the switch off, which is
@@ -527,6 +599,17 @@ still sets the switch and has neither change; it must take both together, becaus
 without the first change's rules brings the hangs back. Nothing in the workspaces `jetstore_agentic_ai` pins depends
 on them except `jets_ws`'s `looping_test1`, which pins them on purpose, and the `LEGACY` tests.
 Whether pipelines should run with them fixed is a decision this entry does not make.
+
+**Corrected 2026-10-23: the client workspace that relied on them no longer does.** The paragraph
+above was right on 2026-10-11 and stopped being right the same day, and it stood until Michel
+pointed at the release notes. The client workspace that relied on the defects took both changes
+together on 2026-10-11, its rewritten loops and the switch no longer set, and they were released
+in Release 4.0.3. Its strict unit tests, which run with both defects off, pass with the legacy
+tests' expectations. So no workspace depends on the defects or on the switch. **Production still
+runs the legacy mode**: no pipeline can select another, and `create_jetstore_hdl` builds legacy.
+Whether production moves to the fixed mode is measured first, legacy against fixed on the
+benchmark's inputs and the workspaces' unit tests (`rules_benchmark` `Q-92`), and is Michel's
+decision after that.
 
 **Two divergences found on the way, neither fixed here.** C++ `RDFGraph::erase` notified no graph
 callback (`erase_internal`, `jets/rdf/rdf_graph.h:302` today), where Go's `RdfGraph.erase_internal` did —
