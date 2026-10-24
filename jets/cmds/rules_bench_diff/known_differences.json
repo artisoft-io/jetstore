@@ -13,7 +13,7 @@
     {
       "id": "double-summation-last-bits",
       "refs": [
-        "projects/rules_benchmark I-33, F212, F217; Phase 4 (AZ.2)"
+        "projects/rules_benchmark I-88, F212, F217; Phase 4 (AZ.2)"
       ],
       "description": "Two doubles that differ in their last bits: an aggregate summed in another order, by the other engine or by the same engine in another run (sum_values over a set, an accumulation over rows that arrive in another order). At most 1e-7 quanta apart at the larger magnitude, about 3e-12 relative (a quantum is 2^-15 of it, graphdump.Quantum): a few ulps, and under a cent for any amount below a billion.",
       "scope": "any",

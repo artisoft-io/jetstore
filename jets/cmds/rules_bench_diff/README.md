@@ -83,7 +83,7 @@ retirement they also covered the two engines against each other:
 | Entry | Record |
 |---|---|
 | `minted-node-relabelled` | `graphdump` package documentation |
-| `double-summation-last-bits` | `projects/rules_benchmark` `I-33`, `F212`, `F217`: an aggregate summed in another order, across engines or between runs; about 3e-12 relative |
+| `double-summation-last-bits` | `projects/rules_benchmark` `I-88`, `F212`, `F217`: an aggregate summed in another order, across engines or between runs; about 3e-12 relative |
 
 **Three entries left the list in `projects/rules_benchmark` Phase 4** (2026-10-22), when the differences they
 classified were fixed: `go-double-literal-quantised` (`I-40`, Go no longer quantises a double literal),
