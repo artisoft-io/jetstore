@@ -19,6 +19,14 @@ import (
 // - Antecedents that do not share variables with already placed antecedents are placed last
 // This is a greedy algorithm and may not produce the optimal ordering in all cases.
 // More advanced algorithms can be implemented in the future.
+//
+// Two constraints hold whatever the scores (rules_benchmark Phase 8, BS.2, 2026-10-24):
+//   - A negated term binds nothing, so it is placed only once the terms placed before it
+//     bind every variable it reads, as validation checks of the authored order. Until
+//     then it was scored as a positive term, and rdf:type's bonus could put it first,
+//     where the engine matched it against every subject (I-200).
+//   - Terms of equal priority keep their authored order: the sort is stable. It was
+//     slices.SortFunc, which is not past 12 elements (I-201).
 func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	if !rule.Optimization || !rule.IsValid {
 		// Optimization is disabled for this rule or the rule is not valid
@@ -62,6 +70,10 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		// create a priority list
 		plist := make([]antPriority, 0, len(antecedents))
 		for i := range antecedents {
+			if antecedents[i].IsNot && !s.allVarsBinded(bindedVars, antecedents[i]) {
+				// not yet: a negated term follows the terms that bind its variables
+				continue
+			}
 			score := s.evaluateScore(bindedVars, antecedents[i])
 			plist = append(plist, antPriority{i, 1000 - score})
 			if s.trace {
@@ -69,8 +81,15 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			}
 		}
 
-		// find the antecedent with the highest priority
-		slices.SortFunc(plist, func(a, b antPriority) int {
+		if len(plist) == 0 {
+			// Only negated terms are left, each reading a variable no term binds. The
+			// rule is valid, so this does not happen; keep the authored order
+			s.LogError("Internal error: no antecedent can be placed during rule optimization")
+			plist = append(plist, antPriority{0, 0})
+		}
+
+		// find the antecedent with the highest priority, the first authored among equals
+		slices.SortStableFunc(plist, func(a, b antPriority) int {
 			return a.priority - b.priority
 		})
 		// take the first one
@@ -217,6 +236,18 @@ func (s *JetRuleListener) collectVars(collectedVars map[string]bool, antecedent 
 			collectedVars[r.Id] = true
 		}
 	}
+}
+
+// allVarsBinded reports whether every variable of the antecedent is in bindedVars.
+func (s *JetRuleListener) allVarsBinded(bindedVars map[string]bool, antecedent *rete.RuleTerm) bool {
+	vars := make(map[string]bool)
+	s.collectVars(vars, antecedent)
+	for v := range vars {
+		if !bindedVars[v] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *rete.RuleTerm) int {
