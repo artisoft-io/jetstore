@@ -732,8 +732,8 @@ does, and `TestRetractKeepsATripleWithASupportLeftInEveryIndex` (`rdf_graph_test
 refused at session start** (the first entry). What follows is what it did.
 
 C++ only; the Go engine had no counterpart, so a rule set that needed it could not run on the Go engine at all.
-A client workspace set it in its pipeline configuration (until 2026-10-11; see the entry above; the
-client's own copy still does) because its rules predate
+A client workspace set it in its pipeline configuration (until 2026-10-11; see the entry above. Its
+deployed rules no longer use it either, tested at deployment, as the first entry says) because its rules predate
 rule filters participating in truth maintenance, and it makes `ExistVisitor::register_callback` and
 `ExistNotVisitor::register_callback` (`jets/rete/expr_op_resources.h`) register nothing.
 

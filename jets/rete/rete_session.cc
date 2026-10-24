@@ -522,8 +522,9 @@ is_integer_zero(rdf::r_index v)
         if(beta_row->is_recording()) {
           // Replay what the row inferred: no expression is evaluated, so no entity is
           // minted and no jets:key is inserted. The record is emptied, not released:
-          // the row stays in its relation (see below) and can be retracted again, and
-          // must then replay nothing rather than fall back to recomputing.
+          // the row is erased below unless it was re-inserted meanwhile
+          // (erase_retracted_beta_row), and a row that stays must replay nothing if it
+          // is retracted again, rather than fall back to recomputing.
           auto recorded = beta_row->take_recorded();
           for(auto const& t3: recorded) {
             VLOG(35)<<"RETRACT Vertex "<<beta_row->get_node_vertex()->vertex<<": "<<t3<<" (recorded) from row "<<beta_row;
