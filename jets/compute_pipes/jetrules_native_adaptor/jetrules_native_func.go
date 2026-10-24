@@ -674,7 +674,13 @@ func (n *RdfNodeNative) Hdle() any {
 	return n
 }
 
+// IsNil is true for the null node, and for a node that holds nothing: GetObject
+// returns one when the session has no object (bridge GetObject's nil, nil), which
+// IsNil dereferenced until rules_benchmark I-221.
 func (n *RdfNodeNative) IsNil() bool {
+	if n == nil || n.node == nil {
+		return true
+	}
 	return n.node.GetType() == 0
 }
 
