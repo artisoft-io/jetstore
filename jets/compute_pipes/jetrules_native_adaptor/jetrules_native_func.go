@@ -674,6 +674,23 @@ func (n *RdfNodeNative) Hdle() any {
 	return n
 }
 
+// ObserveVertices is compute_pipes.VertexObserver: what each vertex of the rule
+// set's network holds, read from the C++ session (get_vertex_observations).
+func (rs *JetReteSessionNative) ObserveVertices() ([]compute_pipes.VertexObservation, error) {
+	obs, err := rs.reteSession.ObserveVertices()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]compute_pipes.VertexObservation, len(obs))
+	for i, o := range obs {
+		out[i] = compute_pipes.VertexObservation{Vertex: o.Vertex, RowsNow: o.RowsNow, RowsPeak: o.RowsPeak,
+			Inferred: o.Inferred, Retracted: o.Retracted}
+	}
+	return out, nil
+}
+
+var _ compute_pipes.VertexObserver = (*JetReteSessionNative)(nil)
+
 // IsNil is true for the null node, and for a node that holds nothing: GetObject
 // returns one when the session has no object (bridge GetObject's nil, nil), which
 // IsNil dereferenced until rules_benchmark I-221.

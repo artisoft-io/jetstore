@@ -161,6 +161,42 @@ func (jr *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string)
 	return &rs, nil
 }
 
+// VertexObservation is what one vertex of a rete session's network holds
+// (get_vertex_observations): its beta relation's rows now and at their most in this
+// session, and the times its consequents were computed and retracted.
+type VertexObservation struct {
+	Vertex    int
+	RowsNow   int64
+	RowsPeak  int64
+	Inferred  int64
+	Retracted int64
+}
+
+// ObserveVertices reads every vertex's observation. It reads counters the session
+// keeps anyway, so a session that is never observed pays nothing for it.
+func (rs *ReteSession) ObserveVertices() ([]VertexObservation, error) {
+	n := int(C.get_vertex_observations(rs.hdl, 0, nil, nil, nil, nil))
+	if n < 0 {
+		return nil, fmt.Errorf("error calling get_vertex_observations, ret code: %d", n)
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	now := make([]C.int64_t, n)
+	peak := make([]C.int64_t, n)
+	inferred := make([]C.int64_t, n)
+	retracted := make([]C.int64_t, n)
+	if got := int(C.get_vertex_observations(rs.hdl, C.int(n), &now[0], &peak[0], &inferred[0], &retracted[0])); got != n {
+		return nil, fmt.Errorf("get_vertex_observations: %d vertices, then %d", n, got)
+	}
+	obs := make([]VertexObservation, n)
+	for i := range obs {
+		obs[i] = VertexObservation{Vertex: i, RowsNow: int64(now[i]), RowsPeak: int64(peak[i]),
+			Inferred: int64(inferred[i]), Retracted: int64(retracted[i])}
+	}
+	return obs, nil
+}
+
 func (rs *ReteSession) ReleaseReteSession() error {
 	ret := int(C.delete_rete_session(rs.hdl))
 	if ret != 0 {

@@ -22,6 +22,9 @@ type RunResult struct {
 	// EquivalenceOnly marks an untimed run (Options.EquivalenceOnly): its outputs
 	// are for comparison, and its times are not measurements.
 	EquivalenceOnly bool `json:"equivalence_only,omitzero"`
+	// Observed marks a run that observed each rule set's network
+	// (Options.ObserveDir): untimed, as an equivalence-only run is.
+	Observed bool `json:"observed,omitzero"`
 	// Repetition counts from 1 within its kind: warmup runs and measured runs
 	// are numbered apart.
 	Repetition int  `json:"repetition"`

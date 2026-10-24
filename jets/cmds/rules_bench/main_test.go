@@ -25,3 +25,24 @@ func TestLegacyFlagIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// -observe is untimed: with it, the timing outputs are refused, naming -observe
+// (rules_benchmark BU.2).
+func TestObserveRefusesTheTimingFlags(t *testing.T) {
+	defer func() {
+		flag.Set("observe", "")
+		flag.Set("per_loop", "false")
+	}()
+	if err := flag.Set("observe", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := refuseTimingFlags(); err != nil {
+		t.Errorf("-observe alone: %v", err)
+	}
+	if err := flag.Set("per_loop", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := refuseTimingFlags(); err == nil || !strings.Contains(err.Error(), "-observe is an untimed run and refuses -per_loop") {
+		t.Errorf("-observe -per_loop: %v", err)
+	}
+}
