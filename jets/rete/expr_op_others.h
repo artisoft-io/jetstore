@@ -31,9 +31,12 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
-  // a null key is null, and looks nothing up: it threw in a session (Q-85, I-104)
+  // a null key is null, and looks nothing up: it threw in a session (Q-85, I-104),
+  // and so is a blank-node key (BL.1b)
   RDFTTYPE operator()(rdf::NamedResource, rdf::RDFNull)const{return rdf::Null();}
   RDFTTYPE operator()(rdf::LString, rdf::RDFNull)const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::NamedResource, rdf::BlankNode)const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::LString, rdf::BlankNode)const{return rdf::Null();}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
@@ -101,9 +104,12 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup rand: ("<<lhs<<", "<<rhs<<")");};
-  // a null key is null, and looks nothing up: it threw in a session (Q-85, I-104)
+  // a null key is null, and looks nothing up: it threw in a session (Q-85, I-104),
+  // and so is a blank-node key (BL.1b)
   RDFTTYPE operator()(rdf::NamedResource, rdf::RDFNull)const{return rdf::Null();}
   RDFTTYPE operator()(rdf::LString, rdf::RDFNull)const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::NamedResource, rdf::BlankNode)const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::LString, rdf::BlankNode)const{return rdf::Null();}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
