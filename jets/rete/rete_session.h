@@ -540,16 +540,30 @@ inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms,
   return std::make_shared<ReteSession>(rule_ms, rdf_session);
 }
 
+// The held rows are moved into the relation, not copied: each copy of a shared_ptr was
+// an atomic increment and, when the copy went, a decrement (C16). drop() then releases
+// the moved-from pointers, which hold nothing.
 inline int
 ReteSession::HeldCandidates::insert_into(BetaRelation * relation)
 {
   auto & rows = rete_session_->held_rows_;
   for(auto i = base_; i < rows.size(); ++i) {
-    auto err = relation->insert_beta_row(rete_session_, rows[i]);
+    auto err = relation->insert_beta_row(rete_session_, std::move(rows[i]));
     if(err) return err;
   }
   drop();
   return 0;
+}
+
+// Inline, and the filter evaluated only when the vertex has one (C16): most candidates
+// are of vertexes without a filter, and for them this is the compare alone. The same
+// answer as before: current_filter is true without a filter.
+inline bool
+ReteSession::keep_candidate(b_index meta_node, BetaRow const* row, BetaRelation const* parent_relation,
+  BetaRow const* parent_row, AlphaNode const* alpha_node, rdf::Triple const* t3, std::uint64_t mark)
+{
+  if(meta_node->has_expr() and not this->current_filter(meta_node, row)) return false;
+  return this->reentries_ == mark or this->candidate_still_supported(parent_relation, parent_row, alpha_node, t3);
 }
 
 inline bool
@@ -569,15 +583,15 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   if(beta_row->arena() != this->arena_) {
     RETE_EXCEPTION("BetaRelation::insert_beta_row: row and relation are in different arenas");
   }
-  auto itor = this->all_beta_rows_.find(beta_row);
-  if(itor != this->all_beta_rows_.end()) {
-    // a reference to the set's element: row_inserted does not change the set
-    return this->row_inserted(rete_session, *itor, false);
-  }
+  // One lookup, which inserts if it finds no equal row (C16; it was a find, then an
+  // insert). The set can grow, so its live scans are frozen first, found or not: it
+  // costs nothing when none is live. A row taken is moved into the set; a row found
+  // equal is left, and the set's element is used.
   this->scans_.freeze(BetaRowScanRegistry::kAllRows);
-  this->all_beta_rows_.insert(beta_row);
-  if(this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
-  return this->row_inserted(rete_session, beta_row, true);
+  auto [itor, is_new] = this->all_beta_rows_.insert(std::move(beta_row));
+  if(is_new and this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
+  // a reference to the set's element: row_inserted does not change the set
+  return this->row_inserted(rete_session, *itor, is_new);
 }
 
 inline int

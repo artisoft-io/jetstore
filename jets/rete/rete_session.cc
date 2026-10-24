@@ -536,14 +536,6 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
     }
   }
 
-  bool
-  ReteSession::keep_candidate(b_index meta_node, BetaRow const* row, BetaRelation const* parent_relation,
-    BetaRow const* parent_row, AlphaNode const* alpha_node, rdf::Triple const* t3, std::uint64_t mark)
-  {
-    if(not this->current_filter(meta_node, row)) return false;
-    return this->reentries_ == mark or this->candidate_still_supported(parent_relation, parent_row, alpha_node, t3);
-  }
-
   // This is called by callback manager in response to a triple inserted or deleted from the rdf graph
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
