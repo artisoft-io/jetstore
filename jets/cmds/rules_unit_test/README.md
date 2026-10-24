@@ -12,8 +12,8 @@ from a shell against a checked-out workspace, with no apiserver and no database.
 - **It opens no database connection.** It reads the compiled workspace from
   `$WORKSPACES_HOME/$WORKSPACE` and writes a file.
 - **It builds one engine per run, in its own process**, and never shares an engine between
-  tests. The `LEGACY` mode is fixed when an engine is built, and the meta graph locks when the
-  first RDF session opens, so `rule_config` cannot change afterwards.
+  tests. The meta graph locks when the first RDF session opens, so `rule_config` cannot change
+  afterwards.
 
 The types, validation and result file are in `jets/rulestest`. The runner is in
 `jets/rulestest/harness`.
@@ -88,7 +88,7 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
    LD_LIBRARY_PATH=$LIB rules_unit_test -out /tmp/r.json jet_rules/unit_tests/looping_test/looping_test1.tst.json
    ```
 
-   It prints one line, for example `… legacy on native: pass`, and the details are in
+   It prints one line, for example `… fixed on native: pass`, and the details are in
    `/tmp/r.json`. Its log is standard error.
 
 ## The test definition
@@ -97,7 +97,6 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
 {
   "test_name": "greetings",
   "comment": "free text",
-  "legacy": { "recompute_on_retraction": false, "withdrawn_row_stays": true },
   "expect": { "status": "error", "reason": "max vertex visit reached" },
   "jetrules_config": { "process_name": "jet_rules/unit_tests/lp/lp_test.jr" },
   "input_sessions": [
@@ -123,6 +122,12 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
     `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`.
 - **`process_name`** is a rule file listed in `rule_sets`, or a rule sequence name.
 - **`legacy` and `expect` are top-level only.**
+- **`legacy` no longer chooses anything.** It held the two `LEGACY` retraction switches,
+  `recompute_on_retraction` and `withdrawn_row_stays`, until October 2026, when the `LEGACY`
+  retraction mode was deleted and the C++ engine kept one behaviour, the one the switches chose
+  when false (`jets/rete/README.md`). **A switch set `true` is refused**, naming the deletion; an
+  object whose every present switch is `false` names that behaviour and is accepted, so tests
+  written with one still run.
 - **Top-level `expected_triples` / `excluded_triples` apply to every session.** A session may
   add its own.
 
@@ -134,7 +139,10 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
   or `"compare_engines": true`, which ran the test on both engines. It is refused rather than run
   on C++ in its place. Results written before the retirement may record `go`, or `native+go`
   with `engine_differences`.
-- **`_0:no_truth_main_on_exist`** is the C++ engine's, and is accepted.
+- **`_0:no_truth_main_on_exist` in `rule_config` is refused**, naming the deletion, unless it is
+  an integer `0`. It turned off truth maintenance on `exist` and `exist_not` filters, and was
+  deleted with the `LEGACY` retraction mode; the engine refuses it at session start too, so a
+  pipeline gets the same answer.
 - **`$max_rule_exec` is read by nothing.** The compiler stores it in the workspace's
   `jetstore_config` and the rule file's `.config.json`, and neither the engine nor the pipeline
   reads it: `ReteSession::initialize` reads only `jets:max_vertex_visits`, and the pipeline only
@@ -193,7 +201,8 @@ A check takes one of three forms:
 
 **What the result file carries:**
 - `engine`
-- `legacy_mode`: `legacy`, `fixed`, `fixed-1` or `fixed-2`
+- `legacy_mode`: `fixed`, the one retraction behaviour; results written before October 2026 may
+  record `legacy`, `fixed-1` or `fixed-2`
 - `load_ms`: building the engine
 - `run_ms`: the sessions and checks
 - `duration_ms`: the whole process
@@ -263,9 +272,8 @@ A check takes one of three forms:
   protocol reaches both.
 - **The checks read a snapshot of the session.** `DecodeNode` normalises the adaptors' type
   names, so a check never builds a node in the session it checks.
-- **The `LEGACY` switches** are passed to the engine constructor
-  (`compute_pipes.WithRetractionMode`, from `harness.RetractionModeOf`), so the rules load in the
-  test's mode; this harness is the only caller that passes anything but legacy. `legacy_mode` is
-  the mode the engine reports it was built in (`RetractionMode()` on the adaptor's engine),
-  and a run whose engine reports a different mode from the one the test declares is an `error`.
-  `legacy_mode_test.go` runs defect 1 in all four modes.
+- **The `LEGACY` switches were passed to the engine constructor** until October 2026
+  (`compute_pipes.WithRetractionMode`), so that a test chose its retraction mode; the mode, the
+  option and `create_jetstore_hdl_with_mode` are deleted, and every engine is built the one way.
+  `legacy_mode_test.go` runs defect 1 with no `legacy` object, with its switches `false`, and
+  with one `true`, which is refused.

@@ -39,6 +39,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulesbench"
 	"github.com/artisoft-io/jetstore/jets/rulesbench/graphdump"
+	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
@@ -57,8 +58,8 @@ var (
 	rlimitDataMB = flag.Int("rlimit_data_mb", 0, "memory ceiling in MiB applied to this process as RLIMIT_DATA; 0 is none")
 	requireTuned = flag.Bool("require_tuned", false, "refuse to run unless every allowed CPU uses the performance governor and perf_event_paranoid <= 1")
 	dumpDir      = flag.String("dump_dir", "", "write the canonical graph dump after each rule set, one dump tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<NN>_<ruleset>.tsv; not a timing run")
-	equivalence  = flag.Bool("equivalence_only", false, "an untimed run, for comparing what the engine computes: the spec's legacy object may then choose a retraction mode other than production's (fixed-1, fixed-2, fixed); profiles, -per_loop, -sample_ms and -require_tuned are refused, sampling is off, and each result records equivalence_only")
-	legacyFlag   = flag.String("legacy", "", "override the spec's legacy object with a retraction mode: legacy, fixed-1, fixed-2 or fixed; any but legacy needs -equivalence_only")
+	equivalence  = flag.Bool("equivalence_only", false, "an untimed run, for comparing what the engine computes: profiles, -per_loop, -sample_ms and -require_tuned are refused, sampling is off, and each result records equivalence_only")
+	_            = flag.String("legacy", "", "refused: it chose a retraction mode, and the LEGACY retraction mode was deleted in October 2026")
 	rowsDir      = flag.String("rows_dir", "", "write every extracted row, one tree per repetition: <dir>/<r01|w01>/<engine>/<session>/<class>.rows, cells typed, in extraction order; not a timing run")
 
 	cpuProfile     = flag.String("cpuprofile", "", "write a Go CPU profile of the runs to this file")
@@ -105,6 +106,9 @@ func run(specPath string) error {
 	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
 		return errors.New("WORKSPACES_HOME and WORKSPACE must name the compiled workspace the bench runs against")
 	}
+	if err := refuseLegacyFlag(); err != nil {
+		return err
+	}
 	if *equivalence {
 		if err := refuseTimingFlags(); err != nil {
 			return err
@@ -129,13 +133,13 @@ func run(specPath string) error {
 			return fmt.Errorf("-require_tuned: governors %v, perf_event_paranoid %q; want performance on every allowed CPU and 1 or less", env.Governors, paranoid)
 		}
 	}
-	// The retraction mode before anything is written: a timed run asking for a
-	// fixed mode is refused with out_dir untouched (Run checks it again).
-	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, Legacy: *legacyFlag, PerLoop: *perLoop}
+	// The options before anything is written: a refused run leaves out_dir
+	// untouched (Run checks them again).
+	modeOpts := rulesbench.Options{EquivalenceOnly: *equivalence, PerLoop: *perLoop}
 	if !*equivalence {
 		modeOpts.SampleMs = *sampleMs
 	}
-	if _, err := rulesbench.RetractionModeOf(spec, modeOpts); err != nil {
+	if err := rulesbench.CheckOptions(modeOpts); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
@@ -156,7 +160,6 @@ func run(specPath string) error {
 		CountTriples:    *countTriples,
 		SampleMs:        *sampleMs,
 		EquivalenceOnly: *equivalence,
-		Legacy:          *legacyFlag,
 		Env:             env,
 	}
 	if *equivalence {
@@ -227,6 +230,17 @@ func run(specPath string) error {
 // -equivalence_only run refuses rather than produce numbers from an untimed run.
 var timingFlags = []string{"cpuprofile", "memprofile", "memprofilerate", "blockprofile",
 	"mutexprofile", "trace", "per_loop", "sample_ms", "require_tuned"}
+
+// refuseLegacyFlag refuses -legacy, whatever its value: it chose a retraction
+// mode, and there is one behaviour since the LEGACY retraction mode was deleted.
+func refuseLegacyFlag() error {
+	var given bool
+	flag.Visit(func(f *flag.Flag) { given = given || f.Name == "legacy" })
+	if given {
+		return fmt.Errorf("-legacy chose a retraction mode: %s; remove it", rulestest.LegacyRetractionDeleted)
+	}
+	return nil
+}
 
 func refuseTimingFlags() error {
 	var given []string

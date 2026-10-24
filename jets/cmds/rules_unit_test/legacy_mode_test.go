@@ -1,13 +1,16 @@
 package main
 
-// THE LEGACY SWITCHES AND THE VERTEX VISIT LIMIT (rules_unit_test_harness Phase 1,
-// task AF.6).
+// ONE RETRACTION BEHAVIOUR AND THE VERTEX VISIT LIMIT (rules_unit_test_harness Phase 1,
+// task AF.6; rules_benchmark Phase 8, BQ.2).
 //
 // harness.Run with the C++ adaptor, as this command runs it, over a scratch copy of
 // jets/jetrules/test_ws with three fixtures added:
 //
-//   - defect 1 in two definitions sharing one rule file: legacy, where the total
-//     inferred stays after its row is withdrawn, and fixed-1, where it is retracted.
+//   - LEGACY defect 1 in definitions sharing one rule file. Until October 2026 a test's
+//     legacy object chose between legacy, where the total inferred stays after its row
+//     is withdrawn, and fixed-1, where it is retracted. The LEGACY retraction mode is
+//     deleted: the total is retracted, a legacy object whose switches are false is
+//     accepted and changes nothing, and one with a switch true is refused.
 //   - a rule that never stops inferring, with jets:max_vertex_visits = 50 set through
 //     rule_config: the run must end at the vertex visit limit. ReteSession::initialize
 //     reads it from the RDF session, which sees the meta graph the harness asserted
@@ -17,8 +20,8 @@ package main
 // Until the Go engine's retirement (October 2026) these ran on both engines, defect 1
 // with compare_engines; they now run on C++ alone.
 //
-// Needs libjets.so with create_jetstore_hdl_with_mode: set CGO_CFLAGS, CGO_LDFLAGS and
-// LD_LIBRARY_PATH to a build of this commit. Runs in a child process, because the
+// Needs libjets.so: set CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH to a build of this
+// commit. Runs in a child process, because the
 // rete, workspace and compute_pipes packages bind the workspace in init. -count=1.
 
 import (
@@ -39,8 +42,8 @@ const legacyModeChildEnv = "JETS_RULES_UNIT_TEST_LEGACY_MODE_CHILD"
 
 const afDir = "jet_rules/unit_tests/af/"
 
-// Defect 1, as the C++ LEGACY case ConsequentAggregateRetractionRecomputes
-// (jets/rete/retract_recorded_consequents_test.cc:381) builds it by hand, in rules: AF_D1_10 sums while done is absent, AF_D1_20 then adds a
+// Defect 1, as the C++ case ConsequentAggregateRetractionReplays
+// (jets/rete/retract_recorded_consequents_test.cc) builds it by hand, in rules: AF_D1_10 sums while done is absent, AF_D1_20 then adds a
 // value, AF_D1_30 then infers done and withdraws AF_D1_10's row.
 const afDefect1Rules = `import "data_model/jets_model.jr"
 
@@ -149,7 +152,7 @@ func afRunawayTest() string {
 	return string(b)
 }
 
-func TestLegacyModeAndVisitLimit(t *testing.T) {
+func TestOneRetractionBehaviourAndVisitLimit(t *testing.T) {
 	if os.Getenv(legacyModeChildEnv) == "" {
 		stageAndRerun(t)
 		return
@@ -175,24 +178,27 @@ func TestLegacyModeAndVisitLimit(t *testing.T) {
 		}
 	}
 
-	// Defect 1: legacy pins the total that stays, fixed-1 its absence.
+	// Defect 1 is gone: the total is retracted with its row, with no legacy object.
 	r := run("defect1.tst.json")
-	want(r, rulestest.StatusPass, rulestest.LegacyModeLegacy, "")
+	want(r, rulestest.StatusPass, rulestest.LegacyModeFixed, "")
 	if r.Engine != rulestest.EngineNative {
 		t.Errorf("defect1: engine %q, want native", r.Engine)
 	}
-	want(run("defect1_fixed.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed1, "")
-	// The same fixed-1 definition expecting the legacy answer fails: the mode is applied,
-	// not only recorded.
-	r = run("defect1_fixed_wrong.tst.json")
-	want(r, rulestest.StatusFail, rulestest.LegacyModeFixed1, "checks failed")
-	// fixed-2 changes nothing on this shape, and both defects off retracts the total.
-	want(run("defect1_fixed2.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed2, "")
-	want(run("defect1_fixed_both.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed, "")
+	// The same rules expecting the legacy answer, the total that stays, fail.
+	want(run("defect1_legacy_answer.tst.json"), rulestest.StatusFail, rulestest.LegacyModeFixed, "checks failed")
+	// A legacy object whose switches are false names the one behaviour: accepted, the
+	// same answer (rules_benchmark Q-102).
+	want(run("defect1_switches_off.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed, "")
+	// A switch set true asks for a deleted behaviour, and is refused before any session.
+	r = run("defect1_switch_on.tst.json")
+	want(r, rulestest.StatusError, rulestest.LegacyModeFixed, rulestest.LegacyRetractionDeleted)
+	if len(r.SessionResults) != 0 {
+		t.Errorf("defect1_switch_on: %d sessions ran", len(r.SessionResults))
+	}
 
 	// jets:max_vertex_visits from rule_config stops a runaway rule.
 	r = run("runaway.tst.json")
-	want(r, rulestest.StatusPass, rulestest.LegacyModeLegacy, "the expected error occurred")
+	want(r, rulestest.StatusPass, rulestest.LegacyModeFixed, "the expected error occurred")
 	for _, s := range r.SessionResults {
 		t.Logf("runaway: session %q: %s", s.Name, s.Reason)
 	}
@@ -229,18 +235,16 @@ func stageAndRerun(t *testing.T) {
 	if err := os.WriteFile(ctlPath, raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	f := false
 	files := map[string]string{
-		"af_defect1.jr":                afDefect1Rules,
-		"defect1.csv":                  afDefect1Csv,
-		"defect1.tst.json":             afDefect1Test(nil, true),
-		"defect1_fixed.tst.json":       afDefect1Test(map[string]any{"recompute_on_retraction": f}, false),
-		"defect1_fixed_wrong.tst.json": afDefect1Test(map[string]any{"recompute_on_retraction": f}, true),
-		"defect1_fixed2.tst.json":      afDefect1Test(map[string]any{"withdrawn_row_stays": f}, true),
-		"defect1_fixed_both.tst.json":  afDefect1Test(map[string]any{"recompute_on_retraction": f, "withdrawn_row_stays": f}, false),
-		"af_runaway.jr":                afRunawayRules,
-		"runaway.csv":                  afRunawayCsv,
-		"runaway.tst.json":             afRunawayTest(),
+		"af_defect1.jr":                  afDefect1Rules,
+		"defect1.csv":                    afDefect1Csv,
+		"defect1.tst.json":               afDefect1Test(nil, false),
+		"defect1_legacy_answer.tst.json": afDefect1Test(nil, true),
+		"defect1_switches_off.tst.json":  afDefect1Test(map[string]any{"recompute_on_retraction": false, "withdrawn_row_stays": false}, false),
+		"defect1_switch_on.tst.json":     afDefect1Test(map[string]any{"recompute_on_retraction": true}, false),
+		"af_runaway.jr":                  afRunawayRules,
+		"runaway.csv":                    afRunawayCsv,
+		"runaway.tst.json":               afRunawayTest(),
 	}
 	dir := filepath.Join(ws, afDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

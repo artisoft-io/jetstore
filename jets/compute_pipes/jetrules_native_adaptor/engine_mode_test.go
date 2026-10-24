@@ -1,65 +1,87 @@
 package jetrules_native_adaptor
 
-// THE RETRACTION MODE REACHES THE C++ ENGINE THROUGH THE FACTORY INTERFACE
-// (rules_unit_test_harness Phase 1, task AF.5).
+// A RULE CONFIGURATION SETTING _0:no_truth_main_on_exist IS REFUSED, AND THE REFUSAL
+// REACHES GO WITH ITS REASON.
 //
-// With no option -- every pipeline -- NewJetRuleEngine loads the workspace through
-// bridge.LoadJetRules, create_jetstore_hdl, as before the mode existed. With
-// compute_pipes.WithRetractionMode and a defect turned off it loads through
-// bridge.LoadJetRulesWithMode, create_jetstore_hdl_with_mode. What the modes do to
-// a network is tested in jets/rete (retract_recorded_consequents_test.cc,
-// loop_through_negation_test.cc); this pins that every mode builds an engine and
-// the engine reports the mode it was built in.
+// The switch was deleted in October 2026 with the LEGACY retraction mode, which this
+// file tested until then (rules_unit_test_harness AF.5: the mode reached the C++ engine
+// through the factory). ReteSession::initialize refuses a configuration that still turns
+// it on, and bridge.NewReteSession returns the session's message rather than a bare
+// return code. The rule_config triples are in the meta graph, inserted before the first
+// rdf session, as a pipeline inserts them.
 //
-// Needs libjets.so with create_jetstore_hdl_with_mode: set CGO_CFLAGS, CGO_LDFLAGS
-// and LD_LIBRARY_PATH to a build of this commit. Runs in a child process over a
-// compiled copy of jets/jetrules/test_ws, because package workspace fixes its
-// paths at init. Run it with -count=1.
+// Needs libjets.so with get_rete_session_err_msg: set CGO_CFLAGS, CGO_LDFLAGS and
+// LD_LIBRARY_PATH to a build of this commit. Runs in a child process over a compiled
+// copy of jets/jetrules/test_ws, because package workspace fixes its paths at init. Run
+// it with -count=1.
 
 import (
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
 const engineModeChildEnv = "JETS_NATIVE_ENGINE_MODE_TEST_HOME"
 
-func TestNativeEngineRetractionMode(t *testing.T) {
+func TestNativeEngineRefusesNoTruthMainOnExist(t *testing.T) {
 	if os.Getenv(engineModeChildEnv) == "" {
 		runInCompiledTestWs(t)
 		return
 	}
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "af5",
-		workspace.SkipAssetValidation("AF.5 native engine mode test: test_ws has no user flows")); err != nil {
+		workspace.SkipAssetValidation("native engine refusal test: test_ws has no user flows")); err != nil {
 		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 	}
 	const process = "jet_rules/test_join_values_main.jr"
-	build := func(opts ...compute_pipes.EngineOption) compute_pipes.RetractionMode {
-		t.Helper()
-		engine, err := NewJetRulesFactory().NewJetRuleEngine(nil, process, false, opts...)
+	for _, tc := range []struct {
+		name    string
+		value   func(compute_pipes.JetResourceManager) compute_pipes.RdfNode
+		refused bool
+	}{
+		{"absent", nil, false},
+		{"zero", func(rm compute_pipes.JetResourceManager) compute_pipes.RdfNode { return rm.NewIntLiteral(0) }, false},
+		{"one", func(rm compute_pipes.JetResourceManager) compute_pipes.RdfNode { return rm.NewIntLiteral(1) }, true},
+		{"text", func(rm compute_pipes.JetResourceManager) compute_pipes.RdfNode { return rm.NewTextLiteral("1") }, true},
+	} {
+		engine, err := NewJetRulesFactory().NewJetRuleEngine(nil, process, false)
 		if err != nil {
-			t.Fatalf("building the native engine: %v", err)
+			t.Fatalf("%s: building the native engine: %v", tc.name, err)
 		}
-		defer engine.Release()
-		// the engine is usable: a meta resource round-trips
-		if r := engine.GetMetaResourceManager().NewIntLiteral(5); r == nil || r.Value() != 5 {
-			t.Errorf("NewIntLiteral(5) = %v", r)
+		withVertexCap(t, engine)
+		rm := engine.GetMetaResourceManager()
+		if tc.value != nil {
+			if err := engine.Insert(engine.JetResources().Jets__istate,
+				rm.NewResource("_0:no_truth_main_on_exist"), tc.value(rm)); err != nil {
+				t.Fatalf("%s: inserting the rule config: %v", tc.name, err)
+			}
 		}
-		return engine.(*JetRuleEngineNative).RetractionMode()
-	}
-	if got := build(); !got.IsLegacy() {
-		t.Errorf("no option (a pipeline): mode %s, want legacy", got.Label())
-	}
-	for _, mode := range rete.AllRetractionModes() {
-		if got := build(compute_pipes.WithRetractionMode(mode)); got != mode {
-			t.Errorf("WithRetractionMode(%s): engine built in %s", mode.Label(), got.Label())
+		ses, err := engine.NewRdfSession()
+		if err != nil {
+			t.Fatalf("%s: NewRdfSession: %v", tc.name, err)
 		}
+		rete, err := ses.NewReteSession(process)
+		switch {
+		case tc.refused && err == nil:
+			t.Errorf("%s: the session started", tc.name)
+		case tc.refused:
+			for _, want := range []string{"_0:no_truth_main_on_exist", "deleted with the LEGACY retraction mode", "remove it"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("%s: the error does not say %q: %v", tc.name, want, err)
+				}
+			}
+		case err != nil:
+			t.Errorf("%s: refused: %v", tc.name, err)
+		default:
+			rete.Release()
+		}
+		ses.Release()
+		engine.Release()
 	}
 }
 

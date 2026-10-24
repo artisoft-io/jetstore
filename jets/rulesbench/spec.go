@@ -72,13 +72,14 @@ type Spec struct {
 	// output channels are. None means no extraction.
 	OutputClasses []OutputClass `json:"output_classes,omitempty"`
 
-	// Legacy selects the retraction mode, as a .tst.json's does. A timed run is
-	// in production's mode, legacy (rules_benchmark Q-4), so a legacy object that
-	// turns a defect off is refused unless the run is untimed
-	// (Options.EquivalenceOnly, rules_benchmark Q-92): Run refuses it, not the
-	// spec's check, since only the run knows. A .tst.json's other fields are
-	// accepted and ignored; compare_engines, like jetrules_config.use_jet_rules_go,
-	// asks for the retired Go engine and is refused (rules_benchmark Q-77).
+	// Legacy chose the retraction mode, as a .tst.json's did, until the LEGACY
+	// retraction mode was deleted (October 2026). It is read as a .tst.json's is
+	// (rules_benchmark Q-102): a switch set true is refused, naming the deletion,
+	// and an object whose switches are false names the one behaviour and selects
+	// nothing, so a .tst.json that carries one still serves as a spec. A
+	// .tst.json's other fields are accepted and ignored; compare_engines, like
+	// jetrules_config.use_jet_rules_go, asks for the retired Go engine and is
+	// refused (rules_benchmark Q-77).
 	Legacy          *rulestest.LegacyConfig `json:"legacy,omitempty"`
 	CompareEngines  bool                    `json:"compare_engines,omitzero"`
 	Expect          json.RawMessage         `json:"expect,omitempty"`
@@ -173,6 +174,16 @@ func (s *Spec) check() error {
 	}
 	if s.JetrulesConfig.UseJetRulesGo {
 		return fmt.Errorf("invalid bench spec: jetrules_config.use_jet_rules_go: %s", rulestest.GoEngineRetired)
+	}
+	if on := s.Legacy.SwitchesOn(); len(on) > 0 {
+		return fmt.Errorf("invalid bench spec: legacy.%s: true asks for a LEGACY retraction behaviour: %s; remove it or set it to false",
+			on[0], rulestest.LegacyRetractionDeleted)
+	}
+	for i, rc := range s.JetrulesConfig.RuleConfig {
+		if rulestest.SetsNoTruthMainOnExist(rc) {
+			return fmt.Errorf("invalid bench spec: jetrules_config.rule_config[%d] sets %s, which turned off truth maintenance on exist and exist_not filters: %s; remove it",
+				i, rulestest.NoTruthMainOnExist, rulestest.LegacyRetractionDeleted)
+		}
 	}
 	if s.InputDir != nil {
 		if s.InputDir.Path == "" {

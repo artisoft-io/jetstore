@@ -217,6 +217,11 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "go.tst.json":         lpTest(func(d map[string]any) { cfg(d)["use_jet_rules_go"] = true }),
 		u + "compare.tst.json":    lpTest(func(d map[string]any) { d["compare_engines"] = true }),
 		u + "legacy_off.tst.json": lpTest(func(d map[string]any) { d["legacy"] = map[string]any{"recompute_on_retraction": false} }),
+		u + "legacy_on.tst.json":  lpTest(func(d map[string]any) { d["legacy"] = map[string]any{"withdrawn_row_stays": true} }),
+		u + "no_truth.tst.json": lpTest(func(d map[string]any) {
+			cfg(d)["rule_config"] = append(vertexCap(), map[string]any{"jets:key": "jets:iState",
+				rulestest.NoTruthMainOnExist: map[string]any{"value": "1", "type": "int"}})
+		}),
 		u + "invalid.tst.json":    lpTest(func(d map[string]any) { cfg(d)["pool_size"] = 2 }),
 		u + "no_process.tst.json": lpTest(func(d map[string]any) { cfg(d)["process_name"] = "jet_rules/nothing.jr" }),
 		u + "bad_check.tst.json": lpTest(func(d map[string]any) {
@@ -287,7 +292,7 @@ func runOnTestWsChild(t *testing.T) {
 	// Criterion 4's content: a result with its engine, mode, timings and checks.
 	r := runTest(root, u+"pass.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
-	if r.Engine != rulestest.EngineNative || r.LegacyMode != rulestest.LegacyModeLegacy || r.Sessions != 1 ||
+	if r.Engine != rulestest.EngineNative || r.LegacyMode != rulestest.LegacyModeFixed || r.Sessions != 1 ||
 		len(r.Checks) != 4 || r.TestPath != u+"pass.tst.json" || r.TestName != "greetings" {
 		t.Errorf("pass result: %+v", r)
 	}
@@ -338,13 +343,22 @@ func runOnTestWsChild(t *testing.T) {
 		wantResult(t, r, rulestest.StatusError, rulestest.GoEngineRetired)
 	}
 
-	// A LEGACY switch turned off reaches the engine (AF.6): the greetings involve no
-	// retraction, so the test passes as in legacy, and the result records the mode
-	// the engine reports it was built in.
+	// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+	// whose switches are false names the one behaviour and runs; a switch set true,
+	// or a rule_config setting _0:no_truth_main_on_exist, fails validation naming the
+	// deletion. Every result records legacy_mode fixed.
 	r = runTest(root, u+"legacy_off.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
-	if r.LegacyMode != rulestest.LegacyModeFixed1 {
+	if r.LegacyMode != rulestest.LegacyModeFixed {
 		t.Errorf("legacy mode %q", r.LegacyMode)
+	}
+	for _, name := range []string{"legacy_on.tst.json", "no_truth.tst.json"} {
+		r = runTest(root, u+name)
+		wantResult(t, r, rulestest.StatusError, "invalid test definition")
+		wantResult(t, r, rulestest.StatusError, rulestest.LegacyRetractionDeleted)
+		if r.LegacyMode != rulestest.LegacyModeFixed {
+			t.Errorf("%s: legacy mode %q", name, r.LegacyMode)
+		}
 	}
 
 	r = runTest(root, u+"invalid.tst.json")

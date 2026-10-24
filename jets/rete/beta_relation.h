@@ -270,8 +270,7 @@ class BetaRelation {
   /**
    * @brief Erase `beta_row` once its consequents have been retracted
    *
-   * LEGACY defect 2 turned off (RetractionMode::erase_withdrawn_rows). remove_beta_row
-   * marks a row with consequent terms kDeleted, removes its indexes and notifies the
+   * remove_beta_row marks a row with consequent terms kDeleted, removes its indexes and notifies the
    * child nodes, and leaves it in the relation until compute_consequent_triples has
    * retracted its consequents. This is the last step. Only that instance, still marked
    * kDeleted, is erased: a row re-inserted in the meantime was set back to kProcessed

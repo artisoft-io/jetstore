@@ -5,7 +5,7 @@
     { "name": "path", "label": "Test File", "table": "unit_tests", "tooltip": "Path of the .tst.json in the workspace" },
     { "name": "test_name", "label": "Test", "table": "unit_tests", "tooltip": "Test name" },
     { "name": "process_name", "label": "Process", "table": "unit_tests", "tooltip": "The rule process the test runs" },
-    { "name": "legacy_mode", "label": "Legacy Mode", "table": "unit_tests", "tooltip": "The LEGACY switches the test definition declares" },
+    { "name": "legacy_mode", "label": "Legacy Mode", "table": "unit_tests", "tooltip": "fixed, the one retraction behaviour since October 2026; earlier runs may show legacy, fixed-1 or fixed-2" },
     { "name": "comment", "label": "Comment", "table": "unit_tests", "tooltip": "The test's comment" },
     { "name": "findings", "label": "Findings", "table": "unit_tests", "tooltip": "Why the test file is invalid; a test with findings cannot be started" }
   ],

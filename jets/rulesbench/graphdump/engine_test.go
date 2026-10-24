@@ -274,8 +274,7 @@ func TestDumpRulesUnitTest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := factory().NewJetRuleEngine(nil, cfg.ProcessName, false,
-		compute_pipes.WithRetractionMode(harness.RetractionModeOf(td)))
+	engine, err := factory().NewJetRuleEngine(nil, cfg.ProcessName, false)
 	if err != nil {
 		t.Fatal(err)
 	}

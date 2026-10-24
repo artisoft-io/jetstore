@@ -109,7 +109,7 @@ tolerance would hide a wrong amount of the same size, so these stay unclassified
 **The README's other differences have no entry**, because nothing in a dump identifies them by its
 shape: `jets:value_property` alone (item 1), `jets:entity_property` not watched in Go (item 4), the
 callbacks of C++ `erase`, Go `Retract` and its indexes (until `I-7` was fixed), and
-`_0:no_truth_main_on_exist`. Each shows as
+`_0:no_truth_main_on_exist` (deleted in October 2026, and refused since). Each shows as
 a different value or a missing triple, unclassified. When one appears, an entry is written for the
 predicates it reaches, and the issue is registered.
 

@@ -31,51 +31,6 @@ using ReteMetaStorePtr = std::shared_ptr<ReteMetaStore>;
 using NodeVertexVector = std::vector<NodeVertexPtr>;
 
 /**
- * @brief The two LEGACY retraction defects, as a mode fixed when the network is built
- *
- * The engine keeps two retraction defects by Michel's decision of 2026-10-09, because
- * a client workspace's loop rules and a self-guarded rule terminated only because of them
- * (jets/rete/README.md, entry of 2026-10-08, revised 2026-10-09):
- *
- *  1. a consequent that reads the graph (ExprBase::reads_graph) is recomputed on
- *     retraction, so once its input has moved the triple retracted is not the triple
- *     inferred;
- *  2. a withdrawn row never fires again: compute_consequent_triples calls
- *     remove_beta_row on a row already marked kDeleted, which returns without erasing
- *     it, so an equal row arriving later is taken for one already inferred.
- *
- * This is README option (b), built for the rules unit test harness only: the harness
- * reaches it through create_jetstore_hdl_with_mode. create_jetstore_hdl, which every
- * pipeline calls, builds the default -- legacy for both. No rule_config key reaches it.
- * The fixed behaviours are the ones 1d993844 built and c2de6953 narrowed. Its Go twin,
- * rete.RetractionMode (jets/jetrules/rete/retraction_mode.go), carries it to the bridge.
- */
-struct RetractionMode {
-  // Defect 1 off: a vertex whose consequent reads the graph records what its rows
-  // inferred, and retraction replays the record.
-  bool replay_graph_reading_consequents{false};
-  // Defect 2 off: a row is erased from its relation once its consequents are
-  // retracted (BetaRelation::erase_retracted_beta_row), so an equal row fires again.
-  bool erase_withdrawn_rows{false};
-
-  inline bool
-  is_legacy()const
-  {
-    return not replay_graph_reading_consequents and not erase_withdrawn_rows;
-  }
-
-  // "legacy", "fixed-1", "fixed-2" or "fixed", as rete.RetractionMode.Label
-  inline char const*
-  label()const
-  {
-    if(replay_graph_reading_consequents and erase_withdrawn_rows) return "fixed";
-    if(replay_graph_reading_consequents) return "fixed-1";
-    if(erase_withdrawn_rows) return "fixed-2";
-    return "legacy";
-  }
-};
-
-/**
  * @brief Main metadata store regarding the rete network
  *
  * The ReteMetaStore correspond to a complete rule set
@@ -160,18 +115,16 @@ class ReteMetaStore {
   }
 
   /**
-   * @brief Connect the metadata entities, in a retraction mode
+   * @brief Connect the metadata entities
    *
-   * The mode is fixed here, once, for every session built on this meta store: it
-   * decides which node vertexes record their inferred triples, and
-   * ReteSession::compute_consequent_triples reads it back through retraction_mode()
-   * to decide whether a withdrawn row is erased. The default is legacy for both
-   * defects, which is what every pipeline runs.
+   * Decides, once for every session built on this meta store, which node vertexes
+   * record their inferred triples: one with a consequent that mints a resource or
+   * reads the graph, so that retraction replays what its rows inferred rather than
+   * recomputing it (jets/rete/README.md, the retraction record).
    */
   int
-  initialize(RetractionMode mode = {})
+  initialize()
   {
-    this->retraction_mode_ = mode;
     // Perform reverse lookup of children NodeVertex using
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {
@@ -196,10 +149,9 @@ class ReteMetaStore {
         b_index node = alpha_ptr->get_node_vertex();
         auto & current_node = this->node_vertexes_[node->vertex];
         current_node->consequent_alpha_vertexes.insert(ipos);
-        // A minting consequent always records. One that reads the graph records only
-        // with LEGACY defect 1 turned off; otherwise it is recomputed on retraction.
-        if(alpha_ptr->mints_resource() or
-            (mode.replay_graph_reading_consequents and alpha_ptr->reads_graph())) {
+        // A consequent that mints a resource or reads the graph records what its rows
+        // inferred; recomputed on retraction, it would not give the triple inferred.
+        if(alpha_ptr->mints_resource() or alpha_ptr->reads_graph()) {
           current_node->records_consequents = true;
         }
       }
@@ -223,18 +175,11 @@ class ReteMetaStore {
     return 0;
   }
 
- inline RetractionMode const&
-  retraction_mode()const
-  {
-    return this->retraction_mode_;
-  }
-
  private:
   friend class ReteSession;
   LookupSqlHelperPtr lookup_sql_helper_;
   AlphaNodeVector  alpha_nodes_;
   NodeVertexVector node_vertexes_;
-  RetractionMode   retraction_mode_;
 };
 
 inline ReteMetaStorePtr create_rete_meta_store(

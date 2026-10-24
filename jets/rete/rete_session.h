@@ -74,7 +74,6 @@ class ReteSession {
       err_msg_(),
       max_vertex_visit_(0),
       max_vertex_visit_is_default_(false),
-      no_truth_main_on_exist_(0),
       recording_row_(nullptr),
       scratch_rows_(),
       scratch_depth_(0),
@@ -219,16 +218,11 @@ class ReteSession {
     return rdf_session_;
   }
 
-  // Temp func for legacy rules
-  inline void
-  set_no_truth_main_on_exist(int value)
+  // The last error initialize or execute_rules2 reported, empty if none
+  inline std::string const&
+  get_err_msg()const
   {
-    no_truth_main_on_exist_ = value;
-  }
-  inline int
-  get_no_truth_main_on_exist()const
-  {
-    return no_truth_main_on_exist_;
+    return err_msg_;
   }
 
   inline ReteMetaStore const*
@@ -516,7 +510,6 @@ class ReteSession {
   std::string             err_msg_;
   int                     max_vertex_visit_;
   bool                    max_vertex_visit_is_default_; // the limit is kDefaultMaxVertexVisits, not set
-  int                     no_truth_main_on_exist_; // This is temporary until we fix legacy rules
   BetaRow *               recording_row_;          // row whose inferred triples are being recorded
   std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed
   std::size_t             scratch_depth_;          // CandidateRows live

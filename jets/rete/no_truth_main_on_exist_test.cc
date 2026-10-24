@@ -9,46 +9,34 @@
 #include "../rete/expr_op_logics.h"
 #include "../rete/expr_op_resources.h"
 
-// _0:no_truth_main_on_exist -- A PRODUCTION FLAG WITH NO TEST.
+// _0:no_truth_main_on_exist -- DELETED IN 2026-10, AND REFUSED.
 //
-// The string appeared in no _test.cc and no _test.go until this file. It is not a
-// laboratory switch: a client workspace set it, in its pipeline configuration,
-// under jetrules_config.rule_config as
+// A client workspace once set it in its pipeline configuration, under
+// jetrules_config.rule_config as
 // {"_0:no_truth_main_on_exist": {"value": "1", "type": "int"}}, because that client's
-// rules predate rule filters participating in truth maintenance (jetstore, 2023-04-26,
-// "Fixes #699"). One customer's rules behave differently depending on this flag and
-// nothing asserted what it does.
+// rules predated rule filters participating in truth maintenance (jetstore, 2023-04-26,
+// "Fixes #699"). Set to 1, it made ExistVisitor::register_callback and
+// ExistNotVisitor::register_callback (jets/rete/expr_op_resources.h) return without
+// registering anything, so an exist or exist_not filter was evaluated once, when the row
+// was made, and never again. That workspace's deployed rules no longer set it, and it was
+// deleted with the LEGACY retraction mode (jets/rete/README.md).
 //
-// THE MECHANISM, in three places:
+// WHAT REMAINS is that a configuration that still turns it on is refused by
+// ReteSession::initialize, where every session starts, with a message naming the change:
+// a session that asked for the old behaviour does not run with the new one in silence.
+// The rule_config triples land in the META graph -- InsertRuleConfig calls
+// insert_meta_graph (jets/bridge/bridge.go) -- which is why the fixture below puts them
+// there rather than asserting them. An integer 0 asks for what remains and is accepted;
+// any other value, text "1" included, is refused.
 //
-//   - ReteSession::initialize (jets/rete/rete_session.cc:67-80) looks up the resource
-//     _0:no_truth_main_on_exist and reads (jets:iState, that, ?v) out of the rule_config
-//     graph. The rule_config triples land in the META graph -- InsertRuleConfig calls
-//     insert_meta_graph (jets/bridge/bridge.go:368) -- which is why the fixture below
-//     puts them there rather than asserting them.
-//
-//   - The default is 0, TRUTH MAINTENANCE ON, and it is the default twice over: the
-//     member is initialised to 0 (jets/rete/rete_session.h:77) and initialize leaves it
-//     alone when the resource is absent, and sets it to 0 again when the value is
-//     present but is not an int32.
-//
-//   - ExistVisitor::register_callback and ExistNotVisitor::register_callback
-//     (jets/rete/expr_op_resources.h:145 and :176) return 0 without registering
-//     anything when it is 1.
-//
-// THE TESTS ARE BEHAVIOURAL, not member reads. Reading get_no_truth_main_on_exist back
-// would assert that initialize parsed a triple, which is the easy half; what the flag
-// CLAIMS is that a rule whose filter tests exist / exist_not stops being replayed when
-// the graph moves under it. So the cases below run rules over a small rete network and
-// look at what was inferred. The three member-read cases at the end cover the parsing
-// branches that no behaviour distinguishes.
-//
-// TWO PROPERTIES OF THE FIXTURE ARE LOAD BEARING, and they are the same two that
+// THE BEHAVIOURAL CASES are kept from the switch's own tests: a rule whose filter tests
+// exist / exist_not is replayed when the graph moves under it. TWO PROPERTIES OF THE
+// FIXTURE ARE LOAD BEARING, and they are the same two that
 // AggregateTruthMaintenanceTest in expr_op_specialty_test.cc documents:
 //
 //   - THE OPERATOR IS IN A FILTER. ReteSession::set_graph_callbacks registers a node
 //     vertex's antecedent alpha node and its filter expression and nothing else, so an
-//     exist in a consequent never registers a callback and this flag could not reach it.
+//     exist in a consequent never registers a callback.
 //
 //   - THE GRAPH IS CHANGED BY A RULE, not by the test. Callbacks fire into the
 //     consequent queue that compute_consequent_triples is draining; a triple inserted
@@ -58,8 +46,8 @@ namespace jets::rete {
 namespace {
 
 // Absent means the resource is created but no (jets:iState, ...) triple is written,
-// which is the state of every workspace but that one.
-enum FlagState { kFlagAbsent, kFlagOne, kFlagZero, kFlagNotAnInt };
+// which is the state of every workspace.
+enum FlagState { kFlagAbsent, kFlagOne, kFlagZero, kFlagNotAnInt, kFlagInt64One };
 
 class NoTruthMainOnExistTest : public ::testing::Test {
  protected:
@@ -77,9 +65,8 @@ class NoTruthMainOnExistTest : public ::testing::Test {
   // Vertices 1 and 2 have the higher salience, so both are evaluated before vertex 3's
   // consequent puts gotValue in the graph. What happens next is the whole question:
   // with truth maintenance the gotValue triple replays them, so existFlag is asserted
-  // and existNotFlag is retracted; with the flag set to 1 no callback exists, so
-  // neither vertex is ever looked at again.
-  void build(FlagState flag)
+  // and existNotFlag is retracted. Returns what ReteSession::initialize returns.
+  int build(FlagState flag)
   {
     auto meta_graph = rdf::create_rdf_graph();
     auto * rmgr = meta_graph->rmgr();
@@ -103,6 +90,7 @@ class NoTruthMainOnExistTest : public ::testing::Test {
       case kFlagOne:       meta_graph->insert(jets->jets__istate, no_tm, 1); break;
       case kFlagZero:      meta_graph->insert(jets->jets__istate, no_tm, 0); break;
       case kFlagNotAnInt:  meta_graph->insert(jets->jets__istate, no_tm, std::string("1")); break;
+      case kFlagInt64One:  meta_graph->insert(jets->jets__istate, no_tm, std::int64_t{1}); break;
     }
 
     auto ri1 = []() {
@@ -164,11 +152,12 @@ class NoTruthMainOnExistTest : public ::testing::Test {
 
     this->rdf_session = rdf::create_rdf_session(meta_graph);
     this->rete_session = create_rete_session(this->rete_meta_store, this->rdf_session.get());
-    this->rete_session->initialize();
+    int err = this->rete_session->initialize();
 
     auto srmgr = this->rdf_session->rmgr();
     auto main1 = srmgr->create_resource("main1");
     this->rdf_session->insert(main1, jets->rdf__type, me);
+    return err;
   }
 
   // Stage the triple that the pending rule turns into (main1, gotValue, 42) DURING
@@ -194,42 +183,26 @@ class NoTruthMainOnExistTest : public ::testing::Test {
   rdf::RDFSessionPtr rdf_session;
 };
 
-// THE DEFAULT IS ON, and this is the case that says what the flag turns off.
-// main1 has no gotValue when vertex 1 is evaluated, so the filter is false and nothing
-// is inferred at that point. The pending rule then gives it one, the callback registered
-// by ExistVisitor::register_callback replays vertex 1, and the consequent fires.
+// Truth maintenance on exist. main1 has no gotValue when vertex 1 is evaluated, so the
+// filter is false and nothing is inferred at that point. The pending rule then gives it
+// one, the callback registered by ExistVisitor::register_callback replays vertex 1, and
+// the consequent fires.
 TEST_F(NoTruthMainOnExistTest, ExistIsMaintainedWhenTheFlagIsAbsent) {
-  this->build(kFlagAbsent);
+  ASSERT_EQ(this->build(kFlagAbsent), 0);
   this->stage_pending_value();
 
   this->rete_session->execute_rules();
 
-  EXPECT_EQ(this->rete_session->get_no_truth_main_on_exist(), 0);
   EXPECT_TRUE(this->has_flag("existFlag"))
     << "(main1 exist gotValue) was false when the term was first evaluated and is true "
        "once the pending rule asserts gotValue";
 }
 
-// THE FLAG SET TO 1, the same graph, the opposite outcome. Nothing registers a callback
-// on gotValue, so vertex 1 is evaluated once, against a graph in which main1 has no
-// gotValue, and is never looked at again.
-TEST_F(NoTruthMainOnExistTest, ExistIsNotMaintainedWhenTheFlagIsOne) {
-  this->build(kFlagOne);
-  this->stage_pending_value();
-
-  this->rete_session->execute_rules();
-
-  EXPECT_EQ(this->rete_session->get_no_truth_main_on_exist(), 1);
-  EXPECT_FALSE(this->has_flag("existFlag"))
-    << "with _0:no_truth_main_on_exist set to 1 the exist term is evaluated once and "
-       "the gotValue triple that makes it true goes unnoticed";
-}
-
-// exist_not is the other half of the flag and it fails in the other direction: the
-// filter is TRUE at first, so the consequent IS inferred, and truth maintenance is what
-// takes it back when gotValue arrives.
+// exist_not fails in the other direction: the filter is TRUE at first, so the
+// consequent IS inferred, and truth maintenance is what takes it back when gotValue
+// arrives.
 TEST_F(NoTruthMainOnExistTest, ExistNotIsMaintainedWhenTheFlagIsAbsent) {
-  this->build(kFlagAbsent);
+  ASSERT_EQ(this->build(kFlagAbsent), 0);
   this->stage_pending_value();
 
   this->rete_session->execute_rules();
@@ -239,42 +212,47 @@ TEST_F(NoTruthMainOnExistTest, ExistNotIsMaintainedWhenTheFlagIsAbsent) {
        "false once gotValue is asserted, so the inferred triple is retracted";
 }
 
-TEST_F(NoTruthMainOnExistTest, ExistNotIsNotMaintainedWhenTheFlagIsOne) {
-  this->build(kFlagOne);
-  this->stage_pending_value();
-
-  this->rete_session->execute_rules();
-
-  EXPECT_TRUE(this->has_flag("existNotFlag"))
-    << "with the flag set to 1 nothing retracts what exist_not inferred before gotValue "
-       "arrived -- which is the legacy behaviour that workspace asked for";
-}
-
-// THE CONTROL. Neither flag depends on the pending rule alone: without it the graph
-// never moves, and both arms agree. If this case ever diverged, the two above would be
-// measuring the fixture rather than the flag.
-TEST_F(NoTruthMainOnExistTest, WithNoChangeToTheGraphBothArmsAgree) {
-  this->build(kFlagAbsent);
+// THE CONTROL. Without the pending rule the graph never moves: exist stays false and
+// exist_not true. If this case ever diverged, the two above would be measuring the
+// fixture rather than truth maintenance.
+TEST_F(NoTruthMainOnExistTest, WithNoChangeToTheGraphNothingIsReplayed) {
+  ASSERT_EQ(this->build(kFlagAbsent), 0);
   this->rete_session->execute_rules();
   EXPECT_FALSE(this->has_flag("existFlag"));
   EXPECT_TRUE(this->has_flag("existNotFlag"));
 }
 
-// The parsing branches of ReteSession::initialize. No behaviour distinguishes these
-// from the absent case, so they are read back off the member -- which is the weaker
-// assertion and is why it is only used where the stronger one says nothing.
-TEST_F(NoTruthMainOnExistTest, AnExplicitZeroReadsAsZero) {
-  this->build(kFlagZero);
-  EXPECT_EQ(this->rete_session->get_no_truth_main_on_exist(), 0);
+// THE REFUSAL. The flag set to 1, as that workspace once set it: the session does not
+// start, and its error names the change.
+TEST_F(NoTruthMainOnExistTest, TheFlagSetToOneIsRefused) {
+  EXPECT_EQ(this->build(kFlagOne), -1);
+  auto const& msg = this->rete_session->get_err_msg();
+  EXPECT_NE(msg.find("_0:no_truth_main_on_exist"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("deleted with the LEGACY retraction mode"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("remove it"), std::string::npos) << msg;
 }
 
-// A value that is not an int32 falls back to 0, TRUTH MAINTENANCE ON. The pipes config
-// declares the type as "int"; a workspace that wrote "1" as text would get the default
-// rather than the behaviour it asked for, and that is worth pinning because it fails
-// silently -- the flag is only logged when it reads as 1.
-TEST_F(NoTruthMainOnExistTest, ANonIntValueFallsBackToTruthMaintenanceOn) {
-  this->build(kFlagNotAnInt);
-  EXPECT_EQ(this->rete_session->get_no_truth_main_on_exist(), 0);
+// Of any integer width: an int64 1 is refused as an int32 1 is.
+TEST_F(NoTruthMainOnExistTest, TheFlagSetToAnInt64OneIsRefused) {
+  EXPECT_EQ(this->build(kFlagInt64One), -1);
+  EXPECT_NE(this->rete_session->get_err_msg().find("_0:no_truth_main_on_exist"), std::string::npos);
+}
+
+// Text "1" fell back to 0 in silence while the switch existed; it asked for the switch,
+// and is refused now.
+TEST_F(NoTruthMainOnExistTest, TheFlagSetToTextIsRefused) {
+  EXPECT_EQ(this->build(kFlagNotAnInt), -1);
+  EXPECT_NE(this->rete_session->get_err_msg().find("_0:no_truth_main_on_exist"), std::string::npos);
+}
+
+// An integer 0 asks for what remains, truth maintenance on exist: accepted, and the
+// filter is maintained.
+TEST_F(NoTruthMainOnExistTest, TheFlagSetToZeroIsAccepted) {
+  ASSERT_EQ(this->build(kFlagZero), 0);
+  this->stage_pending_value();
+  this->rete_session->execute_rules();
+  EXPECT_TRUE(this->has_flag("existFlag"));
+  EXPECT_FALSE(this->has_flag("existNotFlag"));
 }
 
 }   // namespace
