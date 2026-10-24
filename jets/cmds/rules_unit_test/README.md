@@ -119,7 +119,8 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
     `current_source_period_type`, or it is reset to 0), `current_source_period_date`,
     `input_rdf_type`, `is_debug`, `use_jet_rules_native` (it names the only engine), `comment`;
   - **refused**: `metadata_input_sources`, `pool_size`, `max_input_count`,
-    `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`.
+    `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`,
+    `optimizer_statistics` (a test writes no statistics; `rules_bench -stats` counts a bench's sessions).
 - **`process_name`** is a rule file listed in `rule_sets`, or a rule sequence name.
 - **`legacy` and `expect` are top-level only.**
 - **`legacy` no longer chooses anything.** It held the two `LEGACY` retraction switches,
