@@ -51,15 +51,13 @@ func TestParseRdfNodeValueUint(t *testing.T) {
 }
 
 // TestParseRdfNodeValueUlong: "ulong" is the rule language's 64-bit unsigned type
-// and maps to the same unsigned literal as "uint".
+// and maps to the same unsigned literal as "uint" for a value that fits in 32 bits.
 //
-// **On the Go engine a value above the int64 range was kept; on the C++ engine it
-// is not.** The native adaptor makes every unsigned literal through the bridge's
-// 32-bit create_uint (C.uint), so 18446744073709551615 comes back as 4294967295,
-// and the type is uint32 (measured 2026-10-22, rules_benchmark Phase 6, I-150). C++
-// has a uint64 literal the adaptor does not use. The truncation is pinned below as
-// today's behaviour: a failure there after the adaptor is fixed is the signal to
-// flip the assertion, not a regression.
+// The native adaptor made every unsigned literal through the bridge's 32-bit
+// create_uint (C.uint), so 18446744073709551615 came back as 4294967295 of type
+// uint32 (measured 2026-10-22, rules_benchmark Phase 6, I-150). Since Phase 7 a
+// value outside 32 bits is a uint64 literal and comes back whole (Q-86); one that
+// fits is a uint32 literal, as before.
 func TestParseRdfNodeValueUlong(t *testing.T) {
 	if inScratchTestWs(t) {
 		return
@@ -86,13 +84,14 @@ func TestParseRdfNodeValueUlong(t *testing.T) {
 	if _, err := compute_pipes.ParseRdfNodeValue(rm, "-7", "ulong"); err == nil {
 		t.Errorf("ulong: \"-7\" accepted; want an error")
 	}
-	// Today's truncation to 32 bits (I-150).
+	// The adaptor truncated a value outside 32 bits to uint 4294967295 until
+	// I-150; it is now a 64-bit literal, whole.
 	big, err := compute_pipes.ParseRdfNodeValue(rm, "18446744073709551615", "ulong")
 	if err != nil {
 		t.Fatalf("ulong max: unexpected error: %v", err)
 	}
-	if v, ok := big.Value().(uint); !ok || v != 4294967295 {
-		t.Errorf("ulong max: got %T %v; the adaptor truncated it to uint 4294967295 when this was written (I-150)", big.Value(), big.Value())
+	if v, ok := big.Value().(uint); !ok || v != 18446744073709551615 || big.Type() != "uint64" {
+		t.Errorf("ulong max: got %s %T %v, want uint64 18446744073709551615", big.Type(), big.Value(), big.Value())
 	}
 }
 
