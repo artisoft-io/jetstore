@@ -14,11 +14,51 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC -fmessage-length=0
 
 set(C_LIBRARY_NAME jets)
 
+# The sanitizer build (rules_benchmark Phase 7, I-69), off by default:
+#   -DJETS_SANITIZE=ON  compiles and links everything here, abseil included when
+#                       it is built here, with AddressSanitizer (leak detection on)
+#                       and UndefinedBehaviorSanitizer, every report fatal. Three
+#                       UBSan checks are left out, null, nonnull-attribute and
+#                       returns-nonnull-attribute: under them GCC 13 rejects a
+#                       constexpr comparison in abseil's hash_policy_traits.h.
+# abseil must be built with the same flags: under AddressSanitizer its headers
+# change the flat tables' layout, so an uninstrumented library does not match.
+#   -DJETS_ABSEIL_SOURCE=<abseil-cpp source tree>  builds that abseil here, with
+#                       these flags, instead of the installed one; otherwise point
+#                       CMAKE_PREFIX_PATH at an abseil installed with them.
+# The gate is one command, from the repository root (jets/rete/README.md):
+#   cmake -S . -B build-san -DCMAKE_BUILD_TYPE=Release -DJETS_SANITIZE=ON \
+#     -DJETS_ABSEIL_SOURCE=/path/to/abseil-cpp-20260107.1 \
+#     && make -C build-san -j8 jets_test && (cd build-san/jets && ctest)
+option(JETS_SANITIZE "AddressSanitizer and UndefinedBehaviorSanitizer on the jets libraries and tests" OFF)
+set(JETS_ABSEIL_SOURCE "" CACHE PATH "An abseil-cpp source tree to build here instead of find_package(absl)")
+if(JETS_SANITIZE)
+  message(STATUS "jets: AddressSanitizer and UndefinedBehaviorSanitizer on")
+  set(JETS_SANITIZE_FLAGS
+    -fsanitize=address,undefined
+    -fno-sanitize=null,nonnull-attribute,returns-nonnull-attribute
+    -fno-sanitize-recover=all
+    -fno-omit-frame-pointer)
+  add_compile_options(${JETS_SANITIZE_FLAGS})
+  add_link_options(-fsanitize=address,undefined)
+endif()
+
 # Abseil through its CMake package, so that each library brings the abseil
 # libraries it needs (absl::raw_hash_set needs hashtablez_sampler and
 # raw_logging_internal, among others). Naming archives such as absl_hash by hand
 # links them without those.
-find_package(absl CONFIG REQUIRED)
+if(JETS_ABSEIL_SOURCE)
+  message(STATUS "jets: abseil built from ${JETS_ABSEIL_SOURCE}")
+  set(ABSL_PROPAGATE_CXX_STD ON)
+  set(ABSL_BUILD_TESTING OFF)
+  set(JETS_SAVED_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+  set(BUILD_SHARED_LIBS OFF)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  add_subdirectory(${JETS_ABSEIL_SOURCE} ${CMAKE_BINARY_DIR}/abseil EXCLUDE_FROM_ALL)
+  set(BUILD_SHARED_LIBS ${JETS_SAVED_BUILD_SHARED_LIBS})
+else()
+  find_package(absl CONFIG REQUIRED)
+endif()
 
 # Build variants, for measuring the engine (rules_benchmark Phase 3, C5). Both
 # are off by default, and a build that does not set them compiles and links with
@@ -115,6 +155,10 @@ add_executable(jets_test
   rete/expr_op_specialty_test.cc
   rete/expr_operator_factory_test.cc
   rete/operator_list_test.cc
+  rete/cwrapper_test.cc
+  rete/lookup_db_open_test.cc
+  rete/meta_store_sharing_test.cc
+  rete/operator_writes_graph_test.cc
   rete/no_truth_main_on_exist_test.cc
   rete/retract_recorded_consequents_test.cc
   rete/loop_through_negation_test.cc
@@ -153,7 +197,14 @@ if(JETS_LTO)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(jets_test)
+if(JETS_SANITIZE)
+  # Leak detection is LeakSanitizer's default on Linux; it is named so that the
+  # gate does not depend on an ASAN_OPTIONS left in the environment
+  set(JETS_SANITIZE_ENV "ASAN_OPTIONS=detect_leaks=1:abort_on_error=0" "UBSAN_OPTIONS=print_stacktrace=1")
+  gtest_discover_tests(jets_test PROPERTIES ENVIRONMENT "${JETS_SANITIZE_ENV}")
+else()
+  gtest_discover_tests(jets_test)
+endif()
 
 
 

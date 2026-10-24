@@ -85,6 +85,16 @@ class DBConnectionPool {
     pool_()
   {}
 
+  // The pool closes its connections when it goes, so a lookup table or a TypeOf
+  // whose owner never calls terminate() leaks none (I-170)
+  ~DBConnectionPool()
+  {
+    this->terminate();
+  }
+
+  DBConnectionPool(DBConnectionPool const&) = delete;
+  DBConnectionPool & operator=(DBConnectionPool const&) = delete;
+
   int initialize(std::string sql1, std::string sql2)
   {
     if(not sql1.empty()) {
@@ -111,16 +121,20 @@ class DBConnectionPool {
       DBConnection lc;
       lc.stmt1 = nullptr;
       lc.stmt2 = nullptr;
-      int err = sqlite3_open(this->db_path_.c_str(), &lc.db);
+      // Read-only: every statement of a pool is a SELECT, and a missing file is
+      // an error rather than an empty database created in its place (I-167)
+      int err = sqlite3_open_v2(this->db_path_.c_str(), &lc.db, SQLITE_OPEN_READONLY, nullptr);
       if( err ) {
         LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't open database: '" <<
           this->db_path_<<"' as db_path, error:" << sqlite3_errmsg(lc.db);
+        close_connection(lc);
         return {};
       }
       if(not this->sql1_.empty()) {
         err = sqlite3_prepare_v2( lc.db, this->sql1_.c_str(), -1, &lc.stmt1, 0 );
         if ( err != SQLITE_OK ) {
           LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't prepare sql1: " << this->sql1_;
+          close_connection(lc);
           return {};
         }
       }
@@ -128,6 +142,7 @@ class DBConnectionPool {
         err = sqlite3_prepare_v2( lc.db, this->sql2_.c_str(), -1, &lc.stmt2, 0 );
         if ( err != SQLITE_OK ) {
           LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't prepare sql2: " << this->sql2_;
+          close_connection(lc);
           return {};
         }
       }
@@ -138,34 +153,44 @@ class DBConnectionPool {
     return lc;
   }
 
+  // A connection that failed to open (no db) is not pooled
   void put_connection(DBConnection lc)
   {
+    if(not lc.db) return;
     std::lock_guard<std::mutex> lock(mutex_);
     this->pool_.push_back(std::move(lc));
   }
 
-  // close connection pool
+  // close connection pool; the pool is empty afterwards, so a second call closes nothing
   int terminate()
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     int err = 0;
     VLOG(20)<<"DB Pool Terminate called, pool size is "<<this->pool_.size()<<" for statement "<<this->sql1_<<std::endl;
-    for(auto info: this->pool_) {
-      if(not this->sql1_.empty()) {
-        sqlite3_finalize( info.stmt1 );
-      }
-      if(not this->sql2_.empty()) {
-        sqlite3_finalize( info.stmt2 );
-      }
-      int xerr = sqlite3_close_v2( info.db );
+    for(auto & info: this->pool_) {
+      int xerr = close_connection(info);
       if ( xerr != SQLITE_OK ) {
         err = xerr;
         LOG(ERROR) << "LookupTable::terminate: ERROR while closing rete_db connection, code: "<<err;
       }
     }
+    this->pool_.clear();
     return err;
   }
 
  private:
+  static int close_connection(DBConnection & lc)
+  {
+    if(lc.stmt1) sqlite3_finalize( lc.stmt1 );
+    if(lc.stmt2) sqlite3_finalize( lc.stmt2 );
+    lc.stmt1 = nullptr;
+    lc.stmt2 = nullptr;
+    // sqlite3_open_v2 gives a handle even when it fails, and it must be closed
+    int err = lc.db ? sqlite3_close_v2( lc.db ) : SQLITE_OK;
+    lc.db = nullptr;
+    return err;
+  }
+
   std::string         db_path_;
   std::string         sql1_;
   std::string         sql2_;
@@ -371,16 +396,25 @@ class TypeOf {
   int type_of(ReteSession *, std::string const& data_property)
   {
     // Get the db connection and bind it to the key
+    // Every return gives the connection back. An unknown data property kept it,
+    // so each such call opened a connection that nothing closed (I-180).
     auto lc = this->db_pool_.get_connection();
     int err = sqlite3_reset(lc.stmt1);
-    if( err != SQLITE_OK ) return -100;
+    if( err != SQLITE_OK ) {
+      this->db_pool_.put_connection(lc);
+      return -100;
+    }
 
     err = sqlite3_bind_text(lc.stmt1, 1, data_property.c_str(), data_property.size(), nullptr);
-    if( err != SQLITE_OK ) return -1;
+    if( err != SQLITE_OK ) {
+      this->db_pool_.put_connection(lc);
+      return -1;
+    }
 
     err = sqlite3_step( lc.stmt1 );
     if ( err != SQLITE_ROW ) {
       LOG(ERROR)<<"TypeOf::type_of: ERROR Unknown Data Property: "<<data_property;
+      this->db_pool_.put_connection(lc);
       return -1;
     }
 
@@ -422,6 +456,17 @@ class LookupSqlHelper {
     type_of_()
     {}
 
+  // Closes the workspace-db connection and every pool, which no production code
+  // did: terminate() had no caller outside the tests (I-170). The helper is owned
+  // by the factory's meta stores, so this runs when the last of them goes.
+  ~LookupSqlHelper()
+  {
+    this->terminate();
+  }
+
+  LookupSqlHelper(LookupSqlHelper const&) = delete;
+  LookupSqlHelper & operator=(LookupSqlHelper const&) = delete;
+
   /**
    * @brief Initialize the helper, open database connections
    */
@@ -441,13 +486,18 @@ class LookupSqlHelper {
 
     // Prepare the LookupTable that will cast the retured columns
     err = 0;
-    // open a connection to lookup_db to get max(__key__) during initialization
-    sqlite3 * lkdb;
-    err = sqlite3_open(this->lookup_db_path_.c_str(), &lkdb);
-    if( err ) {
-      LOG(ERROR) << "LookupSqlHelper::initialize: ERROR: Can't open lookup database: '" <<
-        this->lookup_db_path_<<"' as lookup_db, error:" << sqlite3_errmsg(lkdb);
-      return err;
+    // Open lookup_db to get the range of __key__, only when a lookup table is
+    // declared, and read-only: it used to be opened on every engine build with
+    // sqlite3_open's default flags, which create a missing file (I-167)
+    sqlite3 * lkdb = nullptr;
+    if(not this->lookup_tbl_info_.empty()) {
+      err = sqlite3_open_v2(this->lookup_db_path_.c_str(), &lkdb, SQLITE_OPEN_READONLY, nullptr);
+      if( err ) {
+        LOG(ERROR) << "LookupSqlHelper::initialize: ERROR: Can't open lookup database: '" <<
+          this->lookup_db_path_<<"' as lookup_db, error:" << sqlite3_errmsg(lkdb);
+        sqlite3_close_v2( lkdb );
+        return err;
+      }
     }
     for(auto const& info: this->lookup_tbl_info_) {
       auto l = create_lookup_table(rmgr, info.first, info.second, this->lookup_db_path_);
@@ -462,7 +512,7 @@ class LookupSqlHelper {
     if(lkdb) {
       err2 = sqlite3_close_v2( lkdb );
       if ( err2 != SQLITE_OK ) {
-        LOG(ERROR) << "ERROR while closing lookup_db connection, code: "<<err;
+        LOG(ERROR) << "ERROR while closing lookup_db connection, code: "<<err2;
       }
     }
     if( err2 ) return err2;
@@ -526,7 +576,7 @@ class LookupSqlHelper {
     return this->type_of_->type_of(rete_session, data_property);
   }  
 
-  // close connection pools
+  // close connection pools and the workspace-db connection; a second call closes nothing
   int terminate()
   {
     int err = 0;
@@ -537,10 +587,19 @@ class LookupSqlHelper {
         LOG(ERROR) << "LookupSqlHelper::terminate: ERROR while terminating LookupTable: " << info.first;
       }
     }
+    if(this->type_of_) {
+      int xerr = this->type_of_->terminate();
+      if( xerr ) {
+        err = xerr;
+        LOG(ERROR) << "LookupSqlHelper::terminate: ERROR while terminating TypeOf";
+      }
+    }
     if(this->workspace_db_) {
-      err = sqlite3_close_v2( this->workspace_db_ );
-      if ( err != SQLITE_OK ) {
-        LOG(ERROR) << "LookupTable::terminate: ERROR while closing rete_db connection, code: "<<err;
+      int xerr = sqlite3_close_v2( this->workspace_db_ );
+      this->workspace_db_ = nullptr;
+      if ( xerr != SQLITE_OK ) {
+        err = xerr;
+        LOG(ERROR) << "LookupTable::terminate: ERROR while closing rete_db connection, code: "<<xerr;
       }
     }
     return err;

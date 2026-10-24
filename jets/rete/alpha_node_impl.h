@@ -144,6 +144,13 @@ class AlphaNodeImpl: public AlphaNode {
     return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
   }
 
+  int
+  antecedent_query_index()const override
+  {
+    AQVQueryIndexVisitor visitor;
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
+  }
+
   /**
    * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
    *

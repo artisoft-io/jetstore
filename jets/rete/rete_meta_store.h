@@ -204,6 +204,22 @@ class ReteMetaStore {
         }
       }
     }
+
+    // Number each vertex's children by the index of its beta relation they query,
+    // once, here, before any session: BetaRelation::initialize adds the indexes in
+    // child order and only checks the key (AQVInitializeIndexesVisitor). Each
+    // session used to write it into this shared meta store (I-86).
+    for(auto const& nodeptr: this->node_vertexes_) {
+      int count[4] = {0, 0, 0, 0};
+      for(auto const* child: nodeptr->child_nodes) {
+        if(child->vertex >= sz) {
+          LOG(ERROR) << "ReteMetaStore::initialize: error NodeVertex "<<child->vertex<<" has no AlphaNode";
+          return -1;
+        }
+        int index = this->alpha_nodes_[child->vertex]->antecedent_query_index();
+        this->node_vertexes_[child->vertex]->antecedent_query_key = index == 0 ? 0 : count[index]++;
+      }
+    }
     return 0;
   }
 
