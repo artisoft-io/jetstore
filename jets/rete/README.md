@@ -145,6 +145,25 @@ operand divides as IEEE does: `+inf`, `-inf`, and NaN for 0/0. Before, C++ raise
 the process, and Go gave NaN for all of them. The shared table was `DivisionByZeroCases`; its C++
 copy is `ArithmeticTypes.DivisionByZero`.
 
+**Four operations that failed the session give null — decided 2026-10-23 (`rules_benchmark`
+`Q-85`).** Each threw or trapped and ended the session; each now gives null, as integer division by
+zero does, so the session goes on and the rule's consequent sees no value. Only a session that
+failed before computes anything different. Each has its rows in a table of `expr_op_test.cc`:
+
+| Operation | Was | Rows |
+|---|---|---|
+| the minimum `int32` or `int64` divided by -1, directly or through a mixed integer type (I-126) | SIGFPE, which ended the process | `ArithmeticTypes.DivisionByZero` |
+| `+ - * /` on two integer types, the right operand out of the left operand's range: an `int32` plus a large `int64`, a `uint32` plus -1 (I-134) | `boost::numeric_cast` threw | `ArithmeticTypes.TheSharedTypingTable` |
+| text plus a named resource, either way round (I-109) | threw in a session's rule | `ArithmeticTypes.TheSharedTypingTable` |
+| `lookup` or `multi_lookup` with a null key (I-104) | threw in a session's rule | `Lookups.ANullKeyIsNull` |
+
+`+ - * /` are their `Impl` visitors wrapped in `NullWhenOutOfRange`, which turns a
+`bad_numeric_cast` into null (`expr_op_arithmetics.h`); integer division goes through
+`integer_quotient`. An operand that fits converts as before. **"In a session's rule" is not a
+detail**: with no beta row, as the shared tables call a visitor, an operator's catch-all gives null
+for operands it does not take; with a row, it throws. The rows of the last two cases call the
+visitor with a row.
+
 **Ties in `min_of`, `max_of` and `sorted_head`, and Go's `min_head_of` and `max_head_of` (I-33, Q-61).**
 Among equal values the first met used to win, and the graph's iteration order varies from run to
 run (C++'s hash sets by address and seed; Go's maps on every range). So a tie gave a different head
@@ -177,7 +196,8 @@ diagnosis and procedure description lookups crossed this way. They are now C++'s
 - **A `multi_lookup` miss** returns null and writes nothing, as it did on both, so a rule testing a
   miss with `(?x p null)` works after it (I-31).
 - **An integer key**, signed or unsigned, was converted to text instead of panicking on Go (I-104). A
-  null key gave no result on Go; C++ throws.
+  null key gave no result on Go; C++ throws. *(Since 2026-10-23 a null key gives null on C++,
+  `Q-85`: see the Phase 4 values above.)*
 - **`graphdump`** maps the current cache form to the old Go name, so dumps made before and after
   compare equal.
 
@@ -266,9 +286,9 @@ retirement each is simply what the C++ engine does; what Go did is kept for the 
   its midnight). Go never did.
 - **`numeric_cast` throws.** C++ mixed-integer arithmetic converts the right operand to the left's
   type with `boost::numeric_cast`, which throws out of range (int32 + a large int64, uint32 + -1).
-  Go returned no result.
+  Go returned no result. *(Null since 2026-10-23, `Q-85`, I-134.)*
 - **`INT_MIN / -1`** traps in C++'s `DivVisitor`, for int32 and int64, and through `numeric_cast`
-  in the mixed integer cases (I-126). Go gave the minimum int.
+  in the mixed integer cases (I-126). Go gave the minimum int. *(Null since 2026-10-23, `Q-85`.)*
 - **28 near-power-of-ten double pairs.** Go reproduced glibc's `log10` and `pow`, and agreed with the
   compiled C++ comparison on 600,017 of 600,045 tested pairs. The 28 others lie within a few ulps of
   a power of ten, where glibc's `log` and Go's `math.Log` round differently. The Go port mirrored
@@ -284,7 +304,7 @@ retirement each is simply what the C++ engine does; what Go did is kept for the 
   on cannot reach that child's children. It predates Phase 4 and was read, not run, on Go; C++'s
   `rete_session.cc` reads as having the same shape, also not run.
 - **Text plus a named resource.** C++ has no such case and throws (or gives null in a filter); Go
-  concatenated the name.
+  concatenated the name. *(Null since 2026-10-23, `Q-85`, I-109; the name is not concatenated.)*
 - **`join_values` over a blank node** writes `bn(<k>)` on C++; Go wrote `BN<k>`.
 - **Regex dialects.** C++'s `literal_regex` compiles ECMAScript, so a lookahead or a backreference
   compiles; Go's compiled RE2 and panicked on them.

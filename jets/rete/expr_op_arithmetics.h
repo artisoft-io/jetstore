@@ -91,16 +91,51 @@ register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
   return 0;
 }
 
+// NullWhenOutOfRange: + - * / on two integer types convert the right operand to the left
+// operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
+// a large int64, uint32 plus -1). The exception failed the session; the operation is null
+// instead, and the rule's consequent sees no value (Q-85, I-134, 2026-10-23), as an
+// integer division by zero has been since Q-69. Each of the four operators below is its
+// Impl wrapped in this; the Impl's overloads are unchanged.
+template<class Op>
+struct NullWhenOutOfRange: public Op
+{
+  using Op::Op;
+  template<class T, class U> RDFTTYPE operator()(T const& lhs, U const& rhs)const
+  {
+    try {
+      return Op::operator()(lhs, rhs);
+    } catch(boost::numeric::bad_numeric_cast const&) {
+      return rdf::Null();
+    }
+  }
+};
+
+// An integer quotient. Division by zero is null (Q-69), and so is the minimum signed
+// integer divided by -1, whose quotient does not fit its type: it raised SIGFPE, which
+// killed the process, for int32 and int64 and through the mixed integer types (Q-85,
+// I-126, 2026-10-23).
+template<class L, class T>
+inline RDFTTYPE
+integer_quotient(T lhs, T rhs)
+{
+  if(rhs == 0) return rdf::Null();
+  if constexpr (std::is_signed_v<T>) {
+    if(rhs == -1 and lhs == std::numeric_limits<T>::min()) return rdf::Null();
+  }
+  return L{lhs / rhs};
+}
+
 // AddVisitor
 // --------------------------------------------------------------------------------------
 // + - * / on numbers: a double operand, on either side, makes the result a double. Until
 // 2026-10 an integer met first truncated the double in + and - (2 + 0.5 was 2); * and /
 // already gave a double. Integers alone keep the left operand's type, the right converted
 // by numeric_cast, and / is integer division. The retired Go engine followed the same table.
-struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  AddVisitor(): rs(nullptr), br(nullptr) {}
+  AddVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AddVisitorImpl(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for addition: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
@@ -134,6 +169,9 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LDouble rhs)const{return rdf::LDouble{lhs.data+rhs.data};}
 
   RDFTTYPE operator()(rdf::LString lhs, rdf::RDFNull  rhs)const{return rdf::LString{lhs.data+std::string("null")};}
+  // text plus a named resource is null: it threw in a session (Q-85, I-109)
+  RDFTTYPE operator()(rdf::LString, rdf::NamedResource)const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::NamedResource, rdf::LString)const{return rdf::Null();}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LInt32  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt32 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LInt64  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
@@ -173,9 +211,9 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 
 // SubsVisitor
 // --------------------------------------------------------------------------------------
-struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  SubsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  SubsVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
@@ -230,9 +268,9 @@ struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 
 // MultVisitor
 // --------------------------------------------------------------------------------------
-struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  MultVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  MultVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for multiplication: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
@@ -274,14 +312,14 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 // An integer divided by an integer zero is null (Q-69); until 2026-10 it raised SIGFPE,
 // which killed the process. A division with a double operand follows IEEE: +inf, -inf,
 // and NaN for 0/0. The retired Go engine followed the same table.
-struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct DivVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  DivVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for division: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/rhs.data};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, rhs.data);}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
@@ -291,9 +329,9 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/rhs.data};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return integer_quotient<rdf::LInt64>(lhs.data, rhs.data);}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
@@ -312,6 +350,11 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   ReteSession * rs;
   BetaRow const* br;
 };
+
+using AddVisitor  = NullWhenOutOfRange<AddVisitorImpl>;
+using SubsVisitor = NullWhenOutOfRange<SubsVisitorImpl>;
+using MultVisitor = NullWhenOutOfRange<MultVisitorImpl>;
+using DivVisitor  = NullWhenOutOfRange<DivVisitorImpl>;
 
 // AbsVisitor
 // --------------------------------------------------------------------------------------

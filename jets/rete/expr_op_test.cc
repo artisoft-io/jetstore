@@ -911,10 +911,21 @@ TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
   expect_double_result<DivVisitor>("/", [](double a, double b) { return a / b; });
 }
 
+// A beta row, so that a visitor is evaluated as in a session's rule. With no row an
+// operator's catch-all gives null for operands it does not take; with one, it throws, and
+// the session fails. The rows below that name `in_session` are about that difference.
+struct SessionRow {
+  NodeVertexPtr vertex = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {});
+  BetaRowPtr row = create_beta_row(vertex.get(), 0);
+};
+
 // The typing table of + - * / : the specification of the arithmetic operators' result
 // types. It was shared with the Go engine, since retired, whose int and uint were
-// 64-bit, hence int64 and uint64 here. Not here: "uint + negative int" and "int + uint past
-// int", which gave no result on Go and throw in numeric_cast here, a recorded difference.
+// 64-bit, hence int64 and uint64 here. "uint + negative int" and "int + uint past int"
+// gave no result on Go and threw in numeric_cast here, a recorded difference, until
+// Q-85 (2026-10-23): a mixed-integer operation whose right operand does not fit the left
+// operand's type is null (I-134), and so is text plus a named resource (I-109), which
+// threw in a session. Each failed the session, and now the rule's consequent sees null.
 TEST(ArithmeticTypes, TheSharedTypingTable) {
   AddVisitor add(nullptr, nullptr);
   SubsVisitor sub(nullptr, nullptr);
@@ -943,6 +954,35 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   EXPECT_EQ(ap(mul, UI(5), F(0.5)), F(2.5));
   EXPECT_EQ(ap(add, I(5), RDFTTYPE(rdf::LString("x"))).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(add, DD(2025, 1, 1), I(1)), DD(2025, 1, 2));
+
+  // Q-85, I-134: the right operand out of the left operand's range is null, in + - * /
+  auto I32 = [](int32_t v) { return RDFTTYPE(rdf::LInt32(v)); };
+  auto UI32 = [](uint32_t v) { return RDFTTYPE(rdf::LUInt32(v)); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  int64_t const big = 3000000000;   // past int32, within uint32
+  EXPECT_TRUE(null(ap(add, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(sub, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(mul, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(div, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(add, UI32(5), I32(-1))));
+  EXPECT_TRUE(null(ap(sub, UI32(5), I32(-1))));
+  EXPECT_TRUE(null(ap(mul, UI(5), I(-1))));
+  EXPECT_TRUE(null(ap(div, UI(5), I(-1))));
+  EXPECT_TRUE(null(ap(add, I(5), UI(std::numeric_limits<uint64_t>::max()))));
+  EXPECT_TRUE(null(ap(add, I32(5), UI32(std::numeric_limits<uint32_t>::max()))));
+  // and an operand that fits is converted as before
+  EXPECT_EQ(ap(add, I32(5), I(3)), I32(8));
+  EXPECT_EQ(ap(add, UI32(5), I(big)), UI32(static_cast<uint32_t>(5 + big)));
+  EXPECT_EQ(ap(sub, I32(5), UI32(7)), I32(-2));
+
+  // Q-85, I-109: text plus a named resource is null, in a session's rule as with no row
+  SessionRow sr;
+  AddVisitor add_in_session(nullptr, sr.row.get());
+  EXPECT_TRUE(null(ap(add_in_session, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
+  EXPECT_TRUE(null(ap(add_in_session, RDFTTYPE(rdf::NamedResource("r")), RDFTTYPE(rdf::LString("x")))));
+  EXPECT_TRUE(null(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
+  // text plus a number still concatenates
+  EXPECT_EQ(ap(add_in_session, RDFTTYPE(rdf::LString("x")), I32(5)), RDFTTYPE(rdf::LString("x5")));
 }
 
 TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
@@ -1020,6 +1060,35 @@ TEST(ArithmeticTypes, DivisionByZero) {
   EXPECT_EQ(q(rdf::LUInt64(7), rdf::LInt32(0)).which(), rdf::rdf_null_t);
   // and an integer divided by a nonzero integer is still integer division
   EXPECT_EQ(q(rdf::LInt32(7), rdf::LInt32(2)), RDFTTYPE(rdf::LInt32(3)));
+
+  // Q-85, I-126: the minimum signed integer divided by -1 is null, as by zero. Its
+  // quotient does not fit the type, and it raised SIGFPE, which killed the process, for
+  // int32 and int64 and through the mixed integer types
+  auto const i32min = std::numeric_limits<int32_t>::min();
+  auto const i64min = std::numeric_limits<int64_t>::min();
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt32(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt64(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt64(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt32(-1)).which(), rdf::rdf_null_t);
+  // and the neighbours divide
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt32(1)), RDFTTYPE(rdf::LInt32(i32min)));
+  EXPECT_EQ(q(rdf::LInt32(i32min + 1), rdf::LInt32(-1)), RDFTTYPE(rdf::LInt32(-(i32min + 1))));
+  EXPECT_EQ(q(rdf::LInt32(-7), rdf::LInt32(-1)), RDFTTYPE(rdf::LInt32(7)));
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt64(2)), RDFTTYPE(rdf::LInt64(i64min / 2)));
+}
+
+// Q-85, I-104: a null lookup key is null, and the session goes on; in a session's rule
+// it threw. The table is not read: a null key looks nothing up.
+TEST(Lookups, ANullKeyIsNull) {
+  SessionRow sr;
+  LookupVisitor lookup(nullptr, sr.row.get());
+  MultiLookupVisitor multi_lookup(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(op, a, b); };
+  RDFTTYPE const null_key = rdf::Null();
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
 }
 
 }   // namespace
