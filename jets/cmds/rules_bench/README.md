@@ -342,8 +342,9 @@ workspace holds `jet_rules/optimizer_statistics.json`; this run writes that file
 
 - **Per main rule set, per session, after its loop and exception scan**, the run counts the
   session's graph: everything its `Find` returns, the meta graph, asserted and inferred triples,
-  each triple once. **It is the graph when the rule set ends** (`I-231`): a triple inserted and
-  retracted within the rule set is not counted.
+  each triple once. **It is the graph when the rule set ends** (`I-231`): the counts include what
+  the rule set itself inferred, where an order is chosen for the graph as the rule set starts and
+  grows, and a triple inserted and retracted within the rule set is not counted.
 - **What is counted comes from the network the run loaded**: workspace.db's antecedents of the rule
   set, positive and negated. For each constant predicate, its triples and distinct subjects and
   objects; for each antecedent whose subject (object) and predicate are both constants, the
