@@ -93,10 +93,6 @@ func (engine *JetRuleEngineNative) JetResources() *compute_pipes.JetResources {
 	return engine.jetResources
 }
 
-func (engine *JetRuleEngineNative) GetMetaGraphTriples() []string {
-	return []string{}
-}
-
 func (engine *JetRuleEngineNative) Insert(s, p, o compute_pipes.RdfNode) error {
 	sNative, pNative, oNative, err := toSPO(s, p, o)
 	if err != nil {
