@@ -1,0 +1,62 @@
+{
+  "format": "jetstore.optimizer_statistics",
+  "rule_sets": {
+    "jet_rules/cost_order_main.jr": {
+      "object_constants": {
+        "rdf:type": {
+          "acme:Claim": 10000,
+          "acme:Provider": 50000
+        }
+      },
+      "predicates": {
+        "acme:amount": {
+          "objects": 9000,
+          "subjects": 10000,
+          "triples": 10000
+        },
+        "acme:code": {
+          "objects": 500,
+          "subjects": 10000,
+          "triples": 10000
+        },
+        "acme:member": {
+          "objects": 3000,
+          "subjects": 10000,
+          "triples": 10000
+        },
+        "acme:network": {
+          "objects": 1000,
+          "subjects": 50000,
+          "triples": 50000
+        },
+        "acme:provider": {
+          "objects": 8000,
+          "subjects": 10000,
+          "triples": 10000
+        },
+        "acme:serviceDate": {
+          "objects": 300,
+          "subjects": 10000,
+          "triples": 10000
+        },
+        "acme:watchedProvider": {
+          "objects": 40000,
+          "subjects": 10,
+          "triples": 40000
+        },
+        "rdf:type": {
+          "objects": 20,
+          "subjects": 60000,
+          "triples": 60000
+        }
+      },
+      "sessions": 10,
+      "subject_constants": {
+        "acme:watchedProvider": {
+          "acme:Config": 40000
+        }
+      }
+    }
+  },
+  "version": 1
+}
