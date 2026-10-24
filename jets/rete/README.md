@@ -26,7 +26,9 @@ session; `rules_bench -observe` writes it per session (`jets/cmds/rules_bench/RE
 
 **It needs no observation flag, and changes no hot path**: the peak has been kept since the reserve
 hint (`b0136f18`, 2026-10-22), which leaves each session's peak for the next session's relation, and
-the visits are what the vertex visit limit counts. So a session that is never observed runs exactly the
+the visits are kept for the vertex visit limit, which counts the inferred ones. Rows now and at peak
+count the relation's row set, withdrawn rows not yet erased included, which is the number memory
+follows. So a session that is never observed runs exactly the
 code it ran before; the reader is the whole of the change.
 
 ## One retraction behaviour; `_0:no_truth_main_on_exist` deleted — 2026-10-24

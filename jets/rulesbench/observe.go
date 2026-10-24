@@ -42,7 +42,9 @@ type RuleSetObservation struct {
 	// RuleSet is the main rule file, as workspace_control.source_file_name names it.
 	RuleSet string `json:"rule_set"`
 	// SourceFileKey is its workspace_control.key, which rete_nodes.source_file_key
-	// holds: with Vertex, the join to rete_nodes. -1 when workspace.db has no row.
+	// holds. The join to rete_nodes is on (source_file_key, vertex) with type =
+	// 'antecedent' ('head_node' for vertex 0): the two columns alone are not a key,
+	// a vertex having a row per consequent as well. -1 when workspace.db has no row.
 	SourceFileKey int `json:"source_file_key"`
 	// RowsNow and RowsPeak are the sums over the vertices.
 	RowsNow  int64               `json:"rows_now"`
@@ -52,10 +54,11 @@ type RuleSetObservation struct {
 }
 
 // VertexObservation is one vertex: the engine's counters and what workspace.db
-// says of it.
+// says of it. RowsNow and RowsPeak count the relation's row set, withdrawn rows
+// waiting to be erased included; the vertex visit limit counts Inferred only.
 type VertexObservation struct {
 	compute_pipes.VertexObservation
-	// ParentVertex is -1 for the head vertex.
+	// ParentVertex is -1 for the head vertex, by choice: its head_node row says 0.
 	ParentVertex int `json:"parent_vertex"`
 	// Label is rete_nodes.normalizedLabel, the antecedent term.
 	Label string `json:"label,omitempty"`

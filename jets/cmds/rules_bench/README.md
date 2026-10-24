@@ -301,17 +301,26 @@ reads `get_vertex_observations` (`jets/rete/jets_rete_cwrapper.h`) and writes, p
                     "parent_vertex": 3, "label": "(?s rdf:type …)", "rules": ["R10", "R11"] } ] } ] }
 ```
 
-- **`rows_now`** is the vertex's beta relation when the rule set ended, **`rows_peak`** the most it
-  held in that rule set's session, and **`inferred`** and **`retracted`** the times its consequents
-  were computed and retracted: the visits the vertex visit limit counts. They are counted where a
-  rule's consequents are, so a vertex that only leads to other vertices has rows and no visits. The
-  head vertex, 0, holds one empty row and has no `rete_nodes` row of its own (`parent_vertex` -1).
-- **`rule_set`** is `workspace_control.source_file_name` and **`source_file_key`** its key, so
-  (`source_file_key`, `vertex`) joins `rete_nodes`. **`rules`** are the `jet_rules` names whose
+- **`rows_now`** is the vertex's beta relation when the rule set ended, and **`rows_peak`** the most it
+  held in that rule set's session. Both count the relation's row set, which includes rows marked
+  withdrawn that are waiting to have their consequents retracted and to be erased. So a peak can
+  exceed the most rows live at once, and after a stop at the vertex visit limit `rows_now` can include
+  withdrawn rows not yet erased. For memory, it is the right number.
+- **`inferred`** and **`retracted`** are the times the vertex's consequents were computed and
+  retracted. **The vertex visit limit counts `inferred` only**. Both are counted where a rule's
+  consequents are, so a vertex that only leads to other vertices has rows and no visits.
+- **The head vertex, 0,** holds one empty row. Its `rete_nodes` row is a `head_node` row; the JSON
+  gives it `parent_vertex` -1 and no label or rules, by choice.
+- **`rule_set`** is `workspace_control.source_file_name` and **`source_file_key`** its key. The join
+  to `rete_nodes` is on (`source_file_key`, `vertex`) **with `type = 'antecedent'`** (`'head_node'`
+  for vertex 0). **(`source_file_key`, `vertex`) alone is not a key**: the table is
+  `UNIQUE (vertex, type, consequent_seq, source_file_key)`, with one antecedent row per vertex and
+  one row per consequent, so a join on the two columns multiplies a vertex's rows by its consequents. **`rules`** are the `jet_rules` names whose
   antecedents run through the vertex (`rule_terms`): more than one where rules share a prefix. A rule
   sequence's rule sets are each a record of their own, in the order they ran.
 - **It is free when not used.** Every counter is one the C++ session keeps anyway: the peak for the
-  reserve hint (`BetaRelation::peak_size`), the visits for the vertex visit limit. No flag reaches the
+  reserve hint (`BetaRelation::peak_size`), the visits for the vertex visit limit (which reads
+  `inferred`). No flag reaches the
   engine and nothing on its hot paths changed; observing is a read after each rule set, in no timed
   phase. The run is untimed all the same, so its results are not measurements.
 
