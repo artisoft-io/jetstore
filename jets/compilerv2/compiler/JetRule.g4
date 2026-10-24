@@ -249,7 +249,6 @@ binaryOp
   | GT
   | GE
   | NE
-  | REGEX2
   | MINUS
   | MUL
   | DIV
@@ -260,7 +259,6 @@ binaryOp
 
 unaryOp
   : NOT
-  | TOTEXT
   | Identifier
   ;
 
@@ -334,7 +332,6 @@ NULL: 'null';
 
 // Unary operator
 NOT: 'not';
-TOTEXT: 'toText';
 
 // Binary operator
 EQ: '==';
@@ -343,7 +340,6 @@ LE: '<=';
 GT: '>';
 GE: '>=';
 NE: '!=';
-REGEX2: 'r?';
 PLUS: '+';
 MINUS: '-';
 MUL: '*';

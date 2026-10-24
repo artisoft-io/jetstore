@@ -38,9 +38,9 @@ import (
 //
 // Normalised labels name variables by position and resources by id, so they
 // compare the rules and not the keys, which differ between the two compiles
-// by construction. The rule-level label is not compared because its property
-// order is a map iteration (makeRuleLabel); the properties are compared as a
-// map instead.
+// by construction. The rule-level label is not compared: its property order
+// was a map iteration (makeRuleLabel) until Q-49 sorted it, and the properties
+// are compared as a map instead.
 //
 // The workspaces are not this repository's, so the test reads them where the
 // parent checkout has them and skips when it does not. Run it with -count=1:
