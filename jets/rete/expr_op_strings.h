@@ -9,6 +9,7 @@
 #include <memory>
 #include <utility>
 #include <regex>
+#include <unordered_map>
 
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
@@ -25,6 +26,34 @@ namespace jets::rete {
 
 using RDFTTYPE = rdf::RdfAstType;
 
+// The compiled patterns of literal_regex (rules_benchmark C15). Each evaluation compiled
+// its pattern, 1.7 to 2.3% of a production-shaped session, though a rule's pattern is
+// nearly always a constant. A cache of the calling thread: the sessions of a pool run on
+// their own threads, so nothing is shared and nothing is locked. It holds at most
+// kRegexCacheCapacity patterns and is emptied when full, which bounds a rule whose pattern
+// comes from the data. A pattern that does not compile throws, as it did, and is not kept.
+constexpr std::size_t kRegexCacheCapacity = 256;
+
+struct RegexCache {
+  std::unordered_map<std::string, std::regex> patterns;
+
+  std::regex const& get(std::string const& pattern)
+  {
+    auto itor = this->patterns.find(pattern);
+    if(itor != this->patterns.end()) return itor->second;
+    std::regex compiled(pattern);
+    if(this->patterns.size() >= kRegexCacheCapacity) this->patterns.clear();
+    return this->patterns.emplace(pattern, std::move(compiled)).first->second;
+  }
+};
+
+inline RegexCache &
+thread_regex_cache()
+{
+  thread_local RegexCache cache;
+  return cache;
+}
+
 // RegexVisitor
 // --------------------------------------------------------------------------------------
 struct RegexVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
@@ -34,7 +63,7 @@ struct RegexVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNe
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for REGEX: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::LString lhs, rdf::LString rhs)const
   {
-    std::regex expr_regex(rhs.data);
+    std::regex const& expr_regex = thread_regex_cache().get(rhs.data);
     std::smatch match;
     if(std::regex_search(lhs.data, match, expr_regex)) {
       return rdf::LString(match[1]);
