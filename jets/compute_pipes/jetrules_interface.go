@@ -83,7 +83,6 @@ func ApplyEngineOptions(opts ...EngineOption) EngineOptions {
 type JetRuleEngine interface {
 	MainRuleFile() string
 	JetResources() *JetResources
-	GetMetaGraphTriples() []string
 
 	GetMetaResourceManager() JetResourceManager
 	Insert(s, p RdfNode, o RdfNode) error
