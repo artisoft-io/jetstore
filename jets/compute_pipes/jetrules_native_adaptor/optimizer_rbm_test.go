@@ -33,6 +33,10 @@ class rbm:OptItem {
     rbm:limit                 as int,
     rbm:openOn                as int,
     rbm:openOff               as int,
+    rbm:open2On               as int,
+    rbm:open2Off              as int,
+    rbm:planOn                as resource,
+    rbm:planOff               as resource,
     rbm:overOn                as int,
     rbm:overOff               as int
   ],
@@ -41,12 +45,18 @@ class rbm:OptItem {
 `
 
 // Each pair: the rule as the optimizer orders it, and its twin as authored. OPT_NEG has a
-// negated term, and OPT_FLT a filter reading three bound variables.
+// negated term after an rdf:type term; OPT_NEG_AMOUNT's negated term scores above the
+// term binding ?c (rdf:type's bonus), and OPT_NEG_PLAN's above the terms binding ?p
+// (I-200); OPT_FLT's filter reads three bound variables.
 const optRules = `# Main rule file for the rule optimizer test (optimizer_rbm_test.go).
 import "data_model/jets_model.jr"
 import "data_model/rbm_optimizer_model.jr"
 
 resource rbm:Closed = "rbm:Closed";
+resource rbm:Inactive = "rbm:Inactive";
+resource rbm:member = "rbm:member";
+resource rbm:plan = "rbm:plan";
+resource rbm:status = "rbm:status";
 
 [OPT_NEG]:
   (?c rdf:type rbm:OptItem).(?c rbm:amount ?v).not(?c rdf:type rbm:Closed)
@@ -57,6 +67,28 @@ resource rbm:Closed = "rbm:Closed";
   (?c rdf:type rbm:OptItem).(?c rbm:amount ?v).not(?c rdf:type rbm:Closed)
   ->
   (?c rbm:openOff ?v)
+;
+
+[OPT_NEG_AMOUNT]:
+  (?c rbm:amount ?v).not(?c rdf:type rbm:Closed)
+  ->
+  (?c rbm:open2On ?v)
+;
+[OPT_NEG_AMOUNT_AUTHORED, o=false]:
+  (?c rbm:amount ?v).not(?c rdf:type rbm:Closed)
+  ->
+  (?c rbm:open2Off ?v)
+;
+
+[OPT_NEG_PLAN]:
+  (?c rbm:member ?m).(?m rbm:plan ?p).not(?p rbm:status rbm:Inactive)
+  ->
+  (?c rbm:planOn ?p)
+;
+[OPT_NEG_PLAN_AUTHORED, o=false]:
+  (?c rbm:member ?m).(?m rbm:plan ?p).not(?p rbm:status rbm:Inactive)
+  ->
+  (?c rbm:planOff ?p)
 ;
 
 [OPT_FLT]:
@@ -128,6 +160,12 @@ func TestOptimizerComputesWhatTheAuthoredOrderComputes(t *testing.T) {
 	insert("c2", "rdf:type", r("rbm:OptItem"))
 	insert("c2", "rbm:amount", rm.NewIntLiteral(20))
 	insert("c2", "rdf:type", r("rbm:Closed"))
+	// c1's member's plan p1 is active, c3's member's plan p2 is inactive
+	insert("c1", "rbm:member", r("m1"))
+	insert("m1", "rbm:plan", r("p1"))
+	insert("c3", "rbm:member", r("m3"))
+	insert("m3", "rbm:plan", r("p2"))
+	insert("p2", "rbm:status", r("rbm:Inactive"))
 	// c4 is over its limit, c5 is not
 	for _, c := range []struct {
 		s             string
@@ -156,9 +194,10 @@ func TestOptimizerComputesWhatTheAuthoredOrderComputes(t *testing.T) {
 		return describe(ses.GetObject(r(s), r(p)))
 	}
 	for _, pair := range []struct{ on, off string }{
-		{"rbm:openOn", "rbm:openOff"}, {"rbm:overOn", "rbm:overOff"},
+		{"rbm:openOn", "rbm:openOff"}, {"rbm:open2On", "rbm:open2Off"}, {"rbm:planOn", "rbm:planOff"},
+		{"rbm:overOn", "rbm:overOff"},
 	} {
-		for _, s := range []string{"c1", "c2", "c4", "c5"} {
+		for _, s := range []string{"c1", "c2", "c3", "c4", "c5"} {
 			if on, off := object(s, pair.on), object(s, pair.off); on != off {
 				t.Errorf("(%s %s ?o) is %s with the optimizer, (%s %s ?o) %s as authored", s, pair.on, on, s, pair.off, off)
 			}
@@ -168,12 +207,15 @@ func TestOptimizerComputesWhatTheAuthoredOrderComputes(t *testing.T) {
 	// empty sets
 	for _, want := range []struct{ s, p, o string }{
 		{"c1", "rbm:openOff", "10"}, {"c4", "rbm:openOff", "50"}, {"c4", "rbm:overOff", "50"},
+		{"c1", "rbm:open2Off", "10"}, {"c5", "rbm:open2Off", "30"}, {"c1", "rbm:planOff", "p1"},
 	} {
 		if got := object(want.s, want.p); got != want.o {
 			t.Errorf("(%s %s ?o) is %s, want %s", want.s, want.p, got, want.o)
 		}
 	}
-	for _, none := range []struct{ s, p string }{{"c2", "rbm:openOff"}, {"c5", "rbm:overOff"}} {
+	for _, none := range []struct{ s, p string }{
+		{"c2", "rbm:openOff"}, {"c2", "rbm:open2Off"}, {"c3", "rbm:planOff"}, {"c5", "rbm:overOff"},
+	} {
 		if got := object(none.s, none.p); got != "<absent>" {
 			t.Errorf("(%s %s ?o) is %s, want none", none.s, none.p, got)
 		}

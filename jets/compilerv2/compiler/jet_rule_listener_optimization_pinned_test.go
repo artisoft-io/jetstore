@@ -88,10 +88,17 @@ func checkBindingOrder(t *testing.T, c *Compiler, rule *rete.JetruleNode) {
 	}
 }
 
-// A negated term matches nothing, so it binds nothing: it must come after the positive
-// terms that bind its variables, as validation checked in the authored order.
+// I-200: a negated term the heuristic scores above the term that binds its variable.
+// not(?c rdf:type ex:Closed) scores 380 with ?c unbound, for rdf:type's bonus, and
+// (?c ex:amount ?v) 180, so a reordering by score alone puts the negation first.
 func TestOptimizerKeepsANegatedTermAfterItsBindings(t *testing.T) {
 	c, rules := compileForOptimizer(t, "opt_negation.jr", `
+		[NEG1]:
+		(?c ex:amount ?v).
+		not(?c rdf:type ex:Closed)
+		->
+		(?c ex:open_amount ?v);
+
 		[NEG2]:
 		(?c rdf:type ex:Claim).
 		(?c ex:member ?m).
@@ -99,13 +106,21 @@ func TestOptimizerKeepsANegatedTermAfterItsBindings(t *testing.T) {
 		(?c ex:amount ?v)
 		->
 		(?c ex:kept ?v);
-`)
+
+		[NEG3]:
+		(?c ex:member ?m).
+		(?m ex:plan ?p).
+		not(?p ex:status ex:Inactive)
+		->
+		(?c ex:active_plan ?p);`)
 	for _, rule := range rules {
 		checkBindingOrder(t, c, rule)
 	}
 }
 
-// A filter lands on the first antecedent at which its variables are all bound.
+// A filter lands on the first antecedent at which its variables are all bound. A filter
+// on ?c moved ahead with a negation that ?c is "bound" by reads ?c before any positive
+// term binds it.
 func TestOptimizerPlacesAFilterWhereItsVariablesAreBound(t *testing.T) {
 	c, rules := compileForOptimizer(t, "opt_filter.jr", `
 		[FLT1]:
@@ -117,6 +132,13 @@ func TestOptimizerPlacesAFilterWhereItsVariablesAreBound(t *testing.T) {
 		[?b != ?a]
 		->
 		(?a ex:pair ?b);
+
+		[FLT2]:
+		(?c ex:amount ?v).
+		[?c != ex:excluded]
+		not(?c rdf:type ex:Closed)
+		->
+		(?c ex:open_amount ?v);
 
 		[FLT3]:
 		(?c ex:amount ?v).
@@ -176,5 +198,36 @@ func TestOptimizerKeepsTheConsequentsVariables(t *testing.T) {
 	}
 	if want := fmt.Sprintf("(%s ex:total (%s + %s))", m, a, f); !strings.Contains(rule.NormalizedLabel, want) {
 		t.Errorf("label %s does not contain %s", rule.NormalizedLabel, want)
+	}
+}
+
+// I-201: terms the heuristic scores equally keep their authored order. After the
+// rdf:type term binds ?x, each (?x ex:pNN ?vNN) scores 400, and each (?zNN ex:qNN ?x)
+// 260. slices.SortFunc is not stable: it sorts 12 elements or fewer by insertion, which
+// keeps the order, and more with pdqsort, which need not. So the rule has more than 12
+// terms, of two scores, interleaved.
+func TestOptimizerKeepsTiesInTheAuthoredOrder(t *testing.T) {
+	const n = 10
+	var b strings.Builder
+	b.WriteString("[TIE1]:\n(?x rdf:type ex:Item)")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&b, ".\n(?x ex:p%02d ?v%02d).\n(?z%02d ex:q%02d ?x)", i, i, i, i)
+	}
+	b.WriteString("\n->\n(?x ex:seen true);\n")
+	c, rules := compileForOptimizer(t, "opt_ties.jr", b.String())
+	var got []string
+	for _, a := range rules[0].Antecedents {
+		got = append(got, c.listener.resourceManager.ResourceByKey[a.PredicateKey].Value)
+	}
+	// every 400 before every 260, each group in its authored order
+	want := []string{"rdf:type"}
+	for i := 1; i <= n; i++ {
+		want = append(want, fmt.Sprintf("ex:p%02d", i))
+	}
+	for i := 1; i <= n; i++ {
+		want = append(want, fmt.Sprintf("ex:q%02d", i))
+	}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("predicates in order\n  got  %s\n  want %s", strings.Join(got, " "), strings.Join(want, " "))
 	}
 }
