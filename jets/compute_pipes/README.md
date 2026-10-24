@@ -788,6 +788,6 @@ has a `map` column in an `aggregate` or a `map_reduce` as of 2026-10-18.
 
 **A jetrules step can count, over its sessions, what the rule optimizer orders by**:
 `optimizer_statistics` in its `jetrules_config`, off by default and free when off. The partials it
-writes are merged into the workspace by the run_reports function `merge_optimizer_statistics`.
+writes are merged by the run_reports function `merge_optimizer_statistics` into a workspace override, which takes effect at the workspace's next compile.
 Full documentation: [`optimizer_statistics_readme.md`](optimizer_statistics_readme.md) — the option,
 the function, why it runs on demand, and what a later deployment does to the file.

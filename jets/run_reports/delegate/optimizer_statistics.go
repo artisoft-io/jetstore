@@ -25,9 +25,13 @@ import (
 //
 // The function merges the partials exactly into
 // jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json and lists
-// that key, so that RunReports syncs it into the workspace as an override and
-// compiles the workspace, as it does for a lookup a report has written. The
-// compiler then orders the rules by the statistics.
+// that key, so that RunReports syncs it into the workspace and records it as an
+// override, as it does for a lookup a report has written. The file takes effect
+// at the workspace's next compile: RunReports compiles unless
+// SkipCompileWorkspace is set, which the stock cpipes route's run_reports Lambda
+// does, and otherwise a compile from the UI or a later deployment's start-up
+// compile applies the override. The compiler then orders the rules by the
+// statistics.
 
 // MergeOptimizerStatisticsFunc is the function's name in reportScripts.
 const MergeOptimizerStatisticsFunc = "merge_optimizer_statistics"
