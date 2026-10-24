@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_CWAPPER_H
 #define JETS_RETE_CWAPPER_H
 
+#include <stdint.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus
@@ -27,6 +28,15 @@ int create_rete_session( HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_nam
 int delete_rete_session( HJRETE rete_session_hdl );
 // The session's last error, or "" if none; valid until the session's next call
 char const* get_rete_session_err_msg( HJRETE rete_session_hdl );
+// What the session's network holds, per vertex: rows_now the rows of its beta
+// relation at the call, rows_peak the most it held in this session, inferred and
+// retracted the times its consequents were computed and retracted (the visits the
+// vertex visit limit counts; 0 at a vertex with no consequent terms). Each array has room for n vertices. Returns the
+// number of vertices of the network, filling the first min(n, that) of each; call
+// it with n = 0 for the count alone. Free: every counter is kept by the session
+// anyway; nothing is recorded for this call. -1 for a null handle or array.
+int get_vertex_observations( HJRETE rete_session_hdl, int n, int64_t * rows_now,
+  int64_t * rows_peak, int64_t * inferred, int64_t * retracted );
 
 typedef void const* HJR;
 

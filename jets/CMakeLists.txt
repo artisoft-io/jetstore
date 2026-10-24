@@ -163,6 +163,7 @@ add_executable(jets_test
   rete/retract_recorded_consequents_test.cc
   rete/loop_through_negation_test.cc
   rete/regex_cache_test.cc
+  rete/vertex_observations_test.cc
 )
 
 target_link_libraries(jets_test

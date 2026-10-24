@@ -243,6 +243,13 @@ class ReteSession {
   {
     return beta_relations_;
   }
+
+  // Per vertex, the times its consequents were computed and retracted
+  inline VertexVisitsVector const&
+  vertex_visits()const
+  {
+    return vertex_visits_;
+  }
   
   int 
   execute_rules();
