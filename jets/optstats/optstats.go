@@ -13,28 +13,35 @@
 //
 // # The format, version 1
 //
-//		{"format": "jetstore.optimizer_statistics", "version": 1,
-//		 "rule_sets": {"jet_rules/main.jr": {
-//		   "sessions": 100,
-//		   "predicates": {"rdf:type": {"triples": 250000, "subjects": 240000, "objects": 12}},
-//		   "subject_constants": {"acme:param": {"acme:Config": 100}},
-//		   "object_constants":  {"rdf:type": {"acme:Claim": 100000}}}}}
+//	{"format": "jetstore.optimizer_statistics", "version": 1,
+//	 "rule_sets": {"jet_rules/main.jr": {
+//	   "sessions": 100,
+//	   "predicates": {"rdf:type": {"triples": 250000, "subjects": 240000, "objects": 12}},
+//	   "subject_constants": {"acme:param": {"acme:Config": 100}},
+//	   "object_constants":  {"rdf:type": {"acme:Claim": 100000}}}}}
 //
-//	  - A rule set is keyed by its main rule file as workspace_control.json's
-//	    rule_sets names it: the compiler's main rule file name.
-//	  - Every count is an integer, the sum over the sessions of that session's value.
-//	    A reader divides by sessions. A partial file has the same shape, and merging
-//	    adds every count, sessions included, so a merge is exact.
-//	  - predicates holds one entry per constant predicate of an antecedent, positive
-//	    or negated, of the rule set's compiled network, and nothing else: its
-//	    triples, distinct subjects and distinct objects.
-//	  - subject_constants[p][s] counts the triples (s, p, *), for each antecedent
-//	    whose subject and predicate are constants; object_constants[p][o] counts
-//	    (*, p, o), for each antecedent whose predicate and object are constants.
-//	  - Zeros are written. No other constant and no data value enters the file.
-//	  - A term is keyed by its form in the graph (TermKey).
-//	  - The file is encoding/json with two-space indentation and a final newline, so
-//	    the same statistics give the same bytes (Encode).
+// The rules:
+//
+//   - A rule set is keyed by its main rule file as workspace_control.json's
+//     rule_sets names it: the compiler's main rule file name.
+//   - A session's values are counted from its graph when the rule set ends:
+//     everything the session's Find returns, the meta graph included with the
+//     asserted and inferred triples, each triple once. That is what the rule
+//     set's antecedents match (rules_benchmark BX.1 rule 2, as amended
+//     2026-10-24).
+//   - Every count is an integer, the sum over the sessions of that session's
+//     value. A reader divides by sessions. A partial file has the same shape,
+//     and merging adds every count, sessions included, so a merge is exact.
+//   - predicates holds one entry per constant predicate of an antecedent,
+//     positive or negated, of the rule set's compiled network, and nothing
+//     else: its triples, distinct subjects and distinct objects.
+//   - subject_constants[p][s] counts the triples (s, p, *), for each antecedent
+//     whose subject and predicate are constants; object_constants[p][o] counts
+//     (*, p, o), for each antecedent whose predicate and object are constants.
+//   - Zeros are written. No other constant and no data value enters the file.
+//   - A term is keyed by its form in the graph (TermKey).
+//   - The file is encoding/json with two-space indentation and a final
+//     newline, so the same statistics give the same bytes (Encode).
 package optstats
 
 import (
