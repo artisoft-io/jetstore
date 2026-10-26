@@ -1,6 +1,6 @@
 module github.com/artisoft-io/jetstore
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c // indirect
