@@ -13,6 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -121,35 +122,18 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// cpipesConfigFN is cpipes config file name within workspace
 	// tableName is the input_registry.table_name, needed when source_type = 'domain_table' since it correspond to className
 	// Read schema_provider_json from source_config and env_json from process_config.
-	var client, org, objectType, tableName, sourceType string
-	var schemaProviderJson string
-	var cpipesConfigFN, envJson sql.NullString
-	var monthPeriod, weekPeriod, dayPeriod int
-	var year, month, day int
 	log.Println("CPIPES, loading pipeline configurations")
-	stmt := `
-	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
-		ir.table_name, ir.source_type,
-		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		pc.main_rules, pc.env_json,
-		sp.month_period, sp.week_period, sp.day_period,
-		sp.year, sp.month, sp.day
-	FROM 
-		jetsapi.pipeline_execution_status pe,
-		jetsapi.input_registry ir,
-		jetsapi.process_config pc,
-		jetsapi.source_period sp
-	WHERE pe.main_input_registry_key = ir.key
-		AND pe.key = $1
-		AND pc.process_name = pe.process_name
-		AND sp.key = ir.source_period_key`
-	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
-		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
-		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&cpipesConfigFN, &envJson, &monthPeriod, &weekPeriod, &dayPeriod, &year, &month, &day)
+	row, err := queryPipelineConfig(ctx, dbpool, args.PipelineExecKey)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
+	client, org, objectType, tableName, sourceType := row.client, row.org, row.objectType, row.tableName, row.sourceType
+	schemaProviderJson, cpipesConfigFN, envJson := row.schemaProviderJson, row.cpipesConfigFN, row.envJson
+	monthPeriod, weekPeriod, dayPeriod := row.monthPeriod, row.weekPeriod, row.dayPeriod
+	year, month, day := row.year, row.month, row.day
+	cpipesStartup.SourcePeriodKey, cpipesStartup.PipelineConfigKey = row.sourcePeriodKey, row.pipelineConfigKey
+	cpipesStartup.ProcessName, cpipesStartup.InputSessionId, cpipesStartup.OperatorEmail =
+		row.processName, row.inputSessionId, row.operatorEmail
 	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return cpipesStartup, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
@@ -292,7 +276,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			env := mainInputSchemaProvider.Env
 			scTableName, _ = env["${TABLE_NAME}"].(string)
 		}
-		stmt = `
+		stmt := `
 			SELECT sc.client, sc.org, sc.object_type,
 				sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
 				sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json, sc.schema_provider_json
@@ -409,7 +393,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		// Get the domain_key_json from domain_keys_registry table
 		// Example of how this table is populated from base__workspace_init_db.sql:
 		// INSERT INTO jetsapi.domain_keys_registry (entity_rdf_type, object_types, domain_keys_json) VALUES
-		// ('wrs:Eligibility', '{"Eligibility"}', '{"Eligibility":"wrs:Generated_ID","jets:hashing_override":"none"}'),
+		// ('ex:Eligibility', '{"Eligibility"}', '{"Eligibility":"ex:Generated_ID","jets:hashing_override":"none"}'),
 		var buf strings.Builder
 		buf.WriteString("SELECT entity_rdf_type, object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
 		first := true
@@ -574,7 +558,62 @@ wrapUp:
 		cpipesStartup.InputColumns = sp.ColumnNames()
 	}
 
+	// Last, once the main input schema provider is resolved, so that a refusal reaches
+	// the starter's failure notification like any other start error.
+	err = validateNoRulesOnCpipesSM(&cpipesStartup.CpConfig, cpipesStartup.ProcessName, row.stateMachine.String)
+	if err != nil {
+		return cpipesStartup, err
+	}
 	return cpipesStartup, nil
+}
+
+// pipelineConfigStmt reads what the sharding start needs about a pipeline execution:
+// its input registry entry, its process (process_config) and its source period.
+const pipelineConfigStmt = `
+	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
+		ir.table_name, ir.source_type,
+		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
+		pc.main_rules, pc.env_json, pc.state_machine_name,
+		sp.month_period, sp.week_period, sp.day_period,
+		sp.year, sp.month, sp.day
+	FROM 
+		jetsapi.pipeline_execution_status pe,
+		jetsapi.input_registry ir,
+		jetsapi.process_config pc,
+		jetsapi.source_period sp
+	WHERE pe.main_input_registry_key = ir.key
+		AND pe.key = $1
+		AND pc.process_name = pe.process_name
+		AND sp.key = ir.source_period_key`
+
+// pipelineConfigRow is pipelineConfigStmt's row. cpipesConfigFN is the cpipes config
+// file name within the workspace (process_config.main_rules); tableName is the
+// input_registry.table_name, needed when source_type = 'domain_table' since it is the
+// class name; stateMachine is process_config.state_machine_name.
+type pipelineConfigRow struct {
+	client, org, objectType                    string
+	sourcePeriodKey                            int
+	schemaProviderJson, tableName, sourceType  string
+	pipelineConfigKey                          int
+	processName, inputSessionId, operatorEmail string
+	cpipesConfigFN, envJson, stateMachine      sql.NullString
+	monthPeriod, weekPeriod, dayPeriod         int
+	year, month, day                           int
+}
+
+// rowQuerier is the one method of *pgxpool.Pool queryPipelineConfig uses, so that a
+// test can give it a row.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// queryPipelineConfig reads pipelineConfigStmt's row for the pipeline execution peKey.
+func queryPipelineConfig(ctx context.Context, db rowQuerier, peKey int) (r pipelineConfigRow, err error) {
+	err = db.QueryRow(ctx, pipelineConfigStmt, peKey).Scan(
+		&r.client, &r.org, &r.objectType, &r.sourcePeriodKey, &r.schemaProviderJson, &r.tableName, &r.sourceType,
+		&r.pipelineConfigKey, &r.processName, &r.inputSessionId, &r.operatorEmail,
+		&r.cpipesConfigFN, &r.envJson, &r.stateMachine, &r.monthPeriod, &r.weekPeriod, &r.dayPeriod, &r.year, &r.month, &r.day)
+	return r, err
 }
 
 func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
@@ -922,6 +961,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		return err
 	}
 	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
+		return err
+	}
+	if err := validateNoGoEngine(cpConfig); err != nil {
 		return err
 	}
 	for i := range pipeConfig {
@@ -1484,6 +1526,176 @@ func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) erro
 		}
 	}
 	return nil
+}
+
+// transformationSite is where a transformation is in a compute pipes document.
+// section is pipes_config, reducing_pipes_config or conditional_pipes_config, and
+// step its index there (0 for pipes_config); override is the index of the
+// conditional_config entry whose then it is, or -1 for the transformation itself.
+type transformationSite struct {
+	section  string
+	step     int
+	override int
+	// where is the site as the document names it, for a message.
+	where string
+}
+
+// forEachTransformation calls visit with every transformation of the document, in
+// every step and every conditional_config override, and its site. It stops at
+// visit's first error.
+//
+// Nothing here evaluates a when, of a step or of a conditional_config entry: the
+// run evaluates them against an env the start does not have yet (the sharding
+// results, total_file_size_gb and nbr_partitions among them, and each selected
+// step's addl_env), and an expression reading a variable that is not there does not
+// fail, it reads nil or its own text. So a check on this walk sees every
+// transformation that may run, each override included, and decides for itself
+// what an undecided when means.
+func forEachTransformation(cpConfig *ComputePipesConfig, visit func(site transformationSite, spec *TransformationSpec) error) error {
+	type namedStep struct {
+		section, name string
+		step          int
+		pipes         []PipeSpec
+	}
+	steps := []namedStep{{"pipes_config", "pipes_config", 0, cpConfig.PipesConfig}}
+	for i := range cpConfig.ReducingPipesConfig {
+		steps = append(steps, namedStep{"reducing_pipes_config", fmt.Sprintf("reducing_pipes_config[%d]", i),
+			i, cpConfig.ReducingPipesConfig[i]})
+	}
+	for i := range cpConfig.ConditionalPipesConfig {
+		c := &cpConfig.ConditionalPipesConfig[i]
+		steps = append(steps, namedStep{"conditional_pipes_config",
+			fmt.Sprintf("conditional_pipes_config[%d] (step_name %q)", i, c.StepName), i, c.PipesConfig})
+	}
+	for _, step := range steps {
+		for i := range step.pipes {
+			for j := range step.pipes[i].Apply {
+				where := fmt.Sprintf("%s, pipe %d, apply %d", step.name, i, j)
+				site := transformationSite{section: step.section, step: step.step, override: -1, where: where}
+				if err := visit(site, &step.pipes[i].Apply[j]); err != nil {
+					return err
+				}
+				for k, conditional := range step.pipes[i].Apply[j].ConditionalConfig {
+					if conditional == nil {
+						continue
+					}
+					site.override, site.where = k, fmt.Sprintf("%s, conditional_config[%d]", where, k)
+					if err := visit(site, &conditional.Then); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// processNamed is ` (process "name")` for a message, or nothing when name is empty.
+func processNamed(name string) string {
+	if name == "" {
+		return ""
+	}
+	return fmt.Sprintf(" (process %q)", name)
+}
+
+// validateNoGoEngine refuses a jetrules_config setting use_jet_rules_go: true, in any
+// step of the document and in any conditional_config override, so that the pipeline
+// fails when its first step starts. The Go engine is retired (GoEngineRetired); running
+// C++ where Go was asked for would be a silent substitution. use_jet_rules_go: false
+// asks for nothing and is accepted. A conditional_config override is refused whatever
+// its when, which cannot be decided at start (forEachTransformation).
+func validateNoGoEngine(cpConfig *ComputePipesConfig) error {
+	return forEachTransformation(cpConfig, func(site transformationSite, spec *TransformationSpec) error {
+		if spec.JetrulesConfig != nil && spec.JetrulesConfig.UseJetRulesGo {
+			return fmt.Errorf(
+				"configuration error: %s%s sets jetrules_config.use_jet_rules_go: %s; remove it or set it to false",
+				site.where, processNamed(spec.JetrulesConfig.ProcessName), GoEngineRetired)
+		}
+		return nil
+	})
+}
+
+// validateNoRulesOnCpipesSM refuses a jetrules step that would run on cp_node, the
+// node of the cpipesSM state machine, which has no rule engine since the Go engine's
+// retirement: such a step passes every other check and fails on every node part way
+// through the run. stateMachine is process_config.state_machine_name; the node
+// refuses the step too (NoRuleEngineOnNode), for anything this does not catch.
+//
+// Only a step certain to run on cp_node is refused (runsOnNodeLambda): a step the
+// ECS task or the Python node may run is accepted, the ECS task's container running
+// the C++ engine. A conditional_config override that makes a transformation jetrules
+// counts, whatever its when, which cannot be decided at start.
+func validateNoRulesOnCpipesSM(cpConfig *ComputePipesConfig, processName, stateMachine string) error {
+	if stateMachine != "cpipesSM" {
+		return nil
+	}
+	return forEachTransformation(cpConfig, func(site transformationSite, spec *TransformationSpec) error {
+		if spec.Type != "jetrules" || !runsOnNodeLambda(cpConfig, site) {
+			return nil
+		}
+		return fmt.Errorf(
+			"configuration error: process %q runs on state machine cpipesSM, and %s is a jetrules step that runs on its "+
+				"node, cp_node, which has no rule engine; rules run on the C++ engine in cpipesNativeSM: set the process's "+
+				"state_machine_name to cpipesNativeSM, or run the step in the ECS task (use_ecs_tasks)",
+			processName, site.where)
+	})
+}
+
+// runsOnNodeLambda reports whether the step of site certainly runs on the state
+// machine's node Lambda, as the dispatcher decides it. The sharding step runs on the
+// node Lambda whatever it sets; a reducing step runs in the ECS task when
+// EvalUseEcsTask says so, on the Python node when EvalUsePythonNode does, and on the
+// node Lambda otherwise. Both read conditional_pipes_config at the step's index.
+//
+// A step is uncertain, and so not reported, when:
+//   - it is the authored pipes_config, which GetComputePipes never selects;
+//   - it is a conditional step with a when, which may skip it;
+//   - its ECS or Python choice is an expression (use_ecs_tasks_when,
+//     use_python_node_when), which reads the run's env;
+//   - it chooses the ECS task or the Python node: it runs there as a reducing step,
+//     and on the node Lambda only if earlier steps' whens make it the sharding step.
+func runsOnNodeLambda(cpConfig *ComputePipesConfig, site transformationSite) bool {
+	conditional := cpConfig.ConditionalPipesConfig
+	// offNode is whether the step at index i chooses the ECS task or the Python node,
+	// and decided whether that choice is known at start.
+	offNode := func(i int) (off, decided bool) {
+		if i >= len(conditional) {
+			return false, true
+		}
+		c := &conditional[i]
+		if c.UseEcsTasksWhen != nil || c.UsePythonNodeWhen != nil {
+			return false, false
+		}
+		return c.UseEcsTasks || c.UsePythonNode, true
+	}
+	switch site.section {
+	case "reducing_pipes_config":
+		// GetComputePipes selects reducing_pipes_config[i] for step i, unconditionally;
+		// step 0 is the sharding step.
+		if site.step == 0 {
+			return true
+		}
+		off, decided := offNode(site.step)
+		return decided && !off
+	case "conditional_pipes_config":
+		if len(cpConfig.ReducingPipesConfig) > site.step || conditional[site.step].When != nil {
+			// Shadowed by a reducing step of the same index, or may be skipped.
+			return false
+		}
+		if site.step == 0 {
+			return true // the sharding step
+		}
+		off, decided := offNode(site.step)
+		switch {
+		case !decided:
+			return false
+		case !off:
+			return true // the node Lambda, as the sharding step or as a reducing step
+		default:
+			return false // the ECS task or the Python node, unless it is the sharding step
+		}
+	}
+	return false
 }
 
 // validateErrorChannels checks that an error channel has a single writer:

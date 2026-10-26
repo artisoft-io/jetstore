@@ -19,21 +19,38 @@ import (
 // - Antecedents that do not share variables with already placed antecedents are placed last
 // This is a greedy algorithm and may not produce the optimal ordering in all cases.
 // More advanced algorithms can be implemented in the future.
+//
+// Two constraints hold whatever the scores (rules_benchmark Phase 8, BS.2, 2026-10-24):
+//   - A negated term binds nothing, so it is placed only once the terms placed before it
+//     bind every variable it reads, as validation checks of the authored order. Until
+//     then it was scored as a positive term, and rdf:type's bonus could put it first,
+//     where the engine matched it against every subject (I-200).
+//   - Terms of equal priority keep their authored order: the sort is stable. It was
+//     slices.SortFunc, which is not past 12 elements (I-201).
+//
+// When the workspace commits statistics of its graphs, a rule they cover is
+// ordered by the rows each antecedent is estimated to add instead of by the
+// score (rules_benchmark Phase 9, BY.1; jet_rule_listener_cost_order.go). Both
+// orders are then checked as validation checks the authored one (I-232).
 func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	if !rule.Optimization || !rule.IsValid {
 		// Optimization is disabled for this rule or the rule is not valid
 		// Skip optimization
+		if !rule.Optimization && rule.IsValid && s.statistics != nil {
+			s.costReport.optOff++
+		}
 		return
 	}
 	antecedents := rule.Antecedents
 	n := len(antecedents)
 	if n <= 1 {
 		// No need to optimize
+		if s.statistics != nil {
+			s.costReport.single++
+		}
 		return
 	}
 
-	// Simple greedy algorithm to reorder antecedents
-	ordered := make([]*rete.RuleTerm, 0, n)
 	filters := make([]*rete.ExpressionNode, 0)
 	// Collect filters from original rule's antecedent so to reallocated them after
 	// the antecedent have been reordered
@@ -44,47 +61,32 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		}
 	}
 
-	// Keep track of the binded variables
-	bindedVars := make(map[string]bool)
-
-	// Iterativelly allocate the antecedent with the top priority
-	// Priority is computed as: 1000 - score
-	// where score is computed based on triple configuration
-	// ---------------------------------------------------------------------------------
-	// optimized_antecedents
-	// ---------------------------------------------------------------------------------
-	// While we still have antecedent to place
-	type antPriority struct {
-		index    int
-		priority int
+	// The cost order where the statistics cover the rule, else the score order
+	var ordered []*rete.RuleTerm
+	var bindedVars map[string]bool
+	var estimator *costEstimator
+	if s.statistics != nil {
+		estimator = s.newCostEstimator(antecedents)
 	}
-	for len(antecedents) > 0 {
-		// create a priority list
-		plist := make([]antPriority, 0, len(antecedents))
-		for i := range antecedents {
-			score := s.evaluateScore(bindedVars, antecedents[i])
-			plist = append(plist, antPriority{i, 1000 - score})
-			if s.trace {
-				s.LogParse(fmt.Sprintf("*** Antecedent %d %s score: %d, priority: %d", i, antecedents[i].NormalizedLabel, score, 1000-score))
+	if estimator != nil {
+		ordered = s.orderByCost(antecedents, estimator)
+		byScore := s.orderByScore(antecedents, false)
+		s.costReport.costOrdered++
+		if !slices.Equal(ordered, byScore) {
+			s.costReport.changed++
+		}
+		if s.costTrace {
+			authored := make(map[*rete.RuleTerm]int, n)
+			for i, a := range antecedents {
+				authored[a] = i
 			}
+			s.costReport.trace = append(s.costReport.trace, fmt.Sprintf(
+				"  %s (%s): score order %s, est. rows held %.0f; cost order %s, est. rows held %.0f",
+				rule.Name, rule.SourceFileName, orderLabel(byScore, authored), estimator.rowsHeld(byScore),
+				orderLabel(ordered, authored), estimator.rowsHeld(ordered)))
 		}
-
-		// find the antecedent with the highest priority
-		slices.SortFunc(plist, func(a, b antPriority) int {
-			return a.priority - b.priority
-		})
-		// take the first one
-		best := plist[0]
-		ordered = append(ordered, antecedents[best.index])
-		if s.trace {
-			s.LogParse(fmt.Sprintf("*** Selected antecedent %d %s with priority %d", best.index, antecedents[best.index].NormalizedLabel, best.priority))
-		}
-
-		// update bindedVars
-		s.collectVars(bindedVars, antecedents[best.index])
-
-		// remove it from the antecedents list
-		antecedents = slices.Delete(antecedents, best.index, best.index+1)
+	} else {
+		ordered = s.orderByScore(antecedents, true)
 	}
 
 	if len(filters) == 0 {
@@ -96,7 +98,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	// ---------------------------------------------------------------------------------
 	bindedVars = make(map[string]bool)
 	// For each antecedent in order, check if any filter can be applied.
-	// A filter can be applied if all its variables are binded by the 
+	// A filter can be applied if all its variables are binded by the
 	// current antecedents and those placed before it.
 	// If multiple filters can be applied, they are combined using AND operator
 	// and added to the antecedent.
@@ -104,8 +106,10 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	// ---------------------------------------------------------------------------------
 	// For each antecedent in order
 	for i := range ordered {
-		// update bindedVars
-		s.collectVars(bindedVars, ordered[i])
+		// update bindedVars: a negated term binds nothing
+		if !ordered[i].IsNot {
+			s.collectVars(bindedVars, ordered[i])
+		}
 
 		// use a stack to keep track of the filters that can be applied to this antecedent
 		matchedFilters := stack.NewStack[rete.ExpressionNode](5)
@@ -158,6 +162,9 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 post_process:
 	// Update the rule's antecedents with the reordered ones
 	rule.Antecedents = ordered
+	if reorderHookForTest != nil {
+		reorderHookForTest(rule)
+	}
 
 	// Verify that we placed all filters
 	if len(filters) > 0 {
@@ -195,6 +202,84 @@ post_process:
 	// Update rule's Label and NormalizedLabel
 	rule.Label = s.makeRuleLabel(rule, false)
 	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
+
+	// Validate the order: validation checked the authored one (I-232)
+	if !s.validateOrderedRule(rule) {
+		rule.IsValid = false
+	}
+}
+
+// reorderHookForTest, when set, changes a rule's order after the optimizer has
+// chosen it and before it is validated again. Tests only: it is how a misplaced
+// negation is made to reach the re-validation.
+var reorderHookForTest func(rule *rete.JetruleNode)
+
+// orderByScore is the greedy order by evaluateScore: at each step the
+// antecedent with the highest score, the first authored among equals, a
+// negated term entering only once its variables are bound. log writes the
+// trace and the internal error; the cost order's comparison passes false.
+func (s *JetRuleListener) orderByScore(antecedents []*rete.RuleTerm, log bool) []*rete.RuleTerm {
+	antecedents = slices.Clone(antecedents)
+	ordered := make([]*rete.RuleTerm, 0, len(antecedents))
+
+	// Keep track of the binded variables
+	bindedVars := make(map[string]bool)
+
+	// Iterativelly allocate the antecedent with the top priority
+	// Priority is computed as: 1000 - score
+	// where score is computed based on triple configuration
+	// ---------------------------------------------------------------------------------
+	// optimized_antecedents
+	// ---------------------------------------------------------------------------------
+	// While we still have antecedent to place
+	type antPriority struct {
+		index    int
+		priority int
+	}
+	for len(antecedents) > 0 {
+		// create a priority list
+		plist := make([]antPriority, 0, len(antecedents))
+		for i := range antecedents {
+			if antecedents[i].IsNot && !s.allVarsBinded(bindedVars, antecedents[i]) {
+				// not yet: a negated term follows the terms that bind its variables
+				continue
+			}
+			score := s.evaluateScore(bindedVars, antecedents[i])
+			plist = append(plist, antPriority{i, 1000 - score})
+			if log && s.trace {
+				s.LogParse(fmt.Sprintf("*** Antecedent %d %s score: %d, priority: %d", i, antecedents[i].NormalizedLabel, score, 1000-score))
+			}
+		}
+
+		if len(plist) == 0 {
+			// Only negated terms are left, each reading a variable no term binds. The
+			// rule is valid, so this does not happen; keep the authored order
+			if log {
+				s.LogError("Internal error: no antecedent can be placed during rule optimization")
+			}
+			plist = append(plist, antPriority{0, 0})
+		}
+
+		// find the antecedent with the highest priority, the first authored among equals
+		slices.SortStableFunc(plist, func(a, b antPriority) int {
+			return a.priority - b.priority
+		})
+		// take the first one
+		best := plist[0]
+		ordered = append(ordered, antecedents[best.index])
+		if log && s.trace {
+			s.LogParse(fmt.Sprintf("*** Selected antecedent %d %s with priority %d", best.index, antecedents[best.index].NormalizedLabel, best.priority))
+		}
+
+		// update bindedVars: a negated term binds nothing
+		if !antecedents[best.index].IsNot {
+			s.collectVars(bindedVars, antecedents[best.index])
+		}
+
+		// remove it from the antecedents list
+		antecedents = slices.Delete(antecedents, best.index, best.index+1)
+	}
+	return ordered
 }
 
 // collectVars updates the collectedVars map with the variables in the antecedent.
@@ -217,6 +302,18 @@ func (s *JetRuleListener) collectVars(collectedVars map[string]bool, antecedent 
 			collectedVars[r.Id] = true
 		}
 	}
+}
+
+// allVarsBinded reports whether every variable of the antecedent is in bindedVars.
+func (s *JetRuleListener) allVarsBinded(bindedVars map[string]bool, antecedent *rete.RuleTerm) bool {
+	vars := make(map[string]bool)
+	s.collectVars(vars, antecedent)
+	for v := range vars {
+		if !bindedVars[v] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *rete.RuleTerm) int {

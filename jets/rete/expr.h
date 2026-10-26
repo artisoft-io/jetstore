@@ -92,9 +92,8 @@ class ExprBase {
    * consequent carrying one records the triples it inferred on its beta row, and
    * retraction replays that record instead of evaluating the expression again (see
    * ReteSession::compute_consequent_triples). Operators that read the graph -- exist,
-   * size_of, the aggregates -- are deliberately NOT in the set: their consequents are
-   * still recomputed on retraction, which is a known defect that rule sets depend on
-   * (jets/jetrules/rete/README.md, 2026-10-09).
+   * size_of, the aggregates -- are not in the set: they mint nothing, and their
+   * consequents record for the reason reads_graph gives.
    */
   virtual bool
   mints_resource()const
@@ -107,11 +106,9 @@ class ExprBase {
    * size_of, the aggregates (min_of, max_of, sorted_head, sum_values, join_values),
    * lookup or multi_lookup.
    *
-   * Evaluating such an expression after the graph has moved gives a different value.
-   * In the legacy retraction mode this is not consulted, and such a consequent is
-   * recomputed on retraction -- LEGACY defect 1. A meta store initialized with
-   * RetractionMode::replay_graph_reading_consequents, which only the rules unit test
-   * harness builds, records it as it records a minting one. The wide predicate of
+   * Evaluating such an expression after the graph has moved gives a different value,
+   * so a consequent holding one records what it inferred, as a minting one does, and
+   * retraction replays the record rather than recomputing it. The wide predicate of
    * 1d993844 (is_row_pure) is (not mints_resource() and not reads_graph()).
    */
   virtual bool

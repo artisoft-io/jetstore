@@ -3,9 +3,6 @@
 
 #include <string>
 #include <memory>
-#include <unordered_set>
-#include <unordered_map>
-
 #include "absl/hash/hash.h"
 #include <glog/logging.h>
 
@@ -50,13 +47,30 @@ class BaseGraph {
   inline BaseGraph(char const spin, int gtype)
     : spin_(spin),
       umap_data_(),
-      v_end_(),
-      w_end_(),
-      gtype_(gtype)
+      gtype_(gtype),
+      registry_()
   {}
+
+  // An iterator that outlives its graph, such as one Go still holds when its session
+  // is released, is detached and left at its end, so that using it reads nothing freed.
+  inline ~BaseGraph()
+  {
+    auto * itor = registry_.head;
+    while(itor) {
+      auto * next = itor->next_;
+      itor->registry_ = nullptr;
+      itor->prev_ = itor->next_ = nullptr;
+      itor->u_ = itor->v_ = itor->w_ = nullptr;
+      itor->frozen_.reset();
+      itor->frozen_pos_ = 0;
+      itor = next;
+    }
+    registry_.head = nullptr;
+  }
 
   inline void clear() 
   { 
+    freeze_iterators();
     umap_data_.clear(); 
   }
 
@@ -81,9 +95,7 @@ class BaseGraph {
     auto vtor = utor->second.find(v);
     if (vtor == utor->second.end()) return false;
 
-    auto wtor = vtor->second.find(WSetType::value_type{w});
-    if (wtor == vtor->second.end()) return false;
-    return true;
+    return vtor->second.contains(WSetType::value_type{w});
   }
 
   /**
@@ -104,10 +116,7 @@ class BaseGraph {
     auto utor = umap_data_.find(u);
     if (utor == umap_data_.end()) return false;
 
-    auto vtor = utor->second.find(v);
-    if (vtor == utor->second.end()) return false;
-
-    return true;
+    return utor->second.contains(v);
   }
 
   /**
@@ -116,26 +125,18 @@ class BaseGraph {
    */
   Iterator find() const 
   {
-    auto utor_begin = umap_data_.begin();
-    auto utor_end = umap_data_.end();
-    if (utor_begin == utor_end) {
-      return Iterator(spin_, Iterator::U_ITOR(0, utor_end, utor_end),
-                      Iterator::V_ITOR(0, v_end_, v_end_), 
-											Iterator::W_ITOR(w_end_, w_end_) );
+    Iterator itor;
+    itor.spin_ = spin_;
+    itor.mode_ = Iterator::kAll;
+    itor.utor_ = umap_data_.begin();
+    itor.uend_ = umap_data_.end();
+    for(; itor.utor_ != itor.uend_; ++itor.utor_) {
+      if(itor.enter_u()) {
+        itor.start(registry());
+        return itor;
+      }
     }
-
-    auto vtor_begin = utor_begin->second.begin();
-    auto vtor_end = utor_begin->second.end();
-    if (vtor_begin == vtor_end) {
-      return Iterator(spin_, Iterator::U_ITOR(0, utor_end, utor_end),
-                      Iterator::V_ITOR(0, vtor_end, vtor_end),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
-
-    return Iterator(
-        spin_, Iterator::U_ITOR(utor_begin->first, utor_begin, utor_end),
-        Iterator::V_ITOR(vtor_begin->first, vtor_begin, vtor_end),
-        Iterator::W_ITOR(vtor_begin->second.begin(), vtor_begin->second.end()));
+    return end_iterator();
   }
 
   /**
@@ -143,79 +144,64 @@ class BaseGraph {
    */
   Iterator find(r_index u) const {
     auto utor = umap_data_.find(u);
-    if (utor == umap_data_.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
+    if (utor == umap_data_.end()) return end_iterator();
 
-    auto vtor_begin = utor->second.begin();
-    auto vtor_end = utor->second.end();
-    if (vtor_begin == vtor_end) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, vtor_end, vtor_end),
-                      Iterator::W_ITOR(w_end_, w_end_));
+    Iterator itor;
+    itor.spin_ = spin_;
+    itor.mode_ = Iterator::kU;
+    itor.u_ = u;
+    itor.vtor_ = utor->second.begin();
+    itor.vend_ = utor->second.end();
+    for(; itor.vtor_ != itor.vend_; ++itor.vtor_) {
+      if(itor.enter_v()) {
+        itor.start(registry());
+        return itor;
+      }
     }
-
-    return Iterator(
-        spin_, Iterator::U_ITOR(u, umap_data_.end(), umap_data_.end()),
-        Iterator::V_ITOR(vtor_begin->first, vtor_begin, vtor_end),
-        Iterator::W_ITOR(vtor_begin->second.begin(), vtor_begin->second.end()));
+    return end_iterator();
   }
 
   /**
    * @return an Iterator over the triples identified as (s, p, *)
    */
   Iterator find(r_index u, r_index v) const {
-    // std::cout<<"BaseGraph::find ("<<u<<", "<<v<<") spin "<<this->spin_<<std::endl;
     auto utor = umap_data_.find(u);
-    if (utor == umap_data_.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
+    if (utor == umap_data_.end()) return end_iterator();
 
     auto vtor = utor->second.find(v);
-    if (vtor == utor->second.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
+    if (vtor == utor->second.end()) return end_iterator();
 
-    return Iterator(spin_, Iterator::U_ITOR(u, umap_data_.end(), umap_data_.end()),
-                    Iterator::V_ITOR(v, v_end_, v_end_),
-                    Iterator::W_ITOR(vtor->second.begin(), vtor->second.end()));
+    Iterator itor;
+    itor.spin_ = spin_;
+    itor.mode_ = Iterator::kUV;
+    itor.u_ = u;
+    itor.vtor_ = vtor;
+    if(not itor.enter_v()) return end_iterator();
+    itor.start(registry());
+    return itor;
   }
 
   /**
    * The returned Iterator will have at most one item.
    *
+   * It had more until 2026-10: it walked the w set from (u, v, w) to the set's end,
+   * so it returned every w stored after w in the set's order. A rule's fully bound
+   * antecedent saw (u, v, w) and then the other objects of (u, v), each making a beta
+   * row equal to the first (the row takes nothing from a bound triple), which the
+   * beta relation discarded as a duplicate. Results are unchanged; the work is not.
+   *
    * @return an Iterator with the triple (u, v, w) if it exist in the graph.
    */
   Iterator find(r_index u, r_index v, r_index w) const {
-    auto utor = umap_data_.find(u);
-    if (utor == umap_data_.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
+    if(not contains(u, v, w)) return end_iterator();
 
-    auto vtor = utor->second.find(v);
-    if (vtor == utor->second.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
-
-    auto wtor = vtor->second.find(WSetType::value_type{w});
-    if (wtor == vtor->second.end()) {
-      return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
-                      Iterator::V_ITOR(0, v_end_, v_end_),
-                      Iterator::W_ITOR(w_end_, w_end_));
-    }
-
-    return Iterator(spin_, Iterator::U_ITOR(u, umap_data_.end(), umap_data_.end()),
-                    Iterator::V_ITOR(v, v_end_, v_end_), Iterator::W_ITOR(wtor, vtor->second.end()));
+    Iterator itor;
+    itor.spin_ = spin_;
+    itor.mode_ = Iterator::kUVW;
+    itor.u_ = u;
+    itor.v_ = v;
+    itor.w_ = w;
+    return itor;
   }
 
   /**
@@ -261,19 +247,15 @@ class BaseGraph {
    */
   bool insert(r_index u, r_index v, r_index w) 
   {
-    auto utor = umap_data_.find(u);
-    if (utor == umap_data_.end()) {
-      utor = umap_data_.insert({u, {} }).first;
-    }
+    // A new triple changes structure; the tables may rehash under a live iterator
+    if(registry_.head and not contains(u, v, w)) freeze_iterators();
 
-    auto vtor = utor->second.find(v);
-    if (vtor == utor->second.end()) {
-      vtor = utor->second.insert({v, {} }).first;
-    }
+    auto & vmap = umap_data_.try_emplace(u).first->second;
+    auto & wset = vmap.try_emplace(v).first->second;
 
 		// If not inserted, then increase the ref_count by 1
     int rc = 1;
-    auto pair = vtor->second.insert(WSetType::value_type{w});
+    auto pair = wset.insert(WSetType::value_type{w});
     if (!pair.second) {
       rc = pair.first->add_ref_count();
     }
@@ -311,17 +293,15 @@ class BaseGraph {
     auto vtor = utor->second.find(v);
     if (vtor == utor->second.end()) return 0;
 
-    int count = vtor->second.erase(WSetType::value_type{w});
-    if (vtor->second.empty()) {
-      utor->second.erase(v);
-      if (utor->second.empty()) {
-        umap_data_.erase(u);
-      }
-    }
-    if(count and this->spin_=='s') {
+    auto wtor = vtor->second.find(WSetType::value_type{w});
+    if (wtor == vtor->second.end()) return 0;
+
+    freeze_iterators();
+    remove(utor, vtor, wtor);
+    if(this->spin_=='s') {
       VLOG(40)<<"ERASE "<<get_gtype(this->gtype_)<<" 0 ("<< u <<", "<< v <<", " << w <<")";
     }
-    return count;
+    return 1;
   }
 
   inline int erase_spo(r_index s, r_index p, r_index o) 
@@ -358,13 +338,8 @@ class BaseGraph {
     if (wtor == vtor->second.end()) return 0;
     int rc = wtor->del_ref_count();
     if (rc == 0) {
-      vtor->second.erase(wtor);
-      if (vtor->second.empty()) {
-        utor->second.erase(v);
-        if (utor->second.empty()) {
-          umap_data_.erase(u);
-        }
-      }
+      freeze_iterators();
+      remove(utor, vtor, wtor);
     }
     if(this->spin_ == 's') {
       VLOG(40)<<"RETRACT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
@@ -380,12 +355,49 @@ class BaseGraph {
   }
 
  private:
+  // The meta graph (gtype 0) is shared by the sessions of every thread and does not
+  // change once rules run: registering its iterators would be a data race, and
+  // there is nothing to protect them from.
+  inline Iterator::Registry * registry() const
+  {
+    return gtype_ == 0 ? nullptr : &registry_;
+  }
+
+  inline Iterator end_iterator() const
+  {
+    Iterator itor;
+    itor.spin_ = spin_;
+    return itor;
+  }
+
+  /**
+   * Freeze every live iterator of this graph. Called before any change of structure:
+   * a triple inserted or removed, an inner table created or erased. See
+   * BaseGraphIterator for why, and for what a frozen iterator returns.
+   */
+  inline void freeze_iterators()
+  {
+    while(registry_.head) {
+      registry_.head->freeze();     // unlinks it
+    }
+  }
+
+  // Remove (u, v, w), and the tables it leaves empty
+  inline void remove(UMapType::iterator utor, VMapType::iterator vtor, WSetType::iterator wtor)
+  {
+    vtor->second.erase(wtor);
+    if (vtor->second.empty()) {
+      utor->second.erase(vtor);
+      if (utor->second.empty()) {
+        umap_data_.erase(utor);
+      }
+    }
+  }
+
   char const spin_;
   UMapType umap_data_;
-  // have empty iterators
-  VMapType::const_iterator v_end_;
-  WSetType::const_iterator w_end_;
   int gtype_;
+  mutable Iterator::Registry registry_;
 };
 
 inline 

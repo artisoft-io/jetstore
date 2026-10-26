@@ -12,14 +12,14 @@ import (
 // specs, all ten output_tables entries bind to jetsapi.process_errors, and every one
 // of them is followed by a pipe reading the error channel and map_record'ing it into
 // the channel the table writer drains. Measured 2026-09-05 over the 45 .pc.json
-// documents of cedargate_ws, jets_ws, usi_ws and walrus_ws.
+// documents of the corpus's four workspaces.
 //
 // The backwards-compatibility clause of this change is a claim about these ten, so
 // the tests below are written against the shape rather than against an invented one.
 //
 // The paragraph above is kept as the measurement it was and is not renumbered. The
 // corpus moved on 2026-09-11: patient_profile.pc.json dropped its two declarations,
-// leaving eight in eight documents of usi_ws and walrus_ws. One of the two was the
+// leaving eight in eight documents of two client workspaces. One of the two was the
 // corpus's only non-jetrules declaration -- the "one on ollama" above, which had
 // since become an infer step -- so all eight survivors are on jetrules, and the
 // family this paragraph says is one shape is now one operator as well. The shape did

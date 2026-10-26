@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <algorithm>
+#include <cstring>
+#include <string>
+
 #include <utility>
 
 #include "../rete/rete_err.h"
@@ -31,24 +35,12 @@ static int guard_meta(char const* fname, F&& f) {
 
 int create_jetstore_hdl(char const* rete_db_path,
                         char const* lookup_data_db_path, HJETS* handle) {
-  // Legacy for both retraction defects, as every pipeline runs
-  return create_jetstore_hdl_with_mode(rete_db_path, lookup_data_db_path, 0, 0, handle);
-}
-
-int create_jetstore_hdl_with_mode(char const* rete_db_path,
-                                  char const* lookup_data_db_path,
-                                  int replay_graph_reading_consequents,
-                                  int erase_withdrawn_rows, HJETS* handle) {
   if (not rete_db_path or not handle) return -1;
-
-  RetractionMode mode;
-  mode.replay_graph_reading_consequents = replay_graph_reading_consequents != 0;
-  mode.erase_withdrawn_rows = erase_withdrawn_rows != 0;
 
   auto* factory = new ReteMetaStoreFactory();
   int res = 0;
   try {
-    res = factory->load_database(rete_db_path, lookup_data_db_path, mode);
+    res = factory->load_database(rete_db_path, lookup_data_db_path);
     if (res != 0) {
       LOG(ERROR) << "create_jetstore_hdl: ERROR while loading database '"
                  << rete_db_path << "', code " << res;
@@ -145,6 +137,31 @@ int delete_rete_session(HJRETE rete_session_hdl) {
   rete_session->terminate();
   delete rete_session;
   return 0;
+}
+
+char const* get_rete_session_err_msg(HJRETE rete_session_hdl) {
+  if (not rete_session_hdl) return "";
+  return static_cast<ReteSession*>(rete_session_hdl)->get_err_msg().c_str();
+}
+
+int get_vertex_observations(HJRETE rete_session_hdl, int n, int64_t* rows_now,
+                            int64_t* rows_peak, int64_t* inferred, int64_t* retracted) {
+  if (not rete_session_hdl or n < 0) return -1;
+  if (n > 0 and (not rows_now or not rows_peak or not inferred or not retracted)) return -1;
+  auto* rete_session = static_cast<ReteSession*>(rete_session_hdl);
+  auto const& relations = rete_session->beta_relations();
+  auto const& visits = rete_session->vertex_visits();
+  int count = static_cast<int>(relations.size());
+  int filled = std::min(n, count);
+  for (int i = 0; i < filled; ++i) {
+    auto const* relation = relations[i];
+    rows_now[i] = relation ? static_cast<int64_t>(relation->size()) : 0;
+    rows_peak[i] = relation ? static_cast<int64_t>(relation->peak_size()) : 0;
+    bool has_visits = i < static_cast<int>(visits.size());
+    inferred[i] = has_visits ? visits[i].first : 0;
+    retracted[i] = has_visits ? visits[i].second : 0;
+  }
+  return count;
 }
 
 // Creating meta resources and literals
@@ -634,6 +651,30 @@ int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr,
   }
 }
 
+// The ISO getters format text the resource does not store, so they cannot return
+// the resource's own storage as the other getters do. Each used to return
+// c_str() of the temporary it formatted, which was freed before the caller read
+// it: a datetime's 19 characters and more are past the small-string buffer, so
+// the bridge's C.GoString read freed heap (I-162).
+//
+// get_date_iso_string3 and get_datetime_iso_string3 write the text into storage
+// the caller passes, and are the ones to call. jets/bridge calls them.
+//
+// The four older getters, kept for C callers, copy the text into a fixed buffer
+// of the calling thread instead. It is never freed, but it holds only until the
+// next ISO getter call on the same thread, so THEY ARE NOT SAFE FROM GO: a
+// goroutine that reads the pointer after the cgo call returns can have moved, and
+// another goroutine on the first thread can have overwritten the buffer, giving
+// another value's text. The longest ISO text boost writes is a datetime with
+// microseconds, 26 characters.
+static char const* to_thread_iso_buffer(std::string const& text) {
+  thread_local char buffer[64];
+  auto n = std::min(text.size(), sizeof(buffer) - 1);
+  std::memcpy(buffer, text.data(), n);
+  buffer[n] = '\0';
+  return buffer;
+}
+
 int get_date_iso_string(HJR handle, HSTR* v) {
   if (not handle or not v) return -1;
   auto const* r = static_cast<r_index>(handle);
@@ -641,7 +682,7 @@ int get_date_iso_string(HJR handle, HSTR* v) {
     case rdf_literal_date_t: {
       date const& d = boost::get<LDate>(r)->data;
       if (d.is_not_a_date()) return -2;
-      *v = boost::gregorian::to_iso_extended_string(d).c_str();
+      *v = to_thread_iso_buffer(boost::gregorian::to_iso_extended_string(d));
       return 0;
     }
     default:
@@ -659,7 +700,7 @@ char const* get_date_iso_string2(HJR handle, int* v) {
         return nullptr;
       }
       *v = 0;
-      return boost::gregorian::to_iso_extended_string(d).c_str();
+      return to_thread_iso_buffer(boost::gregorian::to_iso_extended_string(d));
     }
     default:
       *v = -1;
@@ -673,7 +714,7 @@ int get_datetime_iso_string(HJR handle, HSTR* v) {
     case rdf_literal_datetime_t: {
       datetime const& d = boost::get<LDatetime>(r)->data;
       if (d.is_not_a_date_time()) return -2;
-      *v = boost::posix_time::to_iso_extended_string(d).c_str();
+      *v = to_thread_iso_buffer(boost::posix_time::to_iso_extended_string(d));
       return 0;
     }
     default:
@@ -691,12 +732,43 @@ char const* get_datetime_iso_string2(HJR handle, int* v) {
         return nullptr;
       }
       *v = 0;
-      return boost::posix_time::to_iso_extended_string(d).c_str();
+      return to_thread_iso_buffer(boost::posix_time::to_iso_extended_string(d));
     }
     default:
       *v = -1;
       return nullptr;
   }
+}
+
+// Copies text and its terminating zero into buf, of len bytes: 0, or -4 when it does
+// not fit, with buf left an empty string when len > 0
+static int to_caller_buffer(std::string const& text, char* buf, int len) {
+  if (len <= 0) return -4;
+  if (text.size() + 1 > static_cast<std::size_t>(len)) {
+    buf[0] = '\0';
+    return -4;
+  }
+  std::memcpy(buf, text.data(), text.size());
+  buf[text.size()] = '\0';
+  return 0;
+}
+
+int get_date_iso_string3(HJR handle, char* buf, int len) {
+  if (not handle or not buf) return -1;
+  auto const* r = static_cast<r_index>(handle);
+  if (r->which() != rdf_literal_date_t) return -1;
+  date const& d = boost::get<LDate>(r)->data;
+  if (d.is_not_a_date()) return -2;
+  return to_caller_buffer(boost::gregorian::to_iso_extended_string(d), buf, len);
+}
+
+int get_datetime_iso_string3(HJR handle, char* buf, int len) {
+  if (not handle or not buf) return -1;
+  auto const* r = static_cast<r_index>(handle);
+  if (r->which() != rdf_literal_datetime_t) return -1;
+  datetime const& d = boost::get<LDatetime>(r)->data;
+  if (d.is_not_a_date_time()) return -2;
+  return to_caller_buffer(boost::posix_time::to_iso_extended_string(d), buf, len);
 }
 
 int get_text_literal(HJR handle, HSTR* v) {

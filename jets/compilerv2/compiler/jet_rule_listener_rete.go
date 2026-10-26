@@ -361,7 +361,7 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 			parentNode := l.jetRuleModel.ReteNodes[node.ParentVertex]
 			parentPos := getPosInBetaRelationVars(bvar, parentNode.BetaRelationVars)
 			if parentPos == -1 {
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in parent BetaRelationVars\n", bvar)
+				l.logErrorf("** internal error: var %s is not found in parent BetaRelationVars\n", bvar)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in parent BetaRelationVars\n", bvar)
 			} else {
 				pos = parentPos
@@ -373,7 +373,7 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 			if pp != nil {
 				pos = *pp
 			} else {
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is binded but is not found in varPos of current triple\n", bvar)
+				l.logErrorf("** internal error: var %s is binded but is not found in varPos of current triple\n", bvar)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is binded but is not found in varPos of current triple\n", bvar)
 			}
 		}
@@ -401,7 +401,7 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 		// Note: pos of consequents binded var must be pos in current BetaRelationVars
 		pos = getPosInBetaRelationVars(bvar, node.BetaRelationVars)
 		if pos == -1 {
-			fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
+			l.logErrorf("** internal error: var %s is not found in node BetaRelationVars\n", bvar)
 			fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
 		}
 		bindedR := l.addVarResourceByDomainKey(&rete.ResourceNode{
@@ -486,7 +486,7 @@ func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[stri
 				term.SubjectKey = newR.Key
 			} else {
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for SubjectKey @ vertex %d (newVar %v)\n", r.Id, term.Vertex, newVars)
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for SubjectKey @ vertex %d (newVar %v)\n", r.Id, term.Vertex, newVars)
+				l.logErrorf("** internal error: var %s is not found in replacement resource for SubjectKey @ vertex %d (newVar %v)\n", r.Id, term.Vertex, newVars)
 			}
 		}
 	}
@@ -497,7 +497,7 @@ func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[stri
 			if newR != nil {
 				term.PredicateKey = newR.Key
 			} else {
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for PredicateKey \n", r.Id)
+				l.logErrorf("** internal error: var %s is not found in replacement resource for PredicateKey \n", r.Id)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for PredicateKey\n", r.Id)
 			}
 		}
@@ -509,7 +509,7 @@ func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[stri
 			if newR != nil {
 				term.ObjectKey = newR.Key
 			} else {
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for ObjectKey\n", r.Id)
+				l.logErrorf("** internal error: var %s is not found in replacement resource for ObjectKey\n", r.Id)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for ObjectKey\n", r.Id)
 			}
 		}
@@ -536,7 +536,7 @@ func (s *JetRuleListener) replaceVarInExpr(expr *rete.ExpressionNode, newVars ma
 			if newR != nil {
 				expr.Value = newR.Key
 			} else {
-				fmt.Fprintf(s.errorLog, "** internal error: var %s is not found in replacement resource\n", r.Id)
+				s.logErrorf("** internal error: var %s is not found in replacement resource\n", r.Id)
 				fmt.Fprintf(s.parseLog, "** internal error: var %s is not found in replacement resource\n", r.Id)
 			}
 		}

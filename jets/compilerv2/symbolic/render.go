@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
 )
 
 // Rendering a symbolic rule file to JetRules source.
@@ -15,7 +17,7 @@ import (
 // and rendering it verbatim would let a JSON document say something its
 // structure does not. So an id must be what the grammar calls an atom, a
 // literal's value must be what its type's grammar admits, and an operator must
-// be one the grammar has. Anything else is refused here, with a JSON Pointer to
+// be one the engine registers, which the grammar admits. Anything else is refused here, with a JSON Pointer to
 // the element, before the compiler is asked anything.
 
 // Rendered is a rendering and its provenance.
@@ -59,19 +61,13 @@ var (
 	doubleRe     = regexp.MustCompile(`^[+-]*[0-9]+(\.[0-9]+)?$`)
 )
 
-// binaryOps are the grammar's symbolic binary operators (binaryOp in
-// JetRule.g4). An operator that is an identifier — "range", "exist_not",
-// "lookup" and the rest — is admitted by identifierRe instead, as the grammar
-// admits it by Identifier: which named operators exist is the engine's
-// registry, and the compiler is what reports one it does not know.
-var binaryOps = map[string]bool{
-	"+": true, "==": true, "<": true, "<=": true, ">": true, ">=": true, "!=": true,
-	"r?": true, "-": true, "*": true, "/": true, "or": true, "and": true,
-}
-
-// unaryKeywordOps are the reserved words the grammar admits as unary
-// operators (unaryOp in JetRule.g4).
-var unaryKeywordOps = map[string]bool{"not": true, "toText": true}
+// An operator is rendered only if the rule engine registers it under its
+// arity: the compiler's operator list (compiler.IsEngineOperator,
+// jets/compilerv2/compiler/operators.txt), which the compiler enforces. Every
+// name on it is one the grammar admits as binaryOp or unaryOp, a symbol, and,
+// or, not, or an Identifier. toText and r?, which the grammar once had as
+// keywords and no engine ever registered, are not on it either: toText is an
+// unregistered identifier and r? is not an operator at all.
 
 // literalTypes are the literal types the grammar has a cast for, and keyword.
 var literalTypes = map[string]bool{
@@ -375,8 +371,8 @@ func renderExpr(e *Expr, ptr string) (string, error) {
 		if e.Lhs != nil || e.Rhs != nil {
 			return "", &RenderError{ptr, "an operation has 'arg' (unary) or 'lhs' and 'rhs' (binary), not both"}
 		}
-		if !unaryKeywordOps[e.Op] && (!identifierRe.MatchString(e.Op) || reserved[e.Op]) {
-			return "", &RenderError{ptr + "/op", fmt.Sprintf("%q is not a unary operator: not, toText, or a named operator", e.Op)}
+		if !compiler.IsEngineOperator("unary", e.Op) {
+			return "", &RenderError{ptr + "/op", fmt.Sprintf("%q is not a unary operator of the rule engine (jets/compilerv2/compiler/operators.txt)", e.Op)}
 		}
 		arg, err := renderExpr(e.Arg, ptr+"/arg")
 		if err != nil {
@@ -392,8 +388,8 @@ func renderExpr(e *Expr, ptr string) (string, error) {
 		if e.Lhs == nil || e.Rhs == nil {
 			return "", &RenderError{ptr, "an operation has 'arg' (unary) or both 'lhs' and 'rhs' (binary)"}
 		}
-		if !binaryOps[e.Op] && (!identifierRe.MatchString(e.Op) || reserved[e.Op]) {
-			return "", &RenderError{ptr + "/op", fmt.Sprintf("%q is not a binary operator", e.Op)}
+		if !compiler.IsEngineOperator("binary", e.Op) {
+			return "", &RenderError{ptr + "/op", fmt.Sprintf("%q is not a binary operator of the rule engine (jets/compilerv2/compiler/operators.txt)", e.Op)}
 		}
 		lhs, err := renderExpr(e.Lhs, ptr+"/lhs")
 		if err != nil {

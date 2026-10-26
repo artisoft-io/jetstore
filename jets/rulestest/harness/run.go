@@ -5,7 +5,6 @@ import (
 	"log"
 	"path/filepath"
 	"runtime/debug"
-	"sort"
 	"strings"
 	"time"
 
@@ -13,14 +12,6 @@ import (
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
-
-// Factories are the engines the harness can build. The command installs both,
-// as local_test_driver does; a harness without the C++ engine leaves Native nil
-// and refuses a test that needs it.
-type Factories struct {
-	Native compute_pipes.JetRulesFactory
-	Go     compute_pipes.JetRulesFactory
-}
 
 // Options says which test to run and how.
 type Options struct {
@@ -30,10 +21,11 @@ type Options struct {
 	WorkspaceRoot string
 	// TestPath is the .tst.json, absolute or relative to WorkspaceRoot.
 	TestPath string
-	// Engine, when not empty, overrides the test's choice: rulestest.EngineNative
-	// or rulestest.EngineGo. It turns compare_engines off.
-	Engine    string
-	Factories Factories
+	// Factory builds the engine, the C++ one (jetrules_native_adaptor). A harness
+	// without it refuses every test. There was a second, the Go engine, until its
+	// retirement in October 2026; a test asking for it fails validation
+	// (rulestest.GoEngineRetired).
+	Factory compute_pipes.JetRulesFactory
 }
 
 // Run runs one test and returns its result. It never returns nil: whatever
@@ -46,7 +38,7 @@ func Run(opts Options) *rulestest.Result {
 	}
 	r := &rulestest.Result{
 		TestPath:   relativeTo(opts.WorkspaceRoot, path),
-		LegacyMode: rulestest.LegacyModeLegacy,
+		LegacyMode: rulestest.LegacyModeFixed,
 		Checks:     []rulestest.CheckResult{},
 	}
 	defer func() { r.DurationMs = time.Since(start).Milliseconds() }()
@@ -63,20 +55,11 @@ func Run(opts Options) *rulestest.Result {
 		return failed(r, rulestest.StatusError, "invalid test definition: %s", findingSummary(findings))
 	}
 	r.TestName = td.TestName
-	// The mode the test asks for; replaced below by the mode each engine reports it
-	// was built in, so the result records what ran rather than what was written.
-	r.LegacyMode = td.LegacyMode()
 	r.Sessions = len(td.InputSessions)
 
-	engines, err := EnginesFor(td, opts.Engine)
-	r.Engine = engineLabel(engines)
-	if err != nil {
-		return failed(r, rulestest.StatusError, "%v", err)
-	}
-	for _, e := range engines {
-		if factoryFor(opts.Factories, e) == nil {
-			return failed(r, rulestest.StatusError, "the %s engine is not available in this harness", e)
-		}
+	r.Engine = rulestest.EngineNative
+	if opts.Factory == nil {
+		return failed(r, rulestest.StatusError, "the %s engine is not available in this harness", rulestest.EngineNative)
 	}
 	// The CSVs are read once, before any engine is built: a misspelt column is
 	// the author's error and is reported without paying for a load.
@@ -92,34 +75,13 @@ func Run(opts Options) *rulestest.Result {
 		}
 	}
 
-	runs := make([]*engineRun, len(engines))
-	for i, e := range engines {
-		runs[i] = runOnEngine(td, e, factoryFor(opts.Factories, e), tables)
-		r.LoadMs += runs[i].loadMs
-		r.RunMs += runs[i].runMs
-		if runs[i].legacyMode != "" {
-			r.LegacyMode = runs[i].legacyMode
-		}
-	}
-	if len(runs) == 1 {
-		run := runs[0]
-		r.Status, r.Reason = run.status, run.reason
-		r.Loops = run.loops
-		r.Checks = append(r.Checks, run.checks...)
-		r.SessionResults = run.sessions
-		return r
-	}
-	return compareRuns(r, runs)
-}
-
-// RetractionModeOf is the engine retraction mode a test definition's legacy object
-// asks for: a switch that is absent or true keeps its defect, false turns it off.
-// Labels agree: RetractionModeOf(td).Label() == td.LegacyMode().
-func RetractionModeOf(td *rulestest.TestDefinition) compute_pipes.RetractionMode {
-	return compute_pipes.RetractionMode{
-		ReplayGraphReadingConsequents: !td.Legacy.RecomputeOnRetractionOn(),
-		EraseWithdrawnRows:            !td.Legacy.WithdrawnRowStaysOn(),
-	}
+	run := runOnEngine(td, rulestest.EngineNative, opts.Factory, tables)
+	r.LoadMs, r.RunMs = run.loadMs, run.runMs
+	r.Status, r.Reason = run.status, run.reason
+	r.Loops = run.loops
+	r.Checks = append(r.Checks, run.checks...)
+	r.SessionResults = run.sessions
+	return r
 }
 
 func failed(r *rulestest.Result, status, format string, args ...any) *rulestest.Result {
@@ -128,60 +90,9 @@ func failed(r *rulestest.Result, status, format string, args ...any) *rulestest.
 	return r
 }
 
-// EnginesFor is the engine choice (definition R10): C++ unless the test sets
-// use_jet_rules_go, both with compare_engines, and override when not empty.
-// _0:no_truth_main_on_exist exists only in C++ (definition F14), so a run that
-// includes Go refuses it; validation refuses it already when the test itself
-// asks for Go, and this covers an override.
-func EnginesFor(td *rulestest.TestDefinition, override string) ([]string, error) {
-	var engines []string
-	switch {
-	case override == rulestest.EngineNative || override == rulestest.EngineGo:
-		engines = []string{override}
-	case override != "":
-		return nil, fmt.Errorf("unknown engine %q: %s or %s", override, rulestest.EngineNative, rulestest.EngineGo)
-	case td.CompareEngines:
-		engines = []string{rulestest.EngineNative, rulestest.EngineGo}
-	case td.JetrulesConfig.UseJetRulesGo:
-		engines = []string{rulestest.EngineGo}
-	default:
-		engines = []string{rulestest.EngineNative}
-	}
-	for _, e := range engines {
-		if e != rulestest.EngineGo {
-			continue
-		}
-		for _, rc := range td.JetrulesConfig.RuleConfig {
-			if _, ok := rc[rulestest.NoTruthMainOnExist]; ok {
-				return engines, fmt.Errorf("%s is set in rule_config and exists only in the C++ engine; the Go engine would ignore it",
-					rulestest.NoTruthMainOnExist)
-			}
-		}
-	}
-	return engines, nil
-}
-
-func engineLabel(engines []string) string {
-	if len(engines) == 2 {
-		return rulestest.EngineBoth
-	}
-	if len(engines) == 1 {
-		return engines[0]
-	}
-	return ""
-}
-
-func factoryFor(f Factories, engine string) compute_pipes.JetRulesFactory {
-	if engine == rulestest.EngineGo {
-		return f.Go
-	}
-	return f.Native
-}
-
 // engineRun is the test run on one engine.
 type engineRun struct {
 	engine         string
-	legacyMode     string // as the engine reports it was built; empty when no engine was built
 	status, reason string
 	loadMs, runMs  int64
 	loops          int
@@ -212,33 +123,12 @@ func runOnEngine(td *rulestest.TestDefinition, engine string, factory compute_pi
 		return
 	}
 	loadStart := time.Now()
-	// The LEGACY switches are applied here, when the rules load (definition §8.5.3):
-	// the only caller that passes a mode other than legacy (§8.5.5).
-	mode := RetractionModeOf(td)
-	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug, compute_pipes.WithRetractionMode(mode))
+	re, err := factory.NewJetRuleEngine(nil, cfg.ProcessName, cfg.IsDebug)
 	if err != nil {
 		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("while building the %s engine for %s: %v", engine, cfg.ProcessName, err)
 		return
 	}
 	defer re.Release()
-	// legacy_mode is what the engine says it was built in, and a test never runs in a
-	// mode other than the one it declares.
-	built, ok := re.(interface {
-		RetractionMode() compute_pipes.RetractionMode
-	})
-	switch {
-	case ok:
-		run.legacyMode = built.RetractionMode().Label()
-	case mode.IsLegacy():
-		run.legacyMode = rulestest.LegacyModeLegacy
-	default:
-		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("the %s engine cannot report its retraction mode, and the test asks for %s", engine, td.LegacyMode())
-		return
-	}
-	if run.legacyMode != td.LegacyMode() {
-		run.status, run.reason = rulestest.StatusError, fmt.Sprintf("the %s engine was built in legacy mode %s, and the test asks for %s", engine, run.legacyMode, td.LegacyMode())
-		return
-	}
 	re.JetResources()
 	env := map[string]any{}
 	if err := compute_pipes.AssertSourcePeriodInfo(re, spec, env); err != nil {
@@ -421,54 +311,6 @@ func applyExpect(expect *rulestest.Expectation, run *engineRun, sessionErrored b
 	default:
 		run.reason = fmt.Sprintf("expected %s; got: %s", label, run.reason)
 	}
-}
-
-// compareRuns is compare_engines (definition Q-11): each check appears once
-// per engine, and the test fails when the engines' statuses or any check's
-// outcome differ, listing every difference.
-func compareRuns(r *rulestest.Result, runs []*engineRun) *rulestest.Result {
-	a, b := runs[0], runs[1]
-	r.Loops = a.loops
-	for _, run := range runs {
-		for _, c := range run.checks {
-			c.Engine = run.engine
-			r.Checks = append(r.Checks, c)
-		}
-		r.SessionResults = append(r.SessionResults, run.sessions...)
-	}
-	var diffs []string
-	key := func(c rulestest.CheckResult) string { return c.SessionName + "\x00" + c.Kind + "\x00" + c.Check }
-	bChecks := map[string]rulestest.CheckResult{}
-	for _, c := range b.checks {
-		bChecks[key(c)] = c
-	}
-	for _, ca := range a.checks {
-		cb, ok := bChecks[key(ca)]
-		switch {
-		case !ok:
-			diffs = append(diffs, fmt.Sprintf("session %q check %s: evaluated on %s only", ca.SessionName, ca.Check, a.engine))
-		case ca.Outcome != cb.Outcome:
-			diffs = append(diffs, fmt.Sprintf("session %q check %s: %s=%s (%s), %s=%s (%s)",
-				ca.SessionName, ca.Check, a.engine, ca.Outcome, ca.Found, b.engine, cb.Outcome, cb.Found))
-		}
-		delete(bChecks, key(ca))
-	}
-	for _, cb := range bChecks {
-		diffs = append(diffs, fmt.Sprintf("session %q check %s: evaluated on %s only", cb.SessionName, cb.Check, b.engine))
-	}
-	sort.Strings(diffs)
-	if a.status != b.status {
-		diffs = append([]string{fmt.Sprintf("status: %s=%s (%s), %s=%s (%s)",
-			a.engine, a.status, a.reason, b.engine, b.status, b.reason)}, diffs...)
-	}
-	if len(diffs) > 0 {
-		r.EngineDifferences = diffs
-		r.Status = rulestest.StatusFail
-		r.Reason = fmt.Sprintf("the engines disagree (%d difference(s)): %s", len(diffs), diffs[0])
-		return r
-	}
-	r.Status, r.Reason = a.status, a.reason
-	return r
 }
 
 func findingSummary(findings []wsvalidate.Finding) string {

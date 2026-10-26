@@ -3,9 +3,11 @@ package datatable
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
+	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/userflow"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
@@ -70,6 +72,26 @@ var workspaceFileValidators = []struct {
 	{".tc.json", userflow.ValidateTableDocument},
 	{briefing.DocumentSuffix, briefing.ValidateProvenanceDocument},
 	{".sql", sqlscript.ValidateScript},
+	{path.Base(optstats.FileName), validateOptimizerStatistics},
+}
+
+// validateOptimizerStatistics refuses a statistics file the compiler would
+// refuse. The compiler reads it strictly (optstats.Decode: format, version, exact
+// keys, valid counts) and a file it cannot read fails every compile of the
+// workspace, the next deployment's start-up compile included. The seventh row,
+// added on 2026-10-26 when the IDE began listing the file (wsfile/sections.go,
+// `jet_rules`): listing it made it editable, and a save checked only that it
+// was a JSON object. As a suffix it covers each statistics process's own file,
+// `<process>.optimizer_statistics.json`, too.
+func validateOptimizerStatistics(content string) []wsvalidate.Finding {
+	if _, err := optstats.Decode(strings.NewReader(content)); err != nil {
+		return []wsvalidate.Finding{{
+			Severity: wsvalidate.Error,
+			Code:     "optimizer_statistics",
+			Message:  err.Error(),
+		}}
+	}
+	return nil
 }
 
 // validatorFor returns the most specific match, or nil.

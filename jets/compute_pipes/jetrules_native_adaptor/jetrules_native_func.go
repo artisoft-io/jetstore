@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"time"
 
@@ -28,20 +29,9 @@ func (factory *JetRulesFactoryNative) ClearCache() bool {
 	return true
 }
 
-func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool,
-	opts ...compute_pipes.EngineOption) (compute_pipes.JetRuleEngine, error) {
+func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool) (compute_pipes.JetRuleEngine, error) {
 
-	o := compute_pipes.ApplyEngineOptions(opts...)
-	var jsHdhle *bridge.JetStore
-	var err error
-	if o.RetractionMode.IsLegacy() {
-		// Every pipeline: create_jetstore_hdl, exactly as before the mode existed.
-		jsHdhle, err = bridge.LoadJetRules(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath())
-	} else {
-		// A rules unit test with a LEGACY defect turned off: create_jetstore_hdl_with_mode.
-		jsHdhle, err = bridge.LoadJetRulesWithMode(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath(),
-			o.RetractionMode.ReplayGraphReadingConsequents, o.RetractionMode.EraseWithdrawnRows)
-	}
+	jsHdhle, err := bridge.LoadJetRules(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath())
 	if err != nil {
 		return nil, fmt.Errorf("while loading workspace db: %v", err)
 	}
@@ -63,17 +53,8 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 		factory:     factory,
 		js:          jsHdhle,
 		isDebug:     isDebug,
-
-		retractionMode: o.RetractionMode,
 	}
 	return ruleEngine, nil
-}
-
-// RetractionMode is the LEGACY retraction mode the engine's networks were built in.
-// Not part of compute_pipes.JetRuleEngine: the rules unit test harness reads it to
-// record on a result which mode a test ran in.
-func (engine *JetRuleEngineNative) RetractionMode() compute_pipes.RetractionMode {
-	return engine.retractionMode
 }
 
 // function for compute_pipes.JetRuleEngine
@@ -83,15 +64,13 @@ func (engine *JetRuleEngineNative) MainRuleFile() string {
 	return engine.processName
 }
 
+// JetResources is built once, by the first caller. Every session of a pool calls it,
+// from its own goroutine, on the one engine they share (rules_benchmark I-22).
 func (engine *JetRuleEngineNative) JetResources() *compute_pipes.JetResources {
-	if engine.jetResources == nil {
+	engine.jetResourcesOnce.Do(func() {
 		engine.jetResources = compute_pipes.NewJetResources(engine.GetMetaResourceManager())
-	}
+	})
 	return engine.jetResources
-}
-
-func (engine *JetRuleEngineNative) GetMetaGraphTriples() []string {
-	return []string{}
 }
 
 func (engine *JetRuleEngineNative) Insert(s, p, o compute_pipes.RdfNode) error {
@@ -212,24 +191,44 @@ func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.Rd
 	}
 }
 
+// NewIntLiteral makes an int32 literal when data fits in 32 bits, as it always
+// did, and an int64 literal when it does not, which the bridge's int32 call
+// truncated (rules_benchmark I-150, Q-86). Only a value that does not fit
+// changes: C++ holds int32 and int64 as different resources, so a rule's
+// constant 5 matches an int32 5 and not an int64 one, and every value that fits
+// keeps its type.
 func (rm *JetResourceManagerNative) NewIntLiteral(data int) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rdfs != nil {
+	fits := data >= math.MinInt32 && data <= math.MaxInt32
+	switch {
+	case rm.rdfs != nil && fits:
 		node, _ = rm.rdfs.NewIntLiteral(data)
-	} else {
+	case rm.rdfs != nil:
+		node, _ = rm.rdfs.NewLongLiteral(int64(data))
+	case fits:
 		node, _ = rm.js.NewIntLiteral(data)
+	default:
+		node, _ = rm.js.NewLongLiteral(data)
 	}
 	return &RdfNodeNative{
 		node: node,
 	}
 }
 
+// NewUIntLiteral makes a uint32 literal when data fits in 32 bits and a uint64
+// one when it does not, for NewIntLiteral's reason.
 func (rm *JetResourceManagerNative) NewUIntLiteral(data uint) compute_pipes.RdfNode {
 	var node *bridge.Resource
-	if rm.rdfs != nil {
+	fits := data <= math.MaxUint32
+	switch {
+	case rm.rdfs != nil && fits:
 		node, _ = rm.rdfs.NewUIntLiteral(data)
-	} else {
+	case rm.rdfs != nil:
+		node, _ = rm.rdfs.NewULongLiteral(uint64(data))
+	case fits:
 		node, _ = rm.js.NewUIntLiteral(data)
+	default:
+		node, _ = rm.js.NewULongLiteral(data)
 	}
 	return &RdfNodeNative{
 		node: node,
@@ -335,6 +334,9 @@ func (ses *JetRdfSessionNative) Erase(s, p, o compute_pipes.RdfNode) (bool, erro
 	return b > 0, err
 }
 
+// Retract deletes an asserted fact, as the interface method says: it is the
+// session's erase, which removes the triple from the asserted and the inferred
+// graphs and, since rules_benchmark I-103, tells the rete.
 func (ses *JetRdfSessionNative) Retract(s, p, o compute_pipes.RdfNode) (bool, error) {
 	sNative, pNative, oNative, err := toSPO(s, p, o)
 	if err != nil {
@@ -393,7 +395,10 @@ func (ses *JetRdfSessionNative) FindSPO(s, p, o compute_pipes.RdfNode) compute_p
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	// The null comes from the RDF session, not ses.rs: ses.rs is nil until the
+	// first NewReteSession, and the four Find methods dereferenced it until
+	// 2026-10-20 (rules_benchmark, AB.4), so a Find before any rete session panicked.
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -406,7 +411,7 @@ func (ses *JetRdfSessionNative) FindSP(s, p compute_pipes.RdfNode) compute_pipes
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -419,7 +424,7 @@ func (ses *JetRdfSessionNative) FindS(s compute_pipes.RdfNode) compute_pipes.Tri
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -428,7 +433,7 @@ func (ses *JetRdfSessionNative) Find() compute_pipes.TripleIterator {
 	if err != nil {
 		return nil
 	}
-	null, _ := ses.rs.NewNull()
+	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }
 
@@ -643,6 +648,12 @@ func (it *TripleIteratorNative) GetPredicate() compute_pipes.RdfNode {
 	}
 }
 
+// PredicateKey is NodeKey of GetPredicate without making the node
+// (compute_pipes.PredicateKeyer): one call into the engine, no allocation.
+func (it *TripleIteratorNative) PredicateKey() any {
+	return it.iterator.PredicateKey()
+}
+
 func (it *TripleIteratorNative) GetObject() compute_pipes.RdfNode {
 	return &RdfNodeNative{
 		node: it.iterator.GetObject(),
@@ -663,7 +674,30 @@ func (n *RdfNodeNative) Hdle() any {
 	return n
 }
 
+// ObserveVertices is compute_pipes.VertexObserver: what each vertex of the rule
+// set's network holds, read from the C++ session (get_vertex_observations).
+func (rs *JetReteSessionNative) ObserveVertices() ([]compute_pipes.VertexObservation, error) {
+	obs, err := rs.reteSession.ObserveVertices()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]compute_pipes.VertexObservation, len(obs))
+	for i, o := range obs {
+		out[i] = compute_pipes.VertexObservation{Vertex: o.Vertex, RowsNow: o.RowsNow, RowsPeak: o.RowsPeak,
+			Inferred: o.Inferred, Retracted: o.Retracted}
+	}
+	return out, nil
+}
+
+var _ compute_pipes.VertexObserver = (*JetReteSessionNative)(nil)
+
+// IsNil is true for the null node, and for a node that holds nothing: GetObject
+// returns one when the session has no object (bridge GetObject's nil, nil), which
+// IsNil dereferenced until rules_benchmark I-221.
 func (n *RdfNodeNative) IsNil() bool {
+	if n == nil || n.node == nil {
+		return true
+	}
 	return n.node.GetType() == 0
 }
 
@@ -755,4 +789,13 @@ func (n *RdfNodeNative) Equals(other compute_pipes.RdfNode) bool {
 		return false
 	}
 	return n.node.SameAs(otherNodeNative.node)
+}
+
+// NodeKey is the node's identity key (compute_pipes.NodeKeyer): the engine's
+// handle, equal exactly when Equals is true. Nil for no node.
+func (n *RdfNodeNative) NodeKey() any {
+	if n == nil || n.node == nil {
+		return nil
+	}
+	return n.node.Key()
 }

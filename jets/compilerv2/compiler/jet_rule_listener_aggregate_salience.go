@@ -10,13 +10,12 @@ import (
 
 // An aggregate in a consequent is computed once, when its rule fires.
 //
-// Keep consequentAggregateOps in step with both engines' operator factories
-// (jets/rete/expr_operator_factory.h, jets/jetrules/rete/expr_operator_factory.go),
-// whose banners point here.
+// Keep consequentAggregateOps in step with the engine's operator factory
+// (jets/rete/expr_operator_factory.h), whose banner points here.
 //
-// Neither rule engine recomputes a consequent expression: the C++ engine's
-// set_graph_callbacks and the Go engine's Initialize register callbacks for
-// antecedents and filters only. So size_of, max_of, min_of, sum_values,
+// The rule engine does not recompute a consequent expression: the C++ engine's
+// set_graph_callbacks registers callbacks for antecedents and filters only, as
+// the retired Go engine's Initialize did. So size_of, max_of, min_of, sum_values,
 // sorted_head and join_values in a consequent see the values that exist at the
 // moment the rule fires, and no others. A rule that aggregates a property must
 // therefore fire after every rule that writes that property, which in a salience
@@ -54,8 +53,6 @@ var consequentAggregateOps = map[string]bool{
 	"size_of":     true,
 	"max_of":      true,
 	"min_of":      true,
-	"max_head_of": true, // Go engine only
-	"min_head_of": true, // Go engine only
 	"sum_values":  true,
 	"sorted_head": true,
 	"join_values": true,

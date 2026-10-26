@@ -10,8 +10,8 @@ import (
 	"unsafe"
 )
 
-// #cgo CFLAGS: -I/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets -I/usr/local/go/src/jetstore/jets -I/app/jets
-// #cgo LDFLAGS: -L/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/build/jets -L/usr/local/go/build/jets -L/app/jets -ljets -lsqlite3
+// #cgo CFLAGS: -I${SRCDIR}/.. -I/usr/local/go/src/jetstore/jets -I/app/jets
+// #cgo LDFLAGS: -L${SRCDIR}/../../build/jets -L/usr/local/go/build/jets -L/app/jets -ljets -lsqlite3
 // #cgo LDFLAGS: -labsl_city -labsl_raw_hash_set
 // #include "rete/jets_rete_cwrapper.h"
 import "C"
@@ -110,39 +110,6 @@ func LoadJetRules(process_name string, rete_db_path string, lookup_db_path strin
 	return &js, nil
 }
 
-// LoadJetRulesWithMode is LoadJetRules with the LEGACY retraction mode the rete
-// networks are built in (jets::rete::RetractionMode, jets/rete/rete_meta_store.h; the Go
-// engine's twin is rete.RetractionMode). replayGraphReadingConsequents turns defect 1
-// off, eraseWithdrawnRows defect 2. For the rules unit test harness only: LoadJetRules,
-// which pipelines call, is this with both false, legacy. It calls the C entry point
-// create_jetstore_hdl_with_mode, the one change this project makes to libjets.so's C
-// interface; a libjets.so without it fails to link.
-func LoadJetRulesWithMode(process_name string, rete_db_path string, lookup_db_path string,
-	replayGraphReadingConsequents, eraseWithdrawnRows bool) (*JetStore, error) {
-	var js JetStore
-	js.process_name = process_name
-	cstr := C.CString(rete_db_path)
-	defer C.free(unsafe.Pointer(cstr))
-	lk_cstr := C.CString(lookup_db_path)
-	defer C.free(unsafe.Pointer(lk_cstr))
-	var replay, erase C.int
-	if replayGraphReadingConsequents {
-		replay = 1
-	}
-	if eraseWithdrawnRows {
-		erase = 1
-	}
-	ret := int(C.create_jetstore_hdl_with_mode(cstr, lk_cstr, replay, erase, &js.hdl))
-	if ret != 0 {
-		fmt.Println("Error in LoadJetRulesWithMode, ret code", ret)
-		if ret < -99 && ret > -200 {
-			return &js, ErrLookupTable
-		}
-		return &js, errors.New("error loading workspace, see logs")
-	}
-	return &js, nil
-}
-
 func (jr *JetStore) ReleaseJetRules() error {
 	ret := int(C.delete_jetstore_hdl(jr.hdl))
 	if ret != 0 {
@@ -178,10 +145,56 @@ func (jr *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string)
 	ret := int(C.create_rete_session(jr.hdl, rdfSession.hdl, cstr, &rs.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewReteSession ret code", ret)
-		return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		if rs.hdl == nil {
+			return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		}
+		// The session was built and its initialize failed: say why, and release it
+		msg := C.GoString(C.get_rete_session_err_msg(rs.hdl))
+		C.delete_rete_session(rs.hdl)
+		rs.hdl = nil
+		if msg == "" {
+			return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
+		}
+		return &rs, fmt.Errorf("ERROR calling NewReteSession(), ret code %d: %s", ret, msg)
 	}
 	rs.rdfs = rdfSession
 	return &rs, nil
+}
+
+// VertexObservation is what one vertex of a rete session's network holds
+// (get_vertex_observations): its beta relation's rows now and at their most in this
+// session, and the times its consequents were computed and retracted.
+type VertexObservation struct {
+	Vertex    int
+	RowsNow   int64
+	RowsPeak  int64
+	Inferred  int64
+	Retracted int64
+}
+
+// ObserveVertices reads every vertex's observation. It reads counters the session
+// keeps anyway, so a session that is never observed pays nothing for it.
+func (rs *ReteSession) ObserveVertices() ([]VertexObservation, error) {
+	n := int(C.get_vertex_observations(rs.hdl, 0, nil, nil, nil, nil))
+	if n < 0 {
+		return nil, fmt.Errorf("error calling get_vertex_observations, ret code: %d", n)
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	now := make([]C.int64_t, n)
+	peak := make([]C.int64_t, n)
+	inferred := make([]C.int64_t, n)
+	retracted := make([]C.int64_t, n)
+	if got := int(C.get_vertex_observations(rs.hdl, C.int(n), &now[0], &peak[0], &inferred[0], &retracted[0])); got != n {
+		return nil, fmt.Errorf("get_vertex_observations: %d vertices, then %d", n, got)
+	}
+	obs := make([]VertexObservation, n)
+	for i := range obs {
+		obs[i] = VertexObservation{Vertex: i, RowsNow: int64(now[i]), RowsPeak: int64(peak[i]),
+			Inferred: int64(inferred[i]), Retracted: int64(retracted[i])}
+	}
+	return obs, nil
 }
 
 func (rs *ReteSession) ReleaseReteSession() error {
@@ -663,6 +676,15 @@ func (r *Resource) SameAs(other *Resource) bool {
 	return r.hdl == other.hdl
 }
 
+// Key is the engine's handle as a comparable value: two resources have equal
+// keys exactly when SameAs is true. Nil for a nil resource or handle.
+func (r *Resource) Key() any {
+	if r == nil || r.hdl == nil {
+		return nil
+	}
+	return r.hdl
+}
+
 func (r *Resource) GetDouble() (float64, error) {
 	// rdf_literal_double_t
 	if r.GetType() != 7 {
@@ -682,9 +704,11 @@ func (r *Resource) GetDateIsoString() (string, error) {
 	if r.GetType() != 9 {
 		return "", ErrUnexpectedRdfType
 	}
-	var cret C.int
-	sp := C.get_date_iso_string2(r.hdl, &cret)
-	ret := int(cret)
+	// The text is written into this buffer, not read from the library's: a buffer
+	// of the C thread could be overwritten by another goroutine's call before
+	// C.GoString copied it, once this goroutine had moved (I-162)
+	var buf [64]C.char
+	ret := int(C.get_date_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {
 		return "", ErrNotValidDate
 	}
@@ -692,7 +716,7 @@ func (r *Resource) GetDateIsoString() (string, error) {
 		fmt.Println("ERROR getting date in iso str format", ret)
 		return "", fmt.Errorf("error while date in iso str format: %v", ret)
 	}
-	return C.GoString(sp), nil
+	return C.GoString(&buf[0]), nil
 }
 
 func (r *Resource) GetDatetimeIsoString() (string, error) {
@@ -700,9 +724,11 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 	if r.GetType() != 10 {
 		return "", ErrUnexpectedRdfType
 	}
-	var cret C.int
-	sp := C.get_datetime_iso_string2(r.hdl, &cret)
-	ret := int(cret)
+	// The text is written into this buffer, not read from the library's: a buffer
+	// of the C thread could be overwritten by another goroutine's call before
+	// C.GoString copied it, once this goroutine had moved (I-162)
+	var buf [64]C.char
+	ret := int(C.get_datetime_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {
 		return "", ErrNotValidDateTime
 	}
@@ -710,7 +736,7 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 		fmt.Println("ERROR getting datetime in iso str format", ret)
 		return "", fmt.Errorf("error while datetime in iso str format: %v", ret)
 	}
-	return C.GoString(sp), nil
+	return C.GoString(&buf[0]), nil
 }
 
 func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
@@ -1175,6 +1201,16 @@ func (itor *RSIterator) GetSubject() *Resource {
 }
 
 // RSIterator GetPredicate
+// PredicateKey is Key of GetPredicate without making the Resource: the current
+// triple's predicate's handle, or nil.
+func (itor *RSIterator) PredicateKey() any {
+	var hdl C.HJR
+	if ret := int(C.get_predicate(itor.hdl, &hdl)); ret < 0 || hdl == nil {
+		return nil
+	}
+	return hdl
+}
+
 func (itor *RSIterator) GetPredicate() *Resource {
 	var predicate Resource
 	ret := int(C.get_predicate(itor.hdl, &predicate.hdl))

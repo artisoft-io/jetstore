@@ -45,14 +45,14 @@ const UnterminatedCode = "sqlUnterminated"
 // the corpus splits cleanly at 17 all-named and 6 none-named with nothing in
 // between. A declared script with one `;`-terminated comment above a statement
 // would be flagged wrongly, and the corpus already contains that comment shape
-// — `usi_ws/reports/network_csv_output.sql` ends with a commented-out
+// — one of a client workspace's reports ends with a commented-out
 // `COPY … CSV HEADER;`, which lands on a bodyless trailing chunk today and
 // would not if a statement followed it. **The check belongs in a tool that
 // reads `config.json` beside the file, which is a workspace lint and not a
 // per-file validator.**
 //
 // **A final statement with no `;`.** It reads like a truncated file and is not:
-// `usi_ws/reports/auth_error_report.sql` and `elig_error_report.sql` are both
+// two reports of a client workspace are both
 // written that way and both work, under this reader and the one it replaced.
 //
 // **Anything needing a parser**, which is the whole class the cast-in-an-INSERT-

@@ -51,10 +51,17 @@ class ReteMetaStoreFactory {
   using MainRuleUriLookup = std::unordered_map<std::string, int>;
   using MetaStoreLookup = std::unordered_map<int, ReteMetaStorePtr>;
 
+  // Closes the workspace-db connection load_database opened. The call was
+  // commented out, so only delete_jetstore_hdl closed it, and a factory deleted
+  // any other way leaked it (I-144). The lookup helper's connections close with
+  // the meta stores that own it, after the last session using them has gone.
   ~ReteMetaStoreFactory()
   {
-    // this->reset();
+    this->reset();
   }
+
+  ReteMetaStoreFactory(ReteMetaStoreFactory const&) = delete;
+  ReteMetaStoreFactory & operator=(ReteMetaStoreFactory const&) = delete;
 
   ReteMetaStoreFactory();
 
@@ -124,22 +131,10 @@ class ReteMetaStoreFactory {
   }
 
   /**
-   * @brief Load the rete networks of jetrule_rete_db, every one in `mode`
-   *
-   * The mode is the LEGACY retraction mode (RetractionMode, rete_meta_store.h), fixed
-   * here for every meta store the factory builds. The default is legacy for both
-   * defects, which is what create_jetstore_hdl, and so every pipeline, gets; only
-   * create_jetstore_hdl_with_mode passes another.
+   * @brief Load the rete networks of jetrule_rete_db
    */
   int
-  load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db,
-    RetractionMode mode = {});
-
-  inline RetractionMode const&
-  retraction_mode()const
-  {
-    return this->retraction_mode_;
-  }
+  load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db);
 
   int 
   read_resources_cb(int argc, char **argv, char **colnm);
@@ -352,7 +347,6 @@ class ReteMetaStoreFactory {
 
   std::string jetrule_rete_db_;
   std::string lookup_data_db_;
-  RetractionMode retraction_mode_;
   rdf::RManagerPtr rmgr_;
   rdf::RDFGraphPtr meta_graph_;
 

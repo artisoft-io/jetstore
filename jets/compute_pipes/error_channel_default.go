@@ -44,7 +44,7 @@ package compute_pipes
 // when the operator is done -- so the synthesis gives each of them its own. It does
 // not give each of them its own table writer: WriteTableSource takes a pooled
 // connection for the whole life of the step and the cpipes servers default to a
-// pool of three (dbPoolSize, jets/cmds/cpipes_server/main.go), while one corpus
+// pool of three (dbPoolSize, jets/cmds/cpipes_native_server/main.go), while one corpus
 // step carries 53 operators that report row-level failures. Fifty-three writers on
 // a pool of three is a deadlock rather than a cost, so the synthesised channels
 // fan into one sink channel and that sink is the single table writer's source.
@@ -108,7 +108,7 @@ const (
 // hand-written specs write NULL for all three until every file that declares one is
 // edited. That was eleven files across three workspace repositories when the cost
 // was first priced; measured again 2026-09-11 it is ten specs in ten files across
-// two, usi_ws 3 and walrus_ws 7, patient_profile.pc.json having dropped both of its
+// two workspaces, 3 and 7, patient_profile.pc.json having dropped both of its
 // own. A synthesised spec carries the three from the first run.
 var DefaultProcessErrorColumns = []string{
 	"pipeline_execution_status_key",

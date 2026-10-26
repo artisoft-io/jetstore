@@ -23,7 +23,7 @@ import (
 // Skipping the lookup.db rebuild when nothing it is built from has changed.
 //
 // **Packaging lookup.db is most of a workspace compile**: measured 2026-10-11,
-// about 2.1 s of jets_ws's 2.2 s and 1.6 s of usi_ws's 5.6 s. Since a compile
+// about 2.1 s of jets_ws's 2.2 s and 1.6 s of a client workspace's 5.6 s. Since a compile
 // and a rules unit test run exclude each other, that is time a user waits.
 //
 // **What decides lookup.db's bytes, and therefore what the fingerprint covers:**

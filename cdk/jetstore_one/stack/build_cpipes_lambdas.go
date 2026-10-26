@@ -49,9 +49,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	//
 	//   - CpipesNativeNodeLambda is a NewDockerImageFunction reading an image out of ECR,
 	//     not a NewGoFunction, so DockerImageFunctionProps has no Entry to redirect. Its
-	//     binary is the `bootstrap` built by dockerfiles/Dockerfile.cpipes_builder:66 from
-	//     cdk/jetstore_one/lambdas/compute_pipes/cp_node_native, under CGO_ENABLED=1
-	//     (Dockerfile.cpipes_builder:23) and linked against the libjets.so built in that
+	//     binary is the `bootstrap` built by dockerfiles/Dockerfile.cpipes_builder (its
+	//     `go build ... -o bootstrap` step) from
+	//     cdk/jetstore_one/lambdas/compute_pipes/cp_node_native, under that image's
+	//     `ENV CGO_ENABLED=1`, and linked against the libjets.so built in that
 	//     same image. A host-built binary cannot be copied in, so pointing this one at a
 	//     site main is an image concern rather than a synth concern.
 	//   - CpipesStartShardingLambda and CpipesStartReducingLambda call
@@ -188,6 +189,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 				"LOG_LEVEL":                                jsii.String("INFO"),
 				"LD_LIBRARY_PATH":                          jsii.String("/usr/local/lib"),
+				// jemalloc, installed by dockerfiles/Dockerfile.cpipes_native_lambda, which
+				// sets it too; set here because Lambda documents the environment it passes
+				// from the function's configuration, not from the image's.
+				"LD_PRELOAD": jsii.String("/usr/lib64/libjemalloc.so.2"),
 			},
 			Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
 			Role:           jsComp.LambdaExecutionRole,

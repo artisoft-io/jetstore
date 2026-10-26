@@ -6,7 +6,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -142,9 +144,10 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 		jetRulesData = append(jetRulesData, []any{maxKey, jetRule.Name, jetRule.Optimization, jetRule.Salience,
 			jetRule.AuthoredLabel, jetRule.NormalizedLabel, jetRule.Label, w.mainFileKey})
 
-		// Rule Properties
-		for propName, propValue := range jetRule.Properties {
-			rulePropsData = append(rulePropsData, []any{maxKey, propName, propValue})
+		// Rule Properties, in name order: map order made workspace.db differ
+		// from one compile of the same sources to the next (Q-49)
+		for _, propName := range slices.Sorted(maps.Keys(jetRule.Properties)) {
+			rulePropsData = append(rulePropsData, []any{maxKey, propName, jetRule.Properties[propName]})
 		}
 
 		// Rule Terms
@@ -486,8 +489,9 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	// Insert new config entries
 	insertStmt := "INSERT INTO jetstore_config (source_file_key, config_key, config_value) VALUES (?, ?, ?)"
 	data := make([][]any, 0)
-	for key, value := range jetRuleModel.JetstoreConfig {
-		data = append(data, []any{w.mainFileKey, key, value})
+	// In key order, for the reason rule_properties is (Q-49)
+	for _, key := range slices.Sorted(maps.Keys(jetRuleModel.JetstoreConfig)) {
+		data = append(data, []any{w.mainFileKey, key, jetRuleModel.JetstoreConfig[key]})
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)

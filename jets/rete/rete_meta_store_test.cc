@@ -78,6 +78,12 @@ class AlphaNodeStub: public AlphaNode {
   initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const override
   {}
 
+  int
+  antecedent_query_index()const override
+  {
+    return 0;
+  }
+
   std::ostream & 
   describe(std::ostream & out)const override
   {

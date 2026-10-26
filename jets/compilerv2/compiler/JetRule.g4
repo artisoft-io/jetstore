@@ -249,7 +249,6 @@ binaryOp
   | GT
   | GE
   | NE
-  | REGEX2
   | MINUS
   | MUL
   | DIV
@@ -260,7 +259,6 @@ binaryOp
 
 unaryOp
   : NOT
-  | TOTEXT
   | Identifier
   ;
 
@@ -293,7 +291,7 @@ GroupingProperties: '$grouping_properties';
 MAIN: 'main';
 JETSCONFIG: 'jetstore_config';
 MaxLooping: '$max_looping';        // Rule looping, default is 0, no looping
-MaxRuleExec: '$max_rule_exec';     // Max number of times a rule can fire, default 10,000
+MaxRuleExec: '$max_rule_exec';     // Stored in jetstore_config; read by no engine (the limit is jets:max_vertex_visits)
 InputType: '$input_types';         // RDF type of input record to rule set. rdf:Thing means any rdf type.
 
 // Rule Sequence
@@ -334,7 +332,6 @@ NULL: 'null';
 
 // Unary operator
 NOT: 'not';
-TOTEXT: 'toText';
 
 // Binary operator
 EQ: '==';
@@ -343,7 +340,6 @@ LE: '<=';
 GT: '>';
 GE: '>=';
 NE: '!=';
-REGEX2: 'r?';
 PLUS: '+';
 MINUS: '-';
 MUL: '*';

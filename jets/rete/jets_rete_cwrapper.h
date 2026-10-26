@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_CWAPPER_H
 #define JETS_RETE_CWAPPER_H
 
+#include <stdint.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus
@@ -11,13 +12,6 @@ extern "C"
 typedef void* HJETS;
 
 int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_path, HJETS * handle );
-// As create_jetstore_hdl, with the LEGACY retraction mode the rete networks are built in
-// (jets::rete::RetractionMode, rete/rete_meta_store.h). A non-zero
-// replay_graph_reading_consequents turns defect 1 off, a non-zero erase_withdrawn_rows
-// turns defect 2 off. For the rules unit test harness only: create_jetstore_hdl, which
-// pipelines call, is this with both zero, legacy.
-int create_jetstore_hdl_with_mode( char const * rete_db_path, char const * lookup_data_db_path,
-  int replay_graph_reading_consequents, int erase_withdrawn_rows, HJETS * handle );
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;
@@ -28,8 +22,22 @@ typedef void* HJRDF;
 int create_rdf_session( HJETS jets_hdl, HJRDF * handle );
 int delete_rdf_session( HJRDF rdf_session_hdl );
 
+// A non-zero return with *handle set means the session was built and its initialize
+// failed: get_rete_session_err_msg says why, and delete_rete_session releases it.
 int create_rete_session( HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_name, HJRETE * handle );
 int delete_rete_session( HJRETE rete_session_hdl );
+// The session's last error, or "" if none; valid until the session's next call
+char const* get_rete_session_err_msg( HJRETE rete_session_hdl );
+// What the session's network holds, per vertex: rows_now the rows of its beta
+// relation at the call, rows_peak the most it held in this session (both counting
+// withdrawn rows not yet erased), inferred and retracted the times its consequents
+// were computed and retracted (0 at a vertex with no consequent terms; the vertex
+// visit limit counts inferred). Each array has room for n vertices. Returns the
+// number of vertices of the network, filling the first min(n, that) of each; call
+// it with n = 0 for the count alone. Free: every counter is kept by the session
+// anyway; nothing is recorded for this call. -1 for a null handle or array.
+int get_vertex_observations( HJRETE rete_session_hdl, int n, int64_t * rows_now,
+  int64_t * rows_peak, int64_t * inferred, int64_t * retracted );
 
 typedef void const* HJR;
 
@@ -89,6 +97,13 @@ int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);
 int get_date_details(HJR hdl, int* year, int* month, int* day);
 int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr, int* min, int* sec, int* frac);
+// The ISO text of a date or datetime, written with its terminating zero into buf,
+// of len bytes: 0; -1 for a null handle or buffer or another type; -2 for not a
+// date; -4 when it does not fit (64 bytes always do)
+int get_date_iso_string3(HJR handle, char* buf, int len);
+int get_datetime_iso_string3(HJR handle, char* buf, int len);
+// DEPRECATED, not safe from Go: the text is in a buffer of the calling thread,
+// overwritten by its next ISO getter call (see jets_rete_cwrapper.cpp)
 int get_date_iso_string(HJR handle, HSTR*);
 int get_datetime_iso_string(HJR handle, HSTR*);
 char const* get_date_iso_string2(HJR handle, int*);
@@ -104,6 +119,10 @@ int execute_rules(HJRETE rete_hdl);
 char const* execute_rules2(HJRETE rete_hdl, int*v);
 int dump_rdf_graph(HJRDF hdl);
 
+// An iterator over a session's graph, from find_all, find, find_s or find_sp.
+// A session's graph is single-threaded, even when it is only read: creating,
+// advancing and releasing an iterator write the graph's registry of live
+// iterators, so one session must not be used from two threads at once.
 typedef void* HJITERATOR;
 
 int find_all(HJRDF hdl, HJITERATOR * handle);

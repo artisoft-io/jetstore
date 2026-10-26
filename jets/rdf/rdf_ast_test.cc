@@ -1,4 +1,8 @@
 #include <iostream>
+#include <random>
+#include <iomanip>
+#include <cstring>
+#include <cmath>
 #include <memory>
 
 #include <gtest/gtest.h>
@@ -275,6 +279,65 @@ TEST(RdfAstTest, DateTime)
   EXPECT_EQ(parse_date("2017/01/01T00:00:00.123456"), date(2017, 1, 1));
   EXPECT_EQ(parse_date("01-01-2017 00:00:00,12"), date(2017, 1, 1));
   EXPECT_EQ(parse_date("01/01/2017T00:00:00,123"), date(2017, 1, 1));
+}
+
+// The rule on a double too small to round to 15 digits: round_to_digits' factor
+// overflows below about 1e-294, and it returned NaN, which fcmp took for equal to
+// anything, so 1e-300 == 5 (I-132). Such a value is compared unrounded. The
+// comparison table in expr_op_test.cc checks it through the operators, where
+// compare15's fast path decides; this is the rule itself.
+TEST(Compare15, ATinyDoubleIsComparedUnrounded) {
+  EXPECT_EQ(compare15_slow(1e-300, 5), -1);
+  EXPECT_EQ(compare15_slow(5, 1e-300), 1);
+  EXPECT_EQ(compare15_slow(1e-300, -7), 1);
+  EXPECT_EQ(compare15_slow(5e-324, 1e300), -1);
+  EXPECT_EQ(compare15_slow(1e-300, 1e-300), 0);
+  EXPECT_EQ(compare15_slow(1e-300, 2e-300), -1);
+  EXPECT_EQ(compare15(1e-300, 5), compare15_slow(1e-300, 5));
+}
+
+// compare15's fast path gives compare15_slow's result: 10^6 pairs, most of them close
+// enough to need the rule, near powers of ten, a few ulps apart, tiny, and money-like.
+TEST(Compare15, TheFastPathGivesTheRulesResult) {
+  std::mt19937_64 rng(20261022);
+  std::uniform_real_distribution<double> unit(0.0, 1.0);
+  auto pow10 = [&](double lo, double hi) { return std::pow(10.0, lo + (hi - lo) * unit(rng)); };
+  auto sign = [&]() { return unit(rng) < 0.5 ? -1.0 : 1.0; };
+  int mismatches = 0, close = 0;
+  auto check = [&](double a, double b) {
+    int fast = compare15(a, b), slow = compare15_slow(a, b);
+    if(std::isfinite(a) and std::isfinite(b) and a != b and
+       std::fabs(a - b) <= 2e-14 * std::fmax(std::fabs(a), std::fabs(b))) close++;
+    if(fast != slow and mismatches++ < 10) {
+      ADD_FAILURE() << std::setprecision(17) << a << " vs " << b << ": fast " << fast << ", rule " << slow;
+    }
+  };
+  int const n = 1000000 / 6;
+  for(int k=0; k<n; k++) {
+    // any finite double, from random bits
+    uint64_t bits[2] = {rng(), rng()};
+    double x[2];
+    std::memcpy(x, bits, sizeof(x));
+    if(std::isfinite(x[0]) and std::isfinite(x[1])) check(x[0], x[1]);
+    // within a few 1e-14 of each other, at any magnitude
+    double a = sign() * pow10(-300, 300);
+    check(a, a * (1 + (unit(rng) - 0.5) * 8e-14));
+    // near a power of ten, where the digits counted change
+    double p = std::pow(10.0, std::floor(-300 + 600 * unit(rng)));
+    check(p * (1 + (unit(rng) - 0.5) * 2e-13), p * (1 + (unit(rng) - 0.5) * 2e-13));
+    // a few ulps apart
+    double c = sign() * pow10(-20, 20), d = c;
+    for(int j = 1 + int(unit(rng) * 64); j > 0; j--) d = std::nextafter(d, 2 * c);
+    check(c, d);
+    // tiny, where 15-digit rounding gives way to the value itself
+    double t = pow10(-320, -280);
+    check(t, t * (1 + (unit(rng) - 0.5) * 1e-13));
+    // money: cents
+    double m = std::round(unit(rng) * 1e9) / 100;
+    check(m, m + (std::round(unit(rng) * 4) - 2) / 100 + (unit(rng) - 0.5) * 1e-12);
+  }
+  EXPECT_EQ(mismatches, 0);
+  EXPECT_GT(close, n) << "too few pairs close enough to need the rule";
 }
 
 }   // namespace

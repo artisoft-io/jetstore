@@ -30,7 +30,11 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
+  // A table or a key of a type it does not take is null, and looks nothing up (Q-93,
+  // 2026-10-24): a key that is null, a blank node, a double or a date, or a table named by
+  // anything but a resource or text. Each threw in a session's rule until then, and a null
+  // or blank-node key was made null first (Q-85, I-104; BL.1b).
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
@@ -97,7 +101,11 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup rand: ("<<lhs<<", "<<rhs<<")");};
+  // A table or a key of a type it does not take is null, and looks nothing up (Q-93,
+  // 2026-10-24): a key that is null, a blank node, a double or a date, or a table named by
+  // anything but a resource or text. Each threw in a session's rule until then, and a null
+  // or blank-node key was made null first (Q-85, I-104; BL.1b).
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
@@ -384,7 +392,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
   RDFTTYPE operator()(rdf::LDouble       const&v)const
   {
     switch (this->type) {
-    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_string_t   : return rdf::LString(rdf::double_to_text(v.data));
     case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
     case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));

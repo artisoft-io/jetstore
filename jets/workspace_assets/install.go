@@ -46,7 +46,7 @@
 //     file they do not own, or the path was theirs before JetStore claimed it.
 //     The install fails, naming every such file, and the build stops.
 //
-// The third case is not hypothetical. `workspaces/usi_ws/data_model/jets_model.jr`
+// The third case is not hypothetical. A client workspace's `data_model/jets_model.jr`
 // carried a four-line `iWorkBook` extension appended in place, load-bearing in
 // three rule trees; an install that overwrote it would have produced a compile
 // failure on an undeclared resource somewhere far from the cause. That is the

@@ -2,7 +2,9 @@
 #define JETS_RETE_EXPR_OP_ARITHMETICS_H
 
 #include <cctype>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <algorithm>
 #include <string>
@@ -12,6 +14,7 @@
 #include <sstream>
 #include <vector>
 
+#include <boost/lexical_cast/try_lexical_convert.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 
 #include "../rdf/rdf_types.h"
@@ -90,37 +93,85 @@ register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
   return 0;
 }
 
+// NullWhenOutOfRange: + - * / on two integer types convert the right operand to the left
+// operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
+// a large int64, uint32 plus -1). The exception failed the session; the operation is null
+// instead, and the rule's consequent sees no value (Q-85, I-134, 2026-10-23), as an
+// integer division by zero has been since Q-69. Each of the four operators below is its
+// Impl wrapped in this, and so is to_int, whose number out of int32's range threw the
+// same way (BL.1b); the Impl's overloads are unchanged.
+template<class Op>
+struct NullWhenOutOfRange: public Op
+{
+  using Op::Op;
+  template<class... T> RDFTTYPE operator()(T const&... args)const
+  {
+    try {
+      return Op::operator()(args...);
+    } catch(boost::numeric::bad_numeric_cast const&) {
+      return rdf::Null();
+    }
+  }
+};
+
+// A type mismatch is null: + - * / and abs give null for operands they do not take, a
+// number with text, a named resource, a blank node or null, either way round, or two
+// operands neither of which they take (Q-93, 2026-10-24). Each catch-all below says so.
+// Until then a catch-all gave null only with no beta row, as the shared tables call a
+// visitor, and threw in a session's rule, which failed the session (I-184); Q-85 and
+// BL.1b had made a few of those mixes null one overload at a time. Text first in + is
+// not a mismatch: it concatenates, by design.
+
+// An integer quotient. Division by zero is null (Q-69), and so is the minimum signed
+// integer divided by -1, whose quotient does not fit its type: it raised SIGFPE, which
+// killed the process, for int32 and int64 and through the mixed integer types (Q-85,
+// I-126, 2026-10-23).
+template<class L, class T>
+inline RDFTTYPE
+integer_quotient(T lhs, T rhs)
+{
+  if(rhs == 0) return rdf::Null();
+  if constexpr (std::is_signed_v<T>) {
+    if(rhs == -1 and lhs == std::numeric_limits<T>::min()) return rdf::Null();
+  }
+  return L{lhs / rhs};
+}
+
 // AddVisitor
 // --------------------------------------------------------------------------------------
-struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+// + - * / on numbers: a double operand, on either side, makes the result a double. Until
+// 2026-10 an integer met first truncated the double in + and - (2 + 0.5 was 2); * and /
+// already gave a double. Integers alone keep the left operand's type, the right converted
+// by numeric_cast, and / is integer division. The retired Go engine followed the same table.
+struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  AddVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for addition: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  AddVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AddVisitorImpl(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data+rhs.data};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt32 rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
@@ -133,7 +184,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt32 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LInt64  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt64 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
-  RDFTTYPE operator()(rdf::LString lhs, rdf::LDouble rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LDouble rhs)const{return rdf::LString{lhs.data+rdf::double_to_text(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LString rhs)const{return rdf::LString{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDate   rhs)const{return rdf::LString{lhs.data+rdf::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDatetime rhs)const{return rdf::LString{lhs.data+rdf::to_string(rhs.data)};}
@@ -168,34 +219,34 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 
 // SubsVisitor
 // --------------------------------------------------------------------------------------
-struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  SubsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  SubsVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data-boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt32 rhs)const{return rdf::LDouble{lhs.data-boost::numeric_cast<double>(rhs.data)};}
@@ -225,10 +276,10 @@ struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 
 // MultVisitor
 // --------------------------------------------------------------------------------------
-struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  MultVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for multiplication: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  MultVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
@@ -266,33 +317,36 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 
 // DivVisitor
 // --------------------------------------------------------------------------------------
-struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+// An integer divided by an integer zero is null (Q-69); until 2026-10 it raised SIGFPE,
+// which killed the process. A division with a double operand follows IEEE: +inf, -inf,
+// and NaN for 0/0. The retired Go engine followed the same table.
+struct DivVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for division: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  DivVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
 
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data/rhs.data};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data/rhs.data};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt32{lhs.data/rhs.data};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt32{lhs.data/boost::numeric_cast<uint32_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data/rhs.data};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return integer_quotient<rdf::LInt64>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt64{lhs.data/boost::numeric_cast<int64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LUInt64{lhs.data/boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)/rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data/boost::numeric_cast<double>(rhs.data)};}
@@ -305,12 +359,17 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   BetaRow const* br;
 };
 
+using AddVisitor  = NullWhenOutOfRange<AddVisitorImpl>;
+using SubsVisitor = NullWhenOutOfRange<SubsVisitorImpl>;
+using MultVisitor = NullWhenOutOfRange<MultVisitorImpl>;
+using DivVisitor  = NullWhenOutOfRange<DivVisitorImpl>;
+
 // AbsVisitor
 // --------------------------------------------------------------------------------------
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for abs: "<<lhs<<"("<<typeid(lhs).name()<<")");};
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // a type mismatch (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
@@ -321,6 +380,73 @@ struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   ReteSession * rs;
   BetaRow const* br;
 };
+
+// The order that breaks a tie between equal values in min_of, max_of and sorted_head,
+// so that the object chosen does not depend on the order the graph holds them in (a hash
+// set's, which varies from run to run). A total order, as it was in the Go engine:
+//  - by kind: a named resource, then a blank node, then a literal, then null;
+//  - a named resource by its name, a literal by its text (a double by double_to_text),
+//    compared as bytes; two literals of equal text by type, signed integers before
+//    unsigned ones (int32, int64, uint32, uint64, then double, string, date, datetime);
+//  - blank nodes by key, last: a key follows the order blank nodes were made in.
+// An entity minted with a UUID name still varies from run to run under this order.
+struct TieBreakText: public boost::static_visitor<std::string>
+{
+  std::string operator()(rdf::RDFNull       const& )const{return {};}
+  std::string operator()(rdf::BlankNode     const& )const{return {};}
+  std::string operator()(rdf::NamedResource const&v)const{return v.name;}
+  std::string operator()(rdf::LInt32        const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LUInt32       const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LInt64        const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LUInt64       const&v)const{return std::to_string(v.data);}
+  std::string operator()(rdf::LDouble       const&v)const{return rdf::double_to_text(v.data);}
+  std::string operator()(rdf::LString       const&v)const{return v.data;}
+  std::string operator()(rdf::LDate         const&v)const{return rdf::to_string(v.data);}
+  std::string operator()(rdf::LDatetime     const&v)const{return rdf::to_string(v.data);}
+};
+
+inline int
+tie_break_kind(rdf::RdfAstType const& v)
+{
+  switch(v.which()) {
+  case rdf::rdf_named_resource_t: return 0;
+  case rdf::rdf_blank_node_t:     return 1;
+  case rdf::rdf_null_t:           return 3;
+  default:                        return 2;
+  }
+}
+
+// The type order between literals of equal text: signed, then unsigned, then the rest
+inline int
+tie_break_type(rdf::RdfAstType const& v)
+{
+  switch(v.which()) {
+  case rdf::rdf_literal_int32_t:    return 0;
+  case rdf::rdf_literal_int64_t:    return 1;
+  case rdf::rdf_literal_uint32_t:   return 2;
+  case rdf::rdf_literal_uint64_t:   return 3;
+  case rdf::rdf_literal_double_t:   return 4;
+  case rdf::rdf_literal_string_t:   return 5;
+  case rdf::rdf_literal_date_t:     return 6;
+  case rdf::rdf_literal_datetime_t: return 7;
+  default:                          return 8;
+  }
+}
+
+// true if a comes before b in the tie-break order
+inline bool
+tie_break_less(rdf::r_index a, rdf::r_index b)
+{
+  if(a == b) return false;
+  int ka = tie_break_kind(*a), kb = tie_break_kind(*b);
+  if(ka != kb) return ka < kb;
+  if(ka == 1) return boost::get<rdf::BlankNode>(*a).key < boost::get<rdf::BlankNode>(*b).key;
+  if(ka == 3) return false;
+  TieBreakText text;
+  int c = boost::apply_visitor(text, *a).compare(boost::apply_visitor(text, *b));
+  if(c != 0) return c < 0;
+  return tie_break_type(*a) < tie_break_type(*b);
+}
 
 struct ApplyMinMaxVisitor
 {
@@ -338,6 +464,7 @@ struct ApplyMinMaxVisitor
       RETE_EXCEPTION("Invalid arguments for min_of/max_of operator, cannot have null lhs or rhs");
     }
     GtVisitor visitor;
+    EqVisitor equal;
     auto itor = rs->rdf_session()->find(s, objp);
     bool is_first = true;
     rdf::r_index resultObj = rdf::gnull();
@@ -372,6 +499,15 @@ struct ApplyMinMaxVisitor
             rhs = resultValue;
           }
           if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) {
+            resultObj = currentObj;
+            resultValue = currentValue; 
+          } else if(rdf::to_bool(boost::apply_visitor(equal, *lhs, *rhs)) and
+                    tie_break_less(currentObj, resultObj)) {
+            // equal values, by the rules' own == (EqVisitor): the object first in the
+            // tie-break order, whatever the order they are met in. Until 2026-10 the first
+            // met won (I-33). A tie is equality, not "neither is greater", which is not
+            // transitive: a NaN or an infinity never ties, and values that cannot be
+            // compared (text and a number) keep the first met, a known limit.
             resultObj = currentObj;
             resultValue = currentValue; 
           }
@@ -539,6 +675,78 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 
 // SUM VALUES ==========================================================================
 
+// The sum of a property's values, which do not depend on the order the graph holds them
+// in (a hash set's, which varies from run to run):
+//  - a null is skipped wherever it comes; no value, or only nulls, is null. Until
+//    2026-10 a null met first made the whole sum null and one met later was skipped;
+//  - numbers: a double present makes the sum a double, every value converted, summed in
+//    the order met, so the order can move the last bit only. Integers alone are summed
+//    exactly and take the widest integer type present (int32 < uint32 < int64 < uint64),
+//    or int64, then double, when the sum does not fit it. Until 2026-10 the first value
+//    met set the type, so an int met before a double truncated the double;
+//  - a value that is not a number (text, a date, a resource) cannot be summed, and makes
+//    the sum null, wherever it comes. Until 2026-10 sum_values folded with +, so text
+//    concatenated and a mix depended on the order (5, "x", 2 gave "x25" or no answer).
+// The retired Go engine's SumValuesOp followed the same rules.
+class SumOfValues {
+ public:
+  // false: a value that is not a number was met, and the sum is null
+  inline bool add(rdf::RdfAstType const& v)
+  {
+    switch(v.which()) {
+    case rdf::rdf_null_t:           return true;
+    case rdf::rdf_literal_int32_t:  return add_int(boost::get<rdf::LInt32>(v).data, 0);
+    case rdf::rdf_literal_uint32_t: return add_int(boost::get<rdf::LUInt32>(v).data, 1);
+    case rdf::rdf_literal_int64_t:  return add_int(boost::get<rdf::LInt64>(v).data, 2);
+    case rdf::rdf_literal_uint64_t: return add_int(boost::get<rdf::LUInt64>(v).data, 3);
+    case rdf::rdf_literal_double_t:
+      count_++;
+      has_double_ = true;
+      dsum_ += boost::get<rdf::LDouble>(v).data;
+      return true;
+    default: return false;
+    }
+  }
+
+  inline RDFTTYPE result()const
+  {
+    if(count_ == 0) return rdf::Null();
+    if(has_double_) return rdf::LDouble{dsum_};
+    switch(rank_) {
+    case 0: if(fits<int32_t>())  return rdf::LInt32{static_cast<int32_t>(isum_)};   break;
+    case 1: if(fits<uint32_t>()) return rdf::LUInt32{static_cast<uint32_t>(isum_)}; break;
+    case 2: break;
+    default: if(fits<uint64_t>()) return rdf::LUInt64{static_cast<uint64_t>(isum_)}; break;
+    }
+    if(fits<int64_t>()) return rdf::LInt64{static_cast<int64_t>(isum_)};
+    return rdf::LDouble{static_cast<double>(isum_)};
+  }
+
+ private:
+  template<class I>
+  inline bool add_int(I v, int rank)
+  {
+    count_++;
+    isum_ += v;
+    dsum_ += static_cast<double>(v);
+    if(rank > rank_) rank_ = rank;
+    return true;
+  }
+
+  template<class I>
+  inline bool fits()const
+  {
+    return isum_ >= static_cast<__int128>(std::numeric_limits<I>::min()) and
+           isum_ <= static_cast<__int128>(std::numeric_limits<I>::max());
+  }
+
+  int count_{0};
+  int rank_{-1};
+  bool has_double_{false};
+  __int128 isum_{0};
+  double dsum_{0};
+};
+
 struct ApplySumValuesVisitor
 {
   ApplySumValuesVisitor(ReteSession * rs): rs(rs) {}
@@ -548,50 +756,42 @@ struct ApplySumValuesVisitor
   //  - case datap is not nullptr: the sum of ?v in (s, objp, ?o).(?o, datap, ?v)
   RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap)const
   {
-    AddVisitor visitor;
-    RDFTTYPE res;
     if(not datap) {
       RETE_EXCEPTION("Invalid arguments for ApplySumValuesVisitor, cannot have null datap");
     }
+    SumOfValues sum;
+    bool numbers = true;
+    for_each_value(s, objp, datap, [&](rdf::RdfAstType const& v) {
+      numbers = numbers and sum.add(v);
+    });
+    if(not numbers) return rdf::Null();
+    return sum.result();
+  }
+
+  // f(value) for each value, in the order the graph holds them
+  template<class F>
+  void for_each_value(rdf::r_index s, rdf::r_index objp, rdf::r_index datap, F && f)const
+  {
     if(objp == nullptr) {
-      // make sum ?v: (s, datap, ?v)
+      // ?v: (s, datap, ?v)
       auto itor = rs->rdf_session()->find(s, datap);
-      bool is_first = true;
       while(!itor.is_end()) {
         auto val = itor.get_object();
         if(not val) {
           RETE_EXCEPTION("BUG in ApplySumValuesVisitor: unexpected null value");
         }
-        if(is_first) {
-          res = *val;
-          is_first = false;
-        } else {
-          if(val->which() != rdf::rdf_null_t) {
-            res = boost::apply_visitor(visitor, res, *val);
-          }
-        }
+        f(*val);
         itor.next();
       }
     } else {
-      // make sum ?v: (s, objp, ?o).(?o, datap, ?v)
+      // ?v: (s, objp, ?o).(?o, datap, ?v)
       auto itor = rs->rdf_session()->find(s, objp);
-      bool is_first = true;
       while(!itor.is_end()) {
         auto val = rs->rdf_session()->get_object(itor.get_object(), datap);
-        if(val) {
-          if(is_first) {
-            res = *val;
-            is_first = false;
-          } else {
-            if(val->which() != rdf::rdf_null_t) {
-              res = boost::apply_visitor(visitor, res, *val);
-            }
-          }
-        }
+        if(val) f(*val);
         itor.next();
       }
     }
-    return res;
   }
 
   ReteSession * rs;
@@ -656,7 +856,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 // make the same entity produce a different string — and, downstream, a different LLM
 // prompt — between two runs over identical data, which is noise injected straight into
 // an experiment whose design is one variable. Sorting is on the *rendered* strings,
-// byte-wise ascending, which is also what the Go engine does; ISO-8601 dates sort
+// byte-wise ascending, which is also what the Go engine did; ISO-8601 dates sort
 // lexically into chronological order, so the sort costs nothing for the date case that
 // motivated the operator.
 //
@@ -674,19 +874,20 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
 //                   the same day are two fills, and dropping one would lose a fact.
 //  - non-string  -> rendered by JoinTextVisitor below. Dates and datetimes render
 //    values         ISO-8601 (YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS), integers as decimal,
-//                   doubles with the default 6 significant digits, named resources by
-//                   name. The Go engine renders identically — see the note in
-//                   jets/jetrules/rete/expr_operator_math_join_values.go, since two
-//                   engines that render a date differently is the same defect as two
-//                   engines that support different operators.
+//                   doubles by rdf::double_to_text (shortest digits), named resources by
+//                   name. The Go engine, since retired, rendered identically until its
+//                   retirement: two engines that rendered a date differently would
+//                   have been the same defect as two engines that supported
+//                   different operators.
 //
 // The separator comes from (config, jets:separator, "..."). It is OPTIONAL and defaults
 // to ", ": a missing separator running the values together is a worse failure than a
 // sensible default, and the default is the one the fill-date case wants.
 
 // Render one rdf value the way join_values wants it in the joined string.
-// Deliberately not ToTextVisitor: that one renders a double with std::to_string, i.e.
-// six decimal places ("1.500000"), which the Go engine does not match.
+// Not ToTextVisitor, which returns a literal; the text is the same: a double is written
+// by rdf::double_to_text, as the Go engine's join_values wrote it. Until 2026-10 it was
+// %g's six significant digits.
 struct JoinTextVisitor: public boost::static_visitor<std::string>
 {
   std::string operator()(rdf::RDFNull       const& )const{return {};}
@@ -696,14 +897,7 @@ struct JoinTextVisitor: public boost::static_visitor<std::string>
   std::string operator()(rdf::LUInt32       const&v)const{return std::to_string(v.data);}
   std::string operator()(rdf::LInt64        const&v)const{return std::to_string(v.data);}
   std::string operator()(rdf::LUInt64       const&v)const{return std::to_string(v.data);}
-  std::string operator()(rdf::LDouble       const&v)const
-  {
-    // Default ostream formatting is %g with 6 significant digits, which is what
-    // strconv.FormatFloat(v, 'g', 6, 64) gives on the Go side.
-    std::ostringstream buf;
-    buf << v.data;
-    return buf.str();
-  }
+  std::string operator()(rdf::LDouble       const&v)const{return rdf::double_to_text(v.data);}
   std::string operator()(rdf::LString       const&v)const{return v.data;}
   std::string operator()(rdf::LDate         const&v)const{return rdf::to_string(v.data);}
   std::string operator()(rdf::LDatetime     const&v)const{return rdf::to_string(v.data);}
@@ -829,7 +1023,7 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     // rhs is a config, and the rhs itself when it is the multi-valued property.
     //
     // The second case used to be join_values' own: SumValuesVisitor registered nothing
-    // for it while the Go SumValuesOp did. That is fixed as of 2026-09-09 and both now
+    // for it while the Go SumValuesOp did. That is fixed as of 2026-09-09 and both
     // go through register_callbacks_for_aggregate, which additionally watches the
     // entity property -- which none of these operators did, on either side.
     return register_callbacks_for_aggregate(rs, vertex,
@@ -842,35 +1036,46 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 
 // ToIntVisitor
 // --------------------------------------------------------------------------------------
-struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+// to_int and to_double of what they cannot read are null (Q-93, 2026-10-24): text that
+// does not read as their type, empty or blank text, null, a named resource, a blank node
+// or a date; and to_int of a NaN. Until then each threw in a session's rule (I-185),
+// lexical_cast's bad_lexical_cast or "NULL arguments for to_int", and a NaN was converted
+// to int32 by undefined behaviour, which numeric_cast does not check (I-186).
+struct ToIntVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
-  ToIntVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_int: ("<<lhs<<")");};
+  ToIntVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LInt64  lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs)const
+  {
+    if(std::isnan(lhs.data)) return rdf::Null();
+    return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};
+  }
   RDFTTYPE operator()(rdf::LString lhs)const
   {
+    int32_t v;
     auto view = rdf::trim_view(lhs.data);
-    if(view.empty()) {
-      RETE_EXCEPTION("NULL arguments for to_int");
-    }
-    return rdf::LInt32(boost::lexical_cast<int32_t>(view));
+    if(view.empty() or not boost::conversion::try_lexical_convert(view, v)) return rdf::Null();
+    return rdf::LInt32(v);
   }
 
   ReteSession * rs;
   BetaRow const* br;
 };
 
+// a number out of int32's range is null (Q-85, BL.1b)
+using ToIntVisitor = NullWhenOutOfRange<ToIntVisitorImpl>;
+
 // ToDoubleVisitor
 // --------------------------------------------------------------------------------------
 struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToDoubleVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_double: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read (Q-93)
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
@@ -879,11 +1084,10 @@ struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   RDFTTYPE operator()(rdf::LDouble lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LString lhs)const
   {
+    double_t v;
     auto view = rdf::trim_view(lhs.data);
-    if(view.empty()) {
-      RETE_EXCEPTION("NULL arguments for to_double");
-    }
-    return rdf::LDouble(boost::lexical_cast<double_t>(view));
+    if(view.empty() or not boost::conversion::try_lexical_convert(view, v)) return rdf::Null();
+    return rdf::LDouble(v);
   }
 
   ReteSession * rs;
@@ -902,7 +1106,7 @@ struct ToTextVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
   RDFTTYPE operator()(rdf::LUInt32   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LInt64    lhs)const{return rdf::LString{std::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble   lhs)const{return rdf::LString{rdf::double_to_text(lhs.data)};}
   RDFTTYPE operator()(rdf::LString   lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LDate     lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}
   RDFTTYPE operator()(rdf::LDatetime lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}

@@ -12,8 +12,8 @@ from a shell against a checked-out workspace, with no apiserver and no database.
 - **It opens no database connection.** It reads the compiled workspace from
   `$WORKSPACES_HOME/$WORKSPACE` and writes a file.
 - **It builds one engine per run, in its own process**, and never shares an engine between
-  tests. The `LEGACY` mode is fixed when an engine is built, and the meta graph locks when the
-  first RDF session opens, so `rule_config` cannot change afterwards.
+  tests. The meta graph locks when the first RDF session opens, so `rule_config` cannot change
+  afterwards.
 
 The types, validation and result file are in `jets/rulestest`. The runner is in
 `jets/rulestest/harness`.
@@ -21,7 +21,7 @@ The types, validation and result file are in `jets/rulestest`. The runner is in
 ## Command line
 
 ```
-rules_unit_test -out <result.json> [-rlimit_data_mb N] [-engine native|go] <test.tst.json>
+rules_unit_test -out <result.json> [-rlimit_data_mb N] <test.tst.json>
 ```
 
 | | |
@@ -29,7 +29,7 @@ rules_unit_test -out <result.json> [-rlimit_data_mb N] [-engine native|go] <test
 | `<test.tst.json>` | the test, relative to the workspace root (`$WORKSPACES_HOME/$WORKSPACE`) or absolute. `-test <path>` is accepted too. Flags go **before** it: Go's flag package stops at the first non-flag |
 | `-out` | the result file to write. Required. It is written atomically |
 | `-rlimit_data_mb` | a memory ceiling in MiB. It is applied to the process itself as `RLIMIT_DATA` before anything else runs. When absent or 0, `JETS_RULES_UNIT_TEST_MEMORY_MB` is read; when that is absent too, there is no limit |
-| `-engine` | for shell use. It overrides the test's engine and turns `compare_engines` off. The apiserver does not pass it |
+| `-engine` | `native`, the only engine, or absent. `-engine go` is refused with exit status 2, naming the Go engine's retirement (October 2026). The apiserver does not pass it |
 | `WORKSPACES_HOME`, `WORKSPACE` | required. They name the workspace whose `build/` the test runs against |
 | `GLOG_v` | the C++ engine's log level. When it is unset and the test sets `is_debug`, the command restarts itself with `GLOG_v=35` (rule firings) and `GLOG_logtostderr=1`. glog reads these when `libjets.so` loads, before `main` runs |
 
@@ -88,7 +88,7 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
    LD_LIBRARY_PATH=$LIB rules_unit_test -out /tmp/r.json jet_rules/unit_tests/looping_test/looping_test1.tst.json
    ```
 
-   It prints one line, for example `… legacy on native: pass`, and the details are in
+   It prints one line, for example `… fixed on native: pass`, and the details are in
    `/tmp/r.json`. Its log is standard error.
 
 ## The test definition
@@ -97,8 +97,6 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
 {
   "test_name": "greetings",
   "comment": "free text",
-  "legacy": { "recompute_on_retraction": false, "withdrawn_row_stays": true },
-  "compare_engines": false,
   "expect": { "status": "error", "reason": "max vertex visit reached" },
   "jetrules_config": { "process_name": "jet_rules/unit_tests/lp/lp_test.jr" },
   "input_sessions": [
@@ -119,34 +117,46 @@ JETS_ENCRYPTION_KEY …` at start; that line is harmless.
 - **`jetrules_config`** is the `JetrulesSpec` a pipeline carries, limited to what a test uses:
   - **used**: `process_name`, `max_looping`, `rule_config`, `current_source_period` (with
     `current_source_period_type`, or it is reset to 0), `current_source_period_date`,
-    `input_rdf_type`, `is_debug`, `use_jet_rules_go`, `use_jet_rules_native`, `comment`;
+    `input_rdf_type`, `is_debug`, `use_jet_rules_native` (it names the only engine), `comment`;
   - **refused**: `metadata_input_sources`, `pool_size`, `max_input_count`,
-    `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`.
+    `max_rete_sessions_saved`, `output_channels`, `error_channel`, `on_error`, `max_error_count`,
+    `optimizer_statistics` (a test writes no statistics; `rules_bench -stats` counts a bench's sessions).
 - **`process_name`** is a rule file listed in `rule_sets`, or a rule sequence name.
-- **`legacy`, `compare_engines` and `expect` are top-level only.**
+- **`legacy` and `expect` are top-level only.**
+- **`legacy` no longer chooses anything.** It held the two `LEGACY` retraction switches,
+  `recompute_on_retraction` and `withdrawn_row_stays`, until October 2026, when the `LEGACY`
+  retraction mode was deleted and the C++ engine kept one behaviour, the one the switches chose
+  when false (`jets/rete/README.md`). **A switch set `true` is refused**, naming the deletion; an
+  object whose every present switch is `false` names that behaviour and is accepted, so tests
+  written with one still run.
 - **Top-level `expected_triples` / `excluded_triples` apply to every session.** A session may
   add its own.
 
 ### Engines
 
-- **C++ by default**, the engine the workspaces run in production.
-- **Go** with `"use_jet_rules_go": true`.
-- **Both** with `"compare_engines": true`. The test runs on each engine in turn, every check is
-  listed once per engine, and the test **fails when the statuses or any check's outcome
-  differ**, with each difference in `engine_differences`.
-- **`_0:no_truth_main_on_exist` is refused when Go runs.** It exists only in C++, and Go would
-  ignore it.
-- **The Go engine ignores `$max_rule_exec`.** To lower the vertex-visit limit, set
-  `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`. **Both engines
-  honour it** (measured 2026-10-11): the harness asserts `rule_config` into the meta graph before
-  the first RDF session opens, Go reads it there, and C++ reads it from the RDF session when each
-  rete session initialises. Without it Go stops at its default of 10,000 visits. C++ has no limit
-  unless the triple is in a graph its session reads (`ReteSession::initialize`), so **a test that
-  may not terminate on C++ should set it**; whether the rule file's `$max_rule_exec` reaches C++
-  that way was not checked here.
-- **The two engines word the limit differently**: Go `max vertex visit reached`, C++
-  `Maximum vertex visits reached`. An `expect.reason` that must hold on both, or under
-  `compare_engines`, names `vertex visit`.
+- **A test runs on the C++ engine**, the engine the workspaces run in production, and the only
+  one: the Go engine was retired in October 2026.
+- **A test that asks for Go fails validation**, naming the retirement: `"use_jet_rules_go": true`,
+  or `"compare_engines": true`, which ran the test on both engines. It is refused rather than run
+  on C++ in its place. Results written before the retirement may record `go`, or `native+go`
+  with `engine_differences`.
+- **`_0:no_truth_main_on_exist` in `rule_config` is refused**, naming the deletion, unless it is
+  an integer `0`. It turned off truth maintenance on `exist` and `exist_not` filters, and was
+  deleted with the `LEGACY` retraction mode; the engine refuses it at session start too, so a
+  pipeline gets the same answer.
+- **`$max_rule_exec` is read by nothing.** The compiler stores it in the workspace's
+  `jetstore_config` and the rule file's `.config.json`, and neither the engine nor the pipeline
+  reads it: `ReteSession::initialize` reads only `jets:max_vertex_visits`, and the pipeline only
+  `$max_looping` (read from the code, 2026-10-22). To set a vertex-visit limit, put
+  `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`: the harness asserts
+  `rule_config` into the meta graph before the first RDF session opens, and the C++ engine reads it
+  from the RDF session when each rete session initialises. **Without it the engine stops at its
+  default of 10,000 visits of a rule's vertex** (since rules_benchmark Phase 7, `Q-83`; it had no
+  limit before), and the error names the default and the setting that changes it. A test that
+  needs more, or a deliberately lower limit, sets it. (The Go engine had the same default of
+  10,000, and honoured the triple too, measured 2026-10-11.)
+- **C++ words the limit** `Maximum vertex visits reached`; an `expect.reason` naming it, or
+  `vertex visit`, matches.
 
 ### Checks
 
@@ -192,7 +202,8 @@ A check takes one of three forms:
 
 **What the result file carries:**
 - `engine`
-- `legacy_mode`: `legacy`, `fixed`, `fixed-1` or `fixed-2`
+- `legacy_mode`: `fixed`, the one retraction behaviour; results written before October 2026 may
+  record `legacy`, `fixed-1` or `fixed-2`
 - `load_ms`: building the engine
 - `run_ms`: the sessions and checks
 - `duration_ms`: the whole process
@@ -203,8 +214,16 @@ A check takes one of three forms:
 ## Input CSVs
 
 - **Columns are read by header, in any order.** Each one must be a data property of the
-  workspace (`build/properties.json`). A misspelt column is refused, naming the file, the column
-  and the closest property.
+  workspace (`build/properties.json`), or a rule-local `_0:` property (below). A misspelt
+  column is refused, naming the file, the column and the closest property.
+- **A `_0:` column is a rule-local property** (`I-20`): the compiler adds one for a name no
+  declaration names, so `properties.json` does not list it and a pipeline's input never carries
+  one. Write `_0:<name>` for text or `_0:<name> as <type>`, the type one of `int`, `uint`,
+  `long`, `ulong`, `double`, `text`, `date`, `datetime`, `bool`; each cell is cast by it as a
+  data property's cell is cast by the property's type. The triples are asserted on the row's
+  `jets:key`, so **a file with a `_0:` column needs a `jets:key` column**, and a row with a
+  `_0:` value needs a key. `rules_bench` refuses a `_0:` column: it asserts its input as a
+  pipeline does.
 - **Each cell is cast by its property's type**, as a pipeline casts text input. A midnight time
   is asserted as a date, whatever the property's type, so `2024-01-01T00:00:00` is the date
   `2024-01-01` (definition `F25`).
@@ -234,19 +253,18 @@ A check takes one of three forms:
   different salience a vertex of its own, and warns when two such rules infer the same triple,
   because the lower one's salience then changes nothing about it.
 - **Never let a `sorted_head` tie decide an outcome.** Ties break non-deterministically on
-  **both** engines. Give every candidate a distinct weight.
+  the C++ engine, as they did on Go. Give every candidate a distinct weight.
 - **`is_debug`**:
   - logs each asserted row;
-  - turns on the Go engine's debug output;
   - restarts the process with `GLOG_v=35` for the C++ trace (`INFER Vertex …` lines).
 
   The apiserver keeps the tail of the log.
 
 ## For the code
 
-- **Order matters on both engines.** The harness calls `engine.JetResources()` before the
+- **Order matters.** The harness calls `engine.JetResources()` before the
   first RDF session opens, because the meta graph locks then and a new meta resource is
-  refused afterwards: a nil node on Go, an error on C++. Input is asserted through
+  refused afterwards with an error. Input is asserted through
   `RunRuleSets`' `assertInput`, the pipeline's order. **Until 2026-10-11 (`I-15`) C++ was
   stricter**: a meta resource made after a session opened aborted the process, and so did
   asserting input before the first rete session, because the native session made its nodes
@@ -255,9 +273,8 @@ A check takes one of three forms:
   protocol reaches both.
 - **The checks read a snapshot of the session.** `DecodeNode` normalises the adaptors' type
   names, so a check never builds a node in the session it checks.
-- **The `LEGACY` switches** are passed to the engine constructor
-  (`compute_pipes.WithRetractionMode`, from `harness.RetractionModeOf`), so the rules load in the
-  test's mode; this harness is the only caller that passes anything but legacy. `legacy_mode` is
-  the mode the engine reports it was built in (`RetractionMode()` on either adaptor's engine),
-  and a run whose engine reports a different mode from the one the test declares is an `error`.
-  `legacy_mode_test.go` runs defect 1 in all four modes on both engines.
+- **The `LEGACY` switches were passed to the engine constructor** until October 2026
+  (`compute_pipes.WithRetractionMode`), so that a test chose its retraction mode; the mode, the
+  option and `create_jetstore_hdl_with_mode` are deleted, and every engine is built the one way.
+  `legacy_mode_test.go` runs defect 1 with no `legacy` object, with its switches `false`, and
+  with one `true`, which is refused.

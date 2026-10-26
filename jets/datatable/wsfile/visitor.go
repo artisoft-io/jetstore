@@ -113,8 +113,8 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // blast radius, and its comment says so.
 //
 // It was not hypothetical by then: S.3 added the `user_flows` section, and no
-// workspace in the corpus has a `user_flows/` directory — cedargate_ws, jets_ws,
-// usi_ws and walrus_ws all lack one at the commits this branch pins. The tree was
+// workspace in the corpus has a `user_flows/` directory — all four lack one at
+// the commits this branch pins. The tree was
 // failing for every workspace, and it read as a server error rather than as a
 // missing folder.
 //

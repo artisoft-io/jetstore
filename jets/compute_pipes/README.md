@@ -76,8 +76,8 @@ build in `internal/build_workspace.sh`.
 
 **Link 4 for Lambda only, and it is the asymmetry worth remembering.** A container process gets
 `WORKSPACES_REPO` copied to `WORKSPACES_HOME` by `cbooter` before the binary is exec'd
-(`jets/cmds/cbooter/main.go:180`, the `default` case covering `cpipes_server` and
-`cpipes_native_server`). **A Lambda has no cbooter** — its entrypoint is the runtime interface and its
+(`jets/cmds/cbooter/main.go`, the `default` case of `main`'s command switch, which covers
+`cpipes_native_server`; `cpipes_server` was deleted in October 2026). **A Lambda has no cbooter** — its entrypoint is the runtime interface and its
 `CMD` is the handler — so nothing copied anything. Confirmed inside `cpipes_lambda_jets_ws:latest`:
 `/workspaces/jets_ws/build/classes.json` exists and `/tmp` is empty, while the CDK gives the function
 `WORKSPACES_HOME=/tmp/workspaces` (`cdk/jetstore_one/stack/build_cpipes_lambdas.go`). That file is
@@ -150,10 +150,10 @@ content type and its own sync function, for the report lambdas.
 
 | Workspace | `workspace.tgz` | `workspace.db` | `lookup.db` | **fetched per cold start** | `lookup.db` share |
 |---|---:|---:|---:|---:|---:|
-| `cedargate_ws` | 113,110 | 401,408 | 7,909,376 | **8,423,894** — 8.0 MiB | 93.9% |
-| `walrus_ws` | 318,422 | 2,170,880 | 44,232,704 | **46,722,006** — 44.6 MiB | 94.7% |
+| client workspace C | 113,110 | 401,408 | 7,909,376 | **8,423,894** — 8.0 MiB | 93.9% |
+| client workspace B | 318,422 | 2,170,880 | 44,232,704 | **46,722,006** — 44.6 MiB | 94.7% |
 | `jets_ws` | 23,367 | 290,816 | 58,675,200 | **58,989,383** — 56.3 MiB | 99.5% |
-| `usi_ws` | 1,825,420 | 9,101,312 | 76,013,568 | **86,940,300** — 82.9 MiB | 87.4% |
+| client workspace A | 1,825,420 | 9,101,312 | 76,013,568 | **86,940,300** — 82.9 MiB | 87.4% |
 
 **`lookup.db` is 87–99.5% of every one of them.** `workspace.tgz` — the one people picture, since it
 is the archive that gets extracted — is under 2% everywhere.
@@ -166,16 +166,16 @@ variables, so a cold start pays it and warm invocations do not. The sharding sta
 
 So a run costs roughly `(nodes + 1) ×` the number above, and `cluster_config.default_max_concurrency`
 sets the ceiling on nodes. Across the corpus that ceiling is **4** (`embed_input_parts`), **20**
-(`jets_loader`) and **40** (`cedargate_ws`'s nine `qc_*` configs):
+(`jets_loader`) and **40** (nine quality-check configs of client workspace C):
 
-| Pipeline | ceiling | `cedargate_ws` | `walrus_ws` | `jets_ws` | `usi_ws` |
+| Pipeline | ceiling | C | B | `jets_ws` | A |
 |---|---:|---:|---:|---:|---:|
 | `embed_input_parts` | 4 | 40 MiB | 223 MiB | 281 MiB | 415 MiB |
 | `jets_loader` | 20 | 169 MiB | 936 MiB | 1.15 GiB | **1.70 GiB** |
 
 **Fan-out and workspace size are uncorrelated**, which is why the worst case is not where you would
-guess: `cedargate_ws` has the widest configs in the corpus and the smallest workspace by a factor of
-ten, so its 40-way runs move less than `usi_ws` moves at 4.
+guess: client workspace C has the widest configs in the corpus and the smallest workspace by a factor
+of ten, so its 40-way runs move less than A moves at 4.
 
 ### What is *not* measured, and why the shape matters more than the number
 
@@ -194,11 +194,14 @@ it will take, and it is an RDS question rather than a Lambda one.
 **A pipeline that configures no `lookup_tables` still fetches `lookup.db`.** The sync is by content
 type and takes every `sqlite` row; nothing consults the pipeline config. `lookup.db` is opened only
 through `jets/workspace/lookup_tables.go:103` (`buildLookupDb`, at compile, beside the read-only
-`storedLookupDbFingerprint` in `lookup_db_fingerprint.go`) and
-`jets/jetrules/rete/lookup_table_manager.go:40`, both reached only when a lookup is actually configured.
+`storedLookupDbFingerprint` in `lookup_db_fingerprint.go`), reached only when a lookup is actually
+configured, and by the rule engine. The C++ engine opens it every time it is built, lookups or not
+(`LookupSqlHelper::initialize`, `jets/rete/lookup_sql_helper.h`, read from the code 2026-10-22), so
+only a pipeline with a rules step reaches it; the Go engine, until its retirement in October 2026,
+opened it only for a configured lookup (`lookup_table_manager.go:40`, at the tag `go-engine-final`).
 
-Neither JetStore-owned pipeline configures one. So `jets_loader` and `embed_input_parts` each pull
-**87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on `usi_ws`.
+Neither JetStore-owned pipeline configures one, and neither has a rules step. So `jets_loader` and `embed_input_parts` each pull
+**87–99.5% of their cold-start bytes as a database they never open** — 76 MB of it on client workspace A.
 
 ## The jetrules caches, and the cold start of 2026-08-31
 
@@ -501,7 +504,7 @@ written.
 
 Measured 2026-09-21 across the four workspaces this repository is pinned beside: **34 bucket values
 carry a variable, in 5 documents** — 24 braced (`${CORPUS_OUT_BUCKET}`, `healthcare_corpus.pc.json`)
-and 10 bare-dollar (`$CGT_OUT_BUCKET`, `$CGT_SUMMARY_BUCKET`, four `cedargate_ws` documents).
+and 10 bare-dollar (two output-bucket keys, in four documents of client workspace C).
 **Nine of the ten env keys `prepareCpipesEnv` writes are bare-dollar**, so the bare form is the
 house spelling and the braced one is the exception.
 
@@ -577,9 +580,9 @@ invisible to pipelines, which is why they lasted.
 **`RdfNode.Equals` was false for a node and itself, on both engines.** The Go adaptor
 compared `EQ`'s result with `rdf.TRUE()` by pointer, and `TRUE()` makes a new node on every
 call. The native adaptor compared `*bridge.Resource` wrappers, and every read (`GetObject`,
-an iterator's `GetSubject`) allocates a new one. **It is now node identity on both**: the Go
-`*rdf.Node`, and on C++ the engine's handle (`bridge.Resource.SameAs`). Both engines intern
-resources and literals, so identity is *same resource, or literal of the same type and
+an iterator's `GetSubject`) allocates a new one. **It became node identity on both**: the Go
+`*rdf.Node`, and on C++ the engine's handle (`bridge.Resource.SameAs`), which is what it is
+since the Go engine's retirement (October 2026). The C++ engine interns resources and literals, so identity is *same resource, or literal of the same type and
 value*, which is what `Contains` and `FindSPO` match on. **There is no coercion**: `int 2`,
 `uint 2` and `double 2` are three nodes, although the rules' `==` (`EQ`) says `int 2 ==
 double 2`.
@@ -604,10 +607,9 @@ session before asserting input; the harness met it at once. Now:
 - every C entry point that writes to the meta graph catches and returns `-3`
   (`guard_meta`, `jets/rete/jets_rete_cwrapper.cpp`), so a refusal is an error in Go.
 
-**What still holds on both engines: make the meta resources you need before the first RDF
-session.** `JetResources()` is created on first use through the meta graph, so
+**What still holds: make the meta resources you need before the first RDF session.** `JetResources()` is created on first use through the meta graph, so
 `RunRuleSets`' precondition stands; the consequence of breaking it went from an abort on
-C++ to a refused node on both, whose `Value()` is nil.
+C++ to a refused node, whose `Value()` is nil (on both engines, while there were two).
 
 ## The keys on a jetrules error row, 2026-10-13
 
@@ -619,7 +621,8 @@ Two things about them were not visible from the code.
 **The subject in *"property X is not multi-value but has multiple values for subject S"*
 is the extracted entity, not the group.** `extractLiteralValue` is called per output
 entity, so S is that entity's resource name: for an entity made by `create_entity 0`, a
-fresh UUID that is also its `jets:key` (`CreateEntityKey`, `jets/jetrules/rdf/ast_r_operators.go`).
+fresh UUID that is also its `jets:key` (`CreateEntityVisitor`, `jets/rete/expr_op_resources.h`; on the
+retired Go engine `CreateEntityKey`, `jets/jetrules/rdf/ast_r_operators.go` at the tag `go-engine-final`).
 It names the output row, and says nothing about which input group produced it. That row now
 carries S's `jets:key` in `row_jets_key` (the resource name when it has none) and the
 property in `input_column`.
@@ -780,3 +783,11 @@ default `pass_through` keeps the record, logs the error and reports it to the er
 **Measured** by `column_evaluators_mapping_test.go`, which builds both modes directly, including a map
 column updated in place followed by a `count` with a `where` on it. No pipeline in the workspace corpus
 has a `map` column in an `aggregate` or a `map_reduce` as of 2026-10-18.
+
+## The rule optimizer's statistics, 2026-10-24
+
+**A jetrules step can count, over its sessions, what the rule optimizer orders by**:
+`optimizer_statistics` in its `jetrules_config`, off by default and free when off. The partials it
+writes are merged by the run_reports function `merge_optimizer_statistics` into a workspace override, which takes effect at the workspace's next compile.
+Full documentation: [`optimizer_statistics_readme.md`](optimizer_statistics_readme.md) — the option,
+the function, why it runs on demand, and what a later deployment does to the file.

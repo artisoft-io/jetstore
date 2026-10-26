@@ -27,7 +27,6 @@ func TestNeedsWorkspace(t *testing.T) {
 	want := map[string]bool{
 		"apiserver":            true,
 		"run_reports":          true,
-		"cpipes_server":        true,
 		"cpipes_native_server": true,
 		"infer_server":         false,
 		"anomaly_detect":       false,

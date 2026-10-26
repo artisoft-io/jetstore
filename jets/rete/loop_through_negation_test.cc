@@ -10,10 +10,10 @@
 #include "../rete/expr_op_arithmetics.h"
 #include "../rete/expr_op_resources.h"
 
-// THE usi_ws LOOP-CONTROL SHAPE, reduced to five rule terms.
+// A CLIENT WORKSPACE'S LOOP-CONTROL SHAPE, reduced to five rule terms.
 //
-// MSK_ADJ_LOOP010/LOOP020/MERGE_010 (MSK), adj11/adj12/adj20 (IM) and the topMatch /
-// mergeList rules (CM) all have this form:
+// The loop and merge rules of that workspace's three claim processes all have this
+// form:
 //
 //   v3  (?s rdf:type State).(?s matchList ?m).not(?s mergeList ?m) -> (?s priorityList ?m)
 //   v4  (?s rdf:type State).(?s loop ?n).[(?s exist priorityList)]
@@ -24,35 +24,27 @@
 //
 // topMatch supports mergeList, mergeList removes the priority list entry, and the empty
 // priority list withdraws the v4 row that inferred topMatch: an odd loop through
-// negation, which has no fixed point under correct truth maintenance. It terminates in
-// this engine because of two known defects, kept deliberately by Michel's decision of
-// 2026-10-09 (jets/jetrules/rete/README.md):
+// negation, which has no fixed point under correct truth maintenance.
 //
-//   - an aggregate consequent is recomputed on retraction: sorted_head over the now
-//     empty list gives null, so the topMatch inferred is not retracted;
-//   - a withdrawn row is never erased from its relation, so the v4 row is not
-//     re-admitted when its support comes back.
+// Until 2026-10 it terminated, because of two LEGACY defects kept by Michel's decision
+// of 2026-10-09: an aggregate consequent was recomputed on retraction (sorted_head over
+// the now empty list gave null, so the topMatch inferred was not retracted), and a
+// withdrawn row was never erased from its relation, so the v4 row was not re-admitted
+// when its support came back. This test was then a guard on that termination, run in
+// four retraction modes; it measured that with both defects off the network reaches the
+// vertex visit limit (-10), with replay alone every merge is undone, and with erasure
+// alone it ends merged.
 //
-// Measured on 2026-10-09: replaying the sorted_head consequent AND erasing withdrawn
-// rows makes this network hit the vertex visit limit (-10); replaying alone ends with
-// every merge undone; erasing alone ends as below. usi_ws runs MSK_ADJ_LOOP010/020 +
-// MERGE_010, adj11/adj12/adj20 and mcp1/mcp2/csc20 in this shape, and with
-// _0:no_truth_main_on_exist off they cycled without end under the full fix.
-//
-// THIS IS A GUARD, NOT A SPECIFICATION. It pins that the shape terminates with both
-// items merged, as the engine at 45dd7851 does. If a change to truth maintenance makes
-// it fail, that change needs option (b) or (c) of the README entry, not a new
-// expectation here.
-//
-// The guard is the "legacy" instance. The other three run the same network in the
-// retraction modes the rules unit test harness can select (RetractionMode,
-// rete_meta_store.h) and pin the measurement above: "fixed" (both defects off) ends at
-// the vertex visit limit, -10; "fixed-1" (replay only) terminates with every merge
-// undone; "fixed-2" (erase only) terminates as legacy does.
+// The defects were deleted in 2026-10, with the mode (jets/rete/README.md, the
+// retraction record): the workspace's loop rules had been rewritten so as not to rely on
+// them, and computed the same under the fixed behaviour. So THIS IS NOW A SPECIFICATION:
+// the shape does not terminate, and the vertex visit limit is what stops it. A rule set
+// written in this shape fails the session rather than ending on what the defects left.
+// It was LoopControlRulesTerminate, and its "legacy" instance the guard.
 namespace jets::rete {
 namespace {
 
-class LoopThroughNegationTest : public ::testing::TestWithParam<RetractionMode> {
+class LoopThroughNegationTest : public ::testing::Test {
  protected:
   ~LoopThroughNegationTest() {
     if(this->rete_session) this->rete_session->terminate();
@@ -131,7 +123,7 @@ class LoopThroughNegationTest : public ::testing::TestWithParam<RetractionMode> 
     an.push_back(create_alpha_node<F_binded, F_cst, F_binded>(nv[5].get(), 0, false, "", F_binded(0), F_cst(merge), F_binded(1)));
 
     this->rete_meta_store = create_rete_meta_store({}, an, nv);
-    this->rete_meta_store->initialize(this->GetParam());
+    this->rete_meta_store->initialize();
     rmgr->set_locked();
     meta_graph->set_locked();
 
@@ -176,41 +168,11 @@ class LoopThroughNegationTest : public ::testing::TestWithParam<RetractionMode> 
   rdf::RDFSessionPtr rdf_session;
 };
 
-TEST_P(LoopThroughNegationTest, LoopControlRulesTerminate) {
-  auto const& mode = this->GetParam();
+TEST_F(LoopThroughNegationTest, LoopThroughNegationReachesTheVertexLimit) {
   this->build();
-  int err = this->run_loops(3);
-  if(mode.replay_graph_reading_consequents and mode.erase_withdrawn_rows) {
-    // No fixed point under correct truth maintenance.
-    EXPECT_EQ(err, -10) << "with both defects off the shape must reach the vertex visit limit";
-    return;
-  }
-  ASSERT_EQ(err, 0) << "the loop rules cycled: -10 is the vertex visit limit";
-  // Legacy and fixed-2: both merged. Fixed-1: topMatch is replayed away when the
-  // priority list empties, which un-merges both, and the stale v3 rows never re-fire.
-  bool merged = not mode.replay_graph_reading_consequents;
-  EXPECT_EQ(this->has("topMatch", "m1"), merged);
-  EXPECT_EQ(this->has("topMatch", "m2"), merged);
-  EXPECT_EQ(this->has("mergeList", "m1"), merged) << "a merge was undone or kept";
-  EXPECT_EQ(this->has("mergeList", "m2"), merged) << "a merge was undone or kept";
-  EXPECT_FALSE(this->has("priorityList", "m1"));
-  EXPECT_FALSE(this->has("priorityList", "m2"));
+  EXPECT_EQ(this->run_loops(3), -10)
+    << "an odd loop through negation has no fixed point: the vertex visit limit stops it";
 }
-
-std::string mode_name(::testing::TestParamInfo<RetractionMode> const& info)
-{
-  std::string label = info.param.label();
-  for(auto & c: label) if(c == '-') c = '_';
-  return label;
-}
-
-INSTANTIATE_TEST_SUITE_P(RetractionModes, LoopThroughNegationTest,
-  ::testing::Values(
-    RetractionMode{false, false},
-    RetractionMode{true, false},
-    RetractionMode{false, true},
-    RetractionMode{true, true}),
-  mode_name);
 
 }   // namespace
 }   // namespace jets::rete

@@ -7,66 +7,43 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// This file contains the definition of the interface for jetrules native and go versions integration.
+// This file contains the definition of the interface for the jetrules engine integration.
+// There is one engine, the C++ engine, reached through jetrules_native_adaptor.
 
+// JetRulesProxy gives compute pipes the rule engine of the binary it runs in.
+// GetNativeFactory returns nil in a binary that carries no rule engine (cp_node, the
+// cpipesSM node): a jetrules step there fails with NoRuleEngineOnNode rather than run
+// on anything else.
 type JetRulesProxy interface {
-	GetDefaultFactory() JetRulesFactory
-	GetGoFactory() JetRulesFactory
 	GetNativeFactory() JetRulesFactory
 }
 
+// GoEngineRetired names the retirement of the Go JetRules engine, in the message a
+// request for it fails with. Rules ran on two engines, C++ and Go, until October 2026,
+// when the Go engine was deleted; a request for it is refused rather than run on C++,
+// so nobody gets the engine they did not ask for without being told. The rules unit
+// test harness refuses with the same words (rulestest.GoEngineRetired), which a test
+// checks; it is not imported from there, so that this package stays below rulestest.
+const GoEngineRetired = "the Go JetRules engine was retired in October 2026; rules run on the C++ engine only"
+
+// NoRuleEngineOnNode is the message a jetrules step fails with on a node that carries
+// no rule engine.
+const NoRuleEngineOnNode = "this compute pipes node has no rule engine: a jetrules step runs on the C++ engine, " +
+	"in the native node (state machine cpipesNativeSM, Lambda cp_node_native); this node is the cpipesSM one (cp_node), " +
+	"which runs the steps that are not rules"
+
 type JetRulesFactory interface {
 	JetRulesName() string
-	// NewJetRuleEngine builds the rule networks of processName. opts are applied before
-	// the rules load; a pipeline passes none and gets the legacy engine.
-	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool, opts ...EngineOption) (JetRuleEngine, error)
+	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool) (JetRuleEngine, error)
 	ClearCache() bool
-}
-
-// RetractionMode is the LEGACY retraction mode a rule engine is built in: whether a
-// graph-reading consequent is replayed rather than recomputed on retraction (defect 1
-// off) and whether a withdrawn row is erased (defect 2 off). The zero value is legacy
-// for both, which is what every pipeline runs. See jets/jetrules/rete/README.md,
-// 2026-10-09 and 2026-10-11; the C++ engine's twin is jets::rete::RetractionMode.
-type RetractionMode = rete.RetractionMode
-
-// EngineOptions are what NewJetRuleEngine's options set.
-type EngineOptions struct {
-	RetractionMode RetractionMode
-}
-
-// EngineOption configures one NewJetRuleEngine call.
-type EngineOption func(*EngineOptions)
-
-// WithRetractionMode builds the engine in mode, in both adaptors. Only the rules unit
-// test harness passes it, from a test definition's legacy object: there is
-// deliberately no JetrulesSpec field and no rule_config key that reaches it, so a
-// pipeline cannot turn a LEGACY defect off.
-func WithRetractionMode(mode RetractionMode) EngineOption {
-	return func(o *EngineOptions) {
-		o.RetractionMode = mode
-	}
-}
-
-// ApplyEngineOptions folds opts into EngineOptions, for the adaptors.
-func ApplyEngineOptions(opts ...EngineOption) EngineOptions {
-	var o EngineOptions
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&o)
-		}
-	}
-	return o
 }
 
 type JetRuleEngine interface {
 	MainRuleFile() string
 	JetResources() *JetResources
-	GetMetaGraphTriples() []string
 
 	GetMetaResourceManager() JetResourceManager
 	Insert(s, p RdfNode, o RdfNode) error
@@ -95,6 +72,11 @@ type JetRdfSession interface {
 
 	Insert(s, p RdfNode, o RdfNode) error
 	Erase(s, p RdfNode, o RdfNode) (bool, error)
+	// Retract deletes an asserted fact, whatever the number of times it was
+	// inserted, and reports whether the session held it. The rete withdraws what
+	// was inferred from it at the next ExecuteRules. It is not the engines'
+	// one-support retraction of an inferred triple, which the rete performs
+	// itself and which this interface does not expose.
 	Retract(s, p RdfNode, o RdfNode) (bool, error)
 	Contains(s, p RdfNode, o RdfNode) bool
 	ContainsSP(s, p RdfNode) bool
@@ -113,6 +95,24 @@ type JetRdfSession interface {
 type JetReteSession interface {
 	ExecuteRules() error
 	Release() error
+}
+
+// VertexObservation is what one vertex of a rete session's network holds: the
+// rows of its beta relation now and at their most in this rule set's session, and
+// the times its consequents were computed and retracted.
+type VertexObservation struct {
+	Vertex    int   `json:"vertex"`
+	RowsNow   int64 `json:"rows_now"`
+	RowsPeak  int64 `json:"rows_peak"`
+	Inferred  int64 `json:"inferred"`
+	Retracted int64 `json:"retracted"`
+}
+
+// VertexObserver is a JetReteSession whose network can be observed per vertex.
+// The native adaptor's is one; nothing in a pipeline calls it (rules_bench
+// -observe does).
+type VertexObserver interface {
+	ObserveVertices() ([]VertexObservation, error)
 }
 
 type TripleIterator interface {

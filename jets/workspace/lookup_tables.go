@@ -14,6 +14,11 @@ import (
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+
+	// The "sqlite" driver lookup.db is written and fingerprinted with. It was
+	// registered by the Go engine's lookup table manager until that engine's
+	// deletion (October 2026), which this package relied on without importing it.
+	_ "modernc.org/sqlite"
 )
 
 // This file contains functions to package lookup tables into lookup.db
@@ -209,7 +214,7 @@ func buildLookupDb(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, s
 						case "bool":
 							// Empty is null and anything outside the accepted
 							// spellings stops the compile, naming where (I-45).
-							// Both engines serve a NULL bool column as rdf null.
+							// The engine serves a NULL bool column as rdf null.
 							b, err := rdf.ParseBool(val)
 							switch {
 							case errors.Is(err, rdf.ErrNullBool):

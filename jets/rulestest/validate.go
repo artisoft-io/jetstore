@@ -35,8 +35,16 @@ var topLevelOnly = map[string]bool{"legacy": true, "compare_engines": true, "exp
 // RdfTypes are the type names ParseRdfNodeValue reads.
 var RdfTypes = []string{"null", "bn", "resource", "int", "bool", "long", "uint", "ulong", "double", "text", "date", "datetime"}
 
-// NoTruthMainOnExist is the C++-only rule_config switch (definition F14).
+// NoTruthMainOnExist was the C++ engine's rule_config switch (definition F14),
+// deleted with the LEGACY retraction mode: a rule_config that still turns it on is
+// refused here, and by the engine at session start.
 const NoTruthMainOnExist = "_0:no_truth_main_on_exist"
+
+// GoEngineRetired names the retirement of the Go JetRules engine in the message a
+// request for it fails with: use_jet_rules_go or compare_engines in a test, -engine go
+// on the command line. compute_pipes refuses use_jet_rules_go in a pipeline with the
+// same words, compute_pipes.GoEngineRetired, which a compute_pipes test checks equal.
+const GoEngineRetired = "the Go JetRules engine was retired in October 2026; rules run on the C++ engine only"
 
 var variableRe = regexp.MustCompile(`^\?[A-Za-z_][A-Za-z0-9_]*$`)
 
@@ -310,6 +318,27 @@ func checkTypedValue(v map[string]any, ptr string) []wsvalidate.Finding {
 	return findings
 }
 
+// SetsNoTruthMainOnExist reports whether a rule_config row turns on the deleted
+// _0:no_truth_main_on_exist: any value but {"value": "0", "type": <an integer
+// type>}, which asks for what remains.
+func SetsNoTruthMainOnExist(rc map[string]any) bool {
+	v, present := rc[NoTruthMainOnExist]
+	return present && !isIntegerZero(v)
+}
+
+func isIntegerZero(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	switch m["type"] {
+	case "int", "long", "uint", "ulong":
+		n, err := strconv.ParseInt(fmt.Sprint(m["value"]), 10, 64)
+		return err == nil && n == 0
+	}
+	return false
+}
+
 func isRdfType(t string) bool {
 	for _, k := range RdfTypes {
 		if t == k {
@@ -332,6 +361,14 @@ func validateDefinition(td *TestDefinition, raw map[string]any) []wsvalidate.Fin
 			f = append(f, errorf(CodeInvalidValue, "/expect/status",
 				"expect.status must be %q; a test that expects to pass needs no expect", StatusError))
 		}
+	}
+	// The LEGACY retraction mode is deleted: a switch that asks for one of its
+	// behaviours is refused rather than run on the one that remains (rules_benchmark
+	// Q-102); every present switch false asks for what remains, and is accepted.
+	for _, name := range td.Legacy.SwitchesOn() {
+		f = append(f, errorf(CodeRefused, "/legacy/"+name,
+			"legacy.%s: true asks for a LEGACY retraction behaviour: %s; remove it or set it to false",
+			name, LegacyRetractionDeleted))
 	}
 	f = append(f, validateJetrulesConfig(td, raw)...)
 	if len(td.InputSessions) == 0 {
@@ -376,13 +413,15 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 		f = append(f, errorf(CodeRequired, "/jetrules_config/process_name",
 			"process_name is required: a rule file listed in rule_sets, or a rule sequence name"))
 	}
-	if jc.UseJetRulesNative && jc.UseJetRulesGo {
-		f = append(f, errorf(CodeConflict, "/jetrules_config/use_jet_rules_go",
-			"use_jet_rules_go and use_jet_rules_native are both set; a test runs on one engine, or on both with compare_engines"))
+	// The Go engine is retired: a test asking for it fails validation rather than run
+	// on C++ where Go was asked for (rules_benchmark Q-77).
+	if jc.UseJetRulesGo {
+		f = append(f, errorf(CodeRefused, "/jetrules_config/use_jet_rules_go",
+			"use_jet_rules_go asks for the Go engine: %s; remove it", GoEngineRetired))
 	}
-	if td.CompareEngines && (jc.UseJetRulesNative || jc.UseJetRulesGo) {
-		f = append(f, errorf(CodeConflict, "/compare_engines",
-			"compare_engines runs both engines; remove use_jet_rules_go and use_jet_rules_native"))
+	if td.CompareEngines {
+		f = append(f, errorf(CodeRefused, "/compare_engines",
+			"compare_engines ran the test on both engines, C++ and Go: %s; remove it", GoEngineRetired))
 	}
 	if jc.CurrentSourcePeriod != 0 && jc.CurrentSourcePeriodType == "" {
 		// AssertSourcePeriodInfo replaces a period without a type by the
@@ -393,7 +432,6 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 	if jc.MaxLooping < 0 {
 		f = append(f, errorf(CodeInvalidValue, "/jetrules_config/max_looping", "max_looping must not be negative"))
 	}
-	runsGo := jc.UseJetRulesGo || td.CompareEngines
 	for i, rc := range jc.RuleConfig {
 		rptr := fmt.Sprintf("/jetrules_config/rule_config/%d", i)
 		for _, key := range sortedKeys(rc) {
@@ -406,9 +444,10 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 				f = append(f, errorf(CodeInvalidValue, kptr,
 					`a rule_config value is a string (text) or {"value": "...", "type": "..."}`))
 			}
-			if key == NoTruthMainOnExist && runsGo {
+			if key == NoTruthMainOnExist && SetsNoTruthMainOnExist(rc) {
 				f = append(f, errorf(CodeRefused, kptr,
-					"%s exists only in the C++ engine; the Go engine would ignore it (use_jet_rules_go or compare_engines is set)", key))
+					"%s turned off truth maintenance on exist and exist_not filters: %s; remove it",
+					NoTruthMainOnExist, LegacyRetractionDeleted))
 			}
 		}
 	}

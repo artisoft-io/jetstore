@@ -45,7 +45,7 @@ const (
 	ValidatorScriptEnvVar = "JETS_WORKSPACE_VALIDATOR"
 )
 
-// The script reads and parses JSON and nothing else: 0.13 s over cedargate_ws's
+// The script reads and parses JSON and nothing else: 0.13 s over one client workspace's
 // 46 flow documents and 36 tables, measured 2026-10-01. Two minutes is room for a
 // cold disk and a slow container, and a hang is a failure rather than a compile
 // that never returns.

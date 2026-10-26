@@ -134,7 +134,7 @@ func TestADeepLinkSurvivesAReload(t *testing.T) {
 
 	for _, deep := range []string{
 		"/workspace",
-		"/workspaces/cedargate_ws/home",
+		"/workspaces/my_ws/home",
 		"/flow/loadFilesUF",
 		"/processErrors/123",
 		"/register",

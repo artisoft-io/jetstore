@@ -61,6 +61,14 @@ type JetRuleListener struct {
 	// compiled directly.
 	ruleFileReader *RuleFileReader
 	currentLine    int
+
+	// The cost order (jet_rule_listener_cost_order.go). statisticsFile is empty
+	// when the workspace has no statistics; statistics is nil when it has them
+	// and not for this rule set. Either way rules are ordered by score.
+	statisticsFile string
+	statistics     RuleSetStatistics
+	costTrace      bool
+	costReport     costOrderReport
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {

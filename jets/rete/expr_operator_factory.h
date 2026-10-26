@@ -22,20 +22,24 @@
 //
 // An aggregate operator reads every value of a property, or of the properties a
 // config names with jets:entity_property / jets:value_property: max_of, min_of,
-// max_head_of, min_head_of, sorted_head, sum_values, join_values, size_of.
+// sorted_head, sum_values, join_values, size_of.
 //
 // Every aggregate MUST be listed in consequentAggregateOps in
 //     jets/compilerv2/compiler/jet_rule_listener_aggregate_salience.go
 //
-// Why: an aggregate in a consequent is computed once, when its rule fires; neither
-// engine recomputes a consequent. So the compiler rejects an aggregate whose
+// Why: an aggregate in a consequent is computed once, when its rule fires; the
+// engine does not recompute a consequent. So the compiler rejects an aggregate whose
 // salience is not below every rule that writes what it reads. An aggregate missing
 // from that list is never checked, and a rule using it can aggregate over part of
 // its values with no error anywhere. Three production rules did exactly that.
 //
-// Add the operator to BOTH engines (jets/rete/expr_operator_factory.h and
-// jets/jetrules/rete/expr_operator_factory.go) and to that list, in the same change.
-// Lines marked AGGREGATE below are the ones the list must cover.
+// Register the operator here and list it in jets/compilerv2/compiler/operators.txt and in
+// consequentAggregateOps, in the same change (jets/rete/operator_list_test.cc checks
+// operators.txt). Lines marked AGGREGATE are the ones consequentAggregateOps must cover.
+//
+// ADDING AN OPERATOR THAT INSERTS INTO THE SESSION? The compiler refuses it in a
+// filter only if operators.txt marks it writes_graph
+// (jets/compilerv2/compiler/operators.txt): mark it there in the same change.
 // =====================================================================================
 namespace jets::rete {
 

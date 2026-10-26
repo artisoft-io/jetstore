@@ -212,10 +212,10 @@ const configNoErrorChannel = `[{"type":"fan_out","input_channel":{"name":"input"
 // the right subject for a writer that emits one incident per locus.
 func multiLocusSession(t *testing.T, pool *pgxpool.Pool, session string) {
 	t.Helper()
-	k := header(t, pool, "cgt", "loader", "claims", session, "failed", fixtureNow.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", session, "reducing01", 0, "failed", 5000, 0, "boom,bang", fixtureNow.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", session, "reducing01", 1, "", 0, 0, "", fixtureNow.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", session, "reducing01", 2, "completed", 8000, 40, "", fixtureNow.Add(-time.Hour))
+	k := header(t, pool, "client2", "loader", "claims", session, "failed", fixtureNow.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", session, "reducing01", 0, "failed", 5000, 0, "boom,bang", fixtureNow.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", session, "reducing01", 1, "", 0, 0, "", fixtureNow.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", session, "reducing01", 2, "completed", 8000, 40, "", fixtureNow.Add(-time.Hour))
 	processErrors(t, pool, k, session, 20, 0)
 	storeConfig(t, pool, k, session, configNoErrorChannel)
 }
@@ -224,8 +224,8 @@ func multiLocusSession(t *testing.T, pool *pgxpool.Pool, session string) {
 // so it can be written on a deployment that has never been migrated.
 func failedWorkerSession(t *testing.T, pool *pgxpool.Pool, session string) {
 	t.Helper()
-	k := header(t, pool, "cgt", "loader", "claims", session, "failed", fixtureNow.Add(-time.Hour))
-	workerRow(t, pool, k, "cgt", "loader", session, "reducing01", 0, "failed", 5000, 0, "boom", fixtureNow.Add(-time.Hour))
+	k := header(t, pool, "client2", "loader", "claims", session, "failed", fixtureNow.Add(-time.Hour))
+	workerRow(t, pool, k, "client2", "loader", session, "reducing01", 0, "failed", 5000, 0, "boom", fixtureNow.Add(-time.Hour))
 }
 
 func testWriter() Writer {

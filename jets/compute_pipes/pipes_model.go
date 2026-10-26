@@ -1224,11 +1224,9 @@ type SortSpec struct {
 
 // JetrulesSpec configuration
 // ProcessName is the jetrules process name to use.
-// UseJetRulesNative when true use the jetrules native engine.
-// UseJetRulesGo when true use the jetrules go engine.
-// Note: only one of UseJetRulesNative or UseJetRulesGo can be true.
-// When both are false, the default is to use the jetrules native engine when
-// available.
+// UseJetRulesNative names the C++ engine, the only one; set or not, it is used.
+// UseJetRulesGo asked for the Go engine, retired in October 2026: true is refused
+// when the pipeline starts (validateNoGoEngine), false is accepted.
 // InputRdfType is the rdf type (class name) of the input records.
 // MaxInputCount is the max nbr of input records to process.
 // PoolSize is the nbr of worker pool size.
@@ -1272,6 +1270,16 @@ type JetrulesSpec struct {
 	OnError       string               `json:"on_error,omitempty"`
 	MaxErrorCount int                  `json:"max_error_count,omitzero"`
 	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
+	// OptimizerStatistics counts the rule optimizer's statistics (jets/optstats)
+	// over the step's sessions: after each rule set of each session, the graph the
+	// rule set ended with, for the predicates and constants of its antecedents.
+	// Each node writes one partial file under its session's stage folder,
+	// <stage>/process_name=<process>/session_id=<session>/optimizer_statistics/,
+	// when its sessions are done; the run_reports function
+	// merge_optimizer_statistics merges them into the workspace. Off by default,
+	// and free when off: nothing is loaded, allocated or counted. It is for a
+	// statistics process run on demand, not for every production run.
+	OptimizerStatistics bool `json:"optimizer_statistics,omitzero"`
 }
 
 // PromptTemplateSpec is a named prompt template, defined at the ComputePipesConfig level

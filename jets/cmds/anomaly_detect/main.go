@@ -13,7 +13,7 @@
 //	anomaly_detect -session <session id> -dry-run
 //
 // The DSN comes from JETS_DSN_URI_VALUE, or from JETS_DSN_JSON_VALUE by the
-// same route update_db and cpipes_server take (awsi.GetDsnFromJson), or from
+// same route update_db and cpipes_native_server take (awsi.GetDsnFromJson), or from
 // -dsn. Nothing here writes outside jetsapi.anomaly.
 //
 // # Two things it refuses to do rather than doing badly

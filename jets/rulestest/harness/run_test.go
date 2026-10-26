@@ -1,13 +1,15 @@
 package harness
 
-// harness.Run end to end on the Go engine: a scratch workspace with test
+// harness.Run end to end on the C++ engine: a scratch workspace with test
 // definitions and CSVs, compiled in a child process (the rete, workspace and
 // compute_pipes packages bind the workspace in init, definition F16), then each
 // test run through Run as the rules_unit_test command runs it.
 //
-// The C++ engine is not linked into this package's tests, which keeps them
-// buildable without libjets.so. The same fixtures were run through the command
-// on C++; see the command's README.
+// These ran on the Go engine, which kept them buildable without libjets.so, until
+// the Go engine's retirement (rules_benchmark Phase 6, October 2026); they now link
+// the C++ engine and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// (CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH set to a libjets.so of this commit).
+// A C++ engine that does not build fails the test, as a test that does not run does.
 //
 // -count=1: these tests compile files outside the module's cache key, and
 // TestRunOnJetsWsEligibility reads workspaces/jets_ws.
@@ -20,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
@@ -98,11 +100,11 @@ func compileInChild(t *testing.T, ws string) string {
 	return filepath.Join(os.Getenv("WORKSPACES_HOME"), ws)
 }
 
-func goOnly(root, test string) *rulestest.Result {
+func runTest(root, test string) *rulestest.Result {
 	return Run(Options{
 		WorkspaceRoot: root,
 		TestPath:      test,
-		Factories:     Factories{Go: jetrules_go_adaptor.NewJetRulesFactory()},
+		Factory:       jetrules_native_adaptor.NewJetRulesFactory(),
 	})
 }
 
@@ -135,11 +137,19 @@ p2,lp:Person,Bob
 p3,lp:Person,
 `
 
+// vertexCap is 10,000 visits, given to the fixtures through rule_config: the Go
+// engine's default, and C++'s since rules_benchmark Q-83, set explicitly so a rule
+// that stopped terminating fails the test instead of hanging it, whatever the default.
+func vertexCap() []any {
+	return []any{map[string]any{"jets:key": "jets:iState",
+		"jets:max_vertex_visits": map[string]any{"value": "10000", "type": "int"}}}
+}
+
 func lpTest(mod func(map[string]any)) string {
 	d := map[string]any{
 		"test_name": "greetings",
 		"jetrules_config": map[string]any{
-			"process_name": "jet_rules/unit_tests/lp/lp_test.jr", "use_jet_rules_go": true,
+			"process_name": "jet_rules/unit_tests/lp/lp_test.jr", "rule_config": vertexCap(),
 		},
 		"input_sessions": []any{map[string]any{
 			"name": "three persons", "input": []any{"persons.csv"},
@@ -181,7 +191,19 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "persons_badcol.csv":  "jets:key,rdf:type,lp:nme\np1,lp:Person,Ann\n",
 		u + "persons_badcell.csv": "jets:key,rdf:type,lp:name\np1,lp:Person\n",
 		u + "state.csv":           "jets:key,rdf:type\njets:iState,jets:State\n",
-		u + "pass.tst.json":       lpTest(nil),
+		// I-20: rule-local columns, typed and untyped, a blank cell, an array
+		u + "local.csv": "jets:key,rdf:type,lp:name,_0:score as int,_0:tag\n" +
+			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\np3,lp:Person,Cy,{},{}\n",
+		u + "local_nokey.csv":         "rdf:type,lp:name,_0:score\nlp:Person,Ann,3\n",
+		u + "local_badtype.csv":       "jets:key,rdf:type,_0:score as float\np1,lp:Person,3\n",
+		u + "local_badcell.csv":       "jets:key,rdf:type,_0:score as int\np1,lp:Person,abc\n",
+		u + "local_blankkey.csv":      "jets:key,rdf:type,_0:score as int\n,lp:Person,3\n",
+		u + "local.tst.json":          localTest("local.csv"),
+		u + "local_nokey.tst.json":    localTest("local_nokey.csv"),
+		u + "local_badtype.tst.json":  localTest("local_badtype.csv"),
+		u + "local_badcell.tst.json":  localTest("local_badcell.csv"),
+		u + "local_blankkey.tst.json": localTest("local_blankkey.csv"),
+		u + "pass.tst.json":           lpTest(nil),
 		u + "fail.tst.json": lpTest(func(d map[string]any) {
 			d["excluded_triples"] = []any{map[string]any{"s": "p1", "p": "lp:greeting", "o": "?g"}}
 		}),
@@ -191,8 +213,15 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "badcell.tst.json": lpTest(func(d map[string]any) {
 			d["input_sessions"].([]any)[0].(map[string]any)["input"] = []any{"persons_badcell.csv"}
 		}),
-		u + "native.tst.json":     lpTest(func(d map[string]any) { delete(cfg(d), "use_jet_rules_go") }),
+		u + "native.tst.json":     lpTest(func(d map[string]any) { cfg(d)["use_jet_rules_native"] = true }),
+		u + "go.tst.json":         lpTest(func(d map[string]any) { cfg(d)["use_jet_rules_go"] = true }),
+		u + "compare.tst.json":    lpTest(func(d map[string]any) { d["compare_engines"] = true }),
 		u + "legacy_off.tst.json": lpTest(func(d map[string]any) { d["legacy"] = map[string]any{"recompute_on_retraction": false} }),
+		u + "legacy_on.tst.json":  lpTest(func(d map[string]any) { d["legacy"] = map[string]any{"withdrawn_row_stays": true} }),
+		u + "no_truth.tst.json": lpTest(func(d map[string]any) {
+			cfg(d)["rule_config"] = append(vertexCap(), map[string]any{"jets:key": "jets:iState",
+				rulestest.NoTruthMainOnExist: map[string]any{"value": "1", "type": "int"}})
+		}),
 		u + "invalid.tst.json":    lpTest(func(d map[string]any) { cfg(d)["pool_size"] = 2 }),
 		u + "no_process.tst.json": lpTest(func(d map[string]any) { cfg(d)["process_name"] = "jet_rules/nothing.jr" }),
 		u + "bad_check.tst.json": lpTest(func(d map[string]any) {
@@ -208,6 +237,32 @@ func TestRunOnTestWs(t *testing.T) {
 	runChild(t, "TestRunOnTestWs", home, "test_ws")
 }
 
+// localTest asserts file, whose _0: columns are rule-local properties (I-20),
+// and checks what the session holds for them.
+func localTest(file string) string {
+	count := func(s, p, n string) map[string]any {
+		return map[string]any{"s": s, "p": p, "count": map[string]any{
+			"lhs": map[string]any{"type": "select", "expr": "count"}, "op": "==",
+			"rhs": map[string]any{"type": "value", "expr": n}}}
+	}
+	return lpTest(func(d map[string]any) {
+		d["input_sessions"] = []any{map[string]any{"name": "local columns", "input": []any{file}}}
+		d["expected_triples"] = []any{
+			map[string]any{"s": "p1", "p": "_0:score", "o": map[string]any{"value": "3", "type": "int"}},
+			map[string]any{"s": "p1", "p": "_0:tag", "o": "a"},
+			map[string]any{"s": "p1", "p": "_0:tag", "o": "b"},
+			map[string]any{"s": "p2", "p": "_0:tag", "o": "c"},
+			// a blank cell asserts nothing, and neither does {}
+			count("p2", "_0:score", "0"),
+			count("p3", "_0:score", "0"),
+			count("p3", "_0:tag", "0"),
+			// the data property beside them is asserted as before
+			map[string]any{"s": "p1", "p": "lp:greeting", "o": "hello Ann"},
+		}
+		delete(d, "excluded_triples")
+	})
+}
+
 // loopTest runs test_looping_main.jr, which completes at loop 3, with a
 // maximum of max, and expects it to reach the maximum.
 func loopTest(max int, expect bool) string {
@@ -215,7 +270,7 @@ func loopTest(max int, expect bool) string {
 		"test_name": "loop to the limit",
 		"expect":    map[string]any{"status": "error", "reason": "maximum loop count"},
 		"jetrules_config": map[string]any{
-			"process_name": "jet_rules/test_looping_main.jr", "use_jet_rules_go": true, "max_looping": max,
+			"process_name": "jet_rules/test_looping_main.jr", "max_looping": max, "rule_config": vertexCap(),
 		},
 		"input_sessions": []any{map[string]any{"name": "state", "input": []any{"state.csv"}}},
 		"expected_triples": []any{map[string]any{"pattern": []any{
@@ -235,9 +290,9 @@ func runOnTestWsChild(t *testing.T) {
 	u := "jet_rules/unit_tests/lp/"
 
 	// Criterion 4's content: a result with its engine, mode, timings and checks.
-	r := goOnly(root, u+"pass.tst.json")
+	r := runTest(root, u+"pass.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
-	if r.Engine != rulestest.EngineGo || r.LegacyMode != rulestest.LegacyModeLegacy || r.Sessions != 1 ||
+	if r.Engine != rulestest.EngineNative || r.LegacyMode != rulestest.LegacyModeFixed || r.Sessions != 1 ||
 		len(r.Checks) != 4 || r.TestPath != u+"pass.tst.json" || r.TestName != "greetings" {
 		t.Errorf("pass result: %+v", r)
 	}
@@ -247,53 +302,83 @@ func runOnTestWsChild(t *testing.T) {
 		}
 	}
 
-	wantResult(t, goOnly(root, u+"fail.tst.json"), rulestest.StatusFail, "1 of 4 checks failed")
+	wantResult(t, runTest(root, u+"fail.tst.json"), rulestest.StatusFail, "1 of 4 checks failed")
 
 	// Criterion 6: a misspelt column names the closest property; a short row is refused.
-	wantResult(t, goOnly(root, u+"badcol.tst.json"), rulestest.StatusError,
+	wantResult(t, runTest(root, u+"badcol.tst.json"), rulestest.StatusError,
 		"input file persons_badcol.csv: column 'lp:nme' is not a data property of the workspace; did you mean 'lp:name'?")
-	wantResult(t, goOnly(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
+	wantResult(t, runTest(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
 
-	// Criterion 10, the Go half: the default engine is C++, and a harness
-	// without it refuses rather than running Go in its place.
-	r = goOnly(root, u+"native.tst.json")
+	// I-20: a _0: column is asserted on the row's jets:key, cast by the type its
+	// header gives (text by default); without a jets:key, with a type the grammar
+	// does not have, or with a cell that does not cast, the test is an error.
+	r = runTest(root, u+"local.tst.json")
+	wantResult(t, r, rulestest.StatusPass, "")
+	if len(r.Checks) != 8 {
+		t.Errorf("local columns: %d checks, want 8", len(r.Checks))
+	}
+	wantResult(t, runTest(root, u+"local_nokey.tst.json"), rulestest.StatusError,
+		"input file local_nokey.csv: a _0: column is asserted on the row's jets:key, and the file has no jets:key column")
+	wantResult(t, runTest(root, u+"local_badtype.tst.json"), rulestest.StatusError,
+		"input file local_badtype.csv: column '_0:score as float' is a rule-local property")
+	wantResult(t, runTest(root, u+"local_badcell.tst.json"), rulestest.StatusError,
+		"input file local_badcell.csv line 2: column '_0:score' value 'abc' is not a int")
+	wantResult(t, runTest(root, u+"local_blankkey.tst.json"), rulestest.StatusError,
+		"column '_0:score' has a value and jets:key is blank")
+
+	// Criterion 10: the engine is C++, use_jet_rules_native names it, and a harness
+	// without it refuses rather than running anything in its place.
+	wantResult(t, runTest(root, u+"native.tst.json"), rulestest.StatusPass, "")
+	r = Run(Options{WorkspaceRoot: root, TestPath: u + "pass.tst.json"})
 	wantResult(t, r, rulestest.StatusError, "the native engine is not available")
 	if r.Engine != rulestest.EngineNative {
 		t.Errorf("engine %q, want native", r.Engine)
 	}
 
-	// A LEGACY switch turned off reaches the engine (AF.6): the greetings involve no
-	// retraction, so the test passes as in legacy, and the result records the mode
-	// the engine reports it was built in.
-	r = goOnly(root, u+"legacy_off.tst.json")
-	wantResult(t, r, rulestest.StatusPass, "")
-	if r.LegacyMode != rulestest.LegacyModeFixed1 {
-		t.Errorf("legacy mode %q", r.LegacyMode)
+	// The Go engine is retired (rules_benchmark Q-77): a test asking for it, alone
+	// or compared, fails validation naming the retirement.
+	for _, name := range []string{"go.tst.json", "compare.tst.json"} {
+		r = runTest(root, u+name)
+		wantResult(t, r, rulestest.StatusError, "invalid test definition")
+		wantResult(t, r, rulestest.StatusError, rulestest.GoEngineRetired)
 	}
 
-	r = goOnly(root, u+"invalid.tst.json")
+	// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+	// whose switches are false names the one behaviour and runs; a switch set true,
+	// or a rule_config setting _0:no_truth_main_on_exist, fails validation naming the
+	// deletion. Every result records legacy_mode fixed.
+	r = runTest(root, u+"legacy_off.tst.json")
+	wantResult(t, r, rulestest.StatusPass, "")
+	if r.LegacyMode != rulestest.LegacyModeFixed {
+		t.Errorf("legacy mode %q", r.LegacyMode)
+	}
+	for _, name := range []string{"legacy_on.tst.json", "no_truth.tst.json"} {
+		r = runTest(root, u+name)
+		wantResult(t, r, rulestest.StatusError, "invalid test definition")
+		wantResult(t, r, rulestest.StatusError, rulestest.LegacyRetractionDeleted)
+		if r.LegacyMode != rulestest.LegacyModeFixed {
+			t.Errorf("%s: legacy mode %q", name, r.LegacyMode)
+		}
+	}
+
+	r = runTest(root, u+"invalid.tst.json")
 	wantResult(t, r, rulestest.StatusError, "invalid test definition: /jetrules_config/pool_size")
 	if len(r.Findings) == 0 {
 		t.Errorf("an invalid definition's result carries its findings")
 	}
-	wantResult(t, goOnly(root, u+"no_process.tst.json"), rulestest.StatusError, "jet_rules/nothing.jr")
-	wantResult(t, goOnly(root, u+"bad_check.tst.json"), rulestest.StatusError, "cannot be evaluated")
+	wantResult(t, runTest(root, u+"no_process.tst.json"), rulestest.StatusError, "jet_rules/nothing.jr")
+	wantResult(t, runTest(root, u+"bad_check.tst.json"), rulestest.StatusError, "cannot be evaluated")
 
 	// Criterion 9: expect turns the expected error into a pass, and a run that
 	// terminates into a fail; another error stays an error.
-	r = goOnly(root, u+"loop_expect.tst.json")
+	r = runTest(root, u+"loop_expect.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "the expected error occurred")
 	if r.Loops != 2 || len(r.SessionResults) != 1 || !r.SessionResults[0].MaxLoopReached {
 		t.Errorf("loop result: loops %d sessions %+v", r.Loops, r.SessionResults)
 	}
-	wantResult(t, goOnly(root, u+"loop_ends.tst.json"), rulestest.StatusFail, "the rules ran to completion")
-	wantResult(t, goOnly(root, u+"loop_other.tst.json"), rulestest.StatusError, `expected an error containing "max vertex visit"; got:`)
-	wantResult(t, goOnly(root, u+"loop_no_expect.tst.json"), rulestest.StatusError, "maximum loop count reached (2)")
-
-	// An engine override wins over the test, and a C++-only flag is refused on Go.
-	r = Run(Options{WorkspaceRoot: root, TestPath: u + "native.tst.json", Engine: rulestest.EngineGo,
-		Factories: Factories{Go: jetrules_go_adaptor.NewJetRulesFactory()}})
-	wantResult(t, r, rulestest.StatusPass, "")
+	wantResult(t, runTest(root, u+"loop_ends.tst.json"), rulestest.StatusFail, "the rules ran to completion")
+	wantResult(t, runTest(root, u+"loop_other.tst.json"), rulestest.StatusError, `expected an error containing "max vertex visit"; got:`)
+	wantResult(t, runTest(root, u+"loop_no_expect.tst.json"), rulestest.StatusError, "maximum loop count reached (2)")
 }
 
 // TestRunOnJetsWsEligibility asserts the input document's own example row,
@@ -325,7 +410,7 @@ b10305943c9a5e5e,"{""hc:Eligibility""}",2024-01-01T00:00:00,G01,,,,,1953-04-14T0
 `,
 		u + "elig.tst.json": `{
   "test_name": "the input document's example row",
-  "jetrules_config": {"process_name": "jet_rules/unit_tests/elig/elig.jr", "use_jet_rules_go": true},
+  "jetrules_config": {"process_name": "jet_rules/unit_tests/elig/elig.jr"},
   "input_sessions": [{"name": "one member", "input": ["eligibility.csv"]}],
   "expected_triples": [
     {"s": "b10305943c9a5e5e", "p": "rdf:type", "o": {"value": "hc:Eligibility", "type": "resource"}},
@@ -353,11 +438,11 @@ b10305943c9a5e5e,"{""hc:Eligibility""}",2024-01-01T00:00:00,G01,,,,,1953-04-14T0
 
 func jetsWsChild(t *testing.T) {
 	root := compileInChild(t, "jets_ws")
-	r := goOnly(root, "jet_rules/unit_tests/elig/elig.tst.json")
+	r := runTest(root, "jet_rules/unit_tests/elig/elig.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
 	if len(r.Checks) != 8 {
 		t.Errorf("%d checks, want 8: %+v", len(r.Checks), r.Checks)
 	}
-	r = goOnly(root, "jet_rules/unit_tests/elig/elig_verbatim.tst.json")
+	r = runTest(root, "jet_rules/unit_tests/elig/elig_verbatim.tst.json")
 	wantResult(t, r, rulestest.StatusError, "input file eligibility_verbatim.csv: record on line 2: wrong number of fields")
 }

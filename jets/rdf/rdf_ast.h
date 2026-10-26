@@ -1,7 +1,9 @@
 #ifndef JETS_RDF_AST_H
 #define JETS_RDF_AST_H
 
+#include <charconv>
 #include <cinttypes>
+#include <cmath>
 #include <type_traits>
 #include <cctype>
 #include <string>
@@ -153,52 +155,70 @@ round_to_digits(double value, int digits)
   if(value == 0.0) return 0.0;
   if(not std::isfinite(value)) return value;
   double factor = pow(10.0, digits - ceil(log10(fabs(value))));
+  // Below about 1e-294 the factor overflows, and value * factor / factor would be NaN,
+  // which fcmp takes for equal to anything (1e-300 == 5 was true until 2026-10). Such a
+  // value is compared unrounded.
+  if(not std::isfinite(factor)) return value;
   return round(value * factor) / factor;
+}
+
+// Two finite doubles compared to 15 significant digits: -1, 0 or 1, or kUnordered when
+// either is a NaN or an infinity, which are never equal and never ordered. The retired Go
+// engine compared the same way.
+constexpr int kUnordered = 2;
+
+// The rule itself: both rounded to 15 digits, then compared with Knuth's fcmp
+inline int
+compare15_slow(double a, double b)
+{
+  if(not std::isfinite(a) or not std::isfinite(b)) return kUnordered;
+  return fcmp(round_to_digits(a, 15), round_to_digits(b, 15), 
+    std::numeric_limits<double>::epsilon());
+}
+
+// The same result, without the rounding in all but the closest cases: equal doubles are
+// equal, and two doubles further apart than 2e-14 of the larger cannot round to equal at
+// 15 digits (each moves by at most 5e-15 of itself, and rounding keeps their order), so
+// they compare as they are. A test checks it against compare15_slow on 10^6 pairs.
+inline int
+compare15(double a, double b)
+{
+  if(not std::isfinite(a) or not std::isfinite(b)) return kUnordered;
+  if(a == b) return 0;
+  if(std::fabs(a - b) > 2e-14 * std::fmax(std::fabs(a), std::fabs(b))) return a < b ? -1 : 1;
+  return compare15_slow(a, b);
 }
 
 inline bool
 is_eq(LDouble const& lhs, LDouble const& rhs)
 {
-  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
-  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
-  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
-    std::numeric_limits<double>::epsilon()) == 0;
+  return compare15(lhs.data, rhs.data) == 0;
 }
 
 inline bool
 is_gt(LDouble const& lhs, LDouble const& rhs)
 {
-  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
-  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
-  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
-    std::numeric_limits<double>::epsilon()) > 0;
+  return compare15(lhs.data, rhs.data) == 1;
 }
 
 inline bool
 is_ge(LDouble const& lhs, LDouble const& rhs)
 {
-  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
-  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
-  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
-    std::numeric_limits<double>::epsilon()) >= 0;
+  int c = compare15(lhs.data, rhs.data);
+  return c == 0 or c == 1;
 }
 
 inline bool
 is_lt(LDouble const& lhs, LDouble const& rhs)
 {
-  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
-  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
-  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
-    std::numeric_limits<double>::epsilon()) < 0;
+  return compare15(lhs.data, rhs.data) == -1;
 }
 
 inline bool
 is_le(LDouble const& lhs, LDouble const& rhs)
 {
-  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
-  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
-  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
-    std::numeric_limits<double>::epsilon()) <= 0;
+  int c = compare15(lhs.data, rhs.data);
+  return c == 0 or c == -1;
 }
 
 // ======================================================================================
@@ -376,12 +396,14 @@ to_string(Triple const& t)
   return out.str();
 }
 
-// Function to compute hash value for rdf data
+// Function to compute hash value for rdf data, by value: an Rptr hashes as the value it
+// points to, so that a value can be looked up without building an Rptr (RdfAstHash,
+// containers_type.h). A named resource and a string literal hash as their text alone,
+// as a std::string_view of that text does.
 // ======================================================================================
 template <typename H>
-H AbslHashValue(H h, const Rptr& rptr) 
+H rdf_ast_hash_value(H h, RdfAstType const& m) 
 {
-  auto &m = *rptr;
   switch (m.which()) {
   case rdf_null_t             : return H::combine(std::move(h), 0);
   case rdf_blank_node_t       : return H::combine(std::move(h), boost::get<BlankNode    >(m).key);
@@ -409,6 +431,12 @@ H AbslHashValue(H h, const Rptr& rptr)
     }
   default: return H::combine(std::move(h), 0);
   }
+}
+
+template <typename H>
+H AbslHashValue(H h, const Rptr& rptr) 
+{
+  return rdf_ast_hash_value(std::move(h), *rptr);
 }
 
 inline bool 
@@ -490,6 +518,25 @@ get_text(r_index r)
     RDF_EXCEPTION("get_text call on r_index that is not a literal!");
   }
   return boost::get<LString>(*r).data;
+}
+
+// A double as text, wherever an operator writes one into text: the shortest digits that
+// read back as the same double, in plain notation, never an exponent. 991 is "991",
+// 1234567.5 is "1234567.5", 0.00001 is "0.00001", -0.0 is "-0"; from 2^53 a double's
+// exact digits (1e23 is "99999999999999991611392"). Not a number is "nan", whatever its
+// sign, and the infinities "inf" and "-inf", as std::to_string wrote them. The table of
+// cases is TEST(DoubleToText, ...) in jets/rete/expr_op_test.cc, this text's specification.
+// Until 2026-10 the operators wrote std::to_string's six decimals ("991.000000").
+// The text written to an output file is not this: the bridge hands Go the double.
+inline std::string
+double_to_text(double v)
+{
+  if(std::isnan(v)) return "nan";
+  if(std::isinf(v)) return v > 0 ? "inf" : "-inf";
+  // the longest is a denormal: "0." and 324 digits, or a sign and 309 integer digits
+  char buf[400];
+  auto res = std::to_chars(buf, buf + sizeof(buf), v, std::chars_format::fixed);
+  return std::string(buf, res.ptr);
 }
 
 inline std::string

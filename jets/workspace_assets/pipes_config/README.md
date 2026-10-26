@@ -33,16 +33,16 @@ wrong. Corrected 2026-08-22:
 
 | Workspace | Committed parquet sharding tier | Adopting it changed |
 |---|---|---|
-| `cedargate_ws` | 100 / 100 / 110 | nothing |
-| `usi_ws` | 100 / 100 / 110 | nothing |
+| client workspace C | 100 / 100 / 110 | nothing |
+| client workspace A | 100 / 100 / 110 | nothing |
 | `jets_ws` | 100 / 100 / **120** | `shard_max_size_mb`, set by "adjusted sharding" |
-| `walrus_ws` | **50 / 50 / 55** | the whole tier, set by "Adjust parquet shard sizing" |
+| client workspace B | **50 / 50 / 55** | the whole tier, set by "Adjust parquet shard sizing" |
 
 (`when_total_size_ge_mb` / `shard_size_mb` / `shard_max_size_mb`.)
 
 **Both divergences were deliberate commits**, so adopting the JetStore version
 reverses two pieces of tuning. **Neither turned out to be load-bearing** —
-walrus's 50 MB tier was for testing, confirmed 2026-08-22, and the JetStore
+workspace B's 50 MB tier was for testing, confirmed 2026-08-22, and the JetStore
 version is the one to keep — but that was a question someone had to answer, and
 it could as easily have gone the other way.
 

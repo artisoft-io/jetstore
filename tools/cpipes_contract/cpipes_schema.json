@@ -8841,6 +8841,19 @@
           "description": "What to do when a record bundle fails rule execution (ExecuteRules error, max-loop reached, or jets:exception). Range: pass_through (default, the session data is still extracted), drop (the bundle's output is discarded), fail (the pipeline is aborted). Engine default: pass_through (builder).",
           "title": "On Error"
         },
+        "optimizer_statistics": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Counts the rule optimizer's statistics over the step's sessions, after each rule set, for the predicates and constants of its antecedents; each node writes one partial file under <stage>/process_name=<process>/session_id=<session>/optimizer_statistics/, which the run_reports function merge_optimizer_statistics merges into the workspace's jet_rules/optimizer_statistics.json. Off by default and free when off; for a statistics process run on demand.",
+          "title": "Optimizer Statistics"
+        },
         "output_channels": {
           "description": "OutputChannels specify the output channels to write the extracted entities from JetRules",
           "items": {
@@ -8924,7 +8937,7 @@
             }
           ],
           "default": null,
-          "description": "UseJetRulesGo when true use the jetrules go engine.",
+          "description": "Asked for the Go rules engine, retired in October 2026: true is refused when the pipeline starts, false is accepted.",
           "title": "Use Jet Rules Go"
         },
         "use_jet_rules_native": {
@@ -8937,7 +8950,7 @@
             }
           ],
           "default": null,
-          "description": "UseJetRulesNative when true use the jetrules native engine.",
+          "description": "Names the native (C++) rules engine, the only one; set or not, it is used.",
           "title": "Use Jet Rules Native"
         }
       },

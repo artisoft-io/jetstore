@@ -14,6 +14,7 @@
 #include "../rete/graph_callback_mgr_impl.h"
 #include "../rete/alpha_node.h"
 #include "../rete/rete_session.h"
+#include "../rete/rete_err.h"
 
 // This file contains the visitor used to index BetaRow and query them from BetaRelation
 namespace jets::rete {
@@ -131,35 +132,56 @@ struct AQVRemoveIndexBetaRowsVisitor: public boost::static_visitor<>
   using O = AQOther;
   AQVRemoveIndexBetaRowsVisitor(BetaRelation * g, b_index m, BetaRow const* r) 
     : beta_relation(g), node_vertex(m), row(r), key(m->antecedent_query_key) {}
-  void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)} );}
-  void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)} );}
-  void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row) );}
+  // Each removes the row's own entry under its key, not the other rows' (I-85)
+  void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)}, row );}
+  void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)}, row );}
+  void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row), row );}
   void operator()(O const&, O const&, O const&){ }
-  void operator()(I const&s, O const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), o.to_r(row)} );}
-  void operator()(I const&s, O const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( s.to_r(row) );}
-  void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), p.to_r(row)} );}
-  void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( p.to_r(row) );}
+  void operator()(I const&s, O const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), o.to_r(row)}, row );}
+  void operator()(I const&s, O const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( s.to_r(row), row );}
+  void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), p.to_r(row)}, row );}
+  void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( p.to_r(row), row );}
   BetaRelation * beta_relation;
   b_index node_vertex;
   BetaRow const* row;
   int key;
 };
 
-// visitor
+// visitor: the index a child AlphaNode queries, by its number of bound terms
+// (AlphaNode::antecedent_query_index)
+struct AQVQueryIndexVisitor: public boost::static_visitor<int>
+{
+  using I = AQIndex;
+  using O = AQOther;
+  int operator()(I const&, I const&, I const&)const{ return 3; }
+  int operator()(O const&, I const&, I const&)const{ return 2; }
+  int operator()(O const&, O const&, I const&)const{ return 1; }
+  int operator()(O const&, O const&, O const&)const{ return 0; }
+  int operator()(I const&, O const&, I const&)const{ return 2; }
+  int operator()(I const&, O const&, O const&)const{ return 1; }
+  int operator()(I const&, I const&, O const&)const{ return 2; }
+  int operator()(O const&, I const&, O const&)const{ return 1; }
+};
+
+// visitor: adds the parent relation's index for a child AlphaNode. The child's
+// antecedent_query_key, the position of that index, is set once by
+// ReteMetaStore::initialize; each session used to write it here into the shared
+// meta store, a data race while the value was the same (I-86). The session adds
+// the indexes in the same order, and the position it gets is checked against it.
 struct AQVInitializeIndexesVisitor: public boost::static_visitor<>
 {
   using I = AQIndex;
   using O = AQOther;
   AQVInitializeIndexesVisitor(BetaRelation * g, b_index m) 
     : beta_relation(g), node_vertex(m) {}
-  void operator()(I const&, I const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query3(); VLOG(50)<<"Q3 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
-  void operator()(O const&, I const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query2();VLOG(50)<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
-  void operator()(O const&, O const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query1();VLOG(50)<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
+  void operator()(I const&, I const&, I const&){ this->check(this->add_query3(), 3); }
+  void operator()(O const&, I const&, I const&){ this->check(this->add_query2(), 2); }
+  void operator()(O const&, O const&, I const&){ this->check(this->add_query1(), 1); }
   void operator()(O const&, O const&, O const&){ }
-  void operator()(I const&, O const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query2();VLOG(50)<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
-  void operator()(I const&, O const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query1();VLOG(50)<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
-  void operator()(I const&, I const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query2();VLOG(50)<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
-  void operator()(O const&, I const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query1();VLOG(50)<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";}
+  void operator()(I const&, O const&, I const&){ this->check(this->add_query2(), 2); }
+  void operator()(I const&, O const&, O const&){ this->check(this->add_query1(), 1); }
+  void operator()(I const&, I const&, O const&){ this->check(this->add_query2(), 2); }
+  void operator()(O const&, I const&, O const&){ this->check(this->add_query1(), 1); }
 
   inline int
   add_query1() {beta_relation->beta_row_idx1_.push_back({}); return (int)(beta_relation->beta_row_idx1_.size()-1);}
@@ -167,6 +189,18 @@ struct AQVInitializeIndexesVisitor: public boost::static_visitor<>
   add_query2() {beta_relation->beta_row_idx2_.push_back({}); return (int)(beta_relation->beta_row_idx2_.size()-1);}
   inline int
   add_query3() {beta_relation->beta_row_idx3_.push_back({}); return (int)(beta_relation->beta_row_idx3_.size()-1);}
+
+  inline void
+  check(int pos, int index)const
+  {
+    VLOG(50)<<"Q"<<index<<" parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">";
+    if(pos != this->node_vertex->antecedent_query_key) {
+      RETE_EXCEPTION("AQVInitializeIndexesVisitor: child vertex "<<this->node_vertex->vertex
+        <<" has antecedent_query_key "<<this->node_vertex->antecedent_query_key
+        <<" and its index is at "<<pos<<" of idx"<<index<<" of vertex "<<this->beta_relation->node_vertex_->vertex
+        <<": was the meta store initialized?");
+    }
+  }
   BetaRelation * beta_relation;
   b_index node_vertex;
 };

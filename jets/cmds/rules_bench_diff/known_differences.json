@@ -1,0 +1,24 @@
+{
+  "comment": "Known differences between two canonical graph dumps (jets/rulesbench/graphdump), read by rules_bench_diff and embedded in it. A difference is unclassified unless an entry matches. Fields and pair kinds: README.md beside this file. Each entry names where the difference is recorded: a section of jets/rete/README.md or a register entry of projects/rules_benchmark. This built-in list holds only differences of the engine itself, which any workload can show; until the Go engine was retired (October 2026) they also covered the two engines against each other. An entry that names a workload's predicates, rules, members or files is kept in that workload's own list, passed with -known (README.md).",
+  "entries": [
+    {
+      "id": "minted-node-relabelled",
+      "refs": [
+        "jets/rulesbench/graphdump, package documentation (Minted nodes)"
+      ],
+      "description": "The line is the same on both sides up to the label of a minted node, under a one-to-one correspondence of labels: the node is on both sides and was renamed because its neighbourhood within three hops differs. What differs is in its own lines, which are classified on their own.",
+      "scope": "any",
+      "pair": "relabelled"
+    },
+    {
+      "id": "double-summation-last-bits",
+      "refs": [
+        "projects/rules_benchmark I-88, F212, F217; Phase 4 (AZ.2)"
+      ],
+      "description": "Two doubles that differ in their last bits: an aggregate summed in another order, by the other engine or by the same engine in another run (sum_values over a set, an accumulation over rows that arrive in another order). At most 1e-7 quanta apart at the larger magnitude, about 3e-12 relative (a quantum is 2^-15 of it, graphdump.Quantum): a few ulps, and under a cent for any amount below a billion.",
+      "scope": "any",
+      "pair": "double_near",
+      "quanta": 1e-07
+    }
+  ]
+}

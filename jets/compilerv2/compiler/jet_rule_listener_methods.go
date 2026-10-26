@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
@@ -330,7 +329,7 @@ func (s *JetRuleListener) ExitColumnDefinitions(ctx *parser.ColumnDefinitionsCon
 		name := StripQuotes(ctx.GetColumnName().GetText())
 		// Validate that name can be used as an identifier in rules
 		if !s.IsValidIdentifier(name) {
-			fmt.Fprintf(s.errorLog, "** error: invalid column name for lookup table: %s\n", name)
+			s.logErrorf("** error: invalid column name for lookup table: %s\n", name)
 			return
 		}
 		s.AddR(name)
@@ -384,7 +383,7 @@ func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	// Rule name is required
 	if ctx.GetRuleName() == nil {
-		s.errorLog.WriteString("** error: rule without a name encountered, skipping\n")
+		s.logErrorf("** error: rule without a name encountered, skipping\n")
 		return
 	}
 	s.currentJetruleNode.Name = ctx.GetRuleName().GetText()

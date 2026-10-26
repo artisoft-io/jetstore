@@ -212,6 +212,16 @@ class AlphaNode {
   initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const=0;
 
   /**
+   * @brief The index of the parent beta relation this child AlphaNode queries
+   *
+   * 0 when it queries none (no term bound to the parent row), else 1, 2 or 3, the
+   * number of bound terms, naming the parent's beta_row_idx1_, _idx2_ or _idx3_.
+   * ReteMetaStore::initialize numbers each vertex's children by it, once (I-86).
+   */
+  virtual int
+  antecedent_query_index()const=0;
+
+  /**
    * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
    *
    * The parent beta row is queried using the AntecedentQuerySpec from the current beta node,
@@ -249,8 +259,8 @@ class AlphaNode {
 
   /**
    * @brief True when a functor is an expression that reads the graph (see
-   * ExprBase::reads_graph). Applicable to consequent terms. ReteMetaStore::initialize
-   * consults it only when its RetractionMode turns LEGACY defect 1 off.
+   * ExprBase::reads_graph). Applicable to consequent terms: ReteMetaStore::initialize
+   * makes such a vertex record its inferred triples, as a minting one does.
    */
   virtual bool
   reads_graph()const=0;

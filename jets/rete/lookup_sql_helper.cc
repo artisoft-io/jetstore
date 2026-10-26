@@ -46,7 +46,7 @@ namespace jets::rete {
         // A SQL NULL is rdf null for every column type. The numeric arms below
         // read NULL as 0, so a NULL bool column -- an empty cell, which the
         // packager writes as NULL since I-45 -- would have been false here and
-        // null on the Go engine (lookup_table_sqlite3.go).
+        // null on the retired Go engine.
         if(sqlite3_column_type(stmt, pos) == SQLITE_NULL) {
           rdf_session->insert_inferred(row_subject, cinfo.first, rmgr->get_null());
           continue;
@@ -126,12 +126,19 @@ namespace jets::rete {
     VLOG(30)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key;
 
     // Get the db connection and bind it to the key
+    // Every return gives the connection back: one kept is one nothing closes (I-180)
     auto lc = this->db_pool_.get_connection();
     int err = sqlite3_reset(lc.stmt1);
-    if( err != SQLITE_OK ) return err;
+    if( err != SQLITE_OK ) {
+      this->db_pool_.put_connection(lc);
+      return err;
+    }
 
     err = sqlite3_bind_text(lc.stmt1, 1, key.c_str(), key.size(), nullptr);
-    if( err != SQLITE_OK ) return err;
+    if( err != SQLITE_OK ) {
+      this->db_pool_.put_connection(lc);
+      return err;
+    }
 
     try {
       err = this->lookup_internal_c(rete_session, is_multi, subject, key, lc.stmt1, out);

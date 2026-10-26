@@ -27,11 +27,11 @@ package compute_pipes
 //     twelve times and counts distinct encodings, which is F801's own
 //     measurement made permanent.
 //
-// A stub rather than a real `rdf.RdfSession`: the only bridge from one to
-// `JetRdfSession` outside the unexported `jetrules_go_adaptor` types lives in
-// `jets/agentic/briefing/prose/pipeline_test.go` and is already recorded as a
-// duplicated adaptor (I-561). Copying it a second time to obtain a *weaker*
-// source of disorder than a map range would be the wrong trade. The real-session
+// A stub rather than a real rule session: a real one brings in the C++ engine and a
+// compiled workspace, which is the wrong trade for a *weaker* source of disorder
+// than a map range. (Until the Go engine's deletion, October 2026, the stub stood in
+// for that engine's `rdf.RdfSession`, whose only bridge to `JetRdfSession` outside the
+// Go adaptor was a duplicated adaptor in the prose package's tests, I-561.) The real-session
 // cross-process measurement is that package's
 // `TestConditionOrderIsAProcessProperty`, run N times from a shell; this file is
 // the regression test.

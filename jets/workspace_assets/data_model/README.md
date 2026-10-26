@@ -29,7 +29,7 @@ generated nor declared hand-authored, which is what keeps that true.
 | `jets_model.jr` | hand-authored here | this file, since 2026-08-16 |
 
 `jets_model.jr` — the platform base model — used to exist as six committed
-copies, one per workspace, and had already diverged: `usi_ws` carried a
+copies, one per workspace, and had already diverged: a client workspace carried a
 four-line `iWorkBook` extension appended in place and load-bearing in three
 rule trees. It is JetStore's file, so it is installed like the rest, and a
 workspace's committed copy is a convenience rather than the authority.

@@ -166,10 +166,10 @@ TEST(ExprTest, AddVisitor2Test) {
 }
 
 TEST(ExprTest, AddVisitor3Test) {
-  EXPECT_EQ(create_expr_binary_operator<AddVisitor>(0,
+  // an int plus a double is a double (it was truncated to an int until 2026-10)
+  EXPECT_FLOAT_EQ(boost::get<rdf::LDouble>(create_expr_binary_operator<AddVisitor>(0,
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
-    create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.9))))->eval(nullptr, nullptr), 
-    rdf::RdfAstType(rdf::LInt32(2)) );
+    create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.9))))->eval(nullptr, nullptr)).data, 2.9 );
 
   EXPECT_EQ(create_expr_binary_operator<AddVisitor>(0,
     create_expr_cst(rdf::RdfAstType(rdf::LString("Hello "))), 
@@ -308,7 +308,7 @@ TEST(ExprTest, EqVisitor4Test) {
   EXPECT_EQ(create_expr_binary_operator<EqVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
     create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.1))))->eval(nullptr, nullptr), 
-    rdf::True() );
+    rdf::False() );   // 1 == 1.1 was true until 2026-10: == truncated the double (Q-68)
     
   EXPECT_EQ(create_expr_binary_operator<EqVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(-1))), 

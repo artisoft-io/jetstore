@@ -1,5 +1,8 @@
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -196,6 +199,114 @@ TEST(RManagerTest, MetaManager)
   auto l5 = meta_mgr->get_literal(int32_t(5));
   EXPECT_EQ(l5, nullptr);
   EXPECT_THROW(meta_mgr->create_literal(int32_t(5)), rdf_exception);
+}
+
+// A value is found by value, without building an Rptr, and gets the same r_index as
+// the Rptr built for it would (LiteralDataMap, containers_type.h).
+TEST(RManagerTest, FindByValueHashesAsTheRptr)
+{
+  RdfAstHash hash;
+  RdfAstEq eq;
+  auto res = mkResource("x");
+  auto txt = mkLiteral("x");
+  EXPECT_EQ(hash(res), hash(RdfStringKey{rdf_named_resource_t, "x"}));
+  EXPECT_EQ(hash(txt), hash(RdfStringKey{rdf_literal_string_t, std::string("x")}));
+  EXPECT_TRUE(eq(res, RdfStringKey{rdf_named_resource_t, "x"}));
+  EXPECT_FALSE(eq(res, RdfStringKey{rdf_literal_string_t, "x"}));
+  EXPECT_FALSE(eq(txt, RdfStringKey{rdf_literal_string_t, "y"}));
+  for(auto const& p: {mkLiteral(int32_t(7)), mkLiteral(uint32_t(7)), mkLiteral(int64_t(7)), 
+      mkLiteral(uint64_t(7)), mkLiteral(7.5), mkBlankNode(7), mkNull(),
+      mkLiteral(date(2026, 10, 21)), mkLiteral(date(boost::date_time::not_a_date_time)),
+      mkLiteral(datetime(date(2026, 10, 21), boost::posix_time::hours(7)))}) {
+    RdfAstType v = *p;
+    EXPECT_EQ(hash(p), hash(v)) << to_string(p.get());
+    EXPECT_TRUE(eq(p, v)) << to_string(p.get());
+  }
+  EXPECT_FALSE(eq(mkLiteral(int32_t(7)), RdfAstType(LInt64(7))));
+}
+
+TEST(RManagerTest, CreateFindsByValueAndBuildsOnlyWhatIsNew)
+{
+  auto rmgr = RManager::create();
+  auto s1 = rmgr->create_literal(std::string("hello"));
+  EXPECT_EQ(rmgr->create_literal(std::string_view("hello")), s1);
+  EXPECT_EQ(rmgr->create_literal("hello"), s1);
+  EXPECT_EQ(rmgr->get_literal("hello"), s1);
+  EXPECT_EQ(rmgr->insert_item(mkLiteral("hello")), s1);
+  EXPECT_EQ(rmgr->insert_rdfast(LString("hello")), s1);
+  EXPECT_EQ(rmgr->size(), 1u);
+
+  auto r1 = rmgr->create_resource("hello");
+  EXPECT_NE(r1, s1);                              // a resource is not a string literal
+  EXPECT_EQ(rmgr->create_resource(std::string("hello")), r1);
+  EXPECT_EQ(rmgr->get_resource(std::string_view("hello")), r1);
+  EXPECT_EQ(rmgr->insert_item(mkResource("hello")), r1);
+  EXPECT_EQ(rmgr->size(), 2u);
+
+  auto i7 = rmgr->create_literal(int32_t(7));
+  EXPECT_NE(rmgr->create_literal(int64_t(7)), i7);  // a different type is a different literal
+  EXPECT_EQ(rmgr->insert_rdfast(LInt32(7)), i7);
+  EXPECT_EQ(rmgr->get_rdfast(LInt32(7)), i7);
+  auto nad = rmgr->create_literal(date(boost::date_time::not_a_date_time));
+  EXPECT_EQ(rmgr->insert_item(mkLiteral(date(boost::date_time::not_a_date_time))), nad);
+  auto b3 = rmgr->create_bnode(3);
+  EXPECT_EQ(rmgr->get_bnode(3), b3);
+  EXPECT_EQ(rmgr->size(), 6u);
+  EXPECT_EQ(rmgr->get_literal("absent"), nullptr);
+  EXPECT_EQ(rmgr->get_rdfast(LDouble(1.5)), nullptr);
+  EXPECT_EQ(rmgr->size(), 6u);
+
+  // a session manager finds what its locked root holds, and builds the rest itself
+  auto root = RManager::create();
+  auto rr = root->create_resource("shared");
+  auto sess = RManager::create(root);
+  EXPECT_EQ(sess->create_resource("shared"), rr);
+  EXPECT_EQ(sess->size(), 0u);
+  EXPECT_NE(sess->create_literal("own"), nullptr);
+  EXPECT_EQ(sess->size(), 1u);
+  EXPECT_THROW(root->create_literal("new"), rdf_exception);
+}
+
+// Doubles unify as the map's equality says: -0.0 and 0.0 are one literal, and a NaN is
+// equal to nothing, so each NaN is a literal of its own. As before the lookup by value.
+TEST(RManagerTest, SignedZeroUnifiesAndNaNNever)
+{
+  auto rmgr = RManager::create();
+  auto zero = rmgr->create_literal(0.0);
+  EXPECT_EQ(rmgr->create_literal(-0.0), zero);
+  EXPECT_EQ(rmgr->insert_rdfast(LDouble(-0.0)), zero);
+  EXPECT_EQ(rmgr->get_literal(-0.0), zero);
+  EXPECT_EQ(rmgr->insert_item(mkLiteral(-0.0)), zero);
+  EXPECT_EQ(rmgr->size(), 1u);
+
+  auto const nan = std::numeric_limits<double>::quiet_NaN();
+  auto n1 = rmgr->create_literal(nan);
+  auto n2 = rmgr->create_literal(nan);
+  EXPECT_NE(n1, n2);
+  EXPECT_NE(rmgr->insert_rdfast(LDouble(nan)), n1);
+  EXPECT_EQ(rmgr->get_literal(nan), nullptr);
+  EXPECT_EQ(rmgr->size(), 4u);
+}
+
+// A session manager finds, by value, what its locked root holds
+TEST(RManagerTest, InsertRdfastFindsWhatTheRootHolds)
+{
+  auto root = RManager::create();
+  auto r = root->create_resource("held");
+  auto b = root->create_bnode(5);
+  auto sess = RManager::create(root);           // locks the root
+  EXPECT_TRUE(root->is_locked());
+  EXPECT_EQ(sess->insert_rdfast(NamedResource("held")), r);
+  EXPECT_EQ(sess->insert_rdfast(BlankNode(5)), b);
+  EXPECT_EQ(sess->get_rdfast(BlankNode(5)), b);
+  EXPECT_EQ(sess->size(), 0u);
+  // and a long std::string, as an lvalue and as an rvalue
+  std::string text(64, 'x');
+  auto t = sess->create_literal(text);
+  EXPECT_EQ(sess->create_literal(std::string(64, 'x')), t);
+  EXPECT_EQ(sess->create_resource(text), sess->create_resource(std::string(64, 'x')));
+  EXPECT_NE(sess->create_resource(text), t);
+  EXPECT_EQ(sess->size(), 2u);
 }
 
 }   // namespace

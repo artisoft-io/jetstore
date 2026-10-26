@@ -7,7 +7,7 @@ import (
 // Compile a whole rule set the way the workspace compile does — through the
 // import chain, with resources extracted from the rules.
 //
-// It used to name /home/michel/projects/repos/usi_ws, a checkout that is not
+// It used to name a client workspace's checkout by absolute path, which is not
 // part of this repository and no longer exists on any machine, so the test
 // failed everywhere with "no such file or directory". The workspace under
 // jets/jetrules/test_ws is in the repository and exercises the same path: a
@@ -20,9 +20,10 @@ func TestCompiler1(t *testing.T) {
 		// The join_values rule set. An operator name is an opaque string from the
 		// lexer to the factory -- binaryOp reduces to Identifier and nothing
 		// whitelists the name -- so a rule using an operator is the only thing that
-		// exercises it through the compiler at all. Its own test is
-		// TestJoinValuesCompilesAndRuns in jets/jetrules/rete; this line is what
-		// makes a break in it show up in the compiler's suite as well.
+		// exercises it through the compiler at all. Its own test,
+		// TestJoinValuesCompilesAndRuns, went with the Go engine (jets/jetrules/rete
+		// at the tag go-engine-final); this line keeps a break in it visible in the
+		// compiler's suite.
 		"jet_rules/test_join_values_main.jr",
 	} {
 		jrCompiler := NewCompiler("../../jetrules/test_ws", mainRuleFile, false, false, true)

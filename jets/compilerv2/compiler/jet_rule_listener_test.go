@@ -243,7 +243,7 @@ func TestJetRuleListener_InlineLiteral(t *testing.T) {
 
 	// This test expected an error, from a time when a literal written inline in
 	// a consequent was not supported. It is: the corpus is full of them
-	// (workspaces/usi_ws alone has hundreds of (?x hc_usi:meetRule "...")), and
+	// (one client workspace alone has hundreds of (?x ex:rule "...")), and
 	// the compiler records the literal as an anonymous inline text resource
 	// which the consequent then refers to. What the test checks now is that.
 	if jrCompiler.ErrorLog().Len() > 0 {

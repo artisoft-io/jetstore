@@ -26,7 +26,7 @@ import (
 // statement in two and the second fragment was submitted as SQL — which
 // PostgreSQL then reported as a syntax error in text that looked nothing like
 // the cause. A comment in `workspaces/jets_ws` cost a deployment on 2026-09-12,
-// and two walrus client scripts (`ciseit`, `fbin`) carry twelve semicolons
+// and two client scripts carry twelve semicolons
 // inside a multi-line JSON literal and could not be loaded at all.
 //
 // Two properties come with sending the whole file, and both are wanted:

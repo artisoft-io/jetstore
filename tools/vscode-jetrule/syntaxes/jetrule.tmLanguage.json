@@ -97,7 +97,7 @@
     },
     "functions": {
       "name": "support.function.jetrule",
-      "match": "\\b(create_uuid_resource|create_entity|toText)\\b"
+      "match": "\\b(create_uuid_resource|create_entity)\\b"
     },
     "rule-variables": {
       "name": "variable.parameter.jetrule",
@@ -112,10 +112,6 @@
         {
           "name": "keyword.operator.comparison.jetrule",
           "match": "(==|!=|<=|>=|<|>)"
-        },
-        {
-          "name": "keyword.operator.regex.jetrule",
-          "match": "r\\?"
         },
         {
           "name": "keyword.operator.logical.jetrule",

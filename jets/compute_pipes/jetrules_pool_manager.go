@@ -13,7 +13,7 @@ import (
 type JrPoolManager struct {
 	config        *JetrulesSpec
 	WorkersTaskCh chan []any
-	ErrorOutputCh	*OutputChannel
+	ErrorOutputCh *OutputChannel
 	jrPoolWg      *sync.WaitGroup
 	WaitForDone   *sync.WaitGroup
 }
@@ -21,9 +21,9 @@ type JrPoolManager struct {
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string, ruleEngine JetRuleEngine,
-	errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan, 
-	jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager) {
-		
+	errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan,
+	jetrulesWorkerResultCh chan JetrulesWorkerResult, stats *OptimizerStats) (jrpm *JrPoolManager) {
+
 	log.Println("Starting the Pool Manager")
 	if config.PoolSize < 1 {
 		log.Printf("warning: cannot have a worker pool of size less than 1, setting to 1")
@@ -84,12 +84,28 @@ func (ctx *BuilderContext) NewJrPoolManager(
 			jrpm.jrPoolWg.Add(1)
 			go func() {
 				defer jrpm.jrPoolWg.Done()
-				worker := ctx.NewJrPoolWorker(config, source, rdfType2Columns, ruleEngine, 
+				worker := ctx.NewJrPoolWorker(config, source, rdfType2Columns, ruleEngine,
 					jrpm.ErrorOutputCh, outputChannels, ctx.done, ctx.errCh)
+				worker.stats = stats
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}
 		jrpm.jrPoolWg.Wait()
+		// The node's partial statistics, once its workers are done, unless the
+		// step has already failed.
+		if stats != nil {
+			select {
+			case <-ctx.done:
+			default:
+				if err := ctx.writeOptimizerStatsPartial(stats); err != nil {
+					log.Println(err)
+					select {
+					case workersResultCh <- JetrulesWorkerResult{Err: err}:
+					case <-ctx.done:
+					}
+				}
+			}
+		}
 		jrpm.WaitForDone.Done()
 		close(workersResultCh)
 		log.Println("Jetrules Worker Pool Completed")

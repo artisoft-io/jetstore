@@ -27,7 +27,7 @@ const validDefinition = `{
     "current_source_period": 1,
     "current_source_period_type": "month_period",
     "rule_config": [
-      {"jets:key": "jets:iState", "jets:max_vertex_visits": {"value": "50", "type": "int"}, "_0:no_truth_main_on_exist": {"value": "1", "type": "int"}}
+      {"jets:key": "jets:iState", "jets:max_vertex_visits": {"value": "50", "type": "int"}, "_0:no_truth_main_on_exist": {"value": "0", "type": "int"}}
     ]
   },
   "input_sessions": [
@@ -118,8 +118,8 @@ func TestValidDefinition(t *testing.T) {
 	if td.JetrulesConfig.MaxLooping != 20 || !td.JetrulesConfig.IsDebug || len(td.JetrulesConfig.RuleConfig) != 1 {
 		t.Errorf("jetrules_config decoded as %+v", td.JetrulesConfig)
 	}
-	if got := td.LegacyMode(); got != LegacyModeFixed1 {
-		t.Errorf("legacy mode %q, want %q", got, LegacyModeFixed1)
+	if got := td.LegacyMode(); got != LegacyModeFixed {
+		t.Errorf("legacy mode %q, want %q", got, LegacyModeFixed)
 	}
 	if td.Expect == nil || td.Expect.Status != StatusError {
 		t.Errorf("expect decoded as %+v", td.Expect)
@@ -221,12 +221,19 @@ func TestPipelineOnlyFieldsRefused(t *testing.T) {
 		"output_channels": []any{}, "error_channel": map[string]any{"name": "x"},
 		"on_error": "drop", "max_error_count": 5,
 		"metadata_input_sources": []any{},
+		"optimizer_statistics":   true,
 	}
 	for name, value := range fields {
 		t.Run(name, func(t *testing.T) {
 			_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")[name] = value }))
 			requireFinding(t, findings, CodeRefused, "/jetrules_config/"+name, name)
 		})
+	}
+	// optimizer_statistics is refused, set true or false, saying what it is and
+	// where statistics are counted instead.
+	for _, value := range []bool{true, false} {
+		_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["optimizer_statistics"] = value }))
+		requireFinding(t, findings, CodeRefused, "/jetrules_config/optimizer_statistics", "a test writes none (rules_bench -stats counts a bench's sessions)")
 	}
 	// Every refused name is one JetrulesConfig does not declare, and vice versa.
 	used := map[string]bool{}
@@ -271,26 +278,26 @@ func TestTopLevelFieldsMisplaced(t *testing.T) {
 	}
 }
 
-func TestEngineChoice(t *testing.T) {
-	_, findings := parse(t, mutate(t, func(d map[string]any) {
-		obj(d, "jetrules_config")["use_jet_rules_native"] = true
-		obj(d, "jetrules_config")["use_jet_rules_go"] = true
-	}))
-	requireFinding(t, findings, CodeConflict, "/jetrules_config/use_jet_rules_go", "both set")
+// The Go engine is retired (rules_benchmark Q-77): a test asking for it fails
+// validation with a message naming the retirement, rather than run on C++.
+func TestGoEngineIsRefused(t *testing.T) {
+	_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = true }))
+	requireFinding(t, findings, CodeRefused, "/jetrules_config/use_jet_rules_go", GoEngineRetired)
 
-	_, findings = parse(t, mutate(t, func(d map[string]any) {
-		d["compare_engines"] = true
-		obj(d, "jetrules_config")["use_jet_rules_native"] = true
-	}))
-	requireFinding(t, findings, CodeConflict, "/compare_engines", "runs both engines")
-
-	// _0:no_truth_main_on_exist is accepted on C++ (validDefinition sets it) and
-	// refused when the test runs Go, alone or compared.
-	noTruth := "/jetrules_config/rule_config/0/_0:no_truth_main_on_exist"
-	_, findings = parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = true }))
-	requireFinding(t, findings, CodeRefused, noTruth, "only in the C++ engine")
 	_, findings = parse(t, mutate(t, func(d map[string]any) { d["compare_engines"] = true }))
-	requireFinding(t, findings, CodeRefused, noTruth, "only in the C++ engine")
+	requireFinding(t, findings, CodeRefused, "/compare_engines", GoEngineRetired)
+
+	// false asks for nothing, as absent does.
+	for _, set := range []func(map[string]any){
+		func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = false },
+		func(d map[string]any) { d["compare_engines"] = false },
+	} {
+		if _, findings := parse(t, mutate(t, set)); len(findings) != 0 {
+			t.Errorf("false was refused: %+v", findings)
+		}
+	}
+
+	// use_jet_rules_native names the only engine and is accepted.
 	td, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_native"] = true }))
 	if len(findings) != 0 || !td.JetrulesConfig.UseJetRulesNative {
 		t.Errorf("use_jet_rules_native alone: %+v", findings)
@@ -436,27 +443,77 @@ func TestValidateContentIsAValidator(t *testing.T) {
 	}
 }
 
-func TestLegacyModeLabels(t *testing.T) {
+// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+// whose every present switch is false names the one behaviour and is accepted; a
+// switch set true is refused, naming the deletion. Every definition's legacy_mode
+// is fixed.
+func TestLegacySwitches(t *testing.T) {
 	f, tr := false, true
 	cases := []struct {
-		l    *LegacyConfig
-		want string
+		l  *LegacyConfig
+		on []string
 	}{
-		{nil, LegacyModeLegacy},
-		{&LegacyConfig{}, LegacyModeLegacy},
-		{&LegacyConfig{RecomputeOnRetraction: &tr, WithdrawnRowStays: &tr}, LegacyModeLegacy},
-		{&LegacyConfig{RecomputeOnRetraction: &f, WithdrawnRowStays: &f}, LegacyModeFixed},
-		{&LegacyConfig{RecomputeOnRetraction: &f}, LegacyModeFixed1},
-		{&LegacyConfig{WithdrawnRowStays: &f}, LegacyModeFixed2},
+		{nil, nil},
+		{&LegacyConfig{}, nil},
+		{&LegacyConfig{RecomputeOnRetraction: &f, WithdrawnRowStays: &f}, nil},
+		{&LegacyConfig{RecomputeOnRetraction: &f}, nil},
+		{&LegacyConfig{WithdrawnRowStays: &f}, nil},
+		{&LegacyConfig{RecomputeOnRetraction: &tr}, []string{"recompute_on_retraction"}},
+		{&LegacyConfig{RecomputeOnRetraction: &f, WithdrawnRowStays: &tr}, []string{"withdrawn_row_stays"}},
+		{&LegacyConfig{RecomputeOnRetraction: &tr, WithdrawnRowStays: &tr}, []string{"recompute_on_retraction", "withdrawn_row_stays"}},
 	}
 	for _, c := range cases {
-		if got := c.l.ModeLabel(); got != c.want {
-			t.Errorf("%+v: %q, want %q", c.l, got, c.want)
+		if got := c.l.SwitchesOn(); strings.Join(got, ",") != strings.Join(c.on, ",") {
+			t.Errorf("%+v: switches on %v, want %v", c.l, got, c.on)
 		}
 	}
 	var td *TestDefinition
-	if td.LegacyMode() != LegacyModeLegacy {
-		t.Errorf("nil definition is legacy")
+	if td.LegacyMode() != LegacyModeFixed {
+		t.Errorf("a nil definition's legacy mode is %q", td.LegacyMode())
+	}
+
+	for _, sw := range []string{"recompute_on_retraction", "withdrawn_row_stays"} {
+		_, findings := parse(t, strings.Replace(validDefinition, `"legacy": {"recompute_on_retraction": false}`,
+			`"legacy": {"`+sw+`": true}`, 1))
+		requireFinding(t, findings, CodeRefused, "/legacy/"+sw, LegacyRetractionDeleted)
+	}
+	_, findings := parse(t, strings.Replace(validDefinition, `"legacy": {"recompute_on_retraction": false}`,
+		`"legacy": {"recompute_on_retraction": false, "withdrawn_row_stays": false}`, 1))
+	if len(findings) != 0 {
+		t.Errorf("every switch false: %+v", findings)
+	}
+}
+
+// _0:no_truth_main_on_exist was deleted with the LEGACY retraction mode: a
+// rule_config that still turns it on is refused; an integer 0 asks for what remains.
+func TestNoTruthMainOnExistIsRefused(t *testing.T) {
+	withRuleConfig := func(value string) string {
+		var d map[string]any
+		if err := json.Unmarshal([]byte(validDefinition), &d); err != nil {
+			t.Fatal(err)
+		}
+		var v any
+		if err := json.Unmarshal([]byte(value), &v); err != nil {
+			t.Fatal(err)
+		}
+		d["jetrules_config"].(map[string]any)["rule_config"] = []any{
+			map[string]any{"jets:key": "jets:iState", NoTruthMainOnExist: v}}
+		b, err := json.Marshal(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	ptr := "/jetrules_config/rule_config/0/" + NoTruthMainOnExist
+	for _, value := range []string{`{"value": "1", "type": "int"}`, `{"value": "1", "type": "long"}`,
+		`"1"`, `{"value": "1", "type": "text"}`, `{"value": "0", "type": "text"}`} {
+		_, findings := parse(t, withRuleConfig(value))
+		requireFinding(t, findings, CodeRefused, ptr, LegacyRetractionDeleted)
+	}
+	for _, value := range []string{`{"value": "0", "type": "int"}`, `{"value": "0", "type": "ulong"}`} {
+		if _, findings := parse(t, withRuleConfig(value)); len(findings) != 0 {
+			t.Errorf("%s: %+v", value, findings)
+		}
 	}
 }
 
@@ -484,7 +541,7 @@ func TestResultFileRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.json")
 	r := &Result{
 		TestPath: "jet_rules/unit_tests/x/x.tst.json", TestName: "x", Status: StatusFail, Reason: "1 of 2 checks failed",
-		Engine: EngineNative, LegacyMode: LegacyModeLegacy, LoadMs: 12, RunMs: 3, DurationMs: 20, Sessions: 1, Loops: 2,
+		Engine: EngineNative, LegacyMode: LegacyModeFixed, LoadMs: 12, RunMs: 3, DurationMs: 20, Sessions: 1, Loops: 2,
 		Checks: []CheckResult{{SessionName: "s1", Kind: KindExpected, Check: `{"s":"a:b","p":"a:c","o":"x"}`, Outcome: OutcomeFail, Found: "no match"}},
 	}
 	if err := WriteResultFile(path, r); err != nil {

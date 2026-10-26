@@ -1,7 +1,10 @@
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -358,7 +361,7 @@ TEST_F(ExprOpTest, SubsVisitor2) {
   rdf::LInt32 lhs(1);
   rdf::LDouble rhs(1);
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
-  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(0)));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDouble(0)));   // an LInt32 until 2026-10
 }
 TEST_F(ExprOpTest, SubsVisitor3) {
   SubsVisitor op(this->rete_session.get(), nullptr);
@@ -429,7 +432,7 @@ TEST_F(ExprOpTest, AddVisistorTest5) {
   rdf::LInt32 lhs(1);
   rdf::LDouble rhs(2.0);
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
-  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(3)));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDouble(3)));   // an LInt32 until 2026-10
 }
 TEST_F(ExprOpTest, AddVisistorTest6) {
   AddVisitor op(this->rete_session.get(), nullptr);
@@ -590,6 +593,697 @@ TEST_F(ExprOpTest, RangeVisitor2) {
   EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(2)));
   EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(3)));
   EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(4)));
+}
+
+// sum_values over a property whose values a hash set holds, so the order they are met
+// in is the set's. Many subjects, each with values of its own, inserted from a different
+// one for each subject: some subject meets each kind of value first, and the sum must
+// not depend on which.
+class SumValuesOrderTest : public ExprOpTest {
+ protected:
+  // (s_i, amount, v) for each v of values(i); the sum, and the expected sum, per subject
+  template<class Values, class Expected>
+  void expect_sums(Values values, Expected expected, int subjects = 64)
+  {
+    auto * sess = this->rete_session->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto p = rmgr->create_resource("amount");
+    for(int i=0; i<subjects; i++) {
+      auto name = "subject" + std::to_string(i) + "_" + std::to_string(this->batch);
+      auto s = rmgr->create_resource(name);
+      // inserted from a different value for each subject: a small table can keep the
+      // order of insertion
+      auto vs = values(rmgr, i);
+      for(size_t k=0; k<vs.size(); k++) sess->insert(s, p, vs[(k + i) % vs.size()]);
+      auto first = sess->find(s, p);
+      if(not first.is_end() and first.get_object()->which() == rdf::rdf_null_t) this->null_first++;
+      SumValuesVisitor op(this->rete_session.get(), nullptr);
+      auto sum = boost::apply_visitor(op, rdf::RdfAstType(rdf::NamedResource(name)),
+        rdf::RdfAstType(rdf::NamedResource("amount")));
+      EXPECT_EQ(sum, expected(i)) << "subject " << i << ": " << sum;
+    }
+    this->batch++;
+  }
+  int batch = 0;
+  int null_first = 0;   // subjects whose first value met is null
+};
+
+using Values = std::vector<rdf::r_index>;
+
+TEST_F(SumValuesOrderTest, ANullIsSkippedWhereverItComes) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->get_null(), 
+      rmgr->create_literal(1.5 + i), rmgr->create_literal(0.25 + i)}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(1.75 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->get_null(), 
+      rmgr->create_literal(int32_t(100 + i)), rmgr->create_literal(int32_t(1000 + i))}; },
+    [](int i) { return RDFTTYPE(rdf::LInt32(1100 + 2*i)); });
+  EXPECT_GT(this->null_first, 0) << "no subject met its null first: the case is not exercised";
+  // only nulls: null
+  expect_sums([](auto rmgr, int) { return Values{rmgr->get_null()}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); }, 4);
+}
+
+// A value that is not a number cannot be summed: the sum is null, wherever it comes.
+// Until 2026-10 text concatenated, and 5, "x", 2 gave "x25" or no answer by order.
+TEST_F(SumValuesOrderTest, AValueThatIsNotANumberMakesItNull) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(5 + i)),
+      rmgr->create_literal("x" + std::to_string(i)), rmgr->create_literal(int32_t(2))}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal("a" + std::to_string(i)),
+      rmgr->create_literal("b" + std::to_string(i))}; },
+    [](int) { return RDFTTYPE(rdf::RDFNull()); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(uint32_t(10 + i)),
+      rmgr->create_literal(uint32_t(2)), rmgr->create_literal(uint32_t(4))}; },
+    [](int i) { return RDFTTYPE(rdf::LUInt32(16 + i)); });
+}
+
+TEST_F(SumValuesOrderTest, ADoubleMakesTheSumADouble) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(0.5 + i)}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(0.5 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(int64_t(1000 + i)), rmgr->create_literal(0.25 + i), rmgr->get_null()}; },
+    [](int i) { return RDFTTYPE(rdf::LDouble(1000.25 + 3*i)); });
+}
+
+TEST_F(SumValuesOrderTest, IntegersTakeTheWidestTypePresent) {
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(i)), 
+      rmgr->create_literal(int64_t(5000000000 + i))}; },
+    [](int i) { return RDFTTYPE(rdf::LInt64(5000000000 + 2*i)); });
+  expect_sums([](auto rmgr, int i) { return Values{rmgr->create_literal(int32_t(-1 - i)), 
+      rmgr->create_literal(uint32_t(10 + 2*i))}; },
+    [](int i) { return RDFTTYPE(rdf::LUInt32(9 + i)); });
+}
+
+// I-16: a double as text is its shortest round-trip digits, in plain notation. This table
+// is the specification of rdf::double_to_text. It was written as the Go engine's table and
+// shared with it, so that both engines wrote the same text, until the Go engine's retirement
+// (decided 2026-10-22).
+struct DoubleText { double v; char const* text; };
+std::vector<DoubleText> const& double_text_table()
+{
+  static std::vector<DoubleText> const t = {
+    {991, "991"},
+    {-991, "-991"},
+    {0, "0"},
+    {-0.0, "-0"},
+    {1, "1"},
+    {0.5, "0.5"},
+    {-2.75, "-2.75"},
+    {1.5, "1.5"},
+    {100.1, "100.1"},
+    {12.34, "12.34"},
+    {0.891089, "0.891089"},
+    {1234567.5, "1234567.5"},
+    {1234567.89, "1234567.89"},
+    {1e6, "1000000"},
+    {0.00001, "0.00001"},
+    {1e-7, "0.0000001"},
+    {0.30000000000000004, "0.30000000000000004"},
+    {0.3333333333333333, "0.3333333333333333"},
+    {0.6666666666666666, "0.6666666666666666"},
+    {123456789.123, "123456789.123"},
+    {9007199254740992.0, "9007199254740992"},
+    {123456789012345678.0, "123456789012345680"},
+    {1e21, "1000000000000000000000"},
+    {1e23, "99999999999999991611392"},
+    {-1e23, "-99999999999999991611392"},
+    {std::numeric_limits<double>::quiet_NaN(), "nan"},
+    {std::numeric_limits<double>::infinity(), "inf"},
+    {-std::numeric_limits<double>::infinity(), "-inf"},
+  };
+  return t;
+}
+
+TEST(DoubleToText, ShortestDigitsNeverAnExponent) {
+  for(auto const& c: double_text_table()) {
+    EXPECT_EQ(rdf::double_to_text(c.v), c.text);
+    EXPECT_EQ(boost::apply_visitor(JoinTextVisitor(), RDFTTYPE(rdf::LDouble(c.v))), c.text);
+  }
+  // a NaN's sign is dropped: on x86 0.0/0.0 is a negative NaN
+  EXPECT_EQ(rdf::double_to_text(-std::numeric_limits<double>::quiet_NaN()), "nan");
+}
+
+TEST_F(ExprOpTest, EveryOperatorWritesADoubleTheSameWay) {
+  for(auto const& c: double_text_table()) {
+    AddVisitor add(this->rete_session.get(), nullptr);
+    EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LString("x=")), RDFTTYPE(rdf::LDouble(c.v))),
+      RDFTTYPE(rdf::LString(std::string("x=") + c.text)));
+    ToTextVisitor to_text(this->rete_session.get(), nullptr);
+    EXPECT_EQ(boost::apply_visitor(to_text, RDFTTYPE(rdf::LDouble(c.v))), RDFTTYPE(rdf::LString(c.text)));
+  }
+  // create_entity names the entity from a non-zero double
+  CreateEntityVisitor ce(this->rete_session.get(), nullptr);
+  EXPECT_EQ(boost::apply_visitor(ce, RDFTTYPE(rdf::LDouble(1234567.5))), 
+    RDFTTYPE(rdf::NamedResource("1234567.5")));
+}
+
+// I-33: sorted_head on equal values picks the object first in the tie-break order
+// (tie_break_less), not the first the graph meets. Equal weights, inserted from a
+// different object for each subject, so that some subject meets the later name first.
+TEST_F(ExprOpTest, SortedHeadBreaksATieByName) {
+  auto * sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  auto list = rmgr->create_resource("list");
+  auto weight = rmgr->create_resource("weight");
+  for(auto op: {"<", ">"}) {
+    auto cfg = rmgr->create_resource(std::string("cfg") + op);
+    sess->insert(cfg, jr->jets__entity_property, list);
+    sess->insert(cfg, jr->jets__value_property, weight);
+    sess->insert(cfg, jr->jets__operator, rmgr->create_literal(std::string(op)));
+  }
+  int later_first = 0;
+  for(int i=0; i<64; i++) {
+    for(auto op: {"<", ">"}) {
+      auto name = std::string("s") + op + std::to_string(i);
+      auto s = rmgr->create_resource(name);
+      // the two tied objects, and one that loses either way
+      bool is_min = std::string(op) == "<";
+      std::vector<std::pair<std::string, int>> objs = {
+        {name + "_a", 5}, {name + "_b", 5}, {name + "_c", is_min ? 9 : 1}};
+      for(size_t k=0; k<objs.size(); k++) {
+        auto const& o = objs[(k + i) % objs.size()];
+        auto obj = rmgr->create_resource(o.first);
+        sess->insert(s, list, obj);
+        sess->insert(obj, weight, rmgr->create_literal(int32_t(o.second)));
+      }
+      for(auto itor = sess->find(s, list); not itor.is_end(); itor.next()) {
+        auto n = rdf::get_name(itor.get_object());
+        if(n == name + "_a") break;
+        if(n == name + "_b") { later_first++; break; }
+      }
+      SortedHeadVisitor head(this->rete_session.get(), nullptr);
+      auto res = boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource(name)),
+        RDFTTYPE(rdf::NamedResource(std::string("cfg") + op)));
+      EXPECT_EQ(res, RDFTTYPE(rdf::NamedResource(name + "_a"))) << name;
+    }
+  }
+  EXPECT_GT(later_first, 0) << "no subject met the later name first: the case is not exercised";
+}
+
+// A tie is the rules' own == (EqVisitor), not "neither is greater": an int 5 and a double
+// 5.0 tie, as do two doubles equal to 15 significant digits, so the name decides; a NaN
+// ties with nothing, so the first object met wins.
+class SortedHeadTieTest : public ExprOpTest {
+ protected:
+  // sorted_head "<" over two objects, _a and _b, with these weights, inserted from a
+  // different one for each subject; for each subject the result and the first object met
+  template<class F>
+  void run(rdf::r_index wa, rdf::r_index wb, F && check)
+  {
+    auto * sess = this->rete_session->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto const* jr = rmgr->jets();
+    auto list = rmgr->create_resource("tlist");
+    auto weight = rmgr->create_resource("tweight");
+    auto cfg = rmgr->create_resource("tcfg" + std::to_string(batch));
+    sess->insert(cfg, jr->jets__entity_property, list);
+    sess->insert(cfg, jr->jets__value_property, weight);
+    sess->insert(cfg, jr->jets__operator, rmgr->create_literal(std::string("<")));
+    for(int i=0; i<64; i++) {
+      auto name = "t" + std::to_string(batch) + "_" + std::to_string(i);
+      auto s = rmgr->create_resource(name);
+      std::vector<std::pair<std::string, rdf::r_index>> objs = {{name + "_a", wa}, {name + "_b", wb}};
+      for(size_t k=0; k<objs.size(); k++) {
+        auto const& o = objs[(k + i) % objs.size()];
+        auto obj = rmgr->create_resource(o.first);
+        sess->insert(s, list, obj);
+        sess->insert(obj, weight, o.second);
+      }
+      auto first = rdf::get_name(sess->find(s, list).get_object());
+      SortedHeadVisitor head(this->rete_session.get(), nullptr);
+      auto res = boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource(name)),
+        RDFTTYPE(rdf::NamedResource("tcfg" + std::to_string(batch))));
+      check(name, boost::get<rdf::NamedResource>(res).name, first);
+    }
+    batch++;
+  }
+  int batch = 0;
+};
+
+TEST_F(SortedHeadTieTest, AnIntAndAnEqualDoubleTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(5.0), rmgr->create_literal(int32_t(5)),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_a");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
+// An int 5 and a double 5.7 are not equal. EqVisitor said they were until 2026-10 (it
+// truncated the double), which would have let the name pick 5.7 as the minimum.
+// Equal to 15 significant digits, as == says, though not bit-equal: a tie, as it was on Go
+TEST_F(SortedHeadTieTest, DoublesEqualTo15DigitsTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(0.3), rmgr->create_literal(0.30000000000000004),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_a");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
+TEST_F(SortedHeadTieTest, AnIntAndADifferentDoubleDoNotTie) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0;
+  run(rmgr->create_literal(5.7), rmgr->create_literal(int32_t(5)),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      if(first == name + "_b") b_first++;
+      EXPECT_EQ(res, name + "_b");
+    });
+  EXPECT_GT(b_first, 0) << "no subject met _b first: the case is not exercised";
+}
+
+TEST_F(SortedHeadTieTest, ANaNTiesWithNothing) {
+  auto rmgr = this->rete_session->rdf_session()->rmgr();
+  int b_first = 0, a_first = 0;
+  run(rmgr->create_literal(std::numeric_limits<double>::quiet_NaN()), rmgr->create_literal(2.0),
+    [&](std::string const& name, std::string const& res, std::string const& first) {
+      (first == name + "_b" ? b_first : a_first)++;
+      EXPECT_EQ(res, first) << "not a tie: the first object met wins, as before";
+    });
+  EXPECT_GT(a_first, 0);
+  EXPECT_GT(b_first, 0);
+}
+
+TEST(TieBreak, ResourcesThenBlankNodesThenLiterals) {
+  auto r_a = rdf::mkResource("a"), r_b = rdf::mkResource("b");
+  auto b1 = rdf::mkBlankNode(1), b2 = rdf::mkBlankNode(2);
+  auto i10 = rdf::mkLiteral(int32_t(10)), i9 = rdf::mkLiteral(int32_t(9));
+  auto d10 = rdf::mkLiteral(10.0), s10 = rdf::mkLiteral("10");
+  EXPECT_TRUE(tie_break_less(r_a.get(), r_b.get()));
+  EXPECT_FALSE(tie_break_less(r_b.get(), r_a.get()));
+  EXPECT_TRUE(tie_break_less(r_b.get(), b1.get()));
+  EXPECT_TRUE(tie_break_less(b1.get(), b2.get()));
+  EXPECT_TRUE(tie_break_less(b2.get(), i9.get()));
+  EXPECT_TRUE(tie_break_less(i10.get(), i9.get()));     // by text: "10" < "9"
+  EXPECT_TRUE(tie_break_less(i10.get(), d10.get()));    // equal text "10": int32 first
+  auto l10 = rdf::mkLiteral(int64_t(10)), u10 = rdf::mkLiteral(uint32_t(10));
+  EXPECT_TRUE(tie_break_less(l10.get(), u10.get()));    // signed before unsigned
+  EXPECT_FALSE(tie_break_less(u10.get(), l10.get()));
+  EXPECT_TRUE(tie_break_less(d10.get(), s10.get()));    // then double, then string
+  EXPECT_FALSE(tie_break_less(r_a.get(), r_a.get()));
+}
+
+// + - * /: a double operand makes the result a double, on either side. Until 2026-10 an
+// integer first truncated the double in + and - (2 + 0.5 was 2).
+template<class V>
+void expect_double_result(char const* op, double (*f)(double, double))
+{
+  V v(nullptr, nullptr);
+  std::vector<RDFTTYPE> ints = {rdf::LInt32(7), rdf::LUInt32(7), rdf::LInt64(7), rdf::LUInt64(7)};
+  for(auto const& n: ints) {
+    EXPECT_EQ(boost::apply_visitor(v, n, RDFTTYPE(rdf::LDouble(0.5))), RDFTTYPE(rdf::LDouble(f(7, 0.5))))
+      << n << " " << op << " 0.5";
+    EXPECT_EQ(boost::apply_visitor(v, RDFTTYPE(rdf::LDouble(0.5)), n), RDFTTYPE(rdf::LDouble(f(0.5, 7))))
+      << "0.5 " << op << " " << n;
+  }
+}
+
+TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
+  expect_double_result<AddVisitor>("+", [](double a, double b) { return a + b; });
+  expect_double_result<SubsVisitor>("-", [](double a, double b) { return a - b; });
+  expect_double_result<MultVisitor>("*", [](double a, double b) { return a * b; });
+  expect_double_result<DivVisitor>("/", [](double a, double b) { return a / b; });
+}
+
+// A beta row, so that a visitor is evaluated as in a session's rule. With no row an
+// operator's catch-all gives null for operands it does not take; with one, it threw, and
+// the session failed (F517). Since Q-93 the catch-alls of + - * /, abs, to_int, to_double,
+// lookup and multi_lookup give null either way; other operators' still differ. The rows
+// below that name `in_session`, and the tables that take a SessionRow, are about that
+// difference.
+struct SessionRow {
+  NodeVertexPtr vertex = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {});
+  BetaRowPtr row = create_beta_row(vertex.get(), 0);
+};
+
+// A visitor's result, or the text "threw: ..." when it throws, so that each row of a table
+// that throws fails on its own line rather than ending the test at the first.
+template<class V>
+RDFTTYPE or_threw(V & op, RDFTTYPE a)
+{
+  try { return boost::apply_visitor(op, a); }
+  catch(std::exception const& e) { return rdf::LString(std::string("threw: ") + e.what()); }
+}
+template<class V>
+RDFTTYPE or_threw(V & op, RDFTTYPE a, RDFTTYPE b)
+{
+  try { return boost::apply_visitor(op, a, b); }
+  catch(std::exception const& e) { return rdf::LString(std::string("threw: ") + e.what()); }
+}
+
+// The typing table of + - * / : the specification of the arithmetic operators' result
+// types. It was shared with the Go engine, since retired, whose int and uint were
+// 64-bit, hence int64 and uint64 here. "uint + negative int" and "int + uint past int"
+// gave no result on Go and threw in numeric_cast here, a recorded difference, until
+// Q-85 (2026-10-23): a mixed-integer operation whose right operand does not fit the left
+// operand's type is null (I-134), and so is text plus a named resource (I-109), which
+// threw in a session. Each failed the session, and now the rule's consequent sees null.
+TEST(ArithmeticTypes, TheSharedTypingTable) {
+  AddVisitor add(nullptr, nullptr);
+  SubsVisitor sub(nullptr, nullptr);
+  MultVisitor mul(nullptr, nullptr);
+  DivVisitor div(nullptr, nullptr);
+  auto I = [](int64_t v) { return RDFTTYPE(rdf::LInt64(v)); };
+  auto UI = [](uint64_t v) { return RDFTTYPE(rdf::LUInt64(v)); };
+  auto F = [](double v) { return RDFTTYPE(rdf::LDouble(v)); };
+  auto DD = [](int y, int m, int d) { return RDFTTYPE(rdf::LDate(rdf::date(y, m, d))); };
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(op, a, b); };
+  EXPECT_EQ(ap(add, I(5), F(0.5)), F(5.5));
+  EXPECT_EQ(ap(add, F(0.5), I(5)), F(5.5));
+  EXPECT_EQ(ap(sub, I(5), F(0.5)), F(4.5));
+  EXPECT_EQ(ap(sub, F(0.5), I(5)), F(-4.5));
+  EXPECT_EQ(ap(mul, I(5), F(0.5)), F(2.5));
+  EXPECT_EQ(ap(mul, F(0.5), I(5)), F(2.5));
+  EXPECT_EQ(ap(div, I(5), F(2)), F(2.5));
+  EXPECT_EQ(ap(div, I(5), I(2)), I(2));
+  EXPECT_EQ(ap(add, I(5), I(2)), I(7));
+  EXPECT_EQ(ap(add, I(5), UI(3)), I(8));
+  EXPECT_EQ(ap(add, UI(5), I(3)), UI(8));
+  EXPECT_EQ(ap(add, UI(5), UI(3)), UI(8));
+  EXPECT_EQ(ap(sub, UI(5), I(3)), UI(2));
+  EXPECT_EQ(ap(mul, UI(5), I(3)), UI(15));
+  EXPECT_EQ(ap(div, UI(7), I(2)), UI(3));
+  EXPECT_EQ(ap(mul, UI(5), F(0.5)), F(2.5));
+  EXPECT_EQ(ap(add, I(5), RDFTTYPE(rdf::LString("x"))).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(add, DD(2025, 1, 1), I(1)), DD(2025, 1, 2));
+
+  // Q-85, I-134: the right operand out of the left operand's range is null, in + - * /
+  auto I32 = [](int32_t v) { return RDFTTYPE(rdf::LInt32(v)); };
+  auto UI32 = [](uint32_t v) { return RDFTTYPE(rdf::LUInt32(v)); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  int64_t const big = 3000000000;   // past int32, within uint32
+  EXPECT_TRUE(null(ap(add, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(sub, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(mul, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(div, I32(5), I(big))));
+  EXPECT_TRUE(null(ap(add, UI32(5), I32(-1))));
+  EXPECT_TRUE(null(ap(sub, UI32(5), I32(-1))));
+  EXPECT_TRUE(null(ap(mul, UI(5), I(-1))));
+  EXPECT_TRUE(null(ap(div, UI(5), I(-1))));
+  EXPECT_TRUE(null(ap(add, I(5), UI(std::numeric_limits<uint64_t>::max()))));
+  EXPECT_TRUE(null(ap(add, I32(5), UI32(std::numeric_limits<uint32_t>::max()))));
+  // and an operand that fits is converted as before
+  EXPECT_EQ(ap(add, I32(5), I(3)), I32(8));
+  EXPECT_EQ(ap(add, UI32(5), I(big)), UI32(static_cast<uint32_t>(5 + big)));
+  EXPECT_EQ(ap(sub, I32(5), UI32(7)), I32(-2));
+
+  // Q-85, I-109: text plus a named resource is null, in a session's rule as with no row
+  SessionRow sr;
+  AddVisitor add_in_session(nullptr, sr.row.get());
+  EXPECT_TRUE(null(ap(add_in_session, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
+  EXPECT_TRUE(null(ap(add_in_session, RDFTTYPE(rdf::NamedResource("r")), RDFTTYPE(rdf::LString("x")))));
+  EXPECT_TRUE(null(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
+  // text plus a number still concatenates
+  EXPECT_EQ(ap(add_in_session, RDFTTYPE(rdf::LString("x")), I32(5)), RDFTTYPE(rdf::LString("x5")));
+
+  // Q-85 (BL.1b): text with a blank node, null with text and a double with text are
+  // null in a session's rule, in either order and in each of + - * /; each threw. Text
+  // plus null and text plus a double still concatenate, as they did
+  SubsVisitor sub_in_session(nullptr, sr.row.get());
+  MultVisitor mul_in_session(nullptr, sr.row.get());
+  DivVisitor div_in_session(nullptr, sr.row.get());
+  RDFTTYPE const text = rdf::LString("x"), bnode = rdf::BlankNode(3), nul = rdf::Null(), dbl = rdf::LDouble(2.5);
+  auto mixes_are_null = [&](auto & op, char const* name, bool concatenates) {
+    EXPECT_TRUE(null(ap(op, text, bnode))) << "text " << name << " blank node";
+    EXPECT_TRUE(null(ap(op, bnode, text))) << "blank node " << name << " text";
+    EXPECT_TRUE(null(ap(op, nul, text))) << "null " << name << " text";
+    EXPECT_TRUE(null(ap(op, dbl, text))) << "double " << name << " text";
+    if(not concatenates) {
+      EXPECT_TRUE(null(ap(op, text, nul))) << "text " << name << " null";
+      EXPECT_TRUE(null(ap(op, text, dbl))) << "text " << name << " double";
+    }
+  };
+  mixes_are_null(add_in_session, "+", true);
+  mixes_are_null(sub_in_session, "-", false);
+  mixes_are_null(mul_in_session, "*", false);
+  mixes_are_null(div_in_session, "/", false);
+  EXPECT_EQ(ap(add_in_session, text, nul), RDFTTYPE(rdf::LString("xnull")));
+  EXPECT_EQ(ap(add_in_session, text, dbl), RDFTTYPE(rdf::LString("x2.5")));
+}
+
+// Q-85 (BL.1b): to_int of a number out of int32's range is null; numeric_cast threw,
+// in a session's rule as with no row. A number in range is truncated toward zero, as it was
+TEST(ArithmeticTypes, ToIntOutOfRangeIsNull) {
+  SessionRow sr;
+  ToIntVisitor to_int(nullptr, sr.row.get());
+  auto ti = [&](RDFTTYPE v) { return boost::apply_visitor(to_int, v); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  double const inf = std::numeric_limits<double>::infinity();
+  EXPECT_TRUE(null(ti(rdf::LUInt32(std::numeric_limits<uint32_t>::max()))));
+  EXPECT_TRUE(null(ti(rdf::LInt64(3000000000))));
+  EXPECT_TRUE(null(ti(rdf::LInt64(-3000000000))));
+  EXPECT_TRUE(null(ti(rdf::LUInt64(std::numeric_limits<uint64_t>::max()))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(1e300))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(-1e300))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(inf))));
+  EXPECT_EQ(ti(rdf::LInt64(-7)), RDFTTYPE(rdf::LInt32(-7)));
+  EXPECT_EQ(ti(rdf::LUInt32(5)), RDFTTYPE(rdf::LInt32(5)));
+  EXPECT_EQ(ti(rdf::LDouble(2.9)), RDFTTYPE(rdf::LInt32(2)));
+  EXPECT_EQ(ti(rdf::LDouble(-2.9)), RDFTTYPE(rdf::LInt32(-2)));
+  EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
+}
+
+// Q-93: every type mismatch of + - * / is null, in a session's rule as with no row: a
+// number with text, a named resource, a blank node or null, either way round, and two
+// operands neither of which the operator takes. Each threw in a session's rule, and the
+// session failed (I-184). Text first in + is concatenation, by design, and is not a
+// mismatch: "x" + 5 is "x5", while 5 + "x" is null.
+TEST(ArithmeticTypes, EveryTypeMismatchIsNull) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  MultVisitor mul(nullptr, sr.row.get());
+  DivVisitor div(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const numbers = {rdf::LInt32(5), rdf::LUInt32(5), rdf::LInt64(5), rdf::LUInt64(5), rdf::LDouble(2.5)};
+  std::vector<RDFTTYPE> const others = {rdf::LString("x"), rdf::LString(""), rdf::NamedResource("r"), rdf::BlankNode(3), rdf::Null()};
+  // two operands neither of which is a number the operator takes
+  std::vector<std::pair<RDFTTYPE, RDFTTYPE>> const pairs = {
+    {rdf::NamedResource("r"), rdf::NamedResource("s")},
+    {rdf::BlankNode(3), rdf::BlankNode(4)},
+    {rdf::Null(), rdf::Null()},
+    {rdf::NamedResource("r"), rdf::Null()},
+    {rdf::Null(), rdf::BlankNode(3)},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::LString("x")},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::NamedResource("r")},
+    {rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")), rdf::BlankNode(3)},
+    {rdf::LDate(rdf::date(2025, 1, 1)), rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00"))},
+  };
+  auto mismatches_are_null = [&](auto & op, char const* name, bool text_first_concatenates) {
+    for(auto const& n: numbers) {
+      for(auto const& x: others) {
+        EXPECT_TRUE(null(ap(op, n, x))) << n << " " << name << " " << x;
+        bool const concatenates = text_first_concatenates and x.which() == rdf::rdf_literal_string_t;
+        if(not concatenates) EXPECT_TRUE(null(ap(op, x, n))) << x << " " << name << " " << n;
+      }
+    }
+    for(auto const& [l, r]: pairs) {
+      EXPECT_TRUE(null(ap(op, l, r))) << l << " " << name << " " << r;
+      if(not (text_first_concatenates and r.which() == rdf::rdf_literal_string_t)) {
+        EXPECT_TRUE(null(ap(op, r, l))) << r << " " << name << " " << l;
+      }
+    }
+  };
+  mismatches_are_null(add, "+", true);
+  mismatches_are_null(sub, "-", false);
+  mismatches_are_null(mul, "*", false);
+  mismatches_are_null(div, "/", false);
+  // text first in + concatenates, as it did
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LInt32(5))), RDFTTYPE(rdf::LString("x5")));
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LDouble(2.5))), RDFTTYPE(rdf::LString("x2.5")));
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1)))), RDFTTYPE(rdf::LString("x2025-01-01")));
+  // and the operations defined on dates are unchanged
+  EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 3))), RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1)))), RDFTTYPE(rdf::LInt32(2)));
+
+  // abs of anything but a number is null
+  AbsVisitor abs(nullptr, sr.row.get());
+  for(auto const& x: others) {
+    EXPECT_TRUE(null(or_threw(abs, x))) << "abs " << x;
+  }
+  EXPECT_TRUE(null(or_threw(abs, RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1))))));
+  EXPECT_EQ(or_threw(abs, RDFTTYPE(rdf::LInt32(-5))), RDFTTYPE(rdf::LInt32(5)));
+}
+
+// Q-93: to_int and to_double of what they cannot read are null, in a session's rule as
+// with no row: text that does not read as their type, empty or blank text, null, a named
+// resource, a blank node or a date (I-185); and to_int of a NaN, which converted to
+// int32 by undefined behaviour, numeric_cast not checking it (I-186). Each threw in a
+// session's rule except the NaN, which gave whatever the conversion gave.
+TEST(ArithmeticTypes, ToIntAndToDoubleOfWhatTheyCannotReadIsNull) {
+  SessionRow sr;
+  ToIntVisitor to_int(nullptr, sr.row.get());
+  ToDoubleVisitor to_double(nullptr, sr.row.get());
+  auto ti = [&](RDFTTYPE v) { return or_threw(to_int, v); };
+  auto td = [&](RDFTTYPE v) { return or_threw(to_double, v); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const unreadable = {
+    rdf::LString(""), rdf::LString("  "), rdf::LString("x"), rdf::LString("12abc"),
+    rdf::Null(), rdf::NamedResource("r"), rdf::BlankNode(3), rdf::LDate(rdf::date(2025, 1, 1)),
+    rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")),
+  };
+  for(auto const& v: unreadable) {
+    EXPECT_TRUE(null(ti(v))) << "to_int " << v;
+    EXPECT_TRUE(null(td(v))) << "to_double " << v;
+  }
+  // text that reads as a number but not as an int32
+  EXPECT_TRUE(null(ti(rdf::LString("2.5"))));
+  EXPECT_TRUE(null(ti(rdf::LString("1e3"))));
+  EXPECT_TRUE(null(ti(rdf::LString("99999999999"))));
+  EXPECT_TRUE(null(ti(rdf::LDouble(std::numeric_limits<double>::quiet_NaN()))));
+  // what they read is as it was
+  EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
+  EXPECT_EQ(ti(rdf::LString("-7")), RDFTTYPE(rdf::LInt32(-7)));
+  EXPECT_EQ(td(rdf::LString(" 2.5 ")), RDFTTYPE(rdf::LDouble(2.5)));
+  EXPECT_EQ(td(rdf::LString("1e3")), RDFTTYPE(rdf::LDouble(1000)));
+  EXPECT_EQ(td(rdf::LInt32(3)), RDFTTYPE(rdf::LDouble(3)));
+}
+
+TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
+  AddVisitor add(nullptr, nullptr);
+  EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt32(2)), RDFTTYPE(rdf::LInt64(3))), RDFTTYPE(rdf::LInt32(5)));
+  EXPECT_EQ(boost::apply_visitor(add, RDFTTYPE(rdf::LInt64(2)), RDFTTYPE(rdf::LInt32(3))), RDFTTYPE(rdf::LInt64(5)));
+  DivVisitor div(nullptr, nullptr);
+  EXPECT_EQ(boost::apply_visitor(div, RDFTTYPE(rdf::LInt32(7)), RDFTTYPE(rdf::LInt32(2))), RDFTTYPE(rdf::LInt32(3)));
+}
+
+// Q-68: == != < <= > >= over numbers. Integers with integers by value (std::cmp_*); any
+// double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
+// digits); a NaN or an infinity is never equal or ordered. The table is the comparisons'
+// specification; it was shared with the Go engine, the same rows in both, until its retirement.
+struct ComparisonCase { RDFTTYPE lhs, rhs; char const* expected; };   // == != < <= > >=
+
+TEST(Comparisons, TheSharedTable) {
+  double const nan = std::numeric_limits<double>::quiet_NaN();
+  double const inf = std::numeric_limits<double>::infinity();
+  std::vector<ComparisonCase> const cases = {
+    {rdf::LInt32(5), rdf::LDouble(5), "TFFTFT"},
+    {rdf::LInt32(5), rdf::LDouble(5.5), "FTTTFF"},
+    {rdf::LDouble(5.5), rdf::LInt32(5), "FTFFTT"},
+    {rdf::LInt32(5), rdf::LUInt32(5), "TFFTFT"},
+    {rdf::LInt32(-1), rdf::LUInt32(1), "FTTTFF"},
+    {rdf::LUInt64(std::numeric_limits<uint64_t>::max()), rdf::LInt64(std::numeric_limits<int64_t>::max()), "FTFFTT"},
+    {rdf::LInt32(3), rdf::LInt32(7), "FTTTFF"},
+    {rdf::LDouble(0.30000000000000004), rdf::LDouble(0.3), "TFFTFT"},
+    {rdf::LDouble(1), rdf::LDouble(1.000000000000001), "TFFTFT"},
+    {rdf::LDouble(1), rdf::LDouble(1.000000000001), "FTTTFF"},
+    {rdf::LDouble(nan), rdf::LDouble(nan), "FTFFFF"},
+    {rdf::LDouble(nan), rdf::LInt32(5), "FTFFFF"},
+    {rdf::LDouble(inf), rdf::LDouble(inf), "FTFFFF"},
+    {rdf::LDouble(inf), rdf::LInt32(5), "FTFFFF"},
+    {rdf::LInt32(5), rdf::LString("5"), "FTFFFF"},
+    // a double too large for the integer's type compares, where it threw
+    {rdf::LInt32(5), rdf::LDouble(1e12), "FTTTFF"},
+    {rdf::LUInt64(5), rdf::LDouble(5), "TFFTFT"},
+    // a tiny double is compared unrounded: rounding it to 15 digits overflowed to NaN,
+    // which compared equal to anything
+    {rdf::LDouble(1e-300), rdf::LInt32(5), "FTTTFF"},
+    {rdf::LDouble(5e-324), rdf::LDouble(1e300), "FTTTFF"},
+    {rdf::LDouble(1e-300), rdf::LInt32(-7), "FTFFTT"},
+  };
+  auto t = [](RDFTTYPE r) { return rdf::to_bool(r) ? 'T' : 'F'; };
+  for(auto const& c: cases) {
+    std::string got;
+    got += t(boost::apply_visitor(EqVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(NeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(LtVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(LeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(GtVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    got += t(boost::apply_visitor(GeVisitor(nullptr, nullptr), c.lhs, c.rhs));
+    EXPECT_EQ(got, c.expected) << c.lhs << " vs " << c.rhs;
+  }
+}
+
+// Q-69: division by zero. An integer divided by an integer zero is null; it raised
+// SIGFPE until 2026-10, which killed the process. A division that involves a double
+// follows IEEE: +inf, -inf, and NaN for 0/0. The table is division's specification: seven
+// rows shared with the Go engine until its retirement, then two mixed integer
+// types and one nonzero division.
+TEST(ArithmeticTypes, DivisionByZero) {
+  DivVisitor div(nullptr, nullptr);
+  auto q = [&](RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(div, a, b); };
+  EXPECT_EQ(q(rdf::LInt32(5), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LUInt32(5), rdf::LUInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt32(0), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  double const inf = std::numeric_limits<double>::infinity();
+  EXPECT_EQ(q(rdf::LDouble(5.0), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(inf)));
+  EXPECT_EQ(q(rdf::LDouble(-5.0), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(-inf)));
+  EXPECT_TRUE(std::isnan(boost::get<rdf::LDouble>(q(rdf::LDouble(0.0), rdf::LDouble(0.0))).data));
+  EXPECT_EQ(q(rdf::LInt32(5), rdf::LDouble(0.0)), RDFTTYPE(rdf::LDouble(inf)));
+  EXPECT_EQ(q(rdf::LInt64(7), rdf::LUInt32(0)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LUInt64(7), rdf::LInt32(0)).which(), rdf::rdf_null_t);
+  // and an integer divided by a nonzero integer is still integer division
+  EXPECT_EQ(q(rdf::LInt32(7), rdf::LInt32(2)), RDFTTYPE(rdf::LInt32(3)));
+
+  // Q-85, I-126: the minimum signed integer divided by -1 is null, as by zero. Its
+  // quotient does not fit the type, and it raised SIGFPE, which killed the process, for
+  // int32 and int64 and through the mixed integer types
+  auto const i32min = std::numeric_limits<int32_t>::min();
+  auto const i64min = std::numeric_limits<int64_t>::min();
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt32(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt64(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt64(-1)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt32(-1)).which(), rdf::rdf_null_t);
+  // and the neighbours divide
+  EXPECT_EQ(q(rdf::LInt32(i32min), rdf::LInt32(1)), RDFTTYPE(rdf::LInt32(i32min)));
+  EXPECT_EQ(q(rdf::LInt32(i32min + 1), rdf::LInt32(-1)), RDFTTYPE(rdf::LInt32(-(i32min + 1))));
+  EXPECT_EQ(q(rdf::LInt32(-7), rdf::LInt32(-1)), RDFTTYPE(rdf::LInt32(7)));
+  EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt64(2)), RDFTTYPE(rdf::LInt64(i64min / 2)));
+}
+
+// Q-85, I-104: a null lookup key is null, and the session goes on; in a session's rule
+// it threw. The table is not read: a null key looks nothing up.
+// and so is a blank-node key (BL.1b), which threw likewise
+TEST(Lookups, ANullKeyIsNull) {
+  SessionRow sr;
+  LookupVisitor lookup(nullptr, sr.row.get());
+  MultiLookupVisitor multi_lookup(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return boost::apply_visitor(op, a, b); };
+  RDFTTYPE const null_key = rdf::Null();
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), null_key).which(), rdf::rdf_null_t);
+  RDFTTYPE const bnode_key = rdf::BlankNode(3);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::NamedResource("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+  EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
+}
+
+// Q-93: lookup and multi_lookup with a key or a table of a type they do not take are null,
+// in a session's rule as with no row, and look nothing up: a double, a date or a datetime
+// key, and a table named by anything but a resource or text. Each threw in a session's
+// rule (I-184). The rows need no lookup helper, since nothing is looked up.
+TEST(Lookups, AKeyOrTableOfAnotherTypeIsNull) {
+  SessionRow sr;
+  LookupVisitor lookup(nullptr, sr.row.get());
+  MultiLookupVisitor multi_lookup(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  std::vector<RDFTTYPE> const tables = {rdf::NamedResource("acme:ProcedureLookup"), rdf::LString("acme:ProcedureLookup")};
+  std::vector<RDFTTYPE> const keys = {
+    rdf::LDouble(2.5), rdf::LDate(rdf::date(2025, 1, 1)), rdf::LDatetime(rdf::parse_datetime("2025-01-01T10:00:00")),
+  };
+  for(auto const& t: tables) {
+    for(auto const& k: keys) {
+      EXPECT_TRUE(null(ap(lookup, t, k))) << "lookup " << t << " " << k;
+      EXPECT_TRUE(null(ap(multi_lookup, t, k))) << "multi_lookup " << t << " " << k;
+    }
+  }
+  std::vector<RDFTTYPE> const not_tables = {
+    rdf::LInt32(5), rdf::LDouble(2.5), rdf::Null(), rdf::BlankNode(3), rdf::LDate(rdf::date(2025, 1, 1)),
+  };
+  for(auto const& t: not_tables) {
+    EXPECT_TRUE(null(ap(lookup, t, RDFTTYPE(rdf::LString("k"))))) << "lookup " << t;
+    EXPECT_TRUE(null(ap(multi_lookup, t, RDFTTYPE(rdf::LInt32(7))))) << "multi_lookup " << t;
+  }
 }
 
 }   // namespace

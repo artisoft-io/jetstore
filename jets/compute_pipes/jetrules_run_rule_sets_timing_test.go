@@ -1,0 +1,210 @@
+package compute_pipes_test
+
+// Tests of what the rules_bench command (jets/cmds/rules_bench) adds to the
+// rule loop and its neighbours (rules_benchmark Phase 1, AB.1 and AB.2): the
+// timing sink of RunRuleSets, CastTextRow with
+// AssertCastRow, and SessionExtractor. The sink is nil in every pipeline,
+// so the first test pins that setting it changes no outcome. They run like the
+// other RunRuleSets tests, in a child process over a compiled copy of
+// jets/jetrules/test_ws. Run them with -count=1.
+
+import (
+	"reflect"
+	"slices"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+)
+
+// recordingTimer is a RuleSetsTimer that keeps what it is given.
+type recordingTimer struct {
+	// inputDelay is slept in InputAsserted, to show its time is in no phase.
+	inputDelay time.Duration
+	inputCalls int
+	input      time.Duration
+	ruleSets   []compute_pipes.RuleSetTiming
+	// released holds what RuleSetReleased is given, and events the order of the
+	// two calls, "done" and "released".
+	released []compute_pipes.RuleSetTiming
+	events   []string
+}
+
+func (r *recordingTimer) InputAsserted(d time.Duration) {
+	r.inputCalls++
+	r.input = d
+	time.Sleep(r.inputDelay)
+}
+
+func (r *recordingTimer) RuleSetDone(s compute_pipes.JetRdfSession, rs compute_pipes.JetReteSession, t *compute_pipes.RuleSetTiming) {
+	r.ruleSets = append(r.ruleSets, *t)
+	r.events = append(r.events, "done")
+}
+
+func (r *recordingTimer) RuleSetReleased(t *compute_pipes.RuleSetTiming) {
+	r.released = append(r.released, *t)
+	r.events = append(r.events, "released")
+}
+
+func TestRunRuleSetsTiming(t *testing.T) {
+	inCompiledTestWs(t, func(t *testing.T) {
+		t.Run("same_outcome_with_and_without_a_timer", func(t *testing.T) {
+			for _, c := range []struct{ process, mode string }{
+				{loopingRuleFile, "ok"},
+				{executeRulesRuleFile, "runaway"},
+				{executeRulesRuleFile, "exception"},
+				{executeRulesSequence, "exception"},
+			} {
+				without := runRuleSets(t, c.process, c.mode, &compute_pipes.RuleSetsConfig{})
+				with := runRuleSets(t, c.process, c.mode, &compute_pipes.RuleSetsConfig{Timing: &recordingTimer{}})
+				if !reflect.DeepEqual(without, with) {
+					t.Errorf("%s %s: outcome with a timer %+v, without %+v", c.process, c.mode, with, without)
+				}
+			}
+		})
+		t.Run("phases_of_a_looping_rule_set", func(t *testing.T) {
+			// test_looping_main.jr: $max_looping 5, jets:completed on loop 3.
+			timer := &recordingTimer{}
+			o := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{Timing: timer})
+			if timer.inputCalls != 1 {
+				t.Errorf("InputAsserted called %d times, want 1", timer.inputCalls)
+			}
+			if len(timer.ruleSets) != 1 {
+				t.Fatalf("RuleSetDone called %d times, want 1", len(timer.ruleSets))
+			}
+			rs := timer.ruleSets[0]
+			if rs.RuleSet != loopingRuleFile || len(rs.Loops) != o.Loops+1 {
+				t.Errorf("timing %+v, want %s with one ExecuteRules time per loop, 0 to %d", rs, loopingRuleFile, o.Loops)
+			}
+			var parts time.Duration
+			for _, d := range rs.Loops {
+				parts += d
+			}
+			parts += rs.ReteSession + rs.Prepare + rs.Control + rs.ExceptionScan
+			if rs.ReteSession <= 0 || rs.Total < parts {
+				t.Errorf("total %v is less than its parts %v, or the rete session took no time: %+v", rs.Total, parts, rs)
+			}
+		})
+		t.Run("callback_time_is_in_no_phase", func(t *testing.T) {
+			const delay = 300 * time.Millisecond
+			timer := &recordingTimer{inputDelay: delay}
+			runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{Timing: timer})
+			if len(timer.ruleSets) != 1 {
+				t.Fatalf("RuleSetDone called %d times, want 1", len(timer.ruleSets))
+			}
+			if rs := timer.ruleSets[0]; rs.Total >= delay || timer.input >= delay {
+				t.Errorf("total %v, input %v: the %v InputAsserted spent is counted in a phase", rs.Total, timer.input, delay)
+			}
+		})
+		t.Run("one_timing_per_rule_set_of_a_sequence", func(t *testing.T) {
+			timer := &recordingTimer{}
+			o := runRuleSets(t, executeRulesSequence, "exception", &compute_pipes.RuleSetsConfig{Timing: timer})
+			var got, want []string
+			for _, rs := range timer.ruleSets {
+				got = append(got, rs.RuleSet)
+			}
+			for _, rs := range o.RuleSets {
+				want = append(want, rs.RuleSet)
+			}
+			if len(want) < 2 || !slices.Equal(got, want) || timer.inputCalls != 1 {
+				t.Errorf("timed rule sets %v, want %v; InputAsserted called %d times, want 1", got, want, timer.inputCalls)
+			}
+		})
+		t.Run("rete_release_timed_after_each_rule_set", func(t *testing.T) {
+			// rules_benchmark I-35: the release of each rule set's rete session is
+			// its own phase, reported after RuleSetDone and outside Total.
+			timer := &recordingTimer{}
+			o := runRuleSets(t, executeRulesSequence, "exception", &compute_pipes.RuleSetsConfig{Timing: timer})
+			n := len(o.RuleSets)
+			if n < 2 || len(timer.released) != n || len(timer.ruleSets) != n {
+				t.Fatalf("%d rule sets ran, RuleSetDone called %d times, RuleSetReleased %d", n, len(timer.ruleSets), len(timer.released))
+			}
+			var want []string
+			for range n {
+				want = append(want, "done", "released")
+			}
+			if !slices.Equal(timer.events, want) {
+				t.Errorf("calls %v, want %v", timer.events, want)
+			}
+			for i, rel := range timer.released {
+				done := timer.ruleSets[i]
+				if done.Release != 0 {
+					t.Errorf("rule set %s: Release %v set before RuleSetDone", done.RuleSet, done.Release)
+				}
+				if rel.RuleSet != done.RuleSet || rel.Total != done.Total || rel.Release < 0 {
+					t.Errorf("rule set %d: released %+v, done %+v; want the same timing with Release set", i, rel, done)
+				}
+			}
+		})
+	})
+}
+
+func TestCastTextRowAndExtraction(t *testing.T) {
+	inCompiledTestWs(t, func(t *testing.T) {
+		spec := &compute_pipes.JetrulesSpec{CurrentSourcePeriod: 1}
+		t.Run("cast_then_assert_is_assert_text_row", func(t *testing.T) {
+			cr, err := compute_pipes.CastTextRow(spec, caseColumns, []string{"case-ok", "xr:Case", "ok"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			engine, s := engineSession(t, loopingRuleFile)
+			viaCast := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{},
+				func(s compute_pipes.JetRdfSession) error { return compute_pipes.AssertCastRow(spec, s, cr) })
+			viaText := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{})
+			if !reflect.DeepEqual(viaCast, viaText) {
+				t.Errorf("outcome through CastTextRow %+v, through AssertTextRow %+v", viaCast, viaText)
+			}
+			// A CastRow is not consumed by an assertion.
+			_, s2 := engineSession(t, loopingRuleFile)
+			if err := compute_pipes.AssertCastRow(spec, s2, cr); err != nil {
+				t.Fatal(err)
+			}
+			rm := s2.GetResourceManager()
+			if !s2.Contains(rm.NewResource("case-ok"), rm.NewResource("xr:mode"), rm.NewTextLiteral("ok")) {
+				t.Errorf("a second assertion of the same CastRow did not assert it")
+			}
+			if _, err := compute_pipes.CastTextRow(spec, caseColumns, []string{"only", "two"}); err == nil {
+				t.Errorf("a row with too few cells was cast")
+			}
+		})
+		t.Run("session_extractor", func(t *testing.T) {
+			// test_looping_main.jr creates one lp:Person on each of loops 1 to 3. One
+			// extractor serves two sessions, as a pool worker does, and counts each
+			// session apart.
+			var mu sync.Mutex
+			rows := map[string][][]any{}
+			x := compute_pipes.NewSessionExtractor(spec, []compute_pipes.ExtractClass{
+				{ClassName: "xr:Case", Columns: []string{"jets:key", "xr:mode"}},
+				{ClassName: "lp:Person", Columns: []string{"jets:key"}},
+			}, func(class string, row []any) {
+				mu.Lock()
+				defer mu.Unlock()
+				rows[class] = append(rows[class], row)
+			})
+			defer x.Close()
+			for i := range 2 {
+				engine, s := engineSession(t, loopingRuleFile)
+				o := compute_pipes.RunRuleSets(s, engine, &compute_pipes.RuleSetsConfig{}, assertCase("ok"))
+				if o.Err != nil {
+					t.Fatal(o.Err)
+				}
+				counts, err := x.Extract(s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if counts["xr:Case"] != 1 || counts["lp:Person"] != 3 {
+					t.Errorf("session %d: extracted %v, want 1 xr:Case and 3 lp:Person", i+1, counts)
+				}
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(rows["xr:Case"]) != 2 || len(rows["lp:Person"]) != 6 {
+				t.Fatalf("emitted %d case rows and %d person rows over two sessions, want 2 and 6", len(rows["xr:Case"]), len(rows["lp:Person"]))
+			}
+			if got := rows["xr:Case"][0]; !reflect.DeepEqual(got, []any{"case-ok", "ok"}) {
+				t.Errorf("xr:Case row %v, want [case-ok ok]", got)
+			}
+		})
+	})
+}
