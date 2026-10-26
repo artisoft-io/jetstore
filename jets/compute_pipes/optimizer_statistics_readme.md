@@ -96,8 +96,15 @@ process key 50109, and its `reports/config.json` entry).
   and each `jet_rules/<process>.optimizer_statistics.json`.
   - A rule set in a process's file **takes precedence** over the same rule set in the shared file,
     and the compile log says so.
-  - A rule set in **two processes' files refuses the compile**, naming both: nothing says which is
-    right, so remove it from one.
+  - A rule set in **two processes' files gets no statistics**, so it compiles in the score order,
+    and the compile warns, naming both files: nothing says which is right, so remove it from all
+    but one. It is a warning and not an error, because a workspace that does not compile stops a
+    deployment's start-up, and with it the UI that would remove the stale file. Renaming a
+    statistics process leaves its old file behind, so remove that file when you rename one.
+  - The compiler reads only `jet_rules/optimizer_statistics.json` and
+    `jet_rules/<process>.optimizer_statistics.json`. The IDE lists and checks any name ending
+    `optimizer_statistics.json`, so a file named otherwise, or in a subdirectory, is shown and
+    ignored by the compile.
 - **`optimizerStatisticsExclude`** names rule sets, by their key in the file
   (`jet_rules/main/x.jr`), to leave out of the process's file, so they compile in the score order
   unless another file has them. This is the way to keep one rule set out when the cost order
@@ -148,10 +155,16 @@ shape:
 its own name, a copy of the process's pipeline configuration with `optimizer_statistics` set on its
 rule step, and a `reports/config.json` entry under that name calling `merge_optimizer_statistics`,
 with `optimizerStatisticsExclude` where needed. Each writes its own file (§3), so they can run in
-any order, or together. Two statistics processes must not cover the same rule set: the compile
-refuses it.
+any order, or together. Two statistics processes must not cover the same rule set: such a rule
+set loses its statistics, with a warning (§3).
 
-## 5. The trap: a later deployment
+## 5. Upgrading from the first version, and the trap of a later deployment
+
+**A stack that ran a statistics process before this version holds a shared override,
+`jet_rules/optimizer_statistics.json`**, which that version wrote. It still applies after the
+upgrade, for every rule set no process's own file covers, including one a process now excludes
+with `optimizerStatisticsExclude`. So **delete that override from the IDE after upgrading** (unless
+it is a file you mean to keep), and run the statistics processes again.
 
 **The synced file is a workspace override, and a deployment reaches it as it reaches any override**
 (rules_benchmark `I-233`).

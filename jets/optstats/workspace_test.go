@@ -101,10 +101,38 @@ func TestReadWorkspace(t *testing.T) {
 		t.Errorf("shadowed %v, want [jet_rules/x.jr]", w.Shadowed)
 	}
 
-	// The same rule set in two processes' files: refused, naming both
+	// The same rule set in two processes' files: a conflict, with no statistics
+	// from either nor from the shared file, and not an error
 	writeWs(t, root, b, statsWith(t, map[string]int{"jet_rules/x.jr": 2}))
-	if _, err := ReadWorkspace(root); err == nil || !strings.Contains(err.Error(), a) || !strings.Contains(err.Error(), b) {
-		t.Errorf("two processes' files: %v", err)
+	w, err = ReadWorkspace(root)
+	if err != nil {
+		t.Fatalf("two processes' files: %v", err)
+	}
+	if got := w.Conflicts["jet_rules/x.jr"]; strings.Join(got, " ") != a+" "+b {
+		t.Errorf("conflict %v, want [%s %s]", got, a, b)
+	}
+	if _, ok := w.RuleSets["jet_rules/x.jr"]; ok {
+		t.Errorf("a conflicting rule set has statistics")
+	}
+	if _, ok := w.RuleSets["jet_rules/y.jr"]; !ok {
+		t.Errorf("the rule sets around the conflict lost theirs")
+	}
+
+	// A process's file reached through a link is read, as the shared file is
+	linked := t.TempDir()
+	target := filepath.Join(linked, "real.json")
+	if err := os.WriteFile(target, statsWith(t, map[string]int{"jet_rules/l.jr": 1}), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ln, _ := ProcessFileName("L")
+	if err := os.Symlink(target, filepath.Join(root, ln)); err != nil {
+		t.Fatal(err)
+	}
+	if w, err = ReadWorkspace(root); err != nil || w.RuleSets["jet_rules/l.jr"].File != ln {
+		t.Errorf("a linked process file: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, ln)); err != nil {
+		t.Fatal(err)
 	}
 
 	// A file that does not read: refused, naming it

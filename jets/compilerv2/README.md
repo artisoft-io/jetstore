@@ -30,6 +30,8 @@ compiles of one workspace write the same `workspace.db`. For each main rule file
 4. **Build the network** (`BuildReteNetwork`, `jet_rule_listener_rete.go`). Once every rule is read,
    the rules' antecedents are joined into one network. Rules that begin with the same terms, by
    normalized label, share those nodes, and each rule's consequents hang off its last antecedent.
+   That last node is shared only by rules of the same salience (`terminalReteNode`), so that each
+   rule fires at the salience it declares.
    Salience is then checked: an aggregate in a consequent must fire after the rules that feed it.
 5. **Analyze and save.** `analyzer/` lists the predicates the rule set reads and the ones it infers, and
    `workspace_db.go` (`SaveJetRuleModel`) writes the model and the network to `workspace.db`.
@@ -48,8 +50,16 @@ that binds nothing new, placed early, multiplies them.
 `OptimizeJetruleNode` (`jet_rule_listener_optimization.go`) reorders each valid rule, greedily:
 
 - **The next term is the one with the best score** (`evaluateScore`), given the variables the terms
-  already placed bind. A bound variable scores highest, a constant next, and an unbound variable
-  least, for each of subject, predicate and object. A constant `rdf:type` predicate gets a bonus.
+  already placed bind: the sum of a score for its subject, its predicate and its object.
+
+  | | bound variable | constant | unbound variable |
+  |---|---|---|---|
+  | subject | 240 | 100 | 20 |
+  | predicate | 200 | 140, and 240 for `rdf:type` | 0 |
+  | object | 100 | 120 | 20 |
+
+  So the terms that score highest join on a bound subject, or anchor on `rdf:type` with a constant
+  class.
 - **A negated term binds nothing**, so it is placed only once the terms before it bind every
   variable it reads.
 - **Ties keep the authored order**: the sort is stable.
@@ -69,15 +79,16 @@ to add, from counts of what the sessions' graphs actually hold (`jet_rule_listen
 
 - **The files.** `jet_rules/optimizer_statistics.json`, committed, and one file per statistics
   process, `jet_rules/<process>.optimizer_statistics.json` (`optstats.ReadWorkspace`). A process's
-  file takes precedence for its rule sets, and the same rule set in two processes' files refuses
-  the compile.
+  file takes precedence for its rule sets. The same rule set in two processes' files gets no
+  statistics, so it keeps the score order, and the compile warns, naming both files.
 - **When it applies.** A rule is cost-ordered when a file has its rule set and covers every
   positive antecedent's predicate, and the rule does not set `o=false`. Every other rule keeps the
   score order of §2. Without a file nothing changes: `workspace.db` is byte-identical.
 - **The same guarantees as §2**: negated terms after their bindings, stable ties, filters
   reattached, every reordered rule validated again.
-- **What it did is logged.** Each rule set gets a line in the compile log: `Cost order: rule set …:
-  N rules cost-ordered (M differ from the score order); fell back to the score order: …`.
+- **What it did is logged.** Each rule set gets a line in the compile log: `Cost order: rule set …,
+  statistics …: N rules cost-ordered (M differ from the score order); fell back to the score
+  order: …`.
   `JETS_COST_ORDER_TRACE=1` lists each rule's order and its estimated rows.
 - **The format** is `jets/optstats`'s. A file is produced either by a bench run
   (`rules_bench -stats`, [`jets/cmds/rules_bench/README.md`](../cmds/rules_bench/README.md)) or by a

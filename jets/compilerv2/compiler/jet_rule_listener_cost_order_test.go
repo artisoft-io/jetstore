@@ -618,8 +618,9 @@ func TestCostOrderReportCountsEveryRule(t *testing.T) {
 }
 
 // A statistics process's own file, jet_rules/<process>.optimizer_statistics.json,
-// orders the rule set as the shared file does, and takes precedence over it;
-// the same rule set in two processes' files refuses the compile.
+// orders the rule set as the shared file does, and takes precedence over it.
+// The same rule set in two processes' files is ordered by score, with a warning
+// naming both: refusing it would stop a deployment's start-up compile.
 func TestAProcessStatisticsFileOrdersTheRuleSet(t *testing.T) {
 	_, byShared := compileCostOrder(t, true)
 	stats, err := os.ReadFile(filepath.Join(costOrderBase, OptimizerStatisticsFile))
@@ -657,14 +658,22 @@ func TestAProcessStatisticsFileOrdersTheRuleSet(t *testing.T) {
 		t.Errorf("the log does not say the process's file takes precedence:\n%s", c.ParseLog().String())
 	}
 
-	// A second process's file with the same rule set: refused, naming both
+	// A second process's file with the same rule set: the score order, and a
+	// warning naming both files
 	second, err := optstats.ProcessFileName("B_Statistics")
 	if err != nil {
 		t.Fatal(err)
 	}
 	write(t, dir, second, string(stats))
-	err = NewCompiler(dir, costOrderMain, false, false, true).Compile()
-	if err == nil || !strings.Contains(err.Error(), processFile) || !strings.Contains(err.Error(), second) {
-		t.Errorf("a rule set in two processes' files: %v, want a refusal naming both", err)
+	_, byScore := compileCostOrder(t, false)
+	c, rules = compileWorkspace(t, dir, true)
+	for name, r := range rules {
+		if got, want := ruleOrder(r), ruleOrder(byScore[name]); !slices.Equal(got, want) {
+			t.Errorf("%s: with a conflict %v, the score order %v", name, got, want)
+		}
+	}
+	warning := c.ErrorLog().String()
+	if !strings.Contains(warning, "warning:") || !strings.Contains(warning, processFile) || !strings.Contains(warning, second) {
+		t.Errorf("no warning naming both files:\n%s", warning)
 	}
 }

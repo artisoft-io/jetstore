@@ -82,8 +82,10 @@ const CostOrderTraceEnv = "JETS_COST_ORDER_TRACE"
 // any, for the rule set being compiled: OptimizerStatisticsFile and each
 // statistics process's jet_rules/<process>.optimizer_statistics.json
 // (optstats.ReadWorkspace). A file that is not version 1 of the format, or is
-// malformed, refuses the compile with an error naming it, as does a rule set
-// in two processes' files. Unless SetOptimizerStatistics was called first.
+// malformed, refuses the compile with an error naming it. A rule set in two
+// processes' files gets no statistics and a warning naming both: refusing it
+// would stop a deployment's start-up compile, and with it the UI that would fix
+// it. Unless SetOptimizerStatistics was called first.
 func (c *Compiler) loadOptimizerStatistics() error {
 	l := c.listener
 	if os.Getenv(CostOrderTraceEnv) == "1" {
@@ -106,6 +108,13 @@ func (c *Compiler) loadOptimizerStatistics() error {
 	if slices.Contains(w.Shadowed, l.mainRuleFileName) {
 		fmt.Fprintf(l.parseLog, "Cost order: rule set %s: %s takes precedence over %s\n",
 			l.mainRuleFileName, w.RuleSets[l.mainRuleFileName].File, OptimizerStatisticsFile)
+	}
+	if files, ok := w.Conflicts[l.mainRuleFileName]; ok {
+		l.LogError(fmt.Sprintf("** warning: rule set %s has statistics in %d statistics processes' files, %s; "+
+			"nothing says which is right, so its rules are ordered by score: remove it from all but one",
+			l.mainRuleFileName, len(files), strings.Join(files, ", ")))
+		c.SetOptimizerStatistics(strings.Join(files, ", "), nil)
+		return nil
 	}
 	if st, ok := w.RuleSets[l.mainRuleFileName]; ok {
 		c.SetOptimizerStatistics(st.File, st.RuleSet)

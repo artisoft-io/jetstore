@@ -26,8 +26,12 @@ import (
 // without a compile.
 //
 // The compiler reads them all (ReadWorkspace). A rule set in a process's file
-// takes precedence over the same rule set in FileName; a rule set in two
-// processes' files is an error, because nothing says which is right.
+// takes precedence over the same rule set in FileName. A rule set in two
+// processes' files is a conflict, because nothing says which is right: it gets
+// no statistics, so it compiles in the score order, and the compiler warns,
+// naming both files. A conflict is not an error, because a workspace that does
+// not compile stops a deployment's start-up, and with it the UI that would
+// remove the stale file.
 
 // ProcessFileSuffix ends the name of a statistics process's file.
 const ProcessFileSuffix = ".optimizer_statistics.json"
@@ -71,12 +75,15 @@ type Workspace struct {
 	RuleSets map[string]Located
 	// Shadowed are the rule sets of FileName that a process's file replaces.
 	Shadowed []string
+	// Conflicts are the rule sets found in two or more processes' files, and
+	// those files, sorted. They are in neither RuleSets nor Shadowed.
+	Conflicts map[string][]string
 }
 
 // ReadWorkspace reads every statistics file of the workspace at root and
 // combines them. It returns nil when the workspace has none. A file that does
-// not read refuses the whole, naming the file, as does a rule set found in two
-// processes' files.
+// not read refuses the whole, naming the file. A rule set found in two
+// processes' files is a conflict (Workspace.Conflicts), not an error.
 func ReadWorkspace(root string) (*Workspace, error) {
 	var files []string
 	if _, err := os.Stat(filepath.Join(root, FileName)); err == nil {
@@ -90,7 +97,11 @@ func ReadWorkspace(root string) (*Workspace, error) {
 	}
 	for _, e := range entries {
 		name := path.Join(path.Dir(FileName), e.Name())
-		if e.Type().IsRegular() && name != FileName && IsFileName(name) {
+		if name == FileName || !IsFileName(name) {
+			continue
+		}
+		// Followed as FileName is: a link to a file is the file
+		if info, err := os.Stat(filepath.Join(root, name)); err == nil && info.Mode().IsRegular() {
 			files = append(files, name)
 		}
 	}
@@ -98,8 +109,9 @@ func ReadWorkspace(root string) (*Workspace, error) {
 		return nil, nil
 	}
 	sort.Strings(files)
-	w := &Workspace{Files: files, RuleSets: map[string]Located{}}
+	w := &Workspace{Files: files, RuleSets: map[string]Located{}, Conflicts: map[string][]string{}}
 	var shared *File
+	inFiles := map[string][]Located{}
 	for _, name := range files {
 		f, err := Read(filepath.Join(root, name))
 		if err != nil {
@@ -110,15 +122,26 @@ func ReadWorkspace(root string) (*Workspace, error) {
 			continue
 		}
 		for rs, st := range f.RuleSets {
-			if prev, ok := w.RuleSets[rs]; ok {
-				return nil, fmt.Errorf("rule set %s has statistics in two files, %s and %s: remove it from one",
-					rs, prev.File, name)
-			}
-			w.RuleSets[rs] = Located{RuleSet: st, File: name}
+			inFiles[rs] = append(inFiles[rs], Located{RuleSet: st, File: name})
 		}
+	}
+	for rs, found := range inFiles {
+		if len(found) == 1 {
+			w.RuleSets[rs] = found[0]
+			continue
+		}
+		names := make([]string, 0, len(found))
+		for _, l := range found {
+			names = append(names, l.File)
+		}
+		sort.Strings(names)
+		w.Conflicts[rs] = names
 	}
 	if shared != nil {
 		for rs, st := range shared.RuleSets {
+			if _, ok := w.Conflicts[rs]; ok {
+				continue
+			}
 			if _, ok := w.RuleSets[rs]; ok {
 				w.Shadowed = append(w.Shadowed, rs)
 				continue
