@@ -252,7 +252,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	buf.WriteString(lookupDbResult.String())
 
 	// Archive reports
-	inputPath := reportsArchivePaths(workspaceHome, workspaceName)
+	inputPath := []string{fmt.Sprintf("%s/%s/reports/", workspaceHome, workspaceName)}
 	outputPath := fmt.Sprintf("%s/%s/reports.tgz", workspaceHome, workspaceName)
 	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)
 	buf.WriteString("\nArchiving the reports\n")

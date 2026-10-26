@@ -3,9 +3,11 @@
 Added 2026-10-24 (rules_benchmark Phase 9, tracks `BX` and `CC`).
 
 **The rule compiler orders each rule's antecedents by the rows they add** when the workspace holds
-`jet_rules/optimizer_statistics.json` (since jetstore#2361): per main rule set, what a session's
-graph holds for the predicates and constants its antecedents name. This document is how a deployment produces that file
-from its own data and puts it into the workspace, without committing anything. `rules_bench -stats`
+statistics (since jetstore#2361): per main rule set, what a session's graph holds for the
+predicates and constants its antecedents name. They are in `jet_rules/optimizer_statistics.json`,
+committed, and in one file per statistics process, `jet_rules/<process>.optimizer_statistics.json`
+(since 2026-10-26, §3). This document is how a deployment produces them from its own data and puts
+them into the workspace, without committing anything. `rules_bench -stats`
 writes the same file from a bench (`jets/cmds/rules_bench/README.md`), and `jets/optstats` holds the
 format.
 
@@ -16,7 +18,7 @@ format.
 | Piece | Where | What it does |
 |---|---|---|
 | `optimizer_statistics` | a jetrules step's `jetrules_config` | counts the statistics over the step's sessions; each node writes a partial file |
-| `merge_optimizer_statistics` | a `run_reports` function, shipped with JetStore | merges the partials into the workspace's statistics file and lists its key |
+| `merge_optimizer_statistics` | a `run_reports` function, shipped with JetStore | merges the partials into the process's own statistics file and lists its key |
 | `updateLookupTables` | the process's `reports/config.json` entry | syncs the file into the workspace as an override, which takes effect at the workspace's next compile (§3) |
 
 A statistics process is an ordinary pipeline whose rule step sets the option, with a report that
@@ -81,36 +83,34 @@ process key 50109, and its `reports/config.json` entry).
 - **It is every JetStore's**, found by name when a report script names it. A deployment's own
   function of the same name (`CommandArguments.InstallSpecificFunc`) takes precedence.
 - **What it does.** It lists the partials of the report's session (its process name and session id)
-  and merges them exactly. It writes the result to `jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json`
-  in the jetstore bucket, and adds that key to the report's updated keys.
-- **The session replaces only the rule sets it covers** (since 2026-10-26). Every other rule set
-  is kept from the workspace's current file, so the statistics of several processes accumulate in
-  one file (§4). The current file is:
-  - the pending override, the `jetsapi.workspace_changes` row for `jet_rules/optimizer_statistics.json`,
-    which a previous merge or a save from the IDE wrote; else
-  - **the copy the last compile packaged into `reports.tgz`**, read from that archive's row in the
-    database. A compile puts the statistics file it read into `reports.tgz` beside the reports,
-    because that archive is all of the workspace the run_reports Lambda fetches. A commit from the
-    UI keeps the archive's row, so a committed file is still found after the commit.
-
-  With no `reports.tgz` row at all, the merge refuses rather than start from nothing. **A
-  `reports.tgz` compiled by a JetStore before this change holds no statistics file**, so a
-  workspace that has one committed must be compiled once with this JetStore (a deployment's
-  start-up compile or the UI) before its first statistics run, or that run keeps nothing; the log
-  says so.
+  and merges them exactly. It writes the result to the **process's own file**,
+  `jetstore/workspaces/<workspace>/jet_rules/<process>.optimizer_statistics.json` in the jetstore
+  bucket, and adds that key to the report's updated keys. A process name that is not letters,
+  digits, `_` and `-` is refused, rather than turned into a path.
+- **Each statistics process owns its file, and reads no other** (since 2026-10-26). A run replaces
+  its process's file and nothing else, so two statistics processes keep their rule sets apart,
+  whatever the order or timing of their runs, and a commit or revert of one file is the
+  workspace's ordinary edit of one file. The first version merged into one shared file, reading it
+  back first, and went stale when that file was committed or reverted without a compile.
+- **The compiler reads every file** (`optstats.ReadWorkspace`): `jet_rules/optimizer_statistics.json`
+  and each `jet_rules/<process>.optimizer_statistics.json`.
+  - A rule set in a process's file **takes precedence** over the same rule set in the shared file,
+    and the compile log says so.
+  - A rule set in **two processes' files refuses the compile**, naming both: nothing says which is
+    right, so remove it from one.
 - **`optimizerStatisticsExclude`** names rule sets, by their key in the file
-  (`jet_rules/main/x.jr`), to leave out: kept from neither the session nor the current file, so they
-  compile in the score order. This is the way to keep one rule set out when the cost order measured
-  slower for it. Setting its rules `o=false` instead keeps their written order, which is not the
-  same.
+  (`jet_rules/main/x.jr`), to leave out of the process's file, so they compile in the score order
+  unless another file has them. This is the way to keep one rule set out when the cost order
+  measured slower for it. Setting its rules `o=false` instead keeps their written order, which is
+  not the same. An entry that matches no rule set of the session is logged as a warning.
 - **It fails rather than write a wrong file** when the session has no partial, when the partials
   hold no session, or when one does not merge: another format version, or a rule set counted
-  against another network. It also fails when the current file cannot be read, naming where it was
-  read from, and when every rule set is excluded and none is kept.
+  against another network. It also fails when every rule set is excluded.
 - **`updateLookupTables` then does what it does for a lookup a report has written.**
   `awsi.SyncS3Files` puts the file into the run_reports task's workspace, at
-  `jet_rules/optimizer_statistics.json`, and records it as a workspace override labelled
-  `jet_rules`, as the IDE labels a file it saves.
+  `jet_rules/<process>.optimizer_statistics.json`, and records it as a workspace override labelled
+  `jet_rules`, as the IDE labels a file it saves. The IDE lists it under Jets Rules, and refuses a
+  save the compiler could not read.
 - **The file takes effect at the workspace's next compile, not when the report ends.** Whether the
   report compiles depends on where it runs:
   - **On the stock cpipes route it does not.** `cpipesSM` and `cpipesNativeSM` run their reports in
@@ -147,13 +147,9 @@ shape:
 **For several rule processes, give each its own statistics process**: a `process_config` row with
 its own name, a copy of the process's pipeline configuration with `optimizer_statistics` set on its
 rule step, and a `reports/config.json` entry under that name calling `merge_optimizer_statistics`,
-with `optimizerStatisticsExclude` where needed. Run one after the other, they accumulate one file, each
-replacing its own rule sets (§3). Two statistics processes covering the same rule set replace each
-other's counts for it; they do not add.
-
-**Run them one at a time.** Each run reads the current file and writes it back, with no lock
-between the two, so two runs that end together can each keep the other's old rule sets and the last
-one written wins. Start the next statistics process when the previous one's report has completed.
+with `optimizerStatisticsExclude` where needed. Each writes its own file (§3), so they can run in
+any order, or together. Two statistics processes must not cover the same rule set: the compile
+refuses it.
 
 ## 5. The trap: a later deployment
 
@@ -170,8 +166,7 @@ one written wins. Start the next statistics process when the previous one's repo
   built into its image, which does not have the file. **Compile once from the UI after the
   deployment, or commit the file.**
 - **A commit from the UI pushes the override into the workspace's repository and deletes it from
-  the overrides**, which makes the statistics part of the workspace from then on: the committed
-  route of `jet_rules/optimizer_statistics.json`.
+  the overrides**, which makes the process's file part of the workspace from then on.
 
 - **The adjacent case: an image built before the last compile from the UI or from a report, and
   deployed after it, is not recompiled.** The database's workspace is then newer than the image's
@@ -194,6 +189,6 @@ Shown without AWS, by the tests:
 the merged file, the override row, and a compile from the UI reporting its cost-ordered rules. The
 file was then exported from the UI.
 
-**Not shown on a deployed stack:** the accumulation of §3 across two statistics processes, which the
-`jets/run_reports/delegate` tests show against a faked current file and, for the override row, a
-Postgres.
+**Not shown on a deployed stack:** a process's own file, and two statistics processes side by side.
+The `jets/run_reports/delegate` tests show each process writing its own file, and the
+`jets/optstats` and compiler tests show the files read together, the precedence and the refusal.

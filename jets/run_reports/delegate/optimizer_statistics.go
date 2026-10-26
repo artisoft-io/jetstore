@@ -1,20 +1,13 @@
 package delegate
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
-	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"sort"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/optstats"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,20 +24,18 @@ import (
 //	  "optimizerStatisticsExclude": ["jet_rules/main/x.jr"]
 //	}
 //
-// The function merges the partials exactly and writes
-// jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json, and lists
-// that key, so that RunReports syncs it into the workspace and records it as an
-// override, as it does for a lookup a report has written.
+// The function merges the partials exactly and writes the process's own file,
+// jetstore/workspaces/<workspace>/jet_rules/<process>.optimizer_statistics.json,
+// and lists that key, so that RunReports syncs it into the workspace and records
+// it as an override, as it does for a lookup a report has written.
 //
-// **The session replaces only the rule sets it covers.** Every other rule set
-// is kept from the workspace's current file, so that two processes, each with
-// its own statistics process, accumulate one file when run one after the other.
-// The current file is the pending override (jetsapi.workspace_changes), else
-// the copy the last compile packaged into reports.tgz, which is all of the
-// workspace the run_reports Lambda fetches. With no reports.tgz in the database
-// the merge refuses rather than start from nothing.
-// optimizerStatisticsExclude names rule sets left out of the file, kept from
-// neither the session nor the current file: they compile in the score order. The file takes effect
+// **Each statistics process owns its file, and reads no other** (optstats,
+// workspace.go). Two rule processes, each with its own statistics process, keep
+// their statistics apart: a run replaces its process's file and nothing else, so
+// no run can drop another's rule sets, whatever the order or timing, and a
+// commit or revert of a file is an ordinary workspace edit. The compiler reads
+// every file. optimizerStatisticsExclude names rule sets left out of the
+// process's file: they compile in the score order unless another file has them. The file takes effect
 // at the workspace's next compile: RunReports compiles unless
 // SkipCompileWorkspace is set, which the stock cpipes route's run_reports Lambda
 // does, and otherwise a compile from the UI or a later deployment's start-up
@@ -91,103 +82,19 @@ var optimizerStatsS3 = struct {
 	upload:   func(key string, buf []byte) error { return awsi.UploadBufToS3("", key, buf) },
 }
 
-// optimizerStatsCurrent reads the workspace_changes rows the current file is
-// taken from, nil when there is none; a test replaces it.
-var optimizerStatsCurrent = struct {
-	override       func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error)
-	reportsArchive func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error)
-}{
-	override: func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error) {
-		return workspaceChange(dbpool, workspaceName, optstats.FileName)
-	},
-	reportsArchive: func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error) {
-		return workspaceChange(dbpool, workspaceName, "reports.tgz")
-	},
-}
-
-// workspaceChange is the content of a workspace_changes row, nil when there is none.
-func workspaceChange(dbpool *pgxpool.Pool, workspaceName, fileName string) ([]byte, error) {
-	if dbpool == nil {
-		return nil, nil
-	}
-	var data []byte
-	err := dbpool.QueryRow(context.Background(), `SELECT data FROM jetsapi.workspace_changes
-		WHERE workspace_name = $1 AND file_name = $2`, workspaceName, fileName).Scan(&data)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	return data, err
-}
-
-// archivedFile is the content of the entry name in a .tgz, nil when it has none.
-func archivedFile(archive []byte, name string) ([]byte, error) {
-	zr, err := gzip.NewReader(bytes.NewReader(archive))
-	if err != nil {
-		return nil, err
-	}
-	tr := tar.NewReader(zr)
-	for {
-		h, err := tr.Next()
-		if err == io.EOF {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		if h.Typeflag == tar.TypeReg && h.Name == name {
-			return io.ReadAll(tr)
-		}
-	}
-}
-
-// currentOptimizerStatistics is the workspace's statistics file as the next
-// compile would read it, and where it was read from; nil when there is none.
-func currentOptimizerStatistics(dbpool *pgxpool.Pool, workspaceName string) (*optstats.File, string, error) {
-	decode := func(data []byte, source string) (*optstats.File, string, error) {
-		f, err := optstats.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, "", fmt.Errorf("the current %s, from %s: %v", optstats.FileName, source, err)
-		}
-		return f, source, nil
-	}
-	data, err := optimizerStatsCurrent.override(dbpool, workspaceName)
-	if err != nil {
-		return nil, "", fmt.Errorf("while reading the pending override of %s: %v", optstats.FileName, err)
-	}
-	if data != nil {
-		return decode(data, "the pending override")
-	}
-	archive, err := optimizerStatsCurrent.reportsArchive(dbpool, workspaceName)
-	if err != nil {
-		return nil, "", fmt.Errorf("while reading the last compile's reports.tgz: %v", err)
-	}
-	if archive == nil {
-		return nil, "", errors.New("the database holds no compiled reports.tgz to read the current statistics from: " +
-			"compile the workspace once, then run the statistics process")
-	}
-	data, err = archivedFile(archive, optstats.FileName)
-	if err != nil {
-		return nil, "", fmt.Errorf("while reading %s from the last compile's reports.tgz: %v", optstats.FileName, err)
-	}
-	if data == nil {
-		// A compile by a JetStore before this one packaged no statistics file
-		// whatever the workspace held, so say so rather than drop it silently.
-		log.Printf("%s: the last compile's reports.tgz holds no %s, so no rule set is kept; "+
-			"if the workspace has one, compile once with this JetStore before a statistics run",
-			MergeOptimizerStatisticsFunc, optstats.FileName)
-		return nil, "", nil
-	}
-	return decode(data, "the last compile")
-}
-
 // MergeOptimizerStatistics merges the partial statistics of the report's session,
-// ca.ProcessName and ca.SessionId, writes them with the current file's other rule
-// sets as the workspace's statistics file, and adds its key to updatedKeys. It
-// fails when the session has no partial file, when one does not merge (another
-// format version, or another network), or when the current file cannot be read.
-func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ string, updatedKeys *[]string) error {
+// ca.ProcessName and ca.SessionId, writes them, less the excluded rule sets, as
+// the process's statistics file in the workspace, and adds its key to
+// updatedKeys. It fails when the process name cannot name a file, when the
+// session has no partial file, when one does not merge (another format version,
+// or another network), or when every rule set is excluded.
+func MergeOptimizerStatistics(_ *pgxpool.Pool, ca *CommandArguments, _, _ string, updatedKeys *[]string) error {
 	if ca.ProcessName == "" || ca.SessionId == "" || ca.WorkspaceName == "" {
 		return fmt.Errorf("%s: needs the process name, the session id and the workspace", MergeOptimizerStatisticsFunc)
+	}
+	key, err := optstats.WorkspaceProcessKey(ca.WorkspaceName, ca.ProcessName)
+	if err != nil {
+		return fmt.Errorf("%s: %v", MergeOptimizerStatisticsFunc, err)
 	}
 	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
 	keys, err := optimizerStatsS3.list(prefix)
@@ -221,10 +128,6 @@ func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ s
 	if len(merged.RuleSets) == 0 {
 		return fmt.Errorf("%s: the %d partial files under %s hold no session", MergeOptimizerStatisticsFunc, len(files), prefix)
 	}
-	current, source, err := currentOptimizerStatistics(dbpool, ca.WorkspaceName)
-	if err != nil {
-		return fmt.Errorf("%s: %v", MergeOptimizerStatisticsFunc, err)
-	}
 	exclude := map[string]bool{}
 	if ca.CurrentReportDirectives != nil {
 		for _, name := range ca.CurrentReportDirectives.OptimizerStatisticsExclude {
@@ -232,56 +135,35 @@ func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ s
 		}
 	}
 	out := optstats.New()
-	var kept []string
-	matched := map[string]bool{}
-	if current != nil {
-		for name, rs := range current.RuleSets {
-			_, replaced := merged.RuleSets[name]
-			switch {
-			case exclude[name]:
-				matched[name] = true
-			case !replaced:
-				out.RuleSets[name] = rs
-				kept = append(kept, name)
-			}
-		}
-	}
+	var excluded, unmatched []string
 	for name, rs := range merged.RuleSets {
 		if exclude[name] {
-			matched[name] = true
+			excluded = append(excluded, name)
 			continue
 		}
 		out.RuleSets[name] = rs
 	}
-	var excluded, unmatched []string
 	for name := range exclude {
-		if matched[name] {
-			excluded = append(excluded, name)
-		} else {
+		if _, ok := merged.RuleSets[name]; !ok {
 			unmatched = append(unmatched, name)
 		}
 	}
-	if len(out.RuleSets) == 0 {
-		return fmt.Errorf("%s: every rule set of the session is in optimizerStatisticsExclude and no other is kept: nothing to write",
-			MergeOptimizerStatisticsFunc)
-	}
-	sort.Strings(kept)
 	sort.Strings(excluded)
 	sort.Strings(unmatched)
-	if source == "" {
-		source = "no current file"
+	if len(out.RuleSets) == 0 {
+		return fmt.Errorf("%s: every rule set of the session is in optimizerStatisticsExclude: nothing to write",
+			MergeOptimizerStatisticsFunc)
 	}
-	log.Printf("%s: %d rule sets from the session, %d kept from %s %v, %d excluded %v",
-		MergeOptimizerStatisticsFunc, len(merged.RuleSets), len(kept), source, kept, len(excluded), excluded)
+	log.Printf("%s: %d rule sets from the session, %d excluded %v", MergeOptimizerStatisticsFunc,
+		len(merged.RuleSets), len(excluded), excluded)
 	if len(unmatched) > 0 {
-		log.Printf("%s: WARNING optimizerStatisticsExclude names %d rule sets found in neither the session nor the current file: %v",
+		log.Printf("%s: WARNING optimizerStatisticsExclude names %d rule sets the session does not have: %v",
 			MergeOptimizerStatisticsFunc, len(unmatched), unmatched)
 	}
 	buf, err := optstats.Marshal(out)
 	if err != nil {
 		return fmt.Errorf("%s: %v", MergeOptimizerStatisticsFunc, err)
 	}
-	key := optstats.WorkspaceKey(ca.WorkspaceName)
 	if err := optimizerStatsS3.upload(key, buf); err != nil {
 		return fmt.Errorf("%s: while writing %s: %v", MergeOptimizerStatisticsFunc, key, err)
 	}

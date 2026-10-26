@@ -1,15 +1,11 @@
 package workspace
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 )
 
@@ -99,55 +95,5 @@ func TestProvenanceDocumentReachesTheArchive(t *testing.T) {
 	// The path the operator opens, relative to the extracted workspace.
 	if _, err := os.Stat(filepath.Join(dest, "provenance", "patient_briefing.pv.json")); err != nil {
 		t.Errorf("the provenance document is not in the extracted workspace: %v", err)
-	}
-}
-
-// reports.tgz carries the statistics file under the name merge_optimizer_statistics
-// looks for, and only when the workspace has one.
-func TestReportsArchiveCarriesTheOptimizerStatistics(t *testing.T) {
-	home := t.TempDir()
-	root := filepath.Join(home, "ws")
-	if err := os.MkdirAll(filepath.Join(root, "reports"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "reports", "r.sql"), []byte("select 1"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := reportsArchivePaths(home, "ws"); len(got) != 1 {
-		t.Fatalf("a workspace with no statistics file: %v, want the reports only", got)
-	}
-	if err := os.MkdirAll(filepath.Join(root, "jet_rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, optstats.FileName), []byte("{}"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	out := filepath.Join(home, "reports.tgz")
-	if err := tarextract.CreateTarGz(root, reportsArchivePaths(home, "ws"), out); err != nil {
-		t.Fatal(err)
-	}
-	f, err := os.Open(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	zr, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	names := map[string]bool{}
-	tr := tar.NewReader(zr)
-	for {
-		h, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		names[h.Name] = true
-	}
-	if !names[optstats.FileName] || !names["reports/r.sql"] {
-		t.Errorf("reports.tgz holds %v, want %s and reports/r.sql", names, optstats.FileName)
 	}
 }

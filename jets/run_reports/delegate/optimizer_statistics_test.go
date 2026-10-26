@@ -1,9 +1,7 @@
 package delegate
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -39,45 +37,6 @@ func fakeS3(t *testing.T, objects map[string][]byte) {
 		objects[key] = append([]byte(nil), buf...)
 		return nil
 	}
-}
-
-// fakeCurrent replaces optimizerStatsCurrent for the test's duration: override
-// is the pending override's content, nil for none, and compiled the statistics
-// file in the last compile's reports.tgz, nil for an archive without one.
-func fakeCurrent(t *testing.T, override, compiled []byte) {
-	t.Helper()
-	files := map[string][]byte{"reports/r.sql": []byte("select 1")}
-	if compiled != nil {
-		files[optstats.FileName] = compiled
-	}
-	archive := tgz(t, files)
-	saved := optimizerStatsCurrent
-	t.Cleanup(func() { optimizerStatsCurrent = saved })
-	optimizerStatsCurrent.override = func(*pgxpool.Pool, string) ([]byte, error) { return override, nil }
-	optimizerStatsCurrent.reportsArchive = func(*pgxpool.Pool, string) ([]byte, error) { return archive, nil }
-}
-
-// tgz is a gzipped tar of files, as tarextract.CreateTarGz writes reports.tgz.
-func tgz(t *testing.T, files map[string][]byte) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(zw)
-	for name, content := range files {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tw.Write(content); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return buf.Bytes()
 }
 
 // statsFile is a statistics file holding, for each rule set named, the sessions
@@ -149,12 +108,11 @@ func TestMergeOptimizerStatistics(t *testing.T) {
 		optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, "another") + "partition=none_node=0.json": partial(t, 9),
 	}
 	fakeS3(t, objects)
-	fakeCurrent(t, nil, nil)
 	var updated []string
 	if err := MergeOptimizerStatistics((*pgxpool.Pool)(nil), ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
 		t.Fatal(err)
 	}
-	key := "jetstore/workspaces/jets_ws/jet_rules/optimizer_statistics.json"
+	key := "jetstore/workspaces/jets_ws/jet_rules/Optimizer_Statistics.optimizer_statistics.json"
 	if len(updated) != 1 || updated[0] != key {
 		t.Fatalf("updated keys %v, want [%s]", updated, key)
 	}
@@ -177,14 +135,13 @@ func TestMergeOptimizerStatisticsRefusals(t *testing.T) {
 		{"another version", map[string][]byte{prefix + "a.json": partial(t, 1), prefix + "b.json": v2}, "version 2 is not supported"},
 	} {
 		fakeS3(t, c.objects)
-		fakeCurrent(t, nil, nil)
 		var updated []string
 		err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
 		if err == nil || !strings.Contains(err.Error(), c.want) || len(updated) != 0 {
 			t.Errorf("%s: %v, updated %v; want an error containing %q and no key", c.name, err, updated, c.want)
 		}
-		if _, wrote := c.objects[optstats.WorkspaceKey("jets_ws")]; wrote {
-			t.Errorf("%s: the workspace's file was written", c.name)
+		if key, _ := optstats.WorkspaceProcessKey("jets_ws", ca.ProcessName); c.objects[key] != nil {
+			t.Errorf("%s: the process's file was written", c.name)
 		}
 	}
 	if err := MergeOptimizerStatistics(nil, &CommandArguments{WorkspaceName: "jets_ws"}, "", "", new([]string)); err == nil {
@@ -212,14 +169,19 @@ func TestReportFuncHasTheBuiltIn(t *testing.T) {
 	}
 }
 
-// The synced override: the statistics key becomes the workspace file
-// jet_rules/optimizer_statistics.json, labelled jet_rules as the IDE labels it,
-// whatever the report's output path; a lookup written under the workspace's
-// folder is synced as before.
+// The synced override: a statistics key becomes the workspace file
+// jet_rules/<process>.optimizer_statistics.json, labelled jet_rules as the IDE
+// labels it, whatever the report's output path; a lookup written under the
+// workspace's folder is synced as before.
 func TestWorkspaceOverride(t *testing.T) {
+	processKey, err := optstats.WorkspaceProcessKey("jets_ws", "A_Statistics")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range []struct {
 		key, outputPath, wantName, wantType string
 	}{
+		{processKey, "s3/output/client=x", "jet_rules/A_Statistics.optimizer_statistics.json", "jet_rules"},
 		{optstats.WorkspaceKey("jets_ws"), "s3/output/client=x", "jet_rules/optimizer_statistics.json", "jet_rules"},
 		{"jetstore/workspaces/jets_ws/lookups/drug_lookup.csv", "jetstore/workspaces/jets_ws", "lookups/drug_lookup.csv", "lookups"},
 		{"jetstore/workspaces/jets_ws/top.csv", "jetstore/workspaces/jets_ws", "top.csv", "lookups"},
@@ -250,68 +212,70 @@ func TestReportDirectivesWithAComment(t *testing.T) {
 	}
 }
 
-// Two processes, each with its own statistics process, accumulate one file when
-// run one after the other: the session replaces the rule sets it covers, and
-// every other rule set is kept from the current file, the pending override
-// before the last compile's copy. jetstore_agentic_ai rules_benchmark, after
-// CC.4 (2026-10-26).
-func TestMergeKeepsTheRuleSetsTheSessionDoesNotCover(t *testing.T) {
-	const own, other = "jet_rules/acme_main.jr", "jet_rules/other_main.jr"
-	ca := statsArgs()
-	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
-	key := optstats.WorkspaceKey("jets_ws")
-	for _, c := range []struct {
-		name               string
-		override, compiled []byte
-		want               []byte
-	}{
-		{"no current file", nil, nil, statsFile(t, map[string][]int{own: {1, 2}})},
-		{"the last compile's copy",
-			nil, statsFile(t, map[string][]int{own: {7}, other: {4}}),
-			statsFile(t, map[string][]int{own: {1, 2}, other: {4}})},
-		{"the pending override, before the last compile's copy",
-			statsFile(t, map[string][]int{other: {5}}), statsFile(t, map[string][]int{other: {4}}),
-			statsFile(t, map[string][]int{own: {1, 2}, other: {5}})},
-	} {
-		objects := map[string][]byte{prefix + "partition=none_node=0.json": partial(t, 1, 2)}
-		fakeS3(t, objects)
-		fakeCurrent(t, c.override, c.compiled)
+// The session's file is the process's own: jet_rules/<process>.optimizer_statistics.json.
+// Two statistics processes write two files and neither reads or touches the
+// other's, so no run can drop another's rule sets. jetstore_agentic_ai
+// rules_benchmark, after CC.4 (2026-10-26).
+func TestEachProcessWritesItsOwnFile(t *testing.T) {
+	objects := map[string][]byte{}
+	fakeS3(t, objects)
+	run := func(process string, ruleSets map[string][]int) string {
+		t.Helper()
+		ca := &CommandArguments{WorkspaceName: "jets_ws", ProcessName: process, SessionId: "1700000000"}
+		prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), process, ca.SessionId)
+		objects[prefix+"partition=none_node=0.json"] = statsFile(t, ruleSets)
 		var updated []string
 		if err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
-			t.Fatalf("%s: %v", c.name, err)
+			t.Fatalf("%s: %v", process, err)
 		}
-		// The session's rule set is replaced, not added to: own holds sessions 1
-		// and 2 only, whatever the current file held for it.
-		if !bytes.Equal(objects[key], c.want) {
-			t.Errorf("%s: wrote\n%s\nwant\n%s", c.name, objects[key], c.want)
+		key, _ := optstats.WorkspaceProcessKey("jets_ws", process)
+		if len(updated) != 1 || updated[0] != key {
+			t.Fatalf("%s: updated %v, want [%s]", process, updated, key)
 		}
+		return key
+	}
+	a := run("A_Statistics", map[string][]int{"jet_rules/a_main.jr": {1, 2}})
+	b := run("B_Statistics", map[string][]int{"jet_rules/b_main.jr": {3}})
+	if a != "jetstore/workspaces/jets_ws/jet_rules/A_Statistics.optimizer_statistics.json" {
+		t.Errorf("A's key %s", a)
+	}
+	if want := statsFile(t, map[string][]int{"jet_rules/a_main.jr": {1, 2}}); !bytes.Equal(objects[a], want) {
+		t.Errorf("B's run changed A's file:\n%s", objects[a])
+	}
+	if want := statsFile(t, map[string][]int{"jet_rules/b_main.jr": {3}}); !bytes.Equal(objects[b], want) {
+		t.Errorf("B's file:\n%s", objects[b])
+	}
+	if _, wrote := objects[optstats.WorkspaceKey("jets_ws")]; wrote {
+		t.Errorf("the shared file was written")
+	}
+	// A's next run replaces A's file: it does not add to it
+	run("A_Statistics", map[string][]int{"jet_rules/a_main.jr": {7}})
+	if want := statsFile(t, map[string][]int{"jet_rules/a_main.jr": {7}}); !bytes.Equal(objects[a], want) {
+		t.Errorf("A's second run:\n%s", objects[a])
 	}
 }
 
-// optimizerStatisticsExclude keeps a rule set out of the file, from the session
-// and from the current file alike, so that it compiles in the score order.
+// optimizerStatisticsExclude keeps a rule set out of the process's file, so that
+// it compiles in the score order; excluding everything writes nothing.
 func TestMergeLeavesOutTheExcludedRuleSets(t *testing.T) {
-	const own, other, third = "jet_rules/acme_main.jr", "jet_rules/other_main.jr", "jet_rules/third_main.jr"
+	const own, third = "jet_rules/acme_main.jr", "jet_rules/third_main.jr"
 	ca := statsArgs()
 	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
-	key := optstats.WorkspaceKey("jets_ws")
+	key, _ := optstats.WorkspaceProcessKey("jets_ws", ca.ProcessName)
 
 	objects := map[string][]byte{prefix + "a.json": statsFile(t, map[string][]int{own: {1}, third: {2}})}
 	fakeS3(t, objects)
-	fakeCurrent(t, statsFile(t, map[string][]int{other: {3}, third: {6}}), nil)
-	ca.CurrentReportDirectives = &ReportDirectives{OptimizerStatisticsExclude: []string{third}}
+	ca.CurrentReportDirectives = &ReportDirectives{OptimizerStatisticsExclude: []string{third, "jet_rules/typo.jr"}}
 	var updated []string
 	if err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
 		t.Fatal(err)
 	}
-	if want := statsFile(t, map[string][]int{own: {1}, other: {3}}); !bytes.Equal(objects[key], want) {
+	if want := statsFile(t, map[string][]int{own: {1}}); !bytes.Equal(objects[key], want) {
 		t.Errorf("wrote\n%s\nwant\n%s", objects[key], want)
 	}
 
-	// Nothing left to write is an error, and the file is left as it was.
 	objects = map[string][]byte{prefix + "a.json": statsFile(t, map[string][]int{third: {2}})}
 	fakeS3(t, objects)
-	fakeCurrent(t, nil, nil)
 	updated = nil
 	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
 	if err == nil || !strings.Contains(err.Error(), "nothing to write") || len(updated) != 0 || objects[key] != nil {
@@ -319,47 +283,13 @@ func TestMergeLeavesOutTheExcludedRuleSets(t *testing.T) {
 	}
 }
 
-// A current file the compiler would refuse fails the merge rather than being
-// silently replaced: it names where it was read from.
-func TestMergeRefusesAnUnreadableCurrentFile(t *testing.T) {
-	ca := statsArgs()
-	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
-	objects := map[string][]byte{prefix + "a.json": partial(t, 1)}
-	fakeS3(t, objects)
-	fakeCurrent(t, []byte(`{}`), nil)
-	var updated []string
-	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
-	if err == nil || !strings.Contains(err.Error(), "the pending override") || len(updated) != 0 {
-		t.Errorf("%v, updated %v; want a refusal naming the pending override", err, updated)
-	}
-	if objects[optstats.WorkspaceKey("jets_ws")] != nil {
-		t.Errorf("the workspace's file was written")
-	}
-
-	// So is a broken copy in the last compile's archive.
-	fakeCurrent(t, nil, []byte(`{}`))
-	err = MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
-	if err == nil || !strings.Contains(err.Error(), "the last compile") || len(updated) != 0 {
-		t.Errorf("%v, updated %v; want a refusal naming the last compile", err, updated)
-	}
-}
-
-// With no compiled reports.tgz in the database there is nothing to keep rule sets
-// from, so the merge refuses rather than start from nothing and drop them.
-func TestMergeRefusesWithoutACompiledArchive(t *testing.T) {
-	ca := statsArgs()
-	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
-	objects := map[string][]byte{prefix + "a.json": partial(t, 1)}
-	fakeS3(t, objects)
-	fakeCurrent(t, nil, nil)
-	optimizerStatsCurrent.reportsArchive = func(*pgxpool.Pool, string) ([]byte, error) { return nil, nil }
-	var updated []string
-	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
-	if err == nil || !strings.Contains(err.Error(), "compile the workspace once") || len(updated) != 0 {
-		t.Errorf("%v, updated %v; want the no-archive refusal", err, updated)
-	}
-	if objects[optstats.WorkspaceKey("jets_ws")] != nil {
-		t.Errorf("the workspace's file was written")
+// A process name that cannot name a file is refused before anything is read.
+func TestMergeRefusesAProcessNameThatIsNotAFileName(t *testing.T) {
+	fakeS3(t, map[string][]byte{})
+	ca := &CommandArguments{WorkspaceName: "jets_ws", ProcessName: "../x", SessionId: "1700000000"}
+	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, new([]string))
+	if err == nil || !strings.Contains(err.Error(), "cannot name a statistics file") {
+		t.Errorf("%v", err)
 	}
 }
 

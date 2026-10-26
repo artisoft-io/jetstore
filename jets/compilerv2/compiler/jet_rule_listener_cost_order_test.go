@@ -616,3 +616,55 @@ func TestCostOrderReportCountsEveryRule(t *testing.T) {
 		t.Errorf("the report counts %d rules of %d", sum, len(rules))
 	}
 }
+
+// A statistics process's own file, jet_rules/<process>.optimizer_statistics.json,
+// orders the rule set as the shared file does, and takes precedence over it;
+// the same rule set in two processes' files refuses the compile.
+func TestAProcessStatisticsFileOrdersTheRuleSet(t *testing.T) {
+	_, byShared := compileCostOrder(t, true)
+	stats, err := os.ReadFile(filepath.Join(costOrderBase, OptimizerStatisticsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	processFile, err := optstats.ProcessFileName("A_Statistics")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The process's file alone: the same orders as the shared file
+	dir := fixture(t, false)
+	write(t, dir, processFile, string(stats))
+	c, rules := compileWorkspace(t, dir, true)
+	for name, r := range rules {
+		if got, want := ruleOrder(r), ruleOrder(byShared[name]); !slices.Equal(got, want) {
+			t.Errorf("%s: from the process's file %v, from the shared file %v", name, got, want)
+		}
+	}
+	if !strings.Contains(c.ParseLog().String(), "statistics "+processFile+":") {
+		t.Errorf("the report does not name the process's file:\n%s", c.ParseLog().String())
+	}
+
+	// Beside a shared file whose copy of the rule set says otherwise: the
+	// process's file is the one read, and the log says so
+	write(t, dir, OptimizerStatisticsFile, string(stats))
+	c, rules = compileWorkspace(t, dir, true)
+	for name, r := range rules {
+		if got, want := ruleOrder(r), ruleOrder(byShared[name]); !slices.Equal(got, want) {
+			t.Errorf("%s: with both files %v, want %v", name, got, want)
+		}
+	}
+	if !strings.Contains(c.ParseLog().String(), processFile+" takes precedence over "+OptimizerStatisticsFile) {
+		t.Errorf("the log does not say the process's file takes precedence:\n%s", c.ParseLog().String())
+	}
+
+	// A second process's file with the same rule set: refused, naming both
+	second, err := optstats.ProcessFileName("B_Statistics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, dir, second, string(stats))
+	err = NewCompiler(dir, costOrderMain, false, false, true).Compile()
+	if err == nil || !strings.Contains(err.Error(), processFile) || !strings.Contains(err.Error(), second) {
+		t.Errorf("a rule set in two processes' files: %v, want a refusal naming both", err)
+	}
+}

@@ -64,23 +64,26 @@ better than the heuristic does it.
 ## 3. The dynamic optimization: the cost order, from statistics
 
 **The score knows the shape of each term and nothing about the data.** When the workspace holds
-`jet_rules/optimizer_statistics.json`, the compiler orders the rules it covers by the rows each
-antecedent is **estimated** to add, from counts of what the sessions' graphs actually hold
-(`jet_rule_listener_cost_order.go`).
+statistics, the compiler orders the rules they cover by the rows each antecedent is **estimated**
+to add, from counts of what the sessions' graphs actually hold (`jet_rule_listener_cost_order.go`).
 
-- **When it applies.** A rule is cost-ordered when the file has its rule set and covers every
+- **The files.** `jet_rules/optimizer_statistics.json`, committed, and one file per statistics
+  process, `jet_rules/<process>.optimizer_statistics.json` (`optstats.ReadWorkspace`). A process's
+  file takes precedence for its rule sets, and the same rule set in two processes' files refuses
+  the compile.
+- **When it applies.** A rule is cost-ordered when a file has its rule set and covers every
   positive antecedent's predicate, and the rule does not set `o=false`. Every other rule keeps the
-  score order of §2. Without the file nothing changes: `workspace.db` is byte-identical.
+  score order of §2. Without a file nothing changes: `workspace.db` is byte-identical.
 - **The same guarantees as §2**: negated terms after their bindings, stable ties, filters
   reattached, every reordered rule validated again.
 - **What it did is logged.** Each rule set gets a line in the compile log: `Cost order: rule set …:
   N rules cost-ordered (M differ from the score order); fell back to the score order: …`.
   `JETS_COST_ORDER_TRACE=1` lists each rule's order and its estimated rows.
-- **The file** is `jets/optstats`'s format. It is produced either by a bench run
+- **The format** is `jets/optstats`'s. A file is produced either by a bench run
   (`rules_bench -stats`, [`jets/cmds/rules_bench/README.md`](../cmds/rules_bench/README.md)) or by a
   pipeline on a deployed stack: a jetrules step that sets `optimizer_statistics`, merged into the
-  workspace by the `merge_optimizer_statistics` report. **How to produce it, run it, and keep it
-  across several rule processes and deployments:
+  workspace, as that process's own file, by the `merge_optimizer_statistics` report. **How to
+  produce the files, run the processes, and keep the statistics across deployments:
   [`jets/compute_pipes/optimizer_statistics_readme.md`](../compute_pipes/optimizer_statistics_readme.md).**
 
 Measure a workspace before committing its statistics. The cost order holds fewer rows wherever the

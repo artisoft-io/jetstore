@@ -8,9 +8,9 @@ import (
 // Where the pipeline route keeps the statistics (rules_benchmark Phase 9, CC). A
 // jetrules step with optimizer_statistics on writes one partial file per node
 // under its session's stage folder, and the run_reports function
-// merge_optimizer_statistics merges them into the workspace's file, which
-// run_reports then syncs into the workspace as an override, applied at the
-// workspace's next compile.
+// merge_optimizer_statistics merges them into the process's own file in the
+// workspace (workspace.go), which run_reports then syncs into the workspace as an
+// override, applied at the workspace's next compile.
 
 // WorkspacesS3Prefix is the S3 folder of the workspaces' overrides: a key
 // <WorkspacesS3Prefix>/<workspace>/<file> is synced to <file> in the workspace
@@ -39,4 +39,14 @@ func PartialKey(stagePrefix, processName, sessionId, jetsPartition string, nodeI
 // jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json.
 func WorkspaceKey(workspaceName string) string {
 	return WorkspacesS3Prefix + "/" + workspaceName + "/" + FileName
+}
+
+// WorkspaceProcessKey is the S3 key of a statistics process's file in a
+// workspace: jetstore/workspaces/<workspace>/jet_rules/<process>.optimizer_statistics.json.
+func WorkspaceProcessKey(workspaceName, processName string) (string, error) {
+	name, err := ProcessFileName(processName)
+	if err != nil {
+		return "", err
+	}
+	return WorkspacesS3Prefix + "/" + workspaceName + "/" + name, nil
 }

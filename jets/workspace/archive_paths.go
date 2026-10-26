@@ -3,9 +3,6 @@ package workspace
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-
-	"github.com/artisoft-io/jetstore/jets/optstats"
 )
 
 // The directories a compute-pipes node reads out of the extracted workspace, and
@@ -46,24 +43,6 @@ func workspaceArchivePaths(workspaceHome, workspaceName string) []string {
 		if err == nil && info.IsDir() {
 			paths = append(paths, path+"/")
 		}
-	}
-	return paths
-}
-
-// reportsArchivePaths are what reports.tgz holds: the reports, and the optimizer
-// statistics file the compile read when the workspace has one.
-//
-// **The statistics go with the reports because that archive is all of the
-// workspace the run_reports Lambda fetches** (SyncRunReportsWorkspace), and
-// merge_optimizer_statistics keeps from this copy the rule sets a statistics run
-// does not cover (run_reports/delegate/optimizer_statistics.go). Added
-// 2026-10-26; a reports.tgz from an earlier compile has no statistics file.
-func reportsArchivePaths(workspaceHome, workspaceName string) []string {
-	root := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
-	paths := []string{fmt.Sprintf("%s/reports/", root)}
-	stats := filepath.Join(root, optstats.FileName)
-	if info, err := os.Stat(stats); err == nil && info.Mode().IsRegular() {
-		paths = append(paths, stats)
 	}
 	return paths
 }

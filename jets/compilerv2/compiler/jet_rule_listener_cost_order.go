@@ -1,9 +1,7 @@
 package compiler
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
 	"math"
 	"os"
@@ -25,9 +23,10 @@ import (
 // file, its o property is not false, and every positive antecedent has a
 // constant predicate the file counts. Any other rule keeps the score order.
 
-// OptimizerStatisticsFile is where a workspace keeps the statistics, relative
-// to the workspace's base path.
-const OptimizerStatisticsFile = "jet_rules/optimizer_statistics.json"
+// OptimizerStatisticsFile is where a workspace keeps the statistics it commits,
+// relative to the workspace's base path. A statistics process's own file sits
+// beside it (optstats.ProcessFileName), and takes precedence for its rule sets.
+const OptimizerStatisticsFile = optstats.FileName
 
 // RuleSetStatistics is what the cost order reads of one rule set's
 // statistics: per-session values, each a sum in the file divided by the rule
@@ -79,10 +78,12 @@ func termKey(r *rete.ResourceNode) (string, bool) {
 // SetCostOrderTrace). Any other value, 0 included, leaves it off.
 const CostOrderTraceEnv = "JETS_COST_ORDER_TRACE"
 
-// loadOptimizerStatistics reads the workspace's statistics file, when it has
-// one, for the rule set being compiled. A file that is not version 1 of the
-// format, or is malformed, refuses the compile with an error naming it. Unless
-// SetOptimizerStatistics was called first.
+// loadOptimizerStatistics reads the workspace's statistics files, when it has
+// any, for the rule set being compiled: OptimizerStatisticsFile and each
+// statistics process's jet_rules/<process>.optimizer_statistics.json
+// (optstats.ReadWorkspace). A file that is not version 1 of the format, or is
+// malformed, refuses the compile with an error naming it, as does a rule set
+// in two processes' files. Unless SetOptimizerStatistics was called first.
 func (c *Compiler) loadOptimizerStatistics() error {
 	l := c.listener
 	if os.Getenv(CostOrderTraceEnv) == "1" {
@@ -91,21 +92,25 @@ func (c *Compiler) loadOptimizerStatistics() error {
 	if l.statisticsFile != "" {
 		return nil
 	}
-	path, err := utils.ConfineFilePath(l.basePath, OptimizerStatisticsFile)
+	root, err := utils.ConfineFilePath(l.basePath, ".")
 	if err != nil {
-		return fmt.Errorf("while resolving the optimizer statistics file: %w", err)
+		return fmt.Errorf("while resolving the optimizer statistics files: %w", err)
 	}
-	f, err := optstats.Read(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
+	w, err := optstats.ReadWorkspace(root)
 	if err != nil {
 		return fmt.Errorf("while reading the optimizer statistics: %w", err)
 	}
-	if rs := f.ForRuleSet(l.mainRuleFileName); rs != nil {
-		c.SetOptimizerStatistics(OptimizerStatisticsFile, rs)
+	if w == nil {
+		return nil
+	}
+	if slices.Contains(w.Shadowed, l.mainRuleFileName) {
+		fmt.Fprintf(l.parseLog, "Cost order: rule set %s: %s takes precedence over %s\n",
+			l.mainRuleFileName, w.RuleSets[l.mainRuleFileName].File, OptimizerStatisticsFile)
+	}
+	if st, ok := w.RuleSets[l.mainRuleFileName]; ok {
+		c.SetOptimizerStatistics(st.File, st.RuleSet)
 	} else {
-		c.SetOptimizerStatistics(OptimizerStatisticsFile, nil)
+		c.SetOptimizerStatistics(strings.Join(w.Files, ", "), nil)
 	}
 	return nil
 }
