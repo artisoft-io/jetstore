@@ -119,6 +119,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			ERROR(w, 400, err)
 			return
 		}
+		// Refuse a run whose input was purged, rather than start one that fails at
+		// its first step
+		if err = datatable.CheckResubmittable(context.TODO(), server.dbpool, sid); err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
 		newSessionId, err := datatable.ReserveSessionId(server.dbpool)
 		if err != nil {
 			log.Printf("Error: %v", err)
