@@ -39,6 +39,36 @@ func fakeS3(t *testing.T, objects map[string][]byte) {
 	}
 }
 
+// fakeCurrent replaces optimizerStatsCurrent for the test's duration: override
+// is the pending override's content and deployed the deployed workspace's copy,
+// nil for none.
+func fakeCurrent(t *testing.T, override, deployed []byte) {
+	t.Helper()
+	saved := optimizerStatsCurrent
+	t.Cleanup(func() { optimizerStatsCurrent = saved })
+	optimizerStatsCurrent.override = func(*pgxpool.Pool, string) ([]byte, error) { return override, nil }
+	optimizerStatsCurrent.deployed = func(string) ([]byte, error) { return deployed, nil }
+}
+
+// statsFile is a statistics file holding, for each rule set named, the sessions
+// of the sizes given.
+func statsFile(t *testing.T, ruleSets map[string][]int) []byte {
+	t.Helper()
+	a := optstats.NewAccumulator()
+	for name, ns := range ruleSets {
+		for _, n := range ns {
+			if err := a.Add(name, session(n)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	b, err := optstats.Marshal(a.File())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // session is one session's statistics for a rule set with two predicates, its
 // counts varying with n.
 func session(n int) *optstats.RuleSet {
@@ -89,6 +119,7 @@ func TestMergeOptimizerStatistics(t *testing.T) {
 		optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, "another") + "partition=none_node=0.json": partial(t, 9),
 	}
 	fakeS3(t, objects)
+	fakeCurrent(t, nil, nil)
 	var updated []string
 	if err := MergeOptimizerStatistics((*pgxpool.Pool)(nil), ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
 		t.Fatal(err)
@@ -116,6 +147,7 @@ func TestMergeOptimizerStatisticsRefusals(t *testing.T) {
 		{"another version", map[string][]byte{prefix + "a.json": partial(t, 1), prefix + "b.json": v2}, "version 2 is not supported"},
 	} {
 		fakeS3(t, c.objects)
+		fakeCurrent(t, nil, nil)
 		var updated []string
 		err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
 		if err == nil || !strings.Contains(err.Error(), c.want) || len(updated) != 0 {
@@ -184,6 +216,103 @@ func TestReportDirectivesWithAComment(t *testing.T) {
 	  "reportScripts": ["merge_optimizer_statistics"], "updateLookupTables": true}}`), &config)
 	rd := config["Optimizer_Statistics"]
 	if err != nil || !rd.UpdateLookupTables || len(rd.ReportScripts) != 1 || rd.ReportScripts[0] != MergeOptimizerStatisticsFunc {
+		t.Errorf("%v: %+v", err, rd)
+	}
+}
+
+// Two processes, each with its own statistics process, accumulate one file in
+// either order: the session replaces the rule sets it covers, and every other
+// rule set is kept from the current file, the pending override before the
+// deployed copy. jetstore_agentic_ai rules_benchmark, after CC.4 (2026-10-26).
+func TestMergeKeepsTheRuleSetsTheSessionDoesNotCover(t *testing.T) {
+	const own, other = "jet_rules/acme_main.jr", "jet_rules/other_main.jr"
+	ca := statsArgs()
+	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
+	key := optstats.WorkspaceKey("jets_ws")
+	for _, c := range []struct {
+		name               string
+		override, deployed []byte
+		want               []byte
+	}{
+		{"no current file", nil, nil, statsFile(t, map[string][]int{own: {1, 2}})},
+		{"the deployed copy",
+			nil, statsFile(t, map[string][]int{own: {7}, other: {4}}),
+			statsFile(t, map[string][]int{own: {1, 2}, other: {4}})},
+		{"the pending override, before the deployed copy",
+			statsFile(t, map[string][]int{other: {5}}), statsFile(t, map[string][]int{other: {4}}),
+			statsFile(t, map[string][]int{own: {1, 2}, other: {5}})},
+	} {
+		objects := map[string][]byte{prefix + "partition=none_node=0.json": partial(t, 1, 2)}
+		fakeS3(t, objects)
+		fakeCurrent(t, c.override, c.deployed)
+		var updated []string
+		if err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		// The session's rule set is replaced, not added to: own holds sessions 1
+		// and 2 only, whatever the current file held for it.
+		if !bytes.Equal(objects[key], c.want) {
+			t.Errorf("%s: wrote\n%s\nwant\n%s", c.name, objects[key], c.want)
+		}
+	}
+}
+
+// optimizerStatisticsExclude keeps a rule set out of the file, from the session
+// and from the current file alike, so that it compiles in the score order.
+func TestMergeLeavesOutTheExcludedRuleSets(t *testing.T) {
+	const own, other, third = "jet_rules/acme_main.jr", "jet_rules/other_main.jr", "jet_rules/third_main.jr"
+	ca := statsArgs()
+	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
+	key := optstats.WorkspaceKey("jets_ws")
+
+	objects := map[string][]byte{prefix + "a.json": statsFile(t, map[string][]int{own: {1}, third: {2}})}
+	fakeS3(t, objects)
+	fakeCurrent(t, statsFile(t, map[string][]int{other: {3}, third: {6}}), nil)
+	ca.CurrentReportDirectives = &ReportDirectives{OptimizerStatisticsExclude: []string{third}}
+	var updated []string
+	if err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
+		t.Fatal(err)
+	}
+	if want := statsFile(t, map[string][]int{own: {1}, other: {3}}); !bytes.Equal(objects[key], want) {
+		t.Errorf("wrote\n%s\nwant\n%s", objects[key], want)
+	}
+
+	// Nothing left to write is an error, and the file is left as it was.
+	objects = map[string][]byte{prefix + "a.json": statsFile(t, map[string][]int{third: {2}})}
+	fakeS3(t, objects)
+	fakeCurrent(t, nil, nil)
+	updated = nil
+	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
+	if err == nil || !strings.Contains(err.Error(), "nothing to write") || len(updated) != 0 || objects[key] != nil {
+		t.Errorf("everything excluded: %v, updated %v, wrote %v", err, updated, objects[key] != nil)
+	}
+}
+
+// A current file the compiler would refuse fails the merge rather than being
+// silently replaced: it names where it was read from.
+func TestMergeRefusesAnUnreadableCurrentFile(t *testing.T) {
+	ca := statsArgs()
+	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
+	objects := map[string][]byte{prefix + "a.json": partial(t, 1)}
+	fakeS3(t, objects)
+	fakeCurrent(t, []byte(`{}`), nil)
+	var updated []string
+	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
+	if err == nil || !strings.Contains(err.Error(), "the pending override") || len(updated) != 0 {
+		t.Errorf("%v, updated %v; want a refusal naming the pending override", err, updated)
+	}
+	if objects[optstats.WorkspaceKey("jets_ws")] != nil {
+		t.Errorf("the workspace's file was written")
+	}
+}
+
+// The report directive parses from reports/config.json.
+func TestReportDirectivesWithAnExclusion(t *testing.T) {
+	var config map[string]ReportDirectives
+	err := json.Unmarshal([]byte(`{"CM_Optimizer_Statistics": {"reportScripts": ["merge_optimizer_statistics"],
+	  "updateLookupTables": true, "optimizerStatisticsExclude": ["jet_rules/main/x.jr"]}}`), &config)
+	rd := config["CM_Optimizer_Statistics"]
+	if err != nil || len(rd.OptimizerStatisticsExclude) != 1 || rd.OptimizerStatisticsExclude[0] != "jet_rules/main/x.jr" {
 		t.Errorf("%v: %+v", err, rd)
 	}
 }

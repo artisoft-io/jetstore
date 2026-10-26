@@ -73,7 +73,8 @@ process key 50109, and its `reports/config.json` entry).
 ```json
 "Optimizer_Statistics": {
   "reportScripts": ["merge_optimizer_statistics"],
-  "updateLookupTables": true
+  "updateLookupTables": true,
+  "optimizerStatisticsExclude": []
 }
 ```
 
@@ -82,9 +83,23 @@ process key 50109, and its `reports/config.json` entry).
 - **What it does.** It lists the partials of the report's session (its process name and session id)
   and merges them exactly. It writes the result to `jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json`
   in the jetstore bucket, and adds that key to the report's updated keys.
+- **The session replaces only the rule sets it covers** (since 2026-10-26). Every other rule set
+  is kept from the workspace's current file, so the statistics of several processes accumulate in
+  one file (§4). The current file is:
+  - the pending override, the `jetsapi.workspace_changes` row for `jet_rules/optimizer_statistics.json`,
+    which a previous merge or a save from the IDE wrote; else
+  - the deployed workspace's copy, under `WORKSPACES_HOME`, which is the file committed when the
+    image was built. A file committed from the UI after the deployment is not seen until the next
+    deployment, so run a statistics process after deploying a commit, not between the two.
+- **`optimizerStatisticsExclude`** names rule sets, by their key in the file
+  (`jet_rules/main/x.jr`), to leave out: kept from neither the session nor the current file, so they
+  compile in the score order. This is the way to keep one rule set out when the cost order measured
+  slower for it. Setting its rules `o=false` instead keeps their written order, which is not the
+  same.
 - **It fails rather than write a wrong file** when the session has no partial, when the partials
   hold no session, or when one does not merge: another format version, or a rule set counted
-  against another network.
+  against another network. It also fails when the current file cannot be read, naming where it was
+  read from, and when every rule set is excluded and none is kept.
 - **`updateLookupTables` then does what it does for a lookup a report has written.**
   `awsi.SyncS3Files` puts the file into the run_reports task's workspace, at
   `jet_rules/optimizer_statistics.json`, and records it as a workspace override labelled
@@ -105,12 +120,29 @@ process key 50109, and its `reports/config.json` entry).
   labelled from there. Every other key is synced as before: named from the report's output path and
   labelled `lookups`.
 
-## 4. Run it on demand
+## 4. Run it on demand, one statistics process per rule process
 
 **Regenerate the statistics when the data's shape has moved, not on every run.** A new file changes
 the compiled network, and a network that changes from run to run buys nothing: the order changes
 which rows the rules hold, never what they compute. So a statistics process is started by the
 workspace owner, as a lookup update is, and is never scheduled with the production pipelines.
+
+**Do not set the option on a production process.** Three things make a separate process the right
+shape:
+- **The report step always runs on the cluster**, from the `reports/config.json` entry for the
+  process's name. `updateLookupTables` there syncs every key that entry's reports write, so a
+  production entry that exports a report to S3 would also sync that export into the workspace as an
+  override.
+- **The option is a boolean in the `.pc.json`.** Where several processes share one pipeline
+  configuration, setting it turns it on for all of them.
+- **Every production run would rewrite the file**, which is what this section advises against.
+
+**For several rule processes, give each its own statistics process**: a `process_config` row with
+its own name, a copy of the process's pipeline configuration with `optimizer_statistics` set on its
+rule step, and a `reports/config.json` entry under that name calling `merge_optimizer_statistics`,
+with `optimizerStatisticsExclude` where needed. Their runs accumulate one file in any order, each
+replacing its own rule sets (§3). Two statistics processes covering the same rule set replace each
+other's counts for it; they do not add.
 
 ## 5. The trap: a later deployment
 
@@ -147,5 +179,10 @@ Shown without AWS, by the tests:
   changes no output (`TestOptimizerStatisticsOption`);
 - the function's merge, refusals, key, and the override's name and label (`jets/run_reports/delegate`).
 
-**Not shown here:** the S3 sync, the override row and the compile that applies it, on a deployed stack. That needs a
-deployment, and it is the first run of `jets_ws`'s `Optimizer_Statistics` on one.
+**Shown on a deployed stack on 2026-10-26**, by `jets_ws`'s `Optimizer_Statistics`: the partial,
+the merged file, the override row, and a compile from the UI reporting its cost-ordered rules. The
+file was then exported from the UI.
+
+**Not shown on a deployed stack:** the accumulation of §3 across two statistics processes, which the
+`jets/run_reports/delegate` tests show against a faked current file and, for the override row, a
+Postgres.

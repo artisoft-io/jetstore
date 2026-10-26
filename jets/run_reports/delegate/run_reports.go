@@ -65,6 +65,10 @@ type ReportDirectives struct {
 	StatementProperties  map[string]StatementProperty `json:"statementProperties"`
 	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
 	UseQueryExportToS3   bool                         `json:"use_query_export_to_s3"`
+	// OptimizerStatisticsExclude names the rule sets merge_optimizer_statistics
+	// leaves out of the workspace's statistics file, so that they compile in the
+	// score order (optimizer_statistics.go).
+	OptimizerStatisticsExclude []string `json:"optimizerStatisticsExclude"`
 }
 
 // Type: report, script, function
