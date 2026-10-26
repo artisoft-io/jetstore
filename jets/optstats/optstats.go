@@ -3,10 +3,12 @@
 // that the rule set's antecedents name, so that the compiler can order a rule's
 // antecedents by the rows each would add (rules_benchmark Phase 9).
 //
-// The file is jet_rules/optimizer_statistics.json in a workspace, committed or
-// synced into it as a workspace override. rules_bench -stats writes one, a
-// pipeline's rules step writes one partial file per worker, and a run_reports
-// function merges the partials into the workspace's file. The compiler reads it.
+// The file is jet_rules/optimizer_statistics.json in a workspace, committed, or
+// a statistics process's own jet_rules/<process>.optimizer_statistics.json,
+// synced into it as a workspace override (workspace.go). rules_bench -stats
+// writes one, a pipeline's rules step writes one partial file per worker, and a
+// run_reports function merges the partials into the process's file. The
+// compiler reads them all.
 //
 // **It imports the standard library only**, so that the compiler, rules_bench and
 // compute_pipes can all import it.

@@ -20,13 +20,22 @@ import (
 //
 //	"<process name>": {
 //	  "reportScripts": ["merge_optimizer_statistics"],
-//	  "updateLookupTables": true
+//	  "updateLookupTables": true,
+//	  "optimizerStatisticsExclude": ["jet_rules/main/x.jr"]
 //	}
 //
-// The function merges the partials exactly into
-// jetstore/workspaces/<workspace>/jet_rules/optimizer_statistics.json and lists
-// that key, so that RunReports syncs it into the workspace and records it as an
-// override, as it does for a lookup a report has written. The file takes effect
+// The function merges the partials exactly and writes the process's own file,
+// jetstore/workspaces/<workspace>/jet_rules/<process>.optimizer_statistics.json,
+// and lists that key, so that RunReports syncs it into the workspace and records
+// it as an override, as it does for a lookup a report has written.
+//
+// **Each statistics process owns its file, and reads no other** (optstats,
+// workspace.go). Two rule processes, each with its own statistics process, keep
+// their statistics apart: a run replaces its process's file and nothing else, so
+// no run can drop another's rule sets, whatever the order or timing, and a
+// commit or revert of a file is an ordinary workspace edit. The compiler reads
+// every file. optimizerStatisticsExclude names rule sets left out of the
+// process's file: they compile in the score order unless another file has them. The file takes effect
 // at the workspace's next compile: RunReports compiles unless
 // SkipCompileWorkspace is set, which the stock cpipes route's run_reports Lambda
 // does, and otherwise a compile from the UI or a later deployment's start-up
@@ -74,12 +83,18 @@ var optimizerStatsS3 = struct {
 }
 
 // MergeOptimizerStatistics merges the partial statistics of the report's session,
-// ca.ProcessName and ca.SessionId, into the workspace's statistics file, and adds
-// its key to updatedKeys. It fails when the session has no partial file, or when
-// one does not merge (another format version, or another network).
+// ca.ProcessName and ca.SessionId, writes them, less the excluded rule sets, as
+// the process's statistics file in the workspace, and adds its key to
+// updatedKeys. It fails when the process name cannot name a file, when the
+// session has no partial file, when one does not merge (another format version,
+// or another network), or when every rule set is excluded.
 func MergeOptimizerStatistics(_ *pgxpool.Pool, ca *CommandArguments, _, _ string, updatedKeys *[]string) error {
 	if ca.ProcessName == "" || ca.SessionId == "" || ca.WorkspaceName == "" {
 		return fmt.Errorf("%s: needs the process name, the session id and the workspace", MergeOptimizerStatisticsFunc)
+	}
+	key, err := optstats.WorkspaceProcessKey(ca.WorkspaceName, ca.ProcessName)
+	if err != nil {
+		return fmt.Errorf("%s: %v", MergeOptimizerStatisticsFunc, err)
 	}
 	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
 	keys, err := optimizerStatsS3.list(prefix)
@@ -113,15 +128,46 @@ func MergeOptimizerStatistics(_ *pgxpool.Pool, ca *CommandArguments, _, _ string
 	if len(merged.RuleSets) == 0 {
 		return fmt.Errorf("%s: the %d partial files under %s hold no session", MergeOptimizerStatisticsFunc, len(files), prefix)
 	}
-	buf, err := optstats.Marshal(merged)
+	exclude := map[string]bool{}
+	if ca.CurrentReportDirectives != nil {
+		for _, name := range ca.CurrentReportDirectives.OptimizerStatisticsExclude {
+			exclude[name] = true
+		}
+	}
+	out := optstats.New()
+	var excluded, unmatched []string
+	for name, rs := range merged.RuleSets {
+		if exclude[name] {
+			excluded = append(excluded, name)
+			continue
+		}
+		out.RuleSets[name] = rs
+	}
+	for name := range exclude {
+		if _, ok := merged.RuleSets[name]; !ok {
+			unmatched = append(unmatched, name)
+		}
+	}
+	sort.Strings(excluded)
+	sort.Strings(unmatched)
+	if len(out.RuleSets) == 0 {
+		return fmt.Errorf("%s: every rule set of the session is in optimizerStatisticsExclude: nothing to write",
+			MergeOptimizerStatisticsFunc)
+	}
+	log.Printf("%s: %d rule sets from the session, %d excluded %v", MergeOptimizerStatisticsFunc,
+		len(merged.RuleSets), len(excluded), excluded)
+	if len(unmatched) > 0 {
+		log.Printf("%s: WARNING optimizerStatisticsExclude names %d rule sets the session does not have: %v",
+			MergeOptimizerStatisticsFunc, len(unmatched), unmatched)
+	}
+	buf, err := optstats.Marshal(out)
 	if err != nil {
 		return fmt.Errorf("%s: %v", MergeOptimizerStatisticsFunc, err)
 	}
-	key := optstats.WorkspaceKey(ca.WorkspaceName)
 	if err := optimizerStatsS3.upload(key, buf); err != nil {
 		return fmt.Errorf("%s: while writing %s: %v", MergeOptimizerStatisticsFunc, key, err)
 	}
-	log.Printf("%s: merged %d partial files into %s: %d rule sets", MergeOptimizerStatisticsFunc, len(files), key, len(merged.RuleSets))
+	log.Printf("%s: merged %d partial files into %s: %d rule sets", MergeOptimizerStatisticsFunc, len(files), key, len(out.RuleSets))
 	*updatedKeys = append(*updatedKeys, key)
 	return nil
 }

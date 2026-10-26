@@ -37,8 +37,9 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"jet_rules/mapping.jr":                       false,
 		"reports/claims.sql.backup":                  false,
 		// The seventh row, named whole: no other jet_rules .json is validated.
-		"jet_rules/optimizer_statistics.json": true,
-		"jet_rules/main.jr.json":              false,
+		"jet_rules/optimizer_statistics.json":   true,
+		"jet_rules/A.optimizer_statistics.json": true, // a statistics process's own file
+		"jet_rules/main.jr.json":                false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {

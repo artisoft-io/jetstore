@@ -123,7 +123,9 @@ var WorkspaceSections = []Section{
 		// by a pipeline as an override, and invisible here, so a workspace without
 		// git integration could not copy it back to its repository. It is named
 		// whole rather than as `.json`, which would also list the compiled
-		// `.jr.json` files beside the rules.
+		// `.jr.json` files beside the rules. As a suffix it lists each statistics
+		// process's own file too, `<process>.optimizer_statistics.json`
+		// (optstats.ProcessFileName).
 		Dir: "jet_rules", Label: "Jets Rules",
 		Filters: []string{".jr", ".tst.json", ".csv", "optimizer_statistics.json"}, CompiledView: JetRulesView,
 	},

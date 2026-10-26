@@ -81,7 +81,8 @@ var workspaceFileValidators = []struct {
 // workspace, the next deployment's start-up compile included. The seventh row,
 // added on 2026-10-26 when the IDE began listing the file (wsfile/sections.go,
 // `jet_rules`): listing it made it editable, and a save checked only that it
-// was a JSON object.
+// was a JSON object. As a suffix it covers each statistics process's own file,
+// `<process>.optimizer_statistics.json`, too.
 func validateOptimizerStatistics(content string) []wsvalidate.Finding {
 	if _, err := optstats.Decode(strings.NewReader(content)); err != nil {
 		return []wsvalidate.Finding{{
