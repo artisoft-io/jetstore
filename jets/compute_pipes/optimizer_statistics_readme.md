@@ -147,7 +147,7 @@ shape:
 **For several rule processes, give each its own statistics process**: a `process_config` row with
 its own name, a copy of the process's pipeline configuration with `optimizer_statistics` set on its
 rule step, and a `reports/config.json` entry under that name calling `merge_optimizer_statistics`,
-with `optimizerStatisticsExclude` where needed. Run one after the other, their runs accumulate one file, each
+with `optimizerStatisticsExclude` where needed. Run one after the other, they accumulate one file, each
 replacing its own rule sets (§3). Two statistics processes covering the same rule set replace each
 other's counts for it; they do not add.
 
