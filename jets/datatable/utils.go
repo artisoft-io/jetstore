@@ -56,8 +56,9 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 	WHERE pe.key = $1`
 	err := dbpool.QueryRow(context.TODO(), stmt, peKey).Scan(&schemaProviderJson, &sessionId)
 	if err != nil {
+		// With the LEFT JOIN, no rows means there is no pipeline execution at all
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", "", nil
+			return "", "", fmt.Errorf("no pipeline_execution_status row with key %d", peKey)
 		}
 		err = fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
@@ -70,16 +71,19 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 // RETENTION_DAYS and keeps pipeline_execution_status rows for six months, so an old
 // execution is still listed, and a resubmission of it fails at its first step.
 func CheckResubmittable(ctx context.Context, dbpool *pgxpool.Pool, sessionId string) error {
-	var registered bool
+	var hasKey, registered bool
 	err := dbpool.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.key = pe.main_input_registry_key)
+		SELECT pe.main_input_registry_key IS NOT NULL,
+			EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.key = pe.main_input_registry_key)
 		FROM jetsapi.pipeline_execution_status pe
-		WHERE pe.session_id = $1`, sessionId).Scan(&registered)
+		WHERE pe.session_id = $1`, sessionId).Scan(&hasKey, &registered)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return fmt.Errorf("error: no pipeline execution with session_id %s", sessionId)
 	case err != nil:
 		return fmt.Errorf("while checking the input of session_id %s: %v", sessionId, err)
+	case !hasKey:
+		return fmt.Errorf("error: the pipeline execution with session_id %s has no main input", sessionId)
 	case !registered:
 		return fmt.Errorf("error: the input of session_id %s is no longer registered, "+
 			"it was purged after the retention period: load the file again to run it", sessionId)
