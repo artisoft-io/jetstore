@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/optstats"
 )
 
 // The failure this file exists for: a workspace section whose directory is not
@@ -89,6 +91,8 @@ func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
 		"jet_rules/unit_tests/loop/loop.tst.json": "{}",
 		"jet_rules/unit_tests/loop/member1.csv":   "jets:key",
 		"jet_rules/unit_tests/loop/notes.md":      "",
+		optstats.FileName:                         "{}",
+		"jet_rules/main.jr.json":                  "{}",
 	} {
 		p := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -125,6 +129,7 @@ func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
 		"jet_rules%2Fmain.jr":                           true,
 		"jet_rules%2Funit_tests%2Floop%2Floop.tst.json": true,
 		"jet_rules%2Funit_tests%2Floop%2Fmember1.csv":   true,
+		"jet_rules%2Foptimizer_statistics.json":         true,
 	}
 	if len(files) != len(want) {
 		t.Fatalf("listed %v, want exactly %v", files, want)

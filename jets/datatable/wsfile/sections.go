@@ -117,8 +117,15 @@ var WorkspaceSections = []Section{
 		// that day every CSV there was a test input (5 in jets_ws, 7 in another
 		// workspace, none in the other two), so a path-aware filter would guard
 		// against nothing.
+		//
+		// **`optimizer_statistics.json` since 2026-10-26**: the statistics the
+		// compiler orders antecedents by (optstats.FileName), committed or synced
+		// by a pipeline as an override, and invisible here, so a workspace without
+		// git integration could not copy it back to its repository. It is named
+		// whole rather than as `.json`, which would also list the compiled
+		// `.jr.json` files beside the rules.
 		Dir: "jet_rules", Label: "Jets Rules",
-		Filters: []string{".jr", ".tst.json", ".csv"}, CompiledView: JetRulesView,
+		Filters: []string{".jr", ".tst.json", ".csv", "optimizer_statistics.json"}, CompiledView: JetRulesView,
 	},
 	{
 		// Declared here, and not built in the Flutter client. That is the state
