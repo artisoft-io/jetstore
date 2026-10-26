@@ -88,9 +88,16 @@ process key 50109, and its `reports/config.json` entry).
   one file (§4). The current file is:
   - the pending override, the `jetsapi.workspace_changes` row for `jet_rules/optimizer_statistics.json`,
     which a previous merge or a save from the IDE wrote; else
-  - the deployed workspace's copy, under `WORKSPACES_HOME`, which is the file committed when the
-    image was built. A file committed from the UI after the deployment is not seen until the next
-    deployment, so run a statistics process after deploying a commit, not between the two.
+  - **the copy the last compile packaged into `reports.tgz`**, read from that archive's row in the
+    database. A compile puts the statistics file it read into `reports.tgz` beside the reports,
+    because that archive is all of the workspace the run_reports Lambda fetches. A commit from the
+    UI keeps the archive's row, so a committed file is still found after the commit.
+
+  With no `reports.tgz` row at all, the merge refuses rather than start from nothing. **A
+  `reports.tgz` compiled by a JetStore before this change holds no statistics file**, so a
+  workspace that has one committed must be compiled once with this JetStore (a deployment's
+  start-up compile or the UI) before its first statistics run, or that run keeps nothing; the log
+  says so.
 - **`optimizerStatisticsExclude`** names rule sets, by their key in the file
   (`jet_rules/main/x.jr`), to leave out: kept from neither the session nor the current file, so they
   compile in the score order. This is the way to keep one rule set out when the cost order measured
@@ -129,8 +136,8 @@ workspace owner, as a lookup update is, and is never scheduled with the producti
 
 **Do not set the option on a production process.** Three things make a separate process the right
 shape:
-- **The report step always runs on the cluster**, from the `reports/config.json` entry for the
-  process's name. `updateLookupTables` there syncs every key that entry's reports write, so a
+- **On the cluster, the state machine always runs the report step**, in the run_reports Lambda, from
+  the `reports/config.json` entry for the process's name. `updateLookupTables` there syncs every key that entry's reports write, so a
   production entry that exports a report to S3 would also sync that export into the workspace as an
   override.
 - **The option is a boolean in the `.pc.json`.** Where several processes share one pipeline
@@ -140,9 +147,13 @@ shape:
 **For several rule processes, give each its own statistics process**: a `process_config` row with
 its own name, a copy of the process's pipeline configuration with `optimizer_statistics` set on its
 rule step, and a `reports/config.json` entry under that name calling `merge_optimizer_statistics`,
-with `optimizerStatisticsExclude` where needed. Their runs accumulate one file in any order, each
+with `optimizerStatisticsExclude` where needed. Run one after the other, their runs accumulate one file, each
 replacing its own rule sets (§3). Two statistics processes covering the same rule set replace each
 other's counts for it; they do not add.
+
+**Run them one at a time.** Each run reads the current file and writes it back, with no lock
+between the two, so two runs that end together can each keep the other's old rule sets and the last
+one written wins. Start the next statistics process when the previous one's report has completed.
 
 ## 5. The trap: a later deployment
 

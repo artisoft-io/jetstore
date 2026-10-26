@@ -1,12 +1,14 @@
 package delegate
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -36,10 +38,11 @@ import (
 //
 // **The session replaces only the rule sets it covers.** Every other rule set
 // is kept from the workspace's current file, so that two processes, each with
-// its own statistics process, accumulate one file in either order. The current
-// file is the pending override (jetsapi.workspace_changes), else the deployed
-// workspace's copy; the report step sees no compiled workspace, so a file
-// committed after the deployment is not seen until the next one.
+// its own statistics process, accumulate one file when run one after the other.
+// The current file is the pending override (jetsapi.workspace_changes), else
+// the copy the last compile packaged into reports.tgz, which is all of the
+// workspace the run_reports Lambda fetches. With no reports.tgz in the database
+// the merge refuses rather than start from nothing.
 // optimizerStatisticsExclude names rule sets left out of the file, kept from
 // neither the session nor the current file: they compile in the score order. The file takes effect
 // at the workspace's next compile: RunReports compiles unless
@@ -88,57 +91,93 @@ var optimizerStatsS3 = struct {
 	upload:   func(key string, buf []byte) error { return awsi.UploadBufToS3("", key, buf) },
 }
 
-// optimizerStatsCurrent reads the workspace's current statistics file, nil when
-// there is none; a test replaces it.
+// optimizerStatsCurrent reads the workspace_changes rows the current file is
+// taken from, nil when there is none; a test replaces it.
 var optimizerStatsCurrent = struct {
-	override func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error)
-	deployed func(workspaceName string) ([]byte, error)
+	override       func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error)
+	reportsArchive func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error)
 }{
 	override: func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error) {
-		if dbpool == nil {
-			return nil, nil
-		}
-		var data []byte
-		err := dbpool.QueryRow(context.Background(), `SELECT data FROM jetsapi.workspace_changes
-			WHERE workspace_name = $1 AND file_name = $2`, workspaceName, optstats.FileName).Scan(&data)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		return data, err
+		return workspaceChange(dbpool, workspaceName, optstats.FileName)
 	},
-	deployed: func(workspaceName string) ([]byte, error) {
-		data, err := os.ReadFile(filepath.Join(workspaceHome, workspaceName, optstats.FileName))
-		if errors.Is(err, os.ErrNotExist) {
+	reportsArchive: func(dbpool *pgxpool.Pool, workspaceName string) ([]byte, error) {
+		return workspaceChange(dbpool, workspaceName, "reports.tgz")
+	},
+}
+
+// workspaceChange is the content of a workspace_changes row, nil when there is none.
+func workspaceChange(dbpool *pgxpool.Pool, workspaceName, fileName string) ([]byte, error) {
+	if dbpool == nil {
+		return nil, nil
+	}
+	var data []byte
+	err := dbpool.QueryRow(context.Background(), `SELECT data FROM jetsapi.workspace_changes
+		WHERE workspace_name = $1 AND file_name = $2`, workspaceName, fileName).Scan(&data)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return data, err
+}
+
+// archivedFile is the content of the entry name in a .tgz, nil when it has none.
+func archivedFile(archive []byte, name string) ([]byte, error) {
+	zr, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return nil, err
+	}
+	tr := tar.NewReader(zr)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
 			return nil, nil
 		}
-		return data, err
-	},
+		if err != nil {
+			return nil, err
+		}
+		if h.Typeflag == tar.TypeReg && h.Name == name {
+			return io.ReadAll(tr)
+		}
+	}
 }
 
 // currentOptimizerStatistics is the workspace's statistics file as the next
 // compile would read it, and where it was read from; nil when there is none.
 func currentOptimizerStatistics(dbpool *pgxpool.Pool, workspaceName string) (*optstats.File, string, error) {
-	for _, src := range []struct {
-		name string
-		read func() ([]byte, error)
-	}{
-		{"the pending override", func() ([]byte, error) { return optimizerStatsCurrent.override(dbpool, workspaceName) }},
-		{"the deployed workspace", func() ([]byte, error) { return optimizerStatsCurrent.deployed(workspaceName) }},
-	} {
-		data, err := src.read()
+	decode := func(data []byte, source string) (*optstats.File, string, error) {
+		f, err := optstats.Decode(bytes.NewReader(data))
 		if err != nil {
-			return nil, "", fmt.Errorf("while reading the current %s from %s: %v", optstats.FileName, src.name, err)
+			return nil, "", fmt.Errorf("the current %s, from %s: %v", optstats.FileName, source, err)
 		}
-		if data == nil {
-			continue
-		}
-		f, err := optstats.Decode(strings.NewReader(string(data)))
-		if err != nil {
-			return nil, "", fmt.Errorf("the current %s, from %s: %v", optstats.FileName, src.name, err)
-		}
-		return f, src.name, nil
+		return f, source, nil
 	}
-	return nil, "", nil
+	data, err := optimizerStatsCurrent.override(dbpool, workspaceName)
+	if err != nil {
+		return nil, "", fmt.Errorf("while reading the pending override of %s: %v", optstats.FileName, err)
+	}
+	if data != nil {
+		return decode(data, "the pending override")
+	}
+	archive, err := optimizerStatsCurrent.reportsArchive(dbpool, workspaceName)
+	if err != nil {
+		return nil, "", fmt.Errorf("while reading the last compile's reports.tgz: %v", err)
+	}
+	if archive == nil {
+		return nil, "", errors.New("the database holds no compiled reports.tgz to read the current statistics from: " +
+			"compile the workspace once, then run the statistics process")
+	}
+	data, err = archivedFile(archive, optstats.FileName)
+	if err != nil {
+		return nil, "", fmt.Errorf("while reading %s from the last compile's reports.tgz: %v", optstats.FileName, err)
+	}
+	if data == nil {
+		// A compile by a JetStore before this one packaged no statistics file
+		// whatever the workspace held, so say so rather than drop it silently.
+		log.Printf("%s: the last compile's reports.tgz holds no %s, so no rule set is kept; "+
+			"if the workspace has one, compile once with this JetStore before a statistics run",
+			MergeOptimizerStatisticsFunc, optstats.FileName)
+		return nil, "", nil
+	}
+	return decode(data, "the last compile")
 }
 
 // MergeOptimizerStatistics merges the partial statistics of the report's session,
@@ -193,13 +232,14 @@ func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ s
 		}
 	}
 	out := optstats.New()
-	var kept, excluded []string
+	var kept []string
+	matched := map[string]bool{}
 	if current != nil {
 		for name, rs := range current.RuleSets {
 			_, replaced := merged.RuleSets[name]
 			switch {
 			case exclude[name]:
-				excluded = append(excluded, name)
+				matched[name] = true
 			case !replaced:
 				out.RuleSets[name] = rs
 				kept = append(kept, name)
@@ -208,10 +248,18 @@ func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ s
 	}
 	for name, rs := range merged.RuleSets {
 		if exclude[name] {
-			excluded = append(excluded, name)
+			matched[name] = true
 			continue
 		}
 		out.RuleSets[name] = rs
+	}
+	var excluded, unmatched []string
+	for name := range exclude {
+		if matched[name] {
+			excluded = append(excluded, name)
+		} else {
+			unmatched = append(unmatched, name)
+		}
 	}
 	if len(out.RuleSets) == 0 {
 		return fmt.Errorf("%s: every rule set of the session is in optimizerStatisticsExclude and no other is kept: nothing to write",
@@ -219,9 +267,15 @@ func MergeOptimizerStatistics(dbpool *pgxpool.Pool, ca *CommandArguments, _, _ s
 	}
 	sort.Strings(kept)
 	sort.Strings(excluded)
-	if current != nil {
-		log.Printf("%s: %d rule sets from the session, %d kept from %s %v, %d excluded %v",
-			MergeOptimizerStatisticsFunc, len(merged.RuleSets), len(kept), source, kept, len(excluded), excluded)
+	sort.Strings(unmatched)
+	if source == "" {
+		source = "no current file"
+	}
+	log.Printf("%s: %d rule sets from the session, %d kept from %s %v, %d excluded %v",
+		MergeOptimizerStatisticsFunc, len(merged.RuleSets), len(kept), source, kept, len(excluded), excluded)
+	if len(unmatched) > 0 {
+		log.Printf("%s: WARNING optimizerStatisticsExclude names %d rule sets found in neither the session nor the current file: %v",
+			MergeOptimizerStatisticsFunc, len(unmatched), unmatched)
 	}
 	buf, err := optstats.Marshal(out)
 	if err != nil {

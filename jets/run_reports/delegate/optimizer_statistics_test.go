@@ -1,7 +1,9 @@
 package delegate
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -40,14 +42,42 @@ func fakeS3(t *testing.T, objects map[string][]byte) {
 }
 
 // fakeCurrent replaces optimizerStatsCurrent for the test's duration: override
-// is the pending override's content and deployed the deployed workspace's copy,
-// nil for none.
-func fakeCurrent(t *testing.T, override, deployed []byte) {
+// is the pending override's content, nil for none, and compiled the statistics
+// file in the last compile's reports.tgz, nil for an archive without one.
+func fakeCurrent(t *testing.T, override, compiled []byte) {
 	t.Helper()
+	files := map[string][]byte{"reports/r.sql": []byte("select 1")}
+	if compiled != nil {
+		files[optstats.FileName] = compiled
+	}
+	archive := tgz(t, files)
 	saved := optimizerStatsCurrent
 	t.Cleanup(func() { optimizerStatsCurrent = saved })
 	optimizerStatsCurrent.override = func(*pgxpool.Pool, string) ([]byte, error) { return override, nil }
-	optimizerStatsCurrent.deployed = func(string) ([]byte, error) { return deployed, nil }
+	optimizerStatsCurrent.reportsArchive = func(*pgxpool.Pool, string) ([]byte, error) { return archive, nil }
+}
+
+// tgz is a gzipped tar of files, as tarextract.CreateTarGz writes reports.tgz.
+func tgz(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(zw)
+	for name, content := range files {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }
 
 // statsFile is a statistics file holding, for each rule set named, the sessions
@@ -220,10 +250,11 @@ func TestReportDirectivesWithAComment(t *testing.T) {
 	}
 }
 
-// Two processes, each with its own statistics process, accumulate one file in
-// either order: the session replaces the rule sets it covers, and every other
-// rule set is kept from the current file, the pending override before the
-// deployed copy. jetstore_agentic_ai rules_benchmark, after CC.4 (2026-10-26).
+// Two processes, each with its own statistics process, accumulate one file when
+// run one after the other: the session replaces the rule sets it covers, and
+// every other rule set is kept from the current file, the pending override
+// before the last compile's copy. jetstore_agentic_ai rules_benchmark, after
+// CC.4 (2026-10-26).
 func TestMergeKeepsTheRuleSetsTheSessionDoesNotCover(t *testing.T) {
 	const own, other = "jet_rules/acme_main.jr", "jet_rules/other_main.jr"
 	ca := statsArgs()
@@ -231,20 +262,20 @@ func TestMergeKeepsTheRuleSetsTheSessionDoesNotCover(t *testing.T) {
 	key := optstats.WorkspaceKey("jets_ws")
 	for _, c := range []struct {
 		name               string
-		override, deployed []byte
+		override, compiled []byte
 		want               []byte
 	}{
 		{"no current file", nil, nil, statsFile(t, map[string][]int{own: {1, 2}})},
-		{"the deployed copy",
+		{"the last compile's copy",
 			nil, statsFile(t, map[string][]int{own: {7}, other: {4}}),
 			statsFile(t, map[string][]int{own: {1, 2}, other: {4}})},
-		{"the pending override, before the deployed copy",
+		{"the pending override, before the last compile's copy",
 			statsFile(t, map[string][]int{other: {5}}), statsFile(t, map[string][]int{other: {4}}),
 			statsFile(t, map[string][]int{own: {1, 2}, other: {5}})},
 	} {
 		objects := map[string][]byte{prefix + "partition=none_node=0.json": partial(t, 1, 2)}
 		fakeS3(t, objects)
-		fakeCurrent(t, c.override, c.deployed)
+		fakeCurrent(t, c.override, c.compiled)
 		var updated []string
 		if err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
@@ -304,14 +335,40 @@ func TestMergeRefusesAnUnreadableCurrentFile(t *testing.T) {
 	if objects[optstats.WorkspaceKey("jets_ws")] != nil {
 		t.Errorf("the workspace's file was written")
 	}
+
+	// So is a broken copy in the last compile's archive.
+	fakeCurrent(t, nil, []byte(`{}`))
+	err = MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
+	if err == nil || !strings.Contains(err.Error(), "the last compile") || len(updated) != 0 {
+		t.Errorf("%v, updated %v; want a refusal naming the last compile", err, updated)
+	}
+}
+
+// With no compiled reports.tgz in the database there is nothing to keep rule sets
+// from, so the merge refuses rather than start from nothing and drop them.
+func TestMergeRefusesWithoutACompiledArchive(t *testing.T) {
+	ca := statsArgs()
+	prefix := optstats.PartialsPrefix(awsi.JetStoreStagePrefix(), ca.ProcessName, ca.SessionId)
+	objects := map[string][]byte{prefix + "a.json": partial(t, 1)}
+	fakeS3(t, objects)
+	fakeCurrent(t, nil, nil)
+	optimizerStatsCurrent.reportsArchive = func(*pgxpool.Pool, string) ([]byte, error) { return nil, nil }
+	var updated []string
+	err := MergeOptimizerStatistics(nil, ca, "", MergeOptimizerStatisticsFunc, &updated)
+	if err == nil || !strings.Contains(err.Error(), "compile the workspace once") || len(updated) != 0 {
+		t.Errorf("%v, updated %v; want the no-archive refusal", err, updated)
+	}
+	if objects[optstats.WorkspaceKey("jets_ws")] != nil {
+		t.Errorf("the workspace's file was written")
+	}
 }
 
 // The report directive parses from reports/config.json.
 func TestReportDirectivesWithAnExclusion(t *testing.T) {
 	var config map[string]ReportDirectives
-	err := json.Unmarshal([]byte(`{"CM_Optimizer_Statistics": {"reportScripts": ["merge_optimizer_statistics"],
+	err := json.Unmarshal([]byte(`{"A_Optimizer_Statistics": {"reportScripts": ["merge_optimizer_statistics"],
 	  "updateLookupTables": true, "optimizerStatisticsExclude": ["jet_rules/main/x.jr"]}}`), &config)
-	rd := config["CM_Optimizer_Statistics"]
+	rd := config["A_Optimizer_Statistics"]
 	if err != nil || len(rd.OptimizerStatisticsExclude) != 1 || rd.OptimizerStatisticsExclude[0] != "jet_rules/main/x.jr" {
 		t.Errorf("%v: %+v", err, rd)
 	}

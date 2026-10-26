@@ -1,4 +1,5 @@
-// The pending override is read from the row the report's own sync writes.
+// The pending override and the last compile's reports.tgz are read from the rows
+// the report's sync and the compile write.
 //
 // Needs JETS_TEST_DSN; skipped otherwise. Locally:
 //
@@ -64,5 +65,16 @@ func TestThePendingOverrideIsTheRowTheSyncWrites(t *testing.T) {
 	}
 	if data, err := optimizerStatsCurrent.override(pool, "other_ws"); err != nil || data != nil {
 		t.Fatalf("another workspace: got (%q, %v), want (nil, nil)", data, err)
+	}
+
+	// The last compile's archive, as workspace.UploadWorkspaceAssets writes it.
+	archive := tgz(t, map[string][]byte{optstats.FileName: content})
+	ar := dbutils.FileDbObject{WorkspaceName: "jets_ws", FileName: "reports.tgz", ContentType: "reports.tgz", UserEmail: "system"}
+	if _, err := ar.WriteObject(pool, archive); err != nil {
+		t.Fatal(err)
+	}
+	got, err := optimizerStatsCurrent.reportsArchive(pool, "jets_ws")
+	if err != nil || !bytes.Equal(got, archive) {
+		t.Fatalf("reports.tgz: got %d bytes, %v; want the row's content", len(got), err)
 	}
 }
