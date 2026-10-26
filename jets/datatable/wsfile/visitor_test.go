@@ -1,6 +1,7 @@
 package wsfile
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,7 +130,7 @@ func TestJetRulesSectionListsUnitTestDefinitions(t *testing.T) {
 		"jet_rules%2Fmain.jr":                           true,
 		"jet_rules%2Funit_tests%2Floop%2Floop.tst.json": true,
 		"jet_rules%2Funit_tests%2Floop%2Fmember1.csv":   true,
-		"jet_rules%2Foptimizer_statistics.json":         true,
+		url.QueryEscape(optstats.FileName):              true,
 	}
 	if len(files) != len(want) {
 		t.Fatalf("listed %v, want exactly %v", files, want)

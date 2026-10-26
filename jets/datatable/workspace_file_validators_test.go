@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
@@ -35,6 +36,9 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"reports/claims.SQL":                         true,
 		"jet_rules/mapping.jr":                       false,
 		"reports/claims.sql.backup":                  false,
+		// The seventh row, named whole: no other jet_rules .json is validated.
+		"jet_rules/optimizer_statistics.json": true,
+		"jet_rules/main.jr.json":              false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -388,6 +392,28 @@ func TestDescribeFindingsRendersBothCoordinates(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("rendering = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+// The statistics file is refused at the save unless the compiler can read it,
+// because a file it cannot read fails every compile of the workspace.
+func TestSaveCheckRefusesAStatisticsFileTheCompilerWouldRefuse(t *testing.T) {
+	good, err := optstats.Marshal(optstats.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkWorkspaceFile(optstats.FileName, string(good)); err != nil {
+		t.Fatalf("a valid statistics file was refused: %v", err)
+	}
+	for name, content := range map[string]string{
+		"an empty object": `{}`,
+		"another version": `{"format": "jetstore.optimizer_statistics", "version": 2, "rule_sets": {}}`,
+		"a misspelt key":  strings.Replace(string(good), `"rule_sets"`, `"rule_set"`, 1),
+		"not JSON at all": `{"format": `,
+	} {
+		if err := checkWorkspaceFile(optstats.FileName, content); err == nil {
+			t.Errorf("%s was accepted", name)
 		}
 	}
 }
