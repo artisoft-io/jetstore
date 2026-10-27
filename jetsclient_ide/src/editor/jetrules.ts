@@ -48,8 +48,11 @@ const TYPES = new Set([
 /** `constant.language.jetrule` */
 const CONSTANTS = new Set(["true", "false", "null"]);
 
-/** `support.function.jetrule` */
-const FUNCTIONS = new Set(["create_uuid_resource", "create_entity", "toText"]);
+/**
+ * `support.function.jetrule`. `toText` was listed here until the grammar dropped it
+ * (jetstore#2343) and the VS Code extension followed (#2351).
+ */
+const FUNCTIONS = new Set(["create_uuid_resource", "create_entity"]);
 
 /** `keyword.operator.logical.jetrule` */
 const LOGICAL_OPERATORS = new Set(["and", "or", "not"]);
@@ -142,8 +145,9 @@ export const jetRulesParser: StreamParser<JetRulesState> = {
     }
 
     // Multi-character operators first, so `->` does not tokenise as `-` then `>`.
+    // `r?` was one until the grammar dropped it (jetstore#2343).
     if (stream.match("->") || stream.match("==") || stream.match("!=") ||
-        stream.match("<=") || stream.match(">=") || stream.match("r?")) {
+        stream.match("<=") || stream.match(">=")) {
       state.afterNamespace = false;
       return "operator";
     }
