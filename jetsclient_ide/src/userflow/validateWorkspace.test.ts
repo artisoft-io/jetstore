@@ -208,6 +208,38 @@ describe("each check fires at the file an author would edit", () => {
     expect(found[0]).toMatchObject({ file: "user_flows/homeFiltersUF.form.json" });
     expect(found[0]!.pointer).toMatch(/^\/forms\/.+\/validator$/);
   });
+
+  // `AM.1` (`I-11`). Both mutations name a predicate that is registered, so the
+  // escape check passes them and only the new rule can refuse them.
+  it("an authored isEnabled the runtime would not use, on either side of the derivation", () => {
+    const files = shippingTree("homeFiltersUF");
+    let home = -1;
+    edit(files, "table_configs/pipelineExecStatusTable.tc.json", (d) => {
+      home = d.actions.findIndex((a: any) => a.key === "clearHomeFilters");
+      d.actions[home].isEnabled = "alwaysEnabled";
+    });
+    let registry = -1;
+    edit(files, "table_configs/main_input_registry_key.tc.json", (d) => {
+      registry = d.actions.findIndex((a: any) => a.isEnabled !== undefined);
+      d.actions[registry].isEnabled = "hasHomeFilters";
+    });
+    const found = run(files);
+    expect(found).toHaveLength(2);
+    expect(found).toContainEqual(
+      expect.objectContaining({
+        file: "table_configs/pipelineExecStatusTable.tc.json",
+        pointer: `/actions/${home}/isEnabled`,
+        message: expect.stringContaining('gates it on "hasHomeFilters"'),
+      }),
+    );
+    expect(found).toContainEqual(
+      expect.objectContaining({
+        file: "table_configs/main_input_registry_key.tc.json",
+        pointer: `/actions/${registry}/isEnabled`,
+        message: expect.stringContaining('gates it on "hasDataRegistryFilters"'),
+      }),
+    );
+  });
 });
 
 describe("the command", () => {
