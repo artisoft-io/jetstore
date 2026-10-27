@@ -10,6 +10,7 @@
  */
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
 import corpus from "../datatable/fixtures/form_fields.json";
@@ -178,6 +179,56 @@ describe("Dropdown", () => {
       <Dropdown formState={formState} group={0} fieldKey="format" label="Format" items={items} />,
     );
     expect(formState.getValue(0, "format")).toBe("csv");
+  });
+
+  it("keeps a choice made after the items are drawn and before the re-seed runs", async () => {
+    // **jetstore_maintenance_02 `I-30`, 2026-10-27.** The re-seed above is a
+    // passive effect, and a render that is not inside an event leaves it to run
+    // later. A change landing in that gap wrote the store, and the effect then
+    // compared against the render's stale `value` and put the default back.
+    // `FlowRunner.test.tsx`'s waiting-query case picks a client as soon as the
+    // options are drawn, and lost this race about once in twenty full runs.
+    //
+    // Made deterministic here: no `act`, so React schedules the effect rather
+    // than flushing it, and the change is dispatched from a MutationObserver,
+    // whose callback runs as a microtask right after the commit's DOM writes.
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const wasAct = env.IS_REACT_ACT_ENVIRONMENT;
+    env.IS_REACT_ACT_ENVIRONMENT = false;
+    const host = document.body.appendChild(document.createElement("div"));
+    const root = createRoot(host);
+    const formState = new FormState();
+    const props = { formState, group: 0, fieldKey: "client", label: "Client" };
+    const prompt = { value: "", label: "Select a Client" };
+    try {
+      root.render(<Dropdown {...props} items={[prompt]} loading />);
+      await new Promise((r) => setTimeout(r, 20));
+
+      let chosen = false;
+      const observer = new MutationObserver(() => {
+        const select = host.querySelector("select")!;
+        if (chosen || select.options.length !== 3) return;
+        chosen = true;
+        fireEvent.change(select, { target: { value: "acme" } });
+      });
+      observer.observe(host, { subtree: true, childList: true, attributes: true });
+      root.render(
+        <Dropdown
+          {...props}
+          items={[prompt, { value: "acme", label: "acme" }, { value: "globex", label: "globex" }]}
+        />,
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      observer.disconnect();
+
+      expect(chosen).toBe(true);
+      expect(formState.getValue(0, "client")).toBe("acme");
+      expect((host.querySelector("select") as HTMLSelectElement).value).toBe("acme");
+    } finally {
+      root.unmount();
+      host.remove();
+      env.IS_REACT_ACT_ENVIRONMENT = wasAct;
+    }
   });
 });
 

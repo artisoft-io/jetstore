@@ -37,8 +37,18 @@ export default defineConfig({
       API_PATHS.map((p) => [p, { target: apiOrigin, changeOrigin: true, secure: false }]),
     ),
   },
+  // **The budgets are for a full parallel run, not for one file** (jetstore_maintenance_02
+  // `I-30`, 2026-10-27). Twenty consecutive `npx vitest run` on a 16-core machine failed 3
+  // times. Two of the failures were races, fixed where they were (`widgets/Dropdown.tsx`,
+  // `ProcessErrors.test.tsx`). The rest were budgets: cases that take 0.2 s to 3.4 s alone
+  // ran past the 1 s wait default or the 5 s test default in a run that took 17 s rather
+  // than about 10. With the two races fixed and those cases given budgets of their own, a
+  // third case, 1.3 s alone, timed out the same way in the next sixteen runs. So the budget
+  // is suite-wide: 15 s per test here, and 3 s per wait in vitest.setup.ts.
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["./vitest.setup.ts"],
+    testTimeout: 15_000,
   },
 });
