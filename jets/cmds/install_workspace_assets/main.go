@@ -60,23 +60,46 @@ func main() {
 	}
 	// Grouped by directory, in install order, so the output reads as the
 	// directory listing it produces rather than as one flat set.
-	counts := make(map[string]int, len(workspace_assets.AssetGroups))
 	for _, g := range workspace_assets.AssetGroups {
 		fmt.Printf("%s:\n", filepath.Join(dir, g.Dir))
 		for _, r := range results {
 			if r.Dir != g.Dir {
 				continue
 			}
-			counts[g.Dir]++
 			fmt.Printf("  %-28s %s\n", r.Name, r.Action)
 		}
 	}
-	var parts []string
-	for _, g := range workspace_assets.AssetGroups {
-		parts = append(parts, fmt.Sprintf("%d in %s", counts[g.Dir], g.Dir))
+	fmt.Println(summary(dir, results))
+}
+
+// summary is the closing line. A removed file is a retired asset deleted from
+// the workspace, not an asset it holds, so it is counted apart (I-22).
+func summary(dir string, results []workspace_assets.Result) string {
+	assets := make(map[string]int, len(workspace_assets.AssetGroups))
+	removed := make(map[string]int)
+	var nAssets, nRemoved int
+	for _, r := range results {
+		if r.Action == workspace_assets.Removed {
+			removed[r.Dir]++
+			nRemoved++
+		} else {
+			assets[r.Dir]++
+			nAssets++
+		}
 	}
-	fmt.Printf("install_workspace_assets: %d asset(s) in %s (%s)\n",
-		len(results), dir, strings.Join(parts, ", "))
+	var parts, removedParts []string
+	for _, g := range workspace_assets.AssetGroups {
+		parts = append(parts, fmt.Sprintf("%d in %s", assets[g.Dir], g.Dir))
+		if removed[g.Dir] > 0 {
+			removedParts = append(removedParts, fmt.Sprintf("%d in %s", removed[g.Dir], g.Dir))
+		}
+	}
+	line := fmt.Sprintf("install_workspace_assets: %d asset(s) in %s (%s); %d retired file(s) removed",
+		nAssets, dir, strings.Join(parts, ", "), nRemoved)
+	if nRemoved > 0 {
+		line += fmt.Sprintf(" (%s)", strings.Join(removedParts, ", "))
+	}
+	return line
 }
 
 func workspaceDir() (string, error) {
