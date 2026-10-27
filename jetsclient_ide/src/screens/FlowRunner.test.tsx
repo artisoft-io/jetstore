@@ -965,8 +965,8 @@ describe("loadConfigUF — loading client configuration", () => {
     fireEvent.click(screen.getAllByRole("checkbox")[1]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    await screen.findByRole("button", { name: "Comfirm" });
-    fireEvent.click(screen.getByRole("button", { name: "Comfirm" }));
+    await screen.findByRole("button", { name: "Confirm" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
       expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(1),
