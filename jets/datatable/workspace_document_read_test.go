@@ -6,7 +6,8 @@ import "testing"
 // so it is tested as a function rather than inferred from the handler.
 //
 // The action exists because the runtime read had inherited the IDE's capability:
-// once the eleven flows became workspace assets, `workspace_ide` was what a user
+// once the eleven flows became workspace assets (ui_refresh's X.5, 2026-08-26),
+// `workspace_ide` was what a user
 // needed to *open a flow*, and only knowledge_engineer holds it. Lowering the
 // capability is only safe if the path cannot reach anything else in the
 // workspace, and "anything else" includes the rules, the pipeline configurations

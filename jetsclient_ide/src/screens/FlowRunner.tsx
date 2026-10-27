@@ -227,7 +227,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * `/fileMappingUF/mapping/:table_name/:object_type`
    * (`jetsclient/lib/routes/jets_routes_app.dart`, `ufMappingPath`), and both are
    * substituted into its form's queries — with neither, the worksheet has no rows
-   * to draw. **Five** of the eleven flow routes carry parameters this way —
+   * to draw. **Five** of the Flutter flow routes (eleven when counted, ten since
+   * 2026-10-01; the retired one carried none) carry parameters this way —
    * `clientRegistryUF` and `sourceConfigUF` a `startAtKey`, `mapFileUF` those
    * two, `workspacePullUF` five and `loadConfigUF` a `workspace_name`. This
    * comment said four until F.10 counted them off `jetsRoutesMap`; the Flutter

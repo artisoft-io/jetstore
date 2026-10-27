@@ -400,9 +400,11 @@ export function reactFlowRoute(
  *
  * ## Why a second map rather than a row in `FLOW_ROUTES`
  *
- * `FLOW_ROUTES` is the port of `userFlowRoutes` and its rows are **the eleven
- * Flutter route templates** (ten since one was retired on 2026-10-01) —
- * `routes.test.ts` asserts the count for that reason.
+ * `FLOW_ROUTES` is the port of `userFlowRoutes` and its rows are **the
+ * Flutter route templates** (eleven, ten since one was retired on 2026-10-01)
+ * plus `rulesUnitTestUF`'s since 2026-10-11, which has no Flutter template —
+ * `routes.test.ts` asserts the count for that reason. (This said *the eleven
+ * Flutter route templates* until 2026-10-27.)
  * A row here is not one of those: Flutter had no way to enter a flow partway, so
  * `/loadFilesUF/select_file_keys` is a template this app invents. Putting it in
  * the legacy map would make that map's own header false, and the header is the

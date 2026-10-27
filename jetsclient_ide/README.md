@@ -6,7 +6,9 @@ The JetStore web application: a React + TypeScript single-page app built around
 **The directory is named for what this was and not for what it is.** It began as
 the Workspace IDE — one screen, mounted at `/ide/`, running beside the Flutter
 client. Task X.1 retired that client on 2026-08-26 and X.2 moved this app to `/`,
-so it is now the whole product: twenty screens, eleven user flows and the editor.
+so it is now the whole product: the screens, the user flows and the editor. (This
+said *twenty screens, eleven user flows* until 2026-10-27; there are fourteen flows
+under `jets/workspace_assets/user_flows/` today, and a count here goes stale.)
 Renaming the directory would touch the Dockerfiles, the Go handler, the module
 paths and every citation below, so it has not been done and is recorded rather
 than left to be wondered about.
@@ -257,7 +259,8 @@ wrinkle is gone by subtraction rather than by being fixed.
 **The beachhead paragraph that was here is retired.** It listed what remained in
 the Flutter app — file creation, git operations, the workspace-registry screens,
 the Query Tool, the section forms — and every one of those is now here: track C
-ported fifteen screens, track F the eleven user flows, and X.4 registration.
+ported fifteen screens, track F the eleven user flows (ten since 2026-10-01), and
+X.4 registration.
 
 What is still true is narrower and worth keeping: **the flows have not been driven
 by a real user against a live apiserver.** They run end to end under jsdom against

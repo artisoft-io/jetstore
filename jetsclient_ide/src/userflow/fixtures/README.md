@@ -1,6 +1,10 @@
-# `user_flows.json` — the eleven user flows, as data
+# `user_flows.json` — the Flutter app's user flows, as data
 
 Generated from the running Flutter app. **Do not edit it by hand.**
+
+**It holds three flows as of 2026-10-27** — `homeFiltersUF`, `mapFileUF` and
+`loadFilesUF` — of the eleven it was generated with. The sections below say when
+each of the others left. The title said *the eleven user flows* until 2026-10-27.
 
 **Except once, and it is recorded here: ten flows since 2026-10-01.** `registerFileKeyUF`
 was retired by `jetstore_maintenance_02` (`Q-6`, task `AD.4`), and under that project's
@@ -12,7 +16,8 @@ the eleven it was generated with.
 
 It holds every `UserFlowConfig` the app registers, serialised by
 `jetsclient/test/user_flow_corpus_test.dart`. The schema in `../schema.ts` is
-argued from it, and `../schema.test.ts` converts all eleven and asserts they
+argued from it, and `../schema.test.ts` converts every flow it holds (all eleven,
+when it was generated) and asserts they
 validate — so the schema is tested against the app's own configuration rather
 than against a reading of it.
 

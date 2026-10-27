@@ -48,7 +48,8 @@ const artifactPath = fileURLToPath(new URL("./table.schema.json", import.meta.ur
 const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
 
 /**
- * The other half of the corpus, since the eleven flows moved to workspace assets.
+ * The other half of the corpus, since the eleven flows moved to workspace assets
+ * (X.5, 2026-08-26).
  *
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a

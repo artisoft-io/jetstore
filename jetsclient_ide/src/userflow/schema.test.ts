@@ -6,7 +6,8 @@
  * 1. **The emitted JSON Schema matches the committed artifact.** That file is
  *    what Go reads at S.4; if it can drift from this source, the two enforcement
  *    points disagree and nothing says so. Regenerate with `UPDATE_SCHEMA=1`.
- * 2. **All eleven shipping flows validate.** The plan's rule: a real config that
+ * 2. **The shipping flows validate** (all eleven, when this was written).
+ *    The plan's rule: a real config that
  *    fails means the schema is wrong, not the config.
  * 3. **The schema rejects what it claims to reject.** A schema with only
  *    positive tests is one nobody has probed — the negative suite proper is
@@ -25,12 +26,13 @@ import { errorsOnly, validateFlow } from "./validate";
 
 const artifactPath = fileURLToPath(new URL("./userflow.schema.json", import.meta.url));
 /**
- * Where the eleven converted flows are committed, since they became JetStore-owned
+ * Where the converted flows are committed, since they became JetStore-owned
  * workspace assets.
  *
- * The directory holds two kinds of document: these eleven, emitted here from the
- * Flutter corpus, and the projections `cpipes-contract templates` writes. This
- * emitter owns the first and must not touch the second, which is why the set
+ * The directory holds three kinds of document: the flows emitted here from the
+ * Flutter corpus (eleven at first, three since 2026-10-11), the flows written by
+ * hand (`HAND_AUTHORED`), and the projections `cpipes-contract templates` writes.
+ * This emitter owns the first and must not touch the others, which is why the set
  * assertion below is *containment* plus a named exclusion rather than equality —
  * an equality check would have deleted three flows it knows nothing about.
  */
@@ -94,7 +96,8 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("has the eleven converted flows committed beside it, for the Go check", () => {
+  // Titled "the eleven converted flows" until 2026-10-27; it checks the flows still emitted.
+  it("has the converted flows committed beside it, for the Go check", () => {
     // `jets/userflow/schema_test.go` reads both this directory and the emitted
     // schema, and asserts the same documents pass the Go validator that will
     // enforce them at save time. Committing the documents is what lets the two
@@ -317,7 +320,8 @@ describe("the reference checks the schema cannot express", () => {
     expect(errorsOnly(findings)).toHaveLength(1);
   });
 
-  it("finds nothing unreachable in any of the eleven flows", () => {
+  // Titled "any of the eleven flows" until 2026-10-27; it walks the flows still translated.
+  it("finds nothing unreachable in any translated flow", () => {
     // **This assertion is the reverse of the one S.1 shipped, and the reversal
     // is the point.** S.1 reported two states in `pipelineConfigUF` as dead on
     // the strength of a nearby comment. They are reached by a button — an action

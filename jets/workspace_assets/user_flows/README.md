@@ -23,9 +23,11 @@ copy of a retired document (`RetiredAssets` in `../install.go`). **A flow leaves
 directory by being added to that list as well as deleted here**, or its installed copy
 stays loadable by URL in every workspace that already has it.
 
-**The eleven ported flows**, three documents each — `<key>.uf.json`, `<key>.ua.json`,
+**The ported flows**, three documents each — `<key>.uf.json`, `<key>.ua.json`,
 `<key>.form.json` — keyed by the flow key the React router serves them under and the
-Flutter app hands off to (`jetsclient/lib/routes/migrated_user_flows.dart`). Two of the
+Flutter app handed off to until X.1 deleted it on 2026-08-26
+(`jetsclient/lib/routes/migrated_user_flows.dart`). Eleven were ported, and ten remain
+(above); this said *the eleven ported flows* until 2026-10-27. Two of the
 three are emitted rather than hand-written: `jetsclient_ide/src/userflow/schema.test.ts`
 writes the `.uf.json` from the Flutter corpus under `UPDATE_SCHEMA=1`, and
 `jetsclient_ide/src/datatable/table.test.ts` writes their tables the same way. The
@@ -37,6 +39,9 @@ and `pcPipelineConfigTable` — when `jetstore_maintenance_02`'s `D06` made the 
 on their table (tasks `AF.1`–`AF.4`). They left the Flutter corpus rather than being
 edited in it, and the two tests list them (`HAND_AUTHORED`, `HAND_MAINTAINED_KEYS`). The
 three option tables of the add-or-edit steps `D06` removed are on `RetiredAssets`.
+
+**`rulesUnitTestUF`, written rather than ported**, on 2026-10-11 for the rules unit test
+harness: three documents, like the ported flows, and hand-authored from the start.
 
 **The three projected templates**, four documents each.
 `cpipes-contract templates --project jets/workspace_assets/user_flows` emits them from
@@ -75,7 +80,7 @@ that shape a second time.
 refuses the whole set otherwise. An artefact whose runnability is decided by the
 application build belongs to the build.
 
-**For the eleven, that last argument is the whole of it, and it is the stronger half.**
+**For the ported flows, that last argument is the whole of it, and it is the stronger half.**
 They are the application's own screens expressed as documents — every escape name they
 use is registered in `jetsclient_ide/src/actions/registry.ts` and resolved when the
 bundle is built, so a workspace that owned them could not change one without the change

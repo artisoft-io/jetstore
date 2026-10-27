@@ -1034,11 +1034,11 @@ func documentPathOK(fileName string) bool {
 // **Why this exists beside GetWorkspaceFileContent, which reads any workspace
 // file.** That one gates on `workspace_ide`, and `jets_init_db.sql` grants
 // `workspace_ide` to `knowledge_engineer` alone. Since the eleven flows became
-// workspace assets (ui_refresh's X.5) the React app reads its flow documents at
-// run time, so the IDE's capability had become the capability required to *use a
-// flow* — and `ops_user` and `client_advocate`, who hold `jetstore_read` and
-// `run_pipelines`, could no longer open one. They are the roles the flows are
-// for.
+// workspace assets (ui_refresh's X.5, 2026-08-26) the React app reads its flow
+// documents at run time, so the IDE's capability had become the capability
+// required to *use a flow* — and `ops_user` and `client_advocate`, who hold
+// `jetstore_read` and `run_pipelines`, could no longer open one. They are the
+// roles the flows are for.
 //
 // The alternative was granting them `workspace_ide`, which also carries the free
 // SQL query tool, git push, file save and delete, and purge data. Widening a

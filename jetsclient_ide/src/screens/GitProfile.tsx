@@ -37,7 +37,7 @@
  * screen — the handoff carries flow routes and nothing else, and this is not a
  * flow — and no Flutter route would have to change for it to. **That reason is
  * narrower than the one written here until 2026-08-26**, which was that
- * `migratedUserFlows` is empty; it is now all eleven, and the sentence still
+ * `migratedUserFlows` is empty; it was all eleven by then, and the sentence still
  * holds because `userFlowRoutes` claims flow routes only. If track X ever wants the handoff before
  * it retires `jetsclient`, the app bar would drop its `params` map and point at
  * `/ide/git-profile`; it would not need to learn a parameter shape, because there

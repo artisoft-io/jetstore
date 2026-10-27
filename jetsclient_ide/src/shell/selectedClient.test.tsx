@@ -175,7 +175,7 @@ describe("the navigation surface that replaced the left panel", () => {
 
   it("tells a flow it opens where the user was, and tells a screen nothing", async () => {
     // **D.8, I-265.** The menu is reachable from every screen and launches four
-    // of the eleven flows, so without this the four exit to the same place
+    // flows (`FLOW_MENU`; "four of the eleven" until 2026-10-27), so without this the four exit to the same place
     // wherever they were started. `/ruleConfig` is a screen and reads nothing.
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);

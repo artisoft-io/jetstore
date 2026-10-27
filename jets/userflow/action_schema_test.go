@@ -57,8 +57,8 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// 6 as of F.3 (clientRegistryUF, 2026-08-23); 7 as of F.4 (startPipelineUF,
 	// 2026-08-24); 8 as of F.5 (homeFiltersUF, 2026-08-24); 9 as of F.6
 	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24);
-	// 11 as of F.7 (sourceConfigUF, 2026-08-24), which is all eleven flows and
-	// the end of track F's migration.
+	// 11 as of F.7 (sourceConfigUF, 2026-08-24), which was then all eleven flows
+	// and the end of track F's migration.
 	//
 	// **14 rather than 11 since the flows moved to workspace assets**, and the
 	// three added are not migrations: they are the projections
