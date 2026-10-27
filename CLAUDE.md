@@ -91,40 +91,26 @@ go test -run TestFooBar ./jets/datatable/  # single test
 ```
 Key test packages: `compute_pipes`, `datatable`, `workspace`, `compilerv2`; the rule engine's tests are C++ (`jets_test`, run by `ctest`). A Go test that runs rules links `libjets.so`: build with the cgo override in `jets/cmds/rules_unit_test/README.md`.
 
-### Flutter Tests (`jetsclient/`)
-
-**They only run on the chrome platform. Plain `flutter test` fails to load every
-test in the package**, with compile errors from `package:web` — a direct
-dependency at `jetsclient/pubspec.yaml:52`, and web-only by construction, so it
-does not build for the Dart VM that `flutter test` targets by default. The errors
-name `jsify`, `toJS` and `ProgressEvent` and look like a broken test rather than
-a broken target, which is why this is written down.
-
-```bash
-cd jetsclient
-CHROME_EXECUTABLE=/usr/bin/google-chrome flutter test --platform chrome
-```
-
-The consequence for test design: **there is no filesystem.** A test that wants to
-emit an artefact has to print it and be scraped, and a test that wants to detect
-drift has to compare a checksum rather than a file — which is what
-`test/table_config_corpus_test.dart` does, and its header explains why.
-
 ### JavaScript Tests (`jetsclient_ide/`)
 
 ```bash
 cd jetsclient_ide
 npm ci
-npm test          # vitest, node environment, src/**/*.test.ts
-npm run typecheck # tsc --noEmit; `npm run build` runs it first
+npx vitest run    # the whole suite, once (`npm test` is the same); jsdom per file where a test renders
+npm run typecheck # tsc --noEmit
+npm run build     # typecheck, then the app bundle -> dist/ and the validator -> dist-validator/
 ```
+
+`npm ci` first in a fresh worktree: `node_modules/` is not shared between checkouts.
+`npm run build` is the real check, because the suite does not exercise every type.
+The Flutter app (`jetsclient/`) and its tests were deleted at X.1, 2026-08-26.
 
 ## Architecture
 
 ### Layer Overview
 
 ```
-UI (Flutter/jetsclient)
+UI (React/jetsclient_ide)
       │
 API Server (Go/Gorilla Mux, port 8443)
       │
@@ -310,20 +296,21 @@ image that does not reset `CMD` gets `/bin/bash` appended to its arguments.
 - `vscode-jetrule/` — VS Code extension for the JetRules DSL (grammar and snippets, no TypeScript)
 - `sample_projects/` — example workspaces
 
-## Web UIs
+## Web UI
 
-Two web apps, served by the same apiserver on the same origin.
+One web app, `jetsclient_ide/`: React + TypeScript + vite, served by the apiserver at `/`. It holds
+every screen, the user flows' runner and the Workspace IDE's CodeMirror 6 editor; the directory is
+named for the editor it began as. Test and build commands are under *Test Commands* above; it has its
+own `README.md`, whose *Layout* section says what each directory under `src/` is for.
 
-`jetsclient/` is a Flutter/Dart web app for workspace management and pipeline administration. Build
-with standard Flutter tooling (`flutter build web`). Served at `/`.
+**The prefix is baked into the bundle.** It is written in three places that must agree:
+`appAssetPrefix` in `jets/apiserver/static_ide.go` and `base` in `jetsclient_ide/vite.config.ts`,
+both `/`, and `BASENAME` in `jetsclient_ide/src/base.ts`, the empty string (react-router's spelling
+of a root mount). Vite writes `base` into every asset url at build time, so
+the bundle cannot be served from another prefix without rebuilding it. It was `/ide/` until X.2,
+2026-08-26, when the Flutter app (`jetsclient/`, previously at `/`) was retired.
 
-`jetsclient_ide/` is a React + TypeScript + vite app — the Workspace IDE's CodeMirror 6 editor.
-Build with `npm ci && npm run build`. Served at `/ide/`, and that prefix is compiled into the asset
-urls by vite's `base`, so the bundle cannot be moved to another prefix without rebuilding it. It has
-its own `README.md`.
-
-Both are built into the `ui_service_ws` image (`dockerfiles/Dockerfile.ui_service_ws`) and land at
-`/usr/local/lib/web` and `/usr/local/lib/ide`, which are the defaults of the apiserver's
-`-WEB_APP_DEPLOYMENT_DIR` and `-IDE_APP_DEPLOYMENT_DIR` flags. The toolchains for both — Flutter and
-Node — are installed in `dockerfiles/Dockerfile.cpipes_base_builder`, each pinned to a release
-tarball rather than taken from the distro.
+It is built into the `ui_service_ws` image (`dockerfiles/Dockerfile.ui_service_ws`) and lands at
+`/usr/local/lib/ide`, the default of the apiserver's `-IDE_APP_DEPLOYMENT_DIR` flag
+(`jets/apiserver/main.go`). Node is installed in `dockerfiles/Dockerfile.cpipes_base_builder`, pinned
+to a release tarball rather than taken from the distro.

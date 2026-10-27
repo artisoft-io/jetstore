@@ -50,16 +50,36 @@ the fixture explains what the check can no longer see.
 
 ## Layout
 
+Every directory under `src/`, read 2026-10-27 (21). A user flow's own documents
+are not here: they are workspace assets, under `jets/workspace_assets/`, installed
+into each workspace and read from there at run time.
+
 ```
 src/
-  api/client.ts      HttpClient — bearer auth, per-response token refresh, 401 handling
-  api/workspace.ts   typed wrappers over the workspace_* /dataTable actions
-  editor/jetrules.ts CodeMirror mode for the JetRules DSL
-  editor/language.ts file extension -> language
-  editor/theme.ts    editor theme, driven by the same CSS variables as the shell
-  editor/Editor.tsx  the CodeMirror view, wrapped for React
-  components/        file tree, login
-  App.tsx            shell: workspace picker, tabs, save
+  App.tsx                  routes and nav: every screen, flow and supervision page is mounted here
+  main.tsx, base.ts        entry point; BASENAME, which must agree with vite's `base` and the Go prefix
+  styles.css               the app's stylesheet: one palette, shared with the editor theme
+  actions/                 the action grammar (schema.ts) and its interpreter, escapes and registry
+  actions/fixtures/        the 455 Flutter constant values, frozen for the name-for-value check
+  api/                     HttpClient (bearer auth, per-response token refresh) and workspace wrappers
+  components/              file tree, login, register, and the copy-by-hand text dialog
+  cpipes/                  agentic_ai's `cpipesTemplateApply` escape for projected template flows
+  datatable/               the table document (table.ts), query builder, data table and its action bar
+  datatable/fixtures/      the legacy Flutter-generated table and form corpus, and what it still builds
+  datatable/tables/        the .tc.json tables the screens draw, bundled (a flow's tables are installed)
+  detection/               agentic_ai's Detection screen: detector runs, and run-now
+  editor/                  CodeMirror view, JetRules mode, file extension -> language, theme
+  incidents/               agentic_ai's incident list and detail, over /agentic
+  incidents/__fixtures__/  an incident as triage writes it, for the screen tests
+  proposals/               agentic_ai's change-proposal staging screens, over /agentic
+  screens/                 the routed screens: Home, the Workspace IDE, FlowRunner, admin, Query Tool, …
+  screens/documents/       the .ua.json and .form.json the screens run, bundled rather than installed
+  screens/fixtures/        the legacy Flutter-generated screen corpus and reachability map
+  screens/views/           the compiled views' tab declarations (data model, JetRules, lookups)
+  shell/                   app shell: session, capabilities, notifications, prompts, title, favicon
+  userflow/                the flow, form and document-set schemas, the engine, FlowStore, the validator
+  userflow/fixtures/       the legacy Flutter-generated flow corpus, and what it still builds
+  widgets/                 form widgets bound to form state: text input, dropdown, typeahead
 ```
 
 ## The server contract
@@ -84,14 +104,16 @@ one sign-in.
 ## Build
 
 ```bash
-npm install
-npm run build       # tsc --noEmit && vite build  ->  dist/
-npm test            # vitest
+npm ci
+npx vitest run      # the whole suite, once; `npm test` is the same command
+npm run build       # tsc --noEmit, vite build -> dist/, then the validator -> dist-validator/
 npm run typecheck
 ```
 
-`dist/` is git-ignored. `npm run build` is the real check; `npm test` covers the
-API client, the workspace wrappers, the language picker and the JetRules mode.
+`dist/` and `dist-validator/` are git-ignored. `npm run build` is the real check:
+it type-checks first and fails on a type error the suite does not exercise.
+`dist-validator/jets_validate_workspace.mjs` is the workspace validator the
+compile runs (`vite.validator.config.ts` says why it is a second build).
 
 ## Running it against a local apiserver
 
@@ -150,13 +172,12 @@ toolchain in the base image went with it.
 
 | Dockerfile | What it contributes |
 |---|---|
-| `Dockerfile.cpipes_base_builder` | Node.js 24.19.0, pinned to a release tarball under `/usr/local/node`, next to Go and Flutter |
+| `Dockerfile.cpipes_base_builder` | Node.js 24.19.0, pinned to a release tarball under `/usr/local/node`, next to Go |
 | `Dockerfile.cpipes_builder` | copies `jetsclient_ide/` into the build image |
 | `Dockerfile.ui_service_ws` | `npm ci && npm run build`, then copies `dist/` to `/usr/local/lib/ide` |
 
 `/usr/local/lib/ide` is the default of `-IDE_APP_DEPLOYMENT_DIR`, so the image
-sets no environment variable for it — the same arrangement `/usr/local/lib/web`
-has with `-WEB_APP_DEPLOYMENT_DIR`. The variable still overrides it at runtime.
+sets no environment variable for it. The variable still overrides it at runtime.
 
 Two things this depends on, both easy to undo by accident:
 
@@ -166,8 +187,10 @@ excludes lock files everywhere else — there is an explicit negation for this o
 image build on any machine that builds from a fresh clone, while continuing to
 work on a developer's, where the file is present but untracked.
 
-**The bundle is not relocatable.** `/ide/` is baked into every asset url at build
+**The bundle is not relocatable.** `/` is baked into every asset url at build
 time by vite's `base`, so serving it from another prefix is a rebuild, not a move.
+It was `/ide/` until X.2; `appAssetPrefix` in `jets/apiserver/static_ide.go` and
+`BASENAME` in `src/base.ts` (empty, react-router's root) must agree with it.
 
 ## Serving
 
