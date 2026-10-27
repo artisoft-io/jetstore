@@ -155,11 +155,7 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 	buf.WriteString(whereClause)
 	if len(dtq.SortColumn) > 0 {
 		buf.WriteString(" ORDER BY ")
-		if len(dtq.SortColumnTable) > 0 {
-			buf.WriteString(pgx.Identifier{dtq.SortColumnTable, dtq.SortColumn}.Sanitize())
-		} else {
-			buf.WriteString(pgx.Identifier{dtq.SortColumn}.Sanitize())
-		}
+		buf.WriteString(dtq.sortColumnIdentifier())
 		if !dtq.SortAscending {
 			buf.WriteString(" DESC ")
 		}
@@ -180,6 +176,39 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 		stmt = fmt.Sprintf("%s SELECT count(*) FROM %s %s", withClause, fromClause, whereClause)
 	}
 	return buf.String(), stmt
+}
+
+// sortColumnIdentifier names the sort column for ORDER BY.
+// makeSelectColumns casts every plain column to text and keeps its name, and
+// PostgreSQL resolves a bare ORDER BY name to an output column before a table
+// column, so a numeric column sorted as text (10 before 8). A plain selected
+// column is therefore qualified: by the table the request names, else by the
+// column's own table, else by the only FROM entry. A calculated column keeps
+// its bare name, which is its output name and the only one it has. A query
+// with several FROM entries and no table to name stays as it was.
+func (dtq *DataTableAction) sortColumnIdentifier() string {
+	if len(dtq.SortColumnTable) > 0 {
+		return pgx.Identifier{dtq.SortColumnTable, dtq.SortColumn}.Sanitize()
+	}
+	for i := range dtq.Columns {
+		col := &dtq.Columns[i]
+		if col.Column != dtq.SortColumn || len(col.CalculatedAs) > 0 {
+			continue
+		}
+		if len(col.Table) > 0 {
+			return pgx.Identifier{col.Table, dtq.SortColumn}.Sanitize()
+		}
+		if len(dtq.FromClauses) == 1 {
+			table := dtq.FromClauses[0].Table
+			if len(dtq.FromClauses[0].AsTable) > 0 {
+				table = dtq.FromClauses[0].AsTable
+			}
+			if len(table) > 0 {
+				return pgx.Identifier{table, dtq.SortColumn}.Sanitize()
+			}
+		}
+	}
+	return pgx.Identifier{dtq.SortColumn}.Sanitize()
 }
 
 // Get Column definition
