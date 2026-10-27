@@ -111,7 +111,7 @@
       "actions": [
         { "action": "ufPrevious", "label": "Previous", "style": "primary" },
         { "action": "ufCancel", "label": "Cancel", "style": "primary" },
-        { "action": "ufCompleted", "label": "Comfirm", "style": "secondary" }
+        { "action": "ufCompleted", "label": "Confirm", "style": "secondary" }
       ]
     }
   }
