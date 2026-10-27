@@ -13,16 +13,19 @@
 # cpipes state machines are built from the same ECS task definition and differ
 # only in their node Lambda (`buildCpipesSMInternal`, `build_cpipes_sm.go:21`
 # and `:25`). Inside one execution of either, sharding always runs on the node
-# Lambda (`runSharingNodeTask`, `build_cpipes_sm.go:71`) while each reducing
+# Lambda (`runSharingNodeTask`, `build_cpipes_sm.go:91`) while each reducing
 # iteration runs on the Lambda or on the ECS task, chosen at run time by
-# `$.useECSReducingTask` (`ecsOrLambdaChoice`, `build_cpipes_sm.go:208`) from
+# `$.useECSReducingTask` (`ecsOrLambdaChoice`, `build_cpipes_sm.go:262`) from
 # the pipeline's own `use_ecs_tasks` / `use_ecs_tasks_when`
-# (`EvalUseEcsTask`, `actions_start_common.go:1918`). So a site operator present
+# (`EvalUseEcsTask`, `actions_start_common.go:2258`). So a site operator present
 # in cpipes_native_server and absent from this bootstrap does not fail a
 # deployment: it fails a step, as a function of a field in the .pc.json, inside
 # a running worker. That is why selecting the builder here is not optional once
 # Dockerfile.cpipes selects one, and why Dockerfile.cpipes_builder_ws refuses to
-# build one site entry without the other.
+# build one site entry without the other. (The same choice has since gained a
+# third arm, the Python node Lambda, `$.usePythonReducingTask`, when a deployment
+# has one; it runs no Go operator and changes nothing here. Line numbers
+# corrected 2026-10-27, jetstore_maintenance_02 I-318.)
 #
 # A site that ships its own compute_pipes operators passes
 # CPIPES_BUILDER_IMAGE=cpipes_builder_ws:latest, whose bootstrap is built from
@@ -33,7 +36,7 @@
 #
 # **The name is forced rather than chosen, for the same kind of reason the task
 # binary's is.** CpipesNativeNodeLambda is a container-image function with
-# `Cmd: bootstrap` (`build_cpipes_lambdas.go:144`), and DockerImageFunctionProps
+# `Cmd: bootstrap` (`build_cpipes_lambdas.go:155`), and DockerImageFunctionProps
 # has no Entry property, so nothing at synth time can name a different binary.
 #
 # An ARG before the first FROM is a global ARG -- in scope for FROM lines and

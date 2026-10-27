@@ -42,6 +42,8 @@ bazel-testlogs
 external
 temp.h
 build/
+# The sanitizer build tree, configured beside build/ (jetstore_maintenance_02 I-317).
+build-san/
 vscode_build/
 bin
 pkg

@@ -25,7 +25,7 @@
       "object_type": "test2",
       "schema_name": "test2",
       "format": "csv",
-      "delimiter": ",",
+      "delimiter": 44,
       "compression": "none",
       "columns": [
         {"name": "first_name", "length": 25},

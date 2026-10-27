@@ -47,7 +47,7 @@
       "key": "_main_input_",
       "schema_name": "test_schema",
       "format": "csv",
-      "delimiter": "*"
+      "delimiter": 42
     }
   ],
   "channels": [
