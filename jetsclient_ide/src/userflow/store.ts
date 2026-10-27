@@ -52,7 +52,13 @@
  * it is read off the *form* document, after it parses.
  */
 
-import { describeUnresolved, resolveEscapes, type EscapeReferences, type EscapeRegistry } from "../actions/escapes";
+import {
+  describeUnresolved,
+  resolveEscapes,
+  type EscapeReferences,
+  type EscapeRegistry,
+  type UnresolvedEscape,
+} from "../actions/escapes";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import type { WorkspaceApi } from "../api/workspace";
 import {
@@ -63,10 +69,10 @@ import {
 } from "../datatable/table";
 import { fromDocument } from "../datatable/tableTranslate";
 import type { TableConfig } from "../datatable/types";
-import { validateDocumentSet, validateTableActions } from "./documentSet";
+import { validateDocumentSet, validateTableActions, type SetFinding, type SetFindingCode } from "./documentSet";
 import { FormDocumentSchema, fieldsOf, type FormDocument } from "./form";
 import { UserFlowSchema, type UserFlow } from "./schema";
-import { validateFlow, type Finding, type Policy } from "./validate";
+import { validateFlow, type Finding, type Policy, type Severity } from "./validate";
 
 /** The directory a workspace keeps its flows in. */
 export const FLOW_DIR = "user_flows";
@@ -202,6 +208,9 @@ export class FlowStore {
    */
   async load(key: string): Promise<LoadedFlow> {
     const reads = await this.readAll([flowPath(key), actionPath(key), formPath(key)]);
+    // The checks after parsing are `checkFlowSet`'s, which the workspace
+    // validator also calls (`jetstore_maintenance_02` `AM.3`). This method's
+    // part is the reading and the order in which a failing stage is thrown.
     const unreadable = reads.filter((r) => r.error !== undefined);
     if (unreadable.length > 0) {
       // **A missing document is a load error with the file's name in it**, not a
@@ -231,59 +240,32 @@ export class FlowStore {
     const actions = ActionDocumentSchema.parse(JSON.parse(actionText)) as ActionDocument;
     const forms = FormDocumentSchema.parse(JSON.parse(formText)) as FormDocument;
 
-    const reference = validateFlow(flow, this.options.policy);
-    const errors = reference.filter((f) => f.severity === "error");
-    if (errors.length > 0) throw new FlowLoadError(key, errors);
+    // The tables are read before any check runs, because `checkFlowSet` takes
+    // them, and a read failure is held until the two stages that do not need
+    // them have had their say. So the first failure thrown is the one it was
+    // before `AM.3`; what changed is that a flow refused by its set check now
+    // costs the table reads too.
+    const { tables, findings: tableReadFindings } = await this.loadTables(tableKeysOf(forms));
+    const checks = checkFlowSet({ flow, actions, forms }, tables, this.options, key);
+    const stage = (name: FlowCheckStage) => checks.filter((f) => f.stage === name);
+
+    // Warnings, such as an unreachable state, do not refuse a flow.
+    const references = stage("references").filter((f) => f.severity === "error");
+    if (references.length > 0) throw new FlowLoadError(key, references.map(asLoadFinding));
 
     // I-57. The set findings carry their own code union — deliberately not
     // `validate.ts`'s, because Go can never raise these — so they are mapped
     // rather than concatenated, and the document they name goes into the pointer
     // so a message spanning files still says which file.
-    const setFindings = validateDocumentSet({ flow, actions, forms });
-    if (setFindings.length > 0) {
-      throw new FlowLoadError(
-        key,
-        setFindings.map((f) => ({
-          severity: "error" as const,
-          code: "unknownTarget" as const,
-          message: f.message,
-          path: `${f.document}${f.path}`,
-        })),
-      );
-    }
+    const set = stage("set");
+    if (set.length > 0) throw new FlowLoadError(key, set.map(asLoadFinding));
 
-    const tables = await this.loadTables(key, tableKeysOf(forms));
+    if (tableReadFindings.length > 0) throw new FlowLoadError(key, tableReadFindings);
 
-    // F.3, and the same layer one document further out: a table's `doAction`
-    // names an entry in *this flow's* action document and its `showDialog`
-    // names a form in *this flow's* form document, and neither reference had a
-    // check (**I-88**). It runs here rather than inside `validateDocumentSet`
-    // because the tables are not knowable until the form document has parsed —
-    // which is the reason `loadTables` is below that call and not above it.
-    const tableFindings = validateTableActions(actions, forms, tables);
-    if (tableFindings.length > 0) {
-      throw new FlowLoadError(
-        key,
-        tableFindings.map((f) => ({
-          severity: "error" as const,
-          code: "unknownTarget" as const,
-          message: f.message,
-          path: `${f.document}${f.path}`,
-        })),
-      );
-    }
+    const tableActions = stage("tables");
+    if (tableActions.length > 0) throw new FlowLoadError(key, tableActions.map(asLoadFinding));
 
-    const references = [
-      ...escapeReferences(flow, actions),
-      ...formEscapeReferences(forms, key),
-      ...Object.entries(tables).flatMap(([tableKey, table]) =>
-        tableEscapeReferences(table).map((ref) => ({
-          ...ref,
-          at: `${tablePath(tableKey)}${ref.at}`,
-        })),
-      ),
-    ];
-    const unresolved = resolveEscapes(references, this.options.registry);
+    const unresolved = stage("escapes").map((f) => f.unresolved!);
     if (unresolved.length > 0) {
       throw new FlowLoadError(key, [
         {
@@ -305,12 +287,13 @@ export class FlowStore {
    * not symmetry with the rest of the file for its own sake: a flow with four
    * tables is normally missing all four or none — the directory has not been
    * authored yet — and reporting them one reload at a time is the friction
-   * `resolveEscapes` avoids for the same reason.
+   * `resolveEscapes` avoids for the same reason. **Returned rather than thrown
+   * since `AM.3`**, so that `load` can hold them until the checks that do not
+   * need the tables have run.
    */
   private async loadTables(
-    key: string,
     keys: string[],
-  ): Promise<Record<string, TableConfigDocument>> {
+  ): Promise<{ tables: Record<string, TableConfigDocument>; findings: Finding[] }> {
     const reads = await this.readAll(keys.map(tablePath));
 
     const findings: Finding[] = [];
@@ -335,8 +318,7 @@ export class FlowStore {
         JSON.parse(entry.text!),
       ) as TableConfigDocument;
     });
-    if (findings.length > 0) throw new FlowLoadError(key, findings);
-    return tables;
+    return { tables, findings };
   }
 
   /** Reads several files at once, turning a rejection into a value. */
@@ -486,4 +468,110 @@ export function escapeReferences(flow: UserFlow, actions: ActionDocument): Escap
     });
   }
   return references;
+}
+
+/** The stages of `checkFlowSet`, in the order `load` throws them. */
+export type FlowCheckStage = "references" | "set" | "tables" | "escapes";
+
+/**
+ * One finding of `checkFlowSet`.
+ *
+ * `document` and `path` locate it as a `SetFinding` does: `path` is a JSON
+ * Pointer into that document, and for `tables` its first segment is the table
+ * key, standing in for the file.
+ */
+export interface FlowCheckFinding {
+  stage: FlowCheckStage;
+  severity: Severity;
+  /** `validate.ts`'s code on a `references` finding; the set's code otherwise, or `unresolvedEscape`. */
+  code: Finding["code"] | SetFindingCode | "unresolvedEscape";
+  document: SetFinding["document"];
+  path: string;
+  message: string;
+  /** On an `escapes` finding, the reference as `describeUnresolved` prints it. */
+  unresolved?: UnresolvedEscape;
+}
+
+/**
+ * Every check a parsed flow, its siblings and its tables must pass to load.
+ * `jetstore_maintenance_02` `AM.3` (`I-31`, retiring `R-16`).
+ *
+ * **One function for `FlowStore.load` and for the workspace validator**
+ * (`validateWorkspace.ts`). The validator used to restate `load`'s sequence check
+ * for check, with a comment asking that a check added to one be added to the
+ * other. Now each caller does only what differs between them: `load` reads the
+ * files and throws the first stage that fails, keeping errors only; the
+ * validator reads a directory, reports every stage with its file, and reports
+ * the parse and missing-file failures `load` meets as read errors.
+ *
+ * The stages, in `load`'s order, each resting on the one before:
+ *
+ * 1. `references`: `validateFlow`, warnings included;
+ * 2. `set`: `validateDocumentSet`;
+ * 3. `tables`: `validateTableActions` over the tables given (I-88);
+ * 4. `escapes`: every escape the flow, its actions, its forms and the given
+ *    tables name is in the registry.
+ *
+ * Every stage runs, whatever the one before found; stopping is the caller's
+ * choice. `tables` holds the tables that were read and parsed, which may be
+ * fewer than the forms name.
+ */
+export function checkFlowSet(
+  set: { flow: UserFlow; actions: ActionDocument; forms: FormDocument },
+  tables: Record<string, TableConfigDocument>,
+  options: { registry: EscapeRegistry; policy?: Policy },
+  key = "",
+): FlowCheckFinding[] {
+  const { flow, actions, forms } = set;
+  const findings: FlowCheckFinding[] = [];
+
+  for (const f of validateFlow(flow, options.policy)) {
+    findings.push({ stage: "references", ...f, document: "flow" });
+  }
+  for (const f of validateDocumentSet(set)) findings.push({ stage: "set", ...f });
+  for (const f of validateTableActions(actions, forms, tables)) findings.push({ stage: "tables", ...f });
+
+  // Each reference keeps the `at` that `load`'s message has always printed, and
+  // is also located in its own document for the validator.
+  const references: { document: SetFinding["document"]; path: string; ref: EscapeReferences }[] = [
+    ...escapeReferences(flow, actions).map((ref) => ({
+      document: ref.at.startsWith("/actions/") ? ("actions" as const) : ("flow" as const),
+      path: ref.at,
+      ref,
+    })),
+    ...formEscapeReferences(forms, key).map((ref) => ({
+      document: "forms" as const,
+      path: ref.at.slice(formPath(key).length),
+      ref,
+    })),
+    ...Object.entries(tables).flatMap(([tableKey, table]) =>
+      tableEscapeReferences(table).map((ref) => ({
+        document: "tables" as const,
+        path: `/${tableKey}${ref.at}`,
+        ref: { ...ref, at: `${tablePath(tableKey)}${ref.at}` },
+      })),
+    ),
+  ];
+  for (const { document, path, ref } of references) {
+    const [unresolved] = resolveEscapes([ref], options.registry);
+    if (unresolved === undefined) continue;
+    findings.push({
+      stage: "escapes",
+      severity: "error",
+      code: "unresolvedEscape",
+      document,
+      path,
+      message: `no ${ref.kind === "queries" ? "registered query" : `${ref.kind} escape`} named "${ref.name}" in this build`,
+      unresolved,
+    });
+  }
+  return findings;
+}
+
+/** A `checkFlowSet` finding as `FlowLoadError` carries it. */
+function asLoadFinding(f: FlowCheckFinding): Finding {
+  if (f.stage === "references") {
+    return { severity: f.severity, code: f.code as Finding["code"], message: f.message, path: f.path };
+  }
+  return { severity: "error", code: "unknownTarget", message: f.message, path: `${f.document}${f.path}` };
 }

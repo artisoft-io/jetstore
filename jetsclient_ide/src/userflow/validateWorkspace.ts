@@ -20,19 +20,24 @@
  *
  * ## What is checked, and in what order
  *
- * 1. Every `table_configs/*.tc.json` parses, and every escape it names (cell
- *    filters, `isEnabled` predicates) is in the registry.
+ * 1. Every `table_configs/*.tc.json` parses, every escape it names (cell
+ *    filters, `isEnabled` predicates) is in the registry, and every authored
+ *    `isEnabled` is the predicate the runtime derives for that table and action
+ *    (`isEnabledFindings`).
  * 2. Every `user_flows/*.uf.json`, `*.ua.json` and `*.form.json` parses.
- * 3. For each flow: both siblings exist; `validateFlow`'s reference checks;
- *    `validateDocumentSet`; every table its forms name exists; then
- *    `validateTableActions`; then every escape the flow, its actions and its
+ * 3. For each flow: both siblings exist; every table its forms name exists;
+ *    then `checkFlowSet` (`store.ts`), the checks `FlowStore.load` makes:
+ *    `validateFlow`'s reference checks, `validateDocumentSet`,
+ *    `validateTableActions`, and every escape the flow, its actions and its
  *    forms name is in the registry.
  *
- * Step 3 mirrors `FlowStore.load` (`store.ts`) check for check. **It is a second
- * reading of that sequence rather than a call to it**, because `load` throws at
- * the first failing stage and reports pointers without files, which is right for
- * a screen and wrong for a build log. A new check added to `load` must be added
- * here too; the test beside this file runs both over the shipping assets.
+ * ~~Step 3 mirrors `FlowStore.load` check for check, as a second reading of
+ * that sequence rather than a call to it.~~ **It calls it, since
+ * `jetstore_maintenance_02` `AM.3` (2026-10-27).** The restatement was `I-31`
+ * and its drift was `R-16`. `load` throws at the first failing stage and this
+ * reports every finding with its file, and that difference is now in what each
+ * caller does with `checkFlowSet`'s findings rather than in two copies of the
+ * checks.
  *
  * `.apply.json` (a projected flow's template plan, read by `src/cpipes/` alone)
  * is not one of the four kinds and is not checked here.
@@ -48,14 +53,16 @@ import { resolveEscapes, type EscapeReferences, type EscapeRegistry } from "../a
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import {
   TableConfigDocumentSchema,
+  actionRowsOf,
   tableEscapeReferences,
   type TableConfigDocument,
 } from "../datatable/table";
-import { validateDocumentSet, validateTableActions, type SetFinding } from "./documentSet";
+import { isEnabledEscapeFor } from "../datatable/tableTranslate";
+import type { SetFinding } from "./documentSet";
 import { FormDocumentSchema, fieldsOf, type FormDocument } from "./form";
 import { UserFlowSchema, type UserFlow } from "./schema";
-import { actionPath, escapeReferences, flowPath, formEscapeReferences, formPath, tableKeysOf } from "./store";
-import { defaultPolicy, validateFlow, type Policy, type Severity } from "./validate";
+import { actionPath, checkFlowSet, flowPath, formPath, tableKeysOf } from "./store";
+import { defaultPolicy, type Policy, type Severity } from "./validate";
 
 export const TABLE_DIR = "table_configs";
 export const FLOW_DIR = "user_flows";
@@ -127,7 +134,10 @@ const keysWithSuffix = (names: string[] | null, suffix: string): string[] =>
     .sort();
 
 /** Which file a set finding is about, given the flow it was raised for. */
-function setFindingFile(key: string, finding: SetFinding): { file: string; pointer: string } {
+function setFindingFile(
+  key: string,
+  finding: Pick<SetFinding, "document" | "path">,
+): { file: string; pointer: string } {
   switch (finding.document) {
     case "flow":
       return { file: flowPath(key), pointer: finding.path };
@@ -161,6 +171,42 @@ function unresolvedFindings(
   return findings;
 }
 
+/**
+ * An authored `isEnabled` the runtime would not use. `jetstore_maintenance_02`
+ * `AM.1` (`I-11`).
+ *
+ * **The action bar does not read the document's `isEnabled`.** It asks
+ * `isEnabledEscapeFor(tableKey, actionKey)` (`actionBarModel.ts`), because
+ * `fromDocument` keeps only that the action has a predicate, not its name
+ * (`ui_refresh`'s `I-66`, which keeps `ActionConfig` free of a field the
+ * corpus cannot express). So a document naming another predicate is valid,
+ * resolves, and is silently gated on the derived one instead. Every committed
+ * document agrees with the derivation, which `clearFiltersGate.test.tsx`
+ * pins; this is the check for a document written in a workspace, by hand or by
+ * a model.
+ *
+ * The table key is the file's name, which is the key the runtime is given.
+ */
+export function isEnabledFindings(tableKey: string, table: TableConfigDocument): WorkspaceFinding[] {
+  const findings: WorkspaceFinding[] = [];
+  for (const [row, actions] of actionRowsOf(table)) {
+    actions.forEach((action, index) => {
+      if (action.isEnabled === undefined) return;
+      const derived = isEnabledEscapeFor(tableKey, action.key);
+      if (action.isEnabled === derived) return;
+      findings.push({
+        severity: "error",
+        file: tableFile(tableKey),
+        pointer: `/${row}/${index}/isEnabled`,
+        message:
+          `action "${action.key}" names predicate "${action.isEnabled}", and the runtime gates it on ` +
+          `"${derived}" for this table and action, so "${action.isEnabled}" would be ignored`,
+      });
+    });
+  }
+  return findings;
+}
+
 /** Every finding over the workspace a reader exposes, errors and warnings both. */
 export function validateWorkspace(reader: WorkspaceReader, options: ValidateWorkspaceOptions): WorkspaceFinding[] {
   const { registry } = options;
@@ -181,6 +227,7 @@ export function validateWorkspace(reader: WorkspaceReader, options: ValidateWork
         registry,
       ),
     );
+    findings.push(...isEnabledFindings(key, table));
   }
 
   // 2. Every flow document, alone.
@@ -244,16 +291,10 @@ export function validateWorkspace(reader: WorkspaceReader, options: ValidateWork
     // references over it would report missing forms that are merely unreadable.
     if (flow === undefined || actions === undefined || forms === undefined) continue;
 
-    for (const f of validateFlow(flow, policy)) {
-      findings.push({ severity: f.severity, file: flowPath(key), pointer: f.path, message: f.message });
-    }
-
-    for (const f of validateDocumentSet({ flow, actions, forms })) {
-      findings.push({ severity: f.severity, ...setFindingFile(key, f), message: f.message });
-    }
-
     // Every table the forms name is on disk and parsed. Which form names it is
     // the pointer, so an author lands on the field rather than on the file.
+    // This is the validator's half of what `FlowStore.load` meets as a read
+    // failure, so it stays here rather than in `checkFlowSet`.
     const named: Record<string, TableConfigDocument> = {};
     for (const tableKey of tableKeysOf(forms)) {
       const table = tables[tableKey];
@@ -273,26 +314,16 @@ export function validateWorkspace(reader: WorkspaceReader, options: ValidateWork
       }
     }
 
-    for (const f of validateTableActions(actions, forms, named)) {
+    // `load`'s checks, by calling them (`AM.3`). Every stage is reported rather
+    // than the first that fails, each finding at the file it is about.
+    for (const f of checkFlowSet({ flow, actions, forms }, named, { registry, policy }, key)) {
+      // A table's escapes were reported in step 1 for every table on disk, so
+      // the copy each flow naming the table would add is dropped.
+      if (f.stage === "escapes" && f.document === "tables") continue;
       const located = setFindingFile(key, f);
-      findings.push({ severity: f.severity, ...located, message: `${f.message} (in flow "${key}")` });
+      const message = f.stage === "tables" ? `${f.message} (in flow "${key}")` : f.message;
+      findings.push({ severity: f.severity, ...located, message });
     }
-
-    // Escapes. `escapeReferences` writes pointers without a file — the
-    // initializer is the flow's, a step is the action document's — and
-    // `formEscapeReferences` prefixes its own; both are split back here.
-    const references: { file: string; ref: EscapeReferences }[] = [];
-    for (const ref of escapeReferences(flow, actions)) {
-      references.push({ file: ref.at.startsWith("/actions/") ? actionPath(key) : flowPath(key), ref });
-    }
-    for (const ref of formEscapeReferences(forms, key)) {
-      const prefix = formPath(key);
-      references.push({
-        file: prefix,
-        ref: { ...ref, at: ref.at.startsWith(prefix) ? ref.at.slice(prefix.length) : ref.at },
-      });
-    }
-    findings.push(...unresolvedFindings(references, registry));
   }
 
   return findings;
