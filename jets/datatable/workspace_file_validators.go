@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/userflow"
@@ -135,6 +136,12 @@ func ValidateFlowDocumentForTest(content string) []wsvalidate.Finding {
 //
 // Returns nil when the file may be written.
 func checkWorkspaceFile(fileName, content string) error {
+	// A file the IDE shows read-only is refused here too, so that the editor's
+	// read-only state is not the only thing between a direct request and the
+	// write (wsfile.ReadOnlySuffixes, 2026-10-27).
+	if wsfile.IsReadOnly(fileName) {
+		return fmt.Errorf("%s is read-only in the workspace IDE; edit it in the workspace repository", fileName)
+	}
 	// The JSON well-formedness check is a precondition of the JSON validators
 	// and applies to every `.json` file, row or no row — a malformed one is
 	// refused whatever its suffix. **It used to be the gate on the whole

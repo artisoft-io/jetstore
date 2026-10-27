@@ -25,7 +25,7 @@ import (
 // **Change the section table and this test fails; update only this constant and
 // the Dart test fails.** That is the whole mechanism, and it is the corpus
 // pattern the Flutter suite already uses, generated from the other end.
-const expectedDeclarationChecksum = "fnv1a32:b3fc79eb"
+const expectedDeclarationChecksum = "fnv1a32:b15ab833"
 
 // fnv1a32 matches jetsclient/test/corpus_support.dart's `checksum`, which is
 // hand-rolled there for the same reason it is hand-rolled here: this is drift
@@ -287,4 +287,97 @@ func matchesAFilter(name string, filters map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+// A workspace's READMEs are in the tree, read-only, and nothing else is marked
+// so. jetstore_maintenance_02 `AL.1`, 2026-10-27.
+//
+// The root README is listed after the two root files, and the one under
+// `pipes_config/` inside its section, which is where the four workspaces keep
+// theirs. A `.md` in a directory no section names stays out, as every other
+// file there does.
+func TestReadmesAreListedReadOnly(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"pipes_config", "jet_rules", "notes"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for path, content := range map[string]string{
+		"README.md":              "# ws",
+		"CHANGES.md":             "# changes",
+		"workspace_control.json": "{}",
+		"pipes_config/README.md": "# pipes",
+		"pipes_config/a.pc.json": "{}",
+		"jet_rules/a.jr":         "# rules",
+		"notes/README.md":        "# not a section",
+	} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	nodes, err := BuildWorkspaceFileStructure(root, "ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readOnly := map[string]bool{}
+	var walk func(*WorkspaceNode)
+	walk = func(n *WorkspaceNode) {
+		if n.Type == "file" {
+			readOnly[n.RouteParams["file_name"]] = n.ReadOnly
+		}
+		if n.Children != nil {
+			for _, c := range *n.Children {
+				walk(c)
+			}
+		}
+	}
+	for _, n := range nodes {
+		walk(n)
+	}
+
+	want := map[string]bool{
+		"README.md":                true,
+		"CHANGES.md":               true,
+		"pipes_config%2FREADME.md": true,
+		"pipes_config%2Fa.pc.json": false,
+		"jet_rules%2Fa.jr":         false,
+		"compile_workspace.sh":     false,
+		"workspace_control.json":   false,
+	}
+	if len(readOnly) != len(want) {
+		t.Errorf("file nodes: got %v, want %v", readOnly, want)
+	}
+	for name, ro := range want {
+		got, listed := readOnly[name]
+		if !listed {
+			t.Errorf("%s is not in the tree", name)
+		} else if got != ro {
+			t.Errorf("%s: read_only %v, want %v", name, got, ro)
+		}
+	}
+
+	// The notes follow the two root files, in name order.
+	tail := nodes[len(nodes)-2:]
+	if tail[0].Label != "CHANGES.md" || tail[1].Label != "README.md" {
+		t.Errorf("root notes: got %q, %q, want CHANGES.md, README.md", tail[0].Label, tail[1].Label)
+	}
+
+	// On the wire the flag is `read_only`, and absent when false.
+	encoded, err := json.Marshal(tail[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"read_only":true`) {
+		t.Errorf("a README node encodes as %s, want read_only true", encoded)
+	}
+	encoded, err = json.Marshal(nodes[len(nodes)-3])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "read_only") {
+		t.Errorf("a writable file node encodes as %s, want no read_only", encoded)
+	}
 }
