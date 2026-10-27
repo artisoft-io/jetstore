@@ -69,7 +69,13 @@ import {
 } from "../datatable/table";
 import { fromDocument } from "../datatable/tableTranslate";
 import type { TableConfig } from "../datatable/types";
-import { validateDocumentSet, validateTableActions, type SetFinding, type SetFindingCode } from "./documentSet";
+import {
+  validateAddClearsState,
+  validateDocumentSet,
+  validateTableActions,
+  type SetFinding,
+  type SetFindingCode,
+} from "./documentSet";
 import { FormDocumentSchema, fieldsOf, type FormDocument } from "./form";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { validateFlow, type Finding, type Policy, type Severity } from "./validate";
@@ -508,7 +514,8 @@ export interface FlowCheckFinding {
  *
  * 1. `references`: `validateFlow`, warnings included;
  * 2. `set`: `validateDocumentSet`;
- * 3. `tables`: `validateTableActions` over the tables given (I-88);
+ * 3. `tables`: `validateTableActions` over the tables given (I-88), and
+ *    `validateAddClearsState` (`AM.4`);
  * 4. `escapes`: every escape the flow, its actions, its forms and the given
  *    tables name is in the registry.
  *
@@ -530,6 +537,7 @@ export function checkFlowSet(
   }
   for (const f of validateDocumentSet(set)) findings.push({ stage: "set", ...f });
   for (const f of validateTableActions(actions, forms, tables)) findings.push({ stage: "tables", ...f });
+  for (const f of validateAddClearsState(set, tables)) findings.push({ stage: "tables", ...f });
 
   // Each reference keeps the `at` that `load`'s message has always printed, and
   // is also located in its own document for the validator.

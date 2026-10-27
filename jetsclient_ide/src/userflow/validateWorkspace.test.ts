@@ -209,6 +209,42 @@ describe("each check fires at the file an author would edit", () => {
     expect(found[0]!.pointer).toMatch(/^\/forms\/.+\/validator$/);
   });
 
+  // `AM.4` (`R-15`). Each *+ Add* list with one key taken out. `key` decides
+  // insert or update in both wizards and is published by the table's selection;
+  // `client` is also bound by the add step's form.
+  const withoutKey = (flowKey: string, actionName: string, key: string) => {
+    const files = shippingTree(flowKey);
+    edit(files, `user_flows/${flowKey}.ua.json`, (d) => {
+      const remove = d.actions[actionName].steps.find((step: any) => step.do === "remove");
+      remove.keys = remove.keys.filter((k: string) => k !== key);
+    });
+    return run(files);
+  };
+
+  it.each([
+    ["sourceConfigUF", "scGoToAddSourceConfig", "key", 3],
+    ["sourceConfigUF", "scGoToAddSourceConfig", "client", 3],
+    ["pipelineConfigUF", "pcGoToAddPipelineConfig", "key", 9],
+    ["pipelineConfigUF", "pcGoToAddPipelineConfig", "process_name", 9],
+  ] as const)("a + Add in %s whose %s list leaves %s", (flowKey, actionName, key, step) => {
+    const found = withoutKey(flowKey, actionName, key);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      file: `user_flows/${flowKey}.ua.json`,
+      pointer: `/actions/${actionName}/steps/${step}`,
+    });
+    expect(found[0]!.message).toContain(`leaves "${key}"`);
+  });
+
+  it("not a + Add that resets no edit: the rules unit test runs table", () => {
+    // Its + Add clears the previous test selection and none of the runs table's
+    // keys, which stay published for View Result. Taking one of the keys it does
+    // clear, which the add step's form binds, out of the list is refused.
+    expect(run(shippingTree("rulesUnitTestUF"))).toEqual([]);
+    const found = withoutKey("rulesUnitTestUF", "rutGoToSelectTests", "rutTestCaseTable");
+    expect(found.map((f) => f.message)).toEqual([expect.stringContaining('leaves "rutTestCaseTable"')]);
+  });
+
   // `AM.1` (`I-11`). Both mutations name a predicate that is registered, so the
   // escape check passes them and only the new rule can refuse them.
   it("an authored isEnabled the runtime would not use, on either side of the derivation", () => {
