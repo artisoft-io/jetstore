@@ -6,7 +6,9 @@ package datatable
 // buildQuery selects every column cast to text ("key"::text, makeSelectColumns)
 // and orders by the bare sort column when no table is named, which PostgreSQL
 // resolves to the text output column -- so run 10 sorted before run 8. Naming
-// the table makes ORDER BY reach the integer table column. The request is built
+// the table makes ORDER BY reach the integer table column; since
+// jetstore_maintenance_02 AJ.3, buildQuery also names it when the request does
+// not and the query has one FROM entry. The request is built
 // from the shipped rutCheckTable.tc.json as the client builds it. Skipped unless
 // JETS_TEST_DSN names a PostgreSQL; see rules_unit_test_runs_test.go.
 
@@ -64,11 +66,13 @@ func TestRulesUnitTestCheckTableSortsItsKeyAsAnInteger(t *testing.T) {
 		t.Errorf("descending by key: got %v, want [12 11 10 9 8]", got)
 	}
 
-	// The mechanism, so the test above is not passing for another reason: the
-	// same request with the sort column unqualified sorts the text output column.
+	// The same request with the sort column unqualified sorted the text output
+	// column until buildQuery qualified it with the only FROM entry
+	// (jetstore_maintenance_02 AJ.3, I-49). The mechanism itself is asserted in
+	// numeric_sort_test.go.
 	action, _ = readRequestFor(t, "rutCheckTable", formState)
 	action.SortColumnTable = ""
-	if got := keysOf(t, action); fmt.Sprint(got) != "[10 11 12 8 9]" {
-		t.Errorf("unqualified: got %v, want the text order [10 11 12 8 9]", got)
+	if got := keysOf(t, action); fmt.Sprint(got) != "[8 9 10 11 12]" {
+		t.Errorf("unqualified: got %v, want [8 9 10 11 12]", got)
 	}
 }

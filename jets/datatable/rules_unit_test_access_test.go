@@ -33,8 +33,9 @@ const rutKnowledgeEngineerEmail = "ke@rut.test"
 type tableDocument struct {
 	ApiAction string `json:"apiAction"`
 	Columns   []struct {
-		Name  string `json:"name"`
-		Table string `json:"table"`
+		Name         string `json:"name"`
+		Table        string `json:"table"`
+		CalculatedAs string `json:"calculatedAs"`
 	} `json:"columns"`
 	SortColumn    string       `json:"sortColumn"`
 	SortAscending bool         `json:"sortAscending"`
@@ -50,13 +51,20 @@ type tableDocument struct {
 // where clause's formStateKey resolved from formState.
 func readRequestFor(t *testing.T, tableKey string, formState map[string]string) (*DataTableAction, string) {
 	t.Helper()
-	raw, err := os.ReadFile("../workspace_assets/table_configs/" + tableKey + ".tc.json")
+	return readRequestFromFile(t, "../workspace_assets/table_configs/"+tableKey+".tc.json", formState)
+}
+
+// readRequestFromFile is readRequestFor for a table document at any path, such
+// as the ones the client bundles under jetsclient_ide/src/datatable/tables/.
+func readRequestFromFile(t *testing.T, path string, formState map[string]string) (*DataTableAction, string) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var doc tableDocument
 	if err = json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("%s: %v", tableKey, err)
+		t.Fatalf("%s: %v", path, err)
 	}
 	action := &DataTableAction{
 		Action:        doc.ApiAction,
@@ -67,7 +75,7 @@ func readRequestFor(t *testing.T, tableKey string, formState map[string]string) 
 		Limit:         20,
 	}
 	for _, c := range doc.Columns {
-		action.Columns = append(action.Columns, Column{Table: c.Table, Column: c.Name})
+		action.Columns = append(action.Columns, Column{Table: c.Table, Column: c.Name, CalculatedAs: c.CalculatedAs})
 		// The client sends the sort column's own table, not the document's
 		// sortColumnTable (resolveSortColumn, jetsclient_ide/src/datatable/model.ts).
 		if c.Name == doc.SortColumn {
@@ -77,7 +85,7 @@ func readRequestFor(t *testing.T, tableKey string, formState map[string]string) 
 	for _, w := range doc.Where {
 		value, ok := formState[w.FormStateKey]
 		if !ok {
-			t.Fatalf("%s filters on %s, which the test's form state does not hold", tableKey, w.FormStateKey)
+			t.Fatalf("%s filters on %s, which the test's form state does not hold", path, w.FormStateKey)
 		}
 		action.WhereClauses = append(action.WhereClauses, WhereClause{Column: w.Column, Values: []string{value}})
 	}
