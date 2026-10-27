@@ -178,6 +178,18 @@ func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string,
 	return nil
 }
 
+// outputsAreUsable reports whether a run that ended with status, as
+// CoordinateWork computes it, produced outputs the next process may read, and
+// so whether they are registered in input_registry. A failed run's outputs are
+// not; nor are an interrupted run's, which are partial.
+func outputsAreUsable(status string) bool {
+	switch status {
+	case "completed", "recovered", "errors":
+		return true
+	}
+	return false
+}
+
 // Package Main Functions
 // --------------------------------------------------------------------------------------
 func (ca *StatusUpdate) ValidateArguments() []string {
@@ -288,12 +300,13 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return err
 	}
-	// runStatus is the status this function computed and recorded, which is not
-	// always ca.Status: the "interrupted" arm below records "interrupted" and
-	// leaves ca.Status holding whatever the state machine passed in, which on
-	// the success path is "completed". Anything reading ca.Status after this
-	// switch is therefore reading the caller's claim on that one arm rather
-	// than the run's outcome. The manifest branch reads runStatus.
+	// runStatus is the status this function computed and recorded. Until
+	// 2026-10-27 it was not always ca.Status: the "interrupted" arm recorded
+	// "interrupted" and left ca.Status holding whatever the state machine passed
+	// in, which on the success path is "completed", so input_loader_status
+	// recorded an interrupted run as completed and its partial outputs were
+	// registered (I-51). Every arm now sets ca.Status, so the two agree and the
+	// readers below see the run's outcome. The manifest branch reads runStatus.
 	var runStatus string
 	switch {
 	case ca.Status == "failed":
@@ -301,6 +314,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", ca.failureInfo())
 
 	case statusCountMap["interrupted"] > 0:
+		ca.Status = "interrupted"
 		runStatus = "interrupted"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", ca.failureInfo())
 
@@ -417,13 +431,24 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				err = fmt.Errorf("while updating input_loader_status status: %v", err)
 				return err
 			}
-			// Register origin file to input_registry since process is "Jets_Loader"
+			// Register origin file to input_registry since process is "Jets_Loader".
+			// A failed load has always registered its file and still does; an
+			// interrupted one registers nothing (I-51).
 			isJetsLoader = true
-			// log.Printf("%s Registering origin file input source in input_registry for Jets_Loader session_id %s\n", sessionId, sessionId)
-			err = ca.RegisterFileInputSource()
-			if err != nil {
-				log.Printf("%s while registering file to input_registry: %v\n", sessionId, err)
-				return fmt.Errorf("while registering file to input_registry: %v", err)
+			if outputsAreUsable(ca.Status) || ca.Status == "failed" {
+				err = ca.RegisterFileInputSource()
+				if err != nil {
+					log.Printf("%s while registering file to input_registry: %v\n", sessionId, err)
+					return fmt.Errorf("while registering file to input_registry: %v", err)
+				}
+			} else {
+				// RegisterFileInputSource is where a loader run starts the pending
+				// tasks, so a run that registers nothing starts them here.
+				log.Printf("%s Not registering the file of a '%s' load in input_registry\n", sessionId, ca.Status)
+				ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
+				if err := ctx.StartPendingTasks(); err != nil {
+					log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
+				}
 			}
 		}
 	}
@@ -457,7 +482,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			return err
 		}
 		// Register out tables
-		if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+		if outputsAreUsable(ca.Status) && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
 			err = ca.RegisterDomainTables()
 			if err != nil {
 				log.Printf("%s while registrying output tables: %v", sessionId, err)
@@ -466,7 +491,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 		registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
 		log.Println("Env var ${REGISTER_DB_TABLE}:", registerDbTable)
-		if registerDbTable != nil && ca.Status != "failed" {
+		if registerDbTable != nil && outputsAreUsable(ca.Status) {
 			doIt, err := utils.ToIntWithEnv(registerDbTable, ca.CpipesEnv)
 			if err != nil {
 				err := fmt.Errorf("%s while parsing ${REGISTER_DB_TABLE} value '%v' to int: %v. Will skip registering db_table to input_registry", sessionId, registerDbTable, err)
