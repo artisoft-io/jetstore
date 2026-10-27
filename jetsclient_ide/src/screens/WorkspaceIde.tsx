@@ -496,10 +496,18 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               onFilesChanged={refreshTree}
             />
           ) : activeTab ? (
+            /*
+              `content` is the tab's current text, not its saved text: the editor
+              makes a fresh state for each file it is shown (`I-65`, 2026-10-27),
+              so switching back to a tab must show the edits it still holds.
+              Until then it was `saved`, and the switch's replace transaction
+              reset `current` to it through `onChange`, so unsaved edits were
+              dropped silently by leaving the tab and coming back.
+            */
             <Editor
               docKey={activeTab.fileName}
               fileName={activeTab.label}
-              content={activeTab.saved}
+              content={activeTab.current}
               readOnly={!canEdit || activeTab.readOnly}
               onChange={onChange}
               onSave={save}
