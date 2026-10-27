@@ -50,9 +50,12 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 	} else {
 		log.Printf("%s Found pipeline_coordinator_map with status %s, nbr_tasks %d for request_id %s\n", sessionId, mapStatus, nbrTasks, schemaProvider.RequestID)
 	}
-	switch ca.Status {
-	case "failed":
-		log.Printf("%s Task failed for request_id %s, updating pipeline_coordinator_map to failed\n", sessionId, schemaProvider.RequestID)
+	// A task whose outputs are not usable fails the map, so the post map pipeline
+	// never starts on a partial output. That is "failed" and, since 2026-10-27,
+	// "interrupted", which counted as a completed task before (I-58).
+	switch {
+	case !outputsAreUsable(ca.Status):
+		log.Printf("%s Task %s for request_id %s, updating pipeline_coordinator_map to failed\n", sessionId, ca.Status, schemaProvider.RequestID)
 		// Fail the coordination if not already failed
 		if mapStatus != "failed" {
 			updateStmt := `UPDATE jetsapi.pipeline_coordinator_map SET status = 'failed' WHERE request_id = $1`
@@ -75,7 +78,14 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 				log.Printf("%s while unmarshalling schema_provider_json for request_id %s: %v\n", sessionId, schemaProvider.RequestID, err)
 				return err
 			}
-			ca.notifyApiGateway(sp)
+			// The map failed whichever status failed it, so the notification is
+			// a failure's: notifyApiGateway chooses its template on "failed".
+			notice := *ca
+			notice.Status = "failed"
+			if len(notice.FailureDetails) == 0 && ca.Status != "failed" {
+				notice.FailureDetails = fmt.Sprintf("task %s of the map ended %s", sessionId, ca.Status)
+			}
+			notice.notifyApiGateway(sp)
 		}
 	default:
 		// Insert in pipeline_coordinator_map_items
