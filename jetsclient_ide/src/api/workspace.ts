@@ -47,6 +47,12 @@ export interface WorkspaceNode {
    * it*, and C.1 removed the Flutter client's conflation of the two.
    */
   compiled_view?: string;
+  /**
+   * Set on a file the IDE shows and does not save, absent otherwise
+   * (`wsfile.ReadOnlySuffixes`; a workspace's READMEs, 2026-10-27). The server
+   * refuses a save of one too, so this is what keeps the editor from offering it.
+   */
+  read_only?: boolean;
   route_path: string;
   route_params: Record<string, string> | null;
   children: WorkspaceNode[] | null;

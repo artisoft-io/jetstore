@@ -34,10 +34,13 @@ type WorkspaceNode struct {
 	// name.** Composing one was the defect: an unregistered key threw inside an
 	// async menu delegate, so a section with no view built, a section that can
 	// never have one, and a genuine registry failure were the same event.
-	CompiledView string            `json:"compiled_view,omitempty"`
-	RoutePath    string            `json:"route_path"`
-	RouteParams  map[string]string `json:"route_params"`
-	Children     *[]*WorkspaceNode `json:"children"`
+	CompiledView string `json:"compiled_view,omitempty"`
+	// ReadOnly is set on file nodes the IDE shows and does not save (IsReadOnly,
+	// sections.go), and omitted everywhere else. 2026-10-27.
+	ReadOnly    bool              `json:"read_only,omitempty"`
+	RoutePath   string            `json:"route_path"`
+	RouteParams map[string]string `json:"route_params"`
+	Children    *[]*WorkspaceNode `json:"children"`
 }
 
 func VisitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {
@@ -184,6 +187,7 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 					PageMatchKey: relativeFileName,
 					Label:        filename,
 					Size:         size,
+					ReadOnly:     IsReadOnly(filename),
 					RoutePath:    "/workspace/:workspace_name/home",
 					RouteParams: map[string]string{
 						"workspace_name": workspaceName,

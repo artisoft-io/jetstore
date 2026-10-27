@@ -39,12 +39,16 @@ import { parseCompiledView, type CompiledViewDocument } from "./compiledView";
  * avoid — it would agree with the client whatever the server sends. Recorded
  * 2026-08-25 against `jetstore_ai` at `worktree-ui-c3-workspacehome`, and
  * identical to the copy in `jetsclient/test/workspace_section_contract_test.dart`.
+ * `provenance=` added 2026-10-27 (jetstore_maintenance_02 `AL.2`), the ninth
+ * section; the Dart copy went with `jetsclient/`, so this file and the Go test
+ * are the two ends now.
  */
 export const SERVER_SECTION_DECLARATION = [
   "data_model=data_model",
   "jet_rules=jet_rules",
   "lookups=lookups",
   "pipes_config=",
+  "provenance=",
   "user_flows=",
   "table_configs=",
   "process_config=",
@@ -57,7 +61,7 @@ export const SERVER_SECTION_DECLARATION = [
  * `jetsclient/test/workspace_section_contract_test.dart`, both as
  * `expectedDeclarationChecksum`. Update all three together or none.
  */
-export const EXPECTED_DECLARATION_CHECKSUM = "fnv1a32:b3fc79eb";
+export const EXPECTED_DECLARATION_CHECKSUM = "fnv1a32:b15ab833";
 
 /**
  * FNV-1a, 32 bit, over the UTF-8 bytes — the same function the Go and Dart sides

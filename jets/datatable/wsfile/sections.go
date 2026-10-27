@@ -1,6 +1,11 @@
 package wsfile
 
-import "net/url"
+import (
+	"log"
+	"net/url"
+	"os"
+	"strings"
+)
 
 // The Workspace IDE's section list, and the one fact about a section that the
 // client cannot work out for itself.
@@ -76,10 +81,10 @@ type Section struct {
 
 // WorkspaceSections is the section list the apiserver emits, in display order.
 //
-// **Eight sections, and it has been eight throughout** — `process_sequence` was
-// removed and `table_configs` added on the same day, 2026-08-23, so a count
-// carried forward from before that day is right by coincidence and its
-// membership is wrong.
+// **Nine sections since 2026-10-27, when `provenance` was added.** It had been
+// eight from 2026-08-23, when `process_sequence` was removed and `table_configs`
+// added on the same day, so a count carried forward from before that day was
+// right by coincidence and its membership wrong.
 var WorkspaceSections = []Section{
 	{
 		// **`.meta.json` and `.schema.json` are the agentic model's two emitted
@@ -145,8 +150,27 @@ var WorkspaceSections = []Section{
 		Filters: []string{".jr", ".csv"}, CompiledView: LookupsView,
 	},
 	{
+		// **`.md` since 2026-10-27** (jetstore_maintenance_02 `AL.1`): the one
+		// section directory where a workspace keeps a README, measured that day
+		// over the four workspaces' tracked files. The other sections hold none,
+		// so they do not list `.md`; adding it to one is one filter. A README is
+		// shown read-only (ReadOnlySuffixes below).
 		Dir: "pipes_config", Label: "Pipes Config",
-		Filters: []string{".pc.json"}, CompiledView: NoCompiledView,
+		Filters: []string{".pc.json", ".md"}, CompiledView: NoCompiledView,
+	},
+	{
+		// **Added 2026-10-27** (jetstore_maintenance_02 `AL.2`): the briefing
+		// provenance schemas, `provenance/<key>.pv.json` by the convention
+		// briefing.DocumentSuffix describes. The save path has validated them
+		// since 2026-09-05 and no section listed them, so they could be saved
+		// and not opened: the miss this table and the validator table keep
+		// having, found by the test that ties the two
+		// (TestEveryValidatedFileTypeIsShownInTheIde, in package datatable).
+		// The suffix is written out rather than imported, so that this package
+		// does not import the agentic briefing package; that test is what keeps
+		// the two equal.
+		Dir: "provenance", Label: "Provenance",
+		Filters: []string{".pv.json"}, CompiledView: NoCompiledView,
 	},
 	{
 		// **This entry is the whole of making a new file type visible**, which is
@@ -202,6 +226,76 @@ var workspaceRootFiles = []struct {
 	{"workspace_control", "workspace_control.json", "Workspace Control"},
 }
 
+// RootNoteSuffix is the suffix of the notes listed at the tree's root, after the
+// two root files: the workspace's own README, which every one of the four
+// workspaces has (2026-10-27, jetstore_maintenance_02 `AL.1`). Unlike the two
+// root files they are found by listing the root rather than named, because a
+// workspace may have none or several. Only the root itself is listed; its
+// subdirectories are sections or are not shown.
+const RootNoteSuffix = ".md"
+
+// ReadOnlySuffixes are the file types the IDE shows and does not save, and
+// IsReadOnly is the test for one. A node for such a file carries `read_only`,
+// the editor opens it read-only, and the save path refuses it
+// (checkWorkspaceFile, jets/datatable/workspace_file_validators.go).
+//
+// **`.md` is read-only because nothing checks it and a save would make it an
+// override.** The plan that added it (jetstore_maintenance_02 `AL.1`,
+// 2026-10-27) made a README read-only unless the validator table has a row for
+// it, and a test in package datatable fails if a read-only suffix gains one,
+// since the two would then contradict each other. A root README could not be
+// saved anyway: SaveContent takes the database content type from the first
+// path segment, and a root file has none.
+var ReadOnlySuffixes = []string{".md"}
+
+// IsReadOnly reports whether the IDE shows fileName without saving it. The
+// match is by suffix, as Section.Filters are.
+func IsReadOnly(fileName string) bool {
+	for _, suffix := range ReadOnlySuffixes {
+		if strings.HasSuffix(fileName, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// visitRootNotes returns a file node for each RootNoteSuffix file directly in
+// root, in name order. A root that cannot be read yields none, as an absent
+// section directory yields an empty section (visitDir).
+func visitRootNotes(root, workspaceName string) []*WorkspaceNode {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		log.Printf("workspace root %q cannot be listed, reporting no notes: %v", root, err)
+		return nil
+	}
+	var notes []*WorkspaceNode
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, RootNoteSuffix) {
+			continue
+		}
+		var size int64
+		if info, err := e.Info(); err == nil {
+			size = info.Size()
+		}
+		notes = append(notes, &WorkspaceNode{
+			Key:          name,
+			Type:         "file",
+			PageMatchKey: name,
+			Label:        name,
+			Size:         size,
+			ReadOnly:     IsReadOnly(name),
+			RoutePath:    "/workspace/:workspace_name/home",
+			RouteParams: map[string]string{
+				"workspace_name": workspaceName,
+				"file_name":      url.QueryEscape(name),
+				"label":          name,
+			},
+		})
+	}
+	return notes
+}
+
 // Visit walks one section's directory and returns its node, stamped with the
 // section's compiled view.
 //
@@ -219,7 +313,7 @@ func (s Section) Visit(root, workspaceName string) (*WorkspaceNode, error) {
 
 // BuildWorkspaceFileStructure returns the whole `workspace_file_structure`
 // payload for one workspace: every section of WorkspaceSections in order, then
-// the two root files.
+// the two root files, then the root's notes (visitRootNotes).
 //
 // It is a free function over a filesystem path rather than a method on the HTTP
 // context so that it can be tested against a workspace built in t.TempDir() —
@@ -249,6 +343,8 @@ func BuildWorkspaceFileStructure(root, workspaceName string) ([]*WorkspaceNode, 
 			},
 		})
 	}
+
+	resultData = append(resultData, visitRootNotes(root, workspaceName)...)
 
 	return resultData, nil
 }
