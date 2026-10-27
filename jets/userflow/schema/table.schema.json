@@ -374,13 +374,9 @@
         },
         "navigationParams": {
           "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "number"
-              }
+            "type": [
+              "string",
+              "number"
             ]
           },
           "propertyNames": {
@@ -697,13 +693,9 @@
         "rows": {
           "items": {
             "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "type": "array"

@@ -216,7 +216,7 @@
 import { z } from "zod";
 
 import type { EscapeReferences } from "../actions/escapes";
-import { Identifier } from "../userflow/schema";
+import { Identifier, toJSONSchemaInlineRoot } from "../userflow/schema";
 
 /**
  * A column of the table.
@@ -1040,7 +1040,7 @@ export type ModelSource = z.infer<typeof ModelSourceSchema>;
 export type TableConfigDocument = z.infer<typeof TableConfigDocumentSchema>;
 
 export function emitJsonSchema(): unknown {
-  return z.toJSONSchema(TableConfigDocumentSchema, { io: "input" });
+  return toJSONSchemaInlineRoot(TableConfigDocumentSchema);
 }
 
 /** The directory a workspace keeps its table configurations in. */

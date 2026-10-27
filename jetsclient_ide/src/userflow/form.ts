@@ -52,7 +52,7 @@
 
 import { z } from "zod";
 
-import { Identifier } from "./schema";
+import { Identifier, toJSONSchemaInlineRoot } from "./schema";
 
 /**
  * A validation rule. ~~Two, because two is what the corpus needs.~~ **Three as of
@@ -704,7 +704,7 @@ export type Form = z.infer<typeof FormSchema>;
 export type FormDocument = z.infer<typeof FormDocumentSchema>;
 
 export function emitJsonSchema(): unknown {
-  return z.toJSONSchema(FormDocumentSchema, { io: "input" });
+  return toJSONSchemaInlineRoot(FormDocumentSchema);
 }
 
 /** Every field in a form, flattened out of its rows. */

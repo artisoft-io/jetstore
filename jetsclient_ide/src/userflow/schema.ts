@@ -296,5 +296,30 @@ export type UserFlow = z.infer<typeof UserFlowSchema>;
  * someone wrote, before any default is applied.
  */
 export function emitJsonSchema(): unknown {
-  return z.toJSONSchema(UserFlowSchema, { io: "input" });
+  return toJSONSchemaInlineRoot(UserFlowSchema);
+}
+
+/**
+ * `z.toJSONSchema` with the root document inline, as zod emitted it before 4.6.
+ *
+ * Since zod 4.6 a root schema carrying `.meta({ id })` is moved into `$defs` and
+ * the document becomes `{ "$ref": "#/$defs/<id>" }`. That is equivalent JSON
+ * Schema, but every reader of the four artifacts walks the root as the object
+ * (the closed-object tests here, Go's copies under `jets/userflow/schema/`, and
+ * a generator reading the schema it must satisfy). So the root is put back
+ * where it was: its body at the top, `$defs` without it. Only when nothing else
+ * refers to the root, which is true of all four documents; otherwise zod's form
+ * is returned unchanged. Added for the zod 4.6.6 upgrade
+ * (`jetstore_maintenance_02` `AI`, Dependabot #42).
+ */
+export function toJSONSchemaInlineRoot(schema: z.ZodType): Record<string, unknown> {
+  const emitted = z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+  const ref = emitted["$ref"];
+  const defs = emitted["$defs"] as Record<string, unknown> | undefined;
+  if (typeof ref !== "string" || !ref.startsWith("#/$defs/") || defs === undefined) return emitted;
+  const id = ref.slice("#/$defs/".length);
+  const { [id]: body, ...otherDefs } = defs;
+  if (body === undefined || JSON.stringify(otherDefs).includes(`"${ref}"`)) return emitted;
+  const { $ref: _ref, $defs: _defs, ...rest } = emitted;
+  return { ...rest, ...(body as Record<string, unknown>), $defs: otherDefs };
 }
