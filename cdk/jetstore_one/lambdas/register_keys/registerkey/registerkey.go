@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -55,6 +56,19 @@ var registerFileKeys = func(dtCtx *datatable.DataTableContext,
 	action *datatable.RegisterFileKeyAction, token string) error {
 	_, _, err := dtCtx.RegisterFileKeys(action, token)
 	return err
+}
+
+// downloadSchemaEvent and registerSchemaEvent are the two calls doFileSchema
+// makes outside this package, variables for the same reason as registerFileKeys:
+// the doFileSchema tests replace them with a fake object and a capture. Production
+// code must not reassign them.
+var downloadSchemaEvent = func(fileKey, versionId string, w io.WriterAt) (int64, error) {
+	return awsi.DownloadVersionFromS3WithRetry(downloader, awsBucket, fileKey, versionId, nil, w)
+}
+
+var registerSchemaEvent = func(dtCtx *datatable.DataTableContext, dbpool *pgxpool.Pool,
+	schemaInfo *compute_pipes.SchemaProviderSpec, token string) error {
+	return dtCtx.RegisterSchemaEvent(dbpool, schemaInfo, token)
 }
 
 func init() {
@@ -148,7 +162,7 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 		return doFileKey(ctx, dbpool, dtCtx, fileKey, fileSize, token)
 	case strings.HasPrefix(fileKey, s3SchemaPrefix):
 		// File Schema
-		return doFileSchema(dbpool, dtCtx, fileKey, fileSize, token)
+		return doFileSchema(dbpool, dtCtx, fileKey, record.S3.Object.VersionID, fileSize, token)
 	default:
 		// untracked file
 		log.Printf("Register Key v2: got untracked file?? %s", fileKey)
@@ -189,16 +203,20 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 	return registerFileKeys(dtCtx, &registerFileKeyAction, token)
 }
 
-func doFileSchema(dbpool *pgxpool.Pool, dtCtx *datatable.DataTableContext, fileKey string, fileSize int64, token string) error {
+// doFileSchema downloads the schema event the S3 event names and registers it.
+// The version is the one the event was raised for, when the bucket is versioned
+// (versionId is empty otherwise), so a key overwritten since is not read in its
+// place. The event's size only sizes the first allocation: the body is what was
+// downloaded, which is not that size when the object changed (I-37).
+func doFileSchema(dbpool *pgxpool.Pool, dtCtx *datatable.DataTableContext, fileKey, versionId string,
+	fileSize int64, token string) error {
 
-	// pre-allocate in memory buffer, where n is the object size
-	buf := make([]byte, int(fileSize))
-	// wrap with aws.WriteAtBuffer
-	w := manager.NewWriteAtBuffer(buf)
-	_, err := awsi.DownloadFromS3WithRetry(downloader, awsBucket, fileKey, nil, w)
+	w := manager.NewWriteAtBuffer(make([]byte, 0, max(fileSize, 0)))
+	_, err := downloadSchemaEvent(fileKey, versionId, w)
 	if err != nil {
 		return fmt.Errorf("while downloading file schema from s3: %v", err)
 	}
+	buf := w.Bytes()
 	// log.Printf("*** Got file schema from s3:\n%s\n", string(buf))
 	var schemaInfo compute_pipes.SchemaProviderSpec
 	err = json.Unmarshal(buf, &schemaInfo)
@@ -214,7 +232,7 @@ func doFileSchema(dbpool *pgxpool.Pool, dtCtx *datatable.DataTableContext, fileK
 		}
 		// process each event in the slice
 		for _, schemaInfo := range schemaInfoSlice {
-			err = dtCtx.RegisterSchemaEvent(dbpool, schemaInfo, token)
+			err = registerSchemaEvent(dtCtx, dbpool, schemaInfo, token)
 			if err != nil {
 				return fmt.Errorf("while processing schema event from json in RegisterFileKeyV2 lambda: %v", err)
 			}
@@ -222,5 +240,5 @@ func doFileSchema(dbpool *pgxpool.Pool, dtCtx *datatable.DataTableContext, fileK
 		return nil
 	}
 
-	return dtCtx.RegisterSchemaEvent(dbpool, &schemaInfo, token)
+	return registerSchemaEvent(dtCtx, dbpool, &schemaInfo, token)
 }

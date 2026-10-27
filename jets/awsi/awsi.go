@@ -537,41 +537,44 @@ func DownloadFromS3v2(downloader *transfermanager.Client, bucket, objKey string,
 //
 // Example:
 //
-//	// pre-allocate in memory buffer, where n is the object size
-//	buf := make([]byte, n)
-//	// wrap with aws.WriteAtBuffer
-//	w := manager.NewWriteAtBuffer(buf)
+//	// pre-allocate in memory buffer, where n is the expected object size
+//	w := manager.NewWriteAtBuffer(make([]byte, 0, n))
+//	// read the body from w.Bytes(), which grows to what was downloaded:
+//	// the buffer passed in is not the body when the object is larger than n
 func DownloadFromS3WithRetry(downloader *transfermanager.Client, bucket, objKey string, byteRange *string, w io.WriterAt) (int64, error) {
+	return DownloadVersionFromS3WithRetry(downloader, bucket, objKey, "", byteRange, w)
+}
+
+// DownloadVersionFromS3WithRetry is DownloadFromS3WithRetry for one version of
+// the object. An empty versionId downloads the current version.
+func DownloadVersionFromS3WithRetry(downloader *transfermanager.Client, bucket, objKey, versionId string,
+	byteRange *string, w io.WriterAt) (int64, error) {
 	var (
 		n   int64
 		err error
 	)
+	input := &transfermanager.DownloadObjectInput{
+		Bucket:   &bucket,
+		Key:      &objKey,
+		Range:    byteRange,
+		WriterAt: w,
+	}
+	if versionId != "" {
+		input.VersionID = &versionId
+	}
+	getObjectType := types.GetObjectParts
+	if byteRange != nil {
+		getObjectType = types.GetObjectRanges
+	}
 	retry := 0
 do_retry:
 	// Download the object
 	var doo *transfermanager.DownloadObjectOutput
-	if byteRange != nil {
-		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
-			Bucket:   &bucket,
-			Key:      &objKey,
-			Range:    byteRange,
-			WriterAt: w,
-		}, func(o *transfermanager.Options) {
-			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
-			o.Concurrency = 10
-			o.GetObjectType = types.GetObjectRanges
-		})
-	} else {
-		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
-			Bucket:   &bucket,
-			Key:      &objKey,
-			WriterAt: w,
-		}, func(o *transfermanager.Options) {
-			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
-			o.Concurrency = 10
-			o.GetObjectType = types.GetObjectParts
-		})
-	}
+	doo, err = downloader.DownloadObject(context.TODO(), input, func(o *transfermanager.Options) {
+		o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+		o.Concurrency = 10
+		o.GetObjectType = getObjectType
+	})
 	if err != nil {
 		if retry < 6 {
 			retry++
