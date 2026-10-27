@@ -184,9 +184,12 @@ func ValidateActionDocument(content string) []wsvalidate.Finding {
 // ValidateFormDocument is the .form.json validator.
 //
 // Schema only. A form names a table configuration and an action, and neither can
-// be checked here: the table configurations are still compiled into the client
-// (A.4), and whether an action name resolves depends on the flow's own action
-// document, which this file has not been given. The client checks both at load.
+// be checked here, because this function is given one file. A table
+// configuration is a workspace document, table_configs/<key>.tc.json, and whether
+// an action name resolves depends on the flow's own action document. Both are
+// checked when the workspace compiles, by the validator CompileWorkspace runs
+// (jets/workspace/asset_validation.go, jetsclient_ide/src/userflow/validateWorkspace.ts),
+// and again by the client when it loads the flow.
 func ValidateFormDocument(content string) []wsvalidate.Finding {
 	return validateAgainst(formSchemaFile, content)
 }

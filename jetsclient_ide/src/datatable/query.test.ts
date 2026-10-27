@@ -23,10 +23,15 @@
  * documents rather than left as a footnote here.
  */
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import corpus from "./fixtures/table_configs.json";
 import { makeQuery, makeWhereClause } from "./query";
+import { TableConfigDocumentSchema, type TableConfigDocument } from "./table";
+import { fromDocument } from "./tableTranslate";
 import type {
   FormStateReader,
   FormStateValue,
@@ -67,6 +72,40 @@ function whereClause(over: Partial<WhereClause> = {}): WhereClause {
     lookupColumnInFormState: false,
     ...over,
   };
+}
+
+/**
+ * The payload properties every querying table must have, fixture or document.
+ *
+ * `action` is `read` for every table in the fixture. A document's is what
+ * `fromDocument` restores from its key (`workspace_read` on the Workspace IDE's
+ * tables, for one), since an authored document cannot name a server action.
+ */
+function expectWellFormedPayload(
+  key: string,
+  config: TableConfig,
+  action = "read",
+  state: Record<string, FormStateValue> = {},
+): void {
+  const msg = makeQuery(
+    context(config, { formField: { group: 0, key }, formState: formState(state) }),
+  );
+
+  // Every field the Go struct requires is present and of the right shape.
+  expect(msg.action).toBe(action);
+  expect(Array.isArray(msg.fromClauses)).toBe(true);
+  expect(msg.fromClauses.length).toBe(config.fromClauses.length);
+  expect(Array.isArray(msg.withClauses)).toBe(true);
+  expect(msg.columns).toHaveLength(config.columns.length);
+  expect(typeof msg.offset).toBe("number");
+  expect(typeof msg.limit).toBe("number");
+  expect(typeof msg.sortAscending).toBe("boolean");
+  // No clause may be emitted with an undefined column: that is the shape that
+  // reaches the server as a quoted empty identifier and fails at the database.
+  for (const wc of msg.whereClauses ?? []) {
+    expect(typeof wc.column).toBe("string");
+    expect(wc.column.length).toBeGreaterThan(0);
+  }
 }
 
 const minimalConfig: TableConfig = {
@@ -458,26 +497,7 @@ describe("the whole corpus", () => {
   });
 
   it.each(querying)("builds a well-formed payload for %s", (key) => {
-    const config = tables[key]!;
-    const msg = makeQuery(
-      context(config, { formField: { group: 0, key }, formState: formState({}) }),
-    );
-
-    // Every field the Go struct requires is present and of the right shape.
-    expect(msg.action).toBe("read");
-    expect(Array.isArray(msg.fromClauses)).toBe(true);
-    expect(msg.fromClauses.length).toBe(config.fromClauses.length);
-    expect(Array.isArray(msg.withClauses)).toBe(true);
-    expect(msg.columns).toHaveLength(config.columns.length);
-    expect(typeof msg.offset).toBe("number");
-    expect(typeof msg.limit).toBe("number");
-    expect(typeof msg.sortAscending).toBe("boolean");
-    // No clause may be emitted with an undefined column: that is the shape that
-    // reaches the server as a quoted empty identifier and fails at the database.
-    for (const wc of msg.whereClauses ?? []) {
-      expect(typeof wc.column).toBe("string");
-      expect(wc.column.length).toBeGreaterThan(0);
-    }
+    expectWellFormedPayload(key, tables[key]!);
   });
 
   it("emits no where clauses for a table whose filters all read empty state", () => {
@@ -497,6 +517,61 @@ describe("the whole corpus", () => {
       { table: "", column: "source_type", values: ["file"] },
     ]);
   });
+});
+
+/**
+ * The table documents the fixture no longer carries, read from disk.
+ * `jetstore_maintenance_02` `AM.5` (`I-29`).
+ *
+ * From 2026-10-01 a document this repository edits leaves the emitted set and is
+ * edited by hand (`table.test.ts`, `HAND_MAINTAINED_KEYS`), and with it left
+ * `the whole corpus`'s payload check above, which iterates the fixture. Phase 1
+ * moved four query tables out that way (`pipelineExecStatusTable`, `client`,
+ * `scSourceConfigKey`, `pcPipelineConfigTable`), and more followed. **The set is
+ * derived rather than listed**: every query document in either directory whose
+ * key the fixture lacks, translated by `fromDocument` as the runtime does
+ * (`FlowStore`, Home), so the next document to leave the fixture is covered
+ * without an edit here.
+ */
+describe("the documents the fixture no longer carries", () => {
+  const dirs = [
+    fileURLToPath(new URL("../../../jets/workspace_assets/table_configs/", import.meta.url)),
+    fileURLToPath(new URL("./tables/", import.meta.url)),
+  ];
+  const documents = dirs.flatMap((dir) =>
+    readdirSync(dir)
+      .filter((name) => name.endsWith(".tc.json"))
+      .map((name) => {
+        const key = name.slice(0, -".tc.json".length);
+        const text = readFileSync(join(dir, name), "utf8");
+        return { key, doc: TableConfigDocumentSchema.parse(JSON.parse(text)) as TableConfigDocument };
+      }),
+  );
+  const offFixture = documents.filter(({ key, doc }) => !(key in tables) && doc.source === "query");
+
+  it("includes the four query tables Phase 1 took out of the fixture", () => {
+    // The guard on the payload check below: an empty or misread directory would
+    // pass it vacuously.
+    expect(offFixture.map(({ key }) => key)).toEqual(
+      expect.arrayContaining(["pipelineExecStatusTable", "client", "scSourceConfigKey", "pcPipelineConfigTable"]),
+    );
+  });
+
+  it.each(offFixture.map(({ key, doc }) => [key, doc] as const))(
+    "builds a well-formed payload for %s",
+    (key, doc) => {
+      const config = fromDocument(key, doc);
+      // A clause whose column is read from form state throws on an empty state,
+      // by design (`throws when lookupColumnInFormState finds no string`), so
+      // that state holds a column name. Every other key stays empty.
+      const state = Object.fromEntries(
+        config.whereClauses
+          .filter((wc) => wc.lookupColumnInFormState)
+          .map((wc) => [wc.column, "a_column"] as const),
+      );
+      expectWellFormedPayload(key, config, config.apiAction, state);
+    },
+  );
 });
 
 describe("load_files goldens", () => {
