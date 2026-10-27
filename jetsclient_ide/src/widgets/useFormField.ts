@@ -44,7 +44,7 @@ export interface UseFormFieldOptions {
 }
 
 /** Form state holds `string | string[]`; a scalar widget shows the first. */
-function asText(value: unknown): string {
+export function asText(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
     return value[0];
