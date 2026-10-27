@@ -21,7 +21,8 @@ func readFlow(t *testing.T, name string) *Flow {
 
 // TestShippingFlowsHaveNoReferenceErrors is the other half of the rule the
 // schema test states: a real configuration that fails means the check is wrong.
-// Under the default policy the eleven flows are clean.
+// Under the default policy every flow in the directory is clean. (This said
+// "the eleven flows" until 2026-10-27; the directory holds fourteen.)
 func TestShippingFlowsHaveNoReferenceErrors(t *testing.T) {
 	for _, path := range flowFiles(t) {
 		name := filepath.Base(path)

@@ -2,8 +2,9 @@
  * The `UserFlowConfig` schema. Task S.1.
  *
  * A user flow is a state machine over screens, modelled on the Amazon States
- * Language (`jetsclient/lib/models/user_flow_config.dart:40`). Today it is Dart:
- * eleven `UserFlowConfig` objects compiled into the Flutter app. This file is
+ * Language (`jetsclient/lib/models/user_flow_config.dart:40`). It was Dart until
+ * X.1 deleted the Flutter app on 2026-08-26: eleven `UserFlowConfig` objects
+ * compiled into it. This file is
  * the representation that replaces them — a `.uf.json` document authored in the
  * Workspace IDE, validated in Go at save time, and interpreted in the browser.
  *
@@ -37,8 +38,8 @@
  * and for the reason the first two exist (I-3, I-12): the source text and the
  * constructed object graph have already disagreed three times.
  *
- * **Eleven flows, 46 states, 46 distinct forms** — every state has its own form,
- * none is shared.
+ * **Eleven flows, 46 states, 46 distinct forms** in the Dart corpus at S.1 — every
+ * state had its own form, none was shared.
  */
 
 import { z } from "zod";
@@ -259,15 +260,17 @@ export const StateSchema = z
  *
  * **Why here rather than in a React constant.** D.3's `FLOW_MENU` (`App.tsx`)
  * now holds five labels and is the obvious place to look, and it is the wrong
- * one: it is a *launcher*, it names four of the eleven flows plus one screen
+ * one: it is a *launcher*, it names four flows plus one screen
  * that is not a flow, and a flow's heading would then depend on whether somebody
  * had put it in a menu. A workspace may hold a flow this build has never heard
  * of — three do already, projected by `cpipes-contract templates` — and a
  * compiled list has no answer for those. The document does.
  *
  * **Optional, and a flow without one falls back to its key**, which is today's
- * behaviour kept as the floor rather than as the default. All eleven shipping
- * flows carry one (`translate.ts`, `flowTitles`).
+ * behaviour kept as the floor rather than as the default. Every ported flow and
+ * `rulesUnitTestUF` carries one (`translate.ts`, `flowTitles`, for the ported);
+ * the three projections do not, and fall back. (This said *all eleven shipping
+ * flows* until 2026-10-27; checked against `jets/workspace_assets/user_flows/`.)
  */
 export const UserFlowSchema = z
   .strictObject({

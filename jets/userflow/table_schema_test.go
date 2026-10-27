@@ -74,7 +74,8 @@ import (
 // document came to be written is not that question.
 //
 // The count grows once per screen track C ports rather than once per phase.
-// **Two directories since the eleven flows became workspace assets.** A table a
+// **Two directories since the eleven ported flows became workspace assets**
+// (ui_refresh's X.5, 2026-08-26; ten of them since 2026-10-01). A table a
 // JetStore flow draws is installed into a workspace and read from there by
 // FlowStore.loadTables; a table a screen draws is imported into the React bundle
 // and never leaves it. Both are documents this validator enforces, so both are

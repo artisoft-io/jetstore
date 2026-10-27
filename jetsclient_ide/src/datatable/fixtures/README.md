@@ -113,7 +113,8 @@ with the fixture — see the README beside it", and the README beside it describ
 only `table_configs.json`. Written now because the traversal repair below adds
 data this file had never carried and there was nowhere to say what that data is.
 
-It holds the 50 form configurations the eleven user flows define, their fields
+It holds the 50 form configurations the eleven user flows defined when it was
+generated (the Flutter app was deleted on 2026-08-26), their fields
 across the three field containers, and — since 2026-08-25 — the buttons they
 declare in `FormConfig.actions`.
 

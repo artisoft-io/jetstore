@@ -1,6 +1,6 @@
 /**
- * Every button the eleven ported flows draw, against the Dart it was transcribed
- * from. Task **C.18**, from **I-155**.
+ * Every button the ported flows draw, against the Dart it was transcribed
+ * from (eleven flows at C.18; the six in `FLOW_DOCUMENTS` since 2026-10-01). Task **C.18**, from **I-155**.
  *
  * **What was unverified was fidelity, not function.** The flows are ported, they run
  * under test, and nothing here suggested they were broken. What I-155 recorded is
@@ -14,7 +14,8 @@
  *
  * **This file is the check that was infeasible before that commit and is a file
  * comparison after it.** It makes no causal claim and asserts no history; it reads
- * two generated corpora and eleven authored documents and compares them button by
+ * two generated corpora and the authored documents in `FLOW_DOCUMENTS` (eleven at
+ * C.18) and compares them button by
  * button.
  *
  * ## The result, stated as a measurement
@@ -28,7 +29,7 @@
  * Three things the comparison had to get right, and each is encoded rather than
  * assumed:
  *
- * 1. **Two corpora, not one.** I-155 names `form_fields.json`, and one of the eleven
+ * 1. **Two corpora, not one.** I-155 names `form_fields.json`, and one of the
  *    flow documents carries a form that is not in it: `homeFiltersUF` holds
  *    `showFailureDetailsDialog`, which lives in `screen_configs.json` because it is a
  *    non-flow screen's dialog. A check reading only the flows' corpus would have
@@ -270,8 +271,9 @@ function renamed(key: string): string {
   return RENAMED_BY_THE_RUNTIME[key] ?? key;
 }
 
-describe("the eleven flows' buttons against the Dart", () => {
-  it("has a Dart form for every form the eleven documents declare", () => {
+// The titles said "the eleven flows" and "the eleven documents" until 2026-10-27.
+describe("the ported flows' buttons against the Dart", () => {
+  it("has a Dart form for every form the compared documents declare", () => {
     const dart = dartForms();
     const missing = documentForms()
       .filter(({ form }) => !(form in dart))

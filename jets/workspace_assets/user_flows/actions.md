@@ -15,7 +15,7 @@ which `jetsclient_ide/src/actions/schema.ts` emits.
 **Ten since 2026-10-01**, when `register_file_key` (`registerFileKeyUF`) was retired
 by `jetstore_maintenance_02` (`AD.4`); what follows is the history it was written as.
 
-**Eleven flows as of F.7, which is all of them, and this paragraph said *two*
+**Eleven flows as of F.7, which was then all of them, and this paragraph said *two*
 until F.6.** It described the two proof flows the plan nominates
 (`plan/phase2_plan.md` §2 item 6) — `register_file_key`, 2 arms and no data table
 at all, and `load_files`, 3 arms including the corpus's only fan-out — and every
