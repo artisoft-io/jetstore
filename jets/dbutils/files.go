@@ -2,6 +2,8 @@ package dbutils
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -130,6 +132,25 @@ func (fo *FileDbObject) WriteObject(dbpool *pgxpool.Pool, data []byte) (int64, e
 		return 0, err
 	}
 	return int64(len(data)), err
+}
+
+// HoldsContent reports whether workspace_changes already holds data as this
+// file's content. The digests are compared in the database, so the stored copy
+// is not read back over the connection. No row, or a row with no data, is false.
+func (fo *FileDbObject) HoldsContent(dbpool *pgxpool.Pool, data []byte) (bool, error) {
+	digest := sha256.Sum256(data)
+	var held bool
+	err := dbpool.QueryRow(context.TODO(),
+		`SELECT coalesce(sha256(data) = $3, false) FROM jetsapi.workspace_changes
+		 WHERE workspace_name = $1 AND file_name = $2`,
+		fo.WorkspaceName, fo.FileName, digest[:]).Scan(&held)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("while comparing %s with workspace_changes: %v", fo.FileName, err)
+	}
+	return held, nil
 }
 
 // Read from workspace_changes table, update fo, write data to fd
