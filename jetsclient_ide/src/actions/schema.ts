@@ -30,7 +30,7 @@
 
 import { z } from "zod";
 
-import { ConditionSchema } from "../userflow/schema";
+import { ConditionSchema, toJSONSchemaInlineRoot } from "../userflow/schema";
 
 /** Same identifier rule as the flow schema, and for the same reasons. */
 export const Identifier = z
@@ -575,5 +575,5 @@ export type ActionDocument = z.infer<typeof ActionDocumentSchema>;
 
 /** Draft 2020-12, which is what `santhosh-tekuri/jsonschema/v6` reads. */
 export function emitJsonSchema(): unknown {
-  return z.toJSONSchema(ActionDocumentSchema, { io: "input" });
+  return toJSONSchemaInlineRoot(ActionDocumentSchema);
 }

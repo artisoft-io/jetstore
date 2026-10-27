@@ -205,13 +205,9 @@
           "items": {
             "type": "array",
             "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
@@ -707,13 +703,9 @@
             "description": "A key naming a state, form, action or form-state entry"
           },
           "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "number"
-              }
+            "type": [
+              "string",
+              "number"
             ]
           }
         },
