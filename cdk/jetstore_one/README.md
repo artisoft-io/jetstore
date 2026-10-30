@@ -65,9 +65,9 @@ See `CLAUDE.md` in this directory for build commands and the constraints on edit
 | **Compute — services** | UI service (Fargate), infer service (EC2/GPU, optional) |
 | **Compute — tasks** | Compute Pipes task, Run Reports task — both Fargate, started by state machines |
 | **Compute — Lambdas** | 14 functions; 7 always built, 7 conditional (see §5) |
-| **Orchestration** | `cpipesSM`, `cpipesNativeSM` (optional), `reportsSM` |
+| **Orchestration** | `cpipesSM`, `cpipesNativeSM` (optional), `reportsSM` (unless `JETS_SKIP_REPORTS_SM`) |
 | **Data** | Aurora Serverless v2 Postgres, S3 bucket, 4 Secrets Manager secrets |
-| **Network** | VPC with public/private/isolated subnets, 19 VPC endpoints, 4 core security groups (2 more conditional) |
+| **Network** | VPC with public/private/isolated subnets, 19 VPC endpoints (fewer with `JETS_VPC_ENDPOINTS_EXCLUDE`), 4 core security groups (2 more conditional) |
 | **Ops** | CloudWatch alarms, optional SNS alarm action, optional bastion host |
 
 **Two container images**, both from ECR and both required: `JETS_ECR_REPO_ARN` + `JETS_IMAGE_TAG`
@@ -100,7 +100,7 @@ name passed to `MkId` here must match `StateMachineName` in `build_cpipes_sm.go:
 
 ### VPC sharing
 
-By default the stack creates its own VPC (`CreateJetStoreVPC`, `stack/jetstore_vpc.go:101`). Setting
+By default the stack creates its own VPC (`CreateJetStoreVPC`, `stack/jetstore_vpc.go:103`). Setting
 `JETS_VPC_ID` switches to importing an existing one, which is how several stacks share a network.
 When it is set, two more variables become **required** because the corresponding resources are no
 longer created:
@@ -113,10 +113,24 @@ longer created:
 And these are **ignored**: `JETS_NBR_NAT_GATEWAY`, `JETS_VPC_INTERNET_GATEWAY`, `JETS_VPC_CIDR`,
 `AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK`, `AWS_PREFIX_LIST_S3`.
 
-The VPC CIDR is read back from the imported VPC (`jetstore_vpc.go:46`) and used for the endpoint
+The VPC CIDR is read back from the imported VPC (`jetstore_vpc.go:48`) and used for the endpoint
 security group's ingress rule, so the sharing stack does not need to be told the CIDR. Only
 `VpcEndpointsSg` is shared — `RdsAccessSg` and `InternetAccessSg` are always created per stack, so
 each stack keeps its own database boundary.
+
+### Leaving out what an installation does not use
+
+Two opt-outs. Unset, each leaves the synthesised template byte-identical to a stack without them.
+
+| Variable | Effect |
+|---|---|
+| `JETS_SKIP_REPORTS_SM=TRUE` | Leaves out `reportsSM` with its role, policy and log group, and `runreportTaskDefinition` with its container log group. Leaves out `RunReportsLambda` and its log group only when `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` is set, because `cpipesSM` then uses `CpipesRunReportsLambda`. `JETS_REPORTS_SM_ARN` is `""` everywhere, so a `process_config` row that names `reportsSM` fails at start. Set it only where no row does |
+| `JETS_VPC_ENDPOINTS_EXCLUDE=a,b,...` | Interface endpoints not to create, by service short name: `ecr.dkr`, `ecr.api`, `config`, `kms`, `sns`, `sqs`, `ecs-agent`, `ecs-telemetry`, `ecs`, `lambda`, `secretsmanager`, `git-codecommit`, `sync-states`, `states`, `logs`, `monitoring`, `events` (`interfaceVpcEndpoints`, `stack/jetstore_vpc.go:306`). `execute-api` cannot be excluded, and an unknown name fails synth. Ignored when `JETS_VPC_ID` is set |
+
+**An endpoint excluded by mistake fails only at run time, and only in the isolated subnets**, where
+the compute pipes task and the cpipes and run-reports Lambdas run without NAT. `ecr.dkr`, `ecr.api`,
+`secretsmanager`, `states` and `logs` are what those workloads use; check an installation's endpoint
+traffic (CloudTrail by `vpcEndpointId`, or the VPC flow logs) before excluding any other.
 
 ---
 
@@ -135,7 +149,7 @@ CDK-generated per construct.
 | `LifecycleLambdaRole` | `lambda` | Infer lifecycle hook | `AWSLambdaBasicExecutionRole`, `ec2:AttachVolume`, `ec2:DescribeVolumes`, lifecycle-action completion |
 
 **Sharing `EcsTaskRole` across all three task definitions is a stated convention**
-(`jetstore_one.go:272`), not an accident: the UI, compute pipes and run-reports containers all get
+(`jetstore_one.go:285`), not an accident: the UI, compute pipes and run-reports containers all get
 the same AWS surface. Its consequence is documented at the infer grants — the `ecs:UpdateService`
 and `autoscaling:SetDesiredCapacity` permissions the UI needs to start and stop the infer server are
 also held by the cpipes and run-reports tasks.
@@ -149,7 +163,7 @@ also held by the cpipes and run-reports tasks.
 individually (`GrantRead`/`GrantWrite` on secrets, `GrantReadWrite` on the bucket).
 
 Two grants are deliberately unscoped, with the reason recorded in the code: `states:StartExecution`
-on `*` for `StatusUpdateLambda` and `RegisterKeyV2Lambda` (`jetstore_one.go:433`), because naming
+on `*` for `StatusUpdateLambda` and `RegisterKeyV2Lambda` (`jetstore_one.go:457`), because naming
 the state machine ARNs would create a circular dependency; and `autoscaling:DescribeAutoScalingGroups`
 / `ecs:DescribeCapacityProviders` on `*`, because those actions have no resource types.
 
@@ -164,7 +178,8 @@ IP. `JETS_NBR_NAT_GATEWAY` is forced to 0 unless `JETS_VPC_INTERNET_GATEWAY` is 
 **VPC endpoints.** One S3 gateway endpoint plus 18 interface endpoints (ECR, ECR Docker, ECS and
 ECS agent/telemetry, Lambda, Secrets Manager, KMS, SNS, SQS, Step Functions and Step Functions Sync,
 CloudWatch logs/monitoring/events, API Gateway, CodeCommit Git, Config). This is what lets the
-isolated tier work without NAT.
+isolated tier work without NAT. All but API Gateway can be left out with `JETS_VPC_ENDPOINTS_EXCLUDE`
+(see *Leaving out what an installation does not use*).
 
 | Security group | Outbound | Purpose |
 |---|---|---|
@@ -231,7 +246,7 @@ Fargate task started by `cpipesSM` / `cpipesNativeSM`; entry point `cbooter cpip
 
 Fargate task started by `reportsSM`; entry point `cbooter run_reports`.
 
-- **Deployment**: always built. 3072 MiB / 1024 CPU, 100 GiB ephemeral storage.
+- **Deployment**: built unless `JETS_SKIP_REPORTS_SM`. 3072 MiB / 1024 CPU, 100 GiB ephemeral storage.
 - **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`; `VpcEndpointsSg` + `RdsAccessSg`; isolated
   subnets, no public IP.
 - **Security**: `ReadonlyRootFilesystem: true` and the same isolation as the compute pipes task; the
@@ -338,8 +353,10 @@ Terminal state reporting for every state machine.
 
 `RunReportsLambda`, plus `CpipesRunReportsLambda` for installation-specific reporting.
 
-- **Deployment**: `RunReportsLambda` always; `CpipesRunReportsLambda` requires
-  `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (again a path outside this directory).
+- **Deployment**: `RunReportsLambda` unless both `JETS_SKIP_REPORTS_SM` and
+  `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` are set; `CpipesRunReportsLambda` requires
+  `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (again a path outside this directory), and `cpipesSM` uses it
+  in place of `RunReportsLambda` when it exists (`build_cpipes_sm.go:225`).
 - **IAM / SG**: `LambdaExecutionRole` plus an explicit `s3:GetObjectAttributes` statement scoped to
   the JetStore bucket; `VpcEndpointsSg` + `RdsAccessSg`; **isolated** subnets. 3072 MB, 4 GiB
   ephemeral storage.
@@ -392,7 +409,7 @@ Rotates all four secrets.
 |---|---|---|
 | `cpipesSM` | always | start sharding → sharding map → start reducing → reducing map → run reports → status update |
 | `cpipesNativeSM` | `DEPLOY_CPIPES_NATIVE` | same shape, native-image node Lambda |
-| `reportsSM` | always | run-reports Fargate task → status update; 1-hour timeout |
+| `reportsSM` | unless `JETS_SKIP_REPORTS_SM` | run-reports Fargate task → status update; 1-hour timeout |
 
 - **IAM / SG**: CDK-generated roles per machine, plus an explicit `ecs:RunTask` statement scoped to
   the task definition ARN — added because a state machine must be allowed to run *all revisions* of
@@ -442,7 +459,7 @@ Rotates all four secrets.
   `Peer_AnyIpv4()`, allowed to reach Aurora on 5432. Tagged PHI/PII `false`.
 - **Tagging**: `JETS_TAG_NAME_PHI` / `_PII` / `_DESCRIPTION` enable per-resource tags;
   `JETS_TAG_NAME_OWNER` / `_PROD` and `JETS_STACK_TAGS_JSON` apply stack-wide. Tag names are read in
-  two places — `jetstore_one.go` and `stack/jetstore_vpc.go:20` — so a new taggable resource needs
+  two places — `jetstore_one.go` and `stack/jetstore_vpc.go:22` — so a new taggable resource needs
   the same `if … != nil` guard the others have.
 
 ### 5.17 Agentic detection task (optional)

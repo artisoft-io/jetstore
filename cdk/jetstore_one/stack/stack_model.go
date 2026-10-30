@@ -114,6 +114,9 @@ type JetStoreStackComponents struct {
 	JetsApiExecutionRole  awsiam.Role
 
 	DeployCpipesNative bool
+	// SkipReportsSM leaves out ReportsSM and RunreportTaskDefinition, and RunReportsLambda
+	// when CpipesRunReportsLambda takes its place in cpipesSM (JETS_SKIP_REPORTS_SM)
+	SkipReportsSM bool
 
 	// DeployCpipesPython gates the Python compute pipes node: the container-image Lambda
 	// built by dockerfiles/Dockerfile.cpipes_python_lambda, and the third arm of
@@ -201,6 +204,15 @@ func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
 // should not disagree about what "on" looks like.
 func DeployCpipesPythonFromEnv() bool {
 	v := strings.ToUpper(os.Getenv("DEPLOY_CPIPES_PYTHON"))
+	return v == "TRUE" || v == "1"
+}
+
+// SkipReportsSMFromEnv reads JETS_SKIP_REPORTS_SM, the opt-out for the reports state machine
+// (see SkipReportsSM). It accepts what DeployCpipesPythonFromEnv accepts, "TRUE" or "1" after
+// upper-casing, and is a function for the same reason: unset must keep the stack as it is, and
+// a test in this package can hold that.
+func SkipReportsSMFromEnv() bool {
+	v := strings.ToUpper(os.Getenv("JETS_SKIP_REPORTS_SM"))
 	return v == "TRUE" || v == "1"
 }
 

@@ -2,9 +2,11 @@ package stack
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -261,162 +263,22 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 	}))
 	// vpcEndpointsSG.Connections().AllowTo(, awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
 
-	// Add Endpoint for ecr
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcrEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecr"))
-
-	// Add Endpoint for ecr api
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcrApiEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecr api"))
-
-	// Add aws config, kms, SNS, SQS, ECS, and Lambda as endpoints
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsConfigEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws config"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsKmsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_KMS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsSnsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_SNS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws sns"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsSqsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_SQS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws sqs"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsAgentEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_ECS_AGENT(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs agent"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsTelemetryEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_ECS_TELEMETRY(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs telemetry"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_ECS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("LambdaEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_LAMBDA(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws lambda"))
-
-	// Add secret manager endpoint, Add code commit endpoint,  Add Step Functions endpoint, Add Cloudwatch endpoint, Add API Gateway as an endpoint for status notification
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("SecretManagerEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws secret manager"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CodeCommitEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_CODECOMMIT_GIT(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws codecommit git"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("StatesSynchEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("StatesEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws step functions"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch logs"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchMonitoringEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_MONITORING(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch monitoring"))
-
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchEventsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
-		Vpc:               vpc,
-		Service:           awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_EVENTS(),
-		Subnets:           subnetSelection,
-		PrivateDnsEnabled: jsii.Bool(true),
-		Open:              jsii.Bool(true),
-		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch events"))
+	// Add the interface endpoints, except those listed in JETS_VPC_ENDPOINTS_EXCLUDE
+	excluded := excludedVpcEndpoints()
+	for _, ep := range interfaceVpcEndpoints() {
+		if excluded[*ep.service.ShortName()] {
+			log.Printf("Skipping VPC endpoint '%s' (JETS_VPC_ENDPOINTS_EXCLUDE)\n", *ep.service.ShortName())
+			continue
+		}
+		vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String(ep.id), &awsec2.InterfaceVpcEndpointProps{
+			Vpc:               vpc,
+			Service:           ep.service,
+			Subnets:           subnetSelection,
+			PrivateDnsEnabled: jsii.Bool(true),
+			Open:              jsii.Bool(true),
+			//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
+		})), awsec2.Port_AllTraffic(), jsii.String(ep.sgDescription))
+	}
 
 	jsComp.ApiGatewayVpcEndpoint = addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("ApiGatewayEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -431,4 +293,72 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 	vpcEndpointsSG.Connections().AllowTo(jsComp.ApiGatewayVpcEndpoint, awsec2.Port_AllTraffic(), jsii.String("allow access to aws api gateway"))
 
 	return vpcEndpointsSG
+}
+
+// interfaceVpcEndpointSpec is an interface endpoint built by AddVpcEndpoints. The API Gateway
+// endpoint is built separately: the stack references it, so it cannot be excluded.
+type interfaceVpcEndpointSpec struct {
+	id            string
+	service       awsec2.InterfaceVpcEndpointAwsService
+	sgDescription string
+}
+
+func interfaceVpcEndpoints() []interfaceVpcEndpointSpec {
+	return []interfaceVpcEndpointSpec{
+		{"EcrEndpointv2", awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(), "allow access to aws ecr"},
+		{"EcrApiEndpointv2", awsec2.InterfaceVpcEndpointAwsService_ECR(), "allow access to aws ecr api"},
+		{"AwsConfigEndpointv2", awsec2.InterfaceVpcEndpointAwsService_CONFIG(), "allow access to aws config"},
+		{"AwsKmsEndpointv2", awsec2.InterfaceVpcEndpointAwsService_KMS(), "allow access to aws kms"},
+		{"AwsSnsEndpointv2", awsec2.InterfaceVpcEndpointAwsService_SNS(), "allow access to aws sns"},
+		{"AwsSqsEndpointv2", awsec2.InterfaceVpcEndpointAwsService_SQS(), "allow access to aws sqs"},
+		{"EcsAgentEndpointv2", awsec2.InterfaceVpcEndpointAwsService_ECS_AGENT(), "allow access to aws ecs agent"},
+		{"EcsTelemetryEndpointv2", awsec2.InterfaceVpcEndpointAwsService_ECS_TELEMETRY(), "allow access to aws ecs telemetry"},
+		{"EcsEndpointv2", awsec2.InterfaceVpcEndpointAwsService_ECS(), "allow access to aws ecs"},
+		{"LambdaEndpointv2", awsec2.InterfaceVpcEndpointAwsService_LAMBDA(), "allow access to aws lambda"},
+		{"SecretManagerEndpointv2", awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(), "allow access to aws secret manager"},
+		{"CodeCommitEndpointv2", awsec2.InterfaceVpcEndpointAwsService_CODECOMMIT_GIT(), "allow access to aws codecommit git"},
+		// The "kms" description is a historical slip; changing it would replace the deployed rules
+		{"StatesSynchEndpointv2", awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(), "allow access to aws kms"},
+		{"StatesEndpointv2", awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(), "allow access to aws step functions"},
+		{"CloudwatchEndpointv2", awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(), "allow access to aws cloudwatch logs"},
+		{"CloudwatchMonitoringEndpointv2", awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_MONITORING(), "allow access to aws cloudwatch monitoring"},
+		{"CloudwatchEventsEndpointv2", awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_EVENTS(), "allow access to aws cloudwatch events"},
+	}
+}
+
+// excludedVpcEndpoints returns the endpoints listed in JETS_VPC_ENDPOINTS_EXCLUDE. Synth fails
+// on a name that is not an excludable endpoint, so a typo cannot leave an endpoint deployed
+// unnoticed.
+func excludedVpcEndpoints() map[string]bool {
+	excluded, err := parseVpcEndpointsExclude(os.Getenv("JETS_VPC_ENDPOINTS_EXCLUDE"))
+	if err != nil {
+		log.Fatalf("JETS_VPC_ENDPOINTS_EXCLUDE: %v", err)
+	}
+	return excluded
+}
+
+// parseVpcEndpointsExclude reads a comma separated list of service short names (the <name> in
+// com.amazonaws.<region>.<name>, e.g. kms, ecs-agent, sync-states). Names are trimmed and
+// lower-cased; empty items are skipped. A name that is not in interfaceVpcEndpoints, execute-api
+// included, is an error.
+func parseVpcEndpointsExclude(value string) (map[string]bool, error) {
+	excluded := make(map[string]bool)
+	if value == "" {
+		return excluded, nil
+	}
+	known := make(map[string]bool)
+	for _, ep := range interfaceVpcEndpoints() {
+		known[*ep.service.ShortName()] = true
+	}
+	for _, name := range strings.Split(value, ",") {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name == "" {
+			continue
+		}
+		if !known[name] {
+			return nil, fmt.Errorf("'%s' is not an excludable VPC endpoint", name)
+		}
+		excluded[name] = true
+	}
+	return excluded, nil
 }

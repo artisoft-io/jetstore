@@ -17,6 +17,13 @@ import (
 // functions to build the cpipes state machine
 
 func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
+	if !jsComp.SkipReportsSM {
+		jsComp.buildRunreportTaskDefinition(stack)
+	}
+	jsComp.buildCpipesTaskDefinition(scope, stack, props)
+}
+
+func (jsComp *JetStoreStackComponents) buildRunreportTaskDefinition(stack awscdk.Stack) {
 
 	// Define the run_reports task, used in jsComp.ServerSM, and jsComp.LoaderSM
 	// Run Reports ECS Task Definition
@@ -91,6 +98,9 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		ContainerPath: jsii.String(jsComp.JetsTempData()),
 		ReadOnly:      jsii.Bool(false),
 	})
+}
+
+func (jsComp *JetStoreStackComponents) buildCpipesTaskDefinition(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	var memLimit, cpu float64
 
 	// JetStore ECS Task for cpipes

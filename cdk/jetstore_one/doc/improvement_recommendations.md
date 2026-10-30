@@ -31,7 +31,7 @@ Nothing here is a known outage; several are things that would only be discovered
 ### 1. Scope `states:StartExecution` to the state machine ARNs
 
 `StatusUpdateLambda` and `RegisterKeyV2Lambda` are granted `states:StartExecution` on `"*"`
-(`jetstore_one.go:433`), with a comment saying all resources were needed to avoid a circular
+(`jetstore_one.go:457`), with a comment saying all resources were needed to avoid a circular
 dependency. The commented-out alternative beside it uses `jsComp.CpipesSM.StateMachineArn()` — a CDK
 token, which *does* create a dependency edge, so the comment is correct about that code.
 
@@ -63,7 +63,7 @@ inference endpoint is unauthenticated, so the security group is the whole access
 
 ### 3. Fail on an unrecognised `JETS_DB_VERSION`
 
-The switch at `jetstore_one.go:185` has **no `default` case**. `dbVersion` is initialised to
+The switch at `jetstore_one.go:198` has **no `default` case**. `dbVersion` is initialised to
 `VER_15_10` and only four values are recognised — `14.5`, `15.10`, `15.15`, `15.17`. Anything else,
 including a typo or a version the operator genuinely wants, silently deploys 15.10.
 
@@ -85,7 +85,7 @@ it, or validate at synth that it contains `JETS_STACK_SUFFIX` when that is set.
 
 ### 5. Restrict bastion SSH ingress
 
-`AllowSshAccessFrom(awsec2.Peer_AnyIpv4())` (`jetstore_one.go:491`) on a host in a **public** subnet,
+`AllowSshAccessFrom(awsec2.Peer_AnyIpv4())` (`jetstore_one.go:513`) on a host in a **public** subnet,
 with a route to Aurora on 5432. It is built only when `BASTION_HOST_KEYPAIR_NAME` is set, so it is
 opt-in — but when it is on, port 22 is open to the internet.
 
@@ -119,7 +119,7 @@ fix is small and the current behaviour is indistinguishable from success.
 ### 7. Preflight the cpipes and infer image variables with the rest
 
 - **`CPIPES_ECR_REPO_ARN` and `CPIPES_IMAGE_TAG`** are consumed unconditionally at
-  `jetstore_one.go:316`. An empty repo ARN fails inside CDK's ARN parsing, so the error names a
+  `jetstore_one.go:329`. An empty repo ARN fails inside CDK's ARN parsing, so the error names a
   construct rather than the variable. They are effectively required and belong in the preflight list.
 - **`INFER_ECR_REPO_ARN` and `INFER_IMAGE_TAG`** do fail loudly, but via `log.Fatal` from their
   accessors during synth. That is correct behaviour arriving at the wrong time: the operator fixes
@@ -179,8 +179,8 @@ Recommendation: export the handful genuinely consumed across stacks — `JetStor
 
 ### 11. Remove the duplicate S3 gateway endpoint
 
-Two are synthesized per created VPC: `s3Endpoint` in `CreateJetStoreVPC` (`jetstore_vpc.go:163`) and
-`S3GatewayEndpointv2` in `AddVpcEndpoints` (`jetstore_vpc.go:258`). Gateway endpoints are free, so
+Two are synthesized per created VPC: `s3Endpoint` in `CreateJetStoreVPC` (`jetstore_vpc.go:165`) and
+`S3GatewayEndpointv2` in `AddVpcEndpoints` (`jetstore_vpc.go:260`). Gateway endpoints are free, so
 this costs nothing — but it is 20 endpoints where the code reads as 19, and the two differ in subnet
 association, so which one carries the route is not obvious. Keep the one in `CreateJetStoreVPC`,
 which names its subnets explicitly.
@@ -207,7 +207,7 @@ human cannot see.
 ### 13. Split the infer control permissions off the shared task role
 
 `ecs:DescribeServices`, `ecs:UpdateService` and `autoscaling:SetDesiredCapacity` are added to
-`EcsTaskRole`, which all three Fargate task definitions share. The comment at `jetstore_one.go:397`
+`EcsTaskRole`, which all three Fargate task definitions share. The comment at `jetstore_one.go:417`
 notes this and argues it is what would be wanted if a pipeline step ever needs inference — a
 defensible position, and the reason this is P3 rather than P1.
 
