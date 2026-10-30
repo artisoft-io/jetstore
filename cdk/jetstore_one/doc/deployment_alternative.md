@@ -68,15 +68,18 @@ not a usage-driven one. It is the single largest lever in the comparison.
 Three mechanics worth knowing:
 
 - **Importing a VPC skips endpoint creation entirely.** `AddVpcEndpoints` is only called on the
-  create path (`jetstore_one.go:148`); with `JETS_VPC_ID` set, the stack looks up the endpoint
+  create path (`jetstore_one.go:161`); with `JETS_VPC_ID` set, the stack looks up the endpoint
   security group instead and creates no endpoints. The saving is structural, not a tuning knob.
+- **A stack that creates its VPC can leave endpoints out** with `JETS_VPC_ENDPOINTS_EXCLUDE`, by
+  service short name, which removes their endpoint-AZ units from the count above. The README's
+  *Leaving out what an installation does not use* says which endpoints the isolated tier needs.
 - **The app synthesizes two S3 gateway endpoints per created VPC**, one in `CreateJetStoreVPC`
-  (`jetstore_vpc.go:163`) and one in `AddVpcEndpoints` (`jetstore_vpc.go:258`). Gateway endpoints are
+  (`jetstore_vpc.go:165`) and one in `AddVpcEndpoints` (`jetstore_vpc.go:260`). Gateway endpoints are
   free, so this costs nothing; it is noted because a reader counting endpoints in the console will
   find 20, not 19.
 - **One variable gates the internet gateway and the NAT gateways together.** With
   `JETS_VPC_INTERNET_GATEWAY` unset or false, `JETS_NBR_NAT_GATEWAY` is **forced to 0** regardless of
-  what it is set to (`nbrNatGateway`, `jetstore_vpc.go:120`). A stack has an internet gateway and
+  what it is set to (`nbrNatGateway`, `jetstore_vpc.go:122`). A stack has an internet gateway and
   however many NAT gateways were asked for, or it has neither. The NAT gateways are the billable
   half — hourly and per GB processed; the internet gateway itself is free.
 
@@ -135,7 +138,7 @@ rather than usage.
 
 **Against it.** Every environment shares one network failure domain and one set of VPC quotas. A DEV
 change to the shared endpoint security group affects PROD, and `JETS_VPC_ENDPOINTS_SG_ID` is imported
-`Mutable: true` (`Mutable`, `jetstore_vpc.go:75`), so a stack *can* modify the shared group's rules. The
+`Mutable: true` (`Mutable`, `jetstore_vpc.go:77`), so a stack *can* modify the shared group's rules. The
 isolation that remains is real but narrower than it looks: each stack still has its own
 `RdsAccessSg`, its own database and its own secrets, so DEV cannot reach PROD's data. What it shares
 is reachability and capacity, not credentials.

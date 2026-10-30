@@ -92,6 +92,16 @@ describe("jetrules stream parser", () => {
     expect(tokenFor("x = 42.5", "42.5")).toBe("number");
   });
 
+  it("styles neither toText as a function nor r? as an operator", () => {
+    // The grammar dropped both (jetstore#2343) and the VS Code extension followed
+    // (#2351); jetstore_maintenance_02 AJ.4 (I-50, rules_benchmark I-160).
+    expect(tokenFor("(?x p toText ?y)", "toText")).not.toBe("function");
+    expect(tokenFor("(?x p create_entity ?y)", "create_entity")).toBe("function");
+    const toks = tokenize("?a r? ?b");
+    expect(toks.filter(([, tok]) => tok === "operator")).toEqual([]);
+    expect(toks.map(([text]) => text)).not.toContain("r?");
+  });
+
   it("treats `array of` as one keyword", () => {
     expect(tokenFor("array of text", "array of")).toBe("keyword");
   });

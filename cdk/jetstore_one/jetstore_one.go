@@ -62,16 +62,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp := &jetstorestack.JetStoreStackComponents{
 		CpipesSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
-		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
 		DeployCpipesNative: strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1",
 		// Read through a function rather than inline, so that the unset case -- which is the
 		// whole of exit criterion 96 for the Python arm -- is reachable by a test in the stack
 		// package. See DeployCpipesPythonFromEnv.
 		DeployCpipesPython: jetstorestack.DeployCpipesPythonFromEnv(),
+		SkipReportsSM:      jetstorestack.SkipReportsSMFromEnv(),
 	}
 	if jsComp.DeployCpipesPython {
 		log.Println("Deploying CPIPES Python Node Image")
+	}
+	if jsComp.SkipReportsSM {
+		// JETS_REPORTS_SM_ARN is then empty, so starting a reportsSM process fails right away
+		log.Println("Skipping the reports state machine (JETS_SKIP_REPORTS_SM)")
+	} else {
+		jsComp.ReportsSmArn = fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM"))
 	}
 	if jsComp.DeployCpipesNative {
 		log.Println("Deploying CPIPES Native Image")
@@ -351,7 +357,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Build Run Reports State Machine
 	// ---------------------------------------------
-	jsComp.BuildRunReportsSM(scope, stack, props)
+	if !jsComp.SkipReportsSM {
+		jsComp.BuildRunReportsSM(scope, stack, props)
+	}
 
 	// Build lambdas used by cpipesSM/cpipesNativeSM:
 	//	- CpipesNodeLambda
@@ -390,7 +398,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// ---------------------------------------
 	resources := []*string{
 		jsComp.CpipesSM.StateMachineArn(),
-		jsComp.ReportsSM.StateMachineArn(),
+	}
+	if jsComp.ReportsSM != nil {
+		resources = append(resources, jsComp.ReportsSM.StateMachineArn())
 	}
 	if jsComp.DeployCpipesNative {
 		resources = append(resources, jsComp.CpipesNativeSM.StateMachineArn())
@@ -641,6 +651,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	jets/datatable/git/no_git_access.go. Distinct from JETS_GIT_ACCESS above, which is a
 //	synth-time network control the runtime cannot read.
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
+// JETS_SKIP_REPORTS_SM (optional, values: TRUE, FALSE, default FALSE) set to TRUE to leave out the
+// reports state machine (reportsSM) and its run reports ECS task, for installations where no
+// process_config row uses reportsSM. When JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY is also set, the
+// stock RunReportsLambda it replaces in cpipesSM is left out too.
 //
 //	JETS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for the register key
 //	lambda, default lambdas/register_keys/register_keys_v2) Points registerKeyV2 at a site
@@ -681,6 +695,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_UI_PORT (defaults 8080)
+// JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC (optional, default CDK's 60) seconds the UI service ignores
+// load balancer health checks after a task starts. Set it above the slowest apiserver start-up
+// (migrations, then the workspace compile when overrides apply), or the deployment circuit
+// breaker rolls back a start-up that was only slow. Synth fails on a value that is not a
+// non-negative integer.
 // JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
 // when JETS_VPC_ID is set the following env vars must be set as well:
 //   - JETS_VPC_ID
@@ -695,6 +714,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //   - AWS_PREFIX_LIST_S3
 //
 // JETS_VPC_ENDPOINTS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
+// JETS_VPC_ENDPOINTS_EXCLUDE (optional, ignored when JETS_VPC_ID is set) comma separated list of
+// interface endpoints not to create, by service short name (the <name> in com.amazonaws.<region>.<name>):
+// ecr.dkr, ecr.api, config, kms, sns, sqs, ecs-agent, ecs-telemetry, ecs, lambda, secretsmanager,
+// git-codecommit, sync-states, states, logs, monitoring, events. The api gateway endpoint
+// (execute-api) cannot be excluded. Default creates them all. Workloads in the isolated subnets
+// have no NAT route, so ecr.dkr, ecr.api, secretsmanager, states and logs must stay.
 // JETS_API_GATEWAY_VPC_ENDPOINT_ID (optional, API gateway VPC endpoint id, required if JETS_VPC_ID is set)
 // JETS_API_GATEWAY_CODECOMMIT_REPO_ARN (optional, API gateway codecommit repo arn, required for lmm endpoint)
 // JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN (optional, API gateway lambda assume role arn, required for cross account access)
@@ -807,6 +832,7 @@ func main() {
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
 	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
+	log.Println("env JETS_SKIP_REPORTS_SM:", os.Getenv("JETS_SKIP_REPORTS_SM"))
 	log.Println("env JETS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_REGISTER_KEY_LAMBDA_ENTRY"))
 	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
@@ -834,9 +860,11 @@ func main() {
 	log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
 	log.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
 	log.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
+	log.Println("env JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC:", os.Getenv("JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC"))
 	log.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	log.Println("env JETS_VPC_ID:", os.Getenv("JETS_VPC_ID"))
 	log.Println("env JETS_VPC_ENDPOINTS_SG_ID:", os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
+	log.Println("env JETS_VPC_ENDPOINTS_EXCLUDE:", os.Getenv("JETS_VPC_ENDPOINTS_EXCLUDE"))
 	log.Println("env JETS_API_GATEWAY_VPC_ENDPOINT_ID:", os.Getenv("JETS_API_GATEWAY_VPC_ENDPOINT_ID"))
 	log.Println("env JETS_API_GATEWAY_CODECOMMIT_REPO_ARN:", os.Getenv("JETS_API_GATEWAY_CODECOMMIT_REPO_ARN"))
 	log.Println("env JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN:", os.Getenv("JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN"))

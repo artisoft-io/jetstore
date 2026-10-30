@@ -59,7 +59,7 @@ process working directory. From anywhere else, bundling fails at synth.
 There is no CDK context or config file driving composition — `os.Getenv` at synth time decides what
 gets built and what goes into every container and Lambda environment. Consequences:
 
-- **The authoritative list is the comment block at [jetstore_one.go:506](jetstore_one.go:506) onward**,
+- **The authoritative list is the comment block at [jetstore_one.go:528](jetstore_one.go:528) onward**,
   and `main` logs every value at synth. **Adding a toggle means three edits**: read it where it is used,
   add a line to that comment block, add a `log.Println` in `main`. Skipping either of the last two is
   how a variable becomes undiscoverable.
@@ -109,6 +109,13 @@ in `build_cpipes_sm.go:272`. Rename one and the ARN points at nothing, at runtim
 pressure explains the `Resources: "*"` on `states:StartExecution` for the status-update and
 register-key Lambdas — the comments there say so.
 
+**`ReportsSmArn` is empty and `jsComp.ReportsSM` is nil when `JETS_SKIP_REPORTS_SM` is on**
+(`SkipReportsSMFromEnv`, `stack/stack_model.go:214`). Every container and Lambda then carries
+`JETS_REPORTS_SM_ARN=""`, and the task role's `states:StartExecution` names `cpipesSM` alone. A new
+reference to `ReportsSM`, `RunreportTaskDefinition` or `RunReportsLambda` needs the same nil guard:
+`RunReportsLambda` is left out too when `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` gives `cpipesSM`
+`CpipesRunReportsLambda` instead.
+
 **`props.MkId` is how a second stack coexists in one account.** `JETS_STACK_SUFFIX` is appended to a
 name, or not; `JETS_STACK_ID` names the stack. Use `MkId` for anything whose *name* must be unique
 across stacks, and a bare `jsii.String` for construct ids that need not be.
@@ -131,13 +138,13 @@ differently when an operator forgets the variable.
 **Three gate: the Lambda is *not built at all* when the variable is unset.**
 `JETS_API_GATEWAY_LAMBDA_ENTRY` (`build_api_lambdas.go:25`),
 `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (`build_registerkey_lambdas.go:122`) and
-`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (`build_lambdas.go:227`). The path points outside this
+`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (`build_lambdas.go:230`). The path points outside this
 directory — typically a client workspace repo's `go/lambdas/` — which is what the root `go.work`
 including `cedargate_ws` is for. So the API Gateway, the SQS trigger path and the cpipes run-reports
 step are all deployment-conditional, and a stack without them is normal rather than broken.
 
 **Two default: unset means the stock entry, not no Lambda.** Both resolve through
-`lambdaEntryOrDefault` (`stack/stack_model.go:202`), which treats empty as unset and does not trim.
+`lambdaEntryOrDefault` (`stack/stack_model.go:264`), which treats empty as unset and does not trim.
 
 | Variable | Default entry | Added |
 |---|---|---|
@@ -196,5 +203,5 @@ graph: neither constructs a `BuilderContext`, so neither has anywhere to put a s
   reasoned.
 - PHI/PII/description tagging is opt-in per resource via `phiTagName`/`piiTagName`/`descriptionTagName`,
   set from `JETS_TAG_NAME_*` in **two** `init`/assignment sites — `jetstore_one.go` for the app and
-  `init`, `stack/jetstore_vpc.go:20`, for the `stack` package. A new taggable resource needs the same
+  `init`, `stack/jetstore_vpc.go:22`, for the `stack` package. A new taggable resource needs the same
   `if … != nil` block the others have.

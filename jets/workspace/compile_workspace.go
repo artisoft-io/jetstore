@@ -63,6 +63,18 @@ func UploadWorkspaceAssets(dbpool *pgxpool.Pool, workspaceName, version string) 
 		if err != nil {
 			return err
 		}
+		// A file the database already holds is not written again. lookup.db is
+		// most of what this uploads, tens of megabytes and about two seconds on a
+		// local database (measured 2026-10-27), and a compile keeps it byte for
+		// byte when its inputs have not changed (EnsureLookupDb). I-41.
+		held, err := fo[i].HoldsContent(dbpool, data)
+		switch {
+		case err != nil:
+			log.Printf("%v; uploading %s", err, fo[i].FileName)
+		case held:
+			log.Printf("%s is unchanged in the database, upload skipped", fo[i].FileName)
+			continue
+		}
 		_, err = fo[i].WriteObject(dbpool, data)
 		if err != nil {
 			return fmt.Errorf("failed to write object to db: %v", err)

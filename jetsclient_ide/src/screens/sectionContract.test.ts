@@ -46,9 +46,9 @@ describe("the section contract", () => {
     expect(fnv1a32("hello")).toBe("fnv1a32:4f9f2cab");
   });
 
-  it("has eight sections, three of which compile into workspace.db", () => {
+  it("has nine sections, three of which compile into workspace.db", () => {
     const declared = parseDeclaration();
-    expect(declared.length).toBe(8);
+    expect(declared.length).toBe(9);
     expect(declared.filter((d) => d.view !== "").map((d) => d.dir)).toEqual([
       "data_model",
       "jet_rules",
@@ -106,7 +106,7 @@ describe("the section contract", () => {
     // section's own, from `wsfile.WorkspaceSections`.
     expect(compiledViewFor("lookups")?.label).toBe("Lookups");
     // A section with no compiled view, and a payload that omits the field
-    // entirely, which is what the Go side sends for five of the eight.
+    // entirely, which is what the Go side sends for six of the nine.
     expect(compiledViewFor("")).toBeNull();
     expect(compiledViewFor(undefined)).toBeNull();
     // Belt and braces against the field being renamed on the Go side, where no

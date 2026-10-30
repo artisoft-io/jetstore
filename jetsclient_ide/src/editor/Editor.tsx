@@ -3,9 +3,15 @@
  *
  * The wrapper exists because CodeMirror owns its own DOM and its own state, and
  * React must not fight it for either. So the view is created once for the lifetime
- * of the mount, and afterwards React communicates only through transactions:
+ * of the mount, and afterwards React communicates through transactions, with one
+ * exception:
  *
- *  - a new `docKey` (a different file) resets the document wholesale
+ *  - a new `docKey` (a different file) gets a fresh `EditorState`, not a
+ *    transaction. **Corrected 2026-10-27** (`jetstore_maintenance_02` `I-65`): it
+ *    was a whole-document replace dispatched into the same state, which `history()`
+ *    recorded, so one undo after opening a file put the previous file's text in its
+ *    tab, ready to be saved over it. A fresh state starts with an empty history and
+ *    fires no `onChange`
  *  - a language change is applied through a compartment rather than by rebuilding
  *  - the *content* prop is deliberately not synced back into the view, because the
  *    user is the source of truth for it while the file is open
@@ -29,11 +35,11 @@ import { languageExtension } from "./language";
 import { jetStoreEditorTheme } from "./theme";
 
 export interface EditorProps {
-  /** Changes when a different file is shown; drives a full document reset. */
+  /** Changes when a different file is shown; drives a fresh editor state. */
   docKey: string;
   /** File name, used to pick the language. */
   fileName: string;
-  /** Initial text for `docKey`. Later changes to it are ignored by design. */
+  /** The text to show for `docKey` when it is shown. Later changes are ignored by design. */
   content: string;
   readOnly?: boolean;
   onChange?: (value: string) => void;
@@ -52,9 +58,17 @@ export function Editor({ docKey, fileName, content, readOnly, onChange, onSave }
   changeHandler.current = onChange;
   saveHandler.current = onSave;
 
-  useEffect(() => {
-    if (!host.current) return;
+  // The language and the read-only flag a fresh state starts with. The effects
+  // below reconfigure a live state; a fresh one reads these.
+  const fileNameRef = useRef(fileName);
+  const readOnlyRef = useRef(readOnly);
+  fileNameRef.current = fileName;
+  readOnlyRef.current = readOnly;
+  // The file the view's state was made for, so mounting does not make it twice.
+  const shownDocKey = useRef(docKey);
 
+  /** A new state for one file: its text, the current language, an empty history. */
+  const makeState = (doc: string): EditorState => {
     const saveKeymap = keymap.of([
       {
         key: "Mod-s",
@@ -89,36 +103,43 @@ export function Editor({ docKey, fileName, content, readOnly, onChange, onSave }
         ...historyKeymap, ...foldKeymap, indentWithTab]),
       EditorView.lineWrapping,
       jetStoreEditorTheme,
-      language.current.of(languageExtension(fileName)),
-      editable.current.of(EditorView.editable.of(!readOnly)),
+      language.current.of(languageExtension(fileNameRef.current)),
+      editable.current.of(EditorView.editable.of(!readOnlyRef.current)),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) changeHandler.current?.(u.state.doc.toString());
       }),
     ];
 
+    return EditorState.create({ doc, extensions });
+  };
+
+  useEffect(() => {
+    if (!host.current) return;
+
     const v = new EditorView({
-      state: EditorState.create({ doc: content, extensions }),
+      state: makeState(content),
       parent: host.current,
     });
     view.current = v;
+    shownDocKey.current = docKey;
     return () => {
       v.destroy();
       view.current = null;
     };
-    // Created once per mount. Document and language updates are handled by the
-    // effects below, as transactions.
+    // Created once per mount. Language and read-only updates are handled by the
+    // effects below, as transactions; a new file by the one after this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A different file: replace the document and reset history so undo cannot walk
-  // backwards into the previous file's text.
+  // A different file: a fresh state, so undo cannot walk backwards into the
+  // previous file's text. A replace transaction here was `I-65`: `history()`
+  // recorded it. `setState` dispatches nothing, so no `onChange` fires either,
+  // and the document is the caller's `content` for that file.
   useEffect(() => {
     const v = view.current;
-    if (!v) return;
-    v.dispatch({
-      changes: { from: 0, to: v.state.doc.length, insert: content },
-      selection: { anchor: 0 },
-    });
+    if (!v || shownDocKey.current === docKey) return;
+    v.setState(makeState(content));
+    shownDocKey.current = docKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docKey]);
 

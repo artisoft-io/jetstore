@@ -315,8 +315,9 @@ function FlowMenu({ items }: { items: FlowMenuItem[] }) {
 
   /**
    * **Where the user was when they opened the menu, so the flow can send them
-   * back** (D.8, I-265). The menu is the launch point for four of the eleven
-   * flows and it is reachable from every screen, so without this the four would
+   * back** (D.8, I-265). The menu is the launch point for four flows
+   * (`FLOW_MENU`; "four of the eleven" until 2026-10-27) and it is reachable
+   * from every screen, so without this the four would
    * exit to the same place wherever they were started — which is the defect,
    * with `/home` in place of `/workspace`.
    *

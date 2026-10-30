@@ -1,6 +1,7 @@
 /**
- * The eleven flows' action documents, checked against the grammar and against the
- * Dart they were derived from.
+ * The ported flows' action documents, checked against the grammar and against the
+ * Dart they were derived from: eleven at F.9, the ten imported below since
+ * 2026-10-01.
  *
  * **This was `coverage.test.ts` until F.9, 2026-08-24, and the rename is the whole
  * of what that task did to it.** It exists because S.2a's exit condition said

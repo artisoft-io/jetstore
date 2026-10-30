@@ -1,6 +1,6 @@
 /**
- * Every button the eleven ported flows draw, against the Dart it was transcribed
- * from. Task **C.18**, from **I-155**.
+ * Every button the ported flows draw, against the Dart it was transcribed
+ * from (eleven flows at C.18; the six in `FLOW_DOCUMENTS` since 2026-10-01). Task **C.18**, from **I-155**.
  *
  * **What was unverified was fidelity, not function.** The flows are ported, they run
  * under test, and nothing here suggested they were broken. What I-155 recorded is
@@ -14,7 +14,8 @@
  *
  * **This file is the check that was infeasible before that commit and is a file
  * comparison after it.** It makes no causal claim and asserts no history; it reads
- * two generated corpora and eleven authored documents and compares them button by
+ * two generated corpora and the authored documents in `FLOW_DOCUMENTS` (eleven at
+ * C.18) and compares them button by
  * button.
  *
  * ## The result, stated as a measurement
@@ -28,7 +29,7 @@
  * Three things the comparison had to get right, and each is encoded rather than
  * assumed:
  *
- * 1. **Two corpora, not one.** I-155 names `form_fields.json`, and one of the eleven
+ * 1. **Two corpora, not one.** I-155 names `form_fields.json`, and one of the
  *    flow documents carries a form that is not in it: `homeFiltersUF` holds
  *    `showFailureDetailsDialog`, which lives in `screen_configs.json` because it is a
  *    non-flow screen's dialog. A check reading only the flows' corpus would have
@@ -210,6 +211,24 @@ const RENAMED_BY_THE_RUNTIME: Record<string, string> = {
 };
 
 /**
+ * The labels the documents correct rather than copy, keyed
+ * `<document>/<form>/<Dart button key>`, each with the Dart's label and the
+ * document's.
+ *
+ * **The Dart fixture keeps the Dart's spelling**: `datatable/fixtures/form_fields.json`
+ * records what Flutter shipped, and a correction made there would hide that a
+ * document differs from it. So a correction is a named exception here, and the
+ * test below fails if an entry stops describing both sides.
+ *
+ *  - *Comfirm* → *Confirm*, on the confirmation step of the two flows that end
+ *    in one: `jetstore_maintenance_02` `AJ.1` (`I-47`), 2026-10-27.
+ */
+const CORRECTED_FROM_THE_DART: Record<string, { dart: string; document: string }> = {
+  "loadConfigUF/wpConfirmLoadConfigUF/ufCompleted": { dart: "Comfirm", document: "Confirm" },
+  "workspacePullUF/wpConfirmPullWorkspaceUF/ufCompleted": { dart: "Comfirm", document: "Confirm" },
+};
+
+/**
  * Dart button styles against document styles.
  *
  * **This map is a reading, and the test below checks it is the only consistent one
@@ -252,8 +271,9 @@ function renamed(key: string): string {
   return RENAMED_BY_THE_RUNTIME[key] ?? key;
 }
 
-describe("the eleven flows' buttons against the Dart", () => {
-  it("has a Dart form for every form the eleven documents declare", () => {
+// The titles said "the eleven flows" and "the eleven documents" until 2026-10-27.
+describe("the ported flows' buttons against the Dart", () => {
+  it("has a Dart form for every form the compared documents declare", () => {
     const dart = dartForms();
     const missing = documentForms()
       .filter(({ form }) => !(form in dart))
@@ -275,6 +295,30 @@ describe("the eleven flows' buttons against the Dart", () => {
         entry,
         inDocument: true,
         inDart: false,
+      });
+    }
+  });
+
+  it("corrects only labels that still differ as CORRECTED_FROM_THE_DART says", () => {
+    // Like the exclusion list above, the corrections cannot go stale silently: an
+    // entry whose Dart label changed, or whose document label no longer carries
+    // the correction, fails here rather than excusing a difference nobody made.
+    const dart = dartForms();
+    const docs = new Map(documentForms().map((x) => [`${x.document}/${x.form}`, x.config]));
+    for (const [entry, { dart: dartLabel, document: docLabel }] of Object.entries(
+      CORRECTED_FROM_THE_DART,
+    )) {
+      const [document, form, key] = entry.split("/") as [string, string, string];
+      const d = dart[form] ?? {};
+      const config = docs.get(`${document}/${form}`) ?? {};
+      const pair = [
+        ...zip(dartBar(d), docBar(config)),
+        ...zip(dartInField(d), docInField(config)),
+      ].find(([a]) => a.key === key);
+      expect({ entry, dart: pair?.[0].label, document: pair?.[1].label }).toEqual({
+        entry,
+        dart: dartLabel,
+        document: docLabel,
       });
     }
   });
@@ -343,7 +387,9 @@ describe("the eleven flows' buttons against the Dart", () => {
         ...zip(dartInField(d), docInField(config)),
       ]) {
         const at = `${document}/${form}/${a.key}`;
-        if (a.label !== b.label) differences.push(`${at} label: ${a.label} vs ${b.label}`);
+        const corrected = CORRECTED_FROM_THE_DART[at];
+        const label = corrected && corrected.dart === a.label ? corrected.document : a.label;
+        if (label !== b.label) differences.push(`${at} label: ${a.label} vs ${b.label}`);
         // **The capability is the field to check hardest.** 20 capability claims on a
         // button were invisible to every corpus until C.0b (F88), 7 of them the flows'.
         // A button that lost its capability in transcription is a control offered to

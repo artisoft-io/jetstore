@@ -32,10 +32,13 @@ import (
 
 const (
 	schemaPath = "../../jetsclient_ide/src/userflow/userflow.schema.json"
-	// The eleven converted flows are JetStore-owned workspace assets, installed
-	// into a workspace by install_workspace_assets. The directory also holds the
-	// projections `cpipes-contract templates` writes, and those are UserFlow
-	// documents too — validating them here is coverage rather than a mismatch.
+	// The flows converted from the Flutter app, and those written since, are
+	// JetStore-owned workspace assets, installed into a workspace by
+	// install_workspace_assets. The directory also holds the projections
+	// `cpipes-contract templates` writes, and those are UserFlow documents too —
+	// validating them here is coverage rather than a mismatch. (This said "the
+	// eleven converted flows" until 2026-10-27; the count below is the one that
+	// is checked.)
 	flowsDir = "../workspace_assets/user_flows"
 )
 
@@ -86,12 +89,13 @@ func instance(t *testing.T, path string) any {
 
 // TestShippingFlowsValidate is the rule the plan states for this phase: a real
 // configuration that fails means the schema is wrong, not the configuration.
-// These eleven are the flows the Flutter app compiles in today, converted from a
-// corpus generated out of the running app rather than transcribed.
+// The ported flows were converted from a corpus generated out of the running
+// Flutter app rather than transcribed: eleven when they were converted, ten since
+// 2026-10-01. The Flutter app itself was deleted on 2026-08-26 (X.1).
 func TestShippingFlowsValidate(t *testing.T) {
 	schema := compileSchema(t)
 	files := flowFiles(t)
-	// The app's eleven, plus the three projected templates that share the
+	// The app's eleven at first, plus the three projected templates that share the
 	// directory — see flowsDir. A projection is a UserFlow document and passes the
 	// same schema; the count is of documents, not of migrations.
 	//

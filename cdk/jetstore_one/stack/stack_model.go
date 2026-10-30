@@ -114,6 +114,9 @@ type JetStoreStackComponents struct {
 	JetsApiExecutionRole  awsiam.Role
 
 	DeployCpipesNative bool
+	// SkipReportsSM leaves out ReportsSM and RunreportTaskDefinition, and RunReportsLambda
+	// when CpipesRunReportsLambda takes its place in cpipesSM (JETS_SKIP_REPORTS_SM)
+	SkipReportsSM bool
 
 	// DeployCpipesPython gates the Python compute pipes node: the container-image Lambda
 	// built by dockerfiles/Dockerfile.cpipes_python_lambda, and the third arm of
@@ -201,6 +204,15 @@ func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
 // should not disagree about what "on" looks like.
 func DeployCpipesPythonFromEnv() bool {
 	v := strings.ToUpper(os.Getenv("DEPLOY_CPIPES_PYTHON"))
+	return v == "TRUE" || v == "1"
+}
+
+// SkipReportsSMFromEnv reads JETS_SKIP_REPORTS_SM, the opt-out for the reports state machine
+// (see SkipReportsSM). It accepts what DeployCpipesPythonFromEnv accepts, "TRUE" or "1" after
+// upper-casing, and is a function for the same reason: unset must keep the stack as it is, and
+// a test in this package can hold that.
+func SkipReportsSMFromEnv() bool {
+	v := strings.ToUpper(os.Getenv("JETS_SKIP_REPORTS_SM"))
 	return v == "TRUE" || v == "1"
 }
 
@@ -388,6 +400,34 @@ func (jsComp *JetStoreStackComponents) InferDesiredCount() *float64 {
 		return nil
 	}
 	return jsii.Number(float64(n))
+}
+
+// uiHealthCheckGracePeriodVariable gives the UI service time to start before ECS acts on the
+// load balancer's health checks: the apiserver opens its port only after the database
+// migrations and the workspace check, which compiles when overrides are applied.
+const uiHealthCheckGracePeriodVariable = "JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC"
+
+// UiHealthCheckGracePeriodSec reads JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC. nil, for unset or
+// empty, leaves the property to CDK, whose default for a service behind a load balancer is
+// 60 seconds, so the template does not change. Synth fails on anything but a non-negative
+// integer: a typo must not leave a deployment on the default it was meant to replace.
+func UiHealthCheckGracePeriodSec() *int {
+	secs, err := parseUiHealthCheckGracePeriod(os.Getenv(uiHealthCheckGracePeriodVariable))
+	if err != nil {
+		log.Fatalf("%s: %v", uiHealthCheckGracePeriodVariable, err)
+	}
+	return secs
+}
+
+func parseUiHealthCheckGracePeriod(value string) (*int, error) {
+	if value == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 0 {
+		return nil, fmt.Errorf("%q is not a number of seconds", value)
+	}
+	return &n, nil
 }
 
 func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {

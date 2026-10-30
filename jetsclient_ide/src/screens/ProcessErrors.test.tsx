@@ -313,6 +313,17 @@ describe("the input-records dialog", () => {
     fireEvent.click(button("View Input Records"));
     const dialog = await screen.findByRole("dialog", { name: "Input Records for a Domain Key" });
     await waitFor(() => expect(within(dialog).getAllByRole("table")).toHaveLength(2));
+    // **The tables' reads are waited for, not only the tables** (jetstore_maintenance_02
+    // `I-30`, 2026-10-27). Each table posts its read from its own effect, after the
+    // markup the wait above settles on, so a count taken there could still move:
+    // the read then arrived after `before` and was reported below as a post made
+    // by Close. The race D.9 fixed in the case above, one test further on; it lost
+    // once in twenty full runs.
+    await waitFor(() =>
+      expect(
+        readsOf(posts).filter((r) => (r["withClauses"] as unknown[] | undefined)?.length === 1),
+      ).toHaveLength(2),
+    );
     const before = posts.length;
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

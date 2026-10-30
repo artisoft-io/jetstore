@@ -2,7 +2,8 @@
 
 `install_workspace_assets` writes these into every workspace beside `user_flows`, and
 `FlowStore.loadTables` reads them from there by the key a form's `dataTable` field
-names. They are the fourth asset group, added 2026-08-26 with the eleven ported flows.
+names. They are the fourth asset group, added 2026-08-26 with the eleven ported flows
+(ten since 2026-10-01).
 
 ## Why a group of its own rather than a fourth suffix under `user_flows`
 
@@ -18,8 +19,8 @@ one in place is the thing the ownership guard exists to catch.
 
 ## What is here, and what is deliberately not
 
-The 35 tables the eleven flows' forms name, computed from those forms rather than
-chosen — the walk is `tableKeysOf` in `jetsclient_ide/src/userflow/store.ts`.
+The 35 tables the eleven flows' forms named on 2026-08-26, computed from those forms
+rather than chosen — the walk is `tableKeysOf` in `jetsclient_ide/src/userflow/store.ts`.
 
 **32 since 2026-10-01.** `jetstore_maintenance_02`'s `D06` removed the add-or-edit step
 from three flows, and with it the option table each one drew —

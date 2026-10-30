@@ -188,9 +188,11 @@ def test_an_end_state_offers_completed_and_no_other_state_does():
       **This biconditional is about what *this generator* emits, and it is stricter than
       the corpus rule. Do not lift it out as one.** The rule the shipped flows actually
       keep is that an end state's form offers no *advancing* button; two of the eleven
-      finish through a custom action and declare no `uf*` action at all
+      ported flows finished through a custom action and declared no `uf*` action at all
       (`fmMappingFormUF`, `rfkSubmitSchemaEvent`). A validator asserting `ufCompleted`
       would reject both — `ui_refresh` drafted exactly that and their corpus refused it.
+      (One remains: `rfkSubmitSchemaEvent` left with `registerFileKeyUF` on 2026-10-01,
+      and `fmMappingFormUF` still ends on `mapperOk`. Checked 2026-10-27.)
       This projection has one way to end, so the tighter assertion is the right one
       *here* and the wrong one anywhere else.
       """

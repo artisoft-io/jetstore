@@ -100,6 +100,8 @@ type Tab =
       saved: string;
       current: string;
       size: number;
+      /** The node's `read_only`: shown, never saved (a README). */
+      readOnly: boolean;
     }
   | {
       kind: "view";
@@ -278,6 +280,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
             saved: file.content,
             current: file.content,
             size: node.size,
+            readOnly: node.read_only === true,
           },
         ]);
         setActiveKey(`file:${file.fileName}`);
@@ -366,7 +369,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     // A compiled view is read-only by construction: it shows what the compiler
     // produced, and the way to change it is to edit the sources below the
     // heading. Save is disabled on it rather than silently doing nothing.
-    if (!tab || tab.kind !== "file" || tab.current === tab.saved || !canEdit) return;
+    if (!tab || tab.kind !== "file" || tab.current === tab.saved || !canEdit || tab.readOnly) return;
 
     // The server parses .json before writing, so catch it here and point at the
     // problem rather than surfacing a bare 400.
@@ -432,7 +435,13 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           capability={WORKSPACE_IDE}
           className="btn btn-primary"
           onClick={save}
-          disabled={!activeTab || activeTab.kind !== "file" || activeTab.current === activeTab.saved || busy}
+          disabled={
+            !activeTab ||
+            activeTab.kind !== "file" ||
+            activeTab.readOnly ||
+            activeTab.current === activeTab.saved ||
+            busy
+          }
         >
           Save
         </ActionButton>
@@ -487,11 +496,19 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               onFilesChanged={refreshTree}
             />
           ) : activeTab ? (
+            /*
+              `content` is the tab's current text, not its saved text: the editor
+              makes a fresh state for each file it is shown (`I-65`, 2026-10-27),
+              so switching back to a tab must show the edits it still holds.
+              Until then it was `saved`, and the switch's replace transaction
+              reset `current` to it through `onChange`, so unsaved edits were
+              dropped silently by leaving the tab and coming back.
+            */
             <Editor
               docKey={activeTab.fileName}
               fileName={activeTab.label}
-              content={activeTab.saved}
-              readOnly={!canEdit}
+              content={activeTab.current}
+              readOnly={!canEdit || activeTab.readOnly}
               onChange={onChange}
               onSave={save}
             />
@@ -536,6 +553,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
                   <span title={activeTab.label}>{activeTab.label}</span>
                   <span className="spacer" />
                   <span>{languageNameFor(activeTab.label)}</span>
+                  {activeTab.readOnly && <span>Read only</span>}
                   <span>{activeTab.current.length.toLocaleString()} chars</span>
                   <span>{activeTab.current !== activeTab.saved ? "Modified" : "Saved"}</span>
                 </>

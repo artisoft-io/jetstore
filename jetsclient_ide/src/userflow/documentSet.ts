@@ -32,7 +32,7 @@
 import { isStandardAction } from "./engine";
 import type { ActionDocument } from "../actions/schema";
 import { actionRowsOf, type TableAction, type TableConfigDocument } from "../datatable/table";
-import { buttonsOf, itemSourcesOf, type FormDocument, type Form } from "./form";
+import { buttonsOf, fieldsOf, itemSourcesOf, type FormDocument, type Form } from "./form";
 import type { UserFlow } from "./schema";
 
 export type SetFindingCode =
@@ -43,7 +43,9 @@ export type SetFindingCode =
   /** An end state's form offers a button that tries to advance. */
   | "advanceFromEndState"
   /** A field's `itemsFrom` names a query its own form does not declare. */
-  | "missingItemSource";
+  | "missingItemSource"
+  /** A table's *+ Add* clears state and leaves a key the add path would start with. */
+  | "addKeepsState";
 
 export interface SetFinding {
   severity: "error";
@@ -312,6 +314,92 @@ export function validateTableActions(
           });
         }
       });
+    }
+  }
+  return findings;
+}
+
+/**
+ * A table's *+ Add* that clears state must clear every key the add would start
+ * with. `jetstore_maintenance_02` `AM.4` (`R-15`, generalised).
+ *
+ * **Why.** A wizard that opens on a table and returns to it after *Save* holds
+ * one form state for the whole run, and decides insert or update from what is in
+ * it. So *edit, back to the table, + Add, Save* updates the record just edited
+ * unless the *+ Add* removes what the edit left (`D06`; the two lists and the
+ * reason for each key are in `jets/workspace_assets/user_flows/actions.md`).
+ * Phase 1 pinned the two committed lists by test. This is the same check for
+ * any flow, including one a model writes.
+ *
+ * **What it applies to.** A table on a state's form whose `style: "add"` button
+ * runs a `doAction` that removes keys (an unguarded `remove` step) and then goes
+ * to another state (an unguarded `goToState`), which is the add step. A *+ Add*
+ * that removes nothing does not reset state and is not checked.
+ *
+ * **What the clear list must hold**, from the documents alone:
+ *
+ * 1. every key the add step's form binds, so the add step opens empty; and
+ * 2. when the list removes any key the table's own selection publishes (the
+ *    field's `key` and the table's `formStateBinding`), all of them. The key
+ *    that decides insert or update is one of these: `key` in both committed
+ *    wizards. Whether a key decides is in code (`saveSourceConfigForFileType`
+ *    reads `key`) and not in any document, so the rule cannot name that key. It
+ *    names the set the key comes from instead.
+ *
+ * The condition on (2) is there for a *+ Add* that does not reset an edit at
+ * all. `rulesUnitTestUF`'s runs table publishes the run selected for *View
+ * Result*, its *+ Add* clears the previous test selection and none of the run's
+ * keys, and its start posts named fields rather than the whole state. Requiring
+ * the run's keys there would refuse a correct document (`Q-26`).
+ */
+export function validateAddClearsState(
+  set: DocumentSet,
+  tables: Record<string, TableConfigDocument>,
+): SetFinding[] {
+  const findings: SetFinding[] = [];
+  const reported = new Set<string>();
+  for (const state of Object.values(set.flow.states)) {
+    const form = set.forms.forms[state.formConfig];
+    if (form === undefined) continue; // `checkForms` reports it
+    for (const field of fieldsOf(form)) {
+      if (field.field !== "dataTable") continue;
+      const table = tables[field.table];
+      if (table === undefined || table.source !== "query") continue;
+      const selection = [field.key, ...(table.formStateBinding?.otherColumns ?? []).map((c) => c.stateKey)];
+      for (const [, list] of actionRowsOf(table)) {
+        for (const button of list) {
+          if (button.style !== "add" || button.action !== "doAction" || button.actionName === undefined) continue;
+          const action = set.actions.actions[button.actionName];
+          if (action === undefined) continue; // `validateTableActions` reports it
+          const removeAt = action.steps.findIndex((step) => step.do === "remove" && step.when === undefined);
+          const goTo = action.steps.find((step) => step.do === "goToState" && step.when === undefined);
+          if (removeAt < 0 || goTo === undefined || goTo.do !== "goToState") continue;
+          const cleared = new Set(
+            action.steps.flatMap((step) => (step.do === "remove" && step.when === undefined ? step.keys : [])),
+          );
+          const addForm = set.forms.forms[set.flow.states[goTo.state]?.formConfig ?? ""];
+          const required = new Set<string>();
+          for (const f of addForm === undefined ? [] : fieldsOf(addForm)) {
+            if ("key" in f && typeof f.key === "string") required.add(f.key);
+          }
+          if (selection.some((key) => cleared.has(key))) for (const key of selection) required.add(key);
+          const missing = [...required].filter((key) => !cleared.has(key));
+          if (missing.length === 0) continue;
+          const message =
+            `"${button.actionName}", the + Add on table "${field.table}", clears state before step ` +
+            `"${goTo.state}" and leaves ${missing.map((k) => `"${k}"`).join(", ")}, so an add after an ` +
+            `edit would start from the edited record`;
+          if (reported.has(message)) continue;
+          reported.add(message);
+          findings.push({
+            severity: "error",
+            code: "addKeepsState",
+            message,
+            path: `/actions/${button.actionName}/steps/${removeAt}`,
+            document: "actions",
+          });
+        }
+      }
     }
   }
   return findings;

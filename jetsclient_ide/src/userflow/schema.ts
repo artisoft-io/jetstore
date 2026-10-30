@@ -2,8 +2,9 @@
  * The `UserFlowConfig` schema. Task S.1.
  *
  * A user flow is a state machine over screens, modelled on the Amazon States
- * Language (`jetsclient/lib/models/user_flow_config.dart:40`). Today it is Dart:
- * eleven `UserFlowConfig` objects compiled into the Flutter app. This file is
+ * Language (`jetsclient/lib/models/user_flow_config.dart:40`). It was Dart until
+ * X.1 deleted the Flutter app on 2026-08-26: eleven `UserFlowConfig` objects
+ * compiled into it. This file is
  * the representation that replaces them — a `.uf.json` document authored in the
  * Workspace IDE, validated in Go at save time, and interpreted in the browser.
  *
@@ -37,8 +38,8 @@
  * and for the reason the first two exist (I-3, I-12): the source text and the
  * constructed object graph have already disagreed three times.
  *
- * **Eleven flows, 46 states, 46 distinct forms** — every state has its own form,
- * none is shared.
+ * **Eleven flows, 46 states, 46 distinct forms** in the Dart corpus at S.1 — every
+ * state had its own form, none was shared.
  */
 
 import { z } from "zod";
@@ -259,15 +260,17 @@ export const StateSchema = z
  *
  * **Why here rather than in a React constant.** D.3's `FLOW_MENU` (`App.tsx`)
  * now holds five labels and is the obvious place to look, and it is the wrong
- * one: it is a *launcher*, it names four of the eleven flows plus one screen
+ * one: it is a *launcher*, it names four flows plus one screen
  * that is not a flow, and a flow's heading would then depend on whether somebody
  * had put it in a menu. A workspace may hold a flow this build has never heard
  * of — three do already, projected by `cpipes-contract templates` — and a
  * compiled list has no answer for those. The document does.
  *
  * **Optional, and a flow without one falls back to its key**, which is today's
- * behaviour kept as the floor rather than as the default. All eleven shipping
- * flows carry one (`translate.ts`, `flowTitles`).
+ * behaviour kept as the floor rather than as the default. Every ported flow and
+ * `rulesUnitTestUF` carries one (`translate.ts`, `flowTitles`, for the ported);
+ * the three projections do not, and fall back. (This said *all eleven shipping
+ * flows* until 2026-10-27; checked against `jets/workspace_assets/user_flows/`.)
  */
 export const UserFlowSchema = z
   .strictObject({
@@ -296,5 +299,30 @@ export type UserFlow = z.infer<typeof UserFlowSchema>;
  * someone wrote, before any default is applied.
  */
 export function emitJsonSchema(): unknown {
-  return z.toJSONSchema(UserFlowSchema, { io: "input" });
+  return toJSONSchemaInlineRoot(UserFlowSchema);
+}
+
+/**
+ * `z.toJSONSchema` with the root document inline, as zod emitted it before 4.6.
+ *
+ * Since zod 4.6 a root schema carrying `.meta({ id })` is moved into `$defs` and
+ * the document becomes `{ "$ref": "#/$defs/<id>" }`. That is equivalent JSON
+ * Schema, but every reader of the four artifacts walks the root as the object
+ * (the closed-object tests here, Go's copies under `jets/userflow/schema/`, and
+ * a generator reading the schema it must satisfy). So the root is put back
+ * where it was: its body at the top, `$defs` without it. Only when nothing else
+ * refers to the root, which is true of all four documents; otherwise zod's form
+ * is returned unchanged. Added for the zod 4.6.6 upgrade
+ * (`jetstore_maintenance_02` `AI`, Dependabot #42).
+ */
+export function toJSONSchemaInlineRoot(schema: z.ZodType): Record<string, unknown> {
+  const emitted = z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+  const ref = emitted["$ref"];
+  const defs = emitted["$defs"] as Record<string, unknown> | undefined;
+  if (typeof ref !== "string" || !ref.startsWith("#/$defs/") || defs === undefined) return emitted;
+  const id = ref.slice("#/$defs/".length);
+  const { [id]: body, ...otherDefs } = defs;
+  if (body === undefined || JSON.stringify(otherDefs).includes(`"${ref}"`)) return emitted;
+  const { $ref: _ref, $defs: _defs, ...rest } = emitted;
+  return { ...rest, ...(body as Record<string, unknown>), $defs: otherDefs };
 }

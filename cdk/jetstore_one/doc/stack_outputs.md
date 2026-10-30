@@ -8,10 +8,10 @@ They are the handles a second stack, an operator or an external integration need
 
 | Output | Value | Source |
 |---|---|---|
-| `JetStoreBucketName` | Bucket name, whether created by the stack or imported from `JETS_BUCKET_NAME` | `jetstore_one.go:118` |
-| `JetStoreVpcID` | VPC id, created or looked up | `jetstore_one.go:152` |
-| `VpcEndpointsSGID` | Security group on the VPC endpoints — **the value a second stack passes as `JETS_VPC_ENDPOINTS_SG_ID`** | `jetstore_one.go:157` |
-| `JetStore_RDS_Cluster_ID` | Aurora cluster identifier (`props.MkId("jetstoreDb")`) | `jetstore_one.go:235` |
+| `JetStoreBucketName` | Bucket name, whether created by the stack or imported from `JETS_BUCKET_NAME` | `jetstore_one.go:131` |
+| `JetStoreVpcID` | VPC id, created or looked up | `jetstore_one.go:165` |
+| `VpcEndpointsSGID` | Security group on the VPC endpoints — **the value a second stack passes as `JETS_VPC_ENDPOINTS_SG_ID`** | `jetstore_one.go:170` |
+| `JetStore_RDS_Cluster_ID` | Aurora cluster identifier (`props.MkId("jetstoreDb")`) | `jetstore_one.go:248` |
 | `UiListenerArn` | ALB listener ARN | `build_elb.go:105` |
 | `UiListenerUrl` | `http://<alb-dns>:<JETS_UI_PORT>` | `build_elb.go:109` |
 

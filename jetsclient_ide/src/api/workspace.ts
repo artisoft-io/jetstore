@@ -47,6 +47,12 @@ export interface WorkspaceNode {
    * it*, and C.1 removed the Flutter client's conflation of the two.
    */
   compiled_view?: string;
+  /**
+   * Set on a file the IDE shows and does not save, absent otherwise
+   * (`wsfile.ReadOnlySuffixes`; a workspace's READMEs, 2026-10-27). The server
+   * refuses a save of one too, so this is what keeps the editor from offering it.
+   */
+  read_only?: boolean;
   route_path: string;
   route_params: Record<string, string> | null;
   children: WorkspaceNode[] | null;
@@ -192,7 +198,7 @@ export class WorkspaceApi {
    * **Same content as `readWorkspaceFile`, a different capability, and that is
    * the whole reason it exists.** `get_workspace_file_content` gates on
    * `workspace_ide`, which `jets_init_db.sql` grants to `knowledge_engineer`
-   * alone. Once the eleven flows became workspace assets, the runner read its
+   * alone. Once the eleven flows became workspace assets (X.5, 2026-08-26), the runner read its
    * documents at run time — so opening a flow required the IDE's capability, and
    * `ops_user` and `client_advocate`, the roles the flows are *for*, were refused.
    *

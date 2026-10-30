@@ -744,6 +744,27 @@ describe("sourceConfigUF against the shipping registry", () => {
     expect(error).toBeInstanceOf(FlowLoadError);
     expect(error.findings.map((f) => f.message).join("\n")).toContain('query "orgs"');
   });
+
+  it("refuses the set when + Add no longer clears the key that decides insert or update (AM.4)", async () => {
+    // `checkFlowSet`'s `validateAddClearsState`, at load. `key` is published by
+    // the table's selection, and `saveSourceConfigForFileType` updates whenever
+    // it is set, so an add after an edit would update the edited record.
+    const files = sourceConfigWorkspace();
+    const actions = structuredClone(sourceConfigActions) as {
+      actions: Record<string, { steps: { do: string; keys?: string[] }[] }>;
+    };
+    const remove = actions.actions["scGoToAddSourceConfig"]!.steps.find((step) => step.do === "remove")!;
+    remove.keys = remove.keys!.filter((key) => key !== "key");
+    files[actionPath("sourceConfigUF")] = serialise(actions);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("sourceConfigUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings).toHaveLength(1);
+    expect(error.findings[0]!.path).toBe("actions/actions/scGoToAddSourceConfig/steps/3");
+    expect(error.findings[0]!.message).toContain('leaves "key"');
+  });
 });
 
 describe("escape references", () => {

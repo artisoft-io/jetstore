@@ -116,8 +116,9 @@ export const formStateInitializerNames: Record<string, string> = {
  * Configuration*. Recorded because a shared title becoming two is exactly the
  * kind of change a derived heading would have made silently.
  *
- * **This table is history, not maintenance.** It exists to regenerate the eleven
- * documents from the frozen fixture; a twelfth flow is authored as a document
+ * **This table is history, not maintenance.** It exists to regenerate the
+ * documents still emitted from the frozen fixture (eleven at first, three since
+ * 2026-10-11); a twelfth flow is authored as a document
  * and carries its own `title`, and never appears here. That is what keeps it off
  * I-25's list of hand-maintained mappings.
  */

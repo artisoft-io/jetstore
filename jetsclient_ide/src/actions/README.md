@@ -2,8 +2,11 @@
 
 The schema is `schema.ts`, which emits `action.schema.json`; `interpret.ts` runs a
 step list against form state; `escapes.ts` and `registry.ts` are the bodies a step
-cannot say and the names they are reachable under. The eleven documents a migrated
-flow runs are under `flows/`, with their own README.
+cannot say and the names they are reachable under. The action document each flow
+runs is a `.ua.json` under `jets/workspace_assets/user_flows/`, with its own note
+(`actions.md`); they were under `flows/` here until X.5 moved them there on
+2026-08-26. (This said *the eleven documents … are under `flows/`* until
+2026-10-27.)
 
 **This file is about the gap between *valid* and *faithful*.** It is written for
 anyone who authors one of these documents by hand or emits one from a generator,
@@ -67,7 +70,8 @@ against `../datatable/fixtures/load_files_flutter_audit.log`.
 **147 of 147 buttons match the Dart** — the same key, label, style, capability and
 enablement, across 51 forms in the eleven documents. Measured 2026-08-25 at **C.18**,
 and re-runnable: `src/buttonFidelity.test.ts` reads the two generated corpora and the
-eleven `.form.json` documents and compares them button by button, on every `npm test`.
+`.form.json` documents in its `FLOW_DOCUMENTS` (eleven at C.18, six since 2026-10-01)
+and compares them button by button, on every `npm test`.
 
 **It is worth stating as a measurement rather than as reassurance, because the thing
 it settles was a real gap.** `form_fields.json` — the corpus track F's form work was
