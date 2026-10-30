@@ -4,7 +4,7 @@ Everything the stack needs is an environment variable read at synth time. This i
 deploy, and the two cases the defaults do not cover: the first deploy of a new stack, and a second
 stack sharing an existing VPC.
 
-The authoritative variable list is the comment block at `jetstore_one.go:506`. This document covers
+The authoritative variable list is the comment block at `jetstore_one.go:528`. This document covers
 what is **required**, what fails **loudly**, and what fails **silently**.
 
 ## 1. Prerequisites
@@ -53,7 +53,7 @@ These are not in the check above and fail later, which is worth knowing because 
 construct rather than a variable:
 
 - **`CPIPES_ECR_REPO_ARN` and `CPIPES_IMAGE_TAG`** — the cpipes image is resolved unconditionally at
-  `jetstore_one.go:316`. An empty repo ARN fails inside CDK's ARN parsing, not with a JetStore message.
+  `jetstore_one.go:329`. An empty repo ARN fails inside CDK's ARN parsing, not with a JetStore message.
 - **`INFER_ECR_REPO_ARN` and `INFER_IMAGE_TAG`** — `log.Fatal` from `InferEcrRepoArn()` /
   `InferImageTag()` when `BUILD_INFER_SERVICE` is on. Deliberately not defaulted to the JetStore
   image: that would deploy a container with no `ollama` binary and fail only in the container log.
@@ -97,7 +97,9 @@ than trusting the exit status.
 Other conditional components behave the same way by design, and their absence is normal:
 `RETENTION_DAYS` (purge data), `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (SQS ingest),
 `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY`, `DEPLOY_CPIPES_NATIVE`, `BASTION_HOST_KEYPAIR_NAME`,
-`JETS_AGENTIC_DETECT_HOUR_UTC` (the daily agentic detection task).
+`JETS_AGENTIC_DETECT_HOUR_UTC` (the daily agentic detection task). The two opt-outs,
+`JETS_SKIP_REPORTS_SM` and `JETS_VPC_ENDPOINTS_EXCLUDE`, remove components on purpose; see the
+README's *Leaving out what an installation does not use*.
 
 ## 3. Deploy
 
@@ -125,7 +127,7 @@ Three defaults are tuned for updating an existing stack and are wrong exactly on
 **Set `INFER_DESIRED_COUNT=0`** if `BUILD_INFER_SERVICE` is on. Leaving it unset omits `DesiredCount`
 from the template, which is what makes later deploys preserve whatever scale the service is at. But
 with the property absent, ECS defaults a *brand new* service to 1 — so a GPU instance launches as
-soon as the stack comes up. On an existing stack, leave it unset (`stack_model.go:242`).
+soon as the stack comes up. On an existing stack, leave it unset (`stack_model.go:391`).
 
 **The database and the stack are both protected from deletion on creation**:
 `TerminationProtection` on the stack and `DeletionProtection` on the Aurora cluster. A first deploy
@@ -160,7 +162,7 @@ Three things worth knowing about what is and is not shared:
 
 - **Only the endpoint security group is shared.** `RdsAccessSg` and `InternetAccessSg` are created
   per stack, so each stack keeps its own database boundary and its own Aurora cluster.
-- **The CIDR is read back from the imported VPC** (`jetstore_vpc.go:46`), so you do not pass it.
+- **The CIDR is read back from the imported VPC** (`jetstore_vpc.go:48`), so you do not pass it.
 - **There is no CloudFormation dependency between the stacks.** No output carries an `ExportName`;
   the coupling is values copied at synth. The two stacks can be updated and deleted independently,
   and equally, deleting the first stack's VPC out from under the second is not prevented.
