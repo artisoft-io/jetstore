@@ -218,6 +218,12 @@ The apiserver — REST API, both web UIs, and the origin of every pipeline execu
 - **Deployment**: always built; no gating variable. `JETS_UI_PORT` (ALB listener port, default 8080)
   and `JETS_TEMP_DATA` shape it. `JETS_INFER_URL` and `JETS_INFER_ASG_NAME` are injected only when
   the infer service is deployed.
+- **Rollout**: one task, the ECS defaults of 100% minimum healthy and 200% maximum, and the
+  **deployment circuit breaker with rollback**. A new task that never passes the ALB health check
+  (a failed start-up compile, say) stops the deployment, ECS rolls back to the previous task
+  definition, and CloudFormation fails the update, instead of relaunching the task until its
+  stabilisation wait runs out, about three hours. The old task serves throughout. The infer service
+  has no breaker: its deployments need the server stopped by hand.
 - **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`. Security groups `VpcEndpointsSg`,
   `RdsAccessSg`, `GitAccessSecurityGroup`. Private subnets, `AssignPublicIp: false`.
 - **Security**: `ReadonlyRootFilesystem: true` with a writable `tmp-volume` mounted at

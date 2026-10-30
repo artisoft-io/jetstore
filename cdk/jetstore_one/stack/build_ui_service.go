@@ -175,6 +175,13 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
+		// A new task that never becomes healthy (a failed startup compile, say) stops the
+		// deployment and rolls back to the previous task definition, instead of being
+		// relaunched until CloudFormation's stabilisation wait fails the stack update.
+		// The old task keeps serving either way (minimum healthy 100%).
+		CircuitBreaker: &awsecs.DeploymentCircuitBreaker{
+			Rollback: jsii.Bool(true),
+		},
 		SecurityGroups: &[]awsec2.ISecurityGroup{
 			jsComp.VpcEndpointsSg,
 			jsComp.RdsAccessSg,
