@@ -695,6 +695,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_UI_PORT (defaults 8080)
+// JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC (optional, default CDK's 60) seconds the UI service ignores
+// load balancer health checks after a task starts. Set it above the slowest apiserver start-up
+// (migrations, then the workspace compile when overrides apply), or the deployment circuit
+// breaker rolls back a start-up that was only slow. Synth fails on a value that is not a
+// non-negative integer.
 // JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
 // when JETS_VPC_ID is set the following env vars must be set as well:
 //   - JETS_VPC_ID
@@ -855,6 +860,7 @@ func main() {
 	log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
 	log.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
 	log.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
+	log.Println("env JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC:", os.Getenv("JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC"))
 	log.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	log.Println("env JETS_VPC_ID:", os.Getenv("JETS_VPC_ID"))
 	log.Println("env JETS_VPC_ENDPOINTS_SG_ID:", os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))

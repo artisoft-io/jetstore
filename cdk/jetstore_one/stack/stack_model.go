@@ -402,6 +402,34 @@ func (jsComp *JetStoreStackComponents) InferDesiredCount() *float64 {
 	return jsii.Number(float64(n))
 }
 
+// uiHealthCheckGracePeriodVariable gives the UI service time to start before ECS acts on the
+// load balancer's health checks: the apiserver opens its port only after the database
+// migrations and the workspace check, which compiles when overrides are applied.
+const uiHealthCheckGracePeriodVariable = "JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC"
+
+// UiHealthCheckGracePeriodSec reads JETS_UI_HEALTH_CHECK_GRACE_PERIOD_SEC. nil, for unset or
+// empty, leaves the property to CDK, whose default for a service behind a load balancer is
+// 60 seconds, so the template does not change. Synth fails on anything but a non-negative
+// integer: a typo must not leave a deployment on the default it was meant to replace.
+func UiHealthCheckGracePeriodSec() *int {
+	secs, err := parseUiHealthCheckGracePeriod(os.Getenv(uiHealthCheckGracePeriodVariable))
+	if err != nil {
+		log.Fatalf("%s: %v", uiHealthCheckGracePeriodVariable, err)
+	}
+	return secs
+}
+
+func parseUiHealthCheckGracePeriod(value string) (*int, error) {
+	if value == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 0 {
+		return nil, fmt.Errorf("%q is not a number of seconds", value)
+	}
+	return &n, nil
+}
+
 func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
 	var memLimit float64
 	memLimitStr := os.Getenv("INFER_MEM_LIMIT_MB")
