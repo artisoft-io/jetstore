@@ -168,7 +168,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		ReadOnly:      jsii.Bool(false),
 	})
 
-	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
+	uiServiceProps := &awsecs.FargateServiceProps{
 		Cluster:        jsComp.EcsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
 		TaskDefinition: jsComp.UiTaskDefinition,
@@ -178,7 +178,9 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		// A new task that never becomes healthy (a failed startup compile, say) stops the
 		// deployment and rolls back to the previous task definition, instead of being
 		// relaunched until CloudFormation's stabilisation wait fails the stack update.
-		// The old task keeps serving either way (minimum healthy 100%).
+		// The old task keeps serving either way: minimum healthy is 50%, which ECS rounds up
+		// to one task when DesiredCount is 1. A slow start is covered by the grace period
+		// below, not by the breaker, whose failure count ECS fixes (3 tasks at this size).
 		CircuitBreaker: &awsecs.DeploymentCircuitBreaker{
 			Rollback: jsii.Bool(true),
 		},
@@ -189,7 +191,12 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			// Add git access security group to allow outbound access to git providers
 			// for pulling workspace definitions
 			NewGitAccessSecurityGroup(stack, jsComp.Vpc)},
-	})
+	}
+	if secs := UiHealthCheckGracePeriodSec(); secs != nil {
+		// Health check failures are ignored this long after a task starts; unset is CDK's 60s
+		uiServiceProps.HealthCheckGracePeriod = awscdk.Duration_Seconds(jsii.Number(float64(*secs)))
+	}
+	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), uiServiceProps)
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.EcsUiService).Add(phiTagName, jsii.String("true"), nil)
 	}
