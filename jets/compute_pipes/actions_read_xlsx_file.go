@@ -74,8 +74,11 @@ func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo
 			os.Remove(filePath.LocalFileName)
 		}()
 
-		// defaults to 0 sheet position
-		currentSheetPos, _ = xlsxSheetInfo["currentSheetPos"].(int)
+		// The worksheet named by currentSheet, resolved as the header read resolves it
+		currentSheetPos, err = XlsxSheetPos(xl.Sheets, xlsxSheetInfo)
+		if err != nil {
+			return 0, 0, err
+		}
 		xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
 		if inputFormat == "xlsx" {
 			// Skip the header line
