@@ -46,6 +46,7 @@ afterEach(() => {
   resetHomeFilters();
   resetSelectedClient();
   putSchemaEventResponse = { status: 200, body: {} };
+  startPendingResponse = { status: 200, body: { pending_count: 0 } };
   loginCapabilities = ["run_pipelines"];
   loginCustomButtons = undefined;
   stageFiles = {};
@@ -83,6 +84,9 @@ interface Posted {
  * the message `PutSchemaEventToS3` returns for an empty event.
  */
 let putSchemaEventResponse: { status: number; body: unknown } = { status: 200, body: {} };
+
+/** What `/dataTable` answers to `start_pending_tasks`, *Check Pending*'s post. */
+let startPendingResponse: { status: number; body: unknown } = { status: 200, body: { pending_count: 0 } };
 
 /** The signed-in user's capabilities; one case removes `run_pipelines`. */
 let loginCapabilities = ["run_pipelines"];
@@ -159,6 +163,10 @@ function stubServer() {
       }
       case "resubmit_pipeline":
         return new Response("{}", { status: 200 });
+      case "start_pending_tasks":
+        return new Response(JSON.stringify(startPendingResponse.body), {
+          status: startPendingResponse.status,
+        });
       case "put_schema_event_to_s3":
         return new Response(JSON.stringify(putSchemaEventResponse.body), {
           status: putSchemaEventResponse.status,
@@ -457,7 +465,7 @@ describe("the three filters, none of which is visible on the screen", () => {
 });
 
 describe("the table's buttons", () => {
-  it("draws both action rows — seven above and five below", async () => {
+  it("draws both action rows — eight above and five below", async () => {
     // I-104's other half: `secondRowActions` was authored and nothing drew it.
     // `TableView` draws both bars, and this table is the reason it has to.
     await mount();
@@ -470,6 +478,7 @@ describe("the table's buttons", () => {
       "Set Request Id",
       "Clear Filters",
       "Put Schema Event",
+      "Check Pending",
       "View Execution Details",
       "View Process Errors",
       "View Failure Details",
@@ -804,6 +813,70 @@ describe("Put Schema Event", () => {
     await waitFor(() =>
       expect(readsOf(posts, "pipeline_execution_status").length).toBeGreaterThan(before),
     );
+  });
+});
+
+/**
+ * *Check Pending* (jetstore_maintenance JM-062, 2026-11-05). A row inserted into
+ * `pipeline_execution_status` as `pending` by SQL waits for the next status update
+ * or the apiserver's hourly sweep; this button posts `start_pending_tasks`, whose arm calls `StartPendingTasks` behind
+ * `run_pipelines` (`jets/apiserver/api_tables.go`). That a pipeline then starts
+ * is the server's, and is not shown here.
+ */
+describe("Check Pending", () => {
+  const startPosts = (posts: Posted[]) =>
+    posts.filter((p) => p.body["action"] === "start_pending_tasks");
+
+  it("sits right of Put Schema Event, on the first row, and needs no selection", async () => {
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    const check = button("Check Pending");
+    const put = button("Put Schema Event");
+    expect(check.closest(".jets-datatable__header-row")).toBe(put.closest(".jets-datatable__header-row"));
+    const row = Array.from(
+      put.closest(".jets-datatable__header-row")!.querySelectorAll("button"),
+    ).map((b) => b.textContent);
+    expect(row.indexOf("Check Pending")).toBe(row.indexOf("Put Schema Event") + 1);
+    expect((check as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("is disabled for a user without run_pipelines, as Put Schema Event is", async () => {
+    loginCapabilities = [];
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    expect((button("Check Pending") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("posts start_pending_tasks to /dataTable, says so, and re-reads the table", async () => {
+    const { posts } = await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    const before = readsOf(posts, "pipeline_execution_status").length;
+    fireEvent.click(button("Check Pending"));
+
+    await waitFor(() => expect(startPosts(posts)).toHaveLength(1));
+    const [post] = startPosts(posts);
+    expect(post!.path).toBe("/dataTable");
+    expect(post!.body).toEqual({ action: "start_pending_tasks", data: [] });
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "Pending pipelines checked: those that can start now have been started",
+    );
+    await waitFor(() =>
+      expect(readsOf(posts, "pipeline_execution_status").length).toBeGreaterThan(before),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reports the server's refusal in the error banner", async () => {
+    startPendingResponse = {
+      status: 403,
+      body: { error: "error: unauthorized, user do not have required capability" },
+    };
+    const { posts } = await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    fireEvent.click(button("Check Pending"));
+    await waitFor(() => expect(startPosts(posts)).toHaveLength(1));
+    expect((await screen.findByRole("alert")).textContent).toContain("required capability");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
 

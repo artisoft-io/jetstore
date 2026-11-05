@@ -29,6 +29,19 @@
       "description": "Dismiss the dialog",
       "steps": [{ "do": "close" }]
     },
+    "checkPendingTasks": {
+      "description": "Start the pipeline executions waiting in pending, such as rows inserted by SQL",
+      "steps": [
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "start_pending_tasks",
+          "spinner": true,
+          "data": { "rows": "none" }
+        },
+        { "do": "notify", "level": "info", "message": "Pending pipelines checked: those that can start now have been started" }
+      ]
+    },
     "putSchemaEvent": {
       "description": "Save the pasted schema event to the schema triggers folder; the server names the file",
       "steps": [

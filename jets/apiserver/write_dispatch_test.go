@@ -75,6 +75,12 @@ var inlineGatedActions = map[string]string{
 	// it has to name the capability. The two are tied by
 	// TestResubmitPipelineUsesTheSameCapabilityAsItsInsert in jets/datatable.
 	"resubmit_pipeline": "CapabilityRunPipelines",
+	// Starts the pipeline executions already in 'pending' -- rows inserted by SQL,
+	// which would otherwise wait for the next status update or the hourly sweep.
+	// It starts pipelines exactly as
+	// resubmit_pipeline does after its insert, so it asks for the same authority
+	// (2026-11-05, the Pipeline Status screen's Check Pending button).
+	"start_pending_tasks": "CapabilityRunPipelines",
 }
 
 // ungatedActions are the arms that ask for nothing, with the reason. **A reason
@@ -100,7 +106,7 @@ var ungatedActions = map[string]string{
 // It is pinned here because a document wanted to cite it and cited 21, from
 // counting a grep output by eye. A number a test can hold should not be a number
 // prose asserts.
-const dataTableActionCount = 24
+const dataTableActionCount = 25
 
 // apiserverEffectMarkers are the tells that an inline arm has reached the
 // database or S3. Deliberately short and deliberately a lower bound; see the
@@ -281,6 +287,29 @@ func TestInlineArmsGateBeforeTheyAct(t *testing.T) {
 	for action := range inlineGatedActions {
 		if !seen[action] {
 			t.Errorf("no %q arm in DoDataTableAction; this list is stale", action)
+		}
+	}
+}
+
+// TestStartPendingTasksArmOnlyStartsPendingTasks pins the scope of the arm the
+// Pipeline Status screen's Check Pending button posts to (2026-11-05). Its gate
+// is TestInlineArmsGateBeforeTheyAct's; what this adds is that the arm starts
+// what is already pending and writes nothing of its own -- no session id
+// reserved, no row inserted -- so it cannot become a second resubmit_pipeline
+// without this test being edited.
+func TestStartPendingTasksArmOnlyStartsPendingTasks(t *testing.T) {
+	arms, _ := dispatchArms(t)
+	body, ok := arms["start_pending_tasks"]
+	if !ok {
+		t.Fatal("no start_pending_tasks arm in DoDataTableAction; this test is stale")
+	}
+	if !strings.Contains(body, "StartPendingTasks") {
+		t.Error("the start_pending_tasks arm no longer calls StartPendingTasks")
+	}
+	for _, forbidden := range []string{"ReserveSessionId", "server.dbpool", "INSERT", "UPDATE"} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("the start_pending_tasks arm reaches %s; it is meant to start pending "+
+				"tasks and nothing else", forbidden)
 		}
 	}
 }

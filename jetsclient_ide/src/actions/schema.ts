@@ -208,6 +208,18 @@ export const ServerActionSchema = z
     "resubmit_pipeline",
     "put_schema_event_to_s3",
     /**
+     * Start the pipeline executions already in `pending` — rows inserted into
+     * `pipeline_execution_status` by SQL, which otherwise wait for the next status
+     * update or the apiserver's hourly sweep. The Pipeline Status table's *Check
+     * Pending* button, 2026-11-05.
+     *
+     * Gated by `run_pipelines` in its arm of `DoDataTableAction`
+     * (`jets/apiserver/api_tables.go`), the capability `resubmit_pipeline` asks
+     * for, because both end in `StartPendingTasks`. It reads nothing from `data`
+     * and takes no `table`.
+     */
+    "start_pending_tasks",
+    /**
      * Export a client's configuration from the database into the workspace.
      * Task C.2b — `/workspaces`'s *Export Client Config* dialog.
      *
