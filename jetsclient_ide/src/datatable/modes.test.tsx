@@ -170,10 +170,14 @@ describe("the checkbox column", () => {
 });
 
 describe("refreshTable", () => {
-  it("resets the page size, which the watched-key path was not doing", () => {
-    // The divergence A.5 found: `_refreshTable` sets
-    // `rowsPerPage = availableRowsPerPage[0]`, and `[0]` is the configured size
-    // (`data_table.dart:354`), so a user who chose 50 rows goes back to 10.
+  it("goes back to the first page and keeps the page size the user chose", () => {
+    // JM-060 (2026-11-05). Until then this test pinned the Dart's reset,
+    // `rowsPerPage = availableRowsPerPage[0]` (`data_table.dart:354`), which sent
+    // a user who chose 50 rows back to 10 on every refresh. The page size is now
+    // left alone; the page index still goes to 0, so a refresh that returns
+    // fewer rows cannot leave the table past its last page. `setRowsPerPage` is
+    // offered here to show it is not called, although `Refreshable` no longer
+    // declares it.
     const calls: string[] = [];
     const state = {
       setPage: (n: number) => calls.push(`setPage(${n})`),
@@ -181,8 +185,8 @@ describe("refreshTable", () => {
       clearSelection: () => calls.push("clearSelection"),
       refresh: () => calls.push("refresh"),
     };
-    refreshTable(state, { rowsPerPage: 10 } as TableConfig, undefined, undefined, undefined);
-    expect(calls).toEqual(["setPage(0)", "setRowsPerPage(10)", "clearSelection", "refresh"]);
+    refreshTable(state, undefined, undefined, undefined);
+    expect(calls).toEqual(["setPage(0)", "clearSelection", "refresh"]);
   });
 
   it("clears the published selection before re-querying, not after", () => {
@@ -194,7 +198,6 @@ describe("refreshTable", () => {
     formState.setValue(0, "t", "held");
     const state = {
       setPage: () => {},
-      setRowsPerPage: () => {},
       clearSelection: () => {},
       refresh: () => order.push("refresh"),
     };
@@ -202,9 +205,43 @@ describe("refreshTable", () => {
       order.push("clear");
       return (FormState.prototype.setValue as any).apply(formState, args);
     }) as any);
-    refreshTable(state, { rowsPerPage: 10 } as TableConfig, formState, { group: 0, key: "t" }, undefined);
+    refreshTable(state, formState, { group: 0, key: "t" }, undefined);
     spy.mockRestore();
     expect(order.indexOf("clear")).toBeLessThan(order.indexOf("refresh"));
+  });
+
+  it("keeps the rows-per-page choice across the Refresh button, end to end", async () => {
+    // JM-060 through the rendered table: choose the second page size in the
+    // footer, move to page 2, press Refresh. The control and the next request
+    // still carry the chosen size, and the request is for the first page again.
+    // `org` is configured at 50, so the choice is 100.
+    const { config, formState } = seededOrg();
+    const row = config.columns.map((_, i) => `c${i}`);
+    const fetcher = vi.fn(async (_payload: Record<string, unknown>) => ({
+      rows: [row],
+      totalRowCount: 1000,
+    }));
+    render(<Harness config={config} fetcher={fetcher} formState={formState} />);
+    await act(async () => {});
+    const select = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect(select.value).toBe(String(config.rowsPerPage));
+    const chosen = config.rowsPerPage * 2;
+    await act(async () => {
+      fireEvent.change(select, { target: { value: String(chosen) } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Next page"));
+    });
+    expect(fetcher.mock.calls[fetcher.mock.calls.length - 1]![0].offset).toBe(chosen);
+    const before = fetcher.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByText("Refresh"));
+    });
+    expect(fetcher.mock.calls.length).toBeGreaterThan(before);
+    expect((screen.getByLabelText("Rows per page") as HTMLSelectElement).value).toBe(String(chosen));
+    const last = fetcher.mock.calls[fetcher.mock.calls.length - 1]![0];
+    expect(last.limit).toBe(chosen);
+    expect(last.offset).toBe(0);
   });
 
   it("re-queries the server when the button is pressed", async () => {

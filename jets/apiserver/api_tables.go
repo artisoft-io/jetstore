@@ -159,6 +159,39 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		// start pending tasks
+	case "start_pending_tasks":
+		// The Pipeline Status screen's *Check Pending* button (2026-11-05). A row
+		// inserted into jetsapi.pipeline_execution_status with status 'pending' by
+		// SQL, rather than through the UI, waits for the next StartPendingTasks:
+		// after a resubmit_pipeline, a status update or a domain-table registration,
+		// or the apiserver's hourly sweep (Start, server.go), which does not run in
+		// dev mode. This arm is that call, on demand, and nothing else. It starts
+		// pipelines, so it asks for the capability resubmit_pipeline asks for,
+		// before it does anything.
+		if code, err = ctx.RequireCapability(datatable.CapabilityRunPipelines, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
+		// Also marks submitted runs past their timeout as timed_out, as every
+		// caller of StartPendingTasks does.
+		if err = ctx.StartPendingTasks(); err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		// What is still pending afterwards, so the caller can tell a run held
+		// back by throttling from one that started. Counted the way
+		// StartPendingTasks selects them: a staged file key and a process_config row.
+		var pending int64
+		if pending, _, err = ctx.GetTaskThrottlingInfo("pending"); err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		results = &map[string]any{"pending_count": pending}
+		code = 200
+
 	case "workspace_insert_rows":
 		results, code, err = ctx.WorkspaceInsertRows(&dataTableAction, token)
 	case "workspace_query_structure":
