@@ -1,6 +1,6 @@
 /**
- * The table's display mode, and the refresh that resets it. Task A.5, less the
- * copy toggle D.6 deleted.
+ * The table's display mode, and the refresh that resets its page and selection.
+ * Task A.5, less the copy toggle D.6 deleted.
  *
  * **These are the widget's own actions, and they were misfiled.** Three
  * `toggleCheckboxVisible` configurations and one `refreshTable` sit in the same
@@ -73,24 +73,38 @@ export function useTableModes(config: TableConfig): TableModes {
   };
 }
 
-/** What a table has to be told to do when it refreshes. */
+/**
+ * What a table has to be told to do when it refreshes.
+ *
+ * **No `setRowsPerPage`, and its absence is the point** (jetstore_maintenance
+ * JM-060, 2026-11-05): the page size is the user's choice, and a refresh is not
+ * allowed to touch it. Leaving it out of the interface makes that a type error
+ * rather than a comment.
+ */
 export interface Refreshable {
   setPage(page: number): void;
-  setRowsPerPage(n: number): void;
   clearSelection(): void;
   refresh(): void;
 }
 
 /**
- * `_refreshTable` (`data_table.dart:444`), as one function two callers share.
+ * `_refreshTable` (`data_table.dart:444`), as one function its three callers
+ * share: the table's Refresh button, a watched form-state key changing, and a
+ * write elsewhere asking every table to re-read (`onRefreshRequested`).
  *
- * **It was already implemented once, inline, and incompletely.** A.4c open-codes
- * this sequence in `useTableBinding` for the watched-key path and omits the
- * page-size reset — `rowsPerPage = availableRowsPerPage[0]`, whose `[0]` is the
- * configured size (`data_table.dart:354`), so a user who chose 50 rows goes back
- * to the table's configured 10 when it refreshes. A.5 needs the same sequence
- * for the button, and two copies of a six-step reset is how they drift, so the
- * inline one is replaced by a call to this.
+ * **It departs from the Dart on the page size, deliberately, since 2026-11-05**
+ * (jetstore_maintenance JM-060). The Dart sets
+ * `rowsPerPage = availableRowsPerPage[0]`, whose `[0]` is the configured size
+ * (`data_table.dart:354`), so a user who chose 50 rows went back to the table's
+ * configured 10 on every refresh. This port reproduced that faithfully from A.5
+ * on, and users reported it as the defect it is: a refresh asks for fresh rows,
+ * not for the table's settings to be put back. So the page size the user chose
+ * is kept.
+ *
+ * **The page index still goes back to 0**, as in the Dart. A refresh may return
+ * fewer rows than before, and a table left on page 7 of what is now a two-page
+ * result would show an empty page with nothing saying why; the first page of
+ * fresh rows is the one state that is always valid.
  *
  * The order matters and is the Dart's: clear the published selection *before*
  * re-querying, so nothing downstream reads a selection that belongs to rows
@@ -98,14 +112,12 @@ export interface Refreshable {
  */
 export function refreshTable(
   state: Refreshable,
-  config: TableConfig,
   formState: FormState | undefined,
   field: FormField | undefined,
   formStateConfig: DataTableFormStateConfig | undefined,
 ): void {
   if (formState && field) clearPublishedSelection(formState, field, formStateConfig);
   state.setPage(0);
-  state.setRowsPerPage(config.rowsPerPage);
   state.clearSelection();
   state.refresh();
 }
