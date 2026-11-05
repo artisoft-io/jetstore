@@ -751,6 +751,60 @@ describe("Put Schema Event", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(putPosts(posts)).toHaveLength(0);
   });
+
+  /**
+   * JM-061 (2026-11-05): the dialog kept its text after it closed, because its
+   * field lived in the group the tables share and nothing cleared it. Opening it
+   * again offered the last event, and Save put it a second time.
+   */
+  const box = (dialog: HTMLElement) =>
+    within(dialog).getByLabelText(/Schema Event \(json\)/) as HTMLTextAreaElement;
+
+  async function reopen() {
+    fireEvent.click(button("Put Schema Event"));
+    return screen.findByRole("dialog", { name: "Put Schema Event" });
+  }
+
+  it("opens empty again after a Save, so the same event cannot be put twice by accident", async () => {
+    const { dialog, posts } = await openDialog();
+    fireEvent.change(box(dialog), { target: { value: EVENT } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(putPosts(posts)).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const second = await reopen();
+    expect(box(second).value).toBe("");
+    // And Save on the empty box is refused by the dialog, not sent.
+    fireEvent.click(within(second).getByRole("button", { name: "Save" }));
+    expect(await within(second).findByText(/Please provide a Schema Event json/)).toBeTruthy();
+    expect(putPosts(posts)).toHaveLength(1);
+  });
+
+  it("opens empty again after a Cancel, and without the previous open's field error", async () => {
+    const { dialog } = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText(/Please provide a Schema Event json/)).toBeTruthy();
+    fireEvent.change(box(dialog), { target: { value: EVENT } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const second = await reopen();
+    expect(box(second).value).toBe("");
+    expect(within(second).queryByText(/Please provide a Schema Event json/)).toBeNull();
+  });
+
+  it("re-reads the pipelines table after a Save", async () => {
+    // The `post` step's refresh now lands on the dialog's own state, so the
+    // screen requests one on `ok`; without it the table would not re-read.
+    const { dialog, posts } = await openDialog();
+    const before = readsOf(posts, "pipeline_execution_status").length;
+    fireEvent.change(box(dialog), { target: { value: EVENT } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(readsOf(posts, "pipeline_execution_status").length).toBeGreaterThan(before),
+    );
+  });
 });
 
 /**

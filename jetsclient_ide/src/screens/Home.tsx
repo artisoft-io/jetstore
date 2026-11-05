@@ -273,6 +273,22 @@ export function Home({ api }: { api: ApiClient }) {
   const formState = useMemo(() => new FormState(), []);
   const dialog = useFormDialog();
   /**
+   * The open dialog's own form state, or null when none is open.
+   *
+   * **A new one on every open, since 2026-11-05** (jetstore_maintenance JM-061).
+   * Until then the dialog wrote into `formState`, the group the tables publish
+   * their selections to, and nothing cleared its keys on close. So *Put Schema
+   * Event* reopened holding the json of the previous open, after Save as after
+   * Cancel, and a second Save put the same event again. This is the shape
+   * `FlowRunner`, `RuleConfig`, `UserAdmin` and `ProcessErrors` already use: the
+   * dialog is seeded from its resolved `navigationParams` and nothing else, and
+   * is discarded when it closes. `useFormDialog` deliberately does not own form
+   * state (see `FormDialog.tsx`), which is why this is the screen's to do.
+   */
+  const [dialogState, setDialogState] = useState<FormState | null>(null);
+  /** The state a dialog's fields and actions read: the dialog's while one is open. */
+  const activeState = dialogState ?? formState;
+  /**
    * The text a refused clipboard write fell back to (`R-2`), or null. D04's
    * clipboard buttons hand it to the host's `showText`; `TextDialog` shows it.
    */
@@ -368,6 +384,10 @@ export function Home({ api }: { api: ApiClient }) {
   );
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
+  useEffect(
+    () => (dialogState === null ? undefined : dialogState.subscribe(() => setStateVersion((n) => n + 1))),
+    [dialogState],
+  );
 
   /**
    * Re-render when the shell's client picker moves.
@@ -430,7 +450,7 @@ export function Home({ api }: { api: ApiClient }) {
       },
       validate: () => {
         if (currentForm === null) return true;
-        const found = validateAllGroups(currentForm, formState, GROUP);
+        const found = validateAllGroups(currentForm, activeState, GROUP);
         setErrors(found);
         return found.length === 0;
       },
@@ -475,7 +495,7 @@ export function Home({ api }: { api: ApiClient }) {
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, queryPost, setError, setStatus, dialog.close, prompts],
+    [api, currentForm, activeState, queryPost, setError, setStatus, dialog.close, prompts],
   );
 
   /**
@@ -494,16 +514,18 @@ export function Home({ api }: { api: ApiClient }) {
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this screen's action document`);
       }
+      // The dialog's state while one is open, so *Put Schema Event*'s Save reads
+      // the json typed into this open and no other; the screen's otherwise.
       return runAction({
         action,
         host,
-        formState,
+        formState: activeState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: SCREEN_KEY,
       });
     },
-    [actions, host, formState],
+    [actions, host, activeState],
   );
 
   const onTableAction = useCallback(
@@ -555,22 +577,26 @@ export function Home({ api }: { api: ApiClient }) {
               return;
             }
             case "openDialog": {
-              // The resolved `navigationParams` are seeded into the shared group
-              // before the form opens, because the dialog's fields read them by
-              // key — that is what makes a column index mean anything.
+              // The resolved `navigationParams` are seeded into a *new* state
+              // for this open, because the dialog's fields read them by key —
+              // that is what makes a column index mean anything. They were
+              // seeded into the shared group until JM-061 (2026-11-05), which
+              // is what let a dialog's own fields survive its close.
+              const seeded = new FormState();
               for (const [key, value] of Object.entries(request.params)) {
-                formState.setValue(GROUP, key, value);
+                seeded.setValue(GROUP, key, value);
               }
-              formState.notifyListeners();
+              setDialogState(seeded);
               setErrors([]);
               setBusy(false);
-              await dialog.open({ form: request.form, params: request.params });
-              // **No refresh on close.** `showFailureDetailsDialog` is a viewer
-              // with one Close button and no action document entry, so nothing
-              // it does can have changed a row. C.2b refreshes on `ok` because
-              // its seven dialogs write. *Put Schema Event* (2026-10-01) writes,
-              // and still needs nothing here: its `post` step requests the
-              // refresh itself on a 200, and the run it starts is asynchronous.
+              const outcome = await dialog.open({ form: request.form, params: request.params });
+              setDialogState(null);
+              // **A refresh on `ok`, since JM-061.** `showFailureDetailsDialog`
+              // is a viewer that only ever closes with `cancel`. *Put Schema
+              // Event*'s `post` step still requests a refresh on a 200, but it
+              // now requests it of the dialog's state, which no table watches —
+              // so the screen asks its own.
+              if (outcome === "ok") formState.requestRefresh();
               return;
             }
             case "runActionThenDialog":
@@ -749,7 +775,7 @@ export function Home({ api }: { api: ApiClient }) {
           errors={errors}
           onDismiss={() => dialog.close("cancel")}
           host={{
-            formState,
+            formState: activeState,
             group: GROUP,
             queryRows: () => undefined,
             queriesLoading: false,
