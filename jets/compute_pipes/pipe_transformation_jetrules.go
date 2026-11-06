@@ -69,6 +69,17 @@ func (ctx *JetrulesTransformationPipe) Finally() {
 			ctx.jrPoolManager.WaitForDone.Wait()
 		}
 	}
+	// The workers are done with the engine, release it: it holds the sqlite
+	// connections to workspace.db and lookup.db, which nothing else closes. A
+	// lambda node serves many invocations in one process, so an engine left to
+	// the process keeps its file descriptors until the execution environment is
+	// retired, and a burst of runs reaches the descriptor limit.
+	if ctx.ruleEngine != nil {
+		if err := ctx.ruleEngine.Release(); err != nil {
+			log.Printf("WARNING while releasing the jetrules engine: %v", err)
+		}
+		ctx.ruleEngine = nil
+	}
 	// Note - closing the error channel is moved with closing all the output channels in
 	// the pipe_executor_fan_out.go and pipe_executor_fsplitter.go
 }
@@ -139,6 +150,16 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	if err != nil {
 		return nil, err
 	}
+	// From here the pipe owns the engine and Finally releases it; on an error
+	// before the pipe is returned, nobody else would.
+	pipeBuilt := false
+	defer func() {
+		if !pipeBuilt {
+			if err := ruleEngine.Release(); err != nil {
+				log.Printf("WARNING while releasing the jetrules engine: %v", err)
+			}
+		}
+	}()
 
 	// Create the output channels for each of the exported rdf type
 	jetrulesOutputChan := make([]*JetrulesOutputChan, 0, len(config.OutputChannels))
@@ -285,6 +306,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		errorOutputCh, jetrulesOutputChan, workerResultCh, stats)
 
 	// All good!
+	pipeBuilt = true
 	log.Printf("*** NewJetrulesTransformationPipe: exiting SUCCESS")
 	return &JetrulesTransformationPipe{
 		cpConfig:       ctx.cpConfig,

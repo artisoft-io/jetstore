@@ -227,11 +227,9 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     refreshTable(
       {
         setPage: state.setPage,
-        setRowsPerPage: state.setRowsPerPage,
         clearSelection: state.clearSelection,
         refresh: () => setRefreshToken((t) => t + 1),
       },
-      config,
       formState,
       field,
       config.formStateConfig,
@@ -323,7 +321,9 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
       if (!changed) return;
 
       // `_refreshTable`, shared with the action button rather than open-coded
-      // here — which is how this path came to omit the page-size reset (A.5).
+      // here, so the two cannot drift. A.5 found this path omitting the Dart's
+      // page-size reset and added it; JM-060 (2026-11-05) removed the reset from
+      // both, because the page size is the user's choice (see `refreshTable`).
       restoredFor.current = null;
       doRefresh();
     });

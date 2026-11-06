@@ -38,6 +38,7 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 	// Load the meta graph triples for the native engine
 	wc, err := compute_pipes.GetWorkspaceControl()
 	if err != nil {
+		jsHdhle.ReleaseJetRules()
 		return nil, fmt.Errorf("while loading workspace control: %v", err)
 	}
 	isRuleset := 1
@@ -46,6 +47,8 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 	}
 	_, err = jsHdhle.LoadProcessMetaTriples(processName, isRuleset)
 	if err != nil {
+		// The handle holds the workspace.db connections, release it rather than drop it
+		jsHdhle.ReleaseJetRules()
 		return nil, fmt.Errorf("while loading meta triples for process %s: %v", processName, err)
 	}
 	ruleEngine := &JetRuleEngineNative{

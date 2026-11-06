@@ -448,6 +448,7 @@
         "sync_file_keys",
         "resubmit_pipeline",
         "put_schema_event_to_s3",
+        "start_pending_tasks",
         "save_workspace_client_config",
         "add_workspace_file",
         "delete_workspace_files",

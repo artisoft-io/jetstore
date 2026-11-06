@@ -202,6 +202,14 @@
       "style": "primary",
       "configForm": "putSchemaEventDialog",
       "capability": "run_pipelines"
+    },
+    {
+      "key": "checkPendingTasks",
+      "label": "Check Pending",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "checkPendingTasks",
+      "capability": "run_pipelines"
     }
   ],
   "secondRowActions": [

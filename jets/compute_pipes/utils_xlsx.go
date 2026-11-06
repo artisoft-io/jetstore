@@ -24,6 +24,49 @@ func ParseInputFormatDataXlsx(inputDataFormatJson *string) (map[string]any, erro
 	return inputFormatData, nil
 }
 
+// XlsxSheetPos returns the position of the worksheet that input_format_data_json
+// names with currentSheet, among sheets (the workbook's sheet names, in order).
+// currentSheet is a sheet name, or a position given as a string ("1") or as a
+// number (1). Without currentSheet the first worksheet is read.
+//
+// The header read (GetRawHeadersXlsx) and the row read (ReadXlsxFile) both resolve
+// the sheet here, so they read the same worksheet. The row read used to take a
+// position only from a "currentSheetPos" entry that nothing put in its map, and so
+// read the first worksheet whatever currentSheet said, under headers taken from the
+// named one.
+func XlsxSheetPos(sheets []string, inputFormatData map[string]any) (int, error) {
+	if len(sheets) == 0 {
+		return 0, fmt.Errorf("error: xlsx file has no worksheet")
+	}
+	var pos int
+	switch v := inputFormatData["currentSheet"].(type) {
+	case nil:
+		return 0, nil
+	case float64:
+		pos = int(v)
+		if float64(pos) != v {
+			return 0, fmt.Errorf("error: currentSheet %v is not a worksheet position", v)
+		}
+	case string:
+		var err error
+		pos, err = strconv.Atoi(v)
+		if err != nil {
+			for i := range sheets {
+				if v == sheets[i] {
+					return i, nil
+				}
+			}
+			return 0, fmt.Errorf("error: could not find sheet named %s in xlsx file", v)
+		}
+	default:
+		return 0, fmt.Errorf("error: currentSheet must be a sheet name or position, got %v", v)
+	}
+	if pos < 0 || pos >= len(sheets) {
+		return 0, fmt.Errorf("error: currentSheet %d is out of range, the xlsx file has %d worksheet(s)", pos, len(sheets))
+	}
+	return pos, nil
+}
+
 func GetRawHeadersXlsx(failOnEmptyColumnName bool, fileName string, fileFormatDataJson string) ([]string, error) {
 	// Parse the file type specific options
 	inputFormatData, err := ParseInputFormatDataXlsx(&fileFormatDataJson)
@@ -39,27 +82,10 @@ func GetRawHeadersXlsx(failOnEmptyColumnName bool, fileName string, fileFormatDa
 	}
 	defer xl.Close()
 
-	// Get the current sheet name or pos
-	currentSheet := inputFormatData["currentSheet"]
-	currentSheetPos := 0
-	if currentSheet == nil {
-		inputFormatData["currentSheetPos"] = 0
-	} else {
-		sheet := currentSheet.(string)
-		currentSheetPos, err = strconv.Atoi(sheet)
-		if err != nil {
-			currentSheetPos = -1
-			for i := range xl.Sheets {
-				if sheet == xl.Sheets[i] {
-					currentSheetPos = i
-				}
-			}
-			if currentSheetPos < 0 {
-				// Current Sheet not found
-				return nil, fmt.Errorf("error: could not find sheet named %s in xlsx file", sheet)
-			}
-		}
-		inputFormatData["currentSheetPos"] = currentSheetPos
+	// Get the current sheet, by name or position
+	currentSheetPos, err := XlsxSheetPos(xl.Sheets, inputFormatData)
+	if err != nil {
+		return nil, err
 	}
 
 	// Read the file headers

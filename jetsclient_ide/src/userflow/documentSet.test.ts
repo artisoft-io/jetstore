@@ -335,9 +335,12 @@ describe("a table action naming something the set does not define", () => {
     // *Put Schema Event* (`D01`, task `AD.3`) opens `putSchemaEventDialog`. It is
     // taken off the clone so that what follows is still about the second row
     // alone, which is this case's subject; the first-row walk is the case above.
-    expect(execStatus.actions!.filter((a) => a.actionName ?? a.configForm).map((a) => a.configForm)).toEqual([
-      "putSchemaEventDialog",
-    ]);
+    //
+    // **Two since 2026-11-05**: *Check Pending* runs `checkPendingTasks`
+    // (jetstore_maintenance JM-062), taken off for the same reason.
+    expect(
+      execStatus.actions!.filter((a) => a.actionName ?? a.configForm).map((a) => a.actionName ?? a.configForm),
+    ).toEqual(["putSchemaEventDialog", "checkPendingTasks"]);
     execStatus.actions = execStatus.actions!.filter((a) => !(a.actionName ?? a.configForm));
     // **And a third row since the same day** (`D04`, `AE.4`, `AE.5`), taken off for
     // the same reason; `datatable/table.test.ts`'s `thirdRowActions` block is where
