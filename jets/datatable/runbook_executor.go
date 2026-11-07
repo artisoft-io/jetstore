@@ -549,8 +549,7 @@ func (e *RunbookExecutor) advance(ctx context.Context, tx pgx.Tx, run *rbRun, lr
 		if err := auditStep(ctx, tx, run, rrow, audit.EventOutcome, "failed", by, msg); err != nil {
 			return nil, err
 		}
-		e.failRun(run, rep, rep.ID+": "+msg)
-		return nil, nil
+		return nil, e.failRun(ctx, tx, run, rep, rep.ID+": "+msg, by, false)
 	}
 	done := false
 	if rep.Until != nil {
@@ -598,14 +597,20 @@ func (e *RunbookExecutor) nextIteration(ctx context.Context, tx pgx.Tx, run *rbR
 	return insertStep(ctx, tx, run, lr, rep.Steps[0], iteration, runbook.StepPending, by, "pending")
 }
 
-// failRun applies a failed step's on_fail to its run.
-func (e *RunbookExecutor) failRun(run *rbRun, step *runbook.Step, msg string) {
+// failRun applies a failed step's on_fail to its run; refused is a capability
+// refusal, which pauses the run whatever on_fail says. A run that ends failed
+// records run_failed in its audit chain, as a run that ends completed records
+// run_completed and an aborted one aborted, so the chain says how every run
+// ended (the step's own failed event carries the error).
+func (e *RunbookExecutor) failRun(ctx context.Context, tx pgx.Tx, run *rbRun, step *runbook.Step,
+	msg, actor string, refused bool) error {
 	run.LastError = &msg
-	if step != nil && step.OnFailOrDefault() == runbook.OnFailPause {
+	if refused || (step != nil && step.OnFailOrDefault() == runbook.OnFailPause) {
 		run.Status = runbook.RunPaused
-	} else {
-		run.Status = runbook.RunFailed
+		return nil
 	}
+	run.Status = runbook.RunFailed
+	return auditStep(ctx, tx, run, nil, audit.EventOutcome, "run_failed", actor, "")
 }
 
 // --- one step -------------------------------------------------------------------
@@ -673,8 +678,9 @@ func (e *RunbookExecutor) decide(ctx context.Context, tx pgx.Tx, key int64) (boo
 	}
 	lr, err := run.pinned()
 	if err != nil {
-		msg := err.Error()
-		run.Status, run.LastError = runbook.RunFailed, &msg
+		if err = e.failRun(ctx, tx, run, nil, err.Error(), run.ActingUser, false); err != nil {
+			return false, nil, err
+		}
 		return true, nil, saveRun(ctx, tx, run)
 	}
 	act := activeStep(steps)
@@ -806,9 +812,8 @@ func (e *RunbookExecutor) failStep(ctx context.Context, tx pgx.Tx, run *rbRun, a
 	if err := auditStep(ctx, tx, run, act, audit.EventOutcome, "failed", actor, msg); err != nil {
 		return err
 	}
-	e.failRun(run, step, step.ID+": "+msg)
-	if refused {
-		run.Status = runbook.RunPaused
+	if err := e.failRun(ctx, tx, run, step, step.ID+": "+msg, actor, refused); err != nil {
+		return err
 	}
 	return saveRun(ctx, tx, run)
 }
@@ -1337,7 +1342,9 @@ func (e *RunbookExecutor) recordFailureWith(conn *pgx.Conn, key int64, act *rbSt
 			return err
 		}
 		if run.Status == runbook.RunRunning {
-			e.failRun(run, step, step.ID+": "+msg)
+			if err = e.failRun(ctx, tx, run, step, step.ID+": "+msg, actor, false); err != nil {
+				return err
+			}
 		}
 		return saveRun(ctx, tx, run)
 	})

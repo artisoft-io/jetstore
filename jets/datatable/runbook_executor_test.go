@@ -467,6 +467,11 @@ func TestRunbookQueryIsReadOnly(t *testing.T) {
 	if f.count(`SELECT count(*) FROM public.rbk_target`) != 0 {
 		t.Fatal("the query wrote")
 	}
+	// The chain says how the run ended, as it does for a completed run.
+	if n := f.count(`SELECT count(*) FROM jetsapi.agent_audit WHERE run_id = $1 AND payload->>'transition' = 'run_failed'`,
+		runbookAuditRunID(key)); n != 1 {
+		t.Fatalf("run_failed events = %d, want 1", n)
+	}
 }
 
 // Statements no runbook may send are refused before anything runs.
@@ -783,6 +788,18 @@ func TestRunbookReleaseThenExport(t *testing.T) {
 		result.Steps[0].SQLHash != sha256Of(`SELECT 1 AS n`) || result.Steps[1].Decision == nil || len(result.Revisions) != 1 {
 		t.Fatalf("result = %+v", result)
 	}
+	// Every time in the result is UTC, whatever the apiserver's zone (run the
+	// test with a TZ other than UTC to exercise it: pgx reads a timestamptz in
+	// the local zone).
+	times := []*time.Time{&result.StartedAt, result.FinishedAt, result.ReleasedAt}
+	for i := range result.Steps {
+		times = append(times, result.Steps[i].StartedAt, result.Steps[i].FinishedAt)
+	}
+	for i, tm := range times {
+		if tm != nil && tm.Location() != time.UTC {
+			t.Fatalf("time %d of the result is in %s, not UTC", i, tm.Location())
+		}
+	}
 	b, _ := json.Marshal(result)
 	var back runbook.Result
 	if err = json.Unmarshal(b, &back); err != nil || back.Format != runbook.ResultFormatVersion {
@@ -870,7 +887,10 @@ func TestRunbookStartRefusals(t *testing.T) {
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "edit", nil)
 	wantStatus(t, err, http.StatusConflict, "compile")
 	_, err = f.exec.StartRun(f.ctx, rbkKE, "other_ws", "edit", nil)
-	wantStatus(t, err, http.StatusBadRequest, "not the active workspace")
+	wantStatus(t, err, http.StatusBadRequest, "is not the active workspace")
+	if strings.Contains(err.Error(), "compile") {
+		t.Fatalf("the refusal speaks of compiles: %v", err)
+	}
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "../etc", nil)
 	wantStatus(t, err, http.StatusBadRequest, "not a runbook name")
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "absent", nil)

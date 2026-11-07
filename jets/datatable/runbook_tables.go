@@ -354,7 +354,19 @@ func stepView(s *rbStep) map[string]any {
 	}
 }
 
-// resultOf is the `.rbr.json` document of a run (§3.5).
+// utcOrNil is a time in UTC. pgx reads a timestamptz in the process's local
+// zone, so without it the result's times carried the apiserver's offset
+// beside started_at's Z: one document, two zones.
+func utcOrNil(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
+}
+
+// resultOf is the `.rbr.json` document of a run (§3.5). Every time in it is
+// UTC, as /runbook's views write them.
 func resultOf(r *rbRun, steps []*rbStep) (*runbook.Result, error) {
 	res := &runbook.Result{
 		Format:      runbook.ResultFormatVersion,
@@ -367,8 +379,8 @@ func resultOf(r *rbRun, steps []*rbStep) (*runbook.Result, error) {
 		Revisions:   r.Revisions,
 		StartedBy:   r.StartedBy,
 		StartedAt:   r.StartedAt.UTC(),
-		FinishedAt:  r.FinishedAt,
-		ReleasedAt:  r.ReleasedAt,
+		FinishedAt:  utcOrNil(r.FinishedAt),
+		ReleasedAt:  utcOrNil(r.ReleasedAt),
 		Steps:       []runbook.StepRecord{},
 	}
 	if r.ReleasedBy != nil {
@@ -389,8 +401,8 @@ func resultOf(r *rbRun, steps []*rbStep) (*runbook.Result, error) {
 			Status:     s.Status,
 			Decision:   s.Decision,
 			Truncated:  s.Truncated,
-			StartedAt:  s.StartedAt,
-			FinishedAt: s.FinishedAt,
+			StartedAt:  utcOrNil(s.StartedAt),
+			FinishedAt: utcOrNil(s.FinishedAt),
 			Error:      s.Error,
 		}
 		if s.SQLHash != nil {

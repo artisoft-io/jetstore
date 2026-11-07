@@ -79,12 +79,24 @@ func (e *RunbookExecutor) runbookEnvironment(ctx context.Context, workspaceName 
 	return env
 }
 
+// runbookWorkspaceRefusal refuses a workspace that is not this server's active
+// one. It is activeWorkspaceRefusal's test with a runbook's reason: that one
+// speaks of compiles and rules unit tests, which told a person opening another
+// workspace's runbooks something true of neither.
+func runbookWorkspaceRefusal(workspaceName string) error {
+	if activeWorkspaceRefusal(workspaceName) == nil {
+		return nil
+	}
+	return fmt.Errorf("workspace %q is not the active workspace %q: this server reads and runs only "+
+		"its active workspace's runbooks, from that workspace's runbooks folder", workspaceName, activeWorkspace())
+}
+
 // --- reads --------------------------------------------------------------------
 
 // ListRunbooks is the active workspace's runbooks, each validated, with its
 // last run.
 func (e *RunbookExecutor) ListRunbooks(ctx context.Context, workspaceName string) (*map[string]any, error) {
-	if err := activeWorkspaceRefusal(workspaceName); err != nil {
+	if err := runbookWorkspaceRefusal(workspaceName); err != nil {
 		return nil, &RunbookError{Status: http.StatusBadRequest, Message: err.Error()}
 	}
 	names, err := listRunbookNames(workspaceName)
@@ -133,7 +145,7 @@ func (e *RunbookExecutor) ListRunbooks(ctx context.Context, workspaceName string
 
 // GetRunbook is one runbook decoded, its findings and its SQL files' text.
 func (e *RunbookExecutor) GetRunbook(ctx context.Context, workspaceName, name string) (*map[string]any, error) {
-	if err := activeWorkspaceRefusal(workspaceName); err != nil {
+	if err := runbookWorkspaceRefusal(workspaceName); err != nil {
 		return nil, &RunbookError{Status: http.StatusBadRequest, Message: err.Error()}
 	}
 	lr, err := loadRunbookFromDisk(workspaceName, name)
@@ -204,7 +216,7 @@ func (e *RunbookExecutor) GetRun(ctx context.Context, key int64) (*map[string]an
 // runbook is running or paused.
 func (e *RunbookExecutor) StartRun(ctx context.Context, actor, workspaceName, name string,
 	given map[string]json.RawMessage) (*map[string]any, error) {
-	if err := activeWorkspaceRefusal(workspaceName); err != nil {
+	if err := runbookWorkspaceRefusal(workspaceName); err != nil {
 		return nil, &RunbookError{Status: http.StatusBadRequest, Message: err.Error()}
 	}
 	lr, err := loadRunbookFromDisk(workspaceName, name)
@@ -318,7 +330,7 @@ func (e *RunbookExecutor) control(ctx context.Context, key int64, fn func(tx pgx
 	if err != nil {
 		return nil, err
 	}
-	if err = activeWorkspaceRefusal(run.WorkspaceName); err != nil {
+	if err = runbookWorkspaceRefusal(run.WorkspaceName); err != nil {
 		return nil, &RunbookError{Status: http.StatusBadRequest, Message: err.Error()}
 	}
 	steps, err := loadSteps(ctx, tx, key)
