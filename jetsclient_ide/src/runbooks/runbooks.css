@@ -6,7 +6,14 @@
  * `styles.css`.
  */
 
+/* `position: relative` makes this scroller the containing block of the screen-
+   reader captions (`.sr-only`, absolutely positioned) inside its tables. Without
+   it they were placed against the page, thousands of pixels down, and the whole
+   page scrolled as well as this box: two scrollbars, one inside the other
+   (measured 2026-11-07 on a deployed stack: the page 7,994 px tall in a 1,007 px
+   window, and 1,007 with this line). */
 .runbook-detail {
+  position: relative;
   overflow: auto;
   padding: 12px 16px 32px;
 }
@@ -179,4 +186,16 @@
 .runbook-edit {
   font-size: 13px;
   margin: 12px 0;
+}
+
+/* A run is opened from a button labelled with its number, not from a bare
+   number: easier to see and to hit (Michel, 2026-11-07). */
+.runbook-run-btn {
+  display: inline-block;
+  min-width: 3ch;
+  padding: 2px 9px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: center;
+  text-decoration: none;
 }
