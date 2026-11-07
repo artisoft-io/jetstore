@@ -25,7 +25,11 @@ import (
 // **Change the section table and this test fails; update only this constant and
 // the Dart test fails.** That is the whole mechanism, and it is the corpus
 // pattern the Flutter suite already uses, generated from the other end.
-const expectedDeclarationChecksum = "fnv1a32:b15ab833"
+//
+// `runbooks=` added 2026-11-06 (runbooks Phase 1, `AA.4`), the tenth section:
+// fnv1a32:b15ab833 became fnv1a32:d2805ee9. The copy in
+// jetsclient_ide/src/screens/sectionContract.ts moves with it.
+const expectedDeclarationChecksum = "fnv1a32:d2805ee9"
 
 // fnv1a32 matches jetsclient/test/corpus_support.dart's `checksum`, which is
 // hand-rolled there for the same reason it is hand-rolled here: this is drift
@@ -379,5 +383,55 @@ func TestReadmesAreListedReadOnly(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "read_only") {
 		t.Errorf("a writable file node encodes as %s, want no read_only", encoded)
+	}
+}
+
+// The `runbooks` section (runbooks Phase 1, AA.4) lists a runbook and its
+// steps' SQL in the runbook's own folder, and nothing else there: not a run's
+// result, which is never a workspace file, nor a stray file.
+func TestRunbooksAreListedWithTheirSql(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "runbooks", "health_check"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		"runbooks/health_check.rb.json",
+		"runbooks/health_check/recent.sql",
+		"runbooks/health_check.rbr.json",
+		"runbooks/notes.txt",
+	} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	nodes, err := BuildWorkspaceFileStructure(root, "ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var section *WorkspaceNode
+	for _, n := range nodes {
+		if n.Key == "runbooks" {
+			section = n
+		}
+	}
+	if section == nil || section.Type != "section" || section.Label != "Runbooks" || section.CompiledView != "" {
+		t.Fatalf("runbooks section: %+v", section)
+	}
+	var files []string
+	var walk func(*WorkspaceNode)
+	walk = func(n *WorkspaceNode) {
+		if n.Type == "file" {
+			files = append(files, n.RouteParams["file_name"])
+		}
+		if n.Children != nil {
+			for _, c := range *n.Children {
+				walk(c)
+			}
+		}
+	}
+	walk(section)
+	want := "runbooks%2Fhealth_check%2Frecent.sql,runbooks%2Fhealth_check.rb.json" // the folder's node sorts first
+	if got := strings.Join(files, ","); got != want {
+		t.Errorf("runbooks files: got %s, want %s", got, want)
 	}
 }

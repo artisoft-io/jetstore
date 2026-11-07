@@ -40,6 +40,11 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"jet_rules/optimizer_statistics.json":   true,
 		"jet_rules/A.optimizer_statistics.json": true, // a statistics process's own file
 		"jet_rules/main.jr.json":                false,
+		// The eighth row (runbooks AA.4). A runbook's SQL goes through `.sql`.
+		"runbooks/health_check.rb.json":     true,
+		"runbooks/health_check/recent.sql":  true,
+		"runbooks/health_check.rbr.json":    false, // a run's result is never a workspace file
+		"runbooks/health_check.rb.json.bak": false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -416,5 +421,38 @@ func TestSaveCheckRefusesAStatisticsFileTheCompilerWouldRefuse(t *testing.T) {
 		if err := checkWorkspaceFile(optstats.FileName, content); err == nil {
 			t.Errorf("%s was accepted", name)
 		}
+	}
+}
+
+// The `.rb.json` row (runbooks Phase 1, AA.4): the save path reaches
+// runbook.ValidateFile, refuses what it refuses with the JSON Pointer in the
+// message, and saves a runbook whose SQL files it cannot see.
+func TestRunbookGoesThroughTheSavePath(t *testing.T) {
+	const good = `{"format": 1, "runbook": "health_check",
+	  "parameters": {"since_utc": {"type": "timestamp"}},
+	  "steps": [
+	    {"id": "recent", "type": "query", "returns": {"n": "integer"}},
+	    {"id": "scratch", "type": "ddl", "preview": true}
+	  ]}`
+	if err := checkWorkspaceFile("runbooks/health_check.rb.json", good); err != nil {
+		t.Fatalf("a valid runbook must save: %v", err)
+	}
+	// Every ddl pauses for a person: a runbook that turns it off does not save.
+	unconfirmed := strings.Replace(good, `"preview": true`, `"confirm": false`, 1)
+	err := checkWorkspaceFile("runbooks/health_check.rb.json", unconfirmed)
+	if err == nil {
+		t.Fatal("a ddl with confirm false must not save")
+	}
+	if !strings.Contains(err.Error(), "/steps/1/confirm") {
+		t.Errorf("the message should carry the pointer, got %v", err)
+	}
+	// Strict: a misspelt field is refused rather than ignored.
+	misspelt := strings.Replace(good, `"preview"`, `"preveiw"`, 1)
+	if err := checkWorkspaceFile("runbooks/health_check.rb.json", misspelt); err == nil {
+		t.Fatal("an unknown field must not save")
+	}
+	// A runbook's SQL file is checked lexically, as every workspace .sql is.
+	if err := checkWorkspaceFile("runbooks/health_check/recent.sql", "SELECT 'open"); err == nil {
+		t.Fatal("an unterminated string in a runbook's SQL must not save")
 	}
 }
