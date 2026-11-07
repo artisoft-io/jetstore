@@ -887,7 +887,10 @@ func TestRunbookStartRefusals(t *testing.T) {
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "edit", nil)
 	wantStatus(t, err, http.StatusConflict, "compile")
 	_, err = f.exec.StartRun(f.ctx, rbkKE, "other_ws", "edit", nil)
-	wantStatus(t, err, http.StatusBadRequest, "not the active workspace")
+	wantStatus(t, err, http.StatusBadRequest, "is not the active workspace")
+	if strings.Contains(err.Error(), "compile") {
+		t.Fatalf("the refusal speaks of compiles: %v", err)
+	}
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "../etc", nil)
 	wantStatus(t, err, http.StatusBadRequest, "not a runbook name")
 	_, err = f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "absent", nil)
