@@ -467,6 +467,11 @@ func TestRunbookQueryIsReadOnly(t *testing.T) {
 	if f.count(`SELECT count(*) FROM public.rbk_target`) != 0 {
 		t.Fatal("the query wrote")
 	}
+	// The chain says how the run ended, as it does for a completed run.
+	if n := f.count(`SELECT count(*) FROM jetsapi.agent_audit WHERE run_id = $1 AND payload->>'transition' = 'run_failed'`,
+		runbookAuditRunID(key)); n != 1 {
+		t.Fatalf("run_failed events = %d, want 1", n)
+	}
 }
 
 // Statements no runbook may send are refused before anything runs.
