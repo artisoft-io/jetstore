@@ -249,7 +249,13 @@ export function RunbooksScreen({ api }: { api: ApiClient }) {
                     <td>
                       {r.last_run ? (
                         <>
-                          <Link to={runPath(r.last_run.run_key)}>run {r.last_run.run_key}</Link>{" "}
+                          <Link
+                            to={runPath(r.last_run.run_key)}
+                            className="btn runbook-run-btn"
+                            aria-label={`Open run ${r.last_run.run_key}`}
+                          >
+                            run {r.last_run.run_key}
+                          </Link>{" "}
                           <span className="pill">{statusLabel(r.last_run.status)}</span>
                           <div className="empty-sub">{r.last_run.started_at}</div>
                         </>
@@ -294,7 +300,13 @@ export function RunbooksScreen({ api }: { api: ApiClient }) {
                 {runs.map((run) => (
                   <tr key={run.run_key}>
                     <th scope="row">
-                      <Link to={runPath(run.run_key)}>{run.run_key}</Link>
+                      <Link
+                        to={runPath(run.run_key)}
+                        className="btn runbook-run-btn"
+                        aria-label={`Open run ${run.run_key}`}
+                      >
+                        {run.run_key}
+                      </Link>
                     </th>
                     <td>
                       <code>{run.runbook}</code>

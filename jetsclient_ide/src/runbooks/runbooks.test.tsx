@@ -289,10 +289,10 @@ describe("the runbooks screen", () => {
       list_runs: { body: { runs: [runWith("completed", [], { run_key: 11, finished_at: "2026-11-06T17:59:00Z" })] } },
     });
     renderAt(api, "/workspaces/jets_ws/runbooks");
-    expect((await screen.findByRole("link", { name: "run 12" })).getAttribute("href")).toBe("/runbooks/run/12");
+    expect((await screen.findByRole("link", { name: "Open run 12" })).getAttribute("href")).toBe("/runbooks/run/12");
     await screen.findByText(/confirm: false is not allowed/);
     expect(screen.getByText("invalid")).toBeTruthy();
-    expect((screen.getByRole("link", { name: "11" })).getAttribute("href")).toBe("/runbooks/run/11");
+    expect((screen.getByRole("link", { name: "Open run 11" })).getAttribute("href")).toBe("/runbooks/run/11");
     expect(actions("list_runbooks")[0]!.body["workspace_name"]).toBe("jets_ws");
     // An invalid runbook cannot be started.
     expect((screen.getByRole("button", { name: "Start broken_one" }) as HTMLButtonElement).disabled).toBe(true);
