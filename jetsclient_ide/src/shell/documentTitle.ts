@@ -87,6 +87,9 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   ["/incidents", "Incidents"],
   ["/incidents/:incidentId", "Incident"],
   ["/detection", "Detection"],
+  ["/runbooks", "Runbooks"],
+  ["/workspaces/:workspace_name/runbooks", "Runbooks"],
+  ["/runbooks/run/:run_key", "Runbook run"],
   // The flow's own title replaces this as soon as the document loads; see above.
   ["/flow/:key", "Flow"],
   ["/git-profile", "Git Profile"],

@@ -26,6 +26,9 @@ import { IncidentsScreen } from "./incidents/IncidentsScreen";
 import { DetectionScreen } from "./detection/DetectionScreen";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
+import { RUNBOOK_EXECUTE } from "./runbooks/api";
+import { RunbooksScreen } from "./runbooks/RunbooksScreen";
+import { RunScreen } from "./runbooks/RunScreen";
 import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
@@ -109,6 +112,10 @@ export const NAV: NavEntry[] = [
   // agentic_ai I-861: whether the detectors ran, and running them now. The
   // screen is in `detection/`.
   { to: "/detection", label: "Detection", capability: AGENT_SUPERVISION },
+  // The `runbooks` project's screens (Phase 1, task AC.4). The entry and the
+  // three routes below are this file's whole knowledge of them; the screens are
+  // in `runbooks/`, and `/runbook` refuses every action without the capability.
+  { to: "/runbooks", label: "Runbooks", capability: RUNBOOK_EXECUTE },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
     `workspaceRegistryMenuEntries` and declares no capability of its own
@@ -291,6 +298,15 @@ export default function App() {
           <Route path="incidents" element={<IncidentsScreen api={api} />} />
           <Route path="incidents/:incidentId" element={<IncidentScreen api={api} />} />
           <Route path="detection" element={<DetectionScreen api={api} />} />
+          {/*
+            Workspace runbooks (`runbooks` Phase 1, AC.4). Two routes for the
+            list, as the Workspace IDE has: the bare one picks a workspace, the
+            workspace one is what the picker navigates to. The run is addressed
+            by its key alone, because a run row names its workspace.
+          */}
+          <Route path="runbooks" element={<RunbooksScreen api={api} />} />
+          <Route path="workspaces/:workspace_name/runbooks" element={<RunbooksScreen api={api} />} />
+          <Route path="runbooks/run/:run_key" element={<RunScreen api={api} />} />
           {/*
             The route the Flutter app has been handing users to since S.8, and
             which nothing registered until F.0a — so the handoff fell through to
