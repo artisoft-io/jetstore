@@ -211,6 +211,28 @@ describe("the served-screen map", () => {
     expect(reactFlowRoute("/workspaces/rulesUnitTestUF/:workspace_name", {})).toBeNull();
   });
 
+  it("opens Pull Workspace for a workspace with no feature branch, and still refuses a missing required one", () => {
+    const pull = "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri";
+    const row = {
+      key: "1592",
+      workspace_name: "jets_ws",
+      workspace_branch: "jets_ai",
+      workspace_uri: "https://github.com/artisoft-io/jets_ws",
+    };
+    for (const feature_branch of [undefined, ""]) {
+      const params: Record<string, string> = { ...row };
+      if (feature_branch !== undefined) params.feature_branch = feature_branch;
+      const to = reactFlowRoute(pull, params);
+      expect(to).not.toBeNull();
+      const query = new URLSearchParams(to!.split("?")[1]);
+      expect(to!.startsWith("/flow/workspacePullUF?")).toBe(true);
+      expect(query.get("feature_branch")).toBe("");
+      expect(query.get("workspace_uri")).toBe(row.workspace_uri);
+    }
+    expect(reactFlowRoute(pull, { ...row, feature_branch: "f1" })).toContain("feature_branch=f1");
+    expect(reactFlowRoute(pull, { ...row, workspace_branch: "" })).toBeNull();
+  });
+
   it("returns null for a template neither app routes, and for none at all", () => {
     expect(reactScreenPath("/noSuchScreen", {})).toBeNull();
     expect(reactScreenPath(undefined, {})).toBeNull();
