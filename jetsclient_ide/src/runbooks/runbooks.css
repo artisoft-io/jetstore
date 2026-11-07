@@ -1,0 +1,182 @@
+/*
+ * Styles for the runbook screens (`runbooks` project, Phase 1, track AC).
+ *
+ * A file of its own, as `proposals.css` is: every colour is one of the app's
+ * custom properties, so light and dark follow the theme, and nothing is added to
+ * `styles.css`.
+ */
+
+.runbook-detail {
+  overflow: auto;
+  padding: 12px 16px 32px;
+}
+
+.runbook-detail h2 {
+  font-family: var(--mono);
+  font-size: 16px;
+  margin: 4px 0 12px;
+}
+
+.runbook-detail h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin: 22px 0 8px;
+}
+
+.runbook-detail h4 {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin: 10px 0 4px;
+}
+
+.runbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.runbook-table th,
+.runbook-table td {
+  text-align: left;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.runbook-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.runbook-values {
+  width: auto;
+}
+
+.runbook-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.runbook-facts dt {
+  color: var(--ink-3);
+}
+
+.runbook-facts dd {
+  margin: 0;
+}
+
+.runbook-pair {
+  display: contents;
+}
+
+.runbook-findings,
+.runbook-plain,
+.runbook-preview {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+
+.finding-error {
+  color: var(--danger);
+}
+
+.finding-warning {
+  color: var(--warn);
+}
+
+.runbook-type {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.runbook-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.runbook-step {
+  border-left: 2px solid var(--rule-2);
+  padding: 2px 0 12px 12px;
+  margin: 0 0 8px;
+}
+
+.runbook-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.runbook-seq {
+  font-family: var(--mono);
+  color: var(--ink-3);
+  min-width: 2ch;
+}
+
+.runbook-desc,
+.runbook-message,
+.runbook-timing,
+.runbook-decision {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.runbook-message {
+  white-space: pre-wrap;
+}
+
+.runbook-error {
+  color: var(--danger);
+}
+
+.runbook-pre {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 8px 10px;
+  margin: 4px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.runbook-panel {
+  border: 1px solid var(--rule-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: var(--surface-2);
+}
+
+/* The step a person must decide on: the one place on the screen that asks. */
+.runbook-confirm {
+  border-color: var(--warn);
+}
+
+.runbook-statement {
+  background: var(--surface);
+}
+
+.runbook-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.runbook-edit {
+  font-size: 13px;
+  margin: 12px 0;
+}
