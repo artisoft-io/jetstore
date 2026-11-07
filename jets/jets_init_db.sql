@@ -70,6 +70,14 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     data in a healthcare deployment rather than an engineering one, and
 --	                     redacted-for-everybody is the safe default while it is unmade. Grant it
 --	                     from the roles screen, or add a row below and say who decided.
+--	- runbook_execute:   List, start and control the active workspace's runbooks, accept or deny a
+--	                     runbook's ddl, and release a run's result for export
+--	                     (jets/apiserver/api_runbook.go). Not the authority to run what a step does:
+--	                     each step also needs its own capability when it runs, as the person who
+--	                     started or resumed the run, or who accepted the step -- jetstore_read for a
+--	                     query or wait, workspace_ide for a ddl or a compile, run_pipelines for the
+--	                     pipeline steps. Its own capability so it can be granted without the rest.
+--	                     Granted to knowledge_engineer (runbooks project, Q-5, 2026-11-06).
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),
@@ -87,6 +95,7 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'infer_server_admin'),
   ('knowledge_engineer', 'agent_supervision'),
   ('knowledge_engineer', 'agent_phi_access'),
+  ('knowledge_engineer', 'runbook_execute'),
   ('system_role', 'run_pipelines')
 ;
 
