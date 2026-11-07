@@ -590,6 +590,21 @@ func listenAndServe() error {
 	// sweep so nothing it starts can be swept. Rules unit tests project, AC.3.
 	datatable.SetRulesUnitTestExecutor(datatable.NewRulesUnitTestPool(datatable.RulesUnitTestPoolConfigFromEnv()))
 
+	// The workspace runbook executor (runbooks project, AB), installed after its
+	// own start-up sweep: a step left running by a stopped apiserver is marked
+	// interrupted and its run paused, and nothing reruns on its own. The sweep
+	// leaves alone a run another live apiserver task is driving.
+	runbookExec := datatable.NewRunbookExecutor(server.dbpool,
+		datatable.RunbookDataTableOps{Ctx: datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)},
+		nil)
+	if n, err := runbookExec.SweepInterrupted(context.Background()); err != nil {
+		log.Println("Warning: while sweeping interrupted runbook steps:", err)
+	} else if n > 0 {
+		log.Printf("Swept interrupted work: %d runbook step(s) interrupted, their runs paused", n)
+	}
+	datatable.SetRunbookExecutor(runbookExec)
+	runbookExec.Start(context.Background())
+
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
@@ -703,6 +718,16 @@ func listenAndServe() error {
 		AllowedHeaders: "Content-Type, Authorization"}
 	server.Router.HandleFunc("/agentic", agenticOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/agentic", jsonh(corsh(authh(server.DoAgenticAction)))).Methods("POST")
+
+	// Workspace runbooks (runbooks project, AB): list, run and control the
+	// active workspace's runbooks. authh validates the token only; the
+	// runbook_execute capability is checked inside DoRunbookAction, and each
+	// step checks its own capability when it runs.
+	runbookOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/runbook", runbookOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/runbook", jsonh(corsh(authh(server.DoRunbookAction)))).Methods("POST")
 
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
