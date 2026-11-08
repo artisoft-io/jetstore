@@ -580,7 +580,14 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 // seed. It is not vacuous: it is what a *second* role granted agent_supervision
 // and not agent_phi_access will meet, and a deployment that wants supervision
 // without disclosure now has a mechanism rather than a request.
-func TestAgentPHIAccessCapabilityIsGrantedToExactlyKnowledgeEngineer(t *testing.T) {
+//
+// **Widened deliberately on 2026-11-07, to designated_admin**, the role that holds
+// every knowledge_engineer capability plus delete_session and user_admin. The
+// session_registry assessment took it as a decision rather than a side effect, and
+// the user accepted it: designated_admin is a knowledge engineer with more
+// authority, not less trusted with client data. So two roles, named, and still no
+// third without editing this test.
+func TestAgentPHIAccessCapabilityIsGrantedToExactlyTheDecidedRoles(t *testing.T) {
 	sql, err := os.ReadFile("../jets_init_db.sql")
 	if err != nil {
 		t.Fatalf("reading jets_init_db.sql: %v", err)
@@ -588,15 +595,21 @@ func TestAgentPHIAccessCapabilityIsGrantedToExactlyKnowledgeEngineer(t *testing.
 	if !strings.Contains(string(sql), fmt.Sprintf("- %s:", AgentPHIAccessCapability)) {
 		t.Errorf("jets_init_db.sql does not document the %q capability", AgentPHIAccessCapability)
 	}
-	grant := fmt.Sprintf("('knowledge_engineer', '%s')", AgentPHIAccessCapability)
-	if !strings.Contains(string(sql), grant) {
-		t.Errorf("jets_init_db.sql does not grant %q to knowledge_engineer; the user took that "+
-			"decision on 2026-09-04 (Q-42)", AgentPHIAccessCapability)
+	decided := map[string]string{
+		"knowledge_engineer": "2026-09-04 (Q-42)",
+		"designated_admin":   "2026-11-07 (session_registry, R9)",
 	}
-	if n := strings.Count(string(sql), fmt.Sprintf("'%s')", AgentPHIAccessCapability)); n != 1 {
-		t.Errorf("jets_init_db.sql grants %q to %d roles, expected exactly 1 (knowledge_engineer). "+
-			"Widening it is a policy decision (Q-42): take it deliberately and update this test",
-			AgentPHIAccessCapability, n)
+	for role, when := range decided {
+		grant := fmt.Sprintf("('%s', '%s')", role, AgentPHIAccessCapability)
+		if !strings.Contains(string(sql), grant) {
+			t.Errorf("jets_init_db.sql does not grant %q to %s; the user took that decision on %s",
+				AgentPHIAccessCapability, role, when)
+		}
+	}
+	if n := strings.Count(string(sql), fmt.Sprintf("'%s')", AgentPHIAccessCapability)); n != len(decided) {
+		t.Errorf("jets_init_db.sql grants %q to %d roles, expected exactly %d (knowledge_engineer, "+
+			"designated_admin). Widening it is a policy decision (Q-42): take it deliberately and "+
+			"update this test", AgentPHIAccessCapability, n, len(decided))
 	}
 }
 
