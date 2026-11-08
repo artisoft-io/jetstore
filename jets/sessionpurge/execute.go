@@ -55,6 +55,8 @@ var fixedTables = []string{
 	"process_errors",
 	"pipeline_execution_details",
 	"pipeline_execution_channel_details",
+	"cpipes_execution_status",
+	"cpipes_execution_status_details",
 	"report_execution_status",
 	"compute_pipes_shard_registry",
 	"compute_pipes_partitions_registry",

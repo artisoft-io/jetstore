@@ -135,8 +135,8 @@ type Session struct {
 	ID, Client string
 	// Registered writes the session_registry row; an orphan has none.
 	Registered bool
-	// LastUpdate is the last_update of its registry, input_registry and status
-	// rows.
+	// LastUpdate is the last_update of every row written that has one; zero
+	// means now.
 	LastUpdate time.Time
 	// DomainTables are created in public if missing, with a session_id column,
 	// registered in input_registry, and given two rows of the session each.
@@ -210,6 +210,31 @@ func Seed(t testing.TB, pool *pgxpool.Pool, s Session) []int {
 		`INSERT INTO jetsapi.pipeline_coordinator_lock (request_id, session_id) VALUES ('req-' || $1, $1)`,
 	} {
 		Exec(t, pool, stmt, s.ID)
+	}
+	// Every row written carries the session's age, not the now() a default gives,
+	// so an orphan is dated by what it holds.
+	rows, err := pool.Query(ctx, `SELECT c.table_name FROM information_schema.columns c
+		JOIN information_schema.columns l ON l.table_schema = c.table_schema AND l.table_name = c.table_name
+			AND l.column_name = 'last_update'
+		JOIN information_schema.tables tb ON tb.table_schema = c.table_schema AND tb.table_name = c.table_name
+			AND tb.table_type = 'BASE TABLE'
+		WHERE c.table_schema = 'jetsapi' AND c.column_name = 'session_id'
+			AND c.table_name NOT IN ('session_deletion', 'pipeline_execution_status_archive')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dated []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		dated = append(dated, name)
+	}
+	rows.Close()
+	for _, name := range dated {
+		Exec(t, pool, fmt.Sprintf(`UPDATE %s SET last_update = $2::timestamptz WHERE session_id = $1`,
+			pgx.Identifier{"jetsapi", name}.Sanitize()), s.ID, lu)
 	}
 	return keys
 }
