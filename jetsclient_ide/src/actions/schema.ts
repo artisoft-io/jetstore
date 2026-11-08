@@ -220,21 +220,6 @@ export const ServerActionSchema = z
      */
     "start_pending_tasks",
     /**
-     * List, and then queue, the deletion of the selected sessions and of every
-     * session that reads them through `input_session_id`. The Session Registry
-     * tab's *Delete*, `session_registry` Phase 2 (JM-081), 2026-11-08.
-     *
-     * Both are gated by `delete_session` in their arms of `DoDataTableAction`
-     * (`jets/apiserver/api_tables.go`), and neither takes a `table`: `data` rows
-     * carry `session_id`, one id or a list. The preview writes nothing and is
-     * read through an escape (`sessionDeletion.ts`), because a `post` step keeps
-     * only the status and the preview's whole point is its rows. `delete_sessions`
-     * also carries `expected` in its row, the ids the preview listed, and answers
-     * 409 when the closure has changed since, so a user confirms what is deleted.
-     */
-    "preview_session_deletion",
-    "delete_sessions",
-    /**
      * Export a client's configuration from the database into the workspace.
      * Task C.2b — `/workspaces`'s *Export Client Config* dialog.
      *
