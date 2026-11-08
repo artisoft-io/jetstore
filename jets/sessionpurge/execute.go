@@ -16,6 +16,10 @@ import (
 type Options struct {
 	Deadline time.Time // stop starting sessions after this; zero for none
 	DryRun   bool      // every transaction rolled back; nothing written
+	// Reasons limits the queued rows taken to those with one of these reasons;
+	// empty takes every reason. The apiserver passes ReasonUser, so a user's
+	// Delete never waits behind a retention backlog; the purge lambda passes none.
+	Reasons []Reason
 }
 
 // Report says what a run did, or for a dry run what it would have done.
@@ -166,7 +170,7 @@ func Execute(ctx context.Context, db *pgxpool.Pool, opts Options) (Report, error
 	if opts.DryRun {
 		return ExecuteRequests(ctx, db, nil, opts)
 	}
-	queued, err := queuedRequests(ctx, db)
+	queued, err := queuedRequests(ctx, db, opts.Reasons)
 	if err != nil {
 		return newReport(), fmt.Errorf("while reading session_deletion: %w", err)
 	}
@@ -187,7 +191,7 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 			return newReport(), err
 		}
 	}
-	queued, err := queuedRequests(ctx, db)
+	queued, err := queuedRequests(ctx, db, opts.Reasons)
 	if err != nil {
 		return newReport(), fmt.Errorf("while reading session_deletion: %w", err)
 	}
@@ -324,9 +328,15 @@ func dryRunSession(ctx context.Context, dry pgx.Tx, r *Request, tables []table) 
 }
 
 // deleteRows does one session's work in tx, which the caller commits or rolls
-// back: refuse it if a run on it or reading it is active; otherwise delete it from
-// every table, archive its runs, delete session_registry last and, with claim,
-// mark its deletion row done.
+// back: take the session lock (LockSession); refuse the session if a run on it or
+// reading it is active; otherwise delete it from every table, archive its runs,
+// delete session_registry last and, with claim, mark its deletion row done.
+//
+// The lock is taken after the claim and before the refusal, in a real run and in
+// a dry run alike. A pipeline start takes the same lock before it inserts its
+// status row (jets/datatable, InsertPipelineExecutionStatus), so the two are
+// ordered: a start that holds it commits its pending or submitted row before the
+// refusal below reads, and a start that waits for it finds the session queued.
 func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, claim bool) (res result, err error) {
 	if claim {
 		var status string
@@ -341,10 +351,13 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 		}
 	}
 
+	if err = LockSession(ctx, tx, r.SessionID); err != nil {
+		return res, err
+	}
+
 	var active bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_status
-		WHERE status IN ('pending', 'submitted') AND (session_id = $1 OR input_session_id = $1))`,
-		r.SessionID).Scan(&active)
+		WHERE `+activeRunWhere("$1")+`)`, r.SessionID).Scan(&active)
 	if err != nil {
 		return res, fmt.Errorf("while checking for an active run: %w", err)
 	}
@@ -375,6 +388,16 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 	if err = exec("jetsapi.pipeline_coordinator_lock",
 		`DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id = $1`, r.SessionID); err != nil {
 		return res, err
+	}
+	// The map rows of the session's requests are locked before its items go, in
+	// request order, so that two executors deleting the last two sessions of one
+	// request take them one after the other: the second waits here, and its
+	// NOT EXISTS below, a new statement, sees the first one's items gone. Without
+	// the lock each saw the other's item still there and both kept the map row.
+	if _, err = tx.Exec(ctx, `SELECT m.request_id FROM jetsapi.pipeline_coordinator_map m
+		WHERE m.request_id IN (SELECT i.request_id FROM jetsapi.pipeline_coordinator_map_items i WHERE i.session_id = $1)
+		ORDER BY m.request_id FOR UPDATE OF m`, r.SessionID); err != nil {
+		return res, fmt.Errorf("while locking the coordinator map rows: %w", err)
 	}
 	rows, err := tx.Query(ctx, `DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1
 		RETURNING request_id`, r.SessionID)

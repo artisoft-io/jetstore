@@ -144,7 +144,26 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2,
 								NULLIF($4, ''), (SELECT MAX(version) FROM jetsapi.workspace_version)
 							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
-		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid, os.Getenv("WORKSPACE"))
+		// The copy reads the same input sessions as the runs it copies, so it is
+		// guarded as InsertPipelineExecutionStatus guards a start: in one
+		// transaction, each input session locked and refused with 409 when it is
+		// queued for deletion or deleted (session_registry Q-16).
+		tx, err := server.dbpool.Begin(context.TODO())
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, http.StatusInternalServerError, err)
+			return
+		}
+		defer tx.Rollback(context.Background())
+		if code, err = datatable.GuardResubmission(context.TODO(), tx, sid); err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		_, err = tx.Exec(context.TODO(), stmt, newSessionId, user, sid, os.Getenv("WORKSPACE"))
+		if err == nil {
+			err = tx.Commit(context.TODO())
+		}
 		if err != nil {
 			err = fmt.Errorf("error: failed resubmit to database: %v", err)
 			log.Printf("Error: %v", err)
@@ -191,6 +210,32 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		results = &map[string]any{"pending_count": pending}
 		code = 200
+
+	case "preview_session_deletion":
+		// The sessions a Delete of the selected ones would delete: each selected
+		// session and, transitively, every session whose run read one of them
+		// (session_registry Q-4). It writes nothing, and answers
+		// {"rows": [...]} (datatable.PreviewSessionDeletion). Asked for
+		// delete_session because what it shows is the confirmation of a deletion.
+		if code, err = ctx.RequireCapability(datatable.CapabilityDeleteSession, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
+		results, code, err = ctx.PreviewSessionDeletion(&dataTableAction)
+
+	case "delete_sessions":
+		// Queues the closure of the selected sessions for deletion, when it is the
+		// one the caller previewed, and answers {"queued": n, "waiting": [...]}
+		// (datatable.DeleteSessions); then starts this process's executor, which
+		// deletes after the answer. requested_by is the token's user.
+		if code, err = ctx.RequireCapability(datatable.CapabilityDeleteSession, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
+		results, code, err = ctx.DeleteSessions(&dataTableAction, user)
+		if err == nil {
+			server.runUserDeletions()
+		}
 
 	case "workspace_insert_rows":
 		results, code, err = ctx.WorkspaceInsertRows(&dataTableAction, token)
