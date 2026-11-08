@@ -48,6 +48,10 @@ import "fmt"
 // that role is the same one holding `agent_supervision` in the seed — so the
 // separation this package enforces is what a *second* supervising role would
 // meet rather than something the shipped seed exercises.
+// **And since 2026-11-07 a second role holds it**: `designated_admin`, which holds
+// every `knowledge_engineer` capability plus `delete_session` and `user_admin`,
+// taken as a decision when the role was added. It holds `agent_supervision` too, so
+// the observation above is unchanged.
 //
 // # Why the answer is a parameter rather than a package default
 //

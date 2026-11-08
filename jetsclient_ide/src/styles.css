@@ -198,6 +198,9 @@ body {
 }
 .flowmenu-item:hover { background: var(--rule); color: var(--ink); }
 .flowmenu-item.is-active { background: var(--rule); color: var(--ink); font-weight: 600; }
+/* An entry the user lacks the capability for: visible and inert, as .navlink.is-disabled. */
+.flowmenu-item.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.flowmenu-item.is-disabled:hover { background: none; color: var(--ink-2); }
 .spacer { flex: 1 1 auto; }
 
 /* Screen navigation. One row for the application, a second for the screen —

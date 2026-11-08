@@ -79,6 +79,9 @@ const AgentSupervisionCapability = "agent_supervision"
 // the two sets coincide today and the separation is what a *second* supervising
 // role would meet. ~~The safe default while it is unmade is redacted-for-everybody.~~
 // The default is still redaction; what changed is that one role now opts out of it.
+// **Since 2026-11-07 a second role holds it, `designated_admin`**, which holds every
+// `knowledge_engineer` capability plus `delete_session` and `user_admin`; it was taken
+// as a decision when the role was added, and it holds `agent_supervision` as well.
 // The reasoning below is kept because it is why the capability exists at all, and
 // it is a departure
 // from `TestPurgeDataCapabilityIsSeeded`'s argument — *a capability no role holds
@@ -86,7 +89,7 @@ const AgentSupervisionCapability = "agent_supervision"
 // policy* — and the departure is narrow: that argument is about a capability
 // gating a whole **action**, whose absence is a dead button. This one gates a
 // **field's disclosure**, and its absence is one value replaced by a sentence
-// saying why. TestAgentPHIAccessCapabilityIsNotSeeded is what makes granting it
+// saying why. TestAgentPHIAccessCapabilityIsGrantedToExactlyTheDecidedRoles is what makes granting it
 // a change somebody has to read this paragraph to make.
 const AgentPHIAccessCapability = "agent_phi_access"
 

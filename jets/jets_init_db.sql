@@ -40,6 +40,7 @@ INSERT INTO jetsapi.roles (role, details) VALUES
   ('ops_user', 'Role to load files and execute pipelines'),
   ('client_advocate', 'Role to administer client configuration'),
   ('knowledge_engineer', 'Super user role to administer the JetStore workspace and client configuration'),
+  ('designated_admin', 'Knowledge engineer who may also delete sessions and administer users'),
   ('system_role', 'System role needed to start pipeline automatically')
 ;
 
@@ -63,13 +64,14 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     from tools/jets_agentic/jets_agentic/model.py). Without it those fields
 --	                     are withheld server-side and the screen says so, and the rest of the record
 --	                     is unaffected.
---	                     GRANTED TO NO ROLE ON PURPOSE. The line above says a governance record
---	                     is not client data, and a PHI-marked property is the exception: it is
---	                     client data inside a governance record, so agent_supervision does not
---	                     cover it. Which role should hold this is a policy decision about client
---	                     data in a healthcare deployment rather than an engineering one, and
---	                     redacted-for-everybody is the safe default while it is unmade. Grant it
---	                     from the roles screen, or add a row below and say who decided.
+--	                     Its own capability rather than part of agent_supervision: the line
+--	                     above says a governance record is not client data, and a PHI-marked
+--	                     property is the exception, client data inside a governance record.
+--	                     Which role holds it is a policy decision about client data rather than
+--	                     an engineering one. It was granted to no role until that decision was
+--	                     made; knowledge_engineer holds it (agentic_ai project, Q-42), and
+--	                     designated_admin holds it because it holds every knowledge_engineer
+--	                     capability (2026-11-07).
 --	- runbook_execute:   List, start and control the active workspace's runbooks, accept or deny a
 --	                     runbook's ddl, and release a run's result for export
 --	                     (jets/apiserver/api_runbook.go). Not the authority to run what a step does:
@@ -78,6 +80,20 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     query or wait, workspace_ide for a ddl or a compile, run_pipelines for the
 --	                     pipeline steps. Its own capability so it can be granted without the rest.
 --	                     Granted to knowledge_engineer (runbooks project, Q-5, 2026-11-06).
+--	- delete_session:    Delete a session completely: its rows in every table, its registry row
+--	                     last, and its pipeline execution status rows moved to the archive.
+--	                     Granted to designated_admin only (2026-11-07).
+--	- user_admin:        Administer users: activate or deactivate an account, set its roles, and
+--	                     delete it (update/users and delete/users, jets/datatable/sql_stmts.go).
+--	                     Neither statement writes the installation admin's own row, whoever
+--	                     calls it, so that account cannot be locked out from inside the database.
+--	                     The admin passes this check as it passes every capability check.
+--	                     Granted to designated_admin only (2026-11-07).
+-- Roles:
+--	- designated_admin:  every knowledge_engineer capability, plus delete_session and user_admin.
+--	                     COPIED ROWS, NOT INHERITANCE: there is no role hierarchy, so a capability
+--	                     later granted to knowledge_engineer is not designated_admin's until a row
+--	                     is added for it here too. Keep the two lists in step.
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),
@@ -96,6 +112,17 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'agent_supervision'),
   ('knowledge_engineer', 'agent_phi_access'),
   ('knowledge_engineer', 'runbook_execute'),
+  ('designated_admin', 'jetstore_read'),
+  ('designated_admin', 'workspace_ide'),
+  ('designated_admin', 'client_config'),
+  ('designated_admin', 'run_pipelines'),
+  ('designated_admin', 'user_profile'),
+  ('designated_admin', 'infer_server_admin'),
+  ('designated_admin', 'agent_supervision'),
+  ('designated_admin', 'agent_phi_access'),
+  ('designated_admin', 'runbook_execute'),
+  ('designated_admin', 'delete_session'),
+  ('designated_admin', 'user_admin'),
   ('system_role', 'run_pipelines')
 ;
 
