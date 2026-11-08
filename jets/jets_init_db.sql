@@ -163,6 +163,31 @@ WHERE input_rdf_type = entity_rdf_type
   AND registry.object_type <> 'jets:hashing_override'
 ;
 
+-- pipeline_execution_history: every pipeline run, live or archived. The live
+-- table holds the runs of sessions that exist; jets/sessionpurge moves a deleted
+-- session's runs to pipeline_execution_status_archive with their key. The column
+-- lists are explicit on both sides, so the view's columns never shift when a
+-- table gains one. A column added to pipeline_execution_status goes in the
+-- archive's definition (jets_schema.json), in both lists here, and in
+-- statusColumns in jets/sessionpurge, whose test fails until the three agree.
+CREATE OR REPLACE VIEW jetsapi.pipeline_execution_history AS
+SELECT
+  key, pipeline_config_key, main_input_registry_key, main_input_file_key,
+  merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
+  session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
+  failure_class, failure_source, workspace_name, workspace_version,
+  NULL::timestamp AS archived_at, NULL::text AS archive_reason
+FROM jetsapi.pipeline_execution_status
+UNION ALL
+SELECT
+  key, pipeline_config_key, main_input_registry_key, main_input_file_key,
+  merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
+  session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
+  failure_class, failure_source, workspace_name, workspace_version,
+  archived_at, archive_reason
+FROM jetsapi.pipeline_execution_status_archive
+;
+
 -- Pre-Defined clients used by the platform
 -- 'Any' is used to kick off the loader pipeline for any object type
 DELETE FROM jetsapi.client_registry WHERE client IN ('Any', 'JetsA');
