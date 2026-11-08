@@ -8,11 +8,15 @@
  * are about the request rather than about the rendering: what `update/users`
  * receives, what `delete/users` receives, and what happens when the user says no.
  *
- * **The capability claims are asserted as they are, not as they should be.** Both
- * buttons declare `user_profile` and the route admits only the admin account, for
- * whom `ApiClient.can` returns true whatever it is asked — so the claim is inert
- * here and the test says so rather than pretending it gates anything.
+ * **Both buttons declare `user_admin` since 2026-11-07**, the capability the two
+ * statements require server-side. They declared `user_profile`, which was inert
+ * while only the admin reached the screen, and would have offered the buttons to
+ * every seeded role once a role could. The cases below drive both sides: the admin
+ * (`can` passes it for everything), a holder of `user_admin`, and a user without.
  */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,9 +27,13 @@ import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { PromptsProvider } from "../shell/prompts";
 import { answerConfirm } from "../shell/promptsTesting";
-import { UserAdmin, documentFindings } from "./UserAdmin";
+import { USER_ADMIN, UserAdmin, documentFindings } from "./UserAdmin";
 import { ActionDocumentSchema } from "../actions/schema";
+import { TableConfigDocumentSchema } from "../datatable/table";
 import actionsJson from "./documents/userAdmin.ua.json";
+import formsJson from "./documents/userAdmin.form.json";
+import userTableJson from "../datatable/tables/userTable.tc.json";
+import userRolesTableJson from "../datatable/tables/userRolesTable.tc.json";
 
 /** Parsed rather than cast, so a document that stopped fitting fails here. */
 const deleteUserAction = ActionDocumentSchema.parse(actionsJson).actions["deleteUser"]!;
@@ -33,6 +41,7 @@ const deleteUserAction = ActionDocumentSchema.parse(actionsJson).actions["delete
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  roles = defaultRoles;
 });
 
 /** `jetsapi.users`, positional: name, email, is_active, roles, last_update. */
@@ -42,11 +51,12 @@ const users: (string | null)[][] = [
 ];
 
 /** `jetsapi.roles`: role, details, last_update. */
-const roles: (string | null)[][] = [
+const defaultRoles: (string | null)[][] = [
   ["client_advocate", "Administer client configuration", "now"],
   ["knowledge_engineer", "Super user role", "now"],
   ["ops_user", "Load files and execute pipelines", "now"],
 ];
+let roles = defaultRoles;
 
 interface Posted {
   body: Record<string, unknown>;
@@ -169,17 +179,46 @@ describe("the screen", () => {
     expect(button("Delete User").hasAttribute("disabled")).toBe(false);
   });
 
-  it("leaves Delete enabled for the admin account although it names a capability", async () => {
-    // **The claim is reproduced and it is inert here**, which is the assertion.
-    // `deleteUser` declares `capability: "user_profile"` and this account holds
-    // none — `capabilities: []` — yet the button is live, because `can()`
-    // short-circuits on `isAdmin` exactly as `HasCapability` does server-side.
-    // Only the admin account can reach this route, so the claim can never
-    // withhold a control from anyone who is here.
+  it("leaves Delete enabled for the admin account, which holds no capability", async () => {
+    // `deleteUser` declares `user_admin` and this account holds none —
+    // `capabilities: []` — yet the button is live, because `can()` passes the
+    // admin for every capability, exactly as `HasCapability` does server-side.
     await mount({ isAdmin: true, capabilities: [] });
     await selectUser("ada@example.com");
     await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
     expect(button("Delete User").title).toBe("");
+  });
+
+  it("enables Delete for a user holding user_admin", async () => {
+    await mount({ isAdmin: false, capabilities: [USER_ADMIN] });
+    await selectUser("ada@example.com");
+    await waitFor(() => expect(button("Delete User").hasAttribute("disabled")).toBe(false));
+  });
+
+  it("disables Delete, naming user_admin, for a user holding only user_profile", async () => {
+    // The capability the button declared before 2026-11-07, which every seeded
+    // role holds: it no longer opens the screen's writes.
+    await mount({ isAdmin: false, capabilities: ["user_profile"] });
+    await selectUser("ada@example.com");
+    expect(button("Delete User").hasAttribute("disabled")).toBe(true);
+    expect(button("Delete User").title).toContain(USER_ADMIN);
+  });
+});
+
+describe("the capability the documents declare", () => {
+  it("is user_admin on Submit and on Delete User", () => {
+    const submit = (
+      formsJson as unknown as {
+        forms: Record<string, { actions: { label: string; capability?: string }[] }>;
+      }
+    ).forms;
+    const submits = Object.values(submit)
+      .flatMap((f) => f.actions)
+      .filter((a) => a.label === "Submit");
+    expect(submits.map((a) => a.capability)).toEqual([USER_ADMIN]);
+    const table = TableConfigDocumentSchema.parse(userTableJson);
+    const del = ("actions" in table ? table.actions : undefined)?.find((a) => a.key === "deleteUser");
+    expect(del?.capability).toBe(USER_ADMIN);
   });
 });
 
@@ -208,6 +247,33 @@ describe("the edit dialog", () => {
     const { dialog } = await openDialog();
     await within(dialog).findByText("knowledge_engineer");
     expect(within(dialog).getAllByRole("table")).toHaveLength(1);
+  });
+
+  it("lists every seeded role from jetsapi.roles, designated_admin among them", async () => {
+    // **Read from the table, not from a list in the client**, so a role added to
+    // the seeding script needs no change here. Asserted by serving exactly the
+    // roles `jets_init_db.sql` seeds and finding each in the dialog.
+    const sql = readFileSync(join(__dirname, "../../../jets/jets_init_db.sql"), "utf8");
+    const block = sql.slice(sql.indexOf("INSERT INTO jetsapi.roles"));
+    const seeded = [...block.slice(0, block.indexOf("\n;")).matchAll(/\('([a-z_]+)', '([^']*)'\)/g)].map(
+      (m) => [m[1]!, m[2]!, "now"],
+    );
+    expect(seeded.map((r) => r[0])).toContain("designated_admin");
+    roles = seeded;
+
+    const { dialog, posts } = await openDialog();
+    for (const [role] of seeded) await within(dialog).findByText(role!);
+    const read = posts
+      .map((p) => p.body)
+      .find(
+        (b) =>
+          b["action"] === "read" &&
+          (b["fromClauses"] as { table?: string }[] | undefined)?.[0]?.table === "roles",
+      )!;
+    expect(read["fromClauses"]).toEqual([{ schema: "jetsapi", table: "roles" }]);
+    expect(read["whereClauses"]).toBeUndefined();
+    // And the document names the table rather than any role.
+    expect(JSON.stringify(userRolesTableJson)).not.toContain("knowledge_engineer");
   });
 
   it("refuses to submit with no status chosen, and stays open", async () => {

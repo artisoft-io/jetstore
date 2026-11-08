@@ -98,10 +98,16 @@ const isClientFilter = (e: NavEntry): e is ClientFilterSlot =>
  * which the report listed among the missing flows because nothing in the
  * navigation named it (**I-268**). Keying on flow ids would have forced that one
  * to be a special case.
+ *
+ * `capability`, when set, is what the entry needs: without it the entry is shown
+ * **disabled, not hidden**, with a title naming the capability, as `NavItem` and
+ * every other gated control are (`capabilities.tsx`). Added 2026-11-07 for *User
+ * Administration*, the first entry that is not open to every signed-in user.
  */
 export interface FlowMenuItem {
   to: string;
   label: string;
+  capability?: string;
 }
 
 export interface AppShellProps {
@@ -333,17 +339,45 @@ function FlowMenu({ items }: { items: FlowMenuItem[] }) {
       </summary>
       <nav className="flowmenu-items" aria-label="Configuration flows">
         {items.map((item) => (
-          <NavLink
+          <FlowMenuEntry
             key={item.to}
-            to={withReturnTo(item.to, here)}
-            className={({ isActive }) => `flowmenu-item${isActive ? " is-active" : ""}`}
-            onClick={() => ref.current?.removeAttribute("open")}
-          >
-            {item.label}
-          </NavLink>
+            item={item}
+            here={here}
+            onNavigate={() => ref.current?.removeAttribute("open")}
+          />
         ))}
       </nav>
     </details>
+  );
+}
+
+/**
+ * One entry of the flow menu: a link, or, when the user lacks the entry's
+ * capability, an inert item whose title names it. `useCan` reads the `ApiClient`
+ * the shell provides, so the admin, whom `can` passes for every capability, sees
+ * every entry enabled, as the server passes it for every capability.
+ */
+function FlowMenuEntry({ item, here, onNavigate }: { item: FlowMenuItem; here: string; onNavigate: () => void }) {
+  const permission = useCan(item.capability);
+  if (!permission.allowed) {
+    return (
+      <span
+        className="flowmenu-item is-disabled"
+        aria-disabled="true"
+        {...(permission.reason ? { title: permission.reason } : {})}
+      >
+        {item.label}
+      </span>
+    );
+  }
+  return (
+    <NavLink
+      to={withReturnTo(item.to, here)}
+      className={({ isActive }) => `flowmenu-item${isActive ? " is-active" : ""}`}
+      onClick={onNavigate}
+    >
+      {item.label}
+    </NavLink>
   );
 }
 

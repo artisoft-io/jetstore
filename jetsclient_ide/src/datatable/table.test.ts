@@ -321,6 +321,10 @@ const HAND_MAINTAINED_KEYS = [
   // 25 rows per page rather than 50, as the flow's first table has, so the
   // Start Pipeline steps page alike (Michel, 2026-10-15).
   "main_input_registry_key",
+  // Delete User declares user_admin rather than the Dart's user_profile, the
+  // capability delete/users now requires server-side (2026-11-07). Its fixture
+  // entry stays as the Flutter record.
+  "userTable",
 ] as const;
 
 /**
@@ -483,7 +487,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
     // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
-    expect(Object.keys(handMaintained).length).toBe(10);
+    // **11 on 2026-11-07**, with `userTable` (Delete User on `user_admin`).
+    expect(Object.keys(handMaintained).length).toBe(11);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     expect(Object.keys(featureDocuments).length).toBe(3);
