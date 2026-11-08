@@ -8,9 +8,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Register Domain Table with input_registry
@@ -173,7 +177,48 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 		// 	return err
 		// }
 	}
+
+	// Register the origin session in session_registry. The rows above, the
+	// input_loader_status row and the loaded staging rows all carry it, and the
+	// loader run registers only a session of its own, so without this the origin
+	// session is seen by no retention purge (JM-083). RegisterFileKeys does the
+	// same for an automated file, but its error is not ignored here: a load whose
+	// session cannot be registered fails the status update, as a failed
+	// input_registry insert does.
+	err = registerOriginSession(ca.Dbpool, client, originSessionId, sourcePeriodKey)
+	if err != nil {
+		err = fmt.Errorf("while registering origin session %v in jetsapi.session_registry: %v", originSessionId, err)
+		log.Println(err)
+		return err
+	}
 	return nil
+}
+
+// registerOriginSession registers a loaded file's origin session with source
+// type file. The cpipes env values arrive as any: in-process they carry their Go
+// types, and through the state machine they are decoded from JSON, so the source
+// period key is then a float64.
+func registerOriginSession(dbpool *pgxpool.Pool, client, originSessionId, sourcePeriodKey any) error {
+	clientStr, ok := client.(string)
+	if !ok {
+		return fmt.Errorf("$CLIENT is a %T, expecting a string", client)
+	}
+	var sessionId string
+	switch v := originSessionId.(type) {
+	case string:
+		sessionId = v
+	default:
+		n, err := utils.ToInt(v)
+		if err != nil {
+			return fmt.Errorf("$ORIGIN_SESSIONID: %v", err)
+		}
+		sessionId = strconv.Itoa(n)
+	}
+	periodKey, err := utils.ToInt(sourcePeriodKey)
+	if err != nil {
+		return fmt.Errorf("$ORIGIN_SOURCE_PERIOD_KEY: %v", err)
+	}
+	return schema.RegisterSession(dbpool, "file", clientStr, sessionId, periodKey)
 }
 
 // Register db_table Input Source in input_registry table.
