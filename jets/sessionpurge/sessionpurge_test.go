@@ -5,10 +5,14 @@ package sessionpurge
 // to run them.
 
 import (
+	"bytes"
 	"context"
+	"log"
+	"os"
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -132,9 +136,12 @@ func TestExecuteDeletesEverywhere(t *testing.T) {
 	keys := purgetest.Seed(t, pool, purgetest.Session{ID: "s1", Client: "c1", Registered: true,
 		LastUpdate: days(200), DomainTables: []string{"DomainA", "Domain B"}, Runs: []string{"completed", "failed"}})
 	purgetest.Seed(t, pool, purgetest.Session{ID: "s2", Client: "c1", Registered: true, DomainTables: []string{"DomainA"}})
+	seedCpipes(t, pool, "s1", keys[0])
+	seedCpipes(t, pool, "s2", 0)
 	before := purgetest.SessionRows(t, pool, "s1")
 	for _, table := range []string{"public.DomainA", "public.Domain B", "jetsapi.input_registry", "jetsapi.input_loader_status",
-		"jetsapi.session_registry", "jetsapi.pipeline_execution_status", "jetsapi.pipeline_coordinator_map"} {
+		"jetsapi.session_registry", "jetsapi.pipeline_execution_status", "jetsapi.pipeline_coordinator_map",
+		"jetsapi.cpipes_execution_status", "jetsapi.cpipes_execution_status_details"} {
 		if before[table] == 0 {
 			t.Fatalf("seed wrote no %s row for s1: %v", table, before)
 		}
@@ -187,6 +194,20 @@ func TestExecuteDeletesEverywhere(t *testing.T) {
 	if d := deletion(t, pool, "s1"); d == nil || d.Status != StatusDone || !d.Completed || d.Error != nil {
 		t.Errorf("deletion row %+v, want done with completed_at and no error", d)
 	}
+}
+
+// seedCpipes writes the two cpipes run tables' rows of a session: one
+// cpipes_execution_status row, as sharding start writes it, and two step
+// statistics rows, as the status update writes them.
+func seedCpipes(t *testing.T, pool *pgxpool.Pool, id string, statusKey int) {
+	t.Helper()
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.cpipes_execution_status
+		(pipeline_execution_status_key, session_id) VALUES ($1, $2)`,
+		statusKey, id)
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.cpipes_execution_status_details
+		(session_id, process_name, cpipes_step_id, nbr_nodes, total_input_files_size_mb, total_input_records_count,
+		 total_output_records_count)
+		VALUES ($1, 'proc', 'reducing0', 1, 1, 10, 10), ($1, 'proc', 'reducing1', 1, 1, 10, 10)`, id)
 }
 
 // session_registry is the last table the session is deleted from.
@@ -481,6 +502,77 @@ func TestCandidates(t *testing.T) {
 	}
 	if len(orph) == 2 && (orph[0].Client != "c2" || orph[0].SourceType != "domain_table" || orph[1].Client != "c3" || orph[1].SourceType != "") {
 		t.Errorf("orphan candidates' client and source type: %+v", orph)
+	}
+}
+
+// The orphan sweep reaches the rows a session leaves only in tables with no
+// last_update (session_reservation, pipeline_lock, the coordinator tables), by
+// the time its id encodes; an id that is not numeric is not dated and not swept;
+// a last_update, where there is one, dates a session before its id does.
+func TestOrphanCandidatesReachM3(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	oldID := "1600000000000" // 2020-09-13
+	recentID := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	wordID := "m3-not-a-number"
+	oldIDRecentRow := "1600000000001"
+	recentIDOldRow := strconv.FormatInt(time.Now().UnixMilli()+1, 10)
+	m3 := func(id string) {
+		for _, stmt := range []string{
+			`INSERT INTO jetsapi.session_reservation (session_id) VALUES ($1)`,
+			`INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id) VALUES ('sm-' || $1, $1)`,
+			`INSERT INTO jetsapi.pipeline_coordinator_map (request_id) VALUES ('req-' || $1)`,
+			`INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ('req-' || $1, $1)`,
+			`INSERT INTO jetsapi.pipeline_coordinator_lock (request_id, session_id) VALUES ('req-' || $1, $1)`,
+		} {
+			purgetest.Exec(t, pool, stmt, id)
+		}
+	}
+	for _, id := range []string{oldID, recentID, wordID, oldIDRecentRow, recentIDOldRow} {
+		m3(id)
+	}
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.process_errors (session_id, error_message, last_update)
+		VALUES ($1, 'e', now()), ($2, 'e', now() - interval '100 days')`, oldIDRecentRow, recentIDOldRow)
+	// A registered session with the same shape is not an orphan.
+	purgetest.Seed(t, pool, purgetest.Session{ID: "1600000000002", Client: "c1", Registered: true, LastUpdate: days(100)})
+
+	var logged bytes.Buffer
+	log.SetOutput(&logged)
+	orph, err := OrphanCandidates(ctx, pool, days(30))
+	log.SetOutput(os.Stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, r := range orph {
+		ids = append(ids, r.SessionID)
+		if r.Client != ClientUnknown || r.Reason != ReasonOrphan || r.MonthPeriod != nil || r.SourceType != "" {
+			t.Errorf("candidate %+v, want an orphan of client %s with no month or source type", r, ClientUnknown)
+		}
+	}
+	if want := []string{oldID, recentIDOldRow}; !slices.Equal(ids, want) {
+		t.Errorf("orphan candidates %v, want %v", ids, want)
+	}
+	if !strings.Contains(logged.String(), "1 unregistered session ids are not numeric") {
+		t.Errorf("the undated id was not counted in the log: %q", logged.String())
+	}
+
+	queue(t, pool, orph...)
+	report, err := Execute(ctx, pool, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Done != 2 || report.ByReason[ReasonOrphan] != 2 {
+		t.Errorf("report %+v, want two orphans done", report)
+	}
+	for _, id := range []string{oldID, recentIDOldRow} {
+		if left := purgetest.SessionRows(t, pool, id); len(left) > 0 {
+			t.Errorf("rows of %s left: %v", id, left)
+		}
+	}
+	for _, id := range []string{recentID, wordID, oldIDRecentRow} {
+		if n := len(purgetest.SessionRows(t, pool, id)); n == 0 {
+			t.Errorf("%s was swept", id)
+		}
 	}
 }
 

@@ -29,9 +29,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -177,35 +179,150 @@ func RetentionCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time
 		ORDER BY session_id`, before, ReasonRetention, RequestedByPurge)
 }
 
-// OrphanCandidates reads, without writing, the session ids in input_registry or
-// pipeline_execution_status whose latest last_update across both is on or before
-// before, and which are in neither session_registry nor session_deletion, by
-// session id. The client, source type and month period are taken from the rows
-// found: input_registry's first, then pipeline_execution_status's.
+// ClientUnknown is the client of an orphan found only in tables that carry no
+// client, such as session_reservation and the coordinator tables.
+const ClientUnknown = "(unknown)"
+
+// orphanSourceTables are the jetsapi tables OrphanCandidates reads session ids
+// from: every table the executor deletes from by session_id, session_registry
+// aside. The order ranks them as sources of an orphan's client and source period:
+// input_registry first, then pipeline_execution_status, then the rest.
+func orphanSourceTables() []string {
+	out := []string{"input_registry", "pipeline_execution_status"}
+	for _, t := range fixedTables {
+		if t != "input_registry" {
+			out = append(out, t)
+		}
+	}
+	return append(out, "pipeline_coordinator_map_items", "pipeline_coordinator_lock")
+}
+
+// OrphanCandidates reads, without writing, the session ids found in any jetsapi
+// table the executor deletes from (orphanSourceTables) that are in neither
+// session_registry nor session_deletion, and whose age is on or before before, by
+// session id.
+//
+// A session's age is the latest last_update among its rows in the tables that
+// have one. Failing that, when the id is all digits, it is the time the id
+// encodes: session ids are epoch milliseconds when reserved. An id that is not
+// numeric and appears only in tables with no last_update cannot be dated, is never
+// a candidate, and is counted in the log.
+//
+// The client and month period are taken from the highest-ranked table that has
+// them (input_registry, then pipeline_execution_status, then the rest), and the
+// source type from input_registry. An orphan seen only where no table carries a
+// client gets ClientUnknown.
 func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) ([]Request, error) {
-	return readRequests(ctx, db, `WITH s AS (
-			SELECT session_id, client, source_type, source_period_key, last_update, 0 AS rank
-			FROM jetsapi.input_registry
-			UNION ALL
-			SELECT session_id, client, NULL, source_period_key, last_update, 1
-			FROM jetsapi.pipeline_execution_status
+	sources := orphanSourceTables()
+	rows, err := db.Query(ctx, `SELECT table_name, array_agg(column_name::text)
+		FROM information_schema.columns
+		WHERE table_schema = 'jetsapi' AND table_name = ANY($1::text[])
+		GROUP BY table_name`, sources)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the columns of the session tables: %w", err)
+	}
+	columns := map[string]map[string]bool{}
+	for rows.Next() {
+		var table string
+		var cols []string
+		if err := rows.Scan(&table, &cols); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		columns[table] = map[string]bool{}
+		for _, c := range cols {
+			columns[table][c] = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// One aggregate per table, so a large table is reduced to its sessions before
+	// the union.
+	var parts []string
+	for rank, table := range sources {
+		cols := columns[table]
+		if !cols["session_id"] {
+			continue // not migrated yet, or no session_id: nothing to read
+		}
+		pick := func(col, agg, null string) string {
+			if cols[col] {
+				return agg + "(" + col + ")"
+			}
+			return null
+		}
+		sourceType := "NULL::text"
+		if table == "input_registry" {
+			sourceType = `CASE WHEN bool_or(source_type = 'file') THEN 'file'
+				WHEN bool_or(source_type = 'domain_table') THEN 'domain_table' ELSE min(source_type) END`
+		}
+		parts = append(parts, fmt.Sprintf(`SELECT session_id, %s AS last_update, %s AS client, %s AS source_type,
+				%s AS source_period_key, %d AS rank
+			FROM %s GROUP BY session_id`,
+			pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
+			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize()))
+	}
+	if len(parts) == 0 {
+		return nil, nil
+	}
+	stmt := `WITH s AS (` + strings.Join(parts, "\n\t\tUNION ALL\n\t\t") + `
 		), ids AS (
 			SELECT session_id,
-				(array_agg(client ORDER BY rank, last_update DESC))[1] AS client,
-				CASE WHEN bool_or(source_type = 'file') THEN 'file'
-					WHEN bool_or(source_type = 'domain_table') THEN 'domain_table'
-					ELSE min(source_type) END AS source_type,
-				(array_agg(source_period_key ORDER BY rank, last_update DESC))[1] AS source_period_key,
+				(array_agg(client ORDER BY rank) FILTER (WHERE client IS NOT NULL))[1] AS client,
+				min(source_type) AS source_type,
+				(array_agg(source_period_key ORDER BY rank) FILTER (WHERE source_period_key IS NOT NULL))[1] AS source_period_key,
 				max(last_update) AS last_update
 			FROM s
 			GROUP BY session_id
+		), dated AS (
+			SELECT ids.*, COALESCE(ids.last_update::timestamptz,
+				CASE WHEN ids.session_id ~ '^[0-9]{1,18}$' THEN to_timestamp(ids.session_id::bigint / 1000.0) END) AS aged_at
+			FROM ids
+			WHERE NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = ids.session_id)
+				AND NOT EXISTS (SELECT 1 FROM jetsapi.session_deletion d WHERE d.session_id = ids.session_id)
 		)
-		SELECT ids.session_id, ids.client, ids.source_type, sp.month_period, $2::text, $3::text
-		FROM ids LEFT JOIN jetsapi.source_period sp ON sp.key = ids.source_period_key
-		WHERE ids.last_update <= $1::timestamptz
-			AND NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = ids.session_id)
-			AND NOT EXISTS (SELECT 1 FROM jetsapi.session_deletion d WHERE d.session_id = ids.session_id)
-		ORDER BY ids.session_id`, before, ReasonOrphan, RequestedByPurge)
+		SELECT dated.session_id, dated.client, dated.source_type, sp.month_period, dated.aged_at IS NULL
+		FROM dated LEFT JOIN jetsapi.source_period sp ON sp.key = dated.source_period_key
+		WHERE dated.aged_at IS NULL OR dated.aged_at <= $1::timestamptz
+		ORDER BY dated.session_id`
+	rows, err = db.Query(ctx, stmt, before)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the orphan candidates: %w", err)
+	}
+	defer rows.Close()
+	var out []Request
+	undated := 0
+	for rows.Next() {
+		var client, sourceType *string
+		var r Request
+		var noAge bool
+		if err := rows.Scan(&r.SessionID, &client, &sourceType, &r.MonthPeriod, &noAge); err != nil {
+			return nil, err
+		}
+		if noAge {
+			undated++
+			continue
+		}
+		r.Client = ClientUnknown
+		if client != nil && *client != "" {
+			r.Client = *client
+		}
+		if sourceType != nil {
+			r.SourceType = *sourceType
+		}
+		r.Reason, r.RequestedBy = ReasonOrphan, RequestedByPurge
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if undated > 0 {
+		log.Printf("sessionpurge: %d unregistered session ids are not numeric and appear only in tables with no"+
+			" last_update; they cannot be dated and are not orphan candidates", undated)
+	}
+	return out, nil
 }
 
 // queuedRequests reads the deletion rows Execute works through: pending and
