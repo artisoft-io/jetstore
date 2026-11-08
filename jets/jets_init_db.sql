@@ -203,6 +203,13 @@ FROM jetsapi.pipeline_execution_status_archive
 --                 pipeline_execution_status rows (by session_id, not by
 --                 input_session_id); a session has one, a file's session none.
 --   deletion_*    the session's session_deletion row, any reason.
+--   year, month, day  the session's source_period, as Pipelines Status shows its
+--                 runs; for a tombstone, which keeps no source_period_key, the
+--                 year and month of its month_period and no day.
+-- Columns are only ever appended: CREATE OR REPLACE VIEW cannot drop, rename or
+-- reorder a column of a view already deployed, so a column the tab stops showing
+-- stays in the view (object_type, since the tab replaced Domain Key with the
+-- period, 2026-11-08).
 -- The column lists are explicit on both sides, so a column added to
 -- session_registry does not shift the view; TestSessionRegistryViewColumns
 -- (jets/update_db) fails until the two sides and its list agree.
@@ -213,7 +220,8 @@ SELECT
   CASE WHEN sr.session_id ~ '^[0-9]{1,18}$' THEN sr.session_id::bigint END AS session_num,
   ir.object_type, ir.file_key, pes.process_name, pes.status,
   sd.status AS deletion_status, sd.reason AS deletion_reason,
-  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
+  sp.year, sp.month, sp.day
 FROM jetsapi.session_registry sr
 CROSS JOIN LATERAL (
   SELECT min(i.object_type) AS object_type, min(i.file_key) AS file_key
@@ -222,6 +230,7 @@ CROSS JOIN LATERAL (
   SELECT min(p.process_name) AS process_name, min(p.status) AS status
   FROM jetsapi.pipeline_execution_status p WHERE p.session_id = sr.session_id) pes
 LEFT JOIN jetsapi.session_deletion sd ON sd.session_id = sr.session_id
+LEFT JOIN jetsapi.source_period sp ON sp.key = sr.source_period_key
 UNION ALL
 SELECT
   sd.session_id, sd.source_type, sd.client, NULL::integer AS source_period_key, sd.month_period,
@@ -229,8 +238,12 @@ SELECT
   CASE WHEN sd.session_id ~ '^[0-9]{1,18}$' THEN sd.session_id::bigint END AS session_num,
   NULL::text AS object_type, NULL::text AS file_key, NULL::text AS process_name, NULL::text AS status,
   sd.status AS deletion_status, sd.reason AS deletion_reason,
-  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
+  spm.year, spm.month, NULL::integer AS day
 FROM jetsapi.session_deletion sd
+CROSS JOIN LATERAL (
+  SELECT min(p.year) AS year, min(p.month) AS month
+  FROM jetsapi.source_period p WHERE p.month_period = sd.month_period) spm
 WHERE sd.reason = 'user'
   AND NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = sd.session_id)
 ;

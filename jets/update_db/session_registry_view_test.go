@@ -48,6 +48,7 @@ func sessionRegistryViewStatement(t *testing.T) string {
 var sessionRegistryViewExtras = []string{
 	"session_num", "object_type", "file_key", "process_name", "status",
 	"deletion_status", "deletion_reason", "deletion_requested_by", "deletion_requested_at",
+	"year", "month", "day",
 }
 
 // selectNames returns the output names of a select list: the alias after AS,
@@ -128,6 +129,7 @@ type viewRow struct {
 	objectType, fileKey, processName *string
 	status, deletionStatus, reason   *string
 	sourcePeriodKey                  *int
+	year, month, day                 *int
 }
 
 // One row per live session, with its input and its own run; the tombstones of
@@ -137,6 +139,12 @@ func TestSessionRegistryView(t *testing.T) {
 	pool := purgetest.DB(t, "srg_session_registry_view")
 	ctx := context.Background()
 	purgetest.Exec(t, pool, sessionRegistryViewStatement(t))
+	// The period every registered session below names (key 1), and a second day
+	// of the same month, so a tombstone's month_period finds two rows that agree.
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.source_period (key, year, month, day, month_period, week_period, day_period)
+		VALUES (1, 2026, 2, 3, 313, 1357, 9497), (2, 2026, 2, 4, 313, 1357, 9498)
+		ON CONFLICT (key) DO UPDATE SET year = EXCLUDED.year, month = EXCLUDED.month, day = EXCLUDED.day,
+			month_period = EXCLUDED.month_period, week_period = EXCLUDED.week_period, day_period = EXCLUDED.day_period`)
 	// Created twice, as update_db -initDb runs the script on every deployment.
 	purgetest.Exec(t, pool, sessionRegistryViewStatement(t))
 
@@ -180,7 +188,7 @@ func TestSessionRegistryView(t *testing.T) {
 	deletion("5005", "orphan", "done")
 
 	rows, err := pool.Query(ctx, `SELECT session_id, client, session_num, object_type, file_key,
-		process_name, status, deletion_status, deletion_reason, source_period_key
+		process_name, status, deletion_status, deletion_reason, source_period_key, year, month, day
 		FROM jetsapi.session_registry_view ORDER BY session_id`)
 	if err != nil {
 		t.Fatal(err)
@@ -190,7 +198,8 @@ func TestSessionRegistryView(t *testing.T) {
 	for rows.Next() {
 		var r viewRow
 		if err := rows.Scan(&r.sessionID, &r.client, &r.sessionNum, &r.objectType, &r.fileKey,
-			&r.processName, &r.status, &r.deletionStatus, &r.reason, &r.sourcePeriodKey); err != nil {
+			&r.processName, &r.status, &r.deletionStatus, &r.reason, &r.sourcePeriodKey,
+			&r.year, &r.month, &r.day); err != nil {
 			t.Fatal(err)
 		}
 		got[r.sessionID] = r
@@ -228,6 +237,15 @@ func TestSessionRegistryView(t *testing.T) {
 	check("1001", "file_key", str(f.fileKey), "c1/a.csv")
 	check("1001", "process_name", str(f.processName), "<nil>")
 	check("1001", "deletion_status", str(f.deletionStatus), "<nil>")
+	ival := func(p *int) any {
+		if p == nil {
+			return nil
+		}
+		return *p
+	}
+	check("1001", "year", ival(f.year), 2026)
+	check("1001", "month", ival(f.month), 2)
+	check("1001", "day", ival(f.day), 3)
 
 	m := got["2002"]
 	check("2002", "process_name", str(m.processName), "map_records")
@@ -242,6 +260,9 @@ func TestSessionRegistryView(t *testing.T) {
 	d := got["3003"]
 	check("3003", "deletion_status", str(d.deletionStatus), "done")
 	check("3003", "session_num", num(d.sessionNum), int64(3003))
+	check("3003", "year", ival(d.year), 2026)
+	check("3003", "month", ival(d.month), 2)
+	check("3003", "day", ival(d.day), nil)
 	if d.sourcePeriodKey != nil {
 		t.Errorf("3003: a tombstone has no source_period_key, got %d", *d.sourcePeriodKey)
 	}

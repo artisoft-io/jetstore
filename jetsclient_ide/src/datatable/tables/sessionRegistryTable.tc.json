@@ -18,9 +18,22 @@
       "tooltip": "file for a loaded file, domain_table for a pipeline's output"
     },
     {
-      "name": "object_type",
-      "label": "Domain Key",
-      "tooltip": "Object type of the session's input registry entries"
+      "name": "year",
+      "label": "Year",
+      "tooltip": "Year of the session's period",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "tooltip": "Month of the year of the session's period",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "tooltip": "Day of the month of the session's period; empty for a deleted session",
+      "isNumeric": true
     },
     {
       "name": "file_key",
@@ -90,7 +103,7 @@
     "otherColumns": [
       {
         "stateKey": "sr_deletion_status",
-        "columnIdx": 9
+        "columnIdx": 11
       }
     ]
   },
