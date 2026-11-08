@@ -16,6 +16,10 @@ import (
 type Options struct {
 	Deadline time.Time // stop starting sessions after this; zero for none
 	DryRun   bool      // every transaction rolled back; nothing written
+	// Reasons limits the queued rows taken to those with one of these reasons;
+	// empty takes every reason. The apiserver passes ReasonUser, so a user's
+	// Delete never waits behind a retention backlog; the purge lambda passes none.
+	Reasons []Reason
 }
 
 // Report says what a run did, or for a dry run what it would have done.
@@ -166,7 +170,7 @@ func Execute(ctx context.Context, db *pgxpool.Pool, opts Options) (Report, error
 	if opts.DryRun {
 		return ExecuteRequests(ctx, db, nil, opts)
 	}
-	queued, err := queuedRequests(ctx, db)
+	queued, err := queuedRequests(ctx, db, opts.Reasons)
 	if err != nil {
 		return newReport(), fmt.Errorf("while reading session_deletion: %w", err)
 	}
@@ -187,7 +191,7 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 			return newReport(), err
 		}
 	}
-	queued, err := queuedRequests(ctx, db)
+	queued, err := queuedRequests(ctx, db, opts.Reasons)
 	if err != nil {
 		return newReport(), fmt.Errorf("while reading session_deletion: %w", err)
 	}
@@ -203,9 +207,21 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 // rows shared between sessions, such as a coordinator request's map row.
 //
 // The price is that a dry run holds the row locks it takes until it ends. They are
-// the locks a real run would take one session at a time: on the rows of the
-// sessions it deletes, and, by the coordinator rule in deleteRows, on no map row
-// of a request that still has a live session.
+// the locks a real run would take one session at a time, and they touch only rows
+// of the sessions it deletes: their rows in every table, and, by the coordinator
+// rule in deleteRows, the map row of a request whose items are all theirs, never
+// one that still has a live session. A pipeline start inserts new rows and touches
+// none of them, so a start never waits on a dry run.
+//
+// A dry run takes no session lock (LockSession) and no coordinator map-row lock,
+// both of which a real run takes. It writes nothing, so it has nothing to order
+// against a start, and its savepoints still see its own earlier deletions, so its
+// prediction for a request shared between sessions stays exact (I-21). Holding
+// them would have cost three things: it would have held many session locks, in
+// queue order rather than sorted, until it ended; so a start or a Resubmit reading
+// a session it had reached would wait up to the purge lambda's fifteen minutes,
+// every day while PURGE_DRY_RUN is unset; and a delete_sessions or the apiserver's
+// executor could form a deadlock cycle with it.
 func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, claim bool) (Report, error) {
 	report := newReport()
 	if len(reqs) == 0 {
@@ -324,11 +340,26 @@ func dryRunSession(ctx context.Context, dry pgx.Tx, r *Request, tables []table) 
 }
 
 // deleteRows does one session's work in tx, which the caller commits or rolls
-// back: refuse it if a run on it or reading it is active; otherwise delete it from
-// every table, archive its runs, delete session_registry last and, with claim,
-// mark its deletion row done.
+// back: with claim, take the session lock (LockSession) and claim the deletion
+// row; refuse the session if a run on it or reading it is active; otherwise
+// delete it from every table, archive its runs, delete session_registry last and,
+// with claim, mark its deletion row done.
+//
+// claim is false only in a dry run, which takes no session lock and no map-row
+// lock (see run). In a real run the lock is taken first, before the claim and so
+// before the refusal. A pipeline start takes the same lock before it inserts its
+// status row (jets/datatable, InsertPipelineExecutionStatus), so the two are
+// ordered: a start that holds it commits its pending or submitted row before the
+// refusal below reads, and a start that waits for it finds the session queued.
 func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, claim bool) (res result, err error) {
 	if claim {
+		// The session lock first, before any row lock: see LockSession for the
+		// order every taker keeps. A second executor on the same session waits
+		// here, and then finds the deletion row done and counts the session held.
+		if err = LockSession(ctx, tx, r.SessionID); err != nil {
+			return res, err
+		}
+
 		var status string
 		err = tx.QueryRow(ctx, `SELECT status FROM jetsapi.session_deletion
 			WHERE session_id = $1 AND status <> 'done' FOR UPDATE SKIP LOCKED`, r.SessionID).Scan(&status)
@@ -343,8 +374,7 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 
 	var active bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_status
-		WHERE status IN ('pending', 'submitted') AND (session_id = $1 OR input_session_id = $1))`,
-		r.SessionID).Scan(&active)
+		WHERE `+activeRunWhere("$1")+`)`, r.SessionID).Scan(&active)
 	if err != nil {
 		return res, fmt.Errorf("while checking for an active run: %w", err)
 	}
@@ -375,6 +405,19 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 	if err = exec("jetsapi.pipeline_coordinator_lock",
 		`DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id = $1`, r.SessionID); err != nil {
 		return res, err
+	}
+	// The map rows of the session's requests are locked before its items go, in
+	// request order, so that two executors deleting the last two sessions of one
+	// request take them one after the other: the second waits here, and its
+	// NOT EXISTS below, a new statement, sees the first one's items gone. Without
+	// the lock each saw the other's item still there and both kept the map row.
+	// Not in a dry run (claim false), which commits nothing for another to miss.
+	if claim {
+		if _, err = tx.Exec(ctx, `SELECT m.request_id FROM jetsapi.pipeline_coordinator_map m
+			WHERE m.request_id IN (SELECT i.request_id FROM jetsapi.pipeline_coordinator_map_items i WHERE i.session_id = $1)
+			ORDER BY m.request_id FOR UPDATE OF m`, r.SessionID); err != nil {
+			return res, fmt.Errorf("while locking the coordinator map rows: %w", err)
+		}
 	}
 	rows, err := tx.Query(ctx, `DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1
 		RETURNING request_id`, r.SessionID)

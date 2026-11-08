@@ -453,7 +453,9 @@
         "add_workspace_file",
         "delete_workspace_files",
         "delete_workspace_changes",
-        "delete_all_workspace_changes"
+        "delete_all_workspace_changes",
+        "preview_session_deletion",
+        "delete_sessions"
       ],
       "type": "string"
     },

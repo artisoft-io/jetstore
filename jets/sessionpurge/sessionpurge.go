@@ -118,8 +118,10 @@ func merge(queued, reqs []Request) []Request {
 
 // Queue inserts pending rows. A session already queued keeps its row, except that
 // a ReasonUser request replaces a retention or orphan one that is not yet done.
-// It returns the number of rows inserted or replaced.
-func Queue(ctx context.Context, db *pgxpool.Pool, reqs []Request) (int, error) {
+// It returns the number of rows inserted or replaced. db is a pool, or a
+// transaction of the caller's: delete_sessions queues inside the transaction that
+// holds the sessions' locks.
+func Queue(ctx context.Context, db Querier, reqs []Request) (int, error) {
 	if len(reqs) == 0 {
 		return 0, nil
 	}
@@ -326,12 +328,23 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 }
 
 // queuedRequests reads the deletion rows Execute works through: pending and
-// failed, oldest first.
-func queuedRequests(ctx context.Context, db *pgxpool.Pool) ([]Request, error) {
+// failed, oldest first, and only those with one of reasons when it is not empty.
+func queuedRequests(ctx context.Context, db *pgxpool.Pool, reasons []Reason) ([]Request, error) {
+	// Never nil: pgx sends a nil slice as NULL, and cardinality(NULL) is NULL.
+	only := make([]string, 0, len(reasons))
+	for _, r := range reasons {
+		switch r {
+		case ReasonRetention, ReasonOrphan, ReasonUser:
+			only = append(only, string(r))
+		default:
+			return nil, fmt.Errorf("unknown deletion reason %q in Options.Reasons", r)
+		}
+	}
 	return readRequests(ctx, db, `SELECT session_id, client, source_type, month_period, reason, requested_by
 		FROM jetsapi.session_deletion
 		WHERE status IN ('pending', 'failed')
-		ORDER BY requested_at, session_id`)
+			AND (cardinality($1::text[]) = 0 OR reason = ANY($1::text[]))
+		ORDER BY requested_at, session_id`, only)
 }
 
 func readRequests(ctx context.Context, db *pgxpool.Pool, stmt string, args ...any) ([]Request, error) {

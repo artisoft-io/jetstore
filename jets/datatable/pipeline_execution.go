@@ -222,11 +222,18 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 
 	// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
 	// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
-	// Executing the InserRow Stmt
-	if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
-		err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&peKey)
-	} else {
-		_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	// The insert runs in a transaction that, for a run reading an input session,
+	// first takes that session's lock and refuses the run with 409 when the
+	// session is queued for deletion or deleted (GuardInputSession, session_delete.go).
+	// The throttling above and the start below stay outside it.
+	var inputSessionId string
+	if strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status") {
+		inputSessionId = sessionIdOf(dataTableAction.Data[irow]["input_session_id"])
+	}
+	peKey, httpStatus, err = ctx.insertStatusRow(sqlStmt.Stmt, row, inputSessionId)
+	if err != nil && httpStatus == http.StatusConflict {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+		return
 	}
 	if err != nil {
 		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -288,6 +295,45 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			}
 		}
 	}
+	return
+}
+
+// sessionIdOf is a row's session id as text: "" for none.
+func sessionIdOf(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return x
+	default:
+		return fmt.Sprint(x)
+	}
+}
+
+// insertStatusRow executes the insert of InsertPipelineExecutionStatus in a
+// transaction, after GuardInputSession on inputSessionId. It answers 409 with the
+// guard's error when the input session is queued for deletion or deleted, and
+// otherwise returns the insert's error as it comes, for the caller to classify.
+func (ctx *DataTableContext) insertStatusRow(stmt string, row []any, inputSessionId string) (peKey int, httpStatus int, err error) {
+	bg := context.Background()
+	httpStatus = http.StatusOK
+	tx, err := ctx.Dbpool.Begin(bg)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback(context.Background())
+	if httpStatus, err = GuardInputSession(bg, tx, inputSessionId); err != nil {
+		return
+	}
+	if strings.Contains(stmt, "RETURNING key") {
+		err = tx.QueryRow(bg, stmt, row...).Scan(&peKey)
+	} else {
+		_, err = tx.Exec(bg, stmt, row...)
+	}
+	if err != nil {
+		return
+	}
+	err = tx.Commit(bg)
 	return
 }
 

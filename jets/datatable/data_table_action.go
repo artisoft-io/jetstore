@@ -1208,6 +1208,8 @@ const (
 	// paths that reach the same authority without resolving a statement: DropTable
 	// below, and the inline resubmit_pipeline arm in jets/apiserver. I-125.
 	CapabilityRunPipelines = "run_pipelines"
+	// CapabilityDeleteSession gates preview_session_deletion and delete_sessions.
+	CapabilityDeleteSession = "delete_session"
 )
 
 // requireCapability is the read-side counterpart of VerifyUserPermission's use
