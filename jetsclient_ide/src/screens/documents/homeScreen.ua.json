@@ -83,12 +83,13 @@
           "endpoint": "/dataTable",
           "action": "delete_sessions",
           "spinner": true,
-          "extras": { "expected": { "fromKeyList": "session_deletion_expected" } },
           "onConflict": "The sessions to delete changed since they were listed. Select Delete again to review them.",
           "data": {
-            "rows": "fanOut",
-            "over": "sessionRegistryTable",
-            "fields": { "session_id": { "fromKeyAtIndex": "sessionRegistryTable" } }
+            "rows": "fields",
+            "fields": {
+              "session_id": { "fromKeyList": "sessionRegistryTable" },
+              "expected": { "fromKeyList": "session_deletion_expected" }
+            }
           }
         },
         {

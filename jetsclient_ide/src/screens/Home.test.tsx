@@ -105,7 +105,7 @@ const archiveRows: (string | null)[][] = [
  */
 const previewRows = [
   {
-    session_id: "1001", client: "acme", source_type: "file", month_period: 313,
+    session_id: "1001", client: "acme", source_type: "file", month_period: null,
     reads_session: "", process_name: "", object_type: "claim", active: false,
   },
   {
@@ -1364,7 +1364,7 @@ describe("Session Registry's Delete (G.3)", () => {
     expect(screen.getByTestId("prompt-detail").textContent).toBe(
       [
         "2 sessions, 1 of them reading a selected one:",
-        "1001: claim, client acme, month period 313",
+        "1001: claim, client acme",
         "2002: map_records, client (unknown), month period 313, reads 1001, waits for its run to end",
       ].join("\n"),
     );
@@ -1379,9 +1379,11 @@ describe("Session Registry's Delete (G.3)", () => {
     fireEvent.click(button("Delete"));
     await answerConfirm("OK");
     await waitFor(() => expect(deletePosts(posts)).toHaveLength(1));
+    // One row carrying the selection and the previewed ids, which the server
+    // reads from the rows rather than from the envelope (jetstore#2410).
     const body = deletePosts(posts)[0]!.body;
-    expect(body["data"]).toEqual([{ session_id: "1001" }]);
-    expect(body["expected"]).toEqual(["1001", "2002"]);
+    expect(body["data"]).toEqual([{ session_id: ["1001"], expected: ["1001", "2002"] }]);
+    expect(body["expected"]).toBeUndefined();
     expect((await screen.findByRole("status")).textContent).toMatch(/^Deletion queued/);
     await waitFor(() => expect(readsOf(posts, "session_registry_view").length).toBeGreaterThan(before));
   });
@@ -1397,7 +1399,7 @@ describe("Session Registry's Delete (G.3)", () => {
   });
 
   it("reports a refused preview, asks nothing, and posts nothing", async () => {
-    previewResponse = { status: 403, body: { error: "forbidden" } };
+    previewResponse = { status: 404, body: { error: "session 1001: not registered in session_registry" } };
     const { posts } = await openRegistry();
     await selectRow("1001");
     fireEvent.click(button("Delete"));

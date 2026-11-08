@@ -225,12 +225,12 @@ export const ServerActionSchema = z
      * tab's *Delete*, `session_registry` Phase 2 (JM-081), 2026-11-08.
      *
      * Both are gated by `delete_session` in their arms of `DoDataTableAction`
-     * (`jets/apiserver/api_tables.go`), and neither takes a `table`: `data` is one
-     * row per selected session, `{session_id}`. The preview writes nothing and is
+     * (`jets/apiserver/api_tables.go`), and neither takes a `table`: `data` rows
+     * carry `session_id`, one id or a list. The preview writes nothing and is
      * read through an escape (`sessionDeletion.ts`), because a `post` step keeps
      * only the status and the preview's whole point is its rows. `delete_sessions`
-     * also carries `expected`, the ids the preview listed, and answers 409 when
-     * the closure has changed since, so a user confirms what is deleted.
+     * also carries `expected` in its row, the ids the preview listed, and answers
+     * 409 when the closure has changed since, so a user confirms what is deleted.
      */
     "preview_session_deletion",
     "delete_sessions",

@@ -30,8 +30,20 @@
  * `previewRequest` and `previewRowOf` below are the only code that knows the
  * request and response of `preview_session_deletion` (`jets/apiserver`,
  * `DoDataTableAction`), and `homeScreen.ua.json`'s `deleteSessions` the only
- * document that knows `delete_sessions`'. Both were built against the shapes
- * agreed in the plan (§3.3) before the server landed.
+ * document that knows `delete_sessions`'. Aligned with the server's shapes as
+ * its pull request states them (jetstore#2410, 2026-11-08):
+ *
+ *  - the preview takes one `data` row per selected session, `{session_id}`, and
+ *    answers `{rows: [{session_id, client, source_type, month_period (int or
+ *    null), reads_session ("" for a selected one), process_name, object_type,
+ *    active (bool)}]}`; 404 when a selected session is no longer registered, 403
+ *    without `delete_session`;
+ *  - `delete_sessions` takes one `data` row, `{session_id: [ids], expected:
+ *    [ids]}` — `expected` is read from the rows, not from the envelope — and
+ *    answers `{queued, waiting}`, or 409 when the closure changed. **`queued`
+ *    is not the closure's size** (a session already queued by a user is not
+ *    counted), and a `post` step drops the body anyway, so the notification
+ *    after it is static.
  */
 
 import type { FormState } from "../datatable/formState";
@@ -169,8 +181,8 @@ export async function previewSessionDeletion(
     host.setBusy(false);
   }
   // `read` answers null for any failed request and keeps no message, so the
-  // likely causes are named here: the capability, and a session gone since the
-  // table was read.
+  // likely causes are named here: the capability (403), and a session gone
+  // since the table was read (404, "not registered in session_registry").
   if (raw === null) {
     return "Could not list the sessions to delete: the server refused the preview. You need delete_session, and every selected session must still be registered; refresh and select again.";
   }
