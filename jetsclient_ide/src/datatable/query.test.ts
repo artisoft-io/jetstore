@@ -378,6 +378,62 @@ describe("makeQuery", () => {
     });
   });
 
+  /*
+    **`FILTERS_BY_FIELD`, the one table from field key to filter list**, which
+    replaced the two key branches when `session_registry` Phase 2 added two tables
+    (2026-11-08). The three cases below are its whole contract: each key gets its
+    own list and no other, and the archive's clauses arrive on the archive.
+  */
+  it("gives each field key its own filter list, and no other", () => {
+    const config = tables["lfSourceConfigTable"]!;
+    const lists = {
+      homeFilters: [whereClause({ column: "status", defaultValue: ["failed"] })],
+      dataRegistryFilters: [whereClause({ column: "year", defaultValue: ["2026"] })],
+      sessionRegistryFilters: [whereClause({ column: "source_type", defaultValue: ["file"] })],
+    };
+    const columnsFor = (key: string) =>
+      (makeQuery(context(config, { ...lists, formField: { group: 0, key } })).whereClauses ?? []).map(
+        (w) => w.column,
+      );
+    expect(columnsFor("pipelineExecStatusTable")).toEqual(["status"]);
+    expect(columnsFor("pipelineArchiveTable")).toEqual(["status"]);
+    // And the registry's own `NOT IN ('Any')` on client, which is not a filter list.
+    expect(columnsFor("inputRegistryTable")).toEqual(["year", "client"]);
+    expect(columnsFor("sessionRegistryTable")).toEqual(["source_type"]);
+    expect(columnsFor("somethingElse")).toEqual([]);
+    // An inherited property is not a key of the table.
+    expect(columnsFor("toString")).toEqual([]);
+  });
+
+  it("rewrites the home filters' table to the archive, orWith included, and nothing else", () => {
+    const config = tables["lfSourceConfigTable"]!;
+    const homeFilters = [
+      whereClause({ table: "pipeline_execution_status", column: "start_time", ge: "now()" }),
+      whereClause({
+        table: "pipeline_execution_status",
+        column: "status",
+        defaultValue: ["failed"],
+        orWith: whereClause({ table: "pipeline_execution_status", column: "status", defaultValue: ["errors"] }),
+      }),
+      whereClause({ table: "source_period", column: "year", defaultValue: ["2026"] }),
+    ];
+    const msg = makeQuery(
+      context(config, { homeFilters, formField: { group: 0, key: "pipelineArchiveTable" } }),
+    );
+    expect(msg.whereClauses).toEqual([
+      { table: "pipeline_execution_status_archive", column: "start_time", ge: "now()" },
+      {
+        table: "pipeline_execution_status_archive",
+        column: "status",
+        values: ["failed"],
+        orWith: { table: "pipeline_execution_status_archive", column: "status", values: ["errors"] },
+      },
+      { table: "source_period", column: "year", values: ["2026"] },
+    ]);
+    // The shared list itself is untouched: Pipelines Status reads it next.
+    expect(homeFilters[0]!.table).toBe("pipeline_execution_status");
+  });
+
   it("resolves an empty from-clause table name from form state", () => {
     const config: TableConfig = {
       ...tables["lfSourceConfigTable"]!,

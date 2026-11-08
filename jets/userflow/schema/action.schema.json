@@ -512,6 +512,12 @@
         {
           "additionalProperties": false,
           "properties": {
+            "detailFromKey": {
+              "description": "A key naming a form-state entry, action, state or table",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
             "do": {
               "const": "confirm",
               "type": "string"

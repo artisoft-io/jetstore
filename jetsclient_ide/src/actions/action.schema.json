@@ -116,6 +116,12 @@
               "type": "string",
               "minLength": 1
             },
+            "detailFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
             "when": {
               "$ref": "#/$defs/Condition"
             }

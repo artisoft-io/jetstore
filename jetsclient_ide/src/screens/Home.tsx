@@ -49,10 +49,33 @@
  * rendered here, which is **F18 read backwards** — that fact records a table
  * registered outside the flows and rendered by one. `pipelineExecStatusTable`
  * arrived with F.5. So this screen's three tables cost **one** translation.
+ *
+ * ## Four tabs since `session_registry` Phase 2 (JM-081, 2026-11-08)
+ *
+ * ***Session Registry*** and ***Archived Pipelines*** follow the two above, and
+ * neither has a Dart original: both documents are written for the feature and
+ * bundled (`datatable/tables/`). Still only the selected tab is mounted and
+ * queried. The filter table above gains two rows:
+ *
+ * | Filter | Set by | Reaches |
+ * |---|---|---|
+ * | `homeFilters`, table rewritten | the same flow and prompts | `pipelineArchiveTable` |
+ * | `sessionRegistryFilters` | this screen's *Set Filters* dialog and *Set Session Id* | `sessionRegistryTable` |
+ *
+ * **The selected tab is in the address, `?tab=<table key>`**, because two of
+ * the four tabs have a *Set Filters* and one of them opens `homeFiltersUF`, which
+ * returns here by `returnTo` (D.8) — and a remounted screen held its tab in
+ * state and came back on the first. The address is what the return carries.
+ *
+ * ***Session Registry*'s *Set Filters* is a dialog on this screen, not a flow**,
+ * for two reasons: a flow is a workspace asset that reaches a deployment only
+ * through the asset install, and a dialog leaves the user on the tab whose
+ * filters they are setting. Its *Delete* runs `deleteSessions`, whose
+ * confirmation lists every session the deletion reaches (`actions/sessionDeletion.ts`).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -61,7 +84,10 @@ import { productionRegistry } from "../actions/registry";
 import {
   currentDataRegistryFilters,
   currentHomeFilters,
+  currentSessionRegistryFilters,
+  savedSessionRegistryFilterState,
   setIdFilter,
+  setSessionRegistryIdFilter,
 } from "../actions/homeFilters";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import { describeUnresolved, resolveEscapes } from "../actions/escapes";
@@ -94,6 +120,8 @@ import { inAppPath, unservedScreenMessage, withReturnTo } from "./routes";
 import actionsJson from "./documents/homeScreen.ua.json";
 import formsJson from "./documents/homeScreen.form.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
+import sessionRegistryTable from "../datatable/tables/sessionRegistryTable.tc.json";
+import pipelineArchiveTable from "../datatable/tables/pipelineArchiveTable.tc.json";
 
 /**
  * The three tabs, in the Dart's order, with the Dart's labels.
@@ -136,7 +164,29 @@ const TABS = [
     query rather than three is now one rather than two.
   */
   { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable, caption: null },
+  /*
+    **Third and fourth, `session_registry` Phase 2 (2026-11-08).** Each tab's
+    caption is emptied as *Pipelines Status*'s is, and for its reason: the tab
+    strip names the table. Unlike that one, these documents are this screen's
+    alone, so the label could have been left out of them — it is kept, because a
+    document's label is what a reader of the document sees first.
+  */
+  { key: "sessionRegistryTable", label: "Session Registry", document: sessionRegistryTable, caption: "" },
+  { key: "pipelineArchiveTable", label: "Archived Pipelines", document: pipelineArchiveTable, caption: "" },
 ] as const;
+
+/** The tab the address names, or the first: an unknown key is not an error. */
+const tabIndexOf = (key: string | null): number => {
+  const index = TABS.findIndex((t) => t.key === key);
+  return index < 0 ? 0 : index;
+};
+
+/** The Session Registry filter dialog, which this screen seeds from the last answers. */
+const SESSION_REGISTRY_FILTERS_DIALOG = "sessionRegistryFiltersDialog";
+
+/** What *Set Session Id* asks on Session Registry, which also takes a range (`Q-6`). */
+const SESSION_REGISTRY_ID_PROMPT =
+  "Enter session IDs comma separated, or a range from..to (either end may be empty, as 1000.. or ..2000)";
 
 /** The tab whose document comes from the workspace. */
 const WORKSPACE_TABLE = "pipelineExecStatusTable";
@@ -265,7 +315,21 @@ export function Home({ api }: { api: ApiClient }) {
   const { setError, setStatus } = useNotifications();
   const prompts = usePrompts();
 
-  const [tab, setTab] = useState(0);
+  const [search, setSearch] = useSearchParams();
+  const tab = tabIndexOf(search.get("tab"));
+  const setTab = useCallback(
+    (index: number) =>
+      setSearch(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          if (index === 0) next.delete("tab");
+          else next.set("tab", TABS[index]!.key);
+          return next;
+        },
+        { replace: true },
+      ),
+    [setSearch],
+  );
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [stateVersion, setStateVersion] = useState(0);
@@ -424,14 +488,22 @@ export function Home({ api }: { api: ApiClient }) {
   const client = selectedClient();
   const homeFilters = currentHomeFilters();
   const dataRegistryFilters = currentDataRegistryFilters();
+  const sessionRegistryFilters = currentSessionRegistryFilters();
   void stateVersion;
-  const contextKey = JSON.stringify([routeParams, client, homeFilters, dataRegistryFilters]);
+  const contextKey = JSON.stringify([
+    routeParams,
+    client,
+    homeFilters,
+    dataRegistryFilters,
+    sessionRegistryFilters,
+  ]);
   const tableContext = useMemo(
     () => ({
       routeParams: routeParams as Record<string, string | undefined>,
       selectedClient: client,
       homeFilters,
       dataRegistryFilters,
+      sessionRegistryFilters,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [contextKey],
@@ -450,11 +522,23 @@ export function Home({ api }: { api: ApiClient }) {
       },
       validate: () => {
         if (currentForm === null) return true;
-        const found = validateAllGroups(currentForm, activeState, GROUP);
+        // The form's named validator as well as its rules, since the Session
+        // Registry filter dialog (2026-11-08) is the first form here to name one.
+        const validator =
+          currentForm.validator === undefined
+            ? undefined
+            : productionRegistry.validators[currentForm.validator];
+        const found = validateAllGroups(
+          currentForm,
+          activeState,
+          GROUP,
+          validator === undefined ? undefined : { validate: validator, flowKey: SCREEN_KEY },
+        );
         setErrors(found);
         return found.length === 0;
       },
-      confirm: (message: string) => prompts.confirm(message),
+      // The detail is a confirmation's computed list — *Delete*'s sessions.
+      confirm: (message: string, detail?: string) => prompts.confirm(message, detail),
       post: async (request): Promise<PostResult> => {
         try {
           await api.endpoint(request.endpoint, request.body);
@@ -586,6 +670,13 @@ export function Home({ api }: { api: ApiClient }) {
               for (const [key, value] of Object.entries(request.params)) {
                 seeded.setValue(GROUP, key, value);
               }
+              // The Session Registry filters reopen with the answers that set
+              // them, as `homeFiltersUF` does through its initializer.
+              if (request.form === SESSION_REGISTRY_FILTERS_DIALOG) {
+                for (const [key, value] of Object.entries(savedSessionRegistryFilterState())) {
+                  seeded.setValue(GROUP, key, value);
+                }
+              }
               setDialogState(seeded);
               setErrors([]);
               setBusy(false);
@@ -625,9 +716,28 @@ export function Home({ api }: { api: ApiClient }) {
               // own prompt, not the browser's**, which the embedded browser pane
               // never displays — `window.prompt` returned null there and the
               // button did nothing. Same contract: null is Cancel.
-              const answer = await prompts.prompt(request.prompt);
+              /*
+                **Session Registry's *Set Session Id* is its own**: it filters
+                that tab's list and takes a range (`Q-6`), and a range it
+                refuses is said rather than sent (`setSessionRegistryIdFilter`).
+                The request does not name its table, so the open tab does —
+                the one tab mounted is the one whose bar was pressed.
+              */
+              const onSessionRegistry =
+                TABS[tab]!.key === "sessionRegistryTable" && request.column === "session_id";
+              const answer = await prompts.prompt(
+                onSessionRegistry ? SESSION_REGISTRY_ID_PROMPT : request.prompt,
+              );
               if (answer === null) return;
-              setIdFilter(request.column, answer);
+              if (onSessionRegistry) {
+                const refusal = setSessionRegistryIdFilter(answer);
+                if (refusal !== null) {
+                  setError(refusal);
+                  return;
+                }
+              } else {
+                setIdFilter(request.column, answer);
+              }
               formState.notifyListeners();
               formState.requestRefresh();
               return;
@@ -641,7 +751,7 @@ export function Home({ api }: { api: ApiClient }) {
       })();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dialog, formState, host, navigate, prompts, runNamedAction, setError, JSON.stringify(customButtons)],
+    [dialog, formState, host, navigate, prompts, runNamedAction, setError, tab, JSON.stringify(customButtons)],
   );
 
   const onFormAction = useCallback(

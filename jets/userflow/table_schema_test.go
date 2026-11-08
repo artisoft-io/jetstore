@@ -134,7 +134,11 @@ func TestShippingTablesValidate(t *testing.T) {
 	// merged and historical sources, which the pipeline configuration names with
 	// lookback periods, and mergeProcessInputTable, merged_input_registry_keys and
 	// spInjectedProcessInput were retired (RetiredAssets).
-	if len(files) != 61 {
+	//
+	// **61 -> 63 on 2026-11-08**: session_registry Phase 2 (JM-081) added Home's
+	// Session Registry and Archived Pipelines tabs (sessionRegistryTable,
+	// pipelineArchiveTable), bundled with the client.
+	if len(files) != 63 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

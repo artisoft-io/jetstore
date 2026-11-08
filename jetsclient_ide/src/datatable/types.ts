@@ -192,6 +192,11 @@ export interface QueryContext {
   homeFilters?: WhereClause[] | null;
   /** `JetsRouterDelegate().dataRegistryFilters`, applied to three by key. */
   dataRegistryFilters?: WhereClause[] | null;
+  /**
+   * The Session Registry tab's filters, applied to `sessionRegistryTable` alone.
+   * No Dart original: `session_registry` Phase 2, 2026-11-08 (`homeFilters.ts`).
+   */
+  sessionRegistryFilters?: WhereClause[] | null;
   /** Paging and sorting live in widget state, not in the configuration. */
   indexOffset: number;
   rowsPerPage: number;
