@@ -194,6 +194,18 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 	return run(ctx, db, merge(queued, reqs), opts, false)
 }
 
+// run works through reqs. A real run gives each session a transaction of its own,
+// committed when the session is done. A dry run (opts.DryRun) runs every session
+// in one transaction, each under a savepoint that is released when the session
+// would be done and rolled back to when it fails or is refused, and rolls the
+// whole transaction back at the end. So each session sees what the sessions
+// before it deleted, as in a real run, and the report predicts a real run's for
+// rows shared between sessions, such as a coordinator request's map row.
+//
+// The price is that a dry run holds the row locks it takes until it ends. They are
+// the locks a real run would take one session at a time: on the rows of the
+// sessions it deletes, and, by the coordinator rule in deleteRows, on no map row
+// of a request that still has a live session.
 func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, claim bool) (Report, error) {
 	report := newReport()
 	if len(reqs) == 0 {
@@ -202,6 +214,15 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 	tables, err := resolveTables(ctx, db)
 	if err != nil {
 		return report, err
+	}
+	var dry pgx.Tx
+	if opts.DryRun {
+		claim = false
+		if dry, err = db.Begin(ctx); err != nil {
+			return report, fmt.Errorf("while starting the dry run's transaction: %w", err)
+		}
+		// Nothing a dry run did is ever committed.
+		defer dry.Rollback(context.Background())
 	}
 	for i := range reqs {
 		if err := ctx.Err(); err != nil {
@@ -215,13 +236,22 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 			break
 		}
 		r := &reqs[i]
-		res, err := deleteSession(ctx, db, r, tables, claim, opts.DryRun)
+		var res result
+		if opts.DryRun {
+			res, err = dryRunSession(ctx, dry, r, tables)
+			if errors.Is(err, errDryRunBroken) {
+				report.NotReached += len(reqs) - i
+				return report, err
+			}
+		} else {
+			res, err = deleteSession(ctx, db, r, tables, claim)
+		}
 		switch {
 		case err != nil:
 			report.Failed++
 			report.FailedSessions = append(report.FailedSessions, r.SessionID)
 			log.Printf("sessionpurge: session %s (%s) failed and was rolled back: %v", r.SessionID, r.Reason, err)
-			if claim && !opts.DryRun {
+			if claim {
 				markFailed(db, r.SessionID, err)
 			}
 		case res.held:
@@ -247,18 +277,58 @@ type result struct {
 	rows          map[string]int64
 }
 
-// deleteSession deletes one session in one transaction, which it commits unless
-// dryRun. With claim, the session's deletion row is locked first and marked done
-// last; a row another executor holds is left to it.
-func deleteSession(ctx context.Context, db *pgxpool.Pool, r *Request, tables []table, claim, dryRun bool) (res result, err error) {
+// errDryRunBroken: the dry run's transaction cannot go on, so the run stops.
+var errDryRunBroken = errors.New("the dry run's transaction cannot continue")
+
+// deleteSession deletes one session in a transaction of its own, committed when
+// the session is done and rolled back otherwise. With claim, the session's
+// deletion row is locked first and marked done last; a row another executor holds
+// is left to it.
+func deleteSession(ctx context.Context, db *pgxpool.Pool, r *Request, tables []table, claim bool) (res result, err error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return res, err
 	}
 	// After a commit this is a no-op; otherwise it is the rollback, on every path.
 	defer tx.Rollback(context.Background())
+	res, err = deleteRows(ctx, tx, r, tables, claim)
+	if err != nil || res.held || res.refused {
+		return res, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return res, fmt.Errorf("while committing: %w", err)
+	}
+	return res, nil
+}
 
-	if claim && !dryRun {
+// dryRunSession does one session's work under a savepoint of the dry run's
+// transaction: released when the session would be done, so the sessions after it
+// see its rows gone, and rolled back to otherwise, so a failure leaves the dry run
+// going as it leaves a real run going.
+func dryRunSession(ctx context.Context, dry pgx.Tx, r *Request, tables []table) (res result, err error) {
+	sp, err := dry.Begin(ctx) // a SAVEPOINT
+	if err != nil {
+		return res, fmt.Errorf("%w: savepoint: %v", errDryRunBroken, err)
+	}
+	res, err = deleteRows(ctx, sp, r, tables, false)
+	if err != nil || res.refused {
+		if rbErr := sp.Rollback(context.Background()); rbErr != nil {
+			return res, fmt.Errorf("%w: rolling back to the savepoint after %v: %v", errDryRunBroken, err, rbErr)
+		}
+		return res, err
+	}
+	if err = sp.Commit(ctx); err != nil { // RELEASE SAVEPOINT
+		return res, fmt.Errorf("%w: releasing the savepoint: %v", errDryRunBroken, err)
+	}
+	return res, nil
+}
+
+// deleteRows does one session's work in tx, which the caller commits or rolls
+// back: refuse it if a run on it or reading it is active; otherwise delete it from
+// every table, archive its runs, delete session_registry last and, with claim,
+// mark its deletion row done.
+func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, claim bool) (res result, err error) {
+	if claim {
 		var status string
 		err = tx.QueryRow(ctx, `SELECT status FROM jetsapi.session_deletion
 			WHERE session_id = $1 AND status <> 'done' FOR UPDATE SKIP LOCKED`, r.SessionID).Scan(&status)
@@ -298,20 +368,32 @@ func deleteSession(ctx context.Context, db *pgxpool.Pool, r *Request, tables []t
 			return res, err
 		}
 	}
-	// The coordinator tables. A map row goes with any of its items' sessions, as
-	// it did before this package.
-	if err = exec("jetsapi.pipeline_coordinator_map", `DELETE FROM jetsapi.pipeline_coordinator_map
-		WHERE request_id IN (SELECT request_id FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1)`,
-		r.SessionID); err != nil {
-		return res, err
-	}
+	// The coordinator tables. The session's lock and item rows go; a request's map
+	// row goes only when the last of its items has gone, so a request shared with
+	// a live session keeps its map row, and one whose sessions are all deleted loses
+	// it with the last of them.
 	if err = exec("jetsapi.pipeline_coordinator_lock",
 		`DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id = $1`, r.SessionID); err != nil {
 		return res, err
 	}
-	if err = exec("jetsapi.pipeline_coordinator_map_items",
-		`DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1`, r.SessionID); err != nil {
-		return res, err
+	rows, err := tx.Query(ctx, `DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1
+		RETURNING request_id`, r.SessionID)
+	if err != nil {
+		return res, fmt.Errorf("on jetsapi.pipeline_coordinator_map_items: %w", err)
+	}
+	requests, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return res, fmt.Errorf("on jetsapi.pipeline_coordinator_map_items: %w", err)
+	}
+	res.rows["jetsapi.pipeline_coordinator_map_items"] += int64(len(requests))
+	res.rows["jetsapi.pipeline_coordinator_map"] += 0 // reported, as every table is, when nothing goes
+	if len(requests) > 0 {
+		if err = exec("jetsapi.pipeline_coordinator_map", `DELETE FROM jetsapi.pipeline_coordinator_map m
+			WHERE m.request_id = ANY($1::text[])
+				AND NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_coordinator_map_items i WHERE i.request_id = m.request_id)`,
+			requests); err != nil {
+			return res, err
+		}
 	}
 	// The session's runs move to the archive with their key.
 	if err = exec(ArchiveTable, archiveStmt, r.SessionID, string(r.Reason)); err != nil {
@@ -327,17 +409,11 @@ func deleteSession(ctx context.Context, db *pgxpool.Pool, r *Request, tables []t
 		`DELETE FROM jetsapi.session_registry WHERE session_id = $1`, r.SessionID); err != nil {
 		return res, err
 	}
-	if claim && !dryRun {
+	if claim {
 		if _, err = tx.Exec(ctx, `UPDATE jetsapi.session_deletion
 			SET status = 'done', completed_at = now(), error = NULL WHERE session_id = $1`, r.SessionID); err != nil {
 			return res, fmt.Errorf("while marking the deletion done: %w", err)
 		}
-	}
-	if dryRun {
-		return res, nil // rolled back by the deferred call
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return res, fmt.Errorf("while committing: %w", err)
 	}
 	return res, nil
 }
