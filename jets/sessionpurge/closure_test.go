@@ -4,6 +4,7 @@ package sessionpurge
 // PostgreSQL as the rest of this package's; see jets/sessionpurge/purgetest.
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
@@ -158,6 +159,10 @@ func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {
 	purgetest.Seed(t, pool, purgetest.Session{ID: "s2", Client: "c1", Registered: true})
 	purgetest.Exec(t, pool, `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, nbr_tasks) VALUES ('req-shared', 2);
 		INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ('req-shared', 's1'), ('req-shared', 's2')`)
+	user := func(id string) Request {
+		return Request{SessionID: id, Client: "c1", Reason: ReasonUser, RequestedBy: "someone@example.com"}
+	}
+	queue(t, pool, user("s1"), user("s2"))
 	tables, err := resolveTables(ctx, pool)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +173,8 @@ func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx1.Rollback(ctx)
-	if res, err := deleteRows(ctx, tx1, &Request{SessionID: "s1", Reason: ReasonUser}, tables, false); err != nil || res.refused {
+	r1, r2 := user("s1"), user("s2")
+	if res, err := deleteRows(ctx, tx1, &r1, tables, true); err != nil || res.refused || res.held {
 		t.Fatalf("deleting s1: %+v, %v", res, err)
 	}
 
@@ -180,7 +186,7 @@ func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {
 			return
 		}
 		defer tx2.Rollback(ctx)
-		if _, err = deleteRows(ctx, tx2, &Request{SessionID: "s2", Reason: ReasonUser}, tables, false); err != nil {
+		if _, err = deleteRows(ctx, tx2, &r2, tables, true); err != nil {
 			done <- err
 			return
 		}
@@ -253,10 +259,17 @@ func TestStartHoldingTheLockMakesTheExecutorRefuse(t *testing.T) {
 	}
 }
 
-// The dry run takes the session lock too, and holds it to its end.
-func TestDryRunTakesTheSessionLock(t *testing.T) {
+// A dry run takes no session lock and no coordinator map-row lock: with another
+// transaction holding the session lock on S and a FOR UPDATE on the map row of a
+// request S shares with a live session, a dry run over S completes, inside a short
+// deadline, and still predicts S's rows, its own request's map row included and
+// the shared one kept.
+func TestDryRunTakesNoSessionOrMapLock(t *testing.T) {
 	pool := purgetest.DB(t, testDB)
 	purgetest.Seed(t, pool, purgetest.Session{ID: "d1", Client: "c1", Registered: true})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "live", Client: "c1", Registered: true})
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, nbr_tasks) VALUES ('req-shared', 2);
+		INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ('req-shared', 'd1'), ('req-shared', 'live')`)
 	holder, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -265,17 +278,23 @@ func TestDryRunTakesTheSessionLock(t *testing.T) {
 	if err = LockSession(ctx, holder, "d1"); err != nil {
 		t.Fatal(err)
 	}
-	done := make(chan error, 1)
-	go func() {
-		_, err := ExecuteRequests(ctx, pool, []Request{retention("d1")}, Options{DryRun: true})
-		done <- err
-	}()
-	waitForLockWait(t, pool)
-	if err = holder.Commit(ctx); err != nil {
+	if _, err = holder.Exec(ctx, `SELECT request_id FROM jetsapi.pipeline_coordinator_map
+		WHERE request_id = 'req-shared' FOR UPDATE`); err != nil {
 		t.Fatal(err)
 	}
-	if err = <-done; err != nil {
-		t.Fatal(err)
+
+	short, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	report, err := ExecuteRequests(short, pool, []Request{retention("d1")}, Options{DryRun: true})
+	if err != nil {
+		t.Fatalf("the dry run did not complete while another transaction held d1's locks: %v", err)
+	}
+	if report.Done != 1 || report.Rows["jetsapi.session_registry"] != 1 ||
+		report.Rows["jetsapi.pipeline_coordinator_map_items"] != 2 || report.Rows["jetsapi.pipeline_coordinator_map"] != 1 {
+		t.Errorf("the dry run predicted %+v; want d1 done, its registry row, its two map items and its own request's map row", report)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.session_deletion`); n != 0 {
+		t.Errorf("the dry run wrote %d deletion rows", n)
 	}
 }
 

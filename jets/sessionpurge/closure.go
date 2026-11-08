@@ -45,8 +45,8 @@ const sessionLockClass int32 = 0x53524700
 // first. The second key is hashtext(sessionID), so two sessions may share a lock:
 // a start then waits for one session's deletion, nothing more.
 //
-// The one exception to "one at a time, or sorted" is the dry run, which holds the
-// lock of every session it reaches until it ends, taken in queue order (see run).
+// A dry run takes it not at all (see run): it writes nothing, so it has nothing to
+// order, and holding many locks to its end would stall starts and form cycles.
 func LockSession(ctx context.Context, tx pgx.Tx, sessionID string) error {
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::int, hashtext($2::text))`,
 		sessionLockClass, sessionID); err != nil {
