@@ -5,25 +5,49 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/sessionpurge"
 	"github.com/jackc/pgx/v5/pgxpool"
-	str2duration "github.com/xhit/go-str2duration/v2"
 )
 
-// The delegate that actually perform the database purge sessions
-// Required Env variable:
+// The delegate that performs the database purge.
+// Env variables:
 // JETS_DSN_SECRET
 // JETS_REGION
 // USING_SSH_TUNNEL for testing or running locally
-// RETENTION_DAYS site global rentention days, delete session if > 0
+// RETENTION_DAYS site global retention days, sessions are purged if > 0
+// PURGE_DRY_RUN a dry run unless exactly "false" (see IsDryRun)
 
-// * TODO call DoPurgeSession from DoPurgeDataAction (apiServer)
+// runBudget is how long a run starts sessions for: two minutes inside the
+// lambda's fifteen, so the session in hand, the archive and tombstone purges and
+// VACUUM can finish. What is left stays queued for the next run.
+const runBudget = 13 * time.Minute
+
+// archiveDays is how long an archived run is kept, from its own last_update, as
+// the live table kept it before runs were archived; the retention and orphan
+// tombstones are kept as long.
+const archiveDays = 180
+
+// userTombstoneDays is how long a user's deletion is remembered: as long as a
+// lookback read can reach.
+const userTombstoneDays = 400
+
+// IsDryRun reads PURGE_DRY_RUN: only the value "false" means real deletions.
+// Unset, empty or anything else is a dry run, so a release carrying the session
+// purge deletes nothing at a site until the site has read a dry run's report and
+// set the variable.
+func IsDryRun(value string) bool {
+	return strings.TrimSpace(value) != "false"
+}
+
 // * TODO set retention_days at client level (client_registry)
 func DoPurgeSessions() error {
+	start := time.Now()
 	rd := os.Getenv("RETENTION_DAYS")
 	if len(rd) == 0 {
 		log.Println("Env var RETENTION_DAYS not specified, bailing out!")
@@ -33,19 +57,11 @@ func DoPurgeSessions() error {
 	if err != nil {
 		return fmt.Errorf("while converting RETENTION_DAYS to int : %v", err)
 	}
-
 	if retentionDays < 1 {
 		log.Println("Retention days must be at least 1, we have", retentionDays)
 		return fmt.Errorf("retention days must be at least 1, we have %d", retentionDays)
 	}
-
-	// Date from which we delete all sessions
-	d, err := str2duration.ParseDuration(fmt.Sprintf("-%dd", retentionDays))
-	if err != nil {
-		return fmt.Errorf("while converting RETENTION_DAYS to duration : %v", err)
-	}
-	purgeFrom := time.Now().Add(d)
-	log.Println("Purging all sessions prior to", purgeFrom)
+	dryRun := IsDryRun(os.Getenv("PURGE_DRY_RUN"))
 
 	// open db connection
 	// Get the dsn from the aws secret
@@ -62,208 +78,117 @@ func DoPurgeSessions() error {
 	}
 	defer dbpool.Close()
 
-	//	- Get the retention_days
-	//	- if retention_days > 0:
-	//		- Get all session_id older than retention_days based on last_update
-	//      on session_registry
-	//    - Delete rows in staging tables (via input_registry)
-	//    - Delete rows in domain tables (via input_registry)
-	//    - Delete rows in input_registry
-	//    - Delete rows in compute_pipes_shard_registry
-	//  - Delete rows in pipeline_execution_status that are older than 6 months
-	//  - Compact the database
+	return purgeSessions(context.Background(), dbpool, purgeConfig{
+		RetentionDays: retentionDays,
+		DryRun:        dryRun,
+		Now:           start,
+		Deadline:      start.Add(runBudget),
+	})
+}
 
-	// Rules unit test runs are not sessions, so they are purged by age before the
-	// session purge below can return early with nothing to do.
+type purgeConfig struct {
+	RetentionDays int
+	DryRun        bool
+	Now           time.Time // the run's start, from which every age is counted
+	Deadline      time.Time // no session is started after it
+}
+
+// purgeSessions is the purge, given a database:
+//
+//  1. Rules unit test runs and detection runs, by age, in a dry run too.
+//  2. A dry run reads the retention and orphan candidates, runs them through
+//     sessionpurge.ExecuteRequests with every transaction rolled back, logs the
+//     report and stops. It writes nothing.
+//  3. A real run queues the retention candidates, then the orphans, executes the
+//     queue until the deadline, purges the archive and the tombstones, and runs
+//     VACUUM.
+//
+// A session that fails is logged and retried by the next run; it is not an error
+// of the run, which would have the lambda retried.
+func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) error {
+	purgeFrom := cfg.Now.AddDate(0, 0, -cfg.RetentionDays)
+	mode := "real run"
+	if cfg.DryRun {
+		mode = "dry run, PURGE_DRY_RUN is not false: nothing is deleted"
+	}
+	log.Printf("Purging all sessions prior to %s (%s)", purgeFrom, mode)
+
+	// Rules unit test runs are not sessions, so they are purged by age, as they
+	// were before the session purge was rebuilt.
 	purgeRulesUnitTestRuns(dbpool, purgeFrom)
 	purgeDetectionRuns(dbpool, purgeFrom)
 
-	// Get all session_id prior to purgeFrom
-	sessionIds, err := readSessionIds(dbpool, &purgeFrom)
+	retention, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
 	if err != nil {
-		return fmt.Errorf("while reading session ids: %v", err)
+		return fmt.Errorf("while reading the retention candidates: %v", err)
 	}
+	orphans, err := sessionpurge.OrphanCandidates(ctx, dbpool, purgeFrom)
+	if err != nil {
+		return fmt.Errorf("while reading the orphan candidates: %v", err)
+	}
+	log.Printf("Candidates: %d sessions past retention, %d orphan sessions", len(retention), len(orphans))
 
-	if len(sessionIds) == 0 {
-		// Nothing to delete
-		log.Println("Nothing to purge!")
+	opts := sessionpurge.Options{Deadline: cfg.Deadline, DryRun: cfg.DryRun}
+	if cfg.DryRun {
+		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(retention, orphans...), opts)
+		logReport("DRY RUN, nothing written: ", &report)
+		if err != nil {
+			return fmt.Errorf("while executing the dry run: %v", err)
+		}
 		return nil
 	}
 
-	// Get list of table names
-	tableNames, err := readTableNames(dbpool)
-	if err != nil {
-		return fmt.Errorf("while reading table names: %v", err)
+	if _, err = sessionpurge.Queue(ctx, dbpool, retention); err != nil {
+		return fmt.Errorf("while queueing the retention candidates: %v", err)
 	}
-	tableNames = append(tableNames, "jetsapi.input_registry")
-	tableNames = append(tableNames, "jetsapi.process_errors")
-	tableNames = append(tableNames, "jetsapi.pipeline_execution_details")
-	tableNames = append(tableNames, "jetsapi.pipeline_execution_channel_details")
-	tableNames = append(tableNames, "jetsapi.report_execution_status")
-	tableNames = append(tableNames, "jetsapi.compute_pipes_shard_registry")
-	tableNames = append(tableNames, "jetsapi.compute_pipes_partitions_registry")
-	tableNames = append(tableNames, "jetsapi.cpipes_results")
-	tableNames = append(tableNames, "jetsapi.cpipes_metrics")
-	tableNames = append(tableNames, "jetsapi.session_registry")
-	tableNames = append(tableNames, "jetsapi.session_reservation")
-	tableNames = append(tableNames, "jetsapi.pipeline_lock") // just in case some locks do not get released
-
-	for _, s := range tableNames {
-		log.Println("   Purge data from", s)
-		err = purgeMatchingRows(dbpool, sessionIds, s)
-		if err != nil {
-			return fmt.Errorf("while purging data from table %s: %v", s, err)
-		}
+	if _, err = sessionpurge.Queue(ctx, dbpool, orphans); err != nil {
+		return fmt.Errorf("while queueing the orphan candidates: %v", err)
+	}
+	report, err := sessionpurge.Execute(ctx, dbpool, opts)
+	logReport("", &report)
+	if err != nil {
+		return fmt.Errorf("while executing the session deletions: %v", err)
 	}
 
-	// Purge records in pipeline_coordinator_* tables
-	err = purgePipelineCoordinatorTables(dbpool, sessionIds)
+	archiveFrom := cfg.Now.AddDate(0, 0, -archiveDays)
+	n, err := sessionpurge.PurgeArchive(ctx, dbpool, archiveFrom)
 	if err != nil {
-		return fmt.Errorf("while purging data from pipeline_coordinator tables: %v", err)
+		return err
 	}
-
-	// Purge records that are more than 6 months old on pipeline_execution_status table
-	_, err = dbpool.Exec(context.Background(),
-		"DELETE FROM jetsapi.pipeline_execution_status WHERE EXTRACT(EPOCH FROM AGE(NOW(), last_update)) > 60*60*24*30*6")
+	log.Printf("Purged %d archived pipeline runs last updated on or before %s", n, archiveFrom)
+	n, err = sessionpurge.PurgeTombstones(ctx, dbpool, archiveFrom, cfg.Now.AddDate(0, 0, -userTombstoneDays))
 	if err != nil {
-		log.Println("Warning: while purging old records from pipeline_execution_status:", err)
+		return err
 	}
+	log.Printf("Purged %d session deletion tombstones", n)
 
 	// Perform Vaccum on database
 	log.Println("   Performing VACUUM")
-	_, err = dbpool.Exec(context.Background(), "VACUUM")
+	_, err = dbpool.Exec(ctx, "VACUUM")
 	if err != nil {
 		return fmt.Errorf("while performing VACUUM: %v", err)
 	}
 	return nil
 }
 
-// Support function
-// read sessionId to purge
-func readSessionIds(dbpool *pgxpool.Pool, purgeFrom *time.Time) ([]string, error) {
-	rows, err := dbpool.Query(context.Background(),
-		`SELECT session_id FROM jetsapi.session_registry WHERE last_update <= $1`, *purgeFrom)
-	if err != nil {
-		return nil, err
+// logReport logs a run's report: the sessions by reason, the rows per table, the
+// status rows archived and the sessions refused or failed.
+func logReport(prefix string, r *sessionpurge.Report) {
+	log.Printf("Session purge: %s%s", prefix, r.Summary())
+	tables := make([]string, 0, len(r.Rows))
+	for t := range r.Rows {
+		tables = append(tables, t)
 	}
-	defer rows.Close()
-
-	// Loop through rows, using Scan to assign column data to struct fields.
-	result := make([]string, 0)
-	for rows.Next() {
-		var sessionId string
-		if err := rows.Scan(&sessionId); err != nil {
-			return result, err
-		}
-		result = append(result, sessionId)
+	sort.Strings(tables)
+	for _, t := range tables {
+		log.Printf("   %s%d rows from %s", prefix, r.Rows[t], t)
 	}
-	if err = rows.Err(); err != nil {
-		return result, err
+	if len(r.RefusedSessions) > 0 {
+		log.Printf("   refused, a run pending or submitted: %s", strings.Join(r.RefusedSessions, ", "))
 	}
-	return result, nil
-}
-
-// get unique list of table_name
-func readTableNames(dbpool *pgxpool.Pool) ([]string, error) {
-	rows, err := dbpool.Query(context.Background(),
-		`SELECT DISTINCT table_name FROM jetsapi.input_registry ORDER BY table_name`)
-	if err != nil {
-		return nil, err
+	if len(r.FailedSessions) > 0 {
+		log.Printf("   failed, retried by the next run: %s", strings.Join(r.FailedSessions, ", "))
 	}
-	defer rows.Close()
-
-	// Loop through rows, using Scan to assign column data to struct fields.
-	result := make([]string, 0)
-	for rows.Next() {
-		var tableName string
-		if err := rows.Scan(&tableName); err != nil {
-			return result, err
-		}
-		result = append(result, fmt.Sprintf("\"%s\"", tableName))
-	}
-	if err = rows.Err(); err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
-// purge the rows matching the session id
-func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName string) error {
-	if len(sessionIds) == 0 {
-		return nil
-	}
-	var buf strings.Builder
-	buf.WriteString("DELETE FROM ")
-	buf.WriteString(tableName)
-	buf.WriteString(" WHERE session_id IN (")
-	buf.WriteString(stringifySessionIds(sessionIds))
-	buf.WriteString(");")
-	sqlstmt := buf.String()
-	// log.Println(sqlstmt)
-	log.Printf("Purging %d sessions from table %s\n", len(sessionIds), tableName)
-	// ignore returned error, due to tableName that does not exis (virtual table)
-	dbpool.Exec(context.Background(), sqlstmt)
-	return nil
-}
-
-// purge the rows matching the session id in the pipeline coordinator tables
-func purgePipelineCoordinatorTables(dbpool *pgxpool.Pool, sessionIds []string) error {
-	if len(sessionIds) == 0 {
-		return nil
-	}
-	// Delete from pipeline_coordinator_map joining the request_id from table pipeline_coordinator_map_items by session_id
-	var buf strings.Builder
-	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_map WHERE request_id IN (")
-	buf.WriteString("SELECT request_id FROM jetsapi.pipeline_coordinator_map_items WHERE session_id IN (")
-	buf.WriteString(stringifySessionIds(sessionIds))
-	buf.WriteString("));")
-	sqlstmt := buf.String()
-	// log.Println(sqlstmt)
-	log.Printf("Purging %d sessions from pipeline_coordinator_map and pipeline_coordinator_map_items\n", len(sessionIds))
-	_, err := dbpool.Exec(context.Background(), sqlstmt)
-	if err != nil {
-		log.Printf("Error purging sessions from pipeline_coordinator_map and pipeline_coordinator_map_items: %v", err)
-	}
-
-	// Delete from pipeline_coordinator_lock by session_id
-	buf.Reset()
-	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id IN (")
-	buf.WriteString(stringifySessionIds(sessionIds))
-	buf.WriteString(");")
-	sqlstmt = buf.String()
-	// log.Println(sqlstmt)
-	_, err = dbpool.Exec(context.Background(), sqlstmt)
-	if err != nil {
-		log.Printf("Error purging sessions from pipeline_coordinator_lock: %v", err)
-	}
-
-	// Delete from pipeline_coordinator_map_items by session_id
-	buf.Reset()
-	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id IN (")
-	buf.WriteString(stringifySessionIds(sessionIds))
-	buf.WriteString(");")
-	sqlstmt = buf.String()
-	// log.Println(sqlstmt)
-	_, err = dbpool.Exec(context.Background(), sqlstmt)
-	if err != nil {
-		log.Printf("Error purging sessions from pipeline_coordinator_map_items: %v", err)
-	}
-	return err
-}
-
-func stringifySessionIds(sessionIds []string) string {
-	var buf strings.Builder
-	isFirst := true
-	for i := range sessionIds {
-		if !isFirst {
-			buf.WriteString(",")
-		}
-		buf.WriteString("'")
-		buf.WriteString(sessionIds[i])
-		buf.WriteString("'")
-		isFirst = false
-	}
-	return buf.String()
 }
 
 // purgeRulesUnitTestRuns deletes the rules unit test runs last updated on or

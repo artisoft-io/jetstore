@@ -12,6 +12,7 @@ import (
 // JETS_REGION
 // USING_SSH_TUNNEL for testing or running locally
 // RETENTION_DAYS site global rentention days, delete session if > 0
+// PURGE_DRY_RUN a dry run unless exactly "false": the purge reports and deletes nothing
 
 func main() {
 	utils.UseJetStoreLogger()

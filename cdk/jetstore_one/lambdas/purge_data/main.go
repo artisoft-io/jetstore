@@ -16,6 +16,7 @@ type config struct {
 	AWSRegion     string
 	AWSDnsSecret  string
 	RetentionDays int
+	DryRun        bool
 	IsValid       bool
 }
 
@@ -26,6 +27,7 @@ var c config
 // JETS_DSN_SECRET
 // JETS_REGION
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
+// PURGE_DRY_RUN a dry run unless exactly "false": the purge reports and deletes nothing
 
 func main() {
 	// Create logger.
@@ -56,6 +58,8 @@ func main() {
 		logger.Errorf("env RETENTION_DAYS '%s' is not valid, must be > 0", rd)
 		c.IsValid = false
 	}
+	c.DryRun = delegate.IsDryRun(os.Getenv("PURGE_DRY_RUN"))
+	logger.Infof("env PURGE_DRY_RUN: '%s', dry run: %v", os.Getenv("PURGE_DRY_RUN"), c.DryRun)
 	if !c.IsValid {
 		logger.Fatal("Invalid configuration, exiting program")
 	}
