@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { FormState } from "../datatable/formState";
 import type { JetsRow } from "../datatable/types";
+import sessionRegistryTable from "../datatable/tables/sessionRegistryTable.tc.json";
 import {
   clearSessionRegistryFilters,
   currentSessionRegistryFilters,
@@ -222,5 +223,21 @@ describe("noSessionDeletionRequested", () => {
     expect(noSessionDeletionRequested(formState, 0)).toBe(true);
     formState.setValue(0, SELECTED_DELETION_STATUS, ["pending"]);
     expect(noSessionDeletionRequested(formState, 0)).toBe(false);
+  });
+});
+
+/**
+ * The binding names its column by position, so a column added before
+ * `deletion_status` moves it: Year, Month and Day replacing Domain Key did, and
+ * the gate then read `last_update`. Pin the index to the name.
+ */
+describe("sessionRegistryTable's state binding", () => {
+  it("binds sr_deletion_status to the deletion_status column", () => {
+    const names = sessionRegistryTable.columns.map((c: { name: string }) => c.name);
+    const bound = sessionRegistryTable.formStateBinding.otherColumns.find(
+      (o: { stateKey: string }) => o.stateKey === SELECTED_DELETION_STATUS,
+    );
+    expect(bound).toBeDefined();
+    expect(names[bound!.columnIdx]).toBe("deletion_status");
   });
 });
