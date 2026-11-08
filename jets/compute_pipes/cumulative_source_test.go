@@ -138,3 +138,124 @@ func TestIsCumulativeRead(t *testing.T) {
 		t.Errorf("empty env: got %v, %v; want false", got, err)
 	}
 }
+
+// Three months of a stage folder, the most recent first. Session 1792000000002
+// has a folder in two periods, so that dropping it is shown to be by session
+// rather than by period.
+func deletedSessionsPeriods() []lookbackPeriodObjects {
+	return []lookbackPeriodObjects{
+		period(682, "stage/c/Claim/682M",
+			"stage/c/Claim/682M/1792000000002/part-0001.csv",
+			"stage/c/Claim/682M/1792000000002/part-0002.csv",
+			"stage/c/Claim/682M/1792000000001/part-0001.csv",
+			"stage/c/Claim/682M/part-0001.csv"), // directly in the period folder
+		period(681, "stage/c/Claim/681M",
+			"stage/c/Claim/681M/1792000000002/part-0001.csv",
+			"stage/c/Claim/681M/1791000000001/part-0001.csv"),
+		period(680, "stage/c/Claim/680M",
+			"stage/c/Claim/680M/1790000000001/part-0001.csv"),
+	}
+}
+
+func TestDropDeletedSessionsDropsTheSessionInEveryPeriod(t *testing.T) {
+	periods := deletedSessionsPeriods()
+	before := keysOf(allLookbackObjects(periods))
+	got := dropDeletedSessions(periods, map[string]any{deletedSessionsEnv: "1700000000000,1792000000002"})
+	want := []string{
+		"stage/c/Claim/682M/1792000000001/part-0001.csv",
+		"stage/c/Claim/682M/part-0001.csv",
+		"stage/c/Claim/681M/1791000000001/part-0001.csv",
+		"stage/c/Claim/680M/1790000000001/part-0001.csv",
+	}
+	if !slices.Equal(keysOf(allLookbackObjects(got)), want) {
+		t.Errorf("got %v, want %v", keysOf(allLookbackObjects(got)), want)
+	}
+	for i := range got {
+		if got[i].periodId != periods[i].periodId || got[i].prefix != periods[i].prefix {
+			t.Errorf("period %d: got %d %s, want %d %s", i, got[i].periodId, got[i].prefix, periods[i].periodId, periods[i].prefix)
+		}
+	}
+	// The periods passed in are left as they were.
+	if after := keysOf(allLookbackObjects(periods)); !slices.Equal(after, before) {
+		t.Errorf("input modified: got %v, want %v", after, before)
+	}
+}
+
+func TestDropDeletedSessionsKeepsObjectsDirectlyInThePeriodFolder(t *testing.T) {
+	periods := []lookbackPeriodObjects{
+		period(682, "stage/c/Claim/682M",
+			"stage/c/Claim/682M/part-0001.csv",
+			"stage/c/Claim/682M/1792000000002/part-0001.csv"),
+	}
+	// A deleted id that is also an object's name directly in the folder: the
+	// object has no session folder, so it is kept.
+	periods[0].objects = append(periods[0].objects, &awsi.S3Object{Key: "stage/c/Claim/682M/1792000000002", Size: 10})
+	got := dropDeletedSessions(periods, map[string]any{deletedSessionsEnv: "1792000000002"})
+	want := []string{"stage/c/Claim/682M/part-0001.csv", "stage/c/Claim/682M/1792000000002"}
+	if !slices.Equal(keysOf(allLookbackObjects(got)), want) {
+		t.Errorf("got %v, want %v", keysOf(allLookbackObjects(got)), want)
+	}
+}
+
+func TestDropDeletedSessionsMakesTheDeliveryBeforeTheLatest(t *testing.T) {
+	// A cumulative read refuses an object directly in a period folder, so this
+	// case has none.
+	periods := deletedSessionsPeriods()
+	periods[0].objects = periods[0].objects[:3]
+	// The latest session of the latest period deleted: the session before it.
+	got, err := latestDelivery(dropDeletedSessions(periods, map[string]any{deletedSessionsEnv: "1792000000002"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"stage/c/Claim/682M/1792000000001/part-0001.csv"}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("got %v, want %v", keysOf(got), want)
+	}
+}
+
+func TestDropDeletedSessionsFallsBackToThePreviousPeriod(t *testing.T) {
+	periods := []lookbackPeriodObjects{
+		period(682, "stage/c/Claim/682M",
+			"stage/c/Claim/682M/1792000000002/part-0001.csv",
+			"stage/c/Claim/682M/1792000000002/part-0002.csv"),
+		period(681, "stage/c/Claim/681M",
+			"stage/c/Claim/681M/1791000000002/part-0001.csv",
+			"stage/c/Claim/681M/1791000000001/part-0001.csv"),
+	}
+	// The latest period's only session deleted: the latest session of the period before.
+	got, err := latestDelivery(dropDeletedSessions(periods, map[string]any{deletedSessionsEnv: "1792000000002"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"stage/c/Claim/681M/1791000000002/part-0001.csv"}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("got %v, want %v", keysOf(got), want)
+	}
+	// And that one deleted too: the session before it in the same period.
+	got, err = latestDelivery(dropDeletedSessions(periods,
+		map[string]any{deletedSessionsEnv: "1791000000002,1792000000002"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"stage/c/Claim/681M/1791000000001/part-0001.csv"}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("got %v, want %v", keysOf(got), want)
+	}
+	// Every session deleted: nothing to read.
+	got, err = latestDelivery(dropDeletedSessions(periods,
+		map[string]any{deletedSessionsEnv: "1791000000001,1791000000002,1792000000002"}))
+	if err != nil || got != nil {
+		t.Errorf("got %v, %v; want nothing", keysOf(got), err)
+	}
+}
+
+func TestDropDeletedSessionsWithNoListChangesNothing(t *testing.T) {
+	want := keysOf(allLookbackObjects(deletedSessionsPeriods()))
+	for name, env := range map[string]map[string]any{
+		"absent (a run started by an older build)": {},
+		"empty (no user deletion)":                 {deletedSessionsEnv: ""},
+		"nil env":                                  nil,
+	} {
+		got := dropDeletedSessions(deletedSessionsPeriods(), env)
+		if !slices.Equal(keysOf(allLookbackObjects(got)), want) {
+			t.Errorf("%s: got %v, want %v", name, keysOf(allLookbackObjects(got)), want)
+		}
+	}
+}
