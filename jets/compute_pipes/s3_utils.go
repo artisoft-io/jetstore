@@ -165,6 +165,9 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 				if err != nil {
 					return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
 				}
+				// Skip the session folders a user deleted, as a lookback read does
+				// (cumulative_source.go).
+				s3Objects = dropDeletedSessionObjects(prefix, s3Objects, cpipesStartup.EnvSettings)
 				for i := range s3Objects {
 					if s3Objects[i].Size > 0 {
 						partitionLabel, err := ExtractPartitionLabelFromS3Key(s3Objects[i].Key)

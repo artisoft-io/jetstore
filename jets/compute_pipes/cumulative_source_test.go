@@ -259,3 +259,61 @@ func TestDropDeletedSessionsWithNoListChangesNothing(t *testing.T) {
 		}
 	}
 }
+
+// A stage folder listed directly (a stage channel with a file_key and no
+// lookback_periods): one period folder holding several sessions' folders.
+func TestDropDeletedSessionObjectsInADirectlyListedFolder(t *testing.T) {
+	folder := period(682, "stage/c/Eligibility/682M",
+		"stage/c/Eligibility/682M/1792000000002/jets_partition=0p/part-0001.csv",
+		"stage/c/Eligibility/682M/1792000000002/jets_partition=1p/part-0001.csv",
+		"stage/c/Eligibility/682M/1792000000001/jets_partition=0p/part-0001.csv",
+		"stage/c/Eligibility/682M/part-0001.csv")
+	before := keysOf(folder.objects)
+	env := map[string]any{deletedSessionsEnv: "1792000000002"}
+	got := dropDeletedSessionObjects(folder.prefix, folder.objects, env)
+	want := []string{
+		"stage/c/Eligibility/682M/1792000000001/jets_partition=0p/part-0001.csv",
+		"stage/c/Eligibility/682M/part-0001.csv",
+	}
+	if !slices.Equal(keysOf(got), want) {
+		t.Errorf("got %v, want %v", keysOf(got), want)
+	}
+	if after := keysOf(folder.objects); !slices.Equal(after, before) {
+		t.Errorf("input modified: got %v, want %v", after, before)
+	}
+	// The prefix as ListS3Objects is given it, with a leading '/'.
+	if got := dropDeletedSessionObjects("/"+folder.prefix, folder.objects, env); !slices.Equal(keysOf(got), want) {
+		t.Errorf("leading '/': got %v, want %v", keysOf(got), want)
+	}
+	for name, env := range map[string]map[string]any{
+		"absent": {}, "empty": {deletedSessionsEnv: ""}, "only commas": {deletedSessionsEnv: ", ,"}, "nil env": nil,
+	} {
+		if got := dropDeletedSessionObjects(folder.prefix, folder.objects, env); !slices.Equal(keysOf(got), before) {
+			t.Errorf("%s: got %v, want %v", name, keysOf(got), before)
+		}
+	}
+}
+
+// When the prefix is a session's own folder, the segment below it is a partition
+// label (or a file name), never a session id: nothing is dropped, even with the
+// session itself, or a label-like id, in the list.
+func TestDropDeletedSessionObjectsNeverMatchesBelowASessionFolder(t *testing.T) {
+	folder := period(682, "stage/c/Eligibility/682M/1792000000002",
+		"stage/c/Eligibility/682M/1792000000002/jets_partition=0p/part-0001.csv",
+		"stage/c/Eligibility/682M/1792000000002/jets_partition=1p/part-0001.csv",
+		"stage/c/Eligibility/682M/1792000000002/part-0001.csv")
+	env := map[string]any{deletedSessionsEnv: "1792000000002,0p,1p"}
+	if got := dropDeletedSessionObjects(folder.prefix, folder.objects, env); !slices.Equal(keysOf(got), keysOf(folder.objects)) {
+		t.Errorf("got %v, want every object kept", keysOf(got))
+	}
+	// The segment really is the partition label, which no session id equals.
+	if seg, ok := sessionSegment(folder.prefix, folder.objects[0].Key); !ok || seg != "jets_partition=0p" {
+		t.Errorf("segment below a session folder: got %q, %v", seg, ok)
+	}
+	// An explicit-session read (process_name=…/session_id=…/step_id=…/) likewise.
+	prefix := "stage/process_name=p/session_id=1792000000002/step_id=reducing01/"
+	objs := period(0, prefix, prefix+"jets_partition=0p/part-0001.csv").objects
+	if got := dropDeletedSessionObjects(prefix, objs, env); len(got) != 1 {
+		t.Errorf("explicit-session read: got %v, want the object kept", keysOf(got))
+	}
+}

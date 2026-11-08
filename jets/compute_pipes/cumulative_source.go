@@ -168,14 +168,42 @@ func loadDeletedSessions(ctx context.Context, dbpool *pgxpool.Pool, client strin
 }
 
 // dropDeletedSessions removes from each period the objects of the session folders
-// listed in deletedSessionsEnv. An object directly in the period folder has no
-// session and is kept. When the env has no such entry (a run started by an older
-// build) the periods are returned unchanged. The periods passed in are not
-// modified.
+// listed in deletedSessionsEnv (dropSessionObjects). When the env has no such
+// entry (a run started by an older build) the periods are returned unchanged.
+// The periods passed in are not modified.
 func dropDeletedSessions(periods []lookbackPeriodObjects, env map[string]any) []lookbackPeriodObjects {
+	deleted := deletedSessionSet(env)
+	if deleted == nil {
+		return periods
+	}
+	out := make([]lookbackPeriodObjects, len(periods))
+	for i := range periods {
+		out[i] = lookbackPeriodObjects{periodId: periods[i].periodId, prefix: periods[i].prefix,
+			objects: dropSessionObjects(periods[i].prefix, periods[i].objects, deleted,
+				fmt.Sprintf("Lookback period_id %d", periods[i].periodId))}
+	}
+	return out
+}
+
+// dropDeletedSessionObjects removes, from the objects listed under prefix, those
+// of the session folders listed in deletedSessionsEnv. It is for a stage folder
+// listed directly rather than through GetS3Objects4LookbackPeriod: a stage input
+// channel with a file_key and no lookback_periods, which reads every session
+// folder of its period. The objects passed in are not modified.
+func dropDeletedSessionObjects(prefix string, objects []*awsi.S3Object, env map[string]any) []*awsi.S3Object {
+	deleted := deletedSessionSet(env)
+	if deleted == nil {
+		return objects
+	}
+	return dropSessionObjects(prefix, objects, deleted, "Stage folder "+prefix)
+}
+
+// deletedSessionSet is the set of session ids in deletedSessionsEnv, nil when
+// the entry is absent or empty.
+func deletedSessionSet(env map[string]any) map[string]bool {
 	list, _ := env[deletedSessionsEnv].(string)
 	if list == "" {
-		return periods
+		return nil
 	}
 	deleted := make(map[string]bool)
 	for id := range strings.SplitSeq(list, ",") {
@@ -183,26 +211,37 @@ func dropDeletedSessions(periods []lookbackPeriodObjects, env map[string]any) []
 			deleted[id] = true
 		}
 	}
-	out := make([]lookbackPeriodObjects, len(periods))
-	for i := range periods {
-		out[i] = lookbackPeriodObjects{periodId: periods[i].periodId, prefix: periods[i].prefix}
-		var skipped map[string]int
-		for _, obj := range periods[i].objects {
-			if session, ok := sessionSegment(periods[i].prefix, obj.Key); ok && deleted[session] {
-				if skipped == nil {
-					skipped = make(map[string]int)
-				}
-				skipped[session]++
-				continue
-			}
-			out[i].objects = append(out[i].objects, obj)
-		}
-		for _, session := range slices.Sorted(maps.Keys(skipped)) {
-			log.Printf("  Lookback period_id %d: skipping session folder %s, deleted by a user (%d object(s))",
-				periods[i].periodId, session, skipped[session])
-		}
+	if len(deleted) == 0 {
+		return nil
 	}
-	return out
+	return deleted
+}
+
+// dropSessionObjects keeps the objects whose session folder below prefix
+// (sessionSegment) is not in deleted. An object with no session folder, directly
+// below prefix, is kept. Each skipped session folder is logged once, after where.
+//
+// When prefix is itself a session's folder ($SESSIONID last), the segment below it
+// is jets_partition=<label> or a file name, never a session id, so nothing is
+// dropped: a read of a named session is not this filter's to refuse.
+func dropSessionObjects(prefix string, objects []*awsi.S3Object, deleted map[string]bool, where string) []*awsi.S3Object {
+	kept := make([]*awsi.S3Object, 0, len(objects))
+	var skipped map[string]int
+	for _, obj := range objects {
+		if session, ok := sessionSegment(prefix, obj.Key); ok && deleted[session] {
+			if skipped == nil {
+				skipped = make(map[string]int)
+			}
+			skipped[session]++
+			continue
+		}
+		kept = append(kept, obj)
+	}
+	for _, session := range slices.Sorted(maps.Keys(skipped)) {
+		log.Printf("  %s: skipping session folder %s, deleted by a user (%d object(s))",
+			where, session, skipped[session])
+	}
+	return kept
 }
 
 // isCumulativeRead reports whether a lookback read of the channel's source object
