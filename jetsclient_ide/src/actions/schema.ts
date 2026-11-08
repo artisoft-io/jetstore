@@ -220,6 +220,21 @@ export const ServerActionSchema = z
      */
     "start_pending_tasks",
     /**
+     * List, and then queue, the deletion of the selected sessions and of every
+     * session that reads them through `input_session_id`. The Session Registry
+     * tab's *Delete*, `session_registry` Phase 2 (JM-081), 2026-11-08.
+     *
+     * Both are gated by `delete_session` in their arms of `DoDataTableAction`
+     * (`jets/apiserver/api_tables.go`), and neither takes a `table`: `data` is one
+     * row per selected session, `{session_id}`. The preview writes nothing and is
+     * read through an escape (`sessionDeletion.ts`), because a `post` step keeps
+     * only the status and the preview's whole point is its rows. `delete_sessions`
+     * also carries `expected`, the ids the preview listed, and answers 409 when
+     * the closure has changed since, so a user confirms what is deleted.
+     */
+    "preview_session_deletion",
+    "delete_sessions",
+    /**
      * Export a client's configuration from the database into the workspace.
      * Task C.2b — `/workspaces`'s *Export Client Config* dialog.
      *
@@ -503,7 +518,24 @@ const stepUnion = [
     message: z.string().min(1),
     ...guard,
   }),
-  z.strictObject({ do: z.literal("confirm"), message: z.string().min(1), ...guard }),
+  /**
+   * A modal question; Cancel stops the action without failing it.
+   *
+   * **`detailFromKey` is the one computed part a confirmation may carry**, added
+   * for the Session Registry's *Delete* (`session_registry` Phase 2, 2026-11-08).
+   * `message` stays static and authored; the detail is a form-state key whose
+   * text an earlier step wrote — there, the escape `previewSessionDeletion`,
+   * which lists the sessions the deletion will reach — and the dialog shows it
+   * under the message with its line breaks. A key that holds nothing shows no
+   * detail. It is a key rather than a template so that what is shown is what the
+   * step before it computed, not a second rendering of it.
+   */
+  z.strictObject({
+    do: z.literal("confirm"),
+    message: z.string().min(1),
+    detailFromKey: Identifier.optional(),
+    ...guard,
+  }),
   z.strictObject({ do: z.literal("set"), key: Identifier, value: ValueSchema, ...guard }),
   z.strictObject({ do: z.literal("remove"), keys: z.array(Identifier).min(1), ...guard }),
   z.strictObject({ do: z.literal("clearSelection"), key: Identifier, ...guard }),

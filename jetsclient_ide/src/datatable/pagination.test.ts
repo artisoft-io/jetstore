@@ -71,6 +71,10 @@ const GROWING = new Set([
   "input_loader_status",
   "process_errors",
   "session_registry",
+  // Both added 2026-11-08 with Home's two new tabs (`session_registry` Phase 2):
+  // a row per session, and a row per run of a deleted session.
+  "session_registry_view",
+  "pipeline_execution_status_archive",
   "sessions",
   "workspace_changes",
   "rules_unit_test_execution",

@@ -68,12 +68,17 @@ import {
 import {
   alwaysEnabled,
   clearHomeFilters,
+  clearSessionRegistryFilters,
   currentDataRegistryFilters,
   hasHomeFilters,
+  hasSessionRegistryFilters,
   homeFiltersFormValidator,
   seedFromHomeFilters,
+  sessionRegistryFiltersValidator,
   updateHomeFilters,
+  updateSessionRegistryFilters,
 } from "./homeFilters";
+import { noSessionDeletionRequested, previewSessionDeletion } from "./sessionDeletion";
 import { cpipesTemplateApply } from "../cpipes/templateApply";
 // C.5's two, and the first escape bodies this project owns that live outside
 // this directory. The screen's domain module is beside its screen, on the same
@@ -338,6 +343,14 @@ export const productionRegistry: EscapeRegistry = {
     // column of the registry row the selected run names, which is
     // `loadReteSession`'s shape, and ends on the same clipboard. See `schemaEvent.ts`.
     copySchemaEvent,
+    // **Fifteen as of `session_registry` Phase 2** (2026-11-08). The Session
+    // Registry tab's filters are `updateHomeFilters`' shape over a list of their
+    // own, and its *Delete* reads the server's preview of what it reaches, which
+    // a `post` step cannot — the reason `downloadMapping` gave first. See
+    // `homeFilters.ts` and `sessionDeletion.ts`.
+    updateSessionRegistryFilters,
+    clearSessionRegistryFilters,
+    previewSessionDeletion,
   },
   initializers: { seedFromHomeFilters },
   // **Two as of C.9, and the second is the first outside a flow.** F.1 built the
@@ -345,7 +358,13 @@ export const productionRegistry: EscapeRegistry = {
   // construct on a screen's dialog, needing nothing that was not already here —
   // which is the only evidence available that F.1's mechanism generalised.
   rowInitializers: { seedMappingRow, seedInputRecordsRow },
-  validators: { mappingFormValidator, homeFiltersFormValidator, sourceConfigFormValidator },
+  validators: {
+    mappingFormValidator,
+    homeFiltersFormValidator,
+    sourceConfigFormValidator,
+    // The Session Registry *Set Filters* dialog's, `session_registry` Phase 2.
+    sessionRegistryFiltersValidator,
+  },
   // **Two as of C.6, and the second is why the mapping is a lookup.** I-103 moved
   // the *`isEnabled`* mapping out of a constant and stated the lesson; the cell
   // filter beside it in the same function stayed a constant, sending every
@@ -372,6 +391,10 @@ export const productionRegistry: EscapeRegistry = {
     hasWorkspaceUri,
     inferServerNotRunning,
     inferServerNotStopped,
+    // The Session Registry tab's two gates (`tableTranslate.ts`,
+    // `isEnabledEscapeFor`), `session_registry` Phase 2, 2026-11-08.
+    hasSessionRegistryFilters,
+    noSessionDeletionRequested,
   },
   queries: productionQueries,
 };

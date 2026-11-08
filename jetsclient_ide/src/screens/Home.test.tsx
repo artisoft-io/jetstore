@@ -34,7 +34,7 @@ import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { PromptsProvider } from "../shell/prompts";
-import { answerPrompt } from "../shell/promptsTesting";
+import { answerConfirm, answerPrompt } from "../shell/promptsTesting";
 import { resetHomeFilters, updateHomeFilters } from "../actions/homeFilters";
 import { FormState } from "../datatable/formState";
 import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
@@ -51,6 +51,8 @@ afterEach(() => {
   loginCustomButtons = undefined;
   stageFiles = {};
   schemaEvents = {};
+  previewResponse = { status: 200, body: { rows: previewRows } };
+  deleteResponse = { status: 200, body: { queued: 2, waiting: ["2002"] } };
 });
 
 /**
@@ -72,6 +74,50 @@ const execRows: (string | null)[][] = [
 const registryRows: (string | null)[][] = [
   ["1", "acme", "acme_org", "claim", "2026", "8", "25", "claim_staging", "sess-1", "File", "s3://in/claims.csv", "u@x", "now", "7"],
 ];
+
+/**
+ * `session_registry_view` rows, positional in `sessionRegistryTable.tc.json`'s
+ * column order: session_id, client, source_type, object_type, file_key,
+ * process_name, status, month_period, last_update, deletion_status,
+ * deletion_reason, deletion_requested_by, deletion_requested_at, session_num,
+ * source_period_key. A live file session, a mapping session with a deletion
+ * queued, and a user's tombstone.
+ */
+const sessionRows: (string | null)[][] = [
+  ["1001", "acme", "file", "claim", "s3://in/claims.csv", null, null, "313", "2026-11-01 10:00", null, null, null, null, "1001", "7"],
+  ["2002", "(unknown)", "domain_table", "claim", null, "map_records", "completed", "313", "2026-11-02 10:00", "pending", "user", "u@x", "2026-11-08 09:00", "2002", "7"],
+  ["3003", "acme", "file", null, null, null, null, "313", "2026-11-04 10:00", "done", "user", "u@x", "2026-11-03 09:00", "3003", null],
+];
+
+/** `pipeline_execution_status_archive` rows: the pipelines columns, then archived_at and archive_reason. */
+const archiveRows: (string | null)[][] = [
+  [
+    "9", "pc1", "acme", "map_records", "claim", "2026", "8", "25", "completed",
+    "s3://in/old.csv", "sess-9", "req-9", null, null, "42", "{}", "u@x", "00:02:00", "then",
+    "2026-11-08 09:30", "user",
+  ],
+];
+
+/**
+ * What `preview_session_deletion` answers: the selected file session, and the
+ * mapping session reading it, whose run is active. The shape the plan agreed
+ * (§3.3); `sessionDeletion.ts`'s `previewRowOf` is the one reader of it.
+ */
+const previewRows = [
+  {
+    session_id: "1001", client: "acme", source_type: "file", month_period: 313,
+    reads_session: "", process_name: "", object_type: "claim", active: false,
+  },
+  {
+    session_id: "2002", client: "(unknown)", source_type: "domain_table", month_period: 313,
+    reads_session: "1001", process_name: "map_records", object_type: "claim", active: true,
+  },
+];
+let previewResponse: { status: number; body: unknown } = { status: 200, body: { rows: previewRows } };
+let deleteResponse: { status: number; body: unknown } = {
+  status: 200,
+  body: { queued: 2, waiting: ["2002"] },
+};
 
 interface Posted {
   body: Record<string, unknown>;
@@ -141,7 +187,14 @@ function stubServer() {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
         // Two tables since D.10 — the loader table moved to `/fileLoaderStatus`,
         // and its rows and its assertions went with it.
-        const rows = from === "pipeline_execution_status" ? execRows : registryRows;
+        const rows =
+          from === "pipeline_execution_status"
+            ? execRows
+            : from === "session_registry_view"
+              ? sessionRows
+              : from === "pipeline_execution_status_archive"
+                ? archiveRows
+                : registryRows;
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
       case "raw_query": {
@@ -167,6 +220,10 @@ function stubServer() {
         return new Response(JSON.stringify(startPendingResponse.body), {
           status: startPendingResponse.status,
         });
+      case "preview_session_deletion":
+        return new Response(JSON.stringify(previewResponse.body), { status: previewResponse.status });
+      case "delete_sessions":
+        return new Response(JSON.stringify(deleteResponse.body), { status: deleteResponse.status });
       case "put_schema_event_to_s3":
         return new Response(JSON.stringify(putSchemaEventResponse.body), {
           status: putSchemaEventResponse.status,
@@ -192,7 +249,7 @@ function Banners() {
   );
 }
 
-async function mount() {
+async function mount(entry = "/home", marker = PIPELINES_MARKER) {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
   await api.login("michel@artisoft.io", "pw");
@@ -202,7 +259,7 @@ async function mount() {
       <NotificationsProvider>
         <PromptsProvider>
           <Banners />
-          <MemoryRouter initialEntries={["/home"]}>
+          <MemoryRouter initialEntries={[entry]}>
             <Routes>
               <Route path="/home" element={<Home api={api} />} />
               <Route path="/executionStatusDetails/:session_id" element={<div>details screen</div>} />
@@ -222,7 +279,7 @@ async function mount() {
   // loader table is no longer what mounts. `acme_org` would not do for both: the
   // pipelines table hides `main_object_type`, and a hidden cell is not in the DOM
   // at all — which is the same trap the previous comment recorded, one column over.
-  await screen.findByText(PIPELINES_MARKER);
+  await screen.findByText(marker);
   return { posts, api };
 }
 
@@ -304,7 +361,7 @@ describe("the table this screen shares with a flow", () => {
 });
 
 describe("the screen", () => {
-  it("draws two tabs, pipelines first, and mounts one", async () => {
+  it("draws four tabs, pipelines first, and mounts one", async () => {
     await mount();
     /*
       ~~The order is the document's and it is the order a user's muscle memory is
@@ -316,9 +373,13 @@ describe("the screen", () => {
       to `/fileLoaderStatus`, reached from `fileMappingUF`'s *Loader Status*
       button. Three tabs to two, which is the whole of I-260's first line.
     */
+    // **Four since `session_registry` Phase 2 (2026-11-08)**: *Session
+    // Registry* third and *Archived Pipelines* fourth, the plan's order (§3.6).
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Pipelines Status",
       "Data Registry",
+      "Session Registry",
+      "Archived Pipelines",
     ]);
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
   });
@@ -1071,5 +1132,277 @@ describe("the third row (D04)", () => {
     await onSelectedRun();
     expect(screen.queryByRole("button", { name: "Analysis Report" })).toBeNull();
     expect(labelsOn(lineOf("Get Run Manifest"))).toEqual(["Get Run Manifest", "Get Schema Event"]);
+  });
+});
+
+/**
+ * *Session Registry* and *Archived Pipelines*, Home's third and fourth tabs.
+ * `session_registry` Phase 2 (JM-081), tasks G.2 and G.3, 2026-11-08.
+ *
+ * As above, **the request rather than the rows**: each filter is asserted as the
+ * where clause the tab posted, because a filter that reaches nothing renders a
+ * correct-looking table of every row.
+ */
+describe("Session Registry and Archived Pipelines (G.2)", () => {
+  const SESSION_MARKER = "2026-11-01 10:00";
+  const ARCHIVE_MARKER = "00:02:00";
+  const whereOf = (posts: Posted[], table: string) =>
+    ((lastRead(posts, table)?.["whereClauses"] ?? []) as Record<string, unknown>[]);
+
+  it("queries each new tab's table only once it is opened", async () => {
+    const { posts } = await mount();
+    expect(readsOf(posts, "session_registry_view")).toHaveLength(0);
+    expect(readsOf(posts, "pipeline_execution_status_archive")).toHaveLength(0);
+    await openTab("Session Registry", SESSION_MARKER);
+    expect(readsOf(posts, "session_registry_view")).toHaveLength(1);
+    expect(readsOf(posts, "pipeline_execution_status_archive")).toHaveLength(0);
+    await openTab("Archived Pipelines", ARCHIVE_MARKER);
+    expect(readsOf(posts, "pipeline_execution_status_archive")).toHaveLength(1);
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  it("opens on the tab the address names, which is where a flow returns to", async () => {
+    // `homeFiltersUF` comes back by `returnTo`, and the archive's *Set Filters*
+    // opens it: a tab held in state would come back on Pipelines Status.
+    const { posts } = await mount("/home?tab=pipelineArchiveTable", ARCHIVE_MARKER);
+    expect(tab("Archived Pipelines").getAttribute("aria-selected")).toBe("true");
+    expect(readsOf(posts, "pipeline_execution_status")).toHaveLength(0);
+  });
+
+  it("gives the archive the home filters, on the archive's table, and the client filter", async () => {
+    seedHomeFilters();
+    setSelectedClient("acme");
+    const { posts } = await mount();
+    await openTab("Archived Pipelines", ARCHIVE_MARKER);
+    const where = whereOf(posts, "pipeline_execution_status_archive");
+    expect(where).toContainEqual({
+      table: "pipeline_execution_status_archive",
+      column: "status",
+      values: ["failed"],
+    });
+    expect(where).toContainEqual({
+      table: "pipeline_execution_status_archive",
+      column: "start_time",
+      ge: "now()-interval '3 days'",
+    });
+    expect(where).toContainEqual({
+      table: "pipeline_execution_status_archive",
+      column: "client",
+      values: ["acme"],
+    });
+    // Rewritten, not added to: no clause names the live table the query lacks.
+    expect(where.some((w) => w["table"] === "pipeline_execution_status")).toBe(false);
+  });
+
+  it("gates the archive's Clear Filters on the home filters", async () => {
+    await mount();
+    await openTab("Archived Pipelines", ARCHIVE_MARKER);
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    resetHomeFilters();
+    seedStatusFilterOnly();
+    await mount();
+    await openTab("Archived Pipelines", ARCHIVE_MARKER);
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("sends no home filter to Session Registry", async () => {
+    seedHomeFilters();
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    expect(whereOf(posts, "session_registry_view")).toEqual([]);
+  });
+
+  it("turns a session-id range into two clauses on session_num", async () => {
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    fireEvent.click(button("Set Session Id"));
+    expect(await answerPrompt(" 1000 .. 2000 ")).toMatch(/range from\.\.to/);
+    await waitFor(() => {
+      const where = whereOf(posts, "session_registry_view");
+      expect(where).toContainEqual({ table: "session_registry_view", column: "session_num", ge: "1000" });
+      expect(where).toContainEqual({ table: "session_registry_view", column: "session_num", le: "2000" });
+    });
+  });
+
+  it("takes a range with one end open", async () => {
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    fireEvent.click(button("Set Session Id"));
+    await answerPrompt("..2000");
+    await waitFor(() =>
+      expect(whereOf(posts, "session_registry_view")).toEqual([
+        { table: "session_registry_view", column: "session_num", le: "2000" },
+      ]),
+    );
+  });
+
+  it("refuses a bound that is not digits, and queries nothing new", async () => {
+    // The server splices `ge` and `le` as written (`visitWhereClause`), so this
+    // refusal is what keeps the input out of the SQL.
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    const before = readsOf(posts, "session_registry_view").length;
+    fireEvent.click(button("Set Session Id"));
+    await answerPrompt("1000..2000 OR 1=1");
+    expect((await screen.findByRole("alert")).textContent).toMatch(/digits only/);
+    expect(readsOf(posts, "session_registry_view")).toHaveLength(before);
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("filters a comma list on session_id, and Clear Filters clears it", async () => {
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button("Set Session Id"));
+    await answerPrompt("1001, 2002");
+    await waitFor(() =>
+      expect(whereOf(posts, "session_registry_view")).toContainEqual({
+        table: "session_registry_view",
+        column: "session_id",
+        values: ["1001", "2002"],
+      }),
+    );
+    await waitFor(() => expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button("Clear Filters"));
+    await waitFor(() => expect(whereOf(posts, "session_registry_view")).toEqual([]));
+    await waitFor(() => expect((button("Clear Filters") as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it("compiles the Set Filters dialog into clauses on the view", async () => {
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    fireEvent.click(button("Set Filters"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Source Type/), { target: { value: "file" } });
+    fireEvent.change(within(dialog).getByLabelText(/From Month Period/), { target: { value: "300" } });
+    fireEvent.change(within(dialog).getByLabelText(/Registered After/), { target: { value: "3 days" } });
+    fireEvent.change(within(dialog).getByLabelText(/Registered Before/), { target: { value: "2026-11-08" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(whereOf(posts, "session_registry_view")).toEqual([
+        { table: "session_registry_view", column: "source_type", values: ["file"] },
+        { table: "session_registry_view", column: "month_period", ge: "300" },
+        { table: "session_registry_view", column: "last_update", ge: "now()-interval '3 days'" },
+        { table: "session_registry_view", column: "last_update", le: "timestamp '2026-11-08'" },
+      ]),
+    );
+    // Reopened, it holds the answers that set the filters.
+    fireEvent.click(button("Set Filters"));
+    const again = await screen.findByRole("dialog");
+    expect(within(again).getByLabelText(/Source Type/)).toHaveProperty("value", "file");
+  });
+
+  it("keeps the dialog open over a time it cannot read, and filters nothing", async () => {
+    const { posts } = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    const before = readsOf(posts, "session_registry_view").length;
+    fireEvent.click(button("Set Filters"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Registered After/), {
+      target: { value: "yesterday'; drop" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await within(dialog).findByText(/Enter a date/);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(readsOf(posts, "session_registry_view")).toHaveLength(before);
+  });
+
+  it("shows a client of (unknown) as written", async () => {
+    await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    expect(screen.getByText("(unknown)")).toBeTruthy();
+  });
+});
+
+describe("Session Registry's Delete (G.3)", () => {
+  const SESSION_MARKER = "2026-11-01 10:00";
+  const deletePosts = (posts: Posted[]) => posts.filter((p) => p.body["action"] === "delete_sessions");
+  const previewPosts = (posts: Posted[]) =>
+    posts.filter((p) => p.body["action"] === "preview_session_deletion");
+
+  async function openRegistry() {
+    loginCapabilities = ["run_pipelines", "jetstore_read", "delete_session"];
+    const mounted = await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    return mounted;
+  }
+
+  it("is disabled for a user without delete_session", async () => {
+    loginCapabilities = ["run_pipelines", "jetstore_read"];
+    await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    await selectRow("1001");
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("is disabled until a row is selected, and on a row with a deletion", async () => {
+    await openRegistry();
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
+    await selectRow("1001");
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(false);
+    // A second row whose deletion is queued: the first row passes `enableWhen`,
+    // and the predicate over every selected row refuses it.
+    await selectRow("2002");
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("is disabled on a deleted session's tombstone", async () => {
+    await openRegistry();
+    await selectRow("3003");
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("lists every session the deletion reaches, and Cancel posts nothing", async () => {
+    const { posts } = await openRegistry();
+    await selectRow("1001");
+    fireEvent.click(button("Delete"));
+    await screen.findByRole("dialog");
+    expect(previewPosts(posts)).toHaveLength(1);
+    expect(previewPosts(posts)[0]!.body["data"]).toEqual([{ session_id: "1001" }]);
+    expect(screen.getByTestId("prompt-detail").textContent).toBe(
+      [
+        "2 sessions, 1 of them reading a selected one:",
+        "1001: claim, client acme, month period 313",
+        "2002: map_records, client (unknown), month period 313, reads 1001, waits for its run to end",
+      ].join("\n"),
+    );
+    expect(await answerConfirm("Cancel")).toMatch(/^Delete these sessions\?/);
+    expect(deletePosts(posts)).toHaveLength(0);
+  });
+
+  it("posts the selected ids with the previewed ones as expected, says so, and re-reads", async () => {
+    const { posts } = await openRegistry();
+    await selectRow("1001");
+    const before = readsOf(posts, "session_registry_view").length;
+    fireEvent.click(button("Delete"));
+    await answerConfirm("OK");
+    await waitFor(() => expect(deletePosts(posts)).toHaveLength(1));
+    const body = deletePosts(posts)[0]!.body;
+    expect(body["data"]).toEqual([{ session_id: "1001" }]);
+    expect(body["expected"]).toEqual(["1001", "2002"]);
+    expect((await screen.findByRole("status")).textContent).toMatch(/^Deletion queued/);
+    await waitFor(() => expect(readsOf(posts, "session_registry_view").length).toBeGreaterThan(before));
+  });
+
+  it("reports a 409 and asks the user to select again", async () => {
+    deleteResponse = { status: 409, body: { error: "the sessions to delete changed; review them again" } };
+    const { posts } = await openRegistry();
+    await selectRow("1001");
+    fireEvent.click(button("Delete"));
+    await answerConfirm("OK");
+    expect((await screen.findByRole("alert")).textContent).toMatch(/changed since they were listed/);
+    expect(deletePosts(posts)).toHaveLength(1);
+  });
+
+  it("reports a refused preview, asks nothing, and posts nothing", async () => {
+    previewResponse = { status: 403, body: { error: "forbidden" } };
+    const { posts } = await openRegistry();
+    await selectRow("1001");
+    fireEvent.click(button("Delete"));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/refused the preview/);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(deletePosts(posts)).toHaveLength(0);
   });
 });

@@ -188,6 +188,53 @@ SELECT
 FROM jetsapi.pipeline_execution_status_archive
 ;
 
+-- session_registry_view: the Home screen's Session Registry tab. One row per
+-- session in session_registry, with what the session is and whether a deletion
+-- is queued for it; then the sessions a user deleted, which are gone from
+-- session_registry and kept in session_deletion as tombstones for their 400
+-- days. Retention and orphan tombstones are not listed: there are hundreds a
+-- day at some sites.
+--   session_num   the id as a number when it is all digits, at most 18 of them
+--                 (a bigint holds every 18-digit number), else NULL. The tab's
+--                 session-id range compares it, since the server's where clause
+--                 quotes its column and cannot cast it.
+--   object_type, file_key       the least of the session's input_registry rows.
+--   process_name, status        the least of the session's own
+--                 pipeline_execution_status rows (by session_id, not by
+--                 input_session_id); a session has one, a file's session none.
+--   deletion_*    the session's session_deletion row, any reason.
+-- The column lists are explicit on both sides, so a column added to
+-- session_registry does not shift the view; TestSessionRegistryViewColumns
+-- (jets/update_db) fails until the two sides and its list agree.
+CREATE OR REPLACE VIEW jetsapi.session_registry_view AS
+SELECT
+  sr.session_id, sr.source_type, sr.client, sr.source_period_key, sr.month_period,
+  sr.week_period, sr.day_period, sr.last_update,
+  CASE WHEN sr.session_id ~ '^[0-9]{1,18}$' THEN sr.session_id::bigint END AS session_num,
+  ir.object_type, ir.file_key, pes.process_name, pes.status,
+  sd.status AS deletion_status, sd.reason AS deletion_reason,
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at
+FROM jetsapi.session_registry sr
+CROSS JOIN LATERAL (
+  SELECT min(i.object_type) AS object_type, min(i.file_key) AS file_key
+  FROM jetsapi.input_registry i WHERE i.session_id = sr.session_id) ir
+CROSS JOIN LATERAL (
+  SELECT min(p.process_name) AS process_name, min(p.status) AS status
+  FROM jetsapi.pipeline_execution_status p WHERE p.session_id = sr.session_id) pes
+LEFT JOIN jetsapi.session_deletion sd ON sd.session_id = sr.session_id
+UNION ALL
+SELECT
+  sd.session_id, sd.source_type, sd.client, NULL::integer AS source_period_key, sd.month_period,
+  NULL::integer AS week_period, NULL::integer AS day_period, COALESCE(sd.completed_at, sd.requested_at) AS last_update,
+  CASE WHEN sd.session_id ~ '^[0-9]{1,18}$' THEN sd.session_id::bigint END AS session_num,
+  NULL::text AS object_type, NULL::text AS file_key, NULL::text AS process_name, NULL::text AS status,
+  sd.status AS deletion_status, sd.reason AS deletion_reason,
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at
+FROM jetsapi.session_deletion sd
+WHERE sd.reason = 'user'
+  AND NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = sd.session_id)
+;
+
 -- Pre-Defined clients used by the platform
 -- 'Any' is used to kick off the loader pipeline for any object type
 DELETE FROM jetsapi.client_registry WHERE client IN ('Any', 'JetsA');

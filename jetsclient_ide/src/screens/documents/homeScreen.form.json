@@ -57,6 +57,66 @@
         },
         { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
       ]
+    },
+    "sessionRegistryFiltersDialog": {
+      "title": "Session Registry Filters",
+      "validator": "sessionRegistryFiltersValidator",
+      "rows": [
+        [
+          {
+            "field": "label",
+            "text": "Leave a field blank for no filter. Saving replaces the tab's filters, a session id filter included."
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "srSourceType",
+            "label": "Source Type",
+            "hint": "file or domain_table",
+            "autofocus": true,
+            "maxLength": 40
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "srMonthPeriodFrom",
+            "label": "From Month Period",
+            "hint": "As in the Month Period column",
+            "maxLength": 9,
+            "textRestriction": "digitsOnly"
+          },
+          {
+            "field": "text",
+            "key": "srMonthPeriodTo",
+            "label": "To Month Period",
+            "hint": "As in the Month Period column",
+            "maxLength": 9,
+            "textRestriction": "digitsOnly"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "srUpdatedFrom",
+            "label": "Registered After",
+            "hint": "A date (2026-11-08), a date and time (2026-11-08T15:00:00Z), or a duration ago (3 days)",
+            "maxLength": 25
+          },
+          {
+            "field": "text",
+            "key": "srUpdatedTo",
+            "label": "Registered Before",
+            "hint": "A date (2026-11-08), a date and time (2026-11-08T15:00:00Z), or a duration ago (3 days)",
+            "maxLength": 25
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "setSessionRegistryFilters", "label": "Save", "style": "primary" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
     }
   }
 }

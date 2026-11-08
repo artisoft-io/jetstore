@@ -449,6 +449,8 @@
         "resubmit_pipeline",
         "put_schema_event_to_s3",
         "start_pending_tasks",
+        "preview_session_deletion",
+        "delete_sessions",
         "save_workspace_client_config",
         "add_workspace_file",
         "delete_workspace_files",
@@ -512,6 +514,12 @@
         {
           "additionalProperties": false,
           "properties": {
+            "detailFromKey": {
+              "description": "A key naming a form-state entry, action, state or table",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
             "do": {
               "const": "confirm",
               "type": "string"

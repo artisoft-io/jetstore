@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "label": "Archived Pipelines",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "pipeline_execution_status_archive",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "pipeline_config_key",
+      "label": "Pipeline Config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client name for this run"
+    },
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "tooltip": "Process submitted for execution, will pick up client-specific rule config"
+    },
+    {
+      "name": "main_object_type",
+      "label": "Domain Key",
+      "tooltip": "Domain Key of the pipeline",
+      "isHidden": true
+    },
+    {
+      "name": "year",
+      "label": "Year",
+      "tooltip": "Year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "tooltip": "Month of the year the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "tooltip": "Day of the month the file was received",
+      "isNumeric": true
+    },
+    {
+      "name": "status",
+      "label": "Status",
+      "tooltip": "Status of the pipeline execution"
+    },
+    {
+      "name": "main_input_file_key",
+      "label": "Main Input File Key",
+      "tooltip": "Start the process by loading the this file and then execute the rule process",
+      "cellFilter": "fileKeyLabel"
+    },
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "tooltip": "Data Pipeline session identifier"
+    },
+    {
+      "name": "input_session_id",
+      "label": "Input Session",
+      "tooltip": "Input session used (from input registry)"
+    },
+    {
+      "name": "request_id",
+      "label": "Request ID",
+      "tooltip": "Request identifier used (from input registry)"
+    },
+    {
+      "name": "failure_details",
+      "label": "Failure Details",
+      "isHidden": true
+    },
+    {
+      "name": "main_input_registry_key",
+      "label": "Main Input Registry",
+      "tooltip": "Main input from previously loaded file, this specify the input session id",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "merged_input_registry_keys",
+      "label": "Merge-In Input Registry",
+      "tooltip": "Indicate the session id of the input sources to be merged with the main input source",
+      "isHidden": true
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who submitted the pipeline"
+    },
+    {
+      "name": "run_duration",
+      "label": "Duration",
+      "tooltip": "Run duration",
+      "calculatedAs": "AGE(last_update, start_time)"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the pipeline was submitted"
+    },
+    {
+      "name": "archived_at",
+      "label": "Archived At",
+      "tooltip": "When the run's session was deleted and the run moved here"
+    },
+    {
+      "name": "archive_reason",
+      "label": "Archive Reason",
+      "tooltip": "Why the session was deleted: user, retention or orphan"
+    }
+  ],
+  "sortColumn": "archived_at",
+  "rowsPerPage": 25,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "pipeline_execution_status_archive"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "source_period"
+    }
+  ],
+  "where": [
+    {
+      "column": "source_period_key",
+      "joinWith": "source_period.key"
+    }
+  ],
+  "actions": [
+    {
+      "key": "refreshTable",
+      "label": "Refresh",
+      "action": "refreshTable",
+      "style": "secondary"
+    },
+    {
+      "key": "setHomeFilters",
+      "label": "Set Filters",
+      "action": "showScreen",
+      "style": "primary",
+      "configScreenPath": "/configureHomeFiltersUF"
+    },
+    {
+      "key": "setSessionIdFilters",
+      "label": "Set Session Id",
+      "action": "setSessionIdFilter",
+      "style": "primary",
+      "isEnabled": "alwaysEnabled"
+    },
+    {
+      "key": "setRequestIdFilters",
+      "label": "Set Request Id",
+      "action": "setRequestIdFilter",
+      "style": "primary",
+      "isEnabled": "alwaysEnabled"
+    },
+    {
+      "key": "clearHomeFilters",
+      "label": "Clear Filters",
+      "action": "clearHomeFilters",
+      "style": "primary",
+      "isEnabled": "hasHomeFilters"
+    }
+  ]
+}

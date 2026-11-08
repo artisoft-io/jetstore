@@ -136,6 +136,10 @@ export const DATA_REGISTRY_FILTERS_ESCAPE = "hasDataRegistryFilters";
 export const HOME_FILTERS_ESCAPE = "hasHomeFilters";
 /** The registry name for a `(state) => true` closure. Task F.5. */
 export const ALWAYS_ENABLED_ESCAPE = "alwaysEnabled";
+/** The Session Registry tab's filters are set. `session_registry` Phase 2. */
+export const SESSION_REGISTRY_FILTERS_ESCAPE = "hasSessionRegistryFilters";
+/** No selected Session Registry row has a deletion queued or done. Phase 2. */
+export const NO_SESSION_DELETION_ESCAPE = "noSessionDeletionRequested";
 
 /**
  * Which display filter a `cellFilter`-bearing column names. Task C.6.
@@ -191,8 +195,26 @@ function cellFilterEscapeFor(tableKey: string, columnName: string): string {
  * this repository.
  */
 export function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
-  if (tableKey === "pipelineExecStatusTable") {
+  /*
+    **Two tables since `session_registry` Phase 2 (2026-11-08), and the archive
+    is the first.** *Archived Pipelines* shares *Pipelines Status*'s filters
+    (`datatable/query.ts`, `FILTERS_BY_FIELD`), so its *Clear Filters* is gated on
+    them and its prompts on nothing, as Pipelines Status's are.
+  */
+  if (tableKey === "pipelineExecStatusTable" || tableKey === "pipelineArchiveTable") {
     return actionKey === "clearHomeFilters" ? HOME_FILTERS_ESCAPE : ALWAYS_ENABLED_ESCAPE;
+  }
+  /*
+    *Session Registry* has a filter list of its own, and the one gate in this
+    function that is not about filters: *Delete* is enabled only when no
+    selected row already has a deletion (`noSessionDeletionRequested`,
+    `actions/sessionDeletion.ts`), which a row criterion cannot say about every
+    row of a multi-select table — `enableWhen` tests the first.
+  */
+  if (tableKey === "sessionRegistryTable") {
+    if (actionKey === "clearSessionRegistryFilters") return SESSION_REGISTRY_FILTERS_ESCAPE;
+    if (actionKey === "deleteSessions") return NO_SESSION_DELETION_ESCAPE;
+    return ALWAYS_ENABLED_ESCAPE;
   }
   return DATA_REGISTRY_FILTERS_ESCAPE;
 }

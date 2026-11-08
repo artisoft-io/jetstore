@@ -114,6 +114,25 @@ describe("the Start Pipeline pickers' Clear Filters", () => {
  * gate and no error. So the agreement is asserted over every committed document,
  * whoever wrote it.
  */
+/**
+ * The two Home tabs `session_registry` Phase 2 added (2026-11-08), named here
+ * rather than left to the glob below: the glob proves the documents and the
+ * function agree, and these say what they agree on.
+ */
+describe("the Session Registry and Archived Pipelines gates", () => {
+  it.each([
+    ["pipelineArchiveTable", "clearHomeFilters", "hasHomeFilters"],
+    ["pipelineArchiveTable", "setSessionIdFilters", "alwaysEnabled"],
+    ["pipelineArchiveTable", "setRequestIdFilters", "alwaysEnabled"],
+    ["sessionRegistryTable", "clearSessionRegistryFilters", "hasSessionRegistryFilters"],
+    ["sessionRegistryTable", "deleteSessions", "noSessionDeletionRequested"],
+    ["sessionRegistryTable", "setSessionIdFilters", "alwaysEnabled"],
+  ])("%s's %s is gated by %s, which is registered", (table, action, predicate) => {
+    expect(isEnabledEscapeFor(table, action)).toBe(predicate);
+    expect(productionRegistry.predicates[predicate]).toBeDefined();
+  });
+});
+
 describe("every committed table document's isEnabled", () => {
   // Both directories a committed table document lives in — the bundled screens'
   // and the workspace assets — by glob rather than by list, so a document added

@@ -77,6 +77,31 @@ describe("confirm", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("shows a detail under the message, line breaks kept, named by the message alone", async () => {
+    // `session_registry` Phase 2 (2026-11-08): *Delete*'s list of sessions. The
+    // class is the message's, whose rule is `white-space: pre-wrap`; jsdom
+    // computes no style, so the text node carrying the newlines is what is held.
+    const prompts = mount();
+    let answer!: Promise<boolean>;
+    act(() => {
+      answer = prompts.confirm("Delete these sessions?", "1001: claim\n2002: map_records, reads 1001");
+    });
+    const dialog = screen.getByRole("dialog", { name: "Delete these sessions?" });
+    const detail = within(dialog).getByTestId("prompt-detail");
+    expect(detail.textContent).toBe("1001: claim\n2002: map_records, reads 1001");
+    expect(detail.className).toBe("prompt-dialog__message");
+    fireEvent.click(within(dialog).getByRole("button", { name: "OK" }));
+    expect(await answer).toBe(true);
+  });
+
+  it("shows no detail when none is given, or an empty one", () => {
+    const prompts = mount();
+    act(() => {
+      void prompts.confirm("Sure?", "");
+    });
+    expect(within(screen.getByRole("dialog")).queryByTestId("prompt-detail")).toBeNull();
+  });
+
   it("has no text box", () => {
     const prompts = mount();
     act(() => {
