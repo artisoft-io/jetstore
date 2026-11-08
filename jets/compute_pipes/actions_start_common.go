@@ -530,6 +530,12 @@ wrapUp:
 	if err != nil {
 		return cpipesStartup, err
 	}
+	// The client's sessions a user deleted (session_deletion, reason 'user'), read
+	// here and replayed the same way: every lookback read skips their folders.
+	err = loadDeletedSessions(ctx, dbpool, runClient, cpipesStartup.EnvSettings)
+	if err != nil {
+		return cpipesStartup, err
+	}
 
 	// InputColumns - the main input file domain columns, order of priority:
 	//	- Take the columns from source_config table if specified. (this has higher priority in case it's a subset of

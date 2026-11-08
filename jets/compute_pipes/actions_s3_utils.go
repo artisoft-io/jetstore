@@ -87,9 +87,10 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 }
 
 // GetS3Objects4LookbackPeriod lists the objects of each period of the lookback,
-// the most recent period first. When sourceObjectType names an object type the
-// client declares cumulative, only the latest delivery is kept (latestDelivery,
-// cumulative_source.go).
+// the most recent period first. The session folders a user deleted are dropped
+// first (dropDeletedSessions, cumulative_source.go). Then, when sourceObjectType
+// names an object type the client declares cumulative, only the latest delivery
+// is kept (latestDelivery, cumulative_source.go).
 func GetS3Objects4LookbackPeriod(bucket, fileKey, lookbackPeriod, sourceObjectType string, env map[string]any) ([]*awsi.S3Object, error) {
 	cumulative, err := isCumulativeRead(sourceObjectType, env)
 	if err != nil {
@@ -99,6 +100,9 @@ func GetS3Objects4LookbackPeriod(bucket, fileKey, lookbackPeriod, sourceObjectTy
 	if err != nil {
 		return nil, err
 	}
+	// Before latestDelivery, so that a deleted latest delivery leaves the one
+	// before it as the latest.
+	periods = dropDeletedSessions(periods, env)
 	if cumulative {
 		return latestDelivery(periods)
 	}

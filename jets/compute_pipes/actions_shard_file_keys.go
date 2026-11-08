@@ -80,6 +80,9 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 				cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 				return
 			}
+			// The folder may hold several sessions' folders (a period's deliveries):
+			// skip those a user deleted, as a lookback read does (cumulative_source.go).
+			s3Objects = dropDeletedSessionObjects(fileKeyPrefix, s3Objects, envSettings)
 		}
 
 	case "generator":
