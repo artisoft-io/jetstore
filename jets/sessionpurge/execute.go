@@ -210,6 +210,20 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 // the locks a real run would take one session at a time: on the rows of the
 // sessions it deletes, and, by the coordinator rule in deleteRows, on no map row
 // of a request that still has a live session.
+//
+// It holds the session locks (LockSession) to its end as well, and that is the
+// one place the lock order every other taker keeps does not hold: a dry run takes
+// many session locks, in queue order rather than sorted, and holds them while it
+// takes row locks. Two consequences, both accepted:
+//
+//   - a pipeline start reading one of the sessions the dry run has reached waits
+//     for the dry run to end (a start on a retention candidate, during the purge
+//     lambda's dry run), then goes ahead, since a dry run queues nothing;
+//   - a delete_sessions on sessions the dry run holds, or an executor whose
+//     session shares a coordinator map row with one the dry run has deleted, can
+//     form a cycle with it. PostgreSQL detects the deadlock and aborts one side:
+//     delete_sessions answers 500 and the user tries again; an executor's session
+//     is marked failed and retried; a dry run's session is counted failed.
 func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, claim bool) (Report, error) {
 	report := newReport()
 	if len(reqs) == 0 {
@@ -332,12 +346,19 @@ func dryRunSession(ctx context.Context, dry pgx.Tx, r *Request, tables []table) 
 // reading it is active; otherwise delete it from every table, archive its runs,
 // delete session_registry last and, with claim, mark its deletion row done.
 //
-// The lock is taken after the claim and before the refusal, in a real run and in
-// a dry run alike. A pipeline start takes the same lock before it inserts its
-// status row (jets/datatable, InsertPipelineExecutionStatus), so the two are
-// ordered: a start that holds it commits its pending or submitted row before the
-// refusal below reads, and a start that waits for it finds the session queued.
+// The lock is taken first, before the claim and so before the refusal, in a real
+// run and in a dry run alike. A pipeline start takes the same lock before it
+// inserts its status row (jets/datatable, InsertPipelineExecutionStatus), so the
+// two are ordered: a start that holds it commits its pending or submitted row
+// before the refusal below reads, and a start that waits for it finds the session
+// queued.
 func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, claim bool) (res result, err error) {
+	// The session lock first, before any row lock: see LockSession for the order
+	// every taker keeps. A second executor on the same session waits here, and
+	// then finds the deletion row done and counts the session held.
+	if err = LockSession(ctx, tx, r.SessionID); err != nil {
+		return res, err
+	}
 	if claim {
 		var status string
 		err = tx.QueryRow(ctx, `SELECT status FROM jetsapi.session_deletion
@@ -349,10 +370,6 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 		if err != nil {
 			return res, fmt.Errorf("while claiming the deletion row: %w", err)
 		}
-	}
-
-	if err = LockSession(ctx, tx, r.SessionID); err != nil {
-		return res, err
 	}
 
 	var active bool

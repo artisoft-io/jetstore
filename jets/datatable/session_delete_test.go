@@ -340,3 +340,71 @@ func TestDeleteSessionsRefusesAMalformedRequest(t *testing.T) {
 		t.Errorf("no user answered %d, %v", code, err)
 	}
 }
+
+// The race the transaction closes: a start that holds the lock on a selected
+// session and has inserted a run reading it, not yet committed, when
+// delete_sessions arrives with the closure the preview showed. delete_sessions
+// waits for the lock, recomputes the closure after it, sees the new reader, and
+// answers 409; it queues nothing. Without the lock it would have queued a closure
+// that misses the reader.
+func TestDeleteSessionsSeesARunStartedBeforeItsLocks(t *testing.T) {
+	f := newDeleteFixture(t)
+	bg := context.Background()
+	start, err := f.pool.Begin(bg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer start.Rollback(bg)
+	if err = sessionpurge.LockSession(bg, start, "f1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = start.Exec(bg, `INSERT INTO jetsapi.pipeline_execution_status
+		(pipeline_config_key, client, process_name, main_object_type, input_session_id, session_id,
+		 source_period_key, status, user_email)
+		VALUES (1, 'c1', 'proc', 'Claim', 'f1', 'r9', 1, 'submitted', 'system')`); err != nil {
+		t.Fatal(err)
+	}
+	type out struct {
+		code int
+		err  error
+	}
+	done := make(chan out, 1)
+	go func() {
+		_, code, err := f.ctx.DeleteSessions(&DataTableAction{Data: []map[string]any{
+			{"session_id": "f1", "expected": []any{"f1", "m1", "r1", "r2"}}}}, "admin@example.com")
+		done <- out{code, err}
+	}()
+	waitForLockWait(t, f.pool)
+	select {
+	case o := <-done:
+		t.Fatalf("delete_sessions finished while a start held the lock: %d, %v", o.code, o.err)
+	default:
+	}
+	if err = start.Commit(bg); err != nil {
+		t.Fatal(err)
+	}
+	o := <-done
+	if o.code != http.StatusConflict || !errors.Is(o.err, ErrSessionsChanged) {
+		t.Errorf("delete_sessions answered %d, %v; want 409, the sessions changed", o.code, o.err)
+	}
+	var n int
+	_ = f.pool.QueryRow(bg, `SELECT count(*) FROM jetsapi.session_deletion`).Scan(&n)
+	if n != 0 {
+		t.Errorf("delete_sessions queued %d sessions, want none", n)
+	}
+}
+
+// And the other order: delete_sessions holds the locks until it has queued, so a
+// start that arrives meanwhile waits, then finds its input queued and is refused.
+func TestAStartAfterDeleteSessionsIsRefused(t *testing.T) {
+	f := newDeleteFixture(t)
+	res, code, err := f.ctx.DeleteSessions(&DataTableAction{Data: []map[string]any{
+		{"session_id": "f1", "expected": []any{"f1", "m1", "r1", "r2"}}}}, "admin@example.com")
+	if err != nil || code != http.StatusOK || (*res)["queued"] != 4 {
+		t.Fatalf("delete_sessions answered %v, %d, %v", res, code, err)
+	}
+	_, code, err = f.start("run9")
+	if code != http.StatusConflict || err == nil || err.Error() != "input session f1 is queued for deletion" {
+		t.Errorf("a start after delete_sessions answered %d, %v", code, err)
+	}
+}

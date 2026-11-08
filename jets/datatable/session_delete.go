@@ -153,22 +153,14 @@ func stringsOf(v any) ([]string, error) {
 	return out, nil
 }
 
-// closureFor is the closure of the request's selected sessions, with the status
-// a failure answers.
-func (ctx *DataTableContext) closureFor(action *DataTableAction) ([]sessionpurge.Dependent, int, error) {
-	ids, err := sessionIDsOf(action.Data)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
+// closureStatus is the status a failure of sessionpurge.Closure or ClosureTx
+// answers, with the error the caller sees.
+func closureStatus(ids []string, err error) (int, error) {
+	if errors.Is(err, sessionpurge.ErrSessionNotRegistered) {
+		return http.StatusNotFound, err
 	}
-	closure, err := sessionpurge.Closure(context.Background(), ctx.Dbpool, ids)
-	switch {
-	case errors.Is(err, sessionpurge.ErrSessionNotRegistered):
-		return nil, http.StatusNotFound, err
-	case err != nil:
-		log.Printf("while computing the closure of %v: %v", ids, err)
-		return nil, http.StatusInternalServerError, errors.New("error while reading the sessions to delete")
-	}
-	return closure, http.StatusOK, nil
+	log.Printf("while computing the closure of %v: %v", ids, err)
+	return http.StatusInternalServerError, errors.New("error while reading the sessions to delete")
 }
 
 // PreviewSessionDeletion is preview_session_deletion: the sessions a Delete of
@@ -178,8 +170,13 @@ func (ctx *DataTableContext) closureFor(action *DataTableAction) ([]sessionpurge
 //
 // Request: data rows each carrying session_id, a string or a list of strings.
 func (ctx *DataTableContext) PreviewSessionDeletion(action *DataTableAction) (*map[string]any, int, error) {
-	closure, code, err := ctx.closureFor(action)
+	ids, err := sessionIDsOf(action.Data)
 	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	closure, err := sessionpurge.Closure(context.Background(), ctx.Dbpool, ids)
+	if err != nil {
+		code, err := closureStatus(ids, err)
 		return nil, code, err
 	}
 	return &map[string]any{"rows": closure}, http.StatusOK, nil
@@ -195,6 +192,16 @@ func (ctx *DataTableContext) PreviewSessionDeletion(action *DataTableAction) (*m
 // ErrSessionsChanged when the closure differs from expected. The caller has
 // checked CapabilityDeleteSession, and starts the executor after answering.
 //
+// It is one read-committed transaction: the session lock (sessionpurge.LockSession)
+// on every id of expected, in sorted order; then the closure, recomputed after the
+// locks; then the queue; then the commit. So the check and the queue cannot be
+// separated by a pipeline start. A start that committed a run reading one of the
+// sessions before the locks were granted is seen by the recompute, and the caller
+// gets 409 and reviews the sessions again; a start that comes after waits for the
+// locks, then finds its input session queued and is refused (GuardInputSession).
+// Read committed, not repeatable read: a repeatable-read snapshot would be taken
+// by the first lock statement, before its wait, and miss that run.
+//
 // Request: data rows each carrying session_id, a string or a list of strings,
 // and expected, the session ids preview_session_deletion returned, as a list or a
 // comma-separated string, on one row or repeated on each (the union is taken).
@@ -206,8 +213,29 @@ func (ctx *DataTableContext) DeleteSessions(action *DataTableAction, requestedBy
 	if err != nil {
 		return nil, http.StatusBadRequest, err
 	}
-	closure, code, err := ctx.closureFor(action)
+	ids, err := sessionIDsOf(action.Data)
 	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	slices.Sort(expected)
+	expected = slices.Compact(expected)
+
+	bg := context.Background()
+	tx, err := ctx.Dbpool.Begin(bg)
+	if err != nil {
+		log.Printf("while starting delete_sessions' transaction: %v", err)
+		return nil, http.StatusInternalServerError, errors.New("error while queueing the sessions to delete")
+	}
+	defer tx.Rollback(context.Background())
+	for _, id := range expected {
+		if err = sessionpurge.LockSession(bg, tx, id); err != nil {
+			log.Printf("delete_sessions: %v", err)
+			return nil, http.StatusInternalServerError, errors.New("error while locking the sessions to delete")
+		}
+	}
+	closure, err := sessionpurge.ClosureTx(bg, tx, ids)
+	if err != nil {
+		code, err := closureStatus(ids, err)
 		return nil, code, err
 	}
 	got := make([]string, len(closure))
@@ -219,12 +247,13 @@ func (ctx *DataTableContext) DeleteSessions(action *DataTableAction, requestedBy
 		}
 	}
 	slices.Sort(got)
-	slices.Sort(expected)
-	if !slices.Equal(got, slices.Compact(expected)) {
+	if !slices.Equal(got, expected) {
 		return nil, http.StatusConflict, ErrSessionsChanged
 	}
-	n, err := sessionpurge.Queue(context.Background(), ctx.Dbpool,
-		sessionpurge.Requests(closure, sessionpurge.ReasonUser, requestedBy))
+	n, err := sessionpurge.Queue(bg, tx, sessionpurge.Requests(closure, sessionpurge.ReasonUser, requestedBy))
+	if err == nil {
+		err = tx.Commit(bg)
+	}
 	if err != nil {
 		log.Printf("while queueing the deletion of %v: %v", got, err)
 		return nil, http.StatusInternalServerError, errors.New("error while queueing the sessions to delete")

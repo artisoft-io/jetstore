@@ -9,8 +9,17 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// Querier is what a function here needs of a pool or a transaction:
+// *pgxpool.Pool and pgx.Tx both satisfy it.
+type Querier interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
 // sessionLockClass is the first key of the per-session advisory lock ("SRG"). It
 // is distinct from every other two-key advisory lock in the repository
@@ -21,12 +30,23 @@ const sessionLockClass int32 = 0x53524700
 // LockSession takes the transaction-scoped advisory lock on sessionID in tx,
 // waiting for whoever holds it. It is released when tx commits or rolls back.
 //
-// It is the one place the statement is written. Two callers take it: the
-// executor, in deleteRows, after its claim and before its refusal; and a pipeline
-// start, before it inserts a status row whose input_session_id is sessionID
-// (jets/datatable). So a start and a deletion of its input session are ordered
-// whichever comes first. The second key is hashtext(sessionID), so two sessions
-// may share a lock: a start then waits for one session's deletion, nothing more.
+// It is the one place the statement is written. Three callers take it, and each
+// takes it before any row lock, which is what keeps them from deadlocking one
+// another:
+//
+//   - the executor, in deleteRows, first of all, before its claim; one session,
+//     so one lock, at a time;
+//   - a pipeline start, before it inserts a status row whose input_session_id is
+//     sessionID (jets/datatable, GuardInputSession); one lock;
+//   - delete_sessions, on every session it is about to queue, in sorted order,
+//     before it recomputes the closure and queues it (jets/datatable).
+//
+// So a start and a deletion of its input session are ordered whichever comes
+// first. The second key is hashtext(sessionID), so two sessions may share a lock:
+// a start then waits for one session's deletion, nothing more.
+//
+// The one exception to "one at a time, or sorted" is the dry run, which holds the
+// lock of every session it reaches until it ends, taken in queue order (see run).
 func LockSession(ctx context.Context, tx pgx.Tx, sessionID string) error {
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::int, hashtext($2::text))`,
 		sessionLockClass, sessionID); err != nil {
@@ -78,20 +98,32 @@ var ErrSessionNotRegistered = errors.New("not registered in session_registry")
 // records only its main input.
 //
 // Every read is in one repeatable-read, read-only transaction, so the closure is
-// one snapshot.
+// one snapshot. This is the preview's; delete_sessions uses ClosureTx inside the
+// transaction that holds the session locks and queues.
 func Closure(ctx context.Context, db *pgxpool.Pool, sessionIDs []string) ([]Dependent, error) {
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(context.Background())
+	return ClosureTx(ctx, tx, sessionIDs)
+}
+
+// ClosureTx is Closure on q, typically a transaction of the caller's.
+//
+// Under read committed its statements are not one snapshot, and that is what
+// delete_sessions needs: it takes the session locks first and then calls this,
+// so each statement sees every run a start committed before the locks were
+// granted. A repeatable-read transaction would not, because its snapshot is taken
+// by its first statement, the lock itself, before the wait.
+func ClosureTx(ctx context.Context, q Querier, sessionIDs []string) ([]Dependent, error) {
 	selected := slices.Clone(sessionIDs)
 	slices.Sort(selected)
 	selected = slices.Compact(selected)
 	if len(selected) == 0 || selected[0] == "" {
 		return nil, errors.New("a deletion needs at least one session id, and no empty one")
 	}
-
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(context.Background())
+	tx := q
 
 	rows, err := tx.Query(ctx, `SELECT s FROM unnest($1::text[]) AS s
 		WHERE NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = s)

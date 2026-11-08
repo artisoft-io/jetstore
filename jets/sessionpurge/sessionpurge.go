@@ -118,8 +118,10 @@ func merge(queued, reqs []Request) []Request {
 
 // Queue inserts pending rows. A session already queued keeps its row, except that
 // a ReasonUser request replaces a retention or orphan one that is not yet done.
-// It returns the number of rows inserted or replaced.
-func Queue(ctx context.Context, db *pgxpool.Pool, reqs []Request) (int, error) {
+// It returns the number of rows inserted or replaced. db is a pool, or a
+// transaction of the caller's: delete_sessions queues inside the transaction that
+// holds the sessions' locks.
+func Queue(ctx context.Context, db Querier, reqs []Request) (int, error) {
 	if len(reqs) == 0 {
 		return 0, nil
 	}

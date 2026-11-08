@@ -207,7 +207,8 @@ func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {
 }
 
 // E.1, the executor's half: a start holding the session lock makes the executor
-// wait for it, and then refuse the session for the run the start committed. The
+// wait for it, before its claim, and then refuse the session for the run the
+// start committed. The
 // start is played here by its two statements, LockSession and the insert, in one
 // transaction; jets/datatable tests the start itself.
 func TestStartHoldingTheLockMakesTheExecutorRefuse(t *testing.T) {
@@ -275,5 +276,46 @@ func TestDryRunTakesTheSessionLock(t *testing.T) {
 	}
 	if err = <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Two executors on one session serialise on the session lock, taken before the
+// claim: the second waits, then finds the deletion row done and counts the
+// session held.
+func TestTwoExecutorsOnOneSessionSerialise(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "s1", Client: "c1", Registered: true})
+	queue(t, pool, Request{SessionID: "s1", Client: "c1", Reason: ReasonUser, RequestedBy: "someone@example.com"})
+	tables, err := resolveTables(ctx, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Rollback(ctx)
+	if res, err := deleteRows(ctx, first, &Request{SessionID: "s1", Reason: ReasonUser}, tables, true); err != nil || res.held || res.refused {
+		t.Fatalf("the first executor: %+v, %v", res, err)
+	}
+	type out struct {
+		r   Report
+		err error
+	}
+	done := make(chan out, 1)
+	go func() {
+		r, err := Execute(ctx, pool, Options{Reasons: []Reason{ReasonUser}})
+		done <- out{r, err}
+	}()
+	waitForLockWait(t, pool)
+	if err = first.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	o := <-done
+	if o.err != nil || o.r.Skipped != 1 || o.r.Done != 0 || o.r.Failed != 0 {
+		t.Errorf("the second executor did %+v, %v; want the session held", o.r, o.err)
+	}
+	if d := deletion(t, pool, "s1"); d == nil || d.Status != StatusDone {
+		t.Errorf("the deletion row is %+v, want done", d)
 	}
 }
