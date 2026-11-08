@@ -312,11 +312,14 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			Bundling: &awslambdago.BundlingOptions{
 				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 			},
+			// PURGE_DRY_RUN unset, or anything but "false", is a dry run: the purge
+			// reports what it would delete and deletes nothing (delegate.IsDryRun).
 			Environment: &map[string]*string{
 				"JETS_DSN_SECRET":              jsComp.RdsSecret.SecretName(),
 				"JETS_REGION":                  jsii.String(os.Getenv("AWS_REGION")),
 				"JETS_PIVOT_YEAR_TIME_PARSING": jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
 				"RETENTION_DAYS":               jsii.String(os.Getenv("RETENTION_DAYS")),
+				"PURGE_DRY_RUN":                jsii.String(os.Getenv("PURGE_DRY_RUN")),
 				"JETS_s3_INPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 				"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 				"JETS_s3_STAGE_PREFIX":         jsii.String(GetS3StagePrefix()),
