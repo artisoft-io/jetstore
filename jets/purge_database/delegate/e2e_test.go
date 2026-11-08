@@ -883,11 +883,12 @@ func TestE2EFailedDeletionRetriedEveryRun(t *testing.T) {
 }
 
 // A coordinator request whose items are two sessions, both past retention. The
-// executor deletes the request's map row with the first; the dry run, which
-// rolls each session back, finds it again for the second. The dry run's report
-// must still be the real run's.
+// request's map row goes with the last of its items, so with the second session;
+// the dry run, which runs every session under a savepoint of one transaction,
+// sees the first session's item gone as the real run does. The dry run's report
+// must be the real run's. (Skipped until jetstore#2406's defect was fixed: the dry
+// run rolled each session back and counted the map row twice.)
 func TestE2ECoordinatorRequestSharedBySessions(t *testing.T) {
-	t.Skip("defect: a dry run counts a coordinator map row shared by two deleted sessions twice (4 predicted, 3 deleted)")
 	pool := purgetest.DB(t, e2eDB)
 	s := seeder{t, pool}
 	now := time.Now()

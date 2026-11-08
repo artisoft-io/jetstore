@@ -418,6 +418,89 @@ func TestDryRunWritesNothing(t *testing.T) {
 	}
 }
 
+// A coordinator request with one deleted session and one live one keeps its map
+// row, the live session's item and the lock rows not of the deleted session; the
+// deleted session's item and lock go. The dry run predicts exactly that.
+func TestCoordinatorRequestWithLiveSessionKept(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "old", Client: "c1", Registered: true, LastUpdate: days(200)})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "live", Client: "c1", Registered: true})
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, nbr_tasks) VALUES ('req-mixed', 2);
+		INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ('req-mixed', 'old'), ('req-mixed', 'live');
+		INSERT INTO jetsapi.pipeline_coordinator_lock (request_id, session_id) VALUES ('req-mixed', 'live')`)
+	liveBefore := purgetest.SessionRows(t, pool, "live")
+
+	dry, err := ExecuteRequests(ctx, pool, []Request{retention("old")}, Options{DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queue(t, pool, retention("old"))
+	real, err := Execute(ctx, pool, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(dry, real) {
+		t.Errorf("the dry run predicted\n%+v\nthe real run did\n%+v", dry, real)
+	}
+	// The old session's own request ('req-old', one item) goes; the shared one stays.
+	if got := real.Rows["jetsapi.pipeline_coordinator_map"]; got != 1 {
+		t.Errorf("%d coordinator map rows deleted, want 1 (the old session's own request)", got)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.pipeline_coordinator_map WHERE request_id = 'req-mixed'`); n != 1 {
+		t.Errorf("the shared request's map row was deleted")
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.pipeline_coordinator_map_items WHERE request_id = 'req-mixed' AND session_id = 'old'`); n != 0 {
+		t.Errorf("the deleted session's item is left")
+	}
+	if got := purgetest.SessionRows(t, pool, "live"); !reflect.DeepEqual(got, liveBefore) {
+		t.Errorf("the live session changed: %v, was %v", got, liveBefore)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.pipeline_coordinator_lock WHERE session_id = 'live'`); n != 2 {
+		t.Errorf("%d lock rows of the live session left, want its own and the shared request's", n)
+	}
+	if left := purgetest.SessionRows(t, pool, "old"); len(left) > 0 {
+		t.Errorf("rows of old left: %v", left)
+	}
+}
+
+// A dry run in which one session fails (a trigger that raises) rolls back to that
+// session's savepoint and goes on: the sessions after it are counted, the failure
+// is counted, nothing is written, and the real run's report is the same.
+func TestDryRunFailureContinues(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "s1", Client: "c1", Registered: true, DomainTables: []string{"DomainA"}})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "s2", Client: "c1", Registered: true, DomainTables: []string{"DomainZ"}})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "s3", Client: "c1", Registered: true, DomainTables: []string{"DomainA"}})
+	purgetest.Exec(t, pool, `CREATE FUNCTION public.refuse() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'delete refused by test trigger'; END $$;
+		CREATE TRIGGER refuse BEFORE DELETE ON public."DomainZ" FOR EACH ROW EXECUTE FUNCTION public.refuse()`)
+	reqs := []Request{retention("s1"), retention("s2"), retention("s3")}
+
+	before := purgetest.RowCounts(t, pool)
+	dry, err := ExecuteRequests(ctx, pool, reqs, Options{DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after := purgetest.RowCounts(t, pool); !reflect.DeepEqual(after, before) {
+		t.Errorf("the dry run wrote: %v, was %v", after, before)
+	}
+	if dry.Done != 2 || dry.Failed != 1 || !slices.Equal(dry.FailedSessions, []string{"s2"}) {
+		t.Errorf("dry run report %+v, want s1 and s3 done and s2 failed", dry)
+	}
+
+	queue(t, pool, reqs...)
+	real, err := Execute(ctx, pool, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(dry, real) {
+		t.Errorf("the dry run predicted\n%+v\nthe real run did\n%+v", dry, real)
+	}
+	if d := deletion(t, pool, "s2"); d == nil || d.Status != StatusFailed {
+		t.Errorf("s2 deletion row %+v, want failed", d)
+	}
+}
+
 // Queue's rule: the first request for a session wins, except that a user request
 // replaces a retention or orphan one not yet done.
 func TestQueueRule(t *testing.T) {
