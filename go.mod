@@ -104,7 +104,6 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/thedatashed/xlsxreader v1.2.8
 	github.com/toon-format/toon-go v1.0.1
-	github.com/xhit/go-str2duration/v2 v2.2.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/text v0.43.0

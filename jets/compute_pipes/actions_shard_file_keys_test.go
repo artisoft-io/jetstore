@@ -1,8 +1,12 @@
 package compute_pipes
 
 import (
+	"bytes"
 	"fmt"
+	"log"
+	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -378,6 +382,21 @@ func TestPruneIgnoredFileKeys(t *testing.T) {
 			wantKeys: []string{sentinel, property, part1, part2},
 		},
 		{
+			name:     "entries padded with whitespace are trimmed, not matched as written (JM-036)",
+			ignore:   " test_harness_filters.txt | _COMPLETE\t",
+			wantKeys: []string{part1, part2},
+		},
+		{
+			name:     "a whitespace-only entry is empty, it does not match keys ending in a space",
+			ignore:   "test_harness_filters.txt|  ",
+			wantKeys: []string{sentinel, part1, part2},
+		},
+		{
+			name:     "a whitespace-only value is the same as absent",
+			ignore:   " \t ",
+			wantKeys: []string{sentinel, property, part1, part2},
+		},
+		{
 			name:     "the suffix carries no path boundary, so .csv prunes every data file",
 			ignore:   ".csv",
 			wantKeys: []string{sentinel, property},
@@ -434,5 +453,27 @@ func TestPruneIgnoredFileKeysEmptyFolder(t *testing.T) {
 	if totalFileSize != 0 {
 		t.Errorf("error: expecting a total file size of 0, so that the guard at :95 is reached, got %d",
 			totalFileSize)
+	}
+}
+
+// TestPruneIgnoredFileKeysLogsSkippedEntries asserts that an entry skipped for being
+// empty, after trimming, is logged, so that a stray '|' or a blank entry in
+// ${JETS_IGNORE_FILE} is visible in the run's log rather than silent (JM-036).
+func TestPruneIgnoredFileKeysLogsSkippedEntries(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	folder := []*awsi.S3Object{{Key: "client/period/test_harness_filters.txt", Size: 120}}
+	pruneIgnoredFileKeys(folder, "test_harness_filters.txt| |")
+	out := buf.String()
+	for _, want := range []string{"Skipping empty entry 2 of ${JETS_IGNORE_FILE}",
+		"Skipping empty entry 3 of ${JETS_IGNORE_FILE}"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expecting the log to contain %q, got %q", want, out)
+		}
+	}
+	if strings.Contains(out, "Skipping empty entry 1 ") {
+		t.Errorf("entry 1 is not empty and must not be reported as skipped, got %q", out)
 	}
 }

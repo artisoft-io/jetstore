@@ -23,7 +23,7 @@ import (
 // JETS_DSN_JSON_VALUE
 // JETS_DSN_SECRET
 // JETS_DSN_URI_VALUE
-// JETS_REGION
+// JETS_REGION (needed only to read JETS_DSN_SECRET)
 // JETS_SCHEMA_FILE (default: jets_schema.json)
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // WORKSPACE Workspace currently in use
@@ -148,38 +148,72 @@ func doJob() error {
 	return nil
 }
 
-func main() {
-	utils.UseJetStoreLogger()
-	log.Println("CMD LINE ARGS:", os.Args[1:])
-	flag.Parse()
+// dsnSources are the places update_db may take its connection string from, in
+// the order it tries them.
+type dsnSources struct {
+	dsn            string // JETS_DSN_URI_VALUE
+	dsnJson        string // JETS_DSN_JSON_VALUE
+	awsDsnSecret   string // JETS_DSN_SECRET
+	awsRegion      string // JETS_REGION
+	usingSshTunnel bool
+	poolSize       int
+}
 
-	// validate command line arguments
-	hasErr := false
+// resolveDsn returns the connection string and the argument errors met on the
+// way. The region is needed only to read the secret from AWS: a DSN given
+// directly, as JETS_DSN_URI_VALUE or JETS_DSN_JSON_VALUE, needs no region, so
+// a local run against a scratch database does not have to invent one.
+func resolveDsn(src dsnSources,
+	fromJson func(string, bool, int) (string, error),
+	fromSecret func(string, bool, int) (string, error)) (string, []string) {
+
 	var errMsg []string
-	var err error
-	if awsRegion == "" {
-		hasErr = true
-		errMsg = append(errMsg, "aws region must be provided.")
-	}
-	if dsn == "" && dsnJson != "" {
-		dsn, err = awsi.GetDsnFromJson(dsnJson, *usingSshTunnel, dbPoolSize)
+	dsn := src.dsn
+	if dsn == "" && src.dsnJson != "" {
+		var err error
+		dsn, err = fromJson(src.dsnJson, src.usingSshTunnel, src.poolSize)
 		if err != nil {
 			log.Printf("while calling GetDsnFromJson: %v", err)
 			dsn = ""
 		}
 	}
 	if dsn == "" {
-		// Get the dsn from the aws secret
-		dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, *usingSshTunnel, dbPoolSize)
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("while getting dsn from JETS_DSN_SECRET: %v", err))
+		// Get the dsn from the aws secret, which needs the region
+		if src.awsRegion == "" {
+			errMsg = append(errMsg,
+				"aws region (JETS_REGION) must be provided to read the dsn from JETS_DSN_SECRET; "+
+					"or provide JETS_DSN_URI_VALUE or JETS_DSN_JSON_VALUE.")
+		} else {
+			var err error
+			dsn, err = fromSecret(src.awsDsnSecret, src.usingSshTunnel, src.poolSize)
+			if err != nil {
+				errMsg = append(errMsg, fmt.Sprintf("while getting dsn from JETS_DSN_SECRET: %v", err))
+			}
 		}
 	}
 	if dsn == "" {
-		hasErr = true
 		errMsg = append(errMsg, "Connection string must be provided via env var")
 	}
+	return dsn, errMsg
+}
+
+func main() {
+	utils.UseJetStoreLogger()
+	log.Println("CMD LINE ARGS:", os.Args[1:])
+	flag.Parse()
+
+	// validate command line arguments
+	var err error
+	var errMsg []string
+	dsn, errMsg = resolveDsn(dsnSources{
+		dsn:            dsn,
+		dsnJson:        dsnJson,
+		awsDsnSecret:   awsDsnSecret,
+		awsRegion:      awsRegion,
+		usingSshTunnel: *usingSshTunnel,
+		poolSize:       dbPoolSize,
+	}, awsi.GetDsnFromJson, awsi.GetDsnFromSecret)
+	hasErr := len(errMsg) > 0
 	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace env WORKSPACES_HOME & WORKSPACE must be provided")
