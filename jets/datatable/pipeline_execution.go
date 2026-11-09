@@ -933,6 +933,14 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 // This is also used by the register key v2 lambda once the event is downloaded from s3.
 func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEvent *compute_pipes.SchemaProviderSpec, token string) error {
 
+	// A nil event is an error rather than a panic (JM-035 review). The
+	// register-key lambda decodes a schema-event file holding a list into
+	// []*SchemaProviderSpec, where a JSON null element is a nil pointer, and a
+	// coordinator map's steps are the same type.
+	if schemaEvent == nil {
+		return errors.New("RegisterSchemaEvent: the schema event is null")
+	}
+
 	// Check if this is a pipeline_coordinator schema event
 	if schemaEvent.Type == "pipeline_coordinator_map" {
 		return ctx.ProcessCoordinatorMapRegisterSchemaEvent(dbpool, schemaEvent, token)
