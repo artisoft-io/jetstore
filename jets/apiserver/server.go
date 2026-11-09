@@ -657,6 +657,13 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
 	}
 
+	// The role user reads run as (datatable.ReaderRole), with its grants brought
+	// up to date for the tables the migration may have added. Fatal: without it
+	// every read fails, and the cause is clearer here than on the first screen.
+	if err = datatable.EnsureReaderRole(context.Background(), server.dbpool); err != nil {
+		return fmt.Errorf("while setting up the read role: %v", err)
+	}
+
 	// What a stopped apiserver left running is recorded as interrupted: rules unit
 	// test runs queued or executing, and a workspace compile or client config load
 	// still "in progress". It needs the tables checkSystemTablesVersion migrates,
