@@ -461,9 +461,11 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 // included (e.g. "test_harness_filters.txt|notes/readme.txt").
 //
 // The match is strings.HasSuffix against the whole object key, so an entry may carry a
-// path portion. An empty or absent ignore prunes nothing, and so does an empty entry
-// within the list - an empty suffix matches every key, and pruning the whole folder is
-// never what an unset value means.
+// path portion. Each entry is trimmed of surrounding whitespace first, so a list
+// written as "a.txt | b.txt" prunes both rather than matching nothing (a key does not
+// end in "a.txt "). An empty or absent ignore prunes nothing, and so does an entry that
+// is empty after trimming, which is logged and skipped - an empty suffix matches every
+// key, and pruning the whole folder is never what an unset value means.
 //
 // Note there is deliberately no '/' path boundary on the match: a configured value of
 // ".txt" prunes every text file in the folder, and "filters.txt" also prunes
@@ -476,10 +478,13 @@ func pruneIgnoredFileKeys(s3Objects []*awsi.S3Object, ignore string) []*awsi.S3O
 		return s3Objects
 	}
 	ignoredSuffixes := make([]string, 0, 4)
-	for _, suffix := range strings.Split(ignore, "|") {
-		if len(suffix) > 0 {
-			ignoredSuffixes = append(ignoredSuffixes, suffix)
+	for i, entry := range strings.Split(ignore, "|") {
+		suffix := strings.TrimSpace(entry)
+		if len(suffix) == 0 {
+			log.Printf("Skipping empty entry %d of ${JETS_IGNORE_FILE} %q", i+1, ignore)
+			continue
 		}
+		ignoredSuffixes = append(ignoredSuffixes, suffix)
 	}
 	if len(ignoredSuffixes) == 0 {
 		return s3Objects

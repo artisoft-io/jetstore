@@ -40,10 +40,14 @@ type DataTableContext struct {
 	CpipesEnv      map[string]any
 }
 
+// NewDataTableContext keeps the adminEmail it is given (the apiserver's
+// -adminEmail flag) and falls back to JETS_ADMIN_EMAIL only when none is given,
+// nil or empty. Until JM-085 the test read != nil, so the flag a caller passed was
+// always replaced by the environment variable and a nil one stayed nil.
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, adminEmail *string) *DataTableContext {
 
-	if adminEmail != nil {
+	if adminEmail == nil || *adminEmail == "" {
 		v := os.Getenv("JETS_ADMIN_EMAIL")
 		adminEmail = &v
 	}
@@ -348,6 +352,17 @@ func parseWcValue(value string) []string {
 	}
 }
 
+// sqlLiteral quotes s as a SQL string literal, doubling its single quotes. That
+// is sound only with standard_conforming_strings on, which readOnlyTx sets for
+// every read built here, so a backslash in s is an ordinary character.
+func sqlLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// visitWhereClause writes one where clause. Its values and like pattern are
+// quoted literals (sqlLiteral) and joinWith is quoted as table.column. Ge and le
+// are SQL expressions by design (a timestamp literal, now() - interval '1 day'),
+// written as sent: the read runs READ ONLY (readOnlyTx), so they cannot write.
 func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	if wc.OrWith != nil {
 		buf.WriteString("( ")
@@ -365,13 +380,13 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	case len(wc.Values) > 0:
 		wcValues = wc.Values
 		inOp = " IN ("
-		eqOp = " = '"
+		eqOp = " = "
 		if len(wc.Values) == 1 {
 			wcValues = parseWcValue(wc.Values[0])
 		}
 	case len(wc.NotInValues) > 0:
 		inOp = " NOT IN ("
-		eqOp = " != '"
+		eqOp = " != "
 		wcValues = wc.NotInValues
 		if len(wc.NotInValues) == 1 {
 			wcValues = parseWcValue(wc.NotInValues[0])
@@ -380,12 +395,11 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	switch {
 	case len(wc.Like) > 0:
 		buf.WriteString(" LIKE ")
-		buf.WriteString("'")
-		buf.WriteString(wc.Like)
-		buf.WriteString("' ")
+		buf.WriteString(sqlLiteral(wc.Like))
+		buf.WriteString(" ")
 	case len(wc.JoinWith) > 0:
 		buf.WriteString(" = ")
-		buf.WriteString(wc.JoinWith)
+		buf.WriteString(pgx.Identifier(strings.Split(wc.JoinWith, ".")).Sanitize())
 	case len(wcValues) > 1:
 		buf.WriteString(inOp)
 		isFirstValue := true
@@ -398,9 +412,7 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			if value == "NULL" {
 				buf.WriteString(" NULL ")
 			} else {
-				buf.WriteString("'")
-				buf.WriteString(value)
-				buf.WriteString("'")
+				buf.WriteString(sqlLiteral(value))
 			}
 		}
 		buf.WriteString(") ")
@@ -410,8 +422,7 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			buf.WriteString(" is NULL ")
 		} else {
 			buf.WriteString(eqOp)
-			buf.WriteString(value)
-			buf.WriteString("'")
+			buf.WriteString(sqlLiteral(value))
 		}
 	case len(wc.Ge) > 0:
 		buf.WriteString(" >= ")
@@ -466,6 +477,31 @@ type SqlInsertDefinition struct {
 	AdminOnly       bool
 	Capability      string
 	ProtectAdminRow bool
+	// OwnRowOnly binds every row to the caller: InsertRows writes the caller's
+	// email into each row's user_email and refuses a row that names another
+	// user (ErrNotOwnRow). For a statement on the caller's own account, such as
+	// update/user_git_profile, which every role's user_profile capability reaches.
+	OwnRowOnly bool
+}
+
+// ErrNotOwnRow is InsertRows' refusal of an OwnRowOnly statement whose row names
+// a user other than the caller. A 403 that names the row, as ErrAdminRowProtected
+// does, rather than a missing capability the caller holds.
+var ErrNotOwnRow = errors.New("error: forbidden, this statement writes the caller's own account only")
+
+// bindToCaller writes email into each row's user_email, and reports false,
+// writing nothing, when a row names another user. The comparison is exact, as
+// the statements' WHERE user_email = $n is.
+func bindToCaller(rows []map[string]any, email string) bool {
+	for _, row := range rows {
+		if v, ok := row["user_email"]; ok && v != nil && v != "" && v != email {
+			return false
+		}
+	}
+	for _, row := range rows {
+		row["user_email"] = email
+	}
+	return true
 }
 
 // ErrAdminRowProtected is InsertRows' refusal of a ProtectAdminRow statement that
@@ -474,6 +510,33 @@ type SqlInsertDefinition struct {
 // may be the admin, and everything about the row, so collapsing it into ErrRefused
 // would tell a user administrator they lack a capability they hold.
 var ErrAdminRowProtected = errors.New("error: forbidden, the installation admin's account cannot be changed or deleted")
+
+// ErrMalformedRoles is the 400 for an update/users row whose roles are not a list of
+// strings. Until JM-087 InsertRows type-asserted them unchecked, so such a row
+// panicked the handler; since user_admin (2026-11-07) that input comes from user
+// administrators as well as from the admin.
+var ErrMalformedRoles = errors.New("error: bad request, roles must be a list of role names")
+
+// rolesOf reads the roles of an update/users row: a JSON array of strings arrives as
+// []any, and a Go caller may pass []string. Anything else is ErrMalformedRoles.
+func rolesOf(rolesi any) ([]string, error) {
+	switch v := rolesi.(type) {
+	case []string:
+		return v, nil
+	case []any:
+		roles := make([]string, len(v))
+		for i, r := range v {
+			role, ok := r.(string)
+			if !ok {
+				return nil, fmt.Errorf("%w: element %d is %T", ErrMalformedRoles, i, r)
+			}
+			roles[i] = role
+		}
+		return roles, nil
+	default:
+		return nil, fmt.Errorf("%w: got %T", ErrMalformedRoles, rolesi)
+	}
+}
 
 // writesAdminRow reports whether any row's user_email is adminEmail. The comparison
 // is exact, as user.IsAdmin's is and as the statements' WHERE user_email = $n is, so
@@ -667,13 +730,27 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 // queries the app composed; `raw_query_tool` is the IDE's free-SQL box, where
 // the statement is whatever the user typed. They shared a case and a capability
 // of none; they now share a case and differ in what they require.
+//
+// **A raw query on the read capability runs READ ONLY** (readOnlyTx): it is the
+// app's own query, always a read, and the read capability is every role's, so
+// no statement sent under it may change data. The query tool's, under
+// CapabilityQueryTool, is the user's SQL and runs as it always has.
 func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token, capability string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 	if code, err2 := ctx.requireCapability(capability, token); err2 != nil {
 		return nil, code, err2
 	}
 
-	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	var db querier = ctx.Dbpool
+	if capability == CapabilityReadData {
+		tx, err2 := readOnlyTx(ctx.Dbpool)
+		if err2 != nil {
+			return nil, http.StatusInternalServerError, err2
+		}
+		defer tx.Rollback(context.Background())
+		db = tx
+	}
+	resultRows, columnDefs, err2 := execQuery(db, dataTableAction, &dataTableAction.RawQuery)
 
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
@@ -718,11 +795,16 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
 		return nil, code, err2
 	}
-	// fmt.Println("ExecRawQueryMap:")
+	// The app's own queries on the read capability, so read only, as for
+	// ExecRawQuery's raw_query.
+	tx, err2 := readOnlyTx(ctx.Dbpool)
+	if err2 != nil {
+		return nil, http.StatusInternalServerError, err2
+	}
+	defer tx.Rollback(context.Background())
 	resultMap := make(map[string]any, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
-		// fmt.Println("Query:",v)
-		resultRows, _, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
+		resultRows, _, err2 := execQuery(tx, dataTableAction, &v)
 		if err2 != nil {
 			if strings.Contains(err2.Error(), "SQLSTATE") {
 				httpStatus = http.StatusBadRequest
@@ -908,10 +990,16 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		err = errors.New("error: unknown table")
 		return
 	}
-	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
+	caller, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
 		log.Printf("while VerifyUserPermission: %v", err2)
 		httpStatus, err = RefusalFor(err2)
+		return
+	}
+	// A statement on the caller's own account writes only the caller's row.
+	if sqlStmt.OwnRowOnly && !bindToCaller(dataTableAction.Data, caller.Email) {
+		log.Printf("InsertRows: %s refused, a row names another user", dataTableAction.FromClauses[0].Table)
+		httpStatus, err = http.StatusForbidden, ErrNotOwnRow
 		return
 	}
 	// The installation admin's row is not written by a ProtectAdminRow statement,
@@ -936,6 +1024,26 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		return
 	}
 
+	// update/users: the roles go to column encrypted_roles (stored as written; the
+	// encryption the column is named for was never done). Every row is checked before
+	// the first is written, so malformed roles refuse the whole request with 400.
+	if dataTableAction.FromClauses[0].Table == "update/users" {
+		for irow := range dataTableAction.Data {
+			rolesi := dataTableAction.Data[irow]["roles"]
+			if rolesi == nil {
+				continue
+			}
+			var roles []string
+			roles, err = rolesOf(rolesi)
+			if err != nil {
+				log.Printf("InsertRows: update/users refused, row %d: %v", irow, err)
+				httpStatus = http.StatusBadRequest
+				return
+			}
+			dataTableAction.Data[irow]["encrypted_roles"] = roles
+		}
+	}
+
 	row := make([]any, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
@@ -957,22 +1065,6 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 					err = fmt.Errorf("while encrypting the git token: %v", err)
 					return
 				}
-			}
-		case dataTableAction.FromClauses[0].Table == "update/users":
-			// encrypt roles and put them in column encrypted_roles
-			// @**@ encrypt roles and put them in column encrypted_roles
-			rolesi := dataTableAction.Data[irow]["roles"]
-			if rolesi != nil {
-				roles := rolesi.([]any)
-				encryptedRoles := make([]string, len(roles))
-				for i := range roles {
-					role := roles[i].(string)
-					// encrypt role
-					// encryptedRole := user.EncryptWithEmail(role, userProfile.Email)
-					encryptedRole := role
-					encryptedRoles[i] = encryptedRole
-				}
-				dataTableAction.Data[irow]["encrypted_roles"] = encryptedRoles
 			}
 		}
 		if !dbUpdateDone {
@@ -1057,7 +1149,38 @@ func populateDomainKeys(row map[string]any) error {
 }
 
 // utility methods
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
+// querier is what execQuery runs on: the pool, or a read's transaction.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// readOnlyTx opens the transaction a data-table read runs in. The read's SQL is
+// built from fragments the client sends (WithClauses, calculated columns, ge and
+// le), so it runs READ ONLY and no fragment can write: a data-modifying WITH is
+// refused by PostgreSQL. standard_conforming_strings is set on for it, so the
+// where clause's quoted values (sqlLiteral) are escaped whatever the server's
+// default. It runs as ReaderRole, so it reads only what that role may: a read
+// that cannot switch to the role fails rather than running with the apiserver's
+// own privileges (EnsureReaderRole, run at the apiserver's start, sets it up).
+// The caller rolls it back; a read commits nothing.
+func readOnlyTx(dbpool *pgxpool.Pool) (pgx.Tx, error) {
+	tx, err := dbpool.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, fmt.Errorf("while starting the read: %w", err)
+	}
+	for _, stmt := range []string{
+		"SET LOCAL standard_conforming_strings TO on",
+		"SET LOCAL ROLE " + pgx.Identifier{ReaderRole}.Sanitize(),
+	} {
+		if _, err = tx.Exec(context.Background(), stmt); err != nil {
+			_ = tx.Rollback(context.Background())
+			return nil, fmt.Errorf("while starting the read: %w", err)
+		}
+	}
+	return tx, nil
+}
+
+func execQuery(dbpool querier, dataTableAction *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Print("\n*** UI Query:\n", *query, "\n\n")
 	resultRows := make([][]any, 0, dataTableAction.Limit)
@@ -1113,6 +1236,12 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			}
 		}
 		resultRows = append(resultRows, flatRow)
+	}
+	// An error raised while the rows stream, such as a read-only refusal, ends
+	// the loop above without a row; it is reported here, not dropped.
+	if err = rows.Err(); err != nil {
+		log.Printf("While reading the dataTable query's rows: %v", err)
+		return nil, nil, err
 	}
 	return &resultRows, &columnDefs, nil
 }
@@ -1290,8 +1419,13 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 	// Build the query
 	query, stmt := dataTableAction.buildQuery()
 
-	// Perform the query
-	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
+	// Perform the query, and the count below, read only (readOnlyTx)
+	tx, err := readOnlyTx(ctx.Dbpool)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+	defer tx.Rollback(context.Background())
+	resultRows, _, err := execQuery(tx, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -1322,7 +1456,7 @@ gotRolesPos:
 
 	// get the total nbr of row
 	var totalRowCount int
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
+	err = tx.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)

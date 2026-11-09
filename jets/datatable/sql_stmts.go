@@ -238,6 +238,8 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			= ($1, $2, $3, $4, DEFAULT) WHERE user_email = $5`,
 		ColumnKeys: []string{"git_name", "git_email", "git_handle", "git_token", "user_email"},
 		Capability: "user_profile",
+		// Every role holds user_profile, so the row is the caller's (InsertRows).
+		OwnRowOnly: true,
 	},
 
 	// Statements for Rule Workspace Administration (tables part of jetsapi schema)

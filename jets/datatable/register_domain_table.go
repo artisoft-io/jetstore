@@ -149,9 +149,10 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 		user_email, schema_provider_json) 
 		VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8) 
 		RETURNING key`
-	domainKeys, ok := originDomainKeys.([]string)
-	if !ok {
-		domainKeys = []string{objType.(string)}
+	domainKeys, err := originDomainKeysOf(originDomainKeys, objType)
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 	for _, domainKey := range domainKeys {
 		var inputRegistryKey int
@@ -192,6 +193,47 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 		return err
 	}
 	return nil
+}
+
+// originDomainKeysOf returns the domain keys a loaded file is registered under:
+// $ORIGIN_DOMAIN_KEYS, the source_config.domain_keys startLoader read, or the
+// file's object type when there are none.
+//
+// In process (dev mode) the value is the []string startLoader put in the env.
+// Through the state machine the status-update lambda receives the env decoded
+// from JSON, so it is a []any of strings (JM-089). Only []string was accepted,
+// so on the cluster every load fell back to the object type alone and a source
+// with several domain keys was registered under one of them. A nil, empty or
+// otherwise typed value falls back as before; a list holding a non-string is an
+// error, as is a fallback with no string object type, rather than a panic.
+func originDomainKeysOf(originDomainKeys, objType any) ([]string, error) {
+	var domainKeys []string
+	switch v := originDomainKeys.(type) {
+	case nil:
+	case []string:
+		domainKeys = v
+	case []any:
+		domainKeys = make([]string, 0, len(v))
+		for i, e := range v {
+			s, ok := e.(string)
+			if !ok {
+				return nil, fmt.Errorf("$ORIGIN_DOMAIN_KEYS[%d] is a %T, expecting a string", i, e)
+			}
+			domainKeys = append(domainKeys, s)
+		}
+	default:
+		// Any other type fell back to the object type before JM-089, and still
+		// does: only the JSON-decoded list was a known producer's value.
+		log.Printf("Warning: $ORIGIN_DOMAIN_KEYS is a %T, expecting a list of strings; using $OBJECT_TYPE", originDomainKeys)
+	}
+	if len(domainKeys) > 0 {
+		return domainKeys, nil
+	}
+	s, ok := objType.(string)
+	if !ok {
+		return nil, fmt.Errorf("$OBJECT_TYPE is a %T, expecting a string", objType)
+	}
+	return []string{s}, nil
 }
 
 // registerOriginSession registers a loaded file's origin session with source

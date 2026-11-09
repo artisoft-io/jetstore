@@ -165,8 +165,6 @@ github.com/thedatashed/xlsxreader v1.2.8 h1:8aGbkXIPEThQbA8KzUZqIa4v4oqFrJFKLQ36
 github.com/thedatashed/xlsxreader v1.2.8/go.mod h1:wZyb/2xF1+rkZ2ujhC72tuuOWBY574QvcXHFls+5AXc=
 github.com/toon-format/toon-go v1.0.1 h1:DKeh/TlHh6EmYHPcQW3ovQKZXF1zrM0lSjG6cVOPido=
 github.com/toon-format/toon-go v1.0.1/go.mod h1:j/BOnpF2ihnz4lELs99h9mwGJBx/zdleOUCnLLRPCsc=
-github.com/xhit/go-str2duration/v2 v2.2.0 h1:SofrD1D+8IuhhkP+OiG1ij4Zq+FiiYSEY/sORBanDG0=
-github.com/xhit/go-str2duration/v2 v2.2.0/go.mod h1:ohY8p+0f07DiV6Em5LKB0s2YpLtXVyJfNt1+BlmyAsU=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
 github.com/yosida95/uritemplate/v3 v3.0.2 h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=

@@ -18,6 +18,38 @@ from __future__ import annotations
 from itertools import takewhile
 
 
+class QcShapeError(ValueError):
+    """The config does not have the shape `derive` reads, said by name."""
+
+
+def status_column(columns: list[dict]) -> dict:
+    """The report pipe's `case` column that writes `status`, found by what it writes.
+
+    **Not `columns[9]`, which is what this read until PL-036.** The index was right
+    for all eight `qc_*` configs and agreed with them by a count nothing states: a
+    config with one more or one fewer column before it would have read a different
+    column, and the failure would have been a `KeyError` on `case_expr` or, worse, a
+    `case` column that is not the status one. A column is the status column when it
+    is of type `case` and one of its legs' `then`, or its `else_expr`, assigns
+    `status`. Exactly one must; none or several is a `QcShapeError` naming the count.
+    """
+    def writes_status(column: dict) -> bool:
+        if column.get("type") != "case":
+            return False
+        assigned = [*(column.get("else_expr") or [])]
+        for leg in column.get("case_expr") or []:
+            assigned.extend(leg.get("then") or [])
+        return any(a.get("name") == "status" for a in assigned)
+
+    found = [c for c in columns if writes_status(c)]
+    if len(found) != 1:
+        raise QcShapeError(
+            f"expected one `case` column writing `status` in the report pipe, "
+            f"found {len(found)}"
+        )
+    return found[0]
+
+
 def derive(config: dict) -> dict:
     """The bindings that expand `qc_report` back into `config`."""
     rpc = config["reducing_pipes_config"]
@@ -65,7 +97,7 @@ def derive(config: dict) -> dict:
             and (rhs.get("lhs") or {}).get("expr") == "field_id"
         )
 
-    status_case = rpc[3][1]["apply"][0]["columns"][9]["case_expr"]
+    status_case = status_column(rpc[3][1]["apply"][0]["columns"])["case_expr"]
     status_filters = [
         {"env_key": leg["when"]["lhs"]["lhs"]["expr"],
          "substring": leg["when"]["rhs"]["rhs"]["expr"]}

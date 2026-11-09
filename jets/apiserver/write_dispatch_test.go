@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 	"strings"
@@ -60,10 +61,8 @@ var delegatedActions = map[string]string{
 }
 
 // inlineGatedActions are the arms that do the work here rather than delegating,
-// and so must ask for a capability here. The value is a substring the rendered
-// gate has to contain, so it is the bare constant name rather than the qualified
-// one: ast.Fprint renders a selector as two nodes and "datatable.X" never appears
-// contiguously.
+// and so must ask for a capability here. The value is a substring the gate
+// statement's source (sourceOf) has to contain.
 var inlineGatedActions = map[string]string{
 	// Reads an arbitrary path under JETS_s3_STAGE_PREFIX out of S3. The same
 	// authority preview_file needs, and DoPreviewFileAction is the nearest
@@ -118,28 +117,77 @@ const dataTableActionCount = 27
 // database or S3. Deliberately short and deliberately a lower bound; see the
 // same note in jets/datatable/write_capability_test.go.
 //
-// The three quoted ones are method names as ast.Fprint writes an identifier's
-// name, so that "DeleteSessions" does not match CapabilityDeleteSession.
+// They are matched against a statement's *source*, printed by go/printer
+// (sourceOf), so a selector is written as it is in the code. **Until JM-091 they
+// were matched against ast.Fprint's dump**, which renders server.dbpool as two
+// Ident nodes on separate lines: "server.dbpool" and "awsi." could never match,
+// and the effect-order check was vacuous for the database and S3 halves of what
+// it claims to check. A bare "dbpool" was no remedy either, because ast.Fprint
+// follows an identifier's Obj.Decl into its declaration and so finds it in
+// statements that do not use it. TestEveryEffectMarkerMatchesTheDispatch now
+// fails if a marker matches nothing.
+//
+// The method markers are written as calls, so that ".DeleteSessions(" does not
+// match datatable.CapabilityDeleteSession.
 var apiserverEffectMarkers = []string{
 	"server.dbpool",
 	"awsi.",
-	"ReserveSessionId",
-	"StartPendingTasks",
-	`"PreviewSessionDeletion"`,
-	`"DeleteSessions"`,
-	`"runUserDeletions"`,
+	".ReserveSessionId(",
+	".StartPendingTasks(",
+	".PreviewSessionDeletion(",
+	".DeleteSessions(",
+	".runUserDeletions(",
 }
 
-// dispatchArms returns the case clauses of the switch inside DoDataTableAction,
-// keyed by the action literal each names.
-func dispatchArms(t *testing.T) (map[string]string, *token.FileSet) {
+// sourceOf prints node as Go source. The files are parsed without comments, so
+// a comment naming a method is not mistaken for a call to it.
+func sourceOf(t *testing.T, fset *token.FileSet, node any) string {
+	t.Helper()
+	var buf strings.Builder
+	if err := printer.Fprint(&buf, fset, node); err != nil {
+		t.Fatalf("printing a statement: %v", err)
+	}
+	return buf.String()
+}
+
+// armOrder returns the index of the first statement in body that checks a
+// capability, the index of the first that reaches the database or S3, and the
+// source of the gate statement. Either index is -1 when there is none.
+func armOrder(t *testing.T, fset *token.FileSet, body []ast.Stmt) (gateAt, effectAt int, gateStmt string) {
+	t.Helper()
+	gateAt, effectAt = -1, -1
+	for i, stmt := range body {
+		src := sourceOf(t, fset, stmt)
+		if gateAt < 0 && strings.Contains(src, "RequireCapability") {
+			gateAt, gateStmt = i, src
+		}
+		if effectAt < 0 && effectMarkerIn(src) != "" {
+			effectAt = i
+		}
+	}
+	return gateAt, effectAt, gateStmt
+}
+
+// effectMarkerIn returns the first effect marker src contains, or "".
+func effectMarkerIn(src string) string {
+	for _, marker := range apiserverEffectMarkers {
+		if strings.Contains(src, marker) {
+			return marker
+		}
+	}
+	return ""
+}
+
+// dispatchClauses returns the case clauses of the switch inside
+// DoDataTableAction, keyed by the action literal each names.
+func dispatchClauses(t *testing.T) (map[string]*ast.CaseClause, *token.FileSet) {
 	t.Helper()
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "api_tables.go", nil, 0)
 	if err != nil {
 		t.Fatalf("parsing api_tables.go: %v", err)
 	}
-	arms := map[string]string{}
+	clauses := map[string]*ast.CaseClause{}
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok || fn.Name.Name != "DoDataTableAction" || fn.Body == nil {
@@ -150,22 +198,34 @@ func dispatchArms(t *testing.T) (map[string]string, *token.FileSet) {
 			if !ok {
 				return true
 			}
-			var buf strings.Builder
-			for _, stmt := range clause.Body {
-				ast.Fprint(&buf, fset, stmt, nil)
-			}
 			for _, expr := range clause.List {
 				lit, ok := expr.(*ast.BasicLit)
 				if !ok || lit.Kind != token.STRING {
 					continue
 				}
-				arms[strings.Trim(lit.Value, `"`)] = buf.String()
+				clauses[strings.Trim(lit.Value, `"`)] = clause
 			}
 			return true
 		})
 	}
-	if len(arms) == 0 {
+	if len(clauses) == 0 {
 		t.Fatal("no case clauses found in DoDataTableAction; this test is stale")
+	}
+	return clauses, fset
+}
+
+// dispatchArms returns each arm of the switch inside DoDataTableAction as
+// ast.Fprint renders its statements, keyed by the action literal each names.
+func dispatchArms(t *testing.T) (map[string]string, *token.FileSet) {
+	t.Helper()
+	clauses, fset := dispatchClauses(t)
+	arms := map[string]string{}
+	for action, clause := range clauses {
+		var buf strings.Builder
+		for _, stmt := range clause.Body {
+			ast.Fprint(&buf, fset, stmt, nil)
+		}
+		arms[action] = buf.String()
 	}
 	return arms, fset
 }
@@ -236,69 +296,87 @@ func TestDelegatedActionsCallTheMethodTheyClaimTo(t *testing.T) {
 // method, so no watched map of function names could see them, and neither asked
 // for anything.
 func TestInlineArmsGateBeforeTheyAct(t *testing.T) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "api_tables.go", nil, 0)
-	if err != nil {
-		t.Fatalf("parsing api_tables.go: %v", err)
-	}
-	seen := map[string]bool{}
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Name.Name != "DoDataTableAction" || fn.Body == nil {
+	clauses, fset := dispatchClauses(t)
+	for action, want := range inlineGatedActions {
+		clause, ok := clauses[action]
+		if !ok {
+			t.Errorf("no %q arm in DoDataTableAction; this list is stale", action)
 			continue
 		}
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
-			clause, ok := n.(*ast.CaseClause)
-			if !ok {
-				return true
-			}
-			for _, expr := range clause.List {
-				lit, ok := expr.(*ast.BasicLit)
-				if !ok || lit.Kind != token.STRING {
-					continue
-				}
-				action := strings.Trim(lit.Value, `"`)
-				want, watched := inlineGatedActions[action]
-				if !watched {
-					continue
-				}
-				seen[action] = true
-				gateAt, effectAt, gateStmt := -1, -1, ""
-				for i, stmt := range clause.Body {
-					var buf strings.Builder
-					ast.Fprint(&buf, fset, stmt, nil)
-					rendered := buf.String()
-					if gateAt < 0 && strings.Contains(rendered, "RequireCapability") {
-						gateAt, gateStmt = i, rendered
-					}
-					if effectAt < 0 {
-						for _, marker := range apiserverEffectMarkers {
-							if strings.Contains(rendered, marker) {
-								effectAt = i
-								break
-							}
-						}
-					}
-				}
-				if gateAt < 0 {
-					t.Errorf("the %q arm checks no capability at all; every authenticated "+
-						"caller of any role can reach what it does", action)
-					continue
-				}
-				if effectAt >= 0 && effectAt < gateAt {
-					t.Errorf("the %q arm reaches the database or S3 at statement %d and only "+
-						"checks a capability at statement %d", action, effectAt, gateAt)
-				}
-				if !strings.Contains(gateStmt, want) {
-					t.Errorf("the %q arm gates on something other than %s", action, want)
-				}
-			}
-			return true
-		})
+		gateAt, effectAt, gateStmt := armOrder(t, fset, clause.Body)
+		if gateAt < 0 {
+			t.Errorf("the %q arm checks no capability at all; every authenticated "+
+				"caller of any role can reach what it does", action)
+			continue
+		}
+		if effectAt >= 0 && effectAt < gateAt {
+			t.Errorf("the %q arm reaches the database or S3 at statement %d and only "+
+				"checks a capability at statement %d", action, effectAt, gateAt)
+		}
+		if !strings.Contains(gateStmt, want) {
+			t.Errorf("the %q arm gates on something other than %s", action, want)
+		}
 	}
-	for action := range inlineGatedActions {
-		if !seen[action] {
-			t.Errorf("no %q arm in DoDataTableAction; this list is stale", action)
+}
+
+// TestEveryEffectMarkerMatchesTheDispatch is JM-091's guard against the check
+// above going vacuous again: a marker that matches no statement of any
+// inline-gated arm is either misspelt for the renderer, which is what
+// "server.dbpool" and "awsi." were under ast.Fprint, or names an effect no arm
+// has any more.
+func TestEveryEffectMarkerMatchesTheDispatch(t *testing.T) {
+	clauses, fset := dispatchClauses(t)
+	for _, marker := range apiserverEffectMarkers {
+		found := false
+		for action := range inlineGatedActions {
+			clause, ok := clauses[action]
+			if !ok {
+				continue // reported by TestInlineArmsGateBeforeTheyAct
+			}
+			for _, stmt := range clause.Body {
+				if strings.Contains(sourceOf(t, fset, stmt), marker) {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Errorf("the effect marker %q matches no statement of an inline-gated arm; "+
+				"the order check is vacuous for it", marker)
+		}
+	}
+}
+
+// TestArmOrderSeesAnEffectAheadOfTheGate mis-orders an arm on purpose, once per
+// marker, and asserts armOrder reports the effect first. It is the evidence that
+// TestInlineArmsGateBeforeTheyAct can fail.
+func TestArmOrderSeesAnEffectAheadOfTheGate(t *testing.T) {
+	effects := map[string]string{
+		"server.dbpool":            `tx, err := server.dbpool.Begin(context.TODO())`,
+		"awsi.":                    `obj, err := awsi.DownloadBufFromS3(path)`,
+		".ReserveSessionId(":       `sid, err := datatable.ReserveSessionId(server.pool)`,
+		".StartPendingTasks(":      `err = ctx.StartPendingTasks()`,
+		".PreviewSessionDeletion(": `results, code, err = ctx.PreviewSessionDeletion(&a)`,
+		".DeleteSessions(":         `results, code, err = ctx.DeleteSessions(&a, user)`,
+		".runUserDeletions(":       `server.runUserDeletions()`,
+	}
+	for _, marker := range apiserverEffectMarkers {
+		effect, ok := effects[marker]
+		if !ok {
+			t.Errorf("no mis-ordered example for the effect marker %q; add one", marker)
+			continue
+		}
+		src := "package p\nfunc f() {\n\t" + effect + "\n" +
+			"\tif code, err = ctx.RequireCapability(datatable.CapabilityDeleteSession, token); err != nil {\n\t\treturn\n\t}\n}\n"
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, "misordered.go", src, 0)
+		if err != nil {
+			t.Fatalf("parsing the example for %q: %v", marker, err)
+		}
+		body := file.Decls[0].(*ast.FuncDecl).Body.List
+		gateAt, effectAt, _ := armOrder(t, fset, body)
+		if gateAt != 1 || effectAt != 0 {
+			t.Errorf("with %q ahead of the gate, armOrder reports the effect at %d and the gate "+
+				"at %d; want 0 and 1", marker, effectAt, gateAt)
 		}
 	}
 }
@@ -310,16 +388,23 @@ func TestInlineArmsGateBeforeTheyAct(t *testing.T) {
 // reserved, no row inserted -- so it cannot become a second resubmit_pipeline
 // without this test being edited.
 func TestStartPendingTasksArmOnlyStartsPendingTasks(t *testing.T) {
-	arms, _ := dispatchArms(t)
-	body, ok := arms["start_pending_tasks"]
+	clauses, fset := dispatchClauses(t)
+	clause, ok := clauses["start_pending_tasks"]
 	if !ok {
 		t.Fatal("no start_pending_tasks arm in DoDataTableAction; this test is stale")
 	}
-	if !strings.Contains(body, "StartPendingTasks") {
+	// Source rather than ast.Fprint's dump, so that "server.dbpool" can match
+	// (JM-091).
+	var body strings.Builder
+	for _, stmt := range clause.Body {
+		body.WriteString(sourceOf(t, fset, stmt))
+		body.WriteString("\n")
+	}
+	if !strings.Contains(body.String(), ".StartPendingTasks(") {
 		t.Error("the start_pending_tasks arm no longer calls StartPendingTasks")
 	}
 	for _, forbidden := range []string{"ReserveSessionId", "server.dbpool", "INSERT", "UPDATE"} {
-		if strings.Contains(body, forbidden) {
+		if strings.Contains(body.String(), forbidden) {
 			t.Errorf("the start_pending_tasks arm reaches %s; it is meant to start pending "+
 				"tasks and nothing else", forbidden)
 		}
