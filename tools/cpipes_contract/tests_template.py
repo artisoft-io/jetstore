@@ -353,7 +353,7 @@ def test_every_bundle_is_authorable():
 
 # --- F.7: criterion 23 ----------------------------------------------------------
 
-from cpipes_contract.qc_bindings import derive  # noqa: E402
+from cpipes_contract.qc_bindings import QcShapeError, derive, status_column  # noqa: E402
 
 QC = SUPERPROJECT / "workspaces" / "cedargate_ws" / "pipes_config"
 QC_TEMPLATE = Template.model_validate(
@@ -456,8 +456,48 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
         assert n <= budget[name], f"{name}: {n} differing leaves, was {budget[name]}"
 
 
+def _report_columns(cfg):
+    return cfg["reducing_pipes_config"][3][1]["apply"][0]["columns"]
+
+
 def _status_case(cfg):
-    return cfg["reducing_pipes_config"][3][1]["apply"][0]["columns"][9]["case_expr"]
+    return status_column(_report_columns(cfg))["case_expr"]
+
+
+def test_derive_finds_the_status_column_by_what_it_writes_not_where_it_sits():
+    """PL-036: the status column is located by name, so moving it moves nothing.
+
+    `derive` read `columns[9]` until 2026-11-08. Here the status column of a config
+    that carries filters is moved to the front of the report pipe's columns; the
+    filters recovered must be the same four. At the index, column 9 is then an
+    ordinary `value` column and the read was a `KeyError`.
+    """
+    target = json.loads((QC / "qc_eligibility.pc.json").read_text())
+    want = derive(target)["status_filters"]
+    assert len(want) == 4, want
+    moved = copy.deepcopy(target)
+    columns = _report_columns(moved)
+    status = status_column(columns)
+    columns.remove(status)
+    columns.insert(0, status)
+    assert derive(moved)["status_filters"] == want
+
+
+def test_a_report_pipe_without_one_status_column_is_refused_by_name():
+    """None, or two, is a `QcShapeError` saying so, not an `IndexError` or a mis-slice."""
+    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    for label, edit in (
+        ("none", lambda cols: cols.remove(status_column(cols))),
+        ("two", lambda cols: cols.append(copy.deepcopy(status_column(cols)))),
+    ):
+        broken = copy.deepcopy(target)
+        edit(_report_columns(broken))
+        try:
+            derive(broken)
+        except QcShapeError as e:
+            assert "status" in str(e), (label, str(e))
+        else:
+            raise AssertionError(f"{label}: expected QcShapeError")
 
 
 def test_a_repeating_hole_bound_to_no_items_leaves_its_list_as_written():
