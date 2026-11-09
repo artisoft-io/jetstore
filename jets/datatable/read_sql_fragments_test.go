@@ -3,7 +3,7 @@ package datatable
 // A data-table read is built from fragments the client sends. These tests pin
 // what the server does with them: the where clause's values and like pattern
 // are quoted literals, joinWith is an identifier, and the read runs READ ONLY,
-// so a WITH clause that writes is refused.
+// so a WITH clause that writes is refused; so do the app's raw queries.
 //
 // The first test needs nothing. The second is skipped unless JETS_TEST_DSN names
 // a throwaway PostgreSQL, as for rules_unit_test_runs_test.go:
@@ -135,6 +135,30 @@ func TestReadSqlRunsReadOnly(t *testing.T) {
 	}
 	if n := count(); n != 2 {
 		t.Errorf("after a writing WITH clause: %d rows, want 2", n)
+	}
+
+	// The app's raw queries, on the read capability, cannot write either.
+	if _, _, err = ctx.ExecRawQuery(&DataTableAction{Action: "raw_query",
+		RawQuery: "DELETE FROM jetsapi.jm092_probe RETURNING key"}, token, CapabilityReadData); err == nil ||
+		!strings.Contains(err.Error(), "read-only transaction") {
+		t.Errorf("a writing raw_query: err %v, want a read-only refusal", err)
+	}
+	if _, _, err = ctx.ExecRawQueryMap(&DataTableAction{Action: "raw_query_map",
+		RawQueryMap: map[string]string{"q": "UPDATE jetsapi.jm092_probe SET name = 'x' RETURNING key"}}, token); err == nil ||
+		!strings.Contains(err.Error(), "read-only transaction") {
+		t.Errorf("a writing raw_query_map: err %v, want a read-only refusal", err)
+	}
+	if n := count(); n != 2 {
+		t.Errorf("after the writing raw queries: %d rows, want 2", n)
+	}
+	var smith int
+	if err := pool.QueryRow(bg, `SELECT count(*) FROM jetsapi.jm092_probe WHERE name = 'Smith'`).Scan(&smith); err != nil || smith != 1 {
+		t.Errorf("after the writing raw queries: Smith %d (%v), want 1", smith, err)
+	}
+	res, _, err = ctx.ExecRawQuery(&DataTableAction{Action: "raw_query",
+		RawQuery: "SELECT name FROM jetsapi.jm092_probe ORDER BY key"}, token, CapabilityReadData)
+	if err != nil || len(*((*res)["rows"].(*[][]any))) != 2 {
+		t.Errorf("a reading raw_query: %v, %v", res, err)
 	}
 
 	// A WITH clause that reads still works.

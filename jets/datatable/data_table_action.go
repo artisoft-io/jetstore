@@ -674,13 +674,27 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 // queries the app composed; `raw_query_tool` is the IDE's free-SQL box, where
 // the statement is whatever the user typed. They shared a case and a capability
 // of none; they now share a case and differ in what they require.
+//
+// **A raw query on the read capability runs READ ONLY** (readOnlyTx): it is the
+// app's own query, always a read, and the read capability is every role's, so
+// no statement sent under it may change data. The query tool's, under
+// CapabilityQueryTool, is the user's SQL and runs as it always has.
 func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token, capability string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 	if code, err2 := ctx.requireCapability(capability, token); err2 != nil {
 		return nil, code, err2
 	}
 
-	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	var db querier = ctx.Dbpool
+	if capability == CapabilityReadData {
+		tx, err2 := readOnlyTx(ctx.Dbpool)
+		if err2 != nil {
+			return nil, http.StatusInternalServerError, err2
+		}
+		defer tx.Rollback(context.Background())
+		db = tx
+	}
+	resultRows, columnDefs, err2 := execQuery(db, dataTableAction, &dataTableAction.RawQuery)
 
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
@@ -725,11 +739,16 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
 		return nil, code, err2
 	}
-	// fmt.Println("ExecRawQueryMap:")
+	// The app's own queries on the read capability, so read only, as for
+	// ExecRawQuery's raw_query.
+	tx, err2 := readOnlyTx(ctx.Dbpool)
+	if err2 != nil {
+		return nil, http.StatusInternalServerError, err2
+	}
+	defer tx.Rollback(context.Background())
 	resultMap := make(map[string]any, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
-		// fmt.Println("Query:",v)
-		resultRows, _, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
+		resultRows, _, err2 := execQuery(tx, dataTableAction, &v)
 		if err2 != nil {
 			if strings.Contains(err2.Error(), "SQLSTATE") {
 				httpStatus = http.StatusBadRequest
