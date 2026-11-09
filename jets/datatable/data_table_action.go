@@ -473,6 +473,31 @@ type SqlInsertDefinition struct {
 	AdminOnly       bool
 	Capability      string
 	ProtectAdminRow bool
+	// OwnRowOnly binds every row to the caller: InsertRows writes the caller's
+	// email into each row's user_email and refuses a row that names another
+	// user (ErrNotOwnRow). For a statement on the caller's own account, such as
+	// update/user_git_profile, which every role's user_profile capability reaches.
+	OwnRowOnly bool
+}
+
+// ErrNotOwnRow is InsertRows' refusal of an OwnRowOnly statement whose row names
+// a user other than the caller. A 403 that names the row, as ErrAdminRowProtected
+// does, rather than a missing capability the caller holds.
+var ErrNotOwnRow = errors.New("error: forbidden, this statement writes the caller's own account only")
+
+// bindToCaller writes email into each row's user_email, and reports false,
+// writing nothing, when a row names another user. The comparison is exact, as
+// the statements' WHERE user_email = $n is.
+func bindToCaller(rows []map[string]any, email string) bool {
+	for _, row := range rows {
+		if v, ok := row["user_email"]; ok && v != nil && v != "" && v != email {
+			return false
+		}
+	}
+	for _, row := range rows {
+		row["user_email"] = email
+	}
+	return true
 }
 
 // ErrAdminRowProtected is InsertRows' refusal of a ProtectAdminRow statement that
@@ -934,10 +959,16 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		err = errors.New("error: unknown table")
 		return
 	}
-	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
+	caller, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
 		log.Printf("while VerifyUserPermission: %v", err2)
 		httpStatus, err = RefusalFor(err2)
+		return
+	}
+	// A statement on the caller's own account writes only the caller's row.
+	if sqlStmt.OwnRowOnly && !bindToCaller(dataTableAction.Data, caller.Email) {
+		log.Printf("InsertRows: %s refused, a row names another user", dataTableAction.FromClauses[0].Table)
+		httpStatus, err = http.StatusForbidden, ErrNotOwnRow
 		return
 	}
 	// The installation admin's row is not written by a ProtectAdminRow statement,
