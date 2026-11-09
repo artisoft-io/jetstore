@@ -196,12 +196,16 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
 	baseSessionId := time.Now().UnixMilli()
 	var sessionId, stmt string
-	var requestId any
 	var allOk bool
 	row := make([]any, len(sqlStmt.ColumnKeys))
 NextKey:
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
+		// Per row: a row with no request_id must not inherit the previous row's
+		// (JM-035 review). It was declared above the loop, so in a request of
+		// several rows the input_registry rows of a later row carried the
+		// request_id of an earlier one.
+		var requestId any
 		// fileKeyObject with defaults
 		fileKeyObject := map[string]any{
 			"org":        "",
@@ -213,17 +217,31 @@ NextKey:
 		// Get the value from the incoming obj, convert to correct types
 		for k, v := range registerFileKeyAction.Data[irow] {
 			switch k {
-			case "client", "vendor", "org", "object_type", "file_key":
+			case "client", "vendor", "org", "object_type":
+				// These are read as strings without a check further down, in
+				// updateFileKeyComponentCase and when starting pipelines, so a
+				// non-string is refused here rather than panicking there. Nil is
+				// what an absent value is, and keeps the default.
+				switch v.(type) {
+				case nil, string:
+					fileKeyObject[k] = v
+				default:
+					return nil, http.StatusBadRequest,
+						fmt.Errorf("register_file_keys: row %d: %s must be a string, got %T", irow, k, v)
+				}
+			case "file_key":
 				fileKeyObject[k] = v
 			case "year", "month", "day":
-				switch vv := v.(type) {
-				case int:
-					fileKeyObject[k] = vv
-				case string:
-					fileKeyObject[k], err = strconv.Atoi(vv)
-					if err != nil {
-						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int: %v", k, vv, err)
-					}
+				// A request decoded from JSON carries numbers as float64, which had
+				// no case here and was silently replaced by the 1970-01-01 default
+				// (JM-035 review). Nil keeps the default; anything ToInt cannot
+				// read is a 400, as a non-numeric string already was.
+				if v == nil {
+					continue
+				}
+				fileKeyObject[k], err = utils.ToInt(v)
+				if err != nil {
+					return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%v) to int: %v", k, v, err)
 				}
 			case "size":
 				switch vv := v.(type) {
@@ -244,7 +262,16 @@ NextKey:
 					}
 				}
 			case "schema_provider_json":
-				schemaProviderJson = v.(string)
+				// Checked (JM-037): a non-string, which a register-key hook can
+				// write, panicked the lambda here. Nil is an absent value.
+				switch vv := v.(type) {
+				case nil:
+				case string:
+					schemaProviderJson = vv
+				default:
+					return nil, http.StatusBadRequest,
+						fmt.Errorf("register_file_keys: row %d: schema_provider_json must be a string, got %T", irow, v)
+				}
 			case "request_id":
 				requestId = v
 				fileKeyObject[k] = v
@@ -363,6 +390,19 @@ NextKey:
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
+		// Register the session before writing input_registry and starting
+		// pipelines (JM-084). Starting a pipeline can wait up to about 17 minutes
+		// on the state machine lock (lockStateMachine), far past the register-key
+		// lambda's timeout, and the registration used to come after that wait, so
+		// a timeout left input_registry rows under a session nothing registered.
+		// Nothing on the start path reads the input session's session_registry
+		// row -- a started pipeline reserves and checks its own session -- so the
+		// order changes no start. The error is still only logged, as it was.
+		err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionId, source_period_key)
+		if err != nil {
+			log.Println("WARNING while registering session_id, ignoring err:", err)
+			err = nil
+		}
 		// Insert into input registry
 		// Note: Get the jetsapi.source_config.domain_keys (aka indexes for joining tables) to use as the object_type
 		// of the input_registry table
@@ -386,18 +426,33 @@ NextKey:
 			}
 			if !registerFileKeyAction.NoAutomatedLoad {
 				// Check for any process that are ready to kick off
-				ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
+				startPipelinesForInputRegistry(ctx, inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
 			}
-		}
-		// for completness register the session_id
-		err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionId, source_period_key)
-		if err != nil {
-			log.Println("WARNING while registering session_id, ignoring err:", err)
-			err = nil
 		}
 	}
 	return &map[string]any{}, http.StatusOK, nil
 }
+
+// startPipelinesForInputRegistry is the call RegisterFileKeys makes to start the
+// pipelines a registered file is ready for.
+func startPipelinesForInputRegistry(ctx *DataTableContext, inputRegistryKey, sourcePeriodKey int,
+	inputSessionId, client, objectType, fileKey, token string) error {
+	if startPipelinesOverride != nil {
+		return startPipelinesOverride(ctx, inputRegistryKey, sourcePeriodKey, inputSessionId,
+			client, objectType, fileKey, token)
+	}
+	return ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, inputSessionId,
+		client, objectType, fileKey, token)
+}
+
+// startPipelinesOverride, when set, replaces the pipeline start, so a test can
+// observe what is already written when the start begins (JM-084). It is nil in
+// production and production code must not set it. A hook rather than a variable
+// holding the call, because the call reaches RegisterFileKeys again (through
+// startLoader and RegisterSchemaEvent), which Go refuses as an initialization
+// cycle.
+var startPipelinesOverride func(ctx *DataTableContext, inputRegistryKey, sourcePeriodKey int,
+	inputSessionId, client, objectType, fileKey, token string) error
 
 func ReserveSessionId(dbpool *pgxpool.Pool) (string, error) {
 	baseSessionId := time.Now().UnixMilli()
