@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/sessionpurge"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -85,8 +87,9 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	// validates the token and nothing else, and it used the token only for the
 	// audit line above -- careful about attribution, silent about authorisation,
 	// on the widest blast radius in this package. reset_domain_tables drops every
-	// table named in input_loader_status, runs update_db -drop -migrateDb, and
-	// truncates input_registry and session_registry.
+	// table named in input_loader_status, runs update_db -drop -migrateDb,
+	// truncates input_registry and session_registry, and archives every
+	// pipeline_execution_status row (JM-090).
 	//
 	// **The gate is here rather than in the two actions, and that is forced rather
 	// than preferred.** ResetDomainTables has two callers in this package that are
@@ -160,7 +163,8 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // ResetDomainTables ------------------------------------------------------
 // Clear and rebuild all domain tables defined in workspace -- using update_db command line
 // Delete all tables containing the input data, get the table name list from input_loader_status
-// also clear/truncate the input_registry table
+// also clear/truncate the input_registry and session_registry tables and archive
+// every pipeline_execution_status row (resetSessionTables)
 // Also migrate the system tables to latest schema and conditionally run the workspace db init script
 func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 
@@ -200,21 +204,55 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb: %v", err)
 	}
-	// Truncate the jetsapi.input_registry
-	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "input_registry"}.Sanitize())
-	log.Println(stmt)
-	_, err = server.dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry table: %v", err)
-	}
-	// Truncate the jetsapi.session_registry
-	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "session_registry"}.Sanitize())
-	log.Println(stmt)
-	_, err = server.dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating session_registry table: %v", err)
+	if err = resetSessionTables(context.Background(), server.dbpool); err != nil {
+		return nil, http.StatusInternalServerError, err
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
+}
+
+// resetSessionTables clears the session tables of a reset, in one transaction:
+// input_registry is truncated, every pipeline_execution_status row is archived
+// with its details (sessionpurge.ArchiveAllRuns), and session_registry is
+// truncated last, as a session's deletion deletes its registration last.
+//
+// **The status rows were left behind until JM-090.** The reset truncated the two
+// registries and nothing else, so every run of a reset stack named a session that
+// no longer existed, until the purge's orphan sweep reached it past retention: at
+// one deployment 450 of 559 status rows were orphaned this way. They are archived
+// rather than deleted, as jets/sessionpurge archives a deleted session's runs, so
+// pipeline_execution_history still shows them; the archive reason is
+// sessionpurge.ReasonUser, since a reset is an admin's deletion of every session.
+// The reset's other session tables (input_loader_status and the rest) are left
+// as they were: none of them is a run, and the orphan sweep removes them.
+func resetSessionTables(ctx context.Context, dbpool *pgxpool.Pool) error {
+	tx, err := dbpool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("while starting the reset's transaction: %v", err)
+	}
+	defer tx.Rollback(context.Background())
+	truncate := func(name string) error {
+		stmt := fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", name}.Sanitize())
+		log.Println(stmt)
+		if _, err := tx.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("while truncating %s table: %v", name, err)
+		}
+		return nil
+	}
+	if err = truncate("input_registry"); err != nil {
+		return err
+	}
+	n, err := sessionpurge.ArchiveAllRuns(ctx, tx, sessionpurge.ReasonUser)
+	if err != nil {
+		return err
+	}
+	log.Printf("Archived %d pipeline_execution_status rows to pipeline_execution_status_archive", n)
+	if err = truncate("session_registry"); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("while committing the reset of the session tables: %v", err)
+	}
+	return nil
 }
 
 // RunWorkspaceBaseDbInit ------------------------------------------------------
