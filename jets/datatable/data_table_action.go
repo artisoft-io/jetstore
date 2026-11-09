@@ -40,10 +40,14 @@ type DataTableContext struct {
 	CpipesEnv      map[string]any
 }
 
+// NewDataTableContext keeps the adminEmail it is given (the apiserver's
+// -adminEmail flag) and falls back to JETS_ADMIN_EMAIL only when none is given,
+// nil or empty. Until JM-085 the test read != nil, so the flag a caller passed was
+// always replaced by the environment variable and a nil one stayed nil.
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, adminEmail *string) *DataTableContext {
 
-	if adminEmail != nil {
+	if adminEmail == nil || *adminEmail == "" {
 		v := os.Getenv("JETS_ADMIN_EMAIL")
 		adminEmail = &v
 	}
@@ -506,6 +510,33 @@ func bindToCaller(rows []map[string]any, email string) bool {
 // may be the admin, and everything about the row, so collapsing it into ErrRefused
 // would tell a user administrator they lack a capability they hold.
 var ErrAdminRowProtected = errors.New("error: forbidden, the installation admin's account cannot be changed or deleted")
+
+// ErrMalformedRoles is the 400 for an update/users row whose roles are not a list of
+// strings. Until JM-087 InsertRows type-asserted them unchecked, so such a row
+// panicked the handler; since user_admin (2026-11-07) that input comes from user
+// administrators as well as from the admin.
+var ErrMalformedRoles = errors.New("error: bad request, roles must be a list of role names")
+
+// rolesOf reads the roles of an update/users row: a JSON array of strings arrives as
+// []any, and a Go caller may pass []string. Anything else is ErrMalformedRoles.
+func rolesOf(rolesi any) ([]string, error) {
+	switch v := rolesi.(type) {
+	case []string:
+		return v, nil
+	case []any:
+		roles := make([]string, len(v))
+		for i, r := range v {
+			role, ok := r.(string)
+			if !ok {
+				return nil, fmt.Errorf("%w: element %d is %T", ErrMalformedRoles, i, r)
+			}
+			roles[i] = role
+		}
+		return roles, nil
+	default:
+		return nil, fmt.Errorf("%w: got %T", ErrMalformedRoles, rolesi)
+	}
+}
 
 // writesAdminRow reports whether any row's user_email is adminEmail. The comparison
 // is exact, as user.IsAdmin's is and as the statements' WHERE user_email = $n is, so
@@ -993,6 +1024,26 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		return
 	}
 
+	// update/users: the roles go to column encrypted_roles (stored as written; the
+	// encryption the column is named for was never done). Every row is checked before
+	// the first is written, so malformed roles refuse the whole request with 400.
+	if dataTableAction.FromClauses[0].Table == "update/users" {
+		for irow := range dataTableAction.Data {
+			rolesi := dataTableAction.Data[irow]["roles"]
+			if rolesi == nil {
+				continue
+			}
+			var roles []string
+			roles, err = rolesOf(rolesi)
+			if err != nil {
+				log.Printf("InsertRows: update/users refused, row %d: %v", irow, err)
+				httpStatus = http.StatusBadRequest
+				return
+			}
+			dataTableAction.Data[irow]["encrypted_roles"] = roles
+		}
+	}
+
 	row := make([]any, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
@@ -1014,22 +1065,6 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 					err = fmt.Errorf("while encrypting the git token: %v", err)
 					return
 				}
-			}
-		case dataTableAction.FromClauses[0].Table == "update/users":
-			// encrypt roles and put them in column encrypted_roles
-			// @**@ encrypt roles and put them in column encrypted_roles
-			rolesi := dataTableAction.Data[irow]["roles"]
-			if rolesi != nil {
-				roles := rolesi.([]any)
-				encryptedRoles := make([]string, len(roles))
-				for i := range roles {
-					role := roles[i].(string)
-					// encrypt role
-					// encryptedRole := user.EncryptWithEmail(role, userProfile.Email)
-					encryptedRole := role
-					encryptedRoles[i] = encryptedRole
-				}
-				dataTableAction.Data[irow]["encrypted_roles"] = encryptedRoles
 			}
 		}
 		if !dbUpdateDone {
