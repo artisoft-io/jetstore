@@ -40,10 +40,14 @@ type DataTableContext struct {
 	CpipesEnv      map[string]any
 }
 
+// NewDataTableContext keeps the adminEmail it is given (the apiserver's
+// -adminEmail flag) and falls back to JETS_ADMIN_EMAIL only when none is given,
+// nil or empty. Until JM-085 the test read != nil, so the flag a caller passed was
+// always replaced by the environment variable and a nil one stayed nil.
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, adminEmail *string) *DataTableContext {
 
-	if adminEmail != nil {
+	if adminEmail == nil || *adminEmail == "" {
 		v := os.Getenv("JETS_ADMIN_EMAIL")
 		adminEmail = &v
 	}
