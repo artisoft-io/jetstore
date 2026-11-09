@@ -100,6 +100,10 @@ func rutDB(t *testing.T) *pgxpool.Pool {
 		t.Fatalf("connecting to the test database: %v", err)
 	}
 	t.Cleanup(pool.Close)
+	// Reads run as ReaderRole (readOnlyTx), as they do after an apiserver start.
+	if err = EnsureReaderRole(ctx, pool); err != nil {
+		t.Fatalf("setting up the read role: %v", err)
+	}
 	return pool
 }
 

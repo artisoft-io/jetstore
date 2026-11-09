@@ -1124,15 +1124,23 @@ type querier interface {
 // le), so it runs READ ONLY and no fragment can write: a data-modifying WITH is
 // refused by PostgreSQL. standard_conforming_strings is set on for it, so the
 // where clause's quoted values (sqlLiteral) are escaped whatever the server's
-// default. The caller rolls it back; a read commits nothing.
+// default. It runs as ReaderRole, so it reads only what that role may: a read
+// that cannot switch to the role fails rather than running with the apiserver's
+// own privileges (EnsureReaderRole, run at the apiserver's start, sets it up).
+// The caller rolls it back; a read commits nothing.
 func readOnlyTx(dbpool *pgxpool.Pool) (pgx.Tx, error) {
 	tx, err := dbpool.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, fmt.Errorf("while starting the read: %w", err)
 	}
-	if _, err = tx.Exec(context.Background(), "SET LOCAL standard_conforming_strings TO on"); err != nil {
-		_ = tx.Rollback(context.Background())
-		return nil, fmt.Errorf("while starting the read: %w", err)
+	for _, stmt := range []string{
+		"SET LOCAL standard_conforming_strings TO on",
+		"SET LOCAL ROLE " + pgx.Identifier{ReaderRole}.Sanitize(),
+	} {
+		if _, err = tx.Exec(context.Background(), stmt); err != nil {
+			_ = tx.Rollback(context.Background())
+			return nil, fmt.Errorf("while starting the read: %w", err)
+		}
 	}
 	return tx, nil
 }
