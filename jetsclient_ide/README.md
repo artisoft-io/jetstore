@@ -52,7 +52,7 @@ the fixture explains what the check can no longer see.
 
 ## Layout
 
-Every directory under `src/`, read 2026-10-27 (21). A user flow's own documents
+Every directory under `src/`, read 2026-10-27 (21); `runbooks/` added 2026-11-06 (22). A user flow's own documents
 are not here: they are workspace assets, under `jets/workspace_assets/`, installed
 into each workspace and read from there at run time.
 
@@ -74,6 +74,7 @@ src/
   incidents/               agentic_ai's incident list and detail, over /agentic
   incidents/__fixtures__/  an incident as triage writes it, for the screen tests
   proposals/               agentic_ai's change-proposal staging screens, over /agentic
+  runbooks/                the runbooks project's Runbooks and Run screens, over /runbook
   screens/                 the routed screens: Home, the Workspace IDE, FlowRunner, admin, Query Tool, …
   screens/documents/       the .ua.json and .form.json the screens run, bundled rather than installed
   screens/fixtures/        the legacy Flutter-generated screen corpus and reachability map

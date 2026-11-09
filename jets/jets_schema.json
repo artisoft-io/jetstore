@@ -2427,6 +2427,219 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "session_deletion",
+    "description": "One row per session deleted or to be deleted, by the purge (reason retention or orphan) or by a user (reason user). Written by Queue and worked through by Execute in jets/sessionpurge, the one deletion path. A done row is the session's tombstone, removed by age.",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_type",
+        "dataType": "text",
+        "description": "Copied from session_registry when the session had a row there."
+      },
+      {
+        "columnName": "month_period",
+        "dataType": "int",
+        "description": "The session's month period, so a lookback read can bound its query."
+      },
+      {
+        "columnName": "reason",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "retention, orphan or user."
+      },
+      {
+        "columnName": "requested_by",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "purge, or the email of the user who deleted the session."
+      },
+      {
+        "columnName": "requested_at",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "pending, done or failed. A failed row is retried by the next run."
+      },
+      {
+        "columnName": "completed_at",
+        "dataType": "datetime"
+      },
+      {
+        "columnName": "error",
+        "dataType": "text",
+        "description": "The error of the last failed attempt."
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "session_deletion_status_idx",
+        "indexDef": "INDEX session_deletion_status_idx ON jetsapi.session_deletion (status)"
+      },
+      {
+        "indexName": "session_deletion_client_reason_idx",
+        "indexDef": "INDEX session_deletion_client_reason_idx ON jetsapi.session_deletion (client, reason)"
+      },
+      {
+        "indexName": "session_deletion_completed_at_idx",
+        "indexDef": "INDEX session_deletion_completed_at_idx ON jetsapi.session_deletion (completed_at)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "pipeline_execution_status_archive",
+    "description": "The rows of pipeline_execution_status whose session was deleted, with every column of that table, the same names and types, and the same key. Moved here by jets/sessionpurge in the session's own transaction, and purged by each run's own last_update. jetsapi.pipeline_execution_history (jets_init_db.sql) is the view over both, and names every column: a column added to pipeline_execution_status must be added here too.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "description": "The run's key in pipeline_execution_status, kept: pipeline_execution_details, process_errors and the agentic audit store refer to runs by it. Rows are inserted with explicit keys, so the column's sequence is never used."
+      },
+      {
+        "columnName": "pipeline_config_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "main_input_registry_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "main_input_file_key",
+        "dataType": "text"
+      },
+      {
+        "columnName": "merged_input_registry_keys",
+        "dataType": "int",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "process_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "main_object_type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "input_session_id",
+        "dataType": "text"
+      },
+      {
+        "columnName": "request_id",
+        "dataType": "text"
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_period_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "failure_details",
+        "dataType": "text"
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "start_time",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "failure_class",
+        "description": "The Step Functions error class of the failure, verbatim: States.Timeout, States.TaskFailed, a Lambda's exception type. Computed by the platform and carried through the status-update decoder rather than discarded. Null when the run did not fail, and when the failure arrived without an Error field.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "failure_source",
+        "description": "Which arm of the status-update decoder produced failure_details: lambda_error_message, ecs_stopped_reason, cause_text, plain_string, unstructured or none. A closed vocabulary, so the shape of the prose in failure_details is declared rather than guessed.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_name",
+        "description": "The workspace the run was submitted under, from the WORKSPACE environment of the process that inserted the row.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "workspace_version",
+        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit -- see the note on workspace_version in the Phase 4 plan.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "archived_at",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "archive_reason",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The reason of the session's deletion: retention, orphan or user."
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "pipeline_execution_status_archive_session_id_idx",
+        "indexDef": "INDEX pipeline_execution_status_archive_session_id_idx ON jetsapi.pipeline_execution_status_archive (session_id)"
+      },
+      {
+        "indexName": "pipeline_execution_status_archive_last_update_idx",
+        "indexDef": "INDEX pipeline_execution_status_archive_last_update_idx ON jetsapi.pipeline_execution_status_archive (last_update)"
+      },
+      {
+        "indexName": "pipeline_execution_status_archive_client_idx",
+        "indexDef": "INDEX pipeline_execution_status_archive_client_idx ON jetsapi.pipeline_execution_status_archive (client)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "workspace_changes",
     "description": "ATTENTION: schema of this table is not updated by update_db to prevent locking",
     "columns": [
@@ -2732,6 +2945,276 @@
       {
         "name": "agentic_detection_run_task_command_unique_cstraint",
         "definition": "CONSTRAINT agentic_detection_run_task_command_unique_cstraint UNIQUE (task_ref, command)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "runbook_run",
+    "description": "One row per run of a workspace runbook (runbooks/<name>.rb.json), driven by the apiserver's runbook executor (jets/datatable/runbook_executor.go) from this row and its runbook_step_run rows. Status running, paused, completed, failed or aborted. At most one run of a runbook is running or paused at a time: start_run checks it under the workspace's compile/test advisory lock.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "runbook",
+        "description": "The runbook's name, its file name without .rb.json.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "description": "running, paused, completed, failed or aborted.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "parameters",
+        "description": "The run's parameter values by name, as resolved at start (given or default) and re-resolved at each revision.",
+        "dataType": "jsonb",
+        "default": "'{}'::jsonb",
+        "isNotNull": true
+      },
+      {
+        "columnName": "revisions",
+        "description": "Every revision of the runbook's files the run executed under: [{revision, files: {path: sha256:...}, from_step}]. The first is taken at start, one more at each edit taken at a pause.",
+        "dataType": "jsonb",
+        "default": "'[]'::jsonb",
+        "isNotNull": true
+      },
+      {
+        "columnName": "revision_files",
+        "description": "Each revision's files' content by path relative to runbooks/: what the executor runs, so an edit on disk takes effect only when a person resumes the run. Not shown by /runbook.",
+        "dataType": "jsonb",
+        "default": "'{}'::jsonb",
+        "isNotNull": true
+      },
+      {
+        "columnName": "environment",
+        "description": "{jetstore_release, workspace_version} at start.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "started_by",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "acting_user",
+        "description": "The person steps run as when they need no confirmation: who started the run, or last resumed it.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "started_at",
+        "dataType": "timestamptz",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "updated_at",
+        "dataType": "timestamptz",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "finished_at",
+        "dataType": "timestamptz"
+      },
+      {
+        "columnName": "released_by",
+        "description": "Who released the run's result for export; nothing is exported before.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "released_at",
+        "dataType": "timestamptz"
+      },
+      {
+        "columnName": "last_error",
+        "dataType": "text"
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "runbook_run_workspace_runbook_idx",
+        "indexDef": "INDEX runbook_run_workspace_runbook_idx ON jetsapi.runbook_run (workspace_name, runbook, key)"
+      },
+      {
+        "indexName": "runbook_run_status_idx",
+        "indexDef": "INDEX runbook_run_status_idx ON jetsapi.runbook_run (status)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "runbook_step_run",
+    "description": "One row per execution of one step of a runbook run, in sequence: a retry is a new row, and a step inside a repeat has one row per iteration. Status pending, running, waiting, awaiting_confirmation, awaiting_input, completed, failed, skipped, denied or interrupted. A step left running by a stopped apiserver is set to interrupted, and its run paused, at the next start.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "run_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sequence",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "step_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "iteration",
+        "description": "The repeat iteration, from 0; 0 outside a repeat.",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "revision",
+        "description": "The run revision the step was recorded under.",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "def_hash",
+        "description": "sha256 of the step's definition as written: an edit at a pause may not change it once the step has run.",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sql_hash",
+        "description": "sha256 of the step's .sql file.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "sql",
+        "description": "The statements exactly as sent, with $n placeholders; their values are in bound.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "statements",
+        "description": "Each statement as sent and the parameter name each $n stands for.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "bound",
+        "description": "Every bind parameter's name and value; for start_pipeline the resolved row, for put_schema_event the event and key.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "outputs",
+        "description": "The step's outputs by name.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "output_types",
+        "description": "Each output's type as produced (list<T> for a result of other than one row).",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "columns",
+        "description": "A query's result columns, in order.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "rows",
+        "description": "A query's rows as objects, at most max_rows and 256 KiB.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "row_count",
+        "description": "Every row the query returned.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "truncated",
+        "dataType": "boolean",
+        "default": "false",
+        "isNotNull": true
+      },
+      {
+        "columnName": "preview",
+        "description": "A ddl's statements' command tags: previewed and rolled back, then as executed.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "actor",
+        "description": "Who the step ran as.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "decision",
+        "description": "{by, at, accepted, comment}: a person's Accept, Deny, Continue, Skip or Record.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "history",
+        "description": "Every transition of the row: [{at, by, event, detail}].",
+        "dataType": "jsonb",
+        "default": "'[]'::jsonb",
+        "isNotNull": true
+      },
+      {
+        "columnName": "next_check_at",
+        "description": "A wait's next check, or a repeat's next iteration.",
+        "dataType": "timestamptz"
+      },
+      {
+        "columnName": "attempts",
+        "description": "A wait's checks, or a repeat's iterations started.",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "started_at",
+        "dataType": "timestamptz"
+      },
+      {
+        "columnName": "finished_at",
+        "dataType": "timestamptz"
+      },
+      {
+        "columnName": "error",
+        "dataType": "text"
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "runbook_step_run_status_idx",
+        "indexDef": "INDEX runbook_step_run_status_idx ON jetsapi.runbook_step_run (status)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "runbook_step_run_sequence_unique_cstraint",
+        "definition": "CONSTRAINT runbook_step_run_sequence_unique_cstraint UNIQUE (run_key, sequence)"
       }
     ]
   }

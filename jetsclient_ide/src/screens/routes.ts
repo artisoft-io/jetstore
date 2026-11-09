@@ -322,14 +322,23 @@ export const FLOW_EXIT_FALLBACK = "/home";
  * with nothing positional after it; `FlowRunner` seeds every query parameter into
  * form-state group 0 by name before the flow loads.
  */
-export const FLOW_ROUTES: Readonly<Record<string, { flowKey: string; parameters: string[] }>> = {
+export const FLOW_ROUTES: Readonly<
+  Record<string, { flowKey: string; parameters: string[]; optional?: string[] }>
+> = {
   "/clientRegistryUF/:startAtKey": { flowKey: "clientRegistryUF", parameters: ["startAtKey"] },
   "/configureHomeFiltersUF": { flowKey: "homeFiltersUF", parameters: [] },
   "/fileMappingUF": { flowKey: "fileMappingUF", parameters: [] },
   "/fileMappingUF/mapping/:table_name/:object_type": { flowKey: "mapFileUF", parameters: ["table_name", "object_type"] },
   "/loadFilesUF": { flowKey: "loadFilesUF", parameters: [] },
   "/pipelineConfigUF": { flowKey: "pipelineConfigUF", parameters: [] },
-  "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"] },
+  /**
+   * `feature_branch` is optional: a workspace that works on its branch directly has
+   * none, and the registry row then holds an empty value. Required, it made
+   * *Pull Workspace* refuse to open for every such workspace with "which this app
+   * does not serve" (found 2026-11-07 on a deployed `jets_ws`). The flow posts it
+   * as `featureBranch`, and the server reads an empty one as no feature branch.
+   */
+  "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"], optional: ["feature_branch"] },
   "/sourceConfigUF/:startAtKey": { flowKey: "sourceConfigUF", parameters: ["startAtKey"] },
   "/startPipelineUF": { flowKey: "startPipelineUF", parameters: [] },
   "/workspaces/loadConfigUF/:workspace_name": { flowKey: "loadConfigUF", parameters: ["workspace_name"] },
@@ -371,7 +380,15 @@ export function reactFlowRoute(
   const query = new URLSearchParams();
   for (const name of route.parameters) {
     const value = params[name];
-    if (value === undefined || value === "") return null;
+    if (value === undefined || value === "") {
+      // An optional parameter travels empty, so the flow's form state still has the
+      // key; a required one refuses the route, as F.10 decided.
+      if (route.optional?.includes(name)) {
+        query.set(name, "");
+        continue;
+      }
+      return null;
+    }
     query.set(name, value);
   }
   const suffix = query.toString();

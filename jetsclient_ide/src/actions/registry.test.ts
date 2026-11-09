@@ -158,8 +158,12 @@ describe("the production registry", () => {
     // screen's action document, and the third belongs to the v1 dialog C.0
     // deleted. So a screen with two dialogs adds one escape — which is I-74's
     // rule again: this list is an upper bound on what the grammar cannot say.
+    // **Fifteen as of `session_registry` Phase 2** (2026-11-08): the Session
+    // Registry tab's two filter escapes and its *Delete*'s preview, which reads
+    // rows a `post` step would drop (`sessionDeletion.ts`).
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
+      "clearSessionRegistryFilters",
       // jetstore_maintenance_02 AE.5: Get Schema Event, a read and a clipboard.
       "copySchemaEvent",
       "cpipesTemplateApply",
@@ -170,6 +174,7 @@ describe("the production registry", () => {
       "loadRawRows",
       "loadReteSession",
       "openWorkspace",
+      "previewSessionDeletion",
       "readXlsxSheetOption",
       // **Ten as of C.10**, and the one it adds is the first in the track that the
       // *value* grammar cannot say rather than the *step* grammar: it reads a
@@ -178,6 +183,7 @@ describe("the production registry", () => {
       "resolveProcessConfigKey",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
+      "updateSessionRegistryFilters",
     ]);
     expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
     // **Two row initializers as of C.9, and the second is the first outside a
@@ -194,7 +200,7 @@ describe("the production registry", () => {
     expect(productionRegistry.actions["loadSourceConfigWithFileTypeInference"]).toBeUndefined();
   });
 
-  it("registers the seven predicates the flows, the screens and their dialogs name", () => {
+  it("registers the nine predicates the flows, the screens and their dialogs name", () => {
     // C.2b. `isReadOnlyFrom` resolves out of `predicates`, the namespace a table
     // action's `isEnabled` already used — the signature is identical and a second
     // namespace of the same type would be a distinction nothing draws.
@@ -217,14 +223,19 @@ describe("the production registry", () => {
     // and registered by nothing, fail here rather than at the call site — and it
     // fired on exactly that during the C.2b/C.5 merge, which is the only test of
     // an exact-set assertion its author cannot run.
+    //
+    // **Nine since 2026-11-08**: the Session Registry tab's *Clear Filters* gate
+    // and its *Delete* gate (`session_registry` Phase 2, `isEnabledEscapeFor`).
     expect(Object.keys(productionRegistry.predicates).sort()).toEqual([
       "alwaysEnabled",
       "hasDataRegistryFilters",
       "hasHomeFilters",
+      "hasSessionRegistryFilters",
       "hasWorkspaceUri",
       "inferServerNotRunning",
       "inferServerNotStopped",
       "isActiveWorkspace",
+      "noSessionDeletionRequested",
     ]);
   });
 

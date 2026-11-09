@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "label": "Session Registry",
+  "columns": [
+    {
+      "name": "session_id",
+      "label": "Session ID",
+      "tooltip": "Session identifier"
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client of the session; (unknown) when it could not be read"
+    },
+    {
+      "name": "source_type",
+      "label": "Source Type",
+      "tooltip": "file for a loaded file, domain_table for a pipeline's output"
+    },
+    {
+      "name": "year",
+      "label": "Year",
+      "tooltip": "Year of the session's period",
+      "isNumeric": true
+    },
+    {
+      "name": "month",
+      "label": "Month",
+      "tooltip": "Month of the year of the session's period",
+      "isNumeric": true
+    },
+    {
+      "name": "day",
+      "label": "Day",
+      "tooltip": "Day of the month of the session's period; empty for a deleted session",
+      "isNumeric": true
+    },
+    {
+      "name": "file_key",
+      "label": "File Key",
+      "tooltip": "File key of the session's input registry entries",
+      "cellFilter": "fileKeyLabel"
+    },
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "tooltip": "The pipeline whose run is this session"
+    },
+    {
+      "name": "status",
+      "label": "Run Status",
+      "tooltip": "Status of the session's own pipeline run"
+    },
+    {
+      "name": "month_period",
+      "label": "Month Period",
+      "tooltip": "Month period of the session",
+      "isNumeric": true
+    },
+    {
+      "name": "last_update",
+      "label": "Registered At",
+      "tooltip": "When the session was registered, or deleted for a deleted one"
+    },
+    {
+      "name": "deletion_status",
+      "label": "Deletion",
+      "tooltip": "pending, failed or done when a deletion is queued or done; empty otherwise"
+    },
+    {
+      "name": "deletion_reason",
+      "label": "Deletion Reason",
+      "tooltip": "user, retention or orphan"
+    },
+    {
+      "name": "deletion_requested_by",
+      "label": "Deletion Requested By",
+      "tooltip": "The user who deleted the session, or purge"
+    },
+    {
+      "name": "deletion_requested_at",
+      "label": "Deletion Requested At",
+      "tooltip": "When the deletion was requested"
+    },
+    {
+      "name": "session_num",
+      "label": "Session Number",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "source_period_key",
+      "label": "Period",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 25,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "sr_deletion_status",
+        "columnIdx": 11
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "session_registry_view"
+    }
+  ],
+  "actions": [
+    {
+      "key": "deleteSessions",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteSessions",
+      "capability": "delete_session",
+      "isEnabledWhenHavingSelectedRows": true,
+      "enableWhen": [
+        [
+          {
+            "column": "deletion_status",
+            "is": "notEquals",
+            "value": "pending"
+          },
+          {
+            "column": "deletion_status",
+            "is": "notEquals",
+            "value": "failed"
+          },
+          {
+            "column": "deletion_status",
+            "is": "notEquals",
+            "value": "done"
+          }
+        ]
+      ],
+      "isEnabled": "noSessionDeletionRequested"
+    },
+    {
+      "key": "refreshTable",
+      "label": "Refresh",
+      "action": "refreshTable",
+      "style": "secondary"
+    },
+    {
+      "key": "setSessionRegistryFilters",
+      "label": "Set Filters",
+      "action": "showDialog",
+      "style": "primary",
+      "configForm": "sessionRegistryFiltersDialog"
+    },
+    {
+      "key": "setSessionIdFilters",
+      "label": "Set Session Id",
+      "action": "setSessionIdFilter",
+      "style": "primary",
+      "isEnabled": "alwaysEnabled"
+    },
+    {
+      "key": "clearSessionRegistryFilters",
+      "label": "Clear Filters",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "clearSessionRegistryFilters",
+      "isEnabled": "hasSessionRegistryFilters"
+    }
+  ]
+}

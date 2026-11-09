@@ -81,7 +81,8 @@ type Section struct {
 
 // WorkspaceSections is the section list the apiserver emits, in display order.
 //
-// **Nine sections since 2026-10-27, when `provenance` was added.** It had been
+// **Ten sections since 2026-11-06, when `runbooks` was added; nine from
+// 2026-10-27, when `provenance` was added.** It had been
 // eight from 2026-08-23, when `process_sequence` was removed and `table_configs`
 // added on the same day, so a count carried forward from before that day was
 // right by coincidence and its membership wrong.
@@ -211,6 +212,17 @@ var WorkspaceSections = []Section{
 	{
 		Dir: "reports", Label: "Reports",
 		Filters: []string{".sql", ".json"}, CompiledView: NoCompiledView,
+	},
+	{
+		// **Added 2026-11-06** (runbooks Phase 1, `AA.4`): a runbook,
+		// `runbooks/<name>.rb.json`, and its steps' SQL, one file per step under
+		// `runbooks/<name>/` by default (jets/runbook). Both suffixes are
+		// listed because a runbook and its SQL are edited together, as a flow
+		// and its form are. Last, so the sections before it keep their order.
+		// Nothing compiles it: the executor reads the files when a run starts,
+		// and the directory stays out of workspace.tgz.
+		Dir: "runbooks", Label: "Runbooks",
+		Filters: []string{".rb.json", ".sql"}, CompiledView: NoCompiledView,
 	},
 }
 

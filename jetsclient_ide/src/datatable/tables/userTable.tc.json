@@ -73,7 +73,7 @@
       "action": "doAction",
       "style": "danger",
       "actionName": "deleteUser",
-      "capability": "user_profile",
+      "capability": "user_admin",
       "isVisibleWhenCheckboxVisible": true,
       "isEnabledWhenHavingSelectedRows": true
     }

@@ -208,6 +208,36 @@ describe("control flow", () => {
     expect(events).not.toContain("close");
   });
 
+  /*
+    `detailFromKey`, `session_registry` Phase 2 (2026-11-08): the text an earlier
+    step wrote is handed to the host beside the static message, and a key holding
+    nothing asks the static question alone.
+  */
+  it("hands the host the detail a confirmation names, and none when its key is empty", async () => {
+    const doc = {
+      schemaVersion: 1,
+      actions: {
+        a: {
+          description: "d",
+          steps: [{ do: "confirm", message: "sure?", detailFromKey: "preview" }, { do: "close" }],
+        },
+      },
+    } as unknown as ActionDocument;
+    const asked: unknown[][] = [];
+    const { host } = makeHost({
+      confirm: async (...args: unknown[]) => {
+        asked.push(args);
+        return true;
+      },
+    } as never);
+    const formState = new FormState();
+    formState.setValue(0, "preview", "1001: claim\n2002: map_records, reads 1001");
+    expect((await runCompleting(doc, "a", formState, host)).completed).toBe(true);
+    formState.setValue(0, "preview", null);
+    await runCompleting(doc, "a", formState, host);
+    expect(asked).toEqual([["sure?", "1001: claim\n2002: map_records, reads 1001"], ["sure?"]]);
+  });
+
   it("reports the server's own message on failure, and stops", async () => {
     const { host, posts, notices } = makeHost({
       post: async (r) => {

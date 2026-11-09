@@ -283,6 +283,21 @@ export const ServerActionSchema = z
      */
     "delete_workspace_changes",
     "delete_all_workspace_changes",
+    /**
+     * Preview and queue the deletion of sessions: *Session Registry*'s *Delete*
+     * (session_registry Phase 2, 2026-11-08). Both are gated by
+     * `delete_session` in their arms of `DoDataTableAction`
+     * (`jets/apiserver/api_tables.go`), take no `table`, and read `session_id`
+     * (a string or a list) off each row of `data`.
+     *
+     * `preview_session_deletion` writes nothing and answers `{rows: [...]}`, the
+     * selected sessions and every session reading them through
+     * `input_session_id`. `delete_sessions` also reads `expected`, the ids the
+     * preview returned (a list, on one row or on each), answers 409 when the set
+     * changed, and otherwise queues the set and answers `{queued, waiting}`.
+     */
+    "preview_session_deletion",
+    "delete_sessions",
   ])
   .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
 
@@ -488,7 +503,24 @@ const stepUnion = [
     message: z.string().min(1),
     ...guard,
   }),
-  z.strictObject({ do: z.literal("confirm"), message: z.string().min(1), ...guard }),
+  /**
+   * A modal question; Cancel stops the action without failing it.
+   *
+   * **`detailFromKey` is the one computed part a confirmation may carry**, added
+   * for the Session Registry's *Delete* (`session_registry` Phase 2, 2026-11-08).
+   * `message` stays static and authored; the detail is a form-state key whose
+   * text an earlier step wrote — there, the escape `previewSessionDeletion`,
+   * which lists the sessions the deletion will reach — and the dialog shows it
+   * under the message with its line breaks. A key that holds nothing shows no
+   * detail. It is a key rather than a template so that what is shown is what the
+   * step before it computed, not a second rendering of it.
+   */
+  z.strictObject({
+    do: z.literal("confirm"),
+    message: z.string().min(1),
+    detailFromKey: Identifier.optional(),
+    ...guard,
+  }),
   z.strictObject({ do: z.literal("set"), key: Identifier, value: ValueSchema, ...guard }),
   z.strictObject({ do: z.literal("remove"), keys: z.array(Identifier).min(1), ...guard }),
   z.strictObject({ do: z.literal("clearSelection"), key: Identifier, ...guard }),

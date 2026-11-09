@@ -321,6 +321,10 @@ const HAND_MAINTAINED_KEYS = [
   // 25 rows per page rather than 50, as the flow's first table has, so the
   // Start Pipeline steps page alike (Michel, 2026-10-15).
   "main_input_registry_key",
+  // Delete User declares user_admin rather than the Dart's user_profile, the
+  // capability delete/users now requires server-side (2026-11-07). Its fixture
+  // entry stays as the Flutter record.
+  "userTable",
 ] as const;
 
 /**
@@ -335,7 +339,16 @@ const HAND_MAINTAINED_KEYS = [
  * that can actually drift: the hub and the check table read `jetsapi` tables
  * track `AC` defined in `jets/jets_schema.json`.
  */
-const FEATURE_KEYS = ["rutExecutionTable", "rutTestCaseTable", "rutCheckTable"] as const;
+const FEATURE_KEYS = [
+  "rutExecutionTable",
+  "rutTestCaseTable",
+  "rutCheckTable",
+  // **Five since 2026-11-08**: Home's *Session Registry* and *Archived
+  // Pipelines* tabs (`session_registry` Phase 2, JM-081), over
+  // `jetsapi.session_registry_view` and `pipeline_execution_status_archive`.
+  "sessionRegistryTable",
+  "pipelineArchiveTable",
+] as const;
 
 const flowDocuments = toDocuments(tables);
 const translated: Record<string, TableConfigDocument> = {
@@ -389,7 +402,8 @@ describe("the emitted JSON Schema", () => {
   // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
   // **61 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` stopped choosing
   // merged and historical sources, and its three tables were retired.
-  it("has the 61 configurations committed beside it, for the Go check", () => {
+  // **63 since 2026-11-08**: Home's two new tabs (`FEATURE_KEYS`).
+  it("has the 63 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -451,7 +465,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 28 configurations still translated from the flow fixture", () => {
-  it("all translate, and with the authored ones make 61", () => {
+  it("all translate, and with the authored ones make 63", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
     // workspace home's one, of which four are authored rather than translated. The
@@ -483,11 +497,14 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
     // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
-    expect(Object.keys(handMaintained).length).toBe(10);
+    // **11 on 2026-11-07**, with `userTable` (Delete User on `user_admin`).
+    expect(Object.keys(handMaintained).length).toBe(11);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
-    expect(Object.keys(featureDocuments).length).toBe(3);
-    expect(Object.keys(documents).length).toBe(61);
+    // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
+    // Pipelines*, Home's third and fourth tabs (`session_registry` Phase 2).
+    expect(Object.keys(featureDocuments).length).toBe(5);
+    expect(Object.keys(documents).length).toBe(63);
   });
 
   it("all validate against the schema", () => {
@@ -1040,7 +1057,11 @@ describe("the two execution-detail tables, which are one screen behind two route
         doc.columns.filter((c) => c.calculatedAs).map((c) => [key, c.name, c.calculatedAs]),
       )
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    // **Three since 2026-11-08**, and the third is a copy rather than a new
+    // site: *Archived Pipelines* shows *Pipelines Status*'s columns over the
+    // archive, which has the same two columns (`session_registry` Phase 2).
     expect(sites).toEqual([
+      ["pipelineArchiveTable", "run_duration", "AGE(last_update, start_time)"],
       ["pipelineExecDetailsTable", "run_duration", "AGE(last_update, start_time)"],
       ["pipelineExecStatusTable", "run_duration", "AGE(last_update, start_time)"],
     ]);
@@ -1547,7 +1568,10 @@ describe("the rules unit test tables", () => {
     // engineer holds. The flow is protected exactly as well as its reads are
     // (definition F49), so all three take the second path — the two `jetsapi`
     // tables included, which that handler reads from PostgreSQL.
-    for (const key of FEATURE_KEYS) {
+    // The three of `FEATURE_KEYS` that are this harness's: the Home tabs added to
+    // the list on 2026-11-08 read through `read`, gated on `jetstore_read`, as
+    // the two tabs beside them do.
+    for (const key of ["rutExecutionTable", "rutTestCaseTable", "rutCheckTable"]) {
       const doc = documents[key]!;
       expect(doc.source === "query" && doc.apiAction, key).toBe("workspace_read");
     }

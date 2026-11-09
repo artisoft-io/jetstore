@@ -40,6 +40,7 @@ INSERT INTO jetsapi.roles (role, details) VALUES
   ('ops_user', 'Role to load files and execute pipelines'),
   ('client_advocate', 'Role to administer client configuration'),
   ('knowledge_engineer', 'Super user role to administer the JetStore workspace and client configuration'),
+  ('designated_admin', 'Knowledge engineer who may also delete sessions and administer users'),
   ('system_role', 'System role needed to start pipeline automatically')
 ;
 
@@ -63,13 +64,36 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     from tools/jets_agentic/jets_agentic/model.py). Without it those fields
 --	                     are withheld server-side and the screen says so, and the rest of the record
 --	                     is unaffected.
---	                     GRANTED TO NO ROLE ON PURPOSE. The line above says a governance record
---	                     is not client data, and a PHI-marked property is the exception: it is
---	                     client data inside a governance record, so agent_supervision does not
---	                     cover it. Which role should hold this is a policy decision about client
---	                     data in a healthcare deployment rather than an engineering one, and
---	                     redacted-for-everybody is the safe default while it is unmade. Grant it
---	                     from the roles screen, or add a row below and say who decided.
+--	                     Its own capability rather than part of agent_supervision: the line
+--	                     above says a governance record is not client data, and a PHI-marked
+--	                     property is the exception, client data inside a governance record.
+--	                     Which role holds it is a policy decision about client data rather than
+--	                     an engineering one. It was granted to no role until that decision was
+--	                     made; knowledge_engineer holds it (agentic_ai project, Q-42), and
+--	                     designated_admin holds it because it holds every knowledge_engineer
+--	                     capability (2026-11-07).
+--	- runbook_execute:   List, start and control the active workspace's runbooks, accept or deny a
+--	                     runbook's ddl, and release a run's result for export
+--	                     (jets/apiserver/api_runbook.go). Not the authority to run what a step does:
+--	                     each step also needs its own capability when it runs, as the person who
+--	                     started or resumed the run, or who accepted the step -- jetstore_read for a
+--	                     query or wait, workspace_ide for a ddl or a compile, run_pipelines for the
+--	                     pipeline steps. Its own capability so it can be granted without the rest.
+--	                     Granted to knowledge_engineer (runbooks project, Q-5, 2026-11-06).
+--	- delete_session:    Delete a session completely: its rows in every table, its registry row
+--	                     last, and its pipeline execution status rows moved to the archive.
+--	                     Granted to designated_admin only (2026-11-07).
+--	- user_admin:        Administer users: activate or deactivate an account, set its roles, and
+--	                     delete it (update/users and delete/users, jets/datatable/sql_stmts.go).
+--	                     Neither statement writes the installation admin's own row, whoever
+--	                     calls it, so that account cannot be locked out from inside the database.
+--	                     The admin passes this check as it passes every capability check.
+--	                     Granted to designated_admin only (2026-11-07).
+-- Roles:
+--	- designated_admin:  every knowledge_engineer capability, plus delete_session and user_admin.
+--	                     COPIED ROWS, NOT INHERITANCE: there is no role hierarchy, so a capability
+--	                     later granted to knowledge_engineer is not designated_admin's until a row
+--	                     is added for it here too. Keep the two lists in step.
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),
@@ -87,6 +111,18 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'infer_server_admin'),
   ('knowledge_engineer', 'agent_supervision'),
   ('knowledge_engineer', 'agent_phi_access'),
+  ('knowledge_engineer', 'runbook_execute'),
+  ('designated_admin', 'jetstore_read'),
+  ('designated_admin', 'workspace_ide'),
+  ('designated_admin', 'client_config'),
+  ('designated_admin', 'run_pipelines'),
+  ('designated_admin', 'user_profile'),
+  ('designated_admin', 'infer_server_admin'),
+  ('designated_admin', 'agent_supervision'),
+  ('designated_admin', 'agent_phi_access'),
+  ('designated_admin', 'runbook_execute'),
+  ('designated_admin', 'delete_session'),
+  ('designated_admin', 'user_admin'),
   ('system_role', 'run_pipelines')
 ;
 
@@ -125,6 +161,91 @@ WHERE input_rdf_type = entity_rdf_type
   -- source_config row written by a workspace init script (not through the UI's
   -- save hook) keeps it in domain_keys: it is not a domain key, so leave it out.
   AND registry.object_type <> 'jets:hashing_override'
+;
+
+-- pipeline_execution_history: every pipeline run, live or archived. The live
+-- table holds the runs of sessions that exist; jets/sessionpurge moves a deleted
+-- session's runs to pipeline_execution_status_archive with their key. The column
+-- lists are explicit on both sides, so the view's columns never shift when a
+-- table gains one. A column added to pipeline_execution_status goes in the
+-- archive's definition (jets_schema.json), in both lists here, and in
+-- statusColumns in jets/sessionpurge, whose test fails until the three agree.
+CREATE OR REPLACE VIEW jetsapi.pipeline_execution_history AS
+SELECT
+  key, pipeline_config_key, main_input_registry_key, main_input_file_key,
+  merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
+  session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
+  failure_class, failure_source, workspace_name, workspace_version,
+  NULL::timestamp AS archived_at, NULL::text AS archive_reason
+FROM jetsapi.pipeline_execution_status
+UNION ALL
+SELECT
+  key, pipeline_config_key, main_input_registry_key, main_input_file_key,
+  merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
+  session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
+  failure_class, failure_source, workspace_name, workspace_version,
+  archived_at, archive_reason
+FROM jetsapi.pipeline_execution_status_archive
+;
+
+-- session_registry_view: the Home screen's Session Registry tab. One row per
+-- session in session_registry, with what the session is and whether a deletion
+-- is queued for it; then the sessions a user deleted, which are gone from
+-- session_registry and kept in session_deletion as tombstones for their 400
+-- days. Retention and orphan tombstones are not listed: there are hundreds a
+-- day at some sites.
+--   session_num   the id as a number when it is all digits, at most 18 of them
+--                 (a bigint holds every 18-digit number), else NULL. The tab's
+--                 session-id range compares it, since the server's where clause
+--                 quotes its column and cannot cast it.
+--   object_type, file_key       the least of the session's input_registry rows.
+--   process_name, status        the least of the session's own
+--                 pipeline_execution_status rows (by session_id, not by
+--                 input_session_id); a session has one, a file's session none.
+--   deletion_*    the session's session_deletion row, any reason.
+--   year, month, day  the session's source_period, as Pipelines Status shows its
+--                 runs; for a tombstone, which keeps no source_period_key, the
+--                 year and month of its month_period and no day.
+-- Columns are only ever appended: CREATE OR REPLACE VIEW cannot drop, rename or
+-- reorder a column of a view already deployed, so a column the tab stops showing
+-- stays in the view (object_type, since the tab replaced Domain Key with the
+-- period, 2026-11-08).
+-- The column lists are explicit on both sides, so a column added to
+-- session_registry does not shift the view; TestSessionRegistryViewColumns
+-- (jets/update_db) fails until the two sides and its list agree.
+CREATE OR REPLACE VIEW jetsapi.session_registry_view AS
+SELECT
+  sr.session_id, sr.source_type, sr.client, sr.source_period_key, sr.month_period,
+  sr.week_period, sr.day_period, sr.last_update,
+  CASE WHEN sr.session_id ~ '^[0-9]{1,18}$' THEN sr.session_id::bigint END AS session_num,
+  ir.object_type, ir.file_key, pes.process_name, pes.status,
+  sd.status AS deletion_status, sd.reason AS deletion_reason,
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
+  sp.year, sp.month, sp.day
+FROM jetsapi.session_registry sr
+CROSS JOIN LATERAL (
+  SELECT min(i.object_type) AS object_type, min(i.file_key) AS file_key
+  FROM jetsapi.input_registry i WHERE i.session_id = sr.session_id) ir
+CROSS JOIN LATERAL (
+  SELECT min(p.process_name) AS process_name, min(p.status) AS status
+  FROM jetsapi.pipeline_execution_status p WHERE p.session_id = sr.session_id) pes
+LEFT JOIN jetsapi.session_deletion sd ON sd.session_id = sr.session_id
+LEFT JOIN jetsapi.source_period sp ON sp.key = sr.source_period_key
+UNION ALL
+SELECT
+  sd.session_id, sd.source_type, sd.client, NULL::integer AS source_period_key, sd.month_period,
+  NULL::integer AS week_period, NULL::integer AS day_period, COALESCE(sd.completed_at, sd.requested_at) AS last_update,
+  CASE WHEN sd.session_id ~ '^[0-9]{1,18}$' THEN sd.session_id::bigint END AS session_num,
+  NULL::text AS object_type, NULL::text AS file_key, NULL::text AS process_name, NULL::text AS status,
+  sd.status AS deletion_status, sd.reason AS deletion_reason,
+  sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
+  spm.year, spm.month, NULL::integer AS day
+FROM jetsapi.session_deletion sd
+CROSS JOIN LATERAL (
+  SELECT min(p.year) AS year, min(p.month) AS month
+  FROM jetsapi.source_period p WHERE p.month_period = sd.month_period) spm
+WHERE sd.reason = 'user'
+  AND NOT EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = sd.session_id)
 ;
 
 -- Pre-Defined clients used by the platform

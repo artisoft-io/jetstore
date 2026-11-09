@@ -211,21 +211,24 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Capability: "jetstore_read",
 	},
 
-	// User Admin: update users.is_active
+	// User Admin: update users.is_active and the user's roles.
+	// user_admin, not AdminOnly, since 2026-11-07, so a role can confer user
+	// administration; the admin still passes, as it passes every capability.
+	// ProtectAdminRow: never the installation admin's own row, whoever calls.
 	"update/users": {
-		Stmt:       `UPDATE jetsapi.users SET	(is_active, encrypted_roles, last_update) 
+		Stmt: `UPDATE jetsapi.users SET	(is_active, encrypted_roles, last_update) 
 		= ($1, $2, DEFAULT) WHERE user_email = $3`,
-		ColumnKeys: []string{"is_active", "encrypted_roles", "user_email"},
-		AdminOnly:  true,
-		Capability: "none",
+		ColumnKeys:      []string{"is_active", "encrypted_roles", "user_email"},
+		Capability:      "user_admin",
+		ProtectAdminRow: true,
 	},
 
-	// User Admin: delete users
+	// User Admin: delete users. Same gate as update/users.
 	"delete/users": {
-		Stmt:       `DELETE FROM jetsapi.users WHERE user_email = $1`,
-		ColumnKeys: []string{"user_email"},
-		AdminOnly:  true,
-		Capability: "none",
+		Stmt:            `DELETE FROM jetsapi.users WHERE user_email = $1`,
+		ColumnKeys:      []string{"user_email"},
+		Capability:      "user_admin",
+		ProtectAdminRow: true,
 	},
 
 	// User Git Profile

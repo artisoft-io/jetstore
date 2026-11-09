@@ -105,6 +105,13 @@ html, body, #root { height: 100%; }
    contrast in either theme, and an explicit ::selection is drawn the same whether
    or not the window has focus. The editor keeps its own selection colour
    (src/editor/theme.ts), which is more specific than this rule. */
+/* **Links follow the theme** (2026-11-07). Nothing set a link colour, so every
+   link was the browser's default blue, and purple once visited, which is hard to
+   read on the dark ground (reported on the Runbooks screen's run numbers).
+   `:where` keeps this at zero specificity, so a link styled as a button or by
+   any class keeps its own colour. */
+:where(a:link, a:visited) { color: var(--accent); }
+
 ::selection {
   background: var(--accent);
   color: var(--accent-ink);
@@ -191,6 +198,9 @@ body {
 }
 .flowmenu-item:hover { background: var(--rule); color: var(--ink); }
 .flowmenu-item.is-active { background: var(--rule); color: var(--ink); font-weight: 600; }
+/* An entry the user lacks the capability for: visible and inert, as .navlink.is-disabled. */
+.flowmenu-item.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.flowmenu-item.is-disabled:hover { background: none; color: var(--ink-2); }
 .spacer { flex: 1 1 auto; }
 
 /* Screen navigation. One row for the application, a second for the screen —

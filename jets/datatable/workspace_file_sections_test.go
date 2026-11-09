@@ -79,6 +79,7 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 		".pv.json":                  "provenance",
 		"optimizer_statistics.json": "jet_rules",
 		workspace.UnitTestSuffix:    "jet_rules",
+		".rb.json":                  "runbooks",
 	} {
 		if got := shownBy(suffix); got != want {
 			t.Errorf("%q: shown by %q, want %q", suffix, got, want)
@@ -86,7 +87,8 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 	}
 	// `.sql` is listed whole by `reports` and as `workspace_init_db.sql` by
 	// `process_config`, whose every SQL file has that name in the four
-	// workspaces (2026-10-27).
+	// workspaces (2026-10-27), and whole by `runbooks`, whose steps' SQL sits
+	// beside the runbook (2026-11-06).
 	var sqlSections []string
 	for _, s := range wsfile.WorkspaceSections {
 		for _, f := range s.Filters {
@@ -95,8 +97,8 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 			}
 		}
 	}
-	if strings.Join(sqlSections, ",") != "process_config,reports" {
-		t.Errorf("sections listing SQL: got %v, want [process_config reports]", sqlSections)
+	if strings.Join(sqlSections, ",") != "process_config,reports,runbooks" {
+		t.Errorf("sections listing SQL: got %v, want [process_config reports runbooks]", sqlSections)
 	}
 }
 

@@ -67,7 +67,7 @@
         {
           "action": "editUserProfile.ok",
           "label": "Submit",
-          "capability": "user_profile"
+          "capability": "user_admin"
         },
         {
           "action": "dialogCancel",

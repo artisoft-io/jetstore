@@ -26,6 +26,9 @@ import { IncidentsScreen } from "./incidents/IncidentsScreen";
 import { DetectionScreen } from "./detection/DetectionScreen";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
+import { RUNBOOK_EXECUTE } from "./runbooks/api";
+import { RunbooksScreen } from "./runbooks/RunbooksScreen";
+import { RunScreen } from "./runbooks/RunScreen";
 import { FlowRunner } from "./screens/FlowRunner";
 import { GitProfileScreen } from "./screens/GitProfile";
 import { TableScreen } from "./screens/TableScreen";
@@ -37,7 +40,7 @@ import { NotFound } from "./screens/NotFound";
 import { INFER_SERVER_ADMIN } from "./screens/inferServer";
 import { ProcessErrors } from "./screens/ProcessErrors";
 import { RuleConfig } from "./screens/RuleConfig";
-import { UserAdmin } from "./screens/UserAdmin";
+import { USER_ADMIN, UserAdmin } from "./screens/UserAdmin";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { WorkspaceRegistry } from "./screens/WorkspaceRegistry";
 import { AppShell, type FlowMenuItem, type NavEntry } from "./shell/AppShell";
@@ -109,6 +112,10 @@ export const NAV: NavEntry[] = [
   // agentic_ai I-861: whether the detectors ran, and running them now. The
   // screen is in `detection/`.
   { to: "/detection", label: "Detection", capability: AGENT_SUPERVISION },
+  // The `runbooks` project's screens (Phase 1, task AC.4). The entry and the
+  // three routes below are this file's whole knowledge of them; the screens are
+  // in `runbooks/`, and `/runbook` refuses every action without the capability.
+  { to: "/runbooks", label: "Runbooks", capability: RUNBOOK_EXECUTE },
   /*
     Task C.4. The Flutter menu entry for `/queryTool` sits in
     `workspaceRegistryMenuEntries` and declares no capability of its own
@@ -159,12 +166,19 @@ export const NAV: NavEntry[] = [
  * and it was routed the whole time, named by no navigation (**I-268**) — so the
  * fix for that entry is this line rather than a screen.
  *
- * **No capability is declared on any entry.** The four flows run through
- * `FlowRunner`, whose route carries no guard and whose reads the server gates;
- * `/ruleConfig` is likewise gated where it acts. Declaring one here would be a
- * second, client-side answer to a question the server already answers — and
+ * **No capability is declared on the first five entries.** The four flows run
+ * through `FlowRunner`, whose route carries no guard and whose reads the server
+ * gates; `/ruleConfig` is likewise gated where it acts. Declaring one there would
+ * be a second, client-side answer to a question the server already answers — and
  * `FLOW_RUNNER` is exactly such an answer sitting unused two files away
  * (**I-269**).
+ *
+ * ***User Administration* is last, and is the one entry that declares a
+ * capability** (2026-11-07). Since the Flutter app was retired no menu led to
+ * `/userAdmin`. Its writes now require `user_admin` on the server, which the
+ * admin passes and a role can hold, so the entry is enabled for exactly the users
+ * the server lets through, and shown disabled to everyone else rather than
+ * offering a screen whose every write would be refused.
  */
 export const FLOW_MENU: FlowMenuItem[] = [
   { to: "/flow/clientRegistryUF", label: "Clients & Vendors" },
@@ -172,6 +186,7 @@ export const FLOW_MENU: FlowMenuItem[] = [
   { to: "/flow/fileMappingUF", label: "Source Mapping" },
   { to: "/ruleConfig", label: "Rules Configuration" },
   { to: "/flow/pipelineConfigUF", label: "Pipeline Configuration" },
+  { to: "/userAdmin", label: "User Administration", capability: USER_ADMIN },
 ];
 
 /**
@@ -292,6 +307,15 @@ export default function App() {
           <Route path="incidents/:incidentId" element={<IncidentScreen api={api} />} />
           <Route path="detection" element={<DetectionScreen api={api} />} />
           {/*
+            Workspace runbooks (`runbooks` Phase 1, AC.4). Two routes for the
+            list, as the Workspace IDE has: the bare one picks a workspace, the
+            workspace one is what the picker navigates to. The run is addressed
+            by its key alone, because a run row names its workspace.
+          */}
+          <Route path="runbooks" element={<RunbooksScreen api={api} />} />
+          <Route path="workspaces/:workspace_name/runbooks" element={<RunbooksScreen api={api} />} />
+          <Route path="runbooks/run/:run_key" element={<RunScreen api={api} />} />
+          {/*
             The route the Flutter app has been handing users to since S.8, and
             which nothing registered until F.0a — so the handoff fell through to
             `path="*"` below and redirected to the editor (I-50). `reactFlowPath`
@@ -408,15 +432,16 @@ export default function App() {
           */}
           <Route path="processErrors/:session_id" element={<ProcessErrors api={api} />} />
           {/*
-            C.13. **No nav entry, and that is a divergence stated rather than an
-            omission.** The Flutter menu puts this in `adminMenuEntries` and the
-            shell here renders one flat list; `NavItem.capability` names a
-            capability and `admin` is not one — it is an *account*
-            (`jets/user/user.go`, `IsAdmin`). A nav entry gated on
-            `user_profile` would offer the screen to three of the four seeded
-            roles and the server would refuse every write they made, which is
-            worse than no entry. Reached by link until the shell learns the
-            distinction.
+            C.13. **Reached from the last entry of the *JetStore Workspace* menu**
+            (`FLOW_MENU`, 2026-11-07), gated on `user_admin` (`USER_ADMIN`). Until
+            then it had no entry: its two writes were `AdminOnly`, and the admin
+            is an *account* (`jets/user/user.go`, `IsAdmin`), not a capability a
+            menu entry could name. They now require `user_admin`, which a role
+            (`designated_admin`) holds and the admin passes like every capability,
+            so the entry is enabled for exactly the users the server lets write.
+            The route itself carries no guard: a user without `user_admin` who
+            reaches it by address finds its two buttons disabled, and the server
+            refuses every write.
           */}
           <Route path="userAdmin" element={<UserAdmin api={api} />} />
           {/*

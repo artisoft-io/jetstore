@@ -81,6 +81,12 @@ var inlineGatedActions = map[string]string{
 	// resubmit_pipeline does after its insert, so it asks for the same authority
 	// (2026-11-05, the Pipeline Status screen's Check Pending button).
 	"start_pending_tasks": "CapabilityRunPipelines",
+	// Read the closure of the selected sessions, and queue it for deletion and
+	// start the executor (session_registry Phase 2, 2026-11-08). The work is a
+	// method on DataTableContext that does not gate itself: the arm does, so the
+	// capability and the runner's trigger are in one place.
+	"preview_session_deletion": "CapabilityDeleteSession",
+	"delete_sessions":          "CapabilityDeleteSession",
 }
 
 // ungatedActions are the arms that ask for nothing, with the reason. **A reason
@@ -106,16 +112,22 @@ var ungatedActions = map[string]string{
 // It is pinned here because a document wanted to cite it and cited 21, from
 // counting a grep output by eye. A number a test can hold should not be a number
 // prose asserts.
-const dataTableActionCount = 25
+const dataTableActionCount = 27
 
 // apiserverEffectMarkers are the tells that an inline arm has reached the
 // database or S3. Deliberately short and deliberately a lower bound; see the
 // same note in jets/datatable/write_capability_test.go.
+//
+// The three quoted ones are method names as ast.Fprint writes an identifier's
+// name, so that "DeleteSessions" does not match CapabilityDeleteSession.
 var apiserverEffectMarkers = []string{
 	"server.dbpool",
 	"awsi.",
 	"ReserveSessionId",
 	"StartPendingTasks",
+	`"PreviewSessionDeletion"`,
+	`"DeleteSessions"`,
+	`"runUserDeletions"`,
 }
 
 // dispatchArms returns the case clauses of the switch inside DoDataTableAction,
@@ -535,5 +547,30 @@ func TestPurgeDataGatesOnAdminRatherThanCapability(t *testing.T) {
 	if strings.Contains(text, "HasCapability(PurgeDataCapability)") {
 		t.Error("DoPurgeDataAction gates on PurgeDataCapability again; HasCapability is true for " +
 			"admin unconditionally, so this widens the gate rather than narrowing it (I-139)")
+	}
+}
+
+// TestDeleteSessionsStartsTheRunnerOnlyAfterItQueued pins the order of the
+// delete_sessions arm: the capability, then DeleteSessions, then the runner, and
+// the runner only when DeleteSessions succeeded. A runner started ahead of the
+// queue would find nothing to do; one started on a refusal would run the
+// executor for a caller who may not delete.
+func TestDeleteSessionsStartsTheRunnerOnlyAfterItQueued(t *testing.T) {
+	arms, _ := dispatchArms(t)
+	body, ok := arms["delete_sessions"]
+	if !ok {
+		t.Fatal("no delete_sessions arm in DoDataTableAction; this test is stale")
+	}
+	gate := strings.Index(body, "CapabilityDeleteSession")
+	queue := strings.Index(body, `"DeleteSessions"`)
+	runner := strings.Index(body, `"runUserDeletions"`)
+	if gate < 0 || queue < 0 || runner < 0 || !(gate < queue && queue < runner) {
+		t.Errorf("the delete_sessions arm gates at %d, queues at %d and starts the runner at %d; "+
+			"want all three, in that order", gate, queue, runner)
+	}
+	// The runner sits under "if err == nil": the rendering of that condition
+	// comes between the queue and the runner.
+	if cond := strings.Index(body[queue:], `Name: "nil"`); cond < 0 || queue+cond > runner {
+		t.Error("the delete_sessions arm starts the runner without checking DeleteSessions' error")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -19,6 +20,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/migratedb"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/sessionpurge"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/gorilla/mux"
@@ -32,9 +34,85 @@ type Server struct {
 	Router             *mux.Router
 	AuditLogger        *zap.Logger
 	LastSecretRotation *time.Time
+	// userDeletions is the single flight of runUserDeletions.
+	userDeletions singleFlight
 }
 
 var server = Server{}
+
+// singleFlight runs one function at a time per process. A trigger while it runs
+// does not start a second run beside it: it makes the running one go round once
+// more when it ends, however many triggers arrived meanwhile.
+type singleFlight struct {
+	mu             sync.Mutex
+	running, again bool
+	wg             sync.WaitGroup // the running goroutine, for tests
+}
+
+// trigger runs fn in a goroutine of its own, or, when a run is going, asks it to
+// run once more. It never blocks on fn.
+func (s *singleFlight) trigger(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.running {
+		s.again = true
+		return
+	}
+	s.running = true
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			fn()
+			s.mu.Lock()
+			if !s.again {
+				s.running = false
+				s.mu.Unlock()
+				return
+			}
+			s.again = false
+			s.mu.Unlock()
+		}
+	}()
+}
+
+// wait returns when no run is going.
+func (s *singleFlight) wait() { s.wg.Wait() }
+
+// userDeletionsTimeout is how long one run of the executor started by the
+// apiserver may go on starting sessions (session_registry Q-18): it stops
+// starting new ones after it, and leaves the rest queued for the next trigger.
+const userDeletionsTimeout = 10 * time.Minute
+
+// runUserDeletions starts this process's executor of the user deletions queued in
+// jetsapi.session_deletion, without waiting for it: after a delete_sessions, in
+// any mode, and from the hourly loop, which does not run in dev mode. It is
+// single-flight per process; across processes, and against the purge lambda, the
+// executor's claim (FOR UPDATE SKIP LOCKED) keeps two executors off one session.
+//
+// Only user rows are taken (Options.Reasons), so a Delete does not wait behind a
+// retention backlog. PURGE_DRY_RUN does not apply: a Delete is explicit.
+func (server *Server) runUserDeletions() {
+	server.userDeletions.trigger(server.executeUserDeletions)
+}
+
+// executeUserDeletions is one run of the executor, on a context of its own: a
+// request that triggered it has been answered by the time it runs.
+func (server *Server) executeUserDeletions() {
+	ctx, cancel := context.WithTimeout(context.Background(), userDeletionsTimeout+5*time.Minute)
+	defer cancel()
+	report, err := sessionpurge.Execute(ctx, server.dbpool, sessionpurge.Options{
+		Reasons:  []sessionpurge.Reason{sessionpurge.ReasonUser},
+		Deadline: time.Now().Add(userDeletionsTimeout),
+	})
+	if err != nil {
+		log.Printf("runUserDeletions: %v; %s", err, report.Summary())
+		return
+	}
+	if report.Done+report.Failed+report.Refused+report.NotReached+report.Skipped > 0 {
+		log.Printf("runUserDeletions: %s", report.Summary())
+	}
+}
 
 // Middleware Function for json header
 func jsonh(next http.HandlerFunc) http.HandlerFunc {
@@ -590,6 +668,21 @@ func listenAndServe() error {
 	// sweep so nothing it starts can be swept. Rules unit tests project, AC.3.
 	datatable.SetRulesUnitTestExecutor(datatable.NewRulesUnitTestPool(datatable.RulesUnitTestPoolConfigFromEnv()))
 
+	// The workspace runbook executor (runbooks project, AB), installed after its
+	// own start-up sweep: a step left running by a stopped apiserver is marked
+	// interrupted and its run paused, and nothing reruns on its own. The sweep
+	// leaves alone a run another live apiserver task is driving.
+	runbookExec := datatable.NewRunbookExecutor(server.dbpool,
+		datatable.RunbookDataTableOps{Ctx: datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)},
+		nil)
+	if n, err := runbookExec.SweepInterrupted(context.Background()); err != nil {
+		log.Println("Warning: while sweeping interrupted runbook steps:", err)
+	} else if n > 0 {
+		log.Printf("Swept interrupted work: %d runbook step(s) interrupted, their runs paused", n)
+	}
+	datatable.SetRunbookExecutor(runbookExec)
+	runbookExec.Start(context.Background())
+
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
@@ -704,6 +797,16 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/agentic", agenticOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/agentic", jsonh(corsh(authh(server.DoAgenticAction)))).Methods("POST")
 
+	// Workspace runbooks (runbooks project, AB): list, run and control the
+	// active workspace's runbooks. authh validates the token only; the
+	// runbook_execute capability is checked inside DoRunbookAction, and each
+	// step checks its own capability when it runs.
+	runbookOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/runbook", runbookOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/runbook", jsonh(corsh(authh(server.DoRunbookAction)))).Methods("POST")
+
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
 	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
@@ -778,6 +881,10 @@ func listenAndServe() error {
 					log.Println("Warning: while StartPendingTasks:", err)
 					err = nil
 				}
+
+				// The user deletions a run kept waiting, or that an earlier trigger
+				// left queued at its deadline.
+				server.runUserDeletions()
 			}
 		}()
 	}

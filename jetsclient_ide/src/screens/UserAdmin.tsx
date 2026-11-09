@@ -1,40 +1,39 @@
 /**
- * `/userAdmin` — the user administration screen. Task C.13.
+ * `/userAdmin` — the user administration screen. Task C.13; gate changed 2026-11-07.
  *
- * ## The only route in the corpus gated on `admin` alone
+ * ## Gated on `user_admin`, which the admin passes and a role can hold
  *
- * Six of the 27 routes name `admin` in their access set and five of those also
- * name a capability; this one names `admin` and nothing else
- * (`screens/fixtures/screen_reachability.json`, `accessSummary` and the
- * `/userAdmin` entry). The Flutter reason is that its menu entry lives only in
- * `adminMenuEntries` (`jetsclient/lib/modules/screen_config_impl.dart`,
- * `ScreenKeys.userAdmin`).
+ * The screen's two writes are `update/users` (activate or deactivate an account,
+ * set its roles) and `delete/users`, and both require the **`user_admin`**
+ * capability (`jets/datatable/sql_stmts.go`). `HasCapability` grants the admin
+ * account every capability it is asked about (`jets/user/user.go`,
+ * `HasCapability`), and `ApiClient.can` does the same on this side
+ * (`jetsclient_ide/src/api/client.ts`, `can`), so the admin keeps the screen, and
+ * the seeded role `designated_admin` holds it too (`jets/jets_init_db.sql`).
  *
- * ## What gates the two writes this screen performs, server-side
+ * **Until 2026-11-07 the two statements were `AdminOnly`**, reserved to one
+ * account (`IsAdmin` is `u.Email == AdminEmail`) rather than to a capability, so
+ * no role could confer user administration and no menu could offer the screen: a
+ * menu entry names a capability, and the admin is an account. That is why the
+ * screen had no entry after the Flutter app, whose `adminMenuEntries` showed it,
+ * was retired. It is now the last entry of the *JetStore Workspace* menu
+ * (`FLOW_MENU` in `App.tsx`), enabled with `user_admin` and shown disabled
+ * without it.
  *
- * **`IsAdmin()` is `u.Email == AdminEmail`** (`jets/user/user.go`, `IsAdmin`) — a
- * single account, not a role — and everything else follows from that sentence.
+ * **Neither statement writes the installation admin's own row, whoever calls**,
+ * the admin included: the server refuses the whole request with a 403
+ * (`ProtectAdminRow`, `jets/datatable/data_table_action.go`), so the one account
+ * defined outside the database cannot be deactivated or deleted from inside it.
  *
- * `update/users` and `delete/users` are the **only** two entries in
- * `jets/datatable/sql_stmts.go` carrying `AdminOnly: true`, and both pair it with
- * `Capability: "none"`. `VerifyUserPermission` requires *both* arms
- * (`jets/datatable/data_table_action.go`, `VerifyUserPermission`), and
- * `HasCapability` returns true for the admin account whatever it is asked
- * (`jets/user/user.go`, `HasCapability`) — so `"none"` is a sentinel whose only
- * job is to clear the *empty capability is a configuration error* check above it.
- * **The gate holds**: a caller who is not that account is refused on the first
- * arm.
+ * *Submit* on the edit dialog (`documents/userAdmin.form.json`) and *Delete
+ * User* (`datatable/tables/userTable.tc.json`) declare `user_admin`
+ * (`USER_ADMIN`). The Flutter buttons declared `user_profile`, which was inert
+ * while only the admin reached the screen and would be wrong once a role does,
+ * because every seeded role holds `user_profile`.
  *
- * The Flutter buttons declare `capability: "user_profile"` on *Delete User* and on
- * this dialog's *Submit*. That claim is **reproduced unchanged and is inert on
- * this route**: only the admin account can reach the screen, and `ApiClient.can`
- * short-circuits on `isAdmin` exactly as `HasCapability` does
- * (`jetsclient_ide/src/api/client.ts`, `can`), so it can never withhold a control
- * from anyone who is here. Nothing is weakened and nothing is added.
- *
- * **A single-account administrator is an operational property of JetStore, not
- * something this port introduces** — no second administrator, and no revocation
- * short of changing the address. Recorded, not changed.
+ * The edit dialog lists the roles from `jetsapi.roles` through `userRolesTable`,
+ * so a role added to the seeding script, `designated_admin` among them, appears
+ * there with no change here.
  *
  * ## The screen renders one table and declares no form document of its own
  *
@@ -91,6 +90,13 @@ import userRolesTableJson from "../datatable/tables/userRolesTable.tc.json";
 
 /** The screen's own table, and the form-state key its selection publishes under. */
 const TABLE_KEY = "userTable";
+
+/**
+ * The capability the screen's writes require, server-side and on its two buttons,
+ * and the one its menu entry declares (`FLOW_MENU`). The documents carry it as a
+ * string; `UserAdmin.test.tsx` checks they match.
+ */
+export const USER_ADMIN = "user_admin";
 
 /**
  * The base validation group. A dialog's repeat adds more; the screen has one.

@@ -44,15 +44,23 @@ import {
 import { ModalDialog } from "../userflow/FormDialog";
 
 export interface Prompts {
-  /** `window.confirm`, in the app's own dialog. */
-  confirm(message: string): Promise<boolean>;
+  /**
+   * `window.confirm`, in the app's own dialog.
+   *
+   * `detail`, when given, is shown under the message as written, line breaks
+   * kept — the one thing the native dialog could not do and the reason it is
+   * here: the Session Registry's *Delete* lists the sessions a deletion reaches,
+   * one per line, before the user answers (`session_registry` Phase 2,
+   * 2026-11-08). The dialog's accessible name stays the message.
+   */
+  confirm(message: string, detail?: string): Promise<boolean>;
   /** `window.prompt`, in the app's own dialog. */
   prompt(message: string, defaultValue?: string): Promise<string | null>;
 }
 
 /** What is on screen: a confirmation, or a prompt with its starting text. */
 type Request =
-  | { kind: "confirm"; message: string }
+  | { kind: "confirm"; message: string; detail?: string }
   | { kind: "prompt"; message: string; defaultValue: string };
 
 const PromptsContext = createContext<Prompts | null>(null);
@@ -87,7 +95,12 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Prompts>(
     () => ({
-      confirm: async (message) => (await ask({ kind: "confirm", message })) !== null,
+      confirm: async (message, detail) =>
+        (await ask(
+          detail === undefined || detail === ""
+            ? { kind: "confirm", message }
+            : { kind: "confirm", message, detail },
+        )) !== null,
       prompt: (message, defaultValue = "") => ask({ kind: "prompt", message, defaultValue }),
     }),
     [ask],
@@ -133,6 +146,17 @@ function PromptDialog({
     <ModalDialog label={request.message} onDismiss={() => onAnswer(null)}>
       <form className="uf-form" onSubmit={submit}>
         <p className="prompt-dialog__message">{request.message}</p>
+        {/*
+          The same class as the message, whose rule is `white-space: pre-wrap`
+          (`styles.css`), so the detail's line breaks are the dialog's: one
+          session per line, and a long line wraps rather than widening the
+          dialog past `.uf-dialog`'s bound.
+        */}
+        {request.kind === "confirm" && request.detail !== undefined && (
+          <p className="prompt-dialog__message" data-testid="prompt-detail">
+            {request.detail}
+          </p>
+        )}
         {request.kind === "prompt" && (
           <div className="field">
             <input

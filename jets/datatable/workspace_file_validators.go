@@ -9,6 +9,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/optstats"
+	"github.com/artisoft-io/jetstore/jets/runbook"
 	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/userflow"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
@@ -63,6 +64,14 @@ import (
 // **Nothing else in the workspace tree ends `.sql`, and that took a deletion to
 // become true** — see the `jet_rules` row in `wsfile/sections.go`, which
 // filtered on a second `.sql` suffix this row would have matched.
+//
+// `.rb.json` is the eighth (runbooks Phase 1, `AA.4`, 2026-11-06): a workspace
+// runbook, `runbooks/<name>.rb.json`. The save check has the file alone, so it
+// checks everything but what needs the file's name or its SQL files, which
+// the executor checks with both when a run starts (runbook.Load). A runbook's
+// `.sql` files are saved through the `.sql` row above, lexically; their
+// `:name` bindings are checked against the runbook at run start, because a
+// SQL file does not know which runbook reads it.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -74,6 +83,7 @@ var workspaceFileValidators = []struct {
 	{briefing.DocumentSuffix, briefing.ValidateProvenanceDocument},
 	{".sql", sqlscript.ValidateScript},
 	{path.Base(optstats.FileName), validateOptimizerStatistics},
+	{runbook.FileSuffix, runbook.ValidateFile},
 }
 
 // validateOptimizerStatistics refuses a statistics file the compiler would

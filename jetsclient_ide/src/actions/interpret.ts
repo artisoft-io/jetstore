@@ -60,8 +60,14 @@ export interface ActionHost extends EscapeHost {
   query(name: string): Promise<Record<string, string | null> | null>;
   /** Runs the form's validators. False stops the action without failing it. */
   validate(): boolean;
-  /** A modal question. False stops the action without failing it. */
-  confirm(message: string): Promise<boolean>;
+  /**
+   * A modal question. False stops the action without failing it.
+   *
+   * `detail` is the text of the step's `detailFromKey`, shown under the message
+   * with its line breaks; absent when the step names none or the key is empty.
+   * A host that predates it ignores the second argument and still asks.
+   */
+  confirm(message: string, detail?: string): Promise<boolean>;
   /** Jumps the flow. Declared on the state as `goToStates` — see I-18. */
   goToState(state: string): void;
   /** Injected so a fan-out's session ids are deterministic under test. */
@@ -270,8 +276,16 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
       return missing.length === 0 ? carryOn : { done: true, outcome: step.message };
     }
 
-    case "confirm":
-      return (await host.confirm(step.message)) ? carryOn : { done: true, outcome: null };
+    case "confirm": {
+      // The detail is read as text, as `unpack` reads any scalar; a key holding
+      // nothing asks the static question alone rather than showing an empty box.
+      const detail = step.detailFromKey === undefined ? null : unpack(formState.getValue(group, step.detailFromKey));
+      const answer =
+        detail === null || detail === ""
+          ? await host.confirm(step.message)
+          : await host.confirm(step.message, detail);
+      return answer ? carryOn : { done: true, outcome: null };
+    }
 
     case "set":
       formState.setValue(group, step.key, evaluate(step.value, context) as never);

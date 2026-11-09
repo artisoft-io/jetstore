@@ -68,6 +68,48 @@
     "getSchemaEvent": {
       "description": "Copy the schema event of the selected run's input registration to the clipboard",
       "steps": [{ "do": "escape", "name": "copySchemaEvent" }]
+    },
+    "deleteSessions": {
+      "description": "List the selected sessions and every session reading them, confirm, and queue their deletion",
+      "steps": [
+        { "do": "escape", "name": "previewSessionDeletion" },
+        {
+          "do": "confirm",
+          "message": "Delete these sessions? Their rows are deleted from the database, the sessions reading them included; their files on S3 are kept, and a later lookback read skips them. This cannot be undone.",
+          "detailFromKey": "session_deletion_preview"
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "delete_sessions",
+          "spinner": true,
+          "onConflict": "The sessions to delete changed since they were listed. Select Delete again to review them.",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "session_id": { "fromKeyList": "sessionRegistryTable" },
+              "expected": { "fromKeyList": "session_deletion_expected" }
+            }
+          }
+        },
+        {
+          "do": "notify",
+          "level": "info",
+          "message": "Deletion queued: the sessions show as pending until they are deleted, and a session with a run still active waits for it to end"
+        }
+      ]
+    },
+    "setSessionRegistryFilters": {
+      "description": "Record the Session Registry filters",
+      "steps": [
+        { "do": "validate" },
+        { "do": "escape", "name": "updateSessionRegistryFilters" },
+        { "do": "close" }
+      ]
+    },
+    "clearSessionRegistryFilters": {
+      "description": "Clear the Session Registry filters",
+      "steps": [{ "do": "escape", "name": "clearSessionRegistryFilters" }]
     }
   }
 }

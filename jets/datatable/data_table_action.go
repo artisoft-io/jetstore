@@ -448,11 +448,55 @@ func (dtq *DataTableAction) makeWhereClause() string {
 }
 
 // Simple definition of sql statement for insert
+//
+// AdminOnly reserves a statement to the installation admin (user.IsAdmin), whatever
+// the caller's roles. No statement sets it since update/users and delete/users moved
+// to the user_admin capability (2026-11-07); it stays for a later statement that
+// should remain the admin's alone, with ErrAdminOnly and the test that pins its text.
+//
+// ProtectAdminRow marks a statement that writes jetsapi.users by its user_email
+// column. InsertRows refuses the whole request, before any row is written, when any
+// row names the installation admin's email -- whoever calls, the admin included -- so
+// that the one account defined outside the database cannot be deactivated, stripped
+// of its roles or deleted from inside it. A field rather than a test on the
+// statement's name, so the next statement that writes users declares it.
 type SqlInsertDefinition struct {
-	Stmt       string
-	ColumnKeys []string
-	AdminOnly  bool
-	Capability string
+	Stmt            string
+	ColumnKeys      []string
+	AdminOnly       bool
+	Capability      string
+	ProtectAdminRow bool
+}
+
+// ErrAdminRowProtected is InsertRows' refusal of a ProtectAdminRow statement that
+// names the installation admin's row. A 403 with its own message, and deliberately
+// not one of VerifyUserPermission's refusals: it says nothing about the caller, who
+// may be the admin, and everything about the row, so collapsing it into ErrRefused
+// would tell a user administrator they lack a capability they hold.
+var ErrAdminRowProtected = errors.New("error: forbidden, the installation admin's account cannot be changed or deleted")
+
+// writesAdminRow reports whether any row's user_email is adminEmail. The comparison
+// is exact, as user.IsAdmin's is and as the statements' WHERE user_email = $n is, so
+// it refuses precisely the rows the statement would have written. An empty
+// adminEmail protects nothing: no row can be the admin's when none is configured.
+func writesAdminRow(rows []map[string]any, adminEmail string) bool {
+	if adminEmail == "" {
+		return false
+	}
+	for _, row := range rows {
+		v, ok := row["user_email"]
+		if !ok || v == nil {
+			continue
+		}
+		email, ok := v.(string)
+		if !ok {
+			email = fmt.Sprint(v)
+		}
+		if email == adminEmail {
+			return true
+		}
+	}
+	return false
 }
 
 // The four errors VerifyUserPermission returns, as values rather than as calls to
@@ -478,11 +522,12 @@ var (
 	// **It is unreachable from every caller in this package, re-measured 2026-08-27.**
 	// sqlInsertStmts has 58 entries and 58 non-empty Capability fields
 	// (jets/datatable/sql_stmts.go, sqlInsertStmts); the two reading "none" are both
-	// AdminOnly, so the admin branch decides them. Every ad-hoc definition in this
-	// package names a capability literally except requireCapability's, which passes a
-	// parameter -- and each of its nine call sites passes one of the three
-	// Capability* constants below. So a statement added without a capability is what
-	// reaches this, and nothing else does.
+	// AdminOnly, so the admin branch decides them. (Since 2026-11-07 none reads
+	// "none": those two, update/users and delete/users, require user_admin and are
+	// not AdminOnly.) Every ad-hoc definition in this package names a capability
+	// literally except requireCapability's, which passes a parameter -- and each of
+	// its nine call sites passes one of the three Capability* constants below. So a
+	// statement added without a capability is what reaches this, and nothing else does.
 	//
 	// **The text keeps its "unauthorized" prefix deliberately.** It is pinned by
 	// TestTheFourRefusalTextsAreUnchanged, which exists so C.17's promise that no
@@ -869,6 +914,13 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		httpStatus, err = RefusalFor(err2)
 		return
 	}
+	// The installation admin's row is not written by a ProtectAdminRow statement,
+	// whoever calls: the whole request is refused before its first row is written.
+	if sqlStmt.ProtectAdminRow && writesAdminRow(dataTableAction.Data, user.AdminEmail) {
+		log.Printf("InsertRows: %s refused, a row names the installation admin", dataTableAction.FromClauses[0].Table)
+		httpStatus, err = http.StatusForbidden, ErrAdminRowProtected
+		return
+	}
 
 	// Check if we delegate to InsertPipelineExecutionStatus
 	switch dataTableAction.FromClauses[0].Table {
@@ -1156,6 +1208,8 @@ const (
 	// paths that reach the same authority without resolving a statement: DropTable
 	// below, and the inline resubmit_pipeline arm in jets/apiserver. I-125.
 	CapabilityRunPipelines = "run_pipelines"
+	// CapabilityDeleteSession gates preview_session_deletion and delete_sessions.
+	CapabilityDeleteSession = "delete_session"
 )
 
 // requireCapability is the read-side counterpart of VerifyUserPermission's use
