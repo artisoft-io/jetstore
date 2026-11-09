@@ -630,7 +630,13 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	var resultRows *[][]any
 	var totalRowCount int
 	if dataTableAction.FromClauses[0].Schema == "jetsapi" {
-		resultRows, _, err = execQuery(ctx.Dbpool, dataTableAction, &query)
+		// The query and the count below run read only (readOnlyTx)
+		tx, txErr := readOnlyTx(ctx.Dbpool)
+		if txErr != nil {
+			return nil, http.StatusInternalServerError, txErr
+		}
+		defer tx.Rollback(context.Background())
+		resultRows, _, err = execQuery(tx, dataTableAction, &query)
 		if err != nil {
 			return nil, http.StatusInternalServerError,
 				fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -700,7 +706,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 		}
 
 		// get the total nbr of row
-		err = ctx.Dbpool.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
+		err = tx.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
 		if err != nil {
 			return nil, http.StatusInternalServerError,
 				fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)

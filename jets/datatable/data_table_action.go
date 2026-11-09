@@ -348,6 +348,17 @@ func parseWcValue(value string) []string {
 	}
 }
 
+// sqlLiteral quotes s as a SQL string literal, doubling its single quotes. That
+// is sound only with standard_conforming_strings on, which readOnlyTx sets for
+// every read built here, so a backslash in s is an ordinary character.
+func sqlLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// visitWhereClause writes one where clause. Its values and like pattern are
+// quoted literals (sqlLiteral) and joinWith is quoted as table.column. Ge and le
+// are SQL expressions by design (a timestamp literal, now() - interval '1 day'),
+// written as sent: the read runs READ ONLY (readOnlyTx), so they cannot write.
 func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	if wc.OrWith != nil {
 		buf.WriteString("( ")
@@ -365,13 +376,13 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	case len(wc.Values) > 0:
 		wcValues = wc.Values
 		inOp = " IN ("
-		eqOp = " = '"
+		eqOp = " = "
 		if len(wc.Values) == 1 {
 			wcValues = parseWcValue(wc.Values[0])
 		}
 	case len(wc.NotInValues) > 0:
 		inOp = " NOT IN ("
-		eqOp = " != '"
+		eqOp = " != "
 		wcValues = wc.NotInValues
 		if len(wc.NotInValues) == 1 {
 			wcValues = parseWcValue(wc.NotInValues[0])
@@ -380,12 +391,11 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	switch {
 	case len(wc.Like) > 0:
 		buf.WriteString(" LIKE ")
-		buf.WriteString("'")
-		buf.WriteString(wc.Like)
-		buf.WriteString("' ")
+		buf.WriteString(sqlLiteral(wc.Like))
+		buf.WriteString(" ")
 	case len(wc.JoinWith) > 0:
 		buf.WriteString(" = ")
-		buf.WriteString(wc.JoinWith)
+		buf.WriteString(pgx.Identifier(strings.Split(wc.JoinWith, ".")).Sanitize())
 	case len(wcValues) > 1:
 		buf.WriteString(inOp)
 		isFirstValue := true
@@ -398,9 +408,7 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			if value == "NULL" {
 				buf.WriteString(" NULL ")
 			} else {
-				buf.WriteString("'")
-				buf.WriteString(value)
-				buf.WriteString("'")
+				buf.WriteString(sqlLiteral(value))
 			}
 		}
 		buf.WriteString(") ")
@@ -410,8 +418,7 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			buf.WriteString(" is NULL ")
 		} else {
 			buf.WriteString(eqOp)
-			buf.WriteString(value)
-			buf.WriteString("'")
+			buf.WriteString(sqlLiteral(value))
 		}
 	case len(wc.Ge) > 0:
 		buf.WriteString(" >= ")
@@ -1057,7 +1064,30 @@ func populateDomainKeys(row map[string]any) error {
 }
 
 // utility methods
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
+// querier is what execQuery runs on: the pool, or a read's transaction.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// readOnlyTx opens the transaction a data-table read runs in. The read's SQL is
+// built from fragments the client sends (WithClauses, calculated columns, ge and
+// le), so it runs READ ONLY and no fragment can write: a data-modifying WITH is
+// refused by PostgreSQL. standard_conforming_strings is set on for it, so the
+// where clause's quoted values (sqlLiteral) are escaped whatever the server's
+// default. The caller rolls it back; a read commits nothing.
+func readOnlyTx(dbpool *pgxpool.Pool) (pgx.Tx, error) {
+	tx, err := dbpool.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, fmt.Errorf("while starting the read: %w", err)
+	}
+	if _, err = tx.Exec(context.Background(), "SET LOCAL standard_conforming_strings TO on"); err != nil {
+		_ = tx.Rollback(context.Background())
+		return nil, fmt.Errorf("while starting the read: %w", err)
+	}
+	return tx, nil
+}
+
+func execQuery(dbpool querier, dataTableAction *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Print("\n*** UI Query:\n", *query, "\n\n")
 	resultRows := make([][]any, 0, dataTableAction.Limit)
@@ -1113,6 +1143,12 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			}
 		}
 		resultRows = append(resultRows, flatRow)
+	}
+	// An error raised while the rows stream, such as a read-only refusal, ends
+	// the loop above without a row; it is reported here, not dropped.
+	if err = rows.Err(); err != nil {
+		log.Printf("While reading the dataTable query's rows: %v", err)
+		return nil, nil, err
 	}
 	return &resultRows, &columnDefs, nil
 }
@@ -1290,8 +1326,13 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 	// Build the query
 	query, stmt := dataTableAction.buildQuery()
 
-	// Perform the query
-	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
+	// Perform the query, and the count below, read only (readOnlyTx)
+	tx, err := readOnlyTx(ctx.Dbpool)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+	defer tx.Rollback(context.Background())
+	resultRows, _, err := execQuery(tx, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -1322,7 +1363,7 @@ gotRolesPos:
 
 	// get the total nbr of row
 	var totalRowCount int
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
+	err = tx.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
