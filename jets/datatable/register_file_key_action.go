@@ -191,6 +191,30 @@ type registerFileKeyRow struct {
 	fileKeyObject      map[string]any
 	schemaProviderJson string
 	requestId          any
+	// objectSize is the size of the S3 object the row names, from its "size"
+	// entry, and 0 when it has none. It is what the part-file gate reads.
+	objectSize int64
+}
+
+// sizeOf reads a size as int64. ok is false for a type it does not read, which
+// the caller treats as absent, as the size case always has.
+func sizeOf(v any) (size int64, ok bool, err error) {
+	switch vv := v.(type) {
+	case int:
+		return int64(vv), true, nil
+	case int32:
+		return int64(vv), true, nil
+	case int64:
+		return vv, true, nil
+	case float64:
+		return int64(vv), true, nil
+	case float32:
+		return int64(vv), true, nil
+	case string:
+		size, err = strconv.ParseInt(vv, 10, 64)
+		return size, err == nil, err
+	}
+	return 0, false, nil
 }
 
 // readRegisterFileKeyRow copies the keys RegisterFileKeys reads from one row of
@@ -210,6 +234,8 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 		},
 	}
 	fileKeyObject := r.fileKeyObject
+	var specFileSize int64
+	var hasObjectSize, hasSpecFileSize bool
 	// Get the value from the incoming obj, convert to correct types
 	for k, v := range data {
 		switch k {
@@ -238,23 +264,18 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 			if err != nil {
 				return nil, fmt.Errorf("while converting %s (%v) to int: %v", k, v, err)
 			}
-		case "size":
-			switch vv := v.(type) {
-			case int:
-				fileKeyObject["file_size"] = int64(vv)
-			case int32:
-				fileKeyObject["file_size"] = int64(vv)
-			case int64:
-				fileKeyObject["file_size"] = vv
-			case float64:
-				fileKeyObject["file_size"] = int64(vv)
-			case float32:
-				fileKeyObject["file_size"] = int64(vv)
-			case string:
-				fileKeyObject["file_size"], err = strconv.ParseInt(vv, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
-				}
+		case "size", "file_size":
+			// size is the S3 object's, from the event that named it; file_size is
+			// a schema event's, SchemaProviderSpec.FileSize. file_size had no case
+			// and was dropped until JM-096.
+			n, ok, err := sizeOf(v)
+			if err != nil {
+				return nil, fmt.Errorf("while converting %s (%v) to int64: %v", k, v, err)
+			}
+			if k == "size" {
+				r.objectSize, hasObjectSize = n, ok
+			} else {
+				specFileSize, hasSpecFileSize = n, ok
 			}
 		case "schema_provider_json":
 			// Checked (JM-037): a non-string, which a register-key hook can
@@ -272,6 +293,15 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 			r.requestId = v
 			fileKeyObject[k] = v
 		}
+	}
+	// The recorded file_size is the spec's when it gives one, else the object's.
+	// A part-file source's sentinel replaces it with the folder's total further
+	// on, whichever it was.
+	switch {
+	case hasSpecFileSize:
+		fileKeyObject["file_size"] = specFileSize
+	case hasObjectSize:
+		fileKeyObject["file_size"] = r.objectSize
 	}
 	return r, nil
 }
@@ -350,13 +380,11 @@ NextKey:
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
-				// Defence in depth: an absent file_size is 0 rather than a panic. The
-				// copying switch above writes file_size from a size entry only, and a
-				// schema event has none: SchemaProviderSpec.FileSize serialises as
-				// file_size, which that switch has no case for. A 0 here takes the
-				// sentinel branch, which is what a schema event wants anyway.
-				size, _ := fileKeyObject["file_size"].(int64)
-				if size > 1 {
+				// The gate reads the S3 object's size and never the spec's file_size
+				// (JM-096): a schema event has no size, so it is 0 and takes the
+				// sentinel branch, which is what a schema event wants, whatever
+				// file_size it carries.
+				if r.objectSize > 1 {
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					continue NextKey
 				} else {
