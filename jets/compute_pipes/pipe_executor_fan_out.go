@@ -128,7 +128,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 	}
-	
+
 	if isDebugMode {
 		log.Printf("*** StartFanOutPipe[source: %s]: done fan_out loop on source %s - CLOSING EVALUATORS",
 			inputSourceName, inputSourceName)

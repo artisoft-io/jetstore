@@ -12,21 +12,23 @@ import (
 // for a plus or minus sign.  The overpunch character replaces the right-most character in a numeric field.
 // In a six-digit field, 99.95 would be represented as 00999E.  In the same field, a negative 99.95 would be represented as 00999N.
 // Lack of an overpunch character implies a positive amount - in other words, a positive 99.95 could be sent on the file as 009995.
-//   Number,Positive Overpunch,Negative Overpunch
-//   0,     {,                 }
-//   1,     A,                 J
-//   2,     B,                 K
-//   3,     C,                 L
-//   4,     D,                 M
-//   5,     E,                 N
-//   6,     F,                 O
-//   7,     G,                 P
-//   8,     H,                 Q
-//   9,     I,                 R
+//
+//	Number,Positive Overpunch,Negative Overpunch
+//	0,     {,                 }
+//	1,     A,                 J
+//	2,     B,                 K
+//	3,     C,                 L
+//	4,     D,                 M
+//	5,     E,                 N
+//	6,     F,                 O
+//	7,     G,                 P
+//	8,     H,                 Q
+//	9,     I,                 R
 type Overpunch struct {
-	Sign   string
-	Digit  string
+	Sign  string
+	Digit string
 }
+
 var overpunchCharacters = map[rune]Overpunch{
 	'{': {Sign: "+", Digit: "0"},
 	'A': {Sign: "+", Digit: "1"},
@@ -73,13 +75,14 @@ func OverpunchNumber(value string, decimalPlaces int) (string, error) {
 	}
 	switch decimalPlaces {
 	case 0:
-		return fmt.Sprintf("%s%s%s", oc.Sign, value[:l-1], oc.Digit), nil	
+		return fmt.Sprintf("%s%s%s", oc.Sign, value[:l-1], oc.Digit), nil
 	case 1:
 		return fmt.Sprintf("%s%s.%s", oc.Sign, value[:l-1], oc.Digit), nil
 	default:
 		return fmt.Sprintf("%s%s.%s%s", oc.Sign, value[:l-decimalPlaces], value[l-decimalPlaces:l-1], oc.Digit), nil
 	}
 }
+
 // func main() {
 // 	fmt.Println(OverpunchNumber("12345", 0))
 // 	fmt.Println(OverpunchNumber("12345", 1))

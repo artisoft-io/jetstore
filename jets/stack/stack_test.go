@@ -1,8 +1,8 @@
 package stack
 
 import (
-	"testing"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"testing"
 )
 
 // This file contains test cases for the Stack construct
@@ -29,7 +29,7 @@ func TestStack01(t *testing.T) {
 	if *v != "s1" {
 		t.Error("operation failed")
 	}
-	
+
 	s.Push(aws.String("s2"))
 	v, b = s.Pop()
 	if !b {
@@ -38,7 +38,7 @@ func TestStack01(t *testing.T) {
 	if *v != "s2" {
 		t.Error("operation failed")
 	}
-	
+
 	v, b = s.Pop()
 	if !b {
 		t.Error("operation failed")
@@ -82,7 +82,7 @@ func TestStack02(t *testing.T) {
 	if *v != 1 {
 		t.Error("operation failed")
 	}
-	
+
 	s.Push(aws.Int(2))
 
 	v, b = s.Pop()
@@ -100,7 +100,7 @@ func TestStack02(t *testing.T) {
 	if *v != 1 {
 		t.Error("operation failed")
 	}
-	
+
 	v, b = s.Pop()
 	if !b {
 		t.Error("operation failed")

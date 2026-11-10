@@ -16,10 +16,9 @@ type envVarExprClause struct {
 // envVarExpression indicate which column by position
 // is to be updated by the evalExpression
 type envVarExpression struct {
-	name string
-	evalExpr  evalExpression
+	name     string
+	evalExpr evalExpression
 }
-
 
 func ApplyConditionalEnvVars(envVars []ConditionalEnvVariable, env map[string]any) error {
 	for _, spec := range envVars {
@@ -53,8 +52,8 @@ func buildConditionalEnvVarEvaluator(spec *ConditionalEnvVariable, env map[strin
 				return nil, fmt.Errorf("error: missing env var name in then clause of addl_env case operator")
 			}
 			thenCases[i] = &envVarExpression{
-				name: node.Name,
-				evalExpr:  expr,
+				name:     node.Name,
+				evalExpr: expr,
 			}
 		}
 		caseExpr[i] = envVarExprClause{
@@ -73,8 +72,8 @@ func buildConditionalEnvVarEvaluator(spec *ConditionalEnvVariable, env map[strin
 			return nil, fmt.Errorf("error: case operator is missing env var name in else clause")
 		}
 		elseExpr[i] = &envVarExpression{
-			name: node.Name,
-			evalExpr:  expr,
+			name:     node.Name,
+			evalExpr: expr,
 		}
 	}
 	return &ConditionalEnvVarEvaluator{

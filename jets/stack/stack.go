@@ -2,7 +2,7 @@ package stack
 
 // Simple stack component
 
-type Stack[T any] struct{
+type Stack[T any] struct {
 	stack []any
 }
 

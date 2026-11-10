@@ -54,7 +54,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 		for i, builder := range builders {
 			value, err := ConvertToSchemaV2(inRow[i], schemaInfo.Fields[i])
 			if err != nil {
-				cpErr = fmt.Errorf("converting to parquet type failed for column %d (%s) type %s with value %v of type %T: %v", 
+				cpErr = fmt.Errorf("converting to parquet type failed for column %d (%s) type %s with value %v of type %T: %v",
 					i, schemaInfo.Fields[i].Name, schemaInfo.Fields[i].Type, inRow[i], inRow[i], err)
 				// log.Println(cpErr, "...Ignored")
 				goto gotError
@@ -167,11 +167,11 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 		switch vv := v.(type) {
 		case string:
 			// Check if it's a timestamp
-				d, err := rdf.ParseDatetime(vv)
-				if err != nil {
-					// Couln't parse the timestamp, assumed it's already converted to int64
-					return strconv.ParseInt(vv, 10, 64)
-				}
+			d, err := rdf.ParseDatetime(vv)
+			if err != nil {
+				// Couln't parse the timestamp, assumed it's already converted to int64
+				return strconv.ParseInt(vv, 10, 64)
+			}
 			switch se.Type {
 			case arrow.FixedWidthTypes.Timestamp_s.Name():
 				return int64(d.Unix()), nil

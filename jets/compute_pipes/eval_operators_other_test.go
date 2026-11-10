@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 )
+
 func TestOpDMonths(t *testing.T) {
 	op := &opDMonths{}
 
@@ -127,6 +128,7 @@ func TestOpToDate(t *testing.T) {
 		})
 	}
 }
+
 // TestOpContains pins the semantics opContains copies from the Go rules engine's ContainsOp
 // (expr_operator_str_contains.go, at the go-engine-final tag): 1 when lhs contains rhs, 0 when it does not,
 // and nil when either operand is not a string.

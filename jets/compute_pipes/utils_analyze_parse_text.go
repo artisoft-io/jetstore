@@ -5,7 +5,7 @@ import "strconv"
 // Parse Text Match Function
 
 type ParseTextMatchFunction struct {
-	minMax *minMaxLength
+	minMax         *minMaxLength
 	nbrSamplesSeen int
 }
 

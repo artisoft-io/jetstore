@@ -25,12 +25,12 @@ func TestJetRuleOptimizer_JetRule0(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01, s=50, flag=\"healthcare\"]:(?x01 rdf:type abc:RuleConfig) -\u003e (?x01 OutputUnit int(1));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01, s=50, flag=\"healthcare\"]:(?x01 rdf:type abc:RuleConfig) -\u003e (?x01 OutputUnit int(1));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -55,12 +55,12 @@ func TestJetRuleOptimizer_JetRule1(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)) -\u003e (?x01 OutputUnit int(1));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)) -\u003e (?x01 OutputUnit int(1));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -87,12 +87,12 @@ func TestJetRuleOptimizer_JetRule2(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)).(jets:client rdf:type ?x02).(jets:client ?x02 int(0)) -> (?x01 OutputUnit int(1));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)).(jets:client rdf:type ?x02).(jets:client ?x02 int(0)) -> (?x01 OutputUnit int(1));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -120,12 +120,12 @@ func TestJetRuleOptimizer_Filter1(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)).(jets:client rdf:type ?x02).[(?x02 != abc:RuleConfig)].(jets:client ?x02 int(0)) -> (?x01 OutputUnit int(1));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)).(jets:client rdf:type ?x02).[(?x02 != abc:RuleConfig)].(jets:client ?x02 int(0)) -> (?x01 OutputUnit int(1));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -156,12 +156,12 @@ func TestJetRuleOptimizer_Filter2(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().ReteNodes, "", " ")
 	// fmt.Printf("** Rete Nodes: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type Class1).(?x01 p1 ?x02).[(?x01 != ?x02)].(?x03 rdf:type Class1).[(?x03 != ?x02)].(?x03 p1 ?x02) -> (?x01 p1 int(1));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]:(?x01 rdf:type Class1).(?x01 p1 ?x02).[(?x01 != ?x02)].(?x03 rdf:type Class1).[(?x03 != ?x02)].(?x03 p1 ?x02) -> (?x01 p1 int(1));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -190,12 +190,12 @@ func TestJetRuleOptimizer_TermOrder1(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().ReteNodes, "", " ")
 	// fmt.Printf("** Rete Nodes: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[EID_Member_Id_10]:(?x01 rdf:type nh_c:RuleConfig).(?x01 nh_c:eligibilityIdDelimitor ?x02).(?x03 rdf:type nh:Eligibility).[(?x03 exist_not nh:Member_Id)] -> (?x03 eid1 ?x02).(?x03 jets:ruleTag text(Missing Member_Id));":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[EID_Member_Id_10]:(?x01 rdf:type nh_c:RuleConfig).(?x01 nh_c:eligibilityIdDelimitor ?x02).(?x03 rdf:type nh:Eligibility).[(?x03 exist_not nh:Member_Id)] -> (?x03 eid1 ?x02).(?x03 jets:ruleTag text(Missing Member_Id));":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
@@ -222,12 +222,12 @@ func TestJetRuleOptimizer_TermOrder2(t *testing.T) {
 	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().ReteNodes, "", " ")
 	// fmt.Printf("** Rete Nodes: \n%v\n", string(b))
 	switch {
-		case jrCompiler.ErrorLog().Len() > 0:
-			t.Error(jrCompiler.ErrorLog().String())
-		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
-			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[MA_AuthInfoCopy01]:(?x01 rdf:type InputAuthorization).(?x01 hasAuthorization ?x02).(iProperties authProperty2Copy ?x03).(?x01 ?x03 ?x04) -> (?x02 ?x03 ?x04);":
-			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
+	case jrCompiler.ErrorLog().Len() > 0:
+		t.Error(jrCompiler.ErrorLog().String())
+	case len(jrCompiler.JetRuleModel().Jetrules) != 1:
+		t.Error("Expected 1 jetrule")
+	case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[MA_AuthInfoCopy01]:(?x01 rdf:type InputAuthorization).(?x01 hasAuthorization ?x02).(iProperties authProperty2Copy ?x03).(?x01 ?x03 ?x04) -> (?x02 ?x03 ?x04);":
+		t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }

@@ -10,15 +10,15 @@ import (
 // This file contains the source file manager for maping source file name to db key
 
 type SourceFileManager struct {
-	w *WorkspaceDB
+	w                   *WorkspaceDB
 	sourceFileNameToKey map[string]int
-	lastDbKey int
-	lastKey int
+	lastDbKey           int
+	lastKey             int
 }
 
 func NewSourceFileManager(w *WorkspaceDB) *SourceFileManager {
 	return &SourceFileManager{
-		w: w,
+		w:                   w,
 		sourceFileNameToKey: make(map[string]int),
 	}
 }
@@ -88,7 +88,6 @@ func (sfm *SourceFileManager) IsPreExisting(sourceFileName string) bool {
 	}
 	if key <= sfm.lastDbKey {
 		return true
-	}	
+	}
 	return false
 }
-

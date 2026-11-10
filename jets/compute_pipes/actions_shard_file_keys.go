@@ -25,7 +25,7 @@ type ShardFileKeyResult struct {
 	clusterShardingInfo *ClusterShardingInfo
 	nbrShardingNodes    int
 	firstKey            string
-	firstKeyFileSize		int64
+	firstKeyFileSize    int64
 	clusterSpec         *ClusterShardingSpec
 }
 
@@ -353,8 +353,8 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 			var end int64
 			reminder := obj.Size
 			for reminder > 0 {
-				if start+shardSize-currentShardSize >= obj.Size - 1 {
-					end = obj.Size -1
+				if start+shardSize-currentShardSize >= obj.Size-1 {
+					end = obj.Size - 1
 					nextStart = 0
 					reminder = 0
 				} else {

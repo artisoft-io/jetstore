@@ -421,8 +421,8 @@ func TestBuildExprNodeEvaluator07A(t *testing.T) {
 		Op: "==",
 		Rhs: &ExpressionNode{
 			Lhs: &ExpressionNode{
-				Type: "select",
-				Expr: "distinct_paid_date_count",
+				Type:      "select",
+				Expr:      "distinct_paid_date_count",
 				AsRdfType: "int",
 			},
 			Op: "-",

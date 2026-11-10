@@ -100,6 +100,7 @@ func (op *opApplyFormat) Eval(lhs any, rhs any) (any, error) {
 type opApplyRegex struct {
 	re *regexp.Regexp
 }
+
 var regexCache *sync.Map = new(sync.Map)
 
 func GetCompiledRegex(pattern string) (*regexp.Regexp, error) {
@@ -151,7 +152,7 @@ type opFindAndReplace struct {
 }
 
 // opFindAndReplace implements a find and replace operator that replaces all occurrences of a substring with another substring.
-// The lhs argumwent is the input string, the rhs is expected to be []any with 2 elements: the first element is the substring to find, 
+// The lhs argumwent is the input string, the rhs is expected to be []any with 2 elements: the first element is the substring to find,
 // the second element is the substring to replace with.
 func (op *opFindAndReplace) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil || rhs == nil {
@@ -177,8 +178,8 @@ type opToArray struct {
 }
 
 // opToArray is a binary operator that retuns []any being the slice of lhs with rhs.
-// This can be approximate as []any{lha, rhs}, however is lhs and/or rhs are themselves []any, we want to flatten them into a single array. 
-// For example, if lhs is []any{1, 2} and rhs is 3, we want to return []any{1, 2, 3}. 
+// This can be approximate as []any{lha, rhs}, however is lhs and/or rhs are themselves []any, we want to flatten them into a single array.
+// For example, if lhs is []any{1, 2} and rhs is 3, we want to return []any{1, 2, 3}.
 func (op *opToArray) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
@@ -221,7 +222,7 @@ func (op *opNewUUID) Eval(_ any, _ any) (any, error) {
 }
 
 // Operator IN
-type opIn struct{
+type opIn struct {
 	noCase bool
 }
 

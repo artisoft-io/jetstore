@@ -3,24 +3,28 @@ package utils
 // Pointer utility functions
 
 // StringPtr returns a pointer to the given string value.
+//
 //go:fix inline
 func StringPtr(s string) *string {
 	return new(s)
 }
 
 // IntPtr returns a pointer to the given int value.
+//
 //go:fix inline
 func IntPtr(i int) *int {
 	return new(i)
 }
 
 // BoolPtr returns a pointer to the given bool value.
+//
 //go:fix inline
 func BoolPtr(b bool) *bool {
 	return new(b)
 }
 
 // Float64Ptr returns a pointer to the given float64 value.
+//
 //go:fix inline
 func Float64Ptr(f float64) *float64 {
 	return new(f)

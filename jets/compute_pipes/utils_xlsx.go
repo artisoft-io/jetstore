@@ -13,7 +13,7 @@ import (
 
 func ParseInputFormatDataXlsx(inputDataFormatJson *string) (map[string]any, error) {
 	if inputDataFormatJson == nil || len(*inputDataFormatJson) == 0 {
-		log.Println("*** inputDataFormatJson is empty or nil:",inputDataFormatJson)
+		log.Println("*** inputDataFormatJson is empty or nil:", inputDataFormatJson)
 		return nil, nil
 	}
 	inputFormatData := make(map[string]any)
