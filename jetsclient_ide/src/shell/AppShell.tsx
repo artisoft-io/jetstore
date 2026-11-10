@@ -47,6 +47,7 @@ import { BuildInfoFooter, BuildInfoProvider, type BuildInfoSlot } from "./buildI
 import { ApiProvider, useCan } from "./capabilities";
 import { RouteTitle } from "./documentTitle";
 import { RouteFavicon } from "./favicon";
+import { openHelp } from "./helpTopics";
 import { NotificationsProvider, useNotifications } from "./notifications";
 import { PromptsProvider } from "./prompts";
 import {
@@ -381,6 +382,33 @@ function FlowMenuEntry({ item, here, onNavigate }: { item: FlowMenuItem; here: s
   );
 }
 
+/**
+ * Opens the documentation page for the current screen in a new tab, signed in.
+ * The work is `openHelp` (`helpTopics.ts`); this only supplies the location and
+ * routes a failure to the banner.
+ */
+function HelpButton({ api, onError }: { api: ApiClient; onError: (message: string | null) => void }) {
+  const location = useLocation();
+  const onClick = () => {
+    void openHelp(location.pathname, () => api.openDocsSession()).then((message) => {
+      if (message !== null) onError(message);
+    });
+  };
+  return (
+    <button
+      type="button"
+      className="btn"
+      onClick={onClick}
+      // The accessible name starts with the visible word, so a user who says
+      // "click Help" to speech input reaches it.
+      aria-label="Help: documentation for this screen"
+      title="Documentation for this screen"
+    >
+      Help
+    </button>
+  );
+}
+
 function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
   const [user, setUser] = useState<User | null>(api.currentUser);
   const [theme, setTheme] = useState<Theme>(
@@ -480,6 +508,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
         >
           {theme === "dark" ? "Light" : "Dark"}
         </button>
+        <HelpButton api={api} onError={setError} />
         <button type="button" className="btn" onClick={() => api.logout()}>
           Sign out
         </button>

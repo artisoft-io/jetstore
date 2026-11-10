@@ -377,6 +377,18 @@ export class ApiClient {
     return this.post<T>(path, payload);
   }
 
+  /**
+   * POST to /docsSession, which sets the cookie the documentation site under
+   * `/docs/` requires (jets/apiserver/static_docs.go, `docsSession`). The token
+   * lives in memory only, so a new tab has no other way to prove who it is.
+   *
+   * The server answers 204 with no body, which `post` reads as `{}`; failures
+   * throw as every other post does.
+   */
+  async openDocsSession(): Promise<void> {
+    await this.post("/docsSession", {});
+  }
+
   private async post<T>(path: string, payload: Record<string, unknown>): Promise<T> {
     if (!this.token) throw new SessionExpiredError();
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
