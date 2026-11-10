@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
@@ -182,8 +183,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
 		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" ||
-			cpipesStartup.MainInputSchemaProviderConfig.Bucket == "jetstore_bucket" {
+		if awsi.IsJetStoreBucket(cpipesStartup.MainInputSchemaProviderConfig.Bucket) {
 			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
 		}
 		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
