@@ -95,6 +95,14 @@ func runCase(c caseIn) caseOut {
 	if err := json.Unmarshal(c.Config, &probe); err != nil {
 		return caseOut{ID: c.ID, Stage: "decode", Error: err.Error()}
 	}
+	// Both entries that decode an authored document refuse one without
+	// cluster_config before any step is selected: the sharding start step
+	// (loadStartConfig) and the coordinator (UnmarshalComputePipesConfig).
+	// ValidatePipeSpecConfig does not check it, so apply the exported one here.
+	doc := string(c.Config)
+	if _, err := cp.UnmarshalComputePipesConfig(&doc); err != nil {
+		return caseOut{ID: c.ID, Stage: "validate", Error: err.Error()}
+	}
 	steps := 0
 	for stepId := 0; stepId < probe.NbrComputePipes(); stepId++ {
 		validated, err := validateStep(c.Config, stepId)

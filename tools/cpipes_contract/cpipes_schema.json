@@ -2819,15 +2819,7 @@
           "title": "Channels"
         },
         "cluster_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ClusterSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
+          "$ref": "#/$defs/ClusterSpec",
           "description": "Execution sizing of the pipeline: shards, nodes, concurrency."
         },
         "comment": {
@@ -3049,6 +3041,9 @@
           "title": "Text Templates"
         }
       },
+      "required": [
+        "cluster_config"
+      ],
       "title": "ComputePipesConfig",
       "type": "object"
     },

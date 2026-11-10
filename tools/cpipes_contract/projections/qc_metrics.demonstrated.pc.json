@@ -1,4 +1,10 @@
 {
+  "cluster_config": {
+    "default_max_concurrency": 40,
+    "s3_worker_pool_size": 40,
+    "default_shard_size_mb": 20,
+    "default_shard_max_size_mb": 28
+  },
   "conditional_pipes_config": [
     {
       "step_name": "Compute QC metrics",
