@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -60,7 +61,7 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resul
 		os.Remove(task.LocalFilePath)
 	}()
 
-	if task.ExternalBucket == "" || task.ExternalBucket == "jetstore_bucket" {
+	if awsi.IsJetStoreBucket(task.ExternalBucket) {
 		task.ExternalBucket = bucketName
 	}
 	putObjInput = &s3.PutObjectInput{
