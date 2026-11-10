@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-
 func splitFileKey(keyMap map[string]any, fileKey *string) map[string]any {
 	if fileKey != nil {
 		for _, component := range strings.Split(*fileKey, "/") {

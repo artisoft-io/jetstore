@@ -68,7 +68,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Capability: "client_config",
 	},
 	"delete/source_config": {
-		Stmt: `DELETE FROM jetsapi.source_config WHERE key = $1`,
+		Stmt:       `DELETE FROM jetsapi.source_config WHERE key = $1`,
 		ColumnKeys: []string{"key"},
 		Capability: "client_config",
 	},
@@ -141,7 +141,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Capability: "client_config",
 	},
 	"delete/rule_configv2": {
-		Stmt: `DELETE FROM jetsapi.rule_configv2 WHERE key = $1`,
+		Stmt:       `DELETE FROM jetsapi.rule_configv2 WHERE key = $1`,
 		ColumnKeys: []string{"key"},
 		Capability: "client_config",
 	},
@@ -161,14 +161,14 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				max_rete_sessions_saved, rule_config_json, source_period_type, user_email, last_update) = 
 			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, DEFAULT) 
 			WHERE key = $15`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", 
-			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", 
-			"main_object_type", "main_source_type", "automated", "description", 
+		ColumnKeys: []string{"process_name", "client", "process_config_key",
+			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys",
+			"main_object_type", "main_source_type", "automated", "description",
 			"max_rete_sessions_saved", "rule_config_json", "source_period_type", "user_email", "key"},
 		Capability: "client_config",
 	},
 	"delete/pipeline_config": {
-		Stmt: `DELETE FROM jetsapi.pipeline_config WHERE key = $1`,
+		Stmt:       `DELETE FROM jetsapi.pipeline_config WHERE key = $1`,
 		ColumnKeys: []string{"key"},
 		Capability: "client_config",
 	},
@@ -179,9 +179,9 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				main_object_type, main_source_type, automated, description, 
 				max_rete_sessions_saved, rule_config_json, source_period_type, user_email) 
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", 
-			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", 
-			"main_object_type", "main_source_type", "automated", "description", 
+		ColumnKeys: []string{"process_name", "client", "process_config_key",
+			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys",
+			"main_object_type", "main_source_type", "automated", "description",
 			"max_rete_sessions_saved", "rule_config_json", "source_period_type", "user_email"},
 		Capability: "client_config",
 	},

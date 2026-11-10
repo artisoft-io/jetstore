@@ -49,7 +49,7 @@ func TestParseDomainKeyInfo02(t *testing.T) {
 
 func TestParseDomainKeyInfo03(t *testing.T) {
 	spec, err := ParseDomainKeyInfo("XXX", map[string]any{
-		"Claim": []any{"c1", "c2"},
+		"Claim":                 []any{"c1", "c2"},
 		"jets:hashing_override": "none",
 	})
 	if err != nil {

@@ -268,12 +268,12 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 		override := schemaProvider.NotifyApiGatewayOverride
 		switch {
-			case len(caOverride) == 0 && len(override) > 0:
-				ca.NotifyApiGatewayOverride = override
-			case caOverride == "default" && len(override) > 0:
-				ca.NotifyApiGatewayOverride = override
-			case override == "no_notifications":
-				ca.NotifyApiGatewayOverride = override
+		case len(caOverride) == 0 && len(override) > 0:
+			ca.NotifyApiGatewayOverride = override
+		case caOverride == "default" && len(override) > 0:
+			ca.NotifyApiGatewayOverride = override
+		case override == "no_notifications":
+			ca.NotifyApiGatewayOverride = override
 		}
 	}
 	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey,

@@ -271,6 +271,7 @@ func (b *BooleanBuilder) Release() {
 type DateBuilder struct {
 	builder *array.Date32Builder
 }
+
 func NewDateBuilder(mem memory.Allocator) ArrayBuilder {
 	return &DateBuilder{
 		builder: array.NewDate32Builder(mem),
@@ -311,6 +312,7 @@ func (b *DateBuilder) Release() {
 type Date64Builder struct {
 	builder *array.Date64Builder
 }
+
 func NewDate64Builder(mem memory.Allocator) ArrayBuilder {
 	return &Date64Builder{
 		builder: array.NewDate64Builder(mem),

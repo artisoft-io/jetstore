@@ -89,7 +89,7 @@ func ExtractTokenID(token string) (string, error) {
 	return "", nil
 }
 
-//Pretty display the claims nicely in the terminal
+// Pretty display the claims nicely in the terminal
 func Pretty(data any) {
 	b, err := json.MarshalIndent(data, "", " ")
 	if err != nil {

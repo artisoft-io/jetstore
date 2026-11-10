@@ -93,12 +93,12 @@ row05c1,row05c2,row05c3,row05c4
 	}
 	// t.Error("testing")
 	// Output:
-// record #1 4 col: [row01"c1 row01c2 row01c3 row01c4]
-// record #2 4 col: [row02c1 row02"c2" row02c3 row02c4]
-// record #3 3 col: [row03c1 row03c2 row03c3,row03c4
-// row04c1,row04c2,"row04c3,row04c4
-// row05c1,row05c2,row05c3,row05c4
-// ]
+	// record #1 4 col: [row01"c1 row01c2 row01c3 row01c4]
+	// record #2 4 col: [row02c1 row02"c2" row02c3 row02c4]
+	// record #3 3 col: [row03c1 row03c2 row03c3,row03c4
+	// row04c1,row04c2,"row04c3,row04c4
+	// row05c1,row05c2,row05c3,row05c4
+	// ]
 }
 
 func TestCsvLazyQuotesSpecial01(t *testing.T) {
@@ -148,7 +148,7 @@ row05c1,row05c2,row05c3,row05c4
 		}
 		for _, field := range record {
 			if bytes.IndexByte([]byte(field), r.EolByte) >= 0 {
-				t. Error("Not expected to have EOL in fields of the record")
+				t.Error("Not expected to have EOL in fields of the record")
 			}
 		}
 	}
@@ -157,11 +157,11 @@ row05c1,row05c2,row05c3,row05c4
 	}
 	// t.Error("testing")
 	// Output:
-// record #1 4 col: [row01"c1 row01c2 row01c3 row01c4]
-// record #2 4 col: [row02c1 row02"c2" row02c3 row02c4]
-// record #3 3 col: [row03c1 row03c2 row03c3,row03c4]
-// record #4 3 col: [row04c1 row04c2 row04c3,row04c4]
-// record #5 4 col: [row05c1 row05c2 row05c3 row05c4]
+	// record #1 4 col: [row01"c1 row01c2 row01c3 row01c4]
+	// record #2 4 col: [row02c1 row02"c2" row02c3 row02c4]
+	// record #3 3 col: [row03c1 row03c2 row03c3,row03c4]
+	// record #4 3 col: [row04c1 row04c2 row04c3,row04c4]
+	// record #5 4 col: [row05c1 row05c2 row05c3 row05c4]
 }
 
 func TestCsvLazyQuotesSpecial02(t *testing.T) {
@@ -205,7 +205,7 @@ row05c1,row05c2,row05c3,row05c4
 			}
 		case nbrRecords == 3:
 			if record[1] != `row03c2"` {
-				t.Error("expecting",`row03c2"`,"got",record[2])
+				t.Error("expecting", `row03c2"`, "got", record[2])
 			}
 		case nbrRecords == 4:
 			if len(record) != 3 {
@@ -222,7 +222,7 @@ row05c1,row05c2,row05c3,row05c4
 		}
 		for _, field := range record {
 			if bytes.IndexByte([]byte(field), r.EolByte) >= 0 {
-				t. Error("Not expected to have EOL in fields of the record")
+				t.Error("Not expected to have EOL in fields of the record")
 			}
 		}
 	}

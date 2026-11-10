@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-
 const defaultPromptFile = "prompt.md"
 
 // promptRe splits a prompt file into its "System:" and "User:" sections.
@@ -38,10 +37,10 @@ func parsePrompt(text string) (system, user string, err error) {
 
 // chatRequest is the payload sent to Ollama's /api/chat endpoint.
 type chatRequest struct {
-	Model    string          `json:"model"`
-	Stream   bool            `json:"stream"`
-	Options  map[string]any  `json:"options"`
-	Messages []chatMessage   `json:"messages"`
+	Model    string         `json:"model"`
+	Stream   bool           `json:"stream"`
+	Options  map[string]any `json:"options"`
+	Messages []chatMessage  `json:"messages"`
 }
 
 type chatMessage struct {
@@ -60,8 +59,8 @@ type chatResponse struct {
 // callOllama posts a chat request to Ollama and returns the message content.
 func callOllama(ctx context.Context, host, model, system, user string) (string, error) {
 	payload := chatRequest{
-		Model:  model,
-		Stream: false,
+		Model:   model,
+		Stream:  false,
 		Options: map[string]any{"temperature": 0},
 		Messages: []chatMessage{
 			{Role: "system", Content: system},

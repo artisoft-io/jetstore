@@ -19,7 +19,7 @@ func ZipSlices[K comparable, V any](keys []K, values []V) (map[K]V, error) {
 	return result, nil
 }
 
-// ZipSlices zips two slices with key of any type, and value as any, into a map. 
+// ZipSlices zips two slices with key of any type, and value as any, into a map.
 // Omit nil values on output map.
 // K must be a comparable type (e.g., string, int, float, struct with comparable fields).
 func ZipSlicesNoNil[K comparable](keys []K, values []any) (map[K]any, error) {
@@ -30,7 +30,7 @@ func ZipSlicesNoNil[K comparable](keys []K, values []any) (map[K]any, error) {
 	result := make(map[K]any)
 	for i, key := range keys {
 		if values[i] != nil {
-		result[key] = values[i]
+			result[key] = values[i]
 		}
 	}
 

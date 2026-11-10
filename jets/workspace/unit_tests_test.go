@@ -38,7 +38,7 @@ func writeUnitTests(t *testing.T, ws string) {
 		"missing_csv/missing.tst.json": strings.Replace(validUnitTest, `"a valid test"`, `"no input file"`, 1),
 		// An unknown key: refused before decoding, so its name is read loosely.
 		"unknown_key/unknown.tst.json": strings.Replace(validUnitTest, `"comment"`, `"commment"`, 1),
-		"not_json.tst.json":             `{"test_name": `,
+		"not_json.tst.json":            `{"test_name": `,
 		// Not a test definition, so not recorded.
 		"notes/readme.json": `{}`,
 	}

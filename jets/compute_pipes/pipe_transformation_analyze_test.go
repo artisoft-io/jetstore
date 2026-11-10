@@ -60,7 +60,7 @@ func TestCombineColumnNameToken11(t *testing.T) {
 	colName2Pos := map[string]int{
 		"fname": 0,
 		"lname": 1,
-		"myId": 2,
+		"myId":  2,
 	}
 	env := map[string]any{
 		"${COLUMN_NAME_TOKEN_JSON}": `{"name":"classification","lookup":[{"name":"id","column_pos":[0, 1],"column_name_fragments":["name_"]}]}`,
@@ -116,7 +116,7 @@ func TestCombineColumnNameToken111(t *testing.T) {
 	colName2Pos := map[string]int{
 		"fname": 0,
 		"lname": 1,
-		"myId": 2,
+		"myId":  2,
 	}
 	env := map[string]any{
 		"${COLUMN_NAME_TOKEN_JSON}": `{"name":"classification","lookup":[{"name":"id","column_pos":[0, 1],"column_name_fragments":["name_"]}]}`,
@@ -171,7 +171,7 @@ func TestCombineColumnNameToken111(t *testing.T) {
 
 func TestCombineColumnNameToken02(t *testing.T) {
 	env := map[string]any{
-		"${COLUMN_NAME_TOKEN_JSON}": `{"name":"classification","lookup":[{"name":"id","column_names":["fname","lname"]}]}`,
+		"${COLUMN_NAME_TOKEN_JSON}":     `{"name":"classification","lookup":[{"name":"id","column_names":["fname","lname"]}]}`,
 		"${OVERRIDE_COLUMN_NAME_TOKEN}": "1",
 	}
 	configToken := &ColumnNameTokenNode{
@@ -217,10 +217,10 @@ func TestCombineColumnNameToken12(t *testing.T) {
 	colName2Pos := map[string]int{
 		"fname": 0,
 		"lname": 1,
-		"myId": 2,
+		"myId":  2,
 	}
 	env := map[string]any{
-		"${COLUMN_NAME_TOKEN_JSON}": `{"name":"classification","lookup":[{"name":"id","column_pos":[0, 1]}]}`,
+		"${COLUMN_NAME_TOKEN_JSON}":     `{"name":"classification","lookup":[{"name":"id","column_pos":[0, 1]}]}`,
 		"${OVERRIDE_COLUMN_NAME_TOKEN}": "1",
 	}
 	configToken := &ColumnNameTokenNode{
@@ -270,7 +270,7 @@ func TestCombineColumnNameToken03(t *testing.T) {
 	configToken := &ColumnNameTokenNode{
 		Name: "classification",
 		Lookup: []*ColumnNameLookupNode{
-			{Name: "unclassified", ColumnNames: []string{"fname","addr"}},
+			{Name: "unclassified", ColumnNames: []string{"fname", "addr"}},
 		},
 	}
 	result, err := combineColumnNameToken(configToken, env, nil)
@@ -293,7 +293,7 @@ func TestCombineColumnNameToken03(t *testing.T) {
 		t.Error("second lookup entry is not correct")
 	}
 
-		colName2Token, colFragment2Token := prepareColName2TokenMap(result)
+	colName2Token, colFragment2Token := prepareColName2TokenMap(result)
 	if len(colName2Token) != 3 {
 		t.Error("expecting 3 entries in colName2Token, got ", len(colName2Token))
 	}
@@ -315,8 +315,8 @@ func TestCombineColumnNameToken13(t *testing.T) {
 	colName2Pos := map[string]int{
 		"fname": 0,
 		"lname": 1,
-		"myId": 2,
-		"addr": 3,
+		"myId":  2,
+		"addr":  3,
 	}
 	env := map[string]any{
 		"${COLUMN_NAME_TOKEN_JSON}": `{"name":"classification","lookup":[{"name":"id","column_pos":[0,1]}]}`,
@@ -324,7 +324,7 @@ func TestCombineColumnNameToken13(t *testing.T) {
 	configToken := &ColumnNameTokenNode{
 		Name: "classification",
 		Lookup: []*ColumnNameLookupNode{
-			{Name: "unclassified", ColumnNames: []string{"fname","addr"}},
+			{Name: "unclassified", ColumnNames: []string{"fname", "addr"}},
 		},
 	}
 	result, err := combineColumnNameToken(configToken, env, colName2Pos)
@@ -347,7 +347,7 @@ func TestCombineColumnNameToken13(t *testing.T) {
 		t.Error("second lookup entry is not correct")
 	}
 
-		colName2Token, colFragment2Token := prepareColName2TokenMap(result)
+	colName2Token, colFragment2Token := prepareColName2TokenMap(result)
 	if len(colName2Token) != 3 {
 		t.Error("expecting 3 entries in colName2Token, got ", len(colName2Token))
 	}
