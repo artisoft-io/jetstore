@@ -186,12 +186,113 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 	return &map[string]any{"file_keys": written}, http.StatusOK, nil
 }
 
-// Register file_key with file_key_staging table and handling schema events as well.
-func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
+// registerFileKeyRow is one row of a register_keys request, read and checked.
+type registerFileKeyRow struct {
+	fileKeyObject      map[string]any
+	schemaProviderJson string
+	requestId          any
+}
+
+// readRegisterFileKeyRow copies the keys RegisterFileKeys reads from one row of
+// the request, converting them to the types it uses. An error is the request's
+// fault and is a 400. It writes nothing, so that RegisterFileKeys can read every
+// row before it writes any (JM-096).
+func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow, error) {
 	var err error
+	r := &registerFileKeyRow{
+		// fileKeyObject with defaults
+		fileKeyObject: map[string]any{
+			"org":        "",
+			"year":       1970,
+			"month":      1,
+			"day":        1,
+			"request_id": nil,
+		},
+	}
+	fileKeyObject := r.fileKeyObject
+	// Get the value from the incoming obj, convert to correct types
+	for k, v := range data {
+		switch k {
+		case "client", "vendor", "org", "object_type":
+			// These are read as strings without a check further down, in
+			// updateFileKeyComponentCase and when starting pipelines, so a
+			// non-string is refused here rather than panicking there. Nil is
+			// what an absent value is, and keeps the default.
+			switch v.(type) {
+			case nil, string:
+				fileKeyObject[k] = v
+			default:
+				return nil, fmt.Errorf("register_file_keys: row %d: %s must be a string, got %T", irow, k, v)
+			}
+		case "file_key":
+			fileKeyObject[k] = v
+		case "year", "month", "day":
+			// A request decoded from JSON carries numbers as float64, which had
+			// no case here and was silently replaced by the 1970-01-01 default
+			// (JM-035 review). Nil keeps the default; anything ToInt cannot
+			// read is a 400, as a non-numeric string already was.
+			if v == nil {
+				continue
+			}
+			fileKeyObject[k], err = utils.ToInt(v)
+			if err != nil {
+				return nil, fmt.Errorf("while converting %s (%v) to int: %v", k, v, err)
+			}
+		case "size":
+			switch vv := v.(type) {
+			case int:
+				fileKeyObject["file_size"] = int64(vv)
+			case int32:
+				fileKeyObject["file_size"] = int64(vv)
+			case int64:
+				fileKeyObject["file_size"] = vv
+			case float64:
+				fileKeyObject["file_size"] = int64(vv)
+			case float32:
+				fileKeyObject["file_size"] = int64(vv)
+			case string:
+				fileKeyObject["file_size"], err = strconv.ParseInt(vv, 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
+				}
+			}
+		case "schema_provider_json":
+			// Checked (JM-037): a non-string, which a register-key hook can
+			// write, panicked the lambda here. Nil is an absent value.
+			switch vv := v.(type) {
+			case nil:
+			case string:
+				r.schemaProviderJson = vv
+			default:
+				return nil, fmt.Errorf("register_file_keys: row %d: schema_provider_json must be a string, got %T", irow, v)
+			}
+		case "request_id":
+			// Per row: a row with no request_id must not inherit the previous
+			// row's (JM-035 review).
+			r.requestId = v
+			fileKeyObject[k] = v
+		}
+	}
+	return r, nil
+}
+
+// Register file_key with file_key_staging table and handling schema events as well.
+//
+// Every row is read and checked before any is written (JM-096): a request whose
+// row N was refused with a 400 had already written rows 0 to N-1, started their
+// pipelines, and left the caller no way to tell which.
+func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	sqlStmt, ok := sqlInsertStmts["file_key_staging"]
 	if !ok {
 		return nil, http.StatusInternalServerError, errors.New("error cannot find file_key_staging stmt")
+	}
+	rows := make([]*registerFileKeyRow, 0, len(registerFileKeyAction.Data))
+	for irow := range registerFileKeyAction.Data {
+		r, err := readRegisterFileKeyRow(irow, registerFileKeyAction.Data[irow])
+		if err != nil {
+			return nil, http.StatusBadRequest, err
+		}
+		rows = append(rows, r)
 	}
 	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
 	baseSessionId := time.Now().UnixMilli()
@@ -199,84 +300,10 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	var allOk bool
 	row := make([]any, len(sqlStmt.ColumnKeys))
 NextKey:
-	for irow := range registerFileKeyAction.Data {
-		var schemaProviderJson string
-		// Per row: a row with no request_id must not inherit the previous row's
-		// (JM-035 review). It was declared above the loop, so in a request of
-		// several rows the input_registry rows of a later row carried the
-		// request_id of an earlier one.
-		var requestId any
-		// fileKeyObject with defaults
-		fileKeyObject := map[string]any{
-			"org":        "",
-			"year":       1970,
-			"month":      1,
-			"day":        1,
-			"request_id": nil,
-		}
-		// Get the value from the incoming obj, convert to correct types
-		for k, v := range registerFileKeyAction.Data[irow] {
-			switch k {
-			case "client", "vendor", "org", "object_type":
-				// These are read as strings without a check further down, in
-				// updateFileKeyComponentCase and when starting pipelines, so a
-				// non-string is refused here rather than panicking there. Nil is
-				// what an absent value is, and keeps the default.
-				switch v.(type) {
-				case nil, string:
-					fileKeyObject[k] = v
-				default:
-					return nil, http.StatusBadRequest,
-						fmt.Errorf("register_file_keys: row %d: %s must be a string, got %T", irow, k, v)
-				}
-			case "file_key":
-				fileKeyObject[k] = v
-			case "year", "month", "day":
-				// A request decoded from JSON carries numbers as float64, which had
-				// no case here and was silently replaced by the 1970-01-01 default
-				// (JM-035 review). Nil keeps the default; anything ToInt cannot
-				// read is a 400, as a non-numeric string already was.
-				if v == nil {
-					continue
-				}
-				fileKeyObject[k], err = utils.ToInt(v)
-				if err != nil {
-					return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%v) to int: %v", k, v, err)
-				}
-			case "size":
-				switch vv := v.(type) {
-				case int:
-					fileKeyObject["file_size"] = int64(vv)
-				case int32:
-					fileKeyObject["file_size"] = int64(vv)
-				case int64:
-					fileKeyObject["file_size"] = vv
-				case float64:
-					fileKeyObject["file_size"] = int64(vv)
-				case float32:
-					fileKeyObject["file_size"] = int64(vv)
-				case string:
-					fileKeyObject["file_size"], err = strconv.ParseInt(vv, 10, 64)
-					if err != nil {
-						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
-					}
-				}
-			case "schema_provider_json":
-				// Checked (JM-037): a non-string, which a register-key hook can
-				// write, panicked the lambda here. Nil is an absent value.
-				switch vv := v.(type) {
-				case nil:
-				case string:
-					schemaProviderJson = vv
-				default:
-					return nil, http.StatusBadRequest,
-						fmt.Errorf("register_file_keys: row %d: schema_provider_json must be a string, got %T", irow, v)
-				}
-			case "request_id":
-				requestId = v
-				fileKeyObject[k] = v
-			}
-		}
+	for _, r := range rows {
+		fileKeyObject := r.fileKeyObject
+		schemaProviderJson := r.schemaProviderJson
+		requestId := r.requestId
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
 
 		// Inserting source_period, do retry logic in case of a race condition
