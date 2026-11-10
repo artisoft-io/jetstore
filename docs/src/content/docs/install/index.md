@@ -8,14 +8,22 @@ sidebar:
 
 The Installation Guide is for whoever deploys JetStore into an AWS account and keeps it running.
 
-It covers:
+JetStore is deployed with the AWS CDK, from the `cdk/` folder of the `jetstore` repository: one
+CloudFormation stack, `cdk/jetstore_one`, whose composition is decided by environment variables read
+at synth time. The guide has three parts.
 
-- **Planning**: the components and which of them to deploy (the core stack, the inference server,
-  VPC peering), sizing, network and security, and customising an installation for a client.
-- **How-to guides**: bootstrap an account, deploy, build and deploy a workspace, upgrade to a new
-  release, rotate secrets, and verify a deployment.
-- **Reference**: the stack's parameters and outputs, the environment variables each component reads,
-  and the container images and what each contains.
+- **[Planning](/docs/install/planning/)**: what the stack contains and how it is wired, its network
+  and security, running several stacks in one account, arranging DEV, UAT and PROD, how a file
+  becomes a pipeline run, and the inference server's memory.
+- **[How-to guides](/docs/install/how-to/)**: deploy the stack and check it, deploy a second stack
+  in a shared VPC, tear a stack down, find why a file did not start a pipeline, build the inference
+  server's AMI, start and stop the inference server, and run against a local checkout.
+- **[Reference](/docs/install/reference/)**: the stack's components, the variables a deployment
+  requires, and the stack's outputs.
 
-JetStore is deployed with the AWS CDK, from the `cdk/` folder of the `jetstore` repository. The
-deployment material that lives beside that code is being moved into this guide.
+Start with [Architecture](/docs/install/planning/architecture/), then
+[Deploy the stack](/docs/install/how-to/deploy/).
+
+Not yet covered here: bootstrapping an account (`cdk/bootstrap_aws`), VPC peering
+(`cdk/vpc_peering`), sizing, building and deploying a workspace, upgrading to a new release,
+rotating secrets, and the container images.
