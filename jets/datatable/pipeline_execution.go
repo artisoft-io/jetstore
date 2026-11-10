@@ -146,6 +146,19 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		dataTableAction.Data[irow]["status"] = status
 	}
 
+	// The fields a submitted run's start reads from the request, checked here,
+	// before anything is read or written. Unchecked, a missing file_key let the
+	// row be inserted and then panicked the handler at the start, leaving a
+	// submitted run that nothing would start (JM-076).
+	var startFields map[string]string
+	if dataTableAction.FromClauses[0].Table == "pipeline_execution_status" && status == "submitted" {
+		startFields, err = requiredStrings(dataTableAction.Data[irow], "file_key", "client", "user_email")
+		if err != nil {
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	}
+
 	switch {
 	case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
 		inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
@@ -279,13 +292,13 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			task := &PendingTask{
 				Key:                  int64(peKey),
 				MainInputRegistryKey: sql.NullInt64{Int64: mainInputRegistryKey, Valid: true},
-				MainInputFileKey:     sql.NullString{String: dataTableAction.Data[irow]["file_key"].(string), Valid: true},
+				MainInputFileKey:     sql.NullString{String: startFields["file_key"], Valid: true},
 				StateMachineName:     stateMachineName,
-				Client:               dataTableAction.Data[irow]["client"].(string),
-				ProcessName:          dataTableAction.Data[irow]["process_name"].(string),
-				SessionId:            dataTableAction.Data[irow]["session_id"].(string),
+				Client:               startFields["client"],
+				ProcessName:          processName,
+				SessionId:            sessionId,
 				Status:               status,
-				UserEmail:            dataTableAction.Data[irow]["user_email"].(string),
+				UserEmail:            startFields["user_email"],
 				FileSize:             sql.NullInt64{},
 			}
 			err = ctx.startPipeline(devModeCode, task, results)
@@ -296,6 +309,20 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		}
 	}
 	return
+}
+
+// requiredStrings returns the named fields of a request row, refusing the row
+// when one is missing or is not a string.
+func requiredStrings(row map[string]any, keys ...string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	for _, k := range keys {
+		v, ok := row[k].(string)
+		if !ok {
+			return nil, fmt.Errorf("error: missing %s, or not a string, in request to start a pipeline", k)
+		}
+		out[k] = v
+	}
+	return out, nil
 }
 
 // sessionIdOf is a row's session id as text: "" for none.
