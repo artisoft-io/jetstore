@@ -1,0 +1,21 @@
+{
+  "name": "jetstore-docs",
+  "private": true,
+  "type": "module",
+  "description": "JetStore documentation: the User, Developer's and Installation Guides, built with Astro Starlight",
+  "scripts": {
+    "gen": "node scripts/gen.mjs",
+    "dev": "npm run gen && astro dev",
+    "build": "npm run gen && astro build",
+    "preview": "astro preview",
+    "check": "npm run gen && astro sync"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.10",
+    "astro": "^7.4.10"
+  },
+  "devDependencies": {
+    "csv-parse": "^7.0.3",
+    "starlight-links-validator": "^0.27.0"
+  }
+}

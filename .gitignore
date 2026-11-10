@@ -189,3 +189,12 @@ tools/sample_projects/patient_summary_go/patient_summary_go
 .claude/settings.local.json
 jets/apiserver/rules_unit_test
 jets/cmds/install_workspace_assets/install_workspace_assets
+
+# The documentation site (docs/): its dependencies, its build, Astro's cache, and
+# the reference pages `npm run gen` writes from the source files at build time.
+docs/node_modules/
+docs/dist/
+docs/.astro/
+docs/src/content/docs/developer/reference/generated/
+# package-lock.json is ignored above; the docs build runs `npm ci`, which needs it.
+!docs/package-lock.json
