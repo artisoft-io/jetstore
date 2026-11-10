@@ -149,7 +149,6 @@ func TestMarshalBinary(t *testing.T) {
 		t.Errorf("Unexpected number of distinct hashed values")
 	}
 
-
 	// Float64
 	node, _ = F(1.05).MarshalBinary()
 	hashed[hashIt(node)] = true

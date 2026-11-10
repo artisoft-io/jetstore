@@ -167,7 +167,7 @@ func TestAssignShardInfoP13(t *testing.T) {
 }
 
 func TestAssignShardInfo11(t *testing.T) {
-  // shard_offset = 10
+	// shard_offset = 10
 	rows, nShards := assignShardInfo(
 		[]*awsi.S3Object{
 			{Key: "file_key1", Size: 100},

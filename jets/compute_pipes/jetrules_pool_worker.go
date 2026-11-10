@@ -1,13 +1,17 @@
 package compute_pipes
 
 import (
+	"cmp"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"maps"
+	"math"
+	"math/big"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1070,6 +1074,12 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject R
 				}
 			}
 		}
+		if isArray {
+			// The graph returns a subject's values in its hash set's order, which
+			// is seeded per process; sorting makes the cell a function of its
+			// values alone (JM-047). A single value is left as it is.
+			sortCellValues(dataArr)
+		}
 		if ctx.multiValueDataProperties[pname] {
 			if isArray {
 				data = dataArr
@@ -1097,6 +1107,141 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject R
 		}
 	}
 	return data
+}
+
+// sortCellValues puts a multi-valued cell's values in a total order that
+// depends on the values only, not on the order the graph returned them in:
+// numbers numerically, dates and datetimes chronologically, text bytewise. Values
+// of different kinds are grouped by kind, in the order of cellValueRank. It is
+// the counterpart, for literal columns, of sortEntityLists for an encoded
+// entity; that one orders on a rendering, which would put 10 before 9.
+func sortCellValues(values []any) {
+	if len(values) < 2 {
+		return
+	}
+	slices.SortStableFunc(values, compareCellValues)
+}
+
+// cellValueRank is the order of the kinds GetRdfNodeValue returns: null, then
+// numbers, then dates and datetimes, then text, then anything else.
+func cellValueRank(v any) int {
+	switch v.(type) {
+	case nil:
+		return 0
+	case int, uint, float64:
+		return 1
+	case time.Time:
+		return 2
+	case string:
+		return 3
+	default:
+		return 4
+	}
+}
+
+// compareCellValues is a total order on cell values. Two values it reports
+// equal have the same type and the same rendering, so no output can tell which
+// came first and the sort's result does not depend on its input order.
+func compareCellValues(a, b any) int {
+	ra, rb := cellValueRank(a), cellValueRank(b)
+	if ra != rb {
+		return cmp.Compare(ra, rb)
+	}
+	switch ra {
+	case 0:
+		return 0
+	case 1:
+		if c := compareNumbers(a, b); c != 0 {
+			return c
+		}
+		// Equal numbers of different types, int 1 and double 1: by type; and
+		// -0 before 0, which render differently.
+		if c := cmp.Compare(numberTypeRank(a), numberTypeRank(b)); c != 0 {
+			return c
+		}
+		if fa, ok := a.(float64); ok {
+			return -cmp.Compare(boolRank(math.Signbit(fa)), boolRank(math.Signbit(b.(float64))))
+		}
+		return 0
+	case 2:
+		ta, tb := a.(time.Time), b.(time.Time)
+		if c := ta.Compare(tb); c != 0 {
+			return c
+		}
+		// One instant in two zones renders differently.
+		return strings.Compare(ta.Format(time.RFC3339Nano), tb.Format(time.RFC3339Nano))
+	case 3:
+		return strings.Compare(a.(string), b.(string))
+	default:
+		if c := strings.Compare(fmt.Sprintf("%T", a), fmt.Sprintf("%T", b)); c != 0 {
+			return c
+		}
+		return strings.Compare(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
+	}
+}
+
+func boolRank(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func numberTypeRank(v any) int {
+	switch v.(type) {
+	case int:
+		return 0
+	case uint:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// compareNumbers compares two of int, uint and float64 by value, exactly: a
+// conversion to float64 would make distinct large integers equal, and an order
+// that is not transitive is not a total one. NaN is after every other number.
+func compareNumbers(a, b any) int {
+	switch x := a.(type) {
+	case int:
+		if y, ok := b.(int); ok {
+			return cmp.Compare(x, y)
+		}
+	case uint:
+		if y, ok := b.(uint); ok {
+			return cmp.Compare(x, y)
+		}
+	case float64:
+		if y, ok := b.(float64); ok && !math.IsNaN(x) && !math.IsNaN(y) {
+			return cmp.Compare(x, y)
+		}
+	}
+	na, nb := isNaN(a), isNaN(b)
+	switch {
+	case na && nb:
+		return 0
+	case na:
+		return 1
+	case nb:
+		return -1
+	}
+	return bigFloat(a).Cmp(bigFloat(b))
+}
+
+func isNaN(v any) bool {
+	f, ok := v.(float64)
+	return ok && math.IsNaN(f)
+}
+
+func bigFloat(v any) *big.Float {
+	switch x := v.(type) {
+	case int:
+		return new(big.Float).SetInt64(int64(x))
+	case uint:
+		return new(big.Float).SetUint64(uint64(x))
+	default:
+		return new(big.Float).SetFloat64(v.(float64))
+	}
 }
 
 // reportMultipleValues reports a property that is not multi-value and has

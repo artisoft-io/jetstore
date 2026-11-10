@@ -3,22 +3,25 @@ package compute_pipes
 import (
 	"fmt"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // One definition of "is this a resolved bucket", for every caller that has a
 // configured bucket name in hand and needs to know what it is.
 //
-// The test `bucket == "" || bucket == "jetstore_bucket"` is written out at six
-// call sites today (DownloadS3Object in actions_s3_utils.go, the merge writer
-// in pipe_executor_merge_files.go, the partition writer, the s3 device worker,
-// actions_get_columns_from_file.go and actions_coordinate_cp.go). All six agree
-// on what an empty or sentinel bucket means and none of them says anything
-// about a bucket name that still carries an unexpanded environment reference —
-// so a document naming `${CORPUS_OUT_BUCKET}` is carried all the way to the
-// write and creates an S3 bucket path spelled with the dollar sign in it. The
-// run succeeds and the deliverables are somewhere nobody will look.
+// The test for "the deployment's own bucket" (empty, or the "jetstore_bucket"
+// sentinel) is awsi.IsJetStoreBucket, used by every reader, writer and sink in
+// this package and in awsi. Until JM-057 it was spelled out by hand at each of
+// them, and none of them says anything about a bucket name that still carries
+// an unexpanded environment reference -- so a document naming
+// `${CORPUS_OUT_BUCKET}` was carried all the way to the write and created an S3
+// bucket path spelled with the dollar sign in it. The run succeeds and the
+// deliverables are somewhere nobody will look.
 //
-// This is the classification those six share, plus the case they do not make.
+// ClassifyBucket is that test plus the case it does not make; outputBucket
+// (below) is how the two output writers apply it, after substitution.
 
 // BucketKind is what a configured bucket name turns out to name.
 type BucketKind int
@@ -42,8 +45,10 @@ func (k BucketKind) String() string {
 }
 
 // JetStoreBucketSentinel is the name a document writes to say "the deployment's
-// own bucket" rather than leaving the field empty.
-const JetStoreBucketSentinel = "jetstore_bucket"
+// own bucket" rather than leaving the field empty. It is awsi's, so that the
+// readers and sinks there and the writers here test one name with one
+// function (awsi.IsJetStoreBucket); this alias keeps the exported name.
+const JetStoreBucketSentinel = awsi.JetStoreBucketSentinel
 
 // ClassifyBucket says what a configured bucket name names, and returns an error
 // when the name is not a bucket name at all because variable substitution did
@@ -55,7 +60,7 @@ const JetStoreBucketSentinel = "jetstore_bucket"
 // and is discovered by the deliverables' absence somewhere else.
 func ClassifyBucket(bucket string) (BucketKind, error) {
 	trimmed := strings.TrimSpace(bucket)
-	if trimmed == "" || trimmed == JetStoreBucketSentinel {
+	if awsi.IsJetStoreBucket(trimmed) {
 		return JetStoreBucket, nil
 	}
 	if IsUnresolvedBucket(trimmed) {
@@ -107,4 +112,34 @@ func ResolveBucket(bucket, jetStoreBucket string) (string, error) {
 		return jetStoreBucket, nil
 	}
 	return strings.TrimSpace(bucket), nil
+}
+
+// outputBucket is the external bucket a writer addresses for an output: the
+// configured bucket when there is one, else the input schema provider's bucket
+// when the output location is "jetstore_s3_input", with environment variables
+// substituted. It returns "" for the deployment's own bucket, which is what
+// every reader and sink downstream reads as that bucket, and an error for a
+// name that substitution did not reach.
+//
+// Substitution comes first and classification second. The two writers that use
+// this (the merge writer and the partition writer) used to do it the other way
+// round: they tested the raw value for the sentinel and substituted
+// afterwards, so a bucket configured as ${X} with X = "jetstore_bucket" reached
+// the sinks as an external bucket of that name, and only the sinks' own
+// re-tests kept the write out of it (JM-057). The sinks still re-test, as
+// defence in depth; this is where the decision is meant to be made.
+//
+// The unresolved case is refused at startup already (ValidateResolvedBuckets);
+// refusing it here too costs nothing, since no S3 bucket name contains '$'.
+func outputBucket(configured string, inputSp SchemaProvider, outputLocation string,
+	env map[string]any) (string, error) {
+	switch {
+	case len(configured) > 0:
+	case inputSp != nil && outputLocation == "jetstore_s3_input":
+		configured = inputSp.Bucket()
+	}
+	if len(configured) > 0 {
+		configured = utils.ReplaceEnvVars(configured, env)
+	}
+	return ResolveBucket(configured, "")
 }

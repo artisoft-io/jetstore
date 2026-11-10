@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
@@ -140,13 +141,9 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 
 	// Get the cpipes_config json from workspace
 	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
-	cpJson, err := os.ReadFile(configFile)
+	err = loadStartConfig(configFile, cpipesConfigFN.String, &cpipesStartup.CpConfig)
 	if err != nil {
-		return cpipesStartup, fmt.Errorf("while reading cpipes config from workspace: %v", err)
-	}
-	err = json.Unmarshal(cpJson, &cpipesStartup.CpConfig)
-	if err != nil {
-		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (initializeCpipes): %s", err)
+		return cpipesStartup, err
 	}
 
 	// Get the schema provider from schemaProviderJson:
@@ -186,8 +183,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
 		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" ||
-			cpipesStartup.MainInputSchemaProviderConfig.Bucket == "jetstore_bucket" {
+		if awsi.IsJetStoreBucket(cpipesStartup.MainInputSchemaProviderConfig.Bucket) {
 			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
 		}
 		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
@@ -2320,6 +2316,28 @@ func GetAdditionalInputColumns(cpConfig *ComputePipesConfig) []string {
 		if cpConfig.Channels[i].Name == "input_row" {
 			return cpConfig.Channels[i].Columns
 		}
+	}
+	return nil
+}
+
+// loadStartConfig reads the cpipes config the sharding start step is given and
+// refuses one without a cluster_config block. The start step is the one entry that
+// unmarshals an authored .pc.json without going through UnmarshalComputePipesConfig,
+// which refuses the same document on the coordinator's path (compute_pipes.go), and
+// ClusterConfig is a pointer dereferenced unguarded from prepareCpipesEnv onward:
+// without this check a missing block is a nil-pointer panic rather than an error
+// naming the file. name is the workspace-relative file name, for the message.
+func loadStartConfig(configFile, name string, cpConfig *ComputePipesConfig) error {
+	cpJson, err := os.ReadFile(configFile)
+	if err != nil {
+		return fmt.Errorf("while reading cpipes config from workspace: %v", err)
+	}
+	err = json.Unmarshal(cpJson, cpConfig)
+	if err != nil {
+		return fmt.Errorf("while unmarshaling compute pipes json (initializeCpipes): %s", err)
+	}
+	if cpConfig.ClusterConfig == nil {
+		return fmt.Errorf("error: cluster_config is required in %s", name)
 	}
 	return nil
 }

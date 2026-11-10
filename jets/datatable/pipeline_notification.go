@@ -19,10 +19,10 @@ func (ca *StatusUpdate) notifyApiGateway(schemaProvider *SchemaProviderShort) er
 	}
 	override := ca.NotifyApiGatewayOverride
 	switch {
-		case override == "no_notifications" || override == "start_only" || (override == "failure_only" && ca.Status != "failed"):
-			log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping completed/failed notification to API Gateway as notify_api_gateway_override is set to '%s'\n", 
-				ca.SessionId, override)
-			return nil
+	case override == "no_notifications" || override == "start_only" || (override == "failure_only" && ca.Status != "failed"):
+		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping completed/failed notification to API Gateway as notify_api_gateway_override is set to '%s'\n",
+			ca.SessionId, override)
+		return nil
 	}
 	var notificationTemplate string
 	var errMsg string

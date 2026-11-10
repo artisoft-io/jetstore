@@ -27,7 +27,7 @@ import (
 //	-123        -> {type: "int", value: "-123"}
 //	+12.3       -> {type: "double", value: "+12.3"}
 //
-// Note: if the type is "var" then it's a variable and a new resource is created in the scope of the rule only. 
+// Note: if the type is "var" then it's a variable and a new resource is created in the scope of the rule only.
 // Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource",
 // this is resolved by the WorkspaceResourceManager when adding to the model.
 // returns the ResourceNode.

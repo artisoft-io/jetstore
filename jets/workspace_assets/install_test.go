@@ -447,7 +447,11 @@ var projectedKeys = map[string]bool{
 // the browser — the layer this repository has least visibility into, so the glob
 // is checked here instead (task U.2).
 //
-// **Two shapes since the eleven ported flows moved in.** FlowStore reads the
+// **Two shapes since the ported flows moved in** — eleven on 2026-08-26, ten
+// since `registerFileKeyUF` was retired on 2026-10-01, and `rulesUnitTestUF`,
+// written rather than ported, has the same three documents. This sentence said
+// *the eleven ported flows* until 2026-11-10; the test asserts no count, so
+// none is kept here either. FlowStore reads the
 // .uf.json, .ua.json and .form.json of every flow; a projection has a fourth,
 // the .apply.json, which no UserFlow schema describes and only the escape reads.
 // So three documents is the rule and the fourth is a property of being generated

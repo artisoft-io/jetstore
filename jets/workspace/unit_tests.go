@@ -30,7 +30,7 @@ const UnitTestSuffix = ".tst.json"
 //
 // Findings holds the error findings only, and is empty for a test that may be
 // started. That is the contract the rules_unit_test insert target reads
-// (track AC, I-17): a row whose findings are NULL, '', '[]' or 'null' is
+// (track AC, I-17): a row whose findings are NULL, the empty string, '[]' or 'null' is
 // runnable, so a warning written here would refuse a test the validator
 // accepts.
 type UnitTestRecord struct {

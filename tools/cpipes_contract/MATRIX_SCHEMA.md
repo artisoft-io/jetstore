@@ -122,10 +122,13 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   `workspaces/` resolves against the repo holding the corpus** — the parent of the code root — because
   generator evidence (the org1 lambdas) lives in the client workspaces beside the JetStore checkout,
   not inside it. `check --code` follows both.
-- **The corpus is `workspaces/*/pipes_config/**` minus what each directory's asset manifest
-  names** — ~~45~~ **42 files, measured 2026-09-11**; the 2026-09-08 sharpening excluded the
-  JetStore-owned assets `install_workspace_assets` installs, which a developer's checkout
-  acquired when the workspace repositories stopped committing them. The `.pc.json` under
+- **The corpus is every `.pc.json` under a `pipes_config` directory in `workspaces/`**, with
+  nothing subtracted (`config_files`, `cpipes_contract/corpus.py`): **51 files, measured
+  2026-11-10**, five of them the JetStore-owned assets `install_workspace_assets` writes into a
+  checkout, which the workspace repositories do not track. This bullet said *minus what each
+  directory's asset manifest names*, at ~~45~~ 42 files on 2026-09-11, until 2026-11-10; that
+  subtraction is `jets/agentic/eval`'s rule (46 files the same day), and the walker here never
+  applied it. The README states both definitions and which tool uses which. The `.pc.json` under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
   not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
 - **The corpus is authored documents.** The root type also serialises a *runtime* shape that
@@ -249,7 +252,9 @@ wins when both are set*, or *required unless that one is present*. All three are
 
 ## The corpus
 
-**45 files — 49 until 2026-08-16, 71 originally.** `workspaces/*/pipes_config/**` is what JetStore
+**45 files on 2026-08-16 — 49 until then, 71 originally — and 51 on 2026-11-10** by the rule in
+*Conventions* above. This section and its table are the 2026-08-16 measurement and are kept as one;
+`cpipes-contract corpus` prints today's count. `workspaces/*/pipes_config/**` is what JetStore
 loads. Four files were deleted on 2026-08-16 on I-15's finding that they could not run as they
 stood: `cedargate_ws`'s `csv_test.pc.json` (does not decode — a string in an `int32` `delimiter`)
 and `clustering_test.pc.json` (clustering keys from a retired revision of `ClusteringSpec`), and

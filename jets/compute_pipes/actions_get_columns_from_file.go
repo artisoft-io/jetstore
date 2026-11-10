@@ -53,7 +53,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey string, firstKeyFi
 			os.Remove(fn)
 		}
 	}()
-	if externalBucket == "" || externalBucket == "jetstore_bucket" {
+	if awsi.IsJetStoreBucket(externalBucket) {
 		externalBucket = bucketName
 	}
 	var byteRange *string

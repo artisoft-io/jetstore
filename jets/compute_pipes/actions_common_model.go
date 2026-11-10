@@ -121,7 +121,7 @@ type InputSourceSpec struct {
 
 // FileKeyInfo contains the file key and the info about the file key such as size and the range to read for sharding step.
 // The range to read is specified as bytes for text files and nbr of rows with offset for parquet files.
-// So for parquet files, if a file is split in 3 shards and reading the second shard would 
+// So for parquet files, if a file is split in 3 shards and reading the second shard would
 // be specified as start = 1 (second shard), end = 3 (3 shards).
 // 'start' is 0-based since it's an indice while 'end' is 1-based since it's a count.
 type FileKeyInfo struct {
@@ -261,16 +261,16 @@ type ComputePipesContext struct {
 	JetRules              JetRulesProxy
 	// SiteOperators is this deployment's own operators, from WithOperators. Nil
 	// in every stock build, and it travels exactly the route JetRules does.
-	SiteOperators         map[string]SiteOperatorFactory
-	ChResults             *ChannelResults
-	KillSwitch            chan struct{}
-	MainMergeDone         *chan struct{}
-	Done                  chan struct{}
-	ErrCh                 chan error
-	FileNamesCh           []chan FileName
-	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
-	S3DeviceMgr           *S3DeviceManager
-	SchemaManager         *SchemaManager
+	SiteOperators      map[string]SiteOperatorFactory
+	ChResults          *ChannelResults
+	KillSwitch         chan struct{}
+	MainMergeDone      *chan struct{}
+	Done               chan struct{}
+	ErrCh              chan error
+	FileNamesCh        []chan FileName
+	DownloadS3ResultCh chan DownloadS3Result // avoid to modify ChannelResult for now...
+	S3DeviceMgr        *S3DeviceManager
+	SchemaManager      *SchemaManager
 }
 
 func (cpCtx *ComputePipesContext) DoneAll(err error) {

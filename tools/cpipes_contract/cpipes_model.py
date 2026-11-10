@@ -276,7 +276,7 @@ class ComputePipesCommonArgs(_Base):
 class ComputePipesConfig(_Base):
     """Complete configuration for a Compute Pipes pipeline"""
     channels: list[ChannelSpec] | None = Field(default=None, description="The channel specs: the row structures shared by the pipes.")
-    cluster_config: ClusterSpec | None = Field(default=None, description="Execution sizing of the pipeline: shards, nodes, concurrency.")
+    cluster_config: ClusterSpec = Field(description="Execution sizing of the pipeline: shards, nodes, concurrency.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     conditional_pipes_config: list[ConditionalPipeSpec] | None = Field(default=None, description="The authored steps, executed conditionally in order.")
     context: list[ContextSpec] | None = Field(default=None, description="Env vars derived from the file key or from literals.")

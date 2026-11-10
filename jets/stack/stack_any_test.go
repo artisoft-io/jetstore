@@ -28,7 +28,7 @@ func TestStackAny01(t *testing.T) {
 	if v != "s1" {
 		t.Error("operation failed")
 	}
-	
+
 	s.Push("s2")
 	v, b = s.Pop()
 	if !b {
@@ -37,7 +37,7 @@ func TestStackAny01(t *testing.T) {
 	if v != "s2" {
 		t.Error("operation failed")
 	}
-	
+
 	v, b = s.Pop()
 	if !b {
 		t.Error("operation failed")

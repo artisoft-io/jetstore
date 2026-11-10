@@ -62,7 +62,7 @@ PIPE = {"type": "fan_out", "input_channel": {"name": "i"}, "apply": [MAP_RECORD]
 
 def authored_document() -> dict:
     """What an author writes, and what the corpus walk validates."""
-    return {"conditional_pipes_config": [{"step_name": "s", "pipes_config": [PIPE]}]}
+    return {"cluster_config": {}, "conditional_pipes_config": [{"step_name": "s", "pipes_config": [PIPE]}]}
 
 
 def runtime_document() -> dict:

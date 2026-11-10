@@ -146,6 +146,19 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		dataTableAction.Data[irow]["status"] = status
 	}
 
+	// The fields a submitted run's start reads from the request, checked here,
+	// before anything is read or written. Unchecked, a missing file_key let the
+	// row be inserted and then panicked the handler at the start, leaving a
+	// submitted run that nothing would start (JM-076).
+	var startFields map[string]string
+	if dataTableAction.FromClauses[0].Table == "pipeline_execution_status" && status == "submitted" {
+		startFields, err = requiredStrings(dataTableAction.Data[irow], "file_key", "client", "user_email")
+		if err != nil {
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	}
+
 	switch {
 	case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
 		inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
@@ -279,13 +292,13 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			task := &PendingTask{
 				Key:                  int64(peKey),
 				MainInputRegistryKey: sql.NullInt64{Int64: mainInputRegistryKey, Valid: true},
-				MainInputFileKey:     sql.NullString{String: dataTableAction.Data[irow]["file_key"].(string), Valid: true},
+				MainInputFileKey:     sql.NullString{String: startFields["file_key"], Valid: true},
 				StateMachineName:     stateMachineName,
-				Client:               dataTableAction.Data[irow]["client"].(string),
-				ProcessName:          dataTableAction.Data[irow]["process_name"].(string),
-				SessionId:            dataTableAction.Data[irow]["session_id"].(string),
+				Client:               startFields["client"],
+				ProcessName:          processName,
+				SessionId:            sessionId,
 				Status:               status,
-				UserEmail:            dataTableAction.Data[irow]["user_email"].(string),
+				UserEmail:            startFields["user_email"],
 				FileSize:             sql.NullInt64{},
 			}
 			err = ctx.startPipeline(devModeCode, task, results)
@@ -296,6 +309,20 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		}
 	}
 	return
+}
+
+// requiredStrings returns the named fields of a request row, refusing the row
+// when one is missing or is not a string.
+func requiredStrings(row map[string]any, keys ...string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	for _, k := range keys {
+		v, ok := row[k].(string)
+		if !ok {
+			return nil, fmt.Errorf("error: missing %s, or not a string, in request to start a pipeline", k)
+		}
+		out[k] = v
+	}
+	return out, nil
 }
 
 // sessionIdOf is a row's session id as text: "" for none.
@@ -997,8 +1024,23 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 		IsSchemaEvent: true,
 		Data:          []map[string]any{schemaInfo},
 	}
-	_, _, err = ctx.RegisterFileKeys(&registerFileKeyAction, token)
-	return err
+	result, _, err := ctx.RegisterFileKeys(&registerFileKeyAction, token)
+	if err != nil {
+		return err
+	}
+	// The event's one row must register input (JM-096). RegisterFileKeys skips
+	// such a row with a 200, by design for a request of many keys, so a schema
+	// event for an unknown source config, or with no file_key, was reported as
+	// handled when nothing would ever run.
+	if n, _ := (*result)["registered"].(int); n == 0 {
+		reason := "unknown reason"
+		if skipped, _ := (*result)["skipped"].([]fileKeySkip); len(skipped) > 0 {
+			reason = skipped[0].Reason
+		}
+		return fmt.Errorf("RegisterSchemaEvent: the schema event for client %v, vendor %v, object_type %v, file_key %v registered no input: %s",
+			schemaInfo["client"], schemaInfo["vendor"], schemaInfo["object_type"], schemaInfo["file_key"], reason)
+	}
+	return nil
 }
 
 // NewPipelineCoordinatorMapSchemaInfo creates the schema info for a pipeline coordinator map register schema event,
@@ -1054,6 +1096,16 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		// schemaInfo["request_id"] = requestId
 		return fmt.Errorf("request_id is missing in schemaInfo, it must be provided for pipeline coordinator map register schema event")
 	}
+	// Check every step before writing anything (JM-096): a step that cannot
+	// register left the map in_progress for ever, with the steps before it
+	// running.
+	for i, step := range coordinatedPipesMap {
+		if err := ctx.checkCoordinatedStep(step); err != nil {
+			return fmt.Errorf("coordinator map %s: step %d: %v", requestId, i+1, err)
+		}
+	}
+	// The schema's default for status is 'in-progress'; this has always written
+	// 'in_progress', and only 'failed' is ever compared.
 	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
 	if err != nil {
@@ -1061,12 +1113,54 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	}
 
 	// For each step in coordinatedPipesMap, unmarshal the schema_event_json and call RegisterSchemaEvent
-	for _, step := range coordinatedPipesMap {
+	for i, step := range coordinatedPipesMap {
 		err = ctx.RegisterSchemaEvent(dbpool, step, token)
 		if err != nil {
-			return fmt.Errorf("while registering schema event in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
+			err = fmt.Errorf("coordinator map %s: step %d of %d failed to register: %v", requestId, i+1, len(coordinatedPipesMap), err)
+			log.Println(err)
+			// Fail the map and announce it once, as a failed task of the map
+			// does; the steps before this one are already running.
+			notice := &StatusUpdate{
+				Dbpool:                   dbpool,
+				SessionId:                fmt.Sprintf("register_step_%d", i+1),
+				Status:                   "failed",
+				FileKey:                  step.FileKey,
+				FailureDetails:           err.Error(),
+				CpipesEnv:                step.Env,
+				NotifyApiGatewayOverride: step.NotifyApiGatewayOverride,
+			}
+			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "in_progress",
+				postMapEventJson, notice); ferr != nil {
+				log.Printf("while failing coordinator map %s: %v", requestId, ferr)
+			}
+			return err
 		}
 	}
 
+	return nil
+}
+
+// checkCoordinatedStep is what a coordinator map's step needs to register, checked
+// before the map is written: a step, a file_key, and a source_config for its
+// client, vendor and object_type, resolved as RegisterFileKeys resolves them.
+func (ctx *DataTableContext) checkCoordinatedStep(step *compute_pipes.SchemaProviderSpec) error {
+	if step == nil {
+		return errors.New("the step is null")
+	}
+	if len(step.FileKey) == 0 {
+		return errors.New("the step has no file_key")
+	}
+	components := map[string]any{"client": step.Client, "vendor": step.Vendor, "object_type": step.ObjectType}
+	ctx.updateFileKeyComponentCase(&components)
+	var n int
+	err := ctx.Dbpool.QueryRow(context.Background(),
+		`SELECT count(*) FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
+		components["client"], components["org"], components["object_type"]).Scan(&n)
+	if err != nil {
+		return fmt.Errorf("while reading source_config: %v", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("no source_config for client %q, vendor %q, object_type %q", step.Client, step.Vendor, step.ObjectType)
+	}
 	return nil
 }

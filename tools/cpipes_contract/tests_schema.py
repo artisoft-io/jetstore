@@ -43,6 +43,7 @@ MEMORY_CHANNEL = {"name": "out", "type": "memory", "channel_spec_name": "out"}
 
 def document(step: dict) -> dict:
     return {
+        "cluster_config": {},
         "channels": [{"name": "in", "columns": ["a"]}, {"name": "out", "columns": ["a"]}],
         "conditional_pipes_config": [
             {
@@ -165,6 +166,22 @@ def test_the_complement_branch_reaches_every_occurrence_of_the_union():
 def _schema_errors(doc: dict) -> list[str]:
     validator = jsonschema.Draft202012Validator(json.loads(COMMITTED))
     return [e.message for e in validator.iter_errors(doc)]
+
+
+def test_both_readers_refuse_a_document_without_cluster_config():
+    """`cluster_config` is required at the root (JM-052, 2026-11-10).
+
+    The sharding start step and the coordinator both refuse a document without
+    it; before the start step did, it decoded one and panicked on the first
+    dereference. The two readers say the same, and name the field.
+    """
+    doc = document({"type": "map_record", "output_channel": MEMORY_CHANNEL})
+    del doc["cluster_config"]
+    errors = _schema_errors(doc)
+    assert errors and all("cluster_config" in e for e in errors)
+    with pytest.raises(ValidationError) as excinfo:
+        model.ComputePipesConfig.model_validate(doc)
+    assert {e["loc"] for e in excinfo.value.errors()} == {("cluster_config",)}
 
 
 def test_both_readers_accept_a_site_operator():

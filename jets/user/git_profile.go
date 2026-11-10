@@ -216,8 +216,8 @@ func decrypt(encryptedString string, keyString string) (decryptedString string, 
 		log.Println(err)
 		return "", err
 	}
-	// Mitigating vulnerability: Insufficient Entropy (CWE ID 331) by verifying key strength before decryption. 
-	// This ensures that the key used for decryption has sufficient randomness and is not easily guessable, 
+	// Mitigating vulnerability: Insufficient Entropy (CWE ID 331) by verifying key strength before decryption.
+	// This ensures that the key used for decryption has sufficient randomness and is not easily guessable,
 	// which is crucial for maintaining the security of the encrypted data.
 	if err = verifyKeyStrength(keyString); err != nil {
 		log.Println(err)

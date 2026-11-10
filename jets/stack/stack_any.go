@@ -2,12 +2,12 @@ package stack
 
 // Simple stack component
 
-type StackAny struct{
+type StackAny struct {
 	stack []any
 }
 
 func NewStackAny(reserve int) *StackAny {
-	return &StackAny {
+	return &StackAny{
 		stack: make([]any, 0, reserve),
 	}
 }

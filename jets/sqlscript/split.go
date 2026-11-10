@@ -13,7 +13,7 @@
 //
 //   - `-- ...` to end of line
 //   - `/* ... */`, nesting, as PostgreSQL does (unlike the SQL standard)
-//   - `'...'` with `”` as an embedded quote
+//   - `'...'` with a doubled single quote as an embedded quote
 //   - `E'...'` and `e'...'` with backslash escapes
 //   - `"..."` quoted identifiers with `""` as an embedded quote
 //   - `$tag$...$tag$` dollar quoting, including the empty tag `$$...$$`
@@ -322,7 +322,7 @@ func skipBlockComment(s string, i, line int) (int, int, error) {
 // skipQuoted scans from i, which is just past the opening quote, to just past
 // the matching close. A doubled quote character is an embedded one. When
 // backslash is true a backslash escapes the next character, which is how
-// PostgreSQL reads an E” string.
+// PostgreSQL reads an E-prefixed string.
 func skipQuoted(s string, i, line int, quote byte, backslash bool) (int, int, error) {
 	openLine := line
 	n := len(s)

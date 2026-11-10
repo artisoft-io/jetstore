@@ -108,7 +108,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	cpipesStartup.EnvSettings["nbr_partitions"] = shardResult.clusterShardingInfo.NbrPartitions
 	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = shardResult.clusterShardingInfo.NbrPartitions
 
-	log.Printf("%s SHARDING using %d nodes for total size %.4f gb (%d bytes)", args.SessionId, shardResult.nbrShardingNodes, 
+	log.Printf("%s SHARDING using %d nodes for total size %.4f gb (%d bytes)", args.SessionId, shardResult.nbrShardingNodes,
 		float64(cpipesStartup.EnvSettings["total_file_size_gb"].(float64)), shardResult.clusterShardingInfo.TotalFileSize)
 
 	stepId := 0
@@ -371,11 +371,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			DefaultMaxConcurrency: shardResult.clusterSpec.MaxConcurrency,
 			IsDebugMode:           cpipesStartup.CpConfig.ClusterConfig.IsDebugMode,
 		},
-		MetricsConfig:   cpipesStartup.CpConfig.MetricsConfig,
-		OutputTables:    outputTables,
-		OutputFiles:     cpipesStartup.CpConfig.OutputFiles,
-		LookupTables:    lookupTables,
-		Channels:        cpipesStartup.CpConfig.Channels,
+		MetricsConfig: cpipesStartup.CpConfig.MetricsConfig,
+		OutputTables:  outputTables,
+		OutputFiles:   cpipesStartup.CpConfig.OutputFiles,
+		LookupTables:  lookupTables,
+		Channels:      cpipesStartup.CpConfig.Channels,
 		// **Carried because the node resolves a named prompt template, not the
 		// startup.** `resolveInferTemplate` looks `prompt_template_name` up in
 		// `cpConfig.PromptTemplates` at build time on the node

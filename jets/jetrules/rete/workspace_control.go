@@ -1,10 +1,10 @@
 package rete
 
 import (
-	"slices"
 	"encoding/json"
 	"log"
 	"os"
+	"slices"
 )
 
 // Component living in the workspace root directory as a json
@@ -72,8 +72,8 @@ func (wc *WorkspaceControl) RuleFileNames(ruleFileName string) []string {
 		}
 	}
 	if slices.Contains(wc.RuleSets, ruleFileName) {
-			return []string{ruleFileName}
-		}
+		return []string{ruleFileName}
+	}
 	return nil
 }
 

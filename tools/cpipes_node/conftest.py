@@ -126,10 +126,13 @@ def authored_document(apply: list[dict[str, Any]]) -> dict:
     that is the first of this package's widenings and has nothing to do with
     the second — so a test whose subject is what the authored-document model
     accepts has to hand it an authored document, or it gets a refusal about the
-    wrong field and passes for the wrong reason.
+    wrong field and passes for the wrong reason. It carries a `cluster_config`
+    for the same reason: the contract requires one of every authored document
+    (JM-052, 2026-11-10).
     """
     doc = document(apply)
     doc.pop("common_runtime_args")
+    doc.setdefault("cluster_config", {})
     return doc
 
 

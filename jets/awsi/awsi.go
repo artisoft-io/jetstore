@@ -353,7 +353,7 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 // ListObjects lists the objects in a bucket with prefix if not nil.
 // Read from externalBucket if not empty, otherwise read from jetstore default bucket
 func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string) ([]*S3Object, error) {
-	if externalBucket == "" || externalBucket == "jetstore_bucket" {
+	if IsJetStoreBucket(externalBucket) {
 		externalBucket = jetstoreOwnBucket
 	}
 
@@ -410,7 +410,7 @@ type CountS3ObjectsResult struct {
 // and skips any objects with size 0. If externalBucket is empty, it uses the JetStore default bucket.
 
 func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string) (*CountS3ObjectsResult, error) {
-	if externalBucket == "" || externalBucket == "jetstore_bucket" {
+	if IsJetStoreBucket(externalBucket) {
 		externalBucket = jetstoreOwnBucket
 	}
 
@@ -599,7 +599,7 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 	}
 
 	// check if we write to an external bucket
-	if externalBucket == "" || externalBucket == "jetstore_bucket" {
+	if IsJetStoreBucket(externalBucket) {
 		externalBucket = jetstoreOwnBucket
 	}
 

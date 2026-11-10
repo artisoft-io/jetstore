@@ -110,7 +110,7 @@ func TestSortRecords3(t *testing.T) {
 	// t.Error()
 }
 
-func doSortRecordsTest( SortByColumn []string, inputRecords []*[]any) (outputRecords [][]any, err error) {
+func doSortRecordsTest(SortByColumn []string, inputRecords []*[]any) (outputRecords [][]any, err error) {
 	spec := &TransformationSpec{
 		Type: "sort",
 		SortConfig: &SortSpec{
@@ -118,14 +118,14 @@ func doSortRecordsTest( SortByColumn []string, inputRecords []*[]any) (outputRec
 		},
 	}
 	columns := &map[string]int{
-		"key1": 0,
-		"key2": 1,
-		"key3": 2,
+		"key1":  0,
+		"key2":  1,
+		"key3":  2,
 		"value": 3,
 	}
 
 	source := &InputChannel{
-		Name: "in",
+		Name:    "in",
 		Columns: columns,
 	}
 	outCh := make(chan []any)
