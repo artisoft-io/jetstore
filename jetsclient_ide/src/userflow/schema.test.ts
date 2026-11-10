@@ -161,7 +161,10 @@ describe("the workspace flows the Workspace IDE launches", () => {
 });
 
 describe("the shipping corpus", () => {
-  it("is the five flows and 13 states still translated from the fixture", () => {
+  it("is the three flows and 8 states still translated from the fixture", () => {
+    // The title said *five flows and 13 states* until 2026-11-10: the
+    // assertions below moved to three and 8 on 2026-10-11 and the title did not.
+    //
     // Eleven, not the nine the documents said: `workspace_pull/` defines two
     // flows and `file_mapping/` defines two.
     //

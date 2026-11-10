@@ -19,14 +19,34 @@ cpipes_contract/        the schema as Pydantic models, the checks, the corpus wa
 harness/                the Go runner: feeds synthesized configs through ValidatePipeSpecConfig
 ```
 
-The corpus is `workspaces/*/pipes_config/**` minus what each directory's
-`jets_assets_manifest.json` names - **53 files, measured 2026-09-19**; it read 42 on 2026-09-11 and
-49 before the 2026-09-08 sharpening, which stopped counting the JetStore-owned assets
-`install_workspace_assets` puts into a workspace. The rise since is authored documents landing in
-`jets_ws` from *another repository* — `healthcare_corpus`'s Phase 9 — which is why a count here goes
-stale without anything in this repository changing. The `.pc.json` under `workspaces/*/data/`
-are developer reference material JetStore never loads, and counting them manufactures contradictions
-with the validator; see `cpipes_contract/corpus.py`.
+The corpus, for this package, is **every `.pc.json` under `workspaces/` whose path has a
+`pipes_config` directory in it**, at any depth (`config_files` in `cpipes_contract/corpus.py`), and
+it subtracts nothing. Anything else under `workspaces/` is counted as retired and not walked: the
+`.pc.json` that used to sit under `workspaces/*/data/` are developer reference material JetStore
+never loads, and counting them manufactured contradictions with the validator.
+
+**Until 2026-11-10 this paragraph said the corpus was that set *minus what each directory's
+`jets_assets_manifest.json` names*. No module here reads that manifest** (`git log -S manifest`
+over this package finds no commit that ever made one read it). The
+subtraction is the other corpus definition in the tree, `jets/agentic/eval`'s, and this sentence
+described it rather than the walker it sits beside. The two coexist and answer different
+questions:
+
+| Tool | Rule | Files, 2026-11-10 |
+|---|---|---:|
+| `cpipes-contract corpus`, `check --corpus` (`config_files`) | every `.pc.json` under a `pipes_config` directory in `workspaces/` | **51** |
+| `jets/agentic/eval` (`LoadCorpus`, `jetstoreOwnedAssets`) | `workspaces/*/pipes_config/**`, less the names in that directory's `jets_assets_manifest.json` | **46** |
+
+**The five files between them are installed copies of JetStore's own two configs**
+(`embed_input_parts.pc.json`, `jets_loader.pc.json`), which `install_workspace_assets` writes into
+each workspace and the workspace repositories do not track. So this package's number depends on
+whether the installer has run in the checkout, and how recently: on a fresh clone, with nothing installed, the two rules agree at the
+tracked count, 46. Measured 2026-11-10 over the four workspaces at the commits the integration
+checkout pinned that day, with the installer's output present, by calling `config_files` and by
+running `TestAgainstTheRealCorpus` with `-count=1` (*46 live files of 51 on disk*); 0 retired. The
+figures this paragraph carried before (53 on 2026-09-19, 42 on 2026-09-11, 49 before 2026-09-08)
+were stated under the manifest rule while this walker applied its own, and the corpus grows from
+commits in the workspace repositories, so read them as dated measurements rather than as a series.
 
 **[MATRIX_SCHEMA.md](MATRIX_SCHEMA.md) is the column reference** and the document to read first.
 
