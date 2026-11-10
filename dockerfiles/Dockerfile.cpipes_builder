@@ -57,14 +57,28 @@ RUN go mod tidy
 RUN go mod download
 
 # Build the C++ library - native rule engine
-WORKDIR ${JETS_BUILD_DIR}
 ENV LD_LIBRARY_PATH=/usr/local/lib64
 
 # Link-time optimisation of libjets.so (jets/CMakeLists.txt, JETS_LTO; off by
 # default there). Measured on the rules benchmark (Phase 3, C5).
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_LTO=ON -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
-RUN make clean 
-RUN make objlib jets_static jets -j8
+#
+# **The build runs in its own directory, outside /app, and only libjets.so is
+# copied back to ${JETS_BUILD_DIR}/jets**, where jets/bridge's `-L/app/jets` and
+# every runtime image's `COPY --from=builder` find it. From Go 1.27.4, `go build`
+# walks each cgo `-L` directory recursively and refuses any object or archive
+# carrying LTO sections ("disallowed LTO section ... in #cgo LDFLAGS"). An LTO
+# build in /app leaves such files under /app/jets: CMake's LTO probe object, the
+# objlib objects and libjets_static.a. libjets.so itself is a linked output and
+# carries none. Go 1.27.3 had no such check, which is why 4.1.4 built and 4.1.5
+# did not. The build tree is removed in the same step, and jets_static is not
+# built: no image uses it.
+ENV JETS_CMAKE_DIR=/jets_cmake_build
+WORKDIR ${JETS_CMAKE_DIR}
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_LTO=ON -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
+  && make objlib jets -j8 \
+  && cp ${JETS_CMAKE_DIR}/jets/libjets.so ${JETS_BUILD_DIR}/jets/ \
+  && cd / && rm -rf ${JETS_CMAKE_DIR}
+WORKDIR ${JETS_BUILD_DIR}
 
 # RUN \
 #   echo "$JETS_BUILD_DIR DIRECTORY Contains" \
