@@ -1,0 +1,5 @@
+# Commits that only reformat, skipped by git blame.
+# Use: git config blame.ignoreRevsFile .git-blame-ignore-revs (GitHub reads it already).
+
+# Format the whole tree with gofmt (JM-034)
+51555acc84fb4d370325a4427fb986469f158290
