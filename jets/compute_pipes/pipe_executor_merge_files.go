@@ -147,17 +147,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 	inputSp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
 
 	// Determine if we write the file in the source bucket of the schema provider
-	var externalBucket string
-	switch {
-	case len(outputFileConfig.Bucket) > 0:
-		if outputFileConfig.Bucket != "jetstore_bucket" {
-			externalBucket = outputFileConfig.Bucket
-		}
-	case inputSp != nil && outputFileConfig.OutputLocation() == "jetstore_s3_input":
-		externalBucket = inputSp.Bucket()
-	}
-	if len(externalBucket) > 0 {
-		externalBucket = utils.ReplaceEnvVars(externalBucket, cpCtx.EnvSettings)
+	externalBucket, bucketErr := outputBucket(outputFileConfig.Bucket, inputSp,
+		outputFileConfig.OutputLocation(), cpCtx.EnvSettings)
+	if bucketErr != nil {
+		cpErr = fmt.Errorf("while resolving the bucket of output file %s: %v", outputFileConfig.Key, bucketErr)
+		return
 	}
 
 	// The format was determined before the destination, above, because the
@@ -171,7 +165,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result 
 	// externalBucket means the JetStore bucket (actions_s3_utils.go,
 	// DownloadS3Object).
 	bucket := externalBucket
-	if bucket == "" || bucket == "jetstore_bucket" {
+	if awsi.IsJetStoreBucket(bucket) {
 		bucket = awsi.JetStoreBucket()
 	}
 	result = &ComputePipesResult{

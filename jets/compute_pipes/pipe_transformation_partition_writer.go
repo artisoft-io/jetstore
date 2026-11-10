@@ -480,16 +480,11 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 					keyPrefix = outputLocation[:pos-1]
 				}
 			}
-			switch {
-			case len(spec.OutputChannel.Bucket) > 0:
-				if spec.OutputChannel.Bucket != "jetstore_bucket" {
-					externalBucket = spec.OutputChannel.Bucket
-				}
-			case sp != nil && outLoc == "jetstore_s3_input":
-				externalBucket = sp.Bucket()
-			}
-			if len(externalBucket) > 0 {
-				externalBucket = utils.ReplaceEnvVars(externalBucket, ctx.env)
+			externalBucket, err = outputBucket(spec.OutputChannel.Bucket, sp, outLoc, ctx.env)
+			if err != nil {
+				err = fmt.Errorf("while resolving the bucket of output channel %s: %v", outputCh.Name, err)
+				log.Println(err)
+				return nil, err
 			}
 			if len(keyPrefix) > 0 {
 				baseOutputPath = doSubstitution(keyPrefix, jetsPartitionLabel, outLoc, ctx.env)
@@ -508,7 +503,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	var outputLocation string
 	if len(baseOutputPath) > 0 {
 		bucket := externalBucket
-		if bucket == "" || bucket == "jetstore_bucket" {
+		if awsi.IsJetStoreBucket(bucket) {
 			bucket = awsi.JetStoreBucket()
 		}
 		outputLocation = fmt.Sprintf("s3://%s/%s",

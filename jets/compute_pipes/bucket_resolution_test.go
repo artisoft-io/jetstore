@@ -91,3 +91,53 @@ func TestUnresolvedBucketErrorNamesTheBucket(t *testing.T) {
 		t.Fatalf("error %q does not name %q", err.Error(), want)
 	}
 }
+
+// The two output writers (the merge writer and the partition writer) choose
+// their bucket through outputBucket. A bucket configured as a variable whose
+// value is the sentinel must reach the sinks as the deployment's bucket (""),
+// not as an external bucket spelled "jetstore_bucket": before JM-057 the
+// writers tested the raw value for the sentinel and substituted afterwards, so
+// this case slipped through as external and only the sinks' own re-tests kept
+// it out of a bucket of that name.
+func TestOutputBucket(t *testing.T) {
+	env := map[string]any{
+		"${OUT_BUCKET}":      JetStoreBucketSentinel,
+		"${EXTERNAL_BUCKET}": "some-client-bucket",
+		"$BARE_SENTINEL":     JetStoreBucketSentinel,
+	}
+	spWith := func(bucket string) SchemaProvider {
+		return &DefaultSchemaProvider{spec: &SchemaProviderSpec{FileConfig: FileConfig{Bucket: bucket}}}
+	}
+	tests := []struct {
+		name       string
+		configured string
+		sp         SchemaProvider
+		outLoc     string
+		want       string
+		wantErr    bool
+	}{
+		{"nothing configured is the deployment's bucket", "", nil, "", "", false},
+		{"the sentinel is the deployment's bucket", "jetstore_bucket", nil, "", "", false},
+		{"a literal name is external", "some-client-bucket", nil, "", "some-client-bucket", false},
+		{"a variable resolving to a name is external", "${EXTERNAL_BUCKET}", nil, "", "some-client-bucket", false},
+		{"a variable resolving to the sentinel is the deployment's bucket", "${OUT_BUCKET}", nil, "", "", false},
+		{"a bare variable resolving to the sentinel too", "$BARE_SENTINEL", nil, "", "", false},
+		{"an unresolved variable is refused", "${NO_SUCH_BUCKET}", nil, "", "", true},
+		{"the input provider's bucket under jetstore_s3_input", "", spWith("input-bucket"), "jetstore_s3_input", "input-bucket", false},
+		{"the input provider's sentinel under jetstore_s3_input", "", spWith("jetstore_bucket"), "jetstore_s3_input", "", false},
+		{"the input provider's variable resolving to the sentinel", "", spWith("${OUT_BUCKET}"), "jetstore_s3_input", "", false},
+		{"the input provider is ignored elsewhere", "", spWith("input-bucket"), "jetstore_s3_output", "", false},
+		{"a configured bucket wins over the input provider", "some-client-bucket", spWith("input-bucket"), "jetstore_s3_input", "some-client-bucket", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := outputBucket(tc.configured, tc.sp, tc.outLoc, env)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("outputBucket(%q) error = %v, wantErr %v", tc.configured, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("outputBucket(%q) = %q, want %q", tc.configured, got, tc.want)
+			}
+		})
+	}
+}
