@@ -86,7 +86,7 @@ func readUnitTestRows(t *testing.T, db *sql.DB) map[string]unitTestRow {
 }
 
 // runnable is the predicate the rules_unit_test insert target applies (track AC,
-// I-17): a test may be started when its findings are NULL, '', '[]' or 'null'.
+// I-17): a test may be started when its findings are NULL, the empty string, '[]' or 'null'.
 func runnable(r unitTestRow) bool {
 	return !r.findings.Valid || r.findings.String == "" || r.findings.String == "[]" || r.findings.String == "null"
 }
