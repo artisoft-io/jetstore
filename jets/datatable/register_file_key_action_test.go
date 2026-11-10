@@ -281,9 +281,14 @@ func TestRegisterFileKeysFileKeyAbsentIsSkipped(t *testing.T) {
 		NoAutomatedLoad: true,
 		IsSchemaEvent:   true,
 	}
-	_, status, err := ctx.RegisterFileKeys(action, "")
+	// RegisterFileKeys skips the row with a 200 and says why (JM-096);
+	// RegisterSchemaEvent, whose one row this would be, makes that an error.
+	res, status, err := ctx.RegisterFileKeys(action, "")
 	if err != nil || status != http.StatusOK {
 		t.Fatalf("RegisterFileKeys: status %d, err %v", status, err)
+	}
+	if skipped, _ := (*res)["skipped"].([]fileKeySkip); len(skipped) != 1 || skipped[0].Reason != skipNoFileKey {
+		t.Errorf("skipped = %+v, want one row skipped as %s", (*res)["skipped"], skipNoFileKey)
 	}
 	var n int
 	if err := ctx.Dbpool.QueryRow(context.Background(),

@@ -17,7 +17,8 @@ import (
 // and makes the call, so the Data-map key contract stays here rather than in a
 // workspace. A site therefore never names "file_key", "year" or "size", and a
 // rename of any of them here is a compile error rather than a silent no-op at the
-// site.
+// site. An entry RegisterFileKeys does not read (datatable.RegisterFileKeysReads)
+// is dropped there, and doFileKey logs a warning naming it.
 //
 // isSchemaEvent sets the RegisterFileKeyAction field of the same name. done ==
 // true means the hook has handled the event itself and nothing further is
