@@ -734,23 +734,35 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 // **A raw query on the read capability runs READ ONLY** (readOnlyTx): it is the
 // app's own query, always a read, and the read capability is every role's, so
 // no statement sent under it may change data. The query tool's, under
-// CapabilityQueryTool, is the user's SQL and runs as it always has.
+// CapabilityQueryTool, is the user's SQL and runs as it always has, except that
+// it is cancelled past QueryToolStatementTimeout (execQueryToolStatement).
 func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token, capability string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 	if code, err2 := ctx.requireCapability(capability, token); err2 != nil {
 		return nil, code, err2
 	}
 
-	var db querier = ctx.Dbpool
-	if capability == CapabilityReadData {
-		tx, err2 := readOnlyTx(ctx.Dbpool)
-		if err2 != nil {
-			return nil, http.StatusInternalServerError, err2
+	var resultRows *[][]any
+	var columnDefs *[]DataTableColumnDef
+	var err2 error
+	switch capability {
+	case CapabilityReadData:
+		tx, err3 := readOnlyTx(ctx.Dbpool)
+		if err3 != nil {
+			return nil, http.StatusInternalServerError, err3
 		}
 		defer tx.Rollback(context.Background())
-		db = tx
+		resultRows, columnDefs, err2 = execQuery(tx, dataTableAction, &dataTableAction.RawQuery)
+	case CapabilityQueryTool:
+		resultRows, columnDefs, err2 = execQueryToolStatement(ctx.Dbpool, dataTableAction,
+			&dataTableAction.RawQuery, queryToolStatementTimeout)
+		if isQueryToolTimeout(err2) {
+			// Said as it is, without the generic prefix below.
+			return nil, http.StatusInternalServerError, err2
+		}
+	default:
+		resultRows, columnDefs, err2 = execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
 	}
-	resultRows, columnDefs, err2 := execQuery(db, dataTableAction, &dataTableAction.RawQuery)
 
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError

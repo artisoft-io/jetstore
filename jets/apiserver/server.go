@@ -172,7 +172,7 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 	// for key, value := range r.Header {
 	// 	log.Println("OptionConfig: ",key,value)
 	// }
-	
+
 	// write cors headers
 	// Check that origin is what we expect
 	origin := sanitizeOrigin(r.Header.Get("Origin"))
@@ -904,7 +904,7 @@ func listenAndServe() error {
 		Handler:           server.Router,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      120 * time.Second,
+		WriteTimeout:      datatable.ApiServerWriteTimeout, // the query tool's statement timeout ends 10 s before it
 		IdleTimeout:       120 * time.Second,
 	}
 	if *usingSshTunnel {

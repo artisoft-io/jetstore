@@ -25,6 +25,15 @@
  * Recorded as **F84**, because it is the kind of thing a later reader will assume
  * the opposite of.
  *
+ * **The buttons also differ in how long a statement may run.** Submit Query runs
+ * under a statement timeout of 110 s, ten seconds inside the apiserver's 120 s
+ * write timeout (`jets/datatable/query_tool_timeout.go`,
+ * `QueryToolStatementTimeout`), so a statement past it is cancelled on the
+ * database and the user is told so, rather than receiving a 502 while it keeps
+ * running. Submit DDL has no limit: a long export goes there, and completes on
+ * the database after the response has timed out. Neither button is read only
+ * or a transaction, so `VACUUM` runs through either.
+ *
  * `raw_query` and `raw_query_tool` were one case requiring nothing until I-2 split
  * them, and `TestRawQueryToolIsGatedMoreTightlyThanRawQuery`
  * (`jets/apiserver/read_dispatch_test.go`) refuses to let them share one again.
@@ -160,7 +169,8 @@ export function QueryTool({ api }: { api: ApiClient }) {
       <h1>Query Tool</h1>
       <p className="screen-sub">
         Statements run against the JetStore database with your own authority. Both buttons
-        require the <code>{QUERY_TOOL}</code> capability, and the server enforces it.
+        require the <code>{QUERY_TOOL}</code> capability, and the server enforces it. Submit
+        Query cancels a statement that runs past 110 s; a long export belongs in Submit DDL.
       </p>
 
       <div className="stack qt-input">
