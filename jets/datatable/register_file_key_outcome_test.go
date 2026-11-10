@@ -156,3 +156,33 @@ func TestRegisterFileKeysPartFileGateReadsTheObjectSize(t *testing.T) {
 		t.Errorf("the S3 part file was staged")
 	}
 }
+
+// A source_config naming a domain key twice registers it once. The second
+// insert met input_registry's unique constraint, ON CONFLICT DO NOTHING returned
+// no row, and the request failed with a 500 after the first domain key was
+// registered and its pipelines started.
+func TestRegisterFileKeysDuplicateDomainKeyRegistersOnce(t *testing.T) {
+	ctx := registerFileKeysFixture(t)
+	seedSource(t, ctx, "Claims", 0, "{Claims,ClaimLine,Claims}")
+	data := fileData("Claims", "claims.csv")
+	if status, err := registerOne(t, ctx, data); err != nil || status != http.StatusOK {
+		t.Fatalf("status %d, err %v; want 200", status, err)
+	}
+	rows, err := ctx.Dbpool.Query(context.Background(),
+		`SELECT object_type FROM jetsapi.input_registry WHERE file_key = $1 ORDER BY key`, data["file_key"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var ot string
+		if err := rows.Scan(&ot); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, ot)
+	}
+	if len(got) != 2 || got[0] != "Claims" || got[1] != "ClaimLine" {
+		t.Errorf("input_registry object types %v, want [Claims ClaimLine]", got)
+	}
+}

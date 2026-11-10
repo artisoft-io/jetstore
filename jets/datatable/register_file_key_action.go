@@ -377,6 +377,7 @@ NextKey:
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
 		if err == nil {
 			// process - entry found
+			domainKeys = uniqueDomainKeys(domainKeys, client, org, objectType)
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
@@ -486,6 +487,26 @@ NextKey:
 		}
 	}
 	return &map[string]any{}, http.StatusOK, nil
+}
+
+// uniqueDomainKeys returns keys without its repeats, keeping the first of each.
+// A source_config naming a domain key twice failed late: the second
+// input_registry insert met the table's unique constraint, ON CONFLICT DO NOTHING
+// returned no row, and the request was a 500 after the first was registered and
+// its pipelines started (JM-096).
+func uniqueDomainKeys(keys []string, client, org, objectType any) []string {
+	seen := make(map[string]bool, len(keys))
+	unique := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if seen[k] {
+			log.Printf("WARNING source_config for client %v, org %v, object_type %v names domain key %q more than once; registering it once",
+				client, org, objectType, k)
+			continue
+		}
+		seen[k] = true
+		unique = append(unique, k)
+	}
+	return unique
 }
 
 // startPipelinesForInputRegistry is the call RegisterFileKeys makes to start the
