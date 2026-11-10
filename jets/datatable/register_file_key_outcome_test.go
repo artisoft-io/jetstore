@@ -10,7 +10,10 @@ package datatable
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 func countRows(t *testing.T, ctx *DataTableContext, table string) int {
@@ -184,5 +187,95 @@ func TestRegisterFileKeysDuplicateDomainKeyRegistersOnce(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "Claims" || got[1] != "ClaimLine" {
 		t.Errorf("input_registry object types %v, want [Claims ClaimLine]", got)
+	}
+}
+
+// The result says how many rows registered input and why each other row did
+// not. It was an empty map with a 200 whatever happened, so a request that
+// registered nothing could not be told from one that registered everything.
+func TestRegisterFileKeysReportsWhatItRegistered(t *testing.T) {
+	t.Setenv("JETS_SENTINEL_FILE_NAME", testSentinel)
+	ctx := registerFileKeysFixture(t)
+	seedSource(t, ctx, "Claims", 0, "{Claims}")
+
+	noFileKey := fileData("Claims", "x.csv")
+	delete(noFileKey, "file_key")
+	partFile := map[string]any{"client": testClient, "vendor": testOrg, "object_type": testObjectType,
+		"file_key": testFolder + "T0801/part-00000.parquet", "size": int64(500)}
+	notTheSentinel := map[string]any{"client": testClient, "vendor": testOrg, "object_type": testObjectType,
+		"file_key": testFolder + "T0802/_DONE", "size": int64(0)}
+	unknown := fileData("Unknown", "u.csv")
+	action := &RegisterFileKeyAction{
+		Action: "register_keys",
+		Data: []map[string]any{fileData("Claims", "claims.csv"), noFileKey, partFile,
+			notTheSentinel, unknown},
+		NoAutomatedLoad: true,
+	}
+	res, status, err := ctx.RegisterFileKeys(action, "")
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("status %d, err %v; want 200", status, err)
+	}
+	if n, _ := (*res)["registered"].(int); n != 1 {
+		t.Errorf("registered = %v, want 1", (*res)["registered"])
+	}
+	skipped, _ := (*res)["skipped"].([]fileKeySkip)
+	want := map[int]string{1: skipNoFileKey, 2: skipPartFile, 3: skipSentinelName, 4: skipNoSourceConfig}
+	if len(skipped) != len(want) {
+		t.Fatalf("skipped = %+v, want rows %v", (*res)["skipped"], want)
+	}
+	for _, s := range skipped {
+		if want[s.Row] != s.Reason {
+			t.Errorf("row %d skipped as %q, want %q", s.Row, s.Reason, want[s.Row])
+		}
+	}
+	if n, _ := (*res)["skipped_count"].(int); n != len(want) {
+		t.Errorf("skipped_count = %v, want %d", (*res)["skipped_count"], len(want))
+	}
+	// A file with no source_config is staged, so it shows among the files that
+	// arrived, and nothing else: no session is reserved for a file that
+	// registers no input.
+	if n, _ := countFileKeyStaging(t, ctx, unknown["file_key"].(string)); n != 1 {
+		t.Errorf("the file with no source_config was not staged")
+	}
+	if n := countRows(t, ctx, "session_reservation"); n != 1 {
+		t.Errorf("session_reservation has %d rows, want 1: a session was reserved for a file with no input", n)
+	}
+	if n := countRows(t, ctx, "session_registry"); n != 1 {
+		t.Errorf("session_registry has %d rows, want 1", n)
+	}
+}
+
+// A schema event that registers no input is an error. RegisterSchemaEvent
+// returned nil, so a schema event for an unknown source config, or with no
+// file_key, was reported as handled.
+func TestRegisterSchemaEventThatRegistersNothingIsAnError(t *testing.T) {
+	ctx := registerFileKeysFixture(t)
+	seedSource(t, ctx, "Claims", 0, "{Claims}")
+	var starts int
+	startPipelinesOverride = func(*DataTableContext, int, int, string, string, string, string, string) error {
+		starts++
+		return nil
+	}
+	t.Cleanup(func() { startPipelinesOverride = nil })
+
+	event := func(objectType, fileKey string) *compute_pipes.SchemaProviderSpec {
+		e := &compute_pipes.SchemaProviderSpec{Type: "default", Client: testClient, Vendor: testOrg,
+			ObjectType: objectType}
+		e.FileKey = fileKey
+		return e
+	}
+	if err := ctx.RegisterSchemaEvent(ctx.Dbpool, event("Claims", "in/claims.csv"), ""); err != nil {
+		t.Fatalf("a schema event for a known source config: %v", err)
+	}
+	if starts != 1 {
+		t.Errorf("pipeline starts = %d, want 1", starts)
+	}
+	err := ctx.RegisterSchemaEvent(ctx.Dbpool, event("Unknown", "in/unknown.csv"), "")
+	if err == nil || !strings.Contains(err.Error(), skipNoSourceConfig) {
+		t.Errorf("a schema event with no source config: err %v, want one naming %s", err, skipNoSourceConfig)
+	}
+	err = ctx.RegisterSchemaEvent(ctx.Dbpool, event("Claims", ""), "")
+	if err == nil || !strings.Contains(err.Error(), skipNoFileKey) {
+		t.Errorf("a schema event with no file_key: err %v, want one naming %s", err, skipNoFileKey)
 	}
 }

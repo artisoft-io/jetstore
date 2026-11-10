@@ -1024,8 +1024,23 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 		IsSchemaEvent: true,
 		Data:          []map[string]any{schemaInfo},
 	}
-	_, _, err = ctx.RegisterFileKeys(&registerFileKeyAction, token)
-	return err
+	result, _, err := ctx.RegisterFileKeys(&registerFileKeyAction, token)
+	if err != nil {
+		return err
+	}
+	// The event's one row must register input (JM-096). RegisterFileKeys skips
+	// such a row with a 200, by design for a request of many keys, so a schema
+	// event for an unknown source config, or with no file_key, was reported as
+	// handled when nothing would ever run.
+	if n, _ := (*result)["registered"].(int); n == 0 {
+		reason := "unknown reason"
+		if skipped, _ := (*result)["skipped"].([]fileKeySkip); len(skipped) > 0 {
+			reason = skipped[0].Reason
+		}
+		return fmt.Errorf("RegisterSchemaEvent: the schema event for client %v, vendor %v, object_type %v, file_key %v registered no input: %s",
+			schemaInfo["client"], schemaInfo["vendor"], schemaInfo["object_type"], schemaInfo["file_key"], reason)
+	}
+	return nil
 }
 
 // NewPipelineCoordinatorMapSchemaInfo creates the schema info for a pipeline coordinator map register schema event,

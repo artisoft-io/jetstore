@@ -15,6 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -306,6 +307,31 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 	return r, nil
 }
 
+// fileKeySkip is a row of a register_keys request that registered no input, and
+// why. RegisterFileKeys returns them under "skipped" (JM-096).
+type fileKeySkip struct {
+	Row     int    `json:"row"`
+	FileKey string `json:"file_key,omitempty"`
+	Reason  string `json:"reason"`
+}
+
+// The reasons a row registers no input. A row skipped for any of the first four
+// writes nothing. A row with no source_config, or whose source_config has no
+// domain key to register, is staged in file_key_staging, so it is listed among
+// the files that arrived, and nothing else is written for it.
+const (
+	skipNoFileKey      = "no_file_key"            // the row names no file
+	skipPartFile       = "part_file"              // a part file of a part-file source; its sentinel registers the folder
+	skipSentinelName   = "sentinel_name_mismatch" // not the sentinel JETS_SENTINEL_FILE_NAME names
+	skipMissingColumn  = "missing_column"         // a file_key_staging column has no value
+	skipNoSourceConfig = "no_source_config"       // no source_config for its client, org and object_type
+	skipNoDomainKeys   = "no_domain_keys"         // its source_config has no domain key to register
+)
+
+// maxReportedSkips bounds the "skipped" list, since a sync of a bucket skips
+// every part file in it; "skipped_count" is the total.
+const maxReportedSkips = 100
+
 // Register file_key with file_key_staging table and handling schema events as well.
 //
 // Every row is read and checked before any is written (JM-096): a request whose
@@ -329,8 +355,21 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	var sessionId, stmt string
 	var allOk bool
 	row := make([]any, len(sqlStmt.ColumnKeys))
+	registered := 0
+	skipped := make([]fileKeySkip, 0)
+	skippedCount := 0
+	skip := func(irow int, fileKey any, reason string) {
+		skippedCount++
+		fk, _ := fileKey.(string)
+		if reason != skipPartFile {
+			log.Printf("RegisterFileKeys: row %d (%s) registers no input: %s", irow, fk, reason)
+		}
+		if len(skipped) < maxReportedSkips {
+			skipped = append(skipped, fileKeySkip{Row: irow, FileKey: fk, Reason: reason})
+		}
+	}
 NextKey:
-	for _, r := range rows {
+	for irow, r := range rows {
 		fileKeyObject := r.fileKeyObject
 		schemaProviderJson := r.schemaProviderJson
 		requestId := r.requestId
@@ -369,13 +408,20 @@ NextKey:
 		// from the map and an empty one would register the bucket root.
 		fileKey, hasFileKey := fileKeyObject["file_key"].(string)
 		if !hasFileKey || len(fileKey) == 0 {
-			log.Println("***while RegisterFileKeys: skipping file key with no file_key:", fileKeyObject)
+			skip(irow, nil, skipNoFileKey)
 			continue NextKey
 		}
 		stmt = "SELECT table_name, is_part_files, domain_keys FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
 		allOk = true
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
-		if err == nil {
+		// No row is a file JetStore has no source_config for, which is staged and
+		// registers nothing; any other error is the database's (JM-096: the
+		// error was not checked, so it was treated as no row).
+		hasSourceConfig := err == nil
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, http.StatusInternalServerError, fmt.Errorf("while reading source_config: %v", err)
+		}
+		if hasSourceConfig {
 			// process - entry found
 			domainKeys = uniqueDomainKeys(domainKeys, client, org, objectType)
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
@@ -386,14 +432,14 @@ NextKey:
 				// sentinel branch, which is what a schema event wants, whatever
 				// file_size it carries.
 				if r.objectSize > 1 {
-					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
+					skip(irow, fileKey, skipPartFile)
 					continue NextKey
 				} else {
 					// Check if we restrict sentinel files by name
 					if len(sentinelFileName) > 0 && !registerFileKeyAction.IsSchemaEvent &&
 						!strings.HasSuffix(fileKey, sentinelFileName) {
 						// case of accepting only sentinel file with specific name, this one does not have it
-						// log.Println("Register File Key: data source with multiple parts: skipping 0-size file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"],"Do not match the sentinel file name:",sentinelFileName)
+						skip(irow, fileKey, skipSentinelName)
 						continue NextKey
 					}
 					// Current key is for sentinel file, remove sentinel file name from file_key
@@ -438,7 +484,24 @@ NextKey:
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting file keys in file_key_staging table: %v", err)
 			}
 		} else {
-			// log.Println("***while RegisterFileKeys: skipping file key:", fileKeyObject["file_key"])
+			skip(irow, fileKey, skipMissingColumn)
+			continue NextKey
+		}
+		// A file with nothing to register is staged and goes no further: a
+		// session reserved and registered for it would hold no input.
+		inputKeys := make([]string, 0, len(domainKeys))
+		for _, domainKey := range domainKeys {
+			// skip this special domain key
+			if domainKey != "jets:hashing_override" {
+				inputKeys = append(inputKeys, domainKey)
+			}
+		}
+		switch {
+		case !hasSourceConfig:
+			skip(irow, fileKey, skipNoSourceConfig)
+			continue NextKey
+		case len(inputKeys) == 0:
+			skip(irow, fileKey, skipNoDomainKeys)
 			continue NextKey
 		}
 		// Reserve a session_id
@@ -462,11 +525,7 @@ NextKey:
 		// Insert into input registry
 		// Note: Get the jetsapi.source_config.domain_keys (aka indexes for joining tables) to use as the object_type
 		// of the input_registry table
-		for _, domainKey := range domainKeys {
-			if domainKey == "jets:hashing_override" {
-				// skip this special domain key
-				continue
-			}
+		for _, domainKey := range inputKeys {
 			log.Println(sessionId, "Write to input_registry for cpipes input files object type (aka domain_key):", domainKey, "client:", client, "org:", org)
 			log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
 			stmt = `INSERT INTO jetsapi.input_registry 
@@ -485,8 +544,16 @@ NextKey:
 				startPipelinesForInputRegistry(ctx, inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
 			}
 		}
+		registered++
 	}
-	return &map[string]any{}, http.StatusOK, nil
+	// Still a 200 when nothing registered: a sync or a request of many keys
+	// skips some by design. RegisterSchemaEvent, whose one row must register,
+	// reads "registered".
+	return &map[string]any{
+		"registered":    registered,
+		"skipped":       skipped,
+		"skipped_count": skippedCount,
+	}, http.StatusOK, nil
 }
 
 // uniqueDomainKeys returns keys without its repeats, keeping the first of each.
