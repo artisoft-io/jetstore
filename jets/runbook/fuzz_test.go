@@ -8,7 +8,7 @@ import (
 // Decode, Validate and Bind return findings and errors; they do not panic,
 // whatever the content.
 func FuzzDecodeValidateBind(f *testing.F) {
-	if readme, err := os.ReadFile("README.md"); err == nil {
+	if readme, err := os.ReadFile(formatPage); err == nil {
 		if m := fence.FindStringSubmatch(string(readme)); m != nil {
 			f.Add(m[2], "SELECT :since_utc::date, ':x' -- :y\n; DO $$ :z $$")
 		}

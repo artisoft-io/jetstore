@@ -10,7 +10,7 @@ sidebar:
 `action.schema.json`; `interpret.ts` runs a step list against form state; `escapes.ts` and
 `registry.ts` are the bodies a step cannot say and the names they are reachable under. The action
 document each flow runs is a `.ua.json` under `jets/workspace_assets/user_flows/`, which has its own
-note on the format (`actions.md`).
+note on the format ([Flow actions](/docs/developer/workspace/assets/flow-actions/)).
 
 **This page is about the gap between *valid* and *faithful*.** It is written for anyone who authors
 one of these documents by hand or emits one from a generator. The flows were first written by

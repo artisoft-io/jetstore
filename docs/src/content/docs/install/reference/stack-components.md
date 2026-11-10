@@ -165,8 +165,7 @@ Terminal state reporting for every state machine.
   run that completed and for no other terminal status. It is written to
   `<stage>/process_name=<p>/session_id=<s>/run_manifest.json` and to
   `jetsapi.cpipes_execution_status.run_manifest_json`. **The document is a published contract and
-  is specified in `jets/compute_pipes/run_manifest_readme.md`** (its content is moving to the
-  Developer's Guide's compute pipes section) — including what an absent manifest means, which is the
+  is specified in [Run manifest](/docs/developer/compute-pipes/run-manifest/)** — including what an absent manifest means, which is the
   part a consumer gets wrong.
 
 ## Run Reports Lambdas

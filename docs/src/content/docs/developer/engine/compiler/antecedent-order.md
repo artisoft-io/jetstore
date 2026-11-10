@@ -57,11 +57,11 @@ to add, from counts of what the sessions' graphs actually hold (`jet_rule_listen
   order: …`.
   `JETS_COST_ORDER_TRACE=1` lists each rule's order and its estimated rows.
 - **The format** is `jets/optstats`'s. A file is produced either by a bench run
-  (`rules_bench -stats`; see the `rules_bench` command's documentation) or by a
+  (`rules_bench -stats`; see [the `-stats` output](/docs/developer/testing/rules-benchmark/reference/#the--stats-output)) or by a
   pipeline on a deployed stack: a jetrules step that sets `optimizer_statistics`, merged into the
   workspace, as that process's own file, by the `merge_optimizer_statistics` report. **How to
-  produce the files, run the processes, and keep the statistics across deployments: the optimizer
-  statistics page of the compute pipes documentation.**
+  produce the files, run the processes, and keep the statistics across deployments:
+  [Optimizer statistics](/docs/developer/compute-pipes/optimizer-statistics/).**
 
 Measure a workspace before committing its statistics. The cost order holds fewer rows wherever the
 estimate is right, but a rule set can run slower under it; leave such a rule set out of the file,

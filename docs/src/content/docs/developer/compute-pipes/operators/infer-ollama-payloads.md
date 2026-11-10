@@ -268,7 +268,7 @@ Two properties of `{{@record}}` worth knowing before using it:
 - **The keys come out alphabetically sorted**, not in channel order — it is marshalled from a map.
 
 `options` is raw passthrough to Ollama (`temperature`, `num_ctx`, `seed`, `num_predict`…). Keep
-`num_ctx` within the server's `OLLAMA_CONTEXT_LENGTH` budget; see `infer_server_readme.md` for what
+`num_ctx` within the server's `OLLAMA_CONTEXT_LENGTH` budget; see [Infer server memory](/docs/install/planning/infer-server-memory/) for what
 the KV cache costs.
 
 ### Example 6 — chat API
@@ -377,7 +377,7 @@ different kind of JSON from everything above, so it is worth being explicit abou
 
 Implementation: `jets/apiserver/api_infer_server.go`,
 `jetsclient_ide/src/screens/InferServerAdmin.tsx` and `inferServer.ts`. Operational context — starting and
-stopping the GPU instance, what it costs — is in `infer_server_readme.md`.
+stopping the GPU instance, what it costs — is in [Start and stop the infer server](/docs/install/how-to/start-and-stop-the-infer-server/).
 
 ### What goes in the Request box
 
@@ -466,5 +466,5 @@ The allow list has no `/api/generate` or `/api/chat` entry, by design — this e
 models, it does not run inference. Prompt configuration is the operator's business — this page's §1
 and §2, and the rules in the [the inference operators page, §2.3](/docs/developer/compute-pipes/operators/infer/#23-where-a-prompt-is-declared) and §2.4. To exercise a prompt by hand, call the infer
 server directly with a chat request; the
-`infer_server_readme.md` verification section does exactly that, from
+[infer server's verification](/docs/install/planning/infer-server-memory/#verification) does exactly that, from
 `data/unit_test_data/cintel/ollama_unit_test_chat.json` in the `jets_ws` workspace.

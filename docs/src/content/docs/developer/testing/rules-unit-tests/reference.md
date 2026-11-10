@@ -91,7 +91,7 @@ that line is harmless.
 - **`legacy` no longer chooses anything.** It held the two `LEGACY` retraction switches,
   `recompute_on_retraction` and `withdrawn_row_stays`, until October 2026, when the `LEGACY`
   retraction mode was deleted and the C++ engine kept one behaviour, the one the switches chose when
-  false (the rule engine's readme, `jets/rete/README.md`, describes it). **A switch set `true` is
+  false ([Retraction and truth maintenance](/docs/developer/engine/rule-engine/retraction/) describes it). **A switch set `true` is
   refused**, naming the deletion; an object whose every present switch is `false` names that
   behaviour and is accepted, so tests written with one still run.
 - **Top-level `expected_triples` / `excluded_triples` apply to every session.** A session may add its
