@@ -14,7 +14,7 @@ predicates and constants its antecedents name. They are in `jet_rules/optimizer_
 committed, and in one file per statistics process, `jet_rules/<process>.optimizer_statistics.json`
 (since 2026-10-26, §3). This page, with [Collect optimizer statistics for a rule process](/docs/developer/compute-pipes/how-to/collect-optimizer-statistics/), is how a deployment produces them from its own data and puts
 them into the workspace, without committing anything. `rules_bench -stats`
-writes the same file from a bench (`jets/cmds/rules_bench/README.md`), and `jets/optstats` holds the
+writes the same file from a bench ([the `-stats` output](/docs/developer/testing/rules-benchmark/reference/#the--stats-output)), and `jets/optstats` holds the
 format.
 
 ---

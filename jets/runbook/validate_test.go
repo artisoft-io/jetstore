@@ -538,12 +538,16 @@ func TestSqlFiles(t *testing.T) {
 	})
 }
 
-// --- the README --------------------------------------------------------------
+// --- the format page --------------------------------------------------------
+
+// formatPage is the documentation page that specifies the format. Its example
+// is tested, so the page cannot drift from what Validate accepts.
+const formatPage = "../../docs/src/content/docs/developer/engine/runbook-format.md"
 
 var fence = regexp.MustCompile("(?s)```(json|sql)\n(.*?)```")
 
 func TestTheReadmeExampleValidates(t *testing.T) {
-	readme, err := os.ReadFile("README.md")
+	readme, err := os.ReadFile(formatPage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,10 +571,10 @@ func TestTheReadmeExampleValidates(t *testing.T) {
 	}
 	rb, fs := Load("runbooks/pipeline_health_check.rb.json", []byte(doc), files)
 	if len(fs) > 0 {
-		t.Fatalf("the README's example: %s", describe(fs))
+		t.Fatalf("the format page's example: %s", describe(fs))
 	}
 	if len(rb.SQLPaths()) != len(files) {
-		t.Errorf("the example reads %v and the README has %d files", rb.SQLPaths(), len(files))
+		t.Errorf("the example reads %v and the format page has %d files", rb.SQLPaths(), len(files))
 	}
 	// Every step type that runs without AWS appears.
 	types := map[StepType]bool{}
@@ -598,7 +602,7 @@ func TestTheReadmeExampleValidates(t *testing.T) {
 // --- round trip --------------------------------------------------------------
 
 func TestARunbookRoundTrips(t *testing.T) {
-	readme, _ := os.ReadFile("README.md")
+	readme, _ := os.ReadFile(formatPage)
 	m := fence.FindStringSubmatch(string(readme))
 	rb, fs := Decode([]byte(m[2]))
 	if len(fs) > 0 {

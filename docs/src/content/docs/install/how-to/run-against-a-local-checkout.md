@@ -51,4 +51,4 @@ second consumer and the one that reaches a developer's own files.
 and fails rather than skips when the script or `node` cannot be found; the images put the script
 beside the binaries, which a local build does not. Build it with `npm ci && npm run build:validator`
 in `jetsclient_ide/` and point the variable at `jetsclient_ide/dist-validator/jets_validate_workspace.mjs`
-(`jets/workspace/README.md`, which is moving to the Developer's Guide, has the detail).
+([Workspaces](/docs/developer/workspace/) has the detail).

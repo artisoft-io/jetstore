@@ -24,7 +24,7 @@ directory is one a flow runs, and the distinction the two directories drew no lo
 to live.
 
 **What the transcriptions taught is in the React client's actions notes**
-(`jetsclient_ide/src/actions/README.md`) — the five ways a document that validates is still not
+([Action documents](/docs/developer/testing/web-app/action-documents/)) — the five ways a document that validates is still not
 faithful to what it was derived from, and which one of the five a check can find (2026-08-24).
 `jetsclient_ide/src/actions/coverage.test.ts` became `jetsclient_ide/src/actions/flowActions.test.ts`
 at the same time, for the same reason the directory went.

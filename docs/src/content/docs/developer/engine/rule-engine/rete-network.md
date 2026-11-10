@@ -18,7 +18,7 @@ engine also ran, and say what it did; it is retired (see [The retired Go engine]
 relation's rows now (`BetaRelation::size`) and at their most in the session (`peak_size`), and the
 times its consequents were computed and retracted (`ReteSession::vertex_visits`). Go reads it as
 `bridge.ReteSession.ObserveVertices`, and `compute_pipes.VertexObserver` on the native adaptor's rete
-session; `rules_bench -observe` writes it per session (see the `rules_bench` command's documentation).
+session; `rules_bench -observe` writes it per session (see [the `-observe` output](/docs/developer/testing/rules-benchmark/reference/#the--observe-output)).
 
 **It needs no observation flag, and changes no hot path**: the peak has been kept since the reserve
 hint (`b0136f18`, 2026-10-22), which leaves each session's peak for the next session's relation, and

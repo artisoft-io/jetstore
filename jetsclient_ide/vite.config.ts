@@ -14,7 +14,7 @@ import react from "@vitejs/plugin-react";
 // in index.html at build time, so a bundle built for one prefix cannot be served
 // from another. The three places that must agree are here, `appAssetPrefix` in
 // Go, and `BASENAME` in src/base.ts.
-const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData", "/agentic"];
+const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData", "/agentic", "/docsSession", "/docs"];
 
 // The apiserver listens on :8080 with -usingSshTunnel and on :8443 (TLS) otherwise,
 // so the dev target is configurable. `secure: false` matters for the :8443 case,
