@@ -218,6 +218,24 @@ func sizeOf(v any) (size int64, ok bool, err error) {
 	return 0, false, nil
 }
 
+// registerFileKeysReads is every key of a request row that readRegisterFileKeyRow
+// reads; it drops the others without a word. Keep the two in step:
+// TestRegisterFileKeysReadsWhatItSays checks each key here changes what a row
+// reads as.
+var registerFileKeysReads = map[string]bool{
+	"client": true, "vendor": true, "org": true, "object_type": true,
+	"file_key": true, "year": true, "month": true, "day": true,
+	"size": true, "file_size": true, "schema_provider_json": true, "request_id": true,
+}
+
+// RegisterFileKeysReads reports whether RegisterFileKeys reads key from a row of
+// its request. A row's other keys are dropped without a word, so a caller adding
+// a key can check that it will be read (JM-096: the register-key lambda warns of
+// a key its site hook adds that is not).
+func RegisterFileKeysReads(key string) bool {
+	return registerFileKeysReads[key]
+}
+
 // readRegisterFileKeyRow copies the keys RegisterFileKeys reads from one row of
 // the request, converting them to the types it uses. An error is the request's
 // fault and is a 400. It writes nothing, so that RegisterFileKeys can read every

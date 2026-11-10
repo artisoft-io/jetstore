@@ -18,6 +18,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
@@ -184,6 +185,10 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 	// registration the hook has already handled.
 	var isSchemaEvent bool
 	if siteHook != nil {
+		before := make(map[string]bool, len(fileKeyComponents))
+		for k := range fileKeyComponents {
+			before[k] = true
+		}
 		var done bool
 		var err error
 		isSchemaEvent, done, err = siteHook.BeforeRegister(ctx, dtCtx, fileKey, fileKeyComponents, token)
@@ -193,6 +198,7 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 		if done {
 			return nil
 		}
+		warnOfUnreadHookKeys(fileKey, before, fileKeyComponents)
 	}
 
 	registerFileKeyAction := datatable.RegisterFileKeyAction{
@@ -201,6 +207,25 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 		IsSchemaEvent: isSchemaEvent,
 	}
 	return registerFileKeys(dtCtx, &registerFileKeyAction, token)
+}
+
+// warnOfUnreadHookKeys logs a warning naming each key the hook added to
+// components that RegisterFileKeys does not read, which it would drop without a
+// word: a misspelt key is otherwise a registration that silently lacks what the
+// site meant to add (JM-096). Keys the file key's path put there are not the
+// hook's and are not named.
+func warnOfUnreadHookKeys(fileKey string, before map[string]bool, components map[string]any) {
+	var unread []string
+	for k := range components {
+		if !before[k] && !datatable.RegisterFileKeysReads(k) {
+			unread = append(unread, k)
+		}
+	}
+	if len(unread) > 0 {
+		sort.Strings(unread)
+		log.Printf("WARNING register key %s: the site hook added key(s) %q that RegisterFileKeys does not read; they are dropped",
+			fileKey, unread)
+	}
 }
 
 // doFileSchema downloads the schema event the S3 event names and registers it.

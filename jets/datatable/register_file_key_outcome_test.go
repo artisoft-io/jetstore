@@ -10,6 +10,7 @@ package datatable
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -277,5 +278,44 @@ func TestRegisterSchemaEventThatRegistersNothingIsAnError(t *testing.T) {
 	err = ctx.RegisterSchemaEvent(ctx.Dbpool, event("Claims", ""), "")
 	if err == nil || !strings.Contains(err.Error(), skipNoFileKey) {
 		t.Errorf("a schema event with no file_key: err %v, want one naming %s", err, skipNoFileKey)
+	}
+}
+
+// Every key RegisterFileKeysReads names changes what a row reads as, and the
+// keys probed here that it does not name change nothing. The first half is the
+// one that matters: a key the set names and the reader drops would hide the
+// very misspelling the register-key lambda warns of.
+func TestRegisterFileKeysReadsWhatItSays(t *testing.T) {
+	value := map[string]any{
+		"year": 2000, "month": 2, "day": 3, "size": int64(5), "file_size": int64(5),
+	}
+	empty, err := readRegisterFileKeyRow(0, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k := range registerFileKeysReads {
+		v, ok := value[k]
+		if !ok {
+			v = "x"
+		}
+		r, err := readRegisterFileKeyRow(0, map[string]any{k: v})
+		if err != nil {
+			t.Fatalf("%s: %v", k, err)
+		}
+		if reflect.DeepEqual(r, empty) {
+			t.Errorf("RegisterFileKeysReads(%q) is true and a row reads the same without it", k)
+		}
+	}
+	for _, k := range []string{"processing_ticket", "schema_provider_jsn", "domain_keys", "env"} {
+		if RegisterFileKeysReads(k) {
+			t.Errorf("RegisterFileKeysReads(%q) is true", k)
+		}
+		r, err := readRegisterFileKeyRow(0, map[string]any{k: "x"})
+		if err != nil {
+			t.Fatalf("%s: %v", k, err)
+		}
+		if !reflect.DeepEqual(r, empty) {
+			t.Errorf("%q is not in the set and a row reads differently with it", k)
+		}
 	}
 }
