@@ -1096,6 +1096,16 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		// schemaInfo["request_id"] = requestId
 		return fmt.Errorf("request_id is missing in schemaInfo, it must be provided for pipeline coordinator map register schema event")
 	}
+	// Check every step before writing anything (JM-096): a step that cannot
+	// register left the map in_progress for ever, with the steps before it
+	// running.
+	for i, step := range coordinatedPipesMap {
+		if err := ctx.checkCoordinatedStep(step); err != nil {
+			return fmt.Errorf("coordinator map %s: step %d: %v", requestId, i+1, err)
+		}
+	}
+	// The schema's default for status is 'in-progress'; this has always written
+	// 'in_progress', and only 'failed' is ever compared.
 	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
 	if err != nil {
@@ -1103,12 +1113,54 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	}
 
 	// For each step in coordinatedPipesMap, unmarshal the schema_event_json and call RegisterSchemaEvent
-	for _, step := range coordinatedPipesMap {
+	for i, step := range coordinatedPipesMap {
 		err = ctx.RegisterSchemaEvent(dbpool, step, token)
 		if err != nil {
-			return fmt.Errorf("while registering schema event in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
+			err = fmt.Errorf("coordinator map %s: step %d of %d failed to register: %v", requestId, i+1, len(coordinatedPipesMap), err)
+			log.Println(err)
+			// Fail the map and announce it once, as a failed task of the map
+			// does; the steps before this one are already running.
+			notice := &StatusUpdate{
+				Dbpool:                   dbpool,
+				SessionId:                fmt.Sprintf("register_step_%d", i+1),
+				Status:                   "failed",
+				FileKey:                  step.FileKey,
+				FailureDetails:           err.Error(),
+				CpipesEnv:                step.Env,
+				NotifyApiGatewayOverride: step.NotifyApiGatewayOverride,
+			}
+			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "in_progress",
+				postMapEventJson, notice); ferr != nil {
+				log.Printf("while failing coordinator map %s: %v", requestId, ferr)
+			}
+			return err
 		}
 	}
 
+	return nil
+}
+
+// checkCoordinatedStep is what a coordinator map's step needs to register, checked
+// before the map is written: a step, a file_key, and a source_config for its
+// client, vendor and object_type, resolved as RegisterFileKeys resolves them.
+func (ctx *DataTableContext) checkCoordinatedStep(step *compute_pipes.SchemaProviderSpec) error {
+	if step == nil {
+		return errors.New("the step is null")
+	}
+	if len(step.FileKey) == 0 {
+		return errors.New("the step has no file_key")
+	}
+	components := map[string]any{"client": step.Client, "vendor": step.Vendor, "object_type": step.ObjectType}
+	ctx.updateFileKeyComponentCase(&components)
+	var n int
+	err := ctx.Dbpool.QueryRow(context.Background(),
+		`SELECT count(*) FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
+		components["client"], components["org"], components["object_type"]).Scan(&n)
+	if err != nil {
+		return fmt.Errorf("while reading source_config: %v", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("no source_config for client %q, vendor %q, object_type %q", step.Client, step.Vendor, step.ObjectType)
+	}
 	return nil
 }
