@@ -17,13 +17,22 @@
  * the whole argument for `classification` being nullable was that a deterministic
  * triage step must be able to write an incident without inventing one.
  *
- * ## The empty state is this screen's main behaviour today
+ * ## The empty state says why it is empty
  *
- * Nothing writes `jetsapi.incident` yet — the shadow-mode wiring is `AC.3` — so
- * this list is empty in every deployment. That is stated on the screen rather
- * than left to be inferred, because **an empty supervision queue reads as a quiet
- * system**, and a reader who concludes that from this screen would be concluding
- * it from a table nothing has ever written to.
+ * One thing raises an incident: `shadow_triage` (`jets/cmds/shadow_triage`,
+ * through `jets/agentic/shadow`'s `Writer`, the only `INSERT` into
+ * `jetsapi.incident`), and it runs only where the detection task is deployed. A
+ * verdict on `IncidentScreen` moves an incident's status and creates none. So
+ * this list is empty in any deployment where that task has
+ * not run, and the empty state says so and points at the Detection screen rather
+ * than leaving it to be inferred, because **an empty supervision queue reads as a
+ * quiet system**, and a reader who concludes that from this screen may be
+ * concluding it from a table nothing has written to.
+ *
+ * Until 2026-11-10 this paragraph said nothing writes `jetsapi.incident` and the
+ * list is empty in every deployment. That was true when it was written and stopped
+ * being true when the shadow-mode wiring (`AC.3`) landed; the on-screen text had
+ * already been corrected.
  *
  * ## The adjudicated view, and why it is not a filter for tidiness
  *

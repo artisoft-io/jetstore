@@ -3,7 +3,7 @@
 **`compute_pipes` learns nothing about templates.** Expansion runs when a config is
 authored, and its output is a config the runtime cannot distinguish from a hand-written
 one. Anything else puts an expander on the hot path of every run and breaks item 2b's
-criterion that all 45 live configs validate as they stand. Nothing in this module is
+criterion that every live config validates as it stands (45 when this was written). Nothing in this module is
 imported by the engine, and the output carries no marker that it was generated.
 
 **The fill seam is a callable, and that is deliberate.** `expand` does not know where a

@@ -10,8 +10,9 @@
  *
  *  - the locus and the classification are shown together, and an unclaimed cause
  *    is words rather than a blank (R-27, I-289);
- *  - the empty list says nothing writes these tables yet, because an empty
- *    supervision queue otherwise reads as a quiet system;
+ *  - the empty list says why it may be empty (incidents are written by shadow
+ *    triage, where the detection task runs), because an empty supervision queue
+ *    otherwise reads as a quiet system;
  *  - an unmigrated database is reported as a deployment state and not as an
  *    outage;
  *  - contradicting evidence has a rendering when it is empty, because the empty
@@ -217,8 +218,9 @@ describe("the incident list", () => {
     expect(screen.getByText("not claimed")).toBeTruthy();
   });
 
-  // An empty supervision queue reads as a quiet system, and this one is empty
-  // because nothing writes the table — not because nothing went wrong.
+  // An empty supervision queue reads as a quiet system. This one is empty where
+  // shadow triage has not run, which is not evidence that nothing went wrong.
+  // (Until 2026-11-10 this said nothing writes the table; shadow_triage does.)
   it("says why the list is empty, rather than reporting all clear", async () => {
     const { api } = await clientWith({
       list_incidents: { body: { incidents: [], ...vocabularies } },
