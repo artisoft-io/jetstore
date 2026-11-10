@@ -61,6 +61,7 @@ import (
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY_SECRET or JETS_ENCRYPTION_KEY required key to encrypt git token in users table
 // IDE_APP_DEPLOYMENT_DIR path to the IDE static web app directory (jetsclient_ide)
+// DOCS_DEPLOYMENT_DIR path to the documentation site directory (docs/), served under /docs/
 
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -72,6 +73,7 @@ var dsn = flag.String("dsn", "", "primary database connection string (required u
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
+var docsDir = flag.String("DOCS_DEPLOYMENT_DIR", "/usr/local/lib/docs", "Documentation site (docs/) static directory, served under /docs/")
 var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
@@ -93,6 +95,10 @@ func main() {
 	ideAppDirEnv := os.Getenv("IDE_APP_DEPLOYMENT_DIR")
 	if ideAppDirEnv != "" {
 		*ideWebDir = ideAppDirEnv
+	}
+	docsDirEnv := os.Getenv("DOCS_DEPLOYMENT_DIR")
+	if docsDirEnv != "" {
+		*docsDir = docsDirEnv
 	}
 	if *adminEmail == "" {
 		*adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -196,6 +202,7 @@ func main() {
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
 	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)
+	log.Println("Got argument: DOCS_DEPLOYMENT_DIR", *docsDir)
 	if globalDevMode {
 		log.Println("Running in DEV MODE")
 		if len(*unitTestDir) > 0 {
