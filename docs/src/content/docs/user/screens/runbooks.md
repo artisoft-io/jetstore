@@ -10,7 +10,8 @@ queries and statements, waits and loops, pauses, values you record, pipeline sta
 a page of its own, where you follow it and act on the steps that wait for you. How a runbook is written
 is in [The workspace runbook format](/docs/developer/engine/runbook-format/).
 
-**Reach it** from *Runbooks* in the top bar. It needs the `runbook_execute` capability. Each step also
+**Reach it** from *Runbooks* in the top bar, which stays marked on every runbook page, the list of a
+workspace's runbooks at `/workspaces/<name>/runbooks` included. It needs the `runbook_execute` capability. Each step also
 needs its own: a query needs `jetstore_read`, a pipeline start `run_pipelines`, a compile
 `workspace_ide`. A step runs as the person who started the run, or who accepted it.
 
@@ -47,12 +48,15 @@ list. While the run is working it is read again every few seconds, and the bar s
 
 ![The bar of a paused run: Runbooks to go back, the Paused status, and the Continue, Skip, Retry, Abort and Refresh buttons.](../../../../assets/screenshots/user/screens/runbooks/run-paused-controls.png)
 
+The bar offers only what the current step can take: the step the run is at, which is the last one
+listed that is not finished.
+
 | Button | Shown when | What it does |
 |---|---|---|
 | **← Runbooks** | always | Back to the list of the run's workspace. |
-| **Continue** | the run is paused | Goes on from the current step. It reads the runbook again, so a step edited since the pause runs as edited. |
-| **Skip** | the run is paused on a step other than a pause | Skips the current step and goes on. |
-| **Retry** | the current step failed or was interrupted | Runs the current step again. |
+| **Continue** | the run is paused at a pause step, or after a step that failed or was denied | Goes on from the current step; after a failed or denied step, the next step runs and the failure or denial stays in the record. It reads the runbook again, so a step edited since the pause runs as edited. |
+| **Skip** | the run is paused, unless a step is running; or the run is in a wait | Records the current step as skipped and goes on. It also ends a wait early. |
+| **Retry** | the current step failed, was denied or was interrupted | Runs the current step again; a `ddl` step asks for confirmation again. |
 | **Abort** | the run is not finished | Stops the run: the steps not yet run are marked skipped. |
 | **Release** | the run is finished | Asks for confirmation, then releases the run's result: every step's statement, bound values, outputs and rows may then leave the database. |
 | **Download .rbr.json** | the run is released | Downloads the result. |
@@ -78,8 +82,13 @@ Step statuses: *Pending*, *Running*, *Waiting* (a wait step between checks), *Aw
 *Awaiting input*, *Completed*, *Failed*, *Skipped*, *Denied* and *Interrupted*. A failed `assert`
 stops the run, or pauses it when the runbook says so; the step shows the runbook's message.
 
+**A pause step** stops the run so that you can read what it has found so far. Its panel, *The run
+waits for you*, shows the runbook's message; **Continue**, in the bar, goes on, and **Skip** records the
+step as skipped and goes on.
+
 **A manual step** waits for values you record. Its panel, *Your action*, shows the runbook's
-instruction and one field per value; **Record** records them and the run goes on.
+instruction and one field per value; **Record** records them and the run goes on. **Skip**, in the
+bar, goes on without them.
 
 ![The Your action panel of a manual step, asking how many rows the scratch table should hold, with one integer field and the Record button.](../../../../assets/screenshots/user/screens/runbooks/step-manual.png)
 
@@ -87,7 +96,7 @@ instruction and one field per value; **Record** records them and the run goes on
 the statement as it will be sent, the hash of its file, every bound parameter and its value, and, when
 the runbook asks for a preview, each statement's result from a trial run that was rolled back.
 **Accept** runs it, as you, in one transaction; **Deny** does not run it and leaves the run paused.
-A comment is recorded with either.
+A comment is recorded with either. **Skip**, in the bar, does not run it either and goes on.
 
 ![The confirmation panel of the create_probe step: its CREATE TABLE and INSERT statements, the file hash, the bound parameter probe_rows of 3, the rolled-back preview of both statements, a comment box, and the Accept and Deny buttons.](../../../../assets/screenshots/user/screens/runbooks/step-ddl-confirmation.png)
 

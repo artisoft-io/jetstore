@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
+import { NavEntryProvider } from "../shell/navEntry";
 import { NotificationsProvider } from "../shell/notifications";
 import { PromptsProvider } from "../shell/prompts";
 import { answerConfirm } from "../shell/promptsTesting";
@@ -26,6 +27,7 @@ import {
   RunbooksApi,
   currentStep,
   parseTyped,
+  runControls,
   shouldPoll,
   type Run,
   type StepRun,
@@ -84,20 +86,32 @@ function Where() {
   return <div data-testid="where">{location.pathname}</div>;
 }
 
+/** The top-bar entries the screens claimed, in order (`navEntry.tsx`). */
+let navClaims: string[] = [];
+const navSlot = {
+  claim(to: string) {
+    navClaims.push(to);
+    return () => undefined;
+  },
+};
+
 function renderAt(api: ApiClient, path: string, pollMs = 60_000) {
+  navClaims = [];
   return render(
     <ApiProvider api={api}>
       <NotificationsProvider>
         <PromptsProvider>
-          <MemoryRouter initialEntries={[path]}>
-            <Routes>
-              <Route path="/runbooks" element={<RunbooksScreen api={api} />} />
-              <Route path="/workspaces/:workspace_name/runbooks" element={<RunbooksScreen api={api} />} />
-              <Route path="/runbooks/run/:run_key" element={<RunScreen api={api} pollMs={pollMs} />} />
-              <Route path="/workspaces/:workspace_name/home" element={<p>IDE</p>} />
-            </Routes>
-            <Where />
-          </MemoryRouter>
+          <NavEntryProvider slot={navSlot}>
+            <MemoryRouter initialEntries={[path]}>
+              <Routes>
+                <Route path="/runbooks" element={<RunbooksScreen api={api} />} />
+                <Route path="/workspaces/:workspace_name/runbooks" element={<RunbooksScreen api={api} />} />
+                <Route path="/runbooks/run/:run_key" element={<RunScreen api={api} pollMs={pollMs} />} />
+                <Route path="/workspaces/:workspace_name/home" element={<p>IDE</p>} />
+              </Routes>
+              <Where />
+            </MemoryRouter>
+          </NavEntryProvider>
         </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
@@ -257,14 +271,77 @@ describe("polling and the frontier", () => {
     expect(shouldPoll(runWith("completed", []))).toBe(false);
   });
 
-  it("takes the last started step as the current one", () => {
-    const run = runWith("paused", [
-      queryDone,
-      step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "running" }),
-      step({ step_key: 103, sequence: 3, step_id: "make_scratch", type: "ddl", status: "pending" }),
-    ]);
-    expect(currentStep(run)?.step_id).toBe("hold");
+  // The server's frontierStep: the last step that is not final, else the last
+  // one. Every control names this step, and the server refuses any other.
+  it("takes the server's frontier as the current step", () => {
+    const hold = step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "awaiting_input" });
+    expect(currentStep(runWith("paused", [queryDone, hold]))?.step_id).toBe("hold");
+    // A step recorded pending is the frontier, not the step before it.
+    const next = step({ step_key: 103, sequence: 3, step_id: "make_scratch", type: "ddl", status: "pending" });
+    expect(currentStep(runWith("running", [queryDone, { ...hold, status: "completed" }, next]))?.step_id).toBe("make_scratch");
+    // A repeat waiting between iterations is the frontier, though its body's
+    // rows come after it.
+    const loop = step({ step_key: 104, sequence: 1, step_id: "loop", type: "repeat", status: "waiting" });
+    const body = step({ step_key: 105, sequence: 2, step_id: "confirm_box", type: "manual", status: "completed" });
+    expect(currentStep(runWith("running", [loop, body]))?.step_id).toBe("loop");
+    // A repeat running its body is not: the body's step is.
+    expect(currentStep(runWith("paused", [{ ...loop, status: "running" }, { ...body, status: "awaiting_input" }]))?.step_id).toBe("confirm_box");
+    // Every step final: the last one.
+    expect(currentStep(runWith("completed", [queryDone, { ...hold, status: "completed" }]))?.step_id).toBe("hold");
+    expect(currentStep(runWith("running", []))).toBeNull();
   });
+});
+
+/**
+ * The controls the server accepts in each state, from `resume`, `Accept`,
+ * `Deny`, `Record` and `Abort` in `jets/datatable/runbook_actions.go`. A row
+ * here that the screen offered and the server refused is the defect this
+ * table exists for: a pause step was offered Record (409) and not Continue.
+ */
+describe("runControls", () => {
+  type Want = Partial<Record<"continue" | "skip" | "retry" | "decide" | "record", boolean>>;
+  const at = (status: StepRun["status"], type: StepRun["type"] = "query") =>
+    step({ step_key: 200, sequence: 2, step_id: "s", type, status });
+  const cases: Array<[string, Run, Want]> = [
+    ["a pause step awaiting input", runWith("paused", [queryDone, at("awaiting_input", "pause")]), { continue: true, skip: true }],
+    ["a manual step awaiting input", runWith("paused", [queryDone, at("awaiting_input", "manual")]), { skip: true, record: true }],
+    ["a ddl step awaiting confirmation", runWith("paused", [queryDone, at("awaiting_confirmation", "ddl")]), { skip: true, decide: true }],
+    ["a compile step awaiting confirmation", runWith("paused", [at("awaiting_confirmation", "compile")]), { skip: true, decide: true }],
+    ["a failed step", runWith("paused", [queryDone, at("failed")]), { continue: true, skip: true, retry: true }],
+    ["a denied step", runWith("paused", [queryDone, at("denied", "ddl")]), { continue: true, skip: true, retry: true }],
+    ["an interrupted step", runWith("paused", [queryDone, at("interrupted", "ddl")]), { skip: true, retry: true }],
+    ["a completed step on a paused run", runWith("paused", [queryDone]), { continue: true, skip: true }],
+    ["a waiting step on a paused run", runWith("paused", [at("waiting", "wait")]), { skip: true }],
+    ["a waiting step on a running run", runWith("running", [queryDone, at("waiting", "wait")]), { skip: true }],
+    ["a running step", runWith("running", [queryDone, at("running")]), {}],
+    ["a pending step", runWith("running", [queryDone, at("pending")]), {}],
+    ["a run with no step yet", runWith("running", []), {}],
+  ];
+  for (const [name, run, want] of cases) {
+    it(`at ${name}`, () => {
+      const got = runControls(run);
+      expect({
+        continue: got.continue,
+        skip: got.skip,
+        retry: got.retry,
+        decide: got.decide,
+        record: got.record,
+      }).toEqual({
+        continue: want.continue ?? false,
+        skip: want.skip ?? false,
+        retry: want.retry ?? false,
+        decide: want.decide ?? false,
+        record: want.record ?? false,
+      });
+      expect(got.abort).toBe(true);
+    });
+  }
+  for (const status of ["completed", "failed", "aborted"] as const) {
+    it(`offers nothing on a run that is ${status}`, () => {
+      const { step: _frontier, ...flags } = runControls(runWith(status, [queryDone, at("failed")]));
+      expect(Object.values(flags).some(Boolean)).toBe(false);
+    });
+  }
 });
 
 describe("the runbooks screen", () => {
@@ -297,6 +374,24 @@ describe("the runbooks screen", () => {
     // An invalid runbook cannot be started.
     expect((screen.getByRole("button", { name: "Start broken_one" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Start example_health_check" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // The top bar would otherwise mark Workspaces, whose address the workspace
+  // route is under.
+  it("is reached from the Runbooks entry of the top bar, on each of its routes", async () => {
+    const { api } = await clientWith({
+      ...workspaceRows,
+      list_runbooks: { body: { runbooks: [] } },
+      list_runs: { body: { runs: [] } },
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("completed", [queryDone]) } },
+    });
+    for (const at of ["/workspaces/jets_ws/runbooks", "/runbooks", "/runbooks/run/12"]) {
+      renderAt(api, at);
+      await waitFor(() => expect(navClaims).toContain("/runbooks"));
+      expect(new Set(navClaims)).toEqual(new Set(["/runbooks"]));
+      cleanup();
+    }
   });
 
   it("chooses the deployment's workspace on the bare route, and the picker navigates", async () => {
@@ -374,7 +469,7 @@ describe("the run screen", () => {
   });
 
   it("shows a ddl step's exact statement, every bound value and its preview beside Accept", async () => {
-    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("running", [queryDone, ddlAwaiting]) } } });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("paused", [queryDone, ddlAwaiting]) } } });
     renderAt(api, "/runbooks/run/12");
     const panel = await screen.findByRole("region", { name: "Confirm make_scratch" });
     // The statement is on screen, whole, without a click.
@@ -394,7 +489,7 @@ describe("the run screen", () => {
   it("accepts with the comment, and sends no actor", async () => {
     const { api, actions } = await clientWith({
       ...sessionsScript(),
-      get_run: { body: { run: runWith("running", [queryDone, ddlAwaiting]) } },
+      get_run: { body: { run: runWith("paused", [queryDone, ddlAwaiting]) } },
       accept: {
         body: {
           run: runWith("running", [
@@ -415,7 +510,7 @@ describe("the run screen", () => {
   it("denies, and shows the denial", async () => {
     const { api, actions } = await clientWith({
       ...sessionsScript(),
-      get_run: { body: { run: runWith("running", [ddlAwaiting]) } },
+      get_run: { body: { run: runWith("paused", [ddlAwaiting]) } },
       deny: {
         body: {
           run: runWith("paused", [
@@ -436,7 +531,7 @@ describe("the run screen", () => {
 
   it("says what a start_pipeline step will insert before Accept", async () => {
     const start = step({ step_key: 104, sequence: 1, step_id: "start_it", type: "start_pipeline", status: "awaiting_confirmation", bound: { process_name: "p1", main_input_session_id: "1724" } });
-    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("running", [start]) } } });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("paused", [start]) } } });
     renderAt(api, "/runbooks/run/12");
     const panel = await screen.findByRole("region", { name: "Confirm start_it" });
     expect(within(panel).getByText(/Accept starts a pipeline/)).toBeTruthy();
@@ -446,7 +541,7 @@ describe("the run screen", () => {
 
   it("says what a compile step will do before Accept", async () => {
     const compile = step({ step_key: 105, sequence: 1, step_id: "rebuild", type: "compile", status: "awaiting_confirmation" });
-    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("running", [compile]) } } });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("paused", [compile]) } } });
     renderAt(api, "/runbooks/run/12");
     const panel = await screen.findByRole("region", { name: "Confirm rebuild" });
     expect(within(panel).getByText(/Accept compiles workspace jets_ws/)).toBeTruthy();
@@ -455,7 +550,7 @@ describe("the run screen", () => {
 
   it("says what a put_schema_event step will put before Accept", async () => {
     const put = step({ step_key: 106, sequence: 1, step_id: "put_it", type: "put_schema_event", status: "awaiting_confirmation", bound: { event: '{"event":"x"}', key: "k1" } });
-    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("running", [put]) } } });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("paused", [put]) } } });
     renderAt(api, "/runbooks/run/12");
     const panel = await screen.findByRole("region", { name: "Confirm put_it" });
     expect(within(panel).getByLabelText("Schema event").textContent).toBe('{"event":"x"}');
@@ -466,7 +561,7 @@ describe("the run screen", () => {
     const manual = step({ step_key: 107, sequence: 1, step_id: "confirm_box", type: "manual", status: "awaiting_input" });
     const { api, actions } = await clientWith({
       ...sessionsScript(),
-      get_run: { body: { run: runWith("running", [manual]) } },
+      get_run: { body: { run: runWith("paused", [manual]) } },
       record: { body: { run: runWith("running", [{ ...manual, status: "completed", outputs: { reading: 7, note: "fine" } }]) } },
     });
     renderAt(api, "/runbooks/run/12");
@@ -479,16 +574,21 @@ describe("the run screen", () => {
     expect(actions("record")[0]!.body).toEqual({ action: "record", run_key: 12, step_key: 107, values: { reading: 7, note: "fine" } });
   });
 
-  it("at a pause step offers Continue and Abort but not Skip, and links to the IDE", async () => {
-    const hold = step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "running" });
+  // The server records a pause step as awaiting input on a paused run, and
+  // takes Continue or Skip on it; Record is refused (409), for a manual step only.
+  it("at a pause step offers Continue and Skip, not Record, and links to the IDE", async () => {
+    const hold = step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "awaiting_input" });
     const { api, actions } = await clientWith({
       ...sessionsScript(),
       get_run: { body: { run: runWith("paused", [queryDone, hold]) } },
       continue: { body: { run: runWith("running", [queryDone, { ...hold, status: "completed" }]) } },
     });
     renderAt(api, "/runbooks/run/12");
-    await screen.findByText("Check the counts before going on.");
-    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    const panel = await screen.findByRole("region", { name: "Pause hold" });
+    await within(panel).findByText("Check the counts before going on.");
+    expect(screen.queryByRole("region", { name: "Record hold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     expect(screen.getByRole("button", { name: "Abort" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Edit future steps" }).getAttribute("href")).toBe("/workspaces/jets_ws/home");
@@ -496,6 +596,93 @@ describe("the run screen", () => {
     await waitFor(() => expect(actions("continue").length).toBe(1));
     expect(actions("continue")[0]!.body).toEqual({ action: "continue", run_key: 12, step_key: 102 });
     await waitFor(() => expect(screen.queryByRole("button", { name: "Continue" })).toBeNull());
+    expect(screen.queryByRole("region", { name: "Pause hold" })).toBeNull();
+  });
+
+  it("skips a pause step", async () => {
+    const hold = step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "awaiting_input" });
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("paused", [queryDone, hold]) } },
+      skip: { body: { run: runWith("running", [queryDone, { ...hold, status: "skipped" }]) } },
+    });
+    renderAt(api, "/runbooks/run/12");
+    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+    await waitFor(() => expect(actions("skip").length).toBe(1));
+    expect(actions("skip")[0]!.body).toEqual({ action: "skip", run_key: 12, step_key: 102 });
+  });
+
+  it("at a manual step offers Record and Skip, and not Continue", async () => {
+    const manual = step({ step_key: 107, sequence: 2, step_id: "confirm_box", type: "manual", status: "awaiting_input" });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("paused", [queryDone, manual]) } } });
+    renderAt(api, "/runbooks/run/12");
+    await screen.findByRole("region", { name: "Record confirm_box" });
+    expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Pause confirm_box" })).toBeNull();
+  });
+
+  it("at a step awaiting confirmation offers Accept, Deny and Skip, and not Continue", async () => {
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("paused", [queryDone, ddlAwaiting]) } },
+      skip: { body: { run: runWith("running", [queryDone, { ...ddlAwaiting, status: "skipped" }]) } },
+    });
+    renderAt(api, "/runbooks/run/12");
+    await screen.findByRole("region", { name: "Confirm make_scratch" });
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    await waitFor(() => expect(actions("skip").length).toBe(1));
+    expect(actions("skip")[0]!.body).toEqual({ action: "skip", run_key: 12, step_key: 103 });
+  });
+
+  it("after a denial offers Continue, Skip and Retry, on the denied step", async () => {
+    const denied = {
+      ...ddlAwaiting,
+      status: "denied" as const,
+      decision: { by: "engineer@example.com", at: "2026-11-06T18:02:00Z", accepted: false },
+    };
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("paused", [queryDone, denied]) } },
+      retry: { body: { run: runWith("running", [queryDone, denied]) } },
+    });
+    renderAt(api, "/runbooks/run/12");
+    expect(await screen.findByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Confirm make_scratch" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(actions("retry").length).toBe(1));
+    expect(actions("retry")[0]!.body).toEqual({ action: "retry", run_key: 12, step_key: 103 });
+  });
+
+  it("takes a wait out of a running run with Skip, and offers nothing else but Abort", async () => {
+    const waiting = step({ step_key: 110, sequence: 2, step_id: "wait_load", type: "wait", status: "waiting", next_check_at: "2026-11-06T18:03:00Z" });
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("running", [queryDone, waiting]) } },
+      skip: { body: { run: runWith("running", [queryDone, { ...waiting, status: "skipped" }]) } },
+    });
+    renderAt(api, "/runbooks/run/12");
+    const skip = await screen.findByRole("button", { name: "Skip" });
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Abort" })).toBeTruthy();
+    fireEvent.click(skip);
+    await waitFor(() => expect(actions("skip").length).toBe(1));
+    expect(actions("skip")[0]!.body).toEqual({ action: "skip", run_key: 12, step_key: 110 });
+  });
+
+  it("offers only Abort while a step runs", async () => {
+    const running = step({ step_key: 111, sequence: 2, step_id: "count_again", type: "query", status: "running" });
+    const { api } = await clientWith({ ...sessionsScript(), get_run: { body: { run: runWith("running", [queryDone, running]) } } });
+    renderAt(api, "/runbooks/run/12");
+    expect(await screen.findByRole("button", { name: "Abort" })).toBeTruthy();
+    for (const name of ["Continue", "Skip", "Retry", "Accept", "Record"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
   });
 
   it("at a failed step offers Retry and Skip, each on that step", async () => {
@@ -525,12 +712,14 @@ describe("the run screen", () => {
     renderAt(api, "/runbooks/run/12");
     expect(await screen.findByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
+    // It may have taken effect: the server refuses Continue on it.
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
 
   it("aborts a running run", async () => {
     const { api, actions } = await clientWith({
       ...sessionsScript(),
-      get_run: { body: { run: runWith("running", [ddlAwaiting]) } },
+      get_run: { body: { run: runWith("paused", [ddlAwaiting]) } },
       abort: { body: { run: runWith("aborted", [{ ...ddlAwaiting, status: "skipped" }]) } },
     });
     renderAt(api, "/runbooks/run/12");
@@ -596,7 +785,7 @@ describe("the run screen", () => {
   it("re-reads a running run until it pauses, then stops", async () => {
     let reads = 0;
     const waiting = step({ step_key: 110, sequence: 1, step_id: "wait_load", type: "wait", status: "waiting", next_check_at: "2026-11-06T18:03:00Z" });
-    const hold = step({ step_key: 111, sequence: 2, step_id: "hold", type: "pause", status: "running" });
+    const hold = step({ step_key: 111, sequence: 2, step_id: "hold", type: "pause", status: "awaiting_input" });
     const { api } = await clientWith({
       ...sessionsScript(),
       get_run: () => {
