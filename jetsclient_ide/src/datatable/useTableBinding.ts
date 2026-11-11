@@ -23,7 +23,6 @@ import {
   type FormField,
 } from "./binding";
 import type { FormState } from "./formState";
-import { keepSelectedRows } from "./model";
 import { refreshTable, useTableModes, type TableModes } from "./modes";
 import { useDataTable, type DataTableFetcher, type DataTableState } from "./useDataTable";
 import { selectedClient, subscribeToClient } from "../shell/selectedClient";
@@ -272,13 +271,18 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     restoredFor.current = state.rows;
 
     const restored = restoreSelection(formState, field, fsc, state.rows);
-    restored.forEach((isSelected, index) => {
-      if (isSelected) state.setRowSelected(index, true);
-    });
-    if (config.showSelectedOnly) {
-      // `filterSelectedRows` runs after the restore, not after the fetch — the
-      // ordering A.4b left to this file.
-      keepSelectedRows(state.rows, restored);
+    if (config.isReadOnly || config.showSelectedOnly) {
+      // A read-only table cannot take the user's tick, so the restored selection
+      // is applied as it stands; and `filterSelectedRows` runs after the restore,
+      // not after the fetch — the ordering A.4b left to this file. Both of the
+      // `showSelectedOnly` tables are read-only confirmation copies of a choice,
+      // which until 2026-11-11 showed every row, unticked: the tick was refused
+      // and the narrowed rows were computed and thrown away.
+      state.restoreSelected(restored, config.showSelectedOnly === true);
+    } else {
+      restored.forEach((isSelected, index) => {
+        if (isSelected) state.setRowSelected(index, true);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.rows]);

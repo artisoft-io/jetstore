@@ -25,6 +25,11 @@ import lfFileKeyStagingTable from "../../../jets/workspace_assets/table_configs/
 import lfSourceConfigTable from "../../../jets/workspace_assets/table_configs/lfSourceConfigTable.tc.json";
 import wpClientList from "../../../jets/workspace_assets/table_configs/wpClientList.tc.json";
 import wpClientListRO from "../../../jets/workspace_assets/table_configs/wpClientListRO.tc.json";
+import otherWorkspaceActionOptions from "../../../jets/workspace_assets/table_configs/otherWorkspaceActionOptions.tc.json";
+import wpPullWorkspaceConfirmOptions from "../../../jets/workspace_assets/table_configs/wpPullWorkspaceConfirmOptions.tc.json";
+import workspacePullActions from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
+import workspacePullFlow from "../../../jets/workspace_assets/user_flows/workspacePullUF.uf.json";
+import workspacePullForms from "../../../jets/workspace_assets/user_flows/workspacePullUF.form.json";
 import hfProcessTable from "../../../jets/workspace_assets/table_configs/hfProcessTableUF.tc.json";
 import hfStatusTable from "../../../jets/workspace_assets/table_configs/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_configs/hfFileKeyFilterTypeTableUF.tc.json";
@@ -75,6 +80,11 @@ const files: Record<string, string> = {
   "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
   "table_configs/wpClientList.tc.json": serialise(wpClientList),
   "table_configs/wpClientListRO.tc.json": serialise(wpClientListRO),
+  "user_flows/workspacePullUF.uf.json": serialise(workspacePullFlow),
+  "user_flows/workspacePullUF.ua.json": serialise(workspacePullActions),
+  "user_flows/workspacePullUF.form.json": serialise(workspacePullForms),
+  "table_configs/otherWorkspaceActionOptions.tc.json": serialise(otherWorkspaceActionOptions),
+  "table_configs/wpPullWorkspaceConfirmOptions.tc.json": serialise(wpPullWorkspaceConfirmOptions),
 
   // F.5. Four table documents for five states, and the fourth is the one
   // registered on the *non-flow* side (plan F18) — the first document in this
@@ -1066,6 +1076,34 @@ describe("loadConfigUF — loading client configuration", () => {
  * which were missing until this task and neither of which would have failed a
  * document check.
  */
+describe("workspacePullUF — the confirmation page", () => {
+  it("shows the chosen actions ticked, and only the chosen clients", async () => {
+    // It showed every action and every client, none ticked: the read-only copy
+    // refused the restored tick, and its rows were never narrowed to the choice.
+    const { posts } = await mount("workspacePullUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText(/Compile workspace/);
+    const options = screen.getAllByRole("checkbox");
+    fireEvent.click(options[0]!); // compile
+    fireEvent.click(options[2]!); // load the selected clients
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("button", { name: "Confirm" });
+
+    await waitFor(() => expect(screen.getByText("Workspace will be compiled")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.queryByText("ALL client configuration will be loaded into database")).toBeNull(),
+    );
+    expect(screen.getByText("SELECTED client configuration will be loaded into database")).toBeTruthy();
+    const ticked = (screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked);
+    expect(ticked).toEqual([true, true]);
+    expect(await screen.findByText("Acme Health")).toBeTruthy();
+    expect(screen.queryByText("Globex Corporation")).toBeNull();
+    void posts;
+  });
+});
+
 describe("home_filters in the app", () => {
   // **The filter store is module-level, so it outlives the tree.** That is what
   // makes it the Flutter router's equivalent and it is also what makes it test
