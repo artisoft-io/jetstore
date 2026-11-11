@@ -73,6 +73,11 @@ cp jets/workspace_schema.sql $HOME/jetstore-bin/
 export JETS_BIN_DIR=$HOME/jetstore-bin
 ```
 
+**A plain PostgreSQL will do.** `jets/jets_init_db.sql` creates the `aws_s3` extension only where
+the server offers it, as RDS does, so `update_db` applies it to a local `postgres` container
+unchanged. Without the extension, a report that exports csv or json through
+`aws_s3.query_export_to_s3` fails when it runs.
+
 **Set `-listenAddr`, or `JETS_LISTEN_ADDR`, to run a second apiserver beside the first.** The address
 is `host:port` or `:port`. Unset, it is `:8080` with `-usingSshTunnel` (plain HTTP) and `:8443`
 without it (TLS), as before; the setting changes only the address, never whether TLS is used. The flag

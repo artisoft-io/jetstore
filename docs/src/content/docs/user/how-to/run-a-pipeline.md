@@ -31,8 +31,10 @@ page describes each step's columns.
 ## Watch it
 
 1. On **Pipelines Status**, press **Refresh** to follow the run's status: `pending` while it waits
-   for a place, `submitted` while it runs, then `completed`, `errors` or `failed`. A run takes from a
-   few minutes upward, depending on its data.
+   for a place, `submitted` while it runs, then the status it ended with: `completed`, `errors`,
+   `recovered`, `interrupted`, `failed` or `timed_out`
+   ([what each means](/docs/user/concepts/pipelines-and-sessions/#what-a-runs-status-means)). A run
+   takes from a few minutes upward, depending on its data.
 
    ![Pipelines Status: the CI runs of January 2026, Patient_Profile_Template in every status and the three Map_ runs completed.](../../../../assets/screenshots/user/how-to/run-a-pipeline/pipelines-status.png)
 
