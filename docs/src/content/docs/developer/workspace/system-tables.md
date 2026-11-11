@@ -20,6 +20,20 @@ Defines the users having access to the platform UI. The users are identified by 
 Their passwords are hashed using Provos and Mazières's bcrypt adaptive hashing algorithm.
 See [the bcrypt paper](http://www.usenix.org/event/usenix99/provos/provos.pdf).
 
+## Tables `roles` and `role_capability`
+
+`roles` names the roles a user can hold (`users.encrypted_roles`), and `role_capability` the
+capabilities each role grants. `jets/jets_init_db.sql` seeds five roles and their capabilities, and
+`update_db -initBaseWorkspaceDb` applies it at each new release and at each workspace compile:
+
+- a seeded role is created, or its `details` updated, and holds exactly the capabilities the script
+  lists for it, so a capability a release withdraws is removed, and so is one granted to a seeded
+  role by hand;
+- **a role the installation added is kept, with its `role_capability` rows**. Until November 2026
+  the script truncated both tables, so such a role was deleted at the next compile;
+- a role a release stops seeding is **not** removed by leaving it out of the list: the script must
+  delete it from both tables explicitly. No seeded role has been retired so far.
+
 ## Table `client_registry`
 
 Is a utility table defining Client identifiers for relating configuration information and
@@ -186,7 +200,22 @@ are not provided, the latest `session_id` is taken from `input_registry` unless
 overriden by `input_session_id`.
 This applies to the case when the server process in not provided with a `pipeline_execution_key`.
 
-The `status` can be `pending` (waiting for the job to complete), `completed` or `failed` when an unrecoverable error occurred.
+The `status` is one of eight values, written as follows:
+
+| `status` | Written by | When |
+|---|---|---|
+| `pending` | `InsertPipelineExecutionStatus` (`jets/datatable/pipeline_execution.go`) | the run is inserted while the installation's throttling limit is reached; `StartPendingTasks` starts it later |
+| `submitted` | `InsertPipelineExecutionStatus`, `StartPendingTasks` | the run's state machine was started |
+| `timed_out` | `StartPendingTasks` | a run stayed `submitted` longer than the cpipes timeout |
+| `failed` | `StatusUpdate.CoordinateWork` (`jets/datatable/status_update.go`), `StartPendingTasks`, the dev-mode run | the state machine reported a failure, its start failed, or a dev-mode command failed |
+| `interrupted` | `CoordinateWork` | a shard in `pipeline_execution_details` is `interrupted` (stopped by the kill switch) |
+| `recovered` | `CoordinateWork` | a shard is `failed` and the run still went on to the end |
+| `errors` | `CoordinateWork` | a shard is `errors` |
+| `completed` | `CoordinateWork` | otherwise |
+
+`CoordinateWork` takes the worst shard status in that order: `interrupted`, then `recovered`, then
+`errors`, then `completed`. The outputs of a `completed`, `recovered` or `errors` run are registered in
+`input_registry` (`outputsAreUsable`); those of any other run are not.
 
 Depend on `pipeline_config` and `input_registry` tables
 
@@ -201,8 +230,10 @@ The table consist of:
 - `session_id` for the process output tables (specified in the `process_config` table)
 - and a number of metrics per `shard_id`.
 
-The `status` can be `completed`, `errors`, or `failed` when an unrecoverable error occurred.
-The `errors` status is to indicates that some session got a rule execution error.
+The `status` is `in progress` when the shard starts, then `completed`, `failed`, or `interrupted`
+when it was stopped by the kill switch (`ProcessFilesAndReportStatus`,
+`jets/compute_pipes/actions_process_file.go`). `CoordinateWork` also reads `errors`, meaning some
+session got a rule execution error, though no current worker writes it.
 
 Depend on `pipeline_config`, `pipeline_execution_status`
 

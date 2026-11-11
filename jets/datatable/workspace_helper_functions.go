@@ -276,7 +276,7 @@ func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
 	// Sanitize the arguments to prevent injection of options/flags
 	*serverArgs = utils.SanitizeArgs(*serverArgs)
 	log.Printf("Run update_db: %s", *serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
+	cmd := exec.Command(utils.JetsBinPath("update_db"), *serverArgs...)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("WORKSPACE=%s", workspaceName),
 	)

@@ -219,7 +219,7 @@ func (wg *WorkspaceGit) DeleteWorkspace() error {
 		return err
 	}
 	if wg.WorkspaceName == wg.ActiveWorkspace {
-		return fmt.Errorf("invaid request, cannot delete the active workspace")
+		return fmt.Errorf("invalid request, cannot delete the active workspace")
 	}
 	log.Printf("Deleting local workspace '%s' directory", wg.WorkspaceName)
 	if err := os.RemoveAll(filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)); err != nil {

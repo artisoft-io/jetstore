@@ -163,6 +163,7 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 		if !dtq.SortAscending {
 			buf.WriteString(" DESC ")
 		}
+		buf.WriteString(dtq.sortTiebreaker())
 	}
 	buf.WriteString(" LIMIT ")
 	buf.WriteString(fmt.Sprintf("%d", dtq.Limit))
@@ -213,6 +214,54 @@ func (dtq *DataTableAction) sortColumnIdentifier() string {
 		}
 	}
 	return pgx.Identifier{dtq.SortColumn}.Sanitize()
+}
+
+// sortTiebreaker returns what follows the requested sort in ORDER BY: the
+// output position of every plain selected column, ascending (", 1, 2, 4").
+//
+// The requested sort alone is not a total order. Rows that tie on it (every row
+// of a domain table sorted on a column that is empty throughout, say) come back
+// in whatever order the plan produces, which may differ from one execution to
+// the next, so LIMIT/OFFSET paging can repeat one row and skip another.
+//
+// Ordering on every selected column makes the order total on what the page
+// shows: two rows that still tie are identical on every column the caller sees,
+// so which comes first cannot be observed and paging cannot repeat or skip a
+// visible row. It is chosen over the table's own key because the query serves
+// views and tables with no primary key, joins of several FROM entries, and the
+// workspace's SQLite database as well as PostgreSQL; output positions are valid
+// in all of them and need no catalogue lookup. A plain column is selected as
+// text, which every engine can order; a calculated column is left out, since
+// its type may have no ordering (json) and it is derived from the row anyway.
+// The requested sort still comes first, so the order the user asked for and a
+// DISTINCT ON prefix are unchanged; ties are only cut where they were arbitrary.
+// SELECT * (no columns named) has no positions to name and keeps the requested
+// sort alone.
+func (dtq *DataTableAction) sortTiebreaker() string {
+	var buf strings.Builder
+	for i := range dtq.Columns {
+		if len(dtq.Columns[i].CalculatedAs) > 0 {
+			continue
+		}
+		fmt.Fprintf(&buf, ", %d", i+1)
+	}
+	return buf.String()
+}
+
+// defaultSortColumn is the sort column of a read that names no columns, whose
+// columns are the table's (getColumnsDefinitions): the column the request sorts
+// on when it is one of them, so a header click on a server-defined table sorts
+// that table, else the first column. A requested name that is not a column of
+// the table is not used, since it would reach ORDER BY.
+func defaultSortColumn(requested string, columnsDef []DataTableColumnDef) string {
+	if requested != "" {
+		for i := range columnsDef {
+			if columnsDef[i].Name == requested {
+				return requested
+			}
+		}
+	}
+	return columnsDef[0].Name
 }
 
 // Get Column definition
@@ -1395,7 +1444,7 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 			return nil, http.StatusInternalServerError, err
 		}
 
-		dataTableAction.SortColumn = columnsDef[0].Name
+		dataTableAction.SortColumn = defaultSortColumn(dataTableAction.SortColumn, columnsDef)
 		results["columnDef"] = columnsDef
 
 		// Add table's label

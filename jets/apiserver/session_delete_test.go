@@ -137,7 +137,7 @@ func seededRoles(t *testing.T) string {
 		t.Fatal(err)
 	}
 	script := string(buf)
-	start := strings.Index(script, "TRUNCATE jetsapi.roles;")
+	start := strings.Index(script, "INSERT INTO jetsapi.roles")
 	insert := strings.Index(script, "INSERT INTO jetsapi.role_capability")
 	if start < 0 || insert < start {
 		t.Fatal("jets_init_db.sql: the roles and role_capability blocks were not found in order")

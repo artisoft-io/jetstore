@@ -26,14 +26,15 @@ sidebar:
 
    ```bash
    cd $WORKSPACES_HOME/$WORKSPACE
-   LD_LIBRARY_PATH=$LIB rules_unit_test -out /tmp/r.json jet_rules/unit_tests/looping_test/looping_test1.tst.json
+   JETS_SECRETS_WITHHELD=1 LD_LIBRARY_PATH=$LIB rules_unit_test -out /tmp/r.json jet_rules/unit_tests/looping_test/looping_test1.tst.json
    ```
 
    It prints one line, for example `… fixed on native: pass`, and the details are in `/tmp/r.json`.
    Its log is standard error.
 
 Do not pass the harness `JETS_ENCRYPTION_KEY`, `JETS_ENCRYPTION_KEY_SECRET`, `API_SECRET` or
-`AWS_API_SECRET`; see
+`AWS_API_SECRET`. `JETS_SECRETS_WITHHELD=1` says they are absent on purpose, so the log does not
+open with an error about the missing key, as the apiserver's own runs do not; see
 [environment and secrets](/docs/developer/testing/rules-unit-tests/reference/#environment-and-secrets).
 The flags, the test definition and the result file are in the
 [reference](/docs/developer/testing/rules-unit-tests/reference/).

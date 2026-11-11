@@ -44,7 +44,9 @@ API_SECRET='...' \
 ```
 
 Then open `http://localhost:8080/`. `-usingSshTunnel` is what puts the server on `:8080` without TLS;
-without it the server listens on `:8443`.
+without it the server listens on `:8443`. `-listenAddr` (or `JETS_LISTEN_ADDR`) moves it to another
+address, and `JETS_BIN_DIR` points it at the `update_db` and other binaries you built; see
+[Run against a local checkout](/docs/install/how-to/run-against-a-local-checkout/#run-the-binaries-you-built-on-a-port-of-your-own).
 
 The flag is `-IDE_APP_DEPLOYMENT_DIR`, and the environment variable of the same name overrides it. If
 it points nowhere, every URL answers 404 with a plain message rather than failing obscurely, so an
