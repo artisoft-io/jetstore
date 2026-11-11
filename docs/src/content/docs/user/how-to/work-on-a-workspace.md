@@ -61,6 +61,8 @@ compile as above.
 1. In the **Workspace IDE**, with no file open, tick the change in **Workspace Changes**.
 2. Press **Delete/Revert Changes** and confirm with **OK**. The file returns to the version the
    installation was deployed with, or last pulled. **Delete/Revert ALL Changes** reverts every file.
+   If the installation has no original copy of the file (a file added since it started), the revert
+   is refused with a message and the change stays listed.
 3. Compile, if the file was one the compile reads.
 
 **How to tell it worked**: after a commit or a revert, **Workspace Changes** no longer lists the file;
