@@ -30,8 +30,8 @@ required.
 | **Drop Staging Table** | Drops the selected source's staging table, and every row loaded into it. The next load creates it again from the file's header. Without a drop, a load adds a column for any header the table lacks, and keeps the others. | `run_pipelines` |
 
 **Opened from *Source Mapping*, the flow starts at step 2 with the source already chosen.** Press
-*Previous* there to reach this step: to drop the staging table before loading, or to choose another
-source. Tick the source again here; *Next* returns to step 2 for the source ticked.
+*Previous* there to reach this step, with that source ticked: to drop its staging table before
+loading, or to tick another source. *Next* returns to step 2 for the source ticked.
 
 ### 2. Select file keys to load
 

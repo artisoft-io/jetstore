@@ -636,8 +636,27 @@ describe("opening a flow at a named state", () => {
     fireEvent.click(previous);
     expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Drop Staging Table" })).toBeTruthy();
+    // No source key in the url, so nothing is ticked: the user ticks one.
+    await screen.findByText("staging_claims");
+    expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).some((b) => b.checked)).toBe(false);
     // And this is the flow's first page, so Previous stops here.
     expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("opens the first page with the source ticked when the entry carries its key", async () => {
+    // *Load Data* carries the source config's key as `lfSourceConfigTable`, the
+    // first page's table selection, so *Previous* lands on the source already
+    // chosen, with *Drop Staging Table* enabled for it.
+    await mount("loadFilesUF", { search: `${ENTRY}&lfSourceConfigTable=1&startAt=select_file_keys` });
+    await screen.findByText("Select File(s) to Load");
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked)).toEqual([true]),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Drop Staging Table" }).hasAttribute("disabled")).toBe(false),
+    );
   });
 
   it("starts at the document's own state when the url names none", async () => {
