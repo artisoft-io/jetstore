@@ -14,8 +14,9 @@
  * `.rbr.json` document unchanged.
  *
  * **Nothing here decides what a step may do.** Whether a step can be accepted,
- * skipped or retried is the executor's to refuse; the screen offers controls by
- * the state the server reports and shows the server's message when it refuses.
+ * skipped or retried is the executor's to refuse. The screen offers the controls
+ * the executor accepts in the state the server reports (`runControls`, which
+ * mirrors its refusals) and shows the server's message when it refuses anyway.
  * The one rule the screen does hold is presentational and it is the project's
  * safety rule: a `ddl` step awaiting confirmation is never offered *Accept*
  * without its statement and its bound values on screen beside it.
@@ -356,19 +357,104 @@ export function shouldPoll(run: Run | null): boolean {
 }
 
 /**
- * The step at the run's frontier: the last one, in sequence, that has started.
+ * Whether a step row is not final: what the executor does next, or what a
+ * person must answer. The server's `rbStepActive`
+ * (`jets/datatable/runbook_tables.go`), which a `repeat` that is running
+ * between iterations is not.
+ */
+function isActive(step: StepRun): boolean {
+  switch (step.status) {
+    case "pending":
+    case "waiting":
+    case "awaiting_confirmation":
+    case "awaiting_input":
+      return true;
+    case "running":
+      return step.type !== "repeat";
+    default:
+      return false;
+  }
+}
+
+/**
+ * The step at the run's frontier: the last step, in sequence, that is not
+ * final, else the last step recorded.
  *
- * When a run is paused this is the step that paused it — a `pause`, a failure
- * whose `on_fail` is `pause`, a denial, or a step the restart sweep marked
- * `interrupted` — and it is the step *Skip* and *Retry* act on.
+ * **This is the server's `frontierStep`, rule for rule**, because it is the step
+ * every control acts on and the server refuses a control that names any other
+ * step (409, *not the run's current step*). When a run is paused this is the
+ * step that paused it — a `pause` or `manual` step awaiting input, a step
+ * awaiting confirmation, a failure whose `on_fail` is `pause`, a denial, or a
+ * step the restart sweep marked `interrupted`.
  */
 export function currentStep(run: Run): StepRun | null {
   const steps = [...(run.steps ?? [])].sort((a, b) => a.sequence - b.sequence);
   for (let i = steps.length - 1; i >= 0; i--) {
     const step = steps[i]!;
-    if (step.status !== "pending") return step;
+    if (isActive(step)) return step;
   }
-  return null;
+  return steps.at(-1) ?? null;
+}
+
+/** What a person may do to a run, and the step it acts on. */
+export interface RunControls {
+  /** The run's frontier, which every step control names. */
+  step: StepRun | null;
+  continue: boolean;
+  skip: boolean;
+  retry: boolean;
+  abort: boolean;
+  /** Accept or deny the frontier step. */
+  decide: boolean;
+  /** Record the frontier step's declared values. */
+  record: boolean;
+}
+
+/**
+ * The controls the server accepts on a run in its present state, and only
+ * those.
+ *
+ * **A mirror of the executor's refusals** (`jets/datatable/runbook_actions.go`:
+ * `resume`, `Accept`, `Deny`, `Record`, `Abort`), so that the screen never
+ * offers a button the server answers 409, and never hides one it would take:
+ *
+ * | frontier step | continue | skip | retry | accept, deny | record |
+ * |---|---|---|---|---|---|
+ * | `pause`, awaiting input | yes | yes | | | |
+ * | `manual`, awaiting input | | yes | | | yes |
+ * | awaiting confirmation | | yes | | yes | |
+ * | failed, denied | yes | yes | yes | | |
+ * | interrupted | | yes | yes | | |
+ * | completed, skipped | yes | yes | | | |
+ * | waiting, running, pending | | | | | |
+ *
+ * every row on a paused run; and **skip** also takes a `waiting` step out of a
+ * running run. **abort** is any run that is running or paused.
+ */
+export function runControls(run: Run): RunControls {
+  const step = currentStep(run);
+  const paused = run.status === "paused";
+  const live = run.status === "running" || paused;
+  const none: RunControls = { step, continue: false, skip: false, retry: false, abort: live, decide: false, record: false };
+  if (step === null) return none;
+  const s = step.status;
+  if (!paused) {
+    return { ...none, skip: run.status === "running" && s === "waiting" };
+  }
+  const awaitingInput = s === "awaiting_input";
+  return {
+    ...none,
+    continue:
+      (awaitingInput && step.type === "pause") ||
+      s === "failed" ||
+      s === "denied" ||
+      s === "completed" ||
+      s === "skipped",
+    skip: s !== "running" && s !== "pending",
+    retry: s === "failed" || s === "denied" || s === "interrupted",
+    decide: s === "awaiting_confirmation",
+    record: awaitingInput && step.type === "manual",
+  };
 }
 
 /** A step's declaration in the runbook, nested `repeat` bodies included. */

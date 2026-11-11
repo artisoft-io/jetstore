@@ -46,7 +46,7 @@ ends, a proposal can be **superseded** by a newer one. **Rejected** and **supers
 |---|---|
 | **The bar** | **← Proposals**, the current state, and one button per decision the state allows. A terminal proposal shows *No further decision* instead. |
 | **Facts** | The **trigger** and the run that produced the proposal, the **model version**, the **generated tests**, the **affected pipelines** and the **affected assets**. |
-| **What the run produced** | The agent's output: the change and its reasons. |
+| **What the run produced** | The agent's output: the change and its reasons, line by line as written. A run whose output is a JSON document shows it indented, one member per line. |
 | **Decision** | A **rationale**, optional, recorded with the decision you take. The decision is recorded under your account, and the autonomy tier is read from the agent's run rather than chosen here. |
 | **Decisions so far** | Every decision on the proposal: when, who, the tier, from which state to which, and why. The agent's own steps are listed as well as people's. |
 | **Run transcript** | The audit record of the agent's run, below. |

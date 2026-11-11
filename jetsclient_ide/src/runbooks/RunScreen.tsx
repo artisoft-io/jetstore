@@ -18,10 +18,12 @@
  *
  * ## What it does not decide
  *
- * The controls follow the state the server reports; whether a step may be
- * skipped or retried is the executor's to refuse, and its refusal is shown as
- * it is written. Who accepted, denied or recorded is the session's: no request
- * from here carries an actor.
+ * The controls follow the state the server reports, through `runControls`,
+ * which mirrors the executor's refusals: a `pause` step is passed with
+ * *Continue* (or *Skip*), a `manual` step with *Record*, a confirmed step with
+ * *Accept* or *Deny*. Whether a step may be skipped or retried is still the
+ * executor's to refuse, and a refusal is shown as it is written. Who accepted,
+ * denied or recorded is the session's: no request from here carries an actor.
  *
  * ## Polling
  *
@@ -35,20 +37,22 @@ import { Link, useParams } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
 import { ActionButton } from "../shell/capabilities";
+import { useNavEntry } from "../shell/navEntry";
 import { useNotifications } from "../shell/notifications";
 import { usePrompts } from "../shell/prompts";
 import {
   RUNBOOK_EXECUTE,
   RunbooksApi,
   TERMINAL,
-  currentStep,
   findStep,
+  runControls,
   shouldPoll,
   showValue,
   statusLabel,
   type PreviewEntry,
   type Run,
   type RunResult,
+  type RunControls,
   type RunbookDoc,
   type StepDecl,
   type StepRun,
@@ -66,6 +70,8 @@ export function RunScreen({ api, pollMs = POLL_MS }: { api: ApiClient; pollMs?: 
   const runbooks = useMemo(() => new RunbooksApi(api), [api]);
   const { setError, setStatus } = useNotifications();
   const prompts = usePrompts();
+  // Reached from the Runbooks entry of the top bar, whatever the address says.
+  useNavEntry("/runbooks");
 
   const [run, setRun] = useState<Run | null>(null);
   const [doc, setDoc] = useState<RunbookDoc | null>(null);
@@ -207,12 +213,10 @@ export function RunScreen({ api, pollMs = POLL_MS }: { api: ApiClient; pollMs?: 
   }
 
   const steps = [...(run.steps ?? [])].sort((a, b) => a.sequence - b.sequence);
-  const current = currentStep(run);
+  const controls = runControls(run);
+  const current = controls.step;
   const terminal = TERMINAL.has(run.status);
   const paused = run.status === "paused";
-  const waitingOnPerson =
-    current !== null &&
-    (current.status === "awaiting_confirmation" || current.status === "awaiting_input");
   const released = Boolean(run.released_at);
 
   return (
@@ -227,37 +231,35 @@ export function RunScreen({ api, pollMs = POLL_MS }: { api: ApiClient; pollMs?: 
         {polling && <span className="pill">Live</span>}
         <div className="spacer" />
         {busy && <span className="pill">Working…</span>}
-        {paused && !waitingOnPerson && (
-          <>
-            <ActionButton
-              capability={RUNBOOK_EXECUTE}
-              className="btn btn-primary"
-              disabled={busy}
-              onClick={() => void act(() => runbooks.control("continue", run.run_key, current?.step_key), "Run continued.")}
-            >
-              Continue
-            </ActionButton>
-            {current && current.type !== "pause" && (
-              <ActionButton
-                capability={RUNBOOK_EXECUTE}
-                disabled={busy}
-                onClick={() => void act(() => runbooks.control("skip", run.run_key, current.step_key), `Step ${current.step_id} skipped.`)}
-              >
-                Skip
-              </ActionButton>
-            )}
-            {current && (current.status === "failed" || current.status === "interrupted") && (
-              <ActionButton
-                capability={RUNBOOK_EXECUTE}
-                disabled={busy}
-                onClick={() => void act(() => runbooks.control("retry", run.run_key, current.step_key), `Step ${current.step_id} retried.`)}
-              >
-                Retry
-              </ActionButton>
-            )}
-          </>
+        {current && controls.continue && (
+          <ActionButton
+            capability={RUNBOOK_EXECUTE}
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={() => void act(() => runbooks.control("continue", run.run_key, current.step_key), "Run continued.")}
+          >
+            Continue
+          </ActionButton>
         )}
-        {!terminal && (
+        {current && controls.skip && (
+          <ActionButton
+            capability={RUNBOOK_EXECUTE}
+            disabled={busy}
+            onClick={() => void act(() => runbooks.control("skip", run.run_key, current.step_key), `Step ${current.step_id} skipped.`)}
+          >
+            Skip
+          </ActionButton>
+        )}
+        {current && controls.retry && (
+          <ActionButton
+            capability={RUNBOOK_EXECUTE}
+            disabled={busy}
+            onClick={() => void act(() => runbooks.control("retry", run.run_key, current.step_key), `Step ${current.step_id} retried.`)}
+          >
+            Retry
+          </ActionButton>
+        )}
+        {controls.abort && (
           <ActionButton
             capability={RUNBOOK_EXECUTE}
             className="btn btn-danger"
@@ -374,6 +376,7 @@ export function RunScreen({ api, pollMs = POLL_MS }: { api: ApiClient; pollMs?: 
                   decl={findStep(doc?.steps, step.step_id)}
                   workspace={workspace}
                   busy={busy}
+                  controls={step.step_key === current?.step_key ? controls : null}
                   onDecide={(decision, comment) =>
                     void act(
                       () => runbooks.decide(decision, run.run_key, step.step_key, comment),
@@ -414,6 +417,7 @@ function StepCard({
   decl,
   workspace,
   busy,
+  controls,
   onDecide,
   onRecord,
 }: {
@@ -421,11 +425,15 @@ function StepCard({
   decl: StepDecl | null;
   workspace: string;
   busy: boolean;
+  /** The run's controls when this step is its frontier, else `null`. */
+  controls: RunControls | null;
   onDecide(decision: "accept" | "deny", comment: string): void;
   onRecord(values: Record<string, unknown>): void;
 }) {
   const [showSql, setShowSql] = useState(false);
   const failed = step.status === "failed" || step.status === "denied" || step.status === "interrupted";
+  // A pause step the run is stopped at: it takes Continue or Skip, never Record.
+  const waitingHere = controls !== null && step.type === "pause" && step.status === "awaiting_input";
 
   return (
     <li className="runbook-step" aria-label={`Step ${step.step_id}`}>
@@ -447,13 +455,24 @@ function StepCard({
         {step.status === "waiting" && step.next_check_at ? ` · next check ${step.next_check_at}` : ""}
       </p>
 
-      {step.type === "pause" && decl?.message && <p className="runbook-message">{decl.message}</p>}
+      {waitingHere ? (
+        <section className="runbook-panel" aria-label={`Pause ${step.step_id}`}>
+          <h4>The run waits for you</h4>
+          <p className="runbook-message">{decl?.message ?? "Read what the run has found so far."}</p>
+          <p className="empty-sub">
+            <em>Continue</em>, in the bar above, goes on to the next step; <em>Skip</em> records this
+            step as skipped and goes on.
+          </p>
+        </section>
+      ) : (
+        step.type === "pause" && decl?.message && <p className="runbook-message">{decl.message}</p>
+      )}
 
-      {step.status === "awaiting_confirmation" && (
+      {controls?.decide && (
         <Confirmation step={step} decl={decl} workspace={workspace} busy={busy} onDecide={onDecide} />
       )}
 
-      {step.status === "awaiting_input" && (
+      {controls?.record && (
         <section className="runbook-panel" aria-label={`Record ${step.step_id}`}>
           <h4>Your action</h4>
           <p className="runbook-message">{decl?.instruction ?? "Follow the runbook's instruction for this step."}</p>

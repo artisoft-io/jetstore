@@ -138,8 +138,8 @@ and `on_fail` (`stop`, the default, or `pause`).
 | `assert` | `condition` (required), `message` | |
 | `wait` | the fields of `query`, plus `until`, `interval` (at least 10s), `deadline` (cap 24h), `max_count` (cap 1000) | All three bounds required; `until` may read the step's own outputs |
 | `repeat` | `steps`, `until`, `max_count` (cap 100), `interval` | No `repeat` inside a `repeat`. After it, a nested step's outputs are its last iteration's |
-| `pause` | `message` (required) | Waits for a person |
-| `manual` | `instruction` (required), `records` (name to type) | The person records the values, which become `<id>.<name>` |
+| `pause` | `message` (required) | Waits for a person, who continues or skips it; it records nothing |
+| `manual` | `instruction` (required), `records` (name to type) | The person records the values, which become `<id>.<name>`, or skips the step |
 | `start_pending` | none | *Check Pending* |
 | `start_pipeline` | `row` (column to a literal or `{"from": ref}`), `confirm` (default true) | Outputs `<id>.session_id` |
 | `put_schema_event` | `event` (`{"from": ref}`), `key`, `confirm` (default true) | |

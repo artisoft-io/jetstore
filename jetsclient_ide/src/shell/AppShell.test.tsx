@@ -17,6 +17,7 @@ import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router
 
 import { ApiClient } from "../api/client";
 import { AppShell, type NavItem } from "./AppShell";
+import { useNavEntry } from "./navEntry";
 import { useNotifications } from "./notifications";
 
 afterEach(() => {
@@ -72,6 +73,12 @@ function Counted({ api }: { api: ApiClient }) {
   return <p>screen: counted</p>;
 }
 
+/** A screen reached from the Runbooks entry, whatever its address. */
+function ClaimsRunbooks() {
+  useNavEntry("/runbooks");
+  return <p>screen: runbooks</p>;
+}
+
 /** Surfaces the in-app location so a test can assert the basename was stripped. */
 function LocationProbe() {
   const location = useLocation();
@@ -92,6 +99,10 @@ function renderShell(
           <Route path="workspace" element={<Screen name="workspace" />} />
           <Route path="flows" element={<Screen name="flows" />} />
           <Route path="counted" element={<Counted api={api} />} />
+          <Route path="workspaces" element={<Screen name="workspaces" />} />
+          <Route path="workspaces/:workspace_name/runbooks" element={<ClaimsRunbooks />} />
+          <Route path="runbooks" element={<ClaimsRunbooks />} />
+          <Route path="runbooks/run/:run_key" element={<ClaimsRunbooks />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -171,6 +182,34 @@ describe("AppShell", () => {
     await screen.findByText("screen: flows");
     expect(screen.getByRole("link", { name: "Flows" }).className).toContain("is-active");
     expect(screen.getByRole("link", { name: "Workspace IDE" }).className).not.toContain("is-active");
+  });
+
+  // The Runbooks screen of a workspace lives at /workspaces/<name>/runbooks,
+  // under the Workspaces entry's address, and is reached from Runbooks.
+  it("marks the entry a screen claims, and not the one its address is under", async () => {
+    const withRunbooks: NavItem[] = [
+      { to: "/workspaces", label: "Workspaces" },
+      { to: "/runbooks", label: "Runbooks" },
+    ];
+    const marked = () =>
+      ["Workspaces", "Runbooks"].filter((name) =>
+        screen.getByRole("link", { name }).className.includes("is-active"),
+      );
+    for (const at of ["/workspaces/jets_ws/runbooks", "/runbooks", "/runbooks/run/12"]) {
+      renderShell(await signedIn(), withRunbooks, { initial: at });
+      await screen.findByText("screen: runbooks");
+      expect(marked()).toEqual(["Runbooks"]);
+      expect(screen.getByRole("link", { name: "Runbooks" }).getAttribute("aria-current")).toBe("page");
+      expect(screen.getByRole("link", { name: "Workspaces" }).getAttribute("aria-current")).toBeNull();
+      cleanup();
+    }
+
+    // Leaving the screen gives the address back its say.
+    renderShell(await signedIn(), withRunbooks, { initial: "/workspaces/jets_ws/runbooks" });
+    await screen.findByText("screen: runbooks");
+    fireEvent.click(screen.getByRole("link", { name: "Workspaces" }));
+    await screen.findByText("screen: workspaces");
+    expect(marked()).toEqual(["Workspaces"]);
   });
 
   it("disables a nav item the user has no capability for, and keeps it visible", async () => {

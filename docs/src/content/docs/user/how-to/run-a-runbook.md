@@ -29,7 +29,7 @@ Guide describes [the runbook format](/docs/developer/engine/runbook-format/). Th
    ![The run screen of example_health_check, run 100001, paused: Last error says nothing_in_flight, a pipeline run has not finished; the first step, counts, completed with its outputs.](../../../../assets/screenshots/user/how-to/run-a-runbook/paused-on-assert.png)
 
    Press **Continue** if the condition is expected, **Skip** to pass over the step, **Retry** to run a
-   failed step again, or **Abort** to end the run.
+   failed step again, or **Abort** to end the run. The bar offers only what the step can take.
 
 4. A **manual** step waits for you to record values. Fill them in and press **Record**.
 
@@ -42,8 +42,8 @@ Guide describes [the runbook format](/docs/developer/engine/runbook-format/). Th
 
    ![The confirmation of the create_probe step: the CREATE TABLE and INSERT statement, the bound parameter probe_rows 3, its preview, a comment box, and the Accept and Deny buttons.](../../../../assets/screenshots/user/how-to/run-a-runbook/confirm-ddl.png)
 
-6. A **pause** step stops for you to read what the run has found so far. Read the outputs, then
-   continue.
+6. A **pause** step stops for you to read what the run has found so far. Its panel shows the
+   runbook's message. Read the outputs, then press **Continue** in the bar.
 7. When the run ends, press **Release** to release its result; **Download .rbr.json** then saves it
    as a file.
 
