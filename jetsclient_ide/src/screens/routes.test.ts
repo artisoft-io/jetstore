@@ -233,6 +233,42 @@ describe("the served-screen map", () => {
     expect(reactFlowRoute(pull, { ...row, workspace_branch: "" })).toBeNull();
   });
 
+  it("opens Pull Workspace for a workspace registered with no repository URI", () => {
+    // The row's URI is empty (or NULL, which `resolveParams` leaves absent), and
+    // the button used to report "/pullWorkspaceUF/1/jets_ws/main//, which this app
+    // does not serve". The flow opens with the URI field empty: the server pulls
+    // without one when git is off, and takes the deployment's own when it is on.
+    const pull = "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri";
+    const row = { key: "1", workspace_name: "jets_ws", workspace_branch: "main", feature_branch: "" };
+    for (const workspace_uri of [undefined, ""]) {
+      const params: Record<string, string> = { ...row };
+      if (workspace_uri !== undefined) params.workspace_uri = workspace_uri;
+      const to = inAppPath(pull, params);
+      expect(to).not.toBeNull();
+      expect(to!.startsWith("/flow/workspacePullUF?")).toBe(true);
+      const query = new URLSearchParams(to!.split("?")[1]);
+      expect(query.get("workspace_uri")).toBe("");
+      expect(query.get("workspace_name")).toBe("jets_ws");
+    }
+    // The workspace itself is still required.
+    expect(reactFlowRoute(pull, { ...row, workspace_name: "" })).toBeNull();
+  });
+
+  it("encodes a parameter into its one path segment, so a key holding / still matches", () => {
+    // A file key is an object path. Inserted raw, its slashes made extra segments
+    // and `/filePreviewPath/:file_key` did not match: the preview was a 404.
+    const key = "in/acme/claims 2026#1?.csv";
+    const to = reactScreenPath("/filePreviewPath/:file_key", { file_key: key });
+    expect(to).toBe(`/filePreviewPath/${encodeURIComponent(key)}`);
+    expect(to!.split("/")).toHaveLength(3);
+    expect(
+      reactScreenPath("/domainTableViewer/:table_name/:session_id", {
+        table_name: "a/b",
+        session_id: "s%1",
+      }),
+    ).toBe("/domainTableViewer/a%2Fb/s%251");
+  });
+
   it("returns null for a template neither app routes, and for none at all", () => {
     expect(reactScreenPath("/noSuchScreen", {})).toBeNull();
     expect(reactScreenPath(undefined, {})).toBeNull();

@@ -337,8 +337,16 @@ export const FLOW_ROUTES: Readonly<
    * *Pull Workspace* refuse to open for every such workspace with "which this app
    * does not serve" (found 2026-11-07 on a deployed `jets_ws`). The flow posts it
    * as `featureBranch`, and the server reads an empty one as no feature branch.
+   *
+   * `workspace_uri` is optional for the same reason (2026-11-11): a workspace
+   * registered with no repository has an empty URI, and the button refused to
+   * open. The flow only shows the URI, read only, and the pull does not need it
+   * from the row: with git off the server skips the git step and still re-applies
+   * the database overrides and runs the compile and load options chosen, and with
+   * git on it takes the deployment's `WORKSPACE_URI` first and refuses with
+   * "missing git information" only when neither names a repository.
    */
-  "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"], optional: ["feature_branch"] },
+  "/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri": { flowKey: "workspacePullUF", parameters: ["key", "workspace_name", "workspace_branch", "feature_branch", "workspace_uri"], optional: ["feature_branch", "workspace_uri"] },
   "/sourceConfigUF/:startAtKey": { flowKey: "sourceConfigUF", parameters: ["startAtKey"] },
   "/startPipelineUF": { flowKey: "startPipelineUF", parameters: [] },
   "/workspaces/loadConfigUF/:workspace_name": { flowKey: "loadConfigUF", parameters: ["workspace_name"] },
