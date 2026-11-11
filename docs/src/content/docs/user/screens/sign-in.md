@@ -15,7 +15,7 @@ at. The **registration form**, at `/register`, is the only way an account is cre
 |---|---|
 | **Email or login** | The account's email address. The installation's administrator account may instead be a login that is not an address, such as `admin`. |
 | **Password** | The account's password. |
-| **Sign in** | Signs in. A wrong password, or an account not yet activated, is reported under the fields. |
+| **Sign in** | Signs in. An unknown login, a wrong password and an account not yet activated all get the same message under the fields, so the message does not say whether the account exists. |
 | **No account? Create one** | Opens the registration form. |
 
 Signing in needs no capability. Once signed in you land on [Home](/docs/user/screens/home/), and the
@@ -43,7 +43,8 @@ back to the sign-in form. **Back to sign in** leaves without creating anything.
 
 **A new account is inactive and has no roles.** It cannot sign in until someone with the
 `user_admin` capability activates it and gives it roles, on the
-[User Administration](/docs/user/screens/user-administration/) screen.
+[User Administration](/docs/user/screens/user-administration/) screen. Until then, signing in shows
+*Invalid user or password, or the user has not been activated by an administrator*.
 
 ## See also
 
