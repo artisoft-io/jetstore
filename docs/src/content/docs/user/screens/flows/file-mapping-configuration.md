@@ -42,7 +42,8 @@ when the file has one.
 
 ## The checks
 
-Each row is checked as you edit it, and the error shows under the field:
+Each row is checked when the worksheet opens and again as you edit it, and the error shows under the
+field:
 
 - *Input Column* must be a column of the staging table;
 - a required property needs an *Input Column*, or else a *Default Value* or an *Error Message*;
