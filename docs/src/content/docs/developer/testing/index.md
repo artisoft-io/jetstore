@@ -1,12 +1,22 @@
 ---
 title: Testing
-description: How JetStore's rules, rule engine and web application are tested, the rules unit-test harness, the rules benchmark and its graph-dump diff, and the web app's development and tests.
+description: How JetStore is tested, the Go and C++ test suites, the rules unit-test harness, the rules benchmark and its graph-dump diff, and the web app's development and tests.
 kind: overview
 sidebar:
   label: Overview
 ---
 
-This section covers the test and measurement tools that sit beside JetStore's code.
+This section covers JetStore's own test suites, and the test and measurement tools that sit beside
+its code.
+
+## The Go and C++ tests
+
+The C++ rule engine's tests are Google Test cases built by CMake and run by `ctest`; the Go packages'
+tests run with `go test`, some against a scratch PostgreSQL, some linked to the C++ engine, and some
+against a workspace outside the Go module.
+
+- [Run the Go and C++ tests](/docs/developer/testing/go-and-cpp/): build and run the engine's tests,
+  and run the Go tests with the database, the engine or the workspace they need.
 
 ## Rules unit tests
 
@@ -49,9 +59,3 @@ wrote.
 - [How the web app is served and built](/docs/developer/testing/web-app/serving/).
 - [Validating action documents](/docs/developer/testing/web-app/action-documents/): what the
   checks on a `.ua.json` guarantee, and what they do not.
-
-## Other tests
-
-The C++ engine's tests and the Go tests are run with CMake's `ctest` and `go test`, as the
-repository's `CLAUDE.md` describes. A test that reads a workspace, or any folder outside its Go
-module, must run with `-count=1`: the test cache does not see a change there.
