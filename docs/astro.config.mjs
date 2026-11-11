@@ -16,6 +16,8 @@ export default defineConfig({
 		starlight({
 			title: 'JetStore',
 			description: 'JetStore documentation: the User, Developer\'s and Installation Guides.',
+			// public/favicon.svg, served as /docs/favicon.svg: an i in the JetStore cube.
+			favicon: '/favicon.svg',
 			// Fails the build on a broken internal link or anchor, or a relative link.
 			plugins: [starlightLinksValidator()],
 			// Gives each folder's sidebar group the title of its index page.

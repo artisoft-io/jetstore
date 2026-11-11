@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="JetStore documentation">
+  <!--
+    The letter i in the outline of the JetStore cube: the logo's slate edges,
+    with the three inner edges cut short so the i stands where they meet, in
+    the logo's magenta. The cube is filled white so it reads on a light or a
+    dark tab strip without a second file.
+  -->
+  <path d="M16 1.75 L28.4 8.9 V23.1 L16 30.25 L3.6 23.1 V8.9 Z" fill="#ffffff" stroke="#2b3c47" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M3.6 8.9 L11.5 13.4 M28.4 8.9 L20.5 13.4" stroke="#2b3c47" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="16" cy="15" r="2.6" fill="#db0048"/>
+  <path d="M16 19.6 V27.2" stroke="#db0048" stroke-width="3.6" stroke-linecap="round"/>
+</svg>
