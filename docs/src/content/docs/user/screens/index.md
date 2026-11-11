@@ -51,7 +51,7 @@ Most screens are built around one or more tables, and every table works the same
   that fits on one page has no footer.
 - **Refresh** reads the table again. Tables do not refresh by themselves, so press it to see a run
   move on.
-- **An empty value is shown as `null`.**
+- **An empty value is shown as an empty cell.**
 - **A wide table scrolls sideways** inside the window.
 
 Hover over a column heading to see what the column holds.

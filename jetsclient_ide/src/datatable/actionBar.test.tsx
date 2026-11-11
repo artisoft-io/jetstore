@@ -458,6 +458,24 @@ describe("enableWhen — the selected row's criteria", () => {
     expect(state.enabled).toBe(false);
     expect(state.reason).toContain("active");
     expect(state.reason).toContain("in progress");
+    // Refused values read as refused, not as the row's own.
+    expect(state.reason).toBe("Not for a row that is active or in progress");
+  });
+
+  it("says which value a positive criterion requires", () => {
+    // *Get Run Manifest* is enabled for a completed run only. The reason used to
+    // read "Not available for this row (completed)" on a run with errors, as
+    // though the row were the completed one.
+    const action: ActionConfig = {
+      ...gated("deleteWorkspace"),
+      actionEnableCriterias: [[{ columnPos: 6, criteriaType: "equals", value: "completed" }]],
+    };
+    const state = availability(action, makeContext({ selectedRow: rowWithStatus("errors") }));
+    expect(state).toEqual({
+      visible: true,
+      enabled: false,
+      reason: "Only for a row that is completed",
+    });
   });
 
   it("treats a null cell as failing both contains and doesNotContain", () => {

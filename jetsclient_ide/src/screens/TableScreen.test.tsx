@@ -215,9 +215,13 @@ describe("maxLines, which nothing drew until this task", () => {
     // only column of either that sets anything.
     const { posts } = await mount("status", "sess-7");
     const cell = await screen.findByText("boom: the loader could not parse row 44");
+    // The text clamps in a span; the cell carries the width and wraps, so it
+    // stays a table cell and shrinks with the table.
     expect(cell.className).toContain("jets-datatable__clamped");
-    expect(cell.getAttribute("style")).toContain("width: 600px");
     expect(cell.getAttribute("style")).toContain("--jets-max-lines: 3");
+    const td = cell.closest("td")!;
+    expect(td.className).toContain("jets-datatable__wrapped");
+    expect(td.getAttribute("style")).toContain("width: 600px");
 
     // And the neighbours are untouched, so the class is per column rather than
     // per table.

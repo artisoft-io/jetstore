@@ -9,7 +9,7 @@
             "hint": "Workspace name is used as the workspace key",
             "autofocus": true, "maxLength": 20, "isReadOnlyFrom": "isActiveWorkspace",
             "rules": [{ "rule": "required", "message": "Workspace name must be provided." }] },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "maxLength": 120, "isReadOnlyFrom": "hasWorkspaceUri",
             "rules": [{ "rule": "required", "message": "Workspace URI must be provided." }] }
@@ -42,7 +42,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace name is used as the workspace key",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ],
@@ -67,7 +67,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace name is used as the workspace key",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ]
@@ -86,7 +86,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace name is used as the workspace key",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ],
@@ -110,7 +110,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace name is used as the workspace key",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ],
@@ -133,7 +133,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace name is used as the workspace key",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ],
@@ -160,7 +160,7 @@
           { "field": "text", "key": "workspace_name", "label": "Workspace Name",
             "hint": "Workspace where to export the client configuration",
             "isReadOnly": true, "maxLength": 20 },
-          { "field": "text", "key": "workspace_uri", "label": "Worksapce URI",
+          { "field": "text", "key": "workspace_uri", "label": "Workspace URI",
             "hint": "Repository where the workspace is versioned",
             "isReadOnly": true, "maxLength": 120 }
         ],

@@ -230,8 +230,12 @@ export function pageAfterRowsPerPageChange(
 /**
  * The text of one cell. `_cellValue` (`data_table_source.dart:226`).
  *
- * The literal string `'null'` for an absent value is the Dart's, kept because
- * users read these tables and a blank cell and a null are different facts. The
+ * ~~The literal string `'null'` for an absent value is the Dart's, kept because
+ * users read these tables and a blank cell and a null are different facts.~~
+ * **A null is an empty cell since 2026-11-11.** The word `null` in every empty
+ * column read as data (a status of "null", a file key of "null") and was the
+ * first thing a reader of the User Guide's screenshots asked about. No column
+ * gives a null a meaning of its own: both cell filters pass a null through. The
  * `cellFilter` closure cannot cross into TypeScript — three columns declare one,
  * all `file_key` — so a filtered column renders unfiltered until A.4b's caller
  * supplies a replacement. See the corpus README.
@@ -242,13 +246,13 @@ export function cellText(
   cellFilter?: (value: string | null) => string | null,
 ): string {
   const v = row[column.index] ?? null;
-  if (cellFilter) return cellFilter(v) ?? "null";
-  return v ?? "null";
+  if (cellFilter) return cellFilter(v) ?? "";
+  return v ?? "";
 }
 
 /** The unfiltered value, for copy-to-clipboard. `_cellFullValue` (`:234`). */
 export function cellFullText(row: JetsRow, column: ColumnConfig): string {
-  return row[column.index] ?? "null";
+  return row[column.index] ?? "";
 }
 
 /**

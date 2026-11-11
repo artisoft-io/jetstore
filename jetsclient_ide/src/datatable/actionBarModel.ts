@@ -193,16 +193,42 @@ function criterionMet(
  * it. The message is built from the criteria rather than authored, because the
  * document has no field for one and adding a per-action string would be a
  * translation the corpus cannot supply.
+ *
+ * **It says which values are required and which are refused** (2026-11-11). It
+ * read *Not available for this row (completed)* for *Get Run Manifest*, which
+ * needs a completed run, so on a run with errors it read as though the row were
+ * the completed one. A positive criterion (`equals`, `contains`) now reads
+ * *Only for a row that is completed*, a negative one (`notEquals`,
+ * `doesNotContain`) *Not for a row that is active or in progress*, and the
+ * conjunctions of a disjunction are joined with *or*.
  */
 function reasonFor(
   criterias: NonNullable<ActionConfig["actionEnableCriterias"]>,
   row: JetsRow | undefined,
 ): string {
   if (row === undefined) return "Select a row first";
-  const values = [...new Set(criterias.flat().map((c) => c.value).filter((v): v is string => !!v))];
-  return values.length === 0
-    ? "This row does not qualify"
-    : `Not available for this row (${values.join(", ")})`;
+  const list = (values: string[], word: "and" | "or"): string =>
+    values.length <= 1
+      ? (values[0] ?? "")
+      : `${values.slice(0, -1).join(", ")} ${word} ${values[values.length - 1]!}`;
+  const describe = (conjunction: (typeof criterias)[number]): string => {
+    const valuesOf = (types: string[]) => [
+      ...new Set(
+        conjunction
+          .filter((c) => types.includes(c.criteriaType))
+          .map((c) => c.value)
+          .filter((v): v is string => !!v),
+      ),
+    ];
+    const required = valuesOf(["equals", "contains"]);
+    const refused = valuesOf(["notEquals", "doesNotContain"]);
+    const parts: string[] = [];
+    if (required.length > 0) parts.push(`only for a row that is ${list(required, "and")}`);
+    if (refused.length > 0) parts.push(`not for a row that is ${list(refused, "or")}`);
+    return parts.join(", and ");
+  };
+  const text = criterias.map(describe).filter((d) => d !== "").join("; or ");
+  return text === "" ? "This row does not qualify" : text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export function availability(

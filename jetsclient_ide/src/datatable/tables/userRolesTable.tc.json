@@ -10,7 +10,8 @@
     {
       "name": "details",
       "label": "Details",
-      "tooltip": "Role details"
+      "tooltip": "Role details",
+      "maxLines": 3
     },
     {
       "name": "last_update",

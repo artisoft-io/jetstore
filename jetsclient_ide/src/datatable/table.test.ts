@@ -325,6 +325,16 @@ const HAND_MAINTAINED_KEYS = [
   // capability delete/users now requires server-side (2026-11-07). Its fixture
   // entry stays as the Flutter record.
   "userTable",
+  // 2026-11-11, from defects found while writing the User Guide. Their fixture
+  // entries stay as the Flutter record, as `userTable`'s does.
+  // Its label repeated the screen title above it, and its two `Domain Key`
+  // columns now say which is the run's and which is the row's value.
+  "processErrorsTable",
+  // Year, Month and Day are the source period, not the date a file was received.
+  "inputLoaderStatusTable",
+  "inputRegistryTable",
+  // Details wraps, so the Update User Profile dialog shows Last Updated.
+  "userRolesTable",
 ] as const;
 
 /**
@@ -498,7 +508,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
     // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
     // **11 on 2026-11-07**, with `userTable` (Delete User on `user_admin`).
-    expect(Object.keys(handMaintained).length).toBe(11);
+    // **15 on 2026-11-11**, with four tables corrected for defects found while
+    // writing the User Guide; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(15);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

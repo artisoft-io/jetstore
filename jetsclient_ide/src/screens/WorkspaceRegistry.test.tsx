@@ -507,7 +507,7 @@ describe("isReadOnlyFrom — the closures the corpus could only report as boolea
     expect((within(dialog).getByLabelText(/Workspace Name/) as HTMLInputElement).readOnly).toBe(true);
     expect((within(dialog).getByLabelText(/Workspace Branch/) as HTMLInputElement).readOnly).toBe(true);
     // The uri predicate is a different body and this deployment has no uri.
-    expect((within(dialog).getByLabelText(/Worksapce URI/) as HTMLInputElement).readOnly).toBe(false);
+    expect((within(dialog).getByLabelText(/Workspace URI/) as HTMLInputElement).readOnly).toBe(false);
   });
 
   it("leaves another workspace's name editable", async () => {
