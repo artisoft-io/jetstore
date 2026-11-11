@@ -1,7 +1,8 @@
 package wsfile
 
 // Reverting a change deletes its jetsapi.workspace_changes row only once the
-// file has been restored from the stash. It used to delete the row first and
+// file has been restored from the stash, or deleted when it was added since the
+// stash was taken. It used to delete the row first and
 // log, then return success, when the stash had no copy: the file kept the edit,
 // the row that recorded it was gone, and the screen said the revert worked.
 //
@@ -123,7 +124,87 @@ func changeRows(t *testing.T, pool *pgxpool.Pool) []string {
 	return names
 }
 
-func TestDeleteFileChangeKeepsTheRowWhenTheFileCannotBeRestored(t *testing.T) {
+// A file added since the stash was taken is deleted by its revert, and its row
+// goes; a file the stash holds is restored. With no stash at all, and for a name
+// the stash leaves out on purpose, nothing is deleted: the revert is refused and
+// the row and the file are kept.
+func TestDeleteFileChangeDeletesAFileAddedSinceTheStash(t *testing.T) {
+	pool := revertDB(t)
+	ws, file := stashScenario(t, "pristine")
+	if err := StashFiles(ws); err != nil {
+		t.Fatal(err)
+	}
+	added := filepath.Join(filepath.Dir(file), "added_later.json")
+	if err := os.WriteFile(added, []byte("the user's file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("the user's edit"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitignore := filepath.Join(filepath.Dir(filepath.Dir(file)), ".gitignore")
+	if err := os.WriteFile(gitignore, []byte("build/"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO jetsapi.workspace_changes VALUES ($1, 'process_config/added_later.json'),
+		 ($1, 'process_config/a_config.json'), ($1, '.gitignore')`, ws); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := DeleteFileChange(pool, ws, "process_config/added_later.json"); err != nil {
+		t.Fatalf("reverting the added file: %v", err)
+	}
+	if _, err := os.Stat(added); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the added file is still there (%v)", err)
+	}
+
+	// The stash leaves .gitignore out on purpose: absent from it, but not added.
+	err := DeleteFileChange(pool, ws, ".gitignore")
+	if err == nil || !errors.Is(err, ErrNoStashCopy) || !strings.Contains(err.Error(), "the change is kept") {
+		t.Fatalf("reverting .gitignore: got %v, want the refusal", err)
+	}
+	if got := read(t, gitignore); got != "build/" {
+		t.Errorf(".gitignore changed: %q", got)
+	}
+
+	// The file the stash holds reverts.
+	if err := DeleteFileChange(pool, ws, "process_config/a_config.json"); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, file); got != "pristine" {
+		t.Errorf("got %q, want pristine", got)
+	}
+	if got := strings.Join(changeRows(t, pool), " "); got != ".gitignore" {
+		t.Errorf("rows after the reverts: %s", got)
+	}
+}
+
+func TestDeleteFileChangeKeepsTheRowWhenThereIsNoStash(t *testing.T) {
+	pool := revertDB(t)
+	ws, file := stashScenario(t, "pristine")
+	// No StashFiles: as on a workstation, every file is absent from the stash.
+	added := filepath.Join(filepath.Dir(file), "added_later.json")
+	if err := os.WriteFile(added, []byte("the user's file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO jetsapi.workspace_changes VALUES ($1, 'process_config/added_later.json')`, ws); err != nil {
+		t.Fatal(err)
+	}
+	err := DeleteFileChange(pool, ws, "process_config/added_later.json")
+	if err == nil || !errors.Is(err, ErrNoStashCopy) ||
+		!strings.Contains(err.Error(), "cannot revert process_config/added_later.json, the change is kept") {
+		t.Fatalf("got %v, want the refusal naming the file", err)
+	}
+	if got := strings.Join(changeRows(t, pool), " "); got != "process_config/added_later.json" {
+		t.Errorf("rows after the refused revert: %s", got)
+	}
+	if got := read(t, added); got != "the user's file" {
+		t.Errorf("the file changed: %q", got)
+	}
+}
+
+func TestDeleteAllFileChangesDeletesAFileAddedSinceTheStash(t *testing.T) {
 	pool := revertDB(t)
 	ws, file := stashScenario(t, "pristine")
 	if err := StashFiles(ws); err != nil {
@@ -141,28 +222,17 @@ func TestDeleteFileChangeKeepsTheRowWhenTheFileCannotBeRestored(t *testing.T) {
 		 ($1, 'process_config/a_config.json')`, ws); err != nil {
 		t.Fatal(err)
 	}
-
-	err := DeleteFileChange(pool, ws, "process_config/added_later.json")
-	if err == nil || !errors.Is(err, ErrNoStashCopy) ||
-		!strings.Contains(err.Error(), "cannot revert process_config/added_later.json, the change is kept") {
-		t.Fatalf("got %v, want the refusal naming the file", err)
-	}
-	if got := strings.Join(changeRows(t, pool), " "); got != "process_config/a_config.json process_config/added_later.json" {
-		t.Errorf("rows after the refused revert: %s", got)
-	}
-	if got := read(t, added); got != "the user's file" {
-		t.Errorf("the file changed: %q", got)
-	}
-
-	// The file the stash does hold reverts, and only its row goes.
-	if err := DeleteFileChange(pool, ws, "process_config/a_config.json"); err != nil {
+	if err := DeleteAllFileChanges(pool, ws, true, false); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(added); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the added file is still there (%v)", err)
 	}
 	if got := read(t, file); got != "pristine" {
 		t.Errorf("got %q, want pristine", got)
 	}
-	if got := strings.Join(changeRows(t, pool), " "); got != "process_config/added_later.json" {
-		t.Errorf("rows after the revert: %s", got)
+	if got := changeRows(t, pool); len(got) != 0 {
+		t.Errorf("rows after the revert: %v", got)
 	}
 }
 
@@ -194,5 +264,52 @@ func TestDeleteAllFileChangesKeepsTheRowsWhenThereIsNoStash(t *testing.T) {
 	}
 	if got := changeRows(t, pool); len(got) != 0 {
 		t.Errorf("rows after the revert: %v", got)
+	}
+}
+
+// A revert of every change keeps the compiled assets, as the button does
+// (keepWorkspaceAndLookupDb): their rows stay, and the stash's start-up copies
+// are not put over the compiled files.
+func TestDeleteAllFileChangesKeepsTheCompiledAssets(t *testing.T) {
+	pool := revertDB(t)
+	ws, file := stashScenario(t, "pristine")
+	dir := filepath.Dir(filepath.Dir(file))
+	tgz := filepath.Join(dir, "workspace.tgz")
+	db := filepath.Join(dir, "workspace.db")
+	if err := os.WriteFile(tgz, []byte("start-up tgz"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := StashFiles(ws); err != nil {
+		t.Fatal(err)
+	}
+	// The compile since start-up, and an edit.
+	if err := os.WriteFile(tgz, []byte("compiled tgz"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(db, []byte("compiled db"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("the user's edit"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO jetsapi.workspace_changes VALUES ($1, 'process_config/a_config.json'),
+		 ($1, 'workspace.tgz'), ($1, 'workspace.db'), ($1, 'lookup.db'), ($1, 'reports.tgz')`, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := DeleteAllFileChanges(pool, ws, true, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, file); got != "pristine" {
+		t.Errorf("the edited file: got %q, want pristine", got)
+	}
+	if got := read(t, tgz); got != "compiled tgz" {
+		t.Errorf("workspace.tgz: got %q, want the compiled one", got)
+	}
+	if got := read(t, db); got != "compiled db" {
+		t.Errorf("workspace.db: got %q, want the compiled one", got)
+	}
+	if got := strings.Join(changeRows(t, pool), " "); got != "lookup.db reports.tgz workspace.db workspace.tgz" {
+		t.Errorf("rows after the revert: %s", got)
 	}
 }
