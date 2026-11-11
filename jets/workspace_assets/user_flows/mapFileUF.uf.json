@@ -4,7 +4,7 @@
   "startAtKey": "map_file",
   "states": {
     "map_file": {
-      "description": "Map file screen/dialog",
+      "description": "Map each property to a column of the file",
       "formConfig": "fmMappingFormUF",
       "isEnd": true
     }

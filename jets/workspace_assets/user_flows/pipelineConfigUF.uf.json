@@ -4,7 +4,7 @@
   "startAtKey": "select_pipeline_config",
   "states": {
     "select_pipeline_config": {
-      "description": "Select a Pipeline Config to edit, or add one",
+      "description": "Select a pipeline configuration to edit, or add one",
       "formConfig": "pcSelectPipelineConfigUF",
       "stateAction": "pcSelectPipelineConfigUF",
       "goToStates": [
@@ -13,7 +13,7 @@
       "defaultNextState": "select_main_process_input"
     },
     "add_pipeline_config": {
-      "description": "Add Pipeline Config",
+      "description": "Add a pipeline configuration",
       "formConfig": "pcAddPipelineConfigUF",
       "stateAction": "pcAddPipelineConfigUF",
       "goToStates": [
@@ -22,7 +22,7 @@
       "defaultNextState": "select_main_process_input"
     },
     "select_main_process_input": {
-      "description": "Select the main process input",
+      "description": "Select the main data source",
       "formConfig": "pcSelectMainProcessInputUF",
       "stateAction": "pcSelectMainProcessInputUF",
       "goToStates": [
@@ -31,7 +31,7 @@
       "defaultNextState": "view_merge_process_inputs"
     },
     "view_merge_process_inputs": {
-      "description": "View the merge process inputs",
+      "description": "The data sources merged with the main data source",
       "formConfig": "pcViewMergeProcessInputsUF",
       "goToStates": [
         "add_merge_process_inputs",
@@ -40,7 +40,7 @@
       "defaultNextState": "view_injected_process_inputs"
     },
     "view_injected_process_inputs": {
-      "description": "View the merge process inputs",
+      "description": "The data sources read as historical data",
       "formConfig": "pcViewInjectedProcessInputsUF",
       "goToStates": [
         "add_injected_process_inputs",
@@ -49,7 +49,7 @@
       "defaultNextState": "set_pipeline_automation"
     },
     "set_pipeline_automation": {
-      "description": "Set pipeline automation",
+      "description": "Set the frequency, the automation and the rule configuration",
       "formConfig": "pcAutomationUF",
       "stateAction": "pcPrepareSummaryUF",
       "goToStates": [
@@ -67,7 +67,7 @@
       "defaultNextState": "select_pipeline_config"
     },
     "add_merge_process_inputs": {
-      "description": "Add a merge process inputs",
+      "description": "Add a data source to merge",
       "formConfig": "pcAddMergeProcessInputsUF",
       "stateAction": "pcAddMergeProcessInputUF",
       "goToStates": [
@@ -76,7 +76,7 @@
       "defaultNextState": "view_merge_process_inputs"
     },
     "add_injected_process_inputs": {
-      "description": "Add an injected process inputs",
+      "description": "Add a data source for historical data",
       "formConfig": "pcAddInjectedProcessInputsUF",
       "stateAction": "pcAddInjectedProcessInputUF",
       "goToStates": [

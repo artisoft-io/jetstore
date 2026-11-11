@@ -304,7 +304,7 @@ describe("Pipeline Configuration: the process-input dialog decides insert or upd
     // The dialog's own registry table is the one read; the page's is not.
     expect(reads()).toBe(before + 1);
     fireEvent.click(button("Next"));
-    await waitFor(() => expect(stateLine()).toBe("View the merge process inputs"));
+    await waitFor(() => expect(stateLine()).toBe("The data sources merged with the main data source"));
     expect(screen.queryByText("Please select an option.")).toBeNull();
   });
 

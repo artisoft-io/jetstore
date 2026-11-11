@@ -27,12 +27,22 @@ runs to show, as many as you like. Tick none to show every process.
 
 ### 2. Select status filter
 
-![Step 2 of the flow, Select status filter: the five statuses, Completed, Submitted, Pending, Failed and Timed Out, with Failed ticked.](../../../../../assets/screenshots/user/screens/flows/pipeline-execution-status-filters/status.png)
+![Step 2 of the flow, Select status filter: the eight statuses, from Pending to Timed Out, with Failed ticked.](../../../../../assets/screenshots/user/screens/flows/pipeline-execution-status-filters/status.png)
 
-The statuses to show: **Completed**, **Submitted**, **Pending**, **Failed** and **Timed Out**, as
-many as you like. Tick none to show every status. The list offers only these five: runs in the other
-statuses, such as `errors` or `interrupted`, are shown when no status is ticked and hidden when any
-is.
+The statuses to show, as many as you like; tick none to show every status. The list is every status
+a run can have, as described in
+[What a run's status means](/docs/user/concepts/pipelines-and-sessions/#what-a-runs-status-means):
+
+| Label | Status |
+|---|---|
+| **Pending** | `pending` |
+| **Submitted (running)** | `submitted` |
+| **Completed** | `completed` |
+| **Completed with Errors** | `errors` |
+| **Recovered** | `recovered` |
+| **Interrupted** | `interrupted` |
+| **Failed** | `failed` |
+| **Timed Out** | `timed_out` |
 
 ### 3. Select file key filter
 
