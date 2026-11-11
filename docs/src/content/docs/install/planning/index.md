@@ -16,6 +16,8 @@ Read these pages before a first deployment, or before changing how an installati
 | [DEV, UAT and PROD](/docs/install/planning/environments/) | Three ways to arrange three environments, what each shares, and what each costs |
 | [How a file starts a pipeline](/docs/install/planning/ingest-data-flow/) | The path from a file landing in S3 to a running Step Functions execution |
 | [Inference server memory](/docs/install/planning/infer-server-memory/) | How the optional GPU inference server uses memory, and how to choose its Ollama settings |
+| [Sizing an installation](/docs/install/planning/sizing/) | What has a size (database, ECS tasks, Lambdas, the compute-pipes cluster, the inference server), its default, and the setting that changes it |
+| [Customising an installation](/docs/install/planning/customise-an-installation/) | What makes one installation different from another, and where each difference lives |
 
 Every component of the stack, and what decides whether it is built, is listed in the
 [stack components](/docs/install/reference/stack-components/) reference.

@@ -70,9 +70,8 @@ rules differ between synths and an offline synth is impossible when GitHub acces
 Bitbucket ranges are hard-coded.
 
 **`JETS_GIT_ACCESS` is consumed at synth and does not reach a container.** Its one reader is
-`NewGitAccessSecurityGroup` (`cdk/jetstore_one/stack/jetstore_github.go`) -- one `os.Getenv` in the
-whole CDK app besides the synth-time log, measured 2026-09-07 -- and no task definition's environment
-map carries the name, so the apiserver cannot see it. What it decides is whether a git operation
+`NewGitAccessSecurityGroup` (`cdk/jetstore_one/stack/jetstore_github.go`), and no task definition's
+environment map carries the name, so the apiserver cannot see it. What it decides is whether a git operation
 *could* reach a provider, not whether one is attempted: a stack deployed without it still runs the
 git commands the Workspace Registry screen offers, and they fail against the network rather than
 being skipped. This is worth stating because "deployed without `JETS_GIT_ACCESS`" reads as a
