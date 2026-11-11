@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -16,6 +17,26 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// errSignInRefused is the one answer to a sign-in that does not succeed: an
+// unknown login, a wrong password, and an account the administrator has not
+// activated (or has deactivated) all read the same, so the answer does not say
+// whether the login exists. The reason is logged, not sent. Until 2026-11-11
+// an inactive account was told to contact the administrator before its
+// password was checked, which confirmed the login to anyone who typed it, and
+// an unknown login got the database lookup's own, differently worded, error.
+var errSignInRefused = errors.New("Invalid user or password, or the user has not been activated by an administrator")
+
+// unknownUserHash is checked against the password a sign-in for an unknown
+// login sends, so that answer costs the same bcrypt work as a wrong password
+// and its timing does not tell the two apart.
+var unknownUserHash = sync.OnceValue(func() []byte {
+	hash, err := user.Hash("jetstore unknown login " + time.Now().String())
+	if err != nil {
+		log.Println("ERROR while hashing the unknown-login password:", err)
+	}
+	return hash
+})
 
 // Login ------------------------------------------------------------
 func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +62,8 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// provided password
 	password := jetsUser.Password
 	// get user details including pwd for verification from db
-	jetsUser, err = user.GetUserByEmail(server.dbpool, jetsUser.Email)
+	email := jetsUser.Email
+	jetsUser, err = user.GetUserByEmail(server.dbpool, email)
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "password authentication failed"):
@@ -53,25 +75,29 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// try again
-			jetsUser, err = user.GetUserByEmail(server.dbpool, jetsUser.Email)
-			if err != nil {
-				ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
-				return
-			}
-		default:
-			ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
-			return
+			jetsUser, err = user.GetUserByEmail(server.dbpool, email)
 		}
 	}
-	if jetsUser.IsActive != 1 {
-		ERROR(w, http.StatusUnprocessableEntity, errors.New("User is not active, please contact your Administrator"))
+	if err != nil {
+		log.Printf("sign-in refused for %q: %v", email, err)
+		_ = bcrypt.CompareHashAndPassword(unknownUserHash(), []byte(password))
+		ERROR(w, http.StatusUnprocessableEntity, errSignInRefused)
 		return
 	}
+	// The password first, then the account: an inactive account's answer must
+	// not be reachable without its password, and any error from the check
+	// refuses, not only a mismatch (a stored value that is not a bcrypt hash
+	// returned another error and signed the user in).
 	err = user.VerifyPassword(jetsUser.Password, password)
 	jetsUser.Password = ""
-	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
-		log.Println("ERROR", err)
-		ERROR(w, http.StatusUnprocessableEntity, errors.New("Invalid User or Password"))
+	if err != nil {
+		log.Printf("sign-in refused for %q: password: %v", email, err)
+		ERROR(w, http.StatusUnprocessableEntity, errSignInRefused)
+		return
+	}
+	if jetsUser.IsActive != 1 {
+		log.Printf("sign-in refused for %q: the account is not active", email)
+		ERROR(w, http.StatusUnprocessableEntity, errSignInRefused)
 		return
 	}
 	jetsUser.Token, err = user.CreateToken(jetsUser.Email)
