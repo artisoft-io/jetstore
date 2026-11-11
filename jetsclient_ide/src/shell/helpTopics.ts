@@ -114,41 +114,60 @@ export function helpPathFor(pathname: string): string {
   return DOCS_PREFIX + DEFAULT_HELP_PAGE;
 }
 
+/**
+ * The name of the documentation tab. `window.open` with a name returns the tab
+ * already open under it, so each *Help* shows its page in the one tab rather
+ * than opening another. The site is served from the app's own origin, so the tab
+ * stays reachable by name after `opener` is cleared.
+ */
+export const DOCS_TAB_NAME = "jetstore_docs";
+
 /** What `openHelp` needs of the tab `window.open` returns. */
 export interface HelpTab {
   opener: unknown;
   location: { href: string };
   close(): void;
+  focus?(): void;
 }
 
 /**
- * Opens the documentation for `pathname` in a new tab. Resolves to an error
+ * Opens the documentation for `pathname` in the documentation tab, a new one
+ * the first time and the same one after (DOCS_TAB_NAME). Resolves to an error
  * message for the banner, or `null` when the tab was pointed at the page.
  *
  * **The tab is opened before anything is awaited.** A browser allows a new tab
  * only while it is handling the user's click, and the session call has to
  * finish first — it sets the cookie the site requires — so the tab is opened
  * blank, synchronously, and given its address once the call has answered.
- * `opener` is cleared before the tab leaves this origin's blank page.
+ * `opener` is cleared before the tab leaves this origin's blank page. A failed
+ * call closes the tab only when this click opened it: an existing tab is the
+ * user's, showing the page they last asked for.
  */
 export async function openHelp(
   pathname: string,
   openDocsSession: () => Promise<void>,
-  openTab: () => HelpTab | null = () => window.open("", "_blank"),
+  openTab: () => HelpTab | null = () => window.open("", DOCS_TAB_NAME),
 ): Promise<string | null> {
   const tab = openTab();
   if (tab === null) {
     return "The browser blocked the documentation tab. Allow pop-ups for this site and press Help again.";
   }
+  let opened = false;
+  try {
+    opened = tab.location.href === "about:blank";
+  } catch {
+    // A tab whose page this origin cannot read is not one this click opened.
+  }
   try {
     await openDocsSession();
   } catch (err) {
-    tab.close();
+    if (opened) tab.close();
     return err instanceof Error && err.message !== ""
       ? err.message
       : "The documentation could not be opened.";
   }
   tab.opener = null;
   tab.location.href = helpPathFor(pathname);
+  tab.focus?.();
   return null;
 }

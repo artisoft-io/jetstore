@@ -12,7 +12,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { ApiClient, ApiError } from "../api/client";
 import { AppShell } from "./AppShell";
-import { helpPathFor, openHelp, type HelpTab } from "./helpTopics";
+import { DOCS_TAB_NAME, helpPathFor, openHelp, type HelpTab } from "./helpTopics";
 
 afterEach(() => {
   cleanup();
@@ -20,12 +20,14 @@ afterEach(() => {
   localStorage.clear();
 });
 
-function fakeTab() {
+function fakeTab(href = "about:blank") {
   const close = vi.fn<() => void>();
-  const tab: HelpTab & { close: typeof close } = {
+  const focus = vi.fn<() => void>();
+  const tab: HelpTab & { close: typeof close; focus: typeof focus } = {
     opener: "the app",
-    location: { href: "about:blank" },
+    location: { href },
     close,
+    focus,
   };
   return tab;
 }
@@ -108,6 +110,28 @@ describe("openHelp", () => {
     expect(tab.location.href).toBe("about:blank");
   });
 
+  it("reuses the documentation tab already open, and brings it forward", async () => {
+    const tab = fakeTab("http://host/docs/user/screens/home/");
+    tab.opener = null;
+    expect(await openHelp("/workspaces/ws1/home", async () => undefined, () => tab)).toBeNull();
+    expect(tab.location.href).toBe(helpPathFor("/workspaces/ws1/home"));
+    expect(tab.focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves an existing documentation tab open when the call fails", async () => {
+    const tab = fakeTab("http://host/docs/user/screens/home/");
+    const message = await openHelp(
+      "/home",
+      async () => {
+        throw new ApiError("The server rejected the request.", 500);
+      },
+      () => tab,
+    );
+    expect(message).toBe("The server rejected the request.");
+    expect(tab.close).not.toHaveBeenCalled();
+    expect(tab.location.href).toBe("http://host/docs/user/screens/home/");
+  });
+
   it("reports a blocked tab without calling the server", async () => {
     const session = vi.fn(async () => undefined);
     const message = await openHelp("/home", session, () => null);
@@ -126,7 +150,7 @@ describe("the Help button", () => {
     renderShell(api, "/workspaces/ws1/home");
     fireEvent.click(screen.getByRole("button", { name: /^Help/ }));
 
-    expect(open).toHaveBeenCalledWith("", "_blank");
+    expect(open).toHaveBeenCalledWith("", DOCS_TAB_NAME);
     await waitFor(() => expect(tab.location.href).toBe(helpPathFor("/workspaces/ws1/home")));
     expect(tab.location.href).toBe("/docs/user/screens/workspace-ide/");
     expect(tab.opener).toBeNull();
