@@ -934,7 +934,7 @@ func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, 
 
 // DeleteWorkspaceFile
 func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		httpStatus, err = RefusalFor(err2)
 		return
@@ -970,7 +970,7 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 			return
 		}
 		// Write empty file to local workspace & db
-		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, ""); err != nil {
+		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, "", signedIn.Email); err != nil {
 			log.Println(err)
 			httpStatus = http.StatusBadRequest
 			return
@@ -1124,7 +1124,7 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		status, refusal := RefusalFor(err2)
 		return nil, status, refusal
@@ -1168,7 +1168,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 		return
 	}
 	// Write file to local workspace
-	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content)
+	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content, signedIn.Email)
 	results = &map[string]any{
 		"file_name": wsFileName,
 	}
@@ -1178,7 +1178,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 // SaveWorkspaceClientConfig --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		status, refusal := RefusalFor(err2)
 		return nil, status, refusal
@@ -1195,7 +1195,7 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 	}
 
 	// Save client config to local workspace
-	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string))
+	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string), signedIn.Email)
 	results = &map[string]any{}
 	return
 }
