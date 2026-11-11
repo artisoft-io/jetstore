@@ -31,21 +31,21 @@
       "name": "year",
       "label": "Year",
       "table": "source_period",
-      "tooltip": "Year the file was received",
+      "tooltip": "Year of the source period of the input",
       "isNumeric": true
     },
     {
       "name": "month",
       "label": "Month",
       "table": "source_period",
-      "tooltip": "Month of the year the file was received",
+      "tooltip": "Month of the source period of the input",
       "isNumeric": true
     },
     {
       "name": "day",
       "label": "Day",
       "table": "source_period",
-      "tooltip": "Day of the month the file was received",
+      "tooltip": "Day of the source period of the input",
       "isNumeric": true
     },
     {

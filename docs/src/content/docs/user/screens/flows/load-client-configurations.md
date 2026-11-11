@@ -21,7 +21,7 @@ Its key is `loadConfigUF`.
 
 ## Steps
 
-### 1. Load Client Config form
+### 1. Select the clients whose configuration to load
 
 ![Step 1 of the flow for the workspace jets_ws: its clients Any, CI and JetsA, with CI, Clinical Intel, ticked, and the Load All Clients Config button below.](../../../../../assets/screenshots/user/screens/flows/load-client-configurations/select-clients.png)
 
@@ -34,13 +34,10 @@ Its key is `loadConfigUF`.
 **Load All Clients Config**, below the table, loads the workspace's whole configuration, its base
 configuration and every client's, at once, without going to step 2.
 
-### 2. Confirm Load Config
+### 2. Confirm the clients whose configuration to load
 
-The workspace again, and the table *Clients Selected*. **Confirm** loads the configuration of the
-clients ticked in step 1 and returns to *Workspaces*.
-
-In this version the *Clients Selected* table lists every client, with none ticked, rather than the
-clients you chose; what is loaded is still the clients ticked in step 1. Use *Previous* to check
+The workspace again, and the table *Clients Selected*: the clients ticked in step 1, and only those.
+**Confirm** loads their configuration and returns to *Workspaces*; *Previous* goes back to change
 them.
 
 ## The result

@@ -75,6 +75,9 @@ const HAND_AUTHORED = [
   // they return there rather than to `/workspaces` (no `exitScreenPath`).
   "loadConfigUF",
   "workspacePullUF",
+  // Left the fixture on 2026-11-11, when its page subtitle, the Dart's
+  // "Map file screen/dialog", was given words a user can read.
+  "mapFileUF",
 ];
 const flows = toUserFlows(corpus as unknown as Corpus);
 /** The hand-authored flows as committed — the thing that ships, so the thing checked. */
@@ -161,7 +164,7 @@ describe("the workspace flows the Workspace IDE launches", () => {
 });
 
 describe("the shipping corpus", () => {
-  it("is the three flows and 8 states still translated from the fixture", () => {
+  it("is the two flows and 7 states still translated from the fixture", () => {
     // The title said *five flows and 13 states* until 2026-11-10: the
     // assertions below moved to three and 8 on 2026-10-11 and the title did not.
     //
@@ -182,8 +185,10 @@ describe("the shipping corpus", () => {
     // **Three and 8 on 2026-10-11**, when `loadConfigUF` (2 states) and
     // `workspacePullUF` (3) left so that, launched from the Workspace IDE, they
     // return there (`rules_unit_test_harness`, Michel's testing).
-    expect(Object.keys(flows)).toHaveLength(3);
-    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(8);
+    // **Two and 7 on 2026-11-11**, when `mapFileUF` (1 state) left so that its
+    // subtitle could be written for users.
+    expect(Object.keys(flows)).toHaveLength(2);
+    expect(Object.values(flows).reduce((n, f) => n + Object.keys(f.states).length, 0)).toBe(7);
   });
 
   it.each(Object.keys(flows))("%s validates against the schema", (key) => {

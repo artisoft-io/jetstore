@@ -25,6 +25,11 @@ import lfFileKeyStagingTable from "../../../jets/workspace_assets/table_configs/
 import lfSourceConfigTable from "../../../jets/workspace_assets/table_configs/lfSourceConfigTable.tc.json";
 import wpClientList from "../../../jets/workspace_assets/table_configs/wpClientList.tc.json";
 import wpClientListRO from "../../../jets/workspace_assets/table_configs/wpClientListRO.tc.json";
+import otherWorkspaceActionOptions from "../../../jets/workspace_assets/table_configs/otherWorkspaceActionOptions.tc.json";
+import wpPullWorkspaceConfirmOptions from "../../../jets/workspace_assets/table_configs/wpPullWorkspaceConfirmOptions.tc.json";
+import workspacePullActions from "../../../jets/workspace_assets/user_flows/workspacePullUF.ua.json";
+import workspacePullFlow from "../../../jets/workspace_assets/user_flows/workspacePullUF.uf.json";
+import workspacePullForms from "../../../jets/workspace_assets/user_flows/workspacePullUF.form.json";
 import hfProcessTable from "../../../jets/workspace_assets/table_configs/hfProcessTableUF.tc.json";
 import hfStatusTable from "../../../jets/workspace_assets/table_configs/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../../../jets/workspace_assets/table_configs/hfFileKeyFilterTypeTableUF.tc.json";
@@ -75,6 +80,11 @@ const files: Record<string, string> = {
   "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
   "table_configs/wpClientList.tc.json": serialise(wpClientList),
   "table_configs/wpClientListRO.tc.json": serialise(wpClientListRO),
+  "user_flows/workspacePullUF.uf.json": serialise(workspacePullFlow),
+  "user_flows/workspacePullUF.ua.json": serialise(workspacePullActions),
+  "user_flows/workspacePullUF.form.json": serialise(workspacePullForms),
+  "table_configs/otherWorkspaceActionOptions.tc.json": serialise(otherWorkspaceActionOptions),
+  "table_configs/wpPullWorkspaceConfirmOptions.tc.json": serialise(wpPullWorkspaceConfirmOptions),
 
   // F.5. Four table documents for five states, and the fourth is the one
   // registered on the *non-flow* side (plan F18) — the first document in this
@@ -154,7 +164,7 @@ const stagingColumns: JetsRow[] = [["claim_id"], ["dob"], ["member_id"]];
 /** `wpClientList`'s two columns — the key column is `client`, at index 0. */
 const clientRows: JetsRow[] = [
   ["ACME", "Acme Health"],
-  ["USI", "USI Insurance"],
+  ["GLOBEX", "Globex Corporation"],
 ];
 /** `hfProcessTableUF`'s two columns. */
 const processRows: JetsRow[] = [["loadFile", "Load a file"], ["runRules", "Run the rules"]];
@@ -236,10 +246,12 @@ function stubServer(overrides: { missing?: string[] } = {}) {
       case "read": {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
         if (from === "client_registry") {
-          return new Response(
-            JSON.stringify({ rows: clientRows, totalRowCount: clientRows.length }),
-            { status: 200 },
-          );
+          // Filtered on `client` when the table asks, as the server would: the
+          // confirmation pages' list asks for the chosen clients only.
+          const where = (body["whereClauses"] ?? []) as { column: string; values?: string[] }[];
+          const chosen = where.find((c) => c.column === "client")?.values;
+          const rows = chosen ? clientRows.filter((r) => chosen.includes(r[0]!)) : clientRows;
+          return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
         }
         if (from === "source_config") {
           return new Response(
@@ -612,21 +624,39 @@ describe("opening a flow at a named state", () => {
     expect(screen.queryByText("Select File(s) to Load")).toBeNull();
   });
 
-  it("has no page behind it, so Previous refuses", async () => {
-    // `visited` is the requested state alone. Seeding the flow's own start would
-    // make *Previous* show a page this entry point exists to skip — a step the
-    // user never saw, with the choice they made on another screen presented
-    // again. So `ufPrevious` refuses here exactly as it does on any first page.
+  it("goes back to the first page, where Drop Staging Table is", async () => {
+    // `visited` is the flow's default path to the requested state, so *Previous*
+    // reaches the page the entry point skipped. It was the requested state alone,
+    // and the first page, the only place *Drop Staging Table* is, could not be
+    // reached from the flow's only entry point.
     await mount("loadFilesUF", { search: `${ENTRY}&startAt=select_file_keys` });
     await screen.findByText("Select File(s) to Load");
-    // **It now refuses before the press rather than after it, and this assertion
-    // moved with the behaviour rather than being weakened.** D.11 disables
-    // `ufPrevious` wherever `back` would throw, so the *"Already at the first
-    // step"* message this used to wait for is unreachable from the UI — the
-    // engine still raises it, and `engineStops.test.ts` still pins that. What is
-    // asserted here is the same claim one layer up: an entry point has no page
-    // behind it, and the control says so.
+    const previous = screen.getByRole("button", { name: "Previous" });
+    expect(previous.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(previous);
+    expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Drop Staging Table" })).toBeTruthy();
+    // No source key in the url, so nothing is ticked: the user ticks one.
+    await screen.findByText("staging_claims");
+    expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).some((b) => b.checked)).toBe(false);
+    // And this is the flow's first page, so Previous stops here.
     expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("opens the first page with the source ticked when the entry carries its key", async () => {
+    // *Load Data* carries the source config's key as `lfSourceConfigTable`, the
+    // first page's table selection, so *Previous* lands on the source already
+    // chosen, with *Drop Staging Table* enabled for it.
+    await mount("loadFilesUF", { search: `${ENTRY}&lfSourceConfigTable=1&startAt=select_file_keys` });
+    await screen.findByText("Select File(s) to Load");
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked)).toEqual([true]),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Drop Staging Table" }).hasAttribute("disabled")).toBe(false),
+    );
   });
 
   it("starts at the document's own state when the url names none", async () => {
@@ -800,6 +830,33 @@ describe("mapFileUF — the file mapping worksheet", () => {
     expect(
       (screen.getByRole("button", { name: "Save as Draft" }) as HTMLButtonElement).disabled,
     ).toBe(false);
+    // `autovalidate`: the unmapped row says why on open, before anything is edited.
+    expect(
+      await screen.findByText(
+        "Input Column must be selected or either a default or an error message must be provided.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the first row's seeded column, not an empty field", async () => {
+    // The first row's widgets mounted before the seed wrote its values and never
+    // read them again, so a saved or default column showed as an empty field: a
+    // required row that looked unmapped, with Save enabled and no message. The
+    // other rows mounted after the seed and were right.
+    const original = mappingRows[0]!;
+    mappingRows[0] = ["claim:id", "1", null, null, null, null, null, "claim_id"];
+    try {
+      await mount("mapFileUF", { search: MAPPING_SEARCH });
+      await screen.findByText("claim:id*");
+      await waitFor(() =>
+        expect(
+          (screen.getAllByLabelText("Input Column") as HTMLInputElement[]).map((c) => c.value),
+        ).toEqual(["claim_id", "dob"]),
+      );
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      mappingRows[0] = original;
+    }
   });
 
   it("swaps the two once every row validates", async () => {
@@ -927,7 +984,7 @@ describe("loadConfigUF — loading client configuration", () => {
   it("shows the workspace from the route, read-only", async () => {
     await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
     const name = (await screen.findByLabelText("Workspace Name")) as HTMLInputElement;
-    const uri = screen.getByLabelText("Worksapce URI") as HTMLInputElement;
+    const uri = screen.getByLabelText("Workspace URI") as HTMLInputElement;
     expect(name.value).toBe("jets_ws");
     expect(uri.value).toBe("git@github.com:artisoft-io/jets_ws.git");
     // `isReadOnly` — 20 of the corpus's 36 text inputs set it, and until F.2 the
@@ -974,7 +1031,7 @@ describe("loadConfigUF — loading client configuration", () => {
     const post = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
     expect(post.body["workspaceName"]).toBe("jets_ws");
     const row = (post.body["data"] as Record<string, unknown>[])[0]!;
-    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["updateDbClients"]).toBe("ACME,GLOBEX");
     expect(row["user_email"]).toBe("michel@artisoft.io");
   });
 
@@ -999,6 +1056,23 @@ describe("loadConfigUF — loading client configuration", () => {
     expect(row["wpClientList"]).toBeUndefined();
   });
 
+  it("lists only the chosen clients on the confirmation page", async () => {
+    // The confirmation page listed every client, unticked: its table filtered on
+    // the selection client-side and never applied the filter. It asks the server
+    // for the chosen clients now, so the page shows exactly what will be loaded.
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("button", { name: "Confirm" });
+
+    expect(await screen.findByText("Acme Health")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Globex Corporation")).toBeNull());
+    const reads = posts.filter((p) => p.body["action"] === "read");
+    const last = reads[reads.length - 1]!.body["whereClauses"] as { column: string; values?: string[] }[];
+    expect(last.find((c) => c.column === "client")?.values).toEqual(["ACME"]);
+  });
+
   it("refuses Next with no client selected", async () => {
     const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
     await screen.findByText("Acme Health");
@@ -1021,6 +1095,34 @@ describe("loadConfigUF — loading client configuration", () => {
  * which were missing until this task and neither of which would have failed a
  * document check.
  */
+describe("workspacePullUF — the confirmation page", () => {
+  it("shows the chosen actions ticked, and only the chosen clients", async () => {
+    // It showed every action and every client, none ticked: the read-only copy
+    // refused the restored tick, and its rows were never narrowed to the choice.
+    const { posts } = await mount("workspacePullUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText(/Compile workspace/);
+    const options = screen.getAllByRole("checkbox");
+    fireEvent.click(options[0]!); // compile
+    fireEvent.click(options[2]!); // load the selected clients
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("button", { name: "Confirm" });
+
+    await waitFor(() => expect(screen.getByText("Workspace will be compiled")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.queryByText("ALL client configuration will be loaded into database")).toBeNull(),
+    );
+    expect(screen.getByText("SELECTED client configuration will be loaded into database")).toBeTruthy();
+    const ticked = (screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked);
+    expect(ticked).toEqual([true, true]);
+    expect(await screen.findByText("Acme Health")).toBeTruthy();
+    expect(screen.queryByText("Globex Corporation")).toBeNull();
+    void posts;
+  });
+});
+
 describe("home_filters in the app", () => {
   // **The filter store is module-level, so it outlives the tree.** That is what
   // makes it the Flutter router's equivalent and it is also what makes it test
@@ -1073,6 +1175,51 @@ describe("home_filters in the app", () => {
       table: "pipeline_execution_status",
       column: "start_time",
       ge: "now()-interval '3 days'",
+    });
+  });
+
+  it("offers every status the server writes, and filters on the ones ticked", async () => {
+    // The list offered five statuses, so runs that ended `errors`, `recovered` or
+    // `interrupted` could not be chosen. These are every value the server writes
+    // to `pipeline_execution_status.status`.
+    resetHomeFilters();
+    const { posts } = await mount("homeFiltersUF");
+    expect(await screen.findByText("loadFile")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Timed Out")).toBeTruthy();
+    const labels = [
+      "Pending",
+      "Submitted (running)",
+      "Completed",
+      "Completed with Errors",
+      "Recovered",
+      "Interrupted",
+      "Failed",
+      "Timed Out",
+    ];
+    for (const label of labels) expect(screen.getByText(label)).toBeTruthy();
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(labels.length);
+    fireEvent.click(boxes[labels.indexOf("Completed with Errors")]!);
+    fireEvent.click(boxes[labels.indexOf("Interrupted")]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Starts With")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByLabelText("Start Offset Duration");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("sess-1");
+
+    const read = posts.filter(
+      (p) =>
+        p.body["action"] === "read" &&
+        (p.body["fromClauses"] as { table: string }[])[0]!.table === "pipeline_execution_status",
+    );
+    const clauses = (read.at(-1)!.body["whereClauses"] ?? []) as Record<string, unknown>[];
+    expect(clauses).toContainEqual({
+      table: "pipeline_execution_status",
+      column: "status",
+      values: ["errors", "interrupted"],
     });
   });
 

@@ -335,6 +335,15 @@ const HAND_MAINTAINED_KEYS = [
   "inputRegistryTable",
   // Details wraps, so the Update User Profile dialog shows Last Updated.
   "userRolesTable",
+  // The confirmation pages' client list asks for the chosen clients only, the
+  // status filter offers every status the server writes, and the file list's
+  // Year, Month and Day name the source period (2026-11-11, the flows' fixes).
+  "hfStatusTableUF",
+  "wpClientListRO",
+  "lfFileKeyStagingTable",
+  // Load Data carries the source config's key, so Load Files' first page opens
+  // with the source ticked (2026-11-11).
+  "fmInputSourceMappingUF",
 ] as const;
 
 /**
@@ -510,7 +519,10 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **11 on 2026-11-07**, with `userTable` (Delete User on `user_admin`).
     // **15 on 2026-11-11**, with four tables corrected for defects found while
     // writing the User Guide; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(15);
+    // **18 the same day**, with `hfStatusTableUF`, `wpClientListRO` and
+    // `lfFileKeyStagingTable` from the flows' fixes, and **19** with
+    // `fmInputSourceMappingUF`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(19);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

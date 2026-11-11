@@ -414,6 +414,19 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * the same keys of the same groups.
    */
   const repeatRows = currentForm?.repeat === undefined ? undefined : queries.rows(currentForm.repeat.from);
+  /**
+   * The rows the groups were last seeded from. 2026-11-11.
+   *
+   * **The groups are drawn only once their seed has run**, and they were drawn
+   * one render earlier. The render that learns the rows draws group 0 at once,
+   * because the store already has one group, and its widgets read their values
+   * when they mount, which is before this effect seeds them; they do not follow
+   * the store afterwards. So the worksheet's first row showed empty while the
+   * form state held its saved mapping: a required property that looked unmapped,
+   * no message under it, and Save enabled. Groups 1 and up mounted after the
+   * resize and were right, which is why only the first row was ever wrong.
+   */
+  const [seededRows, setSeededRows] = useState<readonly JetsRow[] | undefined>(undefined);
   useEffect(() => {
     const repeat = currentForm?.repeat;
     if (repeat === undefined || repeatRows === undefined || loaded === null) return;
@@ -422,6 +435,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     repeatRows.forEach((row, index) => {
       seed({ formState, group: GROUP, flowKey: loaded.flow.key }, row, index);
     });
+    setSeededRows(repeatRows);
     formState.notifyListeners();
   }, [currentForm, repeatRows, formState, loaded]);
 
@@ -980,10 +994,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           // the store does not have yet, because the resize happens in an effect
           // *after* the render that learns the rows. `min` is the state both are
           // true in.
+          // And none until the rows they draw have been seeded (`seededRows`):
+          // a group drawn before its seed shows empty fields over a seeded store.
           groupCount:
             currentForm.repeat === undefined
               ? 1
-              : Math.min(repeatRows?.length ?? 0, formState.groupCount),
+              : repeatRows === undefined || seededRows !== repeatRows
+                ? 0
+                : Math.min(repeatRows.length, formState.groupCount),
           tableConfig: (tableKey) => withCustomButtons(tableConfigOf(loaded.flow, tableKey), customButtons),
           fetcher,
           tableContext,

@@ -4,13 +4,13 @@
   "startAtKey": "select_source_config",
   "states": {
     "select_source_config": {
-      "description": "Select an existing Source Config for mapping",
+      "description": "Select a data source to see or change its mapping",
       "formConfig": "fmSelectSourceConfigUF",
       "stateAction": "fmSelectSourceConfigUF",
       "defaultNextState": "file_mapping"
     },
     "file_mapping": {
-      "description": "File Mapping",
+      "description": "The mapping of the selected data source",
       "formConfig": "fmFileMappingUF",
       "isEnd": true
     }

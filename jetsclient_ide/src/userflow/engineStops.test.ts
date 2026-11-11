@@ -156,14 +156,47 @@ describe("startAtPosition", () => {
     expect(startAtPosition(FLOW, "first")).toEqual(startAt(FLOW));
   });
 
-  it("opens on the named state with nothing behind it", () => {
-    // **The visited stack is the requested state alone.** Seeding the flow's own
-    // start would make `ufPrevious` show a page this entry point exists to skip.
+  it("opens on the named state with the pages before it behind it", () => {
+    // **The visited stack is the default path to the requested state**, so
+    // `ufPrevious` reaches the page the entry point skipped. It was the requested
+    // state alone, which left a page whose buttons exist nowhere else unreachable.
     expect(startAtPosition(FLOW, "second")).toEqual({
       stateKey: "second",
-      visited: ["second"],
+      visited: ["first", "second"],
     });
-    expect(() => back(startAtPosition(FLOW, "second"))).toThrow(FlowError);
+    expect(back(startAtPosition(FLOW, "second"))).toEqual({ stateKey: "first", visited: ["first"] });
+  });
+
+  it("has nothing behind a state the default path does not reach", () => {
+    // Reached only through a choice: there is no single page that precedes it.
+    const branching = {
+      schemaVersion: 1,
+      startAtKey: "first",
+      states: {
+        first: {
+          formConfig: "firstForm",
+          choices: [{ when: { op: "isNull", key: "x" }, nextState: "side" }],
+          defaultNextState: "second",
+        },
+        second: { formConfig: "secondForm", isEnd: true },
+        side: { formConfig: "sideForm", isEnd: true },
+      },
+    } as unknown as UserFlow;
+    expect(startAtPosition(branching, "side")).toEqual({ stateKey: "side", visited: ["side"] });
+    expect(() => back(startAtPosition(branching, "side"))).toThrow(FlowError);
+  });
+
+  it("stops on a loop of default transitions rather than hanging", () => {
+    const looping = {
+      schemaVersion: 1,
+      startAtKey: "a",
+      states: {
+        a: { formConfig: "f", defaultNextState: "b" },
+        b: { formConfig: "f", defaultNextState: "a" },
+        c: { formConfig: "f", isEnd: true },
+      },
+    } as unknown as UserFlow;
+    expect(startAtPosition(looping, "c")).toEqual({ stateKey: "c", visited: ["c"] });
   });
 
   it("throws by name for a state the document does not declare", () => {

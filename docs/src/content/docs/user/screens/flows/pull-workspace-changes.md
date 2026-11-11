@@ -34,9 +34,10 @@ files, `process_config/<client>_workspace_init_db.sql`, are loaded after the pul
 
 ## Step 3: confirm
 
-![The confirmation page, listing the three actions that can follow the pull and the clients, with Previous, Cancel and Confirm.](../../../../../assets/screenshots/user/screens/flows/pull-workspace-changes/confirm.png)
+![The confirmation page, listing the actions chosen to follow the pull and the clients chosen, with Previous, Cancel and Confirm.](../../../../../assets/screenshots/user/screens/flows/pull-workspace-changes/confirm.png)
 
-The page lists the actions that will follow the pull, and the clients. **Confirm** pulls: it merges the
+The page lists the actions you ticked in step 1, ticked, and the clients you chose in step 2, if
+any. **Confirm** pulls: it merges the
 workspace's branch into the installation's copy, re-applies the overrides held in the database, then
 compiles and loads as chosen. Follow the compile's status on the Workspaces screen, and the result of
 the pull with *View Last Log* there.

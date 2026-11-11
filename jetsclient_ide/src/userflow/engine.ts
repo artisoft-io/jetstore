@@ -148,7 +148,7 @@ export const startAt = (flow: UserFlow): FlowPosition => ({
 /**
  * Where a run begins when the url names a state. Task D.10, from **I-260**.
  *
- * **Three answers, and the two that are not taken are the interesting ones.**
+ * **Two decisions, each made against a plausible alternative.**
  *
  * - **A state the flow does not declare throws**, rather than falling back to
  *   `startAt`. The fallback is the plausible failure: a user who pressed *Load
@@ -158,19 +158,40 @@ export const startAt = (flow: UserFlow): FlowPosition => ({
  *   operator who renamed a state in a workspace document needs to see. It is the
  *   same refusal `resolveEscapes` makes for an unresolved name and `reactFlowRoute`
  *   makes for a partial argument list.
- * - **`visited` is the requested state alone, not the flow's own start followed
- *   by it.** Seeding the stack would make *Previous* show a page this entry point
- *   exists to skip — a step the user never saw, appearing from behind them, with
- *   the choice they made on another screen presented again as a table. So
- *   `ufPrevious` refuses here, exactly as it refuses on any flow's first page.
- *   The cost is real and is a page the run does not have rather than one it lost.
+ * - **`visited` is the flow's own pages up to the requested state**, along
+ *   their default transitions, so *Previous* reaches the pages the entry point
+ *   skipped. Until 2026-11-11 it was the requested state alone, on the reasoning
+ *   that a skipped page should not appear from behind the user. `loadFilesUF`
+ *   showed the cost: its first page is the only place *Drop Staging Table* is,
+ *   and its only entry point opens it on the second, so that button could not be
+ *   reached at all. A skipped page is skipped for the common case, not removed.
+ *   When the requested state is not on the default path (it is reached only
+ *   through a choice), there is no single page behind it and the stack is the
+ *   requested state alone, as before.
  */
 export function startAtPosition(flow: UserFlow, requested: string | null): FlowPosition {
   if (requested === null || requested === flow.startAtKey) return startAt(flow);
   if (flow.states[requested] === undefined) {
     throw new FlowError(`this flow has no state "${requested}" to start at`);
   }
-  return { stateKey: requested, visited: [requested] };
+  return { stateKey: requested, visited: defaultPathTo(flow, requested) ?? [requested] };
+}
+
+/**
+ * The states from the flow's start to `target` along `defaultNextState`, both
+ * ends included, or null when the default path does not reach it. Stops at a
+ * state it has already visited, so a document whose defaults loop cannot hang.
+ */
+function defaultPathTo(flow: UserFlow, target: string): string[] | null {
+  const path: string[] = [];
+  let key: string | undefined = flow.startAtKey;
+  while (key !== undefined && !path.includes(key)) {
+    path.push(key);
+    if (key === target) return path;
+    const state: State | undefined = flow.states[key];
+    key = state !== undefined && "defaultNextState" in state ? state.defaultNextState : undefined;
+  }
+  return null;
 }
 
 export interface StepRequest {

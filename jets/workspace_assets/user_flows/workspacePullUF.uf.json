@@ -4,7 +4,7 @@
   "startAtKey": "pull_workspace",
   "states": {
     "pull_workspace": {
-      "description": "Pull workspace form",
+      "description": "Select what to do after the pull",
       "formConfig": "wpPullWorkspaceUF",
       "stateAction": "wpPullWorkspaceConfirmUF",
       "choices": [
@@ -20,13 +20,13 @@
       "defaultNextState": "confirm"
     },
     "select_clients": {
-      "description": "Select clients to load",
+      "description": "Select the clients whose configuration to load",
       "formConfig": "wpSelectClientsgUF",
       "stateAction": "wpLoadConfigConfirmUF",
       "defaultNextState": "confirm"
     },
     "confirm": {
-      "description": "Confirm pull workspace",
+      "description": "Confirm the pull and what follows it",
       "formConfig": "wpConfirmPullWorkspaceUF",
       "stateAction": "wpPullWorkspaceOkUF",
       "isEnd": true

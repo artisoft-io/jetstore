@@ -14,8 +14,8 @@ expects. Loading does not run a pipeline, and a pipeline does not need it: see
 `jetstore_read` to read the lists.
 
 **Opened from** the *Source Mapping* flow (*JetStore Workspace* menu): select a data source, then
-*Load Data*. The flow opens at its second step, for that source, and returns to *Source Mapping* when
-it ends. Its key is `loadFilesUF`.
+*Load Data*. The flow opens at its second step, for that source; *Previous* goes back to the first.
+It returns to *Source Mapping* when it ends. Its key is `loadFilesUF`.
 
 ## Steps
 
@@ -29,8 +29,9 @@ required.
 |---|---|---|
 | **Drop Staging Table** | Drops the selected source's staging table, and every row loaded into it. The next load creates it again from the file's header. Without a drop, a load adds a column for any header the table lacks, and keeps the others. | `run_pipelines` |
 
-**Opened from *Source Mapping*, the flow starts at step 2 with this choice made**, and *Previous* is
-disabled there, so this step and *Drop Staging Table* are not reached in this version.
+**Opened from *Source Mapping*, the flow starts at step 2 with the source already chosen.** Press
+*Previous* there to reach this step, with that source ticked: to drop its staging table before
+loading, or to tick another source. *Next* returns to step 2 for the source ticked.
 
 ### 2. Select file keys to load
 

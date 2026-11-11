@@ -18,13 +18,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isRawStatementTable, makeQuery, makeRawQuery } from "./query";
-// `keepSelectedRows` is deliberately not used here. `showSelectedOnly` (two
-// tables, both in `workspace_pull`) filters the page down to the selected rows
-// *after* the selection has been restored from form state — so it runs at the
-// end of A.4c's restore, not at the end of this fetch. The function is written
-// and tested in `model.ts`, waiting for the caller that owns the ordering.
+// `keepSelectedRows` is not applied at the end of a fetch. `showSelectedOnly`
+// filters the page down to the selected rows *after* the selection has been
+// restored from form state, so A.4c's restore applies it, through
+// `restoreSelected`. (Until 2026-11-11 the restore called it and discarded the
+// result, so the filter did nothing.)
 import {
   emptySelection,
+  keepSelectedRows,
   indexOffset,
   lastPageIndex,
   nextSortAscending,
@@ -103,6 +104,17 @@ export interface DataTableState {
   sortByVisibleColumn(index: number): void;
   setRowSelected(index: number, value: boolean): void;
   clearSelection(): void;
+  /**
+   * The selection restored from form state, applied as it stands. 2026-11-11.
+   *
+   * **Not `setRowSelected`, which is the user's tick**: that refuses on a
+   * read-only table, and the restore went through it, so a read-only table, the
+   * confirmation pages' copy of a choice, never showed the choice ticked. With
+   * `keepOnlySelected` the rows are narrowed to the selected ones, which is
+   * `showSelectedOnly`; it is a no-op once every row is selected, so applying it
+   * again to the narrowed rows changes nothing.
+   */
+  restoreSelected(selection: Selection, keepOnlySelected: boolean): void;
   refresh(): void;
 }
 
@@ -336,6 +348,16 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     sortByVisibleColumn,
     setRowSelected,
     clearSelection,
+    restoreSelected: (restored: Selection, keepOnlySelected: boolean) => {
+      if (keepOnlySelected && restored.some((selected) => !selected)) {
+        const kept = keepSelectedRows(rows, restored);
+        setRows(kept.rows);
+        setTotalRowCount(kept.rows.length);
+        setSelection(kept.selection);
+        return;
+      }
+      setSelection(restored.slice());
+    },
     refresh: () => setTick((t) => t + 1),
   };
 }

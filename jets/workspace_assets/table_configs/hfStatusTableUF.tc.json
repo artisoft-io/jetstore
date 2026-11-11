@@ -35,29 +35,44 @@
   "source": "static",
   "rows": [
     [
-      "Completed",
-      "completed",
+      "Pending",
+      "pending",
       "0"
     ],
     [
-      "Submitted",
+      "Submitted (running)",
       "submitted",
       "1"
     ],
     [
-      "Pending",
-      "pending",
+      "Completed",
+      "completed",
       "2"
+    ],
+    [
+      "Completed with Errors",
+      "errors",
+      "3"
+    ],
+    [
+      "Recovered",
+      "recovered",
+      "4"
+    ],
+    [
+      "Interrupted",
+      "interrupted",
+      "5"
     ],
     [
       "Failed",
       "failed",
-      "3"
+      "6"
     ],
     [
       "Timed Out",
       "timed_out",
-      "4"
+      "7"
     ]
   ]
 }

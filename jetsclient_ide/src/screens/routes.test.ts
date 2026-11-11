@@ -385,6 +385,17 @@ describe("the flow entry points", () => {
     expect(startAtState(search)).toBe("select_file_keys");
   });
 
+  it("carries the first page's selection when the button supplies it, and opens without it", () => {
+    // `lfSourceConfigTable` is the source config's key, the first page's table
+    // selection: *Previous* reaches that page, and it opens with the source
+    // ticked. The second page does not read it, so it is not required.
+    const args = { client: "acme", org: "vendorA", object_type: "claims", table_name: "staging_claims" };
+    const withKey = reactFlowEntry("/loadFilesUF/select_file_keys", { ...args, lfSourceConfigTable: "1" })!;
+    expect(new URLSearchParams(withKey.split("?")[1]).get("lfSourceConfigTable")).toBe("1");
+    const without = reactFlowEntry("/loadFilesUF/select_file_keys", args)!;
+    expect(new URLSearchParams(without.split("?")[1]).has("lfSourceConfigTable")).toBe(false);
+  });
+
   it("refuses a partial argument list, which F.10 decided for the flow routes", () => {
     // Harder here than there: a `loadFilesUF` opened on its second page without
     // `table_name` draws an empty file list, having skipped the page that would

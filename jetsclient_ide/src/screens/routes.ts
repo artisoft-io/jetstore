@@ -449,6 +449,14 @@ export interface FlowEntryPoint {
   startAt: string;
   /** Names that must all resolve, or the button reports rather than opening. */
   parameters: string[];
+  /**
+   * Names carried when they resolve and omitted when they do not. 2026-11-11.
+   *
+   * For a value that only a skipped page reads: the opened state does not need
+   * it, so its absence must not refuse the entry, but the page behind it is
+   * drawn better with it.
+   */
+  optional?: string[];
 }
 
 /**
@@ -498,12 +506,19 @@ export function startAtState(search: URLSearchParams): string | null {
  * what consumes it rather than off what the first state's `formStateBinding`
  * happens to publish is what keeps the two from drifting silently — they agree
  * today, and only one of them is a requirement.
+ *
+ * **`lfSourceConfigTable` is optional, and is the first page's.** Since
+ * 2026-11-11 *Previous* on the second page reaches the first (`startAtPosition`),
+ * where *Drop Staging Table* is. The source config's key is that page's table
+ * selection, so carrying it opens the page with the source already ticked.
+ * The second page does not read it, so an entry without it still opens.
  */
 export const FLOW_ENTRY_POINTS: Readonly<Record<string, FlowEntryPoint>> = {
   "/loadFilesUF/select_file_keys": {
     flowKey: "loadFilesUF",
     startAt: "select_file_keys",
     parameters: ["client", "org", "object_type", "table_name"],
+    optional: ["lfSourceConfigTable"],
   },
 };
 
@@ -526,6 +541,10 @@ export function reactFlowEntry(
     const value = params[name];
     if (value === undefined || value === "") return null;
     query.set(name, value);
+  }
+  for (const name of entry.optional ?? []) {
+    const value = params[name];
+    if (value !== undefined && value !== "") query.set(name, value);
   }
   return withStartAt(`/flow/${entry.flowKey}?${query.toString()}`, entry.startAt);
 }

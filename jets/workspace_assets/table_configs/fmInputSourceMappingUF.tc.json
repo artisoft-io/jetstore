@@ -96,7 +96,8 @@
         "client": 1,
         "org": 2,
         "object_type": 3,
-        "table_name": 4
+        "table_name": 4,
+        "lfSourceConfigTable": 0
       }
     },
     {
