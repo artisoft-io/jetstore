@@ -30,6 +30,8 @@ import {
   nextSortAscending,
   pageAfterRowsPerPageChange,
   resolveSortColumn,
+  sortAfterColumnDef,
+  sortRowsLocally,
   toggleSelection,
   type Selection,
   type SortState,
@@ -127,7 +129,9 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   const { config, context, fetcher, blocked = false, refreshToken = 0 } = options;
 
   const [columns, setColumns] = useState<ColumnConfig[]>(config.columns);
-  const [rows, setRows] = useState<JetsRow[]>([]);
+  // What the server returned. `rows` below is what the table shows, which is the
+  // same array except on a raw-statement table the user has sorted.
+  const [fetchedRows, setRows] = useState<JetsRow[]>([]);
   const [label, setLabel] = useState(config.label);
   const [totalRowCount, setTotalRowCount] = useState(0);
   const [currentDataPage, setCurrentDataPage] = useState(0);
@@ -141,11 +145,20 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   const [sort, setSort] = useState<SortState>(() =>
     resolveSortColumn(config.columns, config.sortColumnName),
   );
+  // Whether a heading has been pressed. A table that declares no columns sends
+  // no sort column until then, so the server orders by its default (the first
+  // column, which is where the arrow goes when the columns arrive) and learning
+  // the columns does not change the request and ask a second time.
+  const [sortChosen, setSortChosen] = useState(false);
+  const learnsColumns = config.columns.length === 0 && !(context.columnNameMaps?.length);
 
   // A table serving rows from its own configuration never queries. Nine of the
   // 37 are like this (`apiPath: ''`), and they are also the only ones that can
   // be rendered in a test without a server.
   const isStatic = config.staticTableModel != null || config.apiPath === "";
+  // A raw statement is not sorted by the server (its request carries no sort
+  // column), so a heading press sorts the rows here instead; see `sortRowsLocally`.
+  const isRaw = isRawStatementTable(config);
 
   const onSelectionChange = options.onSelectionChange;
   // Held in a ref so a caller passing an inline closure does not refetch the
@@ -169,15 +182,15 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     config,
     indexOffset: indexOffset(currentDataPage, rowsPerPage),
     rowsPerPage,
-    sortColumnName: sort.sortColumnName,
-    sortColumnTableName: sort.sortColumnTableName,
+    sortColumnName: learnsColumns && !sortChosen ? "" : sort.sortColumnName,
+    sortColumnTableName: learnsColumns && !sortChosen ? "" : sort.sortColumnTableName,
     sortAscending,
   };
   // **The branch is `fetchData`'s, not `_makeQuery`'s**, and it is here for the
   // same reason it is there: a raw-statement table's body carries a statement and
   // none of the structure — no from, no where, no columns, no paging. One
   // configuration in either corpus takes it (task C.4). See `query.ts`.
-  const queryPayload = isRawStatementTable(config)
+  const queryPayload = isRaw
     ? makeRawQuery(queryContext)
     : makeQuery(queryContext);
   const payloadKey = JSON.stringify(queryPayload);
@@ -219,7 +232,10 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
         if (data.columnDef && data.columnDef.length > 0) {
           cols = columnsFromResponse(data.columnDef);
           setColumns(cols);
-          setSort(resolveSortColumn(cols, cols[0]?.name ?? "", 0));
+          // Keep the sort the user chose while its column is still there: a
+          // reset to column 0 here undid every heading press on a table whose
+          // reply carries `columnDef`, by asking again sorted on column 0.
+          setSort((previous) => sortAfterColumnDef(previous, cols, isRaw ? "none" : "first"));
         }
         if (data.label != null) setLabel(data.label);
         const shown = rowsFromResponse(data.rows ?? []);
@@ -245,6 +261,11 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payloadKey, staticRowsKey, blocked, isStatic, refreshToken, tick]);
 
+  const rows = useMemo(
+    () => (isRaw ? sortRowsLocally(fetchedRows, columns, sort, sortAscending) : fetchedRows),
+    [isRaw, fetchedRows, columns, sort, sortAscending],
+  );
+
   const setRowsPerPage = useCallback(
     (n: number) => {
       setCurrentDataPage((page) => pageAfterRowsPerPageChange(page, rowsPerPage, n));
@@ -259,9 +280,14 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
       // `nextSortAscending`.
       setSortAscending((asc) => nextSortAscending(index, sort.sortColumnIndex, asc));
       setSort(resolveSortColumn(columns, config.sortColumnName, index));
+      setSortChosen(true);
       setCurrentDataPage(0);
+      // A server-sorted table refetches, which clears the selection; a raw
+      // statement is re-ordered here, so a selection by position would now name
+      // other rows.
+      if (isRaw) setSelection((current) => emptySelection(current.length));
     },
-    [columns, config.sortColumnName, sort.sortColumnIndex],
+    [columns, config.sortColumnName, sort.sortColumnIndex, isRaw],
   );
 
   const setRowSelected = useCallback(

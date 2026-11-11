@@ -460,9 +460,13 @@ export function makeQuery(ctx: QueryContext): DataTableAction {
     msg.sortColumn = ctx.sortColumnName;
     msg.sortColumnTable = ctx.sortColumnTableName;
   } else {
+    // A table that declares no columns learns them from the reply's `columnDef`,
+    // and a heading press then names one of those. It is sent, so the server can
+    // order by it; before the first reply the name is empty, which asks the
+    // server for its default (the table's first column).
     msg.columns = [];
-    msg.sortColumn = "";
-    msg.sortColumnTable = "";
+    msg.sortColumn = ctx.sortColumnName;
+    msg.sortColumnTable = ctx.sortColumnTableName;
   }
 
   msg.sortAscending = ctx.sortAscending;

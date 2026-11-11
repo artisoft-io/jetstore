@@ -76,6 +76,82 @@ export function resolveSortColumn(
 }
 
 /**
+ * The sort to keep when a response redefines the columns (`columnDef`).
+ *
+ * A table that declares no columns learns them from every response, the domain
+ * table view and the Query Tool among them. Resetting the sort to the first
+ * column on each of those responses undid every heading press: the press sorted
+ * by the chosen column, the reply carried `columnDef`, and the reset asked again
+ * by column 0. So the sort the user chose is kept whenever a column of that name
+ * (and table) is still among the visible ones, at its position in the new list.
+ *
+ * Otherwise `fallback` decides: `"first"` sorts on the first visible column,
+ * which is what a server-sorted table has always done once its columns arrive;
+ * `"none"` leaves the rows in the order they came, which is right for a
+ * statement the user wrote, whose own `ORDER BY` the client must not override.
+ */
+export function sortAfterColumnDef(
+  previous: SortState,
+  columns: ColumnConfig[],
+  fallback: "first" | "none",
+): SortState {
+  if (previous.sortColumnName !== "") {
+    const visible = visibleColumns(columns);
+    const at = visible.findIndex(
+      (c) =>
+        c.name === previous.sortColumnName && (c.table ?? "") === previous.sortColumnTableName,
+    );
+    if (at >= 0) return resolveSortColumn(columns, "", at);
+  }
+  if (fallback === "none") return resolveSortColumn([], "");
+  return resolveSortColumn(columns, columns[0]?.name ?? "", 0);
+}
+
+/**
+ * Rows sorted in the browser, for a table the server does not sort.
+ *
+ * One kind of table needs it: a raw statement (the Query Tool), whose request
+ * carries no sort column because the server runs the statement as written and
+ * returns every row it produces. A heading press there changed the arrow and
+ * nothing else. Nulls sort last whichever the direction; a numeric column compares
+ * as numbers, and anything else compares as text in the browser's collation with
+ * digits read as numbers. The sort is stable, so equal keys keep the statement's
+ * order. Returns the input itself when there is no sort column.
+ */
+export function sortRowsLocally(
+  rows: JetsRow[],
+  columns: ColumnConfig[],
+  sort: SortState,
+  ascending: boolean,
+): JetsRow[] {
+  if (sort.sortColumnIndex === null) return rows;
+  const col = visibleColumns(columns)[sort.sortColumnIndex];
+  if (col === undefined) return rows;
+  const at = col.index;
+  const sign = ascending ? 1 : -1;
+  const compare = (a: string, b: string): number => {
+    if (col.isNumeric) {
+      const x = Number(a);
+      const y = Number(b);
+      if (!Number.isNaN(x) && !Number.isNaN(y)) return x - y;
+    }
+    return a.localeCompare(b, undefined, { numeric: true });
+  };
+  return rows
+    .map((row, i) => ({ row, i }))
+    .sort((p, q) => {
+      const a = p.row[at] ?? null;
+      const b = q.row[at] ?? null;
+      if (a === null || b === null) {
+        if (a === b) return p.i - q.i;
+        return a === null ? 1 : -1;
+      }
+      return sign * compare(a, b) || p.i - q.i;
+    })
+    .map((p) => p.row);
+}
+
+/**
  * The direction a header click produces: a new column sorts ascending, the same
  * column flips.
  *
