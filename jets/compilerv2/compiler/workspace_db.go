@@ -11,14 +11,17 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// workspaceSchema is the workspace.db schema script: JETS_WORKSPACE_DB_SCHEMA_SCRIPT,
+// else workspace_schema.sql in JETS_BIN_DIR, else /usr/local/bin/workspace_schema.sql.
 var workspaceSchema string = os.Getenv("JETS_WORKSPACE_DB_SCHEMA_SCRIPT")
 
 func init() {
 	if len(workspaceSchema) == 0 {
-		workspaceSchema = "/usr/local/bin/workspace_schema.sql"
+		workspaceSchema = utils.JetsBinPath("workspace_schema.sql")
 	}
 }
 

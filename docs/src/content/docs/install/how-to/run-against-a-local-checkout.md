@@ -1,6 +1,6 @@
 ---
 title: Run against a local checkout
-description: Why a workstation running JetStore against its own repository should set JETS_NO_GIT_ACCESS, and the validator setting a local compile needs.
+description: Why a workstation running JetStore against its own repository should set JETS_NO_GIT_ACCESS, the validator setting a local compile needs, and the settings that point the apiserver at locally built binaries and a port of its own.
 kind: how-to
 sidebar:
   order: 7
@@ -52,3 +52,32 @@ and fails rather than skips when the script or `node` cannot be found; the image
 beside the binaries, which a local build does not. Build it with `npm ci && npm run build:validator`
 in `jetsclient_ide/` and point the variable at `jetsclient_ide/dist-validator/jets_validate_workspace.mjs`
 ([Workspaces](/docs/developer/workspace/) has the detail).
+
+## Run the binaries you built, on a port of your own
+
+**Set `JETS_BIN_DIR` to the directory of the binaries you built.** The apiserver runs three JetStore
+programs by name and reads one support file: `update_db` (at start-up and when a workspace is
+compiled or its client configuration loaded), `run_reports` and `local_test_driver` (the dev-mode
+pipeline runs), and `workspace_schema.sql` (when a workspace is compiled). Each is looked for in
+`JETS_BIN_DIR`, and in `/usr/local/bin` when the variable is unset or empty, which is where the images
+install them (`utils.JetsBinPath`, `jets/utils/jetstore_bin.go`). Without it, a workstation runs
+whatever happens to be installed in `/usr/local/bin`, built from some other checkout. The child
+processes inherit the variable. `JETS_WORKSPACE_DB_SCHEMA_SCRIPT`, when set, still names the schema
+script directly and wins over `JETS_BIN_DIR`.
+
+```bash
+mkdir -p $HOME/jetstore-bin
+go build -o $HOME/jetstore-bin/ ./jets/apiserver ./jets/update_db ./jets/run_reports \
+  ./jets/compute_pipes/local_test_driver
+cp jets/workspace_schema.sql $HOME/jetstore-bin/
+export JETS_BIN_DIR=$HOME/jetstore-bin
+```
+
+**Set `-listenAddr`, or `JETS_LISTEN_ADDR`, to run a second apiserver beside the first.** The address
+is `host:port` or `:port`. Unset, it is `:8080` with `-usingSshTunnel` (plain HTTP) and `:8443`
+without it (TLS), as before; the setting changes only the address, never whether TLS is used. The flag
+wins over the variable.
+
+```bash
+$HOME/jetstore-bin/apiserver -usingSshTunnel -listenAddr 127.0.0.1:18080
+```

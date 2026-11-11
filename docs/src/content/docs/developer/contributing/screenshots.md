@@ -90,8 +90,9 @@ exactly the images that changed. Look at each one before you commit it.
 
 Each checkout gets its own database container, its own free port for the apiserver, and its own
 temporary directories, so two or three can take screenshots at the same time on one workstation. The
-apiserver always listens on port 8080, so the script runs each one in a network namespace of its own
-and connects it to a free port of `127.0.0.1`.
+script runs each apiserver in a network namespace of its own, on port 8080 there, and connects it to a
+free port of `127.0.0.1`. (It was written when the apiserver could listen on 8080 only; the apiserver
+now takes `-listenAddr`.)
 
 ### When a run fails
 
