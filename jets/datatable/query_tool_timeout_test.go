@@ -87,11 +87,21 @@ func TestQueryToolCancelsAStatementPastItsTimeout(t *testing.T) {
 		`INSERT INTO jetsapi.users (user_email, name, password, is_active, encrypted_roles, git_token)
 			VALUES ('ide@test', 'Ide', 'hash', 1, '{ide}', 'token')`,
 		`INSERT INTO jetsapi.role_capability (role, capability) VALUES ('ide', 'workspace_ide')`,
-		`CREATE TABLE public.probe (key integer)`,
 	} {
 		if _, err := pool.Exec(bg, s); err != nil {
 			t.Fatalf("setting up: %v\n%s", err, s)
 		}
+	}
+	// The query tool runs on the IDE login's pool; one connection, so every
+	// statement below runs on the same backend unless the pool destroyed it.
+	t.Setenv("JETS_IDE_POOL_SIZE", "1")
+	if err := EnsureRestrictedLogins(bg, pool); err != nil {
+		t.Fatalf("EnsureRestrictedLogins: %v", err)
+	}
+	t.Cleanup(CloseRestrictedLogins)
+	ide, err := ideDB()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	previousAdmin, previousSecret := user.AdminEmail, user.ApiSecret
@@ -120,8 +130,12 @@ func TestQueryToolCancelsAStatementPastItsTimeout(t *testing.T) {
 		}
 		return rows[0][0].(string)
 	}
+	// Created through the tool, so the IDE login owns it and may index it.
+	if _, err = queryTool("CREATE TABLE public.probe (key integer)"); err != nil {
+		t.Fatalf("creating the probe through the query tool: %v", err)
+	}
 	var backend, defaultTimeout string
-	if err = pool.QueryRow(bg, "SELECT pg_backend_pid()::text, current_setting('statement_timeout')").Scan(&backend, &defaultTimeout); err != nil {
+	if err = ide.QueryRow(bg, "SELECT pg_backend_pid()::text, current_setting('statement_timeout')").Scan(&backend, &defaultTimeout); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,7 +166,7 @@ func TestQueryToolCancelsAStatementPastItsTimeout(t *testing.T) {
 	// The connection went back to the pool without the limit, and was reused
 	// rather than destroyed.
 	var after, afterTimeout string
-	if err = pool.QueryRow(bg, "SELECT pg_backend_pid()::text, current_setting('statement_timeout')").Scan(&after, &afterTimeout); err != nil {
+	if err = ide.QueryRow(bg, "SELECT pg_backend_pid()::text, current_setting('statement_timeout')").Scan(&after, &afterTimeout); err != nil {
 		t.Fatal(err)
 	}
 	if after != backend {
@@ -161,7 +175,7 @@ func TestQueryToolCancelsAStatementPastItsTimeout(t *testing.T) {
 	if afterTimeout != defaultTimeout {
 		t.Errorf("statement_timeout on the pooled connection is %q after the query tool, want the default %q", afterTimeout, defaultTimeout)
 	}
-	if _, err = pool.Exec(bg, "SELECT pg_sleep(1.5)"); err != nil {
+	if _, err = ide.Exec(bg, "SELECT pg_sleep(1.5)"); err != nil {
 		t.Errorf("a 1.5 s statement on the pool after the query tool: %v", err)
 	}
 
@@ -181,7 +195,7 @@ func TestQueryToolCancelsAStatementPastItsTimeout(t *testing.T) {
 	if _, _, err = ctx.ExecDataManagementStatement(&DataTableAction{Action: "exec_ddl", RawQuery: "SELECT pg_sleep(1.5)"}, token); err != nil {
 		t.Errorf("a 1.5 s statement through Submit DDL: %v", err)
 	}
-	if err = pool.QueryRow(bg, "SELECT current_setting('statement_timeout')").Scan(&afterTimeout); err != nil {
+	if err = ide.QueryRow(bg, "SELECT current_setting('statement_timeout')").Scan(&afterTimeout); err != nil {
 		t.Fatal(err)
 	}
 	if afterTimeout != defaultTimeout {

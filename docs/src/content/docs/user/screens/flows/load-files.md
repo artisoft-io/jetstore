@@ -27,7 +27,7 @@ required.
 
 | Button | What it does | Capability |
 |---|---|---|
-| **Drop Staging Table** | Drops the selected source's staging table, and every row loaded into it. The next load creates it again from the file's header. Without a drop, a load adds a column for any header the table lacks, and keeps the others. | `run_pipelines` |
+| **Drop Staging Table** | Drops the selected source's staging table, and every row loaded into it. The next load creates it again from the file's header. It drops only a table named as a source configuration's staging table. Without a drop, a load adds a column for any header the table lacks, and keeps the others. | `run_pipelines` |
 
 **Opened from *Source Mapping*, the flow starts at step 2 with the source already chosen.** Press
 *Previous* there to reach this step, with that source ticked: to drop its staging table before

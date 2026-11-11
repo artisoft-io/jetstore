@@ -30,7 +30,7 @@ needs `run_pipelines`.
 | Button | What it does |
 |---|---|
 | **+ Add** | Starts a new source configuration, on the add page. |
-| **Drop Staging Table** | Drops the staging table of the selected source configuration. |
+| **Drop Staging Table** | Drops the staging table of the selected source configuration. It drops only a table named as a source configuration's staging table. |
 | **Delete** | Deletes the selected source configuration, after a confirmation. |
 | **Close** | Leaves the flow. |
 | **Edit** | Edits the selected source configuration, from the file format page. |

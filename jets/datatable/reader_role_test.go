@@ -1,6 +1,6 @@
 package datatable
 
-// A user's reads run as ReaderRole (readOnlyTx). This test pins what that role
+// A user's reads run on the reader login (ReaderRole, readOnlyTx). This test pins what that role
 // may read, through the three read paths a jetstore_read user can send SQL on:
 // raw_query, raw_query_map and the data-table read.
 //
@@ -55,18 +55,10 @@ func jm095Pool(t *testing.T) *pgxpool.Pool {
 			t.Fatalf("%v\n%s", err, stmt)
 		}
 	}
-	// Another test in this run may have created the role as the superuser. On a
-	// deployment the master user creates it and administers it; give the owner
-	// the same standing here.
-	var exists bool
-	if err = admin.QueryRow(bg, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, ReaderRole).Scan(&exists); err != nil {
-		t.Fatal(err)
-	}
-	if exists {
-		if _, err = admin.Exec(bg, "GRANT "+ReaderRole+" TO "+jm095Owner+" WITH ADMIN OPTION"); err != nil {
-			t.Fatal(err)
-		}
-	}
+	// Another test in this run may have created the roles as the superuser. On a
+	// deployment the master user creates them and administers them; give the
+	// owner the same standing here.
+	adoptRestrictedRoles(t, admin, jm095Owner)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -79,6 +71,21 @@ func jm095Pool(t *testing.T) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+// adoptRestrictedRoles gives owner ADMIN OPTION on every restricted role and
+// login that exists, the standing a deployment's master user has over the
+// roles it created.
+func adoptRestrictedRoles(t *testing.T, admin *pgxpool.Pool, owner string) {
+	t.Helper()
+	_, err := admin.Exec(context.Background(), `DO $$ DECLARE r text; BEGIN
+		FOR r IN SELECT rolname FROM pg_roles WHERE rolname ~ '^jets_(reader|ide)' LOOP
+			EXECUTE format('GRANT %I TO %I WITH ADMIN OPTION', r, '`+owner+`');
+		END LOOP;
+	END $$`)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestReaderRoleWithholdsSecretsAndExtensions(t *testing.T) {
@@ -110,8 +117,8 @@ func TestReaderRoleWithholdsSecretsAndExtensions(t *testing.T) {
 	}
 	// Twice: it runs at every apiserver start.
 	for i := 0; i < 2; i++ {
-		if err := EnsureReaderRole(bg, pool); err != nil {
-			t.Fatalf("EnsureReaderRole, pass %d: %v", i+1, err)
+		if err := EnsureRestrictedLogins(bg, pool); err != nil {
+			t.Fatalf("EnsureRestrictedLogins, pass %d: %v", i+1, err)
 		}
 	}
 	// A table created after the start is readable too (default privileges).

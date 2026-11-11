@@ -33,6 +33,13 @@ A few things to know when writing a statement:
   on Home's tabs.
 - **The result shows one value per cell**, as text. A date is shown in UTC.
 - **An error is shown in the banner** at the top, as the database reported it.
+- **What a statement may change.** It runs as the database login `jets_ide`, which reads and changes
+  every table except JetStore's security tables (`jetsapi.users`, `roles`, `role_capability`,
+  `secret_rotation`): those it may only read, without their password and token columns. It may drop,
+  alter or index a table it created, but not one the pipelines or the loader created, which it may
+  still empty with `TRUNCATE`. To drop a staging table, use *Drop Staging Table* in the
+  [Source Configuration](/docs/user/screens/flows/source-configuration/) or
+  [Load Files](/docs/user/screens/flows/load-files/) flow.
 
 The result comes in the order your statement gives it, with no column marked as sorted. Press a
 column heading to sort the result by that column, and press it again to reverse the order: a

@@ -796,21 +796,29 @@ func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, toke
 	var err2 error
 	switch capability {
 	case CapabilityReadData:
-		tx, err3 := readOnlyTx(ctx.Dbpool)
+		tx, err3 := readOnlyTx()
 		if err3 != nil {
 			return nil, http.StatusInternalServerError, err3
 		}
 		defer tx.Rollback(context.Background())
 		resultRows, columnDefs, err2 = execQuery(tx, dataTableAction, &dataTableAction.RawQuery)
 	case CapabilityQueryTool:
-		resultRows, columnDefs, err2 = execQueryToolStatement(ctx.Dbpool, dataTableAction,
+		// On the IDE login (IDERole), never the apiserver's own pool.
+		ide, err3 := ideDB()
+		if err3 != nil {
+			return nil, http.StatusInternalServerError, err3
+		}
+		resultRows, columnDefs, err2 = execQueryToolStatement(ide, dataTableAction,
 			&dataTableAction.RawQuery, queryToolStatementTimeout)
 		if isQueryToolTimeout(err2) {
 			// Said as it is, without the generic prefix below.
 			return nil, http.StatusInternalServerError, err2
 		}
+		err2 = withIDEHint(err2)
 	default:
-		resultRows, columnDefs, err2 = execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+		// Every caller passes one of the two above; any other runs nothing
+		// rather than the user's SQL on the apiserver's own pool.
+		return nil, http.StatusInternalServerError, fmt.Errorf("error: raw query with capability %q is not supported", capability)
 	}
 
 	if err2 != nil {
@@ -834,7 +842,13 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 		httpStatus, err = RefusalFor(err2)
 		return
 	}
-	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	// On the IDE login (IDERole), never the apiserver's own pool.
+	ide, err2 := ideDB()
+	if err2 != nil {
+		return nil, http.StatusInternalServerError, err2
+	}
+	resultRows, columnDefs, err2 := execDDL(ide, dataTableAction, &dataTableAction.RawQuery)
+	err2 = withIDEHint(err2)
 
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
@@ -858,7 +872,7 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 	}
 	// The app's own queries on the read capability, so read only, as for
 	// ExecRawQuery's raw_query.
-	tx, err2 := readOnlyTx(ctx.Dbpool)
+	tx, err2 := readOnlyTx()
 	if err2 != nil {
 		return nil, http.StatusInternalServerError, err2
 	}
@@ -1220,23 +1234,23 @@ type querier interface {
 // le), so it runs READ ONLY and no fragment can write: a data-modifying WITH is
 // refused by PostgreSQL. standard_conforming_strings is set on for it, so the
 // where clause's quoted values (sqlLiteral) are escaped whatever the server's
-// default. It runs as ReaderRole, so it reads only what that role may: a read
-// that cannot switch to the role fails rather than running with the apiserver's
-// own privileges (EnsureReaderRole, run at the apiserver's start, sets it up).
+// default. It runs on the reader login (ReaderRole, restricted_logins.go), so it
+// reads only what that role may, and nothing in the statement can switch to a
+// role that may read more: the login is a member of nothing else. Before the
+// logins are open it fails rather than running on the apiserver's own pool.
 // The caller rolls it back; a read commits nothing.
-func readOnlyTx(dbpool *pgxpool.Pool) (pgx.Tx, error) {
-	tx, err := dbpool.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
+func readOnlyTx() (pgx.Tx, error) {
+	pool, err := readerDB()
+	if err != nil {
+		return nil, err
+	}
+	tx, err := pool.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, fmt.Errorf("while starting the read: %w", err)
 	}
-	for _, stmt := range []string{
-		"SET LOCAL standard_conforming_strings TO on",
-		"SET LOCAL ROLE " + pgx.Identifier{ReaderRole}.Sanitize(),
-	} {
-		if _, err = tx.Exec(context.Background(), stmt); err != nil {
-			_ = tx.Rollback(context.Background())
-			return nil, fmt.Errorf("while starting the read: %w", err)
-		}
+	if _, err = tx.Exec(context.Background(), "SET LOCAL standard_conforming_strings TO on"); err != nil {
+		_ = tx.Rollback(context.Background())
+		return nil, fmt.Errorf("while starting the read: %w", err)
 	}
 	return tx, nil
 }
@@ -1481,7 +1495,7 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 	query, stmt := dataTableAction.buildQuery()
 
 	// Perform the query, and the count below, read only (readOnlyTx)
-	tx, err := readOnlyTx(ctx.Dbpool)
+	tx, err := readOnlyTx()
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}
@@ -1629,11 +1643,13 @@ func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token s
 	if code, err2 := ctx.requireCapability(CapabilityRunPipelines, token); err2 != nil {
 		return nil, code, err2
 	}
-	//* TODO NEED TO APPLY FILTER ON TABLE NAME
-	// Still open, and now with an owner: the identifiers below are sanitised and
-	// the caller is authorised, so what is left is the policy question of which
-	// tables this action may name at all -- jetsapi.users is as reachable as a
-	// staging table. Recorded as ui_refresh I-137.
+	// **Which tables it may drop: a staging table, and nothing else** (2026-11-11).
+	// Until then any table could be named, jetsapi.users as easily as a staging
+	// table. A staging table is in public and is the table_name of a source
+	// configuration; the loader creates it, so this runs on the apiserver's own
+	// pool, which owns it, and not on the IDE login, which may drop only what it
+	// created. The button is used when a file's columns differ from the previous
+	// files': the staging table is dropped and the loader re-creates it.
 	for ipos := range dataTableAction.Data {
 		tableName, ok := dataTableAction.Data[ipos]["tableName"].(string)
 		if !ok {
@@ -1646,6 +1662,24 @@ func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token s
 			// Both call sites send "public" explicitly; the default is kept for a
 			// request that omits it, as the unchecked assertion this replaces did.
 			schemaName = "public"
+		}
+		if schemaName != "public" {
+			httpStatus = http.StatusBadRequest
+			err = fmt.Errorf("error: Drop Staging Table drops a staging table, in schema public, not a table in %s", schemaName)
+			return
+		}
+		var isStaging bool
+		err = ctx.Dbpool.QueryRow(context.Background(),
+			"SELECT EXISTS (SELECT 1 FROM jetsapi.source_config WHERE table_name = $1)", tableName).Scan(&isStaging)
+		if err != nil {
+			httpStatus = http.StatusInternalServerError
+			err = fmt.Errorf("while checking that %s is a staging table: %v", tableName, err)
+			return
+		}
+		if !isStaging {
+			httpStatus = http.StatusBadRequest
+			err = fmt.Errorf("error: %s is not the staging table of a source configuration", tableName)
+			return
 		}
 		// Sanitised rather than interpolated, which is what ResetDomainTables
 		// (jets/apiserver/api_purgedata.go) has always done for the same statement.
