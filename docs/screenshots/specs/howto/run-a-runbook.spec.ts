@@ -68,7 +68,13 @@ test("Run a runbook", async ({ page }) => {
   // The ddl step drop_probe, then the run ends.
   const drop = await waitForPanel(page, "Confirm drop_probe");
   await drop.getByRole("button", { name: "Accept" }).click();
-  await expect(page.locator(".pill").filter({ hasText: /Completed/ }).first()).toBeVisible({ timeout: 60_000 });
+  // The run's own status, the first pill of the bar (the steps carry theirs too).
+  const runStatus = page.locator(".screenbar .pill").first();
+  await expect(async () => {
+    if ((await runStatus.textContent()) !== "Completed") await page.getByRole("button", { name: "Refresh" }).click();
+    await expect(runStatus).toHaveText("Completed", { timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
+  await dismissNotice(page);
   await settle(page);
   await hideRunTimes(page);
   await shot(page, "run-completed");
