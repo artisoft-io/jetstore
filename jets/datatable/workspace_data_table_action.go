@@ -469,7 +469,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for compile_workspace, missing workspace_name")
 			}
 			// Refuse a row that is not the active workspace (I-4), and a compile while
 			// rules unit tests of the workspace are queued or executing (AC.5); the
@@ -490,13 +490,13 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for load_workspace_config, missing workspace_name")
 			}
 			dataTableAction.Data[irow]["status"] = ""
 
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for delete/workspace_registry, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for delete/workspace_registry, missing workspace_name")
 			}
 			// Delete entry in workspace_registry table:
 			//	- It is an error to delete the active workspace
@@ -603,7 +603,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 		// None for now
 	default:
 		if dataTableAction.WorkspaceName == "" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invaid request, missing workspace_name")
+			return nil, http.StatusBadRequest, fmt.Errorf("invalid request, missing workspace_name")
 		}
 		// The rules unit test cases of a workspace that is not the active one are
 		// refused with the sentence the test run itself is refused with
