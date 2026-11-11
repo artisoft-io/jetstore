@@ -109,3 +109,7 @@ task) read the current value when they start.
   *Secrets have rotated, refreshed cached values in ui container* after the reload, and
   *Warning: while SecretsRotated: ...* if it failed.
 - Sign in, then run the checks in [Verify a deployment](/docs/install/how-to/verify-a-deployment/).
+
+## See also
+
+- [Environment variables](/docs/install/reference/environment-variables/): including the rotation schedule and the admin email the rotation Lambda reads.

@@ -145,3 +145,7 @@ The optional inference server runs on one GPU instance in an auto scaling group 
 
 How the model server uses the GPU's memory, and the Ollama settings that size it, are in
 [Inference server memory](/docs/install/planning/infer-server-memory/).
+
+## See also
+
+- [Operators](/docs/developer/compute-pipes/operators/): what each pipeline step does.

@@ -218,3 +218,7 @@ and the same state-machine selection.
 
 When a file lands and no pipeline starts, [Find why a file did not start a pipeline](/docs/install/how-to/troubleshoot-ingest/)
 walks the path above in order.
+
+## See also
+
+- [Components, in the Developer's Guide](/docs/developer/architecture/components/): the run after registration, to its outputs.

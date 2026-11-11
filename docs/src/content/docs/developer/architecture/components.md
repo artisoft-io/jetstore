@@ -188,3 +188,9 @@ Everything above that is particular to an installation is data, not code:
   (`process_config`);
 - the **stack's variables**, read at synth time: which Lambdas, tasks and state machines exist, and
   their sizes (see [Required variables](/docs/install/reference/required-variables/)).
+
+## See also
+
+- [Operators](/docs/developer/compute-pipes/operators/): what a pipeline step can do.
+- [Build JetStore from source](/docs/developer/how-to/build-from-source/).
+- [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/).

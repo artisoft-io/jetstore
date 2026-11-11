@@ -129,3 +129,9 @@ When the new UI task starts, the apiserver brings the database to the new releas
 workspace from its image, or recompiles it when the installation has workspace changes saved in the
 database; [Upgrade to a release](/docs/install/how-to/upgrade-to-a-release/#after-the-deploy-the-workspace)
 says when. Then run the checks in [Verify a deployment](/docs/install/how-to/verify-a-deployment/).
+
+## See also
+
+- [Images](/docs/install/reference/images/): every Dockerfile and what deploys it.
+- [Customising an installation](/docs/install/planning/customise-an-installation/).
+- [Write a workspace Lambda](/docs/developer/how-to/write-a-workspace-lambda/).

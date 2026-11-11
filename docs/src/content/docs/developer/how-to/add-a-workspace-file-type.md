@@ -125,3 +125,8 @@ reports/a.note.json cannot be saved:
 **A file type outside JSON may cost more than a row.** The `.sql` row was the first, and needed the
 JSON check to stop gating the whole function and `Finding` to gain `Line`. The comment above
 `workspaceFileValidators` records what each row cost; read it before adding one of a new kind.
+
+## See also
+
+- [Tests that need a PostgreSQL](/docs/developer/testing/go-and-cpp/#tests-that-need-a-postgresql): for the save tests that need a database.
+- [The validator fails closed](/docs/developer/architecture/decisions/validator-fails-closed/): why an unchecked file is refused.

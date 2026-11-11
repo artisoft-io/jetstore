@@ -167,3 +167,7 @@ The operator's section of the
 [configuration reference](/docs/developer/reference/generated/pipeline-configuration/) is generated
 from its matrix rows. Add a page of its own under `developer/compute-pipes/operators/` when it needs
 more than the reference says, as [render](/docs/developer/compute-pipes/operators/render/) has.
+
+## See also
+
+- [Pipeline configuration as a contract matrix](/docs/developer/architecture/decisions/contract-matrix/): why the matrix rows are part of the change.

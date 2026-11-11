@@ -12,8 +12,8 @@ Compute pipes is JetStore's pipeline engine. A pipeline configuration, a `.pc.js
 sharding and reducing steps, on ECS tasks and Lambdas. The code is in `jets/compute_pipes/`, and a file
 named on these pages without a directory is in that package.
 
-- [Operators](/docs/developer/compute-pipes/operators/): the `render` operator, and the inference operators `infer`, `ollama`,
-  `vllm` and `embed`.
+- [Operators](/docs/developer/compute-pipes/operators/): every operator type a pipeline configuration can name, one line
+  each, with the `render` operator and the inference operators `infer`, `ollama`, `vllm` and `embed` on pages of their own.
 - [The run manifest](/docs/developer/compute-pipes/run-manifest/): the document a completed run writes, describing each declared
   deliverable and what was written for it.
 - [The rule optimizer's statistics](/docs/developer/compute-pipes/optimizer-statistics/): how a jetrules step counts what the rule

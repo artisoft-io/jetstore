@@ -87,3 +87,7 @@ each image is built from a different source.
 `RemovalPolicy_RETAIN` on the infer persistent volume are all deliberate. A `cdk destroy` will not
 remove the database or the model volume without those being lifted first; see
 [Tear down a stack](/docs/install/how-to/tear-down/).
+
+## See also
+
+- [Components, in the Developer's Guide](/docs/developer/architecture/components/): what happens after a state machine starts.
