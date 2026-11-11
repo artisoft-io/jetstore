@@ -36,3 +36,8 @@ docs/node_modules/
 docs/dist/
 docs/.astro/
 docs/src/content/docs/developer/reference/generated/
+# The screenshot script runs on a workstation, never in an image build.
+docs/screenshots/node_modules/
+docs/screenshots/test-results/
+docs/screenshots/playwright-report/
+docs/screenshots/.stack/
