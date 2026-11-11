@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -44,6 +45,13 @@ func (server *Server) SecretsRotated() error {
 		server.dbpool, err = pgxpool.New(context.Background(), dsn)
 		if err != nil {
 			err = fmt.Errorf("rotate secrets: while opening db connection: %v", err)
+			log.Println(err)
+			return err
+		}
+		// The restricted logins keep their own passwords; their pools copy this
+		// pool's connection settings, so they are reopened beside it.
+		if err = datatable.EnsureRestrictedLogins(context.Background(), server.dbpool); err != nil {
+			err = fmt.Errorf("rotate secrets: while re-opening the restricted database logins: %v", err)
 			log.Println(err)
 			return err
 		}

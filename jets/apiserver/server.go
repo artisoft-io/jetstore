@@ -657,12 +657,15 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
 	}
 
-	// The role user reads run as (datatable.ReaderRole), with its grants brought
-	// up to date for the tables the migration may have added. Fatal: without it
-	// every read fails, and the cause is clearer here than on the first screen.
-	if err = datatable.EnsureReaderRole(context.Background(), server.dbpool); err != nil {
-		return fmt.Errorf("while setting up the read role: %v", err)
+	// The two logins the SQL a user sends runs on (datatable.ReaderRole for
+	// reads, datatable.IDERole for the Query Tool, Submit DDL and runbook ddl
+	// steps), with their grants brought up to date for the tables the migration
+	// may have added, and their pools opened. Fatal: without them every read
+	// fails, and the cause is clearer here than on the first screen.
+	if err = datatable.EnsureRestrictedLogins(context.Background(), server.dbpool); err != nil {
+		return fmt.Errorf("while setting up the restricted database logins: %v", err)
 	}
+	defer datatable.CloseRestrictedLogins()
 
 	// What a stopped apiserver left running is recorded as interrupted: rules unit
 	// test runs queued or executing, and a workspace compile or client config load
@@ -964,6 +967,13 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 				server.dbpool, err = pgxpool.New(context.Background(), *dsn)
 				if err != nil {
 					err = fmt.Errorf("while re-opening db connection in GetLastSecretRotation: %v", err)
+					log.Println(err)
+					return nil, err
+				}
+				// The restricted logins' pools copy this pool's connection
+				// settings, so they are reopened with it.
+				if err = datatable.EnsureRestrictedLogins(context.Background(), server.dbpool); err != nil {
+					err = fmt.Errorf("while re-opening the restricted database logins: %v", err)
 					log.Println(err)
 					return nil, err
 				}

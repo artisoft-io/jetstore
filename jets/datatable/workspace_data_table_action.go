@@ -631,7 +631,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	var totalRowCount int
 	if dataTableAction.FromClauses[0].Schema == "jetsapi" {
 		// The query and the count below run read only (readOnlyTx)
-		tx, txErr := readOnlyTx(ctx.Dbpool)
+		tx, txErr := readOnlyTx()
 		if txErr != nil {
 			return nil, http.StatusInternalServerError, txErr
 		}

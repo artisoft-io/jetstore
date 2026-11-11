@@ -34,6 +34,30 @@ capabilities each role grants. `jets/jets_init_db.sql` seeds five roles and thei
 - a role a release stops seeding is **not** removed by leaving it out of the list: the script must
   delete it from both tables explicitly. No seeded role has been retired so far.
 
+## The security tables and the restricted logins
+
+`users`, `roles`, `role_capability` and `secret_rotation` change only through JetStore's own
+statements: `jets_init_db.sql`, and the Users screen's `update/users` and `delete/users`. **The SQL a
+user writes cannot change them**, and cannot read their secret columns (`users.password`,
+`users.git_token`, `secret_rotation.secret`), because it never runs as the apiserver's own database
+user. It runs as one of two logins, which the apiserver and `update_db` create and keep up to date
+at every start (`jets/dblogin`):
+
+| Group role | What runs as it | What it may do |
+|---|---|---|
+| `jets_reader` | every read whose SQL comes from the client (`raw_query`, `raw_query_map`, a data-table read), and a runbook's `query` and `wait` steps | read every table, less the secret columns; call no extension's functions |
+| `jets_ide` | the Query Tool's two buttons, a runbook's `ddl` steps, and the workspace's own init scripts (`process_config/*_workspace_init_db.sql`) | read and change every table, read-only on the security tables and without their secret columns; create tables outside `jetsapi`, and drop or alter only those; no triggers; call `aws_s3`'s functions |
+
+Each group role is held by a login of the same name with a suffix for the database, such as
+`jets_ide_3fa2b1c9d0`. The login is a member of nothing else, so a statement cannot switch to a role
+that may do more: a `SET ROLE` on the apiserver's own login could be undone by the statement it was
+restricting. **Table `restricted_login`** holds each login's password, generated once per database;
+only the apiserver's user may read it, and the password reaches PostgreSQL as a SCRAM verifier.
+
+The apiserver's database user needs `CREATEROLE`, as it did for `jets_reader` before. A login that
+holds a privileged attribute, or is a member of another role, stops the start with a message saying
+what to revoke.
+
 ## Table `client_registry`
 
 Is a utility table defining Client identifiers for relating configuration information and
