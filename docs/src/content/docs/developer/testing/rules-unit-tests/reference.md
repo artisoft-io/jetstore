@@ -51,9 +51,12 @@ The harness reads no secret itself. **The binary does link `jets/user`, though**
 - `AWS_API_SECRET`
 
 When the two secret-name variables are set, `init` fetches their values from AWS Secrets Manager.
-**The launcher must not pass these four variables to the harness**: it needs none of them. Without
-them, the process logs `user.init(): error: could not load value for JETS_ENCRYPTION_KEY …` at start;
-that line is harmless.
+**The launcher must not pass these four variables to the harness**: it needs none of them. The
+apiserver removes every secret-bearing variable (`harnessEnviron`,
+`jets/datatable/rules_unit_test_pool.go`) and sets `JETS_SECRETS_WITHHELD=1`, which tells `init` the
+secrets are absent on purpose: it reads and fetches none and logs nothing about them. Without that
+variable, the process logs `user.init(): error: could not load value for JETS_ENCRYPTION_KEY …` at
+start; the line is harmless, and setting the variable removes it.
 
 ## The test definition
 

@@ -51,7 +51,8 @@ looping rule set, as it does in a pipeline. That is a cost production pays too, 
 
 **Secrets.** The binary links `jets/user` through `compute_pipes`, as `rules_unit_test` does. Do not
 pass it `JETS_ENCRYPTION_KEY`, `JETS_ENCRYPTION_KEY_SECRET`, `API_SECRET` or `AWS_API_SECRET`. The
-`user.init(): error: could not load value …` line at start is harmless.
+`user.init(): error: could not load value …` line at start is harmless; `JETS_SECRETS_WITHHELD=1`
+says the secrets are absent on purpose and removes it.
 
 ### Profiles
 

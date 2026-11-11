@@ -60,6 +60,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/artisoft-io/jetstore/jets/rulestest"
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -353,6 +354,11 @@ func isSecretEnvName(name string) bool {
 // environment, every test would fetch two secrets it never uses. What the
 // harness does read -- WORKSPACES_HOME, WORKSPACE, LD_LIBRARY_PATH, GLOG_*, the
 // non-secret JETS_* settings -- passes unchanged.
+//
+// **And JETS_SECRETS_WITHHELD=1 is added**, so that init knows the secrets are
+// absent on purpose and does not open every run's log with
+// "user.init(): error: could not load value for JETS_ENCRYPTION_KEY ...", an
+// error about a key the harness never needed.
 func harnessEnviron(base []string, workspacesHome, workspaceName string) []string {
 	env := make([]string, 0, len(base)+2)
 	for _, kv := range base {
@@ -362,7 +368,8 @@ func harnessEnviron(base []string, workspacesHome, workspaceName string) []strin
 		}
 		env = append(env, kv)
 	}
-	return append(env, "WORKSPACES_HOME="+workspacesHome, "WORKSPACE="+workspaceName)
+	return append(env, "WORKSPACES_HOME="+workspacesHome, "WORKSPACE="+workspaceName,
+		user.SecretsWithheldEnvVar+"=1")
 }
 
 // memoryLogMarkers are what a process says when an allocation fails under
