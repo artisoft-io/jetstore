@@ -27,6 +27,14 @@ package datatable
 // application name `jetstore_runbook_<run_key>`, which is how Abort finds the
 // statement to cancel (pg_cancel_backend) when the step runs in another task.
 //
+// **A step's own SQL runs on a second connection** (userSQLConn), as one of the
+// restricted logins: the reader for a query or a wait, the IDE login for a ddl
+// and its preview (restricted_logins.go). It carries the same application
+// name, so Abort cancels it too, and is closed after the step. The run's lock
+// and the executor's bookkeeping stay on the first; a ddl's step record is
+// written in the ddl's own transaction, on the second, so the two commit
+// together as before.
+//
 // # Restart
 //
 // A step that was `running` when the apiserver stopped may or may not have
@@ -273,6 +281,21 @@ func (e *RunbookExecutor) execConn(ctx context.Context, key int64) (conn *pgx.Co
 		return nil, false, err
 	}
 	return conn, true, nil
+}
+
+// userSQLConn is the connection a step's own SQL runs on, named after the run
+// so Abort finds it: the reader login for a query or a wait, the IDE login for
+// a ddl (restricted_logins.go). The executor's bookkeeping stays on conn, the
+// apiserver's own connection holding the run's lock. The caller closes it.
+func (e *RunbookExecutor) userSQLConn(ctx context.Context, key int64, ide bool) (*pgx.Conn, error) {
+	pool, err := readerDB()
+	if ide {
+		pool, err = ideDB()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return restrictedConn(ctx, pool, key)
 }
 
 func runbookAppName(key int64) string { return "jetstore_runbook_" + strconv.FormatInt(key, 10) }
@@ -896,7 +919,14 @@ func (e *RunbookExecutor) prepareConfirmation(ctx context.Context, tx pgx.Tx, ru
 			return true, nil, e.failStep(ctx, tx, run, act, step, actor, "refused: preview: "+err.Error(), true)
 		}
 		return true, func(ctx context.Context, conn *pgx.Conn) error {
-			entries, perr := runDDL(ctx, conn, stmts, step.TimeoutOrDefault(), true, nil)
+			entries, perr := func() ([]previewEntry, error) {
+				sqlConn, err := e.userSQLConn(ctx, run.Key, true)
+				if err != nil {
+					return nil, err
+				}
+				defer sqlConn.Close(context.Background())
+				return runDDL(ctx, sqlConn, stmts, step.TimeoutOrDefault(), true, nil)
+			}()
 			return e.withRun(ctx, conn, run.Key, func(tx pgx.Tx, run *rbRun) error {
 				if !stillPending(ctx, tx, act.Key) {
 					return nil
@@ -1089,7 +1119,14 @@ func (e *RunbookExecutor) execute(ctx context.Context, conn *pgx.Conn, key int64
 		if err != nil {
 			return err
 		}
-		res, err := runReadOnlyQuery(ctx, conn, stmts, step.TimeoutOrDefault(), step.MaxRowsOrDefault())
+		res, err := func() (*queryResult, error) {
+			sqlConn, err := e.userSQLConn(ctx, key, false)
+			if err != nil {
+				return nil, err
+			}
+			defer sqlConn.Close(context.Background())
+			return runReadOnlyQuery(ctx, sqlConn, stmts, step.TimeoutOrDefault(), step.MaxRowsOrDefault())
+		}()
 		if err != nil {
 			return e.recordFailureWith(conn, key, act, step, actor, pgErrorText(err),
 				&outcome{statement: statements, bound: bound, sentText: sentText, sqlHash: sha256Of(text)})
@@ -1194,7 +1231,14 @@ func (e *RunbookExecutor) executeDDL(ctx context.Context, conn *pgx.Conn, key in
 			"what would run is not what was accepted (statements, bound values or SQL file changed); retry the step to see it again")
 	}
 	var recorded bool
-	_, err = runDDL(ctx, conn, stmts, step.TimeoutOrDefault(), false, func(tx pgx.Tx, entries []previewEntry) error {
+	sqlConn, err := e.userSQLConn(ctx, key, true)
+	if err != nil {
+		return e.recordFailure(conn, key, act, step, actor, err.Error())
+	}
+	defer sqlConn.Close(context.Background())
+	// The statements and the step's record commit together, on the IDE login,
+	// which may write the runbook tables and the audit chain.
+	_, err = runDDL(ctx, sqlConn, stmts, step.TimeoutOrDefault(), false, func(tx pgx.Tx, entries []previewEntry) error {
 		// The record commits with the statements: a run whose step reads
 		// completed is a run whose ddl took effect, and the reverse.
 		run, err := loadRun(context.Background(), tx, key, true)

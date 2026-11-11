@@ -154,6 +154,12 @@ func newRbkFixture(t *testing.T) *rbkFixture {
 			t.Fatalf("seeding: %v\n%s", err, s)
 		}
 	}
+	// A step's own SQL runs on the restricted logins, as after an apiserver
+	// start: queries and waits as the reader, ddl as the IDE login.
+	if err := EnsureRestrictedLogins(ctx, pool); err != nil {
+		t.Fatalf("EnsureRestrictedLogins: %v", err)
+	}
+	t.Cleanup(CloseRestrictedLogins)
 	prev := user.AdminEmail
 	user.AdminEmail = rbkAdmin
 	t.Cleanup(func() { user.AdminEmail = prev })
@@ -1137,5 +1143,39 @@ func TestRunbookTablesMigrate(t *testing.T) {
 	if n := f.count(`SELECT count(*) FROM information_schema.columns WHERE table_schema = 'jetsapi'
 		AND table_name IN ('runbook_run', 'runbook_step_run')`); n != 16+28 {
 		t.Fatalf("the tables have %d columns", n)
+	}
+}
+
+// A runbook's own SQL runs on the restricted logins, so an accepted ddl cannot
+// change who may do what, and a query cannot read a password: the security
+// tables are read-only to the IDE login and the secret columns are closed to
+// both (restricted_logins.go).
+func TestRunbookStepsCannotReachTheSecurityTables(t *testing.T) {
+	f := newRbkFixture(t)
+	f.write("grant", `{"format": 1, "runbook": "grant", "steps": [
+		{"id": "g", "type": "ddl"}]}`,
+		map[string]string{"g": `UPDATE jetsapi.users SET encrypted_roles = '{designated_admin}' WHERE user_email = '` + rbkKE + `'`})
+	key := f.start(rbkKE, "grant", nil)
+	f.drive(key)
+	s := f.expect(key, runbook.RunPaused, "g", runbook.StepAwaitingConfirmation)
+	if _, err := f.exec.Accept(f.ctx, rbkKE, key, s.Key, ""); err != nil {
+		t.Fatal(err)
+	}
+	f.drive(key)
+	_, steps := f.run(key)
+	if steps[0].Status != runbook.StepFailed || steps[0].Error == nil || !strings.Contains(*steps[0].Error, "permission denied") {
+		t.Fatalf("the ddl step: status %s, error %v", steps[0].Status, steps[0].Error)
+	}
+	if f.count(`SELECT count(*) FROM jetsapi.users WHERE encrypted_roles = '{designated_admin}'`) != 0 {
+		t.Fatal("the ddl changed a user's roles")
+	}
+
+	rb, sql := oneQuery("secret", `SELECT length(password)::integer AS n FROM jetsapi.users LIMIT 1`, "")
+	f.write("secret", rb, sql)
+	key = f.start(rbkKE, "secret", nil)
+	f.drive(key)
+	_, steps = f.run(key)
+	if steps[0].Status != runbook.StepFailed || steps[0].Error == nil || !strings.Contains(*steps[0].Error, "permission denied") {
+		t.Fatalf("the query step: status %s, error %v", steps[0].Status, steps[0].Error)
 	}
 }

@@ -14,9 +14,7 @@
   "sortColumn": "client",
   "sortAscending": true,
   "rowsPerPage": 100,
-  "isCheckboxVisible": true,
   "isReadOnly": true,
-  "showSelectedOnly": true,
   "noCopy2Clipboard": true,
   "formStateBinding": {
     "keyColumnIdx": 0
@@ -26,6 +24,12 @@
     {
       "schema": "jetsapi",
       "table": "client_registry"
+    }
+  ],
+  "where": [
+    {
+      "column": "client",
+      "formStateKey": "wpClientList"
     }
   ]
 }

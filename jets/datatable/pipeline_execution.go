@@ -710,7 +710,7 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 			cpipesArgs = utils.SanitizeArgs(cpipesArgs)
 			log.Printf("Run local cpipes driver: %s", cpipesArgs)
 			lable = "CPIPES"
-			cmd = exec.Command("/usr/local/bin/local_test_driver", cpipesArgs...)
+			cmd = exec.Command(utils.JetsBinPath("local_test_driver"), cpipesArgs...)
 			cmd.Env = append(os.Environ(),
 				fmt.Sprintf("WORKSPACE=%s", workspaceName),
 				"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
@@ -752,7 +752,7 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		}
 		// Sanitize the arguments to prevent injection of options/flags
 		runReportsCommand = utils.SanitizeArgs(runReportsCommand)
-		cmd := exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+		cmd := exec.Command(utils.JetsBinPath("run_reports"), runReportsCommand...)
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("WORKSPACE=%s", workspaceName),
 			"JETSTORE_DEV_MODE=1",

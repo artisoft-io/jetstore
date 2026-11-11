@@ -70,8 +70,10 @@ func GetContent(workspaceName, fileName string) (string, error) {
 }
 
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
-// Function to save the workspace file content in local workspace file system and in database
-func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent string) error {
+// Function to save the workspace file content in local workspace file system and in database.
+// userEmail is who made the change, recorded as the workspace_changes row's
+// user_email; empty, the change is recorded as made by "system".
+func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent, userEmail string) error {
 
 	// Write file to local workspace, confining the path to the workspace dir (CWE-73)
 	workspaceName, path, err := resolveWorkspacePath(workspaceName, fileName)
@@ -97,7 +99,7 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 		WorkspaceName: workspaceName,
 		FileName:      fileName,
 		ContentType:   contentType,
-		UserEmail:     "system",
+		UserEmail:     changeAuthor(userEmail),
 	}
 
 	n, err := fo.WriteObject(dbpool, data)
@@ -106,4 +108,13 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 	}
 	log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
 	return nil
+}
+
+// changeAuthor is the user_email a workspace change is recorded with: the
+// signed-in user's, or "system" for a change no user made.
+func changeAuthor(userEmail string) string {
+	if strings.TrimSpace(userEmail) == "" {
+		return "system"
+	}
+	return userEmail
 }

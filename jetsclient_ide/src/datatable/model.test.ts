@@ -207,19 +207,20 @@ describe("cell text", () => {
     expect(cellText(["hidden", "acme"], col)).toBe("acme");
   });
 
-  it("renders a null as the string 'null', as the Dart does", () => {
-    // Deliberate: users read these tables, and an empty cell and a null are
-    // different facts about the row.
-    expect(cellText(["x", null], col)).toBe("null");
+  it("renders a null as an empty cell, not as the word null", () => {
+    // The Dart printed `null`, and every empty column then read as data.
+    expect(cellText(["x", null], col)).toBe("");
+    expect(cellText(["x"], col)).toBe("");
   });
 
-  it("applies a supplied cell filter, and falls back to 'null'", () => {
+  it("applies a supplied cell filter, and falls back to an empty cell", () => {
     expect(cellText(["x", "s3://bucket/key"], col, (v) => v?.split("/").pop() ?? null)).toBe("key");
-    expect(cellText(["x", "v"], col, () => null)).toBe("null");
+    expect(cellText(["x", "v"], col, () => null)).toBe("");
   });
 
-  it("copies the unfiltered value", () => {
+  it("copies the unfiltered value, and nothing for a null", () => {
     expect(cellFullText(["x", "s3://bucket/key"], col)).toBe("s3://bucket/key");
+    expect(cellFullText(["x", null], col)).toBe("");
   });
 });
 

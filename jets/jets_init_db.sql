@@ -1,6 +1,20 @@
 -- Jets Database Init Script
+--
+-- update_db applies this script with -initBaseWorkspaceDb: when a new release is
+-- deployed and at every workspace compile. It runs as one implicit transaction,
+-- so it must stay safe to apply any number of times.
 
-CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE;
+-- aws_s3 is an RDS extension: run_reports exports csv and json reports with
+-- aws_s3.query_export_to_s3. A plain PostgreSQL does not have it, and creating it
+-- there fails, so it is created only where the server offers it. Where it is
+-- absent, a report that exports through it fails when it runs, not here.
+-- The IF is one line, so that deleting the lines naming aws_s3 leaves a valid,
+-- empty block.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'aws_s3') THEN CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; END IF;
+END
+$$;
 
 -- Define the system user, needed to start pipeline automatically
 INSERT INTO jetsapi.users (user_email, name, password, encrypted_roles) VALUES
@@ -35,13 +49,21 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
 ;
 
 -- Initialize roles table
-TRUNCATE jetsapi.roles;
+-- The seeded roles are created, or their details updated; a role the installation
+-- added is kept, with its role_capability rows (below). A seeded role that a
+-- release stops seeding is therefore NOT removed by leaving it out of this list:
+-- remove it explicitly, here, in both tables, with
+--   DELETE FROM jetsapi.role_capability WHERE role IN ('<retired role>');
+--   DELETE FROM jetsapi.roles WHERE role IN ('<retired role>');
+-- No seeded role has been retired so far.
 INSERT INTO jetsapi.roles (role, details) VALUES
   ('ops_user', 'Role to load files and execute pipelines'),
   ('client_advocate', 'Role to administer client configuration'),
   ('knowledge_engineer', 'Super user role to administer the JetStore workspace and client configuration'),
   ('designated_admin', 'Knowledge engineer who may also delete sessions and administer users'),
   ('system_role', 'System role needed to start pipeline automatically')
+ON CONFLICT (role) DO UPDATE SET (details, last_update) = (EXCLUDED.details, DEFAULT)
+  WHERE jetsapi.roles.details IS DISTINCT FROM EXCLUDED.details
 ;
 
 -- Initialize role_capability table
@@ -94,8 +116,11 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	                     COPIED ROWS, NOT INHERITANCE: there is no role hierarchy, so a capability
 --	                     later granted to knowledge_engineer is not designated_admin's until a row
 --	                     is added for it here too. Keep the two lists in step.
-TRUNCATE jetsapi.role_capability;
-INSERT INTO jetsapi.role_capability (role, capability) VALUES
+-- A seeded role holds exactly the capabilities listed here: a capability the list
+-- no longer gives it is removed, and one the installation granted it is removed
+-- too, as when this table was truncated. The rows of a role this script does not
+-- seed are not touched.
+WITH seeded (role, capability) AS (VALUES
   ('ops_user', 'jetstore_read'),
   ('ops_user', 'run_pipelines'),
   ('ops_user', 'user_profile'),
@@ -124,6 +149,15 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('designated_admin', 'delete_session'),
   ('designated_admin', 'user_admin'),
   ('system_role', 'run_pipelines')
+),
+withdrawn AS (
+  DELETE FROM jetsapi.role_capability rc
+  WHERE rc.role IN (SELECT role FROM seeded)
+    AND NOT EXISTS (SELECT 1 FROM seeded s WHERE s.role = rc.role AND s.capability = rc.capability)
+)
+INSERT INTO jetsapi.role_capability (role, capability)
+SELECT role, capability FROM seeded
+ON CONFLICT ON CONSTRAINT role_capability_unique_cstraint DO NOTHING
 ;
 
 -- Creating the process_input_registry as a view:

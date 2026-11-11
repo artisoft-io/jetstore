@@ -469,7 +469,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for compile_workspace, missing workspace_name")
 			}
 			// Refuse a row that is not the active workspace (I-4), and a compile while
 			// rules unit tests of the workspace are queued or executing (AC.5); the
@@ -490,13 +490,13 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for load_workspace_config, missing workspace_name")
 			}
 			dataTableAction.Data[irow]["status"] = ""
 
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for delete/workspace_registry, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for delete/workspace_registry, missing workspace_name")
 			}
 			// Delete entry in workspace_registry table:
 			//	- It is an error to delete the active workspace
@@ -603,7 +603,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 		// None for now
 	default:
 		if dataTableAction.WorkspaceName == "" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invaid request, missing workspace_name")
+			return nil, http.StatusBadRequest, fmt.Errorf("invalid request, missing workspace_name")
 		}
 		// The rules unit test cases of a workspace that is not the active one are
 		// refused with the sentence the test run itself is refused with
@@ -631,7 +631,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	var totalRowCount int
 	if dataTableAction.FromClauses[0].Schema == "jetsapi" {
 		// The query and the count below run read only (readOnlyTx)
-		tx, txErr := readOnlyTx(ctx.Dbpool)
+		tx, txErr := readOnlyTx()
 		if txErr != nil {
 			return nil, http.StatusInternalServerError, txErr
 		}
@@ -934,7 +934,7 @@ func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, 
 
 // DeleteWorkspaceFile
 func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		httpStatus, err = RefusalFor(err2)
 		return
@@ -970,7 +970,7 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 			return
 		}
 		// Write empty file to local workspace & db
-		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, ""); err != nil {
+		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, "", signedIn.Email); err != nil {
 			log.Println(err)
 			httpStatus = http.StatusBadRequest
 			return
@@ -1124,7 +1124,7 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		status, refusal := RefusalFor(err2)
 		return nil, status, refusal
@@ -1168,7 +1168,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 		return
 	}
 	// Write file to local workspace
-	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content)
+	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content, signedIn.Email)
 	results = &map[string]any{
 		"file_name": wsFileName,
 	}
@@ -1178,7 +1178,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 // SaveWorkspaceClientConfig --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		status, refusal := RefusalFor(err2)
 		return nil, status, refusal
@@ -1195,7 +1195,7 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 	}
 
 	// Save client config to local workspace
-	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string))
+	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string), signedIn.Email)
 	results = &map[string]any{}
 	return
 }
@@ -1281,8 +1281,12 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 	// restored, so it is a deletion with no counterpart -- which is a different
 	// act from the revert here, and the reason one is gated and the other is not.
 	//
-	// Delete all workspace changes and restaure from stash
-	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, false)
+	// Delete all workspace changes and restaure from stash. **The compiled
+	// assets are kept** (wsfile.CompiledAssets), their rows and their files: a
+	// revert is of what a person changed, and until 2026-11-11 this also
+	// deleted the last compile's rows and put the start-up .tgz files back,
+	// which is why the button fell out of use. Compile after reverting.
+	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, true)
 	if err != nil {
 		httpStatus = http.StatusBadRequest
 		return

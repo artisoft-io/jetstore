@@ -4,13 +4,13 @@
   "startAtKey": "load_config",
   "states": {
     "load_config": {
-      "description": "Load Client Config form",
+      "description": "Select the clients whose configuration to load",
       "formConfig": "wpLoadConfigUF",
       "stateAction": "wpLoadConfigConfirmUF",
       "defaultNextState": "confirm"
     },
     "confirm": {
-      "description": "Confirm Load Config",
+      "description": "Confirm the clients whose configuration to load",
       "formConfig": "wpConfirmLoadConfigUF",
       "stateAction": "wpLoadConfigOkUF",
       "isEnd": true

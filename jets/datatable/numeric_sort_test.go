@@ -28,7 +28,9 @@ const (
 	cpipesExecDetailsDoc   = "../../jetsclient_ide/src/datatable/tables/cpipesExecDetailsTable.tc.json"
 )
 
-// orderByOf returns what follows ORDER BY in the query buildQuery emits.
+// orderByOf returns the requested sort that follows ORDER BY in the query
+// buildQuery emits, without the tiebreaker after it (sortTiebreaker, tested in
+// sort_tiebreaker_test.go).
 func orderByOf(t *testing.T, action *DataTableAction) string {
 	t.Helper()
 	query, _ := action.buildQuery()
@@ -37,6 +39,7 @@ func orderByOf(t *testing.T, action *DataTableAction) string {
 		t.Fatalf("no ORDER BY in %s", query)
 	}
 	clause, _, _ := strings.Cut(after, " LIMIT ")
+	clause = strings.TrimSuffix(strings.TrimSpace(clause), action.sortTiebreaker())
 	return strings.TrimSpace(clause)
 }
 

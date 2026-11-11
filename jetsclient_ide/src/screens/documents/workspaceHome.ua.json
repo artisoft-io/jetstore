@@ -6,7 +6,7 @@
       "steps": [
         {
           "do": "confirm",
-          "message": "Are you sure you want to revert the selected change(s)?"
+          "message": "Revert the selected change(s)? A file added since the workspace was deployed is deleted, which cannot be undone."
         },
         {
           "do": "post",
@@ -39,7 +39,7 @@
       "steps": [
         {
           "do": "confirm",
-          "message": "Are you sure you want to revert the all changes?"
+          "message": "Revert all changes? A file added since the workspace was deployed is deleted, which cannot be undone. The compiled files are kept: compile again after reverting."
         },
         {
           "do": "post",

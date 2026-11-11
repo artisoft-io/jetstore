@@ -21,6 +21,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { SessionExpiredError, type ApiClient } from "../api/client";
 import { WorkspaceApi, type WorkspaceSummary } from "../api/workspace";
 import { ActionButton } from "../shell/capabilities";
+import { useNavEntry } from "../shell/navEntry";
 import { useNotifications } from "../shell/notifications";
 import {
   RUNBOOK_EXECUTE,
@@ -46,6 +47,9 @@ export function RunbooksScreen({ api }: { api: ApiClient }) {
   const runbooks = useMemo(() => new RunbooksApi(api), [api]);
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
   const { setError } = useNotifications();
+  // `/workspaces/<name>/runbooks` sits under the Workspaces entry's address, and
+  // the screen is reached from Runbooks: the top bar marks Runbooks.
+  useNavEntry("/runbooks");
   const navigate = useNavigate();
   const routeWorkspace = useParams()["workspace_name"];
 

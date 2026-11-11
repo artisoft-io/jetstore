@@ -141,7 +141,8 @@ export const flowTitles: Record<string, string> = {
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadFilesUF: "Load Files",
-  mapFileUF: "File Mapping Configuration",
+  // `mapFileUF` (*File Mapping Configuration*) left the fixture on 2026-11-11,
+  // when its subtitle was rewritten for users; its document keeps the title.
   // `startPipelineUF` (*Start Pipeline*) left the fixture on 2026-10-02, on the
   // same terms as `fileMappingUF` above. `loadConfigUF` (*Load Client
   // Configurations*) and `workspacePullUF` (*Pull Workspace Changes*) followed

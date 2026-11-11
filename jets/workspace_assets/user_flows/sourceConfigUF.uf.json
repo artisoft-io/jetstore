@@ -4,7 +4,7 @@
   "startAtKey": "select_source_config",
   "states": {
     "select_source_config": {
-      "description": "Select a Source Config to edit, or add one",
+      "description": "Select a source configuration to edit, or add one",
       "formConfig": "scSelectSourceConfigUF",
       "stateAction": "scSelectSourceConfigUF",
       "goToStates": [
@@ -13,7 +13,7 @@
       "defaultNextState": "select_file_type_option"
     },
     "add_source_config": {
-      "description": "Add Source Config",
+      "description": "Add a source configuration",
       "formConfig": "scAddSourceConfigUF",
       "stateAction": "scAddSourceConfigUF",
       "goToStates": [
@@ -22,7 +22,7 @@
       "defaultNextState": "select_file_type_option"
     },
     "select_file_type_option": {
-      "description": "Select file type: csv, parquet, fixed-width, etc.",
+      "description": "Select the file format: csv, parquet, fixed-width and others",
       "formConfig": "scSourceConfigTypeUF",
       "goToStates": [
         "select_source_config"
@@ -122,7 +122,7 @@
       "defaultNextState": "select_single_or_multi_part_file"
     },
     "edit_csv_headers": {
-      "description": "Specify Headers for Headerless CSV/XLSX or Parquet Select Options",
+      "description": "Give the column names of a file without a header, or the columns to read from a parquet file",
       "formConfig": "scEditFileHeadersUF",
       "goToStates": [
         "select_source_config"
@@ -130,7 +130,7 @@
       "defaultNextState": "select_single_or_multi_part_file"
     },
     "edit_fixed_width_layout": {
-      "description": "Edit Source Config Fixed Width Layout",
+      "description": "Edit the fixed-width layout",
       "formConfig": "scEditFixedWidthLayoutUF",
       "goToStates": [
         "select_source_config"
@@ -138,7 +138,7 @@
       "defaultNextState": "select_single_or_multi_part_file"
     },
     "select_single_or_multi_part_file": {
-      "description": "Select between single file or multi-part files",
+      "description": "Select a single file or multi-part files",
       "formConfig": "scSelectSingleOrMultiPartFileUF",
       "goToStates": [
         "select_source_config"
@@ -146,7 +146,7 @@
       "defaultNextState": "edit_domain_keys"
     },
     "edit_domain_keys": {
-      "description": "Edit Source Config Domain Keys",
+      "description": "Edit the domain keys",
       "formConfig": "scEditDomainKeysUF",
       "goToStates": [
         "select_source_config"
@@ -154,7 +154,7 @@
       "defaultNextState": "edit_code_value_mapping"
     },
     "edit_code_value_mapping": {
-      "description": "Edit Code Value Mapping",
+      "description": "Edit the code value mapping",
       "formConfig": "scEditCodeValueMappingUF",
       "goToStates": [
         "select_source_config"
@@ -162,7 +162,7 @@
       "defaultNextState": "add_schema_provider_json"
     },
     "add_schema_provider_json": {
-      "description": "Add Schema Provider JSON",
+      "description": "Add the schema provider, as JSON",
       "formConfig": "scAddSchemaProviderJsonUF",
       "goToStates": [
         "select_source_config"
@@ -170,7 +170,7 @@
       "defaultNextState": "confirm_state"
     },
     "confirm_state": {
-      "description": "Confirm changes",
+      "description": "Review and save the source configuration",
       "formConfig": "scSummaryUF",
       "stateAction": "addSourceConfig.ok",
       "goToStates": [

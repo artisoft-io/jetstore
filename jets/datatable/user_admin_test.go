@@ -214,8 +214,8 @@ func uaDB(t *testing.T) *pgxpool.Pool {
 }
 
 // seededRoleBlock returns the part of the shipped jets_init_db.sql that fills
-// jetsapi.roles and jetsapi.role_capability, from the first TRUNCATE to the end of
-// the role_capability INSERT.
+// jetsapi.roles and jetsapi.role_capability: from the roles INSERT to the end of the statement
+// that writes role_capability.
 func seededRoleBlock(t *testing.T) string {
 	t.Helper()
 	buf, err := os.ReadFile("../jets_init_db.sql")
@@ -223,7 +223,7 @@ func seededRoleBlock(t *testing.T) string {
 		t.Fatalf("reading ../jets_init_db.sql: %v", err)
 	}
 	script := string(buf)
-	start := strings.Index(script, "TRUNCATE jetsapi.roles;")
+	start := strings.Index(script, "INSERT INTO jetsapi.roles")
 	insert := strings.Index(script, "INSERT INTO jetsapi.role_capability")
 	if start < 0 || insert < start {
 		t.Fatal("jets_init_db.sql: the roles and role_capability blocks were not found in order")

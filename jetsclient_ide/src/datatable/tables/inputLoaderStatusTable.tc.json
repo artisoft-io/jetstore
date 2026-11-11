@@ -28,19 +28,19 @@
     {
       "name": "year",
       "label": "Year",
-      "tooltip": "Year the file was received",
+      "tooltip": "Year of the file's source period",
       "isNumeric": true
     },
     {
       "name": "month",
       "label": "Month",
-      "tooltip": "Month of the year the file was received",
+      "tooltip": "Month of the file's source period",
       "isNumeric": true
     },
     {
       "name": "day",
       "label": "Day",
-      "tooltip": "Day of the month the file was received",
+      "tooltip": "Day of the file's source period",
       "isNumeric": true
     },
     {

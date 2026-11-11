@@ -2,8 +2,8 @@
 
 Generated from the running Flutter app. **Do not edit it by hand.**
 
-**It holds three flows as of 2026-10-27** — `homeFiltersUF`, `mapFileUF` and
-`loadFilesUF` — of the eleven it was generated with. The sections below say when
+**It holds two flows as of 2026-11-11** — `homeFiltersUF` and `loadFilesUF` — of
+the eleven it was generated with (three, with `mapFileUF`, from 2026-10-27). The sections below say when
 each of the others left. The title said *the eleven user flows* until 2026-10-27.
 
 **Except once, and it is recorded here: ten flows since 2026-10-01.** `registerFileKeyUF`
@@ -67,6 +67,11 @@ drop `exitScreenPath`. They took five states and five form keys with them, and
 states, 8 form keys, and `choiceTypeCounts`, `operatorCounts` and `rhsKindCounts`
 all empty. The `contains` is still in the shipping document, and
 `../schema.test.ts` reads it there.
+
+**`mapFileUF` followed on 2026-11-11**, when its page subtitle, the Dart's *Map
+file screen/dialog*, was rewritten for users. It took one state, one form key and
+the fixture's one `formKeyMismatches` entry (`fmMappingFormUF`, whose Dart
+self-key was `processMappingDialog`): 2 flows, 7 states, 7 form keys.
 
 ## Regenerating
 

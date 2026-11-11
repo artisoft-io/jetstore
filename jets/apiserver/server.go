@@ -657,12 +657,15 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
 	}
 
-	// The role user reads run as (datatable.ReaderRole), with its grants brought
-	// up to date for the tables the migration may have added. Fatal: without it
-	// every read fails, and the cause is clearer here than on the first screen.
-	if err = datatable.EnsureReaderRole(context.Background(), server.dbpool); err != nil {
-		return fmt.Errorf("while setting up the read role: %v", err)
+	// The two logins the SQL a user sends runs on (datatable.ReaderRole for
+	// reads, datatable.IDERole for the Query Tool, Submit DDL and runbook ddl
+	// steps), with their grants brought up to date for the tables the migration
+	// may have added, and their pools opened. Fatal: without them every read
+	// fails, and the cause is clearer here than on the first screen.
+	if err = datatable.EnsureRestrictedLogins(context.Background(), server.dbpool); err != nil {
+		return fmt.Errorf("while setting up the restricted database logins: %v", err)
 	}
+	defer datatable.CloseRestrictedLogins()
 
 	// What a stopped apiserver left running is recorded as interrupted: rules unit
 	// test runs queued or executing, and a workspace compile or client config load
@@ -814,6 +817,21 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/runbook", runbookOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/runbook", jsonh(corsh(authh(server.DoRunbookAction)))).Methods("POST")
 
+	// Documentation session: sets the cookie that /docs/ requires (static_docs.go).
+	// Answers 204 with no body; jsonh is kept for authh's 401 body.
+	docsSessionOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/docsSession", docsSessionOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/docsSession", jsonh(corsh(authh(docsSession)))).Methods("POST")
+
+	// Documentation site: /docs and everything under /docs/, cookie-protected.
+	// Must stay above the web app's catch-all below, which would otherwise
+	// answer these paths with the app shell.
+	server.Router.MatcherFunc(isDocsPath).
+		Handler(docsHandler(*docsDir)).
+		Methods("GET")
+
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
 	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
@@ -949,6 +967,13 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 				server.dbpool, err = pgxpool.New(context.Background(), *dsn)
 				if err != nil {
 					err = fmt.Errorf("while re-opening db connection in GetLastSecretRotation: %v", err)
+					log.Println(err)
+					return nil, err
+				}
+				// The restricted logins' pools copy this pool's connection
+				// settings, so they are reopened with it.
+				if err = datatable.EnsureRestrictedLogins(context.Background(), server.dbpool); err != nil {
+					err = fmt.Errorf("while re-opening the restricted database logins: %v", err)
 					log.Println(err)
 					return nil, err
 				}

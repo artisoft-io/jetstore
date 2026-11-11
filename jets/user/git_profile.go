@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,7 +30,20 @@ type GitProfile struct {
 var JetsEncriptionKey string
 var DevMode bool
 
+// SecretsWithheldEnvVar, set truthy, tells init that this process was started
+// without secrets on purpose: it reads no encryption key or API secret, fetches
+// none from AWS, and logs nothing about their absence. The apiserver sets it on
+// the rules unit test harness, which it starts with every secret-bearing
+// variable removed (jets/datatable/rules_unit_test_pool.go, harnessEnviron).
+const SecretsWithheldEnvVar = "JETS_SECRETS_WITHHELD"
+
 func init() {
+	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
+	_, DevMode = os.LookupEnv("JETSTORE_DEV_MODE")
+	TokenExpiration = 60
+	if utils.IsTruthy(os.Getenv(SecretsWithheldEnvVar)) {
+		return
+	}
 	var err error
 	JetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
 	if JetsEncriptionKey == "" {
@@ -43,8 +57,6 @@ func init() {
 			log.Println("WARNING: JetsEncriptionKey did not pass strength check:", err)
 		}
 	}
-	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
-	_, DevMode = os.LookupEnv("JETSTORE_DEV_MODE")
 
 	// Get secret to sign jwt tokens
 	awsApiSecret := os.Getenv("AWS_API_SECRET")
@@ -56,7 +68,6 @@ func init() {
 		}
 	}
 	ApiSecret = apiSecret
-	TokenExpiration = 60
 }
 
 func getEncryptionKeyFromSecret() (key string, err error) {

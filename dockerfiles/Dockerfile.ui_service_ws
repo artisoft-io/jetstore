@@ -26,6 +26,12 @@ RUN \
   echo "Workspace IDE build completed:" \
   && ls -la dist
 
+# The documentation site (docs/), served by the apiserver at /docs/. `build`
+# generates the reference pages from jets/ and tools/cpipes_contract/matrix
+# first, and fails on a broken internal link.
+WORKDIR ${JETS_SOURCE_DIR}/docs
+RUN npm ci && npm run build
+
 FROM compile_ws:latest AS ws_builder
 
 FROM ui_service:latest
@@ -59,6 +65,10 @@ COPY --from=ws_builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
 # which is why no environment variable is set for it here. IDE_APP_DEPLOYMENT_DIR
 # still overrides it at runtime if the bundle is ever mounted elsewhere.
 COPY --from=builder /app/jetsclient_ide/dist /usr/local/lib/ide
+
+# Copy the documentation site, without its node_modules. The destination is the
+# default of the apiserver's DOCS_DEPLOYMENT_DIR.
+COPY --from=builder /app/docs/dist /usr/local/lib/docs
 
 # Copy the resources
 # Copy the resources (for future needs - currently is the ui container that needs it)

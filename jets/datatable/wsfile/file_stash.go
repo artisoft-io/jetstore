@@ -106,7 +106,7 @@ func resolveWorkspacePath(workspaceName, fileName string) (string, string, error
 	return workspaceName, path, nil
 }
 
-func copyDirNoDereference(srcDir, dstDir string) error {
+func copyDirNoDereference(srcDir, dstDir string, skip ...string) error {
 	srcInfo, err := os.Lstat(srcDir)
 	if err != nil {
 		return fmt.Errorf("while stating source dir %s: %w", srcDir, err)
@@ -130,6 +130,14 @@ func copyDirNoDereference(srcDir, dstDir string) error {
 		relPath, err := filepath.Rel(srcDir, path)
 		if err != nil {
 			return err
+		}
+		for _, s := range skip {
+			if relPath == s {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 		}
 		targetPath := filepath.Join(dstDir, relPath)
 
@@ -234,7 +242,10 @@ func RestaureWorkspaceFiles(workspaceName string) error {
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		return fmt.Errorf("while creating restore destination %s: %w", dstDir, err)
 	}
-	err = copyDirNoDereference(srcDir, dstDir)
+	// The compiled assets are the last compile's, kept by a revert of every
+	// change (DeleteAllFileChanges): the stash's copies, from start-up, are not
+	// copied over them.
+	err = copyDirNoDereference(srcDir, dstDir, CompiledAssets...)
 	if err != nil {
 		log.Printf("while executing restaure from stash all the workspace files: %v", err)
 	} else {

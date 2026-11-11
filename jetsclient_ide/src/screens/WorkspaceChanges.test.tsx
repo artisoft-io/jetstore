@@ -25,7 +25,7 @@ interface Posted {
 
 const rows = [["7", "ws1", "0", "jet_rules/main.jr", "jetrules", "", "michel@artisoft.io", "2026-09-05"]];
 
-function stubServer() {
+function stubServer(refusals: Record<string, string> = {}) {
   const posts: Posted[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
     const path = String(url);
@@ -46,13 +46,18 @@ function stubServer() {
     if (body["action"] === "read") {
       return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
     }
+    const refusal = refusals[String(body["action"])];
+    if (refusal !== undefined) {
+      // As the apiserver's ERROR writes it.
+      return new Response(JSON.stringify({ error: refusal }), { status: 400 });
+    }
     return new Response(JSON.stringify({}), { status: 200 });
   }) as unknown as typeof fetch;
   return { fetchImpl, posts };
 }
 
-async function mount(workspace = "ws1") {
-  const { fetchImpl, posts } = stubServer();
+async function mount(workspace = "ws1", refusals: Record<string, string> = {}) {
+  const { fetchImpl, posts } = stubServer(refusals);
   const api = new ApiClient("", fetchImpl);
   await api.login("michel@artisoft.io", "pw");
   render(
@@ -127,6 +132,30 @@ describe("the workspace home's changes table", () => {
     expect(actionsOf(posts, "delete_workspace_changes")).toEqual([]);
     await answerConfirm("Cancel");
     expect(actionsOf(posts, "delete_workspace_changes")).toEqual([]);
+  });
+
+  it("shows the server's refusal when a change cannot be reverted", async () => {
+    // The apiserver keeps the change and says why when the stash has no copy of
+    // the file; the screen must show it rather than report success.
+    const refusal =
+      "cannot revert jet_rules/main.jr, the change is kept: the workspace stash holds no copy of the file";
+    await mount("ws1", { delete_workspace_changes: refusal });
+    fireEvent.click(await screen.findByLabelText("Select row 1"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete/Revert Changes" }));
+    await answerConfirm("OK");
+    await waitFor(() =>
+      expect(screen.getAllByRole("alert").some((a) => a.textContent?.includes(refusal))).toBe(true),
+    );
+  });
+
+  it("shows the server's refusal when the changes cannot all be reverted", async () => {
+    const refusal = "cannot revert the changes of workspace ws1 from its stash, the changes are kept";
+    await mount("ws1", { delete_all_workspace_changes: refusal });
+    fireEvent.click(screen.getByRole("button", { name: "Delete/Revert ALL Changes" }));
+    await answerConfirm("OK");
+    await waitFor(() =>
+      expect(screen.getAllByRole("alert").some((a) => a.textContent?.includes(refusal))).toBe(true),
+    );
   });
 
   it("reverts every change with the workspace alone", async () => {

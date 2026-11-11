@@ -32,6 +32,32 @@ that spans several packages still gets one home; two copies drift.
 **System-wide deployment wiring stays here instead** — the *Infer Server* section below is the model
 for that: one place, describing how the pieces are wired rather than what one package does.
 
+## Documentation
+
+**A change to what a user sees, how JetStore is extended, or how it is deployed updates `docs/` in the
+same pull request**; the pull-request template asks which pages, or why none. `docs/` is an Astro
+Starlight site, served by an installation at `/docs/`; package notes above are for maintainers, `docs/`
+is for readers.
+
+- **Where pages go**: `docs/src/content/docs/` — `user/` (User Guide), `developer/` (Developer's Guide),
+  `install/` (Installation Guide). The sidebar is generated from the folders; adding a page edits no
+  configuration. `developer/reference/generated/` is written by `npm run gen` and is not in git.
+- **Front matter**: `title`, `description` and `kind` are required; `kind` is one of `tutorial`,
+  `how-to`, `reference`, `explanation`, or `overview` for a folder's `index.md`. One kind per page.
+- **Links** are absolute with the base and a trailing slash (`/docs/install/`). `npm run build` in
+  `docs/` fails on a missing `kind`, a broken link or anchor, or a relative link. Renaming a page the
+  *Help* button maps to means updating `jetsclient_ide/src/shell/helpTopics.ts` too.
+- **No client vocabulary**: this repository is public, so no page names a client, its workspace, its
+  rule vocabulary or its data. Examples use `jets_ws` or invented names. Cite code by path and
+  identifier, never by line number.
+- **A screen or a flow has a page and a screenshot spec**: `user/screens/` and `user/screens/flows/`,
+  and `docs/screenshots/specs/`. A change to a screen or a flow updates its page, its spec and its
+  images (`npm run shots` in `docs/screenshots/`), and a new route or titled flow gets a page and a row
+  in `helpTopics.ts`, whose test fails otherwise. A how-to's steps are its spec's steps, so a change
+  that breaks a spec owes the how-to an update.
+- How to write and preview a page: `docs/src/content/docs/developer/contributing/documentation.md`;
+  how to take its screenshots: `developer/contributing/screenshots.md`.
+
 ## Build Commands
 
 **All paths below are relative to this repository's root.** On the `jets_ai` branch this repo is

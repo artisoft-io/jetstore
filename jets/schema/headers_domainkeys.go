@@ -298,7 +298,7 @@ func (dkInfo *HeadersAndDomainKeysInfo) Initialize(mainObjectType string, domain
 			v.ColumnPos[jpos], ok = dkInfo.HeadersPosMap[columnName]
 			if !ok {
 				err := fmt.Errorf(
-					"error while getting domain keys: column name '%s' not found in headers of table %s, see if table jetsapi.domain_keys_registry has an invaid record",
+					"error while getting domain keys: column name '%s' not found in headers of table %s, see if table jetsapi.domain_keys_registry has an invalid record",
 					columnName, dkInfo.TableName)
 				log.Println(err)
 				return err

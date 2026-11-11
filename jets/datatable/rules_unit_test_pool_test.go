@@ -397,7 +397,7 @@ func TestHarnessEnvironment(t *testing.T) {
 		"jets_encryption_key=k", "AWS_REGION=us-east-1", "AWS_PROFILE=dev", "AWS_ACCESS_KEY_ID=id",
 		"WORKSPACE=stale", "JETS_VERSION=1", "GLOG_v=3",
 	}, "/home", "ws")
-	want := "PATH=/bin OLDPWD=/tmp AWS_REGION=us-east-1 JETS_VERSION=1 GLOG_v=3 WORKSPACES_HOME=/home WORKSPACE=ws"
+	want := "PATH=/bin OLDPWD=/tmp AWS_REGION=us-east-1 JETS_VERSION=1 GLOG_v=3 WORKSPACES_HOME=/home WORKSPACE=ws JETS_SECRETS_WITHHELD=1"
 	if strings.Join(got, " ") != want {
 		t.Errorf("got  %s\nwant %s", strings.Join(got, " "), want)
 	}

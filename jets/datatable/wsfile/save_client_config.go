@@ -19,7 +19,7 @@ import (
 
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to save client config in local workspace file system and in database
-func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) error {
+func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName, userEmail string) error {
 	var buf strings.Builder
 	var err error
 	buf.WriteString("-- =============================================================================================================\n")
@@ -125,7 +125,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	// Now save buf to file and database as an override
 	err = SaveContent(dbpool, workspaceName,
 		fmt.Sprintf("process_config/%s_workspace_init_db.sql", strings.ToLower(clientName)),
-		buf.String())
+		buf.String(), userEmail)
 	if err != nil {
 		return fmt.Errorf("while saving %s client to local workspace and DB: %v", clientName, err)
 	}

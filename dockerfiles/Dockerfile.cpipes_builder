@@ -159,3 +159,9 @@ WORKDIR ${JETS_SOURCE_DIR}
 RUN cp ${JETS_SOURCE_DIR}/jets/jets_schema.json       /usr/local/bin/jets_schema.json
 RUN cp ${JETS_SOURCE_DIR}/jets/workspace_schema.sql   /usr/local/bin/workspace_schema.sql
 RUN cp ${JETS_SOURCE_DIR}/jets/jets_init_db.sql       /usr/local/bin/jets_init_db.sql
+
+# The documentation site and the matrix its reference pages are generated from.
+# Dockerfile.ui_service_ws builds the site. Copied last so that a change to the
+# documentation does not rebuild the layers above.
+COPY docs                          ${JETS_SOURCE_DIR}/docs
+COPY tools/cpipes_contract/matrix  ${JETS_SOURCE_DIR}/tools/cpipes_contract/matrix

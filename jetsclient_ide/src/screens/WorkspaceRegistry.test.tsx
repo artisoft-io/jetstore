@@ -507,7 +507,7 @@ describe("isReadOnlyFrom — the closures the corpus could only report as boolea
     expect((within(dialog).getByLabelText(/Workspace Name/) as HTMLInputElement).readOnly).toBe(true);
     expect((within(dialog).getByLabelText(/Workspace Branch/) as HTMLInputElement).readOnly).toBe(true);
     // The uri predicate is a different body and this deployment has no uri.
-    expect((within(dialog).getByLabelText(/Worksapce URI/) as HTMLInputElement).readOnly).toBe(false);
+    expect((within(dialog).getByLabelText(/Workspace URI/) as HTMLInputElement).readOnly).toBe(false);
   });
 
   it("leaves another workspace's name editable", async () => {
@@ -617,6 +617,26 @@ describe("the actions that are not dialogs", () => {
     await waitFor(() =>
       expect(screen.getByTestId("location").textContent).toBe(`${path}&returnTo=%2Fworkspaces`),
     );
+  });
+
+  it("opens Pull Workspace for a row with no repository URI or feature branch", async () => {
+    // A workspace registered with no repository: the URI is NULL. The button used
+    // to report that "/pullWorkspaceUF/5/bare_ws/main//" is not served.
+    rows.push(["5", "bare_ws", "main", null, null, "No repository", "active", "", "u@x", "now"]);
+    try {
+      await mount();
+      await selectRow("bare_ws");
+      await waitFor(() => expect(button("Pull Workspace").hasAttribute("disabled")).toBe(false));
+      fireEvent.click(button("Pull Workspace"));
+      await waitFor(() =>
+        expect(screen.getByTestId("location").textContent).toBe(
+          "/flow/workspacePullUF?key=5&workspace_name=bare_ws&workspace_branch=main&feature_branch=&workspace_uri=&returnTo=%2Fworkspaces",
+        ),
+      );
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      rows.pop();
+    }
   });
 });
 

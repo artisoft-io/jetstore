@@ -1,0 +1,173 @@
+/**
+ * The help map: which page of the documentation site the *Help* button opens
+ * for the screen the user is on.
+ *
+ * The site (`docs/`) is served by the apiserver under `/docs/`, and a page's
+ * address is its path under `docs/src/content/docs/` without the extension,
+ * with a trailing slash; a folder's page is its `index.md`. So `user/` is
+ * `docs/src/content/docs/user/index.md`, and `user/screens/home/` would be
+ * `user/screens/home.md` or `user/screens/home/index.md`.
+ *
+ * **To give a screen its own page**, write the page and change the `page` of
+ * the screen's route below. **To add a route**, add it to `App.tsx` and a row
+ * here. `helpTopics.test.ts` fails when a route of `App.tsx` has no row, when a
+ * row names a route `App.tsx` does not have, and when a `page` has no file
+ * behind it — so renaming or moving a page the map names means updating the
+ * map in the same change.
+ *
+ * **Every route but `*` names a page of its own**, and every JetStore flow with
+ * a title has a row in `FLOW_TOPICS`; the test fails on a new route or a new
+ * titled flow without one. A detail route (a proposal, an incident, a run)
+ * shares its list's page, and `flow/:key` lands on the flows' overview for a
+ * flow `FLOW_TOPICS` does not list, such as a workspace's own.
+ */
+
+import { matchPath } from "react-router-dom";
+
+export interface HelpTopic {
+  /** The route pattern exactly as `App.tsx` writes it. */
+  route: string;
+  /** A page of the site, relative to `/docs/`, with a trailing slash. */
+  page: string;
+}
+
+/** Where the documentation site is served. */
+export const DOCS_PREFIX = "/docs/";
+
+/** The page opened when no route matches: the User Guide's landing page. */
+export const DEFAULT_HELP_PAGE = "user/";
+
+/**
+ * Every route of `App.tsx`, in the order matching is tried. The first match
+ * wins, so `*` stays last.
+ */
+export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
+  { route: "/register", page: "user/screens/sign-in/" },
+  { route: "/", page: "user/screens/home/" },
+  { route: "login", page: "user/screens/sign-in/" },
+  { route: "home", page: "user/screens/home/" },
+  { route: "workspace", page: "user/screens/workspace-ide/" },
+  { route: "workspaces/:workspace_name/home", page: "user/screens/workspace-ide/" },
+  { route: "workspaces", page: "user/screens/workspaces/" },
+  { route: "inferServerAdmin", page: "user/screens/infer-server-admin/" },
+  { route: "proposals", page: "user/screens/proposals/" },
+  { route: "proposals/:proposalId", page: "user/screens/proposals/" },
+  { route: "incidents", page: "user/screens/incidents/" },
+  { route: "incidents/:incidentId", page: "user/screens/incidents/" },
+  { route: "detection", page: "user/screens/detection/" },
+  { route: "runbooks", page: "user/screens/runbooks/" },
+  { route: "workspaces/:workspace_name/runbooks", page: "user/screens/runbooks/" },
+  { route: "runbooks/run/:run_key", page: "user/screens/runbooks/" },
+  { route: "flow/:key", page: "user/screens/flows/" },
+  { route: "git-profile", page: "user/screens/git-profile/" },
+  { route: "domainTableViewer/:table_name/:session_id", page: "user/screens/table-view/" },
+  { route: "filePreviewPath/:file_key", page: "user/screens/input-file-preview/" },
+  { route: "executionStatusDetails/:session_id", page: "user/screens/pipeline-execution-details/" },
+  { route: "executionStatsDetails/:session_id", page: "user/screens/cpipes-execution-details/" },
+  { route: "query-tool", page: "user/screens/query-tool/" },
+  { route: "processErrors/:session_id", page: "user/screens/process-errors/" },
+  { route: "userAdmin", page: "user/screens/user-administration/" },
+  { route: "ruleConfig", page: "user/screens/rules-configuration/" },
+  { route: "fileLoaderStatus", page: "user/screens/file-loader-status/" },
+  { route: "*", page: "user/" },
+];
+
+/**
+ * A user flow's page, by flow key (`flow/:key`). A flow not listed here gets
+ * the `flow/:key` row of `HELP_TOPICS`.
+ */
+export const FLOW_TOPICS: Readonly<Record<string, string>> = {
+  clientRegistryUF: "user/screens/flows/clients-and-vendors/",
+  sourceConfigUF: "user/screens/flows/source-configuration/",
+  fileMappingUF: "user/screens/flows/source-mapping/",
+  mapFileUF: "user/screens/flows/file-mapping-configuration/",
+  pipelineConfigUF: "user/screens/flows/pipeline-configuration/",
+  loadConfigUF: "user/screens/flows/load-client-configurations/",
+  loadFilesUF: "user/screens/flows/load-files/",
+  startPipelineUF: "user/screens/flows/start-pipeline/",
+  homeFiltersUF: "user/screens/flows/pipeline-execution-status-filters/",
+  workspacePullUF: "user/screens/flows/pull-workspace-changes/",
+  rulesUnitTestUF: "user/screens/flows/rules-unit-tests/",
+};
+
+const FLOW_ROUTE = "/flow/:key";
+
+/** The routes of `App.tsx` are relative to the shell at `/`. */
+function absolute(route: string): string {
+  return route.startsWith("/") ? route : `/${route}`;
+}
+
+/**
+ * The address of the documentation page for `pathname`, a location inside the
+ * router (the router's `basename` already removed).
+ */
+export function helpPathFor(pathname: string): string {
+  const flow = matchPath(FLOW_ROUTE, pathname);
+  const flowKey = flow?.params["key"];
+  if (flowKey !== undefined) {
+    const page = FLOW_TOPICS[flowKey];
+    if (page !== undefined) return DOCS_PREFIX + page;
+  }
+  for (const topic of HELP_TOPICS) {
+    if (matchPath(absolute(topic.route), pathname) !== null) return DOCS_PREFIX + topic.page;
+  }
+  return DOCS_PREFIX + DEFAULT_HELP_PAGE;
+}
+
+/**
+ * The name of the documentation tab. `window.open` with a name returns the tab
+ * already open under it, so each *Help* shows its page in the one tab rather
+ * than opening another. The site is served from the app's own origin, so the tab
+ * stays reachable by name after `opener` is cleared.
+ */
+export const DOCS_TAB_NAME = "jetstore_docs";
+
+/** What `openHelp` needs of the tab `window.open` returns. */
+export interface HelpTab {
+  opener: unknown;
+  location: { href: string };
+  close(): void;
+  focus?(): void;
+}
+
+/**
+ * Opens the documentation for `pathname` in the documentation tab, a new one
+ * the first time and the same one after (DOCS_TAB_NAME). Resolves to an error
+ * message for the banner, or `null` when the tab was pointed at the page.
+ *
+ * **The tab is opened before anything is awaited.** A browser allows a new tab
+ * only while it is handling the user's click, and the session call has to
+ * finish first — it sets the cookie the site requires — so the tab is opened
+ * blank, synchronously, and given its address once the call has answered.
+ * `opener` is cleared before the tab leaves this origin's blank page. A failed
+ * call closes the tab only when this click opened it: an existing tab is the
+ * user's, showing the page they last asked for.
+ */
+export async function openHelp(
+  pathname: string,
+  openDocsSession: () => Promise<void>,
+  openTab: () => HelpTab | null = () => window.open("", DOCS_TAB_NAME),
+): Promise<string | null> {
+  const tab = openTab();
+  if (tab === null) {
+    return "The browser blocked the documentation tab. Allow pop-ups for this site and press Help again.";
+  }
+  let opened = false;
+  try {
+    opened = tab.location.href === "about:blank";
+  } catch {
+    // A tab whose page this origin cannot read is not one this click opened.
+  }
+  try {
+    await openDocsSession();
+  } catch (err) {
+    if (opened) tab.close();
+    return err instanceof Error && err.message !== ""
+      ? err.message
+      : "The documentation could not be opened.";
+  }
+  tab.opener = null;
+  tab.location.href = helpPathFor(pathname);
+  tab.focus?.();
+  return null;
+}

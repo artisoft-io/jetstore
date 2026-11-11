@@ -61,6 +61,10 @@ import (
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY_SECRET or JETS_ENCRYPTION_KEY required key to encrypt git token in users table
 // IDE_APP_DEPLOYMENT_DIR path to the IDE static web app directory (jetsclient_ide)
+// DOCS_DEPLOYMENT_DIR path to the documentation site directory (docs/), served under /docs/
+// JETS_LISTEN_ADDR (optional) address to listen on, as -listenAddr (default :8080 with -usingSshTunnel, else :8443)
+// JETS_BIN_DIR (optional) directory of update_db, run_reports, local_test_driver and
+//   workspace_schema.sql (default /usr/local/bin)
 
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -72,11 +76,31 @@ var dsn = flag.String("dsn", "", "primary database connection string (required u
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
+var docsDir = flag.String("DOCS_DEPLOYMENT_DIR", "/usr/local/lib/docs", "Documentation site (docs/) static directory, served under /docs/")
 var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
+var listenAddr = flag.String("listenAddr", "", "Address to listen on, as host:port or :port (default :8080 with -usingSshTunnel, else :8443; env JETS_LISTEN_ADDR)")
 var globalDevMode bool
 var serverAddr string
+
+// resolveServerAddr returns the address the apiserver listens on: the
+// -listenAddr flag, else JETS_LISTEN_ADDR, else :8080 with -usingSshTunnel
+// (plain HTTP) and :8443 without it (TLS). The flag or variable changes only
+// the address, never whether TLS is used, so two local instances can run side
+// by side; with neither set the address is what it has always been.
+func resolveServerAddr(flagValue, envValue string, usingSshTunnel bool) string {
+	switch {
+	case flagValue != "":
+		return flagValue
+	case envValue != "":
+		return envValue
+	case usingSshTunnel:
+		return ":8080"
+	default:
+		return ":8443"
+	}
+}
 
 func main() {
 	utils.UseJetStoreLogger()
@@ -84,15 +108,15 @@ func main() {
 	hasErr := false
 	var errMsg []string
 
-	if *usingSshTunnel {
-		serverAddr = ":8080"
-	} else {
-		serverAddr = ":8443"
-	}
+	serverAddr = resolveServerAddr(*listenAddr, os.Getenv("JETS_LISTEN_ADDR"), *usingSshTunnel)
 
 	ideAppDirEnv := os.Getenv("IDE_APP_DEPLOYMENT_DIR")
 	if ideAppDirEnv != "" {
 		*ideWebDir = ideAppDirEnv
+	}
+	docsDirEnv := os.Getenv("DOCS_DEPLOYMENT_DIR")
+	if docsDirEnv != "" {
+		*docsDir = docsDirEnv
 	}
 	if *adminEmail == "" {
 		*adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -196,6 +220,7 @@ func main() {
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
 	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)
+	log.Println("Got argument: DOCS_DEPLOYMENT_DIR", *docsDir)
 	if globalDevMode {
 		log.Println("Running in DEV MODE")
 		if len(*unitTestDir) > 0 {

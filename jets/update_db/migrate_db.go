@@ -74,7 +74,10 @@ func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 	return execScript(context.Background(), dbpool, sqlFile, string(script))
 }
 
-func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
+// InitializeBaseJetsapiDb runs JetStore's jets_init_db.sql on dbpool, the
+// apiserver's own user, and then the workspace's base__workspace_init_db.sql on
+// wsPool, the IDE login (doJob says why).
+func InitializeBaseJetsapiDb(dbpool, wsPool *pgxpool.Pool, jetsDbInitPath *string) error {
 	// initialize jetsapi database -- base initialization only
 	// jetsDbInitPath using base__workspace_init_db.sql
 	if len(jetsDbInitScriptPath) > 0 {
@@ -83,7 +86,7 @@ func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error
 			return err
 		}
 	}
-	return loadConfig(dbpool, *jetsDbInitPath, "base__workspace_init_db.sql")
+	return loadConfig(wsPool, *jetsDbInitPath, "base__workspace_init_db.sql")
 }
 
 func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {

@@ -10,7 +10,7 @@
       "defaultNextState": "show_org"
     },
     "show_org": {
-      "description": "Create org/vendor of client",
+      "description": "The selected client's vendors",
       "formConfig": "ufShowVendor",
       "isEnd": true
     }

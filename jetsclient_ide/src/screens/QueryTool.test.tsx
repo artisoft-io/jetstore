@@ -139,13 +139,58 @@ describe("the query tool", () => {
       .getAllByRole("columnheader")
       .map((th) => (th.textContent ?? "").replace(/[▲▼]/g, "").trim());
     expect(headers).toEqual(["client", "n"]);
-    // Sorted on the first column of what came back, which is what
-    // `state.setSortingColumn(columnIndex: 0)` does in the Dart once a columnDef
-    // arrives — the document names no `sortColumn` and could not.
-    expect(within(table).getAllByRole("columnheader")[0]!.getAttribute("aria-sort")).toBe(
-      "descending",
-    );
+    // ~~Sorted on the first column of what came back~~ **Not sorted, since
+    // 2026-11-11.** The arrow claimed a sort on column 0 that nothing applied: the
+    // server runs the statement as written and the rows came in its order. The
+    // rows keep the statement's order (its own `ORDER BY`) until a heading is
+    // pressed, and then sort in the browser; see the next case.
+    for (const th of within(table).getAllByRole("columnheader")) {
+      expect(th.getAttribute("aria-sort")).toBe("none");
+    }
     expect(within(table).getByText("3")).toBeTruthy();
+  });
+
+  it("sorts the rows by a pressed heading, in the browser, and keeps it on a resubmit", async () => {
+    // The statement's rows, in its own order. The request carries no sort column
+    // (asserted above), so a heading press used to move the arrow and nothing else.
+    const { api, sent } = await clientWith({
+      reply: {
+        body: {
+          rows: [
+            ["acme", "3"],
+            ["globex", "10"],
+            ["initech", null],
+            ["hooli", "2"],
+          ],
+          columnDef: COLUMN_DEF,
+        },
+      },
+    });
+    renderScreen(api);
+    typeQuery(SQL);
+    fireEvent.click(screen.getByRole("button", { name: "Submit Query" }));
+    await screen.findByText("acme");
+    const firstColumn = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((tr) => within(tr).getAllByRole("cell")[0]!.textContent);
+    expect(firstColumn()).toEqual(["acme", "globex", "initech", "hooli"]);
+
+    // `n` is numeric: 2, 3, 10 rather than 10, 2, 3, and the null last.
+    fireEvent.click(screen.getByRole("button", { name: /^n/ }));
+    await waitFor(() => expect(firstColumn()).toEqual(["hooli", "acme", "globex", "initech"]));
+    fireEvent.click(screen.getByRole("button", { name: /^n/ }));
+    await waitFor(() => expect(firstColumn()).toEqual(["globex", "acme", "hooli", "initech"]));
+
+    // A resubmit returns the same columns, so the sort the user chose is kept.
+    const before = sent.length;
+    fireEvent.click(screen.getByRole("button", { name: "Submit Query" }));
+    await waitFor(() => expect(sent.length).toBe(before + 1));
+    await waitFor(() => expect(firstColumn()).toEqual(["globex", "acme", "hooli", "initech"]));
+    expect(
+      within(screen.getByRole("table")).getByRole("columnheader", { name: /^n/ }).getAttribute("aria-sort"),
+    ).toBe("descending");
   });
 
   it("switches the action to exec_ddl for the DDL button, and clears the other key", async () => {
