@@ -23,8 +23,8 @@ test("The mapping worksheet of the eligibility source", async ({ page }) => {
   await expect(page.getByText("hc:Member_ID*", { exact: true })).toBeVisible();
   await shot(page, "worksheet");
 
-  // hc:Effective_Date is required and has no input column. Its error shows once
-  // the row is edited, and then only Save as Draft can save the worksheet.
+  // hc:Effective_Date is required. Emptied, its error shows, and then only
+  // Save as Draft can save the worksheet.
   const effectiveDate = page.getByLabel("Input Column").first();
   await effectiveDate.fill("x");
   await effectiveDate.fill("");

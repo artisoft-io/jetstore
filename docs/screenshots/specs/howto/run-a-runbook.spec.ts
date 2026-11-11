@@ -1,9 +1,6 @@
 // user/how-to/run-a-runbook: start jets_ws's example_health_check runbook and
-// take it through an assert that pauses, a manual step and a ddl step.
-//
-// Not performed: Continue on the pause step read_results. The run screen offers
-// a Record panel for it, which the server refuses for a pause step, and hides
-// Continue while a step waits on a person; so the spec aborts the run there.
+// take it through an assert that pauses, a manual step, a ddl step and a pause
+// step, to the end of the run.
 //
 // What the run leaves is removed after it, through the Query Tool: the
 // scratch table its create_probe step made, and the run's own rows, so the
@@ -62,13 +59,25 @@ test("Run a runbook", async ({ page }) => {
   await shot(confirm, "confirm-ddl");
   await confirm.getByRole("button", { name: "Accept" }).click();
 
-  // The pause step read_results; the run stops there (see above).
-  await waitForPanel(page, "Record read_results");
+  // The pause step read_results: read, then Continue in the bar.
+  const pause = await waitForPanel(page, "Pause read_results");
+  await shot(pause, "pause-step");
   await dismissNotice(page);
-  await page.getByRole("button", { name: "Abort" }).click();
-  const ok = page.getByRole("button", { name: "OK", exact: true });
-  if (await ok.count()) await ok.click();
-  await expect(page.locator(".pill").filter({ hasText: /Aborted/ }).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  // The ddl step drop_probe, then the run ends.
+  const drop = await waitForPanel(page, "Confirm drop_probe");
+  await drop.getByRole("button", { name: "Accept" }).click();
+  // The run's own status, the first pill of the bar (the steps carry theirs too).
+  const runStatus = page.locator(".screenbar .pill").first();
+  await expect(async () => {
+    if ((await runStatus.textContent()) !== "Completed") await page.getByRole("button", { name: "Refresh" }).click();
+    await expect(runStatus).toHaveText("Completed", { timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
+  await dismissNotice(page);
+  await settle(page);
+  await hideRunTimes(page);
+  await shot(page, "run-completed");
 });
 
 // Not part of the page, and run whether the steps passed or not: remove what

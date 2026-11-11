@@ -56,11 +56,12 @@ handlers claim they delete "the associated large object". They do not** — ther
 is stale or the unlink is missing; until that is settled, do not rely on the comment when
 reasoning about cleanup.
 
-### And there is no screen for it
+### The screen for it
 
-The workspace registry screen carries twelve actions — `compileWorkspace`,
-`pullWorkspace`, `commitWorkspace` and the rest. **The changes view behind
-`openWorkspace` was not ported**: `WorkspaceIde.tsx` offers file tabs and three
-compiled views and no list of overrides, and the Flutter client is retired. So
-`delete_workspace_changes` is live on the server and reachable from no browser, and
-clearing overrides currently means a hand-built `POST /dataTable`.
+The **Workspace Changes** list of the Workspace IDE (`WorkspaceChanges.tsx`, shown when no file is
+open) lists the overrides and offers *Delete/Revert Changes* and *Delete/Revert ALL Changes*, the
+`delete_workspace_changes` and `delete_all_workspace_changes` actions of
+`jetsclient_ide/src/screens/documents/workspaceHome.ua.json`. A revert restores the file from the
+stash taken at start-up, and deletes the override only once the file is restored; a file the stash
+does not hold is refused with a message, and its override is kept. In dev mode the apiserver takes no
+stash, so a revert is refused unless one was taken by hand under `$WORKSPACES_HOME/ws:stash/`.

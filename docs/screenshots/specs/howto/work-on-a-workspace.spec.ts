@@ -6,9 +6,8 @@
 // page's last step reverts it.
 //
 // Not performed:
-//  - Compile Workspace: the apiserver's compile runs update_db from
-//    /usr/local/bin rather than from the stack's binaries, and a compile
-//    rewrites jets_ws's row on the Workspaces screen, which another page shows;
+//  - Compile Workspace: a compile rewrites jets_ws's row on the Workspaces
+//    screen, which another page shows;
 //  - Commit & Push: git access is off on the stack, so the dialog is filled and
 //    cancelled;
 //  - Pull Workspace: the stack's jets_ws has no git repository to pull from.
@@ -64,19 +63,19 @@ test.afterEach(async ({ page }) => {
 });
 
 /**
- * Delete/Revert Changes. The stack keeps no pristine copy of the workspace
- * (the stash an installation takes at start-up), so on the stack a revert
- * deletes the change and leaves the file as saved; the spec first saves the
- * original line back, so the file ends as it began.
+ * Delete/Revert Changes: the file is restored from the stack's pristine copy
+ * of the workspace (the stash an installation takes at start-up, which the
+ * stack takes in up.sh), and the change is deleted.
  */
 async function revert(page: Page): Promise<void> {
-  await openWorkspaceFile(page, [], "hc_model_rules.jr");
-  await changeLine(page, AFTER, BEFORE);
-  await saveFile(page);
-  await page.getByRole("button", { name: `Close ${FILE}` }).click();
+  await openScreen(page, "Workspace IDE");
+  await expect(page.getByRole("heading", { name: "Workspace Changes" })).toBeVisible();
   const changes = await waitForTable(page);
   await selectRow(page, FILE);
   await page.getByRole("button", { name: "Delete/Revert Changes" }).click();
   await page.getByRole("button", { name: "OK", exact: true }).click();
   await expect(changes.locator("tbody")).toContainText("No rows.");
+  // The file is as it was before the change.
+  await openWorkspaceFile(page, [], "hc_model_rules.jr");
+  await expect(page.locator(".cm-line", { hasText: BEFORE })).toHaveCount(1);
 }

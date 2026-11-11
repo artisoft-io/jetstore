@@ -230,7 +230,7 @@ INSERT INTO shots_ppt_run VALUES
    'timeout', 'reducing03'),
   (114, '1767949200304', 'interrupted', '2026-01-09 09:00:00', '2026-01-09 09:02:20', 2,
    'the run was interrupted: the apiserver stopped while the run was in progress', 'interrupted', 'apiserver'),
-  (115, '1768039200305', 'in progress', '2026-01-10 10:00:00', '2026-01-10 10:02:05', 4, NULL, NULL, NULL),
+  (115, '1768039200305', 'submitted',   '2026-01-10 10:00:00', '2026-01-10 10:02:05', 4, NULL, NULL, NULL),
   (116, '1768039500306', 'pending',     '2026-01-10 10:05:00', '2026-01-10 10:05:00', -1, NULL, NULL, NULL);
 
 INSERT INTO jetsapi.pipeline_execution_status
@@ -269,7 +269,7 @@ INSERT INTO jetsapi.pipeline_execution_details
    output_records_count, user_email, start_time, last_update)
 SELECT 8, r.pes_key, 'CI', 'Patient_Profile_Template', '1767604500201', r.session_id, 103, 0, s.step,
        CASE WHEN s.n < r.last_step OR r.status IN ('completed', 'errors') THEN 'completed'
-            WHEN r.status = 'in progress' THEN 'in progress'
+            WHEN r.status = 'submitted' THEN 'in progress'
             ELSE r.status END,
        CASE WHEN s.n = r.last_step AND r.status IN ('failed', 'interrupted') THEN r.failure_details END,
        s.records, 0, 1, 1,
