@@ -3,7 +3,7 @@ title: Deploy a second stack in a shared VPC
 description: Add a JetStore stack that reuses an existing stack's VPC and endpoints, and what the two stacks do and do not share.
 kind: how-to
 sidebar:
-  order: 2
+  order: 7
 ---
 
 Why this works, and what a shared VPC costs and couples, is explained in

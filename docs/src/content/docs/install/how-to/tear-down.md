@@ -3,7 +3,7 @@ title: Tear down a stack
 description: Lift the deletion guards, destroy a JetStore stack, and remove what survives it.
 kind: how-to
 sidebar:
-  order: 3
+  order: 9
 ---
 
 `cdk destroy` will not complete while the guards are in place. In order: disable stack

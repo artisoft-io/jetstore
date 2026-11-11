@@ -3,7 +3,7 @@ title: Find why a file did not start a pipeline
 description: Walk the ingest path in order, from the S3 notification to the state machine, to find where a file that landed was stopped.
 kind: how-to
 sidebar:
-  order: 4
+  order: 10
 ---
 
 A file can land in S3, be accepted, and start nothing, at several points on the way to a Step

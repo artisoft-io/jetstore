@@ -3,7 +3,7 @@ title: Build the inference server AMI
 description: Build the Ubuntu AMI with NVIDIA drivers, Docker and the NVIDIA container runtime that the inference server's GPU instances boot from, using HashiCorp Packer.
 kind: how-to
 sidebar:
-  order: 5
+  order: 11
 ---
 
 The Packer configuration is `tools/infer_ami_builder/infer-nvidia.pkr.hcl`; run the commands below

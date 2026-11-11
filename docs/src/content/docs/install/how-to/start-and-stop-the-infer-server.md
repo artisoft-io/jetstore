@@ -3,7 +3,7 @@ title: Start and stop the inference server
 description: Scale the GPU inference service and its instance up and down from the command line, from Go, or from the Infer Server Admin screen, and what still costs money when it is stopped.
 kind: how-to
 sidebar:
-  order: 6
+  order: 12
 ---
 
 The inference server is optional; the stack builds it only with `BUILD_INFER_SERVICE` set (see the
