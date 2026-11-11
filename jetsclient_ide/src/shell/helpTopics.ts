@@ -15,8 +15,11 @@
  * behind it — so renaming or moving a page the map names means updating the
  * map in the same change.
  *
- * Most routes point at the User Guide's landing page until their screen has a
- * page of its own: the table is complete in routes and sparse in pages.
+ * **Every route but `*` names a page of its own**, and every JetStore flow with
+ * a title has a row in `FLOW_TOPICS`; the test fails on a new route or a new
+ * titled flow without one. A detail route (a proposal, an incident, a run)
+ * shares its list's page, and `flow/:key` lands on the flows' overview for a
+ * flow `FLOW_TOPICS` does not list, such as a workspace's own.
  */
 
 import { matchPath } from "react-router-dom";
@@ -39,33 +42,33 @@ export const DEFAULT_HELP_PAGE = "user/";
  * wins, so `*` stays last.
  */
 export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
-  { route: "/register", page: "user/" },
-  { route: "/", page: "user/" },
-  { route: "login", page: "user/" },
-  { route: "home", page: "user/" },
-  { route: "workspace", page: "user/" },
-  { route: "workspaces/:workspace_name/home", page: "user/" },
-  { route: "workspaces", page: "user/" },
-  { route: "inferServerAdmin", page: "user/" },
-  { route: "proposals", page: "user/" },
-  { route: "proposals/:proposalId", page: "user/" },
-  { route: "incidents", page: "user/" },
-  { route: "incidents/:incidentId", page: "user/" },
-  { route: "detection", page: "user/" },
-  { route: "runbooks", page: "user/" },
-  { route: "workspaces/:workspace_name/runbooks", page: "user/" },
-  { route: "runbooks/run/:run_key", page: "user/" },
-  { route: "flow/:key", page: "user/" },
-  { route: "git-profile", page: "user/" },
-  { route: "domainTableViewer/:table_name/:session_id", page: "user/" },
-  { route: "filePreviewPath/:file_key", page: "user/" },
-  { route: "executionStatusDetails/:session_id", page: "user/" },
-  { route: "executionStatsDetails/:session_id", page: "user/" },
-  { route: "query-tool", page: "user/" },
-  { route: "processErrors/:session_id", page: "user/" },
-  { route: "userAdmin", page: "user/" },
-  { route: "ruleConfig", page: "user/" },
-  { route: "fileLoaderStatus", page: "user/" },
+  { route: "/register", page: "user/screens/sign-in/" },
+  { route: "/", page: "user/screens/home/" },
+  { route: "login", page: "user/screens/sign-in/" },
+  { route: "home", page: "user/screens/home/" },
+  { route: "workspace", page: "user/screens/workspace-ide/" },
+  { route: "workspaces/:workspace_name/home", page: "user/screens/workspace-ide/" },
+  { route: "workspaces", page: "user/screens/workspaces/" },
+  { route: "inferServerAdmin", page: "user/screens/infer-server-admin/" },
+  { route: "proposals", page: "user/screens/proposals/" },
+  { route: "proposals/:proposalId", page: "user/screens/proposals/" },
+  { route: "incidents", page: "user/screens/incidents/" },
+  { route: "incidents/:incidentId", page: "user/screens/incidents/" },
+  { route: "detection", page: "user/screens/detection/" },
+  { route: "runbooks", page: "user/screens/runbooks/" },
+  { route: "workspaces/:workspace_name/runbooks", page: "user/screens/runbooks/" },
+  { route: "runbooks/run/:run_key", page: "user/screens/runbooks/" },
+  { route: "flow/:key", page: "user/screens/flows/" },
+  { route: "git-profile", page: "user/screens/git-profile/" },
+  { route: "domainTableViewer/:table_name/:session_id", page: "user/screens/table-view/" },
+  { route: "filePreviewPath/:file_key", page: "user/screens/input-file-preview/" },
+  { route: "executionStatusDetails/:session_id", page: "user/screens/pipeline-execution-details/" },
+  { route: "executionStatsDetails/:session_id", page: "user/screens/cpipes-execution-details/" },
+  { route: "query-tool", page: "user/screens/query-tool/" },
+  { route: "processErrors/:session_id", page: "user/screens/process-errors/" },
+  { route: "userAdmin", page: "user/screens/user-administration/" },
+  { route: "ruleConfig", page: "user/screens/rules-configuration/" },
+  { route: "fileLoaderStatus", page: "user/screens/file-loader-status/" },
   { route: "*", page: "user/" },
 ];
 
@@ -73,7 +76,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
  * A user flow's page, by flow key (`flow/:key`). A flow not listed here gets
  * the `flow/:key` row of `HELP_TOPICS`.
  */
-export const FLOW_TOPICS: Readonly<Record<string, string>> = {};
+export const FLOW_TOPICS: Readonly<Record<string, string>> = {
+  clientRegistryUF: "user/screens/flows/clients-and-vendors/",
+  sourceConfigUF: "user/screens/flows/source-configuration/",
+  fileMappingUF: "user/screens/flows/source-mapping/",
+  mapFileUF: "user/screens/flows/file-mapping-configuration/",
+  pipelineConfigUF: "user/screens/flows/pipeline-configuration/",
+  loadConfigUF: "user/screens/flows/load-client-configurations/",
+  loadFilesUF: "user/screens/flows/load-files/",
+  startPipelineUF: "user/screens/flows/start-pipeline/",
+  homeFiltersUF: "user/screens/flows/pipeline-execution-status-filters/",
+  workspacePullUF: "user/screens/flows/pull-workspace-changes/",
+  rulesUnitTestUF: "user/screens/flows/rules-unit-tests/",
+};
 
 const FLOW_ROUTE = "/flow/:key";
 

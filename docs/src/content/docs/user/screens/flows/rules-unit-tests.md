@@ -65,3 +65,7 @@ the last compile is not here until the workspace is compiled.
 
 Tick the tests and press **Start Test(s)**: one run is queued per test, and the flow returns to the
 runs. **Cancel** returns without starting any.
+
+## See also
+
+- [Run rules unit tests](/docs/user/how-to/run-rules-unit-tests/)

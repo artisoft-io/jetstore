@@ -112,3 +112,13 @@ record of what ran survives the data.
 
 Deleting a session needs the `delete_session` capability. An installation may also delete sessions
 older than its retention period on a schedule, by the same path.
+
+## See also
+
+- [Pipeline Configuration](/docs/user/screens/flows/pipeline-configuration/)
+- [Start Pipeline](/docs/user/screens/flows/start-pipeline/)
+- [Home](/docs/user/screens/home/)
+- [Pipeline Execution Details](/docs/user/screens/pipeline-execution-details/)
+- [Process Errors](/docs/user/screens/process-errors/)
+- [Run a pipeline](/docs/user/how-to/run-a-pipeline/)
+- [Delete a session](/docs/user/how-to/delete-a-session/)

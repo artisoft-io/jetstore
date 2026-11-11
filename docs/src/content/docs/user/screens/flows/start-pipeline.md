@@ -67,3 +67,7 @@ periods by the run itself, and are not chosen here.
 **Start Pipeline & Done** submits the run and returns to Home, where it appears at the top of
 *Pipelines Status* under a new session id: `submitted` once it starts, or `pending` when the
 installation already has as many runs going as it allows. Refresh the tab to follow it.
+
+## See also
+
+- [Run a pipeline](/docs/user/how-to/run-a-pipeline/)

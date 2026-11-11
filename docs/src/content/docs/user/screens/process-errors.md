@@ -72,3 +72,7 @@ another entity, and shows that entity's properties instead.
 A rule session is saved with the first errors of a run only, as many as the pipeline
 configuration allows; the *Rete Triples Saved* column says which. For an error without one, the
 explorer opens with its tables empty.
+
+## See also
+
+- [Read a run's process errors](/docs/user/how-to/read-process-errors/)

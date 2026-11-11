@@ -80,3 +80,14 @@ A user flow is a screen that takes you through a task in steps, one form or tabl
 | [Staging Table or Domain Table View](/docs/user/screens/table-view/) | the rows one session wrote to one table | Home's *Data Registry*, and *File Loader Status* |
 | [Input File Preview](/docs/user/screens/input-file-preview/) | the first lines of a file, as it arrived | the *Load Files* flow |
 | [Query Tool](/docs/user/screens/query-tool/) | the result of an SQL statement you write | the top bar |
+| [Sign in and register](/docs/user/screens/sign-in/) | signing in, and registering an account | the address of the installation |
+| [Workspaces](/docs/user/screens/workspaces/) | the workspaces of the installation, and compiling, committing, pulling and loading configuration | the top bar |
+| [Workspace IDE](/docs/user/screens/workspace-ide/) | a workspace's files, edited and compiled, and its overrides | the top bar, or *Workspaces* |
+| [Rules Configuration](/docs/user/screens/rules-configuration/) | the objects the rules read at the start of each session | the *JetStore Workspace* menu |
+| [Git Profile](/docs/user/screens/git-profile/) | the name, email and token JetStore commits with | your name in the top bar |
+| [User Administration](/docs/user/screens/user-administration/) | accounts, their roles, and activating them | the *JetStore Workspace* menu |
+| [Runbooks](/docs/user/screens/runbooks/) | a workspace's runbooks, their runs and one run's steps | the top bar, or *Workspaces* |
+| [Proposals](/docs/user/screens/proposals/) | the changes AI agents propose, and their decisions | the top bar |
+| [Incidents](/docs/user/screens/incidents/) | incidents raised over runs, and their hypotheses and verdicts | the top bar |
+| [Detection](/docs/user/screens/detection/) | whether the detection and triage tasks ran | the top bar |
+| [Infer Server Admin](/docs/user/screens/infer-server-admin/) | the GPU inference server and its models | the top bar |

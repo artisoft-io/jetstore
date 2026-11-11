@@ -36,3 +36,7 @@ the first column again rather than by the one pressed; use the
 A file's entry in the *Data Registry* has rows here only once the file has been loaded into its
 staging table with the [Load Files](/docs/user/screens/flows/load-files/) flow. Otherwise the table is
 empty.
+
+## See also
+
+- [Look at loaded data](/docs/user/how-to/look-at-loaded-data/)

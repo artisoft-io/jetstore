@@ -111,3 +111,11 @@ reaches a pipeline, **rules unit tests** can check it: each test, a `.tst.json` 
 `jet_rules/unit_tests/`, gives the rules some input entities and says which facts must and must not
 hold afterwards. They are run from the *Workspaces* screen. How to write them is in the Developer's
 Guide, under [Rules unit tests](/docs/developer/testing/rules-unit-tests/).
+
+## See also
+
+- [Process Errors](/docs/user/screens/process-errors/)
+- [Rules Configuration](/docs/user/screens/rules-configuration/)
+- [Rules Unit Tests](/docs/user/screens/flows/rules-unit-tests/)
+- [Run rules unit tests](/docs/user/how-to/run-rules-unit-tests/)
+- [Your first rule change](/docs/user/tutorials/first-rule-change/)

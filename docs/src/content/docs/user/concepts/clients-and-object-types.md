@@ -75,3 +75,7 @@ object type that sends files. `CI` has one for each of `hc:Eligibility`, `hc:Med
 vendor and object type it belongs to. The next two pages take these in turn:
 [Source configurations and domain keys](/docs/user/concepts/source-configurations/), and
 [Files and the input registry](/docs/user/concepts/files-and-the-input-registry/).
+
+## See also
+
+- [Clients & Vendors](/docs/user/screens/flows/clients-and-vendors/)

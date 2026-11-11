@@ -43,3 +43,7 @@ the pull with *View Last Log* there.
 
 An installation without access to a git repository skips the pull itself and does the rest, which is
 how an override saved there reaches the workspace's files.
+
+## See also
+
+- [Work on a workspace](/docs/user/how-to/work-on-a-workspace/)

@@ -74,3 +74,10 @@ separate again, because it is client data inside a governance record. Deleting a
 
 Because the screens and the server check only capabilities, a role is just a bundle of them: what an
 account may do is always read from the capabilities its roles grant.
+
+## See also
+
+- [Sign in and register](/docs/user/screens/sign-in/)
+- [User Administration](/docs/user/screens/user-administration/)
+- [Git Profile](/docs/user/screens/git-profile/)
+- [Manage users](/docs/user/how-to/manage-users/)

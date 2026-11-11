@@ -44,3 +44,7 @@ back to the sign-in form. **Back to sign in** leaves without creating anything.
 **A new account is inactive and has no roles.** It cannot sign in until someone with the
 `user_admin` capability activates it and gives it roles, on the
 [User Administration](/docs/user/screens/user-administration/) screen.
+
+## See also
+
+- [Manage users](/docs/user/how-to/manage-users/)

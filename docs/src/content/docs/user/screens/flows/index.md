@@ -41,3 +41,9 @@ are already in it.
 | [Load Files](/docs/user/screens/flows/load-files/) | loads files into their staging table | the *Source Mapping* flow, *Load Data* |
 | [File Mapping Configuration](/docs/user/screens/flows/file-mapping-configuration/) | the worksheet that maps a source's columns onto the data model | the *Source Mapping* flow, *Configure Mapping* |
 | [Load Client Configurations](/docs/user/screens/flows/load-client-configurations/) | loads clients' configuration from the workspace into the database | the *Workspaces* screen, *Load Client Config* |
+| [Clients & Vendors](/docs/user/screens/flows/clients-and-vendors/) | lists, adds and deletes clients and their vendors | the *JetStore Workspace* menu |
+| [Source Configuration](/docs/user/screens/flows/source-configuration/) | adds, edits and deletes source configurations | the *JetStore Workspace* menu |
+| [Source Mapping](/docs/user/screens/flows/source-mapping/) | shows how a source's columns map, and loads its files | the *JetStore Workspace* menu |
+| [Pipeline Configuration](/docs/user/screens/flows/pipeline-configuration/) | adds, edits and deletes a client's pipeline configurations | the *JetStore Workspace* menu |
+| [Pull Workspace Changes](/docs/user/screens/flows/pull-workspace-changes/) | brings commits made elsewhere into the installation's workspace | the *Workspaces* screen, *Pull Workspace* |
+| [Rules Unit Tests](/docs/user/screens/flows/rules-unit-tests/) | runs a workspace's rules unit tests and shows their results | the *Workspaces* screen |

@@ -30,9 +30,9 @@ should not have to find it between steps.
 | Kind | Answers | Where |
 |---|---|---|
 | **Concepts** | *why is it like this?* What each idea in JetStore is, and why it is that way | [Concepts](/docs/user/concepts/) |
-| **Tutorials** | *teach me*: a whole task, start to finish, to learn by doing | Tutorials |
-| **How-to guides** | *help me do this*: one task, as numbered steps | How-to guides |
-| **Screens** | *tell me exactly*: each screen and each user flow, its controls and columns, and the capability it needs | Screens |
+| **Tutorials** | *teach me*: a whole task, start to finish, to learn by doing | [Tutorials](/docs/user/tutorials/) |
+| **How-to guides** | *help me do this*: one task, as numbered steps | [How-to guides](/docs/user/how-to/) |
+| **Screens** | *tell me exactly*: each screen and each user flow, its controls and columns, and the capability it needs | [Screens](/docs/user/screens/) |
 
 The *Help* button in JetStore's top bar opens the page for the screen you are on.
 
@@ -40,8 +40,8 @@ The *Help* button in JetStore's top bar opens the page for the screen you are on
 
 1. **Read [JetStore in one page](/docs/user/concepts/jetstore/)**, then the other concepts in the
    order the [Concepts](/docs/user/concepts/) page lists them. Each builds on the one before.
-2. **Do the first tutorial**, which takes a new file all the way to a pipeline's output. If you will
-   write rules, do the second as well: a first rule change, compiled and tested.
+2. **Do the [first tutorial](/docs/user/tutorials/first-pipeline/)**, which takes a new file all the way to a pipeline's output. If you will
+   write rules, do [the second](/docs/user/tutorials/first-rule-change/) as well: a first rule change, compiled and tested.
 3. **From then on, use the how-to guides and the screen pages as you need them.** Press *Help* on a
    screen to land on its page.
 

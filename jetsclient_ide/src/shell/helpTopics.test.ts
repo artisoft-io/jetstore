@@ -8,7 +8,7 @@
  * else noticing.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +17,7 @@ import { DEFAULT_HELP_PAGE, FLOW_TOPICS, HELP_TOPICS, helpPathFor } from "./help
 const here = fileURLToPath(new URL("./", import.meta.url));
 const contentRoot = `${here}../../../docs/src/content/docs/`;
 const appSource = `${here}../App.tsx`;
+const flowsDir = `${here}../../../jets/workspace_assets/user_flows/`;
 
 /**
  * The file behind a page address, or null. `user/` is `user/index.md`; `a/b/`
@@ -79,16 +80,53 @@ describe("the help map's routes", () => {
     expect(new Set(mapped).size).toBe(mapped.length);
     expect(mapped[mapped.length - 1]).toBe("*");
   });
+
+  it("gives every route but the catch-all a page of its own", () => {
+    // The landing page is the answer for a path no route matches, and for
+    // nothing else: a screen without a page fails here rather than opening
+    // the User Guide's front page.
+    expect(
+      HELP_TOPICS.filter((t) => t.route !== "*" && t.page === DEFAULT_HELP_PAGE).map((t) => t.route),
+    ).toEqual([]);
+  });
+});
+
+/** The keys of JetStore's own flows whose `.uf.json` carries a title. */
+function titledFlows(): string[] {
+  return readdirSync(flowsDir)
+    .filter((f) => f.endsWith(".uf.json"))
+    .filter((f) => {
+      const doc = JSON.parse(readFileSync(flowsDir + f, "utf8")) as { title?: unknown };
+      return typeof doc.title === "string" && doc.title !== "";
+    })
+    .map((f) => f.slice(0, -".uf.json".length));
+}
+
+describe("the help map's flows", () => {
+  const flows = titledFlows();
+
+  it("reads the shipped flows", () => {
+    // A guard: an empty list would make the next case pass on nothing.
+    expect(flows.length).toBeGreaterThan(5);
+  });
+
+  it("gives every titled JetStore flow a page", () => {
+    expect(flows.filter((k) => FLOW_TOPICS[k] === undefined)).toEqual([]);
+  });
 });
 
 describe("helpPathFor", () => {
   it("maps a known route", () => {
-    expect(helpPathFor("/home")).toBe("/docs/user/");
+    expect(helpPathFor("/home")).toBe("/docs/user/screens/home/");
   });
 
   it("maps a parameterised route", () => {
-    expect(helpPathFor("/workspaces/ws1/home")).toBe("/docs/user/");
-    expect(helpPathFor("/processErrors/1234")).toBe("/docs/user/");
+    expect(helpPathFor("/workspaces/ws1/home")).toBe("/docs/user/screens/workspace-ide/");
+    expect(helpPathFor("/processErrors/1234")).toBe("/docs/user/screens/process-errors/");
+  });
+
+  it("maps a listed flow to its page", () => {
+    expect(helpPathFor("/flow/startPipelineUF")).toBe("/docs/user/screens/flows/start-pipeline/");
   });
 
   it("maps an unknown path to the User Guide", () => {
@@ -108,7 +146,7 @@ describe("helpPathFor", () => {
     const flowRow = HELP_TOPICS.find((t) => t.route === "flow/:key");
     expect(helpPathFor("/flow/notAFlow")).toBe(`/docs/${flowRow?.page}`);
 
-    // FLOW_TOPICS is empty today; list one for the duration of the case.
+    // List an extra flow for the duration of the case.
     topics["someFlow"] = "developer/";
     try {
       expect(helpPathFor("/flow/someFlow")).toBe("/docs/developer/");

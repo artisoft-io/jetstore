@@ -50,7 +50,13 @@ is for readers.
 - **No client vocabulary**: this repository is public, so no page names a client, its workspace, its
   rule vocabulary or its data. Examples use `jets_ws` or invented names. Cite code by path and
   identifier, never by line number.
-- How to write and preview a page: `docs/src/content/docs/developer/contributing/documentation.md`.
+- **A screen or a flow has a page and a screenshot spec**: `user/screens/` and `user/screens/flows/`,
+  and `docs/screenshots/specs/`. A change to a screen or a flow updates its page, its spec and its
+  images (`npm run shots` in `docs/screenshots/`), and a new route or titled flow gets a page and a row
+  in `helpTopics.ts`, whose test fails otherwise. A how-to's steps are its spec's steps, so a change
+  that breaks a spec owes the how-to an update.
+- How to write and preview a page: `docs/src/content/docs/developer/contributing/documentation.md`;
+  how to take its screenshots: `developer/contributing/screenshots.md`.
 
 ## Build Commands
 

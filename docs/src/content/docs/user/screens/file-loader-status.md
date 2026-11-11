@@ -41,3 +41,7 @@ progress is on Home.
 When the counts are not what you expected, look at the file itself with
 [Input File Preview](/docs/user/screens/input-file-preview/), and at its source configuration in the
 *Source Configuration* flow.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)
