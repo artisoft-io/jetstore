@@ -248,6 +248,22 @@ func (dtq *DataTableAction) sortTiebreaker() string {
 	return buf.String()
 }
 
+// defaultSortColumn is the sort column of a read that names no columns, whose
+// columns are the table's (getColumnsDefinitions): the column the request sorts
+// on when it is one of them, so a header click on a server-defined table sorts
+// that table, else the first column. A requested name that is not a column of
+// the table is not used, since it would reach ORDER BY.
+func defaultSortColumn(requested string, columnsDef []DataTableColumnDef) string {
+	if requested != "" {
+		for i := range columnsDef {
+			if columnsDef[i].Name == requested {
+				return requested
+			}
+		}
+	}
+	return columnsDef[0].Name
+}
+
 // Get Column definition
 func (dtq *DataTableAction) getColumnsDefinitions(dbpool *pgxpool.Pool) ([]DataTableColumnDef, error) {
 
@@ -1428,7 +1444,7 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 			return nil, http.StatusInternalServerError, err
 		}
 
-		dataTableAction.SortColumn = columnsDef[0].Name
+		dataTableAction.SortColumn = defaultSortColumn(dataTableAction.SortColumn, columnsDef)
 		results["columnDef"] = columnsDef
 
 		// Add table's label

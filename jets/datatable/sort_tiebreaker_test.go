@@ -17,6 +17,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/user"
 )
 
 func TestSortTiebreakerFollowsTheRequestedSort(t *testing.T) {
@@ -189,5 +191,89 @@ func TestTiedRowsPageOnceEachOnPostgreSQL(t *testing.T) {
 	}
 	if len(*rows) != 1 || fmt.Sprint((*rows)[0][1]) != "1" {
 		t.Errorf("DISTINCT ON empty: got %v, want the one row with the lowest id in text order, 1", *rows)
+	}
+}
+
+// A read that names no columns (a server-defined table, such as a domain
+// table's Table View) sorts on the column the request names when the table has
+// it; it always sorted on the first column, whatever the user pressed.
+func TestDefaultSortColumnKeepsARequestedColumnOfTheTable(t *testing.T) {
+	defs := []DataTableColumnDef{{Name: "a"}, {Name: "b"}, {Name: "c"}}
+	for requested, want := range map[string]string{
+		"b":                  "b",
+		"c":                  "c",
+		"":                   "a",
+		"not_a_column":       "a",
+		`b" DESC; DROP x --`: "a",
+	} {
+		if got := defaultSortColumn(requested, defs); got != want {
+			t.Errorf("defaultSortColumn(%q) = %q, want %q", requested, got, want)
+		}
+	}
+}
+
+// End to end on PostgreSQL, through DoReadAction: the requested column is the
+// sort, and the table's first column is used only when none, or one the table
+// does not have, is requested.
+func TestReadWithNoColumnsSortsOnTheRequestedColumn(t *testing.T) {
+	pool := rutDB(t)
+	bg := context.Background()
+	if _, err := pool.Exec(bg, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
+		t.Fatal(err)
+	}
+	defs := rutTableDefs(t)
+	for _, name := range []string{"users", "roles", "role_capability"} {
+		if _, err := pool.Exec(bg, "DROP TABLE IF EXISTS jetsapi."+name); err != nil {
+			t.Fatal(err)
+		}
+		if err := defs[name].UpdateTableSchema(pool, true); err != nil {
+			t.Fatalf("creating jetsapi.%s: %v", name, err)
+		}
+	}
+	for _, s := range []string{
+		`DROP TABLE IF EXISTS jetsapi.unnamed_cols`,
+		`CREATE TABLE jetsapi.unnamed_cols (a text, b int)`,
+		`INSERT INTO jetsapi.unnamed_cols VALUES ('x', 3), ('y', 1), ('z', 2)`,
+		`INSERT INTO jetsapi.users (user_email, name, password, is_active, encrypted_roles)
+			VALUES ('reader@test', 'Reader', 'x', 1, '{reader}')`,
+		`INSERT INTO jetsapi.role_capability (role, capability) VALUES ('reader', 'jetstore_read')`,
+	} {
+		if _, err := pool.Exec(bg, s); err != nil {
+			t.Fatalf("%v\n%s", err, s)
+		}
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(bg, `DROP TABLE IF EXISTS jetsapi.unnamed_cols`) })
+	previousAdmin, previousSecret := user.AdminEmail, user.ApiSecret
+	user.AdminEmail, user.ApiSecret = "admin@test", "sort-test"
+	t.Cleanup(func() { user.AdminEmail, user.ApiSecret = previousAdmin, previousSecret })
+	token, err := user.CreateToken("reader@test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := &DataTableContext{Dbpool: pool}
+	read := func(sort string) string {
+		t.Helper()
+		res, _, err := ctx.DoReadAction(&DataTableAction{
+			Action:      "read",
+			FromClauses: []FromClause{{Schema: "jetsapi", Table: "unnamed_cols"}},
+			SortColumn:  sort, SortAscending: true, Limit: 10,
+		}, token)
+		if err != nil {
+			t.Fatalf("reading sorted on %q: %v", sort, err)
+		}
+		var got []string
+		for _, row := range *(*res)["rows"].(*[][]any) {
+			got = append(got, fmt.Sprint(row[0])) // a, the first column by name
+		}
+		return strings.Join(got, " ")
+	}
+	if got := read("b"); got != "y z x" {
+		t.Errorf("sorted on b: %s, want y z x", got)
+	}
+	if got := read(""); got != "x y z" {
+		t.Errorf("no sort requested: %s, want x y z (the first column, a)", got)
+	}
+	if got := read("nope"); got != "x y z" {
+		t.Errorf("an unknown column: %s, want x y z", got)
 	}
 }
