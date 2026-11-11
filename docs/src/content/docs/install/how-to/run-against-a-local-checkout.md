@@ -3,7 +3,7 @@ title: Run against a local checkout
 description: Why a workstation running JetStore against its own repository should set JETS_NO_GIT_ACCESS, the validator setting a local compile needs, and the settings that point the apiserver at locally built binaries and a port of its own.
 kind: how-to
 sidebar:
-  order: 7
+  order: 13
 ---
 
 This page is about a workstation rather than a stack. It sits in the Installation Guide because the
