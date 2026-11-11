@@ -26,7 +26,7 @@ Every run of a pipeline, the latest first: one row per run, with its status, its
 session. What each status means is in
 [Pipelines and sessions](/docs/user/concepts/pipelines-and-sessions/#what-a-runs-status-means).
 
-![The Pipelines Status tab: nine runs of the CI client's pipelines, three completed Map runs and six runs of Patient_Profile_Template, pending, in progress, interrupted, failed, errors and completed, with the tab's buttons above them.](../../../../assets/screenshots/user/screens/home/pipelines-status.png)
+![The Pipelines Status tab: nine runs of the CI client's pipelines, three completed Map runs and six runs of Patient_Profile_Template, pending, submitted, interrupted, failed, errors and completed, with the tab's buttons above them.](../../../../assets/screenshots/user/screens/home/pipelines-status.png)
 
 | Column | What it holds |
 |---|---|

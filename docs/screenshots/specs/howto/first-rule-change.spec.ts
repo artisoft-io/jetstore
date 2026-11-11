@@ -5,9 +5,7 @@
 // temporary directory, and saved as an override in the stack's database; the
 // tutorial reverts it at the end.
 //
-// Not performed: Compile Workspace. The apiserver's compile runs update_db from
-// /usr/local/bin rather than from the stack's binaries, so on a workstation it
-// runs whatever is installed there; and a compile rewrites jets_ws's row on the
+// Not performed: Compile Workspace. A compile rewrites jets_ws's row on the
 // Workspaces screen, which another page shows. The test therefore runs against
 // the rules compiled when the stack started. The change keeps the test passing,
 // so its result is the one the compiled change gives.
@@ -91,19 +89,19 @@ test.afterEach(async ({ page }) => {
 });
 
 /**
- * Delete/Revert Changes. The stack keeps no pristine copy of the workspace
- * (the stash an installation takes at start-up), so on the stack a revert
- * deletes the change and leaves the file as saved; the spec first saves the
- * original line back, so the file ends as it began.
+ * Delete/Revert Changes: the file is restored from the stack's pristine copy
+ * of the workspace (the stash an installation takes at start-up, which the
+ * stack takes in up.sh), and the change is deleted.
  */
 async function revert(page: Page): Promise<void> {
-  await openWorkspaceFile(page, FOLDERS, "salience_shared_consequent.jr", "end");
-  await changeLine(page, AFTER, BEFORE);
-  await saveFile(page);
-  await page.getByRole("button", { name: `Close ${RULE_FILE}` }).click();
+  await openScreen(page, "Workspace IDE");
+  await expect(page.getByRole("heading", { name: "Workspace Changes" })).toBeVisible();
   const changes = await waitForTable(page);
   await selectRow(page, RULE_FILE);
   await page.getByRole("button", { name: "Delete/Revert Changes" }).click();
   await page.getByRole("button", { name: "OK", exact: true }).click();
   await expect(changes.locator("tbody")).toContainText("No rows.");
+  // The file is as it was before the change.
+  await openWorkspaceFile(page, FOLDERS, "salience_shared_consequent.jr", "end");
+  await expect(page.locator(".cm-line", { hasText: BEFORE })).toHaveCount(1);
 }

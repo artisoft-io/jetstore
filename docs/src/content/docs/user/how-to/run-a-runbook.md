@@ -44,8 +44,13 @@ Guide describes [the runbook format](/docs/developer/engine/runbook-format/). Th
 
 6. A **pause** step stops for you to read what the run has found so far. Its panel shows the
    runbook's message. Read the outputs, then press **Continue** in the bar.
+
+   ![The read_results pause step's panel: the run waits for you, with the runbook's message to read the counts, the clock and the scratch table's row count, then continue to drop the scratch table.](../../../../assets/screenshots/user/how-to/run-a-runbook/pause-step.png)
+
 7. When the run ends, press **Release** to release its result; **Download .rbr.json** then saves it
    as a file.
+
+   ![The run screen of example_health_check, completed: every step completed or skipped, with the Release button.](../../../../assets/screenshots/user/how-to/run-a-runbook/run-completed.png)
 
 **How to tell it worked**: the run's status is **Completed**, and every step's status is completed or
 skipped. On the **Runbooks** screen, the runbook's last run shows the same.

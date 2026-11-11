@@ -98,6 +98,13 @@ log "installing JetStore's assets into the workspace and compiling it"
   || die "install_workspace_assets failed; see $STATE_DIR/install_workspace_assets.log"
 ( cd "$RUN_DIR" && "$BIN/compile_workspace" -w="$WORKSPACE" -v="$JETS_VERSION" > "$STATE_DIR/compile_workspace.log" 2>&1 ) \
   || die "compile_workspace failed; see $STATE_DIR/compile_workspace.log"
+# The pristine copy an installation takes at start-up (wsfile.StashFiles), which a
+# revert restores a file from. The apiserver skips it in dev mode, so the stack
+# takes it here, as StashFiles would: the files, without the two databases.
+STASH="$WORKSPACES_HOME/ws:stash/$WORKSPACE"
+mkdir -p "$STASH"
+cp -a "$WORKSPACES_HOME/$WORKSPACE/." "$STASH/"
+rm -rf "$STASH/.git" "$STASH/.github" "$STASH/.gitignore" "$STASH/lookup.db" "$STASH/workspace.db"
 
 # 4. The database.
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'; }
