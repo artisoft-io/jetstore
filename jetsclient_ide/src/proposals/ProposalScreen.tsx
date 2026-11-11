@@ -196,7 +196,9 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
           </dl>
 
           <h3>What the run produced</h3>
-          <pre className="proposal-artifact">{p.rationale}</pre>
+          <pre className="proposal-artifact" aria-label="What the run produced">
+            {artifactText(p.rationale)}
+          </pre>
 
           {!view.terminal && (
             <>
@@ -252,6 +254,27 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
       </div>
     </>
   );
+}
+
+/**
+ * What the run produced, as text to show.
+ *
+ * An authoring run records its output as the JSON document the model returned,
+ * often on one line (`PgRecorder.Propose`, `jets/agentic/agent/recorder.go`);
+ * that is shown indented, one member per line, so its structure can be read.
+ * Anything else is shown as written, line breaks kept. Either way it is text: a
+ * React text node, so markup in it is shown, never interpreted.
+ */
+export function artifactText(raw: string): string {
+  const text = raw.trim();
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+      // Not JSON after all: shown as written.
+    }
+  }
+  return raw;
 }
 
 /**

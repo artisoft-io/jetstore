@@ -25,7 +25,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
-import { ProposalScreen } from "./ProposalScreen";
+import { ProposalScreen, artifactText } from "./ProposalScreen";
 import { ProposalsScreen } from "./ProposalsScreen";
 import { stateLabel } from "./api";
 
@@ -279,6 +279,53 @@ describe("the decision screen", () => {
     // The decision that got there first is now on the screen.
     await screen.findByText("someone.else@example.com");
     expect(sent.filter((r) => r["action"] === "get_proposal").length).toBe(2);
+  });
+});
+
+// "What the run produced" was drawn as one clipped line: the block lost its
+// height in the page's flex column (proposalStyles.test.ts), and a run's
+// one-line JSON had no lines to keep. These hold the second half, and that the
+// text stays text.
+describe("what the run produced", () => {
+  it("keeps the lines of a written rationale", async () => {
+    const written = "Map_Claim: give Days_Supply a default of 30.\n\nMapping row:\n  default_value  30";
+    const { api } = await clientWith({
+      get_proposal: { body: { ...awaitingView, proposal: { ...awaitingView.proposal, rationale: written } } },
+      read_transcript: { body: soundTranscript },
+    });
+    renderAt(api, "/proposals/chg_1");
+    const block = await screen.findByLabelText("What the run produced");
+    expect(block.tagName).toBe("PRE");
+    expect(block.textContent).toBe(written);
+  });
+
+  it("shows a run's JSON output indented, one member per line", async () => {
+    const { api } = await clientWith({
+      get_proposal: {
+        body: { ...awaitingView, proposal: { ...awaitingView.proposal, rationale: '{"transformation":"x","columns":["a","b"]}' } },
+      },
+      read_transcript: { body: soundTranscript },
+    });
+    renderAt(api, "/proposals/chg_1");
+    const block = await screen.findByLabelText("What the run produced");
+    expect(block.textContent).toBe('{\n  "transformation": "x",\n  "columns": [\n    "a",\n    "b"\n  ]\n}');
+  });
+
+  it("shows markup as text and never interprets it", async () => {
+    const hostile = '<img src=x onerror="alert(1)"><b>bold</b>';
+    const { api } = await clientWith({
+      get_proposal: { body: { ...awaitingView, proposal: { ...awaitingView.proposal, rationale: hostile } } },
+      read_transcript: { body: soundTranscript },
+    });
+    renderAt(api, "/proposals/chg_1");
+    const block = await screen.findByLabelText("What the run produced");
+    expect(block.textContent).toBe(hostile);
+    expect(block.querySelector("img, b")).toBeNull();
+  });
+
+  it("leaves text that only looks like JSON as written", () => {
+    expect(artifactText("[draft] not json\nsecond line")).toBe("[draft] not json\nsecond line");
+    expect(artifactText("")).toBe("");
   });
 });
 
