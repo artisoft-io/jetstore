@@ -34,9 +34,10 @@ A few things to know when writing a statement:
 - **The result shows one value per cell**, as text. A date is shown in UTC.
 - **An error is shown in the banner** at the top, as the database reported it.
 
-The result is sorted as your statement orders it. In this version, pressing a column heading of the
-result sorts by its first column rather than by the one pressed, so put an `ORDER BY` in the
-statement.
+The result comes in the order your statement gives it, with no column marked as sorted. Press a
+column heading to sort the result by that column, and press it again to reverse the order: a
+numeric column sorts by value, and empty values go last. Submitting the statement again keeps the
+column you sorted on.
 
 The tables that hold a client's data are described by the workspace's data model; JetStore's own
 tables are listed in the Developer's Guide, under

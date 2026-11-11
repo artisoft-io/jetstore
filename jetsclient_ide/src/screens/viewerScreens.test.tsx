@@ -19,14 +19,16 @@
  * other configuration uses, and the stub answers on the arm name.
  */
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import inputFileViewerTable from "../datatable/tables/inputFileViewerTable.tc.json";
 import inputTable from "../datatable/tables/inputTable.tc.json";
 import type { TableConfigDocument } from "../datatable/table";
+import { reactScreenPath } from "./routes";
 import { TableScreen } from "./TableScreen";
 
 afterEach(cleanup);
@@ -231,5 +233,76 @@ describe("what both screens do not do", () => {
     await waitFor(() =>
       expect(reads(posts).filter((b) => b["action"] === "read")).toHaveLength(1),
     );
+  });
+});
+
+describe("a file key holding / reaches the preview", () => {
+  it("navigates to the preview with the key in one segment, and the screen reads it back", async () => {
+    // A file key is an object path. `fillPath` inserted it raw, so its slashes
+    // made extra segments, `/filePreviewPath/:file_key` did not match, and the
+    // preview was a Page not found. The key also carries the characters a path
+    // or a query reads specially, to show they round-trip too.
+    const key = "in/client=acme/year=2026/claims #1?.csv";
+    const { fetchImpl, posts } = stubServer();
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    function Launch() {
+      const navigate = useNavigate();
+      useEffect(() => {
+        void navigate(reactScreenPath("/filePreviewPath/:file_key", { file_key: key })!);
+      }, [navigate]);
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={["/launch"]}>
+        <Routes>
+          <Route path="/launch" element={<Launch />} />
+          <Route
+            path="/filePreviewPath/:file_key"
+            element={
+              <TableScreen
+                api={api}
+                tableKey="inputFileViewerTable"
+                document={inputFileViewerTable as TableConfigDocument}
+                title="Input File Preview"
+              />
+            }
+          />
+          <Route path="*" element={<p>Page not found</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText("a,b,c");
+    expect(screen.queryByText("Page not found")).toBeNull();
+    // Decoded once, by the router: the server gets the key as written.
+    const read = reads(posts).find((b) => b["action"] === "preview_file")!;
+    expect(read["whereClauses"]).toEqual([{ table: "", column: "file_key", values: [key] }]);
+  });
+});
+
+describe("sorting a table whose columns come from the reply", () => {
+  it("sends the pressed heading and keeps it when the reply describes the columns again", async () => {
+    // The domain table view declares no columns. A heading press used to be
+    // undone by the next reply: its `columnDef` reset the sort to column 0, and
+    // the request never named a sort column, so the server ordered by its first
+    // column whatever was pressed.
+    const { posts } = await mount("domain");
+    await screen.findByText("c-1");
+    const before = reads(posts).length;
+    fireEvent.click(screen.getByRole("button", { name: /Paid Amount/ }));
+    await waitFor(() => expect(reads(posts).length).toBe(before + 1));
+    const read = reads(posts).at(-1)!;
+    expect(read["sortColumn"]).toBe("paid_amount");
+    expect(read["sortAscending"]).toBe(true);
+    // The reply carried `columnDef` again; the arrow stays on Paid Amount and no
+    // further request goes out sorted on column 0.
+    await waitFor(() =>
+      expect(screen.getByRole("columnheader", { name: /Paid Amount/ }).getAttribute("aria-sort")).toBe(
+        "ascending",
+      ),
+    );
+    expect(screen.getByRole("columnheader", { name: /Claim Number/ }).getAttribute("aria-sort")).toBe("none");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reads(posts).length).toBe(before + 1);
   });
 });

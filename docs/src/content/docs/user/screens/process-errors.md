@@ -27,8 +27,8 @@ The rows are sorted by member, 50 to a page. Select one error to use the buttons
 | Key | the error's key |
 | Process Execution Key | the key of the run on *Pipelines Status* |
 | Process Name | the process run |
-| Domain Key (the first) | the run's domain key, `hc:Eligibility` for `CI`'s pipelines |
-| Domain Key (the second) | the member the error concerns: the value of the domain key, such as `M007`. The table sorts on it |
+| Domain Key | the run's domain key, `hc:Eligibility` for `CI`'s pipelines |
+| Domain Key Value | the member the error concerns: the value of the domain key, such as `M007`. The table sorts on it |
 | Row jets:key | the key of the record the error was raised on |
 | Input Column | the column or property involved |
 | Error Message | what went wrong |

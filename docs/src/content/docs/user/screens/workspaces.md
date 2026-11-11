@@ -60,7 +60,7 @@ workspace and, when its folder does not exist yet, checks the branch out from th
 | **Rules Unit Tests** | Opens the [Rules Unit Tests](/docs/user/screens/flows/rules-unit-tests/) flow for the selected workspace. |
 | **Commit & Push Workspace** | Opens a dialog asking for a **Commit Message**, then commits the workspace's changes, the saved overrides included, to its branch and pushes them. Once pushed, the overrides are cleared, since the repository now holds them. |
 | **Push Only** | Pushes commits already made, without compiling. Changes no commit carries, the overrides included, are not sent; the log says so. |
-| **Pull Workspace** | Opens the [Pull Workspace Changes](/docs/user/screens/flows/pull-workspace-changes/) flow. |
+| **Pull Workspace** | Opens the [Pull Workspace Changes](/docs/user/screens/flows/pull-workspace-changes/) flow. A workspace registered without a repository opens it too, with the URI empty. |
 | **Git Status** | Opens a dialog that runs `git status` in the installation's copy of the workspace. |
 | **Git Command** | Opens a dialog that runs the git commands you type, one per line, in the installation's copy of the workspace. |
 | **View Last Log** | Shows the output of the last git operation on the workspace. |

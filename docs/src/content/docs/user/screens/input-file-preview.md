@@ -14,10 +14,6 @@ file before the configuration.
 **Reached from** the [Load Files](/docs/user/screens/flows/load-files/) flow: select a file, then
 *Preview File*. The screen's address carries the file's key, `filePreviewPath/<file key>`.
 
-**In this version *Preview File* shows *Page not found* instead.** It puts the file key into the
-address as it is, folders and all, and the screen's address takes the key as a single part, so no
-file key with folders reaches the screen. Every file key has folders.
-
 The screen is headed *Input File Preview*, and holds one table, captioned *Preview of* and the file
 key. It has one column, **Line**, and a row for each line of the file, as text, up to its first 50
 lines; a line is not split into columns. The table has no buttons.

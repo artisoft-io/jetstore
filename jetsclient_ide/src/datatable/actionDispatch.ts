@@ -78,9 +78,20 @@ export class UnsupportedActionType extends Error {}
  * (`data_table.dart:actionDispatcher`). A parameter with no value leaves the
  * segment in place rather than inserting `undefined`, so a broken link is
  * visibly broken instead of silently pointing somewhere plausible.
+ *
+ * **Each value is percent-encoded, because it fills one path segment.** A file
+ * key is an object path (`in/acme/claims.csv`), and inserted as is its slashes
+ * made extra segments, so `/filePreviewPath/:file_key` did not match and the
+ * Input File Preview was a Page not found. React Router decodes each segment of
+ * a matched path before it hands the parameters to `useParams` (an encoded `/`
+ * included), so a screen reads the value as it was written and must not decode
+ * it again. An empty value fills an empty segment, as it always did.
  */
 export function fillPath(path: string, params: Record<string, string>): string {
-  return path.replace(/:([A-Za-z0-9_]+)/g, (whole, name: string) => params[name] ?? whole);
+  return path.replace(/:([A-Za-z0-9_]+)/g, (whole, name: string) => {
+    const value = params[name];
+    return value === undefined ? whole : encodeURIComponent(value);
+  });
 }
 
 /**

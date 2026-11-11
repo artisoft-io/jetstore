@@ -111,7 +111,7 @@ export interface DataTableProps {
 function cellClassName(column: ColumnConfig): string | undefined {
   const names = [
     column.isNumeric ? "jets-datatable__numeric" : "",
-    column.maxLines > 0 ? "jets-datatable__clamped" : "",
+    column.maxLines > 0 ? "jets-datatable__wrapped" : "",
   ].filter((n) => n !== "");
   return names.length > 0 ? names.join(" ") : undefined;
 }
@@ -130,11 +130,31 @@ function cellClassName(column: ColumnConfig): string | undefined {
  * transcribing an implementation rather than a behaviour.
  */
 function cellStyle(column: ColumnConfig): CSSProperties | undefined {
-  if (column.columnWidth <= 0 && column.maxLines <= 0) return undefined;
-  return {
-    ...(column.columnWidth > 0 ? { width: column.columnWidth } : {}),
-    ...(column.maxLines > 0 ? ({ "--jets-max-lines": column.maxLines } as CSSProperties) : {}),
-  };
+  if (column.columnWidth <= 0) return undefined;
+  return { width: column.columnWidth };
+}
+
+/**
+ * A cell's text, clamped to the column's line budget when it has one.
+ *
+ * **The clamp is on a span inside the cell, not on the cell** (2026-11-11). It
+ * was on the `<td>`, and `-webkit-line-clamp` needs `display: -webkit-box`, which
+ * takes the element out of table layout: the browser wraps it in an anonymous
+ * cell that does not shrink, so the text never wrapped to fit and a table in a
+ * dialog ran past its edge (the *Update User Profile* dialog cut *Last Updated*
+ * off). On a span the cell stays a cell, wraps its text and shrinks with the
+ * table, and the span clamps what wrapped.
+ */
+function cellBody(column: ColumnConfig, text: string): ReactNode {
+  if (column.maxLines <= 0) return text;
+  return (
+    <span
+      className="jets-datatable__clamped"
+      style={{ "--jets-max-lines": column.maxLines } as CSSProperties}
+    >
+      {text}
+    </span>
+  );
 }
 
 /**
@@ -327,7 +347,7 @@ export function DataTable({
                     // own behaviour and not something this widget arbitrates.
                     onClick={() => void navigator.clipboard?.writeText(cellFullText(row, column))}
                   >
-                    {cellContent(row, column)}
+                    {cellBody(column, cellContent(row, column))}
                   </td>
                 ))}
               </tr>

@@ -29,9 +29,8 @@ buttons, and shows 10 rows to a page.
 
 ![The domain table hc:Eligibility, at the session of the Map_Eligibility run: the same 22 members, mapped, with their domain key and shard columns.](../../../../assets/screenshots/user/screens/table-view/domain-table.png)
 
-The rows are sorted by the first column. In this version, pressing another column's heading sorts by
-the first column again rather than by the one pressed; use the
-[Query Tool](/docs/user/screens/query-tool/) to sort by any column.
+The rows are sorted by the first column. Press another column's heading to sort by it, and press it
+again to reverse the order.
 
 A file's entry in the *Data Registry* has rows here only once the file has been loaded into its
 staging table with the [Load Files](/docs/user/screens/flows/load-files/) flow. Otherwise the table is

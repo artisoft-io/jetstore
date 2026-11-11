@@ -101,7 +101,15 @@
  * rather than at a width, and it is supported everywhere this app runs — the
  * standard `line-clamp` is aliased to it. `--jets-max-lines` is set inline by
  * `DataTable.tsx` from the column.
+ *
+ * **The cell wraps and a span inside it clamps** (2026-11-11). Both were on the
+ * cell, and `display: -webkit-box` on a `<td>` takes it out of table layout, so
+ * the text did not wrap to the table's width and a table in a dialog overflowed.
  */
+.jets-datatable__table td.jets-datatable__wrapped {
+  white-space: normal;
+}
+
 .jets-datatable__clamped {
   white-space: normal;
   overflow: hidden;

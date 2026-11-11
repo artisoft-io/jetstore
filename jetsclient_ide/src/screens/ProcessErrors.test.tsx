@@ -240,6 +240,18 @@ describe("the screen", () => {
     expect(cell.className).toContain("clamp");
   });
 
+  it("says its title once, and tells its two domain key columns apart", async () => {
+    // The table's label repeated the screen's heading, and both the run's
+    // domain key and the row's key value were headed `Domain Key`.
+    await mount();
+    expect(screen.getAllByRole("heading", { name: "Pipeline Execution Errors" })).toHaveLength(1);
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((th) => (th.textContent ?? "").replace(/[▲▼]/g, "").trim());
+    expect(headers.filter((h) => h === "Domain Key")).toHaveLength(1);
+    expect(headers.filter((h) => h === "Domain Key Value")).toHaveLength(1);
+  });
+
   it("offers both row buttons only once a row is selected", async () => {
     await mount();
     expect(button("View Input Records").hasAttribute("disabled")).toBe(true);

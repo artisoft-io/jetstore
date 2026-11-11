@@ -1,6 +1,5 @@
 {
   "schemaVersion": 1,
-  "label": "Pipeline Execution Errors",
   "columns": [
     {
       "name": "key",
@@ -30,9 +29,9 @@
     },
     {
       "name": "grouping_key",
-      "label": "Domain Key",
+      "label": "Domain Key Value",
       "table": "process_errors",
-      "tooltip": "Domain Key of the associated row"
+      "tooltip": "Value of the domain key for the row in error, which groups its records in one rule session"
     },
     {
       "name": "row_jets_key",
