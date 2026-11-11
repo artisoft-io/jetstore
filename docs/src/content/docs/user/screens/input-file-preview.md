@@ -25,3 +25,7 @@ lines; a line is not split into columns. The table has no buttons.
 The file is read from the installation's bucket each time the screen opens, so it shows the file as
 it is now. A file that is compressed, or in a binary format such as Parquet, is shown as its raw
 bytes, which are not readable as text.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)

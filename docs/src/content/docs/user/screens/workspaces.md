@@ -79,3 +79,7 @@ Every button that writes, and every dialog's confirming button, needs `workspace
 screen itself. An installation without access to a git repository still offers the git buttons; they
 record a notice in the last log instead of running git, and an override stays in the database until
 it can be committed.
+
+## See also
+
+- [Work on a workspace](/docs/user/how-to/work-on-a-workspace/)

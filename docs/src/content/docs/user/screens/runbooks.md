@@ -98,3 +98,7 @@ compile.
 Once the run is finished and released, its result can be downloaded:
 
 ![The bar of an aborted and released run, with the Download .rbr.json and Refresh buttons.](../../../../assets/screenshots/user/screens/runbooks/run-released-controls.png)
+
+## See also
+
+- [Run a runbook](/docs/user/how-to/run-a-runbook/)

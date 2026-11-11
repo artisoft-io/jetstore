@@ -89,3 +89,10 @@ rows of a table, a file's preview.
   its inputs in the input registry, and those to the files that arrived. The same id is what JetStore
   deletes by: deleting a session removes its rows from every table, and the sessions of the runs that
   read it as their main input go with it.
+
+## See also
+
+- [Home](/docs/user/screens/home/)
+- [Query Tool](/docs/user/screens/query-tool/)
+- [Clients & Vendors](/docs/user/screens/flows/clients-and-vendors/)
+- [Your first pipeline](/docs/user/tutorials/first-pipeline/)

@@ -61,3 +61,7 @@ At the bottom of the worksheet:
 
 The mapping applies to the next run of the source's mapping pipeline, such as `Map_Eligibility`; it
 does not change rows already mapped.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)

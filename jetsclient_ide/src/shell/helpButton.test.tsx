@@ -128,7 +128,7 @@ describe("the Help button", () => {
 
     expect(open).toHaveBeenCalledWith("", "_blank");
     await waitFor(() => expect(tab.location.href).toBe(helpPathFor("/workspaces/ws1/home")));
-    expect(tab.location.href).toBe("/docs/user/");
+    expect(tab.location.href).toBe("/docs/user/screens/workspace-ide/");
     expect(tab.opener).toBeNull();
     expect(session).toHaveBeenCalledTimes(1);
     expect(tab.close).not.toHaveBeenCalled();

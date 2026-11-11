@@ -168,3 +168,10 @@ Its columns are those of *Pipelines Status*, and two more:
 Its buttons, *Refresh*, *Set Filters*, *Set Session Id*, *Set Request Id* and *Clear Filters*, work
 as on *Pipelines Status*, and the filters are the same ones: a filter set on either tab applies to
 both. No run here can be acted on, so it has no check boxes.
+
+## See also
+
+- [Run a pipeline](/docs/user/how-to/run-a-pipeline/)
+- [Delete a session](/docs/user/how-to/delete-a-session/)
+- [Look at loaded data](/docs/user/how-to/look-at-loaded-data/)
+- [Read a run's process errors](/docs/user/how-to/read-process-errors/)

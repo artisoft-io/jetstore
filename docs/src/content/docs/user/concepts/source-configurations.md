@@ -99,3 +99,9 @@ of the workspace. Only a new *kind* of data, a new object type, needs the worksp
 
 Every column of the tables behind these pages, `source_config` and `process_mapping`, is listed in the
 [system tables](/docs/developer/reference/generated/system-tables/) reference.
+
+## See also
+
+- [Source Configuration](/docs/user/screens/flows/source-configuration/)
+- [Source Mapping](/docs/user/screens/flows/source-mapping/)
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)

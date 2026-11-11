@@ -97,3 +97,7 @@ shows the tick boxes, and **Remove** takes the selected source out of the set.
 The summary shows the **Client**, the **Process Name**, the frequency and the mode, the
 **Description**, which can still be changed, the **Data Sources** (the main, merged and historical
 ones), and the rule configuration. **Save** saves the pipeline configuration and returns to the list.
+
+## See also
+
+- [Run a pipeline](/docs/user/how-to/run-a-pipeline/)

@@ -60,3 +60,7 @@ Each load runs on the installation, apart from the screen. Follow it on
 [File Loader Status](/docs/user/screens/file-loader-status/), from *Source Mapping*'s *Loader
 Status*: it shows `submitted`, then `completed` with its record counts, or `failed` with its error.
 *View Loaded Data* there opens the loaded rows.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)

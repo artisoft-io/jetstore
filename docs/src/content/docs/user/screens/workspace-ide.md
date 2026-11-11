@@ -94,3 +94,8 @@ A compiled view shows what the last compile made of a section, read from `worksp
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last
 compile, so it does not show an edit until the workspace is compiled again.
+
+## See also
+
+- [Work on a workspace](/docs/user/how-to/work-on-a-workspace/)
+- [Your first rule change](/docs/user/tutorials/first-rule-change/)

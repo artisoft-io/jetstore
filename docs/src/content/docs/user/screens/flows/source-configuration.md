@@ -104,3 +104,8 @@ Three pages of text, each optional:
 The summary shows the **Client**, **Vendor/Org**, **Object Type**, **Staging Table Name**, **File
 Format**, single or multi-part, and whether deliveries are cumulative. **Save** saves the source
 configuration, clearing the settings its format does not use, and returns to the list.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)
+- [Your first pipeline](/docs/user/tutorials/first-pipeline/)

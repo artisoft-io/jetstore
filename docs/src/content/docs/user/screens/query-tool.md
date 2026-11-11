@@ -41,3 +41,7 @@ statement.
 The tables that hold a client's data are described by the workspace's data model; JetStore's own
 tables are listed in the Developer's Guide, under
 [System tables](/docs/developer/workspace/system-tables/).
+
+## See also
+
+- [Query the data](/docs/user/how-to/query-the-data/)

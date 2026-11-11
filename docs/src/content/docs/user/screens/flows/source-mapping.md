@@ -60,3 +60,8 @@ One row per mapped data property:
 
 The dialog takes the mapping as CSV or tab-separated text, pasted from a spreadsheet made from
 JetStore's template; a downloaded mapping is in the same layout. **Save** loads it.
+
+## See also
+
+- [Load and map a file](/docs/user/how-to/load-and-map-a-file/)
+- [Your first pipeline](/docs/user/tutorials/first-pipeline/)

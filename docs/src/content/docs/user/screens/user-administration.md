@@ -44,3 +44,7 @@ The `system` account is the one JetStore uses to start pipelines automatically; 
 
 **The administrator account cannot be changed here.** The server refuses to deactivate, change or
 delete it, so the installation always keeps an account that can manage users.
+
+## See also
+
+- [Manage users](/docs/user/how-to/manage-users/)
