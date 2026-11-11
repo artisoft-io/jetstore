@@ -36,7 +36,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { NavLink, Outlet, useLocation, useResolvedPath } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useMatch, useResolvedPath } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { BASENAME } from "../base";
@@ -48,6 +48,7 @@ import { ApiProvider, useCan } from "./capabilities";
 import { RouteTitle } from "./documentTitle";
 import { RouteFavicon } from "./favicon";
 import { openHelp } from "./helpTopics";
+import { NavEntryProvider, type NavEntrySlot } from "./navEntry";
 import { NotificationsProvider, useNotifications } from "./notifications";
 import { PromptsProvider } from "./prompts";
 import {
@@ -175,24 +176,42 @@ function DisabledNavItem({ label, reason }: { label: string; reason?: string }) 
  *
  * **A remount and not `window.location.reload()`.** The token is held in memory
  * only (`api/client.ts`), so a browser reload would sign out a live session too.
+ *
+ * **Which entry is current**: the one a mounted screen claimed (`navEntry.tsx`),
+ * when one did, and no other; else the entry whose address the location is or is
+ * under, as `NavLink` decides it. A `Link` with the decision made here rather than
+ * a `NavLink`, because `NavLink` can only mark the entry its own address matches:
+ * the Runbooks screen of a workspace lives under `/workspaces/` and is reached
+ * from *Runbooks*.
  */
-function ShellNavItem({ item, onReselect }: { item: NavItem; onReselect: () => void }) {
+function ShellNavItem({
+  item,
+  claimed,
+  onReselect,
+}: {
+  item: NavItem;
+  claimed: string | null;
+  onReselect: () => void;
+}) {
   const permission = useCan(item.capability);
   const location = useLocation();
   const target = useResolvedPath(item.to);
+  const underAddress = useMatch({ path: target.pathname, end: false }) !== null;
   if (!permission.allowed) {
     return <DisabledNavItem label={item.label} {...(permission.reason ? { reason: permission.reason } : {})} />;
   }
+  const active = claimed !== null ? claimed === item.to : underAddress;
   return (
-    <NavLink
+    <Link
       to={item.to}
-      className={({ isActive }) => `navlink${isActive ? " is-active" : ""}`}
+      className={`navlink${active ? " is-active" : ""}`}
+      {...(active ? { "aria-current": "page" as const } : {})}
       onClick={() => {
         if (location.pathname === target.pathname) onReselect();
       }}
     >
       {item.label}
-    </NavLink>
+    </Link>
   );
 }
 
@@ -419,6 +438,18 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
   // routed screen, so that press remounts it (`ShellNavItem`).
   const [screenNonce, setScreenNonce] = useState(0);
   const reselect = useCallback(() => setScreenNonce((n) => n + 1), []);
+  // The top-bar entries the mounted screens claimed (`navEntry.tsx`), latest
+  // last. A list rather than one value so that a release by a screen being
+  // unmounted cannot clear the claim of the screen replacing it.
+  const [navClaims, setNavClaims] = useState<Array<{ id: number; to: string }>>([]);
+  const nextClaim = useRef(0);
+  const claimNavEntry = useCallback((to: string) => {
+    const id = ++nextClaim.current;
+    setNavClaims((claims) => [...claims, { id, to }]);
+    return () => setNavClaims((claims) => claims.filter((c) => c.id !== id));
+  }, []);
+  const navEntrySlot = useMemo<NavEntrySlot>(() => ({ claim: claimNavEntry }), [claimNavEntry]);
+  const claimedNavEntry = navClaims.at(-1)?.to ?? null;
 
   useEffect(() => api.subscribe(setUser), [api]);
 
@@ -478,7 +509,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
             isClientFilter(entry) ? (
               <ClientPicker key="client-filter" api={api} />
             ) : (
-              <ShellNavItem key={entry.to} item={entry} onReselect={reselect} />
+              <ShellNavItem key={entry.to} item={entry} claimed={claimedNavEntry} onReselect={reselect} />
             ),
           )}
         </nav>
@@ -534,7 +565,9 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
       {/* The provider wraps only the routed screen: it is the screen that may
           claim the build information for a bar of its own. */}
       <BuildInfoProvider slot={buildInfoSlot}>
-        <Outlet key={screenNonce} />
+        <NavEntryProvider slot={navEntrySlot}>
+          <Outlet key={screenNonce} />
+        </NavEntryProvider>
       </BuildInfoProvider>
 
       {/* Bottom left, after the screen; a screen with its own bottom bar takes
