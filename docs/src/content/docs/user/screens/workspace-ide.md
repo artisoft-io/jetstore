@@ -76,7 +76,10 @@ installation and not yet committed.
 | **Last Update** | When it was saved. |
 
 **Delete/Revert Changes** reverts the selected overrides, and **Delete/Revert ALL Changes** reverts
-every one, each after a confirmation: the file in the image applies again. A change that has been
+every one, each after a confirmation: the file in the image applies again. A file added since the
+installation was deployed is deleted, and the confirmation says so. **Delete/Revert ALL Changes keeps
+the compiled files** (`workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`) from the last compile,
+so compile again after reverting. A change that has been
 committed and pushed from the [Workspaces](/docs/user/screens/workspaces/) screen leaves this table.
 
 ## Compiled views

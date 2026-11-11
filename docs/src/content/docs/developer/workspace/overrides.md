@@ -62,6 +62,13 @@ The **Workspace Changes** list of the Workspace IDE (`WorkspaceChanges.tsx`, sho
 open) lists the overrides and offers *Delete/Revert Changes* and *Delete/Revert ALL Changes*, the
 `delete_workspace_changes` and `delete_all_workspace_changes` actions of
 `jetsclient_ide/src/screens/documents/workspaceHome.ua.json`. A revert restores the file from the
-stash taken at start-up, and deletes the override only once the file is restored; a file the stash
-does not hold is refused with a message, and its override is kept. In dev mode the apiserver takes no
-stash, so a revert is refused unless one was taken by hand under `$WORKSPACES_HOME/ws:stash/`.
+stash taken at start-up, and deletes the override only once the file is restored. **A file added
+since the stash was taken is deleted** (`addedSinceStash`, `jets/datatable/wsfile/delete_changes.go`):
+the workspace has a stash, the stash has no copy, and the name is not one the stash leaves out on
+purpose (`.git`, `.github`, `.gitignore`, `lookup.db`, `workspace.db`). The confirmation before each
+revert says so. Any other file the stash does not hold is refused with a message, and its override
+is kept. In dev mode the apiserver takes no stash, so a revert is refused, and nothing is deleted,
+unless one was taken by hand under `$WORKSPACES_HOME/ws:stash/`. *Delete/Revert ALL Changes* keeps the
+compiled assets (`wsfile.CompiledAssets`: `workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`),
+their rows and their files; until November 2026 it deleted their rows and put the start-up `.tgz` files
+back over the compiled ones.

@@ -1281,8 +1281,12 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 	// restored, so it is a deletion with no counterpart -- which is a different
 	// act from the revert here, and the reason one is gated and the other is not.
 	//
-	// Delete all workspace changes and restaure from stash
-	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, false)
+	// Delete all workspace changes and restaure from stash. **The compiled
+	// assets are kept** (wsfile.CompiledAssets), their rows and their files: a
+	// revert is of what a person changed, and until 2026-11-11 this also
+	// deleted the last compile's rows and put the start-up .tgz files back,
+	// which is why the button fell out of use. Compile after reverting.
+	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, true)
 	if err != nil {
 		httpStatus = http.StatusBadRequest
 		return
