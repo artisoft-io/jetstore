@@ -47,8 +47,11 @@ The rest of the Installation Guide covers:
   │ cpipesSM   │      │ cpipesNativeSM│      │  reportsSM    │   Step Functions
   └─────┬──────┘      └───────┬───────┘      └───────┬───────┘
         │                     │                      │
-  sharding / reducing   same, native image      run-reports
-  Lambdas + Fargate                             Fargate task
+  sharding / reducing   same, with the native   run-reports
+  Lambdas, node Lambda  node Lambda             Fargate task
+  or Fargate task, and  (DEPLOY_CPIPES_NATIVE)
+  Python node Lambda
+  (DEPLOY_CPIPES_PYTHON)
         │
         └──────────────┬───────────────┐
                        │               │
@@ -62,7 +65,8 @@ The rest of the Installation Guide covers:
                                  │ V2 Lambda  │
                                  └────────────┘
 
-  Optional: infer service (EC2 GPU, Ollama) · private REST API · SQS ingest · purge data
+  Optional: cpipesNativeSM · Python node Lambda · infer service (EC2 GPU, Ollama or vLLM) ·
+            private REST API · SQS ingest · purge data
 ```
 
 | Layer | Resources |
@@ -70,7 +74,7 @@ The rest of the Installation Guide covers:
 | **Edge** | ALB (`UIELB`), WAFv2 web ACL, optional private REST API Gateway |
 | **Compute — services** | UI service (Fargate), infer service (EC2/GPU, optional) |
 | **Compute — tasks** | Compute Pipes task, Run Reports task — both Fargate, started by state machines |
-| **Compute — Lambdas** | 14 functions; 7 always built, 7 conditional (see [stack components](/docs/install/reference/stack-components/)) |
+| **Compute — Lambdas** | Up to 15 functions; 7 built by default, 8 conditional (see [stack components](/docs/install/reference/stack-components/)) |
 | **Orchestration** | `cpipesSM`, `cpipesNativeSM` (optional), `reportsSM` (unless `JETS_SKIP_REPORTS_SM`) |
 | **Data** | Aurora Serverless v2 Postgres, S3 bucket, 4 Secrets Manager secrets |
 | **Network** | VPC with public/private/isolated subnets, 19 VPC endpoints (fewer with `JETS_VPC_ENDPOINTS_EXCLUDE`), 4 core security groups (2 more conditional) |

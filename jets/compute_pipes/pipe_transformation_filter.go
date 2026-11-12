@@ -6,7 +6,8 @@ import (
 )
 
 // Filter operator. Filter input records based on filter criteria.
-// Note: Automatically filter the bad rows (ie rows w/o the expected number of columns)
+// With row_length_strict, a row without the input channel's number of columns is dropped; otherwise
+// rows of any length are filtered by the when expression like the rest.
 type FilterTransformationPipe struct {
 	cpConfig         *ComputePipesConfig
 	source           *InputChannel

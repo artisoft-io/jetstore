@@ -72,10 +72,11 @@ you are inside this repo.
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ..
 make clean
-make objlib jets_static jets -j8
-# Run C++ tests
-ctest
-# Or directly: build/jets/jets_test
+make objlib jets_static jets jets_test -j8
+# Run C++ tests: they are registered in build/jets, so ctest in build/ finds none
+ctest --test-dir jets
+# Or directly, from its own directory (some tests open test_data by a relative path):
+(cd jets && ./jets_test)
 ```
 
 A parent checkout may configure a *second*, independent build tree over these sources (the
@@ -104,9 +105,10 @@ See `dockerfiles/Dockerfile.cpipes_builder` — multi-stage build that compiles 
 
 ### C++ Tests (Google Test)
 ```bash
-cd build && ctest
-# Or: build/jets/jets_test
+ctest --test-dir build/jets        # the tests are registered in build/jets; `ctest` in build/ finds none
+(cd build/jets && ./jets_test)     # directly: run from build/jets, where test_data is copied
 ```
+`jets_test` run from any other directory fails the tests that open `test_data` by a relative path.
 Test files: `jets/**/*_test.cc` — covers RDF graph, RETE session, expression operators, and meta-store.
 
 ### Go Tests
@@ -233,7 +235,7 @@ PostgreSQL is the primary database. Schema files:
 ## CDK / Infrastructure
 
 AWS CDK infrastructure is in `cdk/`:
-- `cdk/bootstrap_aws/` — bootstrap resources (S3, ECR, secrets)
+- `cdk/bootstrap_aws/` — the GitHub OIDC provider and the role a GitHub workflow deploys with (no S3, ECR or secrets; the CDK bootstrap and the ECR repositories are separate steps, see `docs/src/content/docs/install/how-to/bootstrap-an-account.md`)
 - `cdk/jetstore_one/` — main stack: ECS Fargate, Lambda, RDS, Step Functions, VPC
 - `cdk/vpc_peering/` — VPC peering utility
 
