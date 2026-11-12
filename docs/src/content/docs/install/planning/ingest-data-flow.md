@@ -69,6 +69,30 @@ event type, which is why two stacks sharing a bucket need non-overlapping prefix
 for keys ending in `/`, and branches on prefix: `doFileKey` for the input prefix, `doFileSchema` for
 the schema-triggers prefix. A key matching neither is logged as *untracked* and dropped.
 
+**Before either, a re-delivered event is set aside.** One write of a file can reach the Lambda more
+than once: S3 delivers each event at least once, and Lambda retries an invocation that returned an
+error or timed out with the same event. `claimEvent`
+(`cdk/jetstore_one/lambdas/register_keys/registerkey/event_claim.go`) records the event in
+`jetsapi.s3_object_event` by its key and its **sequencer**, a value S3 sets anew for every write of a
+key and repeats in a re-delivery:
+
+| The event's row | What the delivery does |
+|---|---|
+| none | registers the file, and marks the row `done` |
+| `done` | nothing: the file was registered |
+| `started`, by an invocation that may still be running | nothing |
+| `started`, longer ago than an invocation can run | registers the file: the earlier invocation timed out, perhaps before starting every pipeline |
+
+An invocation that fails with an error deletes its row, so Lambda's retry registers the file.
+**A retry after a timeout therefore still registers the file a second time**, starting again the
+pipelines the timed-out invocation had already started, since nothing records which those were.
+A timeout is possible because starting a pipeline can wait on the state-machine lock (step 8) for
+longer than the Lambda's 30 seconds.
+**Writing the file again is a new event**, with a new sequencer, and registers it again, as it should.
+The check is skipped, and the file registered as before, for an event with no sequencer (one not built
+by S3, such as a site entry point's own) and when the row cannot be written (the table not yet
+migrated). Rows are removed after seven days.
+
 **3 — Key parsing.** `doFileKey` calls `SplitFileKeyIntoComponents`
 (`jets/utils/split_file_key_components.go`), which splits the key on `/` and takes every `k=v` segment
 as a field, so the S3 layout carries the metadata:
@@ -154,8 +178,8 @@ on the state-machine lock for longer than the Lambda's timeout.
 
 **9 — Input registry.** One row per domain key, skipping the special `jets:hashing_override`. The
 table is unique on `(client, org, object_type, table_name, session_id)`, and every registration
-reserves a new session, so **re-delivering the same S3 event registers the file again and starts its
-pipelines again**. S3 delivers an event at least once, so a duplicate start is possible, though rare.
+reserves a new session, so each registration of a file starts its pipelines anew. That is what writing
+the file again should do; a re-delivery of one write is stopped at step 2.
 
 `RegisterFileKeys` returns `registered`, the number of rows that registered input, and `skipped` (up
 to 100 rows, each with its reason) with `skipped_count`. A request in which nothing registered is

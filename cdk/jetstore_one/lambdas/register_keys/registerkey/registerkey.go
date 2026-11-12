@@ -20,6 +20,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -65,6 +66,31 @@ var registerFileKeys = func(dtCtx *datatable.DataTableContext,
 // code must not reassign them.
 var downloadSchemaEvent = func(fileKey, versionId string, w io.WriterAt) (int64, error) {
 	return awsi.DownloadVersionFromS3WithRetry(downloader, awsBucket, fileKey, versionId, nil, w)
+}
+
+// claimS3Event is claimEvent, a variable so processMessage's tests can run
+// without a database. Production code must not reassign it.
+var claimS3Event = func(ctx context.Context, dbpool *pgxpool.Pool, fileKey, sequencer string,
+	inFlight time.Duration) (bool, string, error) {
+	return claimEvent(ctx, dbpool, fileKey, sequencer, inFlight)
+}
+
+// releaseS3Event deletes the event's row after a failed registration, so that
+// Lambda's retry registers the file. A failure is logged: the retry then finds
+// the row started and takes it over once the in-flight window has passed.
+var releaseS3Event = func(fileKey, sequencer string, dbpool *pgxpool.Pool) {
+	if err := releaseEvent(context.Background(), dbpool, fileKey, sequencer); err != nil {
+		log.Printf("WARNING %v", err)
+	}
+}
+
+// completeS3Event marks the event registered. A failure is logged: the row stays
+// started, and a re-delivery after the in-flight window registers the file again,
+// which is what happened to every re-delivery before the record existed.
+var completeS3Event = func(fileKey, sequencer string, dbpool *pgxpool.Pool) {
+	if err := completeEvent(context.Background(), dbpool, fileKey, sequencer); err != nil {
+		log.Printf("WARNING %v", err)
+	}
 }
 
 var registerSchemaEvent = func(dtCtx *datatable.DataTableContext, dbpool *pgxpool.Pool,
@@ -138,16 +164,46 @@ func handler(ctx context.Context, s3Event events.S3Event) error {
 	return nil
 }
 
-func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3EventRecord) error {
+func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3EventRecord) (err error) {
 	fileKey, err := url.QueryUnescape(record.S3.Object.Key)
 	if err != nil {
 		return fmt.Errorf("while unescaping file key: %v", err)
 	}
 	fileSize := record.S3.Object.Size
-	log.Printf("S3 event: key: %s, size: %d\n", fileKey, fileSize)
+	sequencer := record.S3.Object.Sequencer
+	log.Printf("S3 event: key: %s, size: %d, sequencer: %s\n", fileKey, fileSize, sequencer)
 	if strings.HasSuffix(fileKey, "/") {
 		// bailing out
 		return nil
+	}
+
+	// A re-delivery of an event already registered, or being registered, registers
+	// nothing (event_claim.go). An event with no sequencer was not built by S3 and
+	// is registered as it always was. A failure to record the event does not hold
+	// up the file: it is registered unchecked, as it was before the record existed.
+	tracked := strings.HasPrefix(fileKey, s3InputPrefix) || strings.HasPrefix(fileKey, s3SchemaPrefix)
+	if tracked && sequencer != "" {
+		claimed, status, claimErr := claimS3Event(ctx, dbpool, fileKey, sequencer, inFlightWindow(ctx))
+		switch {
+		case claimErr != nil:
+			log.Printf("WARNING registering %s without the duplicate check: %v", fileKey, claimErr)
+		case !claimed:
+			log.Printf("S3 event for %s (sequencer %s) is a re-delivery of one already %s; not registered again",
+				fileKey, sequencer, status)
+			return nil
+		default:
+			defer func() {
+				if r := recover(); r != nil {
+					releaseS3Event(fileKey, sequencer, dbpool)
+					panic(r)
+				}
+				if err != nil {
+					releaseS3Event(fileKey, sequencer, dbpool)
+					return
+				}
+				completeS3Event(fileKey, sequencer, dbpool)
+			}()
+		}
 	}
 
 	token, err := user.CreateToken(systemUser)
