@@ -13,7 +13,9 @@ against the `jetstore` Go module.
 
 This was carried out on 2026-11-11 with a scratch workspace module: a register-key handler was
 written, built under a Go workspace, and bundled by a `cdk synth` of the stack. The synth then stopped
-at the AWS account lookup, as it does without credentials, so nothing was deployed.
+at the AWS account lookup, as it does without credentials, so nothing was deployed. Step 2's script was
+run the same way, with a synth given a cached availability-zone lookup, which bundled the handler and
+completed.
 
 ## The five Lambdas a workspace can supply
 
@@ -91,17 +93,29 @@ before writing one.
 ## 2. Build it against JetStore
 
 A workspace module does not `require` the `jetstore` module. **The JetStore import resolves through a
-Go workspace that lists both repositories**, created in a directory above both checkouts:
+Go workspace that lists both repositories**, in the first directory above both checkouts.
+`utils/compose_workspace_go_work.sh` writes it:
 
 ```bash
-cd <directory above both checkouts>
-go work init ./jetstore ./example_ws
-cd example_ws
+utils/compose_workspace_go_work.sh <jetstore checkout> <workspace checkout>
+cd <workspace checkout>
 go build -o /tmp/bootstrap ./go/lambdas/register_keys
 ```
 
-That built here in 3 seconds. With `GOWORK=off` the same build fails with `no required module provides
-package github.com/artisoft-io/jetstore/...`, which is what any build outside the composition gives.
+The script finds that directory, runs `go work init` there with both checkouts as relative paths, and
+then checks that a build in the workspace uses this `go.work` and resolves
+`github.com/artisoft-io/jetstore` to the checkout given. A `go.work` already there that uses both is left
+alone. It changes nothing, and says why, when the workspace has no `go.mod` at its root, when one
+checkout is inside the other, when a `go.work` nearer the workspace would be found first, or when the
+directory already holds a `go.work` that does not use both. With `--check` it only checks, and exits 1
+when the composition is missing, so a deploy script can run it before `cdk synth`.
+
+**Run it rather than `go work init` by hand when any directory above has a `go.work` of its own.**
+`go work init` then takes that file as the one to create and stops with `go.work already exists`; the
+script names the file to write.
+
+A build outside the composition fails: with `GOWORK=off` the build above gives `no required module
+provides package github.com/artisoft-io/jetstore/...`.
 
 ## 3. Point the stack at it
 
@@ -127,10 +141,10 @@ it. Read it before the diff.
 
 ## What the code does not provide
 
-**Nothing in this repository creates the Go workspace that step 2 needs at deploy time.** The stack
-requires that the handler's module resolve `github.com/artisoft-io/jetstore`, and leaves it to the
-scripts that run `cdk` for an installation, which are not part of this repository. The images are the
-one place JetStore composes a workspace itself:
+**The stack does not compose the Go workspace that step 2 needs.** It requires that the handler's
+module resolve `github.com/artisoft-io/jetstore`, and leaves it to whatever runs `cdk` for an
+installation to run `utils/compose_workspace_go_work.sh` first, or `--check` it. The images compose one
+themselves:
 `dockerfiles/Dockerfile.cpipes_builder_ws` runs `go work init` over the JetStore source and the
 workspace at `/`, and builds the site's entries for the compute-pipes ECS task and the native node
 Lambda (`JETS_CPIPES_TASK_ENTRY`, `JETS_CPIPES_NATIVE_LAMBDA_ENTRY`). Those two are image build
