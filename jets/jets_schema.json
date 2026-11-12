@@ -531,6 +531,53 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "s3_object_event",
+    "description": "One row per S3 object-created event the register-key lambda has taken, so the same event delivered again is not registered twice. S3 delivers an event at least once, and Lambda retries an invocation that failed or timed out with the same event. Rows older than seven days are removed by the lambda.",
+    "columns": [
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The object key, as the lambda reads it from the event."
+      },
+      {
+        "columnName": "sequencer",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The event's sequencer, which S3 sets for each write of a key: a repeat of one event carries the same value, a new write of the key a new one."
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "started while an invocation registers the event, done once it has. A started row older than the lambda can run belongs to an invocation that died, and the next delivery takes it over."
+      },
+      {
+        "columnName": "started_at",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "completed_at",
+        "dataType": "datetime"
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "s3_object_event_started_at_idx",
+        "indexDef": "INDEX s3_object_event_started_at_idx ON jetsapi.s3_object_event (started_at)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "s3_object_event_unique_cstraint",
+        "definition": "CONSTRAINT s3_object_event_unique_cstraint UNIQUE (file_key, sequencer)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "source_config",
     "columns": [
       {
