@@ -80,6 +80,10 @@ var inlineGatedActions = map[string]string{
 	// resubmit_pipeline does after its insert, so it asks for the same authority
 	// (2026-11-05, the Pipeline Status screen's Check Pending button).
 	"start_pending_tasks": "CapabilityRunPipelines",
+	// Copies the selected sessions' runs into pending ones and starts nothing
+	// (JM-185, 2026-11-12). It inserts what resubmit_pipeline inserts, so it asks
+	// for the same authority; the work is a DataTableContext method, gated here.
+	"resubmit_sessions_as_pending": "CapabilityRunPipelines",
 	// Read the closure of the selected sessions, and queue it for deletion and
 	// start the executor (session_registry Phase 2, 2026-11-08). The work is a
 	// method on DataTableContext that does not gate itself: the arm does, so the
@@ -111,7 +115,7 @@ var ungatedActions = map[string]string{
 // It is pinned here because a document wanted to cite it and cited 21, from
 // counting a grep output by eye. A number a test can hold should not be a number
 // prose asserts.
-const dataTableActionCount = 27
+const dataTableActionCount = 28
 
 // apiserverEffectMarkers are the tells that an inline arm has reached the
 // database or S3. Deliberately short and deliberately a lower bound; see the

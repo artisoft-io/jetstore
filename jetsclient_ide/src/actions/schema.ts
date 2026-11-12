@@ -298,6 +298,15 @@ export const ServerActionSchema = z
      */
     "preview_session_deletion",
     "delete_sessions",
+    /**
+     * Copy the selected sessions' runs into new sessions with status `pending`,
+     * and start nothing: *Session Registry*'s *Resubmit as Pending* (JM-185,
+     * 2026-11-12). Gated by `run_pipelines` in its arm of `DoDataTableAction`,
+     * as `resubmit_pipeline` is; takes no `table`, and reads `session_id` (a
+     * string or a list) off each row of `data`, as `delete_sessions` does.
+     * Answers `{resubmitted, sessions, no_run, already_pending}`.
+     */
+    "resubmit_sessions_as_pending",
   ])
   .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
 

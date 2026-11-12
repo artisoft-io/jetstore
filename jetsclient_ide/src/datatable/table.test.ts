@@ -367,6 +367,9 @@ const FEATURE_KEYS = [
   // `jetsapi.session_registry_view` and `pipeline_execution_status_archive`.
   "sessionRegistryTable",
   "pipelineArchiveTable",
+  // **Six since 2026-11-12**: the Session Registry filters' process list (JM-185),
+  // a table of the tab's Set Filters dialog over `jetsapi.process_config`.
+  "srProcessTable",
 ] as const;
 
 const flowDocuments = toDocuments(tables);
@@ -421,8 +424,9 @@ describe("the emitted JSON Schema", () => {
   // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
   // **61 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` stopped choosing
   // merged and historical sources, and its three tables were retired.
-  // **63 since 2026-11-08**: Home's two new tabs (`FEATURE_KEYS`).
-  it("has the 63 configurations committed beside it, for the Go check", () => {
+  // **63 since 2026-11-08**: Home's two new tabs (`FEATURE_KEYS`). **64 since
+  // 2026-11-12**: the Session Registry filters' process list (`FEATURE_KEYS`).
+  it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
@@ -484,7 +488,7 @@ describe("the emitted JSON Schema", () => {
 });
 
 describe("the 28 configurations still translated from the flow fixture", () => {
-  it("all translate, and with the authored ones make 63", () => {
+  it("all translate, and with the authored ones make 64", () => {
     // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
     // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
     // workspace home's one, of which four are authored rather than translated. The
@@ -527,8 +531,10 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
     // Pipelines*, Home's third and fourth tabs (`session_registry` Phase 2).
-    expect(Object.keys(featureDocuments).length).toBe(5);
-    expect(Object.keys(documents).length).toBe(63);
+    // **6 and 64 since 2026-11-12**: the Session Registry filters' process list
+    // (JM-185).
+    expect(Object.keys(featureDocuments).length).toBe(6);
+    expect(Object.keys(documents).length).toBe(64);
   });
 
   it("all validate against the schema", () => {

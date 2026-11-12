@@ -52,12 +52,6 @@
       "tooltip": "Status of the session's own pipeline run"
     },
     {
-      "name": "month_period",
-      "label": "Month Period",
-      "tooltip": "Month period of the session",
-      "isNumeric": true
-    },
-    {
       "name": "last_update",
       "label": "Registered At",
       "tooltip": "When the session was registered, or deleted for a deleted one"
@@ -103,7 +97,7 @@
     "otherColumns": [
       {
         "stateKey": "sr_deletion_status",
-        "columnIdx": 11
+        "columnIdx": 10
       }
     ]
   },
@@ -143,6 +137,15 @@
         ]
       ],
       "isEnabled": "noSessionDeletionRequested"
+    },
+    {
+      "key": "resubmitSessionsAsPending",
+      "label": "Resubmit as Pending",
+      "action": "doAction",
+      "style": "secondary",
+      "actionName": "resubmitSessionsAsPending",
+      "capability": "run_pipelines",
+      "isEnabledWhenHavingSelectedRows": true
     },
     {
       "key": "refreshTable",

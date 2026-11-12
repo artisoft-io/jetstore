@@ -98,7 +98,7 @@ interface FilterStore {
   saved: Record<string, string | string[]>;
   sessionRegistryFilters: WhereClause[] | null;
   /** The Session Registry dialog's answers, which seed its next open. */
-  sessionRegistrySaved: Record<string, string>;
+  sessionRegistrySaved: Record<string, string | string[]>;
 }
 
 const store: FilterStore = {
@@ -119,7 +119,7 @@ export const savedHomeFilterState = (): Readonly<Record<string, string | string[
 /** The Session Registry tab's filters as they stand, for a `QueryContext`. */
 export const currentSessionRegistryFilters = (): WhereClause[] | null => store.sessionRegistryFilters;
 /** The Session Registry dialog's last answers, which the screen seeds it from. */
-export const savedSessionRegistryFilterState = (): Readonly<Record<string, string>> =>
+export const savedSessionRegistryFilterState = (): Readonly<Record<string, string | string[]>> =>
   store.sessionRegistrySaved;
 
 /** Empties every list, as a fresh page load would. Tests, and nothing else. */
@@ -374,24 +374,32 @@ export function homeFiltersFormValidator(
 // ---------------------------------------------------------------------------
 
 /**
- * The dialog's keys, in the order its fields are drawn and its clauses built.
+ * The dialog's text keys, in the order their clauses are built.
  *
  * Prefixed `sr` as `homeFiltersUF`'s are `hf`, because the dialog's form state is
  * a group of the screen's and a bare `source_type` there would be read by any
  * table whose where clause names it.
+ *
+ * **Changed 2026-11-12 (JM-185, from a client's sessions to delete).** The month
+ * period range is gone: a user does not know month periods, and a weekly or daily
+ * session is not found by one. In its place, a file key fragment and a range on
+ * the date in the file key, the view's `file_key_date`. The process names are
+ * the dialog's table, `SESSION_REGISTRY_PROCESS_KEY`, read as a list.
  */
 export const SESSION_REGISTRY_FILTER_KEYS = [
   "srSourceType",
-  "srMonthPeriodFrom",
-  "srMonthPeriodTo",
+  "srFileKeyFragment",
+  "srFileKeyDateFrom",
+  "srFileKeyDateTo",
   "srUpdatedFrom",
   "srUpdatedTo",
 ] as const;
 
+/** The dialog's process table: the selected process names, a list. */
+export const SESSION_REGISTRY_PROCESS_KEY = "srProcessName";
+
 /** The most digits a `session_num` holds: the view's own bound, a bigint's 18. */
 const SESSION_NUM = /^[0-9]{1,18}$/;
-/** A month period, as the view's `month_period` column holds it. */
-const DIGITS = /^[0-9]{1,9}$/;
 /** A source type: a word, as `session_registry.source_type` holds one. */
 const WORD = /^[A-Za-z0-9_]{1,40}$/;
 /** A session id in a comma list: what the server may put between quotes. */
@@ -415,6 +423,18 @@ function instant(value: string): string | null {
   return null;
 }
 
+/**
+ * A file key fragment as a `LIKE` pattern that matches it anywhere.
+ *
+ * The pattern travels as a quoted literal (`visitWhereClause`'s `sqlLiteral`), so
+ * a quote in it is data. `%` and `_`, `LIKE`'s wildcards, and the backslash that
+ * escapes them are escaped, so the fragment is matched as typed: `CI_A` does
+ * not also match `CIXA`.
+ */
+function containsPattern(fragment: string): string {
+  return `%${fragment.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
 /** The dialog's value for a key, trimmed; empty when unset. */
 function answer(formState: FormState, group: number, key: string): string {
   return (unpack(formState.getValue(group, key)) ?? "").trim();
@@ -423,10 +443,10 @@ function answer(formState: FormState, group: number, key: string): string {
 /**
  * The Session Registry dialog's field rule. The validator escape.
  *
- * One rule per kind of field: a source type is a word, a month period is
- * digits, an instant is a date or a count of units. Blank is always allowed — a
- * blank field is no filter — and the two ends of a range are checked apart, so
- * an open range is a range.
+ * One rule per kind of field: a source type is a word, an instant is a date or
+ * a count of units, a file key fragment is anything at most 200 characters long.
+ * Blank is always allowed — a blank field is no filter — and the two ends of a
+ * range are checked apart, so an open range is a range.
  */
 export function sessionRegistryFiltersValidator(
   _context: EscapeContext,
@@ -438,9 +458,10 @@ export function sessionRegistryFiltersValidator(
   switch (key) {
     case "srSourceType":
       return WORD.test(text) ? null : "A source type is one word, such as file or domain_table";
-    case "srMonthPeriodFrom":
-    case "srMonthPeriodTo":
-      return DIGITS.test(text) ? null : "A month period is digits only";
+    case "srFileKeyFragment":
+      return text.length <= 200 ? null : "A file key fragment is at most 200 characters";
+    case "srFileKeyDateFrom":
+    case "srFileKeyDateTo":
     case "srUpdatedFrom":
     case "srUpdatedTo":
       return instant(text) !== null
@@ -459,11 +480,21 @@ export function sessionRegistryFiltersValidator(
  * the user asked for is it. The answers are checked again here, although
  * `validate` ran first, because a filter that reached the store unchecked would
  * reach the server unchecked; a refusal stops the action with its message.
+ *
+ * The process names come first, as an `IN` on the view's `process_name` (the
+ * session's own run, so a file's session, which has none, is not listed).
  */
 export function updateSessionRegistryFilters(context: EscapeContext): Promise<string | null> {
   const { formState, group } = context;
   const filters: WhereClause[] = [];
-  const saved: Record<string, string> = {};
+  const saved: Record<string, string | string[]> = {};
+  const processNames = (unpackToList(formState.getValue(group, SESSION_REGISTRY_PROCESS_KEY)) ?? []).filter(
+    (name) => name !== "",
+  );
+  if (processNames.length > 0) {
+    filters.push(where({ table: SESSION_REGISTRY, column: "process_name", defaultValue: processNames }));
+    saved[SESSION_REGISTRY_PROCESS_KEY] = processNames;
+  }
   for (const key of SESSION_REGISTRY_FILTER_KEYS) {
     const text = answer(formState, group, key);
     if (text === "") continue;
@@ -474,11 +505,14 @@ export function updateSessionRegistryFilters(context: EscapeContext): Promise<st
       case "srSourceType":
         filters.push(where({ table: SESSION_REGISTRY, column: "source_type", defaultValue: [text] }));
         break;
-      case "srMonthPeriodFrom":
-        filters.push(where({ table: SESSION_REGISTRY, column: "month_period", ge: text }));
+      case "srFileKeyFragment":
+        filters.push(where({ table: SESSION_REGISTRY, column: "file_key", like: containsPattern(text) }));
         break;
-      case "srMonthPeriodTo":
-        filters.push(where({ table: SESSION_REGISTRY, column: "month_period", le: text }));
+      case "srFileKeyDateFrom":
+        filters.push(where({ table: SESSION_REGISTRY, column: "file_key_date", ge: instant(text)! }));
+        break;
+      case "srFileKeyDateTo":
+        filters.push(where({ table: SESSION_REGISTRY, column: "file_key_date", le: instant(text)! }));
         break;
       case "srUpdatedFrom":
         filters.push(where({ table: SESSION_REGISTRY, column: "last_update", ge: instant(text)! }));

@@ -834,7 +834,8 @@
         "delete_workspace_changes",
         "delete_all_workspace_changes",
         "preview_session_deletion",
-        "delete_sessions"
+        "delete_sessions",
+        "resubmit_sessions_as_pending"
       ],
       "description": "A server action an authored flow may invoke"
     },

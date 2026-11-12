@@ -138,7 +138,10 @@ func TestShippingTablesValidate(t *testing.T) {
 	// **61 -> 63 on 2026-11-08**: session_registry Phase 2 (JM-081) added Home's
 	// Session Registry and Archived Pipelines tabs (sessionRegistryTable,
 	// pipelineArchiveTable), bundled with the client.
-	if len(files) != 63 {
+	//
+	// **63 -> 64 on 2026-11-12**: the Session Registry filters' process list
+	// (srProcessTable, JM-185), a table of that tab's Set Filters dialog.
+	if len(files) != 64 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
 	for _, path := range files {

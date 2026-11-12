@@ -35,8 +35,9 @@ afterEach(resetHomeFilters);
 
 const context = (formState = new FormState()) => ({ formState, group: 0, flowKey: "homeScreen" });
 const clauses = () =>
-  (currentSessionRegistryFilters() ?? []).map(({ column, ge, le, defaultValue }) => ({
+  (currentSessionRegistryFilters() ?? []).map(({ column, ge, le, like, defaultValue }) => ({
     column,
+    ...(like !== undefined ? { like } : {}),
     ...(ge !== undefined ? { ge } : {}),
     ...(le !== undefined ? { le } : {}),
     ...(defaultValue.length > 0 ? { values: defaultValue } : {}),
@@ -84,23 +85,46 @@ describe("Set Session Id on Session Registry (Q-6)", () => {
 describe("Set Filters on Session Registry", () => {
   it("compiles every answered field, in the dialog's order, and saves the answers", async () => {
     const formState = new FormState();
+    formState.setValue(0, "srProcessName", ["Map_MedicalClaim", "Map_Eligibility"]);
     formState.setValue(0, "srSourceType", "domain_table");
-    formState.setValue(0, "srMonthPeriodTo", "320");
+    formState.setValue(0, "srFileKeyFragment", "client=CI");
+    formState.setValue(0, "srFileKeyDateFrom", "2026-09-01");
+    formState.setValue(0, "srFileKeyDateTo", "2026-10-31");
     formState.setValue(0, "srUpdatedFrom", "2026-11-01T08:30:00Z");
     formState.setValue(0, "srUpdatedTo", "12 hours");
     expect(await updateSessionRegistryFilters(context(formState))).toBeNull();
     expect(clauses()).toEqual([
+      { column: "process_name", values: ["Map_MedicalClaim", "Map_Eligibility"] },
       { column: "source_type", values: ["domain_table"] },
-      { column: "month_period", le: "320" },
+      { column: "file_key", like: "%client=CI%" },
+      { column: "file_key_date", ge: "timestamp '2026-09-01'" },
+      { column: "file_key_date", le: "timestamp '2026-10-31'" },
       { column: "last_update", ge: "timestamp '2026-11-01 08:30:00'" },
       { column: "last_update", le: "now()-interval '12 hours'" },
     ]);
     expect(savedSessionRegistryFilterState()).toEqual({
+      srProcessName: ["Map_MedicalClaim", "Map_Eligibility"],
       srSourceType: "domain_table",
-      srMonthPeriodTo: "320",
+      srFileKeyFragment: "client=CI",
+      srFileKeyDateFrom: "2026-09-01",
+      srFileKeyDateTo: "2026-10-31",
       srUpdatedFrom: "2026-11-01T08:30:00Z",
       srUpdatedTo: "12 hours",
     });
+  });
+
+  it("matches a file key fragment as typed: LIKE's wildcards and a quote are data", async () => {
+    const formState = new FormState();
+    formState.setValue(0, "srFileKeyFragment", " CI_A%x\\y'z ");
+    expect(await updateSessionRegistryFilters(context(formState))).toBeNull();
+    expect(clauses()).toEqual([{ column: "file_key", like: "%CI\\_A\\%x\\\\y'z%" }]);
+  });
+
+  it("filters no process when none is selected", async () => {
+    const formState = new FormState();
+    formState.setValue(0, "srProcessName", []);
+    expect(await updateSessionRegistryFilters(context(formState))).toBeNull();
+    expect(currentSessionRegistryFilters()).toEqual([]);
   });
 
   it("replaces the list, the session-id filter included, and blank means no filter", async () => {
@@ -122,8 +146,10 @@ describe("Set Filters on Session Registry", () => {
   it.each([
     ["srSourceType", "file", null],
     ["srSourceType", "file'", /one word/],
-    ["srMonthPeriodFrom", "313", null],
-    ["srMonthPeriodFrom", "31a", /digits only/],
+    ["srFileKeyFragment", "year=2026/month=10", null],
+    ["srFileKeyFragment", "x".repeat(201), /at most 200/],
+    ["srFileKeyDateFrom", "2026-10-31", null],
+    ["srFileKeyDateTo", "Oct 31", /Enter a date/],
     ["srUpdatedTo", "2026-11-08", null],
     ["srUpdatedTo", "2026-11-08 15:00", null],
     ["srUpdatedTo", "3 days", null],
