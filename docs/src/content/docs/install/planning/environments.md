@@ -36,7 +36,7 @@ Present in all three scenarios, three times over, from one synthesized stack:
 | Application Load Balancer | 1 | Hourly plus LCU |
 | UI Fargate service | 1 task, `DesiredCount: 1` | Continuous — 1 vCPU / 4 GiB, always running |
 | Secrets Manager secrets | 4 | Per secret per month, plus rotation invocations |
-| Lambda functions | 15 | Per invocation; idle costs nothing |
+| Lambda functions | 7 by default, up to 15 | Per invocation; idle costs nothing |
 | State machines | 3 | Per state transition |
 | ECS cluster | 1 | Free; the tasks are the cost |
 | CloudWatch log groups | many | Ingestion and 3-month retention |

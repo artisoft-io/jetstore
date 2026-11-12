@@ -241,8 +241,10 @@ execution payload, not from stack configuration. Every failure path is caught by
 ## The other two entry points
 
 **SQS.** When `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` and `EXTERNAL_SQS_ARN` are both set, a second
-Lambda consumes an external queue with batch size 1 and joins the same path. Its handler is
-installation-specific and lives outside this repository.
+Lambda consumes an external queue with batch size 1 and joins the same path. Its handler is the
+code the variable names, normally installation-specific and outside this repository. The one in it,
+`cdk/jetstore_one/lambdas/register_keys/sqs_register_keys`, is a test handler: it logs the event and
+registers nothing.
 
 **The UI.** The apiserver reaches `RegisterFileKeys` and the pipeline_execution_status insert through
 the same `datatable` code, which is why a manually started pipeline is subject to the same throttling
