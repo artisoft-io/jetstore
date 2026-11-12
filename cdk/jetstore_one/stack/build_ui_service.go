@@ -54,8 +54,6 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		"JETS_ENCRYPTION_KEY_SECRET":    jsComp.EncryptionKeySecret.SecretName(),
 		"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 		"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-		"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-		"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
 		"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
 		"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
 		"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
