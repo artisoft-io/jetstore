@@ -142,24 +142,23 @@ and how often, the build failures (`TestRenderBuildFailures`), and two that test
 rather than the operator: `TestRenderIsWiredIntoTheErrorChannelSynthesis` and
 `TestRenderIsValidatedAtStartup`.
 
-What these gave on 2026-11-11, before any change:
+What these give on 2026-11-11, once the matrix's citations were repaired:
 
 | Command | Result |
 |---|---|
 | the Go tests above | pass |
-| `check` | `ok: 142 types, 2170 fields, 46 constraints` |
+| `check` | `ok: 142 types, 2170 fields, 46 constraints` once the repaired rows are re-stamped; until then it lists them as changed since they were reviewed |
 | `reflect --check` | `model and matrix agree` |
 | `harness --code ../..` | 137 types pass, 0 fail |
 | `pytest` | 99 passed, 1 skipped |
 | `schema` | identical to the checked-in `cpipes_schema.json` |
-| `gofile` | **differs** from the checked-in `cpipes_contract_data.go` by one line: `cluster_config` of `ComputePipesConfig` is required in the matrix and not in the file |
-| `drift --code ../..` | **6 differences**: six `response_format` and `config` fields declared `jsontext.Value` in Go and `json.RawMessage` in the matrix |
-| `check --code ../..` | **2,012 problems**: citations in the matrix that no longer name their field |
+| `gofile` | identical to the checked-in `cpipes_contract_data.go` |
+| `drift --code ../..` | clean |
+| `check --code ../..` | no citation problems, when the workspaces sit beside the checkout as the corpus paths expect; without them, the 29 citations into a workspace's own code report their file as not found |
 
-**So read the last three as a baseline, not as a pass.** Run them before the change and after it,
-and compare: a new operator should add nothing to the drift or to the citation problems, and its
-regenerated `cpipes_contract_data.go` should differ from the checked-in one only by its own entries
-and by the line above.
+**Run them before the change and after it, and compare**: a new operator should add nothing to the
+drift or to the citation problems, and its regenerated `cpipes_contract_data.go` should differ from
+the checked-in one only by its own entries.
 
 ## 6. Document it
 
