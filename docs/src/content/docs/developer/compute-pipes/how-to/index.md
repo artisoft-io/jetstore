@@ -13,3 +13,7 @@ sidebar:
   from a workstation, with Python and native Go nodes in local Lambda emulators.
 - [Collect optimizer statistics for a rule process](/docs/developer/compute-pipes/how-to/collect-optimizer-statistics/): run a
   statistics process on demand, and keep its file across an upgrade or a deployment.
+
+## See also
+
+- [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/): in the Developer's Guide how-to guides.

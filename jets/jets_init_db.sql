@@ -240,6 +240,10 @@ FROM jetsapi.pipeline_execution_status_archive
 --   year, month, day  the session's source_period, as Pipelines Status shows its
 --                 runs; for a tombstone, which keeps no source_period_key, the
 --                 year and month of its month_period and no day.
+--   file_key_date the same year, month and day as a date, which the tab's File
+--                 Key Date filters compare (2026-11-12, JM-185); NULL for a
+--                 tombstone and for a period whose day is 0, the value an
+--                 unparseable day takes (JM-170), so the column never raises.
 -- Columns are only ever appended: CREATE OR REPLACE VIEW cannot drop, rename or
 -- reorder a column of a view already deployed, so a column the tab stops showing
 -- stays in the view (object_type, since the tab replaced Domain Key with the
@@ -255,7 +259,9 @@ SELECT
   ir.object_type, ir.file_key, pes.process_name, pes.status,
   sd.status AS deletion_status, sd.reason AS deletion_reason,
   sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
-  sp.year, sp.month, sp.day
+  sp.year, sp.month, sp.day,
+  CASE WHEN sp.year BETWEEN 1 AND 9999 AND sp.month BETWEEN 1 AND 12 AND sp.day BETWEEN 1 AND 31
+    THEN make_date(sp.year, sp.month, 1) + (sp.day - 1) END AS file_key_date
 FROM jetsapi.session_registry sr
 CROSS JOIN LATERAL (
   SELECT min(i.object_type) AS object_type, min(i.file_key) AS file_key
@@ -273,7 +279,7 @@ SELECT
   NULL::text AS object_type, NULL::text AS file_key, NULL::text AS process_name, NULL::text AS status,
   sd.status AS deletion_status, sd.reason AS deletion_reason,
   sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
-  spm.year, spm.month, NULL::integer AS day
+  spm.year, spm.month, NULL::integer AS day, NULL::date AS file_key_date
 FROM jetsapi.session_deletion sd
 CROSS JOIN LATERAL (
   SELECT min(p.year) AS year, min(p.month) AS month

@@ -531,6 +531,58 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "s3_object_event",
+    "description": "One row per S3 object-created event the register-key lambda has taken, so the same event delivered again is not registered twice. S3 delivers an event at least once, and Lambda retries an invocation that failed or timed out with the same event. Rows older than seven days are removed by the lambda.",
+    "columns": [
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The object key, as the lambda reads it from the event."
+      },
+      {
+        "columnName": "sequencer",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The event's sequencer, which S3 sets for each write of a key: a repeat of one event carries the same value, a new write of the key a new one."
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "started while an invocation registers the event, done once it has, failed when it returned an error. A failed row, or a started row older than the lambda can run (its invocation died), is taken over by the next delivery, which resumes the registration."
+      },
+      {
+        "columnName": "started_at",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
+        "columnName": "completed_at",
+        "dataType": "datetime"
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "description": "The input session the registration reserved, recorded before its input_registry rows are written; a delivery that takes the event over registers under it and starts only the pipelines not yet started."
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "s3_object_event_started_at_idx",
+        "indexDef": "INDEX s3_object_event_started_at_idx ON jetsapi.s3_object_event (started_at)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "s3_object_event_unique_cstraint",
+        "definition": "CONSTRAINT s3_object_event_unique_cstraint UNIQUE (file_key, sequencer)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "source_config",
     "columns": [
       {
@@ -1553,6 +1605,18 @@
         "columnName": "session_id",
         "dataType": "text",
         "isNotNull": true
+      },
+      {
+        "columnName": "locked_at",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true,
+        "description": "When the lock was taken. A lock older than five minutes is taken over: no holder keeps it that long, so its holder died without releasing it."
+      },
+      {
+        "columnName": "lock_token",
+        "dataType": "text",
+        "description": "Set anew each time the lock is taken; a holder releases the lock only while it still holds its own token."
       }
     ]
   },

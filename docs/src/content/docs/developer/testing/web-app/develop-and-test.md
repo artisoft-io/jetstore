@@ -64,3 +64,7 @@ JETS_API_ORIGIN=https://localhost:8443 npm run dev   # apiserver on :8443
 It serves on `http://localhost:5173/` and proxies `/dataTable`, `/login` and the other endpoints to
 the apiserver, so there is no CORS involved and the app still sees a same-origin path. The proxy sets
 `secure: false` for the `:8443` case, whose certificate is self-signed.
+
+## See also
+
+- [Add a screen or a user flow](/docs/developer/how-to/add-a-screen-or-user-flow/).

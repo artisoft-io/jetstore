@@ -65,7 +65,14 @@
         [
           {
             "field": "label",
-            "text": "Leave a field blank for no filter. Saving replaces the tab's filters, a session id filter included."
+            "text": "Leave a field blank for no filter. Saving replaces the tab's filters, a session id filter included. A file's session has no process name, so selecting a process lists only the sessions of its runs."
+          }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "srProcessName",
+            "table": "srProcessTable"
           }
         ],
         [
@@ -76,24 +83,29 @@
             "hint": "file or domain_table",
             "autofocus": true,
             "maxLength": 40
+          },
+          {
+            "field": "text",
+            "key": "srFileKeyFragment",
+            "label": "File Key Contains",
+            "hint": "Any portion of the file key, such as medical_claims",
+            "maxLength": 200
           }
         ],
         [
           {
             "field": "text",
-            "key": "srMonthPeriodFrom",
-            "label": "From Month Period",
-            "hint": "As in the Month Period column",
-            "maxLength": 9,
-            "textRestriction": "digitsOnly"
+            "key": "srFileKeyDateFrom",
+            "label": "File Key Date After",
+            "hint": "The year, month and day in the file key: A date (2026-11-08), a date and time (2026-11-08T15:00:00Z), or a duration ago (3 days)",
+            "maxLength": 25
           },
           {
             "field": "text",
-            "key": "srMonthPeriodTo",
-            "label": "To Month Period",
-            "hint": "As in the Month Period column",
-            "maxLength": 9,
-            "textRestriction": "digitsOnly"
+            "key": "srFileKeyDateTo",
+            "label": "File Key Date Before",
+            "hint": "The year, month and day in the file key: A date (2026-11-08), a date and time (2026-11-08T15:00:00Z), or a duration ago (3 days)",
+            "maxLength": 25
           }
         ],
         [

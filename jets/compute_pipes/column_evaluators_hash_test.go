@@ -79,7 +79,6 @@ func TestHashColumnEvalFull01(t *testing.T) {
 			t.Errorf("hash failed")
 		}
 	}
-	t.Error("done")
 }
 
 // Simulate compute domain key for domain entity using single column with override to no hashing (i.e. use the column value as is for domain key)
@@ -422,6 +421,7 @@ func TestComputeDomainKey01(t *testing.T) {
 
 	input := []any{"NAME1M19690101", "name 1", "M", "1969-01-01"}
 	hashEval := &HashEvaluator{
+		inputPos:          -1, // the composite key, as NewHashEvaluator sets it
 		compositeInputKey: compositeInputKey,
 		computeDomainKey:  true,
 		hashingAlgo:       HashingAlgo_None,
@@ -457,6 +457,7 @@ func TestComputeDomainKey02(t *testing.T) {
 
 	input := []any{"NAME1M19690101", "name 1", "m", "1969-01-01"}
 	hashEval := &HashEvaluator{
+		inputPos:          -1, // the composite key, as NewHashEvaluator sets it
 		compositeInputKey: compositeInputKey,
 		computeDomainKey:  true,
 		hashingAlgo:       HashingAlgo_SHA1,

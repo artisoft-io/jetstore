@@ -93,10 +93,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
-			"DEPLOY_CPIPES_NATIVE":                     jsii.String("0"),
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
-			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_PIVOT_YEAR_TIME_PARSING":             jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
@@ -117,7 +115,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
 			"WORKSPACES_HOME": jsii.String("/tmp/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
@@ -160,10 +157,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			MemorySize:           jsii.Number(memLimit),
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Environment: &map[string]*string{
-				"DEPLOY_CPIPES_NATIVE":                     jsii.String("1"),
 				"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 				"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
-				"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 				"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
 				"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 				"JETS_PIVOT_YEAR_TIME_PARSING":             jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
@@ -184,7 +179,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 				"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 				"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-				"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 				"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 				"LOG_LEVEL":                                jsii.String("INFO"),
@@ -308,7 +302,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
-			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_PIVOT_YEAR_TIME_PARSING":             jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
 			"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
@@ -328,7 +321,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			// Built-in error reporting (gap 26). Both are read by
 			// SynthesizeDefaultErrorChannels, which runs in the two starter lambdas and
 			// nowhere else: the node reads the synthesised configuration back out of
@@ -393,7 +385,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
-			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_PIVOT_YEAR_TIME_PARSING":             jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
 			"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
@@ -413,7 +404,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			// Built-in error reporting (gap 26). Both are read by
 			// SynthesizeDefaultErrorChannels, which runs in the two starter lambdas and
 			// nowhere else: the node reads the synthesised configuration back out of

@@ -9,6 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
@@ -77,7 +78,7 @@ var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, 
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
 var docsDir = flag.String("DOCS_DEPLOYMENT_DIR", "/usr/local/lib/docs", "Documentation site (docs/) static directory, served under /docs/")
-var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
+var adminEmail = flag.String("adminEmail", "", "Login of the built-in administrator, need not be an email (default JETS_ADMIN_EMAIL, else admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
 var listenAddr = flag.String("listenAddr", "", "Address to listen on, as host:port or :port (default :8080 with -usingSshTunnel, else :8443; env JETS_LISTEN_ADDR)")
@@ -102,6 +103,18 @@ func resolveServerAddr(flagValue, envValue string, usingSshTunnel bool) string {
 	}
 }
 
+// resolveAdminLogin returns the built-in administrator's login: the -adminEmail
+// flag, else JETS_ADMIN_EMAIL, else "admin". The secret-rotation Lambda reads the
+// same variable with the same default (user.AdminLoginFromEnv), so the user whose
+// password it rotates is the user the apiserver creates. Set the flag only where
+// no rotation runs, such as a local instance.
+func resolveAdminLogin(flagValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	return user.AdminLoginFromEnv()
+}
+
 func main() {
 	utils.UseJetStoreLogger()
 	flag.Parse()
@@ -118,13 +131,7 @@ func main() {
 	if docsDirEnv != "" {
 		*docsDir = docsDirEnv
 	}
-	if *adminEmail == "" {
-		*adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
-		if *adminEmail == "" {
-			hasErr = true
-			errMsg = append(errMsg, "Admin email (-adminEmail) must be provided.")
-		}
-	}
+	*adminEmail = resolveAdminLogin(*adminEmail)
 	if *awsAdminPwdSecret == "" && *adminPwd == "" {
 		*awsAdminPwdSecret = os.Getenv("AWS_JETS_ADMIN_PWD_SECRET")
 		*adminPwd = os.Getenv("JETS_ADMIN_PWD")
@@ -216,7 +223,7 @@ func main() {
 	log.Println("Got argument: awsRegion", *awsRegion)
 	log.Println("Got argument: serverAddr", serverAddr)
 	log.Println("Got argument: tokenExpiration", *tokenExpiration, "min")
-	log.Println("Got argument: adminEmail len", len(*adminEmail))
+	log.Println("Got argument: adminEmail", *adminEmail)
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
 	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)

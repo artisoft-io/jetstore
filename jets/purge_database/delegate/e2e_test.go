@@ -505,6 +505,8 @@ func TestE2EEverySessionTableCleared(t *testing.T) {
 			(session_id, process_name, cpipes_step_id, nbr_nodes, total_input_files_size_mb, total_input_records_count,
 			 total_output_records_count) VALUES ($1, 'proc', 'reducing0', 1, 1, 10, 10)`, c.id)
 		s.exec(`UPDATE jetsapi.pipeline_execution_status SET input_session_id = $1 WHERE session_id = $1`, c.id)
+		s.exec(`INSERT INTO jetsapi.s3_object_event (file_key, sequencer, status, session_id)
+			VALUES ('key-' || $1, '01', 'done', $1)`, c.id)
 	}
 	ids := []string{msID(ago(now, 40), 1), msID(ago(now, 40), 2)}
 	rows, err := pool.Query(bg, `SELECT c.table_name FROM information_schema.columns c

@@ -1,9 +1,9 @@
 ---
 title: Deploy the stack
-description: Prerequisites, the deploy, the first deploy of a new stack, and the checks to run afterwards.
+description: Prerequisites, the deploy, and the first deploy of a new stack.
 kind: how-to
 sidebar:
-  order: 1
+  order: 3
 ---
 
 Everything the stack needs is an environment variable read at synth time. The variables a synth
@@ -15,8 +15,8 @@ block headed *Expected Env Variables* in `cdk/jetstore_one/jetstore_one.go`.
 
 | | |
 |---|---|
-| CDK bootstrap | `utils/cdk_bootstrap.sh` (runs `cdk bootstrap $CDK_BOOTSTRAP_ARG`), once per account/region |
-| Images in ECR | `jetstore` (UI + run reports) and `cpipes`; plus `infer` and the cpipes native lambda image if those are enabled |
+| CDK bootstrap | `utils/cdk_bootstrap.sh` (runs `cdk bootstrap $CDK_BOOTSTRAP_ARG`), once per account/region; see [Bootstrap an account](/docs/install/how-to/bootstrap-an-account/) |
+| Images in ECR | `jetstore` (UI + run reports) and `cpipes`; plus `infer` and the cpipes native lambda image if those are enabled; see [Build and deploy a workspace](/docs/install/how-to/build-and-deploy-a-workspace/) |
 | Local toolchain | Go (the app is `go run jetstore_one.go`), the `cdk` CLI, and AWS credentials for the target account |
 | Network reachability | Synth performs a live `GET https://api.github.com/meta` when `JETS_GIT_ACCESS` names github, and **panics if it fails** |
 
@@ -72,12 +72,6 @@ creates the cluster but no JetStore schema.
 
 ## Check the deployment
 
-```bash
-aws cloudformation describe-stacks --stack-name "${JETS_STACK_ID:-JetstoreOneStack}" --query 'Stacks[0].Outputs'
-```
-
-- `UiListenerUrl` responds; the ALB health check is `/healthcheck/status` on container port 8443.
-- The UI service has a running task; a task that starts and dies is usually the workspace copy in
-  `cbooter` failing, visible in the `UiContainerLogGroup`.
-- If the API was expected, `JetsApiUrl` is present.
-- If infer was expected, `InferListenerUrl` is present and `PersistentVolumeId` names a volume.
+Run the checks in [Verify a deployment](/docs/install/how-to/verify-a-deployment/): the stack's
+outputs, the UI service, the apiserver's start-up log, signing in, the documentation, a compile and a
+pipeline run.

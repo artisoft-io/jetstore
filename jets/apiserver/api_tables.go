@@ -132,18 +132,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			ERROR(w, 400, err)
 			return
 		}
-		// The workspace binding is taken as it stands now rather than copied from
-		// the run being resubmitted: a resubmission runs under today's compiled
-		// workspace, and copying the old row's version would assert the opposite.
-		stmt := `INSERT INTO jetsapi.pipeline_execution_status (
-								pipeline_config_key, main_input_registry_key, main_input_file_key,
-								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email,
-								workspace_name, workspace_version)
-							(SELECT
-								pipeline_config_key, main_input_registry_key, main_input_file_key,
-								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2,
-								NULLIF($4, ''), (SELECT MAX(version) FROM jetsapi.workspace_version)
-							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
+		// datatable.ResubmitPipelineStmt says what is copied and what is not.
+		stmt := datatable.ResubmitPipelineStmt
 		// The copy reads the same input sessions as the runs it copies, so it is
 		// guarded as InsertPipelineExecutionStatus guards a start: in one
 		// transaction, each input session locked and refused with 409 when it is
@@ -210,6 +200,18 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		results = &map[string]any{"pending_count": pending}
 		code = 200
+
+	case "resubmit_sessions_as_pending":
+		// Session Registry's Resubmit as Pending (JM-185, 2026-11-12): copies the
+		// selected sessions' runs into new sessions with status pending and starts
+		// nothing, so the sessions they replace can be deleted before Check Pending
+		// starts them (datatable.ResubmitSessionsAsPending). It inserts what
+		// resubmit_pipeline inserts, so it asks for the capability that arm asks for.
+		if code, err = ctx.RequireCapability(datatable.CapabilityRunPipelines, token); err != nil {
+			ERROR(w, code, err)
+			return
+		}
+		results, code, err = ctx.ResubmitSessionsAsPending(&dataTableAction, user, os.Getenv("WORKSPACE"))
 
 	case "preview_session_deletion":
 		// The sessions a Delete of the selected ones would delete: each selected

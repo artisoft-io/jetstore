@@ -78,16 +78,25 @@ const registryRows: (string | null)[][] = [
 /**
  * `session_registry_view` rows, positional in `sessionRegistryTable.tc.json`'s
  * column order: session_id, client, source_type, year, month, day, file_key,
- * process_name, status, month_period, last_update, deletion_status,
+ * process_name, status, last_update, deletion_status,
  * deletion_reason, deletion_requested_by, deletion_requested_at, session_num,
  * source_period_key. A live file session, a mapping session with a deletion
  * queued, and a user's tombstone.
  */
 const sessionRows: (string | null)[][] = [
-  ["1001", "acme", "file", "2026", "11", "1", "s3://in/claims.csv", null, null, "313", "2026-11-01 10:00", null, null, null, null, "1001", "7"],
-  ["2002", "(unknown)", "domain_table", "2026", "11", "2", null, "map_records", "completed", "313", "2026-11-02 10:00", "pending", "user", "u@x", "2026-11-08 09:00", "2002", "7"],
-  ["3003", "acme", "file", "2026", "11", null, null, null, null, "313", "2026-11-04 10:00", "done", "user", "u@x", "2026-11-03 09:00", "3003", null],
+  ["1001", "acme", "file", "2026", "11", "1", "s3://in/claims.csv", null, null, "2026-11-01 10:00", null, null, null, null, "1001", "7"],
+  ["2002", "(unknown)", "domain_table", "2026", "11", "2", null, "map_records", "completed", "2026-11-02 10:00", "pending", "user", "u@x", "2026-11-08 09:00", "2002", "7"],
+  ["3003", "acme", "file", "2026", "11", null, null, null, null, "2026-11-04 10:00", "done", "user", "u@x", "2026-11-03 09:00", "3003", null],
 ];
+
+/** `process_config` rows, as the Session Registry filters' process list reads them. */
+const processRows: (string | null)[][] = [["Map_MedicalClaim"], ["Map_Eligibility"]];
+
+/** What `/dataTable` answers to `resubmit_sessions_as_pending`. */
+const resubmitSessionsResponse: { status: number; body: unknown } = {
+  status: 200,
+  body: { resubmitted: 1, sessions: ["9009"], no_run: [], already_pending: [] },
+};
 
 /** `pipeline_execution_status_archive` rows: the pipelines columns, then archived_at and archive_reason. */
 const archiveRows: (string | null)[][] = [
@@ -194,7 +203,9 @@ function stubServer() {
               ? sessionRows
               : from === "pipeline_execution_status_archive"
                 ? archiveRows
-                : registryRows;
+                : from === "process_config"
+                  ? processRows
+                  : registryRows;
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
       case "raw_query": {
@@ -222,6 +233,10 @@ function stubServer() {
         });
       case "preview_session_deletion":
         return new Response(JSON.stringify(previewResponse.body), { status: previewResponse.status });
+      case "resubmit_sessions_as_pending":
+        return new Response(JSON.stringify(resubmitSessionsResponse.body), {
+          status: resubmitSessionsResponse.status,
+        });
       case "delete_sessions":
         return new Response(JSON.stringify(deleteResponse.body), { status: deleteResponse.status });
       case "put_schema_event_to_s3":
@@ -1274,24 +1289,42 @@ describe("Session Registry and Archived Pipelines (G.2)", () => {
     await openTab("Session Registry", SESSION_MARKER);
     fireEvent.click(button("Set Filters"));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText(/Source Type/), { target: { value: "file" } });
-    fireEvent.change(within(dialog).getByLabelText(/From Month Period/), { target: { value: "300" } });
+    // The process list is the dialog's own table, over process_config (JM-185).
+    await within(dialog).findByText("Map_MedicalClaim");
+    await selectRow("Map_MedicalClaim");
+    expect(within(dialog).queryByLabelText(/Month Period/)).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText(/Source Type/), { target: { value: "domain_table" } });
+    fireEvent.change(within(dialog).getByLabelText(/File Key Contains/), { target: { value: "client=CI" } });
+    fireEvent.change(within(dialog).getByLabelText(/File Key Date Before/), { target: { value: "2026-10-31" } });
     fireEvent.change(within(dialog).getByLabelText(/Registered After/), { target: { value: "3 days" } });
-    fireEvent.change(within(dialog).getByLabelText(/Registered Before/), { target: { value: "2026-11-08" } });
+    fireEvent.change(within(dialog).getByLabelText(/Registered Before/), { target: { value: "2026-11-01" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
       expect(whereOf(posts, "session_registry_view")).toEqual([
-        { table: "session_registry_view", column: "source_type", values: ["file"] },
-        { table: "session_registry_view", column: "month_period", ge: "300" },
+        { table: "session_registry_view", column: "process_name", values: ["Map_MedicalClaim"] },
+        { table: "session_registry_view", column: "source_type", values: ["domain_table"] },
+        { table: "session_registry_view", column: "file_key", like: "%client=CI%" },
+        { table: "session_registry_view", column: "file_key_date", le: "timestamp '2026-10-31'" },
         { table: "session_registry_view", column: "last_update", ge: "now()-interval '3 days'" },
-        { table: "session_registry_view", column: "last_update", le: "timestamp '2026-11-08'" },
+        { table: "session_registry_view", column: "last_update", le: "timestamp '2026-11-01'" },
       ]),
     );
-    // Reopened, it holds the answers that set the filters.
+    // Reopened, it holds the answers that set the filters, the process included.
     fireEvent.click(button("Set Filters"));
     const again = await screen.findByRole("dialog");
-    expect(within(again).getByLabelText(/Source Type/)).toHaveProperty("value", "file");
+    expect(within(again).getByLabelText(/Source Type/)).toHaveProperty("value", "domain_table");
+    expect(within(again).getByLabelText(/File Key Contains/)).toHaveProperty("value", "client=CI");
+    const processRow = (await within(again).findByText("Map_MedicalClaim")).closest("tr")!;
+    await waitFor(() =>
+      expect((within(processRow).getByRole("checkbox") as HTMLInputElement).checked).toBe(true),
+    );
+  });
+
+  it("has no Month Period column", async () => {
+    await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    expect(screen.queryByRole("columnheader", { name: /Month Period/ })).toBeNull();
   });
 
   it("keeps the dialog open over a time it cannot read, and filters nothing", async () => {
@@ -1386,6 +1419,36 @@ describe("Session Registry's Delete (G.3)", () => {
     expect(body["expected"]).toBeUndefined();
     expect((await screen.findByRole("status")).textContent).toMatch(/^Deletion queued/);
     await waitFor(() => expect(readsOf(posts, "session_registry_view").length).toBeGreaterThan(before));
+  });
+
+  it("resubmits the selected sessions as pending once confirmed, and starts nothing", async () => {
+    const { posts } = await openRegistry();
+    const resubmits = () => posts.filter((p) => p.body["action"] === "resubmit_sessions_as_pending");
+    expect((button("Resubmit as Pending") as HTMLButtonElement).disabled).toBe(true);
+    await selectRow("2002");
+    expect((button("Resubmit as Pending") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(button("Resubmit as Pending"));
+    expect(await answerConfirm("OK")).toMatch(/^Resubmit the runs of the selected sessions as pending\?/);
+    await waitFor(() => expect(resubmits()).toHaveLength(1));
+    expect(resubmits()[0]!.body["data"]).toEqual([{ session_id: ["2002"] }]);
+    expect((await screen.findByRole("status")).textContent).toMatch(/^Resubmitted as pending/);
+    expect(posts.filter((p) => p.body["action"] === "start_pending_tasks")).toHaveLength(0);
+  });
+
+  it("posts nothing when Resubmit as Pending is cancelled", async () => {
+    const { posts } = await openRegistry();
+    await selectRow("2002");
+    fireEvent.click(button("Resubmit as Pending"));
+    await answerConfirm("Cancel");
+    expect(posts.filter((p) => p.body["action"] === "resubmit_sessions_as_pending")).toHaveLength(0);
+  });
+
+  it("does not offer Resubmit as Pending to a user without run_pipelines", async () => {
+    loginCapabilities = ["jetstore_read", "delete_session"];
+    await mount();
+    await openTab("Session Registry", SESSION_MARKER);
+    await selectRow("2002");
+    expect((button("Resubmit as Pending") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("reports a 409 and asks the user to select again", async () => {

@@ -110,3 +110,7 @@ installer. How to regenerate the projections is in
 It stayed at `tools/cpipes_contract/projections/`, because it is a config rather than a document: the
 one the wizard produced when the shipped engine walked this projection. It is evidence for the
 generator and would be wrong to install into a workspace's `pipes_config`.
+
+## See also
+
+- [Add a screen or a user flow](/docs/developer/how-to/add-a-screen-or-user-flow/): to write a flow of your own.

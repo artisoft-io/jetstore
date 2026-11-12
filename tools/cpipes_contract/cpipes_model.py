@@ -397,7 +397,7 @@ class EmbedSpec(_Base):
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     connect_timeout_sec: int | None = Field(default=None, description="Connection and tls handshake timeout. Engine default: 10 (builder).")
     error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where row-level errors are reported, on the process_errors channel spec.")
-    is_debug: bool | None = Field(default=None, description="Log the prompt and the response of every record.")
+    is_debug: bool | None = Field(default=None, description="Log the text sent and the response of every record.")
     keep_alive: str | None = Field(default=None, description="How long the model stays resident between calls. Engine default: 30m (builder).")
     max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel. Engine default: 50 (builder).")
     max_input_count: int | None = Field(default=None, description="Cap on the records sent to the model. A cost guard.")
@@ -407,8 +407,8 @@ class EmbedSpec(_Base):
     options: dict[str, Any] | None = Field(default=None, description="Passed to ollama as options, eg num_ctx.")
     output_mapping: list[InferMappingSpec] | None = Field(default=None, description="Additional mappings, applied on top of the synthesized vector mapping.")
     pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
-    prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
-    prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
+    prompt_template: str | None = Field(default=None, description="The template rendering the text to embed from the record's columns, inline.")
+    prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document: the template rendering the text to embed.")
     request_timeout_sec: int | None = Field(default=None, description="Timeout of a single request attempt. Engine default: 120 (builder).")
     retry_wait_sec: int | None = Field(default=None, description="Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).")
     row_key_column: str | None = Field(default=None, description="Column identifying the record in the error reports (row_jets_key).")
@@ -539,33 +539,33 @@ class InferMappingSpec(_Base):
 
 class InferSpec(_Base):
     """Configuration of the backend-agnostic infer operator: the backend, the model, the prompt and response mapping, the request policy, and each backend's specialized keys."""
-    api: Literal["chat", "completions"] | None = Field(default=None, description="The OpenAI-compatible route to call: chat (/v1/chat/completions) or completions (/v1/completions). Engine default: chat (builder).")
+    api: Literal["chat", "completions"] | None = Field(default=None, description="The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: chat (builder).")
     backend: str | None = Field(default=None, description="Which inference server this step runs against. Engine default: ollama (builder).")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     connect_timeout_sec: int | None = Field(default=None, description="Connection and tls handshake timeout. Engine default: 10 (builder).")
     disable_strip_code_fences: bool | None = Field(default=None, description="Turn off the removal of markdown code fences around the response.")
     error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where row-level errors are reported, on the process_errors channel spec.")
     is_debug: bool | None = Field(default=None, description="Log the prompt and the response of every record.")
-    keep_alive: str | None = Field(default=None, description="How long the model stays resident between calls. Engine default: 30m (builder).")
+    keep_alive: str | None = Field(default=None, description="ollama only, inert on vllm: how long the model stays resident between calls. Engine default: 30m (builder).")
     max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel. Engine default: 50 (builder).")
     max_input_count: int | None = Field(default=None, description="Cap on the records sent to the model. A cost guard.")
     max_retry: int | None = Field(default=None, description="Retries on timeout, connection error, 429 and 5xx. Engine default: 2 (builder).")
-    model: str = Field(description="The model the vLLM server was started with.")
+    model: str = Field(description="The model: the tag ollama runs, or the model the vLLM server was started with.")
     on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record that failed. Engine default: pass_through (builder).")
-    options: dict[str, Any] | None = Field(default=None, description="Sampling parameters, merged into the request body at the top level: temperature, max_tokens, top_p, and vLLM's own extensions.")
+    options: dict[str, Any] | None = Field(default=None, description="Sampling parameters, passed to the backend: as ollama's options, eg temperature, num_ctx; on vllm, merged into the request body at the top level, eg temperature, max_tokens, top_p.")
     output_mapping: list[InferMappingSpec] = Field(description="How the response maps onto the record's columns.")
     pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
     prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
     prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
     provenance_schema_name: str | None = Field(default=None, description="Names a provenance schema of the workspace, provenance/<name>.pv.json, turning on the per-field provenance check of jets/agentic/briefing.")
     request_timeout_sec: int | None = Field(default=None, description="Timeout of a single request attempt. Engine default: 120 (builder).")
-    response_format: str | dict[str, Any] | None = Field(default=None, description="The string \"json\" or a json schema document, translated into what vLLM constrains generation with.")
+    response_format: str | dict[str, Any] | None = Field(default=None, description="The string \"json\" or a json schema document: passed to ollama as format, or translated into what vLLM constrains generation with.")
     retry_wait_sec: int | None = Field(default=None, description="Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).")
     row_key_column: str | None = Field(default=None, description="Column identifying the record in the error reports (row_jets_key).")
-    server: OllamaServerSpec | None = Field(default=None, description="How to reach the vLLM server.")
-    structured_output: Literal["guided_json", "json_schema"] | None = Field(default=None, description="How the promoted response_format reaches the server: guided_json is vLLM's own parameter, json_schema the OpenAI-compatible one, named and strict. Engine default: json_schema (builder).")
+    server: OllamaServerSpec | None = Field(default=None, description="How to reach the infer server; on vllm, url is in practice required, since the JETS_INFER_URL fallback names the Ollama service.")
+    structured_output: Literal["guided_json", "json_schema"] | None = Field(default=None, description="vllm only, inert on ollama: how the promoted response_format reaches the server: guided_json is vLLM's own parameter, json_schema the OpenAI-compatible one, named and strict. Engine default: json_schema (builder).")
     system_prompt: str | None = Field(default=None, description="The system message.")
-    think: bool | None = Field(default=None, description="Passed to ollama as think, for reasoning models.")
+    think: bool | None = Field(default=None, description="ollama only, inert on vllm: passed to ollama as think, for reasoning models.")
 
 
 class InputChannelConfigBase(_Base):
@@ -1424,7 +1424,7 @@ class TransformationSpecBase(_Base):
 
 class TransformationSpecOllama(TransformationSpecBase):
     """Calls the infer server once per record and augments the record in place with values extracted from the model response."""
-    type: Literal["ollama"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["ollama"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the ollama operator maps through output_mapping instead.")
     ollama_config: OllamaSpec = Field(description="Configuration of the ollama operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1432,7 +1432,7 @@ class TransformationSpecOllama(TransformationSpecBase):
 
 class TransformationSpecEmbed(TransformationSpecBase):
     """Calls the infer server's embeddings endpoint once per record and puts the resulting vector on the record."""
-    type: Literal["embed"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["embed"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the ollama operator maps through output_mapping instead.")
     embed_config: EmbedSpec = Field(description="Configuration of the embed operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1440,7 +1440,7 @@ class TransformationSpecEmbed(TransformationSpecBase):
 
 class TransformationSpecVllm(TransformationSpecBase):
     """Calls a vLLM server's OpenAI-compatible api once per record and augments the record in place with values extracted from the model response."""
-    type: Literal["vllm"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm.")
+    type: Literal["vllm"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the vllm operator maps the response through output_mapping instead.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     vllm_config: VllmSpec = Field(description="Configuration of the vllm operator.")
@@ -1448,7 +1448,7 @@ class TransformationSpecVllm(TransformationSpecBase):
 
 class TransformationSpecPartitionWriter(TransformationSpecBase):
     """Writes the records of its input channel to partition files."""
-    type: Literal["partition_writer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["partition_writer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations applied before the write.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1457,7 +1457,7 @@ class TransformationSpecPartitionWriter(TransformationSpecBase):
 
 class TransformationSpecMapRecord(TransformationSpecBase):
     """Maps the input record onto the output channel's columns."""
-    type: Literal["map_record"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["map_record"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations. The operator's payload.")
     map_record_config: MapRecordSpec | None = Field(default=None, description="Optional file_mapping table driving the mapping, with its error channel.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1466,7 +1466,7 @@ class TransformationSpecMapRecord(TransformationSpecBase):
 
 class TransformationSpecAggregate(TransformationSpecBase):
     """Aggregate the input records to a single output record"""
-    type: Literal["aggregate"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["aggregate"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     new_record: bool = Field(description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1474,7 +1474,7 @@ class TransformationSpecAggregate(TransformationSpecBase):
 
 class TransformationSpecAnalyze(TransformationSpecBase):
     """Analyze each columns of the input records, emit a record per column with various metrics to the output channel"""
-    type: Literal["analyze"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["analyze"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     analyze_config: AnalyzeSpec = Field(description="Configuration of the analyze operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1483,7 +1483,7 @@ class TransformationSpecAnalyze(TransformationSpecBase):
 
 class TransformationSpecHighFreq(TransformationSpecBase):
     """Analyze selected column and send to output channel their top percentile values"""
-    type: Literal["high_freq"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["high_freq"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     high_freq_columns: list[HighFreqSpec] = Field(description="Configuration of the high_freq operator: the columns to analyze.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1492,7 +1492,7 @@ class TransformationSpecHighFreq(TransformationSpecBase):
 
 class TransformationSpecAnonymize(TransformationSpecBase):
     """Anonymize or de-identify input records using an analysis lookup identifying columns containing sensitive data."""
-    type: Literal["anonymize"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["anonymize"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     anonymize_config: AnonymizeSpec = Field(description="Configuration of the anonymize operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1500,28 +1500,28 @@ class TransformationSpecAnonymize(TransformationSpecBase):
 
 class TransformationSpecDistinct(TransformationSpecBase):
     """Filter the input records to retain a single record per composite key value, records sent to the output channel have a distinct composite key."""
-    type: Literal["distinct"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["distinct"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     distinct_config: DistinctSpec = Field(description="Configuration of the distinct operator: the composite key.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecShuffling(TransformationSpecBase):
     """Shuffle data on a per-column basis for retained columns specified in a lookup. The number of input records is capped by configuration. The number of generated output records is also specified by configuration."""
-    type: Literal["shuffling"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["shuffling"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     shuffling_config: ShufflingSpec = Field(description="Configuration of the shuffling operator.")
 
 
 class TransformationSpecGroupBy(TransformationSpecBase):
     """Group the input records into bundles using a composite key. Each output records correspond to a bundle where each element of the output record contains an input record."""
-    type: Literal["group_by"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["group_by"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     group_by_config: GroupBySpec = Field(description="Configuration of the group_by operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecFilter(TransformationSpecBase):
     """Apply a filter to input records, sending retained records to the output channel. Cap the number of retained records if specified."""
-    type: Literal["filter"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["filter"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     filter_config: FilterSpec | None = Field(default=None, description="Configuration of the filter operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1530,21 +1530,21 @@ class TransformationSpecFilter(TransformationSpecBase):
 
 class TransformationSpecSort(TransformationSpecBase):
     """Sort the input records in memory, send the sorted records to output channel."""
-    type: Literal["sort"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["sort"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     sort_config: SortSpec = Field(description="Configuration of the sort operator.")
 
 
 class TransformationSpecMerge(TransformationSpecBase):
     """Merge sorted records from multiple channels using a grouping composite key. All input channels must be sorted using the same logical sort order. Bundled records are sent to the output channel, each element of the output records correspond to an input record."""
-    type: Literal["merge"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["merge"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     merge_config: MergeSpec = Field(description="Configuration of the merge operator: the channels to merge and how to group them.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecJetrules(TransformationSpecBase):
     """Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correspond to an output channel."""
-    type: Literal["jetrules"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["jetrules"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     jetrules_config: JetrulesSpec = Field(description="Configuration of the jetrules operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1552,7 +1552,7 @@ class TransformationSpecJetrules(TransformationSpecBase):
 
 class TransformationSpecClustering(TransformationSpecBase):
     """Compute the correlation between sets of columns identified by classification via a lookup table."""
-    type: Literal["clustering"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    type: Literal["clustering"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     clustering_config: ClusteringSpec = Field(description="Configuration of the clustering operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1560,7 +1560,7 @@ class TransformationSpecClustering(TransformationSpecBase):
 
 class TransformationSpecInfer(TransformationSpecBase):
     """Calls an inference server once per record and augments the record in place with values extracted from the model response, against whichever backend the deployment names."""
-    type: Literal["infer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm.")
+    type: Literal["infer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the vllm operator maps the response through output_mapping instead.")
     infer_config: InferSpec = Field(description="Configuration of the backend-agnostic infer operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")

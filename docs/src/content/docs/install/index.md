@@ -13,17 +13,24 @@ CloudFormation stack, `cdk/jetstore_one`, whose composition is decided by enviro
 at synth time. The guide has three parts.
 
 - **[Planning](/docs/install/planning/)**: what the stack contains and how it is wired, its network
-  and security, running several stacks in one account, arranging DEV, UAT and PROD, how a file
-  becomes a pipeline run, and the inference server's memory.
-- **[How-to guides](/docs/install/how-to/)**: deploy the stack and check it, deploy a second stack
-  in a shared VPC, tear a stack down, find why a file did not start a pipeline, build the inference
-  server's AMI, start and stop the inference server, and run against a local checkout.
+  and security, [sizing](/docs/install/planning/sizing/), [customising an
+  installation](/docs/install/planning/customise-an-installation/), running several stacks in one
+  account, arranging DEV, UAT and PROD, how a file becomes a pipeline run, and the inference server's
+  memory.
+- **[How-to guides](/docs/install/how-to/)**: [bootstrap an
+  account](/docs/install/how-to/bootstrap-an-account/), [build and deploy a
+  workspace](/docs/install/how-to/build-and-deploy-a-workspace/), [deploy the
+  stack](/docs/install/how-to/deploy/), [verify a deployment](/docs/install/how-to/verify-a-deployment/),
+  [upgrade to a release](/docs/install/how-to/upgrade-to-a-release/), [rotate
+  secrets](/docs/install/how-to/rotate-secrets/), [peer a VPC](/docs/install/how-to/peer-vpcs/), deploy a
+  second stack in a shared VPC, tear a stack down, find why a file did not start a pipeline, build the
+  inference server's AMI, start and stop the inference server, and run against a local checkout.
 - **[Reference](/docs/install/reference/)**: the stack's components, the variables a deployment
-  requires, and the stack's outputs.
+  requires, [the variables the running services read](/docs/install/reference/environment-variables/),
+  [the container images](/docs/install/reference/images/), and the stack's outputs.
 
-Start with [Architecture](/docs/install/planning/architecture/), then
-[Deploy the stack](/docs/install/how-to/deploy/).
+Start with [Architecture](/docs/install/planning/architecture/), then follow the how-to guides in
+their order: bootstrap the account, build the images, deploy, verify.
 
-Not yet covered here: bootstrapping an account (`cdk/bootstrap_aws`), VPC peering
-(`cdk/vpc_peering`), sizing, building and deploying a workspace, upgrading to a new release,
-rotating secrets, and the container images.
+The how-to guides that act in AWS are written from the scripts and code they call, each named in its
+first paragraph.

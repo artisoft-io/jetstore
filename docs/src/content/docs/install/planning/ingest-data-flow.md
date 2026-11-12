@@ -10,9 +10,9 @@ sidebar:
 happens between a file landing in S3 and a Step Functions execution starting, which components are
 involved, and the four points where a file is accepted and nothing runs.
 
-Code paths are in `jets/`, not in `cdk/jetstore_one` — the Lambda handler is
-`cdk/jetstore_one/lambdas/register_keys/register_keys_v2/main.go`, but almost all the logic is in
-`jets/datatable`.
+Almost all the logic is in `jets/datatable`, not in `cdk/jetstore_one`: the Lambda's own code is the
+package `cdk/jetstore_one/lambdas/register_keys/registerkey`, and it hands each file to
+`RegisterFileKeys` in `jets/datatable/register_file_key_action.go`.
 
 ## The path
 
@@ -21,31 +21,35 @@ Code paths are in `jets/`, not in `cdk/jetstore_one` — the Lambda handler is
         │  filtered by prefix (and suffix, if JETS_SENTINEL_FILE_NAME is set)
         ▼
   registerKeyV2 Lambda ──── key under JETS_s3_SCHEMA_TRIGGERS ──▶ doFileSchema
-        │                                                          downloads + registers
-        │ key under JETS_s3_INPUT_PREFIX                           a SchemaProviderSpec
-        ▼
-  SplitFileKeyIntoComponents      k=v path segments -> client, org, object_type, year, month, day
-        │
-        ▼
-  RegisterFileKeys
-        │  1. InsertSourcePeriod(y,m,d)          -> source_period_key
-        │  2. lookup jetsapi.source_config       -> table_name, is_part_files, domain_keys
-        │  3. multi-part gate (see below)
-        │  4. INSERT jetsapi.file_key_staging
-        │  5. reserveSessionId                   -> session_id
-        │  6. INSERT jetsapi.input_registry      (one row per domain key)
+        │                                                          downloads the event file,
+        │ key under JETS_s3_INPUT_PREFIX                           RegisterSchemaEvent per event
+        ▼                                                                │
+  doFileKey: SplitFileKeyIntoComponents, "size" from the event          │
+        │  site hook (BeforeRegister), when one is deployed             │
+        ▼                                                                ▼
+  RegisterFileKeys  ◀──────────────────────────────────────── one row, IsSchemaEvent
+        │  readRegisterFileKeyRow on every row, before any write  (400 on a bad row)
+        │  per row:
+        │  updateFileKeyComponentCase, InsertSourcePeriod(y,m,d)  -> source_period_key
+        │  no file_key                                -> skipped
+        │  lookup jetsapi.source_config               -> table_name, is_part_files, domain_keys
+        │  part-file gate (see below)
+        │  upsert jetsapi.file_key_staging
+        │  no source_config, or no domain key         -> staged, skipped
+        │  reserveSessionId, RegisterSession          -> session_id
+        │  INSERT jetsapi.input_registry              (one row per domain key)
         ▼
   StartPipelinesForInputRegistryV2
-        │  7. process_input rows matching the registry row
-        │  8. pipeline configs using those process inputs
-        │  9. INSERT jetsapi.pipeline_execution_status, status='submitted'
+        │  process_input rows matching the registry row
+        │  pipeline configs using those process inputs
+        │  INSERT jetsapi.pipeline_execution_status, status='submitted'
         ▼
   InsertRows post-processing hook
-        │ 10. process_config -> state_machine_name
-        │ 11. global lock, then throttling check -> 'pending' instead of 'submitted'
+        │  process_config -> state_machine_name
+        │  global lock, then throttling check -> 'pending' instead of 'submitted'
         ▼
   startStateMachine
-        │ 12. ARN from JETS_CPIPES_SM_ARN / JETS_CPIPES_NATIVE_SM_ARN / JETS_REPORTS_SM_ARN
+        │  ARN from JETS_CPIPES_SM_ARN / JETS_CPIPES_NATIVE_SM_ARN / JETS_REPORTS_SM_ARN
         ▼
   Step Functions execution, named by session_id
 ```
@@ -53,123 +57,171 @@ Code paths are in `jets/`, not in `cdk/jetstore_one` — the Lambda handler is
 ## Step by step
 
 **1 — The S3 notification.** **Two** notifications are registered on the bucket, both on
-`OBJECT_CREATED` (`AddEventNotification`, `cdk/jetstore_one/stack/build_registerkey_lambdas.go`): one on `JETS_s3_INPUT_PREFIX` — carrying
-`JETS_SENTINEL_FILE_NAME` as a **suffix** filter when that is set — and one on the schema-triggers
+`OBJECT_CREATED` (`AddEventNotification`, `cdk/jetstore_one/stack/build_registerkey_lambdas.go`): one on `JETS_s3_INPUT_PREFIX`, carrying
+`JETS_SENTINEL_FILE_NAME` as a **suffix** filter when that is set, and one on the schema-triggers
 prefix. The Lambda is invoked directly by S3; there is no queue in front of it. Both filter the same
 event type, which is why two stacks sharing a bucket need non-overlapping prefixes; see
 [Sharing a bucket between UAT and PROD](/docs/install/planning/environments/#sharing-a-bucket-between-uat-and-prod).
 
-**2 — Routing.** `processMessage` URL-unescapes the key, returns immediately for keys ending in `/`,
-and branches on prefix. A key matching neither prefix is logged as *untracked* and dropped.
+**2 — Routing.** The Lambda's body is the package `registerkey`
+(`cdk/jetstore_one/lambdas/register_keys/registerkey/registerkey.go`); the stock entry point,
+`register_keys_v2/main.go`, is `registerkey.Run(nil)`. `processMessage` URL-unescapes the key, returns
+for keys ending in `/`, and branches on prefix: `doFileKey` for the input prefix, `doFileSchema` for
+the schema-triggers prefix. A key matching neither is logged as *untracked* and dropped.
 
-**3 — Key parsing.** `SplitFileKeyIntoComponents` (`jets/utils/split_file_key_components.go`)
-splits the key on `/` and takes every `k=v` segment as a field, so the S3 layout carries the
-metadata:
+**Before either, a re-delivered event is set aside.** One write of a file can reach the Lambda more
+than once: S3 delivers each event at least once, and Lambda retries an invocation that returned an
+error or timed out with the same event. `claimEvent`
+(`cdk/jetstore_one/lambdas/register_keys/registerkey/event_claim.go`) records the event in
+`jetsapi.s3_object_event` by its key and its **sequencer**, a value S3 sets anew for every write of a
+key and repeats in a re-delivery:
+
+| The event's row | What the delivery does |
+|---|---|
+| none | registers the file, and marks the row `done` |
+| `done` | nothing: the file was registered |
+| `started`, by an invocation that may still be running | nothing |
+| `started`, longer ago than an invocation can run | **resumes** the registration: the earlier invocation died, typically of a timeout |
+| `failed` (the earlier invocation returned an error) | **resumes** the registration |
+
+**A registration is resumed, not repeated.** Before it writes any `input_registry` row, a registration
+records in the event's row the input session it reserved (`OnSessionReserved`). A delivery that takes
+the event over registers under that session (`ResumeSessionId`): it reuses the `input_registry` rows
+already written, and starts only the pipelines that have no run yet taking that input
+(`pipelineStartedFor`). A timeout is the usual reason to resume, because starting a pipeline can wait on
+the state-machine lock (step 13) for longer than the Lambda's 30 seconds. A schema-triggers event is
+registered afresh rather than resumed, since its file can hold several registrations.
+
+**Writing the file again is a new event**, with a new sequencer, and registers it again, as it should.
+The check is skipped, and the file registered as before, for an event with no sequencer (one not built
+by S3, such as a site entry point's own) and when the row cannot be written (the table not yet
+migrated). Rows are removed after seven days, and with their session when it is deleted.
+
+**3 — Key parsing.** `doFileKey` calls `SplitFileKeyIntoComponents`
+(`jets/utils/split_file_key_components.go`), which splits the key on `/` and takes every `k=v` segment
+as a field, so the S3 layout carries the metadata:
 
 ```
 <input-prefix>/client=ACME/vendor=SomeVendor/object_type=claims/year=2026/month=8/day=26/file.csv
 ```
 
-`vendor` is also stored as `org`. Missing or unparseable `year`/`month`/`day` default to 1970-01-01
-with a log line — **a malformed date does not fail the file**, it lands in the wrong source period.
+`vendor` is also stored as `org`. A missing `year`, `month` or `day` is 1970, 1 or 1. **A value that
+is present and not a number is logged and becomes 0**, because `strconv.Atoi` returns 0 with its
+error. Either way the file is not refused: it lands in an
+unexpected source period. `doFileKey` then sets `size` from the S3 event.
 
-**4 — Source config lookup.** `jetsapi.source_config` is queried by `(client, org, object_type)`.
-This is the first place a file can be accepted and do nothing: **no matching row means no
-`domain_keys`, so no `input_registry` row is written and no pipeline starts.**
+**A site handler can run here.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a site main
+built on `registerkey.Run` with a `registerkey.Hook` (`registerkey/hook.go`). Its `BeforeRegister` is
+called with the parsed components before the registration is built. It may add components (a
+`schema_provider_json`, for example), mark the registration as a schema event, or handle the event
+itself and return `done`, in which case nothing else is registered. A key the hook adds that
+`RegisterFileKeys` does not read is dropped there; `warnOfUnreadHookKeys` logs a warning naming it.
+The hook sees the components in whatever case the client wrote them into the path:
+`updateFileKeyComponentCase` normalises `client`, `org` and `object_type` against the registry tables
+later, inside `RegisterFileKeys`, so a hook that matches on any of the three must fold case itself. See
+[Register Key Lambda](/docs/install/reference/stack-components/#register-key-lambda-registerkeyv2).
 
-**5 — The multi-part gate.** When `source_config.is_part_files = 1`, a data source is a *folder* of
-parts rather than one file:
+**A schema event takes the other branch.** `doFileSchema` downloads the event file, at the version
+the S3 event names when the bucket is versioned, and reads it as one `SchemaProviderSpec` or a list
+of them. `RegisterSchemaEvent` (`jets/datatable/pipeline_execution.go`) sends a
+`pipeline_coordinator_map` event to its own path; any other becomes one row with `year`, `month` and
+`day` from its `file_date` (1970-01-01 when it has none or it does not parse), the event itself as
+`schema_provider_json`, and `request_id` from the event or its `${REQUEST_ID}` env entry. The action
+is marked `IsSchemaEvent`. **A schema event that registers nothing is an error**, naming the reason,
+where a file-key row that registers nothing is not.
 
-- a file with size > 1 is **skipped** — parts are not individually registered;
-- a 0-byte file is the sentinel. If `JETS_SENTINEL_FILE_NAME` is set and the key does not end with
-  it, the file is skipped too;
+**4 — Every row is read before any is written.** `RegisterFileKeys`
+(`jets/datatable/register_file_key_action.go`) first passes every row of the request through
+`readRegisterFileKeyRow`, which copies only the keys `RegisterFileKeys` reads
+(`registerFileKeysReads`: `client`, `vendor`, `org`, `object_type`, `file_key`, `year`, `month`,
+`day`, `size`, `file_size`, `schema_provider_json`, `request_id`) and converts them:
+
+- `client`, `vendor`, `org` and `object_type` must be strings;
+- `year`, `month` and `day` are converted to integers (a JSON number is read, not replaced by the
+  default); absent, they keep 1970-01-01;
+- `size` is the S3 object's size, from the event; `file_size` is a schema event's
+  (`SchemaProviderSpec.FileSize`). The size recorded for the file is `file_size` when the row has one,
+  else `size`.
+
+A row that fails a check makes the whole request a **400, and nothing is written**, so a request
+cannot leave some rows registered and others not.
+
+**5 — Source config lookup.** For each row, after the source period is inserted (retried up to four
+times on a race), a row with no `file_key` is skipped. `jetsapi.source_config` is then queried by
+`(client, org, object_type)`. A database error fails the request; **no matching row is the first place
+a file is accepted and nothing runs**. The file is still staged in step 7, so it is listed among the
+files that arrived, but no session is reserved and no `input_registry` row is written. Domain keys a
+`source_config` names twice are registered once (`uniqueDomainKeys`).
+
+**6 — The part-file gate.** When `source_config.is_part_files = 1`, a data source is a *folder* of
+parts rather than one file. The gate reads the S3 object's `size`, never a schema event's `file_size`:
+
+- an object larger than 1 byte is **skipped**: parts are not registered one by one;
+- otherwise it is the sentinel. If `JETS_SENTINEL_FILE_NAME` is set and the key does not end with it,
+  the row is skipped too, **except for a schema event**, which names a folder rather than an object;
 - on the sentinel, the file name is stripped so `file_key` becomes the **folder**, and the folder is
   listed to sum its objects into `file_size`.
 
-So for a multi-part source the pipeline is triggered by the sentinel, and the size that throttling
-later sees is the whole folder's.
+So a multi-part source is triggered by its sentinel, and the size throttling later sees is the whole
+folder's. A schema event has no `size`, so it always takes the sentinel branch. **The folder listing
+is allowed to fail**: the failure logs `Warning, got error while getting s3 folder size` and leaves
+`file_size` as it was, so the row is still written and the pipeline still starts, throttled as if
+the file had that size.
 
-**A schema event takes the same gate and reaches the sentinel branch by a different route** (added
-2026-09-16). `doFileSchema`'s registration sets
-`RegisterFileKeyAction.IsSchemaEvent` (`jets/datatable/register_file_key_action.go`) and the three bullets above
-then behave like this:
+**7 — Staging.** The row is upserted into `jetsapi.file_key_staging`, which is unique on `file_key`:
+a file registered again updates its row. A row missing a required column is skipped (`skipMissingColumn`);
+`file_size` defaults to 0. This is the second point where a file is accepted and nothing runs. A row
+whose `source_config` was missing, or names no domain key other than `jets:hashing_override`, stops
+here.
 
-| | An S3 object event | A schema event |
-|---|---|---|
-| `file_size` | comes from the event's `size` entry | **absent** — `SchemaProviderSpec.FileSize` serialises as `file_size` (`jets/compute_pipes/pipes_model.go`) and the copying switch that builds the map has no case for that name, so the assertion yields `0` and the sentinel branch is taken |
-| the suffix test | a 0-byte file whose key does not end with `JETS_SENTINEL_FILE_NAME` is skipped | **exempt** — `!registerFileKeyAction.IsSchemaEvent` short-circuits the test (in `RegisterFileKeys`), because the event names a folder rather than a sentinel object and there is no file name to match |
-| the folder size | listed from S3 after the sentinel name is stripped | **the same listing**, and it is the only source of the size: nothing on the event carries one |
+**8 — Session.** `reserveSessionId` inserts into `jetsapi.session_reservation`, starting from the
+current time in milliseconds and retrying with the next value up to 1000 times, so session ids are
+unique under concurrent invocations. The session is registered (`schema.RegisterSession`) **before**
+the `input_registry` rows are written and the pipelines start, because starting a pipeline can wait
+on the state-machine lock for longer than the Lambda's timeout.
 
-**The size therefore comes from the folder listing rather than from the event, and the listing is
-allowed to fail.** A failure logs `Warning, got error while getting s3 folder size`
-(in `RegisterFileKeys`) and leaves `file_size` at whatever the caller supplied — `0` for a
-schema event — so the row is still written and the pipeline still starts. That is deliberate and is
-worth knowing before reading step 11: a schema-event registration whose listing failed is throttled as
-a 0-byte pipeline.
+**9 — Input registry.** One row per domain key, skipping the special `jets:hashing_override`. The
+table is unique on `(client, org, object_type, table_name, session_id)`, and every registration
+reserves a new session, so each registration of a file starts its pipelines anew. That is what writing
+the file again should do; a re-delivery of one write is stopped at step 2.
 
-**Two type assertions on this path were unchecked until 2026-09-16 and a schema event is what reached
-them.** `fileKeyObject["file_size"].(int64)` and `fileKeyObject["file_key"].(string)`
-both panicked on a nil map value — *interface conversion: interface {} is nil, not int64* and *… not
-string* — from inside `RegisterFileKeys` against an `is_part_files = 1` source. Both now use the
-two-result form: an absent `file_size` is `0`, which is the sentinel branch and is what a schema event
-wants anyway, and an absent or empty `file_key` **skips the row** with a log line rather than
-registering the bucket root (`hasFileKey`). Reproduced and tested against real
-PostgreSQL rather than reasoned about.
+`RegisterFileKeys` returns `registered`, the number of rows that registered input, and `skipped` (up
+to 100 rows, each with its reason) with `skipped_count`. A request in which nothing registered is
+still a success, because a request of many keys skips some by design.
 
-**The `file_key` guard is not only about schema events**, which is why it skips rather than defaults.
-`DoRegisterFileKeyAction` (`jets/apiserver/api_filekey.go`) unmarshals a request body straight into
-`RegisterFileKeyAction` and dispatches `register_keys` to `RegisterFileKeys`, and nothing
-validates `Data`, so an authenticated `{"action":"register_keys","data":[{}]}` reached the same
-assertion. The other two callers cannot: `SyncFileKeys` sets `file_key` from the S3 key
-(`SyncFileKeys`, `jets/datatable/register_file_key_action.go`) and `doFileSchema` from the spec.
-
-**A site handler runs before all of this.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a
-site main built on `registerkey.Run` with a `registerkey.Hook`, whose `BeforeRegister` is called after
-the action is built and before `RegisterFileKeys` is called — so a hook sees the components in whatever
-case the client wrote them into the path. `updateFileKeyComponentCase` (`jets/datatable/register_file_key_action.go`)
-normalises `client`, `org` and `object_type` against the registry tables *inside* `RegisterFileKeys`,
-which is **after** the hook returns; a hook matching any of the three must fold case itself. See
-[Register Key Lambda](/docs/install/reference/stack-components/#register-key-lambda-registerkeyv2).
-
-**6 — Staging and session.** The row goes into `jetsapi.file_key_staging`. If any required column is
-missing from the parsed key the row is skipped entirely (`allOk`) — the second silent acceptance
-point. `reserveSessionId` then inserts into `jetsapi.session_reservation`, retrying with
-`baseSessionId + 1` up to 1000 times, so session ids are unique under concurrent Lambda invocations.
-
-**7 — Input registry.** One row per entry in `source_config.domain_keys`, skipping the special
-`jets:hashing_override`. The insert is `ON CONFLICT DO NOTHING` — **re-delivering the same S3 event
-does not start a second pipeline**, which is what makes the path idempotent per (client, org,
-domain key, file key, source period).
-
-**8 — Which pipelines are ready.** `StartPipelinesForInputRegistryV2` finds `process_input` rows
+**10 — Which pipelines are ready.** `StartPipelinesForInputRegistryV2` finds `process_input` rows
 matching the registry row on client, org, object_type, table_name and source_type, then the pipeline
 configs that use them. A config with `merged_process_input_keys` needs the *other* inputs too: the
 latest `input_registry` row for each is looked up **within the same source period**, and the pipeline
-is only queued when all are present. This is the third acceptance point — a merge pipeline waits,
+is only queued when all are present. This is the third point where a file is accepted and nothing runs — a merge pipeline waits,
 silently, for its other inputs.
 
-**9 — Submission.** Qualifying pipelines are inserted into `jetsapi.pipeline_execution_status` with
+**11 — Submission.** Qualifying pipelines are inserted into `jetsapi.pipeline_execution_status` with
 `status = 'submitted'`, `user_email = 'system'`.
 
-**10 — State machine selection is data, not configuration.** The post-processing hook in `InsertRows`
+**12 — State machine selection is data, not configuration.** The post-processing hook in `InsertRows`
 reads `state_machine_name` from `jetsapi.process_config` for the process. `cpipesSM`,
 `cpipesNativeSM` and `reportsSM` are the three values `startStateMachine` accepts; anything else is
 an error. **Whether a pipeline runs native or not is a property of the process row in the database**,
 not of `DEPLOY_CPIPES_NATIVE` — that variable only decides whether the native state machine and its
 Lambda are *deployed*.
 
-**11 — Locking and throttling.** A global lock is taken (`lockStateMachine`, keyed on the literal
-`"all"` — not per state machine), then `checkThrottling`. If the limits are exceeded the row is
-written with `status = 'pending'` instead and nothing starts. This is the fourth acceptance point,
+**13 — Locking and throttling.** A global lock is taken (`lockStateMachine`, keyed on the literal
+`"all"` — not per state machine), then `checkThrottling`. A waiter retries with a doubling wait, about
+17 minutes in all. **A lock older than five minutes is taken over** (`staleLockAfter`), since every
+holder keeps it for seconds: one that old was left by a process that died holding it, a Lambda that
+timed out or a task that was stopped. Each acquisition carries its own `lock_token`, and a holder
+releases the lock only while it still holds its token. If the limits are exceeded the row is
+written with `status = 'pending'` instead and nothing starts. This is the fourth such point,
 and the only one that resolves by itself: pending tasks are drained in `last_update ASC` order as
 running pipelines complete.
 
 `JETS_PIPELINE_THROTTLING_JSON` is `{"max_concurrent": N, "max_for_size": N, "size": GiB}`, defaulting
 to `{MaxConcurrentPipelines: 6}` when unset or unparseable. `size` is a GiB threshold above which a
 pipeline counts against the separate `max_for_size` tier — which is why the folder-size calculation in
-step 5 matters.
+step 6 matters.
 
-**12 — Start.** `awsi.StartExecution` is called with the ARN from the environment and the execution
+**14 — Start.** `awsi.StartExecution` is called with the ARN from the environment and the execution
 **named by the session id**. For the cpipes machines the input is
 `{startSharding: {pipeline_execution_key, file_key, session_id}, errorUpdate: {…}}`; for `reportsSM`
 it is a `reportsCommand` argument vector plus success and error payloads. The ARNs come from
@@ -189,8 +241,10 @@ execution payload, not from stack configuration. Every failure path is caught by
 ## The other two entry points
 
 **SQS.** When `JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` and `EXTERNAL_SQS_ARN` are both set, a second
-Lambda consumes an external queue with batch size 1 and joins the same path. Its handler is
-installation-specific and lives outside this repository.
+Lambda consumes an external queue with batch size 1 and joins the same path. Its handler is the
+code the variable names, normally installation-specific and outside this repository. The one in it,
+`cdk/jetstore_one/lambdas/register_keys/sqs_register_keys`, is a test handler: it logs the event and
+registers nothing.
 
 **The UI.** The apiserver reaches `RegisterFileKeys` and the pipeline_execution_status insert through
 the same `datatable` code, which is why a manually started pipeline is subject to the same throttling
@@ -198,3 +252,7 @@ and the same state-machine selection.
 
 When a file lands and no pipeline starts, [Find why a file did not start a pipeline](/docs/install/how-to/troubleshoot-ingest/)
 walks the path above in order.
+
+## See also
+
+- [Components, in the Developer's Guide](/docs/developer/architecture/components/): the run after registration, to its outputs.

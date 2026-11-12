@@ -565,7 +565,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // CPIPES_START_NOTIFICATION_JSON template for the cpipes start notification
 // CPIPES_COMPLETED_NOTIFICATION_JSON template for the cpipes completed notification
 // CPIPES_FAILED_NOTIFICATION_JSON template for the cpipes failed notification
-// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (optional, threshold of the database CPUUtilization alarm, in percent, default 60)
 // JETS_CUSTOM_BUTTONS_CONFIG_JSON (optional) the deployment's own buttons on the UI's Pipeline
 //	Status table, as a JSON array in the shape the Flutter UI read: each entry has a type
 //	(fetch_stage_to_clipboard), a key, a label, fsk_params, a file_path under the stage prefix
@@ -610,7 +610,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	attempted. The runtime switch is JETS_NO_GIT_ACCESS below.
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
-// DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
+// DEPLOY_CPIPES_NATIVE (optional, values: TRUE, 1, case-insensitive) builds cpipesNativeSM and its
+//
+//	node lambda CpipesNativeNodeLambda, read from CPIPES_LAMBDA_ECR_REPO_ARN at CPIPES_IMAGE_TAG. Read at
+//	synth only; it is not passed to the containers or lambdas.
+//
 // DEPLOY_CPIPES_PYTHON (optional, values: TRUE, 1, case-insensitive; anything else including
 //
 //	unset and empty leaves it off) builds the Python compute pipes node -- the
@@ -633,8 +637,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //
 //	that image). Named for the lambda, as CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN above is:
 //	the two describe one image and are read together, so they carry one prefix.
-// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
-// JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
 // JETS_NO_GIT_ACCESS (optional, values: 1/true/yes/on, case-insensitive and trimmed; anything
 //	else, including unset and including the empty string, leaves git integration on) turns the
@@ -726,7 +728,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
-// JETS_DB_POOL_SIZE (optional, default is 8, min allowed is 5, used for serverv2 running standalone as ecs task or lambda function)
+// JETS_DB_POOL_SIZE (optional, read by cpipes_native_server in the compute pipes ecs task, default 3, never less than 3)
 // CPIPES_DB_POOL_SIZE (optional, default is 3, used for cpipes node, may run jetrules as cpipes operator)
 // JETS_PIPELINE_THROTTLING_JSON json configuration ThrottlingSpec
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
@@ -828,8 +830,6 @@ func main() {
 	log.Println("env DEPLOY_CPIPES_PYTHON:", os.Getenv("DEPLOY_CPIPES_PYTHON"))
 	log.Println("env CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN"))
 	log.Println("env CPIPES_PYTHON_LAMBDA_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_LAMBDA_IMAGE_TAG"))
-	log.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
-	log.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
 	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
@@ -971,7 +971,8 @@ func main() {
 			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_DB_MAX_CAPACITY: %s", os.Getenv("JETS_DB_MAX_CAPACITY")))
 		}
 	}
-	CpuUtilizationAlarmThreshold := 80.0
+	// 60 when unset: the alarm was the literal 60 before it read this variable.
+	CpuUtilizationAlarmThreshold := 60.0
 	if os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD") != "" {
 		CpuUtilizationAlarmThreshold, err = strconv.ParseFloat(os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"), 64)
 		if err != nil {

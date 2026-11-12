@@ -8,7 +8,6 @@ import (
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -81,33 +80,45 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			},
 		})
 		if phiTagName != nil {
-			awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
 		}
 		if piiTagName != nil {
-			awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
 		}
 		if descriptionTagName != nil {
-			awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
+			awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
 		}
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
-		if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
-			rdsCluster := awsrds.DatabaseCluster_FromDatabaseClusterAttributes(stack, jsii.String("JetstoreDb"), &awsrds.DatabaseClusterAttributes{
-				ClusterIdentifier: jsii.String(os.Getenv("JETS_DB_CLUSTER_ID")),
-			})
-			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
-		}
 	}
 	// Get the vpc's from the vpc id
 	peerVpc := awsec2.Vpc_FromLookup(stack, jsii.String("PeerVPC"), &awsec2.VpcLookupOptions{
 		VpcId: jsii.String(os.Getenv("JETSTORE_VPC_ID")),
 	})
 
-	// Set up the peering connection
+	// Set up the peering connection. It sets neither PeerRegion nor PeerOwnerId, so both
+	// VPCs must be in the stack's account and region; main refuses a HOST_VPC_REGION
+	// other than AWS_REGION.
 	vpcPeeringConnection := awsec2.NewCfnVPCPeeringConnection(stack, jsii.String("VPCPeering"), &awsec2.CfnVPCPeeringConnectionProps{
 		VpcId:     vpc.VpcId(),
 		PeerVpcId: peerVpc.VpcId(),
 	})
+
+	// Open the JetStore database to the host VPC. The rule is on the database's
+	// security group and admits the host VPC's CIDR on 5432: a rule naming the
+	// bastion's security group would reference a group in the peer VPC, which only
+	// holds once the peering connection is active.
+	if dbSgId := os.Getenv("JETS_DB_SECURITY_GROUP_ID"); dbSgId != "" {
+		dbSg := awsec2.SecurityGroup_FromSecurityGroupId(stack, jsii.String("JetstoreDbSecurityGroup"), jsii.String(dbSgId),
+			&awsec2.SecurityGroupImportOptions{Mutable: jsii.Bool(true)})
+		dbSg.AddIngressRule(awsec2.Peer_Ipv4(vpc.VpcCidrBlock()), awsec2.Port_Tcp(jsii.Number(5432)),
+			jsii.String("PostgreSQL from the peered host VPC"), jsii.Bool(false))
+	} else if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
+		// JETS_DB_CLUSTER_ID imported the cluster by identifier alone, without its
+		// security groups, so it never added a rule. It is kept so a deployment that
+		// sets it is told what to set instead.
+		log.Println("WARNING JETS_DB_CLUSTER_ID adds no ingress rule: set JETS_DB_SECURITY_GROUP_ID to the database's security group to open port 5432 to the host VPC")
+	}
 
 	// keep track of route table seen to avoid duplicating entry (that would fail the stack creation)
 	rtSeen := make(map[string]bool)
@@ -163,8 +174,9 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // JETSTORE_VPC_ID (required)
 // BASTION_HOST_KEYPAIR_NAME (required if HOST_VPC_ID ommitted)
 // HOST_VPC_ID (optional, default: create a vpc w/ jump server)
-// HOST_VPC_REGION (optional, default: current region)
-// JETS_DB_CLUSTER_ID (optional, JetStore DB cluster, to allow jump server to access it)
+// HOST_VPC_REGION (optional, default: AWS_REGION; any other value is refused, the peering connection is same-region only)
+// JETS_DB_SECURITY_GROUP_ID (optional, the JetStore database cluster's security group: adds an ingress rule on 5432 from the host VPC's CIDR)
+// JETS_DB_CLUSTER_ID (optional, superseded by JETS_DB_SECURITY_GROUP_ID: adds no rule, and logs a warning saying so)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
@@ -184,6 +196,8 @@ func main() {
 	log.Println("env HOST_VPC_REGION:", os.Getenv("HOST_VPC_REGION"))
 	log.Println("env JETSTORE_VPC_ID:", os.Getenv("JETSTORE_VPC_ID"))
 	log.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	log.Println("env JETS_DB_CLUSTER_ID:", os.Getenv("JETS_DB_CLUSTER_ID"))
+	log.Println("env JETS_DB_SECURITY_GROUP_ID:", os.Getenv("JETS_DB_SECURITY_GROUP_ID"))
 	log.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
 	log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
 	log.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
@@ -206,6 +220,10 @@ func main() {
 	if os.Getenv("HOST_VPC_ID") == "" && os.Getenv("BASTION_HOST_KEYPAIR_NAME") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'BASTION_HOST_KEYPAIR_NAME' is required when HOST_VPC_ID is ommitted.")
+	}
+	if os.Getenv("HOST_VPC_REGION") != "" && os.Getenv("HOST_VPC_REGION") != os.Getenv("AWS_REGION") {
+		hasErr = true
+		errMsg = append(errMsg, "Env variable 'HOST_VPC_REGION' must be empty or equal to 'AWS_REGION': the peering connection does not cross regions.")
 	}
 	if hasErr {
 		for _, msg := range errMsg {

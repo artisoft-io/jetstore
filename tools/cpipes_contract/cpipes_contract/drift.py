@@ -27,6 +27,10 @@ _CANON = {
     "[]map[string]any": "[]map[string]interface {}",
     "rune": "int32",
     "byte": "uint8",
+    # With the module's Go (1.27), encoding/json declares `type RawMessage =
+    # jsontext.Value`, so reflection reports the alias's target. The source and the
+    # matrix keep the spelling the field is declared with.
+    "json.RawMessage": "jsontext.Value",
 }
 
 # The package whose alias declarations decide the matrix's unqualified spellings:

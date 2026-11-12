@@ -465,6 +465,5 @@ Four things that bite:
 The allow list has no `/api/generate` or `/api/chat` entry, by design — this endpoint administers
 models, it does not run inference. Prompt configuration is the operator's business — this page's §1
 and §2, and the rules in the [the inference operators page, §2.3](/docs/developer/compute-pipes/operators/infer/#23-where-a-prompt-is-declared) and §2.4. To exercise a prompt by hand, call the infer
-server directly with a chat request; the
-[infer server's verification](/docs/install/planning/infer-server-memory/#verification) does exactly that, from
-`data/unit_test_data/cintel/ollama_unit_test_chat.json` in the `jets_ws` workspace.
+server directly with a chat request on `/api/chat`; the
+[infer server's verification](/docs/install/planning/infer-server-memory/#verification) does exactly that.

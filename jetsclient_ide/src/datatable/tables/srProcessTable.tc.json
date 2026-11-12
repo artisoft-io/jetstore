@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "label": "Process Name",
+  "columns": [
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "tooltip": "The pipeline whose run produced the session"
+    }
+  ],
+  "sortColumn": "process_name",
+  "sortAscending": true,
+  "rowsPerPage": 100,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": []
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_config"
+    }
+  ]
+}

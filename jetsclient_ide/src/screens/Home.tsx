@@ -122,6 +122,7 @@ import formsJson from "./documents/homeScreen.form.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 import sessionRegistryTable from "../datatable/tables/sessionRegistryTable.tc.json";
 import pipelineArchiveTable from "../datatable/tables/pipelineArchiveTable.tc.json";
+import srProcessTable from "../datatable/tables/srProcessTable.tc.json";
 
 /**
  * The three tabs, in the Dart's order, with the Dart's labels.
@@ -175,6 +176,13 @@ const TABS = [
   { key: "pipelineArchiveTable", label: "Archived Pipelines", document: pipelineArchiveTable, caption: "" },
 ] as const;
 
+/**
+ * The tables a dialog of this screen draws, which are no tab's: the Session
+ * Registry filters' process list (JM-185, 2026-11-12). They are parsed and
+ * configured with the tabs' so a `dataTable` field finds its configuration.
+ */
+const DIALOG_TABLES = [{ key: "srProcessTable", document: srProcessTable }] as const;
+
 /** The tab the address names, or the first: an unknown key is not an error. */
 const tabIndexOf = (key: string | null): number => {
   const index = TABS.findIndex((t) => t.key === key);
@@ -207,7 +215,7 @@ const SCREEN_KEY = "homeScreen";
 const parsed = {
   forms: FormDocumentSchema.safeParse(formsJson),
   actions: ActionDocumentSchema.safeParse(actionsJson),
-  tables: TABS.filter((tab) => tab.document !== null).map((tab) => ({
+  tables: [...TABS.filter((tab) => tab.document !== null), ...DIALOG_TABLES].map((tab) => ({
     key: tab.key,
     result: TableConfigDocumentSchema.safeParse(tab.document),
   })),

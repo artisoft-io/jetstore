@@ -30,7 +30,7 @@ what stops the new instance repeating work already done.
 | Link | Where | What it does |
 |---|---|---|
 | 1 | `build_cpipes.sh` | `JETS_VERSION=$(date +%s)`, once per build run, passed as `--build-arg` to every image |
-| 2 | `Dockerfile.compile_ws` | `compile_workspace -v=${JETS_VERSION}` — **writes the version into the database** |
+| 2 | `Dockerfile.compile_ws` | `compile_workspace -v=${JETS_VERSION}` — compiles the workspace the images carry. It passes `CompileWorkspace` a nil pool, so the version only labels the compile log; the database's version is written at start-up by the apiserver (`checkWorkspaceVersion`, `jets/apiserver/server.go`), from its own `JETS_VERSION` |
 | 3 | `Dockerfile.{cpipes,cpipes_native_lambda,ui_service}` | `ENV JETS_VERSION` — what the running process compares against |
 | 4 | the process | must find the workspace at `WORKSPACES_HOME`, not merely have it in the image |
 
@@ -54,10 +54,12 @@ version in the database and the version in the runtime images come from differen
 | Image | `JETS_VERSION` | Determines |
 |---|---:|---|
 | `cpipes_builder:latest` | 1787220475 | — |
-| `compile_ws:latest` | 1787220475 | **the database's workspace version** |
-| `ui_service:latest` | 1787230645 | the apiserver's `localRepoVersion` |
+| `compile_ws:latest` | 1787220475 | the workspace compiled into the images |
+| `ui_service:latest` | 1787230645 | the apiserver's `localRepoVersion`, and the version it records in the database at start-up |
 
-They differ, so nothing ever matched. **Both halves of the fix are needed and they live in different
+They differ, so nothing ever matched. (This table records the measurement as it was taken. Since then
+`compile_workspace` writes nothing to the database, as link 2 above says, and the database's version
+is the one the apiserver records from its own image.) **Both halves of the fix are needed and they live in different
 repositories**: `ARG JETS_VERSION` in `Dockerfile.compile_ws`, and `--build-arg` on the `compile_ws`
 build in `internal/build_workspace.sh`.
 

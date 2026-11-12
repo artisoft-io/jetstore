@@ -27,7 +27,7 @@ func TestDoFileKeyWarnsOfAHookKeyNothingReads(t *testing.T) {
 	t.Cleanup(func() { log.SetOutput(saved) })
 
 	fileKey := "client=C1/vendor=V1/object_type=ot/processing_ticket=T1/data.csv"
-	if err := doFileKey(context.Background(), nil, &datatable.DataTableContext{}, fileKey, 1, ""); err != nil {
+	if err := doFileKey(context.Background(), nil, &datatable.DataTableContext{}, fileKey, 1, "", eventResume{}); err != nil {
 		t.Fatalf("doFileKey returned %v", err)
 	}
 	if len(*calls) != 1 {

@@ -19,6 +19,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -209,13 +210,14 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		if !ctx.DevMode && !dataTableAction.SkipThrottling && status == "submitted" {
 
 			// Put a lock on the stateMachineName
-			err = ctx.lockStateMachine(sessionId)
+			var lockToken string
+			lockToken, err = ctx.lockStateMachine(sessionId)
 			if err != nil {
 				httpStatus = http.StatusInternalServerError
 				err = fmt.Errorf("while getting a lock on stateMachineName '%s': %v", stateMachineName, err)
 				return
 			}
-			defer ctx.unlockStateMachine()
+			defer ctx.unlockStateMachine(lockToken)
 			ok, err = ctx.checkThrottling(fileKey)
 			if err != nil {
 				httpStatus = http.StatusInternalServerError
@@ -401,11 +403,12 @@ func (ctx *DataTableContext) StartPendingTasks() (err error) {
 	}
 
 	// Lock the state machine tasks
-	err = ctx.lockStateMachine("0")
+	var lockToken string
+	lockToken, err = ctx.lockStateMachine("0")
 	if err != nil {
 		return
 	}
-	defer ctx.unlockStateMachine()
+	defer ctx.unlockStateMachine(lockToken)
 
 	// Get the count of running pipelines and the size of their main input file
 	var submittedPipelinesCount, submittedTier1Count int64
@@ -473,32 +476,78 @@ func (ctx *DataTableContext) StartPendingTasks() (err error) {
 	return rows.Err()
 }
 
-func (ctx *DataTableContext) lockStateMachine(sessionId string) error {
-	stateMachineName := "all" // all or nothing - not per state machine anymore
-	stmt := "INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id) VALUES ($1, $2)"
-	retry := 0
-	var t time.Duration = 1 * time.Second
-do_retry:
-	// Try to insert the lock
-	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName, sessionId)
-	if err != nil {
-		if retry < 10 {
-			time.Sleep(t)
-			retry++
-			t *= 2
-			goto do_retry
-		}
-		return fmt.Errorf("failed to lock the pipeline %s: %v", stateMachineName, err)
+// staleLockAfter is the age past which the state machine lock is taken over.
+// Every holder keeps the lock for a few statements and a few state machine
+// starts, so a lock this old belongs to a process that died holding it: a
+// lambda that timed out, or a task that was stopped. Before it was taken over,
+// such a lock stayed until the session purge removed it, and every pipeline
+// start waited about 17 minutes for it and failed.
+const staleLockAfter = 5 * time.Minute
+
+// tryLockStateMachine takes the lock named name for sessionId under token when it
+// is free or older than staleAfter, in one statement. It reports whether the lock
+// was taken, and whether it was taken over from a holder that left it.
+func tryLockStateMachine(ctx context.Context, db *pgxpool.Pool, name, sessionId, token string,
+	staleAfter time.Duration) (acquired, tookOver bool, err error) {
+
+	stmt := `INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id, locked_at, lock_token)
+		VALUES ($1, $2, now(), $3)
+		ON CONFLICT (state_machine_name) DO UPDATE
+			SET session_id = EXCLUDED.session_id, locked_at = now(), lock_token = EXCLUDED.lock_token
+			WHERE pipeline_lock.locked_at < now() - make_interval(secs => $4)
+		RETURNING xmax <> 0`
+	err = db.QueryRow(ctx, stmt, name, sessionId, token, staleAfter.Seconds()).Scan(&tookOver)
+	switch {
+	case err == nil:
+		return true, tookOver, nil
+	case errors.Is(err, pgx.ErrNoRows):
+		return false, false, nil
+	default:
+		return false, false, err
 	}
-	return nil
 }
 
-func (ctx *DataTableContext) unlockStateMachine() {
+// lockStateMachine takes the state machine lock, retrying with a doubling wait
+// for about 17 minutes, and returns the token unlockStateMachine needs.
+func (ctx *DataTableContext) lockStateMachine(sessionId string) (string, error) {
 	stateMachineName := "all" // all or nothing - not per state machine anymore
-	stmt := "DELETE FROM jetsapi.pipeline_lock WHERE state_machine_name = $1"
-	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName)
-	if err != nil {
+	token := uuid.NewString()
+	var t time.Duration = 1 * time.Second
+	var err error
+	for retry := 0; ; retry++ {
+		var acquired, tookOver bool
+		acquired, tookOver, err = tryLockStateMachine(context.Background(), ctx.Dbpool,
+			stateMachineName, sessionId, token, staleLockAfter)
+		if acquired {
+			if tookOver {
+				log.Printf("WARNING session %s took over the pipeline lock '%s', held for more than %v by a process that did not release it",
+					sessionId, stateMachineName, staleLockAfter)
+			}
+			return token, nil
+		}
+		if retry >= 10 {
+			break
+		}
+		time.Sleep(t)
+		t *= 2
+	}
+	if err == nil {
+		err = errors.New("the lock is held")
+	}
+	return "", fmt.Errorf("failed to lock the pipeline %s: %v", stateMachineName, err)
+}
+
+// unlockStateMachine releases the lock if it still holds token: a lock taken over
+// since, from a holder slower than staleLockAfter, is the new holder's.
+func (ctx *DataTableContext) unlockStateMachine(token string) {
+	stateMachineName := "all" // all or nothing - not per state machine anymore
+	stmt := "DELETE FROM jetsapi.pipeline_lock WHERE state_machine_name = $1 AND lock_token = $2"
+	res, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName, token)
+	switch {
+	case err != nil:
 		log.Printf("failed to unlock pipeline '%s': %v", stateMachineName, err)
+	case res.RowsAffected() == 0:
+		log.Printf("WARNING pipeline lock '%s' was not released: it had been taken over after %v", stateMachineName, staleLockAfter)
 	}
 }
 

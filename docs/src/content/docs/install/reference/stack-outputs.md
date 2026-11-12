@@ -8,7 +8,8 @@ sidebar:
 
 The *Source* column names the file in `cdk/jetstore_one/` that declares each output.
 
-Fourteen outputs, six unconditional and eight built only when the subsystem they describe is.
+Fifteen outputs, six unconditional and nine built only when the subsystem they describe is. Every
+`CfnOutput` in `cdk/jetstore_one` is listed here.
 They are the handles a second stack, an operator or an external integration needs; see
 [Deploy a second stack in a shared VPC](/docs/install/how-to/deploy-a-second-stack/) for the case that
 consumes them.
@@ -22,7 +23,7 @@ consumes them.
 | `VpcEndpointsSGID` | Security group on the VPC endpoints — **the value a second stack passes as `JETS_VPC_ENDPOINTS_SG_ID`** | `jetstore_one.go` |
 | `JetStore_RDS_Cluster_ID` | Aurora cluster identifier (`props.MkId("jetstoreDb")`) | `jetstore_one.go` |
 | `UiListenerArn` | ALB listener ARN | `stack/build_elb.go` |
-| `UiListenerUrl` | `http://<alb-dns>:<JETS_UI_PORT>` | `stack/build_elb.go` |
+| `UiListenerUrl` | `http://<alb-dns>:<JETS_UI_PORT>`, or `https://` when `JETS_ELB_MODE` is `public` | `stack/build_elb.go` |
 
 ## Emitted when the private REST API is built
 
@@ -46,6 +47,14 @@ Requires `BUILD_INFER_SERVICE`.
 | `InferListenerUrl` | `http://<alb-dns>:<JETS_INFER_PORT>` — the value injected as `JETS_INFER_URL` | `stack/build_elb.go` |
 | `ClusterName` | ECS cluster name | `stack/build_infer_ec2.go` |
 | `PersistentVolumeId` | EBS volume holding the model weights, **retained on stack destroy** | `stack/build_infer_ec2.go` |
+
+## Emitted when the agentic detection task is built
+
+Requires `JETS_AGENTIC_DETECT_HOUR_UTC` (`BuildAgenticDetect`, `stack/build_agentic_detect.go`).
+
+| Output | Value | Source |
+|---|---|---|
+| `AgenticDetectTaskDefinitionArn` | Task definition of the daily detection task (`anomaly_detect`, then `shadow_triage`), so the task can be run by hand between schedules | `stack/build_agentic_detect.go` |
 
 ## Two things to know before consuming these
 

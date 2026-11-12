@@ -700,6 +700,31 @@ body {
 /* The app's own `confirm` and `prompt` (`shell/prompts.tsx`, jetstore_maintenance_02
    `I-39`). `pre-wrap` because a native prompt keeps the message's line breaks. */
 .prompt-dialog__message { margin: 0; white-space: pre-wrap; }
+/* The Session Registry filters (JM-185, 2026-11-12): the process list on the
+   left, beside the three rows of text fields, which the form's rows cannot say
+   (a row is horizontal and nothing stacks fields beside a table). Keyed on the
+   dialog's title, its aria-label, because a form document has no class of its
+   own; renaming the title loses the layout and nothing else. Stacked again on a
+   phone, where the dialog is full screen. */
+.uf-dialog[aria-label="Session Registry Filters"] .uf-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) 2fr;
+  column-gap: 16px;
+  align-items: start;
+}
+.uf-dialog[aria-label="Session Registry Filters"] .uf-form > * { grid-column: 1 / -1; }
+.uf-dialog[aria-label="Session Registry Filters"] .uf-form__row:has(.uf-form__table) {
+  grid-column: 1;
+  grid-row: span 3;
+  max-height: 60vh;
+  overflow: auto;
+}
+.uf-dialog[aria-label="Session Registry Filters"] .uf-form__row:not(:has(.uf-form__table, .uf-form__label)) {
+  grid-column: 2;
+}
+@media (max-width: 600px) {
+  .uf-dialog[aria-label="Session Registry Filters"] .uf-form { display: flex; }
+}
 @media (max-width: 600px) {
   .uf-dialog {
     width: 100%;

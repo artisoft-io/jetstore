@@ -22,7 +22,7 @@ import (
 // AWS_JETS_ADMIN_PWD_SECRET
 // JETS_ENCRYPTION_KEY_SECRET
 // JETS_REGION
-// JETS_ADMIN_EMAIL
+// JETS_ADMIN_EMAIL (optional, the administrator's login, default admin)
 
 // Lambda function to rotate secret
 // Based on https://github.com/aws-samples/aws-secrets-manager-rotation-lambdas/blob/master/SecretsManagerRotationTemplate/lambda_function.py
@@ -32,7 +32,7 @@ var (
 	awsApiSecret            string = os.Getenv("AWS_API_SECRET")
 	awsJetsAdminPwdSecret   string = os.Getenv("AWS_JETS_ADMIN_PWD_SECRET")
 	jetsEncryptionKeySecret string = os.Getenv("JETS_ENCRYPTION_KEY_SECRET")
-	jetsAdminEmail          string = os.Getenv("JETS_ADMIN_EMAIL")
+	jetsAdminEmail          string = user.AdminLoginFromEnv()
 	secretBeingRotated      string
 )
 
@@ -64,9 +64,6 @@ func handler(event RotateSecretEvent) error {
 	}
 	if len(jetsEncryptionKeySecret) == 0 {
 		log.Panic("Missing env var JETS_ENCRYPTION_KEY_SECRET")
-	}
-	if len(jetsAdminEmail) == 0 {
-		log.Panic("Missing env var JETS_ADMIN_EMAIL")
 	}
 
 	log.Printf("RotateSecret Lambda Called for secret %s at step %s for version %s",

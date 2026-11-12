@@ -16,5 +16,8 @@ hand: to change one, change its source.
 | [System tables](/docs/developer/reference/generated/system-tables/) | `jets/jets_schema.json`, the tables of the `jetsapi` schema |
 | [JetRules operators](/docs/developer/reference/generated/jetrules-operators/) | `jets/compilerv2/compiler/operators.txt`, the operators the compiler accepts and the rule engine registers |
 
+The compute-pipes operator types, one line each with a link to their section of the configuration
+page, are listed in [Operators](/docs/developer/compute-pipes/operators/).
+
 The generators are in `docs/scripts/`. `npm run gen` runs them; `npm run dev` and `npm run build`
 run them first.

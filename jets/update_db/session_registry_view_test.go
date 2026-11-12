@@ -48,7 +48,7 @@ func sessionRegistryViewStatement(t *testing.T) string {
 var sessionRegistryViewExtras = []string{
 	"session_num", "object_type", "file_key", "process_name", "status",
 	"deletion_status", "deletion_reason", "deletion_requested_by", "deletion_requested_at",
-	"year", "month", "day",
+	"year", "month", "day", "file_key_date",
 }
 
 // selectNames returns the output names of a select list: the alias after AS,
@@ -278,5 +278,57 @@ func TestSessionRegistryView(t *testing.T) {
 	}
 	if n != 2 {
 		t.Errorf("session_num between 2000 and 3003 for client c1: %d rows, want 2 (2002 and the tombstone 3003)", n)
+	}
+
+	// file_key_date (JM-185): the period as a date, NULL for a tombstone.
+	dates := map[string]string{}
+	drows, err := pool.Query(ctx, `SELECT session_id, coalesce(file_key_date::text, '<nil>')
+		FROM jetsapi.session_registry_view`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for drows.Next() {
+		var id, d string
+		if err := drows.Scan(&id, &d); err != nil {
+			t.Fatal(err)
+		}
+		dates[id] = d
+	}
+	drows.Close()
+	check("1001", "file_key_date", dates["1001"], "2026-02-03")
+	check("3003", "file_key_date", dates["3003"], "<nil>")
+
+	// A period whose day is 0, as an unparseable day is recorded (JM-170): the
+	// view still reads, with no date, rather than raising on make_date.
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.source_period (key, year, month, day, month_period, week_period, day_period)
+		VALUES (3, 2026, 2, 0, 313, 1357, 9496) ON CONFLICT (key) DO UPDATE SET day = 0`)
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.session_registry
+		(session_id, source_type, client, source_period_key, month_period, week_period, day_period)
+		VALUES ('6006', 'file', 'c1', 3, 313, 1357, 9496)`)
+	var day0 string
+	if err := pool.QueryRow(ctx, `SELECT coalesce(file_key_date::text, '<nil>')
+		FROM jetsapi.session_registry_view WHERE session_id = '6006'`).Scan(&day0); err != nil {
+		t.Fatal(err)
+	}
+	check("6006", "file_key_date", day0, "<nil>")
+
+	// The Set Filters dialog's new clauses, as the server writes them: process
+	// names as IN, the file key fragment as LIKE, and the file key dates as ge
+	// and le spliced, which compare a date with a timestamp.
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.session_registry_view
+		WHERE "session_registry_view"."process_name" IN ('map_records', 'other')
+		AND "session_registry_view"."file_key_date" >= timestamp '2026-02-01'
+		AND "session_registry_view"."file_key_date" <= timestamp '2026-02-03'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("process map_records with a file key date in 2026-02-01..03: %d rows, want 1 (2002)", n)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.session_registry_view
+		WHERE "session_registry_view"."file_key" LIKE '%a.csv%'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("file key like %%a.csv%%: %d rows, want 1 (1001)", n)
 	}
 }
