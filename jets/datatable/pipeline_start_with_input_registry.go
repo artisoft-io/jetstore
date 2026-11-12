@@ -19,6 +19,28 @@ import (
 // Note: the argument inputSessionId is the inputRegistryKey sessionId
 func (ctx *DataTableContext) StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey int,
 	inputSessionId, client, objectType, fileKey, token string) error {
+	return ctx.startPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, inputSessionId,
+		client, objectType, fileKey, token, false)
+}
+
+// pipelineStartedFor reports whether pipeline config pcKey already has a run that
+// takes input_registry row irKey, as its main input or a merged one.
+func pipelineStartedFor(dbpool *pgxpool.Pool, pcKey, irKey int) (bool, error) {
+	var started bool
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_status
+		  WHERE pipeline_config_key = $1
+		    AND (main_input_registry_key = $2 OR $2 = ANY(merged_input_registry_keys)))`,
+		pcKey, irKey).Scan(&started)
+	return started, err
+}
+
+// startPipelinesForInputRegistryV2 is StartPipelinesForInputRegistryV2. With
+// skipStarted, a pipeline that already has a run taking inputRegistryKey is not
+// started again: the registration is being resumed, and the invocation that left
+// it unfinished started that run.
+func (ctx *DataTableContext) startPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey int,
+	inputSessionId, client, objectType, fileKey, token string, skipStarted bool) error {
 
 	log.Printf("%s StartPipelinesForInputRegistryV2 called with inputRegistryKey %d", inputSessionId, inputRegistryKey)
 
@@ -43,6 +65,17 @@ func (ctx *DataTableContext) StartPipelinesForInputRegistryV2(inputRegistryKey, 
 pipelineConfigLoop:
 	for i := range pipelinesConfig {
 		pc := &pipelinesConfig[i]
+		if skipStarted {
+			started, err := pipelineStartedFor(ctx.Dbpool, pc.key, inputRegistryKey)
+			if err != nil {
+				return fmt.Errorf("while checking for a run of pipeline config %d: %v", pc.key, err)
+			}
+			if started {
+				log.Printf("%s pipeline config %d (%s) already has a run for input registry %d; not started again",
+					inputSessionId, pc.key, pc.processName, inputRegistryKey)
+				continue pipelineConfigLoop
+			}
+		}
 
 		if len(pc.mergedProcessInputKeys) == 0 {
 			// Start the pipeline using inputRegistryKey as mainInputKey

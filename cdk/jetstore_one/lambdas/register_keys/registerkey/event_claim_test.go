@@ -29,35 +29,40 @@ const testInputKey = "input/client=CGT/vendor=ACME/object_type=eligibility/" +
 	"year=2026/month=09/day=16/eligibility_20260916.csv"
 
 // eventSeams records what processMessage asked of the claim, and answers the
-// claim with claimed, status and claimErr.
+// claim with claimed, status, sessionId and claimErr.
 type eventSeams struct {
-	claimed  bool
-	status   string
-	claimErr error
+	claimed   bool
+	status    string
+	sessionId string
+	claimErr  error
 
 	claims    []string
 	completes []string
-	releases  []string
+	releases  []string // failed events
+	recorded  []string // sessions recorded
 }
 
 func withEventSeams(t *testing.T, s *eventSeams) {
 	t.Helper()
-	savedClaim, savedComplete, savedRelease := claimS3Event, completeS3Event, releaseS3Event
+	savedClaim, savedComplete, savedRelease, savedRecord := claimS3Event, completeS3Event, failS3Event, recordS3Session
 	savedInput, savedSchema := s3InputPrefix, s3SchemaPrefix
 	s3InputPrefix, s3SchemaPrefix = "input/", "schema_triggers/"
 	claimS3Event = func(_ context.Context, _ *pgxpool.Pool, fileKey, sequencer string,
-		_ time.Duration) (bool, string, error) {
+		_ time.Duration) (bool, string, string, error) {
 		s.claims = append(s.claims, fileKey+"@"+sequencer)
-		return s.claimed, s.status, s.claimErr
+		return s.claimed, s.status, s.sessionId, s.claimErr
 	}
 	completeS3Event = func(fileKey, sequencer string, _ *pgxpool.Pool) {
 		s.completes = append(s.completes, fileKey+"@"+sequencer)
 	}
-	releaseS3Event = func(fileKey, sequencer string, _ *pgxpool.Pool) {
+	failS3Event = func(fileKey, sequencer string, _ *pgxpool.Pool) {
 		s.releases = append(s.releases, fileKey+"@"+sequencer)
 	}
+	recordS3Session = func(_, _, sessionId string, _ *pgxpool.Pool) {
+		s.recorded = append(s.recorded, sessionId)
+	}
 	t.Cleanup(func() {
-		claimS3Event, completeS3Event, releaseS3Event = savedClaim, savedComplete, savedRelease
+		claimS3Event, completeS3Event, failS3Event, recordS3Session = savedClaim, savedComplete, savedRelease, savedRecord
 		s3InputPrefix, s3SchemaPrefix = savedInput, savedSchema
 	})
 }
@@ -106,8 +111,9 @@ func TestEventClaimRedeliveryRegistersNothing(t *testing.T) {
 	}
 }
 
-// A registration that fails releases the event, so Lambda's retry registers it.
-func TestEventClaimFailedRegistrationReleases(t *testing.T) {
+// A registration that fails marks the event failed, so Lambda's retry takes it
+// over and resumes.
+func TestEventClaimFailedRegistrationMarksFailed(t *testing.T) {
 	s := &eventSeams{claimed: true, status: eventStarted}
 	withEventSeams(t, s)
 	saved := registerFileKeys
@@ -119,12 +125,12 @@ func TestEventClaimFailedRegistrationReleases(t *testing.T) {
 		t.Fatal("processMessage returned no error for a failed registration")
 	}
 	if len(s.releases) != 1 || len(s.completes) != 0 {
-		t.Errorf("completes %q, releases %q; want the event released and not completed", s.completes, s.releases)
+		t.Errorf("completes %q, releases %q; want the event marked failed and not completed", s.completes, s.releases)
 	}
 }
 
-// A panic during registration releases the event too, and still panics.
-func TestEventClaimPanicReleases(t *testing.T) {
+// A panic during registration marks the event failed too, and still panics.
+func TestEventClaimPanicMarksFailed(t *testing.T) {
 	s := &eventSeams{claimed: true, status: eventStarted}
 	withEventSeams(t, s)
 	saved := registerFileKeys
@@ -141,7 +147,7 @@ func TestEventClaimPanicReleases(t *testing.T) {
 		_ = processMessage(context.Background(), nil, inputRecord(testInputKey, "0A1B"))
 	}()
 	if len(s.releases) != 1 || len(s.completes) != 0 {
-		t.Errorf("completes %q, releases %q; want the event released and not completed", s.completes, s.releases)
+		t.Errorf("completes %q, releases %q; want the event marked failed and not completed", s.completes, s.releases)
 	}
 }
 
@@ -184,6 +190,51 @@ func TestEventClaimUncheckedCases(t *testing.T) {
 	})
 }
 
+// A first delivery hands RegisterFileKeys a way to record its session and no
+// session to resume; a takeover hands it the session the earlier invocation
+// recorded. A schema event gets neither.
+func TestEventClaimResumePlumbing(t *testing.T) {
+	t.Run("first delivery records", func(t *testing.T) {
+		s := &eventSeams{claimed: true, status: eventStarted}
+		withEventSeams(t, s)
+		calls := withCapturedRegistration(t)
+		if err := processMessage(context.Background(), nil, inputRecord(testInputKey, "0A1B")); err != nil {
+			t.Fatalf("processMessage: %v", err)
+		}
+		a := (*calls)[0].action
+		if a.ResumeSessionId != "" || a.OnSessionReserved == nil {
+			t.Fatalf("ResumeSessionId %q, OnSessionReserved set %v; want none and set", a.ResumeSessionId, a.OnSessionReserved != nil)
+		}
+		a.OnSessionReserved("1700000000000")
+		if len(s.recorded) != 1 || s.recorded[0] != "1700000000000" {
+			t.Errorf("recorded %q, want the reserved session", s.recorded)
+		}
+	})
+	t.Run("takeover resumes", func(t *testing.T) {
+		s := &eventSeams{claimed: true, status: eventStarted, sessionId: "1700000000000"}
+		withEventSeams(t, s)
+		calls := withCapturedRegistration(t)
+		if err := processMessage(context.Background(), nil, inputRecord(testInputKey, "0A1B")); err != nil {
+			t.Fatalf("processMessage: %v", err)
+		}
+		if got := (*calls)[0].action.ResumeSessionId; got != "1700000000000" {
+			t.Errorf("ResumeSessionId %q, want the recorded session", got)
+		}
+	})
+	t.Run("schema event", func(t *testing.T) {
+		s := &eventSeams{claimed: true, status: eventStarted, sessionId: "1700000000000"}
+		withEventSeams(t, s)
+		fakeSchemaObject(t, `{"comment":"c"}`)
+		got := withCapturedSchemaEvents(t)
+		if err := processMessage(context.Background(), nil, inputRecord("schema_triggers/event.json", "0A1B")); err != nil {
+			t.Fatalf("processMessage: %v", err)
+		}
+		if len(*got) != 1 || len(s.recorded) != 0 {
+			t.Errorf("schema events %d, sessions recorded %q; want one event and none recorded", len(*got), s.recorded)
+		}
+	})
+}
+
 // The in-flight window is the invocation's own time limit plus the margin.
 func TestEventClaimInFlightWindow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -197,7 +248,7 @@ func TestEventClaimInFlightWindow(t *testing.T) {
 	}
 }
 
-// TestEventClaimAgainstPostgres runs claimEvent, completeEvent and releaseEvent
+// TestEventClaimAgainstPostgres runs claimEvent, recordSession, completeEvent and failEvent
 // against jetsapi.s3_object_event, created from jets_schema.json.
 func TestEventClaimAgainstPostgres(t *testing.T) {
 	dsn := os.Getenv("JETS_TEST_DSN")
@@ -213,12 +264,14 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 	createEventTable(t, dbpool)
 
 	const hour = time.Hour
+	var lastSession string
 	claim := func(key, seq string, inFlight time.Duration) (bool, string) {
 		t.Helper()
-		ok, status, err := claimEvent(ctx, dbpool, key, seq, inFlight)
+		ok, status, sessionId, err := claimEvent(ctx, dbpool, key, seq, inFlight)
 		if err != nil {
 			t.Fatalf("claimEvent(%s, %s): %v", key, seq, err)
 		}
+		lastSession = sessionId
 		return ok, status
 	}
 
@@ -240,20 +293,25 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 	if ok, _ := claim("a.csv", "02", hour); !ok {
 		t.Fatal("a second write of the key was not claimed")
 	}
-	// A started row older than the window is taken over: the invocation died.
-	if ok, _ := claim("b.csv", "01", hour); !ok {
-		t.Fatal("b.csv was not claimed")
+	// A started row older than the window is taken over, with the session the
+	// invocation that died recorded.
+	if ok, _ := claim("b.csv", "01", hour); !ok || lastSession != "" {
+		t.Fatalf("b.csv: claimed %v with session %q, want claimed with none", ok, lastSession)
 	}
-	time.Sleep(20 * time.Millisecond)
-	if ok, _ := claim("b.csv", "01", 10*time.Millisecond); !ok {
-		t.Fatal("a started row older than the window was not taken over")
-	}
-	// Released, the next delivery is claimed.
-	if err := releaseEvent(ctx, dbpool, "b.csv", "01"); err != nil {
+	if err := recordSession(ctx, dbpool, "b.csv", "01", "1700000000001"); err != nil {
 		t.Fatal(err)
 	}
-	if ok, _ := claim("b.csv", "01", hour); !ok {
-		t.Fatal("a released event was not claimed")
+	time.Sleep(20 * time.Millisecond)
+	if ok, _ := claim("b.csv", "01", 10*time.Millisecond); !ok || lastSession != "1700000000001" {
+		t.Fatalf("a started row past the window: claimed %v with session %q, want taken over with 1700000000001", ok, lastSession)
+	}
+	// Failed, the next delivery takes it over at once, within the window, and
+	// resumes under the same session.
+	if err := failEvent(ctx, dbpool, "b.csv", "01"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := claim("b.csv", "01", hour); !ok || lastSession != "1700000000001" {
+		t.Fatalf("a failed event: claimed %v with session %q, want taken over with 1700000000001", ok, lastSession)
 	}
 	// Concurrent deliveries: exactly one is claimed.
 	var wg sync.WaitGroup
@@ -263,7 +321,7 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ok, _, err := claimEvent(ctx, dbpool, "c.csv", "01", hour)
+			ok, _, _, err := claimEvent(ctx, dbpool, "c.csv", "01", hour)
 			if err != nil {
 				t.Error(err)
 				return

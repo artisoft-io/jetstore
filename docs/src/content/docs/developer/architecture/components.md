@@ -85,7 +85,8 @@ paths, are in [How a file starts a pipeline](/docs/install/planning/ingest-data-
 
 Writing the `pipeline_execution_status` row runs the post-processing hook of `InsertRows`
 (`jets/datatable/data_table_action.go`). It reads `state_machine_name` from the process's
-`jetsapi.process_config` row, takes a global lock (`lockStateMachine`), and checks the throttling
+`jetsapi.process_config` row, takes a global lock (`lockStateMachine`, taken over when older than five
+minutes), and checks the throttling
 limits (`checkThrottling`); over the limit, the row waits as `pending`. Otherwise
 `startStateMachine` (`jets/datatable/pipeline_execution.go`) starts the named state machine,
 `cpipesSM`, `cpipesNativeSM` or `reportsSM`, with the execution named by the session id.

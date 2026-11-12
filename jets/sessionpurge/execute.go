@@ -68,6 +68,7 @@ var fixedTables = []string{
 	"cpipes_metrics",
 	"session_reservation",
 	"pipeline_lock",
+	"s3_object_event",
 }
 
 // statusColumns are pipeline_execution_status's columns, every one, in

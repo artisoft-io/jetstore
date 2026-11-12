@@ -66,7 +66,7 @@ func TestDoFileKeyNilHookRegistersTheStockAction(t *testing.T) {
 	withHook(t, nil)
 
 	dtCtx := &datatable.DataTableContext{}
-	err := doFileKey(context.Background(), nil, dtCtx, testFileKey, testFileSize, "a-token")
+	err := doFileKey(context.Background(), nil, dtCtx, testFileKey, testFileSize, "a-token", eventResume{})
 	if err != nil {
 		t.Fatalf("doFileKey returned %v, want nil", err)
 	}
@@ -168,7 +168,7 @@ func TestDoFileKeyHookDoneRegistersNothing(t *testing.T) {
 	withHook(t, hook)
 
 	err := doFileKey(context.Background(), nil, &datatable.DataTableContext{},
-		testFileKey, testFileSize, "a-token")
+		testFileKey, testFileSize, "a-token", eventResume{})
 	if err != nil {
 		t.Fatalf("doFileKey returned %v, want nil", err)
 	}
@@ -188,7 +188,7 @@ func TestDoFileKeyHookErrorRegistersNothing(t *testing.T) {
 	withHook(t, &stubHook{err: wantErr})
 
 	err := doFileKey(context.Background(), nil, &datatable.DataTableContext{},
-		testFileKey, testFileSize, "a-token")
+		testFileKey, testFileSize, "a-token", eventResume{})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("doFileKey returned %v, want %v", err, wantErr)
 	}
@@ -214,7 +214,7 @@ func TestDoFileKeyHookSchemaEventCarriesAdditions(t *testing.T) {
 
 	ctx := context.Background()
 	dtCtx := &datatable.DataTableContext{}
-	err := doFileKey(ctx, nil, dtCtx, testFileKey, testFileSize, "a-token")
+	err := doFileKey(ctx, nil, dtCtx, testFileKey, testFileSize, "a-token", eventResume{})
 	if err != nil {
 		t.Fatalf("doFileKey returned %v, want nil", err)
 	}

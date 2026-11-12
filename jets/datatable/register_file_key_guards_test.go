@@ -155,7 +155,7 @@ func TestRegisterFileKeysRegistersTheSessionBeforeStartingPipelines(t *testing.T
 		registered int
 	}
 	var starts []start
-	startPipelinesOverride = func(c *DataTableContext, _, _ int, inputSessionId, _, _, _, _ string) error {
+	startPipelinesOverride = func(c *DataTableContext, _, _ int, inputSessionId, _, _, _, _ string, _ bool) error {
 		var n int
 		if err := c.Dbpool.QueryRow(context.Background(),
 			`SELECT count(*) FROM jetsapi.session_registry WHERE session_id = $1`, inputSessionId).Scan(&n); err != nil {
