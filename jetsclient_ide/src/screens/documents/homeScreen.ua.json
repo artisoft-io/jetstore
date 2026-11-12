@@ -99,6 +99,32 @@
         }
       ]
     },
+    "resubmitSessionsAsPending": {
+      "description": "Copy the selected sessions' runs into new pending runs, which nothing starts until Check Pending",
+      "steps": [
+        {
+          "do": "confirm",
+          "message": "Resubmit the runs of the selected sessions as pending? Each run is copied into a new session with status pending, and nothing starts it: delete the sessions it replaces if needed, then press Check Pending on Pipelines Status. A file's session has no run and is skipped, as is a run already pending."
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "resubmit_sessions_as_pending",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "session_id": { "fromKeyList": "sessionRegistryTable" }
+            }
+          }
+        },
+        {
+          "do": "notify",
+          "level": "info",
+          "message": "Resubmitted as pending: the runs wait on Pipelines Status until Check Pending starts them"
+        }
+      ]
+    },
     "setSessionRegistryFilters": {
       "description": "Record the Session Registry filters",
       "steps": [

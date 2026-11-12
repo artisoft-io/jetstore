@@ -110,7 +110,7 @@ Every session JetStore knows of, the latest first, with the run or file it belon
 it has been deleted. It is where sessions are deleted. See
 [Sessions](/docs/user/concepts/pipelines-and-sessions/#sessions).
 
-![The Session Registry tab: nine sessions of the client CI, three of source type file and six of domain_table, with their process, run status and month period; one, of December 2025, deleted.](../../../../assets/screenshots/user/screens/home/session-registry.png)
+![The Session Registry tab: nine sessions of the client CI, three of source type file and six of domain_table, with their process, run status and registration time; one, of December 2025, deleted. Resubmit as Pending sits beside Delete.](../../../../assets/screenshots/user/screens/home/session-registry.png)
 
 | Column | What it holds |
 |---|---|
@@ -121,7 +121,6 @@ it has been deleted. It is where sessions are deleted. See
 | File Key | the file key of the session's input registry entries |
 | Process Name | the pipeline whose run is this session, for a `domain_table` session |
 | Run Status | that run's status |
-| Month Period | the source period as a number of months, the one the filters take |
 | Registered At | when the session was registered, or deleted for a deleted one |
 | Deletion | `pending`, `failed` or `done` once a deletion is requested; empty otherwise |
 | Deletion Reason | `user`, `retention` or `orphan` |
@@ -131,6 +130,7 @@ it has been deleted. It is where sessions are deleted. See
 | Button | What it does | Capability |
 |---|---|---|
 | **Delete** | Deletes the selected sessions and every session derived from them. It first lists all of them, and asks you to confirm; nothing is deleted before you do. Disabled for a session whose deletion is already requested or done. | `delete_session` |
+| **Resubmit as Pending** | Copies the run of each selected session into a new session with status `pending`, after you confirm, and starts nothing. A `file` session has no run of its own and is skipped, as is a run that already has a pending copy. Refused when an input the run read is deleted or queued for deletion. | `run_pipelines` |
 | **Refresh** | Reads the table again. | |
 | **Set Filters** | Opens the *Session Registry Filters* dialog, below. | |
 | **Set Session Id** | Asks for session ids, separated by commas, or a range, `from..to`, either end of which may be left empty (`1000..` or `..2000`). | |
@@ -139,15 +139,25 @@ it has been deleted. It is where sessions are deleted. See
 A deletion cannot be undone. What it removes, and why sessions derived from the one you select go
 with it, is in [Deleting a session](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session).
 
-**Session Registry Filters.** Leave a field blank for no filter. Saving replaces the tab's filters,
-a session id filter included, and the dialog opens again with the values you last saved.
+**Running sessions again in place of the old ones.** To process again what a set of sessions
+processed, and keep only the new results: select the sessions, press **Resubmit as Pending**, then
+**Delete** with the same sessions selected, and finally press **Check Pending** on *Pipelines
+Status*, which starts the pending runs. Resubmit before you delete: a run whose input is queued for
+deletion is refused. The new runs read the inputs as they are when they start, so they do not read
+the sessions you deleted.
 
-![The Session Registry Filters dialog, with its five fields empty: Source Type, From Month Period, To Month Period, Registered After and Registered Before.](../../../../assets/screenshots/user/screens/home/session-registry-filters.png)
+**Session Registry Filters.** Leave a field blank for no filter. Saving replaces the tab's filters,
+a session id filter included, and the dialog opens again with the values you last saved. The
+process list is on the left and the other fields on the right.
+
+![The Session Registry Filters dialog: the list of process names on the left, none ticked, and on the right, empty, Source Type and File Key Contains, File Key Date After and Before, Registered After and Before.](../../../../assets/screenshots/user/screens/home/session-registry-filters.png)
 
 | Field | Filters to |
 |---|---|
+| Process Name | the sessions of the runs of the processes you tick. A `file` session has no run of its own, so ticking a process lists `domain_table` sessions only |
 | Source Type | one source type: `file` or `domain_table` |
-| From Month Period, To Month Period | sessions whose month period is in the range, as the *Month Period* column shows it; digits only |
+| File Key Contains | sessions whose file key contains the text, as typed, anywhere in it |
+| File Key Date After, File Key Date Before | sessions whose source period, the year, month and day in the file key, is in the range. Each takes a date, a date and time or a duration ago, as below; a deleted session has no day and is not listed |
 | Registered After, Registered Before | sessions registered in the window. Each takes a date (`2026-11-08`), a date and time (`2026-11-08T15:00:00Z`) or a duration ago (`3 days`) |
 
 ## Archived Pipelines
