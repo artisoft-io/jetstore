@@ -196,7 +196,7 @@ var CpipesContract = map[string]map[string]ContractField{
 	},
 	"ComputePipesConfig/*": {
 		"channels":                 {},
-		"cluster_config":           {},
+		"cluster_config":           {Required: true},
 		"comment":                  {},
 		"conditional_pipes_config": {},
 		"context":                  {},
