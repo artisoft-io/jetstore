@@ -23,7 +23,7 @@ consumes them.
 | `VpcEndpointsSGID` | Security group on the VPC endpoints — **the value a second stack passes as `JETS_VPC_ENDPOINTS_SG_ID`** | `jetstore_one.go` |
 | `JetStore_RDS_Cluster_ID` | Aurora cluster identifier (`props.MkId("jetstoreDb")`) | `jetstore_one.go` |
 | `UiListenerArn` | ALB listener ARN | `stack/build_elb.go` |
-| `UiListenerUrl` | `http://<alb-dns>:<JETS_UI_PORT>` | `stack/build_elb.go` |
+| `UiListenerUrl` | `http://<alb-dns>:<JETS_UI_PORT>`, or `https://` when `JETS_ELB_MODE` is `public` | `stack/build_elb.go` |
 
 ## Emitted when the private REST API is built
 

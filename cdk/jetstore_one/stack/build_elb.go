@@ -106,8 +106,13 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 		Value:       uiListener.ListenerArn(),
 		Description: jsii.String("UI Listener ARN"),
 	})
+	// The scheme follows the listener's protocol above: HTTPS when JETS_ELB_MODE is public.
+	uiListenerScheme := "http"
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		uiListenerScheme = "https"
+	}
 	awscdk.NewCfnOutput(stack, jsii.String("UiListenerUrl"), &awscdk.CfnOutputProps{
-		Value:       jsii.String(fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(uiPort))),
+		Value:       jsii.String(fmt.Sprintf("%s://%s:%d", uiListenerScheme, *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(uiPort))),
 		Description: jsii.String("UI Listener URL"),
 	})
 

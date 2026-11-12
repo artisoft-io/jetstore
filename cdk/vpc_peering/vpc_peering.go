@@ -81,17 +81,23 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			},
 		})
 		if phiTagName != nil {
-			awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
 		}
 		if piiTagName != nil {
-			awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
 		}
 		if descriptionTagName != nil {
-			awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
+			awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
 		}
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
 		if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
+			// The cluster is imported by identifier alone, without its security groups, so
+			// this AllowTo has no security group on the database's side to add an ingress
+			// rule to, and the bastion's security group already allows all outbound: the
+			// call adds no rule to the template. Open port 5432 on the cluster's security
+			// group by hand to reach the database from this VPC.
+			log.Println("WARNING JETS_DB_CLUSTER_ID is set, but no ingress rule is added to the database's security group: add one by hand")
 			rdsCluster := awsrds.DatabaseCluster_FromDatabaseClusterAttributes(stack, jsii.String("JetstoreDb"), &awsrds.DatabaseClusterAttributes{
 				ClusterIdentifier: jsii.String(os.Getenv("JETS_DB_CLUSTER_ID")),
 			})
@@ -103,7 +109,9 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		VpcId: jsii.String(os.Getenv("JETSTORE_VPC_ID")),
 	})
 
-	// Set up the peering connection
+	// Set up the peering connection. It sets neither PeerRegion nor PeerOwnerId, so both
+	// VPCs must be in the stack's account and region; main refuses a HOST_VPC_REGION
+	// other than AWS_REGION.
 	vpcPeeringConnection := awsec2.NewCfnVPCPeeringConnection(stack, jsii.String("VPCPeering"), &awsec2.CfnVPCPeeringConnectionProps{
 		VpcId:     vpc.VpcId(),
 		PeerVpcId: peerVpc.VpcId(),
@@ -163,8 +171,8 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // JETSTORE_VPC_ID (required)
 // BASTION_HOST_KEYPAIR_NAME (required if HOST_VPC_ID ommitted)
 // HOST_VPC_ID (optional, default: create a vpc w/ jump server)
-// HOST_VPC_REGION (optional, default: current region)
-// JETS_DB_CLUSTER_ID (optional, JetStore DB cluster, to allow jump server to access it)
+// HOST_VPC_REGION (optional, default: AWS_REGION; any other value is refused, the peering connection is same-region only)
+// JETS_DB_CLUSTER_ID (optional, JetStore DB cluster; adds no rule, see NewVpcPeeringStack)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
@@ -184,6 +192,7 @@ func main() {
 	log.Println("env HOST_VPC_REGION:", os.Getenv("HOST_VPC_REGION"))
 	log.Println("env JETSTORE_VPC_ID:", os.Getenv("JETSTORE_VPC_ID"))
 	log.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	log.Println("env JETS_DB_CLUSTER_ID:", os.Getenv("JETS_DB_CLUSTER_ID"))
 	log.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
 	log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
 	log.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
@@ -206,6 +215,10 @@ func main() {
 	if os.Getenv("HOST_VPC_ID") == "" && os.Getenv("BASTION_HOST_KEYPAIR_NAME") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'BASTION_HOST_KEYPAIR_NAME' is required when HOST_VPC_ID is ommitted.")
+	}
+	if os.Getenv("HOST_VPC_REGION") != "" && os.Getenv("HOST_VPC_REGION") != os.Getenv("AWS_REGION") {
+		hasErr = true
+		errMsg = append(errMsg, "Env variable 'HOST_VPC_REGION' must be empty or equal to 'AWS_REGION': the peering connection does not cross regions.")
 	}
 	if hasErr {
 		for _, msg := range errMsg {

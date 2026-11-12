@@ -24,7 +24,7 @@ import (
 // INFER_AMI_NAME (optional) escape hatch to pin a custom AMI; when unset the stock ECS
 // GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
 // INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
-// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 51200 (64 GB * 0.8)
+// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 52224 (1024 * 51, about 80% of g6e.2xlarge's 64 GiB; see InferMemLimitMB)
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g6e.2xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the instance root volume in GB, default 50
 

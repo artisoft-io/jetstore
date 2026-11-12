@@ -20,8 +20,8 @@ Run the checks in this order: each one depends on the one before.
 aws cloudformation describe-stacks --stack-name "${JETS_STACK_ID:-JetstoreOneStack}" --query 'Stacks[0].Outputs'
 ```
 
-- `UiListenerUrl` is present. It always reads `http://`; when `JETS_ELB_MODE` is `public` the
-  listener is HTTPS, so open it with `https://`.
+- `UiListenerUrl` is present. It reads `https://` when `JETS_ELB_MODE` is `public`, where the
+  listener is HTTPS, and `http://` otherwise.
 - If the API was expected, `JetsApiUrl` is present.
 - If the inference server was expected, `InferListenerUrl` is present and `PersistentVolumeId` names a
   volume.
