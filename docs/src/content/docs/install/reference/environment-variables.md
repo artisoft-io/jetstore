@@ -100,8 +100,7 @@ environment.
 `CpipesRunReportsLambda` (`jets/run_reports/main.go`, `cdk/jetstore_one/lambdas/run_reports/main.go`).
 It reads `WORKSPACES_HOME`, `WORKSPACE`, the database variables, `JETS_REGION`, `JETS_BUCKET`, the
 input and output prefixes (it derives an input key from an output path by swapping one prefix for the
-other) and `ENVIRONMENT`. Its pool is the `-dbPoolSize` flag, 10, or 5 in the Lambdas: the
-`JETS_DB_POOL_SIZE` the stack puts on the run-reports task is not read by it.
+other) and `ENVIRONMENT`. Its pool is the `-dbPoolSize` flag, 10, or 5 in the Lambdas.
 
 ## The compute-pipes task and Lambdas
 
@@ -163,10 +162,12 @@ Both containers run with `JETS_TEMP_DATA`, `TMPDIR`, `JETS_REGION`, `ENVIRONMENT
 credentials as `JETS_DSN_JSON_VALUE` (`stack/build_agentic_detect.go`). The daily schedule also sets
 `JETS_AGENTIC_DETECT_TRIGGER` to `schedule`, so a run records how it was started.
 
-## Carried but not read
+## Removed from the containers and Lambdas
 
-Three variables are written into task definitions and Lambda configurations and are not read by any
-code in the repository at this release, so setting them changes nothing at run time:
-`JETS_INVALID_CODE` and `JETS_INPUT_ROW_JETS_KEY_ALGO`, on most of them, and `DEPLOY_CPIPES_NATIVE`,
-which the stack sets to `0` or `1` on the node Lambdas and the compute-pipes task. As a synth variable,
-`DEPLOY_CPIPES_NATIVE` still decides whether the native state machine and its Lambda are built.
+Until this release the stack wrote four variables that no code reads into its task definitions and
+Lambda configurations: `JETS_INVALID_CODE` and `JETS_INPUT_ROW_JETS_KEY_ALGO` on most of them,
+`DEPLOY_CPIPES_NATIVE` as `0` or `1` on the node Lambdas and the compute-pipes task, and
+`JETS_DB_POOL_SIZE` on the run-reports task. It no longer does. The stack no longer reads
+`JETS_INVALID_CODE` or `JETS_INPUT_ROW_JETS_KEY_ALGO` either, so a deployment that sets them can drop
+them. `DEPLOY_CPIPES_NATIVE` is still a synth variable, deciding whether the native state machine and
+its Lambda are built, and `JETS_DB_POOL_SIZE` is still set on the compute-pipes task, which reads it.

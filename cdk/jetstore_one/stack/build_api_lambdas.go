@@ -57,8 +57,6 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 			"JETS_ADMIN_EMAIL":                         jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 			"REGION":                                   jsii.String(os.Getenv("AWS_REGION")),
