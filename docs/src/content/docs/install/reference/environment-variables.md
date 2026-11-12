@@ -66,7 +66,7 @@ environment.
 | `AWS_JETS_ADMIN_PWD_SECRET` | stack: the admin password secret's name | none | The admin user's password, used when the database has no admin user yet. `JETS_ADMIN_PWD` gives it directly instead |
 | `JETS_ENCRYPTION_KEY_SECRET` | stack: the encryption key secret's name | none | The key that encrypts stored credentials, such as a user's git token. `JETS_ENCRYPTION_KEY` gives it directly instead; one of the two is required |
 | `JETS_DSN_URI_VALUE` | not set by the stack | none | A database connection string, in place of `JETS_DSN_SECRET` or `JETS_DSN_JSON_VALUE` |
-| `-adminEmail`, `JETS_ADMIN_EMAIL` | the stack sets `JETS_ADMIN_EMAIL` | `admin` | The admin user's login. **The flag's default is `admin` and the task passes no flag**, so the apiserver's admin user is `admin`; `JETS_ADMIN_EMAIL` is read only when the flag is given empty. The secret rotation Lambda reads `JETS_ADMIN_EMAIL` (below) |
+| `-adminEmail`, `JETS_ADMIN_EMAIL` | the stack sets `JETS_ADMIN_EMAIL` | `admin` | The administrator's login; it need not be an email address. The flag, else `JETS_ADMIN_EMAIL`, else `admin` (`resolveAdminLogin`). The task passes no flag, so a deployment's administrator is `JETS_ADMIN_EMAIL`, the user the secret rotation Lambda rotates (below). The apiserver logs it at start-up as `Got argument: adminEmail`. **Changing it on a deployed stack creates a second administrator** at the next start, with the password in the administrator password secret; the old user keeps its password and its roles but is no longer the built-in administrator |
 | `-tokenExpiration`, `API_TOKEN_EXPIRATION_MIN` | not set by the stack | 60 minutes | How long a session token lasts. The variable is read only when the flag is below 1 |
 | `WORKSPACE_BRANCH` | stack | none; required | The workspace's git branch |
 | `WORKSPACE_URI` | stack | none | When set, the workspace's repository address, fixed for the deployment; unset, the address recorded in the workspace registry is used (`getWorkspaceUri`, `jets/datatable/workspace_data_table_action.go`) |
@@ -139,7 +139,7 @@ default to none: with neither endpoint set, no notification is sent.
 |---|---|
 | `registerKeyV2` | `JETS_DSN_SECRET`, `JETS_REGION` and `JETS_BUCKET`, all three required; the input and schema-trigger prefixes, which route each key (`cdk/jetstore_one/lambdas/register_keys/registerkey/registerkey.go`) |
 | `PurgeDataLambda` | `RETENTION_DAYS`: sessions older than this many days are purged; unset, the purge does nothing; below 1, it fails. `PURGE_DRY_RUN`: **only the exact value `false` deletes**; unset or anything else reports what would be deleted and deletes nothing (`IsDryRun`, `jets/purge_database/delegate/delegate.go`) |
-| `SecretRotationLambda` | `JETS_DSN_SECRET`, `AWS_API_SECRET`, `AWS_JETS_ADMIN_PWD_SECRET`, `JETS_ENCRYPTION_KEY_SECRET` and `JETS_ADMIN_EMAIL`, which is required: the rotated admin password is written for the user it names (`cdk/jetstore_one/lambdas/rotate_secret/main.go`) |
+| `SecretRotationLambda` | `JETS_DSN_SECRET`, `AWS_API_SECRET`, `AWS_JETS_ADMIN_PWD_SECRET`, `JETS_ENCRYPTION_KEY_SECRET` and `JETS_ADMIN_EMAIL`, default `admin`: the rotated administrator password is written for the user it names, which is the apiserver's administrator (`cdk/jetstore_one/lambdas/rotate_secret/main.go`, `AdminLoginFromEnv` in `jets/user/admin_login.go`) |
 | `StatusUpdateLambda` | `JETS_DSN_SECRET` and `JETS_REGION`; the notification variables above |
 
 ## The inference server

@@ -38,7 +38,7 @@ var DevMode bool
 const SecretsWithheldEnvVar = "JETS_SECRETS_WITHHELD"
 
 func init() {
-	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
+	AdminEmail = AdminLoginFromEnv()
 	_, DevMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	TokenExpiration = 60
 	if utils.IsTruthy(os.Getenv(SecretsWithheldEnvVar)) {

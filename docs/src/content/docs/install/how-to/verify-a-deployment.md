@@ -68,7 +68,7 @@ of the lines it can print; a check that fails stops the apiserver, and the reaso
 ## 4. Sign in
 
 Open the UI and sign in ([Sign in](/docs/user/screens/sign-in/)). On a first deploy the only account
-is the administrator's: the email address is `JETS_ADMIN_EMAIL`, and the password is the value of the
+is the administrator's: the login is `JETS_ADMIN_EMAIL` (`admin` when it is not set), and the password is the value of the
 stack's administrator password secret (see [Rotate secrets](/docs/install/how-to/rotate-secrets/#the-secrets)).
 
 ## 5. The documentation

@@ -1,7 +1,7 @@
 package datatable
 
-// JM-085: NewDataTableContext keeps the admin email it is given and falls back to
-// JETS_ADMIN_EMAIL only when it is given none.
+// NewDataTableContext keeps the admin email it is given and falls back to
+// JETS_ADMIN_EMAIL, then to "admin", only when it is given none.
 
 import "testing"
 
@@ -29,5 +29,15 @@ func TestNewDataTableContextAdminEmail(t *testing.T) {
 	}
 	if flag != "flag-admin@example.test" {
 		t.Errorf("the caller's flag value was overwritten: %q", flag)
+	}
+}
+
+// With JETS_ADMIN_EMAIL unset the fallback is "admin", the login the apiserver
+// creates the administrator under, never an empty string.
+func TestNewDataTableContextAdminEmailDefault(t *testing.T) {
+	t.Setenv("JETS_ADMIN_EMAIL", "")
+	ctx := NewDataTableContext(nil, false, false, nil, nil)
+	if ctx.AdminEmail == nil || *ctx.AdminEmail != "admin" {
+		t.Errorf("AdminEmail = %v, want \"admin\"", ctx.AdminEmail)
 	}
 }
