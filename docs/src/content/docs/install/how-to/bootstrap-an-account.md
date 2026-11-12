@@ -84,7 +84,7 @@ Its variables, from the *Expected Env Variables* comment and the checks in `main
 |---|---|
 | `AWS_ACCOUNT`, `AWS_REGION` | Required. The stack's environment, and part of the ARNs in the policy. |
 | `GH_REPO_NAME` | Required. Used as written in the trust condition `repo:<GH_REPO_NAME>:*`. GitHub's token subject is `repo:<owner>/<repository>:…`, so give the owner and the repository, `owner/repository`. |
-| `GH_ORG_NAME` | Required by the check in `main`, and not otherwise read. |
+| `GH_ORG_NAME` | Not read. It was required by `main` before this release; a value still set is ignored. |
 | `AWS_ROLE` | Optional. The role's name; default `github-ci-role`. |
 | `JETS_TAG_NAME_OWNER`, `JETS_TAG_VALUE_OWNER` | Optional. A tag on every resource, when both are set. |
 | `JETS_TAG_NAME_PROD`, `JETS_TAG_VALUE_PROD` | Optional. The same, for a production marker. |

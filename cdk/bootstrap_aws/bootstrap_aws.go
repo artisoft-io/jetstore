@@ -111,8 +111,8 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 // AWS_ACCOUNT (required)
 // AWS_REGION (required)
 // AWS_ROLE (default github-ci-role)
-// GH_ORG_NAME (required)
-// GH_REPO_NAME (required)
+// GH_ORG_NAME (not read; was required, now ignored if set)
+// GH_REPO_NAME (required, owner/repository: the trust condition is repo:<GH_REPO_NAME>:*)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
@@ -145,9 +145,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")
 	}
-	if os.Getenv("GH_ORG_NAME") == "" || os.Getenv("GH_REPO_NAME") == "" {
+	if os.Getenv("GH_REPO_NAME") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env variables 'GH_ORG_NAME' and 'GH_REPO_NAME' are required.")
+		errMsg = append(errMsg, "Env variable 'GH_REPO_NAME' is required.")
 	}
 	if hasErr {
 		for _, msg := range errMsg {

@@ -39,13 +39,14 @@ Three consequences to plan for:
 - **Only the host VPC's public subnets are routed.** A host VPC whose clients sit in private subnets
   needs its own routes added by hand.
 - **The peering connection names neither a peer account nor a peer region**, so both VPCs must be in
-  the stack's account and in `AWS_REGION`. `HOST_VPC_REGION` changes only where the host VPC is
-  looked up.
+  the stack's account and in `AWS_REGION`. `main` refuses a `HOST_VPC_REGION` other than
+  `AWS_REGION` before synth.
 
 **The database is not opened by this app.** With `JETS_DB_CLUSTER_ID` set, the code adds an
 allowance from the bastion to the cluster on port 5432, but the cluster is imported by identifier
-alone, without its security groups, so no ingress rule reaches the database's side. To reach the
-database from the host VPC, add an ingress rule to the cluster's security group yourself. The
+alone, without its security groups, so no ingress rule reaches the database's side, and `main` logs
+a warning saying so. To reach the database from the host VPC, add an ingress rule to the cluster's
+security group yourself. The
 JetStore stack's own bastion (`BASTION_HOST_KEYPAIR_NAME` on `cdk/jetstore_one`, in
 `NewJetstoreOneStack`) is created inside the stack's VPC with that rule, and needs no peering.
 
@@ -60,11 +61,11 @@ naming what is missing:
 | `JETSTORE_VPC_ID` | Required. The JetStore stack's VPC: its `JetStoreVpcID` output ([Stack outputs](/docs/install/reference/stack-outputs/)). |
 | `HOST_VPC_ID` | Optional. An existing VPC to peer. Unset, a VPC and a bastion host are created. |
 | `BASTION_HOST_KEYPAIR_NAME` | Required when `HOST_VPC_ID` is unset: an EC2 key pair that already exists in the region. |
-| `HOST_VPC_REGION` | Optional. Where to look up `HOST_VPC_ID`; default `AWS_REGION`. |
+| `HOST_VPC_REGION` | Optional. Where to look up `HOST_VPC_ID`; default `AWS_REGION`, and any other value stops the synth. |
 | `JETS_DB_CLUSTER_ID` | Optional. The JetStore database cluster's identifier, for the allowance described above. |
 | `JETS_TAG_NAME_OWNER`, `JETS_TAG_VALUE_OWNER` | Optional. A tag on every resource, when both are set. |
 | `JETS_TAG_NAME_PROD`, `JETS_TAG_VALUE_PROD` | Optional. The same, for a production marker. |
-| `JETS_TAG_NAME_PHI`, `JETS_TAG_NAME_PII`, `JETS_TAG_NAME_DESCRIPTION` | Optional. Resource tags on the new VPC. The code sets them on the VPC twice, the second time with the values meant for the bastion host, so the VPC ends with `false` and the bastion's description, and the bastion host itself is not tagged. |
+| `JETS_TAG_NAME_PHI`, `JETS_TAG_NAME_PII`, `JETS_TAG_NAME_DESCRIPTION` | Optional. Resource tags on the new VPC and the resources in it (`true`, with the VPC's description) and on the bastion host (`false`, with the bastion's description). |
 
 ## Deploy it
 
