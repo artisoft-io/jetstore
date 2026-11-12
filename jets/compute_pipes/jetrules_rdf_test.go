@@ -35,8 +35,9 @@ func TestEncodeRdfTypeToTxt(t *testing.T) {
 	if err != nil {
 		t.Fatal("ParseDate err", err)
 	}
-	if encodeRdfTypeToTxt(*d) != "2006-01-02T00:00:00" {
-		t.Error("2006-01-02T00:00:00")
+	// A date (no time of day) encodes without a time, since cc054de9
+	if encodeRdfTypeToTxt(*d) != "2006-01-02" {
+		t.Error("2006-01-02, got", encodeRdfTypeToTxt(*d))
 	}
 	dt, err := rdf.ParseDatetime("2006-01-02T15:04:05")
 	if err != nil {
