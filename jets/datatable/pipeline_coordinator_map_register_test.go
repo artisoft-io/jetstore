@@ -30,7 +30,7 @@ func coordinatorMapFixture(t *testing.T) (*DataTableContext, func() []string) {
 	ctx := registerFileKeysFixture(t)
 	widenedTestPool(t, "pipeline_coordinator_map", "pipeline_coordinator_map_items", "pipeline_coordinator_lock")
 	seedSource(t, ctx, "Claims", 0, "{Claims}")
-	startPipelinesOverride = func(*DataTableContext, int, int, string, string, string, string, string) error {
+	startPipelinesOverride = func(*DataTableContext, int, int, string, string, string, string, string, bool) error {
 		return nil
 	}
 	t.Cleanup(func() { startPipelinesOverride = nil })

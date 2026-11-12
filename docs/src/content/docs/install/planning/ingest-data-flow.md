@@ -81,17 +81,21 @@ key and repeats in a re-delivery:
 | none | registers the file, and marks the row `done` |
 | `done` | nothing: the file was registered |
 | `started`, by an invocation that may still be running | nothing |
-| `started`, longer ago than an invocation can run | registers the file: the earlier invocation timed out, perhaps before starting every pipeline |
+| `started`, longer ago than an invocation can run | **resumes** the registration: the earlier invocation died, typically of a timeout |
+| `failed` (the earlier invocation returned an error) | **resumes** the registration |
 
-An invocation that fails with an error deletes its row, so Lambda's retry registers the file.
-**A retry after a timeout therefore still registers the file a second time**, starting again the
-pipelines the timed-out invocation had already started, since nothing records which those were.
-A timeout is possible because starting a pipeline can wait on the state-machine lock (step 8) for
-longer than the Lambda's 30 seconds.
+**A registration is resumed, not repeated.** Before it writes any `input_registry` row, a registration
+records in the event's row the input session it reserved (`OnSessionReserved`). A delivery that takes
+the event over registers under that session (`ResumeSessionId`): it reuses the `input_registry` rows
+already written, and starts only the pipelines that have no run yet taking that input
+(`pipelineStartedFor`). A timeout is the usual reason to resume, because starting a pipeline can wait on
+the state-machine lock (step 13) for longer than the Lambda's 30 seconds. A schema-triggers event is
+registered afresh rather than resumed, since its file can hold several registrations.
+
 **Writing the file again is a new event**, with a new sequencer, and registers it again, as it should.
 The check is skipped, and the file registered as before, for an event with no sequencer (one not built
 by S3, such as a site entry point's own) and when the row cannot be written (the table not yet
-migrated). Rows are removed after seven days.
+migrated). Rows are removed after seven days, and with their session when it is deleted.
 
 **3 — Key parsing.** `doFileKey` calls `SplitFileKeyIntoComponents`
 (`jets/utils/split_file_key_components.go`), which splits the key on `/` and takes every `k=v` segment
@@ -203,7 +207,11 @@ not of `DEPLOY_CPIPES_NATIVE` — that variable only decides whether the native 
 Lambda are *deployed*.
 
 **13 — Locking and throttling.** A global lock is taken (`lockStateMachine`, keyed on the literal
-`"all"` — not per state machine), then `checkThrottling`. If the limits are exceeded the row is
+`"all"` — not per state machine), then `checkThrottling`. A waiter retries with a doubling wait, about
+17 minutes in all. **A lock older than five minutes is taken over** (`staleLockAfter`), since every
+holder keeps it for seconds: one that old was left by a process that died holding it, a Lambda that
+timed out or a task that was stopped. Each acquisition carries its own `lock_token`, and a holder
+releases the lock only while it still holds its token. If the limits are exceeded the row is
 written with `status = 'pending'` instead and nothing starts. This is the fourth such point,
 and the only one that resolves by itself: pending tasks are drained in `last_update ASC` order as
 running pipelines complete.

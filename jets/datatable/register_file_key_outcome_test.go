@@ -253,7 +253,7 @@ func TestRegisterSchemaEventThatRegistersNothingIsAnError(t *testing.T) {
 	ctx := registerFileKeysFixture(t)
 	seedSource(t, ctx, "Claims", 0, "{Claims}")
 	var starts int
-	startPipelinesOverride = func(*DataTableContext, int, int, string, string, string, string, string) error {
+	startPipelinesOverride = func(*DataTableContext, int, int, string, string, string, string, string, bool) error {
 		starts++
 		return nil
 	}

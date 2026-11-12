@@ -71,17 +71,34 @@ var downloadSchemaEvent = func(fileKey, versionId string, w io.WriterAt) (int64,
 // claimS3Event is claimEvent, a variable so processMessage's tests can run
 // without a database. Production code must not reassign it.
 var claimS3Event = func(ctx context.Context, dbpool *pgxpool.Pool, fileKey, sequencer string,
-	inFlight time.Duration) (bool, string, error) {
+	inFlight time.Duration) (bool, string, string, error) {
 	return claimEvent(ctx, dbpool, fileKey, sequencer, inFlight)
 }
 
-// releaseS3Event deletes the event's row after a failed registration, so that
-// Lambda's retry registers the file. A failure is logged: the retry then finds
-// the row started and takes it over once the in-flight window has passed.
-var releaseS3Event = func(fileKey, sequencer string, dbpool *pgxpool.Pool) {
-	if err := releaseEvent(context.Background(), dbpool, fileKey, sequencer); err != nil {
+// failS3Event marks the event failed after a failed registration, so that
+// Lambda's retry takes it over and resumes. A failure is logged: the retry then
+// finds the row started and takes it over once the in-flight window has passed.
+var failS3Event = func(fileKey, sequencer string, dbpool *pgxpool.Pool) {
+	if err := failEvent(context.Background(), dbpool, fileKey, sequencer); err != nil {
 		log.Printf("WARNING %v", err)
 	}
+}
+
+// recordS3Session records the input session the registration reserved. A failure
+// is logged: a delivery taking the event over then registers under a new session,
+// as every one did before the session was recorded.
+var recordS3Session = func(fileKey, sequencer, sessionId string, dbpool *pgxpool.Pool) {
+	if err := recordSession(context.Background(), dbpool, fileKey, sequencer, sessionId); err != nil {
+		log.Printf("WARNING %v", err)
+	}
+}
+
+// eventResume carries the duplicate check's part in a file key's registration:
+// the session to resume under, and the call that records a newly reserved one.
+// Its zero value registers as before the check existed.
+type eventResume struct {
+	sessionId  string
+	onReserved func(sessionId string)
 }
 
 // completeS3Event marks the event registered. A failure is logged: the row stays
@@ -181,9 +198,15 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 	// nothing (event_claim.go). An event with no sequencer was not built by S3 and
 	// is registered as it always was. A failure to record the event does not hold
 	// up the file: it is registered unchecked, as it was before the record existed.
+	//
+	// A delivery that takes over an unfinished registration of a file key resumes
+	// it under the session the earlier invocation recorded. A schema event is
+	// registered afresh: its file can hold several registrations, and only one
+	// session is recorded.
+	var resume eventResume
 	tracked := strings.HasPrefix(fileKey, s3InputPrefix) || strings.HasPrefix(fileKey, s3SchemaPrefix)
 	if tracked && sequencer != "" {
-		claimed, status, claimErr := claimS3Event(ctx, dbpool, fileKey, sequencer, inFlightWindow(ctx))
+		claimed, status, sessionId, claimErr := claimS3Event(ctx, dbpool, fileKey, sequencer, inFlightWindow(ctx))
 		switch {
 		case claimErr != nil:
 			log.Printf("WARNING registering %s without the duplicate check: %v", fileKey, claimErr)
@@ -192,13 +215,23 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 				fileKey, sequencer, status)
 			return nil
 		default:
+			if sessionId != "" {
+				log.Printf("S3 event for %s (sequencer %s) was left unfinished by an earlier invocation; resuming under session %s",
+					fileKey, sequencer, sessionId)
+			}
+			resume = eventResume{
+				sessionId: sessionId,
+				onReserved: func(reserved string) {
+					recordS3Session(fileKey, sequencer, reserved, dbpool)
+				},
+			}
 			defer func() {
 				if r := recover(); r != nil {
-					releaseS3Event(fileKey, sequencer, dbpool)
+					failS3Event(fileKey, sequencer, dbpool)
 					panic(r)
 				}
 				if err != nil {
-					releaseS3Event(fileKey, sequencer, dbpool)
+					failS3Event(fileKey, sequencer, dbpool)
 					return
 				}
 				completeS3Event(fileKey, sequencer, dbpool)
@@ -216,7 +249,7 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 	switch {
 	case strings.HasPrefix(fileKey, s3InputPrefix):
 		// File Key Event
-		return doFileKey(ctx, dbpool, dtCtx, fileKey, fileSize, token)
+		return doFileKey(ctx, dbpool, dtCtx, fileKey, fileSize, token, resume)
 	case strings.HasPrefix(fileKey, s3SchemaPrefix):
 		// File Schema
 		return doFileSchema(dbpool, dtCtx, fileKey, record.S3.Object.VersionID, fileSize, token)
@@ -229,7 +262,7 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 }
 
 func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableContext,
-	fileKey string, fileSize int64, token string) error {
+	fileKey string, fileSize int64, token string, resume eventResume) error {
 
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
@@ -258,9 +291,11 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 	}
 
 	registerFileKeyAction := datatable.RegisterFileKeyAction{
-		Action:        "register_keys",
-		Data:          []map[string]any{fileKeyComponents},
-		IsSchemaEvent: isSchemaEvent,
+		Action:            "register_keys",
+		Data:              []map[string]any{fileKeyComponents},
+		IsSchemaEvent:     isSchemaEvent,
+		ResumeSessionId:   resume.sessionId,
+		OnSessionReserved: resume.onReserved,
 	}
 	return registerFileKeys(dtCtx, &registerFileKeyAction, token)
 }

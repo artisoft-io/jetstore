@@ -24,6 +24,19 @@ type RegisterFileKeyAction struct {
 	Data            []map[string]any `json:"data"`
 	NoAutomatedLoad bool             `json:"noAutomatedLoad"`
 	IsSchemaEvent   bool             `json:"isSchemaEvent"`
+
+	// ResumeSessionId and OnSessionReserved let the register-key lambda resume a
+	// registration an earlier invocation left unfinished (it timed out, or
+	// failed). Neither is read from a request body, and both need exactly one row.
+	//
+	// OnSessionReserved is called with the input session reserved for the row,
+	// before its input_registry rows are written, so the caller can record it.
+	// ResumeSessionId names the session an earlier invocation recorded: the row is
+	// registered under it rather than a new one, the input_registry rows already
+	// written are reused, and only the pipelines with no run yet for those rows are
+	// started.
+	ResumeSessionId   string                 `json:"-"`
+	OnSessionReserved func(sessionId string) `json:"-"`
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
@@ -360,6 +373,10 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	if !ok {
 		return nil, http.StatusInternalServerError, errors.New("error cannot find file_key_staging stmt")
 	}
+	resuming := registerFileKeyAction.ResumeSessionId != ""
+	if (resuming || registerFileKeyAction.OnSessionReserved != nil) && len(registerFileKeyAction.Data) != 1 {
+		return nil, http.StatusBadRequest, errors.New("a registration resumed or recorded by session must have exactly one row")
+	}
 	rows := make([]*registerFileKeyRow, 0, len(registerFileKeyAction.Data))
 	for irow := range registerFileKeyAction.Data {
 		r, err := readRegisterFileKeyRow(irow, registerFileKeyAction.Data[irow])
@@ -522,10 +539,19 @@ NextKey:
 			skip(irow, fileKey, skipNoDomainKeys)
 			continue NextKey
 		}
-		// Reserve a session_id
-		sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
-		if err != nil {
-			return nil, http.StatusInternalServerError, err
+		// Reserve a session_id, or take the one an unfinished registration of the
+		// same event reserved.
+		if resuming {
+			sessionId = registerFileKeyAction.ResumeSessionId
+			log.Printf("RegisterFileKeys: resuming the registration of %s under session %s", fileKey, sessionId)
+		} else {
+			sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
+			if err != nil {
+				return nil, http.StatusInternalServerError, err
+			}
+			if registerFileKeyAction.OnSessionReserved != nil {
+				registerFileKeyAction.OnSessionReserved(sessionId)
+			}
 		}
 		// Register the session before writing input_registry and starting
 		// pipelines (JM-084). Starting a pipeline can wait up to about 17 minutes
@@ -554,12 +580,19 @@ NextKey:
 							RETURNING key`
 			err = ctx.Dbpool.QueryRow(context.Background(), stmt,
 				client, org, domainKey, fileKey, source_period_key, tableName, sessionId, schemaProviderJson, requestId).Scan(&inputRegistryKey)
+			if resuming && errors.Is(err, pgx.ErrNoRows) {
+				// Written by the unfinished registration: reuse its row.
+				err = ctx.Dbpool.QueryRow(context.Background(),
+					`SELECT key FROM jetsapi.input_registry
+					 WHERE client = $1 AND org = $2 AND object_type = $3 AND table_name = $4 AND session_id = $5`,
+					client, org, domainKey, tableName, sessionId).Scan(&inputRegistryKey)
+			}
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
 			if !registerFileKeyAction.NoAutomatedLoad {
 				// Check for any process that are ready to kick off
-				startPipelinesForInputRegistry(ctx, inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
+				startPipelinesForInputRegistry(ctx, inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token, resuming)
 			}
 		}
 		registered++
@@ -595,15 +628,16 @@ func uniqueDomainKeys(keys []string, client, org, objectType any) []string {
 }
 
 // startPipelinesForInputRegistry is the call RegisterFileKeys makes to start the
-// pipelines a registered file is ready for.
+// pipelines a registered file is ready for. skipStarted, when a registration is
+// resumed, leaves out the pipelines that already have a run for the input.
 func startPipelinesForInputRegistry(ctx *DataTableContext, inputRegistryKey, sourcePeriodKey int,
-	inputSessionId, client, objectType, fileKey, token string) error {
+	inputSessionId, client, objectType, fileKey, token string, skipStarted bool) error {
 	if startPipelinesOverride != nil {
 		return startPipelinesOverride(ctx, inputRegistryKey, sourcePeriodKey, inputSessionId,
-			client, objectType, fileKey, token)
+			client, objectType, fileKey, token, skipStarted)
 	}
-	return ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, inputSessionId,
-		client, objectType, fileKey, token)
+	return ctx.startPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, inputSessionId,
+		client, objectType, fileKey, token, skipStarted)
 }
 
 // startPipelinesOverride, when set, replaces the pipeline start, so a test can
@@ -613,7 +647,7 @@ func startPipelinesForInputRegistry(ctx *DataTableContext, inputRegistryKey, sou
 // startLoader and RegisterSchemaEvent), which Go refuses as an initialization
 // cycle.
 var startPipelinesOverride func(ctx *DataTableContext, inputRegistryKey, sourcePeriodKey int,
-	inputSessionId, client, objectType, fileKey, token string) error
+	inputSessionId, client, objectType, fileKey, token string, skipStarted bool) error
 
 func ReserveSessionId(dbpool *pgxpool.Pool) (string, error) {
 	baseSessionId := time.Now().UnixMilli()
