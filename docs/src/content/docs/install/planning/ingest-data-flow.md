@@ -106,8 +106,8 @@ as a field, so the S3 layout carries the metadata:
 ```
 
 `vendor` is also stored as `org`. A missing `year`, `month` or `day` is 1970, 1 or 1. **A value that
-is present and not a number is logged and becomes 0**, not the default the log line names, because
-`strconv.Atoi` returns 0 with its error. Either way the file is not refused: it lands in an
+is present and not a number is logged and becomes 0**, because `strconv.Atoi` returns 0 with its
+error. Either way the file is not refused: it lands in an
 unexpected source period. `doFileKey` then sets `size` from the S3 event.
 
 **A site handler can run here.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a site main
