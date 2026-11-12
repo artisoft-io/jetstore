@@ -123,3 +123,7 @@ The same caution applies to a test against `JETS_TEST_DSN`: the cache cannot see
 
 A package can carry failing tests that have nothing to do with your change. Run it on the commit you
 started from as well, and compare the names of the failing tests, rather than expecting a clean run.
+
+## See also
+
+- [Build JetStore from source](/docs/developer/how-to/build-from-source/): the full build, of which the first section is the engine.

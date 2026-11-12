@@ -137,3 +137,9 @@ file**, since that is where the page reads them from.
 What each table is for, and how the configuration tables relate, is explained in
 [Design of the system tables](/docs/developer/workspace/system-tables/); a new table that changes that
 picture belongs there too.
+
+## See also
+
+- [Tests that need a PostgreSQL](/docs/developer/testing/go-and-cpp/#tests-that-need-a-postgresql): the scratch database the migration tests use.
+- [System tables before the compile](/docs/developer/architecture/decisions/system-tables-before-compile/): why the migration runs first.
+- [User SQL on restricted logins](/docs/developer/architecture/decisions/restricted-sql-logins/): why a new table needs its grants checked.

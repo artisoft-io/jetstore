@@ -266,3 +266,7 @@ Depend on `pipeline_config`, `pipeline_execution_status`
 This table is to register session id that are used by jetstore to ensure a session id is not used more than once.
 
 The sessions are registered when the execution is successful.
+
+## See also
+
+- [Add a system table](/docs/developer/how-to/add-a-system-table/).

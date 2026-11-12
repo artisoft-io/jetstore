@@ -133,3 +133,9 @@ are committed to the workspace's repository.
 ## 4. Verify
 
 Run the checks in [Verify a deployment](/docs/install/how-to/verify-a-deployment/).
+
+## See also
+
+- [Images](/docs/install/reference/images/): the order the images build in.
+- [Sizing](/docs/install/planning/sizing/): the settings that size each service.
+- [Customising an installation](/docs/install/planning/customise-an-installation/): overrides made in the running installation, and how to keep them.

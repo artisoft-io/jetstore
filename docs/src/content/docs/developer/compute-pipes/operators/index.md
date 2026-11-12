@@ -106,3 +106,7 @@ The contract matrix needs a row for every shape an `apply` entry can take, and t
 | [Ollama wire payloads](/docs/developer/compute-pipes/operators/infer-ollama-payloads/) | reference | The exact ollama request bodies, and the Infer Server Admin screen's envelope |
 | [The vLLM backend](/docs/developer/compute-pipes/operators/infer-vllm/) | reference | The vLLM backend's own keys, guided decoding, and its two failure modes |
 | [vLLM prompt configuration](/docs/developer/compute-pipes/operators/infer-vllm-payloads/) | reference | The exact vLLM request bodies and build-time errors |
+
+## See also
+
+- [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/): to add a type to this list.

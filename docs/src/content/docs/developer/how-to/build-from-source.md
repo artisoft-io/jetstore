@@ -131,3 +131,7 @@ compiles the engine and cross-compiles the Go binaries for `linux/amd64` in one 
 toolchain image `Dockerfile.cpipes_base_builder`, and the runtime images copy what they need out of
 it. Use a workstation build to develop and test, and the images to ship. Each image is listed in
 [Images](/docs/install/reference/images/).
+
+## See also
+
+- [Components](/docs/developer/architecture/components/): what each part you build does.

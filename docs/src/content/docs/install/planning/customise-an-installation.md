@@ -88,3 +88,8 @@ These guides describe JetStore. What is specific to one installation (its data m
 way its client's files are customised) belongs in the workspace's repository. A workspace may carry
 its own documentation pages, to be added beside these guides in that installation's copy; that is not
 yet in place.
+
+## See also
+
+- [Write a workspace Lambda](/docs/developer/how-to/write-a-workspace-lambda/).
+- [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/).

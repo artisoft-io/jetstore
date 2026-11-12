@@ -95,3 +95,7 @@ Load a file and run a pipeline on it, and check the run ends with its outputs wr
 [Your first pipeline](/docs/user/tutorials/first-pipeline/) walks the whole path. If the file lands and
 nothing runs, follow
 [Find why a file did not start a pipeline](/docs/install/how-to/troubleshoot-ingest/).
+
+## See also
+
+- [Environment variables](/docs/install/reference/environment-variables/): what each service reads.
