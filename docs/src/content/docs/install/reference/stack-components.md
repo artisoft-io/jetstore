@@ -273,8 +273,8 @@ Rotates all four secrets.
 ## Operations
 
 - **Alarms** (`jetstore_alarms.go`): pipeline failures (`autoLoaderFailed`, `autoServerFailed`), ELB
-  target response time / 5XX / unhealthy hosts, and RDS disk queue depth, CPU, serverless capacity
-  and freeable memory. Each fires an SNS action only when `JETS_SNS_ALARM_TOPIC_ARN` is set.
+  target response time / 5XX / unhealthy hosts, and RDS disk queue depth, CPU (above
+  `JETS_CPU_UTILIZATION_ALARM_THRESHOLD` percent, default 60), serverless capacity and freeable memory. Each fires an SNS action only when `JETS_SNS_ALARM_TOPIC_ARN` is set.
 - **Bastion host**: built only when `BASTION_HOST_KEYPAIR_NAME` is set. Public subnet, SSH from
   `Peer_AnyIpv4()`, allowed to reach Aurora on 5432. Tagged PHI/PII `false`.
 - **Tagging**: `JETS_TAG_NAME_PHI` / `_PII` / `_DESCRIPTION` enable per-resource tags;

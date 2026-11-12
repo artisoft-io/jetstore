@@ -565,7 +565,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // CPIPES_START_NOTIFICATION_JSON template for the cpipes start notification
 // CPIPES_COMPLETED_NOTIFICATION_JSON template for the cpipes completed notification
 // CPIPES_FAILED_NOTIFICATION_JSON template for the cpipes failed notification
-// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (optional, threshold of the database CPUUtilization alarm, in percent, default 60)
 // JETS_CUSTOM_BUTTONS_CONFIG_JSON (optional) the deployment's own buttons on the UI's Pipeline
 //	Status table, as a JSON array in the shape the Flutter UI read: each entry has a type
 //	(fetch_stage_to_clipboard), a key, a label, fsk_params, a file_path under the stage prefix
@@ -976,7 +976,8 @@ func main() {
 			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_DB_MAX_CAPACITY: %s", os.Getenv("JETS_DB_MAX_CAPACITY")))
 		}
 	}
-	CpuUtilizationAlarmThreshold := 80.0
+	// 60 when unset: the alarm was the literal 60 before it read this variable.
+	CpuUtilizationAlarmThreshold := 60.0
 	if os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD") != "" {
 		CpuUtilizationAlarmThreshold, err = strconv.ParseFloat(os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"), 64)
 		if err != nil {

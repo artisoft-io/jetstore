@@ -28,6 +28,7 @@ the *peer* VPC is the JetStore stack's.
 | Bastion host | none | `PublicJumpServer`, a Linux bastion in a public subnet with the key pair `BASTION_HOST_KEYPAIR_NAME`, SSH open from any IPv4 address |
 | Peering connection | host VPC to the JetStore VPC | the same |
 | Routes | from each of the host VPC's **public** subnets to the JetStore VPC's CIDR, and from each of the JetStore VPC's isolated and private subnets to the host VPC's CIDR | the same |
+| Database rule | with `JETS_DB_SECURITY_GROUP_ID` set, an ingress rule on that security group: TCP 5432 from the host VPC's CIDR | the same |
 
 Each route table gets one route, even when several subnets share it.
 
@@ -42,11 +43,22 @@ Three consequences to plan for:
   the stack's account and in `AWS_REGION`. `main` refuses a `HOST_VPC_REGION` other than
   `AWS_REGION` before synth.
 
-**The database is not opened by this app.** With `JETS_DB_CLUSTER_ID` set, the code adds an
-allowance from the bastion to the cluster on port 5432, but the cluster is imported by identifier
-alone, without its security groups, so no ingress rule reaches the database's side, and `main` logs
-a warning saying so. To reach the database from the host VPC, add an ingress rule to the cluster's
-security group yourself. The
+**The database is opened only with `JETS_DB_SECURITY_GROUP_ID`.** Set it to the security group on
+the JetStore database cluster, and the app adds a rule to that group admitting TCP 5432 from the host
+VPC's CIDR, so the bastion and anything else in the host VPC can reach the database through the
+peering. The rule names the CIDR rather than the bastion's security group, which is in the other VPC.
+The cluster's security group is not a stack output; read it from the cluster named by the stack's
+`JetStore_RDS_Cluster_ID` output:
+
+```bash
+aws rds describe-db-clusters --db-cluster-identifier <JetStore_RDS_Cluster_ID> \
+  --query 'DBClusters[0].VpcSecurityGroups[].VpcSecurityGroupId'
+```
+
+The rule belongs to this app's stack, so `cdk destroy` here removes it. `JETS_DB_CLUSTER_ID`, which
+this app read before, never added a rule: the cluster was imported without its security groups. It
+is still accepted, and when it is set without `JETS_DB_SECURITY_GROUP_ID`, `main` logs a warning naming
+the variable to set instead. The
 JetStore stack's own bastion (`BASTION_HOST_KEYPAIR_NAME` on `cdk/jetstore_one`, in
 `NewJetstoreOneStack`) is created inside the stack's VPC with that rule, and needs no peering.
 
@@ -62,7 +74,8 @@ naming what is missing:
 | `HOST_VPC_ID` | Optional. An existing VPC to peer. Unset, a VPC and a bastion host are created. |
 | `BASTION_HOST_KEYPAIR_NAME` | Required when `HOST_VPC_ID` is unset: an EC2 key pair that already exists in the region. |
 | `HOST_VPC_REGION` | Optional. Where to look up `HOST_VPC_ID`; default `AWS_REGION`, and any other value stops the synth. |
-| `JETS_DB_CLUSTER_ID` | Optional. The JetStore database cluster's identifier, for the allowance described above. |
+| `JETS_DB_SECURITY_GROUP_ID` | Optional. The JetStore database cluster's security group, opened on 5432 to the host VPC's CIDR as described above. |
+| `JETS_DB_CLUSTER_ID` | Optional, superseded by `JETS_DB_SECURITY_GROUP_ID`. Adds no rule; set alone, it logs a warning. |
 | `JETS_TAG_NAME_OWNER`, `JETS_TAG_VALUE_OWNER` | Optional. A tag on every resource, when both are set. |
 | `JETS_TAG_NAME_PROD`, `JETS_TAG_VALUE_PROD` | Optional. The same, for a production marker. |
 | `JETS_TAG_NAME_PHI`, `JETS_TAG_NAME_PII`, `JETS_TAG_NAME_DESCRIPTION` | Optional. Resource tags on the new VPC and the resources in it (`true`, with the VPC's description) and on the bastion host (`false`, with the bastion's description). |
