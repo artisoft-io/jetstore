@@ -33,6 +33,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 
 	// Load the main input files
 	var mainInputDomainClass string
+	var stageColumns []string
 	if inputChannelConfig.Name == "input_row" {
 		mainInputDomainClass = mainInput.DomainClass
 	} else {
@@ -44,6 +45,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 			return
 		}
 		mainInputDomainClass = channelInfo.ClassName
+		stageColumns = stageColumnsToCheck(inputChannelConfig, channelInfo)
 	}
 
 	var castToRdfTxtTypeFncs []*CastToRdfTxtFnc
@@ -106,6 +108,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	gotMaxRecordCount := false
 
 	for localInFile := range cpCtx.FileNamesCh[0] {
+		localInFile.StageColumns, localInFile.StageChannel = stageColumns, inputChannelConfig.Name
 		if gotMaxRecordCount {
 			// Don't read more records
 			os.Remove(localInFile.LocalFileName)

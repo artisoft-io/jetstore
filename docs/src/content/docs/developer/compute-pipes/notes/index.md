@@ -34,5 +34,6 @@ In the order they were recorded:
 - [A workspace override and the version that names it](/docs/developer/compute-pipes/notes/workspace-override-version/)
 - [A cumulative file, and why its flag is read at start](/docs/developer/compute-pipes/notes/cumulative-files/)
 - [A map column: empty, rejected and absent values](/docs/developer/compute-pipes/notes/map-column-values/)
+- [Reading a stage folder: the latest session, and the columns it was written with](/docs/developer/compute-pipes/notes/stage-session-reads/)
 - The rule optimizer's statistics, 2026-10-24: a jetrules step can count, over its sessions, what
   the rule optimizer orders by; see [The rule optimizer's statistics](/docs/developer/compute-pipes/optimizer-statistics/).

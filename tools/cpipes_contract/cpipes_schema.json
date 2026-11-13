@@ -8169,6 +8169,19 @@
           "description": "The file key is a directory of part files rather than a single file.",
           "title": "Is Part Files"
         },
+        "latest_session_only": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a stage channel read through file_key: keeps, in each period folder of the read, only the latest session whose run completed, and skips the other session folders (duplicates, and sessions mapped before a model change). A period whose session folders hold data and none of them a completed run is refused. For a feed with one delivery per period.",
+          "title": "Latest Session Only"
+        },
         "lookback_periods": {
           "anyOf": [
             {

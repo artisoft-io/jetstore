@@ -2,11 +2,13 @@ package compute_pipes
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"log"
 	"slices"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // A reducing step whose input channel reads the stage area through file_key reads
@@ -56,12 +58,12 @@ func readsStageByFileKey(inputChannelConfig *InputChannelConfig) bool {
 // singleNode is for a merge_files step, which requires one partition.
 // fallbackNodes is the number of nodes when the cluster config sets no shard size:
 // this session's number of partitions.
-func AssignStageFileKeys(inputChannelConfig *InputChannelConfig, clusterConfig *ClusterSpec,
+// dbpool is read when a channel sets latest_session_only (latest_session.go).
+func AssignStageFileKeys(ctx context.Context, dbpool *pgxpool.Pool, inputChannelConfig *InputChannelConfig, clusterConfig *ClusterSpec,
 	singleNode bool, fallbackNodes int, env map[string]any) ([]StageFileKey, int, error) {
 
 	channels := make([][]*awsi.S3Object, 0, 1+len(inputChannelConfig.MergeChannels))
-	main, err := GetS3Objects4LookbackPeriod("", fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey),
-		inputChannelConfig.LookbackPeriods, inputChannelConfig.SourceObjectType, env)
+	main, err := ListStageChannel(ctx, dbpool, "", inputChannelConfig, env)
 	if err != nil {
 		return nil, 0, fmt.Errorf("while listing the main input's stage files: %v", err)
 	}
@@ -77,8 +79,7 @@ func AssignStageFileKeys(inputChannelConfig *InputChannelConfig, clusterConfig *
 					"through file_key, whose nodes hold no partition of this session: re-shard the main input with a "+
 					"splitter in its own step and merge in the next one", i, mergeConfig.Name, mergeConfig.ReadStepId)
 		}
-		objects, err := GetS3Objects4LookbackPeriod("", fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeConfig.FileKey),
-			mergeConfig.LookbackPeriods, mergeConfig.SourceObjectType, env)
+		objects, err := ListStageChannel(ctx, dbpool, "", mergeConfig, env)
 		if err != nil {
 			return nil, 0, fmt.Errorf("while listing merge channel %d's stage files: %v", i, err)
 		}

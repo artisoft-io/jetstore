@@ -173,7 +173,7 @@ startStepId:
 		// run one node per partition label the producers happened to use
 		// (stage_file_assignment.go).
 		var nbrNodes int
-		stageFileKeys, nbrNodes, err = AssignStageFileKeys(inputChannelConfig, cpipesStartup.CpConfig.ClusterConfig,
+		stageFileKeys, nbrNodes, err = AssignStageFileKeys(ctx, dbpool, inputChannelConfig, cpipesStartup.CpConfig.ClusterConfig,
 			pipeConfig[0].Type == "merge_files", args.ClusterInfo.NbrPartitions, cpipesStartup.EnvSettings)
 		if err != nil {
 			return result, fmt.Errorf("while assigning the stage files of step %d - %s: %v", stepId, stepName, err)

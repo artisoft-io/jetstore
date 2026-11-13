@@ -570,6 +570,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"has_grouped_rows":           {},
 		"input_format_data_json":     {},
 		"is_part_files":              {},
+		"latest_session_only":        {},
 		"lookback_periods":           {},
 		"merge_channels":             {},
 		"multi_columns_input":        {},

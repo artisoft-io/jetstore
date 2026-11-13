@@ -965,6 +965,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
 		return err
 	}
+	if err := validateLatestSessionOnly(cpConfig); err != nil {
+		return err
+	}
 	if err := validateNoGoEngine(cpConfig); err != nil {
 		return err
 	}
@@ -1523,6 +1526,28 @@ func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) erro
 							"govern how a file is written and belong on an output channel or a "+
 							"schema_provider; no reader consults them on an input channel",
 						ic.Name, stepId, i, strings.Join(fields, ", "))
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateLatestSessionOnly refuses latest_session_only on an input channel that
+// does not read the stage through file_key: no other read lists session folders,
+// so the field would be silently ignored (latest_session.go).
+func validateLatestSessionOnly(cpConfig *ComputePipesConfig) error {
+	for stepId, step := range allComputePipesSteps(cpConfig) {
+		for i := range step {
+			channels := []*InputChannelConfig{&step[i].InputChannel}
+			for j := range step[i].InputChannel.MergeChannels {
+				channels = append(channels, &step[i].InputChannel.MergeChannels[j])
+			}
+			for _, ic := range channels {
+				if ic.LatestSessionOnly && (ic.Type != "stage" || len(ic.FileKey) == 0) {
+					return fmt.Errorf(
+						"configuration error: input_channel '%s' (step %d, pipe %d) sets latest_session_only, which "+
+							"applies only to a channel of type 'stage' that reads a file_key", ic.Name, stepId, i)
 				}
 			}
 		}

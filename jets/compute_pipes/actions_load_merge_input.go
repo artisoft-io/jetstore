@@ -38,6 +38,7 @@ func (cpCtx *ComputePipesContext) loadMergeInput(computePipesInputCh chan []any,
 		return
 	}
 	inputDomainClass := channelInfo.ClassName
+	stageColumns := stageColumnsToCheck(inputChannelConfig, channelInfo)
 
 	var castToRdfTxtTypeFncs []*CastToRdfTxtFnc
 	if len(inputDomainClass) > 0 {
@@ -74,6 +75,7 @@ func (cpCtx *ComputePipesContext) loadMergeInput(computePipesInputCh chan []any,
 	gotMaxRecordCount := false
 
 	for localInFile := range fileNamesCh {
+		localInFile.StageColumns, localInFile.StageChannel = stageColumns, inputChannelConfig.Name
 		if gotMaxRecordCount {
 			// Don't read more records
 			os.Remove(localInFile.LocalFileName)
