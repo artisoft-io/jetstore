@@ -20,7 +20,13 @@ guide covers the three things a workspace adds to them, and the check to run bef
 example throughout is `jets_ws`, whose customisation is two compute-pipes site-operator packages under
 `go/cpipes_operators/`.
 
-<!-- RUN-STATUS -->
+This was carried out on 2026-11-13 on `jets_ws`, with the generator as it stands on `jets_ai` that
+day: its compiled workspace was taken from a `Dockerfile.compile_ws` build, and the site built with a
+`docs/` folder laid out as below. It built, with the fourth guide; a broken link in a written page, and
+a `reference/` folder in `docs/`, each failed the build, naming the page or folder; and a description
+with an escaped quote, compiled into one rule, showed on that rule's page. The rules' generated reading
+(step 3) was not yet on the rule pages that day, so with `rule_text` the run showed each rule's text
+alone.
 
 ## What the guide holds
 
@@ -55,7 +61,7 @@ three differences in where they land:
   build fails rather than let a written page be replaced by a generated one.
 
 Every page needs the same front matter as JetStore's, with one of the same five kinds; a page without
-it fails the build:
+it fails the build. When `docs/` has no `index.md`, the guide's landing page is generated:
 
 ```yaml
 ---
@@ -132,6 +138,8 @@ does not render is shown as not rendered, with the operator's name, and the rule
 partial. The description says what the rule is meant to do, the reading what it does; a reader who
 finds them disagreeing has found something to raise with the rule's owner.
 
+A `rule_text` that is not `true` or `false`, or a file that is not a JSON object, fails the build.
+
 **It is off by default because of who reads the guide.** A rule's text holds its literals (the codes,
 the thresholds, the names the rules test for), and every signed-in user of the installation can read
 the guide, while the rule files themselves need `workspace_ide`. Turning it on shows those literals to
@@ -143,14 +151,14 @@ the reading is shown. Descriptions are shown either way: their authors chose the
 
 **A page with a broken link, or without its front matter, fails the workspace's UI image build**, as a
 JetStore page fails JetStore's. Run the same build on a workstation first. It needs a checkout of
-`jetstore` at the release you deploy, with Node 24, and the workspace's compiled `workspace.db`.
+`jetstore` at the release you deploy, with Node 24, and the workspace compiled.
 
-### Get a compiled `workspace.db`
+### Get the compiled workspace
 
 The shortest way is the image the deployment builds anyway. On a machine with JetStore's
 `cpipes_builder:latest` image (step 1 of [Build and deploy a workspace](/docs/install/how-to/build-and-deploy-a-workspace/#build)),
-build `Dockerfile.compile_ws` from the workspace's checkout under a tag of your own, and copy the file
-out of it:
+build `Dockerfile.compile_ws` from the workspace's checkout under a tag of your own, and copy the
+compiled workspace out of it:
 
 ```bash
 docker build -f <jetstore>/dockerfiles/Dockerfile.compile_ws \
@@ -158,14 +166,21 @@ docker build -f <jetstore>/dockerfiles/Dockerfile.compile_ws \
   -t jets_ws_docs_check <jets_ws checkout>
 
 id=$(docker create jets_ws_docs_check)
-docker cp "$id":/workspaces/jets_ws/workspace.db ./workspace.db
+docker cp "$id":/workspaces/jets_ws ./jets_ws_compiled
 docker rm "$id"
 ```
 
 The image compiles the workspace as a deployment does: it installs JetStore's assets into a copy of the
-tree and compiles it into `/workspaces/<workspace>/workspace.db`. Use a tag of your own rather than
-`compile_ws:latest`, which the next UI image build would read. On `jets_ws` the build took four seconds
-on top of an existing `cpipes_builder`.
+tree and compiles it, writing `workspace.db` at the tree's root. On `jets_ws` the build took four
+seconds on top of an existing `cpipes_builder`. Use a tag of your own rather than `compile_ws:latest`,
+which the next UI image build would read.
+
+**Copy the whole folder, not `workspace.db` alone.** Beside each main rule file the compiler writes its
+compiled model (`cintel_main.jr.json` beside `jet_rules/clinical_intel/cintel_main.jr`), and the
+generator reads from it which file each rule is written in and the order of the files a main rule file
+includes. With `workspace.db` alone the guide still builds, and says *not recorded* for both, as it did
+on the 2026-11-13 run. The UI image's build reads the whole compiled workspace, so this is what an
+installation shows.
 
 ### Build the site with it
 
@@ -174,7 +189,7 @@ From the `jetstore` checkout:
 ```bash
 cd docs
 npm ci
-JETS_WORKSPACE_DB=<path to workspace.db> \
+JETS_WORKSPACE_DB=<path>/jets_ws_compiled/workspace.db \
 JETS_WORKSPACE_NAME=jets_ws \
 JETS_WORKSPACE_DOCS=<jets_ws checkout>/docs \
 npm run build
@@ -182,15 +197,16 @@ npm run build
 
 | Variable | What it names |
 |---|---|
-| `JETS_WORKSPACE_DB` | the compiled `workspace.db`. Without it the site is JetStore's three guides alone, which is the public build |
-| `JETS_WORKSPACE_NAME` | the workspace, which names the fourth guide in the sidebar and on its landing page |
+| `JETS_WORKSPACE_DB` | the compiled `workspace.db`, in the compiled workspace's folder. Without it the site is JetStore's three guides alone, which is the public build |
+| `JETS_WORKSPACE_NAME` | the workspace, which names the fourth guide in the sidebar and on its landing page. Without it, the name of the folder holding `workspace.db` |
 | `JETS_WORKSPACE_DOCS` | the workspace's `docs/` folder. Optional: without it the guide is the generated pages |
-| `JETS_WORKSPACE_VERSION` | optional, the workspace's version, shown in the footer beside JetStore's |
+| `JETS_WORKSPACE_VERSION`, `JETS_VERSION` | optional: the workspace's version and JetStore's, shown in the footer. In the UI image, `JETS_VERSION` is the one `cpipes_builder` was built with, and `JETS_WORKSPACE_VERSION` the build argument |
 
-The build fails, naming the page, on a broken link or anchor and on a page whose front matter is
-missing or invalid. When it passes, `npm run preview` serves the result at
-`http://localhost:4321/docs/`, with search, and the workspace's guide at
-`http://localhost:4321/docs/workspace/`. The generated pages are written into the `jetstore`
+The generator's line in the output says what it wrote, for example `the jets_ws guide, 24 pages (32
+classes, 6 lookups, 131 rules, 1 described; rule text not shown)`. The build fails, naming the page,
+on a broken link or anchor and on a page whose front matter is missing or invalid. When it passes,
+`npm run preview` serves the result at `http://localhost:4321/docs/`, with search, and the
+workspace's guide at `http://localhost:4321/docs/workspace/`. The generated pages are written into the `jetstore`
 checkout's git-ignored folders and are never committed.
 
 ## How the guide is opened
@@ -198,8 +214,10 @@ checkout's git-ignored folders and are never committed.
 The guide is in the sidebar of every page of the installation's documentation, beside JetStore's three.
 In the [Workspace IDE](/docs/user/screens/workspace-ide/#the-workspace-guide), the **Workspace guide**
 button opens the guide's page for the file open in the editor: a data-model file's domain page, a main
-rule file's rules page, a lookup's source file's lookups page, or a file under `docs/` its own page.
-The top bar's *Help* still opens JetStore's page for the screen.
+rule file's rules page, a lookup's source file's lookups page, or a file under `docs/` its own page. It
+reads the map from file to page from `/docs/workspace/manifest.json`, which the generator writes with
+the guide and which names files and pages only. The top bar's *Help* still opens JetStore's page for
+the screen.
 
 ## See also
 

@@ -24,13 +24,14 @@ screen anyway sees *Read only* and cannot save.
 | **Workspace picker** | The workspace being edited, with its branch. Choosing another opens it. |
 | **Save** | Saves the file in the current tab. Enabled when the tab has unsaved changes and the file is not read-only. `Ctrl+S` does the same in the editor. |
 | **Refresh** | Reads the file tree and the changes table again. |
-| **Workspace guide** | Opens this installation's guide to the workspace at the page for the open file (below). Shown only when the installation has a guide to the workspace open in the IDE. |
+| **Workspace guide** | Beside *Save*: opens this installation's guide to the workspace at the page for the open file (below). Shown only when the installation has a guide to the workspace open in the IDE, and to every user, since the guide needs no capability. |
 
 ## The workspace guide
 
 An installation's documentation has a fourth guide, named for its workspace: its domain, lookups and
 rules, generated from the compiled workspace, and the pages the workspace's own people wrote.
-**Workspace guide** opens it in a tab of its own, at the page for the file open in the editor:
+**Workspace guide** opens it in the documentation's tab, the one *Help* uses, at the page for the file
+open in the editor:
 
 | File open in the editor | Page opened |
 |---|---|

@@ -101,8 +101,9 @@ so **an installation's images are specific to its workspace**. All the runtime i
   `cpipes_builder`) and reads two paths of the compiled workspace from `compile_ws`: its
   `workspace.db`, from which the guide's domain, lookups and rules pages are generated, and its
   `docs/` folder, when it has one, whose pages are added to the guide. A workspace without `docs/`
-  builds; a page of the workspace's with a broken link fails the build. The footer shows JetStore's
-  version, and `JETS_WORKSPACE_VERSION` when it is passed. See
+  builds; a page of the workspace's with a broken link fails the build. The site's footer shows
+  JetStore's version (the `JETS_VERSION` that `cpipes_builder` was built with) and the workspace's
+  (`JETS_WORKSPACE_VERSION`), each when it is set. See
   [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 - **Deployed as**: the image in `JETS_ECR_REPO_ARN` at `JETS_IMAGE_TAG`, which the stack runs as the
   UI service (`cbooter apiserver`), the run-reports task (`cbooter run_reports`) and the agentic
