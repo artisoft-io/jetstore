@@ -22,6 +22,9 @@ import { DataTable } from "./DataTable";
 import { useDataTable, type DataTableFetcher, type DataTableResponse } from "./useDataTable";
 import type { JetsRow, TableConfig } from "./types";
 
+/** A row's own box, and not the heading's select-all box (JM-187). */
+const ROW_BOX = /^Select row /;
+
 const tables = corpus.tables as unknown as Record<string, TableConfig>;
 
 afterEach(cleanup);
@@ -120,7 +123,7 @@ describe("DataTable", () => {
     render(<Harness config={sourceConfig} fetcher={respondWith(rows)} />);
     await screen.findByText("st1");
 
-    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    const boxes = screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[];
     fireEvent.click(boxes[0]!);
     await waitFor(() => expect(boxes[0]!.checked).toBe(true));
 
@@ -133,12 +136,39 @@ describe("DataTable", () => {
     const config = tables["lfFileKeyStagingTable"]!;
     const row = (k: string): JetsRow => [k, "acme", "v", "t", "f", "2026", "8", "1", "p", "tbl", "s", "d", "spk"];
     render(<Harness config={config} fetcher={respondWith([row("1"), row("2")])} />);
-    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(2));
+    await waitFor(() => expect(screen.getAllByRole("checkbox", { name: ROW_BOX }).length).toBe(2));
 
-    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    const boxes = screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[];
     fireEvent.click(boxes[0]!);
     fireEvent.click(boxes[1]!);
     await waitFor(() => expect(boxes[0]!.checked && boxes[1]!.checked).toBe(true));
+  });
+
+  it("selects and clears every row of the page with the heading's box (JM-187)", async () => {
+    const config = tables["lfFileKeyStagingTable"]!;
+    const row = (k: string): JetsRow => [k, "acme", "v", "t", "f", "2026", "8", "1", "p", "tbl", "s", "d", "spk"];
+    render(<Harness config={config} fetcher={respondWith([row("1"), row("2"), row("3")])} />);
+    await waitFor(() => expect(screen.getAllByRole("checkbox", { name: ROW_BOX }).length).toBe(3));
+    const all = screen.getByRole("checkbox", { name: "Select all rows on this page" }) as HTMLInputElement;
+    const boxes = () => screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[];
+
+    // One row ticked: the heading is mixed, and pressing it selects the rest.
+    fireEvent.click(boxes()[1]!);
+    await waitFor(() => expect(all.indeterminate).toBe(true));
+    expect(all.checked).toBe(false);
+    fireEvent.click(all);
+    await waitFor(() => expect(boxes().every((b) => b.checked)).toBe(true));
+    expect(all.checked).toBe(true);
+    expect(all.indeterminate).toBe(false);
+
+    fireEvent.click(all);
+    await waitFor(() => expect(boxes().some((b) => b.checked)).toBe(false));
+  });
+
+  it("has no select-all box on a single-select table", async () => {
+    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "acme", "v", "t", "st1", "csv", "d"]])} />);
+    await screen.findByText("st1");
+    expect(screen.queryByRole("checkbox", { name: "Select all rows on this page" })).toBeNull();
   });
 
   it("pages through the server's rows, and lands on the real last page", async () => {
