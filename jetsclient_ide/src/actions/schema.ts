@@ -556,6 +556,13 @@ const stepUnion = [
     spinner: z.boolean().optional(),
     /** Message shown on HTTP 409, which the Dart special-cases at four sites. */
     onConflict: z.string().min(1).optional(),
+    /**
+     * `false`: a 200 does not refresh the tables on screen. A refresh clears
+     * their selection, and a write that changes no row they show has no reason
+     * to — *Resubmit as Pending* on the Session Registry, whose sessions are
+     * often the next to delete (JM-188, 2026-11-12). Absent: refresh.
+     */
+    refresh: z.boolean().optional(),
     data: RowsSchema,
     ...guard,
   }),

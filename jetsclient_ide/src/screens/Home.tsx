@@ -89,7 +89,7 @@ import {
   setIdFilter,
   setSessionRegistryIdFilter,
 } from "../actions/homeFilters";
-import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
+import { ActionDocumentSchema, type Action as ActionDef, type ActionDocument } from "../actions/schema";
 import { describeUnresolved, resolveEscapes } from "../actions/escapes";
 import type { ActionRequest } from "../datatable/actionDispatch";
 import { FormState } from "../datatable/formState";
@@ -201,6 +201,15 @@ const WORKSPACE_TABLE = "pipelineExecStatusTable";
 
 /** One group, shared with the dialog — C.2b's decision, and the Dart's. */
 const GROUP = 0;
+
+/**
+ * Whether an action leaves the tables as they are, and their selection with
+ * them: it writes, and every write says `refresh: false` (JM-188).
+ */
+const keepsSelection = (action: ActionDef | undefined): boolean => {
+  const posts = action?.steps.filter((step) => step.do === "post") ?? [];
+  return posts.length > 0 && posts.every((step) => step.do === "post" && step.refresh === false);
+};
 
 /** The screen key, which names its documents and its action-document scope. */
 const SCREEN_KEY = "homeScreen";
@@ -645,7 +654,10 @@ export function Home({ api }: { api: ApiClient }) {
               setBusy(true);
               const outcome = (await runNamedAction(request.name)).message;
               if (outcome !== null) setError(outcome);
-              formState.requestRefresh();
+              // A refresh clears the selection, so an action whose writes change
+              // no row on screen keeps it: *Resubmit as Pending*, whose sessions
+              // are often the next ones to delete (JM-188, 2026-11-12).
+              if (!keepsSelection(actions[request.name])) formState.requestRefresh();
               return;
             }
             case "navigate": {

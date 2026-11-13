@@ -111,6 +111,7 @@
           "endpoint": "/dataTable",
           "action": "resubmit_sessions_as_pending",
           "spinner": true,
+          "refresh": false,
           "data": {
             "rows": "fields",
             "fields": {

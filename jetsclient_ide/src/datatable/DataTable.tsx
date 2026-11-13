@@ -20,7 +20,7 @@
  * grammar; the widget renders a slot and the interpreter fills it.
  */
 
-import { type CSSProperties, type ReactNode, useId } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useId, useRef } from "react";
 
 import "./datatable.css";
 import {
@@ -182,6 +182,44 @@ function rowStyle(config: TableConfig): CSSProperties | undefined {
   };
 }
 
+/**
+ * The select-all box in the checkbox column's heading. JM-187, 2026-11-12, asked
+ * for on the Session Registry: set a filter, then act on every row it lists.
+ *
+ * **It selects the rows of the page**, which are the rows on screen, and is
+ * mixed when some of them are selected. A selection is kept in form state
+ * across pages, so selecting all on each page in turn selects the whole list.
+ */
+function SelectAllCheckbox({
+  selection,
+  rowCount,
+  disabled,
+  onChange,
+}: {
+  selection: readonly boolean[];
+  rowCount: number;
+  disabled: boolean;
+  onChange(value: boolean): void;
+}): React.JSX.Element {
+  const ref = useRef<HTMLInputElement>(null);
+  const selected = selection.slice(0, rowCount).filter(Boolean).length;
+  const all = rowCount > 0 && selected === rowCount;
+  const some = selected > 0 && !all;
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = some;
+  }, [some]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={all}
+      disabled={disabled || rowCount === 0}
+      aria-label="Select all rows on this page"
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  );
+}
+
 export function DataTable({
   config,
   state,
@@ -274,7 +312,21 @@ export function DataTable({
         <table className="jets-datatable__table">
           <thead className={captionRepeatedByHeader ? "jets-datatable__head--silent" : undefined}>
             <tr>
-              {checkboxes && <th scope="col" className="jets-datatable__checkbox-col" />}
+              {checkboxes && (
+                <th scope="col" className="jets-datatable__checkbox-col">
+                  {/* Not on a single-select table, where it means nothing, nor
+                      on a one-column picker, whose heading is silent: selecting
+                      every choice of a filter is choosing none. */}
+                  {!config.isCheckboxSingleSelect && !captionRepeatedByHeader && (
+                    <SelectAllCheckbox
+                      selection={state.selection}
+                      rowCount={state.rows.length}
+                      disabled={config.isReadOnly}
+                      onChange={state.setAllSelected}
+                    />
+                  )}
+                </th>
+              )}
               {columns.map((column, i) => {
                 const sorted = state.sort.sortColumnIndex === i;
                 return (

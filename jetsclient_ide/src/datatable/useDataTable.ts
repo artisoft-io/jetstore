@@ -82,6 +82,11 @@ export interface UseDataTableOptions {
     deselected: number[];
     changedIndex: number;
     selected: boolean;
+    /**
+     * Every row whose state changed, when more than one did: the select-all
+     * box (`setAllSelected`). Absent for a single tick, which is `changedIndex`.
+     */
+    changed?: number[];
   }) => void;
 }
 
@@ -103,6 +108,12 @@ export interface DataTableState {
   setRowsPerPage(n: number): void;
   sortByVisibleColumn(index: number): void;
   setRowSelected(index: number, value: boolean): void;
+  /**
+   * The select-all box: every row of the page selected, or none. JM-187,
+   * 2026-11-12. Refused, as a tick is, on a read-only table, and on a
+   * single-select one, where it has no meaning.
+   */
+  setAllSelected(value: boolean): void;
   clearSelection(): void;
   /**
    * The selection restored from form state, applied as it stands. 2026-11-11.
@@ -325,6 +336,31 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     [config.isCheckboxSingleSelect, config.isReadOnly, rows],
   );
 
+  const setAllSelected = useCallback(
+    (value: boolean) => {
+      if (config.isReadOnly || config.isCheckboxSingleSelect) return;
+      setSelection((current) => {
+        const changed: number[] = [];
+        const next = rows.map((_, i) => {
+          if ((current[i] === true) !== value) changed.push(i);
+          return value;
+        });
+        if (changed.length > 0) {
+          onSelectionChangeRef.current?.({
+            selection: next,
+            rows,
+            deselected: [],
+            changedIndex: changed[0]!,
+            selected: value,
+            changed,
+          });
+        }
+        return next;
+      });
+    },
+    [config.isCheckboxSingleSelect, config.isReadOnly, rows],
+  );
+
   const clearSelection = useCallback(() => {
     setSelection((current) => emptySelection(current.length));
   }, []);
@@ -347,6 +383,7 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
     setRowsPerPage,
     sortByVisibleColumn,
     setRowSelected,
+    setAllSelected,
     clearSelection,
     restoreSelected: (restored: Selection, keepOnlySelected: boolean) => {
       if (keepOnlySelected && restored.some((selected) => !selected)) {
