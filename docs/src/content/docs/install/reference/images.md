@@ -92,11 +92,18 @@ so **an installation's images are specific to its workspace**. All the runtime i
 
 - **Base**: `ui_service:latest`.
 - **Contains**: the web app (`jetsclient_ide`, built with `npm run build`) at `/usr/local/lib/ide`; this
-  documentation site, built, at `/usr/local/lib/docs`; the compiled workspace at
+  documentation site, built with the workspace's own guide, at `/usr/local/lib/docs`; the compiled workspace at
   `/workspaces/<WORKSPACE>`; the three schema files; and the environment the apiserver expects
   (`JETS_SCHEMA_FILE`, `JETS_WORKSPACE_DB_SCHEMA_SCRIPT`, `JETS_INIT_DB_SCRIPT`, `WORKSPACES_HOME`,
   `TMPDIR`). The build arguments `JETS_WORKSPACE_VERSION` and `WORKSPACE_GIT_SHA` are written to
   `/VERSION.txt`.
+- **The documentation site** is built once, in a stage that has JetStore's source (from
+  `cpipes_builder`) and reads two paths of the compiled workspace from `compile_ws`: its
+  `workspace.db`, from which the guide's domain, lookups and rules pages are generated, and its
+  `docs/` folder, when it has one, whose pages are added to the guide. A workspace without `docs/`
+  builds; a page of the workspace's with a broken link fails the build. The footer shows JetStore's
+  version, and `JETS_WORKSPACE_VERSION` when it is passed. See
+  [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 - **Deployed as**: the image in `JETS_ECR_REPO_ARN` at `JETS_IMAGE_TAG`, which the stack runs as the
   UI service (`cbooter apiserver`), the run-reports task (`cbooter run_reports`) and the agentic
   detection task (`cbooter anomaly_detect`, then `cbooter shadow_triage`).

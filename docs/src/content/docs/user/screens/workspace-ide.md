@@ -24,6 +24,28 @@ screen anyway sees *Read only* and cannot save.
 | **Workspace picker** | The workspace being edited, with its branch. Choosing another opens it. |
 | **Save** | Saves the file in the current tab. Enabled when the tab has unsaved changes and the file is not read-only. `Ctrl+S` does the same in the editor. |
 | **Refresh** | Reads the file tree and the changes table again. |
+| **Workspace guide** | Opens this installation's guide to the workspace at the page for the open file (below). Shown only when the installation has a guide to the workspace open in the IDE. |
+
+## The workspace guide
+
+An installation's documentation has a fourth guide, named for its workspace: its domain, lookups and
+rules, generated from the compiled workspace, and the pages the workspace's own people wrote.
+**Workspace guide** opens it in a tab of its own, at the page for the file open in the editor:
+
+| File open in the editor | Page opened |
+|---|---|
+| A data-model file | its page of the domain: its classes, their properties and its domain tables |
+| A lookup's source file | the lookups page |
+| A main rule file | its rules page: the rules it includes, their descriptions and its unit tests |
+| A rule file that main rule files include | the rules section's overview |
+| A page of the workspace's `docs/` folder | that page |
+| Any other file, or none | the guide's landing page |
+
+The button is not shown when the installation's documentation has no guide to the workspace open in
+the IDE: an installation built without one, or another workspace opened here. The guide describes the
+workspace as it was compiled into the deployed image, so an edit saved here is not in it until the
+images are rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
+[Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## The file tree
 

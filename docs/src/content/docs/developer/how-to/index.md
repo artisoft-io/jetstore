@@ -26,6 +26,9 @@ says what was run and what it gave. They assume a Linux workstation with the too
   validation.
 - [Add a workspace file type](/docs/developer/how-to/add-a-workspace-file-type/): a row of the save
   path's validator table, its test, and the IDE section that shows the file.
+- [Document a workspace](/docs/developer/how-to/document-a-workspace/): a workspace's own guide in its
+  installation's documentation, from its written pages, its rules' descriptions and its compiled
+  `workspace.db`, and the build that checks it before a deployment.
 
 Tasks specific to the compute-pipes engine are in its own
 [how-to guides](/docs/developer/compute-pipes/how-to/).
