@@ -28,6 +28,12 @@ import { BuildInfoText, useBuildInfoInScreenBar } from "../shell/buildInfoFooter
 import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
 import { usePrompts } from "../shell/prompts";
+import {
+  WORKSPACE_GUIDE_LABEL,
+  describesWorkspace,
+  openWorkspaceGuide,
+  useWorkspaceManifest,
+} from "../shell/workspaceGuide";
 import { CompiledView } from "./CompiledView";
 import { WorkspaceChanges } from "./WorkspaceChanges";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
@@ -144,6 +150,13 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   const [busy, setBusy] = useState(false);
   /** The shell's footer text, drawn in this screen's status bar instead (D05). */
   const buildInfo = useBuildInfoInScreenBar();
+  /**
+   * The installation's workspace guide, when its image was built with one. The
+   * *Workspace guide* button is shown only when it describes the workspace open
+   * here (`workspaceGuide.ts`).
+   */
+  const guideManifest = useWorkspaceManifest(api, workspace);
+  const hasGuide = describesWorkspace(guideManifest, workspace);
 
   const canEdit = api.can(WORKSPACE_IDE);
   const activeTab = useMemo(
@@ -399,6 +412,21 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     }).finally(() => setBusy(false));
   }, [activeKey, canEdit, guard, setError, setStatus, tabs, workspace, workspaceApi]);
 
+  /**
+   * Opens the guide's page for the file in the editor, else its landing page, in
+   * the documentation tab *Help* uses. A failure goes to the banner, as *Help*'s
+   * does.
+   */
+  const openGuide = useCallback(() => {
+    void openWorkspaceGuide({
+      workspace,
+      fileName: activeFile,
+      openDocsSession: () => api.openDocsSession(),
+    }).then((message) => {
+      if (message !== null) setError(message);
+    });
+  }, [activeFile, api, setError, workspace]);
+
   const onChange = useCallback(
     (value: string) => {
       setTabs((prev) =>
@@ -430,6 +458,28 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
 
         {busy && <span className="pill">Working…</span>}
         {!canEdit && <span className="pill pill-warn">Read only — no {WORKSPACE_IDE}</span>}
+
+        {/*
+          Beside Save rather than in the toolbar below: the toolbar's buttons are
+          registry actions authored in a table document (WorkspaceToolbar.tsx),
+          and this one is not; and it belongs to what this bar already holds, the
+          workspace picked and the file open. Not gated on workspace_ide, since
+          the guide is readable by every signed-in user.
+        */}
+        {hasGuide && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={openGuide}
+            title={
+              activeFile !== null
+                ? "Open this file's page in the workspace's guide"
+                : "Open the workspace's guide"
+            }
+          >
+            {WORKSPACE_GUIDE_LABEL}
+          </button>
+        )}
 
         <ActionButton
           capability={WORKSPACE_IDE}
