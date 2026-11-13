@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -144,7 +145,6 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 	partitions := make([]JetsPartitionInfo, 0)
 	if inputChannelConfig.Type == "stage" {
 		partitionSizes := make(map[string]int64)
-		var err error
 		// In stage we can directly list the s3 objects with the prefix to get the partitions info, without calling the database
 		var prefix string
 		if len(inputChannelConfig.FileKey) > 0 {
@@ -153,10 +153,18 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 			lback := inputChannelConfig.LookbackPeriods
 			if len(lback) > 0 {
-				err = GetPartitionSize4LookbackPeriod("", fileKey, inputChannelConfig.LookbackPeriods,
-					inputChannelConfig.SourceObjectType, cpipesStartup.EnvSettings, partitionSizes)
+				s3Objects, err := ListStageChannel(context.Background(), dbpool, "", inputChannelConfig, cpipesStartup.EnvSettings)
 				if err != nil {
 					return nil, fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
+				}
+				for i := range s3Objects {
+					if s3Objects[i].Size > 0 {
+						partitionLabel, err := ExtractPartitionLabelFromS3Key(s3Objects[i].Key)
+						if err != nil {
+							return nil, fmt.Errorf("failed to extract partition label from s3 key %s: %v", s3Objects[i].Key, err)
+						}
+						partitionSizes[partitionLabel] += s3Objects[i].Size
+					}
 				}
 			} else {
 				prefix = utils.ReplaceEnvVars(fileKey, cpipesStartup.EnvSettings)
@@ -168,6 +176,13 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 				// Skip the session folders a user deleted, as a lookback read does
 				// (cumulative_source.go).
 				s3Objects = dropDeletedSessionObjects(prefix, s3Objects, cpipesStartup.EnvSettings)
+				opts, err := stageReadOptionsOf(context.Background(), dbpool, inputChannelConfig)
+				if err == nil {
+					s3Objects, err = keepLatestCompletedSessionOfFolder(prefix, s3Objects, opts)
+				}
+				if err != nil {
+					return nil, err
+				}
 				for i := range s3Objects {
 					if s3Objects[i].Size > 0 {
 						partitionLabel, err := ExtractPartitionLabelFromS3Key(s3Objects[i].Key)
