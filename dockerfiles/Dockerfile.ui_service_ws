@@ -26,13 +26,34 @@ RUN \
   echo "Workspace IDE build completed:" \
   && ls -la dist
 
-# The documentation site (docs/), served by the apiserver at /docs/. `build`
-# generates the reference pages from jets/ and tools/cpipes_contract/matrix
-# first, and fails on a broken internal link.
-WORKDIR ${JETS_SOURCE_DIR}/docs
-RUN npm ci && npm run build
-
 FROM compile_ws:latest AS ws_builder
+
+# THE DOCUMENTATION SITE (docs/), served by the apiserver at /docs/, built once
+# per image, here: JetStore's three guides and the workspace's own guide.
+#
+# The site's source is JetStore's, from cpipes_builder. The workspace's guide is
+# generated from its compiled workspace.db and, when the workspace has one, merged
+# with its docs/ folder (docs/scripts/workspace_docs.mjs). The compiled workspace
+# is copied whole from ws_builder, so a workspace without docs/ builds; it stays
+# in this stage, and what leaves it is dist/, the built site, alone. A plain COPY
+# rather than a bind mount, so the build needs nothing beyond what the stages
+# above already use. `build` generates the reference pages first, and fails on a
+# broken internal link, in a workspace's pages as in JetStore's.
+#
+# The footer names JETS_VERSION, which this stage inherits from cpipes_builder,
+# and JETS_WORKSPACE_VERSION, passed to this build. Neither is required.
+FROM cpipes_builder:latest AS docs_builder
+ARG WORKSPACE
+ARG JETS_WORKSPACE_VERSION
+WORKDIR ${JETS_SOURCE_DIR}/docs
+RUN npm ci
+COPY --from=ws_builder /workspaces/${WORKSPACE} /tmp/jets_workspace
+RUN test -n "${WORKSPACE}" || { echo "WORKSPACE is not set: the documentation needs the workspace's name"; exit 1; } \
+  && JETS_WORKSPACE_DB=/tmp/jets_workspace/workspace.db \
+     JETS_WORKSPACE_DOCS=/tmp/jets_workspace/docs \
+     JETS_WORKSPACE_NAME="${WORKSPACE}" \
+     JETS_WORKSPACE_VERSION="${JETS_WORKSPACE_VERSION}" \
+     npm run build
 
 FROM ui_service:latest
 
@@ -68,7 +89,7 @@ COPY --from=builder /app/jetsclient_ide/dist /usr/local/lib/ide
 
 # Copy the documentation site, without its node_modules. The destination is the
 # default of the apiserver's DOCS_DEPLOYMENT_DIR.
-COPY --from=builder /app/docs/dist /usr/local/lib/docs
+COPY --from=docs_builder /app/docs/dist /usr/local/lib/docs
 
 # Copy the resources
 # Copy the resources (for future needs - currently is the ui container that needs it)
