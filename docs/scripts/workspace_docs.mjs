@@ -23,6 +23,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { REPO_ROOT, code, prose, table } from './lib.mjs';
+import { readRule } from './rule_reading.mjs';
 
 /** Where the guide goes in the site's content; git-ignored, emptied on every run. */
 export const WS_DIR = join(REPO_ROOT, 'docs', 'src', 'content', 'docs', 'workspace');
@@ -231,7 +232,16 @@ function readWorkspace(db, workspaceRoot, ruleText) {
 	}
 	if (ruleText) {
 		const labels = new Map(all('ruleText', 'jet_rules').map((r) => [r.key, r.label]));
-		for (const r of rules) r.label = labels.get(r.key) ?? '';
+		for (const r of rules) {
+			r.label = labels.get(r.key) ?? '';
+			// The reading is generated from the compiled rule (rule_reading.mjs), which
+			// reads the rule's literals, so only when the workspace asks for its text.
+			try {
+				r.reading = readRule(db, r.key);
+			} catch (err) {
+				r.reading = { error: err.message };
+			}
+		}
 	}
 
 	// The compiled model of each main rule file records the file each rule, class
@@ -634,12 +644,29 @@ function writeLookupsPage({ model }, write) {
 // Rules
 
 /**
- * The rule's text, shown only when the workspace asks for it (rule_text). The
- * generated reading of the rule goes here too, beside the text.
+ * How the engine reads the rule, generated from the compiled rule, then the
+ * rule's text; shown only when the workspace asks for it (rule_text).
  */
-// eslint-disable-next-line no-unused-vars
-function ruleTextParts(rule, ctx) {
-	return [fencedText(rule.label)];
+function ruleTextParts(rule) {
+	const parts = [];
+	const r = rule.reading;
+	if (r && !r.error) {
+		const clauses = (label, list) =>
+			list.length ? [`${label}:`, list.map((c) => `- ${prose(c)}`).join('\n')].join('\n\n') : '';
+		parts.push(
+			r.partial
+				? '*How the engine reads it*, generated from the compiled rule; partly, where it says *not rendered*:'
+				: '*How the engine reads it*, generated from the compiled rule:',
+		);
+		const when = clauses('When', r.when);
+		const then = clauses('Then', r.then);
+		if (when) parts.push(when);
+		if (then) parts.push(then);
+	} else if (r?.error) {
+		parts.push(`*The reading could not be generated*: ${prose(r.error)}`);
+	}
+	parts.push('*The rule as written:*', fencedText(rule.label));
+	return parts;
 }
 
 function renderRule(rule, ruleFile, ctx) {
@@ -651,7 +678,7 @@ function renderRule(rule, ruleFile, ctx) {
 		['Properties', rule.properties.map((p) => code(`${p.name}=${p.value}`)).join(', ')],
 	].filter(([, v]) => v);
 	parts.push(facts.map(([k, v]) => `- ${k}: ${v}`).join('\n'));
-	if (ctx.settings.ruleText) parts.push(...ruleTextParts(rule, ctx));
+	if (ctx.settings.ruleText) parts.push(...ruleTextParts(rule));
 	return parts.join('\n\n');
 }
 
@@ -845,7 +872,11 @@ function writeReferenceIndex({ guideName, model, settings }, write, domainPages,
 			),
 			`**${counts.described} of the workspace's ${counts.rules} rules carry a description.** ` +
 				(settings.ruleText
-					? "The rules' text is shown, as the workspace's `docs/workspace_docs.json` asks."
+					? "The rules' text is shown, as the workspace's `docs/workspace_docs.json` asks, with how the engine reads each rule, generated from the compiled rule" +
+						(() => {
+							const partial = model.rules.filter((r) => r.reading?.partial || r.reading?.error).length;
+							return partial ? `; ${partial} of the readings are partial.` : '.';
+						})()
 					: "The rules' text is not shown: the workspace has not asked for it in `docs/workspace_docs.json`."),
 		].join('\n\n'),
 	});

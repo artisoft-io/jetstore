@@ -2,7 +2,8 @@
 // jets/workspace_schema.sql. Every column that carries a workspace's values
 // holds a sentinel, and lookup.db beside it holds a sentinel row: with
 // rule_text absent none may reach a page or the manifest, and none of those
-// columns may even be queried; with rule_text true the rule's text is shown.
+// columns may even be queried; with rule_text true the rule's text is shown,
+// with its reading generated from the compiled rule.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -244,6 +245,7 @@ test('with rule_text true the rule text is shown, and nothing else of the values
 		const { pages, manifestText } = generate(fixture, { ruleText: true });
 		const rules = pages[join('reference', 'rules', 'fixture_main.md')];
 		assert.ok(rules.includes(`[FX_Described01]: ${SENTINELS.label};`), 'the label shows');
+		assert.ok(rules.includes('*How the engine reads it*'), "the rule's generated reading shows beside its text");
 		const everything = Object.values(pages).join('\n') + manifestText;
 		for (const [where, sentinel] of Object.entries(SENTINELS)) {
 			if (where !== 'label') assert.ok(!everything.includes(sentinel), `the ${where} sentinel reached the output`);
