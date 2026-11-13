@@ -24,9 +24,8 @@ This was carried out on 2026-11-13 on `jets_ws`, with the generator as it stands
 day: its compiled workspace was taken from a `Dockerfile.compile_ws` build, and the site built with a
 `docs/` folder laid out as below. It built, with the fourth guide; a broken link in a written page, and
 a `reference/` folder in `docs/`, each failed the build, naming the page or folder; and a description
-with an escaped quote, compiled into one rule, showed on that rule's page. The rules' generated reading
-(step 3) was not yet on the rule pages that day, so with `rule_text` the run showed each rule's text
-alone.
+with an escaped quote, compiled into one rule, showed on that rule's page. With `rule_text` on, each
+rule showed how the engine reads it beside its text.
 
 ## What the guide holds
 
