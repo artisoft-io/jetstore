@@ -44,5 +44,12 @@ compiles of one workspace write the same `workspace.db`. For each main rule file
    directly or through another included file, in the order they were read. Every included file
    has a `workspace_control` row, with `is_main` unset unless it is a main rule file itself.
 
+Once every main rule file is compiled, the workspace compile saves the `rule_sequences` of
+`workspace_control.json` (`SaveRuleSequences`): one `rule_sequences` row per sequence, and in
+`main_rule_sets` the main rule files it runs, in order, each by its `workspace_control` key. A
+sequence's `source_file_key` is the file it is declared in, `workspace_control.json`, which gets a
+`workspace_control` row of its own, with `is_main` unset, when the workspace has a rule sequence.
+A sequence naming a file that is not a compiled main rule file fails the compile.
+
 The workspace compile then builds `lookup.db` from the lookup tables and archives what the
 pipelines and reports fetch (`workspace.tgz`, `reports.tgz`).

@@ -468,7 +468,19 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	return nil
 }
 
-// Save Rule Sequences into workspace db, using workspace control info
+// ruleSequencesSourceFileName is the file a workspace declares its rule
+// sequences in, relative to the workspace root, as workspace_control records it.
+const ruleSequencesSourceFileName = "workspace_control.json"
+
+// Save Rule Sequences into workspace db, using workspace control info.
+//
+// rule_sequences.source_file_key is the workspace_control key of the file the
+// sequence is declared in, workspace_control.json, which is recorded in
+// workspace_control (is_main = 0) when the workspace has a rule sequence. It
+// was the declaring rule file's key when sequences were declared in rule files.
+// main_rule_sets.ruleset_file_key is the key of each main rule file the
+// sequence runs, which must already be recorded as a main rule file.
+// A sequence already in rule_sequences is skipped.
 func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspaceControl *rete.WorkspaceControl) error {
 	if workspaceControl == nil {
 		return fmt.Errorf("workspace control is nil")
@@ -485,13 +497,21 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspa
 	rsData := make([][]any, 0)
 	mrsData := make([][]any, 0)
 	for _, rs := range workspaceControl.RuleSequences {
-		if w.sourceMgr.IsPreExisting(rs.Name) {
+		rsKey, err := getKeyByColumn(ctx, db, "rule_sequences", "name", rs.Name)
+		if err != nil {
+			return fmt.Errorf("failed to query rule_sequences by name: %w", err)
+		}
+		if rsKey != 0 {
 			continue
 		}
-		sourceFileKey := w.sourceMgr.GetOrAddDbKey(rs.Name)
+		sourceFileKey := w.sourceMgr.GetOrAddDbKey(ruleSequencesSourceFileName)
 		maxKey++
 		rsData = append(rsData, []any{maxKey, rs.Name, sourceFileKey})
 		for seq, mainRuleName := range rs.RuleSets {
+			if !w.sourceMgr.IsPreExistingMain(mainRuleName) {
+				return fmt.Errorf("main rule file '%s' of rule sequence '%s' is not a compiled main rule file",
+					mainRuleName, rs.Name)
+			}
 			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(mainRuleName)
 			mrsData = append(mrsData, []any{maxKey, mainRuleName, ruleSetFileKey, seq})
 		}
@@ -505,6 +525,11 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspa
 		if err != nil {
 			return fmt.Errorf("failed to insert main_rule_sets: %w", err)
 		}
+	}
+	// Record workspace_control.json in workspace_control
+	err = w.sourceMgr.SaveNewSourceFileNames(ctx, db)
+	if err != nil {
+		return fmt.Errorf("failed to save the rule sequences' source file: %w", err)
 	}
 	return nil
 }
