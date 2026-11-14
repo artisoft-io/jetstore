@@ -3,10 +3,14 @@ package delegate
 // Which login a report's SQL runs on (workspace_sql.go).
 //
 // The unit tests need nothing. TestReportSQLRunsAsIDELogin needs a scratch
-// PostgreSQL named by JETS_TEST_DSN, as a superuser: it creates a login that is
-// not one (rrl_apiserver) and a database it owns (rrl_run_reports), as a
-// deployment's apiserver user is, and runs everything else as that login.
-// Skipped when JETS_TEST_DSN is not set. Locally:
+// PostgreSQL named by JETS_TEST_DSN, as a superuser: it creates a login
+// (rrl_apiserver) and a database it owns (rrl_run_reports), as a deployment's
+// apiserver user is, and runs everything else as that login. The login holds
+// CREATEROLE and is not a superuser, or is one with
+// JETS_TEST_APISERVER_SUPERUSER=1, which turns the IDE code guard on (package
+// jets/dblogin/dblogintest). The test passes either way, and whichever test
+// created the cluster-wide restricted roles first. Skipped when JETS_TEST_DSN
+// is not set. Locally:
 //
 //	docker run -d --rm --name rrl-pg -e POSTGRES_PASSWORD=pw -p 5491:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5491/postgres \
@@ -15,13 +19,13 @@ package delegate
 import (
 	"context"
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
+	"github.com/artisoft-io/jetstore/jets/dblogin/dblogintest"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -64,45 +68,12 @@ func TestWithIDEHint(t *testing.T) {
 	}
 }
 
-// rrlDB is a database owned by a login that is not a superuser, as a
-// deployment's apiserver user is, and a pool connected as that login.
+// rrlDB is a database owned by the apiserver's user, and a pool connected as
+// that login: one that holds CREATEROLE and is not a superuser, as a
+// deployment's is, or a superuser (see jets/dblogin/dblogintest).
 func rrlDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	defer admin.Close()
-	for _, s := range []string{
-		"DROP DATABASE IF EXISTS rrl_run_reports WITH (FORCE)",
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rrl_apiserver') THEN
-				CREATE ROLE rrl_apiserver LOGIN PASSWORD 'rrl' CREATEROLE;
-			END IF;
-		END $$`,
-		"CREATE DATABASE rrl_run_reports OWNER rrl_apiserver",
-	} {
-		if _, err = admin.Exec(ctx, s); err != nil {
-			t.Fatalf("%s: %v", s, err)
-		}
-	}
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.User = url.UserPassword("rrl_apiserver", "rrl")
-	u.Path = "/rrl_run_reports"
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return dblogintest.Apiserver(t, "rrl_apiserver", "rrl_run_reports")
 }
 
 // writeScript puts sql in the workspace's reports/ directory, where
