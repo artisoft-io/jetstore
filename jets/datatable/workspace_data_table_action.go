@@ -76,9 +76,6 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 		// -----------------------------------------------------------------------
 		var gitLog, status string
 		switch {
-		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
-			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
-
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "workspace_registry"):
 			// Insert or update workspace entry in workspace_registry table:
 			//	- If folder workspace_name in workspaces root does not exists,
