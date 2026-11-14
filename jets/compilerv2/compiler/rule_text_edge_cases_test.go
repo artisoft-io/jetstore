@@ -322,3 +322,61 @@ func TestConsequentWithUnreadableTermIsALocatedError(t *testing.T) {
 		}
 	}
 }
+
+// An antecedent or a triple with a term the parser recovered from is a located
+// compile error, as a consequent is. The parser recovers from a missing token
+// and the listener still sees the term, empty; ParseObjectAtom gives nil for
+// it without a word, and the term was dropped with only the syntax error to
+// say so, which names a token and not the term.
+func TestAntecedentAndTripleWithUnreadableTermIsALocatedError(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"[R0]: (?x rdf:type acme:A) -> (?x acme:p 1);\n[R1]: (?x  acme:A) -> (?x acme:p 2);", "error in main.jr at line 2: cannot read the object of the antecedent (?xacme:A"},
+		{"[R0]: (?x rdf:type acme:A) -> (?x acme:p 1);\n[R1]: (?x rdf:type acme:A).( acme:p 2) -> (?x acme:p 2);", "error in main.jr at line 2: cannot read the predicate of the antecedent"},
+		{"triple(acme:s, acme:p, 1);\ntriple(acme:s, , 1);", "error in main.jr at line 2: cannot read the predicate of the triple"},
+		{"triple(acme:s, acme:p, 1);\ntriple(acme:s, acme:p, );", "error in main.jr at line 2: cannot read the object of the triple"},
+	} {
+		log := compileFails(t, tc.src)
+		if !strings.Contains(log, tc.want) {
+			t.Errorf("%q: error log %q does not say %q", tc.src, log, tc.want)
+		}
+		if n := strings.Count(log, "cannot read the "); n != 1 {
+			t.Errorf("%q: %d term-level messages, want 1: %q", tc.src, n, log)
+		}
+	}
+}
+
+// A term ParseObjectAtom refused, and logged, is not reported a second time
+// by the antecedent or the triple that holds it.
+func TestRefusedLiteralIsNotReportedTwice(t *testing.T) {
+	for _, src := range []string{
+		`[R1]: (?x rdf:type acme:A).(?x acme:p bool("maybe")) -> (?x acme:q 1);`,
+		`triple(acme:s, acme:p, bool("maybe"));`,
+	} {
+		log := compileFails(t, src)
+		if strings.Count(log, "bool literal") != 1 {
+			t.Errorf("%q: error log %q does not refuse the bool literal once", src, log)
+		}
+		if strings.Contains(log, "cannot read the ") {
+			t.Errorf("%q: error log %q reports the term again", src, log)
+		}
+	}
+}
+
+func compileFails(t *testing.T, src string) string {
+	t.Helper()
+	dir := t.TempDir()
+	write(t, dir, "main.jr", src)
+	c := NewCompiler(dir, "main.jr", false, false, true)
+	c.listener.autoAddResources = true
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("%q: the compiler panicked: %v", src, r)
+			}
+		}()
+		if err := c.Compile(); err == nil {
+			t.Errorf("%q compiled", src)
+		}
+	}()
+	return c.ErrorLog().String()
+}
