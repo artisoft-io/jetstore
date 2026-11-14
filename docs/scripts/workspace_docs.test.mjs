@@ -16,7 +16,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { REPO_ROOT } from './lib.mjs';
-import { QUERIES, collapseRules, generateWorkspaceGuide, pageUrl, unquote } from './workspace_docs.mjs';
+import { QUERIES, collapseRules, generateWorkspaceGuide, oneLine, pageUrl, unquote } from './workspace_docs.mjs';
 
 const SENTINELS = {
 	resourceValue: 'SENTINEL_RESOURCE_VALUE_7f3a',
@@ -507,14 +507,59 @@ test('a workspace with no docs/ builds, with a generated landing page', () => {
 	}
 });
 
-test('unquote and pageUrl', () => {
-	assert.equal(unquote('"a \\"b\\" \\\\ c"'), 'a "b" \\ c');
-	// A rule property is stored as its raw token, quotes and escapes included, even
-	// where the compiler unescapes string literals: \" and \\ are read in one pass,
-	// so an escaped backslash before a quote stays a backslash.
-	assert.equal(unquote('"ends with a backslash \\\\"'), 'ends with a backslash \\');
-	assert.equal(unquote('"\\\\\\"quoted\\\\\\""'), '\\"quoted\\"');
-	assert.equal(unquote('10'), '10');
+// unquote reads a property's token as the compiler's UnquoteString reads a
+// string literal (jets/compilerv2/compiler/string_literal.go), one row per rule.
+// String.raw keeps each backslash as it is written in the rule file.
+test('unquote reads the escapes the compiler reads, and keeps any other backslash', () => {
+	for (const [token, want, why] of [
+		[String.raw`"a \"b\""`, 'a "b"', 'a double quote'],
+		[String.raw`"a\\b"`, 'a\\b', 'a backslash'],
+		[String.raw`"a\tb"`, 'a\tb', 'a tab'],
+		[String.raw`"a\nb"`, 'a\nb', 'a line feed'],
+		[String.raw`"a\rb"`, 'a\rb', 'a carriage return'],
+		[String.raw`"^(\d\d\d)"`, String.raw`^(\d\d\d)`, 'an unknown escape is kept, backslash and all'],
+		[String.raw`"ends with a backslash \"`, 'ends with a backslash \\', 'a backslash at the end is kept'],
+		[String.raw`"ends with a backslash \\"`, 'ends with a backslash \\', 'an escaped backslash at the end'],
+		[String.raw`"\\\"quoted\\\""`, '\\"quoted\\"', 'an escaped backslash, then an escaped quote'],
+		[String.raw`"\\n"`, String.raw`\n`, 'an escaped backslash before n is a backslash and an n'],
+		[String.raw`a\nb`, String.raw`a\nb`, 'no quotes: returned as it is'],
+		['10', '10', 'no quotes: a number'],
+		['"', '"', 'a lone double quote'],
+		['""', '', 'empty'],
+	]) {
+		assert.equal(unquote(token), want, why);
+	}
+	assert.equal(unquote(null), '');
+	assert.equal(oneLine('a\n# b\r\n---\r| c |\td'), 'a # b --- | c |\td');
+});
+
+// A description or a property holding a line break, written \n or \r, reads as
+// one line: the line after the break must not become a heading, a thematic
+// break (a setext heading under the line before it) or a table row.
+test('a line break in a description or a property is a space on the page', () => {
+	const fixture = buildFixture();
+	try {
+		const db = new DatabaseSync(join(fixture.ws, 'workspace.db'));
+		const add = db.prepare('INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)');
+		add.run(7, 'description', String.raw`"First line\n# Not a heading\r\n---\r| a | b |\tend"`);
+		add.run(7, 'note', String.raw`"one\n# two"`);
+		db.close();
+		const { pages } = generate(fixture, { ruleText: undefined });
+		const second = pages[SECOND];
+		assert.ok(
+			second.includes('### FX\\_Unrecorded01\n\nFirst line # Not a heading --- \\| a \\| b \\|\tend\n\n'),
+			'the description, on one line',
+		);
+		assert.ok(second.includes('`note=one # two`'), 'the property, on one line');
+		const lines = second.split('\n');
+		assert.ok(!lines.some((l) => /^(# |\|)/.test(l)), 'no stray heading or table row');
+		assert.equal(lines.filter((l) => l === '---').length, 2, 'the front matter only');
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+test('pageUrl', () => {
 	assert.equal(pageUrl('index.md'), '/docs/workspace/');
 	assert.equal(pageUrl('customisation/index.md'), '/docs/workspace/customisation/');
 	assert.equal(pageUrl('customisation/Site Ops.md'), '/docs/workspace/customisation/site-ops/');

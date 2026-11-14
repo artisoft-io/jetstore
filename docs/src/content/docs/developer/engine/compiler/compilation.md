@@ -100,7 +100,9 @@ a workspace that avoided both compiles to.
 A rule's properties are written in its header, `[R1, o=false, s=10, description="..."]`, each a
 string, `true`, `false` or an integer. The compiler keeps each **as written**, quotes and escapes
 included: in the rule's label and in `workspace.db`'s `rule_properties`, which is where the workspace
-guide reads a rule's `description` from.
+guide reads a rule's `description` from. The guide reads a quoted property with the escapes of a
+string literal, as below, and shows a line break in it as a space
+([Document a workspace](/docs/developer/how-to/document-a-workspace/#2-describe-the-rules)).
 
 **It reads a property it acts on as the value it stands for** (`RuleProperty`,
 `jet_rule_listener_validation.go`): a quoted value is read as its string, with the escapes of a
