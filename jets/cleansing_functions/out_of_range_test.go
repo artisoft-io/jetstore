@@ -231,6 +231,7 @@ func TestOverpunchNumberCleansingFunction(t *testing.T) {
 		{"3", "1E", "+.015", false},
 		{"-1", "12345", nil, true},
 		{"x", "12345", nil, true},
+		{" 2", "12345", "123.45", false},
 		{"2", "1é5", "1.é5", false},
 	}
 	for _, tt := range tests {

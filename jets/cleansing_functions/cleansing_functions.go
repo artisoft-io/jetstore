@@ -229,7 +229,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		if argument != "" {
 			// Get the number of decimal position
 			var npos int
-			npos, err = strconv.Atoi(argument)
+			npos, err = decimalPlacesArgument(argument)
 			if err == nil {
 				vv, err := OverpunchNumber(inputValue, npos)
 				if err != nil {
@@ -243,8 +243,9 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 					}
 				}
 			} else {
+				// configuration error, refused by CheckFunction when the evaluator is built
 				obj = nil
-				errMsg = err.Error()
+				errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
 			}
 		} else {
 			// configuration error, refused by CheckFunction when the evaluator is built
