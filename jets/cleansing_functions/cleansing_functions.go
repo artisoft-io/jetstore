@@ -384,7 +384,15 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		}
 
 	case "substring":
-		// Cleansing function that takes a substring of input columns
+		// Cleansing function that takes a substring of input columns.
+		// The argument is "start,end", in bytes, not characters, so a position
+		// inside a multi-byte UTF-8 character splits it. start is inclusive and
+		// is at least 0 (the parser refuses a negative start), end is exclusive,
+		// and a negative end counts back from the end of the value.
+		// The result is nil (empty) when end, once resolved, is past the end of
+		// the value or not after start: this covers an empty value, a start at or
+		// past the end of the value, an end of 0, and a negative end reaching
+		// back to start or beyond.
 		// Get the parsed argument
 		arg, err := ParseSubStringFunctionArgument(argument, functionName, ctx.parsedFunctionArguments)
 		if err != nil {
@@ -394,7 +402,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 			if end < 0 {
 				end = len(inputValue) + end
 			}
-			if end > len(inputValue) || end <= arg.Start {
+			if arg.Start < 0 || end > len(inputValue) || end <= arg.Start {
 				obj = nil
 			} else {
 				obj = (inputValue)[arg.Start:end]
