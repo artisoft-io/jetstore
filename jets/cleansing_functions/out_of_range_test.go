@@ -59,11 +59,29 @@ func TestSubstring(t *testing.T) {
 		{"not a number", "a,3", "abcdef", nil, "cannot be parsed as start,end"},
 		{"empty argument", "", "abcdef", nil, "unexpected null argument"},
 
-		// Positions are bytes, not characters: "é" is two bytes in UTF-8
+		// Positions are characters (code points), not bytes: "é" is two bytes in
+		// UTF-8, "€" three, "😀" four
 		{"ascii prefix of a non-ascii value", "0,1", "héllo", "h", ""},
-		{"whole multi-byte character", "1,3", "héllo", "é", ""},
-		{"bytes after a multi-byte character", "0,4", "héllo", "hél", ""},
-		{"splits a multi-byte character", "0,2", "héllo", "h\xc3", ""},
+		{"a two-byte character", "1,2", "héllo", "é", ""},
+		{"characters after a two-byte character", "0,4", "héllo", "héll", ""},
+		{"a cut bytes would have split", "0,2", "héllo", "hé", ""},
+		{"the whole non-ascii value", "0,5", "héllo", "héllo", ""},
+		{"end past the characters, within the bytes", "0,6", "héllo", nil, ""},
+		{"negative end on a non-ascii value", "0,-1", "été", "ét", ""},
+		{"negative end drops a multi-byte character", "1,-1", "aéé", "é", ""},
+		{"a three-byte character", "1,2", "5€!", "€", ""},
+		{"a four-byte character", "1,2", "a😀b", "😀", ""},
+		{"after a four-byte character", "2,3", "a😀b", "b", ""},
+		{"empty value, non-ascii range", "0,1", "", nil, ""},
+		// No normalisation: "e" and a combining acute (U+0301) are two characters
+		{"a combining accent is its own character", "0,1", "e\u0301t", "e", ""},
+		{"the combining accent alone", "1,2", "e\u0301t", "\u0301", ""},
+		// A byte that does not start a valid sequence is one character, kept as is
+		{"an invalid byte", "1,2", "a\xffb", "\xff", ""},
+		{"after an invalid byte", "2,3", "a\xffb", "b", ""},
+		{"stray continuation bytes", "0,2", "\x80\x80", "\x80\x80", ""},
+		{"a truncated sequence is one character per byte", "1,3", "a\xe2\x82", "\xe2\x82", ""},
+		{"a truncated sequence, its last byte", "2,3", "a\xe2\x82", "\x82", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
