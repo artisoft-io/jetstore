@@ -57,11 +57,21 @@ func ParseConcatFunctionArgument(rawArg string, functionName string, inputColumn
 	return results, nil
 }
 
+// SubStringFunctionArg is the parsed argument of the substring cleansing
+// function, "start,end", in bytes: Start is inclusive and at least 0, End is
+// exclusive, and a negative End counts back from the end of the value.
 type SubStringFunctionArg struct {
 	Start int
 	End   int
 }
 
+// ParseSubStringFunctionArgument parses "start,end". It refuses an argument
+// that is not two integers, a negative start, and a positive end that is not
+// greater than start. A negative end, or an end of 0, is accepted: whether it
+// gives a value depends on the length of each value.
+//
+// It runs per record, from ApplyCleasingFunction, and only a valid argument is
+// cached, so a refused one is reported as an error on every record.
 func ParseSubStringFunctionArgument(rawArg string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
 	// rawArg is comma separated as: start,end
 	if rawArg == "" {
@@ -83,9 +93,15 @@ func ParseSubStringFunctionArgument(rawArg string, functionName string, cache ma
 	if err != nil {
 		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", rawArg, err, functionName)
 	}
+	if start < 0 {
+		return nil, fmt.Errorf("error: argument %s is invalid: start must be 0 or more (%s function)", rawArg, functionName)
+	}
 	end, err := strconv.Atoi(strings.TrimSpace(row[1]))
-	if err != nil || (end > 0 && end <= start) {
+	if err != nil {
 		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", rawArg, err, functionName)
+	}
+	if end > 0 && end <= start {
+		return nil, fmt.Errorf("error: argument %s is invalid: end must be greater than start, or negative to count from the end of the value (%s function)", rawArg, functionName)
 	}
 	results := &SubStringFunctionArg{
 		Start: start,

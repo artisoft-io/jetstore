@@ -2,6 +2,7 @@ package cleansing_functions
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 )
 
@@ -52,6 +53,14 @@ var overpunchCharacters = map[rune]Overpunch{
 	'R': {Sign: "-", Digit: "9"},
 }
 
+// OverpunchNumber decodes value, a number whose last character may be an
+// overpunch character, into a decimal string with decimalPlaces decimals.
+// decimalPlaces counts the right-most characters, overpunch character included,
+// that are the decimal part. A value with fewer characters than decimalPlaces is
+// read as a fixed-width field whose leading zeros were dropped: it is padded
+// with zeros on the left to decimalPlaces characters, so "5" with 2 decimal
+// places is ".05", as "05" is. Positions are bytes; the value is expected to be
+// ASCII.
 func OverpunchNumber(value string, decimalPlaces int) (string, error) {
 	if decimalPlaces < 0 {
 		return value, fmt.Errorf("decimalPlaces must be >= 0, we got %d", decimalPlaces)
@@ -59,6 +68,11 @@ func OverpunchNumber(value string, decimalPlaces int) (string, error) {
 	l := len(value)
 	if l == 0 {
 		return "", nil
+	}
+	if l < decimalPlaces {
+		// Put back the leading zeros, the slicing below needs l >= decimalPlaces
+		value = strings.Repeat("0", decimalPlaces-l) + value
+		l = decimalPlaces
 	}
 	r := rune(value[l-1])
 
