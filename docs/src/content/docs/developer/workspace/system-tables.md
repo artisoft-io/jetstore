@@ -75,6 +75,90 @@ what to revoke.
 - Only the apiserver's user can give such a table to `jets_ide` (`ALTER TABLE ... OWNER TO`); the
   statement is refused from anything that runs as `jets_ide`.
 
+### The code `jets_ide` may not create
+
+PostgreSQL runs some code attached to a table as **whoever reads or writes the table**, not as the
+table's owner. The apiserver's user and the pipelines read and write the tables `jets_ide` creates,
+so a function `jets_ide` wrote and attached to its own table, in a trigger or a row-level security
+policy, would run as the apiserver's user and could change the security tables. The grants cannot
+stop it: the privilege to create a table in a schema is also the privilege to create a function
+there.
+
+So an event trigger, `jets_ide_code_guard`, refuses that DDL when the login running it is `jets_ide`'s
+(`jets/dblogin/codeguard.go`). It refuses:
+
+- `CREATE` and `ALTER` of a function, procedure, trigger, policy, rule, operator or aggregate, and
+  `CREATE CAST`, `CREATE EXTENSION`, including the `CREATE OR REPLACE` forms and DDL run inside a
+  `DO` block;
+- `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`, and any `ALTER TABLE`
+  that leaves a table with row-level security on;
+- a column default, check constraint, generated column, index expression or predicate, domain
+  constraint or view that calls:
+  - a function outside `pg_catalog`, which includes `aws_s3`'s and every other extension's;
+  - a volatile built-in function other than `nextval`, `currval`, `lastval`, `random`,
+    `random_normal`, `array_shuffle`, `array_sample`, `gen_random_uuid`, `uuidv4`, `uuidv7`,
+    `clock_timestamp` and `timeofday`, which refuses `set_config`, `setval`,
+    `pg_terminate_backend`, the advisory locks and the large-object and file functions;
+  - a built-in function that runs SQL or reads a table by name: `query_to_xml`, `table_to_xml`,
+    `schema_to_xml`, `database_to_xml`, `cursor_to_xml` and their `xmlschema` forms, `ts_stat`,
+    `pg_stat_get_activity` and `pg_stat_get_backend_activity`.
+
+The refusal is a `permission denied` error (SQLSTATE `42501`) naming the command, or the object and
+the function it calls. Everything else `jets_ide` does is unchanged: tables, inserts, `TRUNCATE`,
+indexes, expression indexes on built-in functions, views, defaults such as `now()` or a `serial`
+column, check constraints, `DO` blocks, temporary tables, and a call to
+`aws_s3.query_export_to_s3` in a statement. The apiserver's own user is not affected.
+
+**Why expressions, and not only functions.** Without functions of its own, `jets_ide` could still
+attach a call to a function that exists. `aws_s3.query_export_to_s3` runs the SQL text it is given
+and `aws_s3.table_import_from_s3` writes into a table it is named, both as the caller, so on Aurora
+a column default calling either would run a statement of the author's choosing as the apiserver's
+user. `query_to_xml` in a default would copy a secret column into a row `jets_ide` can read. A call
+in a statement is not refused, because it runs as `jets_ide`. What remains is narrower: a view
+still runs the built-in functions it calls as its reader, so a view on a system view such as
+`pg_stat_activity` shows what its reader may see; that only matters if the apiserver copies the
+view's rows into a table `jets_ide` reads.
+
+**Installing it.** Creating an event trigger takes a superuser or, on Amazon RDS and Aurora
+PostgreSQL, the master user (`rds_superuser`), which is the apiserver's user on a standard
+deployment. The apiserver and `update_db` create or update the trigger at every start, and the
+start-up line ends with *IDE code guard on* or *IDE code guard off*. When it is off, a *Warning:*
+line says why, and the start goes on: the logins work as before, without the guard. To install it
+for an apiserver user that is not a superuser, start the apiserver once (it creates the function),
+then, connected to the database as a superuser:
+
+```sql
+CREATE EVENT TRIGGER jets_ide_code_guard ON ddl_command_end
+  EXECUTE FUNCTION jetsapi.jets_ide_code_guard();
+ALTER FUNCTION jetsapi.jets_ide_code_guard() OWNER TO CURRENT_USER;
+```
+
+The second statement gives the function to the superuser. The function runs during every user's
+DDL, a superuser's included, so it should not stay with a user that could change it. A later
+release that changes the function says so in a *Warning:* line; give the function back to the
+apiserver's user for one start, which updates it, then take it back.
+
+**Turning it off.** If the guard ever refuses DDL it should not, a pipeline's or the apiserver's own,
+set `JETS_IDE_CODE_GUARD=off` in the deploy environment and deploy; the stack passes it to every
+component that can set the logins up. No database access is needed: the
+apiserver's user drops the event trigger, or disables it, or empties its function when a superuser
+owns the trigger, and the start-up line ends *IDE code guard off (disabled by JETS_IDE_CODE_GUARD)*,
+followed by a *Warning:* line. When the trigger and its function both belong to a superuser, the
+start-up line says the variable could not remove it, and a superuser must drop it. Unset the variable
+to put the guard back at the next start; see
+[Environment variables](/docs/install/reference/environment-variables/).
+
+Event triggers are per database, and Amazon RDS asks for them to be dropped before a major-version
+upgrade: `DROP EVENT TRIGGER jets_ide_code_guard;`. The next start creates it again. To check the
+guard at any time: `SELECT evtenabled FROM pg_event_trigger WHERE evtname = 'jets_ide_code_guard'`
+returns `O` when it is on.
+
+**Code `jets_ide` created before the guard** stays where it is. At every start the apiserver lists
+what `jets_ide` owns that runs as another user, functions, triggers, policies, rules, row-level
+security and the expressions above, in a *Warning:* line, and drops none of it: a drop could break a
+workspace that relies on it, and its owner is better placed to judge. Review the list, and drop what
+is not needed connected as the apiserver's user, which owns `jets_ide`'s objects by membership.
+
 ### Reports run as `jets_ide`
 
 `run_reports` (the binary the state machines start, and the `run_reports` Lambda) opens the IDE login

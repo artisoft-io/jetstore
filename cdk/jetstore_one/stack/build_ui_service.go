@@ -100,6 +100,12 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		// string explicitly, so adding this line changes nothing for a deployment that
 		// does not set the variable.
 		"JETS_NO_GIT_ACCESS": jsii.String(os.Getenv("JETS_NO_GIT_ACCESS")),
+		// The IDE code guard's off switch (jets/dblogin/codeguard.go): "off", in any
+		// case, makes the apiserver, and the update_db it starts, drop the event trigger
+		// jets_ide_code_guard at start; empty or anything else keeps it on. Passed to
+		// every component that can call dblogin.Ensure (the run_reports task and
+		// Lambdas, the compute-pipes nodes), so none re-installs a guard switched off.
+		"JETS_IDE_CODE_GUARD": jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")),
 		// The deployment's own Pipeline Status buttons, served by the apiserver at login
 		// and rendered by the React app after the built-in buttons of the table's last
 		// row. A deployment setting so that no workspace document can name them; see the

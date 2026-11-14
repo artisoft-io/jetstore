@@ -172,6 +172,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 			},
 			Environment: &map[string]*string{
+				"JETS_IDE_CODE_GUARD":           jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 				"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 				"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 				"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
@@ -238,6 +239,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 			},
 			Environment: &map[string]*string{
+				"JETS_IDE_CODE_GUARD":           jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 				"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 				"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 				"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
