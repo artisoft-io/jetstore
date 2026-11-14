@@ -139,15 +139,105 @@ struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   BetaRow const* br;
 };
 
+// UTF-8 characters
+// --------------------------------------------------------------------------------------
+// The length in bytes of the valid UTF-8 sequence starting at text[i], 1 to 4, or 0 when
+// none starts there: a stray continuation byte, a truncated sequence, an overlong form,
+// a surrogate (U+D800 to U+DFFF), or a code point above U+10FFFF. i < text.size().
+inline std::size_t utf8_char_len(std::string const& text, std::size_t i)
+{
+  auto const n = text.size();
+  auto const b0 = static_cast<unsigned char>(text[i]);
+  std::size_t len = 0;
+  unsigned char lo = 0x80, hi = 0xBF;  // the range of the second byte
+  if(b0 < 0x80)                     len = 1;
+  else if(b0 >= 0xC2 && b0 <= 0xDF) len = 2;
+  else if(b0 == 0xE0)               { len = 3; lo = 0xA0; }
+  else if(b0 >= 0xE1 && b0 <= 0xEC) len = 3;
+  else if(b0 == 0xED)               { len = 3; hi = 0x9F; }
+  else if(b0 >= 0xEE && b0 <= 0xEF) len = 3;
+  else if(b0 == 0xF0)               { len = 4; lo = 0x90; }
+  else if(b0 >= 0xF1 && b0 <= 0xF3) len = 4;
+  else if(b0 == 0xF4)               { len = 4; hi = 0x8F; }
+  else return 0;
+  if(i + len > n) return 0;
+  for(std::size_t k = 1; k < len; k++) {
+    auto const b = static_cast<unsigned char>(text[i + k]);
+    if(k == 1 ? (b < lo || b > hi) : (b < 0x80 || b > 0xBF)) return 0;
+  }
+  return len;
+}
+
+// Splits text into its UTF-8 characters (code points), each as its byte sequence, in
+// order. Returns false, with chars left partial, when the text is not valid UTF-8 (see
+// utf8_char_len). replace_char_of reads jets:replace_chars with it, and refuses text
+// that is not valid UTF-8.
+inline bool split_utf8_chars(std::string const& text, std::vector<std::string> & chars)
+{
+  auto const n = text.size();
+  std::size_t i = 0;
+  while(i < n) {
+    auto const len = utf8_char_len(text, i);
+    if(len == 0) return false;
+    chars.emplace_back(text, i, len);
+    i += len;
+  }
+  return true;
+}
+
+// TextUnits
+// --------------------------------------------------------------------------------------
+// The unit in which length_of, substring_of and char_at count lengths and positions: the
+// character, a Unicode code point, read from the text's UTF-8. This is the one place
+// that decides it.
+//  - a valid UTF-8 sequence, of 1 to 4 bytes, is one character;
+//  - a byte that does not start a valid sequence (see utf8_char_len) is one character on
+//    its own, kept as it is: text that is not valid UTF-8 never fails a rule and never
+//    loses a byte;
+//  - there is no normalisation: a letter followed by a combining accent (e, then U+0301)
+//    is two characters, where the precomposed letter (U+00E9) is one.
+// Until 2026-11-14 the unit was the byte, so on text that is not ASCII a length counted
+// each byte of a multi-byte character and a cut could split one. ASCII is unchanged.
+//  - size: the number of characters in text;
+//  - slice: the bytes of the characters [from, from + count) of text, where the caller
+//    has already checked 0 <= from, 0 <= count and from + count <= size(text).
+struct TextUnits
+{
+  // The length in bytes of the character starting at text[i], i < text.size()
+  static std::size_t char_len(std::string const& text, std::size_t i)
+  {
+    auto const len = utf8_char_len(text, i);
+    return len == 0 ? 1 : len;
+  }
+  static std::int64_t size(std::string const& text)
+  {
+    std::int64_t count = 0;
+    for(std::size_t i = 0; i < text.size(); i += char_len(text, i)) count++;
+    return count;
+  }
+  static std::string slice(std::string const& text, std::int64_t from, std::int64_t count)
+  {
+    auto const n = text.size();
+    std::size_t i = 0;
+    for(std::int64_t k = 0; k < from && i < n; k++) i += char_len(text, i);
+    std::size_t j = i;
+    for(std::int64_t k = 0; k < count && j < n; k++) j += char_len(text, j);
+    return text.substr(i, j - i);
+  }
+};
+
 // LengthOfVisitor
 // --------------------------------------------------------------------------------------
+// (length_of ?text): the number of characters in ?text, counted as TextUnits counts them,
+// so that length_of, substring_of and char_at agree. Until 2026-11-14 it was the number
+// of bytes, the same on ASCII text.
 struct LengthOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   LengthOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for length_of: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LString lhs)const
   {
-    return rdf::LInt32(lhs.data.size());
+    return rdf::LInt32(static_cast<std::int32_t>(TextUnits::size(lhs.data)));
   }
   ReteSession * rs;
   BetaRow const* br;
@@ -252,13 +342,14 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     // lhs argument is a config resource with data properties:
     //    - jets:from int value for start position of substring
     //    - jets:length int value for length of substring.
-    // Note: if jets:from + jets:length > rhs.data.size() then return the available characters of rhs.data
+    // Note: if jets:from + jets:length > the length of rhs.data then return the available characters of rhs.data
     // Note: if jets:length < 0 then remove jets:length from the end of the string
     // Note: an empty string is returned when the cut is longer than the text, that is
     //       when jets:from is past the end, when jets:from is negative, or when
     //       jets:length < 0 drops more than what remains after jets:from
-    // Note: positions and lengths count bytes, not characters, so a cut may split
-    //       a multi-byte UTF-8 character
+    // Note: positions and lengths count characters (code points), as TextUnits counts
+    //       them, so a cut never splits a multi-byte UTF-8 character. Until 2026-11-14
+    //       they counted bytes
     // Get from and length from the config object
     auto * sess = rs->rdf_session();
     auto rmgr = sess->rmgr();
@@ -280,7 +371,7 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     // 32-bit from or length can wrap around in it
     std::int64_t const from = boost::get<rdf::LInt32>(from_obj)->data;
     std::int64_t const length = boost::get<rdf::LInt32>(length_obj)->data;
-    std::int64_t const sz = static_cast<std::int64_t>(rhs.data.size());
+    std::int64_t const sz = TextUnits::size(rhs.data);
     if (from < 0 || from >= sz) {
       return rdf::LString{ std::string() };
     }
@@ -288,45 +379,12 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     if (end <= from) {
       return rdf::LString{ std::string() };
     }
-    return rdf::LString{ rhs.data.substr(static_cast<std::size_t>(from), static_cast<std::size_t>(end - from)) };
+    return rdf::LString{ TextUnits::slice(rhs.data, from, end - from) };
   }
 
   ReteSession * rs;
   BetaRow const* br;
 };
-
-// Splits text into its UTF-8 characters (code points), each as its byte sequence, in
-// order. Returns false, with chars left partial, when the text is not valid UTF-8: a
-// stray continuation byte, a truncated sequence, an overlong form, a surrogate
-// (U+D800 to U+DFFF), or a code point above U+10FFFF.
-inline bool split_utf8_chars(std::string const& text, std::vector<std::string> & chars)
-{
-  auto const n = text.size();
-  std::size_t i = 0;
-  while(i < n) {
-    auto const b0 = static_cast<unsigned char>(text[i]);
-    std::size_t len = 0;
-    unsigned char lo = 0x80, hi = 0xBF;  // the range of the second byte
-    if(b0 < 0x80)                     len = 1;
-    else if(b0 >= 0xC2 && b0 <= 0xDF) len = 2;
-    else if(b0 == 0xE0)               { len = 3; lo = 0xA0; }
-    else if(b0 >= 0xE1 && b0 <= 0xEC) len = 3;
-    else if(b0 == 0xED)               { len = 3; hi = 0x9F; }
-    else if(b0 >= 0xEE && b0 <= 0xEF) len = 3;
-    else if(b0 == 0xF0)               { len = 4; lo = 0x90; }
-    else if(b0 >= 0xF1 && b0 <= 0xF3) len = 4;
-    else if(b0 == 0xF4)               { len = 4; hi = 0x8F; }
-    else return false;
-    if(i + len > n) return false;
-    for(std::size_t k = 1; k < len; k++) {
-      auto const b = static_cast<unsigned char>(text[i + k]);
-      if(k == 1 ? (b < lo || b > hi) : (b < 0x80 || b > 0xBF)) return false;
-    }
-    chars.emplace_back(text, i, len);
-    i += len;
-  }
-  return true;
-}
 
 // ReplaceCharOfVisitor
 // --------------------------------------------------------------------------------------
@@ -394,6 +452,20 @@ struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
 
 // CharAtVisitor
 // --------------------------------------------------------------------------------------
+// (?text char_at ?index): the character of ?text at ?index, counted from 0, as a text of
+// one character.
+//  - characters are counted as TextUnits counts them, as substring_of's positions are:
+//    a whole code point, however many bytes it takes in UTF-8, and a byte that does not
+//    start a valid sequence on its own ((?text char_at 0) on "été" is "é"). Until
+//    2026-11-14 the index counted bytes, and the result could be one byte of a
+//    multi-byte character;
+//  - an index at or past the end of the text, or negative, is null. substring_of gives
+//    "" for a cut outside the text; char_at keeps null, which it has always given, as a
+//    rule may already depend on it (is_literal, length_of, == "", or a consequent
+//    writing the value all tell null from "");
+//  - the index must be an int (32-bit) and the text a text: anything else is the
+//    catch-all below, which throws in a session's rule.
+// Signed 64-bit arithmetic, as in substring_of: a negative int32 cannot wrap around.
 struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CharAtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -402,10 +474,11 @@ struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
 
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32       rhs)const
   {
-    if(lhs.data.size() <= rhs.data) {
+    std::int64_t const index = rhs.data;
+    if(index < 0 || index >= TextUnits::size(lhs.data)) {
       return rdf::Null();
     }
-    return rdf::LString{ std::string(1, lhs.data[rhs.data]) };
+    return rdf::LString{ TextUnits::slice(lhs.data, index, 1) };
   }
 
   ReteSession * rs;

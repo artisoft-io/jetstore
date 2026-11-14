@@ -379,27 +379,31 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 
 	case "substring":
 		// Cleansing function that takes a substring of input columns.
-		// The argument is "start,end", in bytes, not characters, so a position
-		// inside a multi-byte UTF-8 character splits it. start is inclusive and
-		// is at least 0 (the parser refuses a negative start), end is exclusive,
-		// and a negative end counts back from the end of the value.
+		// The argument is "start,end", in characters (Unicode code points), not
+		// bytes, so a cut never splits a multi-byte UTF-8 character; see
+		// charOffsets for how text that is not valid UTF-8 is counted. start is
+		// inclusive and is at least 0 (the parser refuses a negative start), end
+		// is exclusive, and a negative end counts back from the end of the value.
 		// The result is nil (empty) when end, once resolved, is past the end of
 		// the value or not after start: this covers an empty value, a start at or
 		// past the end of the value, an end of 0, and a negative end reaching
 		// back to start or beyond.
+		// Until 2026-11-14 positions counted bytes, the same on ASCII.
 		// Get the parsed argument
 		arg, err := ParseSubStringFunctionArgument(argument, functionName, ctx.parsedFunctionArguments)
 		if err != nil {
 			errMsg = err.Error()
 		} else {
+			offsets := charOffsets(inputValue)
+			nchars := len(offsets) - 1
 			end := arg.End
 			if end < 0 {
-				end = len(inputValue) + end
+				end = nchars + end
 			}
-			if arg.Start < 0 || end > len(inputValue) || end <= arg.Start {
+			if arg.Start < 0 || end > nchars || end <= arg.Start {
 				obj = nil
 			} else {
-				obj = (inputValue)[arg.Start:end]
+				obj = inputValue[offsets[arg.Start]:offsets[end]]
 			}
 		}
 
@@ -580,4 +584,20 @@ func UniqueSplitOn(inputValue, argument string) any {
 		}
 	}
 	return vv
+}
+
+// charOffsets returns the byte offset at which each character of value starts,
+// followed by len(value), so that value has len(result)-1 characters and the
+// characters [i, j) are value[result[i]:result[j]]. A character is a Unicode
+// code point read from the value's UTF-8; a byte that does not start a valid
+// UTF-8 sequence is one character on its own, kept as it is, as ranging over a
+// string reads it. There is no normalisation: a letter followed by a combining
+// accent is two characters. The rule engine's length_of, substring_of and
+// char_at count characters the same way (TextUnits in jets/rete/expr_op_strings.h).
+func charOffsets(value string) []int {
+	offsets := make([]int, 0, len(value)+1)
+	for i := range value {
+		offsets = append(offsets, i)
+	}
+	return append(offsets, len(value))
 }
