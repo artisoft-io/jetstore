@@ -88,11 +88,7 @@ func validateReportsConfig(content string) []wsvalidate.Finding {
 }
 
 // reportsConfigNotes are the member names a reports/config.json carries notes
-// in, which run_reports ignores and the save check does not warn of. On
-// 2026-11-14 the four workspaces' files carried 21 `description` members and
-// one `comment`; their other unknown members were four, which the save now
-// warns of: three `type` members beside the `reportOrScript` that decides,
-// and one `warning`.
+// in, which run_reports ignores and the save check does not warn of.
 var reportsConfigNotes = map[string]bool{"description": true, "comment": true}
 
 func sortedNames(config map[string]directives.ReportDirectives) []string {

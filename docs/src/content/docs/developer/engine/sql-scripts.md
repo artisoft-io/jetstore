@@ -29,10 +29,8 @@ the row's code is `jets/datatable/workspace_reports_config.go`), and it applies 
 
 It **warns**, and saves, of every member the directives have no field for, which `run_reports`
 ignores, so that a misspelt key (`hasValu`, `reportScript`) is seen when it is written rather than as
-a setting that silently does not apply. A `description` or `comment` member is not warned of: the
-workspaces write their notes in those. On this date the four workspaces' files were all accepted, and
-carried four members the save warns of: three `type` members beside the `reportOrScript` that
-decides, and one `warning`.
+a setting that silently does not apply. A `description` or `comment` member is not warned of: a
+workspace writes its notes in those.
 
 The directive types and the two functions moved from `jets/run_reports/delegate` into
 `jets/run_reports/directives`, which both `run_reports` and the save path import: the delegate
@@ -42,8 +40,7 @@ imports `jets/datatable`, so the save path could not import the delegate.
 `utils.SplitFileKeyIntoComponents` always sets the three (an absent one reads as 1970, 1 or 1), and
 its callers rely on that, so it is unchanged. `runWhen` reads the key without the ones it does not
 carry (`runWhenComponents`, `utils.FileKeyCarries`): a criterion on one the key does not carry fails,
-unless it sets only `hasNotValue`, which holds. The reports still read the defaults. None of the four
-workspaces' `runWhen` entries names one of the three, so none of them changes.
+unless it sets only `hasNotValue`, which holds. The reports still read the defaults.
 
 ## 2026-11-14 — a report's name, statement `runWhen`, and the org a report registers
 
