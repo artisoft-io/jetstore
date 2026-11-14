@@ -55,7 +55,8 @@ throws `Invalid arguments for char_at` and fails the session's `ExecuteRules`.
 text that is not ASCII the index counts each byte of a multi-byte character, and the result can be
 one byte of such a character, which is not valid UTF-8: index 0 on `"été"` is the first byte of `é`
 alone (`0xC3`), index 1 its second byte, and `t` is at index 2. On ASCII text a byte is a character.
-This was decided on 2026-11-14 and is kept, as for `substring_of`.
+This was decided on 2026-11-14 and is kept, as for `substring_of`. The two operators take their unit
+from one place, `TextUnits` in `jets/rete/expr_op_strings.h`.
 
 **Outside the text `char_at` is null, where `substring_of` gives `""`.** It has always been null,
 and a rule can tell null from `""`: `is_literal`, `length_of`, `== ""`, and a consequent that writes

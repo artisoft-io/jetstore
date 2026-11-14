@@ -239,6 +239,27 @@ struct EndsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   BetaRow const* br;
 };
 
+// TextUnits
+// --------------------------------------------------------------------------------------
+// The unit in which substring_of and char_at count positions and lengths: the byte. This
+// is the one place that decides it, so that counting UTF-8 characters instead is a change
+// to these two functions only (and to the tables in their tests, whose multi-byte rows
+// then give whole characters).
+//  - size: the number of units in text;
+//  - slice: the bytes of the units [from, from + count) of text, where the caller has
+//    already checked 0 <= from, 0 <= count and from + count <= size(text).
+struct TextUnits
+{
+  static std::int64_t size(std::string const& text)
+  {
+    return static_cast<std::int64_t>(text.size());
+  }
+  static std::string slice(std::string const& text, std::int64_t from, std::int64_t count)
+  {
+    return text.substr(static_cast<std::size_t>(from), static_cast<std::size_t>(count));
+  }
+};
+
 // SubstringOfVisitor
 // --------------------------------------------------------------------------------------
 struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
@@ -258,7 +279,7 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     //       when jets:from is past the end, when jets:from is negative, or when
     //       jets:length < 0 drops more than what remains after jets:from
     // Note: positions and lengths count bytes, not characters, so a cut may split
-    //       a multi-byte UTF-8 character
+    //       a multi-byte UTF-8 character. The unit is TextUnits', above
     // Get from and length from the config object
     auto * sess = rs->rdf_session();
     auto rmgr = sess->rmgr();
@@ -280,7 +301,7 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     // 32-bit from or length can wrap around in it
     std::int64_t const from = boost::get<rdf::LInt32>(from_obj)->data;
     std::int64_t const length = boost::get<rdf::LInt32>(length_obj)->data;
-    std::int64_t const sz = static_cast<std::int64_t>(rhs.data.size());
+    std::int64_t const sz = TextUnits::size(rhs.data);
     if (from < 0 || from >= sz) {
       return rdf::LString{ std::string() };
     }
@@ -288,7 +309,7 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     if (end <= from) {
       return rdf::LString{ std::string() };
     }
-    return rdf::LString{ rhs.data.substr(static_cast<std::size_t>(from), static_cast<std::size_t>(end - from)) };
+    return rdf::LString{ TextUnits::slice(rhs.data, from, end - from) };
   }
 
   ReteSession * rs;
@@ -406,6 +427,7 @@ struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
 //    writing the value all tell null from "");
 //  - the index must be an int (32-bit) and the text a text: anything else is the
 //    catch-all below, which throws in a session's rule.
+// The unit, the byte, is TextUnits', shared with substring_of.
 // Signed 64-bit arithmetic, as in substring_of: a negative int32 cannot wrap around.
 // Until 2026-11-14 a negative index was null only because the comparison converted it to
 // an unsigned value larger than any text; the result is the same.
@@ -418,11 +440,10 @@ struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32       rhs)const
   {
     std::int64_t const index = rhs.data;
-    std::int64_t const sz = static_cast<std::int64_t>(lhs.data.size());
-    if(index < 0 || index >= sz) {
+    if(index < 0 || index >= TextUnits::size(lhs.data)) {
       return rdf::Null();
     }
-    return rdf::LString{ std::string(1, lhs.data[static_cast<std::size_t>(index)]) };
+    return rdf::LString{ TextUnits::slice(lhs.data, index, 1) };
   }
 
   ReteSession * rs;
