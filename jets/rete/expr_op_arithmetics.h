@@ -650,7 +650,7 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     if(err) {
       RETE_EXCEPTION(
         "Invalid config for sorted_head, must have "
-        "jets:operator, jets:entity_property, and jets:data_property set, and "
+        "jets:operator, jets:entity_property, and jets:value_property set, and "
         "jets:operator must be a text literal with value '<' or '>' (single char text)"
       );
     }

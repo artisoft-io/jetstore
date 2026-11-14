@@ -528,6 +528,65 @@ TEST_F(ExprOpTest, SubstringOfVisitor2) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("Allo")));
 }
+// The edges of substring_of: each row is jets:from, jets:length, the text and the
+// result. A cut longer than the text gives an empty string, never the remainder and
+// never an exception; a cut that runs past the end gives what is there.
+TEST_F(ExprOpTest, SubstringOfVisitorEdges) {
+  struct Row { std::int32_t from; std::int32_t length; std::string text; std::string want; };
+  std::vector<Row> rows = {
+    // a positive length within the text
+    {0, 3, "abcdef", "abc"},
+    {2, 2, "abcdef", "cd"},
+    {1, 0, "abcdef", ""},
+    // a negative length within the text drops characters from the end
+    {0, -3, "abcdef", "abc"},
+    {1, -2, "abcdef", "bcd"},
+    {2, -4, "abcdef", ""},
+    // a negative length on a text too short for the cut
+    {0, -3, "ab", ""},
+    {0, -3, "abc", ""},
+    {2, -3, "abcd", ""},
+    {0, -1, "", ""},
+    {0, std::numeric_limits<std::int32_t>::min(), "abc", ""},
+    // jets:from at the end of the text
+    {3, 2, "abc", ""},
+    {3, -1, "abc", ""},
+    {0, 2, "", ""},
+    // jets:from past the end of the text
+    {4, 2, "abc", ""},
+    {10, -1, "abc", ""},
+    {std::numeric_limits<std::int32_t>::max(), 1, "abc", ""},
+    // jets:from + jets:length past the end gives the available characters
+    {1, 10, "abc", "bc"},
+    {0, std::numeric_limits<std::int32_t>::max(), "abc", "abc"},
+    {2, std::numeric_limits<std::int32_t>::max(), "abc", "c"},
+    // a negative jets:from
+    {-1, 2, "abc", ""},
+    {-1, -1, "abc", ""},
+    {std::numeric_limits<std::int32_t>::min(), 2, "abc", ""},
+    // positions count bytes: "é" is two bytes in UTF-8
+    {0, 1, "\xc3\xa9t\xc3\xa9", "\xc3"},
+    {0, 3, "\xc3\xa9t\xc3\xa9", "\xc3\xa9t"},
+  };
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  SubstringOfVisitor op(this->rete_session.get(), nullptr);
+  for(size_t i = 0; i < rows.size(); ++i) {
+    auto const& r = rows[i];
+    auto name = "config" + std::to_string(i);
+    rdf::r_index config = rmgr->create_resource(name);
+    sess->insert(config, rmgr->jets()->jets__from, rmgr->create_literal(r.from));
+    sess->insert(config, rmgr->jets()->jets__length, rmgr->create_literal(r.length));
+    RDFTTYPE res;
+    try {
+      res = boost::apply_visitor(op, RDFTTYPE(rdf::NamedResource(name)), RDFTTYPE(rdf::LString(r.text)));
+    } catch(std::exception const& e) {
+      res = rdf::LString(std::string("threw: ") + e.what());
+    }
+    EXPECT_EQ(res, RDFTTYPE(rdf::LString(r.want)))
+      << "from " << r.from << ", length " << r.length << ", text \"" << r.text << "\"";
+  }
+}
 TEST_F(ExprOpTest, CharAtVisitor1) {
   CharAtVisitor op(this->rete_session.get(), nullptr);
   rdf::LString lhs("==Allo");

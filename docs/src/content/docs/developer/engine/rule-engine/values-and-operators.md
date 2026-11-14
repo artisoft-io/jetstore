@@ -1,6 +1,6 @@
 ---
 title: "Values and operators"
-description: "What the rule engine computes for sums, doubles, text, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
+description: "What the rule engine computes for sums, doubles, text, substrings, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
 kind: reference
 sidebar:
   order: 2
@@ -11,6 +11,33 @@ settled on 2026-10-22, when the C++ and Go engines were compared value by value 
 decided (see [The retired Go engine](/docs/developer/engine/rule-engine/go-engine/)); what the Go engine did is kept as history, and a Go file
 it names is at the tag `go-engine-final`. The list of operators is the generated
 [JetRules operators](/docs/developer/reference/generated/jetrules-operators/) page.
+
+## `substring_of` at the edges — 2026-11-13
+
+`(config substring_of ?text)` takes its cut from the configuration resource `config`: `jets:from`,
+the characters skipped from the start, and `jets:length`, the characters kept or, when negative,
+the characters dropped from the end. Both must be `int` values (32-bit); anything else inserts
+`(jets:iState jets:exception "…")` and the expression is null.
+
+| Case | Result | Example: text `"abcdef"` |
+|---|---|---|
+| the cut is within the text | the characters cut | from 1, length 3: `"bcd"`; from 1, length -2: `"bcd"` |
+| `jets:from + jets:length` runs past the end | the characters that are there | from 4, length 10: `"ef"` |
+| `jets:from` at the end of the text | `""` | from 6, length 2: `""` |
+| `jets:from` past the end, or negative | `""` | from 9, length 2: `""`; from -1, length 2: `""` |
+| a negative `jets:length` dropping as much as is left after `jets:from`, or more | `""` | from 2, length -4: `""`; from 0, length -9: `""` |
+
+**Positions and lengths count bytes, not characters.** Text is UTF-8, so on text that is not
+ASCII a position counts each byte of a multi-byte character, and a cut can split one: from 0,
+length 1 on `"été"` is the first byte of `é` alone, which is not valid UTF-8.
+
+**Before 2026-11-13 the two edge cases did not give `""`.** A negative `jets:length` on text shorter
+than the cut was computed in unsigned arithmetic and wrapped around, so from 0, length -3 on `"ab"`
+gave the whole remainder, `"ab"`. A `jets:from` past the end, or negative, made `std::string::substr`
+throw `std::out_of_range`, which failed the session's `ExecuteRules`. Both now give `""`, as the
+retired Go engine did for the first two (`expr_operator_str_substring_of.go` at `go-engine-final`;
+it gave null for a negative `jets:from`). The rows are `ExprOpTest.SubstringOfVisitorEdges` in
+`jets/rete/expr_op_test.cc`; the operator is `SubstringOfVisitor` in `jets/rete/expr_op_strings.h`.
 
 ## Values and operators — 2026-10-22
 
