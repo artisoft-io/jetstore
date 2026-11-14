@@ -227,7 +227,7 @@ struct EndsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 {
   EndsWithVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   EndsWithVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for starts_with: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for ends_with: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const
   {
@@ -253,6 +253,11 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     //    - jets:length int value for length of substring.
     // Note: if jets:from + jets:length > rhs.data.size() then return the available characters of rhs.data
     // Note: if jets:length < 0 then remove jets:length from the end of the string
+    // Note: an empty string is returned when the cut is longer than the text, that is
+    //       when jets:from is past the end, when jets:from is negative, or when
+    //       jets:length < 0 drops more than what remains after jets:from
+    // Note: positions and lengths count bytes, not characters, so a cut may split
+    //       a multi-byte UTF-8 character
     // Get from and length from the config object
     auto * sess = rs->rdf_session();
     auto rmgr = sess->rmgr();
@@ -270,13 +275,19 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
       sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:length property for operator substring_of "+rhs.data));
       return rdf::Null();
     }
-    auto from = boost::get<rdf::LInt32>(from_obj)->data;
-    auto length = boost::get<rdf::LInt32>(length_obj)->data;
-    if (length < 0) {
-      auto sz = rhs.data.size();
-      length = sz + length - from;
+    // Signed 64-bit arithmetic throughout: neither the size of the text nor a
+    // 32-bit from or length can wrap around in it
+    std::int64_t const from = boost::get<rdf::LInt32>(from_obj)->data;
+    std::int64_t const length = boost::get<rdf::LInt32>(length_obj)->data;
+    std::int64_t const sz = static_cast<std::int64_t>(rhs.data.size());
+    if (from < 0 || from >= sz) {
+      return rdf::LString{ std::string() };
     }
-    return rdf::LString{ rhs.data.substr(from, length) };
+    std::int64_t const end = std::min(sz, length < 0 ? sz + length : from + length);
+    if (end <= from) {
+      return rdf::LString{ std::string() };
+    }
+    return rdf::LString{ rhs.data.substr(static_cast<std::size_t>(from), static_cast<std::size_t>(end - from)) };
   }
 
   ReteSession * rs;
@@ -289,7 +300,7 @@ struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
 {
   ReplaceCharOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ReplaceCharOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substring_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for replace_char_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString rhs)const
   {
