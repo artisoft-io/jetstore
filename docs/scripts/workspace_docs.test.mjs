@@ -509,6 +509,11 @@ test('a workspace with no docs/ builds, with a generated landing page', () => {
 
 test('unquote and pageUrl', () => {
 	assert.equal(unquote('"a \\"b\\" \\\\ c"'), 'a "b" \\ c');
+	// A rule property is stored as its raw token, quotes and escapes included, even
+	// where the compiler unescapes string literals: \" and \\ are read in one pass,
+	// so an escaped backslash before a quote stays a backslash.
+	assert.equal(unquote('"ends with a backslash \\\\"'), 'ends with a backslash \\');
+	assert.equal(unquote('"\\\\\\"quoted\\\\\\""'), '\\"quoted\\"');
 	assert.equal(unquote('10'), '10');
 	assert.equal(pageUrl('index.md'), '/docs/workspace/');
 	assert.equal(pageUrl('customisation/index.md'), '/docs/workspace/customisation/');

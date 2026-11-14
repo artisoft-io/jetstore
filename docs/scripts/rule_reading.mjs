@@ -567,11 +567,12 @@ class RuleReader {
 	 * character in turn. The two texts are read from the configuration triples of the
 	 * rule's main file, and only when each is a single text literal that no rule of that
 	 * file writes; otherwise the reading names the configuration resource rather than
-	 * guess its values. It names it too where a plain reading would not say what the
-	 * engine does: no characters to replace, a character outside ASCII (the engine
-	 * replaces byte by byte), a control character not in CHAR_NAMES, or a replacement
-	 * of more than one character holding a character replaced after the first, which a
-	 * later turn would replace again.
+	 * guess its values. A character is a UTF-8 character, as the engine reads it since
+	 * 2026-11-13 (split_utf8_chars), so one outside ASCII is quoted like any other. The
+	 * reading names the configuration resource too where a plain reading would not say
+	 * what the engine does: no characters to replace, a control character (C0, DEL or
+	 * C1) not in CHAR_NAMES, or a replacement of more than one character holding a
+	 * character replaced after the first, which a later turn would replace again.
 	 */
 	replaceChars(e, depth) {
 		const text = this.operand(this.expression(e.arg1_key, depth + 1));
@@ -592,9 +593,10 @@ class RuleReader {
 		const chars = literal('replace_chars');
 		const by = literal('replace_with');
 		if (chars === null || by === null || chars === '') return configured();
-		const control = (c) => c < ' ' || c === '\x7f';
-		if ([...chars].some((c) => c > '\x7f' || (control(c) && !CHAR_NAMES[c]))) return configured();
-		if (by.length > 1 && [...chars].slice(1).some((c) => by.includes(c))) return configured();
+		// C0 controls, DEL and C1 controls: a quote would show nothing, or garble them.
+		const control = (c) => c < ' ' || (c >= '\x7f' && c <= '\x9f');
+		if ([...chars].some((c) => control(c) && !CHAR_NAMES[c])) return configured();
+		if ([...by].length > 1 && [...chars].slice(1).some((c) => by.includes(c))) return configured();
 		if ([...by].some(control) && !CHAR_NAMES[by]) return configured();
 		const names = [...new Set(chars)].map((c) => CHAR_NAMES[c] ?? quote(c));
 		if (by === '') return { text: `${text} with every ${listOf(names)} removed`, isText: true };

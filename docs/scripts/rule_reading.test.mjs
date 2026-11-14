@@ -357,7 +357,10 @@ const FIXTURE = {
 // repeatedWithConfig two jets:replace_with, emptyCharsConfig no characters to replace,
 // accentConfig a character outside ASCII, expandingConfig a replacement holding a
 // character the engine replaces after the first, and ruleReplaceConfig a
-// jets:replace_with that a rule of the same file writes. Rules with the same
+// jets:replace_with that a rule of the same file writes. FIXTURE_ReplaceCharsUnicode
+// reads characters outside ASCII, as the engine has since 2026-11-13: two accented
+// letters, one beyond the Basic Multilingual Plane, a C1 control character, and a
+// replacement holding an accented letter replaced after the first. Rules with the same
 // antecedents share the terminal vertex, so their consequents are numbered along it.
 const MADE_UP = {
 	jet_rules: [
@@ -373,12 +376,13 @@ const MADE_UP = {
 		[922, 'FIXTURE_ReplaceCharsNamed', 1],
 		[923, 'FIXTURE_ReplaceCharsUnconfigured', 1],
 		[924, 'FIXTURE_ReplaceCharsSetByRule', 1],
+		[925, 'FIXTURE_ReplaceCharsUnicode', 1],
 	],
 	rule_terms: [
 		[900, 9001, 1],
 		[900, 9002, 1],
 		[900, 9003, 0],
-		...[910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924].flatMap((rule) => [
+		...[910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925].flatMap((rule) => [
 			[rule, 9301, 1],
 			[rule, 9302, 1],
 		]),
@@ -398,6 +402,7 @@ const MADE_UP = {
 		...[9325, 9326, 9327, 9328, 9329, 9330].map((node) => [923, node, 0]),
 		[924, 9331, 0],
 		[924, 9332, 0],
+		...[9333, 9334, 9335, 9336].map((node) => [925, node, 0]),
 	],
 	rete_nodes: [
 		[9001, 900, 'antecedent', 285, 27, 114, null, null, 0, 1, 0, 0],
@@ -426,6 +431,7 @@ const MADE_UP = {
 		[9330, 911, 'consequent', 286, 131, null, 9459, null, 0, 1, null, 19],
 		[9331, 911, 'consequent', 9232, 9222, null, 9463, null, 0, 1, null, 20],
 		[9332, 911, 'consequent', 286, 131, null, 9460, null, 0, 1, null, 21],
+		...[0, 1, 2, 3].map((i) => [9333 + i, 911, 'consequent', 286, 131, null, 9480 + i, null, 0, 1, null, 22 + i]),
 	],
 	expressions: [
 		[9101, 'binary', 9102, 9103, 'some_other_op', 1],
@@ -455,6 +461,11 @@ const MADE_UP = {
 		]),
 		[9462, 'binary', 9451, 9400, '+', 1],
 		[9463, 'resource', 9241, null, null, 1],
+		// FIXTURE_ReplaceCharsUnicode: a leaf per configuration resource, 9470 to 9473, and its call, 9480 to 9483.
+		...[9233, 9234, 9235, 9236].flatMap((cfg, i) => [
+			[9470 + i, 'resource', cfg, null, null, 1],
+			[9480 + i, 'binary', 9470 + i, 9400, 'replace_char_of', 1],
+		]),
 	],
 	resources: [
 		[9201, 'resource', 'jets:from', 'jets:from', null, 0],
@@ -484,6 +495,10 @@ const MADE_UP = {
 		[9230, 'resource', 'accentConfig', 'accentConfig', null, 0],
 		[9231, 'resource', 'expandingConfig', 'expandingConfig', null, 0],
 		[9232, 'resource', 'ruleReplaceConfig', 'ruleReplaceConfig', null, 0],
+		[9233, 'resource', 'accentPairConfig', 'accentPairConfig', null, 0],
+		[9234, 'resource', 'emojiConfig', 'emojiConfig', null, 0],
+		[9235, 'resource', 'c1ControlConfig', 'c1ControlConfig', null, 0],
+		[9236, 'resource', 'accentExpandingConfig', 'accentExpandingConfig', null, 0],
 		[9240, 'text', null, '-.', null, 0],
 		[9241, 'text', null, '_', null, 0],
 		[9242, 'text', null, '-', null, 0],
@@ -495,6 +510,11 @@ const MADE_UP = {
 		[9248, 'text', null, 'e', null, 0],
 		[9249, 'text', null, '.-', null, 0],
 		[9250, 'text', null, '-x', null, 0],
+		[9251, 'text', null, '\u00e9\u00e0', null, 0],
+		[9252, 'text', null, '\u{1F600}', null, 0],
+		[9253, 'text', null, '\u0085', null, 0],
+		[9254, 'text', null, 'e\u00e9', null, 0],
+		[9255, 'text', null, '\u00e9\u00e9', null, 0],
 	],
 	triples: [
 		[9203, 9201, 232, 1],
@@ -530,6 +550,14 @@ const MADE_UP = {
 		[9231, 9222, 9250, 1],
 		[9232, 9221, 9242, 1],
 		[9232, 9222, 9241, 1],
+		[9233, 9221, 9251, 1],
+		[9233, 9222, 9243, 1],
+		[9234, 9221, 9252, 1],
+		[9234, 9222, 9242, 1],
+		[9235, 9221, 9253, 1],
+		[9235, 9222, 9241, 1],
+		[9236, 9221, 9254, 1],
+		[9236, 9222, 9255, 1],
 	],
 };
 
@@ -831,16 +859,17 @@ test('names the characters of replace_char_of a quote would hide', () => {
 
 test('names the configuration of a replace_char_of it cannot read, rather than guess', () => {
 	// No triples, replace_chars an int, replace_with given twice, no characters to
-	// replace (the engines disagree on it), a character outside ASCII (one engine
-	// replaces bytes, the other characters), and a replacement holding "-", which the
-	// engine then replaces again.
+	// replace (the engines disagree on it), and a replacement holding "-", which the
+	// engine then replaces again. accentConfig, a character outside ASCII, was named
+	// here too until the engine read characters rather than bytes (2026-11-13).
+	const configured = (cfg) => `the MedicalClaim has the Drug_Name with characters replaced as configured by ${cfg} as its NDC`;
 	assert.deepEqual(
 		readRule(db, 923),
-		substringReading(
-			['noConfig', 'numberCharsConfig', 'repeatedWithConfig', 'emptyCharsConfig', 'accentConfig', 'expandingConfig'].map(
-				(cfg) => `the MedicalClaim has the Drug_Name with characters replaced as configured by ${cfg} as its NDC`,
-			),
-		),
+		substringReading([
+			...['noConfig', 'numberCharsConfig', 'repeatedWithConfig', 'emptyCharsConfig'].map(configured),
+			'the MedicalClaim has the Drug_Name with every "\u00e9" replaced by "e" as its NDC',
+			configured('expandingConfig'),
+		]),
 	);
 	// A rule writes jets:replace_with, so the value in the file is not the one in force.
 	assert.deepEqual(
@@ -852,8 +881,26 @@ test('names the configuration of a replace_char_of it cannot read, rather than g
 	);
 });
 
+// Since 2026-11-13 the engine reads jets:replace_chars as UTF-8 characters, each
+// replaced as its whole byte sequence (split_utf8_chars, jets/rete/expr_op_strings.h),
+// so a character outside ASCII is quoted like any other. A C1 control character is
+// still named by its configuration, as a C0 one is, and so is a replacement of
+// several characters holding one replaced after the first, which the engine's
+// later turn replaces again.
+test('reads replace_char_of characters outside ASCII, quoted', () => {
+	assert.deepEqual(
+		readRule(db, 925),
+		substringReading([
+			'the MedicalClaim has the Drug_Name with every "\u00e9" and "\u00e0" removed as its NDC',
+			'the MedicalClaim has the Drug_Name with every "\u{1F600}" replaced by "-" as its NDC',
+			'the MedicalClaim has the Drug_Name with characters replaced as configured by c1ControlConfig as its NDC',
+			'the MedicalClaim has the Drug_Name with characters replaced as configured by accentExpandingConfig as its NDC',
+		]),
+	);
+});
+
 test('gives the same text from the same database', () => {
-	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924];
+	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925];
 	const first = keys.map((k) => readRule(db, k));
 	const again = keys.map((k) => readRule(db, k));
 	const other = buildFixture(join(dir, 'again.db'));
