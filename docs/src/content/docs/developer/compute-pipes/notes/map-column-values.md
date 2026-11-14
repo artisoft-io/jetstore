@@ -104,16 +104,22 @@ neither stops the step: before this date a negative `substring` start, or an `ov
 value shorter than its decimal places, panicked, and the panic is recovered by the pipe, not per
 record, so it failed the step.
 
-**Positions are bytes, not characters.** A value is sliced as UTF-8 bytes, so a position that falls
-inside a multi-byte character (an accented letter, say) splits it, and the result is not valid UTF-8.
-This is deliberate and unchanged; the rule engine's `substring_of` counts bytes too. Use these
-functions on ASCII codes and identifiers.
+**`substring` counts characters, not bytes** (2026-11-14). A position is a Unicode code point of
+the value's UTF-8, however many bytes it takes, so a cut never splits a multi-byte character (an
+accented letter, say). A byte that does not start a valid UTF-8 sequence counts as one character
+and is kept as it is, so a value that is not valid UTF-8 is never refused and never loses a byte.
+There is no normalisation: a letter followed by a combining accent is two characters. The rule
+engine's `length_of`, `substring_of` and `char_at` count the same way (see
+[Values and operators](/docs/developer/engine/rule-engine/values-and-operators/)).
+
+**Before 2026-11-14 `substring` counted bytes.** On ASCII values the result is unchanged. On other
+values a position could fall inside a multi-byte character and split it, which left invalid UTF-8.
 
 ### `substring`
 
 The argument is `start,end`: two integers, white space around each allowed. `start` is inclusive,
-`end` exclusive, both counted from 0 at the first byte. A negative `end` counts back from the end of
-the value: `0,-2` drops the last two bytes.
+`end` exclusive, both counted in characters from 0 at the first. A negative `end` counts back from
+the end of the value: `0,-2` drops the last two characters.
 
 **Refused when parsed**, which makes the value *rejected* in the table above, on every record (a
 refused argument is not cached):
@@ -125,7 +131,7 @@ The argument is parsed when the first record reaches the column, not when the pi
 refused argument is found by a run, as one error per record under `map_record`'s `on_error`.
 
 **Empty** (no value, the *empty* row of the table) when `end`, once a negative one is resolved
-against the value's length, is past the end of the value or not after `start`:
+against the value's length in characters, is past the end of the value or not after `start`:
 
 | Argument | Value | Result |
 |---|---|---|
@@ -137,7 +143,9 @@ against the value's length, is past the end of the value or not after `start`:
 | `0,-10` | `abcdef` | empty: a negative `end` reaching back past `start` |
 | `4,-3` | `abcdef` | empty: `end` resolves to 3, before `start` |
 | `0,0` | `abcdef` | empty, on every value: an `end` of 0 is never after `start` |
-| `0,2` | `héllo` | `h` and the first byte of `é`: a split character |
+| `0,2` | `héllo` | `hé`: two characters, three bytes (before 2026-11-14, `h` and the first byte of `é`) |
+| `0,6` | `héllo` | empty: `end` past the five characters, though `héllo` is six bytes |
+| `1,2` | `a😀b` | `😀`, one character of four bytes |
 
 A value too short for its `end` gives nothing rather than what it has: `0,10` on `abcdef` is empty,
 not `abcdef`.

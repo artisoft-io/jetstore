@@ -1,6 +1,6 @@
 ---
 title: "Values and operators"
-description: "What the rule engine computes for sums, doubles, text, substrings, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
+description: "What the rule engine computes for sums, doubles, text and its characters, substrings, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
 kind: reference
 sidebar:
   order: 2
@@ -11,6 +11,41 @@ settled on 2026-10-22, when the C++ and Go engines were compared value by value 
 decided (see [The retired Go engine](/docs/developer/engine/rule-engine/go-engine/)); what the Go engine did is kept as history, and a Go file
 it names is at the tag `go-engine-final`. The list of operators is the generated
 [JetRules operators](/docs/developer/reference/generated/jetrules-operators/) page.
+
+## Text positions and lengths count characters — 2026-11-14
+
+`length_of`, `substring_of` and `char_at` count **characters**: Unicode code points, read from the
+text's UTF-8. A character takes one to four bytes, and counts as one whatever its length.
+
+| Text | Bytes | `length_of` | Character 1 (`char_at 1`) |
+|---|---|---|---|
+| `"abc"` | 3 | 3 | `"b"` |
+| `"été"` | 5 | 3 | `"t"` |
+| `"5€"` | 4 | 2 | `"€"` |
+| `"a😀b"` | 6 | 3 | `"😀"` |
+| `"e"` then a combining acute accent (U+0301) | 3 | 2 | the accent alone |
+| `"a"`, the byte `0xFF`, `"b"` | 3 | 3 | the byte `0xFF` |
+
+- **A byte that does not start a valid UTF-8 sequence counts as one character, kept as it is**: a
+  stray continuation byte, a byte `0xC0`, `0xC1` or `0xF5` to `0xFF`, and each byte of a truncated
+  sequence, of an overlong form or of an encoded surrogate. Text that is not valid UTF-8 therefore never fails a rule and never loses a
+  byte; a cut copies such bytes unchanged.
+- **There is no normalisation.** A letter followed by a combining accent is two characters, where
+  the same letter precomposed (`é`, U+00E9) is one. Text from different sources can spell one
+  visible letter both ways.
+- **A cut never splits a character**, so valid UTF-8 in gives valid UTF-8 out.
+
+**Before 2026-11-14 the three operators counted bytes.** On ASCII text a byte is a character, so
+nothing changes there. On other text, `length_of` counted each byte of a multi-byte character, and a
+`substring_of` cut or a `char_at` index could fall inside one and return part of it, which is not
+valid UTF-8: `char_at 0` on `"été"` gave the byte `0xC3`, and a rule looking for a space before a
+name's last letter missed it when that letter was not ASCII. The cleansing function `substring`
+counts characters the same way (see
+[Map column values](/docs/developer/compute-pipes/notes/map-column-values/)).
+
+The unit is decided in one place, `TextUnits` in `jets/rete/expr_op_strings.h`. The rows are
+`LengthOf.CountsCharacters`, `ExprOpTest.SubstringOfVisitorEdges`, `CharAt.TheEdges` and
+`TextUnits.ANameSuffixAfterANonAsciiLetter` in `jets/rete/expr_op_test.cc`.
 
 ## `substring_of` at the edges — 2026-11-13
 
@@ -27,9 +62,8 @@ the characters dropped from the end. Both must be `int` values (32-bit); anythin
 | `jets:from` past the end, or negative | `""` | from 9, length 2: `""`; from -1, length 2: `""` |
 | a negative `jets:length` dropping as much as is left after `jets:from`, or more | `""` | from 2, length -4: `""`; from 0, length -9: `""` |
 
-**Positions and lengths count bytes, not characters.** Text is UTF-8, so on text that is not
-ASCII a position counts each byte of a multi-byte character, and a cut can split one: from 0,
-length 1 on `"été"` is the first byte of `é` alone, which is not valid UTF-8.
+Positions and lengths count characters, above: from 0, length 1 on `"été"` is `"é"`, and from 1,
+length -1 is `"t"`.
 
 **Before 2026-11-13 the two edge cases did not give `""`.** A negative `jets:length` on text shorter
 than the cut was computed in unsigned arithmetic and wrapped around, so from 0, length -3 on `"ab"`
@@ -39,24 +73,18 @@ retired Go engine did for the first two (`expr_operator_str_substring_of.go` at 
 it gave null for a negative `jets:from`). The rows are `ExprOpTest.SubstringOfVisitorEdges` in
 `jets/rete/expr_op_test.cc`; the operator is `SubstringOfVisitor` in `jets/rete/expr_op_strings.h`.
 
-## `char_at` counts bytes — 2026-11-14
+## `char_at` at the edges — 2026-11-14
 
-`(?text char_at ?index)` is the byte of `?text` at `?index`, counted from 0, as a text of one byte.
-The index must be an `int` value (32-bit) and `?text` a text; anything else, such as a `long` index,
-throws `Invalid arguments for char_at` and fails the session's `ExecuteRules`.
+`(?text char_at ?index)` is the character of `?text` at `?index`, counted from 0, as a text of one
+character (see the characters above). The index must be an `int` value (32-bit) and `?text` a text;
+anything else, such as a `long` index, throws `Invalid arguments for char_at` and fails the session's
+`ExecuteRules`.
 
 | Case | Result | Example: text `"abc"` |
 |---|---|---|
-| the index is within the text | the byte there | 0: `"a"`; 2: `"c"` |
+| the index is within the text | the character there | 0: `"a"`; 2: `"c"` |
 | the index at or past the end of the text | null | 3: null; 10: null |
 | a negative index | null | -1: null |
-
-**The index counts bytes, not characters, as `substring_of`'s positions do.** Text is UTF-8, so on
-text that is not ASCII the index counts each byte of a multi-byte character, and the result can be
-one byte of such a character, which is not valid UTF-8: index 0 on `"été"` is the first byte of `é`
-alone (`0xC3`), index 1 its second byte, and `t` is at index 2. On ASCII text a byte is a character.
-This was decided on 2026-11-14 and is kept, as for `substring_of`. The two operators take their unit
-from one place, `TextUnits` in `jets/rete/expr_op_strings.h`.
 
 **Outside the text `char_at` is null, where `substring_of` gives `""`.** It has always been null,
 and a rule can tell null from `""`: `is_literal`, `length_of`, `== ""`, and a consequent that writes
@@ -95,8 +123,8 @@ its bytes, such as `à` (`0xC3 0xA0`), and left invalid UTF-8 behind: `"é"` by 
 gave `"eetee e"` followed by a stray byte. The retired Go engine worked on characters
 (`expr_operator_str_replace_char.go` at `go-engine-final`). The rows are
 `ExprOpTest.ReplaceCharOfVisitorCharacters` in `jets/rete/expr_op_test.cc`; the operator is
-`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. `substring_of` and `char_at` still count
-bytes, above.
+`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. Since 2026-11-14 `length_of`,
+`substring_of` and `char_at` count characters too, above.
 
 ## `sorted_head` with an incomplete configuration — 2026-11-13
 
