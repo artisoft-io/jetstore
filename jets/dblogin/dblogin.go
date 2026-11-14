@@ -57,9 +57,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -74,7 +76,9 @@ const (
 	LoginTable = "jetsapi.restricted_login"
 
 	// ensureLock serialises Ensure across apiservers and update_db starting
-	// together: CREATE ROLE has no IF NOT EXISTS and is cluster-wide.
+	// together on one database. An advisory lock is scoped to its database
+	// and roles are cluster-wide, so it does not serialise two databases of
+	// one cluster: ensureRole and grantRole tolerate the other's statements.
 	ensureLock = 7_095_000_001
 )
 
@@ -305,13 +309,13 @@ func GrantSchema(ctx context.Context, dbpool *pgxpool.Pool, schema string) error
 // login, and sets the login's password from LoginTable, generating it the
 // first time.
 func ensureLogin(ctx context.Context, tx pgx.Tx, group, login string) error {
+	var user string
+	if err := tx.QueryRow(ctx, "SELECT current_user").Scan(&user); err != nil {
+		return fmt.Errorf("while reading the database user: %w", err)
+	}
 	for _, role := range []string{group, login} {
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '%s') THEN
-				CREATE ROLE %s NOLOGIN;
-			END IF;
-		END $$`, role, ident(role))); err != nil {
-			return fmt.Errorf("while creating the role %s: %w", role, err)
+		if err := ensureRole(ctx, tx, role); err != nil {
+			return err
 		}
 	}
 	var password string
@@ -333,22 +337,126 @@ func ensureLogin(ctx context.Context, tx pgx.Tx, group, login string) error {
 	}
 	// The password statement on its own, so an error cannot carry the verifier.
 	if _, err = tx.Exec(ctx, fmt.Sprintf("ALTER ROLE %s WITH LOGIN PASSWORD '%s'", ident(login), verifier)); err != nil {
+		if isCode(err, insufficientPrivilege) {
+			return &MissingAdminError{Role: login, User: user, Err: err}
+		}
 		return fmt.Errorf("while setting the password of %s: %w", login, err)
 	}
-	for _, stmt := range []string{
-		fmt.Sprintf("GRANT %s TO %s", ident(group), ident(login)),
+	for _, g := range []struct{ role, member string }{
+		{group, login},
 		// The apiserver's user: to cancel the login's statements and to own,
 		// by membership, what the login creates.
-		fmt.Sprintf("GRANT %s TO CURRENT_USER", ident(login)),
+		{login, user},
 		// For the reader's SET LOCAL ROLE of releases before this one, which a
 		// rolling deployment may still run for a minute.
-		fmt.Sprintf("GRANT %s TO CURRENT_USER", ident(group)),
+		{group, user},
 	} {
-		if _, err = tx.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("while setting up the login %s (%s): %w", login, stmt, err)
+		if err = grantRole(ctx, tx, g.role, g.member, user); err != nil {
+			return fmt.Errorf("while setting up the login %s: %w", login, err)
 		}
 	}
 	return checkLogin(ctx, tx, group, login)
+}
+
+// The SQLSTATEs ensureRole, grantRole and ensureLogin tell apart.
+const (
+	insufficientPrivilege = "42501"
+	duplicateObject       = "42710"
+	uniqueViolation       = "23505"
+)
+
+// ensureRole creates role, NOLOGIN, if it does not exist. Two databases of one
+// cluster can reach this at the same moment, and ensureLock does not stop them
+// (it is per database): the second CREATE ROLE waits for the first and then
+// fails on the duplicate, which here means the role exists, as wanted. The
+// statement runs in a savepoint, so that failure does not abort the setup.
+func ensureRole(ctx context.Context, tx pgx.Tx, role string) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role).Scan(&exists); err != nil {
+		return fmt.Errorf("while looking for the role %s: %w", role, err)
+	}
+	if exists {
+		return nil
+	}
+	if err := execTolerating(ctx, tx, "CREATE ROLE "+ident(role)+" NOLOGIN", duplicateObject, uniqueViolation); err != nil {
+		return fmt.Errorf("while creating the role %s: %w", role, err)
+	}
+	return nil
+}
+
+// grantRole grants role to member, as user, the current user. A concurrent
+// grant of the same membership from another database fails here on the
+// duplicate, and is as good as this one. A user that may not grant role, which
+// from PostgreSQL 16 is one without ADMIN OPTION on it, gets a MissingAdminError.
+func grantRole(ctx context.Context, tx pgx.Tx, role, member, user string) error {
+	stmt := fmt.Sprintf("GRANT %s TO %s", ident(role), ident(member))
+	err := execTolerating(ctx, tx, stmt, uniqueViolation)
+	switch {
+	case err == nil:
+		return nil
+	case isCode(err, insufficientPrivilege):
+		return &MissingAdminError{Role: role, User: user, Err: err}
+	default:
+		return fmt.Errorf("%s: %w", stmt, err)
+	}
+}
+
+// MissingAdminError is Ensure's error when the apiserver's database user may
+// not grant or alter a restricted role: from PostgreSQL 16, a user that holds
+// CREATEROLE and is not a superuser needs ADMIN OPTION on a role to grant it,
+// and has it only on the roles it created. The group roles are cluster-wide,
+// so on a cluster holding several JetStore databases they were created by
+// whichever database's apiserver set up first; another database's apiserver
+// user, if it is a different user, lacks ADMIN OPTION until it is given it.
+type MissingAdminError struct {
+	Role string // the role User may not grant or alter
+	User string // the apiserver's database user
+	Err  error  // PostgreSQL's error
+}
+
+func (e *MissingAdminError) Error() string {
+	return fmt.Sprintf("the database user %s may not grant or alter the role %s (%v): it needs ADMIN OPTION on it, "+
+		"which a user holding CREATEROLE has only on the roles it created. The restricted roles are cluster-wide, so on a cluster "+
+		"shared by several JetStore databases another database's user may have created them. Have a user holding ADMIN OPTION "+
+		"on them (the user that created them, or a superuser) run: %s; then start again",
+		e.User, e.Role, e.Err, e.Grant())
+}
+
+func (e *MissingAdminError) Unwrap() error { return e.Err }
+
+// Grant is the one statement that gives User what it lacks: ADMIN OPTION on
+// Role, or on both group roles when Role is one of them, since the second
+// would otherwise fail at the next start.
+func (e *MissingAdminError) Grant() string {
+	roles := ident(e.Role)
+	if e.Role == Reader || e.Role == IDE {
+		roles = identList([]string{Reader, IDE})
+	}
+	return fmt.Sprintf("GRANT %s TO %s WITH ADMIN OPTION", roles, ident(e.User))
+}
+
+// execTolerating runs stmt in a savepoint, and takes an error with one of
+// codes as success, rolling back to the savepoint so tx carries on.
+func execTolerating(ctx context.Context, tx pgx.Tx, stmt string, codes ...string) error {
+	sp, err := tx.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err = sp.Exec(ctx, stmt); err != nil {
+		if rbErr := sp.Rollback(ctx); rbErr != nil {
+			return errors.Join(err, rbErr)
+		}
+		if slices.ContainsFunc(codes, func(code string) bool { return isCode(err, code) }) {
+			return nil
+		}
+		return err
+	}
+	return sp.Commit(ctx)
+}
+
+func isCode(err error, code string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == code
 }
 
 // checkLogin refuses a login that could do more than its group: one holding an
