@@ -33,8 +33,12 @@ of a closed list**, the names `schema.ToPgType` maps (`jets/schema/schema.go`):
 
 Any other value is refused when the pipeline starts, naming the table key and the column, before any
 statement reaches the database (`validateOutputTableColumnTypes`, run by `ValidatePipeSpecConfig`), and
-again where the table is created or extended. Until November 2026 an unknown value was passed
-through as written. The same list is enforced by the compute pipes contract
+again where the table is created or extended. The start checks the `rdf_type` of `jets:key` and
+`session_id` too, when one is given, although their type does not come from it. The Workspace IDE
+refuses to save a `.pc.json` that names such a value, with the column's JSON Pointer
+(`ValidateConfigDocument`, `jets/compute_pipes/config_document_validator.go`), so the mistake is met
+at the save rather than at the next run. Until November 2026 an unknown value was passed through as
+written. The same list is enforced by the compute pipes contract
 (`tools/cpipes_contract`), in its model and its emitted JSON Schema. It applies to output tables only:
 a lookup table's columns are never created from their `rdf_type`.
 

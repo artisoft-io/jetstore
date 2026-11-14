@@ -21,7 +21,7 @@
 // idempotent pass rather than a second migration -- UpdateTable emits
 // ADD COLUMN IF NOT EXISTS, DROP COLUMN IF EXISTS and CREATE/DROP INDEX IF NOT
 // EXISTS, and adds a named constraint only when the existing schema does not carry
-// it (`UpdateTable`, `jets/schema/schema.go:330`).
+// it (`jets/schema/schema.go`'s `UpdateTable`).
 package migratedb
 
 import (

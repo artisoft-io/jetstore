@@ -86,8 +86,12 @@ what one of them does by extending it, as
 such as the workspace's `README.md`, is read-only too, except a page under `docs/`.
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
-server then checks the file types it knows, such as user flows, table documents, SQL scripts and the
-guide's `workspace_docs.json`, and refuses a save that would break them, saying why. A page of `docs/`
+server then checks the file types it knows, such as user flows, table documents, SQL scripts,
+pipeline definitions and the guide's `workspace_docs.json`, and refuses a save that would break them,
+saying why. A pipeline definition (`.pc.json`) is refused only for what would stop the pipeline when
+it starts: a value the definition's format cannot hold, no `cluster_config`, or an output table
+column whose `rdf_type` is not in the
+[closed list of column types](/docs/developer/compute-pipes/output-tables/#column-types). A page of `docs/`
 is refused when the documentation build would refuse it for its front matter: none, YAML that does not
 parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
 `explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as

@@ -6,17 +6,18 @@ package schema
 //	docker run -d --rm --name schema-pg -e POSTGRES_PASSWORD=pw -p 5497:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5497/postgres go test -count=1 ./jets/schema/
 //
-// The test creates its own apiserver user (CREATEROLE, not a superuser, as a
-// deployment's is) and database.
+// Each test runs as its own apiserver user, owning its own database, set up by
+// jets/dblogin/dblogintest the way a deployment's is (CREATEROLE and not a
+// superuser, or a superuser with dblogintest.SuperuserVar), so it passes
+// whichever test created the cluster-wide restricted roles.
 
 import (
 	"context"
-	"net/url"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
+	"github.com/artisoft-io/jetstore/jets/dblogin/dblogintest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,48 +27,7 @@ const injectedType = "text); UPDATE public.victim SET v = 'injected'; CREATE TAB
 // pool connected to it as that role.
 func testDB(t *testing.T, name string) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	for _, s := range []string{
-		"DROP DATABASE IF EXISTS " + name + " WITH (FORCE)",
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '` + name + `') THEN
-				CREATE ROLE ` + name + ` LOGIN CREATEROLE PASSWORD 'pw';
-			END IF;
-		END $$`,
-		"CREATE DATABASE " + name + " OWNER " + name,
-		// Another test may have created the cluster-wide roles: give this
-		// apiserver the standing a deployment's master user has over them.
-		`DO $$ DECLARE r text; BEGIN
-			FOR r IN SELECT rolname FROM pg_roles WHERE rolname ~ '^jets_(reader|ide)' LOOP
-				EXECUTE format('GRANT %I TO %I WITH ADMIN OPTION', r, '` + name + `');
-			END LOOP;
-		END $$`,
-	} {
-		if _, err = admin.Exec(ctx, s); err != nil {
-			t.Fatalf("%v\n%s", err, s)
-		}
-	}
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Path = "/" + name
-	u.User = url.UserPassword(name, "pw")
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return dblogintest.Apiserver(t, name, name)
 }
 
 func exec(t *testing.T, pool *pgxpool.Pool, stmts ...string) {

@@ -308,8 +308,8 @@ func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 //
 // **A column or an index marked Deleted is a tombstone and is skipped here.** It
 // exists in the definition so that UpdateTable can emit the DROP that removes it
-// from a database that already has it (`UpdateTable`, the branch at
-// `jets/schema/schema.go:434`); on a fresh install there is nothing to drop, and
+// from a database that already has it (`UpdateTable`, its `col.Deleted`
+// branch); on a fresh install there is nothing to drop, and
 // creating it is how a table gets a column no code writes.
 //
 // This did not test the flag until 2026-09-04, and the consequence was not

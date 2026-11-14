@@ -3,10 +3,11 @@ package compute_pipes
 // Which login a sql_lookup's query runs on (lookup_reader_login.go).
 //
 // The unit tests need nothing. TestLookupQueriesRunAsTheReader needs a scratch
-// PostgreSQL named by JETS_TEST_DSN, as a superuser: it creates a login that is
-// not one (cpl_apiserver) and a database it owns (cpl_lookup), as a
-// deployment's apiserver user is, and runs everything else as that login.
-// Skipped when JETS_TEST_DSN is not set. Locally:
+// PostgreSQL named by JETS_TEST_DSN, as a superuser: it runs as an apiserver
+// user that owns its database (cpl_apiserver, on cpl_lookup), set up by
+// jets/dblogin/dblogintest the way a deployment's is, so it passes whichever
+// test created the cluster-wide restricted roles. Skipped when JETS_TEST_DSN is
+// not set. Locally:
 //
 //	docker run -d --rm --name cpl-pg -e POSTGRES_PASSWORD=pw -p 5492:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5492/postgres \
@@ -15,12 +16,11 @@ package compute_pipes
 import (
 	"context"
 	"errors"
-	"net/url"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
+	"github.com/artisoft-io/jetstore/jets/dblogin/dblogintest"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -54,45 +54,12 @@ func TestWithReaderHint(t *testing.T) {
 	}
 }
 
-// cplDB is a database owned by a login that is not a superuser, as a
-// deployment's apiserver user is, and a pool connected as that login.
+// cplDB is a database owned by the apiserver user, a login that is not a
+// superuser (or is one, with dblogintest.SuperuserVar), and a pool connected as
+// that login.
 func cplDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	defer admin.Close()
-	for _, s := range []string{
-		"DROP DATABASE IF EXISTS cpl_lookup WITH (FORCE)",
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cpl_apiserver') THEN
-				CREATE ROLE cpl_apiserver LOGIN PASSWORD 'cpl' CREATEROLE;
-			END IF;
-		END $$`,
-		"CREATE DATABASE cpl_lookup OWNER cpl_apiserver",
-	} {
-		if _, err = admin.Exec(ctx, s); err != nil {
-			t.Fatalf("%s: %v", s, err)
-		}
-	}
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.User = url.UserPassword("cpl_apiserver", "cpl")
-	u.Path = "/cpl_lookup"
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return dblogintest.Apiserver(t, "cpl_apiserver", "cpl_lookup")
 }
 
 func TestLookupQueriesRunAsTheReader(t *testing.T) {
