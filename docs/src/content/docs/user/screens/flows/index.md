@@ -25,6 +25,12 @@ installation's workspace may add its own.
 - On the last step, instead of *Next*, **the button that does the task**: *Start Pipeline & Done*,
   *Load Files & Done*, *Confirm*. Nothing is changed before you press it.
 
+**A flow that saves a file into the workspace**, such as one that writes a pipeline definition,
+**shows what the save check found** as the [Workspace IDE](/docs/user/screens/workspace-ide/) does: a
+file the check refuses is not saved and the flow says why, and a file saved with warnings is saved,
+the flow goes on, and the banner lists each warning at its place in the file, in the warning colours,
+until you dismiss it.
+
 **When a flow ends, or you cancel it, it returns to the screen you opened it from**, or to Home when
 it has nowhere else to go. Its address is `flow/<key>`, where the key names the flow's documents in
 the workspace, such as `startPipelineUF`.

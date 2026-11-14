@@ -36,7 +36,10 @@ A validator is a `wsvalidate.Validator`, a function from the file's content to a
 coordinates are lines. `describeFindings` prints each error with its coordinate in the error the IDE
 shows. A save with warnings only succeeds, and the response to `save_workspace_file_content` lists them
 under `warnings` (`saveCheckedWorkspaceFile`), each as a `Finding`; the IDE shows them with their
-coordinates in the status banner, in the warning colours. So a warning is the severity for something
+coordinates in the status banner, in the warning colours. So does a user flow that saves a workspace
+file: `WorkspaceApi.saveFile` returns them to every caller, `FlowStore.save` returns them per document,
+and an action escape that saves shows them through `EscapeHost.warn` (`cpipesTemplateApply` does).
+A new caller of `saveFile` owes the user the same. So a warning is the severity for something
 the user should know about and that does not stop the file working, such as a setting that is
 ignored.
 `jets/wsvalidate` imports nothing, so a validator can live in the package its file type belongs to

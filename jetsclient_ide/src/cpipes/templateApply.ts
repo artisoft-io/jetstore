@@ -49,8 +49,8 @@
  * to fix and retry.
  */
 
-import type { ActionEscape, EscapeContext } from "../actions/escapes";
-import { queryEscape, type WorkspaceApi } from "../api/workspace";
+import type { ActionEscape, EscapeContext, EscapeHost } from "../actions/escapes";
+import { describeSaveWarnings, queryEscape, type SaveFinding, type WorkspaceApi } from "../api/workspace";
 
 /** Where a workspace keeps the projected documents. Beside the flows they belong to. */
 export const APPLY_DIR = "user_flows";
@@ -230,7 +230,7 @@ const serialise = (document: unknown): string => `${JSON.stringify(document, nul
  * the registry is the name the projected `.ua.json` escapes to.
  */
 export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape {
-  return async ({ formState, group, flowKey }: EscapeContext): Promise<string | null> => {
+  return async ({ formState, group, flowKey }: EscapeContext, host: EscapeHost): Promise<string | null> => {
     let plan: ApplyPlan;
     try {
       // **`readWorkspaceFile` rather than `readFile`, and the difference is not
@@ -276,6 +276,7 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
       return `This configuration is not complete:\n${problems.map((p) => `  ${p}`).join("\n")}`;
     }
 
+    let warnings: SaveFinding[];
     try {
       // `saveFile` takes the *escaped* path — the editor hands it a node's
       // `file_name`, which the server emitted escaped — and the server
@@ -284,13 +285,22 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
       // survives that round trip today because no character in a template name
       // is touched by it; escaping is what keeps that a fact about the code
       // rather than about the three template names currently shipped.
-      await deps.api.saveFile(
+      ({ warnings } = await deps.api.saveFile(
         deps.workspaceName,
         queryEscape(configPath(plan.template)),
         serialise(config),
-      );
+      ));
     } catch (error) {
       return `Cannot save ${configPath(plan.template)}: ${(error as Error).message}`;
+    }
+    // **Saved, with what the save check found and did not refuse**, such as a key
+    // the pipeline ignores when it runs (`WorkspaceApi.saveFile`). Still a
+    // success, so the flow goes on; the warnings are shown as the Workspace IDE
+    // shows them, in the warning tone where the host has one.
+    if (warnings.length > 0) {
+      const text = describeSaveWarnings(configPath(plan.template), warnings);
+      if (host.warn !== undefined) host.warn(text);
+      else host.notify("info", text);
     }
     return null;
   };

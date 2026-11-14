@@ -60,7 +60,7 @@ import {
   type UnresolvedEscape,
 } from "../actions/escapes";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
-import type { WorkspaceApi } from "../api/workspace";
+import { describeSaveWarnings, type SaveFinding, type WorkspaceApi } from "../api/workspace";
 import {
   TableConfigDocumentSchema,
   tableEscapeReferences,
@@ -341,18 +341,32 @@ export class FlowStore {
   }
 
   /**
-   * Writes both documents.
+   * Writes the three documents, and answers what the server's save check found
+   * in each without refusing it.
    *
    * **Not atomic, and it cannot be**: the save endpoint takes one file. A flow
    * whose actions fail to write is a flow referencing actions that are not
-   * there, which is why the *flow* is written second — a stale flow with new
+   * there, which is why the *flow* is written last — a stale flow with new
    * actions still runs, and the reverse does not.
+   *
+   * **A save with warnings is a save** (`WorkspaceApi.saveFile`): every document
+   * is written, and the warnings come back for the screen that asked to show,
+   * as `describeFlowSaveWarnings` words them. A refused document still throws,
+   * and the ones after it are not written, as before.
    */
-  async save(loaded: LoadedFlow): Promise<void> {
+  async save(loaded: LoadedFlow): Promise<FlowSaveResult> {
     const { workspaceName } = this.options;
-    await this.api.saveFile(workspaceName, actionPath(loaded.key), serialise(loaded.actions));
-    await this.api.saveFile(workspaceName, formPath(loaded.key), serialise(loaded.forms));
-    await this.api.saveFile(workspaceName, flowPath(loaded.key), serialise(loaded.flow));
+    const documents: [string, unknown][] = [
+      [actionPath(loaded.key), loaded.actions],
+      [formPath(loaded.key), loaded.forms],
+      [flowPath(loaded.key), loaded.flow],
+    ];
+    const files: SavedDocument[] = [];
+    for (const [path, document] of documents) {
+      const { warnings } = await this.api.saveFile(workspaceName, path, serialise(document));
+      files.push({ path, warnings });
+    }
+    return { files };
   }
 
   /**
@@ -396,6 +410,29 @@ export class FlowStore {
     if (result.success) return [];
     return findingsFromParse(result.error as { issues: { path: PropertyKey[]; message: string }[] });
   }
+}
+
+/** One document `FlowStore.save` wrote, and the save check's warnings about it. */
+export interface SavedDocument {
+  path: string;
+  warnings: SaveFinding[];
+}
+
+/** What `FlowStore.save` answers: each document written, in the order written. */
+export interface FlowSaveResult {
+  files: SavedDocument[];
+}
+
+/**
+ * The text a flow save's warnings are shown with, or null when there are none:
+ * `describeSaveWarnings`'s, once per document that has any, so each warning is
+ * said in the form the Workspace IDE says it and under the file it is in.
+ */
+export function describeFlowSaveWarnings(result: FlowSaveResult): string | null {
+  const parts = result.files
+    .filter((file) => file.warnings.length > 0)
+    .map((file) => describeSaveWarnings(file.path, file.warnings));
+  return parts.length > 0 ? parts.join("\n") : null;
 }
 
 /** Two spaces and a trailing newline, matching every fixture this port emits. */
