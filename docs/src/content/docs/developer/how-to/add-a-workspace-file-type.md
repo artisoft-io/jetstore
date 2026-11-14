@@ -69,8 +69,14 @@ from the message, need to know where.
 Append it to `workspaceFileValidators`:
 
 ```go
-{".note.json", validateNote},
+{".note.json", nil, validateNote},
 ```
+
+The middle field, `applies`, is `nil` for a row that checks every file with its suffix. A row for
+one file, or for one folder, sets it to a function of the workspace-relative path: the `.md` and
+`.mdx` rows apply under `docs/` only (`isDocsPage`), and the `config.json` row to
+`reports/config.json` only (`isReportsConfig`), the file `run_reports` reads, so that no other
+`config.json` is taken for report directives.
 
 **Choose a suffix no other row ends with**, and no other row ends with it. `TestSuffixesAreDistinct`
 fails when one suffix ends another, because longest match would then decide between them silently.

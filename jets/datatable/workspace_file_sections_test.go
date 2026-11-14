@@ -82,6 +82,7 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 		".rb.json":                  "runbooks",
 		"workspace_docs.json":       "docs",
 		".mdx":                      "docs",
+		"config.json":               "reports",
 	} {
 		if got := shownBy(suffix); got != want {
 			t.Errorf("%q: shown by %q, want %q", suffix, got, want)

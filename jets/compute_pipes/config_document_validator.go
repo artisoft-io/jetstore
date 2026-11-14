@@ -207,12 +207,20 @@ func validateColumnEncodingsNameAColumn(cpConfig *ComputePipesConfig) error {
 // than fields, and a value of type any, or of a type that decodes itself, is
 // not walked. A document that does not decode as JSON has none.
 func unknownConfigFields(content []byte) []string {
+	return UnknownJSONFields(content, reflect.TypeFor[ComputePipesConfig]())
+}
+
+// UnknownJSONFields is unknownConfigFields for a document decoded into a
+// value of type t: the JSON Pointer of every object member json.Unmarshal
+// ignores, sorted. The save check of a workspace's reports/config.json uses it
+// too (jets/datatable), for its own document type.
+func UnknownJSONFields(content []byte, t reflect.Type) []string {
 	var doc any
 	if err := json.Unmarshal(content, &doc); err != nil {
 		return nil
 	}
 	var unknown []string
-	walkUnknownFields(doc, reflect.TypeFor[ComputePipesConfig](), "", &unknown)
+	walkUnknownFields(doc, t, "", &unknown)
 	sort.Strings(unknown)
 	return unknown
 }

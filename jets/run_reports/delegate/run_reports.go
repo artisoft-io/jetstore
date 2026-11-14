@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
@@ -43,60 +44,17 @@ func init() {
 // JETS_S3_KMS_KEY_ARN
 // ENVIRONMENT
 
-type StringSubstitution struct {
-	Replace string `json:"replace"`
-	With    string `json:"with"`
-}
-
-type SentinelConfig struct {
-	FilePathSubstitution []StringSubstitution `json:"filePathSubstitution"`
-}
-
-type ReportDirectives struct {
-	// InputPath is original fileKey, unless overriten in config file, used to emit sentinel file
-	FilePathSubstitution []StringSubstitution         `json:"filePathSubstitution"`
-	ReportScripts        []string                     `json:"reportScripts"`
-	UpdateLookupTables   bool                         `json:"updateLookupTables"`
-	EmitSentinelFile     *SentinelConfig              `json:"emitSentinelFile"`
-	OutputS3Prefix       string                       `json:"outputS3Prefix"`
-	InputPath            string                       `json:"inputPath"`
-	OutputPath           string                       `json:"outputPath"`
-	ReportProperties     map[string]ReportProperty    `json:"reportProperties"`
-	StatementProperties  map[string]StatementProperty `json:"statementProperties"`
-	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
-	UseQueryExportToS3   bool                         `json:"use_query_export_to_s3"`
-	// OptimizerStatisticsExclude names the rule sets merge_optimizer_statistics
-	// leaves out of the workspace's statistics file, so that they compile in the
-	// score order (optimizer_statistics.go).
-	OptimizerStatisticsExclude []string `json:"optimizerStatisticsExclude"`
-}
-
-// Type: report, script, function
-// case function, use a deployment-specific function
-type ReportProperty struct {
-	Type            string            `json:"reportOrScript"`
-	UpdatedFileKeys []string          `json:"updatedFileKeys"`
-	RunWhen         []RunWhenCriteria `json:"runWhen"`
-}
-
-type StatementProperty struct {
-	OutputFormat string            `json:"outputFormat"`
-	RunWhen      []RunWhenCriteria `json:"runWhen"`
-}
-
-type RunWhenCriteria struct {
-	FileKeyComponent        string `json:"fileKeyComponent"`
-	HasValue                string `json:"hasValue"`
-	HasNotValue             string `json:"hasNotValue"`
-	HasNonZeroOutputRecords bool   `json:"hasOutputRecordsOnly"`
-}
-
-type RegisterReportSpec struct {
-	TableName  string `json:"table_name"`
-	Org        string `json:"org"`
-	ObjectType string `json:"object_type"`
-	SourceType string `json:"source_type"`
-}
+// The report directives, a workspace's reports/config.json, are package
+// directives' types, shared with the IDE's save check (jets/datatable).
+type (
+	StringSubstitution = directives.StringSubstitution
+	SentinelConfig     = directives.SentinelConfig
+	ReportDirectives   = directives.ReportDirectives
+	ReportProperty     = directives.ReportProperty
+	StatementProperty  = directives.StatementProperty
+	RunWhenCriteria    = directives.RunWhenCriteria
+	RegisterReportSpec = directives.RegisterReportSpec
+)
 
 type InstallationSpecificReportFunc func(dbpool *pgxpool.Pool, ca *CommandArguments,
 	tempDir, functionName string, updatedKeys *[]string) error
@@ -133,7 +91,7 @@ type CommandArguments struct {
 func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error) {
 
 	// A runWhen criterion that checks nothing is refused before any report runs.
-	if err := ca.CurrentReportDirectives.checkRunWhen(); err != nil {
+	if err := ca.CurrentReportDirectives.CheckRunWhen(); err != nil {
 		return err
 	}
 
@@ -198,11 +156,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	counts := &outputRecordCounts{read: func() (int64, int64) {
 		return GetOutputRecordCount(dbpool, ca.SessionId)
 	}}
+	runWhenKey := ca.runWhenComponents()
 	didAnyReport := false
 	for is := range reportDirectives.ReportScripts {
 		reportScript := reportDirectives.ReportScripts[is]
 		reportProps := reportDirectives.ReportProperties[reportScript]
-		if ok, why := runWhenMet(reportProps.RunWhen, ca.FileKeyComponents, counts); !ok {
+		if ok, why := runWhenMet(reportProps.RunWhen, runWhenKey, counts); !ok {
 			log.Printf("Skipping report %s: its runWhen is not met (%s)", reportScript, why)
 			continue
 		}
@@ -376,6 +335,7 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // runWhenMet reports whether every runWhen criterion holds for this run, and
 // when one does not, says which. It is the one evaluation of runWhen, for a
 // report (reportProperties) and for a statement (statementProperties).
+// fileKeyComponents is the file key as runWhen reads it (runWhenComponents).
 //
 // A criterion that names a fileKeyComponent holds when the file key has that
 // component, the component equals hasValue if that is set, and differs from
@@ -383,31 +343,27 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // when the session read records and wrote none. A criterion that names no
 // component checks only hasOutputRecordsOnly; one that names none and checks
 // nothing is a configuration error, refused before any report runs
-// (checkRunWhen), and fails here should it get this far.
+// (directives.ReportDirectives.CheckRunWhen), and fails here should it get
+// this far.
 //
 // A component that is not text is compared by its decimal text: year, month
 // and day are numbers once the file key is read (utils.SplitFileKeyIntoComponents),
 // and for a number hasValue and hasNotValue may carry leading zeros, so month 3
 // equals both "3" and "03". Text is compared exactly.
+//
+// year, month and day are judged by what the file key carries
+// (runWhenComponents): one the key does not carry has no value, so hasValue
+// does not hold and hasNotValue does. Any other component the key does not
+// carry fails the criterion, hasNotValue or not.
 func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
 	for i := range criteria {
 		c := &criteria[i]
-		if err := c.check(); err != nil {
+		if err := c.Check(); err != nil {
 			return false, err.Error()
 		}
 		if c.FileKeyComponent != "" {
-			value, ok := fileKeyComponents[c.FileKeyComponent]
-			if !ok {
-				return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
-			}
-			text, ok := componentText(value)
-			switch {
-			case !ok:
-				return false, fmt.Sprintf("file key component %s is a %T, not text or a number", c.FileKeyComponent, value)
-			case len(c.HasValue) > 0 && !componentEquals(value, text, c.HasValue):
-				return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, text, c.HasValue)
-			case len(c.HasNotValue) > 0 && componentEquals(value, text, c.HasNotValue):
-				return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, text)
+			if ok, why := componentMet(c, fileKeyComponents); !ok {
+				return false, why
 			}
 		}
 		if c.HasNonZeroOutputRecords {
@@ -419,44 +375,71 @@ func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interfa
 	return true, ""
 }
 
-// check refuses a criterion that checks nothing, or that gives a value with
-// no component to compare it to.
-func (c *RunWhenCriteria) check() error {
-	if c.FileKeyComponent != "" {
-		return nil
+// componentMet reports whether the file key part of criterion c holds, and
+// when it does not, says why.
+func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) (bool, string) {
+	value, ok := fileKeyComponents[c.FileKeyComponent]
+	if !ok {
+		// A date component the key does not carry has no value: it differs
+		// from any hasNotValue and equals no hasValue.
+		if isDefaultedComponent(c.FileKeyComponent) && len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
+			return true, ""
+		}
+		return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
 	}
+	text, ok := componentText(value)
 	switch {
-	case len(c.HasValue) > 0 || len(c.HasNotValue) > 0:
-		return fmt.Errorf("a runWhen criterion has hasValue or hasNotValue and no fileKeyComponent")
-	case !c.HasNonZeroOutputRecords:
-		return fmt.Errorf("a runWhen criterion has no fileKeyComponent and no hasOutputRecordsOnly, so it checks nothing")
+	case !ok:
+		return false, fmt.Sprintf("file key component %s is a %T, not text or a number", c.FileKeyComponent, value)
+	case len(c.HasValue) > 0 && !componentEquals(value, text, c.HasValue):
+		return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, text, c.HasValue)
+	case len(c.HasNotValue) > 0 && componentEquals(value, text, c.HasNotValue):
+		return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, text)
 	}
-	return nil
+	return true, ""
 }
 
-// checkRunWhen refuses directives with a runWhen criterion that checks nothing
-// (RunWhenCriteria.check), in reportProperties or statementProperties, before
-// any report runs: like a statement with no output format, it is a
-// configuration error, and is not taken as a criterion that holds or fails.
-func (rd *ReportDirectives) checkRunWhen() error {
-	if rd == nil {
-		return nil
-	}
-	for name, p := range rd.ReportProperties {
-		for i := range p.RunWhen {
-			if err := p.RunWhen[i].check(); err != nil {
-				return fmt.Errorf("reports/config.json, reportProperties %q, runWhen[%d]: %v", name, i, err)
-			}
+// defaultedComponents are the file key components that
+// utils.SplitFileKeyIntoComponents sets whether or not the key carries them:
+// an absent year, month or day reads as 1970, 1 or 1. Its callers rely on
+// those defaults, so runWhen does not change them; it removes the ones the key
+// does not carry instead (runWhenComponents).
+var defaultedComponents = []string{"year", "month", "day"}
+
+func isDefaultedComponent(name string) bool {
+	for _, d := range defaultedComponents {
+		if d == name {
+			return true
 		}
 	}
-	for name, p := range rd.StatementProperties {
-		for i := range p.RunWhen {
-			if err := p.RunWhen[i].check(); err != nil {
-				return fmt.Errorf("reports/config.json, statementProperties %q, runWhen[%d]: %v", name, i, err)
+	return false
+}
+
+// runWhenComponents is the file key as runWhen reads it: FileKeyComponents
+// without the defaulted year, month or day the file key does not carry
+// (utils.FileKeyCarries). FileKeyComponents itself is left as it is, since
+// the reports read their defaults.
+//
+// Until 2026-11-14 runWhen read FileKeyComponents, so a criterion on month
+// with hasValue "1" held for a key with no month at all.
+func (ca *CommandArguments) runWhenComponents() map[string]interface{} {
+	var components map[string]interface{}
+	for _, name := range defaultedComponents {
+		if _, set := ca.FileKeyComponents[name]; !set || utils.FileKeyCarries(ca.FileKey, name) {
+			continue
+		}
+		if components == nil {
+			components = make(map[string]interface{}, len(ca.FileKeyComponents))
+			for k, v := range ca.FileKeyComponents {
+				components[k] = v
 			}
 		}
+		delete(components, name)
 	}
-	return nil
+	if components == nil {
+		return ca.FileKeyComponents
+	}
+	return components
 }
 
 // componentText is a file key component as text: a string as it is, an
@@ -590,8 +573,9 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	if ca.CurrentReportDirectives != nil {
 		stmtProps = ca.CurrentReportDirectives.StatementProperties
 	}
+	runWhenKey := ca.runWhenComponents()
 	for i := range reports {
-		if ok, why := runWhenMet(stmtProps[reports[i].name].RunWhen, ca.FileKeyComponents, counts); !ok {
+		if ok, why := runWhenMet(stmtProps[reports[i].name].RunWhen, runWhenKey, counts); !ok {
 			log.Printf("Skipping report %q of %s: its runWhen is not met (%s)", reports[i].name, reportScriptPath, why)
 			continue
 		}
