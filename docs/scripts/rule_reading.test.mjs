@@ -3,8 +3,9 @@
 // The fixture is a workspace.db built from jets/workspace_schema.sql and holding the
 // compiled network rows of ten jets_ws rules, as the compiler wrote them (jets_ws's
 // workspace.db, compiled 2026-10-22), plus rules made up here: one to exercise what the
-// reading does not render, and six that call substring_of. The rules' text (jet_rules.label) is deliberately left out:
-// the reading comes from the network alone. Each expected reading was checked by hand
+// reading does not render, six that call substring_of and five that call
+// replace_char_of. The rules' text (jet_rules.label) is deliberately left out: the
+// reading comes from the network alone. Each expected reading was checked by hand
 // against its rule's text, which is quoted above it in a comment.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -348,7 +349,15 @@ const FIXTURE = {
 // and each sets hc:NDC to (config substring_of ?name), the configuration resource
 // declared in the rule's main file, as triple(firstFiveConfig, jets:from, 0); and so on.
 // noConfig has no triples, textLengthConfig a jets:length that is text, and
-// ruleSetConfig a jets:length that a rule of the same file writes. Rules with the same
+// ruleSetConfig a jets:length that a rule of the same file writes. The
+// FIXTURE_ReplaceChars rules share the same antecedents and set hc:NDC to
+// (config replace_char_of ?name), as declared by triple(dashDotConfig,
+// jets:replace_chars, "-.") and triple(dashDotConfig, jets:replace_with, "_"); and so on.
+// noConfig has no triples, numberCharsConfig a jets:replace_chars that is an int,
+// repeatedWithConfig two jets:replace_with, emptyCharsConfig no characters to replace,
+// accentConfig a character outside ASCII, expandingConfig a replacement holding a
+// character the engine replaces after the first, and ruleReplaceConfig a
+// jets:replace_with that a rule of the same file writes. Rules with the same
 // antecedents share the terminal vertex, so their consequents are numbered along it.
 const MADE_UP = {
 	jet_rules: [
@@ -359,12 +368,17 @@ const MADE_UP = {
 		[913, 'FIXTURE_SubstringTrimBoth', 1],
 		[914, 'FIXTURE_SubstringUnconfigured', 1],
 		[915, 'FIXTURE_SubstringSetByRule', 1],
+		[920, 'FIXTURE_ReplaceChars', 1],
+		[921, 'FIXTURE_ReplaceCharsRemoved', 1],
+		[922, 'FIXTURE_ReplaceCharsNamed', 1],
+		[923, 'FIXTURE_ReplaceCharsUnconfigured', 1],
+		[924, 'FIXTURE_ReplaceCharsSetByRule', 1],
 	],
 	rule_terms: [
 		[900, 9001, 1],
 		[900, 9002, 1],
 		[900, 9003, 0],
-		...[910, 911, 912, 913, 914, 915].flatMap((rule) => [
+		...[910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924].flatMap((rule) => [
 			[rule, 9301, 1],
 			[rule, 9302, 1],
 		]),
@@ -376,6 +390,14 @@ const MADE_UP = {
 		[914, 9315, 0],
 		[915, 9316, 0],
 		[915, 9317, 0],
+		[920, 9320, 0],
+		[920, 9321, 0],
+		[921, 9322, 0],
+		[922, 9323, 0],
+		[922, 9324, 0],
+		...[9325, 9326, 9327, 9328, 9329, 9330].map((node) => [923, node, 0]),
+		[924, 9331, 0],
+		[924, 9332, 0],
 	],
 	rete_nodes: [
 		[9001, 900, 'antecedent', 285, 27, 114, null, null, 0, 1, 0, 0],
@@ -391,6 +413,19 @@ const MADE_UP = {
 		[9315, 911, 'consequent', 286, 131, null, 9415, null, 0, 1, null, 6],
 		[9316, 911, 'consequent', 9207, 9202, null, 9420, null, 0, 1, null, 7],
 		[9317, 911, 'consequent', 286, 131, null, 9416, null, 0, 1, null, 8],
+		[9320, 911, 'consequent', 286, 131, null, 9451, null, 0, 1, null, 9],
+		[9321, 911, 'consequent', 286, 131, null, 9462, null, 0, 1, null, 10],
+		[9322, 911, 'consequent', 286, 131, null, 9452, null, 0, 1, null, 11],
+		[9323, 911, 'consequent', 286, 131, null, 9453, null, 0, 1, null, 12],
+		[9324, 911, 'consequent', 286, 131, null, 9454, null, 0, 1, null, 13],
+		[9325, 911, 'consequent', 286, 131, null, 9461, null, 0, 1, null, 14],
+		[9326, 911, 'consequent', 286, 131, null, 9455, null, 0, 1, null, 15],
+		[9327, 911, 'consequent', 286, 131, null, 9456, null, 0, 1, null, 16],
+		[9328, 911, 'consequent', 286, 131, null, 9457, null, 0, 1, null, 17],
+		[9329, 911, 'consequent', 286, 131, null, 9458, null, 0, 1, null, 18],
+		[9330, 911, 'consequent', 286, 131, null, 9459, null, 0, 1, null, 19],
+		[9331, 911, 'consequent', 9232, 9222, null, 9463, null, 0, 1, null, 20],
+		[9332, 911, 'consequent', 286, 131, null, 9460, null, 0, 1, null, 21],
 	],
 	expressions: [
 		[9101, 'binary', 9102, 9103, 'some_other_op', 1],
@@ -413,6 +448,13 @@ const MADE_UP = {
 		[9415, 'binary', 9406, 9400, 'substring_of', 1],
 		[9416, 'binary', 9407, 9400, 'substring_of', 1],
 		[9420, 'resource', 9211, null, null, 1],
+		// replace_char_of: a leaf per configuration resource, 9431 to 9441, and its call, 9451 to 9461.
+		...[9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230, 9231, 9232, 9206].flatMap((cfg, i) => [
+			[9431 + i, 'resource', cfg, null, null, 1],
+			[9451 + i, 'binary', 9431 + i, 9400, 'replace_char_of', 1],
+		]),
+		[9462, 'binary', 9451, 9400, '+', 1],
+		[9463, 'resource', 9241, null, null, 1],
 	],
 	resources: [
 		[9201, 'resource', 'jets:from', 'jets:from', null, 0],
@@ -430,6 +472,29 @@ const MADE_UP = {
 		[9214, 'int', null, '4', null, 0],
 		[9216, 'int', null, '-1', null, 0],
 		[9217, 'text', null, '5', null, 0],
+		[9221, 'resource', 'jets:replace_chars', 'jets:replace_chars', null, 0],
+		[9222, 'resource', 'jets:replace_with', 'jets:replace_with', null, 0],
+		[9223, 'resource', 'dashDotConfig', 'dashDotConfig', null, 0],
+		[9224, 'resource', 'dashRemoveConfig', 'dashRemoveConfig', null, 0],
+		[9225, 'resource', 'tabQuoteConfig', 'tabQuoteConfig', null, 0],
+		[9226, 'resource', 'slashSpaceConfig', 'slashSpaceConfig', null, 0],
+		[9227, 'resource', 'numberCharsConfig', 'numberCharsConfig', null, 0],
+		[9228, 'resource', 'repeatedWithConfig', 'repeatedWithConfig', null, 0],
+		[9229, 'resource', 'emptyCharsConfig', 'emptyCharsConfig', null, 0],
+		[9230, 'resource', 'accentConfig', 'accentConfig', null, 0],
+		[9231, 'resource', 'expandingConfig', 'expandingConfig', null, 0],
+		[9232, 'resource', 'ruleReplaceConfig', 'ruleReplaceConfig', null, 0],
+		[9240, 'text', null, '-.', null, 0],
+		[9241, 'text', null, '_', null, 0],
+		[9242, 'text', null, '-', null, 0],
+		[9243, 'text', null, '', null, 0],
+		[9244, 'text', null, '\t"', null, 0],
+		[9245, 'text', null, ' ', null, 0],
+		[9246, 'text', null, '/ ', null, 0],
+		[9247, 'text', null, '\u00e9', null, 0],
+		[9248, 'text', null, 'e', null, 0],
+		[9249, 'text', null, '.-', null, 0],
+		[9250, 'text', null, '-x', null, 0],
 	],
 	triples: [
 		[9203, 9201, 232, 1],
@@ -444,6 +509,27 @@ const MADE_UP = {
 		[9208, 9202, 9217, 1],
 		[9209, 9201, 259, 1],
 		[9209, 9202, 9216, 1],
+		[9223, 9221, 9240, 1],
+		[9223, 9222, 9241, 1],
+		[9224, 9221, 9242, 1],
+		[9224, 9222, 9243, 1],
+		[9225, 9221, 9244, 1],
+		[9225, 9222, 9245, 1],
+		[9226, 9221, 9246, 1],
+		[9226, 9222, 9242, 1],
+		[9227, 9221, 259, 1],
+		[9227, 9222, 9241, 1],
+		[9228, 9221, 9242, 1],
+		[9228, 9222, 9241, 1],
+		[9228, 9222, 9242, 1],
+		[9229, 9221, 9243, 1],
+		[9229, 9222, 9241, 1],
+		[9230, 9221, 9247, 1],
+		[9230, 9222, 9248, 1],
+		[9231, 9221, 9249, 1],
+		[9231, 9222, 9250, 1],
+		[9232, 9221, 9242, 1],
+		[9232, 9222, 9241, 1],
 	],
 };
 
@@ -712,8 +798,62 @@ test('names the configuration of a substring_of it cannot read, rather than gues
 	);
 });
 
+// replace_char_of (jets/rete/expr_op_strings.h, ReplaceCharOfVisitor): every occurrence
+// of each character of jets:replace_chars is replaced by jets:replace_with, in turn.
+// These rules share the FIXTURE_Substring rules' antecedents, so substringReading fits.
+test('reads replace_char_of', () => {
+	assert.deepEqual(
+		readRule(db, 920),
+		substringReading([
+			'the MedicalClaim has the Drug_Name with every "-" and "." replaced by "_" as its NDC',
+			// The result is text, so + around it joins text.
+			'the MedicalClaim has the Drug_Name with every "-" and "." replaced by "_" followed by the Drug_Name as its NDC',
+		]),
+	);
+});
+
+test('reads replace_char_of with an empty replacement as a removal', () => {
+	assert.deepEqual(
+		readRule(db, 921),
+		substringReading(['the MedicalClaim has the Drug_Name with every "-" removed as its NDC']),
+	);
+});
+
+test('names the characters of replace_char_of a quote would hide', () => {
+	assert.deepEqual(
+		readRule(db, 922),
+		substringReading([
+			'the MedicalClaim has the Drug_Name with every tab and double quote replaced by a space as its NDC',
+			'the MedicalClaim has the Drug_Name with every "/" and space replaced by "-" as its NDC',
+		]),
+	);
+});
+
+test('names the configuration of a replace_char_of it cannot read, rather than guess', () => {
+	// No triples, replace_chars an int, replace_with given twice, no characters to
+	// replace (the engines disagree on it), a character outside ASCII (one engine
+	// replaces bytes, the other characters), and a replacement holding "-", which the
+	// engine then replaces again.
+	assert.deepEqual(
+		readRule(db, 923),
+		substringReading(
+			['noConfig', 'numberCharsConfig', 'repeatedWithConfig', 'emptyCharsConfig', 'accentConfig', 'expandingConfig'].map(
+				(cfg) => `the MedicalClaim has the Drug_Name with characters replaced as configured by ${cfg} as its NDC`,
+			),
+		),
+	);
+	// A rule writes jets:replace_with, so the value in the file is not the one in force.
+	assert.deepEqual(
+		readRule(db, 924),
+		substringReading([
+			'ruleReplaceConfig has "_" as its replace_with',
+			'the MedicalClaim has the Drug_Name with characters replaced as configured by ruleReplaceConfig as its NDC',
+		]),
+	);
+});
+
 test('gives the same text from the same database', () => {
-	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915];
+	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924];
 	const first = keys.map((k) => readRule(db, k));
 	const again = keys.map((k) => readRule(db, k));
 	const other = buildFixture(join(dir, 'again.db'));
