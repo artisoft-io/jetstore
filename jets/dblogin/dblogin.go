@@ -27,7 +27,8 @@
 //     outside jetsapi, except that it only reads the security tables (users,
 //     roles, role_capability, secret_rotation), without their secret columns.
 //     It holds no TRIGGER privilege: a trigger it put on a table the apiserver
-//     writes would run as the apiserver.
+//     writes would run as the apiserver. On its own tables the code guard
+//     (codeguard.go) refuses the code that would run as their reader.
 //
 // Each group role is NOLOGIN and holds the grants. The login that connects is
 // a per-database member of it (LoginName), because roles are cluster-wide and
@@ -119,66 +120,135 @@ func loginName(group, database string) string {
 // database holds now. It is idempotent and runs in one transaction, so no
 // secret column or security table is open between a schema-wide grant and its
 // revoke. The apiserver and update_db call it at every start.
+//
+// It also installs the code guard (codeguard.go). A database user that may not
+// create event triggers does not fail it: the guard is then off, and a warning
+// says so.
 func Ensure(ctx context.Context, dbpool *pgxpool.Pool) error {
+	_, err := EnsureStatus(ctx, dbpool)
+	return err
+}
+
+// EnsureStatus is Ensure, and says whether the code guard is on and what code
+// the IDE login already owns.
+func EnsureStatus(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
+	st, err := ensure(ctx, dbpool)
+	if err != nil {
+		return st, err
+	}
+	guard := "off"
+	switch {
+	case st.SwitchedOff && st.CodeGuard:
+		guard = "on (" + CodeGuardSwitch + "=off could not remove it)"
+	case st.SwitchedOff:
+		guard = "off (disabled by " + CodeGuardSwitch + ")"
+	case st.CodeGuard:
+		guard = "on"
+	}
+	log.Printf("%s; IDE code guard %s", st.logins, guard)
+	if st.SwitchedOff && !st.CodeGuard {
+		how := "there was none to remove"
+		if st.Removal != "" {
+			how = st.Removal
+		}
+		log.Printf("Warning: IDE code guard is off, disabled by %s=off (%s). SQL run as %s can create a function, trigger or policy "+
+			"that runs as the apiserver's database user when it reads or writes that login's tables. Unset %s to turn it back on at the next start",
+			CodeGuardSwitch, how, IDE, CodeGuardSwitch)
+	}
+	if st.CodeGuardProblem != "" {
+		if st.CodeGuard {
+			log.Printf("Warning: IDE code guard: %s", st.CodeGuardProblem)
+		} else {
+			log.Printf("Warning: IDE code guard is off: %s. SQL run as %s (the Query Tool, Submit DDL, a runbook's ddl steps, the workspace's init scripts and reports) "+
+				"can create a function, trigger or policy that runs as the apiserver's database user when it reads or writes that login's tables, "+
+				"and change the security tables through it. Install the guard as a superuser: see the Developer's Guide, Design of the system tables",
+				st.CodeGuardProblem, IDE)
+		}
+	}
+	if code, err := ideCode(ctx, dbpool); err != nil {
+		log.Printf("Warning: IDE code guard: %v", err)
+	} else if len(code) > 0 {
+		st.IDECode = code
+		shown := code
+		if len(shown) > 20 {
+			shown = append(shown[:20:20], fmt.Sprintf("and %d more", len(code)-20))
+		}
+		log.Printf("Warning: %s owns %d object(s) whose code runs as whoever reads or writes its tables, the apiserver's database user included: %s. "+
+			"They are left in place; review them, and drop those not needed as the apiserver's database user",
+			IDE, len(code), strings.Join(shown, "; "))
+	}
+	return st, nil
+}
+
+func ensure(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
+	var st Status
 	tx, err := dbpool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("while setting up the restricted logins: %w", err)
+		return st, fmt.Errorf("while setting up the restricted logins: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	if _, err = tx.Exec(ctx, fmt.Sprintf("SELECT pg_advisory_xact_lock(%d)", ensureLock)); err != nil {
-		return fmt.Errorf("while setting up the restricted logins: %w", err)
+		return st, fmt.Errorf("while setting up the restricted logins: %w", err)
 	}
 	// The migration creates jetsapi; a database set up in another order gets it
 	// here, so the login table has somewhere to go.
 	if _, err = tx.Exec(ctx, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
-		return fmt.Errorf("while creating the jetsapi schema: %w", err)
+		return st, fmt.Errorf("while creating the jetsapi schema: %w", err)
 	}
 	if _, err = tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+LoginTable+` (
 		login_role  TEXT PRIMARY KEY,
 		password    TEXT NOT NULL,
 		last_update TIMESTAMP NOT NULL DEFAULT now())`); err != nil {
-		return fmt.Errorf("while creating %s: %w", LoginTable, err)
+		return st, fmt.Errorf("while creating %s: %w", LoginTable, err)
 	}
 	if _, err = tx.Exec(ctx, "REVOKE ALL ON "+LoginTable+" FROM PUBLIC"); err != nil {
-		return fmt.Errorf("while closing %s: %w", LoginTable, err)
+		return st, fmt.Errorf("while closing %s: %w", LoginTable, err)
 	}
 
 	var database string
 	if err = tx.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
-		return fmt.Errorf("while reading the database name: %w", err)
+		return st, fmt.Errorf("while reading the database name: %w", err)
 	}
 	logins := map[string]string{}
 	for _, group := range []string{Reader, IDE} {
 		login := loginName(group, database)
 		logins[group] = login
 		if err = ensureLogin(ctx, tx, group, login); err != nil {
-			return err
+			return st, err
 		}
 	}
 
 	schemas, err := ownedSchemas(ctx, tx)
 	if err != nil {
-		return err
+		return st, err
 	}
 	if err = grantReader(ctx, tx, schemas, logins[IDE]); err != nil {
-		return err
+		return st, err
 	}
 	if err = grantIDE(ctx, tx, schemas); err != nil {
-		return err
+		return st, err
+	}
+	if codeGuardSwitchedOff() {
+		st, err = removeCodeGuard(ctx, tx)
+	} else {
+		st, err = installCodeGuard(ctx, tx)
+	}
+	if err != nil {
+		return st, err
 	}
 	// Last, so the schema-wide grants above cannot reopen it.
 	for _, group := range []string{Reader, IDE} {
 		if _, err = tx.Exec(ctx, fmt.Sprintf("REVOKE ALL ON %s FROM %s", LoginTable, ident(group))); err != nil {
-			return fmt.Errorf("while closing %s to %s: %w", LoginTable, group, err)
+			return st, fmt.Errorf("while closing %s to %s: %w", LoginTable, group, err)
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("while setting up the restricted logins: %w", err)
+		return st, fmt.Errorf("while setting up the restricted logins: %w", err)
 	}
-	log.Printf("Restricted logins %s (reads) and %s (Query Tool, Submit DDL, runbook ddl, workspace scripts) on schemas %v",
+	st.logins = fmt.Sprintf("Restricted logins %s (reads) and %s (Query Tool, Submit DDL, runbook ddl, workspace scripts) on schemas %v",
 		logins[Reader], logins[IDE], schemas)
-	return nil
+	return st, nil
 }
 
 // ensureLogin creates group (NOLOGIN) and login (a member of group and of

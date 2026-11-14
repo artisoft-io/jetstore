@@ -46,6 +46,16 @@ to:
   an earlier `run_reports` created belongs to the apiserver's user, so a report that indexes, alters
   or drops one fails until the table is given to the IDE login; the
   [upgrade note](/docs/developer/workspace/system-tables/#reports-run-as-jets_ide) says how.
+- *Added 2026-11-14.* Owning its tables let `jets_ide` attach code to them, a trigger or a
+  row-level security policy calling a function it wrote, and PostgreSQL runs that code as whoever
+  reads or writes the table, the apiserver's user included. Withholding `TRIGGER` covered only the
+  tables `jets_ide` does not own. An event trigger, `jets_ide_code_guard`, now refuses `jets_ide`'s
+  functions, procedures, triggers, policies, rules, operators and row-level security, and its
+  defaults, checks, index expressions and views that call a function that runs SQL or changes more
+  than the row (`aws_s3`'s among them). Creating it needs a superuser or the RDS master user; with
+  neither, the apiserver starts without it and says so. Code `jets_ide` created before is listed at
+  every start and not dropped. See
+  [the code jets_ide may not create](/docs/developer/workspace/system-tables/#the-code-jets_ide-may-not-create).
 - `jets_ide` may drop or alter only the tables it created, so a table the apiserver's user created
   (by a pipeline, by a report before 2026-11-14, or by a workspace init script before 4.1.6) can be
   given to it only by the apiserver's user.

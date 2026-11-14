@@ -652,6 +652,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	operator who never set it still gets it in the task definition, empty. See
 //	jets/datatable/git/no_git_access.go. Distinct from JETS_GIT_ACCESS above, which is a
 //	synth-time network control the runtime cannot read.
+// JETS_IDE_CODE_GUARD (optional, value: off, case-insensitive and trimmed; anything else,
+//	including unset and the empty string, leaves the guard on) turns off the IDE code guard,
+//	the event trigger jets_ide_code_guard that refuses functions, triggers, policies and the
+//	like from the jets_ide login (jets/dblogin/codeguard.go). At its next start the apiserver
+//	drops the trigger as its own database user. It is the way out of a guard that refuses DDL
+//	it should not, on an installation whose database only the application reaches; while it is
+//	off, SQL run as jets_ide can create code that runs as the apiserver's user. Passed to every
+//	component that can call dblogin.Ensure, so none re-installs the guard: the apiserver (and
+//	the update_db it starts), the run_reports task and Lambdas, and the compute-pipes nodes
+//	(the ECS task and the Go and native node Lambdas).
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
 // JETS_SKIP_REPORTS_SM (optional, values: TRUE, FALSE, default FALSE) set to TRUE to leave out the
 // reports state machine (reportsSM) and its run reports ECS task, for installations where no
@@ -832,6 +842,7 @@ func main() {
 	log.Println("env CPIPES_PYTHON_LAMBDA_IMAGE_TAG:", os.Getenv("CPIPES_PYTHON_LAMBDA_IMAGE_TAG"))
 	log.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
 	log.Println("env JETS_NO_GIT_ACCESS:", os.Getenv("JETS_NO_GIT_ACCESS"))
+	log.Println("env JETS_IDE_CODE_GUARD:", os.Getenv("JETS_IDE_CODE_GUARD"))
 	log.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
 	log.Println("env JETS_SKIP_REPORTS_SM:", os.Getenv("JETS_SKIP_REPORTS_SM"))
 	log.Println("env JETS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_REGISTER_KEY_LAMBDA_ENTRY"))

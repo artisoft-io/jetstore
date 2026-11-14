@@ -57,6 +57,7 @@ func (jsComp *JetStoreStackComponents) buildRunreportTaskDefinition(stack awscdk
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("cbooter", "run_reports"),
 		Environment: &map[string]*string{
+			"JETS_IDE_CODE_GUARD":           jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 			"JETS_TEMP_DATA":                jsii.String(jsComp.JetsTempData()),
 			"TMPDIR":                        jsii.String(jsComp.TempDir()),
@@ -157,6 +158,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesTaskDefinition(scope construct
 		EntryPoint:    jsii.Strings("cbooter", "cpipes_native_server"),
 
 		Environment: &map[string]*string{
+			"JETS_IDE_CODE_GUARD":           jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 			"JETS_TEMP_DATA":                jsii.String(jsComp.JetsTempData()),
 			"TMPDIR":                        jsii.String(jsComp.TempDir()),
