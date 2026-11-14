@@ -433,7 +433,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "light",
   );
-  const { error, status, setError, setStatus } = useNotifications();
+  const { error, status, statusTone, setError, setStatus } = useNotifications();
   // Bumped when the nav entry of the current screen is pressed; it keys the
   // routed screen, so that press remounts it (`ShellNavItem`).
   const [screenNonce, setScreenNonce] = useState(0);
@@ -554,7 +554,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
         </div>
       )}
       {status != null && error == null && (
-        <div className="banner banner-ok" role="status">
+        <div className={`banner banner-${statusTone}`} role="status">
           <span>{status}</span>
           <button type="button" onClick={() => setStatus(null)} aria-label="Dismiss">
             ×

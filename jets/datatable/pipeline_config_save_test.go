@@ -35,7 +35,7 @@ const goodPipelineConfig = `{
 
 func TestPipelineConfigGoesThroughTheSavePath(t *testing.T) {
 	const name = "pipes_config/example.pc.json"
-	if err := checkWorkspaceFile(name, goodPipelineConfig); err != nil {
+	if _, err := checkWorkspaceFile(name, goodPipelineConfig); err != nil {
 		t.Fatalf("a valid pipeline configuration must save: %v", err)
 	}
 
@@ -48,11 +48,10 @@ func TestPipelineConfigGoesThroughTheSavePath(t *testing.T) {
 			strings.Replace(goodPipelineConfig, `"rdf_type": "double"`, `"rdf_type": "money"`, 1),
 			`column "amount"`,
 		},
-		// The start checks jets:key's rdf_type too, although the column is
-		// always created as text (validateTableColumnTypes).
-		"an unknown type on jets:key": {
-			strings.Replace(goodPipelineConfig, `"rdf_type": "text"}`, `"rdf_type": "txt"}`, 1),
-			"/output_tables/0/columns/0/rdf_type",
+		"a check of the document as a whole": {
+			strings.Replace(goodPipelineConfig, `"pipes_config": []`,
+				`"conditional_pipes_config": [{"step_name": "a", "pipes_config": []}]`, 1),
+			"the pipeline cannot start: configuration error: conditional_pipes_config step 0 has an empty pipes_config",
 		},
 		"no cluster_config": {
 			strings.Replace(goodPipelineConfig, `"cluster_config": {"max_nbr_partitions": 1},`, "", 1),
@@ -64,7 +63,7 @@ func TestPipelineConfigGoesThroughTheSavePath(t *testing.T) {
 		},
 		"not JSON": {`{"cluster_config": `, "not a valid json"},
 	} {
-		err := checkWorkspaceFile(name, c.content)
+		_, err := checkWorkspaceFile(name, c.content)
 		if err == nil {
 			t.Errorf("%s was saved", what)
 		} else if !strings.Contains(err.Error(), c.want) {
@@ -72,7 +71,7 @@ func TestPipelineConfigGoesThroughTheSavePath(t *testing.T) {
 		}
 	}
 
-	// Warnings, which do not refuse the save.
+	// Warnings, which do not refuse the save and which it returns.
 	for what, c := range map[string]struct{ content, code string }{
 		"a column with no rdf_type": {
 			strings.Replace(goodPipelineConfig, `"name": "amount", "rdf_type": "double"`, `"name": "amount"`, 1),
@@ -83,12 +82,26 @@ func TestPipelineConfigGoesThroughTheSavePath(t *testing.T) {
 			"cpipes_config_unknown_field",
 		},
 	} {
-		if err := checkWorkspaceFile(name, c.content); err != nil {
+		warnings, err := checkWorkspaceFile(name, c.content)
+		if err != nil {
 			t.Errorf("%s was refused: %v", what, err)
 		}
-		findings := validatorFor(name)(c.content)
-		if len(findings) != 1 || findings[0].Severity != wsvalidate.Warning || findings[0].Code != c.code {
-			t.Errorf("%s: findings %+v, want one %s warning", what, findings, c.code)
+		if len(warnings) != 1 || warnings[0].Severity != wsvalidate.Warning || warnings[0].Code != c.code {
+			t.Errorf("%s: warnings %+v, want one %s warning", what, warnings, c.code)
+		}
+	}
+	// jets:key and session_id are created as text whatever rdf_type says, so a
+	// type outside the list on either is not checked, here or at the start.
+	for column, typed := range map[string]string{
+		`{"name": "jets:key", "rdf_type": "text"}`: `{"name": "jets:key", "rdf_type": "txt"}`,
+		`{"name": "session_id"}`:                   `{"name": "session_id", "rdf_type": "txt"}`,
+	} {
+		content := strings.Replace(goodPipelineConfig, column, typed, 1)
+		if content == goodPipelineConfig {
+			t.Fatalf("the replacement of %s did not apply", column)
+		}
+		if warnings, err := checkWorkspaceFile(name, content); err != nil || len(warnings) != 0 {
+			t.Errorf("rdf_type txt on %s: %v, warnings %+v", column, err, warnings)
 		}
 	}
 	if findings := validatorFor(name)(goodPipelineConfig); len(findings) != 0 {
@@ -119,7 +132,7 @@ func pcJsonFindings(t *testing.T, root string) (files, errs, warns map[string]in
 			return err
 		}
 		files[group]++
-		if err := checkWorkspaceFile(rel, string(raw)); err != nil {
+		if _, err := checkWorkspaceFile(rel, string(raw)); err != nil {
 			t.Errorf("%s is refused by the save check: %v", rel, err)
 		}
 		for _, f := range validatorFor(rel)(string(raw)) {

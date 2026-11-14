@@ -92,7 +92,7 @@ func TestADocsPageMissingEveryFieldNamesEachOne(t *testing.T) {
 // Through the save path: a page under docs/ is checked, and the message names
 // the file and the field.
 func TestTheSavePathChecksADocsPagesFrontMatter(t *testing.T) {
-	err := checkWorkspaceFile("docs/customisation/observe.md", "---\ntitle: A\n---\n")
+	_, err := checkWorkspaceFile("docs/customisation/observe.md", "---\ntitle: A\n---\n")
 	if err == nil {
 		t.Fatal("a page with no description and no kind was saved")
 	}
@@ -101,11 +101,11 @@ func TestTheSavePathChecksADocsPagesFrontMatter(t *testing.T) {
 			t.Errorf("error %q does not contain %q", err, want)
 		}
 	}
-	if err := checkWorkspaceFile("docs/index.mdx", goodDocsPage); err != nil {
+	if _, err := checkWorkspaceFile("docs/index.mdx", goodDocsPage); err != nil {
 		t.Errorf("docs/index.mdx: %v, want saved", err)
 	}
 	// A file Starlight's loader skips is not a page, so it is not checked.
-	if err := checkWorkspaceFile("docs/_snippet.md", "Some text.\n"); err != nil {
+	if _, err := checkWorkspaceFile("docs/_snippet.md", "Some text.\n"); err != nil {
 		t.Errorf("docs/_snippet.md: %v, want saved", err)
 	}
 }

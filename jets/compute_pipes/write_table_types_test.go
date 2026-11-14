@@ -45,6 +45,14 @@ func TestOutputTableColumnTypesAreValidated(t *testing.T) {
 	if err := startup.ValidatePipeSpecConfig(cfg, nil); err != nil {
 		t.Errorf("a column with no rdf_type: %v", err)
 	}
+	// jets:key and session_id are created as text whatever rdf_type says, so it
+	// is not checked on either (hasFixedColumnType).
+	for _, name := range []string{"jets:key", "session_id"} {
+		cfg.OutputTables[0].Columns[0] = TableColumnSpec{Name: name, RdfType: "txt"}
+		if err := startup.ValidatePipeSpecConfig(cfg, nil); err != nil {
+			t.Errorf("rdf_type %q on %s, which nothing reads: %v", "txt", name, err)
+		}
+	}
 }
 
 func outputTableDB(t *testing.T) *pgxpool.Pool {

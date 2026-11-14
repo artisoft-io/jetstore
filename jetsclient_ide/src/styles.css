@@ -343,13 +343,15 @@ body {
   border-bottom: 1px solid var(--rule);
   flex: 0 0 auto;
 }
-.banner span { flex: 1 1 auto; }
+/* pre-line: a message of several lines, such as a save's findings, keeps them. */
+.banner span { flex: 1 1 auto; white-space: pre-line; }
 .banner button {
   background: none; border: none; cursor: pointer;
   font-size: 17px; line-height: 1; color: inherit; padding: 0 4px;
 }
 .banner-error { background: var(--crit-bg); color: var(--crit); }
 .banner-ok { background: var(--good-bg); color: var(--good); }
+.banner-warn { background: var(--warn-bg); color: var(--warn); }
 
 /* ---------- layout ---------- */
 .body { display: flex; flex: 1 1 auto; min-height: 0; }

@@ -3,6 +3,8 @@ package datatable
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"path"
 	"strings"
 
@@ -33,13 +35,11 @@ import (
 // months that the row was overdue. **It is the twelfth row (2026-11-14), and it
 // is not that validator**: `compute_pipes.ValidateConfigDocument` refuses only
 // what certainly stops the pipeline at its start, whatever the run's
-// environment — a document that does not decode, no cluster_config, an output
-// table column type outside schema.PgTypeNames — and warns of the rest. The
-// agentic validator resolves each step in a fixed environment and flags
-// configurations that run (4 of 51 in four workspaces), so it could only warn,
-// and this path reports errors only. ValidateConfigDocument's comment has the
-// detail. A note naming a future trigger goes silent when the trigger passes,
-// which is what this one did.
+// environment, and warns of the rest. The agentic validator resolves each step
+// in a fixed environment and flags configurations that run (4 of 51 in four
+// workspaces), so it could only warn, and it would warn falsely on those four;
+// ValidateConfigDocument's comment says exactly why. A note naming a future
+// trigger goes silent when the trigger passes, which is what this one did.
 //
 // `.pv.json` is the fifth (agentic_ai's `AK.2`, 2026-09-05): a briefing
 // provenance schema, the document that says what each field of a generated
@@ -213,20 +213,24 @@ func ValidateFlowDocumentForTest(content string) []wsvalidate.Finding {
 // it, and the validators were being tested in isolation from the thing that
 // calls them. This is the seam that fixes that.
 //
-// Returns nil when the file may be written.
-func checkWorkspaceFile(fileName, content string) error {
+// Returns a nil error when the file may be written, with the validator's
+// warnings, which do not refuse the save and which the response carries to the
+// editor (saveCheckedWorkspaceFile). **Until 2026-11-14 the warnings were
+// dropped here**, so a validator's warning tier reached nobody: the IDE showed
+// a refusal and nothing else.
+func checkWorkspaceFile(fileName, content string) (warnings []wsvalidate.Finding, err error) {
 	// A file the IDE shows read-only is refused here too, so that the editor's
 	// read-only state is not the only thing between a direct request and the
 	// write (wsfile.ReadOnlySuffixes, 2026-10-27).
 	if wsfile.IsReadOnly(fileName) {
-		return fmt.Errorf("%s is read-only in the workspace IDE; edit it in the workspace repository", fileName)
+		return nil, fmt.Errorf("%s is read-only in the workspace IDE; edit it in the workspace repository", fileName)
 	}
 	// docs/reference/ is where the documentation build writes the workspace
 	// guide's generated pages, and it fails on a workspace whose docs/ holds
 	// one (wsfile.IsGeneratedDocsPath, 2026-11-14), so a page saved there would
 	// fail the next UI image build.
 	if wsfile.IsGeneratedDocsPath(fileName) {
-		return fmt.Errorf("%s cannot be saved: docs/reference/ is generated, the workspace guide's pages "+
+		return nil, fmt.Errorf("%s cannot be saved: docs/reference/ is generated, the workspace guide's pages "+
 			"made from the compiled workspace, and a written page may not take its place; "+
 			"save the page under another name", fileName)
 	}
@@ -240,17 +244,51 @@ func checkWorkspaceFile(fileName, content string) error {
 	if strings.HasSuffix(strings.ToUpper(fileName), ".JSON") {
 		var m map[string]any
 		if err := json.Unmarshal([]byte(content), &m); err != nil {
-			return fmt.Errorf("the file is not a valid json file: %v", err)
+			return nil, fmt.Errorf("the file is not a valid json file: %v", err)
 		}
 	}
 	validate := validatorFor(fileName)
 	if validate == nil {
-		return nil
+		return nil, nil
 	}
-	if errs := wsvalidate.ErrorsOnly(validate(content)); len(errs) > 0 {
-		return describeFindings(fileName, errs)
+	findings := validate(content)
+	if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
+		return nil, describeFindings(fileName, errs)
 	}
-	return nil
+	return wsvalidate.WarningsOnly(findings), nil
+}
+
+// saveCheckedWorkspaceFile is SaveWorkspaceFileContent once the user's
+// capability is established: check the file, write it with write when nothing
+// refuses it, and answer with the warnings.
+//
+// The response gained `warnings` on 2026-11-14, a list of wsvalidate.Finding
+// (severity, code, message, and path or line where the finding has one),
+// empty rather than absent when there are none. **An added field, so a client
+// that reads only `file_name` is unaffected**; a refused save is the 400 with
+// the message describeFindings writes, as before.
+func saveCheckedWorkspaceFile(wsFileName any, fileName, content string,
+	write func() error) (results *map[string]any, httpStatus int, err error) {
+	warnings, err := checkWorkspaceFile(fileName, content)
+	if err != nil {
+		log.Println(err)
+		return nil, http.StatusBadRequest, err
+	}
+	// **A failed write is a 500.** It was the error with a 200 until 2026-11-14,
+	// and DoDataTableAction writes an error body with the status it is given
+	// (ERROR, jets/apiserver/utils.go), so the IDE, which reads the status,
+	// reported a file whose write had failed as saved.
+	if err = write(); err != nil {
+		log.Println(err)
+		return nil, http.StatusInternalServerError, err
+	}
+	if warnings == nil {
+		warnings = []wsvalidate.Finding{}
+	}
+	return &map[string]any{
+		"file_name": wsFileName,
+		"warnings":  warnings,
+	}, http.StatusOK, nil
 }
 
 // describeFindings renders the errors for the http response.

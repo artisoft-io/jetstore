@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ApiClient } from "./client";
-import { WorkspaceApi, decodeLabel, fileNameOf, walk, type WorkspaceNode } from "./workspace";
+import {
+  WorkspaceApi,
+  decodeLabel,
+  describeSaveWarnings,
+  fileNameOf,
+  walk,
+  type WorkspaceNode,
+} from "./workspace";
 
 function node(partial: Partial<WorkspaceNode>): WorkspaceNode {
   return {
@@ -157,6 +164,23 @@ describe("WorkspaceApi", () => {
     });
   });
 
+  it("returns the warnings a save answers with, and none from a server that sends none", async () => {
+    const warning = {
+      severity: "warning",
+      code: "cpipes_config_unknown_field",
+      message: 'ignored when the pipeline runs: unknown field "output_table"',
+      path: "/output_table",
+    };
+    const { ws } = await api([
+      { status: 200, body: { file_name: "a.pc.json", warnings: [warning] } },
+      { status: 200, body: { file_name: "a.pc.json", warnings: [] } },
+      { status: 200, body: { file_name: "a.pc.json" } },
+    ]);
+    expect(await ws.saveFile("ws", "a.pc.json", "{}")).toEqual({ warnings: [warning] });
+    expect(await ws.saveFile("ws", "a.pc.json", "{}")).toEqual({ warnings: [] });
+    expect(await ws.saveFile("ws", "a.pc.json", "{}")).toEqual({ warnings: [] });
+  });
+
   it("maps the workspace registry query onto summaries", async () => {
     const { ws } = await api([
       { status: 200, body: { rows: [["cedargate_ws", "git@x", "cgt_ai"], ["jets_ws", "git@y", "jets_ai"]] } },
@@ -166,5 +190,26 @@ describe("WorkspaceApi", () => {
       { name: "cedargate_ws", uri: "git@x", branch: "cgt_ai" },
       { name: "jets_ws", uri: "git@y", branch: "jets_ai" },
     ]);
+  });
+});
+
+describe("describeSaveWarnings", () => {
+  it("names the file, then each warning at its coordinate, as the server writes a refusal", () => {
+    const text = describeSaveWarnings("a.pc.json", [
+      { severity: "warning", code: "c", message: "at a pointer", path: "/a/b" },
+      { severity: "warning", code: "c", message: "at a line", line: 12 },
+      { severity: "warning", code: "c", message: "at both", path: "/a", line: 3 },
+      { severity: "warning", code: "c", message: "about the file" },
+    ]);
+    expect(text.split("\n")).toEqual([
+      "Saved a.pc.json, with 4 warnings:",
+      "  /a/b: at a pointer",
+      "  line 12: at a line",
+      "  /a:3: at both",
+      "  about the file",
+    ]);
+    expect(describeSaveWarnings("x.sql", [{ severity: "warning", code: "c", message: "m" }])).toBe(
+      "Saved x.sql, with 1 warning:\n  m",
+    );
   });
 });
