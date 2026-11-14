@@ -134,8 +134,8 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 	r.importedFileInfo = append(r.importedFileInfo, segment)
 	r.importedFileNames[fileName] = true
 
-	for iLine, line := range lines {
-		line = strings.TrimSpace(line)
+	for iLine, rawLine := range lines {
+		line := strings.TrimSpace(rawLine)
 		// Check for import statement
 		// If found, pause the current file, read the imported file recursively,
 		// then resume the current file
@@ -170,7 +170,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 				r.importedFileInfo = append(r.importedFileInfo, segment)
 			}
 		} else {
-			r.combinedContent.WriteString(line + "\n")
+			r.combinedContent.WriteString(bufferLine(rawLine, line) + "\n")
 			r.globalLineNum++
 		}
 	}
@@ -195,6 +195,32 @@ func (r *RuleFileReader) writeSourceFileDirective(fileName string) {
 	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = %s;\n", QuoteString(fileName)))
 	r.currentSourceFile = fileName
 	r.globalLineNum++
+}
+
+// bufferLine is the text a source line contributes to the buffer the parser
+// reads: the line as written, without the carriage return of a CRLF file.
+//
+// Until 2026-11-14 every line was trimmed, so a string literal written across
+// lines lost the spaces and tabs at the end of each of its lines and at the
+// start of the next. Outside a literal the parser skips spaces and tabs, so
+// keeping them changes nothing else (a syntax error's column now counts them,
+// as the author's editor does). Trimming also removed whitespace the parser
+// does not skip, such as a form feed or a no-break space; a line with any of
+// that around it is still trimmed, as before, so a file that compiled still
+// compiles. trimmed is strings.TrimSpace(raw).
+func bufferLine(raw, trimmed string) string {
+	raw = strings.TrimSuffix(raw, "\r")
+	if trimmed == "" {
+		return ""
+	}
+	start := strings.Index(raw, trimmed)
+	if start < 0 {
+		return trimmed
+	}
+	if strings.Trim(raw[:start], " \t") != "" || strings.Trim(raw[start+len(trimmed):], " \t") != "" {
+		return trimmed
+	}
+	return raw
 }
 
 func splitLines(content string) []string {
