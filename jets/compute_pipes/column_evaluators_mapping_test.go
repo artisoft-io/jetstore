@@ -1,6 +1,8 @@
 package compute_pipes
 
 import (
+	"bytes"
+	"log"
 	"strings"
 	"testing"
 )
@@ -428,5 +430,55 @@ func TestMapCleansingFunctionValidBuilds(t *testing.T) {
 	}
 	if record[1] != "123" {
 		t.Errorf("got %#v, want \"123\"", record[1])
+	}
+}
+
+// A value the cleansing function rejects is logged once, by map_record, under
+// its max_error_count cap, and counted as before: the map column does not log
+// it too.
+func TestMapRecordLogsCleansingErrorsUnderItsCap(t *testing.T) {
+	expr := "key1"
+	spec := &TransformationSpec{
+		Type:            "map_record",
+		MapRecordConfig: &MapRecordSpec{MaxErrorCount: 3},
+		Columns: []TransformationColumnSpec{{
+			Name: "out_col", Type: "map", Expr: &expr,
+			MapExpr: &MapExpression{CleansingFunction: "validate_date", RdfType: "text"},
+		}},
+	}
+	source := &InputChannel{Name: "in", Columns: &map[string]int{"key1": 0}, Config: &ChannelSpec{Name: "in"}}
+	outputCh := &OutputChannel{
+		Channel: make(chan []any, 10),
+		Columns: &map[string]int{"out_col": 0},
+		Config:  &ChannelSpec{Name: "out", Columns: []string{"out_col"}},
+	}
+	ctx := &BuilderContext{done: make(chan struct{})}
+	pipe, err := ctx.NewMapRecordTransformationPipe(source, outputCh, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(prev)
+	for range 10 {
+		record := []any{"not a date"}
+		if err := pipe.Apply(&record); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+	}
+	log.SetOutput(prev)
+	out := buf.String()
+	if pipe.errorCount != 10 {
+		t.Errorf("errorCount is %d, want 10", pipe.errorCount)
+	}
+	if n := strings.Count(out, "mapping error:"); n != 3 {
+		t.Errorf("map_record logged %d mapping errors, want 3 (max_error_count)", n)
+	}
+	if n := strings.Count(out, "reached max_error_count"); n != 1 {
+		t.Errorf("map_record logged reaching its cap %d times, want 1", n)
+	}
+	if strings.Contains(out, "Error while applying cleansing function") {
+		t.Errorf("the map column logged the error too:\n%s", out)
 	}
 }

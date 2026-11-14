@@ -35,9 +35,14 @@ func (ctx *CleansingFunctionContext) With(inputColumns *map[string]int) *Cleansi
 	}
 }
 
-// inputColumnName can be null
+// ApplyCleasingFunction applies the cleansing function functionName, with its
+// argument, to inputValue. inputRow is the input record, which concat and
+// concat_with read their other columns from. A value the function cannot
+// cleanse gives a nil obj and an errMsg. A configuration CheckFunction refuses
+// also gives an errMsg here, never a panic, though the map column checks it
+// before its first record.
 func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, argument string, inputValue string,
-	inputPos int, inputRow *[]interface{}) (obj interface{}, errMsg string) {
+	inputRow *[]interface{}) (obj interface{}, errMsg string) {
 	var err error
 	var sz int
 	switch functionName {

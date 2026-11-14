@@ -89,7 +89,7 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		if c.fn == "" {
 			continue
 		}
-		got, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, c.input, 0, &row)
+		got, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, c.input, &row)
 		if errMsg != "" {
 			t.Errorf("%s(%q) on %q: %s", c.fn, c.arg, c.input, errMsg)
 			continue
@@ -109,7 +109,7 @@ func TestCheckFunctionLeavesPerRecordArguments(t *testing.T) {
 		if err := ctx.CheckFunction(fn, ""); err != nil {
 			t.Errorf("CheckFunction(%q, \"\"): %v", fn, err)
 		}
-		if _, errMsg := ctx.ApplyCleasingFunction(fn, "", "x", 0, &row); errMsg == "" {
+		if _, errMsg := ctx.ApplyCleasingFunction(fn, "", "x", &row); errMsg == "" {
 			t.Errorf("%s with no argument: expected an error on the value", fn)
 		}
 	}
@@ -142,7 +142,7 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 					t.Errorf("%s(%q) panicked: %v", c.fn, c.arg, r)
 				}
 			}()
-			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "12", 0, &row)
+			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "12", &row)
 			if errMsg == "" || obj != nil {
 				t.Errorf("%s(%q): expected an error and no value, got %#v, %q", c.fn, c.arg, obj, errMsg)
 			}

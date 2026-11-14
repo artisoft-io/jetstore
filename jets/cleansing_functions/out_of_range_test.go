@@ -15,7 +15,7 @@ func applySubstring(t *testing.T, argument, input string) (obj any, errMsg strin
 		}
 	}()
 	ctx := NewCleansingFunctionContext(&map[string]int{})
-	return ctx.ApplyCleasingFunction("substring", argument, input, 0, &[]any{input})
+	return ctx.ApplyCleasingFunction("substring", argument, input, &[]any{input})
 }
 
 func TestSubstring(t *testing.T) {
@@ -110,11 +110,11 @@ func TestSubstring(t *testing.T) {
 func TestSubstringRefusedArgumentIsNotCached(t *testing.T) {
 	ctx := NewCleansingFunctionContext(&map[string]int{})
 	for range 2 {
-		if _, errMsg := ctx.ApplyCleasingFunction("substring", "-1,3", "abcdef", 0, nil); errMsg == "" {
+		if _, errMsg := ctx.ApplyCleasingFunction("substring", "-1,3", "abcdef", nil); errMsg == "" {
 			t.Fatalf("expecting an error for a negative start")
 		}
 	}
-	if got, errMsg := ctx.ApplyCleasingFunction("substring", "1,3", "abcdef", 0, nil); errMsg != "" || got != "bc" {
+	if got, errMsg := ctx.ApplyCleasingFunction("substring", "1,3", "abcdef", nil); errMsg != "" || got != "bc" {
 		t.Errorf("got %#v, %q, want \"bc\" and no error", got, errMsg)
 	}
 }
@@ -227,7 +227,7 @@ func TestOverpunchNumberCleansingFunction(t *testing.T) {
 					t.Errorf("overpunch_number(%q) on %q panicked: %v", tt.argument, tt.input, r)
 				}
 			}()
-			got, errMsg := ctx.ApplyCleasingFunction("overpunch_number", tt.argument, tt.input, 0, nil)
+			got, errMsg := ctx.ApplyCleasingFunction("overpunch_number", tt.argument, tt.input, nil)
 			if (errMsg != "") != tt.wantErr {
 				t.Errorf("overpunch_number(%q) on %q: error %q, want error %v", tt.argument, tt.input, errMsg, tt.wantErr)
 			}
