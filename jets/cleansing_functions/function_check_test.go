@@ -53,6 +53,16 @@ func TestCheckFunctionRefuses(t *testing.T) {
 		{"format_phone", "%[4]s%s%s", "must take the area code"},
 		{"format_phone", "+1%s%s%s%", "must take the area code"},
 
+		// reformat0's format takes the number as one integer
+		{"reformat0", "%09s", "must take the number as one integer"},
+		{"reformat0", "%s", "gives '%!s(int=123)'"},
+		{"reformat0", "%f", "must take the number as one integer"},
+		{"reformat0", "%d-%d", "must take the number as one integer"},
+		{"reformat0", "000", "must take the number as one integer"},
+		{"reformat0", "%*d", "must take the number as one integer"},
+		{"reformat0", "%[2]d", "must take the number as one integer"},
+		{"reformat0", "%05d%", "must take the number as one integer"},
+
 		// overpunch_number's decimal places
 		{"overpunch_number", "x", "decimal places argument 'x' must be an integer of 0 or more"},
 		{"overpunch_number", "-1", "must be an integer of 0 or more"},
@@ -110,6 +120,13 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		{"format_phone", "%[3]s-%[1]s", "5552345678", "5678-555"},
 		{"overpunch_number", "0", "12{", "+120"},
 		{"reformat0", "%05d", "123", "00123"},
+		{"reformat0", "%09d", "12-345-678", "012345678"},
+		{"reformat0", "%02d", "7", "07"},
+		{"reformat0", "%v", "0042", "42"},
+		{"reformat0", "%x", "255", "ff"},
+		{"reformat0", "N%04d 100%%", "12", "N0012 100%"},
+		{"reformat0", "%%!%03d", "5", "%!005"},
+		{"reformat0", "%[1]d-%[1]d", "5", "5-5"},
 		{"overpunch_number", "2", "12{", "+1.20"},
 		{"apply_regex", "[0-9]+", "ab123cd", "123"},
 		{"scale_units", "1", "42", "42"},
@@ -170,6 +187,7 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 		{"scale_units", "0"},
 		{"parse_amount", "0"},
 		{"format_phone", "%s-%s"},
+		{"reformat0", "%s"},
 		{"overpunch_number", "x"},
 		{"concat", ""},
 		{"concat", "no_such_column"},
@@ -218,6 +236,12 @@ func TestCheckFunctionCachesTheParsedArgument(t *testing.T) {
 	if ctx.parsedFunctionArguments["slice_input(^,0)"] == nil {
 		t.Error("the slice argument is not cached")
 	}
+	if err := ctx.CheckFunction("reformat0", "%09d"); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.parsedFunctionArguments["reformat0(%09d)"] == nil {
+		t.Error("the reformat0 format is not cached")
+	}
 	ctx = NewCleansingFunctionContext(&map[string]int{"a": 0})
 	for _, c := range []struct{ fn, arg string }{
 		{"substring", "0,2"}, {"find_and_replace", "\"a\",\"b\""}, {"concat", "a"}, {"concat_with", "a"},
@@ -240,10 +264,10 @@ func TestCheckFunctionCachesTheParsedArgument(t *testing.T) {
 }
 
 // The start check and the record path refuse the same divisor, the same
-// phone format and the same decimal places: a map column never reaches the
-// record path with one CheckFunction refused, and a caller that skips
-// CheckFunction gets an error on the value rather than +Inf, NaN or fmt's
-// %!s(MISSING).
+// format_phone or reformat0 format and the same decimal places: a map column
+// never reaches the record path with one CheckFunction refused, and a caller
+// that skips CheckFunction gets an error on the value rather than +Inf, NaN or
+// fmt's %!s(MISSING).
 func TestCheckFunctionAndRecordPathAgree(t *testing.T) {
 	cases := []struct{ fn, arg, input string }{
 		{"scale_units", "0", "42"},
@@ -252,6 +276,9 @@ func TestCheckFunctionAndRecordPathAgree(t *testing.T) {
 		{"parse_amount", "NaN", "42"},
 		{"format_phone", "%s-%s", "5552345678"},
 		{"format_phone", "%d", "5552345678"},
+		{"reformat0", "%s", "123"},
+		{"reformat0", "%d%d", "123"},
+		{"reformat0", "%s", ""},
 		{"overpunch_number", "-1", "12{"},
 		{"overpunch_number", "two", "12{"},
 	}

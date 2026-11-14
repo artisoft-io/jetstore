@@ -61,6 +61,7 @@ var cleansingFunctions = map[string]argumentCheck{
 //   - a scale_units or parse_amount divisor that is not a number, or is 0, or
 //     is not finite;
 //   - a format_phone format that does not take the three parts of the number;
+//   - a reformat0 format that does not take the number as an integer;
 //   - an overpunch_number number of decimal places that is not an integer of 0
 //     or more;
 //   - a concat or concat_with argument that is not csv, or names a column that
@@ -101,6 +102,8 @@ func (ctx *CleansingFunctionContext) CheckFunction(functionName, argument string
 		if argument != "" {
 			err = ctx.phoneFormatArgument(argument)
 		}
+	case "reformat0":
+		err = ctx.reformat0Argument(argument)
 	case "overpunch_number":
 		_, err = decimalPlacesArgument(argument)
 	case "concat", "concat_with":
@@ -182,6 +185,41 @@ func checkPhoneFormat(format string) error {
 	if strings.Contains(out, "%!") {
 		return fmt.Errorf("format argument '%s' must take the area code, exchange code and subscriber number as three strings (%%s), it gives '%s'",
 			format, fmt.Sprintf(format, phoneFormatSample...))
+	}
+	return nil
+}
+
+// The number reformat0 gives its format, as the sample value for
+// checkReformat0Format.
+const reformat0Sample = 123
+
+// reformat0Argument checks reformat0's argument with checkReformat0Format, once
+// per context.
+func (ctx *CleansingFunctionContext) reformat0Argument(format string) error {
+	key := "reformat0(" + format + ")"
+	if ctx.parsedFunctionArguments[key] != nil {
+		return nil
+	}
+	if err := checkReformat0Format(format); err != nil {
+		return err
+	}
+	ctx.parsedFunctionArguments[key] = true
+	return nil
+}
+
+// checkReformat0Format checks reformat0's argument, an fmt.Sprintf format given
+// the value's digits as one integer. It refuses a format that fmt would flag in
+// its output: a verb that does not take an integer (%s, %f), no verb at all
+// (%!(EXTRA ...)), more than one verb (%!d(MISSING)), a bad argument index, a
+// '*' width or precision, or a trailing '%'.
+//
+// It formats a sample integer and looks for fmt's "%!" marker, as
+// checkPhoneFormat does, with a literal "%%" removed first.
+func checkReformat0Format(format string) error {
+	out := fmt.Sprintf(strings.ReplaceAll(format, "%%", ""), reformat0Sample)
+	if strings.Contains(out, "%!") {
+		return fmt.Errorf("format argument '%s' must take the number as one integer (%%d, %%09d), it gives '%s'",
+			format, fmt.Sprintf(format, reformat0Sample))
 	}
 	return nil
 }
