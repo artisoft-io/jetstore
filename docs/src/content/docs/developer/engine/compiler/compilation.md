@@ -81,6 +81,12 @@ see [Rule properties](#rule-properties).
 casts, the type is the word before the first `(` and the value is everything up to the closing `)`,
 so `text("a(b")` is the text `a(b`. A cast the compiler cannot read is a compile error at its line.
 
+**A resource name may be written with its name in quotes**, `acme:"has value"` or `rdf:"type"`, when
+the name is a keyword or holds characters a name cannot (`EscR`, `jet_rule_listener_utility.go`):
+the quotes are removed, and `acme:"has value"` names `acme:has value`. This applies to a name only.
+A string literal or a cast in a term is read as this section describes, so `text("\"x:")` is the
+text `"x:`.
+
 **A string may be written across lines**, and keeps the line breaks and the spaces and tabs around
 them: a literal opened with `"first ` on one line and closed with `   second"` on the next is the
 text `first `, a line feed, then `   second`. A line end is a line feed whether the file has LF or
@@ -94,6 +100,15 @@ and the term holding it was dropped without a message: an antecedent or a triple
 consequent or a filter lost its value. And every line was trimmed, so a literal written across lines
 lost the spaces and tabs at the end of each line and at the start of the next. Neither changes what
 a workspace that avoided both compiles to.
+
+**Changed 2026-11-14, again.** The quotes of a name written `prefix:"name"` were removed from the
+whole text of a term before it was read: an antecedent's subject, predicate and object, a
+consequent's subject and predicate, and a triple's three. So a string literal or a cast there that
+held `:"` lost every double quote, and `text("\"x:")` was the text `\x:`. A filter and a
+consequent's value were read as written. And a consequent whose subject or predicate could not be
+read, which happens when the parser recovers from a missing token as in `(?x  1)`, stopped the
+compiler with a nil pointer instead of reporting the syntax error; it is now an error at its line
+too. A workspace with no such literal compiles to the same `workspace.db`.
 
 ## Rule properties
 

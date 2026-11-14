@@ -246,3 +246,79 @@ func TestLineWithOtherWhitespaceIsStillTrimmed(t *testing.T) {
 		}
 	}
 }
+
+// A string literal or a cast holding :" is read as written. EscR, which reads
+// a resource name written prefix:"name", was applied to the whole text of an
+// antecedent's, a consequent's and a triple's terms, so every quote in such a
+// literal was removed before it was read: text("\"x:") was stored as \x:.
+func TestLiteralHoldingColonQuoteIsReadAsWritten(t *testing.T) {
+	c := compileSource(t, strings.Join([]string{
+		`[R1, o=false]: (?x rdf:type acme:A).(?x acme:"has value" text("\"x:")).(?x acme:p "a:\"b") -> (?x acme:"has value" text("\"y:"));`,
+		`triple(acme:s, acme:"has value", text("k:\"v\""));`,
+	}, "\n"))
+	m := c.JetRuleModel()
+	r1 := ruleNamed(t, m, "R1")
+	if len(r1.Antecedents) != 3 || len(r1.Consequents) != 1 {
+		t.Fatalf("R1 has %d antecedents and %d consequents, want 3 and 1", len(r1.Antecedents), len(r1.Consequents))
+	}
+	for _, tc := range []struct {
+		where string
+		key   int
+		typ   string
+		value string
+	}{
+		{"antecedent 2 predicate", r1.Antecedents[1].PredicateKey, "resource", "acme:has value"},
+		{"antecedent 2 object", r1.Antecedents[1].ObjectKey, "text", `"x:`},
+		{"antecedent 3 object", r1.Antecedents[2].ObjectKey, "text", `a:"b`},
+		{"consequent predicate", r1.Consequents[0].PredicateKey, "resource", "acme:has value"},
+	} {
+		if r := resourceByKey(m, tc.key); r == nil || r.Type != tc.typ || r.Value != tc.value {
+			t.Errorf("%s: %+v, want %s %q", tc.where, r, tc.typ, tc.value)
+		}
+	}
+	var found bool
+	for _, r := range m.Resources {
+		if r.Type == "text" && r.Value == `"y:` {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf(`the consequent's value text("\"y:") is not a text resource "y:`)
+	}
+	if len(m.Triples) != 1 {
+		t.Fatalf("%d triples, want 1", len(m.Triples))
+	}
+	tr := m.Triples[0]
+	if tr.P == nil || tr.P.Value != "acme:has value" || tr.O == nil || tr.O.Type != "text" || tr.O.Value != `k:"v"` {
+		t.Errorf("triple %+v %+v, want acme:has value and text k:\"v\"", tr.P, tr.O)
+	}
+}
+
+// A consequent whose subject or predicate cannot be read is a located compile
+// error. The parser recovers from a missing token and the listener still sees
+// the consequent, with an empty term; that term was dereferenced, and the
+// compiler panicked instead of reporting the syntax error.
+func TestConsequentWithUnreadableTermIsALocatedError(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"[R0]: (?x rdf:type acme:A) -> (?x acme:p 1);\n[R1]: (?x rdf:type acme:A) -> (?x  1);", "error in main.jr at line 2: cannot read the predicate of the consequent"},
+		{"[R0]: (?x rdf:type acme:A) -> (?x acme:p 1);\n[R1]: (?x rdf:type acme:A) -> ( acme:q 1);", "error in main.jr at line 2: cannot read the "},
+	} {
+		dir := t.TempDir()
+		write(t, dir, "main.jr", tc.src)
+		c := NewCompiler(dir, "main.jr", false, false, true)
+		c.listener.autoAddResources = true
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("%q: the compiler panicked: %v", tc.src, r)
+				}
+			}()
+			if err := c.Compile(); err == nil {
+				t.Errorf("%q compiled", tc.src)
+			}
+		}()
+		if !strings.Contains(c.ErrorLog().String(), tc.want) {
+			t.Errorf("%q: error log %q does not say %q", tc.src, c.ErrorLog().String(), tc.want)
+		}
+	}
+}

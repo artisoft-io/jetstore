@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -586,9 +587,13 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
-	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
+	// The text goes to ParseObjectAtom as written: it applies EscR to an
+	// identifier, the only atom written prefix:"name". Until 2026-11-14 EscR was
+	// applied here to the whole text, so a string literal or a cast holding :"
+	// lost its quotes before it was read, and text("\"x:") was stored as \x:.
+	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
+	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
+	O := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
 	// A nil atom is one already refused and logged — a bool literal outside
 	// the accepted spellings, or a cast to an unknown type. It used to be
 	// dereferenced here, so the same literal that is a located error in a
@@ -635,8 +640,22 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	// As in ExitAntecedent, the text goes to ParseObjectAtom as written.
+	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
+	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
+	// A subject or predicate that cannot be read is a located error. Until
+	// 2026-11-14 a nil here was dereferenced, so a consequent the parser had
+	// recovered from with a token missing, such as (?x 1), panicked the compiler
+	// instead of reporting the syntax error.
+	if S == nil || P == nil {
+		part := "subject"
+		if S != nil {
+			part = "predicate"
+		}
+		s.LogErrorAt(ctx.GetStart().GetLine(), fmt.Sprintf("cannot read the %s of the consequent %s", part, ctx.GetText()))
+		s.inProgressExpr = nil
+		return
+	}
 	ruleTerm := &rete.RuleTerm{
 		Type:         "consequent",
 		SubjectKey:   S.Key,
@@ -671,9 +690,10 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
-	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
+	// As in ExitAntecedent, the text goes to ParseObjectAtom as written.
+	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
+	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
+	O := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
 	// As in ExitAntecedent: nil is a literal already refused and logged.
 	if S == nil || P == nil || O == nil {
 		return
