@@ -62,9 +62,11 @@ export const SERVER_SECTION_DECLARATION = [
 ].join("\n");
 
 /**
- * Duplicated in `jets/datatable/wsfile/sections_test.go` and in
- * `jetsclient/test/workspace_section_contract_test.dart`, both as
- * `expectedDeclarationChecksum`. Update all three together or none.
+ * Duplicated in `jets/datatable/wsfile/sections_test.go` as
+ * `expectedDeclarationChecksum`. Update both together or neither. The third
+ * copy, in `jetsclient/test/workspace_section_contract_test.dart`, went with
+ * `jetsclient/` on 2026-08-26. A section's filters are not in the declaration,
+ * so adding `.mdx` to the `docs` section on 2026-11-13 moved neither copy.
  */
 export const EXPECTED_DECLARATION_CHECKSUM = "fnv1a32:1306f111";
 

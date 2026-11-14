@@ -45,10 +45,18 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"runbooks/health_check/recent.sql":  true,
 		"runbooks/health_check.rbr.json":    false, // a run's result is never a workspace file
 		"runbooks/health_check.rb.json.bak": false,
-		// The ninth row: the workspace guide's settings. Its pages have none.
-		"docs/workspace_docs.json":      true,
-		"docs/customisation/observe.md": false,
-		"docs/other.json":               false,
+		// The ninth row: the workspace guide's settings.
+		"docs/workspace_docs.json": true,
+		"docs/other.json":          false,
+		// The tenth and eleventh: the guide's pages, under docs/ only, and not
+		// a file Starlight's loader skips.
+		"docs/customisation/observe.md":  true,
+		"docs/index.mdx":                 true,
+		"docs/_partial.md":               false,
+		"pipes_config/README.md":         false,
+		"README.md":                      false,
+		"docs/../pipes_config/README.md": false,
+		"pipes_config/docs/README.md":    false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {

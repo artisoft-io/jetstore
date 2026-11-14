@@ -243,8 +243,16 @@ var WorkspaceSections = []Section{
 		// committed to the workspace's repository and the UI image rebuilt.
 		// Nothing compiles it. Last, so the sections before it keep their
 		// order.
+		//
+		// **`.mdx` since 2026-11-13, the same day**: the documentation build
+		// copies every file under `docs/` into the site, and its loader
+		// (Starlight's docsLoader) takes `.mdx` pages as it takes `.md` ones;
+		// the generator gives an `index.mdx` the landing page's place as it
+		// does an `index.md`. A page in either is checked on save for the
+		// front matter the build requires (validateDocsPage,
+		// jets/datatable/workspace_docs_page.go).
 		Dir: "docs", Label: "Documentation",
-		Filters: []string{".md", "workspace_docs.json"}, CompiledView: NoCompiledView,
+		Filters: []string{".md", ".mdx", "workspace_docs.json"}, CompiledView: NoCompiledView,
 	},
 }
 
@@ -285,7 +293,12 @@ const RootNoteSuffix = ".md"
 // workspace's pipelines is notes kept in its repository; a page under `docs/`
 // is the workspace guide's content, written to be edited, and the IDE is where
 // a Knowledge Engineer edits the workspace.
-var ReadOnlySuffixes = []string{".md"}
+//
+// **`.mdx` since 2026-11-13**, with the `docs` section's `.mdx` pages: no other
+// section lists it, so this only makes the save path refuse one written outside
+// `docs/` by a direct request, as it refuses a `.md`. The validator rows for the
+// two suffixes are scoped to WritableMarkdownDir, which is how both rules hold.
+var ReadOnlySuffixes = []string{".md", ".mdx"}
 
 // WritableMarkdownDir is the workspace directory whose files are saved
 // whatever ReadOnlySuffixes says: the `docs` section's pages.
@@ -300,16 +313,28 @@ const WritableMarkdownDir = "docs"
 // The path is cleaned first, so that `docs/../pipes_config/README.md` is
 // judged as the README it names rather than as a page.
 func IsReadOnly(filePath string) bool {
-	cleaned := path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
-	if strings.HasPrefix(cleaned, WritableMarkdownDir+"/") {
+	if InDir(filePath, WritableMarkdownDir) {
 		return false
 	}
+	cleaned := cleanWorkspacePath(filePath)
 	for _, suffix := range ReadOnlySuffixes {
 		if strings.HasSuffix(cleaned, suffix) {
 			return true
 		}
 	}
 	return false
+}
+
+// InDir reports whether the file at the workspace-relative filePath is in the
+// workspace directory dir or a subfolder of it, after cleaning the path as
+// IsReadOnly does: `docs/../jet_rules/a.jr` is not in `docs`.
+func InDir(filePath, dir string) bool {
+	return strings.HasPrefix(cleanWorkspacePath(filePath), dir+"/")
+}
+
+// cleanWorkspacePath is filePath with forward slashes, cleaned.
+func cleanWorkspacePath(filePath string) string {
+	return path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
 }
 
 // visitRootNotes returns a file node for each RootNoteSuffix file directly in

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -65,6 +66,23 @@ func WorkspaceControlFilePath() string {
 // between jetstore database and the local container
 // WORKSPACE Workspace default currently in use
 // WORKSPACES_HOME Home dir of workspaces
+
+// overrideRequiresCompile reports whether an override of the workspace file
+// fileName (a workspace-relative path) changes what a compile produces, so that
+// restoring it calls for one. Every file does except the workspace guide's, in
+// docs/ (wsfile.WritableMarkdownDir): nothing compiles them, and they reach the
+// installation's documentation only through the next UI image build, which reads
+// the workspace's repository (docs/scripts/workspace_docs.mjs). The path is
+// cleaned first, so `docs/../jet_rules/a.jr` still requires one.
+//
+// Its one consumer is the apiserver's start-up on a new image (server.go,
+// checkWorkspaceVersion): an override that requires a compile makes it compile
+// the workspace under a version of its own instead of taking the image's
+// compiled workspace (startupCompileVersion). The compressed and compiled files
+// (.tgz, .db) are decided before this is asked.
+func overrideRequiresCompile(fileName string) bool {
+	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir)
+}
 
 // Function to pull override workspace files from databse to the
 // container workspace (local copy).
@@ -126,6 +144,8 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 					return false, err
 				}
 			case strings.HasSuffix(fo.FileName, ".db"):
+			case !overrideRequiresCompile(fo.FileName):
+				log.Printf("override of file %s requires no compilation", fo.FileName)
 			default:
 				log.Printf("*** compilation required due to override of file %s", fo.FileName)
 				compilationRequired = true

@@ -99,6 +99,18 @@ const highlight = HighlightStyle.define([
   { tag: t.bracket, color: "var(--ink-2)" },
   { tag: t.meta, color: "var(--syn-meta)" },
   { tag: t.invalid, color: "var(--crit)" },
+  // Markdown (the `docs` section's pages): headings and emphasis by weight and
+  // style, the markup characters (`#`, `*`, `>`, backticks) dimmed.
+  { tag: t.heading, color: "var(--syn-keyword)", fontWeight: "700" },
+  { tag: t.strong, fontWeight: "700" },
+  { tag: t.emphasis, fontStyle: "italic" },
+  { tag: t.strikethrough, textDecoration: "line-through" },
+  { tag: t.link, color: "var(--syn-function)" },
+  { tag: t.url, color: "var(--syn-string)", textDecoration: "underline" },
+  { tag: t.monospace, color: "var(--syn-constant)" },
+  { tag: t.quote, color: "var(--syn-comment)", fontStyle: "italic" },
+  { tag: t.processingInstruction, color: "var(--ink-3)" },
+  { tag: t.contentSeparator, color: "var(--ink-3)" },
 ]);
 
 export const jetStoreEditorTheme: Extension = [editorTheme, syntaxHighlighting(highlight)];

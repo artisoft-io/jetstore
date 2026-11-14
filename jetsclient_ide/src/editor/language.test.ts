@@ -8,6 +8,9 @@ describe("languageNameFor", () => {
     expect(languageNameFor("data/lookups/uszips.sql")).toBe("sql");
     expect(languageNameFor("process_config/base__workspace_init_db.sql")).toBe("sql");
     expect(languageNameFor("lookups/drug_info.csv")).toBe("plain");
+    expect(languageNameFor("docs/customisation/observe.md")).toBe("markdown");
+    expect(languageNameFor("docs/index.mdx")).toBe("markdown");
+    expect(languageNameFor("pipes_config/README.md")).toBe("markdown");
   });
 
   it("ignores case", () => {
