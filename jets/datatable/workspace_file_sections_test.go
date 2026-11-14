@@ -134,7 +134,8 @@ func TestNoReadOnlyFileTypeHasAValidator(t *testing.T) {
 }
 
 func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
-	for _, name := range []string{"README.md", "pipes_config/README.md"} {
+	for _, name := range []string{"README.md", "pipes_config/README.md", "pipes_config/README.MD",
+		"README.Md", "pipes_config/notes.MDX"} {
 		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
 		}
@@ -159,6 +160,33 @@ func TestTheSavePathSavesADocsPage(t *testing.T) {
 		"pipes_config/notes.mdx"} {
 		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
+		}
+	}
+}
+
+// docs/reference/ and the pages that would take its address are the generated
+// pages' place, and the documentation build fails on a workspace whose docs/
+// holds one, so the save path refuses them, saying they are generated, with or
+// without case (2026-11-14). A page whose name only starts with reference is
+// not in that place.
+func TestTheSavePathRefusesTheGeneratedPagesPlace(t *testing.T) {
+	page := "---\ntitle: A page\ndescription: What the page is for.\nkind: explanation\n---\n"
+	for _, name := range []string{"docs/reference/index.md", "docs/reference/rules/x.md", "docs/reference.md",
+		"docs/reference.mdx", "docs/Reference/x.md", "docs/REFERENCE.MD", "./docs/reference/x.md",
+		"docs/customisation/../reference/x.md", "docs/reference/workspace_docs.json", "docs/reference"} {
+		err := checkWorkspaceFile(name, page)
+		if err == nil {
+			t.Errorf("%s: saved, want refused", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), "generated") {
+			t.Errorf("%s: %v, want a message saying the place is generated", name, err)
+		}
+	}
+	for _, name := range []string{"docs/references.md", "docs/reference-notes.md", "docs/customisation/reference.md",
+		"docs/customisation/reference/x.md"} {
+		if err := checkWorkspaceFile(name, page); err != nil {
+			t.Errorf("%s: %v, want saved", name, err)
 		}
 	}
 }

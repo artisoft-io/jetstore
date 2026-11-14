@@ -307,8 +307,16 @@ const WritableMarkdownDir = "docs"
 // IsReadOnly reports whether the IDE shows the file at filePath without saving
 // it. filePath is the workspace-relative path, `pipes_config/README.md`, with
 // forward slashes and not escaped; a bare name is a file at the root. The
-// match is by suffix, as Section.Filters are, and a file under
-// WritableMarkdownDir is never read-only.
+// match is by suffix, without case, and a file under WritableMarkdownDir is
+// never read-only.
+//
+// **Without case since 2026-11-14**: it matched as Section.Filters do, case
+// and all, so `pipes_config/README.MD` was not read-only and a direct request
+// could save it, where `README.md` was refused. The save path's other suffix
+// tests (validatorFor and the JSON check, workspace_file_validators.go) already
+// ignored case. Section.Filters still match with case: they decide what the IDE
+// lists, and the compiler and the documentation build read their files by
+// their exact suffixes.
 //
 // The path is cleaned first, so that `docs/../pipes_config/README.md` is
 // judged as the README it names rather than as a page.
@@ -316,9 +324,37 @@ func IsReadOnly(filePath string) bool {
 	if InDir(filePath, WritableMarkdownDir) {
 		return false
 	}
-	cleaned := cleanWorkspacePath(filePath)
+	cleaned := strings.ToLower(cleanWorkspacePath(filePath))
 	for _, suffix := range ReadOnlySuffixes {
-		if strings.HasSuffix(cleaned, suffix) {
+		if strings.HasSuffix(cleaned, strings.ToLower(suffix)) {
+			return true
+		}
+	}
+	return false
+}
+
+// GeneratedDocsNames are the names, directly under WritableMarkdownDir, where
+// the documentation build writes the workspace guide's generated pages: the
+// `reference/` folder, and the two pages that would take its address. The build
+// fails when the workspace's `docs/` holds one (generateWorkspaceGuide,
+// docs/scripts/workspace_docs.mjs), rather than let a generated page replace a
+// written one. Lower case: a name is matched without case, as the site's
+// addresses are lower case.
+var GeneratedDocsNames = []string{"reference", "reference.md", "reference.mdx"}
+
+// IsGeneratedDocsPath reports whether the file at the workspace-relative
+// filePath is in a place of the workspace guide's generated pages
+// (GeneratedDocsNames): `docs/reference/rules/x.md`, `docs/reference.md`, or
+// `docs/Reference/x.md`. The save path refuses such a file, since the next UI
+// image build would fail on it. Added 2026-11-14.
+func IsGeneratedDocsPath(filePath string) bool {
+	if !InDir(filePath, WritableMarkdownDir) {
+		return false
+	}
+	rel := strings.TrimPrefix(cleanWorkspacePath(filePath), WritableMarkdownDir+"/")
+	first := strings.ToLower(strings.SplitN(rel, "/", 2)[0])
+	for _, name := range GeneratedDocsNames {
+		if first == name {
 			return true
 		}
 	}
@@ -349,7 +385,8 @@ func visitRootNotes(root, workspaceName string) []*WorkspaceNode {
 	var notes []*WorkspaceNode
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, RootNoteSuffix) {
+		// Without case, as IsReadOnly matches it: a `README.MD` is a note too.
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(name), RootNoteSuffix) {
 			continue
 		}
 		var size int64
