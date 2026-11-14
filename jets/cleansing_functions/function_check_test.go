@@ -33,6 +33,17 @@ func TestCheckFunctionRefuses(t *testing.T) {
 		{"slice_input", "^,-1", "must have position >= 0"},
 		{"slice_input", "^,a,:", "expecting from (int)"},
 		{"slice_input", "^,2,:,1", "to > from"},
+
+		// A divisor of 0, or one that is not finite, would make every value
+		// +Inf, -Inf or NaN
+		{"scale_units", "0", "divisor argument '0' must be a number other than 0"},
+		{"scale_units", "0.0", "must be a number other than 0"},
+		{"scale_units", "-0", "must be a number other than 0"},
+		{"scale_units", "NaN", "must be a number other than 0"},
+		{"scale_units", "Inf", "must be a number other than 0"},
+		{"scale_units", "1e400", "is not a number"},
+		{"parse_amount", "0", "must be a number other than 0"},
+		{"parse_amount", "-Inf", "must be a number other than 0"},
 	}
 	for _, c := range cases {
 		ctx := NewCleansingFunctionContext(&map[string]int{})
@@ -70,6 +81,8 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		{"scale_units", "10", "42", "5.000000"},
 		{"parse_amount", "", "$1,234.50", "1234.50"},
 		{"parse_amount", "100", "250", "2.500000"},
+		{"parse_amount", "-100", "250", "-2.500000"},
+		{"scale_units", "0.5", "3", "6.000000"},
 		{"concat", "last", "Ann", "AnnLee"},
 		{"concat_with", "\" \",last", "Ann", "Ann Lee"},
 		{"find_and_replace", "\"a\",\"o\"", "banana", "bonono"},
@@ -132,6 +145,8 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 		{"unique_split_on", ""},
 		{"slice_input", ""},
 		{"slice_input", "^,-1"},
+		{"scale_units", "0"},
+		{"parse_amount", "0"},
 	}
 	row := []any{"12"}
 	for _, c := range cases {

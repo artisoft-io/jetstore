@@ -2,6 +2,7 @@ package cleansing_functions
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 )
@@ -61,7 +62,8 @@ var cleansingFunctions = map[string]argumentCheck{
 //   - a missing argument to apply_regex, overpunch_number, reformat0,
 //     scale_units, scrub_characters, slice_input, split_on and unique_split_on;
 //   - an apply_regex argument that is not a valid regular expression;
-//   - a scale_units or parse_amount divisor that is not a number;
+//   - a scale_units or parse_amount divisor that is not a number, or is 0, or
+//     is not finite;
 //   - a slice_input argument that does not parse.
 //
 // An empty function name means no cleansing function, and is accepted.
@@ -115,7 +117,8 @@ func (ctx *CleansingFunctionContext) regexArgument(argument string) (*regexp.Reg
 }
 
 // divisorArgument parses the divisor of scale_units and parse_amount, once per
-// context.
+// context. It refuses a divisor that is not a number, and one that is 0, NaN or
+// infinite, which would turn every value into +Inf, -Inf or NaN.
 func (ctx *CleansingFunctionContext) divisorArgument(argument string) (float64, error) {
 	if divisor, ok := ctx.argdMap[argument]; ok {
 		return divisor, nil
@@ -123,6 +126,10 @@ func (ctx *CleansingFunctionContext) divisorArgument(argument string) (float64, 
 	divisor, err := strconv.ParseFloat(argument, 64)
 	if err != nil {
 		return 0, fmt.Errorf("divisor argument '%s' is not a number", argument)
+	}
+	if divisor == 0 || math.IsNaN(divisor) || math.IsInf(divisor, 0) {
+		// Dividing by it would give +Inf, -Inf or NaN for every value
+		return 0, fmt.Errorf("divisor argument '%s' must be a number other than 0", argument)
 	}
 	ctx.argdMap[argument] = divisor
 	return divisor, nil

@@ -402,6 +402,8 @@ func TestMapCleansingFunctionCheckedWhenBuilt(t *testing.T) {
 		{"unique_split_on", "", "unique_split_on requires an argument"},
 		{"slice_input", "", "slice_input requires an argument"},
 		{"slice_input", "^,-1", "slice_input"},
+		{"scale_units", "0", "must be a number other than 0"},
+		{"parse_amount", "0", "must be a number other than 0"},
 	}
 	for _, c := range cases {
 		expr := "qty"
