@@ -153,6 +153,8 @@ give the least or greatest object of `(?s entityProperty ?o)`. `join_values` als
 | `min_of` or `max_of` with `jets:value_property` and no `jets:entity_property` | null, silently | the configuration error |
 | `sum_values` with `jets:entity_property` and no `jets:value_property` | null, silently | the configuration error |
 | `join_values` with `jets:entity_property` and no `jets:value_property` | the configuration error | the configuration error |
+| `min_of` or `max_of` with an operand that is not an existing resource | null, silently | the configuration error |
+| `sorted_head`, `sum_values` or `join_values` with an operand that is not an existing resource | the configuration error | the configuration error |
 
 **Until 2026-11-14 a literal for either property was looked up as a property**: it matched no
 triple, so the aggregate was null, and nothing said why. A `min_of` or `max_of` configuration with
@@ -162,13 +164,24 @@ both match nothing, so they were null too. **The configurations that computed a 
 same one.** Before 2026-11-13 a `sorted_head` configuration with no `jets:operator` crashed the
 process.
 
-The check is `names_a_property` and `check_aggregate_config_properties` in
-`jets/rete/expr_op_arithmetics.h`, used by `SortedHeadVisitor`, `doMinMaxOf`, `SumValuesVisitor` and
-`JoinValuesVisitor`. The cases are `ExprOpTest.SortedHeadConfigMissingAProperty` and
-`ExprOpTest.SortedHeadConfigWithALiteralProperty` in `jets/rete/expr_op_test.cc`, and
-`MinMaxOfValidConfigs`, `MinMaxOfConfigWithALiteralProperty`, `MinMaxOfConfigMissingTheEntityProperty`,
-`SumJoinValuesConfigWithALiteralProperty` and `SumValuesConfigMissingTheValueProperty` of
-`ExprOpSpecialtyTest` in `jets/rete/expr_op_specialty_test.cc`.
+**An existing resource** is one the session or the rule base holds. Every resource a rule names,
+a configuration, a property or a volatile `_0:` resource, is created when the rule base is loaded,
+before any triple is asserted, and a variable is bound to a node of a triple, so both hold one. What
+maps to nothing is a name an expression built and never asserted, such as `create_resource("x")`
+given straight to the aggregate: no triple can hold it. A resource that exists and has no triple
+is not an error: the aggregate over nothing is null, as it always was. Until 2026-11-14 `min_of` and
+`max_of` gave null for an operand that is not an existing resource; the other three threw. All five
+now throw `Invalid argument for <operator>, lhs and rhs must be existing resources`, naming both
+operands (`get_aggregate_operands`).
+
+The checks are `get_aggregate_operands`, `names_a_property` and `check_aggregate_config_properties`
+in `jets/rete/expr_op_arithmetics.h`, used by `SortedHeadVisitor`, `MinOfVisitor`, `MaxOfVisitor`,
+`doMinMaxOf`, `SumValuesVisitor` and `JoinValuesVisitor`. The cases are
+`ExprOpTest.SortedHeadConfigMissingAProperty` and `ExprOpTest.SortedHeadConfigWithALiteralProperty`
+in `jets/rete/expr_op_test.cc`, and `MinMaxOfValidConfigs`, `MinMaxOfConfigWithALiteralProperty`,
+`MinMaxOfConfigMissingTheEntityProperty`, `SumJoinValuesConfigWithALiteralProperty`,
+`SumValuesConfigMissingTheValueProperty` and `AggregateOfAnUnknownResource` of `ExprOpSpecialtyTest`
+in `jets/rete/expr_op_specialty_test.cc`.
 
 ## Values and operators — 2026-10-22
 

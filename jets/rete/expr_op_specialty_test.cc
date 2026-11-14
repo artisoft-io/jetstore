@@ -266,6 +266,51 @@ TEST_F(ExprOpSpecialtyTest, MinMaxOfConfigMissingTheEntityProperty) {
   }
 }
 
+// An operand that is not an existing resource, 2026-11-14: a name no resource of the
+// session or the rule base has. min_of and max_of gave null for it, silently; they throw
+// now, as sorted_head, sum_values and join_values did, with the same message.
+template<class Visitor>
+std::string operand_error(ReteSession * rs, char const* lhs, char const* rhs)
+{
+  Visitor op(rs, nullptr);
+  try {
+    boost::apply_visitor(op, rdf::RdfAstType(rdf::NamedResource(lhs)),
+      rdf::RdfAstType(rdf::NamedResource(rhs)));
+  } catch(jets::rete_exception const& e) {
+    return e.what();
+  }
+  return {};
+}
+
+TEST_F(ExprOpSpecialtyTest, AggregateOfAnUnknownResource) {
+  struct Operands { char const* lhs; char const* rhs; };
+  for(auto o: {Operands{"main1", "noSuchProperty"}, Operands{"noSuchEntity", "values"},
+               Operands{"noSuchEntity", "config1"}}) {
+    std::string what = std::string(o.lhs) + ", " + o.rhs;
+    auto rs = this->rete_session.get();
+    for(auto const& [op, err]: {
+          std::pair<std::string, std::string>{"min_of", operand_error<MinOfVisitor>(rs, o.lhs, o.rhs)},
+          {"max_of", operand_error<MaxOfVisitor>(rs, o.lhs, o.rhs)},
+          {"sorted_head", operand_error<SortedHeadVisitor>(rs, o.lhs, o.rhs)},
+          {"sum_values", operand_error<SumValuesVisitor>(rs, o.lhs, o.rhs)},
+          {"join_values", operand_error<JoinValuesVisitor>(rs, o.lhs, o.rhs)}}) {
+      EXPECT_NE(err.find("Invalid argument for "+op+", lhs and rhs must be existing resources"),
+        std::string::npos) << op << "(" << what << "): " << err;
+      EXPECT_NE(err.find(o.lhs), std::string::npos) << op << "(" << what << "): " << err;
+      EXPECT_NE(err.find(o.rhs), std::string::npos) << op << "(" << what << "): " << err;
+    }
+  }
+  // A resource with no triple is an existing resource: the aggregate over nothing is
+  // null, as before
+  auto rmgr = this->rdf_session->rmgr();
+  rmgr->create_resource("noTripleProperty");
+  MinOfVisitor min_op(this->rete_session.get(), nullptr);
+  MaxOfVisitor max_op(this->rete_session.get(), nullptr);
+  rdf::RdfAstType lhs(rdf::NamedResource("main1")), rhs(rdf::NamedResource("noTripleProperty"));
+  EXPECT_EQ(boost::apply_visitor(min_op, lhs, rhs), rdf::RdfAstType(rdf::RDFNull()));
+  EXPECT_EQ(boost::apply_visitor(max_op, lhs, rhs), rdf::RdfAstType(rdf::RDFNull()));
+}
+
 // sum_values and join_values read the same two properties, and refuse a literal the same
 // way. Their valid forms are the cases above and below this block.
 TEST_F(ExprOpSpecialtyTest, SumJoinValuesConfigWithALiteralProperty) {
