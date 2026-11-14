@@ -215,7 +215,8 @@ checkout's git-ignored folders and are never committed.
 
 ## How the guide is opened
 
-The guide is in the sidebar of every page of the installation's documentation, beside JetStore's three.
+The guide is in the sidebar of every page of the installation's documentation, beside JetStore's three,
+and the documentation's [landing page](/docs/) links it beside theirs, as *jets_ws guide* for `jets_ws`.
 In the [Workspace IDE](/docs/user/screens/workspace-ide/#the-workspace-guide), the **Workspace guide**
 button opens the guide's page for the file open in the editor: a data-model file's domain page, a main
 rule file's rules page, a lookup's source file's lookups page, or a file under `docs/` its own page. It
