@@ -5,6 +5,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // argumentCheck says how CheckFunction treats a cleansing function's argument.
@@ -64,6 +65,7 @@ var cleansingFunctions = map[string]argumentCheck{
 //   - an apply_regex argument that is not a valid regular expression;
 //   - a scale_units or parse_amount divisor that is not a number, or is 0, or
 //     is not finite;
+//   - a format_phone format that does not take the three parts of the number;
 //   - a slice_input argument that does not parse.
 //
 // An empty function name means no cleansing function, and is accepted.
@@ -93,6 +95,10 @@ func (ctx *CleansingFunctionContext) CheckFunction(functionName, argument string
 	case "parse_amount":
 		if argument != "" && argument != "1" {
 			_, err = ctx.divisorArgument(argument)
+		}
+	case "format_phone":
+		if argument != "" {
+			err = ctx.phoneFormatArgument(argument)
 		}
 	case "slice_input":
 		_, err = ParseSliceInputFunctionArgument(argument, functionName, ctx.parsedFunctionArguments)
@@ -133,6 +139,42 @@ func (ctx *CleansingFunctionContext) divisorArgument(argument string) (float64, 
 	}
 	ctx.argdMap[argument] = divisor
 	return divisor, nil
+}
+
+// The three parts of a phone number format_phone gives its format, as sample
+// values for checkPhoneFormat: area code, exchange code, subscriber number.
+var phoneFormatSample = []any{"555", "234", "5678"}
+
+// phoneFormatArgument checks format_phone's argument with checkPhoneFormat,
+// once per context.
+func (ctx *CleansingFunctionContext) phoneFormatArgument(format string) error {
+	key := "format_phone(" + format + ")"
+	if ctx.parsedFunctionArguments[key] != nil {
+		return nil
+	}
+	if err := checkPhoneFormat(format); err != nil {
+		return err
+	}
+	ctx.parsedFunctionArguments[key] = true
+	return nil
+}
+
+// checkPhoneFormat checks format_phone's argument, an fmt.Sprintf format given
+// the three parts of the number as strings. It refuses a format that fmt would
+// flag in its output: a verb that does not take a string (%d), fewer verbs than
+// parts (%!s(MISSING)), more parts than verbs (%!(EXTRA ...)), a bad argument
+// index, a '*' width or precision, or a trailing '%'. Explicit argument
+// indexes are accepted, so a format may reorder the parts or leave one out.
+//
+// It formats the sample parts and looks for fmt's "%!" marker. A literal "%%"
+// is removed first, so "%%!" in a format is not mistaken for the marker.
+func checkPhoneFormat(format string) error {
+	out := fmt.Sprintf(strings.ReplaceAll(format, "%%", ""), phoneFormatSample...)
+	if strings.Contains(out, "%!") {
+		return fmt.Errorf("format argument '%s' must take the area code, exchange code and subscriber number as three strings (%%s), it gives '%s'",
+			format, fmt.Sprintf(format, phoneFormatSample...))
+	}
+	return nil
 }
 
 func unknownFunction(functionName string) string {

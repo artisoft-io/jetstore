@@ -44,6 +44,14 @@ func TestCheckFunctionRefuses(t *testing.T) {
 		{"scale_units", "1e400", "is not a number"},
 		{"parse_amount", "0", "must be a number other than 0"},
 		{"parse_amount", "-Inf", "must be a number other than 0"},
+
+		// format_phone's format takes the three parts of the number as strings
+		{"format_phone", "%s-%s", "must take the area code"},
+		{"format_phone", "%s%s%s%s", "must take the area code"},
+		{"format_phone", "%d%d%d", "must take the area code"},
+		{"format_phone", "%*s%s%s", "must take the area code"},
+		{"format_phone", "%[4]s%s%s", "must take the area code"},
+		{"format_phone", "+1%s%s%s%", "must take the area code"},
 	}
 	for _, c := range cases {
 		ctx := NewCleansingFunctionContext(&map[string]int{})
@@ -74,6 +82,10 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		{"to_zipext4_from_zip9", "", "12345-6789", "6789"},
 		{"to_zipext4", "", "6789", "6789"},
 		{"format_phone", "", "(555) 234-5678", "+15552345678"},
+		{"format_phone", "(%s) %s-%s", "555.234.5678", "(555) 234-5678"},
+		{"format_phone", "%s%s%s 100%%", "5552345678", "5552345678 100%"},
+		{"format_phone", "%%!%s%s%s", "5552345678", "%!5552345678"},
+		{"format_phone", "%[3]s-%[1]s", "5552345678", "5678-555"},
 		{"reformat0", "%05d", "123", "00123"},
 		{"overpunch_number", "2", "12{", "+1.20"},
 		{"apply_regex", "[0-9]+", "ab123cd", "123"},
@@ -147,8 +159,9 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 		{"slice_input", "^,-1"},
 		{"scale_units", "0"},
 		{"parse_amount", "0"},
+		{"format_phone", "%s-%s"},
 	}
-	row := []any{"12"}
+	row := []any{"5552345678"}
 	for _, c := range cases {
 		ctx := NewCleansingFunctionContext(&map[string]int{})
 		func() {
@@ -157,7 +170,7 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 					t.Errorf("%s(%q) panicked: %v", c.fn, c.arg, r)
 				}
 			}()
-			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "12", &row)
+			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "5552345678", &row)
 			if errMsg == "" || obj != nil {
 				t.Errorf("%s(%q): expected an error and no value, got %#v, %q", c.fn, c.arg, obj, errMsg)
 			}

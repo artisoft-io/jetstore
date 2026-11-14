@@ -165,7 +165,15 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		// area_code: 3 digits, 1st digit is not 0 or 1
 		// exchange_code: 3 digits, 1st digit is not 0 or 1
 		// subscriber_nbr: 4 digits
-		// Optional function argument is fmt.Sprintf formatter, expecting 3 string arguments (area_code, exchange_code, subscriber_nbr)
+		// Optional function argument is fmt.Sprintf formatter, expecting 3 string arguments (area_code, exchange_code, subscriber_nbr),
+		// checked by CheckFunction when the evaluator is built
+		if argument != "" {
+			if err = ctx.phoneFormatArgument(argument); err != nil {
+				// configuration error, refused by CheckFunction when the evaluator is built
+				errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
+				break
+			}
+		}
 		inVal := filterDigits(inputValue)
 		if len(inVal) < 10 {
 			errMsg = "too few digits"
