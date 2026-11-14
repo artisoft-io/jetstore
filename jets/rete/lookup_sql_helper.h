@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <memory>
 #include <utility>
 #include <mutex>
@@ -45,6 +46,51 @@ std::string to_table_name(std::string const& resource_name)
   // boost::to_lower(str);
   // return str;
   return resource_name;
+}
+
+// sql_ident quotes name as an SQL identifier: in double quotes, with an embedded
+// double quote doubled. It is the reader's half of the packager's sqliteIdent
+// (jets/workspace/lookup_tables.go), which writes lookup.db's table and column
+// names this way. The reader used to write '"' + name + '"', which is the same
+// text for a name without a double quote, so every statement it builds for such
+// a name is unchanged; a name with one was packaged correctly and then failed to
+// read. A backslash is an ordinary character inside an SQL identifier.
+inline
+std::string sql_ident(std::string_view name)
+{
+  std::string out;
+  out.reserve(name.size() + 2);
+  out.push_back('"');
+  for(char c: name) {
+    if(c == '"') out.push_back('"');
+    out.push_back(c);
+  }
+  out.push_back('"');
+  return out;
+}
+
+// lookup_key_bound_sql is the statement reading one bound of a lookup table's
+// __key__, aggregate being MIN or MAX.
+inline
+std::string lookup_key_bound_sql(std::string_view aggregate, std::string_view table_name)
+{
+  std::string sql("SELECT ");
+  sql.append(aggregate).append("(__key__) FROM ").append(sql_ident(table_name));
+  return sql;
+}
+
+// lookup_select_sql is the start of the statements serving a lookup row, up to
+// and including WHERE: the columns in order, then the row's _rowid_, which
+// lookup_internal_c reads after them as jets:row_id.
+inline
+std::string lookup_select_sql(std::string_view table_name, std::vector<std::string> const& column_names)
+{
+  std::string sql("SELECT ");
+  for(auto const& name: column_names) {
+    sql.append(sql_ident(name)).append(", ");
+  }
+  sql.append("_rowid_ FROM ").append(sql_ident(table_name)).append(" WHERE ");
+  return sql;
 }
 
 inline
@@ -250,10 +296,8 @@ class LookupTable {
     // rather than assuming a base: the Go packager numbers __key__ from 1, and
     // lookup.db files built by the earlier packager number it from 0. An empty
     // table reads as [0, 0], whose one draw finds no row and gives Null.
-    sql = "SELECT MIN(__key__) FROM \"" + lookup_table_name+"\"";
-    this->min_key_ = run_count_statement(lookup_db, sql);
-    sql = "SELECT MAX(__key__) FROM \"" + lookup_table_name+"\"";
-    this->max_key_ = run_count_statement(lookup_db, sql);
+    this->min_key_ = run_count_statement(lookup_db, lookup_key_bound_sql("MIN", lookup_table_name));
+    this->max_key_ = run_count_statement(lookup_db, lookup_key_bound_sql("MAX", lookup_table_name));
     if(this->min_key_ < 0 or this->max_key_ < 0) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while getting last key of lookup table "<<lookup_table_name;
       return -1;
@@ -264,18 +308,12 @@ class LookupTable {
     this->uniform_dist_ = std::uniform_int_distribution<int>(this->min_key_, this->max_key_);
 
     // Create statement and cnx pool
-    std::ostringstream sqlb("SELECT ", std::ios_base::ate);
-    bool is_first = true;
+    std::vector<std::string> column_names;
+    column_names.reserve(this->columns_.size());
     for(auto const& colinfo: this->columns_) {
-      if(not is_first) sqlb << ", ";
-      is_first = false;
-      sqlb << "\""<< rdf::get_name(colinfo.first) << "\"";
+      column_names.push_back(rdf::get_name(colinfo.first));
     }
-    // The row's own rowid, last: served as jets:row_id (lookup_internal_c)
-    if(not is_first) sqlb << ", ";
-    sqlb << "_rowid_";
-    sqlb << " FROM \"" << lookup_table_name << "\" WHERE ";
-    auto str = sqlb.str();
+    auto str = lookup_select_sql(lookup_table_name, column_names);
     err = this->db_pool_.initialize(str+"\"jets:key\" = ?", str+"__key__ = ?");
     if(err) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while initializing DBConnectionPool";
