@@ -108,6 +108,19 @@ export interface EscapeHost {
   read(request: EndpointRequest): Promise<JetsRow[] | null>;
   /** Spinner, snackbar and alert, which the Dart keeps as three mechanisms. */
   notify(level: "info" | "error", message: string): void;
+  /**
+   * Shows a completed action's message that the user must read: the shell's
+   * status in its `warn` tone (`shell/notifications.tsx`), as the Workspace IDE
+   * shows a save the server accepted with warnings.
+   *
+   * **A member of its own rather than a third `notify` level.** `notify`'s level
+   * is also the `notify` step's, which an authored document writes, and every
+   * host maps it with `level === "error" ? setError : setStatus`, so a third
+   * value would reach those hosts as a plain confirmation without any of them
+   * failing to compile. Optional, on `navigate`'s terms: a host without it is
+   * unaffected, and an escape that wants it falls back to `notify("info", …)`.
+   */
+  warn?(message: string): void;
   setBusy(busy: boolean): void;
   /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
   close(): void;
