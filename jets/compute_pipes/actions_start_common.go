@@ -964,7 +964,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateLatestSessionOnly(cpConfig); err != nil {
 		return err
 	}
-	if err := validateNoGoEngine(cpConfig); err != nil {
+	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig)); err != nil {
 		return err
 	}
 	for i := range pipeConfig {

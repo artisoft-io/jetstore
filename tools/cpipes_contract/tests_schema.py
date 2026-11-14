@@ -333,3 +333,64 @@ def test_both_readers_refuse_a_csv_source_token_the_builder_has_no_arm_for():
     assert _schema_errors(doc)
     with pytest.raises(ValidationError):
         model.ComputePipesConfig.model_validate(doc)
+
+
+# An output table's column types are a closed list, the engine's
+# `schema.PgTypeNames`: the type is written into the table's DDL, so a type the
+# engine passed through as written could carry SQL.
+
+GO_SCHEMA = HERE.parent.parent / "jets" / "schema" / "schema.go"
+
+
+def _with_output_table(rdf_type: str | None, lookup_rdf_type: str = "double") -> dict:
+    column = {"name": "amount"}
+    if rdf_type is not None:
+        column["rdf_type"] = rdf_type
+    doc = _with_lookup({**CSV_FILE_LOOKUP, "columns": [{"name": "authored_rate", "rdf_type": lookup_rdf_type}]})
+    doc["output_tables"] = [
+        {"key": "out", "name": "public.out", "channel_spec_name": "out",
+         "columns": [{"name": "session_id", "rdf_type": "text"}, column]}
+    ]
+    return doc
+
+
+def test_output_table_types_are_the_engines():
+    """The model's list is the keys of `pgTypes` in jets/schema/schema.go."""
+    import re
+
+    source = GO_SCHEMA.read_text()
+    block = source[source.index("var pgTypes = map[string]string{"):]
+    block = block[: block.index("\n}\n")]
+    go_names = set(re.findall(r'^\s*"([^"]+)":', block, re.MULTILINE))
+    assert go_names == set(model.OUTPUT_TABLE_RDF_TYPES)
+
+
+@pytest.mark.parametrize("rdf_type", ["text", "double precision", "datetime", None])
+def test_both_readers_accept_a_known_output_table_type(rdf_type):
+    doc = _with_output_table(rdf_type)
+    assert _schema_errors(doc) == []
+    model.ComputePipesConfig.model_validate(doc)
+
+
+@pytest.mark.parametrize(
+    "rdf_type",
+    [
+        "text); UPDATE jetsapi.users SET user_email = 'x'; CREATE TABLE z (y text",
+        "text[]",
+        "numeric",
+        "TEXT",
+    ],
+)
+def test_both_readers_refuse_an_unknown_output_table_type(rdf_type):
+    doc = _with_output_table(rdf_type)
+    assert _schema_errors(doc)
+    with pytest.raises(ValidationError) as excinfo:
+        model.ComputePipesConfig.model_validate(doc)
+    assert "unknown rdf_type" in str(excinfo.value)
+
+
+def test_a_lookup_table_type_is_not_held_to_the_output_table_list():
+    """Lookup tables share the column type and are never created from it."""
+    doc = _with_output_table("text", lookup_rdf_type="float64")
+    assert _schema_errors(doc) == []
+    model.ComputePipesConfig.model_validate(doc)

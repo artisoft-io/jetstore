@@ -16,6 +16,8 @@ named on these pages without a directory is in that package.
   each, with the `render` operator and the inference operators `infer`, `ollama`, `vllm` and `embed` on pages of their own.
 - [The run manifest](/docs/developer/compute-pipes/run-manifest/): the document a completed run writes, describing each declared
   deliverable and what was written for it.
+- [Output tables](/docs/developer/compute-pipes/output-tables/): how a pipeline creates and extends the database tables it
+  writes, and the closed list of column types it accepts.
 - [Lookup tables](/docs/developer/compute-pipes/lookup-tables/): where a `sql_lookup` and an `s3_csv_lookup` load from,
   and the read-only login a `sql_lookup`'s query runs as.
 - [The rule optimizer's statistics](/docs/developer/compute-pipes/optimizer-statistics/): how a jetrules step counts what the rule

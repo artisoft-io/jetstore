@@ -15620,6 +15620,38 @@
           ],
           "default": null,
           "description": "Column metadata of the table.",
+          "items": {
+            "properties": {
+              "rdf_type": {
+                "enum": [
+                  "bigint",
+                  "bool",
+                  "boolean",
+                  "bytea",
+                  "date",
+                  "datetime",
+                  "double",
+                  "double precision",
+                  "int",
+                  "int32",
+                  "int64",
+                  "integer",
+                  "jsonb",
+                  "long",
+                  "resource",
+                  "string",
+                  "text",
+                  "timestamp without time zone",
+                  "timestamptz",
+                  "uint",
+                  "uint32",
+                  "uint64",
+                  "ulong",
+                  "volatile_resource"
+                ]
+              }
+            }
+          },
           "title": "Columns"
         },
         "comment": {

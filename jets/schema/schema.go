@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -142,23 +143,73 @@ func DoesTableExists(dbpool *pgxpool.Pool, schemaName, tableName string) (bool, 
 	return exists, err
 }
 
-func ToPgType(dt string) string {
-	switch dt {
-	case "int", "bool", "int32":
-		return "integer"
-	case "uint", "long", "ulong", "int64", "uint64", "uint32":
-		return "bigint"
-	case "double":
-		return "double precision"
-	case "resource", "volatile_resource", "text", "string":
-		return "text"
-	case "date":
-		return "date"
-	case "datetime":
-		return "timestamp without time zone"
-	default:
-		return dt
+// pgTypes is the closed set of column types a table definition may name, and
+// the PostgreSQL type each one is written as. It is the whole of what reaches the
+// DDL from a type name: CreateTable, UpdateTable and compute pipes'
+// CreateOutputTable put the mapped value in a CREATE or ALTER statement and send
+// it on the simple protocol, which accepts several statements, so a type passed
+// through as written would let whoever wrote it run SQL as the apiserver's
+// database user. A name not listed is refused.
+//
+// Three groups:
+//   - the JetRules data property types, and their compute pipes aliases;
+//   - what ToPgType returns, so mapping a mapped type again is harmless (an
+//     output table written with "double precision" keeps working);
+//   - the PostgreSQL types jets_schema.json names directly (jsonb, timestamptz,
+//     bytea, boolean), which reached the DDL as written before the list closed.
+//
+// An array is not a type name here: it is the column's own flag (IsArray in a
+// table definition, as_array in a compute pipes column), which appends ARRAY.
+var pgTypes = map[string]string{
+	"int":               "integer",
+	"int32":             "integer",
+	"bool":              "integer",
+	"uint":              "bigint",
+	"uint32":            "bigint",
+	"long":              "bigint",
+	"ulong":             "bigint",
+	"int64":             "bigint",
+	"uint64":            "bigint",
+	"double":            "double precision",
+	"resource":          "text",
+	"volatile_resource": "text",
+	"text":              "text",
+	"string":            "text",
+	"date":              "date",
+	"datetime":          "timestamp without time zone",
+	// what the names above map to
+	"integer":                     "integer",
+	"bigint":                      "bigint",
+	"double precision":            "double precision",
+	"timestamp without time zone": "timestamp without time zone",
+	// named by jets_schema.json
+	"jsonb":       "jsonb",
+	"timestamptz": "timestamptz",
+	"bytea":       "bytea",
+	"boolean":     "boolean",
+}
+
+// ToPgType returns the PostgreSQL column type for the type name dt, or an error
+// when dt is not one of the names in PgTypeNames. See pgTypes for why the list is
+// closed.
+func ToPgType(dt string) (string, error) {
+	if pgType, ok := pgTypes[dt]; ok {
+		return pgType, nil
 	}
+	if dt == "" {
+		return "", fmt.Errorf("no column type given; it must be one of %s", strings.Join(PgTypeNames(), ", "))
+	}
+	return "", fmt.Errorf("unknown column type %q; it must be one of %s", dt, strings.Join(PgTypeNames(), ", "))
+}
+
+// PgTypeNames are the type names ToPgType accepts, sorted.
+func PgTypeNames() []string {
+	names := make([]string, 0, len(pgTypes))
+	for name := range pgTypes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // TableDefinition Methods
@@ -206,6 +257,7 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	}
 	return nil
 }
+
 func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 	if dbpool == nil {
 		return errors.New("error: argument dbpool is required")
@@ -224,7 +276,7 @@ func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 // **A column or an index marked Deleted is a tombstone and is skipped here.** It
 // exists in the definition so that UpdateTable can emit the DROP that removes it
 // from a database that already has it (`UpdateTable`, the branch at
-// `jets/schema/schema.go:346`); on a fresh install there is nothing to drop, and
+// `jets/schema/schema.go:401`); on a fresh install there is nothing to drop, and
 // creating it is how a table gets a column no code writes.
 //
 // This did not test the flag until 2026-09-04, and the consequence was not
@@ -258,15 +310,8 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 			"error: table %s.%s has no column that is not marked deleted; nothing to create",
 			tableDefinition.SchemaName, tableDefinition.TableName)
 	}
-	// drop stmt
-	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
-	// fmt.Println(stmt)
-	_, err := dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while droping table: %v", err)
-	}
-
-	// create stmt
+	// The create statement is built before the existing table is dropped, so a
+	// column type ToPgType refuses leaves the table as it was.
 	var buf strings.Builder
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
 	buf.WriteString(pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
@@ -283,7 +328,11 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 		isFirst = false
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 		buf.WriteString(" ")
-		ctype := ToPgType(col.DataType)
+		ctype, err := ToPgType(col.DataType)
+		if err != nil {
+			return fmt.Errorf("error: table %s.%s, column %s: %v",
+				tableDefinition.SchemaName, tableDefinition.TableName, col.ColumnName, err)
+		}
 		if ctype == "integer" && col.IsPK && !col.IsArray {
 			buf.WriteString(" SERIAL PRIMARY KEY ")
 		} else {
@@ -317,10 +366,16 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 		buf.WriteString(idx.IndexDef)
 		buf.WriteString(" ;\n")
 	}
+	createStmt := buf.String()
+
+	// drop stmt
+	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
+	_, err := dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return fmt.Errorf("error while droping table: %v", err)
+	}
 	// Execute the statements
-	stmt = buf.String()
-	// fmt.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
+	_, err = dbpool.Exec(context.Background(), createStmt)
 	if err != nil {
 		return fmt.Errorf("error while creating table schema: %v", err)
 	}
@@ -352,7 +407,12 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString("\nADD COLUMN IF NOT EXISTS ")
 			buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 			buf.WriteString(" ")
-			buf.WriteString(ToPgType(col.DataType))
+			ctype, err := ToPgType(col.DataType)
+			if err != nil {
+				return fmt.Errorf("error: table %s.%s, column %s: %v",
+					tableDefinition.SchemaName, existingSchema.TableName, col.ColumnName, err)
+			}
+			buf.WriteString(ctype)
 			if col.IsArray {
 				buf.WriteString(" ARRAY")
 			}
@@ -402,7 +462,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			}
 			isFirst = false
 			buf.WriteString("\nDROP CONSTRAINT IF EXISTS ")
-			buf.WriteString(constaint.Name)
+			buf.WriteString(pgx.Identifier{constaint.Name}.Sanitize())
 			buf.WriteString(" ")
 		}
 	}
@@ -418,9 +478,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(" ;\n")
 		} else {
 			buf.WriteString("DROP INDEX IF EXISTS ")
-			buf.WriteString(tableDefinition.SchemaName)
-			buf.WriteString(".")
-			buf.WriteString(fmt.Sprintf("\"%s\"", idx.IndexName))
+			buf.WriteString(pgx.Identifier{tableDefinition.SchemaName, idx.IndexName}.Sanitize())
 			buf.WriteString(" ;\n")
 		}
 	}
