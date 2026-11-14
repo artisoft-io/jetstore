@@ -42,7 +42,9 @@ import { parseCompiledView, type CompiledViewDocument } from "./compiledView";
  * `provenance=` added 2026-10-27 (jetstore_maintenance_02 `AL.2`), the ninth
  * section; the Dart copy went with `jetsclient/`, so this file and the Go test
  * are the two ends now. `runbooks=` added 2026-11-06 (`runbooks` Phase 1, `AA.4`,
- * jetstore#2398), the tenth section, with no compiled view.
+ * jetstore#2398), the tenth section, with no compiled view. `docs=` added
+ * 2026-11-13, the eleventh: the workspace's documentation pages, with no
+ * compiled view.
  */
 export const SERVER_SECTION_DECLARATION = [
   "data_model=data_model",
@@ -55,6 +57,7 @@ export const SERVER_SECTION_DECLARATION = [
   "process_config=",
   "reports=",
   "runbooks=",
+  "docs=",
   "",
 ].join("\n");
 
@@ -63,7 +66,7 @@ export const SERVER_SECTION_DECLARATION = [
  * `jetsclient/test/workspace_section_contract_test.dart`, both as
  * `expectedDeclarationChecksum`. Update all three together or none.
  */
-export const EXPECTED_DECLARATION_CHECKSUM = "fnv1a32:d2805ee9";
+export const EXPECTED_DECLARATION_CHECKSUM = "fnv1a32:1306f111";
 
 /**
  * FNV-1a, 32 bit, over the UTF-8 bytes — the same function the Go and Dart sides

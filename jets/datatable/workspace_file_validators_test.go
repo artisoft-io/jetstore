@@ -45,6 +45,10 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"runbooks/health_check/recent.sql":  true,
 		"runbooks/health_check.rbr.json":    false, // a run's result is never a workspace file
 		"runbooks/health_check.rb.json.bak": false,
+		// The ninth row: the workspace guide's settings. Its pages have none.
+		"docs/workspace_docs.json":      true,
+		"docs/customisation/observe.md": false,
+		"docs/other.json":               false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -454,5 +458,33 @@ func TestRunbookGoesThroughTheSavePath(t *testing.T) {
 	// A runbook's SQL file is checked lexically, as every workspace .sql is.
 	if err := checkWorkspaceFile("runbooks/health_check/recent.sql", "SELECT 'open"); err == nil {
 		t.Fatal("an unterminated string in a runbook's SQL must not save")
+	}
+}
+
+// The ninth row: the workspace guide's settings file is refused at the save when
+// the documentation build would refuse it (readSettings,
+// docs/scripts/workspace_docs.mjs), since that fails the next UI image build.
+func TestSaveCheckRefusesWorkspaceDocsSettingsTheBuildWouldRefuse(t *testing.T) {
+	const name = "docs/workspace_docs.json"
+	for _, content := range []string{`{}`, `{"rule_text": true}`, `{"rule_text": false}`, `{"rule_text": true, "later": 1}`} {
+		if err := checkWorkspaceFile(name, content); err != nil {
+			t.Errorf("%s was refused: %v", content, err)
+		}
+	}
+	for content, want := range map[string]string{
+		`null`:                 "JSON object",
+		`[]`:                   "not a valid json",
+		`"rule_text"`:          "not a valid json",
+		`{"rule_text": "yes"}`: "/rule_text: rule_text must be true or false",
+		`{"rule_text": 1}`:     "rule_text must be true or false",
+		`{"rule_text": null}`:  "rule_text must be true or false",
+		`{"rule_text": `:       "not a valid json",
+	} {
+		err := checkWorkspaceFile(name, content)
+		if err == nil {
+			t.Errorf("%s was accepted", content)
+		} else if !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want it to contain %q", content, err, want)
+		}
 	}
 }

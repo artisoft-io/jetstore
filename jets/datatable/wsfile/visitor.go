@@ -180,14 +180,15 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 				} else {
 					size = fileInfo.Size()
 				}
-				relativeFileName := url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename))
+				workspacePath := fmt.Sprintf("%s/%s", relativeRoot, filename)
+				relativeFileName := url.QueryEscape(workspacePath)
 				children = append(children, &WorkspaceNode{
 					Key:          path,
 					Type:         "file",
 					PageMatchKey: relativeFileName,
 					Label:        filename,
 					Size:         size,
-					ReadOnly:     IsReadOnly(filename),
+					ReadOnly:     IsReadOnly(workspacePath),
 					RoutePath:    "/workspace/:workspace_name/home",
 					RouteParams: map[string]string{
 						"workspace_name": workspaceName,

@@ -80,6 +80,7 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 		"optimizer_statistics.json": "jet_rules",
 		workspace.UnitTestSuffix:    "jet_rules",
 		".rb.json":                  "runbooks",
+		"workspace_docs.json":       "docs",
 	} {
 		if got := shownBy(suffix); got != want {
 			t.Errorf("%q: shown by %q, want %q", suffix, got, want)
@@ -122,5 +123,21 @@ func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
 	// And only those: a file type with no row is still saved unchecked.
 	if err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
 		t.Errorf("jet_rules/a.jr: %v, want saved", err)
+	}
+}
+
+// A page of the workspace guide is saved, in docs/ or a subfolder of it, while
+// a README anywhere else is still refused, including one named through docs/
+// (2026-11-13, the IDE's `docs` section).
+func TestTheSavePathSavesADocsPage(t *testing.T) {
+	for _, name := range []string{"docs/index.md", "docs/customisation/observe.md"} {
+		if err := checkWorkspaceFile(name, "---\ntitle: A page\n---\n"); err != nil {
+			t.Errorf("%s: %v, want saved", name, err)
+		}
+	}
+	for _, name := range []string{"docs/../pipes_config/README.md", "pipes_config/docs/README.md"} {
+		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
+			t.Errorf("%s: saved, want refused as read-only", name)
+		}
 	}
 }

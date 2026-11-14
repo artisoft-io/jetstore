@@ -46,7 +46,9 @@ files, data values. The generated pages hold no values unless the workspace asks
 
 ## 1. Write the pages
 
-Put them in a `docs/` folder at the root of the workspace repository. **They are written exactly like
+Put them in a `docs/` folder at the root of the workspace repository; once there, they can also be
+opened, edited and saved in the *Documentation* section of the
+[Workspace IDE](/docs/user/screens/workspace-ide/#the-file-tree). **They are written exactly like
 JetStore's own pages** ([Writing the documentation](/docs/developer/contributing/documentation/)), with
 three differences in where they land:
 

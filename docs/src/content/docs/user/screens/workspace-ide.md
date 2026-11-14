@@ -44,20 +44,29 @@ open in the editor:
 
 The button is not shown when the installation's documentation has no guide to the workspace open in
 the IDE: an installation built without one, or another workspace opened here. The guide describes the
-workspace as it was compiled into the deployed image, so an edit saved here is not in it until the
-images are rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
+workspace as it was compiled into the deployed image, so an edit saved here, a page of `docs/`
+included, is not in it until it is committed to the workspace's repository and the images are
+rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## The file tree
 
 The left panel lists the workspace's files by section: *Data Model*, *Jets Rules*, *Lookups*,
-*Pipes Config*, *User Flows*, *Table Configurations*, *Process Configuration*, *Reports*, *Runbooks* and the others the workspace has, each file
+*Pipes Config*, *User Flows*, *Table Configurations*, *Process Configuration*, *Reports*, *Runbooks*,
+*Documentation* and the others the workspace has, each file
 with its size. **Filter files** narrows the tree to the names that match.
 
 - **A file** opens in a tab of the editor.
 - **The caret of a section** expands or collapses it.
 - **The name of *Data Model*, *Jets Rules* or *Lookups*** opens that section's compiled view (below),
   rather than expanding it.
+
+**Documentation** lists the workspace's `docs/` folder: the pages its people write for the
+[workspace guide](#the-workspace-guide), Markdown files in `docs/` and its subfolders, and the guide's
+settings file, `docs/workspace_docs.json`. A page opens, is edited and is saved like any other file,
+and **Workspace guide** opens that page in the guide. The section has no **Add File**: a new page is
+added in the workspace's repository. How to write a page is in
+[Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## Editing a file
 
@@ -72,11 +81,12 @@ other formats a workspace holds. A tab with unsaved changes shows a dot, and its
 The status bar shows the file's path, its language, *Read only* when it cannot be edited, its size and
 whether it is saved. Files JetStore installs into every workspace are read-only: a workspace changes
 what one of them does by extending it, as
-[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains.
+[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains. A Markdown file,
+such as the workspace's `README.md`, is read-only too, except a page under `docs/`.
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
-server then checks the file types it knows, such as user flows, table documents and SQL scripts, and
-refuses a save that would break them, saying why. A saved file becomes an **override**: it is held in
+server then checks the file types it knows, such as user flows, table documents, SQL scripts and the
+guide's `workspace_docs.json`, and refuses a save that would break them, saying why. A saved file becomes an **override**: it is held in
 the database, takes precedence over the file in the image, and appears in *Workspace Changes*.
 
 Closing a tab with unsaved changes asks first; **OK** discards them.
