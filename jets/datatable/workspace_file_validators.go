@@ -12,6 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/optstats"
+	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/runbook"
 	"github.com/artisoft-io/jetstore/jets/sqlscript"
 	"github.com/artisoft-io/jetstore/jets/userflow"
@@ -96,6 +97,13 @@ import (
 // there; it is scoped anyway, by `applies`, so that the table says which files
 // a row checks and TestNoReadOnlyFileTypeHasAValidator can keep asserting that
 // no read-only file has a validator.
+//
+// `reports/config.json` is the thirteenth (2026-11-14), the second row scoped
+// to a path and the first scoped to one file: the report directives
+// run_reports follows, checked as run_reports checks them before any report
+// runs (workspace_reports_config.go). Its suffix is `config.json`, which
+// names no file type, so the row applies to that one file and no other
+// `config.json` (isReportsConfig).
 var workspaceFileValidators = []struct {
 	suffix string
 	// applies, when set, narrows the row to the files it returns true for,
@@ -116,6 +124,7 @@ var workspaceFileValidators = []struct {
 	{".md", isDocsPage, validateDocsPage},
 	{".mdx", isDocsPage, validateDocsPage},
 	{".pc.json", nil, compute_pipes.ValidateConfigDocument},
+	{path.Base(directives.ConfigFile), isReportsConfig, validateReportsConfig},
 }
 
 // workspaceDocsSettingsFile is the workspace guide's settings file,

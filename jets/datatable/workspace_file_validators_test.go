@@ -57,6 +57,11 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"README.md":                      false,
 		"docs/../pipes_config/README.md": false,
 		"pipes_config/docs/README.md":    false,
+		// The thirteenth: the report directives, reports/config.json and no
+		// other config.json (TestReportDirectivesRowAppliesToReportsConfigOnly).
+		"reports/config.json":      true,
+		"pipes_config/config.json": false,
+		"reports/x/config.json":    false,
 	}
 	for name, want := range cases {
 		if got := validatorFor(name) != nil; got != want {
@@ -377,10 +382,12 @@ func TestSaveCheckValidatesSqlFiles(t *testing.T) {
 	t.Run("a plain .json still gets its well-formedness check", func(t *testing.T) {
 		// The JSON check stopped being the gate on the whole function; it must
 		// not have stopped being applied.
-		if _, err := checkWorkspaceFile("reports/config.json", "{ not json"); err == nil {
+		// reports/config.json was this test's plain .json until it gained a
+		// row of its own (2026-11-14).
+		if _, err := checkWorkspaceFile("reports/thresholds.json", "{ not json"); err == nil {
 			t.Error("want a malformed plain .json refused")
 		}
-		if _, err := checkWorkspaceFile("reports/config.json", `{"a": 1}`); err != nil {
+		if _, err := checkWorkspaceFile("reports/thresholds.json", `{"a": 1}`); err != nil {
 			t.Errorf("want a well-formed plain .json saved, got %v", err)
 		}
 	})

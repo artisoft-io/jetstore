@@ -65,7 +65,7 @@ func TestRunWhenMet(t *testing.T) {
 			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 10, 0, false},
 		{"output records with no component, none read",
 			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 0, 0, true},
-		// A criterion that checks nothing is refused by checkRunWhen before
+		// A criterion that checks nothing is refused by CheckRunWhen before
 		// any report runs; should one get here, it fails rather than holds.
 		{"no component and nothing to check", []RunWhenCriteria{{}}, 10, 4, false},
 		{"a value with no component", []RunWhenCriteria{{HasValue: "Acme"}}, 10, 4, false},
@@ -128,6 +128,56 @@ func TestRunWhenOnANumericComponent(t *testing.T) {
 	}
 }
 
+// A file key that carries no month has none. SplitFileKeyIntoComponents sets
+// an absent month to 1, and its callers rely on that, so runWhen reads the
+// key through runWhenComponents. Until 2026-11-14 it read the defaults, and a
+// criterion on month with hasValue "1" held for this key.
+func TestRunWhenOnADateComponentTheKeyDoesNotCarry(t *testing.T) {
+	fileKey := "client=Acme/object_type=Claim/year=2026/file.csv"
+	ca := &CommandArguments{
+		FileKey:           fileKey,
+		FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &fileKey),
+	}
+	key := ca.runWhenComponents()
+	for _, tc := range []struct {
+		name string
+		c    RunWhenCriteria
+		want bool
+	}{
+		{"month absent, hasValue the default", RunWhenCriteria{FileKeyComponent: "month", HasValue: "1"}, false},
+		{"month absent, hasValue the default with a leading zero", RunWhenCriteria{FileKeyComponent: "month", HasValue: "01"}, false},
+		{"month absent, hasNotValue the default", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "1"}, true},
+		{"month absent, hasNotValue other", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "12"}, true},
+		{"month absent, component only", RunWhenCriteria{FileKeyComponent: "month"}, false},
+		{"month absent, hasValue and hasNotValue", RunWhenCriteria{FileKeyComponent: "month", HasValue: "2", HasNotValue: "1"}, false},
+		{"day absent, hasValue the default", RunWhenCriteria{FileKeyComponent: "day", HasValue: "1"}, false},
+		{"day absent, hasNotValue the default", RunWhenCriteria{FileKeyComponent: "day", HasNotValue: "1"}, true},
+		{"year present, hasValue", RunWhenCriteria{FileKeyComponent: "year", HasValue: "2026"}, true},
+		{"year present, hasNotValue", RunWhenCriteria{FileKeyComponent: "year", HasNotValue: "2026"}, false},
+		// A component other than the three, absent, still fails the criterion.
+		{"other component absent, hasNotValue", RunWhenCriteria{FileKeyComponent: "org", HasNotValue: "x"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, why := runWhenMet([]RunWhenCriteria{tc.c}, key, unreadCounts(t))
+			if got != tc.want {
+				t.Errorf("runWhenMet = %v (%s), want %v", got, why, tc.want)
+			}
+		})
+	}
+	// The reports still read the defaults.
+	if ca.FileKeyComponents["month"] != 1 || ca.FileKeyComponents["day"] != 1 || ca.FileKeyComponents["year"] != 2026 {
+		t.Errorf("FileKeyComponents changed: year %v, month %v, day %v",
+			ca.FileKeyComponents["year"], ca.FileKeyComponents["month"], ca.FileKeyComponents["day"])
+	}
+	// A key carrying all three is read as it is.
+	full := "client=Acme/year=2026/month=01/day=01/file.csv"
+	ca = &CommandArguments{FileKey: full, FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &full)}
+	if ok, why := runWhenMet([]RunWhenCriteria{{FileKeyComponent: "month", HasValue: "1"}, {FileKeyComponent: "day", HasValue: "01"}},
+		ca.runWhenComponents(), unreadCounts(t)); !ok {
+		t.Errorf("month=01/day=01: %s", why)
+	}
+}
+
 // A runWhen criterion that checks nothing is a configuration error, refused
 // before any report runs, in reportProperties and in statementProperties.
 func TestRunWhenThatChecksNothingIsRefused(t *testing.T) {
@@ -162,8 +212,8 @@ func TestRunWhenThatChecksNothingIsRefused(t *testing.T) {
 	// decides needs the session's counts, which TestRunWhenMet covers.
 	ok := &ReportDirectives{ReportProperties: map[string]ReportProperty{
 		"thresholds.sql": {Type: "script", RunWhen: []RunWhenCriteria{{HasNonZeroOutputRecords: true}}}}}
-	if err := ok.checkRunWhen(); err != nil {
-		t.Errorf("checkRunWhen on hasOutputRecordsOnly alone: %v", err)
+	if err := ok.CheckRunWhen(); err != nil {
+		t.Errorf("CheckRunWhen on hasOutputRecordsOnly alone: %v", err)
 	}
 }
 

@@ -196,7 +196,14 @@ func main() {
 	log.Println("*** The session_id is registered AFTER the report completion during the status_update task")
 	log.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
 
-	//* MOVE THIS TO DIRECTIVE Check for special case: serverSM produced no output records, then exit silently
+	// A session that read records and wrote none runs no report: run_reports
+	// exits here, before it reads reports/config.json, whatever the directives
+	// say. So on this path (the reports state machine's ECS task, and a
+	// workstation run) a runWhen criterion's hasOutputRecordsOnly never
+	// changes the outcome; it decides only where the reports run as a lambda
+	// (cdk/jetstore_one/lambdas/run_reports, or a deployment's own), which has
+	// no such exit. Kept as it is: moving it into the directives would change
+	// what every workspace's reports do on this path.
 	if len(*sessionId) > 0 {
 		dbRecordCount, outputRecordCount := delegate.GetOutputRecordCount(dbpool, *sessionId)
 		if dbRecordCount > 0 && outputRecordCount == 0 {

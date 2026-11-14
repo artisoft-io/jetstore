@@ -212,8 +212,12 @@ var WorkspaceSections = []Section{
 		Filters: []string{"workspace_init_db.sql"}, CompiledView: NoCompiledView,
 	},
 	{
+		// `config.json` is listed by `.json` already; it is named as well
+		// (2026-11-14) because it is the report directives, a file type the
+		// save path checks (workspace_file_validators.go), and a validated
+		// type is listed by name.
 		Dir: "reports", Label: "Reports",
-		Filters: []string{".sql", ".json"}, CompiledView: NoCompiledView,
+		Filters: []string{".sql", ".json", "config.json"}, CompiledView: NoCompiledView,
 	},
 	{
 		// **Added 2026-11-06** (runbooks Phase 1, `AA.4`): a runbook,

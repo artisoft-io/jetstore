@@ -10,6 +10,41 @@ The `jets/sqlscript` package decides where a statement in a workspace SQL file e
 SQL file when it is saved, and `run_reports` runs the SQL of a workspace's `reports/` directory as
 its `reports/config.json` directs. Its sections are dated, newest first.
 
+## 2026-11-14 — `reports/config.json` is checked when it is saved, and `runWhen` reads the date a key carries
+
+**The workspace IDE now refuses to save a `reports/config.json` that `run_reports` would refuse
+before running a report.** Until this date a save checked only that the file was a JSON object, and a
+file `run_reports` cannot follow was found when a report next ran. The check is a row of the save
+path's validator table (`workspaceFileValidators`, `jets/datatable/workspace_file_validators.go`;
+the row's code is `jets/datatable/workspace_reports_config.go`), and it applies to
+`reports/config.json` and to no other `config.json` of the workspace. It refuses:
+
+- a document that does not decode into the directives, such as a `reportScripts` that is not a list
+  or a `runWhen` that is not one. `run_reports` reads the file with the same function,
+  `directives.Decode`, and stops on the same error;
+- a `runWhen` criterion that checks nothing (the section below), in any report's `reportProperties`
+  or `statementProperties`. `run_reports` checks only the report it runs, with the same function,
+  `CheckRunWhen`; the save checks every report, since each is the one some run follows. The refusal
+  names the criterion by its JSON Pointer, `/<report>/reportProperties/<file>/runWhen/<n>`.
+
+It **warns**, and saves, of every member the directives have no field for, which `run_reports`
+ignores, so that a misspelt key (`hasValu`, `reportScript`) is seen when it is written rather than as
+a setting that silently does not apply. A `description` or `comment` member is not warned of: the
+workspaces write their notes in those. On this date the four workspaces' files were all accepted, and
+carried four members the save warns of: three `type` members beside the `reportOrScript` that
+decides, and one `warning`.
+
+The directive types and the two functions moved from `jets/run_reports/delegate` into
+`jets/run_reports/directives`, which both `run_reports` and the save path import: the delegate
+imports `jets/datatable`, so the save path could not import the delegate.
+
+**`runWhen` judges `year`, `month` and `day` by what the file key carries.**
+`utils.SplitFileKeyIntoComponents` always sets the three (an absent one reads as 1970, 1 or 1), and
+its callers rely on that, so it is unchanged. `runWhen` reads the key without the ones it does not
+carry (`runWhenComponents`, `utils.FileKeyCarries`): a criterion on one the key does not carry fails,
+unless it sets only `hasNotValue`, which holds. The reports still read the defaults. None of the four
+workspaces' `runWhen` entries names one of the three, so none of them changes.
+
 ## 2026-11-14 — a report's name, statement `runWhen`, and the org a report registers
 
 A workspace's `reports/config.json` maps a report name (the process name, or the `-reportName`
@@ -17,7 +52,8 @@ argument) to the directives `run_reports` follows: which files to run (`reportSc
 file runs (`reportProperties`), how each statement of a reports file is written
 (`statementProperties`), and which tables to record in `jetsapi.input_registry` afterwards
 (`registerReport`). This section documents three parts of it; the types are `ReportDirectives` and
-its neighbours in `jets/run_reports/delegate/run_reports.go`.
+its neighbours, in `jets/run_reports/directives/directives.go` since the section above (they were in
+`jets/run_reports/delegate/run_reports.go`, which still names them).
 
 ### The tokens of a report's name
 
@@ -63,7 +99,7 @@ the other statements of its file run. Each skip is logged with the criterion tha
 
 | Field | The criterion holds when |
 |---|---|
-| `fileKeyComponent` | the file key has this component (`client`, `org`, `object_type`, or any other `name=value` part of the key). A key without it fails the criterion. A criterion may leave it out, and then checks only `hasOutputRecordsOnly` |
+| `fileKeyComponent` | the file key has this component (`client`, `org`, `object_type`, or any other `name=value` part of the key). A key without it fails the criterion, except that a key without `year`, `month` or `day` meets a criterion on it that sets only `hasNotValue` (below). A criterion may leave it out, and then checks only `hasOutputRecordsOnly` |
 | `hasValue` | when set, the component equals it |
 | `hasNotValue` | when set, the component differs from it |
 | `hasOutputRecordsOnly` | when `true`, the session also wrote output records, or read none. The counts are read once per run, from `jetsapi.pipeline_execution_details` |
@@ -72,14 +108,19 @@ the other statements of its file run. Each skip is logged with the criterion tha
 exception: `year`, `month` and `day` are numbers once the file key is read
 (`utils.SplitFileKeyIntoComponents`), and they are compared by their decimal text with `hasValue`
 or `hasNotValue` written with or without leading zeros, so `month=03` in a key equals both `"3"`
-and `"03"`. These three are always present: a key without one reads as 1970, 1 and 1, and one that
-is not a number reads as 0, so a criterion on them finds a value whatever the key says.
+and `"03"`. One that is not a number reads as 0. **A key that does not carry one of the three has no
+value for it**, so `hasValue` does not hold and `hasNotValue` does: a criterion on `month` with
+`hasValue: "1"` fails for a key with no `month=` part, and one with `hasNotValue: "1"` holds.
+*Changed 2026-11-14, in the section above:* until then `runWhen` read the three as
+`utils.SplitFileKeyIntoComponents` sets them, which is 1970, 1 and 1 for a key without them, so the
+first of those criteria held and the second failed.
 
 **A criterion that checks nothing is refused.** One with no `fileKeyComponent` and no
 `hasOutputRecordsOnly`, or with `hasValue` or `hasNotValue` and no component to compare them to, is a
 configuration error: `run_reports` fails before any report of the run, naming the entry
-(`checkRunWhen`, `jets/run_reports/delegate/run_reports.go`), and does not take it as a criterion
-that holds or fails. Only the directives of the report being run are checked.
+(`CheckRunWhen`, `jets/run_reports/directives/directives.go`), and does not take it as a criterion
+that holds or fails. Only the directives of the report being run are checked there; the IDE checks
+every report's when the file is saved (the section above).
 
 *Changed 2026-11-14, the same day as the rest of this section.* Until then a criterion always had to
 name a component: one carrying only `hasOutputRecordsOnly` had no component to find and never held,
