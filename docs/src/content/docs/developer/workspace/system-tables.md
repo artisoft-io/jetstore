@@ -63,6 +63,16 @@ The apiserver's database user needs `CREATEROLE`, as it did for `jets_reader` be
 holds a privileged attribute, or is a member of another role, stops the start with a message saying
 what to revoke.
 
+**Several JetStore databases on one cluster** share the two group roles, because roles are
+cluster-wide; each database has its own logins. Two databases may start together, and whichever
+creates a group role first wins; the other carries on with it. From PostgreSQL 16, a user that holds
+`CREATEROLE` and is not a superuser may grant only the roles it holds `ADMIN OPTION` on, which are
+the roles it created. So when the databases' apiservers connect as different users, the second
+database's apiserver stops at its start with a message naming the role and its user, and the one
+statement to run as the user that created the roles (or a superuser), such as
+`GRANT "jets_reader", "jets_ide" TO "apiserver_b" WITH ADMIN OPTION`. Before PostgreSQL 16,
+`CREATEROLE` is enough and no grant is needed.
+
 `update_db` and `run_reports` each run some steps as the apiserver's user and the workspace's SQL as
 `jets_ide`:
 
