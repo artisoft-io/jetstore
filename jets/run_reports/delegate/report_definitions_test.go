@@ -185,3 +185,70 @@ func TestReportCorpusParses(t *testing.T) {
 	t.Logf("%d files: %d parsed as reports files (%d reports), %d carry no name comments",
 		len(files), parsed, reports, notReports)
 }
+
+func TestReportOutputFormat(t *testing.T) {
+	for _, tc := range []struct{ name, declared, want string }{
+		{"out/a.csv", "", "csv"},
+		{"out/a.json", "", "json"},
+		{"out/a.parquet", "", "parquet"},
+		{"out/a", "parquet", "parquet"},
+		{"out/a.txt", "csv", "csv"},
+		// The order is the formats', as it always was: a parquet name wins over a
+		// declared csv.
+		{"out/a.parquet", "csv", "parquet"},
+		// Neither names one: refused, where it used to be logged and skipped.
+		{"update lookups", "", ""},
+		{"out/a.txt", "none", ""},
+	} {
+		if got := reportOutputFormat(tc.name, tc.declared); got != tc.want {
+			t.Errorf("reportOutputFormat(%q, %q) = %q, want %q", tc.name, tc.declared, got, tc.want)
+		}
+	}
+}
+
+// A reports file holding a statement with no output format is refused whole,
+// naming the statement, its line and the file, before any report in it runs.
+// It used to run the reports around it and skip that one with a log line, so a
+// statement written to be executed did nothing and nobody was told.
+func TestReportsFileWithNoOutputFormatIsRefused(t *testing.T) {
+	savedHome, savedPrefix := workspaceHome, wprefix
+	t.Cleanup(func() { workspaceHome, wprefix = savedHome, savedPrefix })
+	workspaceHome, wprefix = t.TempDir(), "fmt_ws"
+	if err := os.MkdirAll(filepath.Join(workspaceHome, wprefix, "reports"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := writeScript(t, "mixed.sql", `--{PROCESSNAME}/counts.csv;
+SELECT COUNT(*) FROM t;
+
+--update the lookup;
+UPDATE lk SET v = 1;
+`)
+	ca := &CommandArguments{ProcessName: "p", CurrentReportDirectives: &ReportDirectives{}}
+	// dbpool is nil: running the first report would panic, so an error here is
+	// what says the file was refused before anything in it ran.
+	err := ca.runReportsDelegate(nil, t.TempDir(), path, &[]string{})
+	if err == nil {
+		t.Fatal("runReportsDelegate: want an error for a report with no output format")
+	}
+	for _, want := range []string{"mixed.sql", "line 4", `"update the lookup"`, `reportOrScript: "script"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want it to contain %q", err, want)
+		}
+	}
+
+	// A declared outputFormat is a format: the same file is accepted by the check.
+	ca.CurrentReportDirectives.StatementProperties = map[string]StatementProperty{
+		"update the lookup": {OutputFormat: "csv"},
+	}
+	defs, err := parseReportDefinitions(`--{PROCESSNAME}/counts.csv;
+SELECT COUNT(*) FROM t;
+--update the lookup;
+SELECT 1;
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ca.checkReportFormats(path, defs); err != nil {
+		t.Errorf("checkReportFormats with a declared outputFormat: %v", err)
+	}
+}

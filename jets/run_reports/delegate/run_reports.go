@@ -439,6 +439,11 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	if err != nil {
 		return fmt.Errorf("error while reading report definitions %s: %v", reportScriptPath, err)
 	}
+	// Refuse the file before running any of it: a statement with no output
+	// format would otherwise be found only after the reports above it ran.
+	if err := ca.checkReportFormats(reportScriptPath, reports); err != nil {
+		return err
+	}
 	for i := range reports {
 		s3FileName, err := ca.DoReport(dbpool, tempDir, &reports[i].name, &reports[i].stmt)
 		if err != nil {
@@ -452,45 +457,15 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 }
 
 // The heavy lifting
-// outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
+// outputFileName is the name in the report sql file, the output file name before substitution.
+// A report with no output format is refused (reportOutputFormat).
 // dbpool is the pool the statement runs on: RunReports passes the IDE login (workspace_sql.go).
 func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outputFileName *string, sqlStmt *string) (string, error) {
 
-	name := *outputFileName
-	// Remove ':' and '.' from originalFileName
-	cleanOriginalFileName := strings.ReplaceAll(ca.OriginalFileName, ":", "_")
-	cleanOriginalFileName = strings.ReplaceAll(cleanOriginalFileName, ".", "_")
-	// Check if name contains patterns for substitutions
-	// {CLIENT} is replaced with client name obtained from command line (-client)
-	// {ORG} is repplaced by the file key org/vendor field
-	// {OBJECT_TYPE} is replace by the object_type comming from the file key
-	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
-	// {FILE_KEY}  is replaced with input file key
-	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
-	// {SESSIONID} is replaced with session_id
-	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
-	// {PROCESSNAME} is replaced with the Rule Process name
-	name = strings.ReplaceAll(name, "{CLIENT}", ca.Client)
-	name = strings.ReplaceAll(name, "{SESSIONID}", ca.SessionId)
-	name = strings.ReplaceAll(name, "{ORG}", ca.Org)
-	name = strings.ReplaceAll(name, "{OBJECT_TYPE}", ca.ObjectType)
-	name = strings.ReplaceAll(name, "{ENVIRONMENT}", ca.Environment)
-	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
-	name = strings.ReplaceAll(name, "{PROCESSNAME}", ca.ProcessName)
-	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
-	head, tail, found := strings.Cut(name, "{D:")
-	if found {
-		pattern, remainder, found := strings.Cut(tail, "}")
-		if !found {
-			return "", fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
-		}
-		y, m, d := time.Now().Date()
-		pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
-		pattern = strings.Replace(pattern, "MM", fmt.Sprintf("%02d", int(m)), 1)
-		pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
-		name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
+	name, err := ca.reportFileName(*outputFileName)
+	if err != nil {
+		return "", err
 	}
-
 	reportDirectives := *ca.CurrentReportDirectives
 	stmtProps := reportDirectives.StatementProperties[*outputFileName]
 	// when org and object_type is not provided, use values from file key
@@ -500,26 +475,20 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 	if stmtProps.ObjectType == "" {
 		stmtProps.ObjectType = ca.ObjectType
 	}
-	outputFormat := stmtProps.OutputFormat
 
 	// Determine the output format
 	// s3 file name w/ path
-	var s3FileName string
+	outputFormat := reportOutputFormat(name, stmtProps.OutputFormat)
+	if outputFormat == "" {
+		return "", errNoOutputFormat(*outputFileName)
+	}
+	s3FileName := fmt.Sprintf("%s/%s", ca.OutputPath, name)
 	var options string
-	switch {
-	case outputFormat == "parquet" || strings.HasSuffix(name, ".parquet"):
-		outputFormat = "parquet"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "csv" || strings.HasSuffix(name, ".csv"):
+	switch outputFormat {
+	case "csv":
 		options = "format CSV, HEADER"
-		outputFormat = "csv"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "json" || strings.HasSuffix(name, ".json"):
+	case "json":
 		options = "format TEXT"
-		outputFormat = "json"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	default:
-		outputFormat = "none"
 	}
 
 	// Check for substitutions in the report sql:
@@ -578,12 +547,96 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 			}
 			log.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 		}
-	default:
-		// Report not saved to s3, probably as as table (see below)
-		log.Printf("Report %s not saved to s3", *outputFileName)
 	}
 
 	return s3FileName, nil
+}
+
+// reportFileName substitutes the {TOKEN} patterns of a report's name, which is
+// the output file name relative to the report's output path.
+func (ca *CommandArguments) reportFileName(name string) (string, error) {
+	// Remove ':' and '.' from originalFileName
+	cleanOriginalFileName := strings.ReplaceAll(ca.OriginalFileName, ":", "_")
+	cleanOriginalFileName = strings.ReplaceAll(cleanOriginalFileName, ".", "_")
+	// Check if name contains patterns for substitutions
+	// {CLIENT} is replaced with client name obtained from command line (-client)
+	// {ORG} is repplaced by the file key org/vendor field
+	// {OBJECT_TYPE} is replace by the object_type comming from the file key
+	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
+	// {FILE_KEY}  is replaced with input file key
+	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
+	// {SESSIONID} is replaced with session_id
+	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+	// {PROCESSNAME} is replaced with the Rule Process name
+	name = strings.ReplaceAll(name, "{CLIENT}", ca.Client)
+	name = strings.ReplaceAll(name, "{SESSIONID}", ca.SessionId)
+	name = strings.ReplaceAll(name, "{ORG}", ca.Org)
+	name = strings.ReplaceAll(name, "{OBJECT_TYPE}", ca.ObjectType)
+	name = strings.ReplaceAll(name, "{ENVIRONMENT}", ca.Environment)
+	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
+	name = strings.ReplaceAll(name, "{PROCESSNAME}", ca.ProcessName)
+	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
+	head, tail, found := strings.Cut(name, "{D:")
+	if found {
+		pattern, remainder, found := strings.Cut(tail, "}")
+		if !found {
+			return "", fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
+		}
+		y, m, d := time.Now().Date()
+		pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
+		pattern = strings.Replace(pattern, "MM", fmt.Sprintf("%02d", int(m)), 1)
+		pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
+		name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
+	}
+	return name, nil
+}
+
+// reportOutputFormat is the format a report is written in, parquet, csv or json,
+// taken from its statementProperties entry or its file name's suffix, in that
+// order of formats. It is "" when neither names one, and such a report is
+// refused.
+//
+// That case used to be logged and skipped, so a statement written into a
+// reports file to be executed — DDL, DML, a lookup update — did nothing and
+// nobody was told. It was never an "execute" path: it was the hook for
+// `reportsAsTable`, which saved the result as a table and was removed in 2024,
+// leaving a branch that only logged. A statement to execute belongs in a file
+// declared `reportOrScript: "script"`, which runs whole.
+func reportOutputFormat(name, declared string) string {
+	switch {
+	case declared == "parquet" || strings.HasSuffix(name, ".parquet"):
+		return "parquet"
+	case declared == "csv" || strings.HasSuffix(name, ".csv"):
+		return "csv"
+	case declared == "json" || strings.HasSuffix(name, ".json"):
+		return "json"
+	}
+	return ""
+}
+
+func errNoOutputFormat(name string) error {
+	return fmt.Errorf("report %q has no output format: its name ends in neither .csv, .json nor .parquet "+
+		"and statementProperties declares no outputFormat for it; a statement to execute rather than "+
+		"export belongs in a file declared reportOrScript: \"script\" in reports/config.json", name)
+}
+
+// checkReportFormats refuses a reports file holding a report with no output
+// format, naming the report, its line and the file, before any report runs.
+func (ca *CommandArguments) checkReportFormats(reportScriptPath string, reports []reportDefinition) error {
+	var stmtProps map[string]StatementProperty
+	if ca.CurrentReportDirectives != nil {
+		stmtProps = ca.CurrentReportDirectives.StatementProperties
+	}
+	for i := range reports {
+		name, err := ca.reportFileName(reports[i].name)
+		if err != nil {
+			return fmt.Errorf("%s, line %d: %w", reportScriptPath, reports[i].line, err)
+		}
+		if reportOutputFormat(name, stmtProps[reports[i].name].OutputFormat) == "" {
+			return fmt.Errorf("%s, line %d: %w", reportScriptPath, reports[i].line, errNoOutputFormat(reports[i].name))
+		}
+	}
+	return nil
 }
 
 func RegisterReport(dbpool *pgxpool.Pool, client, org, objectType, fileKey string,
