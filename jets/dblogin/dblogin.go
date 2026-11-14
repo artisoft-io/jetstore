@@ -251,6 +251,55 @@ func ensure(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
 	return st, nil
 }
 
+// ErrNoLogins is GrantSchema's error when the group roles do not exist yet:
+// Ensure has not run on this database, and when it does it grants on every
+// schema there is, the new one included.
+var ErrNoLogins = errors.New("the restricted logins are not set up yet (Ensure has not run)")
+
+// GrantSchema gives both logins on schema what Ensure gives them on each schema
+// it finds: the same statements (readerSchemaGrants, ideSchemaGrants), then the
+// secret columns and the security tables taken back, in one transaction.
+//
+// It exists because Ensure runs at start-up and the default privileges it sets
+// cover tables created later but not schemas: a schema created at run time,
+// which UpdateTableSchema does, is otherwise out of both logins' reach until the
+// next start. It returns ErrNoLogins when Ensure has not run, so a caller that
+// may run first can log it and carry on.
+func GrantSchema(ctx context.Context, dbpool *pgxpool.Pool, schema string) error {
+	tx, err := dbpool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("while granting the restricted logins schema %s: %w", schema, err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, fmt.Sprintf("SELECT pg_advisory_xact_lock(%d)", ensureLock)); err != nil {
+		return fmt.Errorf("while granting the restricted logins schema %s: %w", schema, err)
+	}
+	var groups int
+	if err = tx.QueryRow(ctx, "SELECT count(*) FROM pg_roles WHERE rolname = ANY($1)",
+		[]string{Reader, IDE}).Scan(&groups); err != nil {
+		return fmt.Errorf("while looking for the restricted logins: %w", err)
+	}
+	if groups < 2 {
+		return ErrNoLogins
+	}
+	if err = execAll(ctx, tx, "granting "+Reader+" schema "+schema, readerSchemaGrants(schema)); err != nil {
+		return err
+	}
+	if err = execAll(ctx, tx, "granting "+IDE+" schema "+schema, ideSchemaGrants(schema)); err != nil {
+		return err
+	}
+	if err = withholdSecrets(ctx, tx); err != nil {
+		return err
+	}
+	if err = closeSecurityTables(ctx, tx); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("while granting the restricted logins schema %s: %w", schema, err)
+	}
+	return nil
+}
+
 // ensureLogin creates group (NOLOGIN) and login (a member of group and of
 // nothing else) if they do not exist, makes the current user a member of the
 // login, and sets the login's password from LoginTable, generating it the
@@ -339,14 +388,26 @@ func grantReader(ctx context.Context, tx pgx.Tx, schemas []string, ideLogin stri
 		fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE %s GRANT SELECT ON TABLES TO %s", ident(ideLogin), role),
 	}
 	for _, schema := range schemas {
-		s := ident(schema)
-		stmts = append(stmts,
-			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", s, role),
-			fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", s, role))
+		stmts = append(stmts, readerSchemaGrants(schema)...)
 	}
 	if err := execAll(ctx, tx, "granting "+Reader, stmts); err != nil {
 		return err
 	}
+	return withholdSecrets(ctx, tx)
+}
+
+// readerSchemaGrants are Reader's grants on one schema.
+func readerSchemaGrants(schema string) []string {
+	s, role := ident(schema), ident(Reader)
+	return []string{
+		fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", s, role),
+		fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", s, role),
+	}
+}
+
+// withholdSecrets takes the secret columns back from Reader, after a
+// schema-wide grant gave them.
+func withholdSecrets(ctx context.Context, tx pgx.Tx) error {
 	for table, secrets := range SecretColumns {
 		if err := withholdColumns(ctx, tx, Reader, table, secrets); err != nil {
 			return err
@@ -360,45 +421,18 @@ func grantReader(ctx context.Context, tx pgx.Tx, schemas []string, ideLogin stri
 // secret columns. It may create tables in every schema but jetsapi.
 func grantIDE(ctx context.Context, tx pgx.Tx, schemas []string) error {
 	role := ident(IDE)
-	const tablePrivileges = "SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES"
 	stmts := []string{
-		fmt.Sprintf("ALTER DEFAULT PRIVILEGES GRANT %s ON TABLES TO %s", tablePrivileges, role),
+		fmt.Sprintf("ALTER DEFAULT PRIVILEGES GRANT %s ON TABLES TO %s", ideTablePrivileges, role),
 		"ALTER DEFAULT PRIVILEGES GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO " + role,
 	}
 	for _, schema := range schemas {
-		s := ident(schema)
-		stmts = append(stmts,
-			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", s, role),
-			fmt.Sprintf("GRANT %s ON ALL TABLES IN SCHEMA %s TO %s", tablePrivileges, s, role),
-			fmt.Sprintf("REVOKE TRIGGER ON ALL TABLES IN SCHEMA %s FROM %s", s, role),
-			fmt.Sprintf("GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA %s TO %s", s, role))
-		if schema == "jetsapi" {
-			stmts = append(stmts, fmt.Sprintf("REVOKE CREATE ON SCHEMA %s FROM %s", s, role))
-		} else {
-			stmts = append(stmts, fmt.Sprintf("GRANT CREATE ON SCHEMA %s TO %s", s, role))
-		}
+		stmts = append(stmts, ideSchemaGrants(schema)...)
 	}
 	if err := execAll(ctx, tx, "granting "+IDE, stmts); err != nil {
 		return err
 	}
-	for _, table := range SecurityTables {
-		exists, err := tableExists(ctx, tx, table)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			continue
-		}
-		if _, err = tx.Exec(ctx, fmt.Sprintf("REVOKE ALL ON %s FROM %s", qualified(table), role)); err != nil {
-			return fmt.Errorf("while closing %s to %s: %w", table, IDE, err)
-		}
-		if secrets, ok := SecretColumns[table]; ok {
-			if err = withholdColumns(ctx, tx, IDE, table, secrets); err != nil {
-				return err
-			}
-		} else if _, err = tx.Exec(ctx, fmt.Sprintf("GRANT SELECT ON %s TO %s", qualified(table), role)); err != nil {
-			return fmt.Errorf("while opening %s to %s: %w", table, IDE, err)
-		}
+	if err := closeSecurityTables(ctx, tx); err != nil {
+		return err
 	}
 	// Aurora's export to S3, when the database offers it.
 	rows, err := tx.Query(ctx, `SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
@@ -418,6 +452,51 @@ func grantIDE(ctx context.Context, tx pgx.Tx, schemas []string) error {
 			fmt.Sprintf("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %s TO %s", s, role))
 	}
 	return execAll(ctx, tx, "granting "+IDE+" the export functions", stmts)
+}
+
+// ideTablePrivileges are the privileges IDE holds on the tables of its schemas.
+const ideTablePrivileges = "SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES"
+
+// ideSchemaGrants are IDE's grants on one schema: it may create tables in every
+// schema but jetsapi.
+func ideSchemaGrants(schema string) []string {
+	s, role := ident(schema), ident(IDE)
+	stmts := []string{
+		fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", s, role),
+		fmt.Sprintf("GRANT %s ON ALL TABLES IN SCHEMA %s TO %s", ideTablePrivileges, s, role),
+		fmt.Sprintf("REVOKE TRIGGER ON ALL TABLES IN SCHEMA %s FROM %s", s, role),
+		fmt.Sprintf("GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA %s TO %s", s, role),
+	}
+	if schema == "jetsapi" {
+		return append(stmts, fmt.Sprintf("REVOKE CREATE ON SCHEMA %s FROM %s", s, role))
+	}
+	return append(stmts, fmt.Sprintf("GRANT CREATE ON SCHEMA %s TO %s", s, role))
+}
+
+// closeSecurityTables takes the security tables back from IDE to a read without
+// their secret columns, after a schema-wide grant gave them.
+func closeSecurityTables(ctx context.Context, tx pgx.Tx) error {
+	role := ident(IDE)
+	for _, table := range SecurityTables {
+		exists, err := tableExists(ctx, tx, table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if _, err = tx.Exec(ctx, fmt.Sprintf("REVOKE ALL ON %s FROM %s", qualified(table), role)); err != nil {
+			return fmt.Errorf("while closing %s to %s: %w", table, IDE, err)
+		}
+		if secrets, ok := SecretColumns[table]; ok {
+			if err = withholdColumns(ctx, tx, IDE, table, secrets); err != nil {
+				return err
+			}
+		} else if _, err = tx.Exec(ctx, fmt.Sprintf("GRANT SELECT ON %s TO %s", qualified(table), role)); err != nil {
+			return fmt.Errorf("while opening %s to %s: %w", table, IDE, err)
+		}
+	}
+	return nil
 }
 
 // ownedSchemas are the schemas the current user owns, and public, less any

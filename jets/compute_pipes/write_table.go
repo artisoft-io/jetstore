@@ -143,7 +143,15 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 	copy2DbResultCh <- r
 }
 
+// PrepareOutoutTable creates the output table when it does not exist and, when
+// the spec asks for it, adds the columns it lacks. Every column type is checked
+// against the closed list of schema.ToPgType before any statement is sent: the
+// type is written into the DDL, so a type that is not one of those names is
+// refused rather than passed through (outputTableColumnType).
 func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, tableSpec *TableSpec) error {
+	if err := validateTableColumnTypes(tableSpec); err != nil {
+		return err
+	}
 	tblExists, err := schema.TableExists(dbpool, tableIdentifier[0], tableIdentifier[1])
 	if err != nil {
 		return fmt.Errorf("while verifying if output table exists: %v", err)
@@ -156,55 +164,116 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 		if err != nil {
 			return fmt.Errorf("while creating table: %v", err)
 		}
-	} else {
-		if !tableSpec.CheckSchemaChanged {
-			return nil
+		return nil
+	}
+	if !tableSpec.CheckSchemaChanged {
+		return nil
+	}
+	// Check if the input file has new headers compared to the staging table.
+	// ---------------------------------------------------------------
+	tableSchema, err := schema.GetTableSchema(dbpool, tableIdentifier[0], tableIdentifier[1])
+	if err != nil {
+		return fmt.Errorf("while querying existing table schema: %v", err)
+	}
+	existingColumns := make(map[string]bool)
+	for i := range tableSchema.Columns {
+		existingColumns[tableSchema.Columns[i].ColumnName] = true
+	}
+	// The columns to add, and only those. Passing the existing columns back to
+	// UpdateTable, as this did before, sent their PostgreSQL names (numeric,
+	// varchar...) through ToPgType, and re-emitted the table's indexes as read
+	// from pg_indexes, which already start with CREATE INDEX: the ALTER was a
+	// syntax error whenever the table had an index (the session_id one always
+	// does), and its error was not looked at, so no column was ever added.
+	var unseen []schema.ColumnDefinition
+	for i := range tableSpec.Columns {
+		c := &tableSpec.Columns[i]
+		if existingColumns[c.Name] {
+			continue
 		}
-		// Check if the input file has new headers compared to the staging table.
-		// ---------------------------------------------------------------
-		tableSchema, err := schema.GetTableSchema(dbpool, tableIdentifier[0], tableIdentifier[1])
+		pgType, err := outputTableColumnType(c)
 		if err != nil {
-			return fmt.Errorf("while querying existing table schema: %v", err)
+			return err
 		}
-		existingColumns := make(map[string]bool)
-		unseenColumns := make(map[int]bool)
-		// Make a lookup of existing column name
-		for i := range tableSchema.Columns {
-			c := &tableSchema.Columns[i]
-			existingColumns[c.ColumnName] = true
+		unseen = append(unseen, schema.ColumnDefinition{
+			ColumnName: c.Name,
+			DataType:   pgType,
+			IsArray:    c.IsArray && c.Name != "jets:key" && c.Name != "session_id",
+		})
+	}
+	switch l := len(unseen); {
+	case l > 20:
+		return fmt.Errorf("error: too many unseen columns (%d), may be wrong configuration", l)
+	case l > 0:
+		// Add unseen columns to the table. The existing definition passed here
+		// carries no constraint, so UpdateTable adds and drops none.
+		add := &schema.TableDefinition{
+			SchemaName: tableIdentifier[0],
+			TableName:  tableIdentifier[1],
+			Columns:    unseen,
 		}
-		// Make a lookup of unseen columns
-		for i := range tableSpec.Columns {
-			if !existingColumns[tableSpec.Columns[i].Name] {
-				unseenColumns[i] = true
-			}
-		}
-		switch l := len(unseenColumns); {
-		case l > 20:
-			return fmt.Errorf("error: too many unseen columns (%d), may be wrong configuration", l)
-		case l > 0:
-			// Add unseen columns to staging table
-			for c := range unseenColumns {
-				tableSchema.Columns = append(tableSchema.Columns, schema.ColumnDefinition{
-					ColumnName: tableSpec.Columns[c].Name,
-					DataType:   tableSpec.Columns[c].RdfType,
-				})
-			}
-			tableSchema.UpdateTable(dbpool, tableSchema)
+		existing := &schema.TableDefinition{SchemaName: tableIdentifier[0], TableName: tableIdentifier[1]}
+		if err = add.UpdateTable(dbpool, existing); err != nil {
+			return fmt.Errorf("while adding %d column(s) to %s: %v", l, tableIdentifier.Sanitize(), err)
 		}
 	}
 	return nil
 }
 
-// Create the Output Table
+// outputTableColumnType is the PostgreSQL type of an output table's column:
+// jets:key and session_id are always text, whatever rdf_type says, and any other
+// column's rdf_type must be one of schema.PgTypeNames.
+func outputTableColumnType(column *TableColumnSpec) (string, error) {
+	if column.Name == "jets:key" || column.Name == "session_id" {
+		return "text", nil
+	}
+	pgType, err := schema.ToPgType(column.RdfType)
+	if err != nil {
+		return "", fmt.Errorf("configuration error: output table column %q: %v", column.Name, err)
+	}
+	return pgType, nil
+}
+
+// validateTableColumnTypes refuses an output table whose columns name an
+// rdf_type outside the closed list. A column with no rdf_type is left to the
+// table creation, which needs one: an existing table that is not checked for
+// schema changes never reads it.
+func validateTableColumnTypes(tableSpec *TableSpec) error {
+	if tableSpec == nil {
+		return nil
+	}
+	for i := range tableSpec.Columns {
+		c := &tableSpec.Columns[i]
+		if c.RdfType == "" {
+			continue
+		}
+		if _, err := schema.ToPgType(c.RdfType); err != nil {
+			return fmt.Errorf("configuration error: output table %q, column %q: %v", tableSpec.Key, c.Name, err)
+		}
+	}
+	return nil
+}
+
+// validateOutputTableColumnTypes is validateTableColumnTypes over every output
+// table of the configuration, so a pipeline naming a type outside the list fails
+// when it starts, and the agentic validate tool reports it. Called from
+// ValidatePipeSpecConfig, beside validateNoGoEngine (firstError keeps that call on
+// the line it had, so the contract matrix's citations into the file stay put).
+func validateOutputTableColumnTypes(cpConfig *ComputePipesConfig) error {
+	for _, tbl := range cpConfig.OutputTables {
+		if err := validateTableColumnTypes(tbl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Create the Output Table. The statement is built, and every column type checked,
+// before the existing table is dropped. A column with as_array is created as an
+// array of its type.
 func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec *TableSpec) error {
 	if len(tableSpec.Columns) == 0 {
 		return fmt.Errorf("error: Cannot create table '%s' without column info", tableName.Sanitize())
-	}
-	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName.Sanitize())
-	_, err := dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while droping staging table %s: %v", tableName.Sanitize(), err)
 	}
 	var hasSessionId bool
 	var buf strings.Builder
@@ -224,16 +293,29 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 			hasSessionId = true
 
 		default:
-			buf.WriteString(fmt.Sprintf(" %s %s", pgx.Identifier{column.Name}.Sanitize(), schema.ToPgType(column.RdfType)))
+			pgType, err := outputTableColumnType(&column)
+			if err != nil {
+				return fmt.Errorf("while creating table %s: %v", tableName.Sanitize(), err)
+			}
+			buf.WriteString(fmt.Sprintf(" %s %s", pgx.Identifier{column.Name}.Sanitize(), pgType))
+			if column.IsArray {
+				buf.WriteString(" ARRAY")
+			}
 		}
 		if ipos < lastPos {
 			buf.WriteString(", ")
 		}
 	}
 	buf.WriteString(");")
-	stmt = buf.String()
-	log.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
+	createStmt := buf.String()
+
+	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName.Sanitize())
+	_, err := dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return fmt.Errorf("error while droping staging table %s: %v", tableName.Sanitize(), err)
+	}
+	log.Println(createStmt)
+	_, err = dbpool.Exec(context.Background(), createStmt)
 	if err != nil {
 		return fmt.Errorf("error while creating table: %v", err)
 	}
@@ -248,6 +330,16 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 		_, err = dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return fmt.Errorf("error while creating (session_id) index: %v", err)
+		}
+	}
+	return nil
+}
+
+// firstError is the first of errs that is not nil.
+func firstError(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
 		}
 	}
 	return nil

@@ -1254,11 +1254,38 @@ class TableColumnSpec(_Base):
     rdf_type: str | None = Field(default=None, description="The column's rdf type.")
 
 
+# The column types an output table may name: `schema.PgTypeNames`, the keys of
+# `pgTypes` in jets/schema/schema.go, which the engine refuses anything outside
+# (`ToPgType`, and `validateOutputTableColumnTypes` in jets/compute_pipes). The
+# type is written into the table's DDL, so the list is closed. It applies to
+# output_tables only: a lookup table's columns are never created from it.
+# tests_schema.py holds the two lists equal.
+OUTPUT_TABLE_RDF_TYPES = (
+    "bigint", "bool", "boolean", "bytea", "date", "datetime", "double",
+    "double precision", "int", "int32", "int64", "integer", "jsonb", "long",
+    "resource", "string", "text", "timestamp without time zone", "timestamptz",
+    "uint", "uint32", "uint64", "ulong", "volatile_resource",
+)
+
+
+def _output_table_rdf_types(columns):
+    """Refuse an output table column whose rdf_type is not one of
+    OUTPUT_TABLE_RDF_TYPES. A column with no rdf_type passes, as it does in the
+    engine: only creating the table needs one."""
+    for column in columns or []:
+        if column.rdf_type is not None and column.rdf_type not in OUTPUT_TABLE_RDF_TYPES:
+            raise ValueError(
+                f"output table column {column.name!r}: unknown rdf_type {column.rdf_type!r}; "
+                f"it must be one of {', '.join(OUTPUT_TABLE_RDF_TYPES)}"
+            )
+    return columns
+
+
 class TableSpec(_Base):
     """Shared configuration to load the pipeline output in JetStore DB (postgres)"""
     channel_spec_name: str | None = Field(default=None, description="ChannelSpecName specify the channel spec. Column provides metadata info")
     check_schema_changed: bool | None = Field(default=None, description="Verify whether the table schema changed before the load.")
-    columns: list[TableColumnSpec] | None = Field(default=None, description="Column metadata of the table.")
+    columns: Annotated[list[TableColumnSpec] | None, AfterValidator(_output_table_rdf_types)] = Field(default=None, description="Column metadata of the table.", json_schema_extra={"items": {"properties": {"rdf_type": {"enum": list(OUTPUT_TABLE_RDF_TYPES)}}}})
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     key: str = Field(description="Key is the table key for reference by compute pipes steps")
     name: str = Field(description="Name is the table name for reference by compute pipes steps, env var replacement used for table name (e.g., ${CLIENT}_${OBJECT_TYPE})")
