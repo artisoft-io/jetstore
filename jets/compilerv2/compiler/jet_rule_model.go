@@ -46,6 +46,12 @@ type JetRuleListener struct {
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
 	// Collected temp var nodes, collected from currentRuleVarByValue
 	collectedTempVarNodes []*rete.ResourceNode
+	// The files the main rule file includes, directly or through another
+	// included file, in the order the reader put them in the buffer: each
+	// source_file directive names one, and a name other than the main rule
+	// file's is appended the first time it is seen. workspace.db records them
+	// in main_support_files.
+	includedFiles []string
 
 	// Logs
 	parseLog *strings.Builder

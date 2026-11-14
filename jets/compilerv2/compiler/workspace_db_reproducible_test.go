@@ -28,8 +28,8 @@ func TestWorkspaceDBIsReproducible(t *testing.T) {
 	dir := t.TempDir()
 	for i := 1; i <= 8; i++ {
 		name := fmt.Sprintf("part%d.jr", i)
-		// a class, since a file is recorded in workspace_control only when
-		// something saved names it (a class, a lookup table, a rule sequence)
+		// a class, so the file is named before the includes are recorded too
+		// (every included file is recorded in workspace_control)
 		write(t, dir, name, fmt.Sprintf("class ex:C%d {\n  $base_classes = [owl:Thing],\n  $data_properties = [ex:p%d as text]\n};\n", i, i))
 		fmt.Fprintf(&imports, "import \"%s\"\n", name)
 	}
