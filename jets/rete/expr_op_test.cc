@@ -619,6 +619,80 @@ TEST_F(ExprOpTest, ReplaceCharOfVisitor2) {
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("something_that")));
 }
 
+// replace_char_of reads jets:replace_chars as UTF-8 characters (code points), not bytes.
+// Each row is jets:replace_chars, jets:replace_with, the text and the result; a result of
+// null is "<null>". "\xc3\xa9" is é and "\xc3\xa0" is à: they share the lead byte 0xC3, which
+// a byte-by-byte replacement broke.
+TEST_F(ExprOpTest, ReplaceCharOfVisitorCharacters) {
+  struct Row { std::string chars; std::string with; std::string text; std::string want; };
+  std::vector<Row> rows = {
+    // ASCII, as it always was
+    {"`' ", "_", "it's a `test`", "it_s_a__test_"},
+    {"-.", "", "1-800.555", "1800555"},
+    {"", "_", "unchanged text", "unchanged text"},
+    // the characters are replaced in turn, each over what the earlier turns produced:
+    // the "b"s inserted for "a" are then replaced by "bb" themselves
+    {"ab", "bb", "a", "bbbb"},
+    {"ba", "bb", "a", "bb"},
+    // a character outside ASCII is replaced whole, and only it: à is left as it was
+    {"\xc3\xa9", "e", "\xc3\xa9t\xc3\xa9 \xc3\xa0 Paris", "ete \xc3\xa0 Paris"},
+    {"\xc3\xa9\xc3\xa0", "", "d\xc3\xa9j\xc3\xa0 vu", "dj vu"},
+    // a replacement of more than one byte
+    {"-", "\xe2\x80\x94", "a-b", "a\xe2\x80\x94" "b"},
+    {"\xc3\xa9", "\xc3\xa8", "\xc3\xa9l\xc3\xa8ve", "\xc3\xa8l\xc3\xa8ve"},
+    // three- and four-byte characters: \xe2\x82\xac is the euro sign, \xf0\x9f\x98\x80 an emoji
+    {"\xe2\x82\xac\xf0\x9f\x98\x80", "?", "10\xe2\x82\xac \xf0\x9f\x98\x80!", "10? ?!"},
+    // jets:replace_chars that is not valid UTF-8 is a configuration error: null
+    {"\xc3", "e", "\xc3\xa9t\xc3\xa9", "<null>"},
+    {"a\xa9", "e", "abc", "<null>"},
+    {"\xc0\xaf", "e", "a/b", "<null>"},          // an overlong "/"
+    {"\xed\xa0\x80", "e", "xyz", "<null>"},      // a surrogate, U+D800
+  };
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  ReplaceCharOfVisitor op(this->rete_session.get(), nullptr);
+  for(size_t i = 0; i < rows.size(); ++i) {
+    auto const& r = rows[i];
+    auto name = "rcconfig" + std::to_string(i);
+    rdf::r_index config = rmgr->create_resource(name);
+    sess->insert(config, jr->jets__replace_chars, rmgr->create_literal(r.chars));
+    sess->insert(config, jr->jets__replace_with, rmgr->create_literal(r.with));
+    RDFTTYPE res;
+    try {
+      res = boost::apply_visitor(op, RDFTTYPE(rdf::NamedResource(name)), RDFTTYPE(rdf::LString(r.text)));
+    } catch(std::exception const& e) {
+      res = rdf::LString(std::string("threw: ") + e.what());
+    }
+    if(r.want == "<null>") {
+      EXPECT_EQ(res, RDFTTYPE(rdf::Null())) << "row " << i;
+    } else {
+      EXPECT_EQ(res, RDFTTYPE(rdf::LString(r.want))) << "row " << i;
+    }
+  }
+  // each invalid row inserted its error, which names the text (so the rows' texts differ)
+  int errors = 0;
+  for(auto itor = sess->find(jr->jets__istate, jr->jets__exception); not itor.is_end(); itor.next()) {
+    auto const& v = *itor.get_object();
+    if(v.which() == rdf::rdf_literal_string_t and
+       boost::get<rdf::LString>(v).data.find("not valid UTF-8") != std::string::npos) errors++;
+  }
+  EXPECT_EQ(errors, 4);
+}
+
+TEST_F(ExprOpTest, SplitUtf8Chars) {
+  std::vector<std::string> chars;
+  EXPECT_TRUE(split_utf8_chars("", chars));
+  EXPECT_TRUE(chars.empty());
+  EXPECT_TRUE(split_utf8_chars("a\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80", chars));
+  EXPECT_EQ(chars, (std::vector<std::string>{"a", "\xc3\xa9", "\xe2\x82\xac", "\xf0\x9f\x98\x80"}));
+  for(auto bad: {"\x80", "\xc3", "\xc3\x28", "\xc1\xbf", "\xe0\x80\xaf", "\xed\xbf\xbf",
+                 "\xf0\x80\x80\xaf", "\xf4\x90\x80\x80", "\xf5\x80\x80\x80", "\xff"}) {
+    std::vector<std::string> out;
+    EXPECT_FALSE(split_utf8_chars(bad, out)) << "a " << std::string(bad).size() << "-byte case";
+  }
+}
+
 TEST_F(ExprOpTest, RangeVisitor1) {
   auto sess = this->rete_session->rdf_session();
   auto rmgr = sess->rmgr();
@@ -839,6 +913,36 @@ TEST_F(ExprOpTest, SortedHeadBreaksATieByName) {
     }
   }
   EXPECT_GT(later_first, 0) << "no subject met the later name first: the case is not exercised";
+}
+
+// A sorted_head config missing jets:operator, jets:entity_property or jets:value_property
+// is the visitor's configuration error, a rete_exception. Until 2026-11-13 a config with
+// no jets:operator dereferenced null and crashed the process.
+TEST_F(ExprOpTest, SortedHeadConfigMissingAProperty) {
+  auto * sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  auto list = rmgr->create_resource("mlist");
+  auto weight = rmgr->create_resource("mweight");
+  auto s = rmgr->create_resource("msubject");
+  auto obj = rmgr->create_resource("mobject");
+  sess->insert(s, list, obj);
+  sess->insert(obj, weight, rmgr->create_literal(int32_t(1)));
+  struct Cfg { char const* name; bool entity; bool value; bool op; };
+  for(auto c: {Cfg{"mcfg_no_op", true, true, false}, Cfg{"mcfg_no_entity", false, true, true},
+               Cfg{"mcfg_no_value", true, false, true}, Cfg{"mcfg_empty", false, false, false}}) {
+    auto cfg = rmgr->create_resource(c.name);
+    if(c.entity) sess->insert(cfg, jr->jets__entity_property, list);
+    if(c.value) sess->insert(cfg, jr->jets__value_property, weight);
+    if(c.op) sess->insert(cfg, jr->jets__operator, rmgr->create_literal(std::string("<")));
+    SortedHeadVisitor head(this->rete_session.get(), nullptr);
+    try {
+      boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource("msubject")), RDFTTYPE(rdf::NamedResource(c.name)));
+      ADD_FAILURE() << c.name << ": no exception";
+    } catch(jets::rete_exception const& e) {
+      EXPECT_NE(std::string(e.what()).find("jets:operator"), std::string::npos) << c.name << ": " << e.what();
+    }
+  }
 }
 
 // A tie is the rules' own == (EqVisitor), not "neither is greater": an int 5 and a double

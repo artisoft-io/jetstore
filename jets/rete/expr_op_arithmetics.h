@@ -635,7 +635,9 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     // op must be text literal with value "<" or ">"
     bool err = objp==nullptr or datap==nullptr;
     bool is_min = true;
-    if(op->which() == rdf::rdf_literal_string_t) {
+    // op is null when the config has no jets:operator: the config error below, not a
+    // null dereference (until 2026-11-13 it crashed the process)
+    if(op != nullptr and op->which() == rdf::rdf_literal_string_t) {
       auto const& opv = boost::get<rdf::LString>(op)->data;
       if(opv == "<") {
         is_min = true;

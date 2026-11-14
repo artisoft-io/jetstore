@@ -39,6 +39,46 @@ retired Go engine did for the first two (`expr_operator_str_substring_of.go` at 
 it gave null for a negative `jets:from`). The rows are `ExprOpTest.SubstringOfVisitorEdges` in
 `jets/rete/expr_op_test.cc`; the operator is `SubstringOfVisitor` in `jets/rete/expr_op_strings.h`.
 
+## `replace_char_of` reads characters — 2026-11-13
+
+`(config replace_char_of ?text)` replaces, in `?text`, every occurrence of each character of the
+configuration resource's `jets:replace_chars` by its `jets:replace_with`. Both must be text; anything
+else inserts `(jets:iState jets:exception "…")` and the expression is null.
+
+| Case | Result | Example |
+|---|---|---|
+| ASCII characters | each replaced | `"-."` by `"_"` on `"1-800.555"`: `"1_800_555"` |
+| an empty `jets:replace_with` | the characters removed | `"-."` by `""` on `"1-800.555"`: `"1800555"` |
+| a character outside ASCII | that character only | `"é"` by `"e"` on `"été à Paris"`: `"ete à Paris"` |
+| a replacement of several characters | inserted as given | `"-"` by `"—"` on `"a-b"`: `"a—b"` |
+| an empty `jets:replace_chars` | the text unchanged | |
+| a `jets:replace_chars` that is not valid UTF-8 | null, and the exception | |
+
+**A character is a UTF-8 character, not a byte.** Each character of `jets:replace_chars` is
+replaced as its whole byte sequence. ASCII characters are one byte each, so ASCII behaves as it
+always has.
+
+**The characters are replaced in turn**, in the order `jets:replace_chars` gives them, each over the
+text the earlier turns produced. A later character is therefore also replaced where an earlier turn
+inserted it: `"ab"` by `"bb"` on `"a"` gives `"bbbb"`, and `"ba"` by `"bb"` gives `"bb"`.
+
+**Before 2026-11-13 `jets:replace_chars` was read byte by byte.** A character outside ASCII, such as
+`é` (bytes `0xC3 0xA9`), was replaced one byte at a time. That broke every character sharing one of
+its bytes, such as `à` (`0xC3 0xA0`), and left invalid UTF-8 behind: `"é"` by `"e"` on `"été à"`
+gave `"eetee e"` followed by a stray byte. The retired Go engine worked on characters
+(`expr_operator_str_replace_char.go` at `go-engine-final`). The rows are
+`ExprOpTest.ReplaceCharOfVisitorCharacters` in `jets/rete/expr_op_test.cc`; the operator is
+`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. `substring_of` still counts bytes, above.
+
+## `sorted_head` with an incomplete configuration — 2026-11-13
+
+`(?s sorted_head config)` needs `jets:entity_property`, `jets:value_property` and `jets:operator`
+(`"<"` or `">"`) on `config`. A configuration missing any of them, or with another operator, throws
+the operator's configuration error, which names all three and fails the session's `ExecuteRules`.
+**Before 2026-11-13 a configuration with no `jets:operator` crashed the process** instead, on a null
+dereference. The case is `ExprOpTest.SortedHeadConfigMissingAProperty`; the operator is
+`SortedHeadVisitor` in `jets/rete/expr_op_arithmetics.h`.
+
 ## Values and operators — 2026-10-22
 
 Go jetstore#2331, C++ jetstore#2333.
