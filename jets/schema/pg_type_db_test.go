@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dblogin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -112,5 +113,65 @@ func TestInjectedColumnTypeIsRefused(t *testing.T) {
 	}
 	if v != "original" || tables != 1 {
 		t.Errorf("victim.v = %q, tables domain_t and z = %d; want original, and domain_t alone", v, tables)
+	}
+}
+
+// A schema UpdateTableSchema creates is reachable by the restricted logins at
+// once, not at the apiserver's next start; and before the logins exist, the
+// table update still succeeds.
+func TestNewSchemaIsGrantedToTheLogins(t *testing.T) {
+	pool := testDB(t, "schema_pgtype_grant")
+	ctx := context.Background()
+
+	def := func(schema string) *TableDefinition {
+		return &TableDefinition{SchemaName: schema, TableName: "t", Columns: []ColumnDefinition{
+			{ColumnName: "k", DataType: "int", IsPK: true},
+			{ColumnName: "v", DataType: "text"},
+		}}
+	}
+	var groups int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pg_roles WHERE rolname IN ($1, $2)", dblogin.Reader, dblogin.IDE).Scan(&groups); err != nil {
+		t.Fatal(err)
+	}
+	if groups == 0 {
+		// The logins are cluster-wide, so this half runs only on a server no
+		// earlier test has set them up on.
+		if err := def("before_logins").UpdateTableSchema(pool, false); err != nil {
+			t.Fatalf("UpdateTableSchema before the logins exist: %v", err)
+		}
+	}
+
+	if err := dblogin.Ensure(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if err := def("added_later").UpdateTableSchema(pool, false); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, pool, "INSERT INTO added_later.t (v) VALUES ('row')")
+
+	reader, err := dblogin.Open(ctx, pool, dblogin.Reader, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	var v string
+	if err = reader.QueryRow(ctx, "SELECT v FROM added_later.t").Scan(&v); err != nil || v != "row" {
+		t.Fatalf("reader on the new schema: %q, %v", v, err)
+	}
+
+	ide, err := dblogin.Open(ctx, pool, dblogin.IDE, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ide.Close()
+	if _, err = ide.Exec(ctx, "INSERT INTO added_later.t (v) VALUES ('from the ide')"); err != nil {
+		t.Fatalf("ide login writing the new schema: %v", err)
+	}
+	if _, err = ide.Exec(ctx, "CREATE TABLE added_later.scratch (x int)"); err != nil {
+		t.Fatalf("ide login creating a table in the new schema: %v", err)
+	}
+	// And the reader still cannot write there.
+	if _, err = reader.Exec(ctx, "INSERT INTO added_later.t (v) VALUES ('no')"); err == nil {
+		t.Fatal("the reader login wrote to the new schema")
 	}
 }

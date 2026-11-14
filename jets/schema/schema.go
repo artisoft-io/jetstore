@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/dblogin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -222,11 +223,8 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 		dropExisting = false
 	}
 	// make sure the table schema exists
-	stmt := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{tableDefinition.SchemaName}.Sanitize())
-	// fmt.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while creating schema: %v", err)
+	if err = ensureSchema(dbpool, tableDefinition.SchemaName); err != nil {
+		return err
 	}
 
 	tableExists := false
@@ -258,6 +256,41 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	return nil
 }
 
+// ensureSchema creates schemaName if it does not exist and, when it did not,
+// grants the restricted logins on it what they hold on every other schema
+// (dblogin.GrantSchema). Their default privileges cover the tables created
+// later but not a schema, so without it a schema created at run time stays out
+// of their reach until the apiserver next starts and dblogin.Ensure runs.
+//
+// A failed grant does not fail the table update: the logins may not exist yet
+// (update_db's migration runs before Ensure on a new database), and the next
+// Ensure grants on every schema there is. It is logged.
+func ensureSchema(dbpool *pgxpool.Pool, schemaName string) error {
+	ctx := context.Background()
+	var exists bool
+	err := dbpool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = $1)", schemaName).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("error while looking for schema %s: %v", schemaName, err)
+	}
+	if exists {
+		return nil
+	}
+	_, err = dbpool.Exec(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{schemaName}.Sanitize()))
+	if err != nil {
+		return fmt.Errorf("error while creating schema: %v", err)
+	}
+	switch err = dblogin.GrantSchema(ctx, dbpool, schemaName); {
+	case errors.Is(err, dblogin.ErrNoLogins):
+		log.Printf("Created schema %s; %v, which grants on it when it runs", schemaName, err)
+	case err != nil:
+		log.Printf("Warning: created schema %s but could not grant the restricted logins on it, "+
+			"so they cannot reach it until the apiserver next starts: %v", schemaName, err)
+	default:
+		log.Printf("Created schema %s and granted the restricted logins on it", schemaName)
+	}
+	return nil
+}
+
 func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 	if dbpool == nil {
 		return errors.New("error: argument dbpool is required")
@@ -276,7 +309,7 @@ func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
 // **A column or an index marked Deleted is a tombstone and is skipped here.** It
 // exists in the definition so that UpdateTable can emit the DROP that removes it
 // from a database that already has it (`UpdateTable`, the branch at
-// `jets/schema/schema.go:401`); on a fresh install there is nothing to drop, and
+// `jets/schema/schema.go:434`); on a fresh install there is nothing to drop, and
 // creating it is how a table gets a column no code writes.
 //
 // This did not test the flag until 2026-09-04, and the consequence was not

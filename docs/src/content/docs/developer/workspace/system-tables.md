@@ -54,6 +54,11 @@ that may do more: a `SET ROLE` on the apiserver's own login could be undone by t
 restricting. **Table `restricted_login`** holds each login's password, generated once per database;
 only the apiserver's user may read it, and the password reaches PostgreSQL as a SCRAM verifier.
 
+Both logins reach the schemas that exist when the apiserver starts, and the tables later created in
+them. **A schema created after the start**, which the system-table migration does for a table
+whose schema does not exist yet (`UpdateTableSchema`, `jets/schema`), is granted to both as it is
+created (`dblogin.GrantSchema`); when the logins do not exist yet, the next start grants it.
+
 The apiserver's database user needs `CREATEROLE`, as it did for `jets_reader` before. A login that
 holds a privileged attribute, or is a member of another role, stops the start with a message saying
 what to revoke.
