@@ -22,7 +22,7 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		// their existing behaviour: well-formedness only, no specific validator.
 		"workspace_control.json":    false,
 		"reports/something.json":    false,
-		"pipes_config/x.pc.json":    false, // agentic_ai's row, not yet added
+		"pipes_config/x.pc.json":    true, // the twelfth row
 		"user_flows/notes.md":       false,
 		"looks_like.uf.json.backup": false,
 		"provenance/notes.json":     false,

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/runbook"
@@ -19,7 +20,7 @@ import (
 //
 // **A table rather than a chain of ifs, agreed with the agentic_ai stream before
 // either side wrote it** — recorded as Q-3 in the ui_refresh project's tracking.
-// `.uf.json` was the second structured file type and `.pc.json` is a known
+// `.uf.json` was the second structured file type and `.pc.json` was a known
 // third; two ifs would have been tolerable and three is where it should have
 // been a table.
 //
@@ -27,11 +28,18 @@ import (
 // 2026-08-23) is the fourth — added by editing this table and nothing else,
 // which is the claim the sentence above was making and this is the test of it.
 //
-// The `.pc.json` row is agentic_ai's; it is deliberately not stubbed here,
-// because a row pointing at nothing is worse than no row. **Their gap 6 closed
-// on 2026-08-18, so that row is overdue rather than scheduled** — this comment
-// said "when their gap 6 activates" for five days after it had (their I-81).
-// A note naming a future trigger goes silent when the trigger passes.
+// The `.pc.json` row was reserved here for the step-by-step startup validator
+// in jets/agentic/tools (validate_cpipes_config), and this paragraph said for
+// months that the row was overdue. **It is the twelfth row (2026-11-14), and it
+// is not that validator**: `compute_pipes.ValidateConfigDocument` refuses only
+// what certainly stops the pipeline at its start, whatever the run's
+// environment — a document that does not decode, no cluster_config, an output
+// table column type outside schema.PgTypeNames — and warns of the rest. The
+// agentic validator resolves each step in a fixed environment and flags
+// configurations that run (4 of 51 in four workspaces), so it could only warn,
+// and this path reports errors only. ValidateConfigDocument's comment has the
+// detail. A note naming a future trigger goes silent when the trigger passes,
+// which is what this one did.
 //
 // `.pv.json` is the fifth (agentic_ai's `AK.2`, 2026-09-05): a briefing
 // provenance schema, the document that says what each field of a generated
@@ -107,6 +115,7 @@ var workspaceFileValidators = []struct {
 	{workspaceDocsSettingsFile, nil, validateWorkspaceDocsSettings},
 	{".md", isDocsPage, validateDocsPage},
 	{".mdx", isDocsPage, validateDocsPage},
+	{".pc.json", nil, compute_pipes.ValidateConfigDocument},
 }
 
 // workspaceDocsSettingsFile is the workspace guide's settings file,
