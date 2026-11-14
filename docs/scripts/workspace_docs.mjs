@@ -33,6 +33,12 @@ export const WS_PUBLIC_DIR = join(REPO_ROOT, 'docs', 'public', 'workspace');
 export const WS_BASE = '/docs/workspace/';
 /** The workspace's settings file, in its docs/ folder; read, never published. */
 export const SETTINGS_FILE = 'workspace_docs.json';
+/**
+ * The names a workspace's docs/ may not hold, in lower case: the generated
+ * pages' folder, and the pages that would take its address. The IDE's save path
+ * refuses them too (wsfile.GeneratedDocsNames, jets/datatable/wsfile/sections.go).
+ */
+export const RESERVED_NAMES = ['reference', 'reference.md', 'reference.mdx'];
 
 const GENERATED_NOTE =
 	"*Generated from the workspace's compiled `workspace.db` when this site was built. " +
@@ -106,10 +112,12 @@ export function generateWorkspaceGuide({
 	const hasDocs = Boolean(docsDir) && existsSync(docsDir) && statSync(docsDir).isDirectory();
 	const settings = readSettings(hasDocs ? docsDir : undefined);
 	if (hasDocs) {
-		for (const reserved of ['reference', 'reference.md', 'reference.mdx']) {
-			if (existsSync(join(docsDir, reserved))) {
+		// Matched without case: the site's addresses are lower case, so a
+		// Reference/ folder would take the generated pages' address too.
+		for (const entry of readdirSync(docsDir)) {
+			if (RESERVED_NAMES.includes(entry.toLowerCase())) {
 				throw new Error(
-					`${join(docsDir, reserved)}: a workspace's docs/ may not hold reference/, which is the generated pages' place`,
+					`${join(docsDir, entry)}: a workspace's docs/ may not hold reference/, which is the generated pages' place`,
 				);
 			}
 		}
@@ -467,7 +475,11 @@ function copyWrittenPages(docsDir, outDir) {
 			} else if (entry.isFile() && rel !== SETTINGS_FILE) {
 				mkdirSync(dirname(join(outDir, rel)), { recursive: true });
 				cpSync(abs, join(outDir, rel));
-				if (/\.(md|mdx)$/.test(rel)) pages.push({ path: rel, url: pageUrl(rel, readFileSync(abs, 'utf8')) });
+				// A page whose name starts with _ is copied, for a page that imports
+				// it, but is not a page: Starlight's loader skips it.
+				if (/\.(md|mdx)$/.test(rel) && !entry.name.startsWith('_')) {
+					pages.push({ path: rel, url: pageUrl(rel, readFileSync(abs, 'utf8')) });
+				}
 			}
 		}
 	};
@@ -522,8 +534,38 @@ const yes = (flag) => (flag ? 'yes' : '');
 /** A count and its noun: 1 rule, 2 rules. */
 const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 const link = (text, url) => `[${text}](${url})`;
-/** A rule's anchor on its page: Astro's heading id, for an identifier. */
-const ruleAnchor = (name) => slugSegment(name);
+/** A link to a rule, at its own heading on its page. */
+const ruleLink = (r) => link(code(r.name), `${r.pageUrl}#${r.anchor}`);
+
+/**
+ * The ids of one page's headings, as Astro gives them (github-slugger): each
+ * heading's slug, and a heading whose slug an earlier one on the page has
+ * already taken gets -1, -2 and so on. Seeded with the headings above the ones
+ * being numbered; returns the function that gives the next heading its id.
+ */
+export function pageSlugger(earlier = []) {
+	const seen = new Map();
+	const slug = (text) => {
+		const base = slugSegment(text);
+		let id = base;
+		while (seen.has(id)) {
+			seen.set(base, seen.get(base) + 1);
+			id = `${base}-${seen.get(base)}`;
+		}
+		seen.set(id, 0);
+		return id;
+	};
+	for (const text of earlier) slug(text);
+	return slug;
+}
+
+/** The section headings of the generated pages that come above their rules. */
+const HEADINGS = {
+	includes: 'Files it includes',
+	writtenInMain: 'Rules written in it',
+	rules: 'Rules',
+	writtenInFile: 'Rules written in this file',
+};
 
 function fencedText(text) {
 	const s = String(text ?? '');
@@ -601,6 +643,22 @@ function planPages(model) {
 		r.pageUrl = model.rulePageUrl.get(r.fileKey) ?? model.domainPageUrl.get(r.fileKey);
 		if (!model.rulesByFile.has(r.fileKey)) model.rulesByFile.set(r.fileKey, []);
 		model.rulesByFile.get(r.fileKey).push(r);
+	}
+	// Each rule's anchor: its heading's id on its page, which the headings above
+	// it decide. A name written twice in one file is two rules and two headings,
+	// and the second heading's id is the name's with -1, so each is linked to
+	// its own. The headings above a file's rules are those its page writes
+	// first: writeRulePages and writeDomainPages, with HEADINGS.
+	const mainKeys = new Set(model.mains.map((m) => m.key));
+	for (const [fileKey, rules] of model.rulesByFile) {
+		let earlier;
+		if (mainKeys.has(fileKey)) earlier = [HEADINGS.includes, HEADINGS.writtenInMain];
+		else if (model.rulePageUrl.has(fileKey)) earlier = [HEADINGS.rules];
+		else if (model.domainPageUrl.has(fileKey))
+			earlier = [...classFile.get(fileKey).map((c) => c.name), HEADINGS.writtenInFile];
+		else continue;
+		const slug = pageSlugger(earlier);
+		for (const r of rules) r.anchor = slug(r.name);
 	}
 	// The main rule files that include each file, in main rule file order.
 	model.includedBy = new Map();
@@ -711,12 +769,12 @@ function domainRulesSection(ctx, fileKey) {
 	if (!rules.length) return [];
 	const own = model.rulePageUrl.get(fileKey);
 	if (own) {
-		return ['## Rules written in this file', `The ${count(rules.length, 'rule')} written in this file are on ${link('its rules page', own)}.`];
+		return [`## ${HEADINGS.writtenInFile}`, `The ${count(rules.length, 'rule')} written in this file are on ${link('its rules page', own)}.`];
 	}
 	const generated = rules.filter((r) => r.generated).length;
 	const runsUnder = model.includedBy.get(fileKey) ?? [];
 	return [
-		'## Rules written in this file',
+		`## ${HEADINGS.writtenInFile}`,
 		`${count(rules.length, 'rule')} ${rules.length === 1 ? 'is' : 'are'} written in this file` +
 			(generated
 				? `, ${generated} of them generated by the compiler: ${code('ci_<class>')}, for a class declared here, gives ` +
@@ -746,7 +804,7 @@ function writeLookupsPage({ model }, write) {
 				...new Set([...(model.readers.byLookup.get(l.name) ?? [])].map((k) => model.ruleOfRow.get(k)).filter(Boolean)),
 			];
 			readers = rules.length
-				? rules.map((r) => (r.pageUrl ? link(code(r.name), `${r.pageUrl}#${ruleAnchor(r.name)}`) : code(r.name))).join(', ')
+				? rules.map((r) => (r.pageUrl && r.anchor ? ruleLink(r) : code(r.name))).join(', ')
 				: 'none found';
 		}
 		const file = model.fileName.get(l.source_file_key);
@@ -878,7 +936,7 @@ function missingDescriptions(rules, heading) {
 	if (!missing.length) return [];
 	return [
 		`${heading} Rules with no description`,
-		missing.map((r) => `- ${link(code(r.name), `${r.pageUrl}#${ruleAnchor(r.name)}`)}`).join('\n'),
+		missing.map((r) => `- ${ruleLink(r)}`).join('\n'),
 	];
 }
 
@@ -902,7 +960,7 @@ function writeRulePages(ctx, write, lookupsUrl) {
 			`The main rule file ${code(path)} runs ${count(runs, 'rule')}: ${rules.length} written in it, ${described(rules)} of ` +
 				'them with a description, and the rest written in the files it includes, on their pages.' +
 				(includedBy.length ? ` It is itself included by ${mainLinks(model, includedBy)}.` : ''),
-			'## Files it includes',
+			`## ${HEADINGS.includes}`,
 			includes.length
 				? 'In the order the compiler read them, with the number of rules written in each:\n\n' +
 					includes
@@ -912,7 +970,7 @@ function writeRulePages(ctx, write, lookupsUrl) {
 						})
 						.join('\n')
 				: 'None.',
-			'## Rules written in it',
+			`## ${HEADINGS.writtenInMain}`,
 			rules.length
 				? 'Each rule with its description, its salience and its other properties. Each runs under this main rule file' +
 					(includedBy.length ? ' and those that include it' : '') +
@@ -951,7 +1009,7 @@ function writeRulePages(ctx, write, lookupsUrl) {
 				(includedBy.length
 					? `It is included by ${count(includedBy.length, 'main rule file')}, and its rules run under each, unless a rule says otherwise: ${mainLinks(model, includedBy)}. Their pages list their unit tests.`
 					: 'No main rule file includes it.'),
-			'## Rules',
+			`## ${HEADINGS.rules}`,
 			rules.length ? 'Each rule with its description, its salience and its other properties.' : 'No rule is written in this file.',
 			...rules.map((r) => renderRule(r, ctx, includedBy)),
 			...missingDescriptions(rules, '##'),

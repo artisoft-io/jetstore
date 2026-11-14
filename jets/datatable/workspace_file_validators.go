@@ -212,6 +212,15 @@ func checkWorkspaceFile(fileName, content string) error {
 	if wsfile.IsReadOnly(fileName) {
 		return fmt.Errorf("%s is read-only in the workspace IDE; edit it in the workspace repository", fileName)
 	}
+	// docs/reference/ is where the documentation build writes the workspace
+	// guide's generated pages, and it fails on a workspace whose docs/ holds
+	// one (wsfile.IsGeneratedDocsPath, 2026-11-14), so a page saved there would
+	// fail the next UI image build.
+	if wsfile.IsGeneratedDocsPath(fileName) {
+		return fmt.Errorf("%s cannot be saved: docs/reference/ is generated, the workspace guide's pages "+
+			"made from the compiled workspace, and a written page may not take its place; "+
+			"save the page under another name", fileName)
+	}
 	// The JSON well-formedness check is a precondition of the JSON validators
 	// and applies to every `.json` file, row or no row — a malformed one is
 	// refused whatever its suffix. **It used to be the gate on the whole

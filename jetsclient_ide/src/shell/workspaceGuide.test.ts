@@ -24,7 +24,7 @@ const MANIFEST: WorkspaceManifest = {
   workspace: "jets_ws",
   index: "/docs/workspace/",
   pages: {
-    "data_model/jets_model.jr": "/docs/workspace/reference/domain/jets-model/",
+    "data_model/jets_model.jr": "/docs/workspace/reference/domain/jets_model/",
     "jet_rules/process/process_main.jr": "/docs/workspace/reference/rules/process-main/",
     "jet_rules/process/process_support.jr": "/docs/workspace/reference/rules/",
     "lookups/code_lookups.jr": "/docs/workspace/reference/lookups/",
@@ -68,7 +68,7 @@ describe("workspacePathOf", () => {
 describe("guidePageFor", () => {
   it("maps a data-model file to its domain page", () => {
     expect(guidePageFor(MANIFEST, key("data_model/jets_model.jr"))).toBe(
-      "/docs/workspace/reference/domain/jets-model/",
+      "/docs/workspace/reference/domain/jets_model/",
     );
   });
 
@@ -166,7 +166,7 @@ describe("openWorkspaceGuide", () => {
     });
     expect(message).toBeNull();
     expect(order).toEqual(["tab", "session", "manifest"]);
-    expect(tab.location.href).toBe("/docs/workspace/reference/domain/jets-model/");
+    expect(tab.location.href).toBe("/docs/workspace/reference/domain/jets_model/");
     expect(tab.opener).toBeNull();
     expect(tab.focus).toHaveBeenCalled();
   });

@@ -16,7 +16,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { REPO_ROOT } from './lib.mjs';
-import { QUERIES, collapseRules, generateWorkspaceGuide, oneLine, pageUrl, unquote } from './workspace_docs.mjs';
+import { QUERIES, collapseRules, generateWorkspaceGuide, oneLine, pageSlugger, pageUrl, unquote } from './workspace_docs.mjs';
 
 const SENTINELS = {
 	resourceValue: 'SENTINEL_RESOURCE_VALUE_7f3a',
@@ -486,6 +486,87 @@ test('a workspace docs/ folder holding reference/ fails', () => {
 	} finally {
 		rmSync(fixture.root, { recursive: true, force: true });
 	}
+});
+
+// Matched without case: the site's addresses are lower case, so Reference/ or
+// REFERENCE.md would take the generated pages' address too.
+test('a workspace docs/ folder holding Reference/ or REFERENCE.md fails too', () => {
+	for (const make of [(d) => mkdirSync(join(d, 'Reference')), (d) => writeFileSync(join(d, 'REFERENCE.md'), '')]) {
+		const fixture = buildFixture();
+		try {
+			make(fixture.docs);
+			assert.throws(() => generate(fixture, { ruleText: undefined }), /may not hold reference/);
+		} finally {
+			rmSync(fixture.root, { recursive: true, force: true });
+		}
+	}
+});
+
+// Starlight's loader skips a file whose name starts with _, so it is no page: it is
+// copied, for a page that imports it, and is neither in the manifest nor listed.
+test('a written file whose name starts with _ is copied, and is not a page', () => {
+	const fixture = buildFixture();
+	try {
+		writeFileSync(join(fixture.docs, 'customisation', '_partial.md'), 'A partial.\n');
+		writeFileSync(join(fixture.docs, '_shared.mdx'), 'Shared.\n');
+		const { pages, manifestText, result } = generate(fixture, { ruleText: undefined });
+		assert.equal(pages[join('customisation', '_partial.md')], 'A partial.\n', 'copied');
+		assert.equal(pages['_shared.mdx'], 'Shared.\n', 'copied');
+		const manifest = JSON.parse(manifestText);
+		assert.deepEqual(
+			Object.keys(manifest.pages).filter((k) => k.startsWith('docs/')),
+			['docs/customisation/A Site Operator.md'],
+		);
+		assert.ok(!result.pages.some((p) => p.includes('/_') || p.startsWith('_')), 'not counted as a page');
+		assert.ok(!pages['index.md'].includes('_partial') && !pages['index.md'].includes('_shared'), 'not listed');
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+// Astro gives a heading whose id an earlier heading on the page has taken -1, -2.
+// Two rules of one name in one file are two headings, and each is linked to its own;
+// a rule named like a section heading above it takes the next id too.
+test('two rules of one name in one file each have their own anchor, and links reach each', () => {
+	const fixture = buildFixture();
+	try {
+		const db = new DatabaseSync(join(fixture.ws, 'workspace.db'));
+		const add = db.prepare(
+			'INSERT INTO jet_rules (key, name, optimization, salience, source_file_key, authored_file_key) VALUES (?, ?, 1, 100, ?, ?)',
+		);
+		// Written twice in fixture_rules.jr, which both main rule files include, and
+		// a rule named Rules, as the included page's section heading is.
+		for (const [key, name, main] of [
+			[20, 'FX_Twice', 1],
+			[21, 'FX_Twice', 1],
+			[22, 'Rules', 1],
+			[23, 'FX_Twice', 4],
+			[24, 'FX_Twice', 4],
+			[25, 'Rules', 4],
+		]) {
+			add.run(key, name, main, 5);
+		}
+		db.prepare('INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)').run(20, 'description', '"The first."');
+		db.close();
+		const { pages } = generate(fixture, { ruleText: undefined });
+		const included = pages[INCLUDED];
+		assert.equal(included.split('### FX\\_Twice').length, 3, 'two headings');
+		const base = '/docs/workspace/reference/rules/included/fixture_rules/';
+		assert.ok(
+			included.includes(`## Rules with no description\n\n- [\`FX_Twice\`](${base}#fx_twice-1)\n- [\`Rules\`](${base}#rules-1)`),
+			'the second FX_Twice, the first having a description, and Rules, whose id the section heading took first',
+		);
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+test('pageSlugger numbers a repeated heading as github-slugger does', () => {
+	const slug = pageSlugger(['Rules']);
+	assert.deepEqual(
+		['FX_Twice', 'FX_Twice', 'Rules', 'fx_twice-1', 'FX_Twice', 'ci_fx:Claim'].map(slug),
+		['fx_twice', 'fx_twice-1', 'rules-1', 'fx_twice-1-1', 'fx_twice-2', 'ci_fxclaim'],
+	);
 });
 
 test('a workspace with no docs/ builds, with a generated landing page', () => {

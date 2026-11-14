@@ -442,3 +442,24 @@ func TestRunbooksAreListedWithTheirSql(t *testing.T) {
 		t.Errorf("runbooks files: got %s, want %s", got, want)
 	}
 }
+
+// A root note's suffix is matched without case, as IsReadOnly matches it
+// (2026-11-14): `NOTES.MD` is listed, read-only, and a file with another
+// suffix is not.
+func TestARootNoteIsFoundWithoutCase(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"NOTES.MD", "readme.md", "notes.txt"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("# n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	notes := visitRootNotes(root, "ws")
+	if len(notes) != 2 || notes[0].Label != "NOTES.MD" || notes[1].Label != "readme.md" {
+		t.Fatalf("root notes: got %d, want NOTES.MD and readme.md", len(notes))
+	}
+	for _, n := range notes {
+		if !n.ReadOnly {
+			t.Errorf("%s: not read-only", n.Label)
+		}
+	}
+}

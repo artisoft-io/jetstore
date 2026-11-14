@@ -90,7 +90,10 @@ server then checks the file types it knows, such as user flows, table documents,
 guide's `workspace_docs.json`, and refuses a save that would break them, saying why. A page of `docs/`
 is refused when the documentation build would refuse it for its front matter: none, YAML that does not
 parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
-`explanation` or `overview`). Its links are checked when the images are built. A saved file becomes an **override**: it is held in
+`explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as
+YAML. A file in the place of the workspace guide's generated pages, under `docs/reference/` or named
+`docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
+saying that place is generated. A page's links are checked when the images are built. A saved file becomes an **override**: it is held in
 the database, takes precedence over the file in the image, and appears in *Workspace Changes*.
 
 Closing a tab with unsaved changes asks first; **OK** discards them.

@@ -46,11 +46,12 @@ files, data values. The generated pages hold no values unless the workspace asks
 
 ## 1. Write the pages
 
-Put them in a `docs/` folder at the root of the workspace repository; once there, they can also be
-opened, edited and saved in the *Documentation* section of the
-[Workspace IDE](/docs/user/screens/workspace-ide/#the-file-tree). **They are written exactly like
-JetStore's own pages** ([Writing the documentation](/docs/developer/contributing/documentation/)), with
-three differences in where they land:
+Put them in a `docs/` folder at the root of the workspace repository, as `.md` pages, or as `.mdx`
+pages where a page needs a component; once there, they can also be opened, edited and saved in the
+*Documentation* section of the [Workspace IDE](/docs/user/screens/workspace-ide/#the-file-tree).
+**They are written exactly like JetStore's own pages**
+([Writing the documentation](/docs/developer/contributing/documentation/)), with three differences in
+where they land:
 
 - **A page's address is its path under `docs/`, below `/docs/workspace/`**:
   `docs/customisation/observe.md` is served at `/docs/workspace/customisation/observe/`.
@@ -58,11 +59,13 @@ three differences in where they land:
   `[the observe operator](/docs/workspace/customisation/observe/)`. A workspace page may link to
   JetStore's pages the same way, for example to
   [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/).
-- **The folder must not hold a `reference/` folder.** That is where the generated pages go, and the
-  build fails rather than let a written page be replaced by a generated one.
+- **The folder must not hold a `reference/` folder**, nor a `reference.md` or `reference.mdx` page,
+  in any case (`Reference/` too, since the site's addresses are lower case). That is where the
+  generated pages go, and the build fails rather than let a written page be replaced by a generated
+  one.
 
 Every page needs the same front matter as JetStore's, with one of the same five kinds; a page without
-it fails the build. When `docs/` has no `index.md`, the guide's landing page is generated:
+it fails the build:
 
 ```yaml
 ---
@@ -71,6 +74,17 @@ description: demo_observe, a pass-through compute-pipes operator that counts and
 kind: reference
 ---
 ```
+
+When `docs/` has neither an `index.md` nor an `index.mdx`, the guide's landing page is generated. A
+file whose name starts with `_`, such as a part an `.mdx` page imports, is copied with the pages but
+is not a page of its own, as on JetStore's site, so the guide neither lists it nor links it.
+
+**Saving a page in the IDE checks it first, as the build would.** The editor shows the front matter
+as YAML, and a save is refused, saying why, when the page has no front matter, when its YAML does not
+parse, or when it lacks a `title`, a `description` or a `kind` of the five. A file in the generated
+pages' place, under `docs/reference/` or named `docs/reference.md` or `docs/reference.mdx`, in any
+case, is refused whatever it holds, with a message saying that place is generated. Links are not
+checked on save, since they need the whole site: step 4 checks them.
 
 A layout that suits most workspaces, as `jets_ws` would lay it out:
 
@@ -138,7 +152,8 @@ says what the rule does. Each rules page lists the rules that have no descriptio
 overview counts them, so a workspace can see what is left to write. A rule is counted once, however
 many main rule files include the file it is written in. The compiler's generated `ci_` rules, which give
 an entity of a class the types of its base classes, are counted apart: nobody writes them, so they
-carry no description and are not listed as missing one.
+carry no description and are not listed as missing one. Two rules written under one name in one file
+are two rules, each with its own heading, and a link to either reaches it.
 
 ## 3. Choose whether the rules' text is shown
 
@@ -153,13 +168,21 @@ reviewing them, turns the text on in `docs/workspace_docs.json`:
 Each rule then shows its text, and beside it a **reading in English, generated from the compiled
 rule**: when each antecedent holds, then each consequent. The reading never guesses: a construct it
 does not render is shown as not rendered, with the operator's name, and the rule's reading is marked
-partial. The configuration resources of the aggregate operators, of `substring_of` (its `jets:from`
+partial. So is an aggregate operator whose configuration the engine refuses, which fails the session
+([Aggregate configurations](/docs/developer/engine/rule-engine/values-and-operators/#aggregate-configurations--2026-11-14)):
+the reading says which configuration, and why (*not rendered: min_of; datesConfig has
+jets:value_property and no jets:entity_property, a configuration the engine refuses*), rather than
+read it as if it computed a value. The configuration resources of the aggregate operators, of `substring_of` (its `jets:from`
 and `jets:length`) and of `replace_char_of` (its `jets:replace_chars` and `jets:replace_with`) are
 read from the `triple(...)` declarations compiled with the rule; where those of `substring_of` or
 `replace_char_of` are missing, or a rule sets them at run time, the reading names the configuration
 resource rather than guess its values (*the substring of the Drug_Name configured by drugNameConfig*).
 The description says what the rule is meant to do, the reading what it does; a reader who finds them
 disagreeing has found something to raise with the rule's owner.
+
+**Changed 2026-11-14.** The reading read a refused aggregate configuration as if it computed a value,
+as the engine then did, giving null: a literal for `jets:entity_property` or `jets:value_property`,
+`min_of` or `max_of` with `jets:value_property` alone, `sum_values` with `jets:entity_property` alone.
 
 A `rule_text` that is not `true` or `false`, or a file that is not a JSON object, fails the build.
 

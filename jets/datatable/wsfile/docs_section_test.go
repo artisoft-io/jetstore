@@ -120,6 +120,12 @@ func TestIsReadOnlyExemptsTheDocsFolderOnly(t *testing.T) {
 		"docs/index.mdx":                    false,
 		"pipes_config/notes.mdx":            true,
 		"docs/../pipes_config/notes.mdx":    true,
+		// Without case, since 2026-11-14.
+		"README.MD":              true,
+		"pipes_config/README.Md": true,
+		"pipes_config/notes.MDX": true,
+		"docs/index.MD":          false,
+		"jet_rules/A.JR":         false,
 	} {
 		if got := IsReadOnly(path); got != want {
 			t.Errorf("IsReadOnly(%q) = %v, want %v", path, got, want)
