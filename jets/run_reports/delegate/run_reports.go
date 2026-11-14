@@ -132,6 +132,11 @@ type CommandArguments struct {
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error) {
 
+	// A runWhen criterion that checks nothing is refused before any report runs.
+	if err := ca.CurrentReportDirectives.checkRunWhen(); err != nil {
+		return err
+	}
+
 	// Create temp directory for the local temp files
 	tempDir, err := os.MkdirTemp("", "jetstore")
 	if err != nil {
@@ -372,23 +377,38 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // when one does not, says which. It is the one evaluation of runWhen, for a
 // report (reportProperties) and for a statement (statementProperties).
 //
-// A criterion holds when the file key has the component fileKeyComponent, the
-// component equals hasValue if that is set, and differs from hasNotValue if
-// that is set. A criterion with hasOutputRecordsOnly also fails when the
-// session read records and wrote none. A file key without the component fails
-// the criterion, so one carrying only hasOutputRecordsOnly, with no
-// fileKeyComponent, never holds.
+// A criterion that names a fileKeyComponent holds when the file key has that
+// component, the component equals hasValue if that is set, and differs from
+// hasNotValue if that is set. A criterion with hasOutputRecordsOnly also fails
+// when the session read records and wrote none. A criterion that names no
+// component checks only hasOutputRecordsOnly; one that names none and checks
+// nothing is a configuration error, refused before any report runs
+// (checkRunWhen), and fails here should it get this far.
+//
+// A component that is not text is compared by its decimal text: year, month
+// and day are numbers once the file key is read (utils.SplitFileKeyIntoComponents),
+// and for a number hasValue and hasNotValue may carry leading zeros, so month 3
+// equals both "3" and "03". Text is compared exactly.
 func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
 	for i := range criteria {
 		c := &criteria[i]
-		value, ok := fileKeyComponents[c.FileKeyComponent].(string)
-		switch {
-		case !ok:
-			return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
-		case len(c.HasValue) > 0 && value != c.HasValue:
-			return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, value, c.HasValue)
-		case len(c.HasNotValue) > 0 && value == c.HasNotValue:
-			return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, value)
+		if err := c.check(); err != nil {
+			return false, err.Error()
+		}
+		if c.FileKeyComponent != "" {
+			value, ok := fileKeyComponents[c.FileKeyComponent]
+			if !ok {
+				return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
+			}
+			text, ok := componentText(value)
+			switch {
+			case !ok:
+				return false, fmt.Sprintf("file key component %s is a %T, not text or a number", c.FileKeyComponent, value)
+			case len(c.HasValue) > 0 && !componentEquals(value, text, c.HasValue):
+				return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, text, c.HasValue)
+			case len(c.HasNotValue) > 0 && componentEquals(value, text, c.HasNotValue):
+				return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, text)
+			}
 		}
 		if c.HasNonZeroOutputRecords {
 			if dbRecordCount, outputRecordCount := counts.get(); dbRecordCount > 0 && outputRecordCount == 0 {
@@ -397,6 +417,83 @@ func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interfa
 		}
 	}
 	return true, ""
+}
+
+// check refuses a criterion that checks nothing, or that gives a value with
+// no component to compare it to.
+func (c *RunWhenCriteria) check() error {
+	if c.FileKeyComponent != "" {
+		return nil
+	}
+	switch {
+	case len(c.HasValue) > 0 || len(c.HasNotValue) > 0:
+		return fmt.Errorf("a runWhen criterion has hasValue or hasNotValue and no fileKeyComponent")
+	case !c.HasNonZeroOutputRecords:
+		return fmt.Errorf("a runWhen criterion has no fileKeyComponent and no hasOutputRecordsOnly, so it checks nothing")
+	}
+	return nil
+}
+
+// checkRunWhen refuses directives with a runWhen criterion that checks nothing
+// (RunWhenCriteria.check), in reportProperties or statementProperties, before
+// any report runs: like a statement with no output format, it is a
+// configuration error, and is not taken as a criterion that holds or fails.
+func (rd *ReportDirectives) checkRunWhen() error {
+	if rd == nil {
+		return nil
+	}
+	for name, p := range rd.ReportProperties {
+		for i := range p.RunWhen {
+			if err := p.RunWhen[i].check(); err != nil {
+				return fmt.Errorf("reports/config.json, reportProperties %q, runWhen[%d]: %v", name, i, err)
+			}
+		}
+	}
+	for name, p := range rd.StatementProperties {
+		for i := range p.RunWhen {
+			if err := p.RunWhen[i].check(); err != nil {
+				return fmt.Errorf("reports/config.json, statementProperties %q, runWhen[%d]: %v", name, i, err)
+			}
+		}
+	}
+	return nil
+}
+
+// componentText is a file key component as text: a string as it is, an
+// integer as its decimal text. Anything else has no text to compare.
+func componentText(v interface{}) (string, bool) {
+	switch x := v.(type) {
+	case string:
+		return x, true
+	case int:
+		return strconv.Itoa(x), true
+	case int64:
+		return strconv.FormatInt(x, 10), true
+	}
+	return "", false
+}
+
+// componentEquals reports whether a component, whose text is text, equals
+// want. Text is compared exactly; an integer also equals a want made of
+// decimal digits with the same value, so leading zeros do not matter.
+func componentEquals(v interface{}, text, want string) bool {
+	if text == want {
+		return true
+	}
+	var n int64
+	switch x := v.(type) {
+	case int:
+		n = int64(x)
+	case int64:
+		n = x
+	default:
+		return false
+	}
+	if strings.TrimLeft(want, "0123456789") != "" {
+		return false
+	}
+	w, err := strconv.ParseInt(want, 10, 64)
+	return err == nil && w == n
 }
 
 // confineReportPath verifies that reportScriptPath, after resolving to an

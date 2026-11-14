@@ -63,15 +63,38 @@ the other statements of its file run. Each skip is logged with the criterion tha
 
 | Field | The criterion holds when |
 |---|---|
-| `fileKeyComponent` | the file key has this component (`client`, `org`, `object_type`, or any other `name=value` part of the key). A key without it fails the criterion |
+| `fileKeyComponent` | the file key has this component (`client`, `org`, `object_type`, or any other `name=value` part of the key). A key without it fails the criterion. A criterion may leave it out, and then checks only `hasOutputRecordsOnly` |
 | `hasValue` | when set, the component equals it |
 | `hasNotValue` | when set, the component differs from it |
 | `hasOutputRecordsOnly` | when `true`, the session also wrote output records, or read none. The counts are read once per run, from `jetsapi.pipeline_execution_details` |
 
-**Every criterion of the list must hold.** A criterion always names a component: one carrying only
-`hasOutputRecordsOnly` has no component to find and never holds, which is the rule as it has stood
-since `runWhen` was added. `year`, `month` and `day` are numbers rather than text once the file key
-is read, so a criterion on them never holds either.
+**Every criterion of the list must hold.** A component is compared as text, exactly, with one
+exception: `year`, `month` and `day` are numbers once the file key is read
+(`utils.SplitFileKeyIntoComponents`), and they are compared by their decimal text with `hasValue`
+or `hasNotValue` written with or without leading zeros, so `month=03` in a key equals both `"3"`
+and `"03"`. These three are always present: a key without one reads as 1970, 1 and 1, and one that
+is not a number reads as 0, so a criterion on them finds a value whatever the key says.
+
+**A criterion that checks nothing is refused.** One with no `fileKeyComponent` and no
+`hasOutputRecordsOnly`, or with `hasValue` or `hasNotValue` and no component to compare them to, is a
+configuration error: `run_reports` fails before any report of the run, naming the entry
+(`checkRunWhen`, `jets/run_reports/delegate/run_reports.go`), and does not take it as a criterion
+that holds or fails. Only the directives of the report being run are checked.
+
+*Changed 2026-11-14, the same day as the rest of this section.* Until then a criterion always had to
+name a component: one carrying only `hasOutputRecordsOnly` had no component to find and never held,
+and a criterion on `year`, `month` or `day` never held either, because a component had to be text.
+None of the four workspaces' `runWhen` entries named one of the three or left out the component, so
+none of them changes.
+
+**`hasOutputRecordsOnly` decides only where `run_reports` runs as a lambda.** The `run_reports`
+binary, which the reports state machine runs as an ECS task (and a workstation runs directly), ends
+the run before it reads `reports/config.json` when the session read records and wrote none: it logs
+that the session produced no output records and runs no report. So on that path a criterion's
+`hasOutputRecordsOnly` never changes the outcome. The run-reports lambda of the compute-pipes state
+machine (`cdk/jetstore_one/lambdas/run_reports`), and a deployment's own lambda named by
+`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY`, have no such exit, and there it skips the file or the
+statement.
 
 ```json
 "Example_Report": {

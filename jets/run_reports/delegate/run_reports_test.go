@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,7 +31,7 @@ func fixedCounts(db, out int64, reads *int) *outputRecordCounts {
 }
 
 func TestRunWhenMet(t *testing.T) {
-	key := map[string]interface{}{"client": "Acme", "org": "Ex", "vendor": 3}
+	key := map[string]interface{}{"client": "Acme", "org": "Ex", "vendor": 3, "flag": true}
 	for _, tc := range []struct {
 		name     string
 		criteria []RunWhenCriteria
@@ -44,7 +45,8 @@ func TestRunWhenMet(t *testing.T) {
 		{"hasNotValue equal", []RunWhenCriteria{{FileKeyComponent: "client", HasNotValue: "Acme"}}, 0, 0, false},
 		{"component only, present", []RunWhenCriteria{{FileKeyComponent: "org"}}, 0, 0, true},
 		{"component missing", []RunWhenCriteria{{FileKeyComponent: "file_org", HasNotValue: "x"}}, 0, 0, false},
-		{"component not a string", []RunWhenCriteria{{FileKeyComponent: "vendor"}}, 0, 0, false},
+		{"component a number, present", []RunWhenCriteria{{FileKeyComponent: "vendor"}}, 0, 0, true},
+		{"component neither text nor a number", []RunWhenCriteria{{FileKeyComponent: "flag"}}, 0, 0, false},
 		{"every criterion must hold", []RunWhenCriteria{
 			{FileKeyComponent: "client", HasValue: "Acme"},
 			{FileKeyComponent: "org", HasValue: "Other"},
@@ -55,10 +57,18 @@ func TestRunWhenMet(t *testing.T) {
 			[]RunWhenCriteria{{FileKeyComponent: "client", HasNonZeroOutputRecords: true}}, 10, 0, false},
 		{"output records, none read",
 			[]RunWhenCriteria{{FileKeyComponent: "client", HasNonZeroOutputRecords: true}}, 0, 0, true},
-		// The rule as it has stood since runWhen was added: a criterion is
-		// about a file key component, so one naming none never holds.
-		{"output records with no component",
-			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 10, 4, false},
+		// A criterion naming no component checks only hasOutputRecordsOnly.
+		// Until 2026-11-14 the missing component failed it, so it never held.
+		{"output records with no component, some written",
+			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 10, 4, true},
+		{"output records with no component, none written",
+			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 10, 0, false},
+		{"output records with no component, none read",
+			[]RunWhenCriteria{{HasNonZeroOutputRecords: true}}, 0, 0, true},
+		// A criterion that checks nothing is refused by checkRunWhen before
+		// any report runs; should one get here, it fails rather than holds.
+		{"no component and nothing to check", []RunWhenCriteria{{}}, 10, 4, false},
+		{"a value with no component", []RunWhenCriteria{{HasValue: "Acme"}}, 10, 4, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			reads := 0
@@ -70,6 +80,90 @@ func TestRunWhenMet(t *testing.T) {
 				t.Error("runWhenMet gave no reason for a criterion not met")
 			}
 		})
+	}
+}
+
+// year, month and day are numbers once the file key is read, and a criterion
+// on one compares its decimal text, with or without leading zeros. Until
+// 2026-11-14 the component had to be a string, so such a criterion never held.
+func TestRunWhenOnANumericComponent(t *testing.T) {
+	fileKey := "client=Acme/object_type=Claim/year=2026/month=03/day=7/file.csv"
+	key := utils.SplitFileKeyIntoComponents(map[string]any{}, &fileKey)
+	if _, isInt := key["month"].(int); !isInt {
+		t.Fatalf("month is a %T, want the int this test is about", key["month"])
+	}
+	for _, tc := range []struct {
+		name string
+		c    RunWhenCriteria
+		want bool
+	}{
+		{"month, hasValue without leading zero", RunWhenCriteria{FileKeyComponent: "month", HasValue: "3"}, true},
+		{"month, hasValue with leading zero", RunWhenCriteria{FileKeyComponent: "month", HasValue: "03"}, true},
+		{"month, hasValue other", RunWhenCriteria{FileKeyComponent: "month", HasValue: "4"}, false},
+		{"month, hasValue not a number", RunWhenCriteria{FileKeyComponent: "month", HasValue: "March"}, false},
+		{"month, hasValue signed", RunWhenCriteria{FileKeyComponent: "month", HasValue: "+3"}, false},
+		{"month, hasNotValue same with leading zero", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "03"}, false},
+		{"month, hasNotValue other", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "12"}, true},
+		{"day, hasValue with leading zero", RunWhenCriteria{FileKeyComponent: "day", HasValue: "07"}, true},
+		{"year, hasValue", RunWhenCriteria{FileKeyComponent: "year", HasValue: "2026"}, true},
+		{"year, hasNotValue", RunWhenCriteria{FileKeyComponent: "year", HasNotValue: "2026"}, false},
+		// Text is compared exactly: leading zeros are only forgiven for numbers.
+		{"text, leading zero is not ignored", RunWhenCriteria{FileKeyComponent: "client", HasValue: "0Acme"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, why := runWhenMet([]RunWhenCriteria{tc.c}, key, unreadCounts(t))
+			if got != tc.want {
+				t.Errorf("runWhenMet = %v (%s), want %v", got, why, tc.want)
+			}
+		})
+	}
+	// A component written as text with a leading zero stays text and is
+	// compared exactly.
+	text := map[string]interface{}{"batch": "03"}
+	for want, holds := range map[string]bool{"03": true, "3": false} {
+		got, _ := runWhenMet([]RunWhenCriteria{{FileKeyComponent: "batch", HasValue: want}}, text, unreadCounts(t))
+		if got != holds {
+			t.Errorf("text component \"03\", hasValue %q: %v, want %v", want, got, holds)
+		}
+	}
+}
+
+// A runWhen criterion that checks nothing is a configuration error, refused
+// before any report runs, in reportProperties and in statementProperties.
+func TestRunWhenThatChecksNothingIsRefused(t *testing.T) {
+	dir := reportsDir(t)
+	run := func(rd *ReportDirectives) error {
+		rd.ReportScripts = []string{"thresholds.sql"}
+		ca := &CommandArguments{
+			FileKeyComponents:       map[string]interface{}{"client": "Acme"},
+			SQLPool:                 unreachablePool(t),
+			CurrentReportDirectives: rd,
+			// No such file. Run as a script it fails without naming runWhen,
+			// and as a reports file it is skipped, so an error naming runWhen
+			// is the refusal and nothing else.
+			ReportScriptPaths: []string{filepath.Join(dir, "thresholds.sql")},
+		}
+		return ca.RunReports(nil)
+	}
+	for name, rd := range map[string]*ReportDirectives{
+		"report, empty criterion": {ReportProperties: map[string]ReportProperty{
+			"thresholds.sql": {Type: "script", RunWhen: []RunWhenCriteria{{}}}}},
+		"report, value with no component": {ReportProperties: map[string]ReportProperty{
+			"thresholds.sql": {Type: "script", RunWhen: []RunWhenCriteria{{HasNotValue: "DEFAULT"}}}}},
+		"statement, empty criterion": {StatementProperties: map[string]StatementProperty{
+			"{PROCESSNAME}/x.csv": {RunWhen: []RunWhenCriteria{{FileKeyComponent: "client"}, {}}}}},
+	} {
+		err := run(rd)
+		if err == nil || !strings.Contains(err.Error(), "runWhen") {
+			t.Errorf("%s: RunReports error %v, want the runWhen refused", name, err)
+		}
+	}
+	// hasOutputRecordsOnly alone is a criterion, and is not refused. What it
+	// decides needs the session's counts, which TestRunWhenMet covers.
+	ok := &ReportDirectives{ReportProperties: map[string]ReportProperty{
+		"thresholds.sql": {Type: "script", RunWhen: []RunWhenCriteria{{HasNonZeroOutputRecords: true}}}}}
+	if err := ok.checkRunWhen(); err != nil {
+		t.Errorf("checkRunWhen on hasOutputRecordsOnly alone: %v", err)
 	}
 }
 
