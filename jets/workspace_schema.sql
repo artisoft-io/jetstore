@@ -201,6 +201,10 @@ CREATE TABLE IF NOT EXISTS rule_properties (
 );
 
 -- rule_sequences
+-- The rule sequences of workspace_control.json. source_file_key is the file the
+-- sequence is declared in (workspace_control.key): workspace_control.json,
+-- recorded in workspace_control with is_main = 0 when the workspace has a rule
+-- sequence. main_rule_sets lists the main rule files each sequence runs.
 CREATE TABLE IF NOT EXISTS rule_sequences (
   key INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
