@@ -127,6 +127,10 @@ A compiled view shows what the last compile made of a section, read from `worksp
 | **Jets Rules** | *Jet Rules*, *Rule Terms*, *Files Relationship*, *Jet Rules Files* |
 | **Lookups** | *Lookup Tables*, *Lookup Columns* |
 
+*Files Relationship* lists, for each main rule file, every file it includes, directly or through
+another included file. *Jet Rules Files* lists the included rule files as well as the main ones, with
+*Main Rule File?* telling them apart.
+
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last
 compile, so it does not show an edit until the workspace is compiled again.

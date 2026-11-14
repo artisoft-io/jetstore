@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
@@ -21,6 +22,7 @@ func (s *JetRuleListener) ExitJetCompilerDirectiveStmt(ctx *parser.JetCompilerDi
 		if name == "source_file" {
 			// Strip quotes if present
 			s.currentRuleFileName = StripQuotes(value)
+			s.noteIncludedFile(s.currentRuleFileName)
 		} else {
 			value = StripQuotes(value)
 			s.jetRuleModel.CompilerDirectives[name] = value
@@ -29,6 +31,17 @@ func (s *JetRuleListener) ExitJetCompilerDirectiveStmt(ctx *parser.JetCompilerDi
 			}
 		}
 	}
+}
+
+// noteIncludedFile records fileName as included by the main rule file, once,
+// unless it is the main rule file. The reader writes a source_file directive
+// where each file starts and again where a file resumes after an import, so a
+// name seen before is a file resuming, not a second include.
+func (s *JetRuleListener) noteIncludedFile(fileName string) {
+	if fileName == "" || fileName == s.mainRuleFileName || slices.Contains(s.includedFiles, fileName) {
+		return
+	}
+	s.includedFiles = append(s.includedFiles, fileName)
 }
 
 // =====================================================================================

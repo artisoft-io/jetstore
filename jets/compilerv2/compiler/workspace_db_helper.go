@@ -125,7 +125,7 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 	}
 
 	// Insert new rules
-	ruleInsertStmt := "INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	ruleInsertStmt := "INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key, authored_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	rulePropInsertStmt := "INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)"
 	ruleTermInsertStmt := "INSERT INTO rule_terms (rule_key, rete_node_key, is_antecedent) VALUES (?, ?, ?)"
 
@@ -139,10 +139,15 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 	ruleTermsData := make([][]any, 0)
 	for _, jetRule := range jetRuleModel.Jetrules {
 
-		// JetRule
+		// JetRule: source_file_key is the main rule file, whose network holds
+		// the rule; authored_file_key is the file the rule is written in.
 		maxKey++
+		var authoredFileKey any
+		if jetRule.SourceFileName != "" {
+			authoredFileKey = w.sourceMgr.GetOrAddDbKey(jetRule.SourceFileName)
+		}
 		jetRulesData = append(jetRulesData, []any{maxKey, jetRule.Name, jetRule.Optimization, jetRule.Salience,
-			jetRule.AuthoredLabel, jetRule.NormalizedLabel, jetRule.Label, w.mainFileKey})
+			jetRule.AuthoredLabel, jetRule.NormalizedLabel, jetRule.Label, w.mainFileKey, authoredFileKey})
 
 		// Rule Properties, in name order: map order made workspace.db differ
 		// from one compile of the same sources to the next (Q-49)
@@ -183,6 +188,33 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 		err = DoStatement(ctx, db, ruleTermInsertStmt, ruleTermsData)
 		if err != nil {
 			return fmt.Errorf("failed to insert rule_terms: %w", err)
+		}
+	}
+	return nil
+}
+
+// SaveMainSupportFiles records in main_support_files the files the main rule
+// file includes (SetIncludedFiles), in the order they were read, adding to
+// workspace_control any that nothing else has named.
+func (w *WorkspaceDB) SaveMainSupportFiles(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM main_support_files WHERE main_file_key = ?", w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing main_support_files: %w", err)
+	}
+	insertStmt := "INSERT INTO main_support_files (main_file_key, support_file_key) VALUES (?, ?)"
+	data := make([][]any, 0, len(w.includedFiles))
+	seen := make(map[string]bool, len(w.includedFiles))
+	for _, fileName := range w.includedFiles {
+		if fileName == "" || fileName == w.mainSourceFileName || seen[fileName] {
+			continue
+		}
+		seen[fileName] = true
+		data = append(data, []any{w.mainFileKey, w.sourceMgr.GetOrAddDbKey(fileName)})
+	}
+	if len(data) > 0 {
+		err = DoStatement(ctx, db, insertStmt, data)
+		if err != nil {
+			return fmt.Errorf("failed to insert main_support_files: %w", err)
 		}
 	}
 	return nil
