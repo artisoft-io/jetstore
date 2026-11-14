@@ -33,9 +33,9 @@ rule showed how the engine reads it beside its text.
 |---|---|---|
 | The landing page | the workspace's `docs/index.md`, else generated | what the guide holds, with the workspace's name |
 | Written pages | the rest of the workspace's `docs/` | customisation pages, and any explanation the workspace's Knowledge Engineers write |
-| `reference/domain/` | generated from `workspace.db` | one page per data-model file: its classes, each with its base classes and its data and object properties; and the domain tables, each with its columns and the class it maps |
+| `reference/domain/` | generated from `workspace.db` | one page per data-model file: its classes, each with its base classes and its data and object properties, and the rules written in the file, which are usually the compiler's generated `ci_` rules, one per class; and the domain tables, each with its columns and the class it maps |
 | `reference/lookups/` | generated | each lookup table: its key, its columns and their types, its source file and the rules that read it. **Never its rows** |
-| `reference/rules/` | generated | one page per main rule file: the rule files it includes, each rule with its description and properties, the unit tests that run it, and the rules that have no description |
+| `reference/rules/` | generated | one page per rule file, each rule shown once, on the page of the file it is written in. A main rule file's page lists the files it includes, in the order the compiler reads them, with links to their pages, then the rules written in it and its unit tests. The page of a file that main rule files include, under `reference/rules/included/`, names the main rule files that include it and holds the rules written in it. Each page lists its rules that have no description |
 
 **Who reads it: every signed-in user of the installation.** The documentation is opened from the
 top bar's *Help* and needs no capability beyond signing in, while the workspace's files are read in the
@@ -121,12 +121,15 @@ not shown.
 the workspace's pull requests, and keep them in step with the rules. Say what the rule is meant to do,
 in the business's words, rather than restating its antecedents: the generated reading (step 3) already
 says what the rule does. Each rules page lists the rules that have no description, and the reference
-overview counts them, so a workspace can see what is left to write.
+overview counts them, so a workspace can see what is left to write. A rule is counted once, however
+many main rule files include the file it is written in. The compiler's generated `ci_` rules, which give
+an entity of a class the types of its base classes, are counted apart: nobody writes them, so they
+carry no description and are not listed as missing one.
 
 ## 3. Choose whether the rules' text is shown
 
-By default the rule pages show each rule's name, description, source file and properties, and **not
-its text**. A workspace that wants its rules read in the guide, for example by business owners
+By default the rule pages show each rule's name, description, salience and properties, and **not
+its text**. A rule that runs under only some of the main rule files that include its file names them. A workspace that wants its rules read in the guide, for example by business owners
 reviewing them, turns the text on in `docs/workspace_docs.json`:
 
 ```json
@@ -181,12 +184,14 @@ tree and compiles it, writing `workspace.db` at the tree's root. On `jets_ws` th
 seconds on top of an existing `cpipes_builder`. Use a tag of your own rather than `compile_ws:latest`,
 which the next UI image build would read.
 
-**Copy the whole folder, not `workspace.db` alone.** Beside each main rule file the compiler writes its
-compiled model (`cintel_main.jr.json` beside `jet_rules/clinical_intel/cintel_main.jr`), and the
-generator reads from it which file each rule is written in and the order of the files a main rule file
-includes. With `workspace.db` alone the guide still builds, and says *not recorded* for both, as it did
-on the 2026-11-13 run. The UI image's build reads the whole compiled workspace, so this is what an
-installation shows.
+**`workspace.db` is all the generator reads from the compiled workspace.** It records, for each rule,
+the file the rule is written in (`jet_rules.authored_file_key`), and, for each main rule file, the
+files it includes in the order the compiler read them (`main_support_files`); the
+[compilation](/docs/developer/engine/compiler/compilation/) page says how. **Compile the workspace with
+the release you build the site from**: a `workspace.db` from a JetStore older than the generator has no
+`authored_file_key`, and the build fails, naming it, rather than show every rule of an included file on
+the page of each main rule file that includes it. The UI image compiles the workspace and builds the
+site from the same `cpipes_builder`, so an installation always has it.
 
 ### Build the site with it
 
@@ -208,8 +213,8 @@ npm run build
 | `JETS_WORKSPACE_DOCS` | the workspace's `docs/` folder. Optional: without it the guide is the generated pages |
 | `JETS_WORKSPACE_VERSION`, `JETS_VERSION` | optional: the workspace's version and JetStore's, shown in the footer. In the UI image, `JETS_VERSION` is the one `cpipes_builder` was built with, and `JETS_WORKSPACE_VERSION` the build argument |
 
-The generator's line in the output says what it wrote, for example `the jets_ws guide, 24 pages (32
-classes, 6 lookups, 131 rules, 1 described; rule text not shown)`. The build fails, naming the page,
+The generator's line in the output says what it wrote, for example `the jets_ws guide, 31 pages (32
+classes, 6 lookups, 116 rules, 10 described; rule text not shown)`. The build fails, naming the page,
 on a broken link or anchor and on a page whose front matter is missing or invalid. When it passes,
 `npm run preview` serves the result at `http://localhost:4321/docs/`, with search, and the
 workspace's guide at `http://localhost:4321/docs/workspace/`. The generated pages are written into the `jetstore`
@@ -220,8 +225,9 @@ checkout's git-ignored folders and are never committed.
 The guide is in the sidebar of every page of the installation's documentation, beside JetStore's three,
 and the documentation's [landing page](/docs/) links it beside theirs, as *jets_ws guide* for `jets_ws`.
 In the [Workspace IDE](/docs/user/screens/workspace-ide/#the-workspace-guide), the **Workspace guide**
-button opens the guide's page for the file open in the editor: a data-model file's domain page, a main
-rule file's rules page, a lookup's source file's lookups page, or a file under `docs/` its own page. It
+button opens the guide's page for the file open in the editor: a data-model file's domain page, a rule
+file's own rules page, whether it is a main rule file or a file main rule files include, a lookup's
+source file's lookups page, or a file under `docs/` its own page. It
 reads the map from file to page from `/docs/workspace/manifest.json`, which the generator writes with
 the guide and which names files and pages only. The top bar's *Help* still opens JetStore's page for
 the screen.

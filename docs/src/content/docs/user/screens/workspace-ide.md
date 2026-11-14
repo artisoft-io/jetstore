@@ -35,10 +35,10 @@ open in the editor:
 
 | File open in the editor | Page opened |
 |---|---|
-| A data-model file | its page of the domain: its classes, their properties and its domain tables |
+| A data-model file | its page of the domain: its classes, their properties and the rules written in it, such as the compiler's generated rules |
 | A lookup's source file | the lookups page |
-| A main rule file | its rules page: the rules it includes, their descriptions and its unit tests |
-| A rule file that main rule files include | the rules section's overview |
+| A main rule file | its rules page: the files it includes, the rules written in it with their descriptions, and its unit tests |
+| A rule file that main rule files include | its own rules page: the main rule files that include it, and the rules written in it with their descriptions |
 | A page of the workspace's `docs/` folder | that page |
 | Any other file, or none | the guide's landing page |
 
