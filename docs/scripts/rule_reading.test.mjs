@@ -2,8 +2,8 @@
 //
 // The fixture is a workspace.db built from jets/workspace_schema.sql and holding the
 // compiled network rows of ten jets_ws rules, as the compiler wrote them (jets_ws's
-// workspace.db, compiled 2026-10-22), plus one rule made up here to exercise what the
-// reading does not render. The rules' text (jet_rules.label) is deliberately left out:
+// workspace.db, compiled 2026-10-22), plus rules made up here: one to exercise what the
+// reading does not render, and six that call substring_of. The rules' text (jet_rules.label) is deliberately left out:
 // the reading comes from the network alone. Each expected reading was checked by hand
 // against its rule's text, which is quoted above it in a comment.
 import assert from 'node:assert/strict';
@@ -341,28 +341,114 @@ const FIXTURE = {
 	},
 };
 
-// A rule of the fixture's own: two variables of one class, a filter calling an operator
-// the reading has no wording for (substring_of takes a configuration resource), and a
-// consequent calling an operator no engine has.
+// Rules of the fixture's own. FIXTURE_Unrendered has two variables of one class, a
+// filter calling a binary operator no engine has, and a consequent calling a unary one.
+// The FIXTURE_Substring rules share two antecedents,
+//   (?clm rdf:type hc:MedicalClaim).(?clm hc:Drug_Name ?name)
+// and each sets hc:NDC to (config substring_of ?name), the configuration resource
+// declared in the rule's main file, as triple(firstFiveConfig, jets:from, 0); and so on.
+// noConfig has no triples, textLengthConfig a jets:length that is text, and
+// ruleSetConfig a jets:length that a rule of the same file writes. Rules with the same
+// antecedents share the terminal vertex, so their consequents are numbered along it.
 const MADE_UP = {
-	jet_rules: [[900, 'FIXTURE_Unrendered', 1]],
+	jet_rules: [
+		[900, 'FIXTURE_Unrendered', 1],
+		[910, 'FIXTURE_SubstringFirst', 1],
+		[911, 'FIXTURE_SubstringDropLast', 1],
+		[912, 'FIXTURE_SubstringFrom', 1],
+		[913, 'FIXTURE_SubstringTrimBoth', 1],
+		[914, 'FIXTURE_SubstringUnconfigured', 1],
+		[915, 'FIXTURE_SubstringSetByRule', 1],
+	],
 	rule_terms: [
 		[900, 9001, 1],
 		[900, 9002, 1],
 		[900, 9003, 0],
+		...[910, 911, 912, 913, 914, 915].flatMap((rule) => [
+			[rule, 9301, 1],
+			[rule, 9302, 1],
+		]),
+		[910, 9310, 0],
+		[911, 9311, 0],
+		[912, 9312, 0],
+		[913, 9313, 0],
+		[914, 9314, 0],
+		[914, 9315, 0],
+		[915, 9316, 0],
+		[915, 9317, 0],
 	],
 	rete_nodes: [
 		[9001, 900, 'antecedent', 285, 27, 114, null, null, 0, 1, 0, 0],
 		[9002, 901, 'antecedent', 287, 27, 114, null, 9101, 900, 1, 0, 0],
 		[9003, 901, 'consequent', 286, 94, null, 9104, null, 0, 1, null, 1],
+		[9301, 910, 'antecedent', 285, 27, 114, null, null, 0, 1, 0, 0],
+		[9302, 911, 'antecedent', 286, 126, 287, null, null, 910, 1, 0, 0],
+		[9310, 911, 'consequent', 286, 131, null, 9410, null, 0, 1, null, 1],
+		[9311, 911, 'consequent', 286, 131, null, 9411, null, 0, 1, null, 2],
+		[9312, 911, 'consequent', 286, 131, null, 9412, null, 0, 1, null, 3],
+		[9313, 911, 'consequent', 286, 131, null, 9413, null, 0, 1, null, 4],
+		[9314, 911, 'consequent', 286, 131, null, 9414, null, 0, 1, null, 5],
+		[9315, 911, 'consequent', 286, 131, null, 9415, null, 0, 1, null, 6],
+		[9316, 911, 'consequent', 9207, 9202, null, 9420, null, 0, 1, null, 7],
+		[9317, 911, 'consequent', 286, 131, null, 9416, null, 0, 1, null, 8],
 	],
 	expressions: [
-		[9101, 'binary', 9102, 9103, 'substring_of', 1],
+		[9101, 'binary', 9102, 9103, 'some_other_op', 1],
 		[9102, 'resource', 253, null, null, 1],
 		[9103, 'resource', 288, null, null, 1],
 		[9104, 'unary', 9103, null, 'some_future_op', 1],
+		[9400, 'resource', 288, null, null, 1],
+		[9401, 'resource', 9203, null, null, 1],
+		[9402, 'resource', 9204, null, null, 1],
+		[9403, 'resource', 9205, null, null, 1],
+		[9404, 'resource', 9209, null, null, 1],
+		[9405, 'resource', 9206, null, null, 1],
+		[9406, 'resource', 9208, null, null, 1],
+		[9407, 'resource', 9207, null, null, 1],
+		[9410, 'binary', 9401, 9400, 'substring_of', 1],
+		[9411, 'binary', 9402, 9400, 'substring_of', 1],
+		[9412, 'binary', 9403, 9400, 'substring_of', 1],
+		[9413, 'binary', 9404, 9400, 'substring_of', 1],
+		[9414, 'binary', 9405, 9400, 'substring_of', 1],
+		[9415, 'binary', 9406, 9400, 'substring_of', 1],
+		[9416, 'binary', 9407, 9400, 'substring_of', 1],
+		[9420, 'resource', 9211, null, null, 1],
+	],
+	resources: [
+		[9201, 'resource', 'jets:from', 'jets:from', null, 0],
+		[9202, 'resource', 'jets:length', 'jets:length', null, 0],
+		[9203, 'resource', 'firstFiveConfig', 'firstFiveConfig', null, 0],
+		[9204, 'resource', 'dropLastThreeConfig', 'dropLastThreeConfig', null, 0],
+		[9205, 'resource', 'fromTwoConfig', 'fromTwoConfig', null, 0],
+		[9206, 'resource', 'noConfig', 'noConfig', null, 0],
+		[9207, 'resource', 'ruleSetConfig', 'ruleSetConfig', null, 0],
+		[9208, 'resource', 'textLengthConfig', 'textLengthConfig', null, 0],
+		[9209, 'resource', 'trimBothConfig', 'trimBothConfig', null, 0],
+		[9211, 'int', null, '5', null, 0],
+		[9212, 'int', null, '-3', null, 0],
+		[9213, 'int', null, '2', null, 0],
+		[9214, 'int', null, '4', null, 0],
+		[9216, 'int', null, '-1', null, 0],
+		[9217, 'text', null, '5', null, 0],
+	],
+	triples: [
+		[9203, 9201, 232, 1],
+		[9203, 9202, 9211, 1],
+		[9204, 9201, 232, 1],
+		[9204, 9202, 9212, 1],
+		[9205, 9201, 9213, 1],
+		[9205, 9202, 9214, 1],
+		[9207, 9201, 232, 1],
+		[9207, 9202, 9214, 1],
+		[9208, 9201, 232, 1],
+		[9208, 9202, 9217, 1],
+		[9209, 9201, 259, 1],
+		[9209, 9202, 9216, 1],
 	],
 };
+
+/** The FIXTURE_Substring rules' antecedents, read. */
+const SUBSTRING_WHEN = ['there is a MedicalClaim', 'the MedicalClaim has a Drug_Name'];
 
 const EXPECTED = [
 	// [HC_MedServiceDateOverride10]:(?clm01 rdf:type hc:MedicalClaim).(?clm01 hc:Service_Date_From ?date1)
@@ -570,16 +656,64 @@ test('says what it does not render, and marks the reading partial', () => {
 	assert.deepEqual(readRule(db, 900), {
 		when: [
 			'there is a first MedicalClaim',
-			'there is a second MedicalClaim, where (not rendered: substring_of)',
+			'there is a second MedicalClaim, where (not rendered: some_other_op)',
 		],
 		then: ['the first MedicalClaim has (not rendered: some_future_op) as its Service_Date'],
 		partial: true,
-		unrendered: ['some_future_op', 'substring_of'],
+		unrendered: ['some_future_op', 'some_other_op'],
 	});
 });
 
+// substring_of (jets/rete/expr_op_strings.h, SubstringOfVisitor): jets:from characters
+// are skipped, then jets:length kept, or when it is negative, that many dropped from the end.
+const substringReading = (then) => ({ when: SUBSTRING_WHEN, then, partial: false, unrendered: [] });
+
+test('reads substring_of with a positive length', () => {
+	assert.deepEqual(
+		readRule(db, 910),
+		substringReading(['the MedicalClaim has the first 5 characters of the Drug_Name as its NDC']),
+	);
+});
+
+test('reads substring_of with a negative length', () => {
+	assert.deepEqual(
+		readRule(db, 911),
+		substringReading(['the MedicalClaim has the Drug_Name without its last 3 characters as its NDC']),
+	);
+});
+
+test('reads substring_of from a position other than the start', () => {
+	assert.deepEqual(
+		readRule(db, 912),
+		substringReading(['the MedicalClaim has the 4 characters of the Drug_Name after its first 2 characters as its NDC']),
+	);
+	assert.deepEqual(
+		readRule(db, 913),
+		substringReading(['the MedicalClaim has the Drug_Name without its first character and its last character as its NDC']),
+	);
+});
+
+test('names the configuration of a substring_of it cannot read, rather than guess', () => {
+	// No triples, and a jets:length that is text: the engine would raise an error for both.
+	assert.deepEqual(
+		readRule(db, 914),
+		substringReading([
+			'the MedicalClaim has the substring of the Drug_Name configured by noConfig as its NDC',
+			'the MedicalClaim has the substring of the Drug_Name configured by textLengthConfig as its NDC',
+		]),
+	);
+	// A rule writes jets:length, so the value in the file is not the one in force.
+	assert.deepEqual(
+		readRule(db, 915),
+		substringReading([
+			'ruleSetConfig has 5 as its length',
+			'the MedicalClaim has the substring of the Drug_Name configured by ruleSetConfig as its NDC',
+		]),
+	);
+});
+
 test('gives the same text from the same database', () => {
-	const keys = [...EXPECTED.map((r) => r.key), 900];
+	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915];
 	const first = keys.map((k) => readRule(db, k));
 	const again = keys.map((k) => readRule(db, k));
 	const other = buildFixture(join(dir, 'again.db'));

@@ -14,8 +14,8 @@
 // The reading never guesses. A construct or operator it has no wording for is
 // written "(not rendered: <name>)" in its clause, marks the reading partial, and is
 // listed in unrendered. It reads the rule's literals (resources.value) and the
-// configuration triples of the aggregate operators, so it is to be shown only where
-// a workspace has chosen to show its rules' text.
+// configuration triples of the aggregate operators and of substring_of, so it is to
+// be shown only where a workspace has chosen to show its rules' text.
 //
 // readRule(db, ruleKey) takes a node:sqlite DatabaseSync and a jet_rules.key, and
 // returns { when, then, partial, unrendered }: one plain-text clause per antecedent
@@ -90,6 +90,16 @@ const UNARY_PHRASE = {
 
 const LITERAL_TYPES = new Set(['int', 'uint', 'long', 'ulong', 'double']);
 
+/** The configuration predicates an operator's resource may carry, and their field names. */
+const CONFIG_FIELDS = {
+	'jets:entity_property': 'entity',
+	'jets:value_property': 'value',
+	'jets:operator': 'operator',
+	'jets:separator': 'separator',
+	'jets:from': 'from',
+	'jets:length': 'length',
+};
+
 /** Per database: the names of the model's classes and properties, read once. */
 const MODEL_CACHE = new WeakMap();
 
@@ -148,8 +158,17 @@ class RuleReader {
 			 JOIN resources p ON p.key = t.predicate_key
 			 JOIN resources o ON o.key = t.object_key
 			 WHERE s.id = ? AND t.source_file_key = ?
-			   AND p.id IN ('jets:entity_property', 'jets:value_property', 'jets:operator', 'jets:separator')
+			   AND p.id IN ('jets:entity_property', 'jets:value_property', 'jets:operator', 'jets:separator',
+			                'jets:from', 'jets:length')
 			 ORDER BY p.id, o.key`,
+		);
+		this.configWriteStmt = db.prepare(
+			`SELECT 1 AS found
+			 FROM rete_nodes n
+			 JOIN resources s ON s.key = n.subject_key
+			 JOIN resources p ON p.key = n.predicate_key
+			 WHERE n.type = 'consequent' AND n.source_file_key = ? AND s.id = ? AND p.id = ?
+			 LIMIT 1`,
 		);
 		const terms = db
 			.prepare(
@@ -392,6 +411,7 @@ class RuleReader {
 		const op = e.op;
 		const aggregate = this.aggregate(e, depth);
 		if (aggregate) return aggregate;
+		if (op === 'substring_of') return this.substring(e, depth);
 		const lhs = this.expression(e.arg0_key, depth + 1);
 		const rhs = this.expression(e.arg1_key, depth + 1);
 		if (op === '+') {
@@ -481,12 +501,55 @@ class RuleReader {
 		return null;
 	}
 
-	/** The configuration triples of an aggregate's resource, in the rule's main file. */
+	/**
+	 * substring_of: (config substring_of text). The configuration resource carries
+	 * jets:from, the number of characters skipped, and jets:length, the number kept or,
+	 * when negative, the number dropped from the end (SubstringOfVisitor,
+	 * jets/rete/expr_op_strings.h). The two numbers are read from the configuration
+	 * triples of the rule's main file, and only when each is a single int literal that
+	 * no rule of that file writes; otherwise the reading names the configuration
+	 * resource rather than guess its values.
+	 */
+	substring(e, depth) {
+		const text = this.operand(this.expression(e.arg1_key, depth + 1));
+		const cfgRes = this.exprResource(e.arg0_key);
+		const configured = () => ({
+			text: `the substring of ${text} configured by ${this.operand(this.expression(e.arg0_key, depth + 1))}`,
+			isText: true,
+		});
+		if (!cfgRes || (cfgRes.type !== 'resource' && cfgRes.type !== 'volatile_resource')) return configured();
+		const cfgId = cfgRes.id ?? cfgRes.value;
+		const cfg = this.config(cfgRes);
+		const number = (field) => {
+			const v = cfg[field];
+			if (!v || v.type !== 'int' || cfg.repeated.has(field)) return null;
+			if (this.configWriteStmt.get(this.sourceFileKey, cfgId, `jets:${field}`)) return null;
+			const n = Number(v.value);
+			return Number.isInteger(n) ? n : null;
+		};
+		const from = number('from');
+		const length = number('length');
+		if (from === null || length === null || from < 0) return configured();
+		const chars = (n) => (n === 1 ? 'character' : `${n} characters`);
+		if (length === 0) return { text: 'an empty text', isText: true };
+		if (length > 0) {
+			if (from === 0) return { text: `the first ${chars(length)} of ${text}`, isText: true };
+			return { text: `the ${chars(length)} of ${text} after its first ${chars(from)}`, isText: true };
+		}
+		if (from === 0) return { text: `${text} without its last ${chars(-length)}`, isText: true };
+		return { text: `${text} without its first ${chars(from)} and its last ${chars(-length)}`, isText: true };
+	}
+
+	/**
+	 * The configuration triples of an operator's resource, in the rule's main file: the
+	 * first value of each field, and in repeated the fields that have more than one.
+	 */
 	config(res) {
-		const out = {};
+		const out = { repeated: new Set() };
 		for (const r of this.configStmt.all(res.id ?? res.value, this.sourceFileKey)) {
-			const field = { 'jets:entity_property': 'entity', 'jets:value_property': 'value', 'jets:operator': 'operator', 'jets:separator': 'separator' }[r.predicate];
+			const field = CONFIG_FIELDS[r.predicate];
 			if (out[field] === undefined) out[field] = { type: r.type, id: r.id, value: r.value };
+			else out.repeated.add(field);
 		}
 		return out;
 	}
