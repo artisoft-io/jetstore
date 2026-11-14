@@ -185,6 +185,18 @@ func TestOverpunchNumber(t *testing.T) {
 		{"E", 2, "+.05", false},
 		{"N", 3, "-.005", false},
 		{"1E", 3, "+.015", false},
+
+		// Positions count characters, as substring does (2026-11-14): a cut
+		// never splits a multi-byte character. Counting bytes, "1é5" gave
+		// "1\xc3.\xa95" and "é5" with 3 places gave ".é5"
+		{"1é5", 2, "1.é5", false},
+		{"é5", 3, ".0é5", false},
+		{"é1E", 2, "+é.15", false},
+		{"é", 2, "0é", true},
+		// A byte that does not start a valid UTF-8 sequence is one character,
+		// kept as it is
+		{"\xff12", 2, "\xff.12", false},
+		{"12\xff", 0, "12\xff", true},
 	}
 	for _, tt := range tests {
 		func() {
@@ -219,6 +231,7 @@ func TestOverpunchNumberCleansingFunction(t *testing.T) {
 		{"3", "1E", "+.015", false},
 		{"-1", "12345", nil, true},
 		{"x", "12345", nil, true},
+		{"2", "1é5", "1.é5", false},
 	}
 	for _, tt := range tests {
 		func() {
