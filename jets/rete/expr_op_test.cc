@@ -564,9 +564,28 @@ TEST_F(ExprOpTest, SubstringOfVisitorEdges) {
     {-1, 2, "abc", ""},
     {-1, -1, "abc", ""},
     {std::numeric_limits<std::int32_t>::min(), 2, "abc", ""},
-    // positions count bytes: "é" is two bytes in UTF-8
-    {0, 1, "\xc3\xa9t\xc3\xa9", "\xc3"},
-    {0, 3, "\xc3\xa9t\xc3\xa9", "\xc3\xa9t"},
+    // positions and lengths count characters (code points), not bytes: "é" is two
+    // bytes in UTF-8 (C3 A9), "€" three (E2 82 AC), "😀" four (F0 9F 98 80)
+    {0, 1, "\xc3\xa9t\xc3\xa9", "\xc3\xa9"},         // bytes split the "é"
+    {0, 3, "\xc3\xa9t\xc3\xa9", "\xc3\xa9t\xc3\xa9"},
+    {1, 1, "\xc3\xa9t\xc3\xa9", "t"},
+    {2, 5, "\xc3\xa9t\xc3\xa9", "\xc3\xa9"},
+    {3, 1, "\xc3\xa9t\xc3\xa9", ""},                  // past the 3 characters
+    {0, -1, "\xc3\xa9t\xc3\xa9", "\xc3\xa9t"},
+    {1, 1, "5\xe2\x82\xac!", "\xe2\x82\xac"},
+    {0, -1, "5\xe2\x82\xac", "5"},
+    {1, 1, "a\xf0\x9f\x98\x80" "b", "\xf0\x9f\x98\x80"},
+    {2, 1, "a\xf0\x9f\x98\x80" "b", "b"},
+    // no normalisation: "e" and a combining acute (CC 81) are two characters
+    {0, 1, "e\xcc\x81t", "e"},
+    {1, 2, "e\xcc\x81t", "\xcc\x81t"},
+    // a byte that does not start a valid sequence is one character, kept as it is
+    {1, 1, "a\xff" "b", "\xff"},
+    {2, 1, "a\xff" "b", "b"},
+    {0, 2, "\x80\x80", "\x80\x80"},                    // stray continuation bytes
+    {1, 2, "a\xe2\x82", "\xe2\x82"},                   // a truncated sequence: two characters
+    {2, 1, "a\xe2\x82", "\x82"},
+    {0, 2, "\xc0\xafx", "\xc0\xaf"},                    // an overlong form: two characters
   };
   auto sess = this->rete_session->rdf_session();
   auto rmgr = sess->rmgr();
@@ -1490,9 +1509,10 @@ TEST(Lookups, AKeyOrTableOfAnotherTypeIsNull) {
   }
 }
 
-// char_at at the edges, evaluated as in a session's rule. The index counts bytes, as
-// substring_of's positions do, so on text that is not ASCII the result can be one byte of
-// a multi-byte character. An index outside the text, past the end or negative, is null,
+// char_at at the edges, evaluated as in a session's rule. The index counts characters
+// (code points), as substring_of's positions and length_of do, and a byte that does not
+// start a valid UTF-8 sequence is one character. An index outside the text, past the end
+// or negative, is null,
 // as it always was (substring_of gives "" there; char_at keeps null because a rule can
 // tell the two apart). An index that is not an int, or a lhs that is not text, throws.
 TEST(CharAt, TheEdges) {
@@ -1516,12 +1536,26 @@ TEST(CharAt, TheEdges) {
     {"abc", -1, null},
     {"", -1, null},
     {"abc", std::numeric_limits<std::int32_t>::min(), null},
-    // the index counts bytes: "é" is the two bytes 0xC3 0xA9 in UTF-8
-    {"\xc3\xa9t\xc3\xa9", 0, T("\xc3")},
-    {"\xc3\xa9t\xc3\xa9", 1, T("\xa9")},
-    {"\xc3\xa9t\xc3\xa9", 2, T("t")},
-    {"\xc3\xa9t\xc3\xa9", 4, T("\xa9")},
-    {"\xc3\xa9t\xc3\xa9", 5, null},
+    // the index counts characters (code points): "é" is the two bytes C3 A9 in UTF-8,
+    // "€" the three E2 82 AC, "😀" the four F0 9F 98 80
+    {"\xc3\xa9t\xc3\xa9", 0, T("\xc3\xa9")},
+    {"\xc3\xa9t\xc3\xa9", 1, T("t")},
+    {"\xc3\xa9t\xc3\xa9", 2, T("\xc3\xa9")},
+    {"\xc3\xa9t\xc3\xa9", 3, null},
+    {"\xc3\xa9t\xc3\xa9", 4, null},
+    {"\xe2\x82\xac" "5", 0, T("\xe2\x82\xac")},
+    {"\xe2\x82\xac" "5", 1, T("5")},
+    {"\xf0\x9f\x98\x80", 0, T("\xf0\x9f\x98\x80")},
+    {"\xf0\x9f\x98\x80", 1, null},
+    // no normalisation: "e" and a combining acute (CC 81) are two characters
+    {"e\xcc\x81", 1, T("\xcc\x81")},
+    // a byte that does not start a valid sequence is one character, kept as it is
+    {"a\xff" "b", 1, T("\xff")},
+    {"a\xff" "b", 2, T("b")},
+    {"\xa9", 0, T("\xa9")},
+    {"a\xf0\x9f\x98", 1, T("\xf0")},                  // a truncated 4-byte sequence
+    {"a\xf0\x9f\x98", 3, T("\x98")},
+    {"a\xf0\x9f\x98", 4, null},
   };
   for(auto const& r: rows) {
     EXPECT_EQ(or_threw(op, T(r.text), I(r.index)), r.want) << "index " << r.index << ", text \"" << r.text << "\"";
@@ -1540,6 +1574,54 @@ TEST(CharAt, TheEdges) {
                 boost::get<rdf::LString>(res).data.rfind("threw: ", 0) == 0) << a << " char_at " << b << ": " << res;
     EXPECT_EQ(boost::apply_visitor(no_row, a, b), null) << a << " char_at " << b;
   }
+}
+
+// length_of counts characters as TextUnits does, so that it agrees with substring_of and
+// char_at: a code point of any length in UTF-8 is one, a byte that does not start a valid
+// sequence is one, and there is no normalisation. Until 2026-11-14 it counted bytes.
+TEST(LengthOf, CountsCharacters) {
+  SessionRow sr;
+  LengthOfVisitor op(nullptr, sr.row.get());
+  std::vector<std::pair<std::string, std::int32_t>> const rows = {
+    {"", 0},
+    {"abc", 3},
+    {"\xc3\xa9t\xc3\xa9", 3},                // "été", 5 bytes
+    {"5\xe2\x82\xac", 2},                    // "5€", 4 bytes
+    {"\xf0\x9f\x98\x80!", 2},                // "😀!", 5 bytes
+    {"e\xcc\x81", 2},                        // "e" and a combining acute: no normalisation
+    {"a\xff" "b", 3},                        // an invalid byte
+    {"\x80\x80", 2},                         // stray continuation bytes
+    {"a\xe2\x82", 3},                        // a truncated sequence: each byte
+    {"\xed\xa0\x80", 3},                     // a surrogate: each byte
+  };
+  for(auto const& [text, want]: rows) {
+    EXPECT_EQ(or_threw(op, RDFTTYPE(rdf::LString(text))), RDFTTYPE(rdf::LInt32(want))) << "\"" << text << "\"";
+  }
+}
+
+// The three operators together, in the shape of a rule that drops a one-letter suffix
+// from a name: (?e name ?v).(?e nameLength ?n) with ?n = (length_of ?v), and the filter
+// [((?v char_at (?n - 2)) == " ")]. On a name whose last letter is not ASCII, counting
+// bytes put ?n - 2 inside that letter and the suffix was missed; counting characters
+// finds the space. And a cut of the first ?n - 2 characters keeps the name whole.
+TEST(TextUnits, ANameSuffixAfterANonAsciiLetter) {
+  SessionRow sr;
+  LengthOfVisitor length_of(nullptr, sr.row.get());
+  SubsVisitor minus(nullptr, sr.row.get());
+  CharAtVisitor char_at(nullptr, sr.row.get());
+  EqVisitor eq(nullptr, sr.row.get());
+  auto suffix_space = [&](std::string const& name) {
+    auto n = or_threw(length_of, RDFTTYPE(rdf::LString(name)));
+    auto at = or_threw(minus, n, RDFTTYPE(rdf::LInt32(2)));
+    auto c = or_threw(char_at, RDFTTYPE(rdf::LString(name)), at);
+    return rdf::to_bool(or_threw(eq, c, RDFTTYPE(rdf::LString(" "))));
+  };
+  EXPECT_TRUE(suffix_space("Ana B"));
+  EXPECT_TRUE(suffix_space("Ana \xc3\x89"));             // "Ana É"
+  EXPECT_TRUE(suffix_space("Jos\xc3\xa9 \xc3\x89"));       // "José É"
+  EXPECT_TRUE(suffix_space("Zo\xc3\xab \xc5\x81"));        // "Zoë Ł"
+  EXPECT_FALSE(suffix_space("Jos\xc3\xa9"));              // "José": no suffix
+  EXPECT_FALSE(suffix_space("A"));                        // index -1: null, not " "
 }
 
 }   // namespace
