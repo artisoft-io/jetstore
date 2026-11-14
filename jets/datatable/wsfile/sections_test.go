@@ -28,8 +28,9 @@ import (
 //
 // `runbooks=` added 2026-11-06 (runbooks Phase 1, `AA.4`), the tenth section:
 // fnv1a32:b15ab833 became fnv1a32:d2805ee9. The copy in
-// jetsclient_ide/src/screens/sectionContract.ts moves with it.
-const expectedDeclarationChecksum = "fnv1a32:d2805ee9"
+// jetsclient_ide/src/screens/sectionContract.ts moves with it. `docs=` added
+// 2026-11-13, the eleventh: fnv1a32:d2805ee9 became fnv1a32:1306f111.
+const expectedDeclarationChecksum = "fnv1a32:1306f111"
 
 // fnv1a32 matches jetsclient/test/corpus_support.dart's `checksum`, which is
 // hand-rolled there for the same reason it is hand-rolled here: this is drift

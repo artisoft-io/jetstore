@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -81,7 +82,8 @@ type Section struct {
 
 // WorkspaceSections is the section list the apiserver emits, in display order.
 //
-// **Ten sections since 2026-11-06, when `runbooks` was added; nine from
+// **Eleven sections since 2026-11-13, when `docs` was added; ten from
+// 2026-11-06, when `runbooks` was added; nine from
 // 2026-10-27, when `provenance` was added.** It had been
 // eight from 2026-08-23, when `process_sequence` was removed and `table_configs`
 // added on the same day, so a count carried forward from before that day was
@@ -224,6 +226,26 @@ var WorkspaceSections = []Section{
 		Dir: "runbooks", Label: "Runbooks",
 		Filters: []string{".rb.json", ".sql"}, CompiledView: NoCompiledView,
 	},
+	{
+		// **Added 2026-11-13**: the workspace's written documentation pages,
+		// Markdown with front matter in `docs/` and its subfolders, and the
+		// guide's settings file, `docs/workspace_docs.json`. They are merged
+		// into the installation's documentation site as the workspace guide at
+		// the UI image's build (docs/scripts/workspace_docs.mjs), and until
+		// this row a workspace's pages could not be opened in the IDE at all.
+		//
+		// **A page here is saved, where a `.md` anywhere else is shown
+		// read-only**: this is the directory the workspace writes Markdown in
+		// on purpose, so IsReadOnly exempts it (WritableMarkdownDir). The
+		// settings file is checked on save
+		// (jets/datatable/workspace_file_validators.go). A save is an
+		// override, as any other file's is: the guide shows it once it is
+		// committed to the workspace's repository and the UI image rebuilt.
+		// Nothing compiles it. Last, so the sections before it keep their
+		// order.
+		Dir: "docs", Label: "Documentation",
+		Filters: []string{".md", "workspace_docs.json"}, CompiledView: NoCompiledView,
+	},
 }
 
 // workspaceRootFiles are the two files listed at the tree's root rather than
@@ -258,13 +280,32 @@ const RootNoteSuffix = ".md"
 // since the two would then contradict each other. A root README could not be
 // saved anyway: SaveContent takes the database content type from the first
 // path segment, and a root file has none.
+//
+// **Except under WritableMarkdownDir, since 2026-11-13.** A README beside a
+// workspace's pipelines is notes kept in its repository; a page under `docs/`
+// is the workspace guide's content, written to be edited, and the IDE is where
+// a Knowledge Engineer edits the workspace.
 var ReadOnlySuffixes = []string{".md"}
 
-// IsReadOnly reports whether the IDE shows fileName without saving it. The
-// match is by suffix, as Section.Filters are.
-func IsReadOnly(fileName string) bool {
+// WritableMarkdownDir is the workspace directory whose files are saved
+// whatever ReadOnlySuffixes says: the `docs` section's pages.
+const WritableMarkdownDir = "docs"
+
+// IsReadOnly reports whether the IDE shows the file at filePath without saving
+// it. filePath is the workspace-relative path, `pipes_config/README.md`, with
+// forward slashes and not escaped; a bare name is a file at the root. The
+// match is by suffix, as Section.Filters are, and a file under
+// WritableMarkdownDir is never read-only.
+//
+// The path is cleaned first, so that `docs/../pipes_config/README.md` is
+// judged as the README it names rather than as a page.
+func IsReadOnly(filePath string) bool {
+	cleaned := path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
+	if strings.HasPrefix(cleaned, WritableMarkdownDir+"/") {
+		return false
+	}
 	for _, suffix := range ReadOnlySuffixes {
-		if strings.HasSuffix(fileName, suffix) {
+		if strings.HasSuffix(cleaned, suffix) {
 			return true
 		}
 	}

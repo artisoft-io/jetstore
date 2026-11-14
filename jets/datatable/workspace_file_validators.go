@@ -72,6 +72,11 @@ import (
 // `.sql` files are saved through the `.sql` row above, lexically; their
 // `:name` bindings are checked against the runbook at run start, because a
 // SQL file does not know which runbook reads it.
+//
+// `workspace_docs.json` is the ninth (2026-11-13): the workspace guide's
+// settings, listed with the guide's pages by the IDE's `docs` section. The
+// pages themselves have no row: a page's front matter and links are checked by
+// the documentation build, which needs the whole site to check a link.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -84,6 +89,41 @@ var workspaceFileValidators = []struct {
 	{".sql", sqlscript.ValidateScript},
 	{path.Base(optstats.FileName), validateOptimizerStatistics},
 	{runbook.FileSuffix, runbook.ValidateFile},
+	{workspaceDocsSettingsFile, validateWorkspaceDocsSettings},
+}
+
+// workspaceDocsSettingsFile is the workspace guide's settings file,
+// `docs/workspace_docs.json`, as the documentation build names it
+// (SETTINGS_FILE, docs/scripts/workspace_docs.mjs).
+const workspaceDocsSettingsFile = "workspace_docs.json"
+
+// validateWorkspaceDocsSettings refuses a guide settings file the
+// documentation build would refuse (readSettings, docs/scripts/workspace_docs.mjs):
+// one that is not a JSON object, or whose `rule_text` is not a boolean. The
+// ninth row, added on 2026-11-13 with the IDE's `docs` section
+// (wsfile/sections.go), for the same reason as the seventh: listing the file
+// made it editable, and a file the build refuses fails the next UI image build.
+// The JSON check before it lets `null` through, which is not an object.
+func validateWorkspaceDocsSettings(content string) []wsvalidate.Finding {
+	var settings map[string]any
+	if err := json.Unmarshal([]byte(content), &settings); err != nil || settings == nil {
+		return []wsvalidate.Finding{{
+			Severity: wsvalidate.Error,
+			Code:     "workspace_docs",
+			Message:  `expected a JSON object, such as {"rule_text": true}`,
+		}}
+	}
+	if v, ok := settings["rule_text"]; ok {
+		if _, isBool := v.(bool); !isBool {
+			return []wsvalidate.Finding{{
+				Severity: wsvalidate.Error,
+				Code:     "workspace_docs",
+				Message:  "rule_text must be true or false",
+				Path:     "/rule_text",
+			}}
+		}
+	}
+	return nil
 }
 
 // validateOptimizerStatistics refuses a statistics file the compiler would
