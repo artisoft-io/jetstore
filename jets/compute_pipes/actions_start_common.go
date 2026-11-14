@@ -390,22 +390,13 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		// Example of how this table is populated from base__workspace_init_db.sql:
 		// INSERT INTO jetsapi.domain_keys_registry (entity_rdf_type, object_types, domain_keys_json) VALUES
 		// ('ex:Eligibility', '{"Eligibility"}', '{"Eligibility":"ex:Generated_ID","jets:hashing_override":"none"}'),
-		var buf strings.Builder
-		buf.WriteString("SELECT entity_rdf_type, object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
-		first := true
+		// The class names come from the pipeline configuration, so they are
+		// bound as one text array rather than written into the statement.
+		names := make([]string, 0, len(classNames))
 		for c := range classNames {
-			if !first {
-				buf.WriteString(",")
-			}
-			first = false
-			buf.WriteString("'")
-			buf.WriteString(c)
-			buf.WriteString("'")
+			names = append(names, c)
 		}
-		buf.WriteString(")")
-		bufStr := buf.String()
-		// log.Printf("*** Getting domain_key_json from domain_keys_registry table: %s\n", bufStr)
-		rows, err := dbpool.Query(ctx, bufStr)
+		rows, err := dbpool.Query(ctx, domainKeysRegistryQuery, names)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -636,6 +627,11 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 	maxConcurrency := max(defaultMaxConcurrency, 1)
 	return maxConcurrency
 }
+
+// domainKeysRegistryQuery reads the domain keys of the classes named by $1, a
+// text array.
+const domainKeysRegistryQuery = `SELECT entity_rdf_type, object_types, domain_keys_json
+	FROM jetsapi.domain_keys_registry WHERE entity_rdf_type = ANY($1)`
 
 // Function to prune the lookupConfig and return only the lookup used in the pipeConfig
 // Returns an error if pipeConfig has reference to a lookup not in lookupConfig

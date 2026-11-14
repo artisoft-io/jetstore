@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,6 +22,9 @@ type LookupTableSql struct {
 	columnsMap map[string]int
 }
 
+// NewLookupTableSql loads the lookup that spec describes by running its query on
+// dbpool, which is the reader login (openLookupReader), in a read-only
+// transaction.
 func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]any, isVerbose bool) (LookupTable, error) {
 	tbl := &LookupTableSql{
 		spec:       spec,
@@ -42,9 +46,19 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]an
 	if isVerbose {
 		log.Println("NewLookupTableSql query is:", spec.Query)
 	}
-	rows, err := dbpool.Query(context.Background(), spec.Query)
+	if dbpool == nil {
+		return nil, errNoLookupPool
+	}
+	ctx := context.Background()
+	// Read-only, so a write is refused whatever the query calls.
+	tx, err := dbpool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, fmt.Errorf("while querying the lookup table %s: %v", spec.Key, err)
+		return nil, fmt.Errorf("while starting the read of lookup table %s: %v", spec.Key, err)
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, spec.Query)
+	if err != nil {
+		return nil, fmt.Errorf("while querying the lookup table %s: %w", spec.Key, withReaderHint(err))
 	}
 	defer rows.Close()
 	// keep track of the column name and their pos in the returned row
@@ -53,6 +67,12 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]an
 	fd := rows.FieldDescriptions()
 	// Check that the spec has all the returned columns from the query
 	if len(fd) != len(spec.Columns) {
+		// A query that was refused has no columns: say why, not that they
+		// do not match.
+		rows.Close()
+		if err = rows.Err(); err != nil {
+			return nil, fmt.Errorf("while querying the lookup table %s: %w", spec.Key, withReaderHint(err))
+		}
 		return nil, fmt.Errorf(
 			"error: lookup table spec column length does not match the nbr of columns returned by the query for table %s",
 			spec.Key)
@@ -147,6 +167,11 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]an
 		}
 		// save the lookup row
 		tbl.data[lookupKey] = &values
+	}
+	// A refusal (a write, or a table the login may not read) arrives here
+	// rather than from Query: the statement is prepared before it runs.
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("while querying the lookup table %s: %w", spec.Key, withReaderHint(err))
 	}
 	return tbl, nil
 }

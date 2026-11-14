@@ -45,7 +45,7 @@ at every start (`jets/dblogin`):
 
 | Group role | What runs as it | What it may do |
 |---|---|---|
-| `jets_reader` | every read whose SQL comes from the client (`raw_query`, `raw_query_map`, a data-table read), and a runbook's `query` and `wait` steps | read every table, less the secret columns; call no extension's functions |
+| `jets_reader` | every read whose SQL comes from the client (`raw_query`, `raw_query_map`, a data-table read), a runbook's `query` and `wait` steps, and a pipeline's lookup queries (a `sql_lookup`'s `query`, in a read-only transaction; see [lookup tables](/docs/developer/compute-pipes/lookup-tables/)) | read every table, less the secret columns; call no extension's functions |
 | `jets_ide` | the Query Tool's two buttons, a runbook's `ddl` steps, the workspace's own init scripts (`process_config/*_workspace_init_db.sql`), and its reports (`reports/*.sql`, run by `run_reports`) | read and change every table, read-only on the security tables and without their secret columns; create tables outside `jetsapi`, and drop, alter or index only those; no triggers on a table it did not create; call `aws_s3`'s functions |
 
 Each group role is held by a login of the same name with a suffix for the database, such as
