@@ -29,6 +29,7 @@ Each part is a folder, and each folder has one job:
 | `reports/` | **reports**: SQL scripts that run after a process, named for it, with `config.json` for any that differ from the default | a report for the `Optimizer_Statistics` process |
 | `user_flows/`, `table_configs/` | the **user flows**, the guided screens of tables and forms, and the documents describing their tables | the flows JetStore installs, such as *Load Files* and *Start Pipeline* |
 | `runbooks/` | **runbooks**: lists of steps the apiserver runs for a Knowledge Engineer, such as queries, pipeline starts and waits | a health check, and a test of `Patient_Profile_Template` |
+| `docs/` | the **workspace guide's pages**, written by the workspace's own people, merged into the installation's documentation when its images are built, beside the pages generated from the compiled workspace; `workspace_docs.json` holds the guide's settings | an overview, and a page for each of its two site operators under `customisation/` |
 | `workspace_control.json` | which rule files are the **rule sets** a pipeline can run | `cintel_main.jr` and the unit-test rule sets |
 
 Not every part is the Knowledge Engineer's. **JetStore installs some of its own files into every

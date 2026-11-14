@@ -32,9 +32,15 @@
     },
     {
       "name": "source_file_name",
-      "label": "Source File Name",
+      "label": "Main Rule File",
       "table": "workspace_control",
-      "tooltip": "File containing the Jet Rule definition"
+      "tooltip": "The main rule file the Jet Rule is compiled under; a rule in a file two main rule files include is listed under each"
+    },
+    {
+      "name": "authored_file_name",
+      "label": "File",
+      "tooltip": "The file the Jet Rule is written in: the main rule file or a file it includes",
+      "calculatedAs": "(SELECT authored_file.source_file_name FROM workspace_control AS authored_file WHERE authored_file.key = jet_rules.authored_file_key)"
     }
   ],
   "sortColumn": "name",

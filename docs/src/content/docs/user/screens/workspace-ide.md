@@ -62,18 +62,19 @@ with its size. **Filter files** narrows the tree to the names that match.
   rather than expanding it.
 
 **Documentation** lists the workspace's `docs/` folder: the pages its people write for the
-[workspace guide](#the-workspace-guide), Markdown files in `docs/` and its subfolders, and the guide's
-settings file, `docs/workspace_docs.json`. A page opens, is edited and is saved like any other file,
-and **Workspace guide** opens that page in the guide. The section has no **Add File**: a new page is
-added in the workspace's repository. How to write a page is in
+[workspace guide](#the-workspace-guide), Markdown files (`.md` or `.mdx`) in `docs/` and its
+subfolders, and the guide's settings file, `docs/workspace_docs.json`. A page opens, is edited and is
+saved like any other file, and **Workspace guide** opens that page in the guide. A saved page needs no
+compile: nothing compiles it, and the guide shows it once it is committed and the images are rebuilt.
+The section has no **Add File**: a new page is added in the workspace's repository. How to write a page is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## Editing a file
 
 ![hc_model.jr open in a tab of the editor, highlighted as JetRules, with the status bar at the bottom.](../../../../assets/screenshots/user/screens/workspace-ide/ide-file.png)
 
-Every file opens in its own tab, whatever its size. The editor highlights JetRules, JSON, SQL and the
-other formats a workspace holds. A tab with unsaved changes shows a dot, and its status bar says
+Every file opens in its own tab, whatever its size. The editor highlights JetRules, JSON, SQL and
+Markdown; other files, such as a lookup's CSV, show as plain text. A tab with unsaved changes shows a dot, and its status bar says
 *Modified*:
 
 ![The status bar of an edited file: its path, its language, its size in characters, and Modified.](../../../../assets/screenshots/user/screens/workspace-ide/ide-status-modified.png)
@@ -86,7 +87,10 @@ such as the workspace's `README.md`, is read-only too, except a page under `docs
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
 server then checks the file types it knows, such as user flows, table documents, SQL scripts and the
-guide's `workspace_docs.json`, and refuses a save that would break them, saying why. A saved file becomes an **override**: it is held in
+guide's `workspace_docs.json`, and refuses a save that would break them, saying why. A page of `docs/`
+is refused when the documentation build would refuse it for its front matter: none, YAML that does not
+parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
+`explanation` or `overview`). Its links are checked when the images are built. A saved file becomes an **override**: it is held in
 the database, takes precedence over the file in the image, and appears in *Workspace Changes*.
 
 Closing a tab with unsaved changes asks first; **OK** discards them.
@@ -127,6 +131,9 @@ A compiled view shows what the last compile made of a section, read from `worksp
 | **Jets Rules** | *Jet Rules*, *Rule Terms*, *Files Relationship*, *Jet Rules Files* |
 | **Lookups** | *Lookup Tables*, *Lookup Columns* |
 
+*Jet Rules* lists each rule with its salience and its text as written, the *Main Rule File* it is
+compiled under, and its *File*, the file it is written in: the main rule file itself or one it
+includes. A rule in a file that two main rule files include is listed once under each.
 *Files Relationship* lists, for each main rule file, every file it includes, directly or through
 another included file. *Jet Rules Files* lists the included rule files as well as the main ones, with
 *Main Rule File?* telling them apart.

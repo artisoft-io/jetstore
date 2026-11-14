@@ -74,22 +74,39 @@ import (
 // SQL file does not know which runbook reads it.
 //
 // `workspace_docs.json` is the ninth (2026-11-13): the workspace guide's
-// settings, listed with the guide's pages by the IDE's `docs` section. The
-// pages themselves have no row: a page's front matter and links are checked by
-// the documentation build, which needs the whole site to check a link.
+// settings, listed with the guide's pages by the IDE's `docs` section. This
+// said the pages themselves had no row, their front matter and links being
+// checked by the documentation build, which needs the whole site to check a
+// link.
+//
+// **The pages have two rows since later the same day, `.md` and `.mdx`, and
+// they are the first rows scoped to a path.** A page whose front matter the
+// build refuses fails the next UI image build, and front matter, unlike a link,
+// can be checked alone (validateDocsPage, workspace_docs_page.go). A `.md`
+// anywhere but `docs/` is read-only (wsfile.ReadOnlySuffixes) and refused
+// before validation, so a row matching every `.md` would have been harmless
+// there; it is scoped anyway, by `applies`, so that the table says which files
+// a row checks and TestNoReadOnlyFileTypeHasAValidator can keep asserting that
+// no read-only file has a validator.
 var workspaceFileValidators = []struct {
-	suffix   string
+	suffix string
+	// applies, when set, narrows the row to the files it returns true for,
+	// given the workspace-relative path; unset, the row applies to every file
+	// with its suffix.
+	applies  func(fileName string) bool
 	validate wsvalidate.Validator
 }{
-	{".uf.json", userflow.ValidateFlowDocument},
-	{".ua.json", userflow.ValidateActionDocument},
-	{".form.json", userflow.ValidateFormDocument},
-	{".tc.json", userflow.ValidateTableDocument},
-	{briefing.DocumentSuffix, briefing.ValidateProvenanceDocument},
-	{".sql", sqlscript.ValidateScript},
-	{path.Base(optstats.FileName), validateOptimizerStatistics},
-	{runbook.FileSuffix, runbook.ValidateFile},
-	{workspaceDocsSettingsFile, validateWorkspaceDocsSettings},
+	{".uf.json", nil, userflow.ValidateFlowDocument},
+	{".ua.json", nil, userflow.ValidateActionDocument},
+	{".form.json", nil, userflow.ValidateFormDocument},
+	{".tc.json", nil, userflow.ValidateTableDocument},
+	{briefing.DocumentSuffix, nil, briefing.ValidateProvenanceDocument},
+	{".sql", nil, sqlscript.ValidateScript},
+	{path.Base(optstats.FileName), nil, validateOptimizerStatistics},
+	{runbook.FileSuffix, nil, runbook.ValidateFile},
+	{workspaceDocsSettingsFile, nil, validateWorkspaceDocsSettings},
+	{".md", isDocsPage, validateDocsPage},
+	{".mdx", isDocsPage, validateDocsPage},
 }
 
 // workspaceDocsSettingsFile is the workspace guide's settings file,
@@ -163,6 +180,9 @@ func validatorFor(fileName string) wsvalidate.Validator {
 	var best wsvalidate.Validator
 	bestLen := 0
 	for _, entry := range workspaceFileValidators {
+		if entry.applies != nil && !entry.applies(fileName) {
+			continue
+		}
 		if strings.HasSuffix(upper, strings.ToUpper(entry.suffix)) && len(entry.suffix) > bestLen {
 			best, bestLen = entry.validate, len(entry.suffix)
 		}

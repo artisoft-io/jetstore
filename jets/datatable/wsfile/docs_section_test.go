@@ -27,6 +27,7 @@ func docsWorkspace(t *testing.T) (string, string) {
 		"docs/index.md":                 "---\ntitle: ws\n---\n",
 		"docs/customisation/index.md":   "---\ntitle: Customisation\n---\n",
 		"docs/customisation/observe.md": "---\ntitle: The observe operator\n---\nobserve\n",
+		"docs/customisation/chart.mdx":  "---\ntitle: A chart\n---\n",
 		"docs/workspace_docs.json":      `{"rule_text": false}`,
 		"docs/diagram.png":              "png",
 		"docs/notes.txt":                "notes",
@@ -77,6 +78,7 @@ func TestTheDocsSectionListsPagesAndSettingsWritable(t *testing.T) {
 	docs := map[string]bool{}
 	filesUnder(section, docs)
 	want := []string{
+		"docs/customisation/chart.mdx",
 		"docs/customisation/index.md",
 		"docs/customisation/observe.md",
 		"docs/index.md",
@@ -115,6 +117,9 @@ func TestIsReadOnlyExemptsTheDocsFolderOnly(t *testing.T) {
 		"jet_rules/a.jr":                    false,
 		"docs\\customisation\\observe.md":   false,
 		"docs\\..\\pipes_config\\README.md": true,
+		"docs/index.mdx":                    false,
+		"pipes_config/notes.mdx":            true,
+		"docs/../pipes_config/notes.mdx":    true,
 	} {
 		if got := IsReadOnly(path); got != want {
 			t.Errorf("IsReadOnly(%q) = %v, want %v", path, got, want)
