@@ -80,8 +80,6 @@ type ReportProperty struct {
 }
 
 type StatementProperty struct {
-	Org          string            `json:"org"`
-	ObjectType   string            `json:"object_type"`
 	OutputFormat string            `json:"outputFormat"`
 	RunWhen      []RunWhenCriteria `json:"runWhen"`
 }
@@ -468,13 +466,6 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 	}
 	reportDirectives := *ca.CurrentReportDirectives
 	stmtProps := reportDirectives.StatementProperties[*outputFileName]
-	// when org and object_type is not provided, use values from file key
-	if stmtProps.Org == "" {
-		stmtProps.Org = ca.Org
-	}
-	if stmtProps.ObjectType == "" {
-		stmtProps.ObjectType = ca.ObjectType
-	}
 
 	// Determine the output format
 	// s3 file name w/ path
@@ -563,7 +554,6 @@ func (ca *CommandArguments) reportFileName(name string) (string, error) {
 	// {ORG} is repplaced by the file key org/vendor field
 	// {OBJECT_TYPE} is replace by the object_type comming from the file key
 	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
-	// {FILE_KEY}  is replaced with input file key
 	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
 	// {SESSIONID} is replaced with session_id
 	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
