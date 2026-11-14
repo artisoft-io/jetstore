@@ -9,6 +9,32 @@ sidebar:
 The `jets/sqlscript` package decides where a statement in a workspace SQL file ends, and checks a
 SQL file when it is saved. Its sections are dated, newest first.
 
+## 2026-11-14 — a report with no output format is refused, not skipped
+
+Each statement of a reports file is exported to the file its name comment names, in the format its
+`statementProperties` entry declares as `outputFormat` (`csv`, `json` or `parquet`) or, failing that,
+the one its name ends in (`.csv`, `.json`, `.parquet`). **A statement for which neither says is now
+refused**, and the error names the statement, the line of its name comment and the file:
+
+```text
+reports/update.sql, line 4: report "update the lookup" has no output format: ...
+```
+
+Until this date such a statement was logged as *not saved to s3* and skipped, so a `DELETE`, an
+`UPDATE` or a `CREATE TABLE` written into a reports file to be executed did nothing, and the run
+reported success. The branch was never meant to execute anything: it was the hook for
+`reportsAsTable`, a directive that saved a report's result as a table, and when that directive was
+removed in 2024 the branch was left with nothing to do but log.
+
+**The check reads the whole file before running any of it** (`checkReportFormats`,
+`jets/run_reports/delegate/run_reports.go`), so a file is not left half run because its fourth
+statement has no format. Files listed before it in `reportScripts` have already run by then.
+
+**A statement to execute belongs in a script.** Declare its file `reportOrScript: "script"` in the
+directory's `config.json` and it runs whole, as one `Exec` (see the table below); keep the exports
+in their own reports file. On 2026-11-14 every statement of the reports files the four workspaces
+run had a format, so none of them is refused.
+
 ## 2026-09-12 — the `.sql` row in the save hook, and what the first non-JSON file type cost
 
 `ValidateScript` (`validate.go`) is the sixth row in the per-suffix validator table

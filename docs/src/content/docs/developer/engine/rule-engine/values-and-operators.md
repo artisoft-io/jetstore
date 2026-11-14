@@ -174,6 +174,13 @@ is not an error: the aggregate over nothing is null, as it always was. Until 202
 now throw `Invalid argument for <operator>, lhs and rhs must be existing resources`, naming both
 operands (`get_aggregate_operands`).
 
+**Use the result of `create_resource` or `create_uuid_resource` as a term of a consequent.** Both
+build a resource the session does not hold yet, and a consequent creates it when it evaluates the
+term of the triple it asserts. Given as an operand to another operator in the same expression, the
+resource exists only if the session already holds it, because a rule names it or an earlier
+consequent created it; otherwise `exist` gives false, `exist_not` true, `size_of` 0, and an
+aggregate throws the error above.
+
 The checks are `get_aggregate_operands`, `names_a_property` and `check_aggregate_config_properties`
 in `jets/rete/expr_op_arithmetics.h`, used by `SortedHeadVisitor`, `MinOfVisitor`, `MaxOfVisitor`,
 `doMinMaxOf`, `SumValuesVisitor` and `JoinValuesVisitor`. The cases are
