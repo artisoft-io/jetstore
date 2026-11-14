@@ -90,9 +90,18 @@ the lexer's `Identifier`, a literal against its type's grammar, an operator
 against `binaryOp`/`unaryOp`, and a reserved word is escaped (`ex:"date"`) or
 refused. `reserved.go` is held to `JetRule.g4` by `TestReservedMatchesGrammar`.
 
-## Literal values are the compiler's stored text, not unescaped — 2026-10-12
+## Literal values are the compiler's stored text — 2026-10-12, revised 2026-11-13
 
-`StripQuotes` removes the quotes of a `STRING` and does not unescape it, so the
-model stores `a\"b` for the source `"a\"b"`. A literal's `value` here is that
-stored text, written back between quotes verbatim. Escaping it again would make
-the round trip lose a backslash per pass.
+A literal's `value` is the text the compiler stores for it. Since 2026-11-13 the
+compiler reads a `STRING`'s escapes (`UnquoteString`; see
+[String literals](/docs/developer/engine/compiler/compilation/#string-literals)), so
+the source `"a\"b"` stores `a"b`, and the renderer escapes a value as it writes
+it (`compiler.QuoteString`). A regular expression keeps its single backslashes:
+the value `^(\d+)` is written `"^(\d+)"`. A rule property is the exception: the
+model keeps its raw source text, escapes included, so a property string is
+written back verbatim and refused if it holds an unescaped quote.
+
+Until then the compiler removed the quotes and did not unescape (`StripQuotes`),
+so the model stored `a\"b` for the source `"a\"b"`, and a literal's `value` was
+written back between quotes verbatim: escaping it again would have made the
+round trip lose a backslash per pass.

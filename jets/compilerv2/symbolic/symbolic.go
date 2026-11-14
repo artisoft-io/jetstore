@@ -101,9 +101,11 @@ type Term struct {
 
 // Literal is a resource with no id: a value written in place.
 //
-// Value is the literal's text exactly as the compiler stores it, which for a
-// text, date, datetime or bool literal is the text between the quotes, not
-// unescaped.
+// Value is the literal's text exactly as the compiler stores it. For a text,
+// date, datetime or bool literal that is the string the quotes enclose with its
+// escapes read (\" is a quote, \\ a backslash, \t \n \r a tab, line feed and
+// carriage return; any other backslash is kept), and Render writes it back
+// escaped (compiler.QuoteString).
 type Literal struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`

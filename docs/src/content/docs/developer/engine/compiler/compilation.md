@@ -46,3 +46,29 @@ compiles of one workspace write the same `workspace.db`. For each main rule file
 
 The workspace compile then builds `lookup.db` from the lookup tables and archives what the
 pipelines and reports fetch (`workspace.tgz`, `reports.tgz`).
+
+## String literals
+
+A string in a rule file is written in double quotes. It is read the same way wherever it appears: a
+`text`, `date`, `datetime` or `bool` declaration, a resource or volatile resource value, a rule's
+terms (`"..."` or `text("...")`), a `triple(...)`, a compiler directive, a rule sequence's rule sets,
+and a lookup table's file, key and column names. Inside the quotes a backslash starts an escape
+(`UnquoteString`, `compiler/string_literal.go`):
+
+| Written | Stored |
+|---|---|
+| `\"` | a double quote |
+| `\\` | a backslash |
+| `\t`, `\n`, `\r` | a tab, a line feed, a carriage return |
+
+**Any other backslash is kept, with the character after it**, so a regular expression is written with
+single backslashes: `"^(\d\d\d)"` stores `^(\d\d\d)`, which is what `literal_regex` receives. To
+store a backslash before `"`, `\`, `t`, `n` or `r`, double it: `"\\d"` stores `\d`, and `"a\\tb"`
+stores a backslash followed by `t`. A rule property (`[R1, description="..."]`) is the exception: the
+compiler keeps its source text, quotes and escapes included.
+
+**Changed 2026-11-13.** The compiler used to remove the quotes and nothing else, so `"\""` was stored
+as a backslash and a quote, `"a\\b"` kept both backslashes, and `"\t"` was a backslash and a `t`.
+A workspace whose strings contain `\"`, `\\`, `\t`, `\n` or `\r` compiles to different values
+after the change; one that writes a backslash only before other characters, as regular expressions
+usually do, compiles to the same `workspace.db`.
