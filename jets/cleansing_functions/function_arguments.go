@@ -168,7 +168,6 @@ func ParseSliceInputFunctionArgument(rawArg string, functionName string, cache m
 	key := fmt.Sprintf("%s(%s)", functionName, rawArg)
 	v := cache[key]
 	if v != nil {
-		fmt.Println("*** OK Got Cached value for", rawArg, ":", v)
 		return v.(*SliceInputFunctionArg), nil
 	}
 	// Parsed the raw argument into SliceInputFunctionArg and put it in the cache

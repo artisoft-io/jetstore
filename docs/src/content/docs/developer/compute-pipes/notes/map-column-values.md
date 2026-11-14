@@ -1,6 +1,6 @@
 ---
 title: "A map column: empty, rejected and absent values"
-description: "What a map column writes when its input is absent, empty or rejected, per record in map_record or accumulating in aggregate and map_reduce, and how the substring and overpunch_number cleansing functions treat positions out of range."
+description: "What a map column writes when its input is absent, empty or rejected, per record in map_record or accumulating in aggregate and map_reduce, which cleansing function configurations fail the step at its start, and how the substring and overpunch_number cleansing functions treat positions out of range."
 kind: reference
 sidebar:
   order: 14
@@ -61,6 +61,42 @@ default `pass_through` keeps the record, logs the error and reports it to the er
 column updated in place followed by a `count` with a `where` on it. No pipeline in the workspace corpus
 has a `map` column in an `aggregate` or a `map_reduce` as of 2026-10-18.
 
+## A misconfigured cleansing function fails the step at its start
+
+**Recorded 2026-11-14.** A map column's cleansing function and its argument are checked when the
+column is built (`CheckFunction`, `jets/cleansing_functions/function_check.go`, called from
+`BuildMapTCEvaluator`), before the step reads a record. A configuration it refuses fails the step at
+its start, with an error naming the output column, its input column, the function and what is wrong:
+
+```text
+mapping column hc:NDC (input column 'NDC'): cleansing function apply_regex requires an argument
+```
+
+It refuses:
+
+| Configuration | Functions |
+|---|---|
+| A function name JetStore does not have | any |
+| A missing argument | `apply_regex`, `overpunch_number`, `reformat0`, `scale_units`, `scrub_characters`, `slice_input`, `split_on`, `unique_split_on` |
+| A regular expression that does not compile | `apply_regex` |
+| A divisor that is not a number | `scale_units`, `parse_amount` |
+| An argument that does not parse (see the parser, `ParseSliceInputFunctionArgument`) | `slice_input` |
+
+The argument is parsed once, by the code the records then use, and kept for them.
+
+**Before this date** each of these panicked when the first non-blank value reached the column, so
+the step failed part way through, on a message naming an input position rather than a column. **One
+case behaves differently now**: a column whose function is misconfigured but whose values are always
+blank never reached the function, so its step ran clean, and it now fails at the start.
+
+**Not checked at the start, as before**: the argument of `concat`, `concat_with`, `find_and_replace`
+and `substring`, and a non-integer `overpunch_number` argument. These are checked per record, and a
+refused argument makes the value *rejected* in the table above, on every record.
+
+The list of functions is `jetsapi.mapping_function_registry`, seeded in `jets/jets_init_db.sql`,
+which is what the UI offers; a test in `jets/cleansing_functions` holds it, `CheckFunction`'s list
+and `ApplyCleasingFunction` together.
+
 ## Cleansing functions that take a position
 
 **Recorded 2026-11-13.** Two cleansing functions read positions from their argument. Out of range,
@@ -110,8 +146,8 @@ not `abcdef`.
 
 The argument is the number of decimal places, an integer of 0 or more: the right-most characters,
 the overpunch character included, that are the decimal part. A negative or non-integer argument is
-*rejected* on every record; an empty one stops the step, as for the other functions whose argument is
-required.
+*rejected* on every record; an empty one fails the step at its start, as for the other functions
+whose argument is required (see above).
 
 **A value with fewer characters than decimal places is padded with zeros on the left**, as a
 fixed-width field whose leading zeros were dropped: `5` with 2 decimal places is `.05`, as `05` is,

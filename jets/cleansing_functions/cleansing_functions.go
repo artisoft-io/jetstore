@@ -3,7 +3,6 @@ package cleansing_functions
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"regexp"
 	"strconv"
@@ -209,8 +208,8 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 				}
 			}
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function reformat0 for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "overpunch_number":
@@ -235,20 +234,18 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 				errMsg = err.Error()
 			}
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function overpunch_number for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "apply_regex":
 		if argument != "" {
-			re, ok := ctx.reMap[argument]
-			if !ok {
-				re, err = regexp.Compile(argument)
-				if err != nil {
-					// configuration error, bailing out
-					log.Panicf("ERROR regex argument does not compile: %s", argument)
-				}
-				ctx.reMap[argument] = re
+			var re *regexp.Regexp
+			re, err = ctx.regexArgument(argument)
+			if err != nil {
+				// configuration error, refused by CheckFunction when the evaluator is built
+				errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
+				break
 			}
 			vv := re.FindString(inputValue)
 			if len(vv) == 0 {
@@ -257,8 +254,8 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 				obj = vv
 			}
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function apply_regex for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "scale_units":
@@ -271,14 +268,12 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 					obj = vv
 				}
 			} else {
-				divisor, ok := ctx.argdMap[argument]
-				if !ok {
-					divisor, err = strconv.ParseFloat(argument, 64)
-					if err != nil {
-						// configuration error, bailing out
-						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", argument)
-					}
-					ctx.argdMap[argument] = divisor
+				var divisor float64
+				divisor, err = ctx.divisorArgument(argument)
+				if err != nil {
+					// configuration error, refused by CheckFunction when the evaluator is built
+					errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
+					break
 				}
 				// Remove non digits characters
 				inVal := filterDouble(inputValue)
@@ -292,8 +287,8 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 				}
 			}
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function scale_units for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "parse_amount":
@@ -303,14 +298,13 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 			obj = inVal
 			// argument is optional, assume divisor is 1 if absent
 			if argument != "" && argument != "1" {
-				divisor, ok := ctx.argdMap[argument]
-				if !ok {
-					divisor, err = strconv.ParseFloat(argument, 64)
-					if err != nil {
-						// configuration error, bailing out
-						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", argument)
-					}
-					ctx.argdMap[argument] = divisor
+				var divisor float64
+				divisor, err = ctx.divisorArgument(argument)
+				if err != nil {
+					// configuration error, refused by CheckFunction when the evaluator is built
+					obj = nil
+					errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
+					break
 				}
 				var amt float64
 				amt, err = strconv.ParseFloat(inVal, 64)
@@ -379,8 +373,8 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		if argument != "" {
 			obj = ScrubCharacters(inputValue, argument)
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function scrub_characters for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "substring":
@@ -413,52 +407,61 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		if argument != "" {
 			obj = SplitOn(inputValue, argument)
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "unique_split_on":
 		if argument != "" {
 			obj = UniqueSplitOn(inputValue, argument)
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function unique_split_on for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "slice_input":
 		if argument != "" {
-			obj = SliceInput(inputValue, argument, ctx.parsedFunctionArguments)
+			obj, err = SliceInput(inputValue, argument, ctx.parsedFunctionArguments)
+			if err != nil {
+				// configuration error, refused by CheckFunction when the evaluator is built
+				obj = nil
+				errMsg = err.Error()
+			}
 		} else {
-			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function slice_input for input column pos %d", inputPos)
+			// configuration error, refused by CheckFunction when the evaluator is built
+			errMsg = missingArgument(functionName)
 		}
 
 	case "ndc10_to_11":
 		obj = Ndc10To11(inputValue)
 
 	default:
-		log.Panicf("ERROR unknown mapping function: %s", functionName)
+		// configuration error, refused by CheckFunction when the evaluator is built
+		errMsg = unknownFunction(functionName)
 	}
 
 	return obj, errMsg
 }
 
-func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]any) any {
+// SliceInput splits inputValue on the argument's delimiter and keeps the
+// elements it names. It returns an error when the argument does not parse,
+// which CheckFunction refuses before any record.
+func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]any) (any, error) {
 	if inputValue == "" {
-		return nil
+		return nil, nil
 	}
 	sliceArg, err := ParseSliceInputFunctionArgument(argument, "slice_input", parsedFunctionArguments)
 	if err != nil {
-		log.Panicf("while parsing arguments for cleansing function parse_input: %v", err)
+		return nil, err
 	}
 	sliceValues := strings.Split(inputValue, sliceArg.Delimit)
 	l := len(sliceValues)
 	var values []string
 	switch {
 	case l == 0:
-		return nil
+		return nil, nil
 	case sliceArg.From == nil && sliceArg.To == nil && sliceArg.Values == nil:
-		return sliceValues
+		return sliceValues, nil
 	case sliceArg.Values != nil:
 		values = make([]string, 0, len(*sliceArg.Values))
 		for _, i := range *sliceArg.Values {
@@ -488,9 +491,9 @@ func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]
 		}
 	}
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
-	return values
+	return values, nil
 }
 
 // Cleansing function to convert NDC with 10 digits with slash separators

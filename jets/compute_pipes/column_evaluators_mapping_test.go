@@ -376,3 +376,57 @@ func TestMapPerRecordWritesNullWhereAccumulatingSkips(t *testing.T) {
 		t.Errorf("map_record output is %v, want null", record[0])
 	}
 }
+
+// A misconfigured cleansing function fails the evaluator's construction, ie the
+// step before its first record, with an error naming the column and the function.
+func TestMapCleansingFunctionCheckedWhenBuilt(t *testing.T) {
+	columns := &map[string]int{"qty": 0, "amt": 1}
+	source := &InputChannel{Name: "in", Columns: columns, Config: &ChannelSpec{Name: "in"}}
+	outCh := &OutputChannel{Name: "out", Columns: columns, Config: &ChannelSpec{Name: "out"}}
+	ctx := &BuilderContext{}
+	cases := []struct {
+		fn, arg, want string
+	}{
+		{"no_such_function", "", "unknown cleansing function 'no_such_function'"},
+		{"reformat0", "", "reformat0 requires an argument"},
+		{"overpunch_number", "", "overpunch_number requires an argument"},
+		{"apply_regex", "", "apply_regex requires an argument"},
+		{"apply_regex", "([0-9]", "not a valid regular expression"},
+		{"scale_units", "", "scale_units requires an argument"},
+		{"scale_units", "ten", "is not a number"},
+		{"parse_amount", "1x", "is not a number"},
+		{"scrub_characters", "", "scrub_characters requires an argument"},
+		{"split_on", "", "split_on requires an argument"},
+		{"unique_split_on", "", "unique_split_on requires an argument"},
+		{"slice_input", "", "slice_input requires an argument"},
+		{"slice_input", "^,-1", "slice_input"},
+	}
+	for _, c := range cases {
+		expr := "qty"
+		_, err := ctx.BuildMapTCEvaluator(source, outCh, &TransformationColumnSpec{
+			Name: "amt", Type: "map", Expr: &expr,
+			MapExpr: &MapExpression{CleansingFunction: c.fn, Argument: c.arg},
+		})
+		if err == nil {
+			t.Errorf("%s(%q): expected BuildMapTCEvaluator to fail", c.fn, c.arg)
+			continue
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "mapping column amt (input column 'qty')") || !strings.Contains(msg, c.want) {
+			t.Errorf("%s(%q): error %q does not name the column and %q", c.fn, c.arg, msg, c.want)
+		}
+	}
+}
+
+// A valid cleansing function builds, and the parsed argument serves the records.
+func TestMapCleansingFunctionValidBuilds(t *testing.T) {
+	ev, _ := buildInPlaceMapEval(t, "amt", "amt",
+		&MapExpression{CleansingFunction: "apply_regex", Argument: "[0-9]+", RdfType: "text"})
+	record := []any{"x", "ab123"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if record[1] != "123" {
+		t.Errorf("got %#v, want \"123\"", record[1])
+	}
+}

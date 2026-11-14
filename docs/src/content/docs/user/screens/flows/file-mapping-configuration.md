@@ -50,6 +50,11 @@ field:
 - *Function Argument* is required by some functions and refused without a function;
 - a row cannot have both a *Default Value* and an *Error Message*.
 
+The worksheet does not check that an argument is well formed: a regular expression for `apply_regex`,
+a number for `scale_units`. The mapping pipeline checks that when its step starts, and a refused
+function or argument fails the step before any row is read, naming the property and its column (see
+[which configurations are refused](/docs/developer/compute-pipes/notes/map-column-values/#a-misconfigured-cleansing-function-fails-the-step-at-its-start)).
+
 ## Buttons
 
 At the bottom of the worksheet:
