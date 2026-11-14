@@ -108,8 +108,7 @@ After the reports have run, and only if at least one did, each `registerReport` 
 **The org fallback is restored as of this date.** Until registration moved out of `DoReport` in
 2024 an entry without `org` took the statement's org, which itself defaulted to the file key's;
 the move kept the object type's fallback and dropped the org's, so such an entry registered an
-empty org. No `reports/config.json` of the four workspaces checked on 2026-11-14 has a
-`registerReport` entry, so no deployment registers anything different. A run whose entry has no
+empty org. A run whose entry has no
 `org` and whose file key has none logs a warning and registers an empty org, as there is nothing
 to fall back to.
 
