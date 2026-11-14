@@ -52,9 +52,10 @@ The functions are a fixed list that JetStore provides, among them `trim`, `to_up
 `ndc10_to_11`. A mapping picks from the list rather than carrying code of its own, so a new source
 needs no programming, only choices.
 
-A function that needs an argument and has none, an `apply_regex` expression that is not valid, or a
-`scale_units` divisor that is not a number fails the mapping pipeline when its step starts, before any
-row is read, with an error naming the property and its column. The full list is in
+A function that needs an argument and has none, an `apply_regex` expression that is not valid, a
+`scale_units` divisor that is not a number or is 0, a `substring` range that does not parse, or a
+`concat` column that is not a column of the file fails the mapping pipeline when its step starts,
+before any row is read, with an error naming the property and its column. The full list is in
 [the map column reference](/docs/developer/compute-pipes/notes/map-column-values/#a-misconfigured-cleansing-function-fails-the-step-at-its-start).
 
 A mapping is applied by a mapping pipeline: `Map_Eligibility` reads an eligibility file, applies

@@ -1,6 +1,6 @@
 ---
 title: "A map column: empty, rejected and absent values"
-description: "What a map column writes when its input is absent, empty or rejected, per record in map_record or accumulating in aggregate and map_reduce, which cleansing function configurations fail the step at its start, and how the substring and overpunch_number cleansing functions treat positions out of range."
+description: "What a map column writes when its input is absent, empty or rejected, per record in map_record or accumulating in aggregate and map_reduce, which cleansing function configurations fail the step at its start, and how the substring and overpunch_number cleansing functions count positions and treat them out of range."
 kind: reference
 sidebar:
   order: 14
@@ -55,7 +55,10 @@ The default itself goes through the code value mapping; if that makes it blank, 
 
 **Where an error goes.** In `map_record` a returned error is handled by its `on_error` setting: the
 default `pass_through` keeps the record, logs the error and reports it to the error channel, capped at
-`max_error_count`.
+`max_error_count`. The map column does not log it itself. **Until 2026-11-14 it did**, for every value
+its cleansing function rejected, with no cap, so a column rejecting every value logged every record
+twice; `map_record`'s count of errors and its cap are unchanged. A value an accumulating column skips
+is not logged.
 
 **Measured** by `column_evaluators_mapping_test.go`, which builds both modes directly, including a map
 column updated in place followed by a `count` with a `where` on it. No pipeline in the workspace corpus
@@ -77,21 +80,54 @@ It refuses:
 | Configuration | Functions |
 |---|---|
 | A function name JetStore does not have | any |
-| A missing argument | `apply_regex`, `overpunch_number`, `reformat0`, `scale_units`, `scrub_characters`, `slice_input`, `split_on`, `unique_split_on` |
+| A missing argument | `apply_regex`, `concat`, `concat_with`, `find_and_replace`, `overpunch_number`, `reformat0`, `scale_units`, `scrub_characters`, `slice_input`, `split_on`, `substring`, `unique_split_on` |
 | A regular expression that does not compile | `apply_regex` |
-| A divisor that is not a number | `scale_units`, `parse_amount` |
+| A divisor that is not a number, or is 0 (`0`, `0.0`, `-0`), or is not finite (`NaN`, `Inf`) | `scale_units`, `parse_amount` |
+| A format that does not take the three parts of the number as strings (below) | `format_phone` |
+| A number of decimal places that is not an integer of 0 or more | `overpunch_number` |
+| An argument that is not csv, or names a column that is not a column of the input | `concat`, `concat_with` |
+| An argument that is not two csv values, or whose text to find is empty | `find_and_replace` |
+| A `start,end` refused by its parser (see [`substring`](#substring)) | `substring` |
 | An argument that does not parse (see the parser, `ParseSliceInputFunctionArgument`) | `slice_input` |
 
-The argument is parsed once, by the code the records then use, and kept for them.
+The argument is parsed once, by the code the records then use, and kept for them. A record that
+reaches a function with a configuration this check refuses gets the same refusal as an error on the
+value, never a panic or a value computed from it.
 
-**Before this date** each of these panicked when the first non-blank value reached the column, so
-the step failed part way through, on a message naming an input position rather than a column. **One
-case behaves differently now**: a column whose function is misconfigured but whose values are always
+**`format_phone`'s argument is an `fmt.Sprintf` format** given the area code, the exchange code and
+the subscriber number, in that order, as three strings; without an argument it is `+1%s%s%s`. The
+format is refused when `fmt` would mark its output: a verb that does not take a string (`%d`), fewer
+verbs than parts (`%s-%s`, which gives `555-234%!(EXTRA string=5678)`), more verbs than parts
+(`%!s(MISSING)`), an argument index past the third (`%[4]s`), a `*` width, or a trailing `%`. A
+literal percent sign is `%%`. Explicit argument indexes are accepted, so `%[3]s-%[1]s` reorders the
+parts and leaves one out.
+
+**Before this date** an unknown function, a missing argument to the functions that had always required
+one, a regular expression that does not compile, a divisor that is not a number and a `slice_input`
+argument that does not parse each panicked when the first non-blank value reached the column, so the
+step failed part way through, on a message naming an input position rather than a column. **One case
+behaves differently now**: a column whose function is misconfigured but whose values are always
 blank never reached the function, so its step ran clean, and it now fails at the start.
 
-**Not checked at the start, as before**: the argument of `concat`, `concat_with`, `find_and_replace`
-and `substring`, and a non-integer `overpunch_number` argument. These are checked per record, and a
-refused argument makes the value *rejected* in the table above, on every record.
+**Upgrade note, 2026-11-14: more configurations fail the step at its start.** These were checked
+per record before, or not at all, and each now fails the step before its first record:
+
+- the argument of `concat`, `concat_with`, `find_and_replace` and `substring`, missing or malformed,
+  and an `overpunch_number` argument that is not an integer of 0 or more. Each made the value
+  *rejected* (in the first table of this page) on every record: an error per record under `map_record`'s
+  `on_error`, and null in the column unless it has a default. A mapping that ran that way, its
+  errors reported and the step completing, now fails;
+- a `concat` or `concat_with` column that is not a column of the input, which was the same per-record
+  rejection;
+- a `find_and_replace` whose text to find is empty, which inserted the replacement between every
+  character of the value;
+- a `scale_units` or `parse_amount` divisor of 0, or one that is not finite, which gave `+Inf`, `-Inf`
+  or `NaN` for every value with no error;
+- a `format_phone` format `fmt` cannot apply to the three parts, which wrote `fmt`'s error marker,
+  such as `%!s(MISSING)`, into the value with no error.
+
+A mapping refused this way is corrected in its configuration: the [*File Mapping Configuration*](/docs/user/screens/flows/file-mapping-configuration/) worksheet for a
+mapping made there, the pipeline's `map_expr` otherwise.
 
 The list of functions is `jetsapi.mapping_function_registry`, seeded in `jets/jets_init_db.sql`,
 which is what the UI offers; a test in `jets/cleansing_functions` holds it, `CheckFunction`'s list
@@ -121,14 +157,13 @@ The argument is `start,end`: two integers, white space around each allowed. `sta
 `end` exclusive, both counted in characters from 0 at the first. A negative `end` counts back from
 the end of the value: `0,-2` drops the last two characters.
 
-**Refused when parsed**, which makes the value *rejected* in the table above, on every record (a
-refused argument is not cached):
+**Refused when the column is built**, which fails the step at its start (above):
 - not exactly two integers (`3`, `1,2,3`, `a,3`), or an empty argument;
 - a negative `start` (`-1,3`);
 - a positive `end` not greater than `start` (`5,3`, `3,3`).
 
-The argument is parsed when the first record reaches the column, not when the pipeline is built, so a
-refused argument is found by a run, as one error per record under `map_record`'s `on_error`.
+Until 2026-11-14 the argument was parsed when the first record reached the column, so a refused
+argument made the value *rejected* in the table above, on every record.
 
 **Empty** (no value, the *empty* row of the table) when `end`, once a negative one is resolved
 against the value's length in characters, is past the end of the value or not after `start`:
@@ -152,14 +187,23 @@ not `abcdef`.
 
 ### `overpunch_number`
 
-The argument is the number of decimal places, an integer of 0 or more: the right-most characters,
-the overpunch character included, that are the decimal part. A negative or non-integer argument is
-*rejected* on every record; an empty one fails the step at its start, as for the other functions
-whose argument is required (see above).
+The argument is the number of decimal places, an integer of 0 or more, white space around it
+allowed: the right-most characters, the overpunch character included, that are the decimal part. A
+missing, negative or non-integer argument fails the step at its start (see above); until 2026-11-14
+a negative or non-integer one made the value *rejected* on every record.
+
+**Positions count characters, not bytes** (2026-11-14), as `substring`'s do, with the same rule for a
+byte that does not start a valid UTF-8 sequence: it is one character, kept as it is. The value is
+expected to be digits and an overpunch character, which are ASCII, so the result is unchanged on such
+a value. On a value that is not ASCII a byte position could fall inside a multi-byte character and
+split it: `1é5` with 2 decimal places is now `1.é5`, and was `1`, the first byte of `é`, a point, and
+the rest. A last character that is neither a digit nor an overpunch character is *rejected*, as
+before.
 
 **A value with fewer characters than decimal places is padded with zeros on the left**, as a
 fixed-width field whose leading zeros were dropped: `5` with 2 decimal places is `.05`, as `05` is,
 and `E` is `+.05`. A value at least as long as the decimal places is decoded as before.
 
 **Measured** by `out_of_range_test.go` in `jets/cleansing_functions`, which runs every case above
-through `ApplyCleasingFunction`.
+through `ApplyCleasingFunction`, and `function_check_test.go`, which holds the configurations refused
+at the start.

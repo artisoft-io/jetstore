@@ -1,6 +1,8 @@
 package compute_pipes
 
 import (
+	"bytes"
+	"log"
 	"strings"
 	"testing"
 )
@@ -118,8 +120,7 @@ func TestMapNullInputWithoutDefaultKeepsOutput(t *testing.T) {
 // value does not pass through.
 func TestMapCleansingErrorWithoutDefaultIsNull(t *testing.T) {
 	ev, _ := buildInPlaceMapEval(t, "qty", "qty", &MapExpression{
-		CleansingFunction: "find_and_replace",
-		Argument:          "not a valid argument",
+		CleansingFunction: "validate_date",
 		RdfType:           "text",
 	})
 	record := []any{"raw", "x"}
@@ -400,6 +401,17 @@ func TestMapCleansingFunctionCheckedWhenBuilt(t *testing.T) {
 		{"unique_split_on", "", "unique_split_on requires an argument"},
 		{"slice_input", "", "slice_input requires an argument"},
 		{"slice_input", "^,-1", "slice_input"},
+		{"scale_units", "0", "must be a number other than 0"},
+		{"parse_amount", "0", "must be a number other than 0"},
+		{"format_phone", "%s-%s", "must take the area code"},
+		{"overpunch_number", "x", "must be an integer of 0 or more"},
+		{"concat", "", "concat requires an argument"},
+		{"concat", "qty,no_such_column", "column 'no_such_column'"},
+		{"concat_with", "-,no_such_column", "column 'no_such_column'"},
+		{"find_and_replace", "", "find_and_replace requires an argument"},
+		{"find_and_replace", "Bk", "cannot be parsed as csv"},
+		{"substring", "", "substring requires an argument"},
+		{"substring", "5,3", "end must be greater than start"},
 	}
 	for _, c := range cases {
 		expr := "qty"
@@ -428,5 +440,69 @@ func TestMapCleansingFunctionValidBuilds(t *testing.T) {
 	}
 	if record[1] != "123" {
 		t.Errorf("got %#v, want \"123\"", record[1])
+	}
+}
+
+// concat names input columns, which the evaluator knows when it is built: a
+// valid one builds and reads the other column of the record.
+func TestMapConcatResolvesInputColumnsWhenBuilt(t *testing.T) {
+	ev, _ := buildInPlaceMapEval(t, "amt", "qty",
+		&MapExpression{CleansingFunction: "concat_with", Argument: "-,amt", RdfType: "text"})
+	record := []any{"12", "34"}
+	if err := ev.Update(&record, &record); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if record[1] != "12-34" {
+		t.Errorf("got %#v, want \"12-34\"", record[1])
+	}
+}
+
+// A value the cleansing function rejects is logged once, by map_record, under
+// its max_error_count cap, and counted as before: the map column does not log
+// it too.
+func TestMapRecordLogsCleansingErrorsUnderItsCap(t *testing.T) {
+	expr := "key1"
+	spec := &TransformationSpec{
+		Type:            "map_record",
+		MapRecordConfig: &MapRecordSpec{MaxErrorCount: 3},
+		Columns: []TransformationColumnSpec{{
+			Name: "out_col", Type: "map", Expr: &expr,
+			MapExpr: &MapExpression{CleansingFunction: "validate_date", RdfType: "text"},
+		}},
+	}
+	source := &InputChannel{Name: "in", Columns: &map[string]int{"key1": 0}, Config: &ChannelSpec{Name: "in"}}
+	outputCh := &OutputChannel{
+		Channel: make(chan []any, 10),
+		Columns: &map[string]int{"out_col": 0},
+		Config:  &ChannelSpec{Name: "out", Columns: []string{"out_col"}},
+	}
+	ctx := &BuilderContext{done: make(chan struct{})}
+	pipe, err := ctx.NewMapRecordTransformationPipe(source, outputCh, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(prev)
+	for range 10 {
+		record := []any{"not a date"}
+		if err := pipe.Apply(&record); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+	}
+	log.SetOutput(prev)
+	out := buf.String()
+	if pipe.errorCount != 10 {
+		t.Errorf("errorCount is %d, want 10", pipe.errorCount)
+	}
+	if n := strings.Count(out, "mapping error:"); n != 3 {
+		t.Errorf("map_record logged %d mapping errors, want 3 (max_error_count)", n)
+	}
+	if n := strings.Count(out, "reached max_error_count"); n != 1 {
+		t.Errorf("map_record logged reaching its cap %d times, want 1", n)
+	}
+	if strings.Contains(out, "Error while applying cleansing function") {
+		t.Errorf("the map column logged the error too:\n%s", out)
 	}
 }

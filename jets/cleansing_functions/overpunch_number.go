@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Data cleansing functions
@@ -59,41 +60,52 @@ var overpunchCharacters = map[rune]Overpunch{
 // that are the decimal part. A value with fewer characters than decimalPlaces is
 // read as a fixed-width field whose leading zeros were dropped: it is padded
 // with zeros on the left to decimalPlaces characters, so "5" with 2 decimal
-// places is ".05", as "05" is. Positions are bytes; the value is expected to be
-// ASCII.
+// places is ".05", as "05" is.
+//
+// Positions count characters (Unicode code points), as the substring cleansing
+// function does, so a cut never splits a multi-byte UTF-8 character; a byte
+// that does not start a valid UTF-8 sequence is one character, kept as it is
+// (charOffsets). The value is expected to be digits and an overpunch character,
+// all ASCII, where characters and bytes are the same. Until 2026-11-14
+// positions counted bytes.
 func OverpunchNumber(value string, decimalPlaces int) (string, error) {
 	if decimalPlaces < 0 {
 		return value, fmt.Errorf("decimalPlaces must be >= 0, we got %d", decimalPlaces)
 	}
-	l := len(value)
-	if l == 0 {
+	if value == "" {
 		return "", nil
 	}
+	offsets := charOffsets(value)
+	l := len(offsets) - 1
 	if l < decimalPlaces {
 		// Put back the leading zeros, the slicing below needs l >= decimalPlaces
 		value = strings.Repeat("0", decimalPlaces-l) + value
+		offsets = charOffsets(value)
 		l = decimalPlaces
 	}
-	r := rune(value[l-1])
+	// The last character, and where the decimal part starts
+	last := value[offsets[l-1]:]
+	decimalStart := offsets[l-decimalPlaces]
+	r, _ := utf8.DecodeRuneInString(last)
 
 	if unicode.IsDigit(r) {
 		if decimalPlaces == 0 {
 			return value, nil
 		}
-		return fmt.Sprintf("%s.%s", value[:l-decimalPlaces], value[l-decimalPlaces:]), nil
+		return fmt.Sprintf("%s.%s", value[:decimalStart], value[decimalStart:]), nil
 	}
 
 	oc, ok := overpunchCharacters[r]
 	if !ok {
-		return value, fmt.Errorf("unkown overpunch character: %s", string(r))
+		return value, fmt.Errorf("unknown overpunch character: %q", last)
 	}
 	switch decimalPlaces {
 	case 0:
-		return fmt.Sprintf("%s%s%s", oc.Sign, value[:l-1], oc.Digit), nil
+		return fmt.Sprintf("%s%s%s", oc.Sign, value[:offsets[l-1]], oc.Digit), nil
 	case 1:
-		return fmt.Sprintf("%s%s.%s", oc.Sign, value[:l-1], oc.Digit), nil
+		return fmt.Sprintf("%s%s.%s", oc.Sign, value[:offsets[l-1]], oc.Digit), nil
 	default:
-		return fmt.Sprintf("%s%s.%s%s", oc.Sign, value[:l-decimalPlaces], value[l-decimalPlaces:l-1], oc.Digit), nil
+		return fmt.Sprintf("%s%s.%s%s", oc.Sign, value[:decimalStart], value[decimalStart:offsets[l-1]], oc.Digit), nil
 	}
 }
 

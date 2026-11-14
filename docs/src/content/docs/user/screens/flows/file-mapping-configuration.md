@@ -28,7 +28,7 @@ property's name. **A name ending in `*` is required**: every record must have a 
 |---|---|
 | **Input Column** | The column of the file that fills the property. It suggests the columns of the source's staging table as you type, the columns the property's name matches first. |
 | **Cleansing Function** | A function applied to the value, from JetStore's list: `trim`, `scrub_characters`, `validate_date`… Leave it on *Select cleansing function* for none. |
-| **Function Argument** | The function's argument, such as the characters `scrub_characters` removes, or `start,end` for `substring` (byte positions, `start` 0 or more, a negative `end` counting from the end; see [the positions a cleansing function takes](/docs/developer/compute-pipes/notes/map-column-values/#cleansing-functions-that-take-a-position)). Required by some functions, and must be empty when no function is chosen. |
+| **Function Argument** | The function's argument, such as the characters `scrub_characters` removes, or `start,end` for `substring` (character positions, `start` 0 or more, a negative `end` counting from the end; see [the positions a cleansing function takes](/docs/developer/compute-pipes/notes/map-column-values/#cleansing-functions-that-take-a-position)). Required by some functions, and must be empty when no function is chosen. |
 | **Default Value** | The value to use when the column is empty or the function returns nothing. |
 | **Error Message** | The error to record when the column is empty or the function returns nothing and there is no default. The record is then reported on [Process Errors](/docs/user/screens/process-errors/). |
 
@@ -51,7 +51,7 @@ field:
 - a row cannot have both a *Default Value* and an *Error Message*.
 
 The worksheet does not check that an argument is well formed: a regular expression for `apply_regex`,
-a number for `scale_units`. The mapping pipeline checks that when its step starts, and a refused
+a number other than 0 for `scale_units`, a `start,end` for `substring`. The mapping pipeline checks that when its step starts, and a refused
 function or argument fails the step before any row is read, naming the property and its column (see
 [which configurations are refused](/docs/developer/compute-pipes/notes/map-column-values/#a-misconfigured-cleansing-function-fails-the-step-at-its-start)).
 

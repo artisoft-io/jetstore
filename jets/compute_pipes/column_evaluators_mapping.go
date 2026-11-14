@@ -107,9 +107,10 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 			var errMsg string
 			outputVal, errMsg =
 				ctx.cleansingCtx.ApplyCleasingFunction(mapConfig.CleansingFunction,
-					mapConfig.Argument, inputV, config.inputPos, input)
+					mapConfig.Argument, inputV, input)
 			if len(errMsg) > 0 {
-				log.Println("*** Error while applying cleansing function:", errMsg)
+				// Not logged here: the error is returned, and map_record logs and
+				// reports it under its max_error_count cap
 				outputVal = nil
 				err = fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, errMsg)
 			}

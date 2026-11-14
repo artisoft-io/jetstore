@@ -15,7 +15,7 @@ func applySubstring(t *testing.T, argument, input string) (obj any, errMsg strin
 		}
 	}()
 	ctx := NewCleansingFunctionContext(&map[string]int{})
-	return ctx.ApplyCleasingFunction("substring", argument, input, 0, &[]any{input})
+	return ctx.ApplyCleasingFunction("substring", argument, input, &[]any{input})
 }
 
 func TestSubstring(t *testing.T) {
@@ -110,11 +110,11 @@ func TestSubstring(t *testing.T) {
 func TestSubstringRefusedArgumentIsNotCached(t *testing.T) {
 	ctx := NewCleansingFunctionContext(&map[string]int{})
 	for range 2 {
-		if _, errMsg := ctx.ApplyCleasingFunction("substring", "-1,3", "abcdef", 0, nil); errMsg == "" {
+		if _, errMsg := ctx.ApplyCleasingFunction("substring", "-1,3", "abcdef", nil); errMsg == "" {
 			t.Fatalf("expecting an error for a negative start")
 		}
 	}
-	if got, errMsg := ctx.ApplyCleasingFunction("substring", "1,3", "abcdef", 0, nil); errMsg != "" || got != "bc" {
+	if got, errMsg := ctx.ApplyCleasingFunction("substring", "1,3", "abcdef", nil); errMsg != "" || got != "bc" {
 		t.Errorf("got %#v, %q, want \"bc\" and no error", got, errMsg)
 	}
 }
@@ -185,6 +185,18 @@ func TestOverpunchNumber(t *testing.T) {
 		{"E", 2, "+.05", false},
 		{"N", 3, "-.005", false},
 		{"1E", 3, "+.015", false},
+
+		// Positions count characters, as substring does (2026-11-14): a cut
+		// never splits a multi-byte character. Counting bytes, "1é5" gave
+		// "1\xc3.\xa95" and "é5" with 3 places gave ".é5"
+		{"1é5", 2, "1.é5", false},
+		{"é5", 3, ".0é5", false},
+		{"é1E", 2, "+é.15", false},
+		{"é", 2, "0é", true},
+		// A byte that does not start a valid UTF-8 sequence is one character,
+		// kept as it is
+		{"\xff12", 2, "\xff.12", false},
+		{"12\xff", 0, "12\xff", true},
 	}
 	for _, tt := range tests {
 		func() {
@@ -219,6 +231,8 @@ func TestOverpunchNumberCleansingFunction(t *testing.T) {
 		{"3", "1E", "+.015", false},
 		{"-1", "12345", nil, true},
 		{"x", "12345", nil, true},
+		{" 2", "12345", "123.45", false},
+		{"2", "1é5", "1.é5", false},
 	}
 	for _, tt := range tests {
 		func() {
@@ -227,7 +241,7 @@ func TestOverpunchNumberCleansingFunction(t *testing.T) {
 					t.Errorf("overpunch_number(%q) on %q panicked: %v", tt.argument, tt.input, r)
 				}
 			}()
-			got, errMsg := ctx.ApplyCleasingFunction("overpunch_number", tt.argument, tt.input, 0, nil)
+			got, errMsg := ctx.ApplyCleasingFunction("overpunch_number", tt.argument, tt.input, nil)
 			if (errMsg != "") != tt.wantErr {
 				t.Errorf("overpunch_number(%q) on %q: error %q, want error %v", tt.argument, tt.input, errMsg, tt.wantErr)
 			}

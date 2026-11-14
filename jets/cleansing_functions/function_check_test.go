@@ -33,9 +33,50 @@ func TestCheckFunctionRefuses(t *testing.T) {
 		{"slice_input", "^,-1", "must have position >= 0"},
 		{"slice_input", "^,a,:", "expecting from (int)"},
 		{"slice_input", "^,2,:,1", "to > from"},
+
+		// A divisor of 0, or one that is not finite, would make every value
+		// +Inf, -Inf or NaN
+		{"scale_units", "0", "divisor argument '0' must be a number other than 0"},
+		{"scale_units", "0.0", "must be a number other than 0"},
+		{"scale_units", "-0", "must be a number other than 0"},
+		{"scale_units", "NaN", "must be a number other than 0"},
+		{"scale_units", "Inf", "must be a number other than 0"},
+		{"scale_units", "1e400", "is not a number"},
+		{"parse_amount", "0", "must be a number other than 0"},
+		{"parse_amount", "-Inf", "must be a number other than 0"},
+
+		// format_phone's format takes the three parts of the number as strings
+		{"format_phone", "%s-%s", "must take the area code"},
+		{"format_phone", "%s%s%s%s", "must take the area code"},
+		{"format_phone", "%d%d%d", "must take the area code"},
+		{"format_phone", "%*s%s%s", "must take the area code"},
+		{"format_phone", "%[4]s%s%s", "must take the area code"},
+		{"format_phone", "+1%s%s%s%", "must take the area code"},
+
+		// overpunch_number's decimal places
+		{"overpunch_number", "x", "decimal places argument 'x' must be an integer of 0 or more"},
+		{"overpunch_number", "-1", "must be an integer of 0 or more"},
+		{"overpunch_number", "2.5", "must be an integer of 0 or more"},
+
+		// The functions whose argument was checked only per record until
+		// 2026-11-14: missing, and malformed
+		{"concat", "", "concat requires an argument"},
+		{"concat_with", "", "concat_with requires an argument"},
+		{"find_and_replace", "", "find_and_replace requires an argument"},
+		{"substring", "", "substring requires an argument"},
+		{"concat", "first,middle", "column 'middle' in argument first,middle is not an input column"},
+		{"concat_with", "\" \",middle", "column 'middle'"},
+		{"concat", "\"first", "cannot be parsed as csv"},
+		{"find_and_replace", "a", "cannot be parsed as csv"},
+		{"find_and_replace", "\"a\",\"b\",\"c\"", "cannot be parsed as csv"},
+		{"find_and_replace", "\"\",\"x\"", "has no text to find"},
+		{"substring", "3", "cannot be parsed as start,end"},
+		{"substring", "a,3", "cannot be parsed as start,end"},
+		{"substring", "-1,3", "start must be 0 or more"},
+		{"substring", "5,3", "end must be greater than start"},
 	}
 	for _, c := range cases {
-		ctx := NewCleansingFunctionContext(&map[string]int{})
+		ctx := NewCleansingFunctionContext(&map[string]int{"first": 0, "last": 1})
 		err := ctx.CheckFunction(c.fn, c.arg)
 		if err == nil {
 			t.Errorf("CheckFunction(%q, %q): expected an error", c.fn, c.arg)
@@ -63,6 +104,11 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		{"to_zipext4_from_zip9", "", "12345-6789", "6789"},
 		{"to_zipext4", "", "6789", "6789"},
 		{"format_phone", "", "(555) 234-5678", "+15552345678"},
+		{"format_phone", "(%s) %s-%s", "555.234.5678", "(555) 234-5678"},
+		{"format_phone", "%s%s%s 100%%", "5552345678", "5552345678 100%"},
+		{"format_phone", "%%!%s%s%s", "5552345678", "%!5552345678"},
+		{"format_phone", "%[3]s-%[1]s", "5552345678", "5678-555"},
+		{"overpunch_number", "0", "12{", "+120"},
 		{"reformat0", "%05d", "123", "00123"},
 		{"overpunch_number", "2", "12{", "+1.20"},
 		{"apply_regex", "[0-9]+", "ab123cd", "123"},
@@ -70,8 +116,12 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		{"scale_units", "10", "42", "5.000000"},
 		{"parse_amount", "", "$1,234.50", "1234.50"},
 		{"parse_amount", "100", "250", "2.500000"},
+		{"parse_amount", "-100", "250", "-2.500000"},
+		{"scale_units", "0.5", "3", "6.000000"},
 		{"concat", "last", "Ann", "AnnLee"},
 		{"concat_with", "\" \",last", "Ann", "Ann Lee"},
+		{"concat_with", "\" \",last,first", "Ann", "Ann Lee Ann"},
+		{"concat_with", "-", "Ann", "Ann"},
 		{"find_and_replace", "\"a\",\"o\"", "banana", "bonono"},
 		{"scrub_characters", "-", "12-34", "1234"},
 		{"substring", "0,2", "abcd", "ab"},
@@ -89,28 +139,13 @@ func TestCheckFunctionAccepts(t *testing.T) {
 		if c.fn == "" {
 			continue
 		}
-		got, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, c.input, 0, &row)
+		got, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, c.input, &row)
 		if errMsg != "" {
 			t.Errorf("%s(%q) on %q: %s", c.fn, c.arg, c.input, errMsg)
 			continue
 		}
 		if !sameValue(got, c.want) {
 			t.Errorf("%s(%q) on %q = %#v, want %#v", c.fn, c.arg, c.input, got, c.want)
-		}
-	}
-}
-
-// The functions whose argument is checked per record still report a missing
-// argument on the value, as an error, and are not refused before the step.
-func TestCheckFunctionLeavesPerRecordArguments(t *testing.T) {
-	row := []any{"x"}
-	for _, fn := range []string{"concat", "concat_with", "find_and_replace", "substring"} {
-		ctx := NewCleansingFunctionContext(&map[string]int{"c": 0})
-		if err := ctx.CheckFunction(fn, ""); err != nil {
-			t.Errorf("CheckFunction(%q, \"\"): %v", fn, err)
-		}
-		if _, errMsg := ctx.ApplyCleasingFunction(fn, "", "x", 0, &row); errMsg == "" {
-			t.Errorf("%s with no argument: expected an error on the value", fn)
 		}
 	}
 }
@@ -132,8 +167,19 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 		{"unique_split_on", ""},
 		{"slice_input", ""},
 		{"slice_input", "^,-1"},
+		{"scale_units", "0"},
+		{"parse_amount", "0"},
+		{"format_phone", "%s-%s"},
+		{"overpunch_number", "x"},
+		{"concat", ""},
+		{"concat", "no_such_column"},
+		{"concat_with", ""},
+		{"find_and_replace", ""},
+		{"find_and_replace", "a"},
+		{"substring", ""},
+		{"substring", "5,3"},
 	}
-	row := []any{"12"}
+	row := []any{"5552345678"}
 	for _, c := range cases {
 		ctx := NewCleansingFunctionContext(&map[string]int{})
 		func() {
@@ -142,7 +188,7 @@ func TestApplyCleasingFunctionDoesNotPanic(t *testing.T) {
 					t.Errorf("%s(%q) panicked: %v", c.fn, c.arg, r)
 				}
 			}()
-			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "12", 0, &row)
+			obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, "5552345678", &row)
 			if errMsg == "" || obj != nil {
 				t.Errorf("%s(%q): expected an error and no value, got %#v, %q", c.fn, c.arg, obj, errMsg)
 			}
@@ -171,6 +217,58 @@ func TestCheckFunctionCachesTheParsedArgument(t *testing.T) {
 	}
 	if ctx.parsedFunctionArguments["slice_input(^,0)"] == nil {
 		t.Error("the slice argument is not cached")
+	}
+	ctx = NewCleansingFunctionContext(&map[string]int{"a": 0})
+	for _, c := range []struct{ fn, arg string }{
+		{"substring", "0,2"}, {"find_and_replace", "\"a\",\"b\""}, {"concat", "a"}, {"concat_with", "a"},
+	} {
+		if err := ctx.CheckFunction(c.fn, c.arg); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.parsedFunctionArguments[c.fn+"("+c.arg+")"] == nil {
+			t.Errorf("the %s argument is not cached", c.fn)
+		}
+	}
+	// One context, one raw argument, two functions: each has its own entry,
+	// so concat and concat_with do not read each other's parsed argument
+	if a := ctx.parsedFunctionArguments["concat(a)"].(*ConcatFunctionArg); len(a.ColumnPositions) != 1 {
+		t.Errorf("concat(a) has %d columns, want 1", len(a.ColumnPositions))
+	}
+	if a := ctx.parsedFunctionArguments["concat_with(a)"].(*ConcatFunctionArg); a.Delimit != "a" || len(a.ColumnPositions) != 0 {
+		t.Errorf("concat_with(a) is %+v, want the delimiter a and no column", a)
+	}
+}
+
+// The start check and the record path refuse the same divisor, the same
+// phone format and the same decimal places: a map column never reaches the
+// record path with one CheckFunction refused, and a caller that skips
+// CheckFunction gets an error on the value rather than +Inf, NaN or fmt's
+// %!s(MISSING).
+func TestCheckFunctionAndRecordPathAgree(t *testing.T) {
+	cases := []struct{ fn, arg, input string }{
+		{"scale_units", "0", "42"},
+		{"scale_units", "-0.0", "42"},
+		{"parse_amount", "0", "42"},
+		{"parse_amount", "NaN", "42"},
+		{"format_phone", "%s-%s", "5552345678"},
+		{"format_phone", "%d", "5552345678"},
+		{"overpunch_number", "-1", "12{"},
+		{"overpunch_number", "two", "12{"},
+	}
+	for _, c := range cases {
+		ctx := NewCleansingFunctionContext(&map[string]int{})
+		checkErr := ctx.CheckFunction(c.fn, c.arg)
+		if checkErr == nil {
+			t.Errorf("CheckFunction(%q, %q): expected an error", c.fn, c.arg)
+		}
+		obj, errMsg := ctx.ApplyCleasingFunction(c.fn, c.arg, c.input, nil)
+		if errMsg == "" || obj != nil {
+			t.Errorf("%s(%q) on %q = %#v, %q: want an error and no value", c.fn, c.arg, c.input, obj, errMsg)
+			continue
+		}
+		if checkErr != nil && checkErr.Error() != errMsg {
+			t.Errorf("%s(%q): the start check says %q and the record path %q", c.fn, c.arg, checkErr, errMsg)
+		}
 	}
 }
 

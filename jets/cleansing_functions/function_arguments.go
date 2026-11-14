@@ -16,19 +16,30 @@ type ConcatFunctionArg struct {
 	ColumnPositions []int
 }
 
+// ParseConcatFunctionArgument returns the parsed argument of concat and
+// concat_with, for a record: see parseConcatArgument.
 func ParseConcatFunctionArgument(rawArg string, functionName string, inputColumnName2Pos *map[string]int,
 	cache map[string]interface{}, input *[]interface{}) (*ConcatFunctionArg, error) {
+	if input == nil {
+		return nil, fmt.Errorf("error: input row is required for concat and concat_with cleansing functions")
+	}
+	return parseConcatArgument(rawArg, functionName, inputColumnName2Pos, cache)
+}
+
+// parseConcatArgument parses the argument of concat and concat_with, a csv row:
+// the input columns to append to the value, preceded for concat_with by the
+// delimiter. It refuses an argument that is not csv, and a column that is not
+// an input column. It needs no record, so CheckFunction runs it before the
+// first one; a valid argument is cached for the records.
+func parseConcatArgument(rawArg string, functionName string, inputColumnName2Pos *map[string]int,
+	cache map[string]interface{}) (*ConcatFunctionArg, error) {
 	// rawArg is csv-encoded
 	if rawArg == "" {
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
-	if input == nil {
-		return nil, fmt.Errorf("error: input row is required for concat and concat_with cleansing functions")
-	}
 	// Check if we have it cached
-	v := cache[rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", rawArg)
+	key := fmt.Sprintf("%s(%s)", functionName, rawArg)
+	if v := cache[key]; v != nil {
 		return v.(*ConcatFunctionArg), nil
 	}
 	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
@@ -43,22 +54,24 @@ func ParseConcatFunctionArgument(rawArg string, functionName string, inputColumn
 	for i := range rows[0] {
 		if i == 0 && functionName == "concat_with" {
 			results.Delimit = rows[0][i]
-		} else {
-			colPos, ok := (*inputColumnName2Pos)[rows[0][i]]
-			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
-			if !ok {
-				// Column not found
-				return nil, fmt.Errorf("error:column-not-fount: argument %s is not an input column name (%s function)", rawArg, functionName)
-			}
-			results.ColumnPositions = append(results.ColumnPositions, colPos)
+			continue
 		}
+		var colPos int
+		ok := false
+		if inputColumnName2Pos != nil {
+			colPos, ok = (*inputColumnName2Pos)[rows[0][i]]
+		}
+		if !ok {
+			return nil, fmt.Errorf("error: column '%s' in argument %s is not an input column (%s function)", rows[0][i], rawArg, functionName)
+		}
+		results.ColumnPositions = append(results.ColumnPositions, colPos)
 	}
-	cache[rawArg] = results
+	cache[key] = results
 	return results, nil
 }
 
 // SubStringFunctionArg is the parsed argument of the substring cleansing
-// function, "start,end", in bytes: Start is inclusive and at least 0, End is
+// function, "start,end", in characters: Start is inclusive and at least 0, End is
 // exclusive, and a negative End counts back from the end of the value.
 type SubStringFunctionArg struct {
 	Start int
@@ -70,17 +83,16 @@ type SubStringFunctionArg struct {
 // greater than start. A negative end, or an end of 0, is accepted: whether it
 // gives a value depends on the length of each value.
 //
-// It runs per record, from ApplyCleasingFunction, and only a valid argument is
-// cached, so a refused one is reported as an error on every record.
+// CheckFunction runs it before the first record, so a refused argument fails
+// the step at its start; a valid one is cached for the records.
 func ParseSubStringFunctionArgument(rawArg string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
 	// rawArg is comma separated as: start,end
 	if rawArg == "" {
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	// Check if we have it cached
-	v := cache[rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", rawArg,":",v)
+	key := fmt.Sprintf("%s(%s)", functionName, rawArg)
+	if v := cache[key]; v != nil {
 		return v.(*SubStringFunctionArg), nil
 	}
 	// Parsed the raw argument into SubStringFunctionArg and put it in the cache
@@ -107,7 +119,7 @@ func ParseSubStringFunctionArgument(rawArg string, functionName string, cache ma
 		Start: start,
 		End:   end,
 	}
-	cache[rawArg] = results
+	cache[key] = results
 	return results, nil
 }
 
@@ -122,9 +134,8 @@ func ParseFindReplaceFunctionArgument(rawArg string, functionName string, cache 
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	// Check if we have it cached
-	v := cache[rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", rawArg,":",v)
+	key := fmt.Sprintf("%s(%s)", functionName, rawArg)
+	if v := cache[key]; v != nil {
 		return v.(*FindReplaceFunctionArg), nil
 	}
 	// Parsed the raw argument into FindReplaceFunctionArg and put it in the cache
@@ -134,11 +145,15 @@ func ParseFindReplaceFunctionArgument(rawArg string, functionName string, cache 
 		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", rawArg, err, functionName)
 	}
 
+	if rows[0][0] == "" {
+		// Replacing "" would insert the replacement between every character
+		return nil, fmt.Errorf("error: argument %s has no text to find (%s function)", rawArg, functionName)
+	}
 	results := &FindReplaceFunctionArg{
 		Find:        rows[0][0],
 		ReplaceWith: rows[0][1],
 	}
-	cache[rawArg] = results
+	cache[key] = results
 	return results, nil
 }
 
