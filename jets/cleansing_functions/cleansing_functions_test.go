@@ -226,7 +226,10 @@ func TestParseSliceInputFunctionArgument01(t *testing.T) {
 
 func TestSliceInput01(t *testing.T) {
 	cache := make(map[string]any)
-	results := SliceInput("v1,v2,v3", "\",\",1,:", cache)
+	results, err := SliceInput("v1,v2,v3", "\",\",1,:", cache)
+	if err != nil {
+		t.Fatalf("SliceInput: %v", err)
+	}
 	values := results.([]string)
 	if len(values) != 2 {
 		t.Errorf("error: unexpected results")
@@ -237,13 +240,17 @@ func TestSliceInput01(t *testing.T) {
 	if values[1] != "v3" {
 		t.Errorf("error: unexpected results")
 	}
-	SliceInput("v1,v2,v3", "\",\",1,:", cache)
-	// t.Error("done")
+	if _, err := SliceInput("v1,v2,v3", "\",\",1,:", cache); err != nil {
+		t.Errorf("SliceInput from the cache: %v", err)
+	}
 }
 
 func TestSliceInput02(t *testing.T) {
 	cache := make(map[string]any)
-	results := SliceInput("v1,v2,v3", "\",\",1,4", cache)
+	results, err := SliceInput("v1,v2,v3", "\",\",1,4", cache)
+	if err != nil {
+		t.Fatalf("SliceInput: %v", err)
+	}
 	values := results.([]string)
 	if len(values) != 1 {
 		t.Errorf("error: unexpected results")
@@ -256,7 +263,10 @@ func TestSliceInput02(t *testing.T) {
 
 func TestSliceInput03(t *testing.T) {
 	cache := make(map[string]any)
-	results := SliceInput("v1^", "^,3,:", cache)
+	results, err := SliceInput("v1^", "^,3,:", cache)
+	if err != nil {
+		t.Fatalf("SliceInput: %v", err)
+	}
 	if results != nil {
 		t.Errorf("error: unexpected results")
 	}
@@ -265,7 +275,10 @@ func TestSliceInput03(t *testing.T) {
 
 func TestSliceInput04(t *testing.T) {
 	cache := make(map[string]any)
-	results := SliceInput("v1^", "^,3,:,4", cache)
+	results, err := SliceInput("v1^", "^,3,:,4", cache)
+	if err != nil {
+		t.Fatalf("SliceInput: %v", err)
+	}
 	if results != nil {
 		t.Errorf("error: unexpected results")
 	}
@@ -274,7 +287,10 @@ func TestSliceInput04(t *testing.T) {
 
 func TestSliceInput05(t *testing.T) {
 	cache := make(map[string]any)
-	results := SliceInput("", "^,3,:,4", cache)
+	results, err := SliceInput("", "^,3,:,4", cache)
+	if err != nil {
+		t.Fatalf("SliceInput: %v", err)
+	}
 	if results != nil {
 		t.Errorf("error: unexpected results")
 	}
@@ -283,13 +299,10 @@ func TestSliceInput05(t *testing.T) {
 
 func TestSliceInput20(t *testing.T) {
 	cache := make(map[string]any)
-	defer func() {
-		// Catch the panic that might be generated downstream
-		if r := recover(); r == nil {
-			t.Errorf("error: expecting a panic!")
-		}
-	}()
-
-	SliceInput("v1^", "^,-1", cache)
+	// A refused argument is an error, not a panic
+	results, err := SliceInput("v1^", "^,-1", cache)
+	if err == nil || results != nil {
+		t.Errorf("expected an error and no result, got %v, %v", results, err)
+	}
 	// t.Error("done")
 }

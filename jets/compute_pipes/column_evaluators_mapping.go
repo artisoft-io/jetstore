@@ -269,12 +269,19 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	if !ok {
 		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
+	// Check the cleansing function and its argument now, so a misconfigured
+	// column fails the step before its first record rather than on its first
+	// non-blank value. The parsed argument stays in the context for the records.
+	cleansingCtx := cleansing_functions.NewCleansingFunctionContext(source.Columns)
+	if err := cleansingCtx.CheckFunction(spec.MapExpr.CleansingFunction, spec.MapExpr.Argument); err != nil {
+		return nil, fmt.Errorf("mapping column %s (input column '%s'): %v", spec.Name, expr, err)
+	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
 			inputPos:     inputPos,
 			outputPos:    outputPos,
 			defaultValue: defaultValue,
 			mapConfig:    spec.MapExpr},
-		cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.Columns),
+		cleansingCtx: cleansingCtx,
 	}, nil
 }
