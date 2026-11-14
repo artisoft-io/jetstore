@@ -188,42 +188,17 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	reportDirectives := ca.CurrentReportDirectives
 
 	// Run the reports
-	var dbRecordCount, outputRecordCount int64
-	gotRecordCount := false
+	// The session's record counts are read once, and only if a runWhen
+	// criterion asks for them; they are JetStore's tables, so dbpool reads them.
+	counts := &outputRecordCounts{read: func() (int64, int64) {
+		return GetOutputRecordCount(dbpool, ca.SessionId)
+	}}
 	didAnyReport := false
 	for is := range reportDirectives.ReportScripts {
 		reportScript := reportDirectives.ReportScripts[is]
 		reportProps := reportDirectives.ReportProperties[reportScript]
-		doIt := true
-		for iw := range reportProps.RunWhen {
-			value, ok := ca.FileKeyComponents[reportProps.RunWhen[iw].FileKeyComponent].(string)
-			if ok {
-				hasValue := reportProps.RunWhen[iw].HasValue
-				hasNotValue := reportProps.RunWhen[iw].HasNotValue
-				switch {
-				case len(hasValue) > 0 && value != hasValue:
-					doIt = false
-				case len(hasNotValue) > 0 && value == hasNotValue:
-					doIt = false
-				}
-			} else {
-				doIt = false
-			}
-			if reportProps.RunWhen[iw].HasNonZeroOutputRecords {
-				if !gotRecordCount {
-					dbRecordCount, outputRecordCount = GetOutputRecordCount(dbpool, ca.SessionId)
-					gotRecordCount = true
-				}
-				if dbRecordCount > 0 && outputRecordCount == 0 {
-					log.Println("This report is requiring having non zero output records and no output records are found, skipping report")
-					doIt = false
-				}
-			}
-			if !doIt {
-				break
-			}
-		}
-		if !doIt {
+		if ok, why := runWhenMet(reportProps.RunWhen, ca.FileKeyComponents, counts); !ok {
+			log.Printf("Skipping report %s: its runWhen is not met (%s)", reportScript, why)
 			continue
 		}
 		// Determine if the file is a sql reports or a sql script, sql script are executed in one go
@@ -251,7 +226,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		default:
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[is])
-			err = ca.runReportsDelegate(sqlPool, tempDir, ca.ReportScriptPaths[is], &updatedKeys)
+			err = ca.runReportsDelegate(sqlPool, tempDir, ca.ReportScriptPaths[is], &updatedKeys, counts)
 		}
 		if err != nil {
 			return err
@@ -273,15 +248,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			if tableName == "" {
 				continue
 			}
-			objectType := rr.ObjectType
-			if objectType == "" {
-				objectType = ca.ObjectType
+			org, objectType, sourceType := ca.reportRegistration(rr)
+			if org == "" {
+				log.Printf("Warning: registering report table %s with an empty org: "+
+					"its registerReport entry names none and the file key has no org", tableName)
 			}
-			sourceType := rr.SourceType
-			if sourceType == "" {
-				sourceType = "report_table"
-			}
-			err2 := RegisterReport(dbpool, ca.Client, rr.Org, objectType, ca.FileKey,
+			err2 := RegisterReport(dbpool, ca.Client, org, objectType, ca.FileKey,
 				ca.SourcePeriodKey, tableName, sourceType, ca.SessionId, "system")
 			if err2 != nil {
 				return err2
@@ -355,6 +327,78 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	return nil
 }
 
+// reportRegistration is the org, object type and source type a registerReport
+// entry is registered with in input_registry. An entry that names no org or
+// object type takes the file key's, and one that names no source type is a
+// report_table.
+//
+// The org fallback was lost in 2024, when registration moved out of DoReport
+// into RunReports: it had been the statement's org, itself defaulted to the
+// file key's, and the move kept the object type's fallback and not the org's,
+// so an entry with no org registered an empty one.
+func (ca *CommandArguments) reportRegistration(rr *RegisterReportSpec) (org, objectType, sourceType string) {
+	org = rr.Org
+	if org == "" {
+		org = ca.Org
+	}
+	objectType = rr.ObjectType
+	if objectType == "" {
+		objectType = ca.ObjectType
+	}
+	sourceType = rr.SourceType
+	if sourceType == "" {
+		sourceType = "report_table"
+	}
+	return org, objectType, sourceType
+}
+
+// outputRecordCounts holds the session's record counts (GetOutputRecordCount),
+// read on first use and once per run.
+type outputRecordCounts struct {
+	read    func() (dbRecordCount, outputRecordCount int64)
+	got     bool
+	db, out int64
+}
+
+func (c *outputRecordCounts) get() (int64, int64) {
+	if !c.got {
+		c.db, c.out = c.read()
+		c.got = true
+	}
+	return c.db, c.out
+}
+
+// runWhenMet reports whether every runWhen criterion holds for this run, and
+// when one does not, says which. It is the one evaluation of runWhen, for a
+// report (reportProperties) and for a statement (statementProperties).
+//
+// A criterion holds when the file key has the component fileKeyComponent, the
+// component equals hasValue if that is set, and differs from hasNotValue if
+// that is set. A criterion with hasOutputRecordsOnly also fails when the
+// session read records and wrote none. A file key without the component fails
+// the criterion, so one carrying only hasOutputRecordsOnly, with no
+// fileKeyComponent, never holds.
+func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
+	for i := range criteria {
+		c := &criteria[i]
+		value, ok := fileKeyComponents[c.FileKeyComponent].(string)
+		switch {
+		case !ok:
+			return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
+		case len(c.HasValue) > 0 && value != c.HasValue:
+			return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, value, c.HasValue)
+		case len(c.HasNotValue) > 0 && value == c.HasNotValue:
+			return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, value)
+		}
+		if c.HasNonZeroOutputRecords {
+			if dbRecordCount, outputRecordCount := counts.get(); dbRecordCount > 0 && outputRecordCount == 0 {
+				return false, "the session has no output records"
+			}
+		}
+	}
+	return true, ""
+}
+
 // confineReportPath verifies that reportScriptPath, after resolving to an
 // absolute path, stays within the workspace reports directory, mitigating
 // external control of file name or path (CWE-73). The report script names come
@@ -416,7 +460,10 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 	return nil
 }
 
-func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string, updatedKeys *[]string) error {
+// A statement whose statementProperties entry has a runWhen that is not met is
+// skipped (runWhenMet); counts gives the session's record counts it may need.
+func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string,
+	updatedKeys *[]string, counts *outputRecordCounts) error {
 
 	// Confine the report script path within the workspace reports directory (CWE-73)
 	safePath, err := confineReportPath(reportScriptPath)
@@ -442,7 +489,15 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	if err := ca.checkReportFormats(reportScriptPath, reports); err != nil {
 		return err
 	}
+	var stmtProps map[string]StatementProperty
+	if ca.CurrentReportDirectives != nil {
+		stmtProps = ca.CurrentReportDirectives.StatementProperties
+	}
 	for i := range reports {
+		if ok, why := runWhenMet(stmtProps[reports[i].name].RunWhen, ca.FileKeyComponents, counts); !ok {
+			log.Printf("Skipping report %q of %s: its runWhen is not met (%s)", reports[i].name, reportScriptPath, why)
+			continue
+		}
 		s3FileName, err := ca.DoReport(dbpool, tempDir, &reports[i].name, &reports[i].stmt)
 		if err != nil {
 			return withIDEHint(err)

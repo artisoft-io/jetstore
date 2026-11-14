@@ -1,13 +1,117 @@
 ---
 title: "How JetStore reads a SQL file"
-description: "How the sqlscript package splits and validates the SQL files of a workspace, and why most callers execute a file whole."
+description: "How the sqlscript package splits and validates the SQL files of a workspace, why most callers execute a file whole, and the reports/config.json directives that decide how a reports file runs."
 kind: explanation
 sidebar:
   order: 3
 ---
 
 The `jets/sqlscript` package decides where a statement in a workspace SQL file ends, and checks a
-SQL file when it is saved. Its sections are dated, newest first.
+SQL file when it is saved, and `run_reports` runs the SQL of a workspace's `reports/` directory as
+its `reports/config.json` directs. Its sections are dated, newest first.
+
+## 2026-11-14 — a report's name, statement `runWhen`, and the org a report registers
+
+A workspace's `reports/config.json` maps a report name (the process name, or the `-reportName`
+argument) to the directives `run_reports` follows: which files to run (`reportScripts`), how each
+file runs (`reportProperties`), how each statement of a reports file is written
+(`statementProperties`), and which tables to record in `jetsapi.input_registry` afterwards
+(`registerReport`). This section documents three parts of it; the types are `ReportDirectives` and
+its neighbours in `jets/run_reports/delegate/run_reports.go`.
+
+### The tokens of a report's name
+
+A statement's name, the comment ending in `;` above it, is the path of its output file relative to
+the report's output path. Before it is used, `reportFileName` replaces these tokens in it:
+
+| Token | Replaced by |
+|---|---|
+| `{CLIENT}` | the client: the `-client` argument when given, otherwise the file key's `client` component |
+| `{ORG}` | the file key's `org` component (a `vendor` component sets it too); empty when the key has neither |
+| `{OBJECT_TYPE}` | the file key's `object_type` component |
+| `{ENVIRONMENT}` | the `ENVIRONMENT` environment variable of the process |
+| `{ORIGINALFILENAME}` | the original file name: the `-originalFileName` argument, otherwise the last component of `-filePath`, with every `:` and `.` replaced by `_` |
+| `{SESSIONID}` | the session id (`-sessionId`) |
+| `{PROCESSNAME}` | the process name (`-processName`); empty when the run names only `-reportName` |
+| `{D:YYYY_MM_DD}` | the date the report runs, from the process clock: inside the braces `YYYY` becomes the year, `MM` the two-digit month and `DD` the two-digit day, and anything else is kept, so `{D:YYYYMMDD}` gives `20261114` |
+
+The tokens are case-sensitive and replaced as plain text, every occurrence, except the date: **only
+the first `{D:…}` in a name is replaced**, and a name with `{D:` and no closing `}` is refused. A
+token not in the table is left as written; `{FILE_KEY}` in particular is not a name token.
+
+The output format is read from the name *after* substitution (its `.csv`, `.json` or `.parquet`
+suffix), while **the `statementProperties` entry of a statement is keyed by its name as written**,
+tokens included:
+
+```json
+"statementProperties": {
+  "{PROCESSNAME}/{ORIGINALFILENAME}_summary.csv": { "outputFormat": "csv" }
+}
+```
+
+The statement's SQL takes a different set, written with `$`: `$CLIENT`, `$ORG`, `$OBJECT_TYPE`,
+`$ENVIRONMENT`, `$SESSIONID`, `$PROCESSNAME`, `$FILE_KEY` and `$SOURCE_PERIOD_KEY`. The same set
+applies to a file declared `reportOrScript: "script"`.
+
+### `runWhen`, for a file and for a statement
+
+`runWhen` is a list of criteria on the file key. It can be set on a file, in `reportProperties`, and
+on a statement, in `statementProperties`; **until this date the statement's was read and never
+evaluated**, so every statement ran. Both are now evaluated by one function, `runWhenMet`: a file
+whose criteria are not met is not run, and a statement whose criteria are not met is skipped while
+the other statements of its file run. Each skip is logged with the criterion that failed.
+
+| Field | The criterion holds when |
+|---|---|
+| `fileKeyComponent` | the file key has this component (`client`, `org`, `object_type`, or any other `name=value` part of the key). A key without it fails the criterion |
+| `hasValue` | when set, the component equals it |
+| `hasNotValue` | when set, the component differs from it |
+| `hasOutputRecordsOnly` | when `true`, the session also wrote output records, or read none. The counts are read once per run, from `jetsapi.pipeline_execution_details` |
+
+**Every criterion of the list must hold.** A criterion always names a component: one carrying only
+`hasOutputRecordsOnly` has no component to find and never holds, which is the rule as it has stood
+since `runWhen` was added. `year`, `month` and `day` are numbers rather than text once the file key
+is read, so a criterion on them never holds either.
+
+```json
+"Example_Report": {
+  "reportScripts": ["thresholds.sql", "exports.sql"],
+  "reportProperties": {
+    "thresholds.sql": {
+      "reportOrScript": "script",
+      "runWhen": [{ "fileKeyComponent": "org", "hasNotValue": "TEST" }]
+    }
+  },
+  "statementProperties": {
+    "{PROCESSNAME}/test_only.csv": {
+      "runWhen": [{ "fileKeyComponent": "org", "hasValue": "TEST" }]
+    }
+  }
+}
+```
+
+A statement that is skipped still has to have an output format: the check that refuses a reports
+file with a statement without one (the section below) reads every statement before any runs.
+
+### The org a `registerReport` entry registers
+
+After the reports have run, and only if at least one did, each `registerReport` entry adds a row to
+`jetsapi.input_registry` for the run's client, file key, source period and session:
+
+| Field | Registered as |
+|---|---|
+| `table_name` | the table; an entry without one is ignored |
+| `org` | this value, otherwise **the file key's org** |
+| `object_type` | this value, otherwise the file key's object type |
+| `source_type` | this value, otherwise `report_table` |
+
+**The org fallback is restored as of this date.** Until registration moved out of `DoReport` in
+2024 an entry without `org` took the statement's org, which itself defaulted to the file key's;
+the move kept the object type's fallback and dropped the org's, so such an entry registered an
+empty org. No `reports/config.json` of the four workspaces checked on 2026-11-14 has a
+`registerReport` entry, so no deployment registers anything different. A run whose entry has no
+`org` and whose file key has none logs a warning and registers an empty org, as there is nothing
+to fall back to.
 
 ## 2026-11-14 — a report with no output format is refused, not skipped
 

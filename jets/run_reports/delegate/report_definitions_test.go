@@ -226,7 +226,7 @@ UPDATE lk SET v = 1;
 	ca := &CommandArguments{ProcessName: "p", CurrentReportDirectives: &ReportDirectives{}}
 	// dbpool is nil: running the first report would panic, so an error here is
 	// what says the file was refused before anything in it ran.
-	err := ca.runReportsDelegate(nil, t.TempDir(), path, &[]string{})
+	err := ca.runReportsDelegate(nil, t.TempDir(), path, &[]string{}, unreadCounts(t))
 	if err == nil {
 		t.Fatal("runReportsDelegate: want an error for a report with no output format")
 	}
