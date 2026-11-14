@@ -134,9 +134,10 @@ reviewing them, turns the text on in `docs/workspace_docs.json`:
 Each rule then shows its text, and beside it a **reading in English, generated from the compiled
 rule**: when each antecedent holds, then each consequent. The reading never guesses: a construct it
 does not render is shown as not rendered, with the operator's name, and the rule's reading is marked
-partial. The configuration resources of the aggregate operators and of `substring_of` (its `jets:from`
-and `jets:length`) are read from the `triple(...)` declarations compiled with the rule; where
-`substring_of`'s are missing, or a rule sets them at run time, the reading names the configuration
+partial. The configuration resources of the aggregate operators, of `substring_of` (its `jets:from`
+and `jets:length`) and of `replace_char_of` (its `jets:replace_chars` and `jets:replace_with`) are
+read from the `triple(...)` declarations compiled with the rule; where those of `substring_of` or
+`replace_char_of` are missing, or a rule sets them at run time, the reading names the configuration
 resource rather than guess its values (*the substring of the Drug_Name configured by drugNameConfig*).
 The description says what the rule is meant to do, the reading what it does; a reader who finds them
 disagreeing has found something to raise with the rule's owner.

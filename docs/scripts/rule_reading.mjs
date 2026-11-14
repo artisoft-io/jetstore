@@ -14,8 +14,8 @@
 // The reading never guesses. A construct or operator it has no wording for is
 // written "(not rendered: <name>)" in its clause, marks the reading partial, and is
 // listed in unrendered. It reads the rule's literals (resources.value) and the
-// configuration triples of the aggregate operators and of substring_of, so it is to
-// be shown only where a workspace has chosen to show its rules' text.
+// configuration triples of the aggregate operators, substring_of and replace_char_of,
+// so it is to be shown only where a workspace has chosen to show its rules' text.
 //
 // readRule(db, ruleKey) takes a node:sqlite DatabaseSync and a jet_rules.key, and
 // returns { when, then, partial, unrendered }: one plain-text clause per antecedent
@@ -98,7 +98,25 @@ const CONFIG_FIELDS = {
 	'jets:separator': 'separator',
 	'jets:from': 'from',
 	'jets:length': 'length',
+	'jets:replace_chars': 'replace_chars',
+	'jets:replace_with': 'replace_with',
 };
+
+/** Characters a quoted literal would hide or garble, named in words. */
+const CHAR_NAMES = {
+	' ': 'space',
+	'\t': 'tab',
+	'\n': 'line break',
+	'\r': 'carriage return',
+	'"': 'double quote',
+	'\\': 'backslash',
+};
+
+/** a; a and b; a, b and c. */
+function listOf(items) {
+	if (items.length <= 1) return items.join('');
+	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
 
 /** Per database: the names of the model's classes and properties, read once. */
 const MODEL_CACHE = new WeakMap();
@@ -159,7 +177,7 @@ class RuleReader {
 			 JOIN resources o ON o.key = t.object_key
 			 WHERE s.id = ? AND t.source_file_key = ?
 			   AND p.id IN ('jets:entity_property', 'jets:value_property', 'jets:operator', 'jets:separator',
-			                'jets:from', 'jets:length')
+			                'jets:from', 'jets:length', 'jets:replace_chars', 'jets:replace_with')
 			 ORDER BY p.id, o.key`,
 		);
 		this.configWriteStmt = db.prepare(
@@ -412,6 +430,7 @@ class RuleReader {
 		const aggregate = this.aggregate(e, depth);
 		if (aggregate) return aggregate;
 		if (op === 'substring_of') return this.substring(e, depth);
+		if (op === 'replace_char_of') return this.replaceChars(e, depth);
 		const lhs = this.expression(e.arg0_key, depth + 1);
 		const rhs = this.expression(e.arg1_key, depth + 1);
 		if (op === '+') {
@@ -538,6 +557,49 @@ class RuleReader {
 		}
 		if (from === 0) return { text: `${text} without its last ${chars(-length)}`, isText: true };
 		return { text: `${text} without its first ${chars(from)} and its last ${chars(-length)}`, isText: true };
+	}
+
+	/**
+	 * replace_char_of: (config replace_char_of text). The configuration resource carries
+	 * jets:replace_chars, the characters to replace, and jets:replace_with, the text that
+	 * replaces each of them, empty to remove them (ReplaceCharOfVisitor,
+	 * jets/rete/expr_op_strings.h). The engine replaces every occurrence of each
+	 * character in turn. The two texts are read from the configuration triples of the
+	 * rule's main file, and only when each is a single text literal that no rule of that
+	 * file writes; otherwise the reading names the configuration resource rather than
+	 * guess its values. It names it too where a plain reading would not say what the
+	 * engine does: no characters to replace, a character outside ASCII (the engine
+	 * replaces byte by byte), a control character not in CHAR_NAMES, or a replacement
+	 * of more than one character holding a character replaced after the first, which a
+	 * later turn would replace again.
+	 */
+	replaceChars(e, depth) {
+		const text = this.operand(this.expression(e.arg1_key, depth + 1));
+		const configured = () => ({
+			text: `${text} with characters replaced as configured by ${this.operand(this.expression(e.arg0_key, depth + 1))}`,
+			isText: true,
+		});
+		const cfgRes = this.exprResource(e.arg0_key);
+		if (!cfgRes || (cfgRes.type !== 'resource' && cfgRes.type !== 'volatile_resource')) return configured();
+		const cfgId = cfgRes.id ?? cfgRes.value;
+		const cfg = this.config(cfgRes);
+		const literal = (field) => {
+			const v = cfg[field];
+			if (!v || v.type !== 'text' || cfg.repeated.has(field)) return null;
+			if (this.configWriteStmt.get(this.sourceFileKey, cfgId, `jets:${field}`)) return null;
+			return String(v.value ?? '');
+		};
+		const chars = literal('replace_chars');
+		const by = literal('replace_with');
+		if (chars === null || by === null || chars === '') return configured();
+		const control = (c) => c < ' ' || c === '\x7f';
+		if ([...chars].some((c) => c > '\x7f' || (control(c) && !CHAR_NAMES[c]))) return configured();
+		if (by.length > 1 && [...chars].slice(1).some((c) => by.includes(c))) return configured();
+		if ([...by].some(control) && !CHAR_NAMES[by]) return configured();
+		const names = [...new Set(chars)].map((c) => CHAR_NAMES[c] ?? quote(c));
+		if (by === '') return { text: `${text} with every ${listOf(names)} removed`, isText: true };
+		const replacement = CHAR_NAMES[by] ? `${article(CHAR_NAMES[by])} ${CHAR_NAMES[by]}` : quote(by);
+		return { text: `${text} with every ${listOf(names)} replaced by ${replacement}`, isText: true };
 	}
 
 	/**
