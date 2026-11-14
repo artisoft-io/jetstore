@@ -188,6 +188,123 @@ TEST_F(ExprOpSpecialtyTest, MaxOfVisitor2) {
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(3)));
 }
 
+// The configuration checks of min_of, max_of, sum_values and join_values, 2026-11-14.
+// -----------------------------------------------------------------------------------
+// Each throws its configuration error, a rete_exception, on a config whose
+// jets:entity_property or jets:value_property is a literal, and on a config missing the
+// property it needs. Until 2026-11-14 each of those configs gave null, silently.
+
+// Calls op on (main1, rhs) and returns the error's text, or "" when it did not throw.
+template<class Visitor>
+std::string config_error(ReteSession * rs, char const* rhs)
+{
+  Visitor op(rs, nullptr);
+  try {
+    boost::apply_visitor(op, rdf::RdfAstType(rdf::NamedResource("main1")),
+      rdf::RdfAstType(rdf::NamedResource(rhs)));
+  } catch(jets::rete_exception const& e) {
+    return e.what();
+  }
+  return {};
+}
+
+// The forms that were valid give what they gave: the direct form, entity + value, and
+// jets:entity_property alone (min/max of the objects themselves).
+TEST_F(ExprOpSpecialtyTest, MinMaxOfValidConfigs) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  auto entity_only = rmgr->create_resource("mmEntityOnly");
+  this->rdf_session->insert(entity_only, jets->jets__entity_property, rmgr->create_resource("values"));
+  struct Row { char const* rhs; int min; int max; };
+  for(auto r: {Row{"values", 10, 30}, Row{"config1", 1, 3}, Row{"mmEntityOnly", 10, 30}}) {
+    MinOfVisitor min_op(this->rete_session.get(), nullptr);
+    MaxOfVisitor max_op(this->rete_session.get(), nullptr);
+    rdf::RdfAstType lhs(rdf::NamedResource("main1")), rhs(rdf::NamedResource(r.rhs));
+    EXPECT_EQ(boost::apply_visitor(min_op, lhs, rhs), rdf::RdfAstType(rdf::LInt32(r.min))) << r.rhs;
+    EXPECT_EQ(boost::apply_visitor(max_op, lhs, rhs), rdf::RdfAstType(rdf::LInt32(r.max))) << r.rhs;
+  }
+}
+
+// A literal for either property: a text naming the property, or a number.
+TEST_F(ExprOpSpecialtyTest, MinMaxOfConfigWithALiteralProperty) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  auto has = rmgr->create_resource("hasSupport");
+  auto value = rmgr->create_resource("value");
+  auto text = [&](char const* v) { return rmgr->create_literal(std::string(v)); };
+  struct Cfg { char const* name; rdf::r_index entity; rdf::r_index value; };
+  for(auto c: {Cfg{"mmEntityText", text("hasSupport"), value},
+               Cfg{"mmValueText", has, text("value")},
+               Cfg{"mmValueInt", has, rmgr->create_literal(int32_t(7))},
+               Cfg{"mmBothText", text("hasSupport"), text("value")},
+               Cfg{"mmEntityTextAlone", text("values"), nullptr}}) {
+    auto cfg = rmgr->create_resource(c.name);
+    this->rdf_session->insert(cfg, jets->jets__entity_property, c.entity);
+    if(c.value) this->rdf_session->insert(cfg, jets->jets__value_property, c.value);
+    auto min_err = config_error<MinOfVisitor>(this->rete_session.get(), c.name);
+    auto max_err = config_error<MaxOfVisitor>(this->rete_session.get(), c.name);
+    EXPECT_NE(min_err.find("Invalid config for min_of"), std::string::npos) << c.name << ": " << min_err;
+    EXPECT_NE(min_err.find("must be resources"), std::string::npos) << c.name << ": " << min_err;
+    EXPECT_NE(max_err.find("Invalid config for max_of"), std::string::npos) << c.name << ": " << max_err;
+    EXPECT_NE(max_err.find("must be resources"), std::string::npos) << c.name << ": " << max_err;
+  }
+}
+
+// A config with jets:value_property and no jets:entity_property. It was read as the
+// multi-valued property itself, (main1, config, ?v), which matches nothing.
+TEST_F(ExprOpSpecialtyTest, MinMaxOfConfigMissingTheEntityProperty) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  for(auto p: {"value", "values"}) {
+    auto name = std::string("mmValueAlone_") + p;
+    auto cfg = rmgr->create_resource(name);
+    this->rdf_session->insert(cfg, jets->jets__value_property, rmgr->create_resource(p));
+    auto min_err = config_error<MinOfVisitor>(this->rete_session.get(), name.c_str());
+    auto max_err = config_error<MaxOfVisitor>(this->rete_session.get(), name.c_str());
+    EXPECT_NE(min_err.find("no jets:entity_property"), std::string::npos) << name << ": " << min_err;
+    EXPECT_NE(max_err.find("no jets:entity_property"), std::string::npos) << name << ": " << max_err;
+  }
+}
+
+// sum_values and join_values read the same two properties, and refuse a literal the same
+// way. Their valid forms are the cases above and below this block.
+TEST_F(ExprOpSpecialtyTest, SumJoinValuesConfigWithALiteralProperty) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  auto has = rmgr->create_resource("hasSupport");
+  auto value = rmgr->create_resource("value");
+  auto text = [&](char const* v) { return rmgr->create_literal(std::string(v)); };
+  struct Cfg { char const* name; rdf::r_index entity; rdf::r_index value; };
+  for(auto c: {Cfg{"svEntityText", text("hasSupport"), value},
+               Cfg{"svValueText", has, text("value")},
+               Cfg{"svValueTextAlone", nullptr, text("values")},
+               Cfg{"svValueIntAlone", nullptr, rmgr->create_literal(int32_t(7))}}) {
+    auto cfg = rmgr->create_resource(c.name);
+    if(c.entity) this->rdf_session->insert(cfg, jets->jets__entity_property, c.entity);
+    this->rdf_session->insert(cfg, jets->jets__value_property, c.value);
+    auto sum_err = config_error<SumValuesVisitor>(this->rete_session.get(), c.name);
+    auto join_err = config_error<JoinValuesVisitor>(this->rete_session.get(), c.name);
+    EXPECT_NE(sum_err.find("Invalid config for sum_values"), std::string::npos) << c.name << ": " << sum_err;
+    EXPECT_NE(sum_err.find("must be resources"), std::string::npos) << c.name << ": " << sum_err;
+    EXPECT_NE(join_err.find("Invalid config for join_values"), std::string::npos) << c.name << ": " << join_err;
+    EXPECT_NE(join_err.find("must be resources"), std::string::npos) << c.name << ": " << join_err;
+  }
+}
+
+// A sum_values config with jets:entity_property and no jets:value_property, which
+// join_values already refused. It summed (main1, hasSupport, ?o).(?o, config, ?v),
+// which is nothing.
+TEST_F(ExprOpSpecialtyTest, SumValuesConfigMissingTheValueProperty) {
+  auto rmgr = this->rdf_session->rmgr();
+  auto const* jets = rmgr->jets();
+  auto cfg = rmgr->create_resource("svEntityAlone");
+  this->rdf_session->insert(cfg, jets->jets__entity_property, rmgr->create_resource("hasSupport"));
+  auto err = config_error<SumValuesVisitor>(this->rete_session.get(), "svEntityAlone");
+  EXPECT_NE(err.find("no jets:value_property"), std::string::npos) << err;
+  err = config_error<JoinValuesVisitor>(this->rete_session.get(), "svEntityAlone");
+  EXPECT_NE(err.find("no jets:value_property"), std::string::npos) << err;
+}
+
 TEST_F(ExprOpSpecialtyTest, SortedHeadVisitor1) {
   // test get ?o such that max ?v in (s, objp, ?o).(?o datap ?v)
   // This test case has the following config:

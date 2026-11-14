@@ -126,26 +126,49 @@ gave `"eetee e"` followed by a stray byte. The retired Go engine worked on chara
 `ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. Since 2026-11-14 `length_of`,
 `substring_of` and `char_at` count characters too, above.
 
-## `sorted_head` with an incomplete configuration — 2026-11-13
+## Aggregate configurations — 2026-11-14
 
-`(?s sorted_head config)` needs `jets:entity_property`, `jets:value_property` and `jets:operator`
-(`"<"` or `">"`) on `config`. `jets:entity_property` and `jets:value_property` name the properties
+`sorted_head`, `min_of`, `max_of`, `sum_values` and `join_values` take a configuration resource as
+their right operand. `jets:entity_property` and `jets:value_property` on it name the properties
 walked, `(?s entityProperty ?o).(?o valueProperty ?v)`, so each must be a resource. A configuration
-missing any of the three, with another operator, or with a literal for either property, throws the
-operator's configuration error, which names all three and fails the session's `ExecuteRules`.
+with a literal for either property, or missing the property its operator needs, throws that
+operator's configuration error, which fails the session's `ExecuteRules`.
+
+| Operator | Configurations it accepts |
+|---|---|
+| `sorted_head` | `jets:entity_property`, `jets:value_property` and `jets:operator` (`"<"` or `">"`) |
+| `min_of`, `max_of` | `jets:entity_property`, with or without `jets:value_property`; or no configuration: the right operand is the multi-valued property itself |
+| `sum_values`, `join_values` | `jets:entity_property` with `jets:value_property`, or `jets:value_property` alone; or no configuration, as above |
+
+A right operand carrying neither property is not a configuration, and is the multi-valued property
+itself for the operators that take one. `min_of` and `max_of` with `jets:entity_property` alone
+give the least or greatest object of `(?s entityProperty ?o)`. `join_values` also reads an optional
+`jets:separator`, which must be text.
 
 | Configuration | Before | Now |
 |---|---|---|
-| no `jets:operator` | the process crashed, on a null dereference | the configuration error |
-| no `jets:entity_property` or `jets:value_property`, or another operator | the configuration error | the configuration error |
-| a literal for `jets:entity_property` or `jets:value_property`, such as `"hasItem"` | null, silently | the configuration error |
+| `sorted_head` with no `jets:operator` | the process crashed, on a null dereference (until 2026-11-13) | the configuration error |
+| `sorted_head` with no `jets:entity_property` or `jets:value_property`, or another operator | the configuration error | the configuration error |
+| a literal for `jets:entity_property` or `jets:value_property`, such as `"hasItem"`, on any of the five | null, silently | the configuration error |
+| `min_of` or `max_of` with `jets:value_property` and no `jets:entity_property` | null, silently | the configuration error |
+| `sum_values` with `jets:entity_property` and no `jets:value_property` | null, silently | the configuration error |
+| `join_values` with `jets:entity_property` and no `jets:value_property` | the configuration error | the configuration error |
 
-**Before 2026-11-13 a configuration with no `jets:operator` crashed the process.** **Before
-2026-11-14 a literal for either property was looked up as a property**: it matched no triple, so the
-head was null, and nothing said why. The cases are `ExprOpTest.SortedHeadConfigMissingAProperty` and
-`ExprOpTest.SortedHeadConfigWithALiteralProperty`; the operator is `SortedHeadVisitor` in
-`jets/rete/expr_op_arithmetics.h`. `min_of` and `max_of`, which read the same two properties, do not
-check them yet: a literal there is still null, silently.
+**Until 2026-11-14 a literal for either property was looked up as a property**: it matched no
+triple, so the aggregate was null, and nothing said why. A `min_of` or `max_of` configuration with
+`jets:value_property` alone was read as the multi-valued property itself, `(?s config ?v)`, and a
+`sum_values` configuration with `jets:entity_property` alone summed `(?s entityProperty ?o).(?o config ?v)`;
+both match nothing, so they were null too. **The configurations that computed a value compute the
+same one.** Before 2026-11-13 a `sorted_head` configuration with no `jets:operator` crashed the
+process.
+
+The check is `names_a_property` and `check_aggregate_config_properties` in
+`jets/rete/expr_op_arithmetics.h`, used by `SortedHeadVisitor`, `doMinMaxOf`, `SumValuesVisitor` and
+`JoinValuesVisitor`. The cases are `ExprOpTest.SortedHeadConfigMissingAProperty` and
+`ExprOpTest.SortedHeadConfigWithALiteralProperty` in `jets/rete/expr_op_test.cc`, and
+`MinMaxOfValidConfigs`, `MinMaxOfConfigWithALiteralProperty`, `MinMaxOfConfigMissingTheEntityProperty`,
+`SumJoinValuesConfigWithALiteralProperty` and `SumValuesConfigMissingTheValueProperty` of
+`ExprOpSpecialtyTest` in `jets/rete/expr_op_specialty_test.cc`.
 
 ## Values and operators — 2026-10-22
 
