@@ -4,6 +4,11 @@
 // rule_text absent none may reach a page or the manifest, and none of those
 // columns may even be queried; with rule_text true the rule's text is shown,
 // with its reading generated from the compiled rule.
+//
+// The fixture's rules are laid out as the compiler writes them: a rule written
+// in a file two main rule files include is a row under each, with the file it
+// is written in as authored_file_key; the compiler's ci_ rule is its class's
+// file's; and one row has no authored file.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -11,7 +16,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { REPO_ROOT } from './lib.mjs';
-import { QUERIES, generateWorkspaceGuide, pageUrl, unquote } from './workspace_docs.mjs';
+import { QUERIES, collapseRules, generateWorkspaceGuide, pageUrl, unquote } from './workspace_docs.mjs';
 
 const SENTINELS = {
 	resourceValue: 'SENTINEL_RESOURCE_VALUE_7f3a',
@@ -44,6 +49,17 @@ function buildFixture() {
 		[2, 'data_model/fixture_model.jr', 0],
 		[3, 'lookups/fixture_lookups.jr', 0],
 		[4, 'jet_rules/second_main.jr', 1],
+		[5, 'jet_rules/fixture_rules.jr', 0],
+		[6, 'jet_rules/fixture_resources.jr', 0],
+	]);
+	// What each main rule file includes, in the order the compiler read them.
+	run('INSERT INTO main_support_files (main_file_key, support_file_key) VALUES (?, ?)', [
+		[1, 2],
+		[1, 3],
+		[1, 5],
+		[1, 6],
+		[4, 2],
+		[4, 5],
 	]);
 	run('INSERT INTO domain_classes (key, name, as_table, source_file_key) VALUES (?, ?, ?, ?)', [
 		[1, 'owl:Thing', 0, -1],
@@ -79,11 +95,18 @@ function buildFixture() {
 		[2, 'KEY', 'text', 0],
 	]);
 	run(
-		'INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+		'INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key, authored_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 		[
-			[1, 'FX_Described01', 1, 10, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, `[FX_Described01]: ${SENTINELS.label};`, 1],
-			[2, 'FX_Undescribed02', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 1],
-			[3, 'FX_Second01', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 4],
+			// Written in fixture_rules.jr, which both main rule files include: a row under each.
+			[1, 'FX_Described01', 1, 10, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, `[FX_Described01]: ${SENTINELS.label};`, 1, 5],
+			[2, 'FX_Undescribed02', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 1, 1],
+			[3, 'FX_Second01', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 4, 4],
+			[4, 'FX_Described01', 1, 10, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, `[FX_Described01]: ${SENTINELS.label};`, 4, 5],
+			// The compiler's rule for the class fx:Claim, in its class's file, under each main rule file.
+			[5, 'ci_fx:Claim', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 1, 2],
+			[6, 'ci_fx:Claim', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 4, 2],
+			// The compiler had no file name for it.
+			[7, 'FX_Unrecorded01', 1, 100, SENTINELS.authoredLabel, SENTINELS.normalizedLabel, SENTINELS.label, 4, null],
 		],
 	);
 	run('INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)', [
@@ -91,6 +114,10 @@ function buildFixture() {
 		// As the compiler stores a string property: the token, quotes and escapes included.
 		[1, 'description', '"The claim\'s \\"primary\\" code is one of its codes"'],
 		[2, 'i', 'true'],
+		[4, 's', '10'],
+		[4, 'description', '"The claim\'s \\"primary\\" code is one of its codes"'],
+		[5, 'i', 'true'],
+		[6, 'i', 'true'],
 	]);
 	run(
 		'INSERT INTO resources (key, type, id, value, symbol, is_binded, inline, source_file_key, vertex, row_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -121,12 +148,17 @@ function buildFixture() {
 		[
 			[1, 1, 'antecedent', 2, 4, 2, null, 5, null, 0, 1, 0, null, 0],
 			[2, 1, 'consequent', 2, 4, null, 3, null, null, 0, 1, 0, 10, 0],
+			// The same rule in second_main.jr's network.
+			[3, 1, 'antecedent', 2, 4, 2, null, 5, null, 0, 4, 0, null, 0],
+			[4, 1, 'consequent', 2, 4, null, 3, null, null, 0, 4, 0, 10, 0],
 		],
 	);
 	run('INSERT INTO rule_terms (rule_key, rete_node_key, is_antecedent) VALUES (?, ?, ?)', [
 		[1, 1, 1],
 		[1, 2, 0],
 		[2, 1, 1],
+		[4, 3, 1],
+		[4, 4, 0],
 	]);
 	run(
 		'INSERT INTO unit_tests (path, test_name, process_name, legacy_mode, comment, findings) VALUES (?, ?, ?, ?, ?, ?)',
@@ -137,7 +169,7 @@ function buildFixture() {
 	);
 	db.close();
 
-	// The main rule file's compiled model, beside it: names, and values the generator must not use.
+	// The main rule file's compiled model, beside it, which the generator does not read.
 	writeFileSync(
 		join(ws, 'jet_rules', 'fixture_main.jr.json'),
 		JSON.stringify({
@@ -243,7 +275,7 @@ test('with rule_text true the rule text is shown, and nothing else of the values
 	const fixture = buildFixture();
 	try {
 		const { pages, manifestText } = generate(fixture, { ruleText: true });
-		const rules = pages[join('reference', 'rules', 'fixture_main.md')];
+		const rules = pages[INCLUDED];
 		assert.ok(rules.includes(`[FX_Described01]: ${SENTINELS.label};`), 'the label shows');
 		assert.ok(rules.includes('*How the engine reads it*'), "the rule's generated reading shows beside its text");
 		const everything = Object.values(pages).join('\n') + manifestText;
@@ -255,31 +287,79 @@ test('with rule_text true the rule text is shown, and nothing else of the values
 	}
 });
 
+const MAIN = join('reference', 'rules', 'fixture_main.md');
+const SECOND = join('reference', 'rules', 'second_main.md');
+const INCLUDED = join('reference', 'rules', 'included', 'fixture_rules.md');
+const RESOURCES = join('reference', 'rules', 'included', 'fixture_resources.md');
+const DOMAIN = join('reference', 'domain', 'fixture_model.md');
+
 test('the pages: descriptions, files, lookups readers, unit tests and the rules without a description', () => {
 	const fixture = buildFixture();
 	try {
 		const { pages, result } = generate(fixture, { ruleText: undefined });
-		const rules = pages[join('reference', 'rules', 'fixture_main.md')];
-		assert.match(rules, /^title: "fixture_main\.jr"$/m);
-		assert.match(rules, /^kind: reference$/m);
-		assert.ok(rules.includes('The claim\'s "primary" code is one of its codes'), 'the description, unquoted');
-		assert.ok(rules.includes('- Source file: `jet_rules/fixture_rules.jr`'), 'the rule\'s own file, from the compiled model');
-		assert.ok(rules.includes('1. [`data_model/fixture_model.jr`](/docs/workspace/reference/domain/fixture_model/)'));
-		assert.ok(rules.includes('the fixture test') && rules.includes('refused by the compile'));
-		assert.match(rules, /## Rules with no description\n\n- \[`FX_Undescribed02`\]\(\/docs\/workspace\/reference\/rules\/fixture_main\/#fx_undescribed02\)/);
-		const second = pages[join('reference', 'rules', 'second_main.md')];
-		assert.ok(second.includes('- Source file: not recorded'), 'no compiled model: not recorded, not guessed');
+		const main = pages[MAIN];
+		assert.match(main, /^title: "fixture_main\.jr"$/m);
+		assert.match(main, /^kind: reference$/m);
+		assert.ok(main.includes('runs 3 rules: 1 written in it, 0 of them with a description'), 'the rows it runs, the rules written in it');
+		assert.ok(
+			main.includes(
+				'1. [`data_model/fixture_model.jr`](/docs/workspace/reference/domain/fixture_model/) (1 rule)\n' +
+					'2. [`lookups/fixture_lookups.jr`](/docs/workspace/reference/lookups/)\n' +
+					'3. [`jet_rules/fixture_rules.jr`](/docs/workspace/reference/rules/included/fixture_rules/) (1 rule)\n' +
+					'4. [`jet_rules/fixture_resources.jr`](/docs/workspace/reference/rules/included/fixture_resources/)',
+			),
+			'the files it includes, in the order read, each linked to its own page',
+		);
+		assert.ok(main.includes('### FX\\_Undescribed02'));
+		assert.ok(!main.includes('### FX\\_Described01'), "an included file's rule is on that file's page, not the main's");
+		assert.ok(main.includes('the fixture test') && main.includes('refused by the compile'));
+		assert.match(main, /## Rules with no description\n\n- \[`FX_Undescribed02`\]\(\/docs\/workspace\/reference\/rules\/fixture_main\/#fx_undescribed02\)/);
 
-		const lookups = pages[join('reference', 'lookups.md')];
-		assert.ok(lookups.includes('Read by: [`FX_Described01`](/docs/workspace/reference/rules/fixture_main/#fx_described01)'));
-		assert.ok(lookups.includes('Read by: none found'), 'the unread lookup');
+		const included = pages[INCLUDED];
+		assert.match(included, /^title: "fixture_rules\.jr"$/m);
+		assert.ok(
+			included.includes(
+				'It is included by 2 main rule files, and its rules run under each, unless a rule says otherwise: ' +
+					'[`jet_rules/fixture_main.jr`](/docs/workspace/reference/rules/fixture_main/), ' +
+					'[`jet_rules/second_main.jr`](/docs/workspace/reference/rules/second_main/).',
+			),
+		);
+		assert.equal(included.split('### FX\\_Described01').length, 2, 'a rule under two main rule files is shown once');
+		assert.ok(included.includes('The claim\'s "primary" code is one of its codes'), 'the description, unquoted');
+		assert.ok(!included.includes('Runs under:'), 'it runs under every main rule file that includes its file');
+		assert.ok(!included.includes('Rules with no description'));
+		assert.ok(pages[RESOURCES].includes('No rule is written in this file.'), 'an included file with no rule has a page');
 
-		const domain = pages[join('reference', 'domain', 'fixture_model.md')];
+		const second = pages[SECOND];
+		assert.ok(second.includes('### FX\\_Second01') && second.includes('### FX\\_Unrecorded01'));
+		assert.ok(
+			second.includes('- Source file: not recorded; shown on the page of the main rule file it runs under'),
+			'a rule with no authored file is its main rule file\'s, not guessed',
+		);
+		assert.ok(!second.includes('ci_fx:Claim') && !main.includes('ci_fx:Claim'));
+
+		const domain = pages[DOMAIN];
 		assert.ok(domain.includes('## fx:Claim') && domain.includes('`fx:hasMember` | object | `fx:Member`'));
+		assert.ok(domain.includes('## Rules written in this file') && domain.includes('### ci\\_fx:Claim'), "the compiler's rule is on its class's page");
+		assert.ok(domain.includes('*Generated by the compiler.*'));
+		assert.ok(!domain.includes('Rules with no description'), 'a generated rule is not listed as missing a description');
 		assert.ok(pages[join('reference', 'domain', 'tables.md')].includes('Maps the class [`fx:Claim`]'));
 
+		const lookups = pages[join('reference', 'lookups.md')];
+		assert.ok(
+			lookups.includes('Read by: [`FX_Described01`](/docs/workspace/reference/rules/included/fixture_rules/#fx_described01)\n'),
+			'a reader is named once, on its own file\'s page',
+		);
+		assert.ok(lookups.includes('Read by: none found'), 'the unread lookup');
+
+		const rulesIndex = pages[join('reference', 'rules', 'index.md')];
+		assert.ok(rulesIndex.includes("The workspace's rules: 5, 1 of them with a description, and 1 generated by the compiler"));
+		assert.ok(rulesIndex.includes('| [`jet_rules/fixture_main.jr`](/docs/workspace/reference/rules/fixture_main/) | 4 | 3 | 1 | 0 |'));
+		assert.ok(rulesIndex.includes('| [`jet_rules/fixture_rules.jr`](/docs/workspace/reference/rules/included/fixture_rules/) | 2 | 1 | 1 |'));
+		assert.ok(rulesIndex.includes('| [`data_model/fixture_model.jr`](/docs/workspace/reference/domain/fixture_model/) | 1 | 1 |'));
+
 		const index = pages[join('reference', 'index.md')];
-		assert.ok(index.includes('**1 of the workspace\'s 3 rules carry a description.**'));
+		assert.ok(index.includes("**1 of the workspace's 5 rules carry a description**; 1 are generated"), 'each rule counted once');
 		assert.match(pages['index.md'], /^kind: overview$/m);
 		assert.ok(pages[join('customisation', 'A Site Operator.md')].includes('Written.'));
 		for (const [path, text] of Object.entries(pages)) {
@@ -288,13 +368,16 @@ test('the pages: descriptions, files, lookups readers, unit tests and the rules 
 				assert.match(text, new RegExp(`^${field}: `, 'm'), `${path} has no ${field}`);
 			}
 		}
-		assert.equal(result.counts.described, 1);
+		assert.deepEqual(
+			[result.counts.rules, result.counts.described, result.counts.generated, result.counts.missing],
+			[5, 1, 1, 3],
+		);
 	} finally {
 		rmSync(fixture.root, { recursive: true, force: true });
 	}
 });
 
-test('the manifest maps each workspace file to its page', () => {
+test('the manifest maps each workspace file to its own page', () => {
 	const fixture = buildFixture();
 	try {
 		const { manifestText } = generate(fixture, { ruleText: undefined });
@@ -305,7 +388,8 @@ test('the manifest maps each workspace file to its page', () => {
 				'data_model/fixture_model.jr': '/docs/workspace/reference/domain/fixture_model/',
 				'docs/customisation/A Site Operator.md': '/docs/workspace/customisation/a-site-operator/',
 				'jet_rules/fixture_main.jr': '/docs/workspace/reference/rules/fixture_main/',
-				'jet_rules/fixture_rules.jr': '/docs/workspace/reference/rules/',
+				'jet_rules/fixture_resources.jr': '/docs/workspace/reference/rules/included/fixture_resources/',
+				'jet_rules/fixture_rules.jr': '/docs/workspace/reference/rules/included/fixture_rules/',
 				'jet_rules/second_main.jr': '/docs/workspace/reference/rules/second_main/',
 				'lookups/fixture_lookups.jr': '/docs/workspace/reference/lookups/',
 			},
@@ -313,6 +397,85 @@ test('the manifest maps each workspace file to its page', () => {
 	} finally {
 		rmSync(fixture.root, { recursive: true, force: true });
 	}
+});
+
+test('a rule run by two main rule files is read once when its compiled rows agree, and each version is shown when not', () => {
+	const fixture = buildFixture();
+	try {
+		const agree = generate(fixture, { ruleText: true });
+		const included = agree.pages[INCLUDED];
+		assert.equal(included.split('*How the engine reads it*').length, 2, 'one reading for the two rows');
+		assert.ok(!included.includes('compiled differently'));
+
+		// Under second_main.jr the rule loses its consequent: its two rows now read differently.
+		const db = new DatabaseSync(join(fixture.ws, 'workspace.db'));
+		db.exec('DELETE FROM rule_terms WHERE rule_key = 4 AND is_antecedent = 0');
+		db.close();
+		const differ = generate(fixture, { ruleText: true });
+		const page = differ.pages[INCLUDED];
+		assert.ok(page.includes('*It is compiled differently under the main rule files that run it*'));
+		assert.ok(page.includes('**Under [`jet_rules/fixture_main.jr`](/docs/workspace/reference/rules/fixture_main/):**'));
+		assert.ok(page.includes('**Under [`jet_rules/second_main.jr`](/docs/workspace/reference/rules/second_main/):**'));
+		assert.ok(differ.pages[join('reference', 'rules', 'index.md')].includes('1 rule is compiled differently under different main rule files'));
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+test('a rule under some of the main rule files that include its file says which', () => {
+	const fixture = buildFixture();
+	try {
+		const db = new DatabaseSync(join(fixture.ws, 'workspace.db'));
+		db.exec('DELETE FROM jet_rules WHERE key = 4');
+		db.close();
+		const { pages } = generate(fixture, { ruleText: undefined });
+		assert.ok(pages[INCLUDED].includes('- Runs under: [`jet_rules/fixture_main.jr`](/docs/workspace/reference/rules/fixture_main/)\n'));
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+test('a workspace.db compiled before rules recorded their file fails, naming the column', () => {
+	const fixture = buildFixture();
+	try {
+		const db = new DatabaseSync(join(fixture.ws, 'workspace.db'));
+		db.exec('ALTER TABLE jet_rules DROP COLUMN authored_file_key');
+		db.close();
+		assert.throws(() => generate(fixture, { ruleText: undefined }), /jet_rules has no authored_file_key/);
+	} finally {
+		rmSync(fixture.root, { recursive: true, force: true });
+	}
+});
+
+test('collapseRules: one rule per name and file, a name written twice is two rules, an unrecorded file is not collapsed', () => {
+	const fileName = new Map([
+		[1, 'a.jr'],
+		[2, 'b.jr'],
+		[3, 'shared.jr'],
+		[4, 'model.jr'],
+	]);
+	const rows = [
+		{ key: 1, name: 'R', source_file_key: 1, authored_file_key: 3 },
+		{ key: 2, name: 'R', source_file_key: 1, authored_file_key: 3 },
+		{ key: 3, name: 'R', source_file_key: 2, authored_file_key: 3 },
+		{ key: 4, name: 'R', source_file_key: 2, authored_file_key: 3 },
+		{ key: 5, name: 'X', source_file_key: 1, authored_file_key: null },
+		{ key: 6, name: 'X', source_file_key: 2, authored_file_key: null },
+		{ key: 7, name: 'ci_m:C', source_file_key: 1, authored_file_key: 4 },
+		{ key: 8, name: 'Y', source_file_key: 1, authored_file_key: 99 },
+	];
+	const rules = collapseRules(rows, fileName, [{ name: 'm:C', source_file_key: 4 }]);
+	assert.deepEqual(
+		rules.map((r) => [r.name, r.fileKey, r.recorded, r.generated, r.rows.map((x) => x.key), r.mains]),
+		[
+			['R', 3, true, false, [1, 3], [1, 2]],
+			['R', 3, true, false, [2, 4], [1, 2]],
+			['X', 1, false, false, [5], [1]],
+			['X', 2, false, false, [6], [2]],
+			['ci_m:C', 4, true, true, [7], [1]],
+			['Y', 1, false, false, [8], [1]],
+		],
+	);
 });
 
 test('a workspace docs/ folder holding reference/ fails', () => {
@@ -346,6 +509,11 @@ test('a workspace with no docs/ builds, with a generated landing page', () => {
 
 test('unquote and pageUrl', () => {
 	assert.equal(unquote('"a \\"b\\" \\\\ c"'), 'a "b" \\ c');
+	// A rule property is stored as its raw token, quotes and escapes included, even
+	// where the compiler unescapes string literals: \" and \\ are read in one pass,
+	// so an escaped backslash before a quote stays a backslash.
+	assert.equal(unquote('"ends with a backslash \\\\"'), 'ends with a backslash \\');
+	assert.equal(unquote('"\\\\\\"quoted\\\\\\""'), '\\"quoted\\"');
 	assert.equal(unquote('10'), '10');
 	assert.equal(pageUrl('index.md'), '/docs/workspace/');
 	assert.equal(pageUrl('customisation/index.md'), '/docs/workspace/customisation/');
