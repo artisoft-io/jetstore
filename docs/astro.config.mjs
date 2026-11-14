@@ -8,7 +8,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 // A workspace's guide, written into src/content/docs/workspace/ by `npm run gen`
 // when JETS_WORKSPACE_DB is set (scripts/workspace_docs.mjs), is a fourth group,
-// labelled with the workspace's name. Without one the site is the three guides.
+// labelled with the workspace's name, and the landing page links it (src/components/Hero.astro).
+// Without one the site is the three guides.
 const workspaceGuide = existsSync(new URL('./src/content/docs/workspace/', import.meta.url));
 function workspaceName() {
 	try {
@@ -45,8 +46,9 @@ export default defineConfig({
 				{ label: 'Installation Guide', items: [{ autogenerate: { directory: 'install' } }] },
 				...(workspaceGuide ? [{ label: workspaceName(), items: [{ autogenerate: { directory: 'workspace' } }] }] : []),
 			],
-			// The footer names the JetStore and workspace versions the site was built for.
-			components: { Footer: './src/components/Footer.astro' },
+			// The footer names the JetStore and workspace versions the site was built for;
+			// the hero adds a link to the workspace's guide on the landing page, when there is one.
+			components: { Footer: './src/components/Footer.astro', Hero: './src/components/Hero.astro' },
 		}),
 	],
 });
