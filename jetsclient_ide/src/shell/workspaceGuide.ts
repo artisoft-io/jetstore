@@ -11,7 +11,7 @@
  *   "workspace": "jets_ws",
  *   "index": "/docs/workspace/",
  *   "pages": {
- *     "data_model/jets_model.jr": "/docs/workspace/reference/domain/jets-model/",
+ *     "data_model/jets_model.jr": "/docs/workspace/reference/domain/jets_model/",
  *     "docs/customisation/observe.md": "/docs/workspace/customisation/observe/"
  *   }
  * }
