@@ -89,15 +89,28 @@ such as the workspace's `README.md`, is read-only too, except a page under `docs
 server then checks the file types it knows, such as user flows, table documents, SQL scripts,
 pipeline definitions and the guide's `workspace_docs.json`, and refuses a save that would break them,
 saying why. A pipeline definition (`.pc.json`) is refused only for what would stop the pipeline when
-it starts: a value the definition's format cannot hold, no `cluster_config`, or an output table
-column whose `rdf_type` is not in the
-[closed list of column types](/docs/developer/compute-pipes/output-tables/#column-types). A page of `docs/`
+it starts, whatever the run: a value the definition's format cannot hold, no `cluster_config`, an
+output table column whose `rdf_type` is not in the
+[closed list of column types](/docs/developer/compute-pipes/output-tables/#column-types), or a check
+the start makes of the whole definition before any step runs (an empty conditional step, a
+`column_encodings` entry with no column, a text template that does not compile or whose key is used
+twice, a writer setting on an input channel, `latest_session_only` on a channel that does not read a
+staged `file_key`, or `use_jet_rules_go: true`). A page of `docs/`
 is refused when the documentation build would refuse it for its front matter: none, YAML that does not
 parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
 `explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as
 YAML. A file in the place of the workspace guide's generated pages, under `docs/reference/` or named
 `docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
-saying that place is generated. A page's links are checked when the images are built. A saved file becomes an **override**: it is held in
+saying that place is generated. A page's links are checked when the images are built.
+
+**A save can succeed with warnings.** A check may find something that does not stop the file working
+but that you should know about: in a pipeline definition, every key the pipeline does not know and so
+ignores (a misspelt setting is one that silently does not apply), and an output table column with no
+`rdf_type`, which creating the table needs. The file is saved, and the banner says so in the warning
+colours, listing each warning at its place in the file (a JSON Pointer such as
+`/pipes_config/0/apply/1/device_writer_type`, or a line) until you dismiss it.
+
+A saved file becomes an **override**: it is held in
 the database, takes precedence over the file in the image, and appears in *Workspace Changes*.
 
 Closing a tab with unsaved changes asks first; **OK** discards them.

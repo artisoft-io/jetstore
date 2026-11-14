@@ -198,7 +198,7 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 		unseen = append(unseen, schema.ColumnDefinition{
 			ColumnName: c.Name,
 			DataType:   pgType,
-			IsArray:    c.IsArray && c.Name != "jets:key" && c.Name != "session_id",
+			IsArray:    c.IsArray && !hasFixedColumnType(c.Name),
 		})
 	}
 	switch l := len(unseen); {
@@ -224,7 +224,7 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 // jets:key and session_id are always text, whatever rdf_type says, and any other
 // column's rdf_type must be one of schema.PgTypeNames.
 func outputTableColumnType(column *TableColumnSpec) (string, error) {
-	if column.Name == "jets:key" || column.Name == "session_id" {
+	if hasFixedColumnType(column.Name) {
 		return "text", nil
 	}
 	pgType, err := schema.ToPgType(column.RdfType)
@@ -234,17 +234,27 @@ func outputTableColumnType(column *TableColumnSpec) (string, error) {
 	return pgType, nil
 }
 
+// hasFixedColumnType reports whether an output table column is one of the two
+// whose type is fixed: jets:key and session_id are always created as text
+// (CreateOutputTable), added as text (outputTableColumnType) and never as an
+// array, so their rdf_type is read by nothing.
+func hasFixedColumnType(name string) bool {
+	return name == "jets:key" || name == "session_id"
+}
+
 // validateTableColumnTypes refuses an output table whose columns name an
 // rdf_type outside the closed list. A column with no rdf_type is left to the
 // table creation, which needs one: an existing table that is not checked for
-// schema changes never reads it.
+// schema changes never reads it. jets:key and session_id are not checked,
+// their rdf_type being read by nothing (hasFixedColumnType); until 2026-11-14
+// a type outside the list on either refused a start that would have ignored it.
 func validateTableColumnTypes(tableSpec *TableSpec) error {
 	if tableSpec == nil {
 		return nil
 	}
 	for i := range tableSpec.Columns {
 		c := &tableSpec.Columns[i]
-		if c.RdfType == "" {
+		if c.RdfType == "" || hasFixedColumnType(c.Name) {
 			continue
 		}
 		if _, err := schema.ToPgType(c.RdfType); err != nil {

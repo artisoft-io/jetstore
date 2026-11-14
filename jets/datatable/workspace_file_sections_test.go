@@ -136,12 +136,12 @@ func TestNoReadOnlyFileTypeHasAValidator(t *testing.T) {
 func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
 	for _, name := range []string{"README.md", "pipes_config/README.md", "pipes_config/README.MD",
 		"README.Md", "pipes_config/notes.MDX"} {
-		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
+		if _, err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
 		}
 	}
 	// And only those: a file type with no row is still saved unchecked.
-	if err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
+	if _, err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
 		t.Errorf("jet_rules/a.jr: %v, want saved", err)
 	}
 }
@@ -152,13 +152,13 @@ func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
 func TestTheSavePathSavesADocsPage(t *testing.T) {
 	page := "---\ntitle: A page\ndescription: What the page is for.\nkind: explanation\n---\n"
 	for _, name := range []string{"docs/index.md", "docs/customisation/observe.md", "docs/index.mdx"} {
-		if err := checkWorkspaceFile(name, page); err != nil {
+		if _, err := checkWorkspaceFile(name, page); err != nil {
 			t.Errorf("%s: %v, want saved", name, err)
 		}
 	}
 	for _, name := range []string{"docs/../pipes_config/README.md", "pipes_config/docs/README.md",
 		"pipes_config/notes.mdx"} {
-		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
+		if _, err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
 		}
 	}
@@ -174,7 +174,7 @@ func TestTheSavePathRefusesTheGeneratedPagesPlace(t *testing.T) {
 	for _, name := range []string{"docs/reference/index.md", "docs/reference/rules/x.md", "docs/reference.md",
 		"docs/reference.mdx", "docs/Reference/x.md", "docs/REFERENCE.MD", "./docs/reference/x.md",
 		"docs/customisation/../reference/x.md", "docs/reference/workspace_docs.json", "docs/reference"} {
-		err := checkWorkspaceFile(name, page)
+		_, err := checkWorkspaceFile(name, page)
 		if err == nil {
 			t.Errorf("%s: saved, want refused", name)
 			continue
@@ -185,7 +185,7 @@ func TestTheSavePathRefusesTheGeneratedPagesPlace(t *testing.T) {
 	}
 	for _, name := range []string{"docs/references.md", "docs/reference-notes.md", "docs/customisation/reference.md",
 		"docs/customisation/reference/x.md"} {
-		if err := checkWorkspaceFile(name, page); err != nil {
+		if _, err := checkWorkspaceFile(name, page); err != nil {
 			t.Errorf("%s: %v, want saved", name, err)
 		}
 	}

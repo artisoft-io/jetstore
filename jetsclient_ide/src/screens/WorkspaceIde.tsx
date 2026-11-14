@@ -20,7 +20,13 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import type { ApiClient } from "../api/client";
 import { SessionExpiredError } from "../api/client";
-import { WorkspaceApi, fileNameOf, type WorkspaceNode, type WorkspaceSummary } from "../api/workspace";
+import {
+  WorkspaceApi,
+  describeSaveWarnings,
+  fileNameOf,
+  type WorkspaceNode,
+  type WorkspaceSummary,
+} from "../api/workspace";
 import { FileTree } from "../components/FileTree";
 import { Editor } from "../editor/Editor";
 import { isServerValidatedJson, languageNameFor } from "../editor/language";
@@ -402,13 +408,19 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     setBusy(true);
     setError(null);
     void guard(async () => {
-      await workspaceApi.saveFile(workspace, tab.fileName, tab.current);
+      const { warnings } = await workspaceApi.saveFile(workspace, tab.fileName, tab.current);
       setTabs((prev) =>
         prev.map((t) =>
           t.kind === "file" && t.fileName === tab.fileName ? { ...t, saved: t.current } : t,
         ),
       );
-      setStatus(`Saved ${tab.label}`);
+      // The file is saved either way; warnings are what its validator found
+      // and did not refuse, shown in the warning colours until dismissed.
+      if (warnings.length > 0) {
+        setStatus(describeSaveWarnings(tab.label, warnings), "warn");
+      } else {
+        setStatus(`Saved ${tab.label}`);
+      }
     }).finally(() => setBusy(false));
   }, [activeKey, canEdit, guard, setError, setStatus, tabs, workspace, workspaceApi]);
 

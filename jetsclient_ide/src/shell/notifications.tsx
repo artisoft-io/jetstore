@@ -10,15 +10,24 @@
  * Deliberately two levels and no more. `error` is a failure the user must see;
  * `status` is a completed action worth confirming. A third level always turns
  * out to be one of those two with a different colour.
+ *
+ * **And the first one to arrive was exactly that** (November 2026): a save the
+ * server accepts with warnings is a completed action the user must read, so it
+ * is a status with a `warn` tone, shown in the warning colours, rather than a
+ * third level with its own rules about what supersedes what.
  */
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
+/** How a status reads: `ok`, the default, or `warn` for one the user must read. */
+export type StatusTone = "ok" | "warn";
+
 export interface Notifications {
   error: string | null;
   status: string | null;
+  statusTone: StatusTone;
   setError(message: string | null): void;
-  setStatus(message: string | null): void;
+  setStatus(message: string | null, tone?: StatusTone): void;
   /** Clears both, which is what a screen change should do. */
   clear(): void;
 }
@@ -28,6 +37,7 @@ const NotificationsContext = createContext<Notifications | null>(null);
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [error, setErrorState] = useState<string | null>(null);
   const [status, setStatusState] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<StatusTone>("ok");
 
   // An error supersedes a status: the success line from the previous action is
   // not what the user needs to read once something has failed.
@@ -36,15 +46,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (message != null) setStatusState(null);
   }, []);
 
-  const setStatus = useCallback((message: string | null) => setStatusState(message), []);
+  const setStatus = useCallback((message: string | null, tone: StatusTone = "ok") => {
+    setStatusState(message);
+    setStatusTone(tone);
+  }, []);
   const clear = useCallback(() => {
     setErrorState(null);
     setStatusState(null);
   }, []);
 
   const value = useMemo<Notifications>(
-    () => ({ error, status, setError, setStatus, clear }),
-    [error, status, setError, setStatus, clear],
+    () => ({ error, status, statusTone, setError, setStatus, clear }),
+    [error, status, statusTone, setError, setStatus, clear],
   );
 
   return (

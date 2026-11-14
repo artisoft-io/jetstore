@@ -3,7 +3,7 @@
 //
 // **It imports nothing, and that is its whole design.** The save hook lives in
 // jets/datatable; the validators live wherever their file type does —
-// jets/userflow for .uf.json and .ua.json, jets/agentic/tools for .pc.json. A
+// jets/userflow for .uf.json and .ua.json, jets/compute_pipes for .pc.json. A
 // shared Finding type had to live somewhere none of them would have to import
 // another, and putting it in the caller would have inverted the dependency: a
 // validator would import the HTTP handler package to describe its own findings.
@@ -19,9 +19,10 @@
 // A bare `error` would collapse the tier. jets/userflow already reports an
 // unreachable state as a warning and a dangling transition as an error, and the
 // deployment decides whether the first blocks a save
-// (JETS_USERFLOW_STRICT_REACHABILITY). The cpipes validator has no warning tier
-// today, so every diagnostic it produces is an Error — the tier costs it nothing
-// and is there when it wants one.
+// (JETS_USERFLOW_STRICT_REACHABILITY). The pipeline configuration validator
+// refuses what stops a pipeline at its start and warns of a setting the run
+// ignores. A save with warnings only succeeds and the IDE shows them
+// (2026-11-14; before then the save path dropped them).
 package wsvalidate
 
 // Severity of a finding. Any Error blocks the save; Warnings are reported and
@@ -90,4 +91,16 @@ func ErrorsOnly(findings []Finding) []Finding {
 		}
 	}
 	return errs
+}
+
+// WarningsOnly is what a save that succeeds reports back: every finding that is
+// not an Error.
+func WarningsOnly(findings []Finding) []Finding {
+	warnings := make([]Finding, 0, len(findings))
+	for _, f := range findings {
+		if f.Severity != Error {
+			warnings = append(warnings, f)
+		}
+	}
+	return warnings
 }
