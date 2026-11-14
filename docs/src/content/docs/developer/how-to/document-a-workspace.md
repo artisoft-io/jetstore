@@ -117,6 +117,20 @@ in the rule's label and in `workspace.db` (`PostProcessJetruleProperties` and `m
 the text is written `\"`. A comment above the rule, as in the example, stays in the rule file and is
 not shown.
 
+**The guide reads a description, and every other string property, as the compiler reads a string
+literal** (`unquote` in `docs/scripts/workspace_docs.mjs`, the same rules as `UnquoteString`; see
+[String literals](/docs/developer/engine/compiler/compilation/#string-literals)): `\"` is a double
+quote, `\\` a backslash, `\t` a tab, `\n` a line feed and `\r` a carriage return, and any other
+backslash is shown as written, with the character after it. **A line break is shown as a space**,
+whether it is written `\n` or `\r` or the description is written across lines: a description is one
+paragraph under its rule's name, and a property one value in its list, so nothing after a line break
+can start a heading, a table or a list of its own. A tab is kept. Write the description as one
+paragraph; the page will not show a second.
+
+**Changed 2026-11-14.** The guide read only `\"` and `\\`, so a description holding `\t`, `\n` or
+`\r` showed the backslash and the letter where the compiler reads a tab or a line break. A
+description without them is shown as before.
+
 **The rules' owners write the descriptions**, the Knowledge Engineer with the rule's business owner, in
 the workspace's pull requests, and keep them in step with the rules. Say what the rule is meant to do,
 in the business's words, rather than restating its antecedents: the generated reading (step 3) already

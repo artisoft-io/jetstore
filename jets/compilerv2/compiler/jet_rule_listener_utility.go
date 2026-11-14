@@ -321,8 +321,15 @@ func isNumeric(s string) bool {
 	return true
 }
 
-// Escape resource name that conflicts with keywords such as rdf:type becomes rdf:"type"
-// this function removes the quotes
+// EscR reads a resource name written with its name quoted, prefix:"name", as
+// prefix:name. The quotes let a name be a keyword or hold characters an
+// Identifier cannot (JetRule.g4, declIdentifier: Identifier ':' STRING).
+//
+// It applies to an identifier only: parseObjectAtom calls it on the text it has
+// found to be one, and the declarations call it on their names. A string
+// literal or a cast must not pass through it, since every double quote is
+// removed: until 2026-11-14 the antecedent, consequent and triple handlers
+// applied it to the whole term, so text("\"x:") was read as text(\x:).
 func EscR(s string) string {
 	if len(s) > 4 && s[0] != '"' && strings.Contains(s, ":\"") {
 		return strings.ReplaceAll(s, "\"", "")
