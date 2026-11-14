@@ -242,7 +242,7 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 		// String
 		return &rete.ResourceNode{
 			Type:  "text",
-			Value: StripQuotes(txt),
+			Value: UnquoteString(txt),
 		}
 	case strings.HasSuffix(txt, ")"):
 		// Literal cast
@@ -259,12 +259,12 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
 				return nil
 			}
-			if typ == "bool" && !s.checkBoolLiteral(s.currentLine, StripQuotes(val)) {
+			if typ == "bool" && !s.checkBoolLiteral(s.currentLine, UnquoteString(val)) {
 				return nil
 			}
 			return &rete.ResourceNode{
 				Type:  typ,
-				Value: StripQuotes(val),
+				Value: UnquoteString(val),
 			}
 		}
 	case len(keywordsContextValue) > 0:
@@ -322,13 +322,6 @@ func isNumeric(s string) bool {
 func EscR(s string) string {
 	if len(s) > 4 && s[0] != '"' && strings.Contains(s, ":\"") {
 		return strings.ReplaceAll(s, "\"", "")
-	}
-	return s
-}
-
-func StripQuotes(s string) string {
-	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
-		return s[1 : len(s)-1]
 	}
 	return s
 }

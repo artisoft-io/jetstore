@@ -192,7 +192,7 @@ func (r *RuleFileReader) writeSourceFileDirective(fileName string) {
 	if r.currentSourceFile == fileName {
 		return
 	}
-	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
+	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = %s;\n", QuoteString(fileName)))
 	r.currentSourceFile = fileName
 	r.globalLineNum++
 }

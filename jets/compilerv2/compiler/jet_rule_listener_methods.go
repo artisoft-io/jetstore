@@ -20,11 +20,10 @@ func (s *JetRuleListener) ExitJetCompilerDirectiveStmt(ctx *parser.JetCompilerDi
 		name := ctx.GetVarName().GetText()
 		value := ctx.GetDeclValue().GetText()
 		if name == "source_file" {
-			// Strip quotes if present
-			s.currentRuleFileName = StripQuotes(value)
+			s.currentRuleFileName = UnquoteString(value)
 			s.noteIncludedFile(s.currentRuleFileName)
 		} else {
-			value = StripQuotes(value)
+			value = UnquoteString(value)
 			s.jetRuleModel.CompilerDirectives[name] = value
 			if name == "extract_resources_from_rules" {
 				s.autoAddResources = value == "true"
@@ -152,7 +151,7 @@ func (s *JetRuleListener) EnterDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtCo
 func (s *JetRuleListener) ExitRuleSetDefinitions(ctx *parser.RuleSetDefinitionsContext) {
 	if ctx.GetRsName() != nil && s.currentRuleSequence != nil {
 		s.currentRuleSequence.RuleSets =
-			append(s.currentRuleSequence.RuleSets, StripQuotes(ctx.GetRsName().GetText()))
+			append(s.currentRuleSequence.RuleSets, UnquoteString(ctx.GetRsName().GetText()))
 	}
 }
 
@@ -231,7 +230,7 @@ func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtCon
 		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
-			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+			Value: UnquoteString(ctx.GetDeclValue().GetText()),
 		})
 	}
 }
@@ -242,7 +241,7 @@ func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext
 		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
-			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+			Value: UnquoteString(ctx.GetDeclValue().GetText()),
 		})
 	}
 }
@@ -253,7 +252,7 @@ func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStm
 		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
-			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+			Value: UnquoteString(ctx.GetDeclValue().GetText()),
 		})
 	}
 }
@@ -265,7 +264,7 @@ func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStm
 // "\"false\"", which C++ read as true and Go as false (I-45).
 func (s *JetRuleListener) ExitBooleanLiteralStmt(ctx *parser.BooleanLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		value := StripQuotes(ctx.GetDeclValue().GetText())
+		value := UnquoteString(ctx.GetDeclValue().GetText())
 		if !s.checkBoolLiteral(ctx.GetStart().GetLine(), value) {
 			return
 		}
@@ -289,7 +288,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	var typ, value string
 	switch {
 	case ctx.GetResCtx().GetResVal() != nil:
-		value = StripQuotes(ctx.GetResCtx().GetResVal().GetText())
+		value = UnquoteString(ctx.GetResCtx().GetResVal().GetText())
 		if after, ok := strings.CutPrefix(value, "_0:"); ok {
 			value = after
 			typ = "volatile_resource"
@@ -297,7 +296,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 			typ = "resource"
 		}
 	case ctx.GetResCtx().GetKws() != nil:
-		value = StripQuotes(ctx.GetResCtx().GetKws().GetText())
+		value = ctx.GetResCtx().GetKws().GetText()
 		typ = "symbol"
 	}
 	if len(value) == 0 {
@@ -315,10 +314,10 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 func (s *JetRuleListener) ExitVolatileResourceStmt(ctx *parser.VolatileResourceStmtContext) {
 	var id, value string
 	if ctx.GetResName() != nil {
-		id = StripQuotes(ctx.GetResName().GetText())
+		id = ctx.GetResName().GetText()
 	}
 	if ctx.GetResVal() != nil {
-		value = StripQuotes(ctx.GetResVal().GetText())
+		value = UnquoteString(ctx.GetResVal().GetText())
 	}
 	s.AddResource(&rete.ResourceNode{
 		Type:           "volatile_resource",
@@ -339,7 +338,7 @@ func (s *JetRuleListener) EnterLookupTableStmt(ctx *parser.LookupTableStmtContex
 // exitColumnDefinitions is called when production columnDefinitions is exited.
 func (s *JetRuleListener) ExitColumnDefinitions(ctx *parser.ColumnDefinitionsContext) {
 	if ctx.GetColumnName() != nil && ctx.GetColumnType() != nil {
-		name := StripQuotes(ctx.GetColumnName().GetText())
+		name := UnquoteString(ctx.GetColumnName().GetText())
 		// Validate that name can be used as an identifier in rules
 		if !s.IsValidIdentifier(name) {
 			s.logErrorf("** error: invalid column name for lookup table: %s\n", name)
@@ -365,7 +364,7 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 	}
 	var keys []string
 	for _, key := range ctx.GetTblKeys().GetSeqCtx().GetSlist() {
-		keys = append(keys, StripQuotes(key.GetText()))
+		keys = append(keys, UnquoteString(key.GetText()))
 	}
 
 	name := ctx.GetLookupName().GetText()
@@ -373,7 +372,7 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 	lookupTbl := &rete.LookupTableNode{
 		Type:           "lookup",
 		Name:           name,
-		CsvFile:        StripQuotes(ctx.CsvLocation().GetCsvFileName().GetText()),
+		CsvFile:        UnquoteString(ctx.CsvLocation().GetCsvFileName().GetText()),
 		Key:            keys,
 		Columns:        s.currentLookupTableColumns,
 		SourceFileName: s.currentRuleFileName,
