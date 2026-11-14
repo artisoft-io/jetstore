@@ -118,6 +118,36 @@ TEST_F(ExprOpTest, ExistVisitor1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(1)));
 }
+// create_resource builds a value the session does not hold until a consequent asserts it
+// (F_expr::to_r_index, then RManager::insert_rdfast). As an operand of another operator in
+// the same expression it does not exist yet: exist gives false, exist_not true, size_of 0.
+// Documented behaviour, not a defect: use create_resource's result as a consequent's term.
+TEST_F(ExprOpTest, CreateResourceAsAnOperand) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rmgr->create_resource("predicate");
+  CreateResourceVisitor create_op(this->rete_session.get(), nullptr);
+  auto created = boost::apply_visitor(create_op, rdf::RdfAstType(rdf::LString("fresh")));
+  ASSERT_EQ(created, rdf::RdfAstType(rdf::NamedResource("fresh")));
+  EXPECT_EQ(rmgr->get_resource(std::string("fresh")), nullptr);
+
+  rdf::RdfAstType rhs(rdf::NamedResource("predicate"));
+  ExistVisitor exist_op(this->rete_session.get(), nullptr);
+  ExistNotVisitor exist_not_op(this->rete_session.get(), nullptr);
+  SizeOfVisitor size_op(this->rete_session.get(), nullptr);
+  EXPECT_EQ(boost::apply_visitor(exist_op, created, rhs), rdf::RdfAstType(rdf::LInt32(0)));
+  EXPECT_EQ(boost::apply_visitor(exist_not_op, created, rhs), rdf::RdfAstType(rdf::LInt32(1)));
+  EXPECT_EQ(boost::apply_visitor(size_op, created, rhs), rdf::RdfAstType(rdf::LInt32(0)));
+  // The operators read the names and leave the operands as they were.
+  EXPECT_EQ(created, rdf::RdfAstType(rdf::NamedResource("fresh")));
+  EXPECT_EQ(rhs, rdf::RdfAstType(rdf::NamedResource("predicate")));
+
+  // Asserted as a consequent's term, it is a resource like any other.
+  auto subject = rmgr->insert_rdfast(created);
+  sess->insert(subject, rmgr->get_resource(std::string("predicate")), rmgr->create_literal("object"));
+  EXPECT_EQ(boost::apply_visitor(exist_op, created, rhs), rdf::RdfAstType(rdf::LInt32(1)));
+  EXPECT_EQ(boost::apply_visitor(size_op, created, rhs), rdf::RdfAstType(rdf::LInt32(1)));
+}
 TEST_F(ExprOpTest, RegexVisitor1) {
   RegexVisitor op(this->rete_session.get(), nullptr);
   rdf::LString lhs("12345");
