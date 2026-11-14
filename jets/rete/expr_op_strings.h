@@ -394,6 +394,21 @@ struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
 
 // CharAtVisitor
 // --------------------------------------------------------------------------------------
+// (?text char_at ?index): the byte of ?text at ?index, counted from 0, as a text of one
+// byte.
+//  - the index counts bytes, not characters, as substring_of's positions do: text is
+//    UTF-8, so on text that is not ASCII the index counts each byte of a multi-byte
+//    character, and the result can be one byte of such a character, which is not valid
+//    UTF-8 ((?text char_at 0) on "été" is the first byte of "é" alone);
+//  - an index at or past the end of the text, or negative, is null. substring_of gives
+//    "" for a cut outside the text; char_at keeps null, which it has always given, as a
+//    rule may already depend on it (is_literal, length_of, == "", or a consequent
+//    writing the value all tell null from "");
+//  - the index must be an int (32-bit) and the text a text: anything else is the
+//    catch-all below, which throws in a session's rule.
+// Signed 64-bit arithmetic, as in substring_of: a negative int32 cannot wrap around.
+// Until 2026-11-14 a negative index was null only because the comparison converted it to
+// an unsigned value larger than any text; the result is the same.
 struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CharAtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -402,10 +417,12 @@ struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackN
 
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32       rhs)const
   {
-    if(lhs.data.size() <= rhs.data) {
+    std::int64_t const index = rhs.data;
+    std::int64_t const sz = static_cast<std::int64_t>(lhs.data.size());
+    if(index < 0 || index >= sz) {
       return rdf::Null();
     }
-    return rdf::LString{ std::string(1, lhs.data[rhs.data]) };
+    return rdf::LString{ std::string(1, lhs.data[static_cast<std::size_t>(index)]) };
   }
 
   ReteSession * rs;

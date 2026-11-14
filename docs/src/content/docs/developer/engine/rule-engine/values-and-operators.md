@@ -39,6 +39,32 @@ retired Go engine did for the first two (`expr_operator_str_substring_of.go` at 
 it gave null for a negative `jets:from`). The rows are `ExprOpTest.SubstringOfVisitorEdges` in
 `jets/rete/expr_op_test.cc`; the operator is `SubstringOfVisitor` in `jets/rete/expr_op_strings.h`.
 
+## `char_at` counts bytes — 2026-11-14
+
+`(?text char_at ?index)` is the byte of `?text` at `?index`, counted from 0, as a text of one byte.
+The index must be an `int` value (32-bit) and `?text` a text; anything else, such as a `long` index,
+throws `Invalid arguments for char_at` and fails the session's `ExecuteRules`.
+
+| Case | Result | Example: text `"abc"` |
+|---|---|---|
+| the index is within the text | the byte there | 0: `"a"`; 2: `"c"` |
+| the index at or past the end of the text | null | 3: null; 10: null |
+| a negative index | null | -1: null |
+
+**The index counts bytes, not characters, as `substring_of`'s positions do.** Text is UTF-8, so on
+text that is not ASCII the index counts each byte of a multi-byte character, and the result can be
+one byte of such a character, which is not valid UTF-8: index 0 on `"été"` is the first byte of `é`
+alone (`0xC3`), index 1 its second byte, and `t` is at index 2. On ASCII text a byte is a character.
+This was decided on 2026-11-14 and is kept, as for `substring_of`.
+
+**Outside the text `char_at` is null, where `substring_of` gives `""`.** It has always been null,
+and a rule can tell null from `""`: `is_literal`, `length_of`, `== ""`, and a consequent that writes
+the value all give a different result. So it is kept rather than aligned with `substring_of`. A
+negative index was null before 2026-11-14 too, but only because the comparison converted it to an
+unsigned value larger than any text; the operator now compares in signed 64-bit arithmetic, as
+`substring_of` does, and the results are the same. The rows are `CharAt.TheEdges` in
+`jets/rete/expr_op_test.cc`; the operator is `CharAtVisitor` in `jets/rete/expr_op_strings.h`.
+
 ## `replace_char_of` reads characters — 2026-11-13
 
 `(config replace_char_of ?text)` replaces, in `?text`, every occurrence of each character of the
@@ -68,16 +94,29 @@ its bytes, such as `à` (`0xC3 0xA0`), and left invalid UTF-8 behind: `"é"` by 
 gave `"eetee e"` followed by a stray byte. The retired Go engine worked on characters
 (`expr_operator_str_replace_char.go` at `go-engine-final`). The rows are
 `ExprOpTest.ReplaceCharOfVisitorCharacters` in `jets/rete/expr_op_test.cc`; the operator is
-`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. `substring_of` still counts bytes, above.
+`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. `substring_of` and `char_at` still count
+bytes, above.
 
 ## `sorted_head` with an incomplete configuration — 2026-11-13
 
 `(?s sorted_head config)` needs `jets:entity_property`, `jets:value_property` and `jets:operator`
-(`"<"` or `">"`) on `config`. A configuration missing any of them, or with another operator, throws
-the operator's configuration error, which names all three and fails the session's `ExecuteRules`.
-**Before 2026-11-13 a configuration with no `jets:operator` crashed the process** instead, on a null
-dereference. The case is `ExprOpTest.SortedHeadConfigMissingAProperty`; the operator is
-`SortedHeadVisitor` in `jets/rete/expr_op_arithmetics.h`.
+(`"<"` or `">"`) on `config`. `jets:entity_property` and `jets:value_property` name the properties
+walked, `(?s entityProperty ?o).(?o valueProperty ?v)`, so each must be a resource. A configuration
+missing any of the three, with another operator, or with a literal for either property, throws the
+operator's configuration error, which names all three and fails the session's `ExecuteRules`.
+
+| Configuration | Before | Now |
+|---|---|---|
+| no `jets:operator` | the process crashed, on a null dereference | the configuration error |
+| no `jets:entity_property` or `jets:value_property`, or another operator | the configuration error | the configuration error |
+| a literal for `jets:entity_property` or `jets:value_property`, such as `"hasItem"` | null, silently | the configuration error |
+
+**Before 2026-11-13 a configuration with no `jets:operator` crashed the process.** **Before
+2026-11-14 a literal for either property was looked up as a property**: it matched no triple, so the
+head was null, and nothing said why. The cases are `ExprOpTest.SortedHeadConfigMissingAProperty` and
+`ExprOpTest.SortedHeadConfigWithALiteralProperty`; the operator is `SortedHeadVisitor` in
+`jets/rete/expr_op_arithmetics.h`. `min_of` and `max_of`, which read the same two properties, do not
+check them yet: a literal there is still null, silently.
 
 ## Values and operators — 2026-10-22
 

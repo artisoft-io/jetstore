@@ -945,6 +945,47 @@ TEST_F(ExprOpTest, SortedHeadConfigMissingAProperty) {
   }
 }
 
+// A sorted_head config whose jets:entity_property or jets:value_property is a literal
+// rather than a resource is the same configuration error. Until 2026-11-14 the literal
+// was passed to the graph's find, matched no triple, and the head was null, silently.
+TEST_F(ExprOpTest, SortedHeadConfigWithALiteralProperty) {
+  auto * sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  auto const* jr = rmgr->jets();
+  auto list = rmgr->create_resource("llist");
+  auto weight = rmgr->create_resource("lweight");
+  auto s = rmgr->create_resource("lsubject");
+  auto obj = rmgr->create_resource("lobject");
+  sess->insert(s, list, obj);
+  sess->insert(obj, weight, rmgr->create_literal(int32_t(1)));
+  auto text = [&](char const* v) { return rmgr->create_literal(std::string(v)); };
+  struct Cfg { char const* name; rdf::r_index entity; rdf::r_index value; };
+  for(auto c: {Cfg{"lcfg_entity_text", text("llist"), weight},
+               Cfg{"lcfg_value_text", list, text("lweight")},
+               Cfg{"lcfg_value_int", list, rmgr->create_literal(int32_t(7))},
+               Cfg{"lcfg_both_text", text("llist"), text("lweight")}}) {
+    auto cfg = rmgr->create_resource(c.name);
+    sess->insert(cfg, jr->jets__entity_property, c.entity);
+    sess->insert(cfg, jr->jets__value_property, c.value);
+    sess->insert(cfg, jr->jets__operator, text("<"));
+    SortedHeadVisitor head(this->rete_session.get(), nullptr);
+    try {
+      boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource("lsubject")), RDFTTYPE(rdf::NamedResource(c.name)));
+      ADD_FAILURE() << c.name << ": no exception";
+    } catch(jets::rete_exception const& e) {
+      EXPECT_NE(std::string(e.what()).find("must be resources"), std::string::npos) << c.name << ": " << e.what();
+    }
+  }
+  // the same config with resources gives the head
+  auto cfg = rmgr->create_resource("lcfg_resources");
+  sess->insert(cfg, jr->jets__entity_property, list);
+  sess->insert(cfg, jr->jets__value_property, weight);
+  sess->insert(cfg, jr->jets__operator, text("<"));
+  SortedHeadVisitor head(this->rete_session.get(), nullptr);
+  EXPECT_EQ(boost::apply_visitor(head, RDFTTYPE(rdf::NamedResource("lsubject")), RDFTTYPE(rdf::NamedResource("lcfg_resources"))),
+    RDFTTYPE(rdf::NamedResource("lobject")));
+}
+
 // A tie is the rules' own == (EqVisitor), not "neither is greater": an int 5 and a double
 // 5.0 tie, as do two doubles equal to 15 significant digits, so the name decides; a NaN
 // ties with nothing, so the first object met wins.
@@ -1446,6 +1487,58 @@ TEST(Lookups, AKeyOrTableOfAnotherTypeIsNull) {
   for(auto const& t: not_tables) {
     EXPECT_TRUE(null(ap(lookup, t, RDFTTYPE(rdf::LString("k"))))) << "lookup " << t;
     EXPECT_TRUE(null(ap(multi_lookup, t, RDFTTYPE(rdf::LInt32(7))))) << "multi_lookup " << t;
+  }
+}
+
+// char_at at the edges, evaluated as in a session's rule. The index counts bytes, as
+// substring_of's positions do, so on text that is not ASCII the result can be one byte of
+// a multi-byte character. An index outside the text, past the end or negative, is null,
+// as it always was (substring_of gives "" there; char_at keeps null because a rule can
+// tell the two apart). An index that is not an int, or a lhs that is not text, throws.
+TEST(CharAt, TheEdges) {
+  SessionRow sr;
+  CharAtVisitor op(nullptr, sr.row.get());
+  auto T = [](std::string v) { return RDFTTYPE(rdf::LString(std::move(v))); };
+  auto I = [](std::int32_t v) { return RDFTTYPE(rdf::LInt32(v)); };
+  auto const null = RDFTTYPE(rdf::Null());
+  struct Row { std::string text; std::int32_t index; RDFTTYPE want; };
+  std::vector<Row> const rows = {
+    // within the text
+    {"abc", 0, T("a")},
+    {"abc", 2, T("c")},
+    {" ", 0, T(" ")},
+    // at or past the end
+    {"abc", 3, null},
+    {"abc", 10, null},
+    {"", 0, null},
+    {"abc", std::numeric_limits<std::int32_t>::max(), null},
+    // negative
+    {"abc", -1, null},
+    {"", -1, null},
+    {"abc", std::numeric_limits<std::int32_t>::min(), null},
+    // the index counts bytes: "é" is the two bytes 0xC3 0xA9 in UTF-8
+    {"\xc3\xa9t\xc3\xa9", 0, T("\xc3")},
+    {"\xc3\xa9t\xc3\xa9", 1, T("\xa9")},
+    {"\xc3\xa9t\xc3\xa9", 2, T("t")},
+    {"\xc3\xa9t\xc3\xa9", 4, T("\xa9")},
+    {"\xc3\xa9t\xc3\xa9", 5, null},
+  };
+  for(auto const& r: rows) {
+    EXPECT_EQ(or_threw(op, T(r.text), I(r.index)), r.want) << "index " << r.index << ", text \"" << r.text << "\"";
+  }
+  // an index that is not an int, or a lhs that is not text, is the catch-all: it throws in
+  // a session's rule, and is null with no row
+  CharAtVisitor no_row(nullptr, nullptr);
+  std::vector<std::pair<RDFTTYPE, RDFTTYPE>> const not_taken = {
+    {T("abc"), RDFTTYPE(rdf::LInt64(1))}, {T("abc"), RDFTTYPE(rdf::LUInt32(1))},
+    {T("abc"), RDFTTYPE(rdf::LDouble(1.0))}, {T("abc"), T("1")}, {T("abc"), null},
+    {I(123), I(1)}, {null, I(0)},
+  };
+  for(auto const& [a, b]: not_taken) {
+    auto res = or_threw(op, a, b);
+    EXPECT_TRUE(res.which() == rdf::rdf_literal_string_t and
+                boost::get<rdf::LString>(res).data.rfind("threw: ", 0) == 0) << a << " char_at " << b << ": " << res;
+    EXPECT_EQ(boost::apply_visitor(no_row, a, b), null) << a << " char_at " << b;
   }
 }
 

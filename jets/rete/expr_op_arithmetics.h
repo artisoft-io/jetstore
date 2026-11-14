@@ -633,7 +633,11 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
     auto op    = sess->get_object(pr.second, jr->jets__operator);
     // op must be text literal with value "<" or ">"
-    bool err = objp==nullptr or datap==nullptr;
+    // objp and datap must be resources, the properties walked: a literal there (until
+    // 2026-11-14) matched no triple and gave null silently
+    bool err = objp==nullptr or datap==nullptr
+            or objp->which() != rdf::rdf_named_resource_t
+            or datap->which() != rdf::rdf_named_resource_t;
     bool is_min = true;
     // op is null when the config has no jets:operator: the config error below, not a
     // null dereference (until 2026-11-13 it crashed the process)
@@ -652,7 +656,8 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     if(err) {
       RETE_EXCEPTION(
         "Invalid config for sorted_head, must have "
-        "jets:operator, jets:entity_property, and jets:value_property set, and "
+        "jets:operator, jets:entity_property, and jets:value_property set, "
+        "jets:entity_property and jets:value_property must be resources (properties), not literals, and "
         "jets:operator must be a text literal with value '<' or '>' (single char text)"
       );
     }
