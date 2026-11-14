@@ -144,8 +144,22 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		return fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 
-	// Do the reports
-	err = ca.RunReports(dbpool)
+	// Do the reports. The workspace's SQL runs on the IDE login, as Submit DDL
+	// does (workspace_sql.go); a deployment that set SQLPool keeps its own.
+	if ca.SQLPool == nil {
+		var sqlPool *pgxpool.Pool
+		sqlPool, err = OpenWorkspaceSQLPool(ctx, dbpool)
+		if err == nil {
+			ca.SQLPool = sqlPool
+			defer func() {
+				sqlPool.Close()
+				ca.SQLPool = nil
+			}()
+		}
+	}
+	if err == nil {
+		err = ca.RunReports(dbpool)
+	}
 
 	// Update status
 	status := "completed"

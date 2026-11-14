@@ -21,7 +21,8 @@
 //     apiserver's user owns, and public, except the secret columns and the
 //     login table, and calls no extension's functions.
 //   - IDE, jets_ide: the free-SQL paths that write (the Query Tool, Submit DDL,
-//     a runbook's ddl steps) and the workspace's own init scripts (update_db).
+//     a runbook's ddl steps), the workspace's own init scripts (update_db) and
+//     its reports (run_reports).
 //     It reads and writes every table those schemas hold, and creates tables
 //     outside jetsapi, except that it only reads the security tables (users,
 //     roles, role_capability, secret_rotation), without their secret columns.
@@ -64,7 +65,8 @@ import (
 const (
 	// Reader is the group role a user's reads run as.
 	Reader = "jets_reader"
-	// IDE is the group role the free-SQL paths and the workspace scripts run as.
+	// IDE is the group role the free-SQL paths, the workspace scripts and the
+	// workspace's reports run as.
 	IDE = "jets_ide"
 
 	// LoginTable holds each login's password. Neither login may read it.

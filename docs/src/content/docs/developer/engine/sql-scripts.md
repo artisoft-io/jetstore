@@ -75,6 +75,11 @@ a statement ended by reading up to the next `;` **byte**:
 | `runSqlScriptDelegate`, `jets/run_reports/delegate/run_reports.go` | a `reports/*.sql` declared `reportOrScript: "script"` | **no**, and never did |
 | `runReportsDelegate`, same file | any other `reports/*.sql`, which is the default | **yes**, and must — each statement is its own output file |
 
+*Added 2026-11-14:* the workspace's files in all three run as the restricted login `jets_ide`, not as
+the apiserver's user (`run_reports` since that date); `$JETS_INIT_DB_SCRIPT`, which is JetStore's own,
+stays on the apiserver's user. See
+[the restricted logins](/docs/developer/workspace/system-tables/#reports-run-as-jets_ide).
+
 **Which of the two a `reports/*.sql` gets is declared, not inferred, and the declaration is why the
 script path must never split.** `reportOrScript: "script"` in the directory's `config.json` means the
 file is one `Exec` of its whole text; **the author may therefore write their own transaction**, and
