@@ -35,7 +35,7 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 	// reading from db
 	rows, err := dbpool.Query(context.Background(), *sqlStmt)
 	if err != nil {
-		return fmt.Errorf("while called query: %v", err)
+		return fmt.Errorf("while called query: %w", err)
 	}
 	defer rows.Close()
 
@@ -151,7 +151,7 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 		}
 		// scan the row
 		if err = rows.Scan(dataRow...); err != nil {
-			writeErr = fmt.Errorf("while scanning the row: %v", err)
+			writeErr = fmt.Errorf("while scanning the row: %w", err)
 			goto doneReport
 		}
 		// make a flat row for writing
@@ -201,6 +201,11 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 			goto doneReport
 		}
 		rowCount += 1
+	}
+	// A statement failing while it runs ends the rows here and not at Query
+	// (csv_report.go): without this the report would be written empty.
+	if err = rows.Err(); err != nil && writeErr == nil {
+		writeErr = fmt.Errorf("while reading the report rows: %w", err)
 	}
 doneReport:
 	close(inputCh)

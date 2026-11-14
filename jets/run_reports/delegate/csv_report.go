@@ -35,7 +35,7 @@ func (ca *CommandArguments) DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3
 	// reading from db
 	rows, err := dbpool.Query(context.Background(), *sqlStmt)
 	if err != nil {
-		return fmt.Errorf("while called query: %v", err)
+		return fmt.Errorf("while called query: %w", err)
 	}
 	defer rows.Close()
 
@@ -89,7 +89,7 @@ func (ca *CommandArguments) DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3
 		}
 		// scan the row
 		if err = rows.Scan(dataRow...); err != nil {
-			return fmt.Errorf("while scanning the row: %v", err)
+			return fmt.Errorf("while scanning the row: %w", err)
 		}
 		// make a flat row for writing
 		flatRow := make([]string, nbrOutputColumns)
@@ -110,6 +110,12 @@ func (ca *CommandArguments) DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3
 			return fmt.Errorf("while writing row to local csv file: %v", err)
 		}
 		rowCount += 1
+	}
+	// A statement refused or failing while it runs (a permission the IDE login
+	// does not hold, say) ends the rows here and not at Query: without this the
+	// report would be uploaded empty.
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("while reading the report rows: %w", err)
 	}
 	csvWriter.Flush()
 	log.Println("Local CSV Write Finished")

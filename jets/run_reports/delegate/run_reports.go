@@ -124,6 +124,10 @@ type CommandArguments struct {
 	FileKeyComponents       map[string]interface{}
 	SchemaProviderJson      string
 	InstallSpecificFunc     map[string]InstallationSpecificReportFunc
+	// SQLPool is the pool the workspace's report SQL runs on: the IDE login
+	// (workspace_sql.go). CoordinateWorkAndUpdateStatus opens it; a report
+	// statement with no SQLPool fails rather than run on the apiserver's pool.
+	SQLPool *pgxpool.Pool
 }
 
 // Main Functions
@@ -174,6 +178,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		log.Println("Report done, returnErr:", returnedErr)
 	}()
 	go ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
+
+	// The workspace's SQL runs on the IDE login, JetStore's own on dbpool.
+	sqlPool, err := ca.workspaceSQL()
+	if err != nil {
+		return err
+	}
 
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
@@ -232,7 +242,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		case reportProps.Type == "script":
 			// Running as sql script
 			log.Println("Running sql script:", ca.ReportScriptPaths[is])
-			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[is])
+			err = ca.runSqlScriptDelegate(sqlPool, ca.ReportScriptPaths[is])
 			if len(reportProps.UpdatedFileKeys) > 0 {
 				basePath := reportDirectives.OutputPath + "/"
 				for i := range reportProps.UpdatedFileKeys {
@@ -243,7 +253,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		default:
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[is])
-			err = ca.runReportsDelegate(dbpool, tempDir, ca.ReportScriptPaths[is], &updatedKeys)
+			err = ca.runReportsDelegate(sqlPool, tempDir, ca.ReportScriptPaths[is], &updatedKeys)
 		}
 		if err != nil {
 			return err
@@ -361,6 +371,9 @@ func confineReportPath(reportScriptPath string) (string, error) {
 }
 
 // Support Functions
+
+// runSqlScriptDelegate and runReportsDelegate run the workspace's SQL on
+// dbpool, which RunReports sets to the IDE login (workspace_sql.go).
 func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
 
 	// Confine the report script path within the workspace reports directory (CWE-73)
@@ -400,7 +413,7 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
+		return fmt.Errorf("while executing sql script %s: %w", reportScriptPath, withIDEHint(err))
 	}
 	return nil
 }
@@ -429,7 +442,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	for i := range reports {
 		s3FileName, err := ca.DoReport(dbpool, tempDir, &reports[i].name, &reports[i].stmt)
 		if err != nil {
-			return err
+			return withIDEHint(err)
 		}
 		if len(s3FileName) > 0 {
 			*updatedKeys = append(*updatedKeys, s3FileName)
@@ -440,6 +453,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 
 // The heavy lifting
 // outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
+// dbpool is the pool the statement runs on: RunReports passes the IDE login (workspace_sql.go).
 func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
@@ -560,7 +574,7 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 			err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
 			if err != nil {
-				return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
+				return "", fmt.Errorf("while executing s3 query %s: %w", escapedStmt, err)
 			}
 			log.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 		}
