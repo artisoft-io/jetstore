@@ -13,7 +13,8 @@
 //
 // The reading never guesses. A construct or operator it has no wording for is
 // written "(not rendered: <name>)" in its clause, marks the reading partial, and is
-// listed in unrendered. It reads the rule's literals (resources.value) and the
+// listed in unrendered; so is an aggregate whose configuration the engine refuses,
+// which fails the session, as "(not rendered: <name>; <why>)". It reads the rule's literals (resources.value) and the
 // configuration triples of the aggregate operators, substring_of and replace_char_of,
 // so it is to be shown only where a workspace has chosen to show its rules' text.
 //
@@ -219,9 +220,10 @@ class RuleReader {
 		return this.exprs.get(key);
 	}
 
-	notRendered(name) {
+	/** A construct the reading has no wording for, or, with a reason, one it will not word. */
+	notRendered(name, reason) {
 		this.unrendered.add(name);
-		return `(not rendered: ${name})`;
+		return reason ? `(not rendered: ${name}; ${reason})` : `(not rendered: ${name})`;
 	}
 
 	// ---- naming the variables --------------------------------------------------------
@@ -490,6 +492,13 @@ class RuleReader {
 		}
 		const cfg = this.config(rhsRes);
 		const rhsName = this.predicate(rhsRes);
+		// A configuration the engine refuses fails the session (the configuration
+		// error, check_aggregate_config_properties and each operator's own check,
+		// jets/rete/expr_op_arithmetics.h, since 2026-11-14), so it is not read as
+		// if it computed. A right operand carrying neither property is no
+		// configuration: it is the multi-valued property itself.
+		const refused = this.refusedConfig(op, cfg, rhsName);
+		if (refused) return { text: this.notRendered(op, refused) };
 		const entity = cfg.entity ? this.predicate(cfg.entity) : null;
 		const val = cfg.value ? this.predicate(cfg.value) : null;
 		switch (op) {
@@ -507,15 +516,50 @@ class RuleReader {
 			}
 			case 'join_values': {
 				const sep = cfg.separator === undefined ? quote(', ') : this.value(cfg.separator);
-				if (entity && !val) return { text: this.notRendered(op) };
 				if (entity) return { text: `the ${val} values across ${whose} ${entity} joined with ${sep}` };
 				return { text: `${whose} ${val ?? rhsName} values joined with ${sep}` };
 			}
 			case 'sorted_head': {
-				const opText = cfg.operator?.type === 'text' ? cfg.operator.value : null;
-				if (!entity || !val || (opText !== '<' && opText !== '>')) return { text: this.notRendered(op) };
+				const opText = cfg.operator.value;
 				return { text: `the one of ${whose} ${entity} with the ${opText === '<' ? 'smallest' : 'largest'} ${val}` };
 			}
+		}
+		return null;
+	}
+
+	/**
+	 * Why the engine refuses an aggregate's configuration, or null when it accepts
+	 * it: jets:entity_property or jets:value_property that is not a resource (a
+	 * literal, which until 2026-11-14 gave null silently); min_of and max_of with
+	 * jets:value_property alone; sum_values and join_values with
+	 * jets:entity_property alone; join_values with a jets:separator that is not
+	 * text; and sorted_head without both properties and a jets:operator of "<" or
+	 * ">". The accepted shapes are listed in the developer's guide, values and
+	 * operators, aggregate configurations.
+	 */
+	refusedConfig(op, cfg, cfgName) {
+		const isConfig = cfg.entity !== undefined || cfg.value !== undefined;
+		const named = (v) => v.type === 'resource' || v.type === 'volatile_resource';
+		const refused = (what) => `${cfgName} ${what}, a configuration the engine refuses`;
+		if (op === 'sorted_head') {
+			const opText = cfg.operator?.type === 'text' ? cfg.operator.value : null;
+			if (!cfg.entity || !cfg.value) return refused('lacks jets:entity_property or jets:value_property');
+			if (!named(cfg.entity) || !named(cfg.value)) return refused('gives a literal for a property');
+			if (opText !== '<' && opText !== '>') return refused('has no jets:operator of "<" or ">"');
+			return null;
+		}
+		if (!isConfig) return null;
+		if ((cfg.entity && !named(cfg.entity)) || (cfg.value && !named(cfg.value))) {
+			return refused('gives a literal for a property');
+		}
+		if ((op === 'min_of' || op === 'max_of') && !cfg.entity) {
+			return refused('has jets:value_property and no jets:entity_property');
+		}
+		if ((op === 'sum_values' || op === 'join_values') && !cfg.value) {
+			return refused('has jets:entity_property and no jets:value_property');
+		}
+		if (op === 'join_values' && cfg.separator !== undefined && cfg.separator.type !== 'text') {
+			return refused('has a jets:separator that is not text');
 		}
 		return null;
 	}

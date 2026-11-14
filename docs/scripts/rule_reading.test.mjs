@@ -362,6 +362,27 @@ const FIXTURE = {
 // letters, one beyond the Basic Multilingual Plane, a C1 control character, and a
 // replacement holding an accented letter replaced after the first. Rules with the same
 // antecedents share the terminal vertex, so their consequents are numbered along it.
+// FIXTURE_Aggregates shares those antecedents too, and sets hc:NDC to (?clm op config)
+// for each aggregate configuration the engine refuses since 2026-11-14 (a literal for
+// jets:entity_property or jets:value_property, min_of and max_of with
+// jets:value_property alone, sum_values and join_values with jets:entity_property
+// alone, a jets:separator that is not text), then for three it accepts.
+/** FIXTURE_Aggregates' consequents: the operator and its configuration, 0 to 4 for 9260 to 9264. */
+const AGGREGATE_CASES = [
+	['min_of', 0],
+	['max_of', 1],
+	['min_of', 1],
+	['sum_values', 2],
+	['join_values', 2],
+	['sum_values', 3],
+	['join_values', 3],
+	['sorted_head', 3],
+	['join_values', 4],
+	['sum_values', 1],
+	['join_values', 1],
+	['min_of', 2],
+];
+
 const MADE_UP = {
 	jet_rules: [
 		[900, 'FIXTURE_Unrendered', 1],
@@ -377,12 +398,13 @@ const MADE_UP = {
 		[923, 'FIXTURE_ReplaceCharsUnconfigured', 1],
 		[924, 'FIXTURE_ReplaceCharsSetByRule', 1],
 		[925, 'FIXTURE_ReplaceCharsUnicode', 1],
+		[930, 'FIXTURE_Aggregates', 1],
 	],
 	rule_terms: [
 		[900, 9001, 1],
 		[900, 9002, 1],
 		[900, 9003, 0],
-		...[910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925].flatMap((rule) => [
+		...[910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925, 930].flatMap((rule) => [
 			[rule, 9301, 1],
 			[rule, 9302, 1],
 		]),
@@ -403,6 +425,7 @@ const MADE_UP = {
 		[924, 9331, 0],
 		[924, 9332, 0],
 		...[9333, 9334, 9335, 9336].map((node) => [925, node, 0]),
+		...AGGREGATE_CASES.map((_, i) => [930, 9340 + i, 0]),
 	],
 	rete_nodes: [
 		[9001, 900, 'antecedent', 285, 27, 114, null, null, 0, 1, 0, 0],
@@ -432,6 +455,7 @@ const MADE_UP = {
 		[9331, 911, 'consequent', 9232, 9222, null, 9463, null, 0, 1, null, 20],
 		[9332, 911, 'consequent', 286, 131, null, 9460, null, 0, 1, null, 21],
 		...[0, 1, 2, 3].map((i) => [9333 + i, 911, 'consequent', 286, 131, null, 9480 + i, null, 0, 1, null, 22 + i]),
+		...AGGREGATE_CASES.map((_, i) => [9340 + i, 911, 'consequent', 286, 131, null, 9520 + i, null, 0, 1, null, 26 + i]),
 	],
 	expressions: [
 		[9101, 'binary', 9102, 9103, 'some_other_op', 1],
@@ -466,6 +490,10 @@ const MADE_UP = {
 			[9470 + i, 'resource', cfg, null, null, 1],
 			[9480 + i, 'binary', 9470 + i, 9400, 'replace_char_of', 1],
 		]),
+		// FIXTURE_Aggregates: a leaf per configuration resource, 9500 to 9504, and the
+		// calls, 9520 on, each (?clm op config); expression 1 is ?clm.
+		...[9260, 9261, 9262, 9263, 9264].map((cfg, i) => [9500 + i, 'resource', cfg, null, null, 1]),
+		...AGGREGATE_CASES.map(([op, cfg], i) => [9520 + i, 'binary', 1, 9500 + cfg, op, 1]),
 	],
 	resources: [
 		[9201, 'resource', 'jets:from', 'jets:from', null, 0],
@@ -515,6 +543,13 @@ const MADE_UP = {
 		[9253, 'text', null, '\u0085', null, 0],
 		[9254, 'text', null, 'e\u00e9', null, 0],
 		[9255, 'text', null, '\u00e9\u00e9', null, 0],
+		[9260, 'resource', 'literalEntityConfig', 'literalEntityConfig', null, 0],
+		[9261, 'resource', 'valueAloneConfig', 'valueAloneConfig', null, 0],
+		[9262, 'resource', 'entityAloneConfig', 'entityAloneConfig', null, 0],
+		[9263, 'resource', 'literalValueConfig', 'literalValueConfig', null, 0],
+		[9264, 'resource', 'numberSeparatorConfig', 'numberSeparatorConfig', null, 0],
+		[9265, 'resource', 'jets:separator', 'jets:separator', null, 0],
+		[9266, 'text', null, 'hasItem', null, 0],
 	],
 	triples: [
 		[9203, 9201, 232, 1],
@@ -558,6 +593,20 @@ const MADE_UP = {
 		[9235, 9222, 9241, 1],
 		[9236, 9221, 9254, 1],
 		[9236, 9222, 9255, 1],
+		// literalEntityConfig: a text for jets:entity_property.
+		[9260, 5, 9266, 1],
+		[9260, 26, 94, 1],
+		// valueAloneConfig: jets:value_property alone.
+		[9261, 26, 94, 1],
+		// entityAloneConfig: jets:entity_property alone.
+		[9262, 5, 250, 1],
+		// literalValueConfig: a text for jets:value_property, and jets:operator "<".
+		[9263, 5, 250, 1],
+		[9263, 26, 9266, 1],
+		[9263, 16, 337, 1],
+		// numberSeparatorConfig: an int for jets:separator.
+		[9264, 26, 94, 1],
+		[9264, 9265, 259, 1],
 	],
 };
 
@@ -899,8 +948,36 @@ test('reads replace_char_of characters outside ASCII, quoted', () => {
 	);
 });
 
+// Aggregate configurations the engine refuses, which fail the session since
+// 2026-11-14 (check_aggregate_config_properties and each operator's own check,
+// jets/rete/expr_op_arithmetics.h), are not read as if they computed: each is not
+// rendered, with the reason. The configurations it accepts are read as before.
+test('says which aggregate configurations the engine refuses, rather than read them', () => {
+	const refused = (op, why) =>
+		`the MedicalClaim has (not rendered: ${op}; ${why}, a configuration the engine refuses) as its NDC`;
+	assert.deepEqual(readRule(db, 930), {
+		when: SUBSTRING_WHEN,
+		then: [
+			refused('min_of', 'literalEntityConfig gives a literal for a property'),
+			refused('max_of', 'valueAloneConfig has jets:value_property and no jets:entity_property'),
+			refused('min_of', 'valueAloneConfig has jets:value_property and no jets:entity_property'),
+			refused('sum_values', 'entityAloneConfig has jets:entity_property and no jets:value_property'),
+			refused('join_values', 'entityAloneConfig has jets:entity_property and no jets:value_property'),
+			refused('sum_values', 'literalValueConfig gives a literal for a property'),
+			refused('join_values', 'literalValueConfig gives a literal for a property'),
+			refused('sorted_head', 'literalValueConfig gives a literal for a property'),
+			refused('join_values', 'numberSeparatorConfig has a jets:separator that is not text'),
+			'the MedicalClaim has the sum of the MedicalClaim\'s Service_Date as its NDC',
+			'the MedicalClaim has the MedicalClaim\'s Service_Date values joined with ", " as its NDC',
+			'the MedicalClaim has the smallest of the MedicalClaim\'s hasPharmacyClaim as its NDC',
+		],
+		partial: true,
+		unrendered: ['join_values', 'max_of', 'min_of', 'sorted_head', 'sum_values'],
+	});
+});
+
 test('gives the same text from the same database', () => {
-	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925];
+	const keys = [...EXPECTED.map((r) => r.key), 900, 910, 911, 912, 913, 914, 915, 920, 921, 922, 923, 924, 925, 930];
 	const first = keys.map((k) => readRule(db, k));
 	const again = keys.map((k) => readRule(db, k));
 	const other = buildFixture(join(dir, 'again.db'));
