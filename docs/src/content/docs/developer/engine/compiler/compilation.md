@@ -12,13 +12,16 @@ compiles of one workspace write the same `workspace.db`. For each main rule file
 
 1. **Read** (`rule_file_reader.go`). The main file and every file it imports, recursively, are read
    into one buffer. The reader keeps the mapping from buffer lines to authored files, so a
-   diagnostic names the file and line the author wrote.
+   diagnostic names the file and line the author wrote. Each line goes into the buffer as written,
+   without the carriage return of a CRLF line end, so a string literal written across lines keeps
+   its spaces and tabs (see [String literals](#string-literals)).
 2. **Parse** (`JetRule.g4`, `parser/`). An ANTLR grammar; `parser/` is generated from it by
    `compiler/build.sh`.
 3. **Walk** (`jet_rule_listener*.go`). A listener over the parse tree builds the model: resources and
    literals, classes and their properties, lookup tables, rule sequences and the rules. When a rule
    ends (`ExitJetRuleStmt`) it is, in order:
-   - given its properties: `o` (optimization, on unless `o=false`) and `s` (salience);
+   - given its properties: `o` (optimization, on unless `o=false`) and `s` (salience), either of
+     which may be written in quotes (see [Rule properties](#rule-properties));
    - **validated** (`ValidateJetruleNode`). Every antecedent has a variable. A filter reads only
      variables bound by its antecedent or earlier ones, and a negated antecedent only variables
      bound before it. A consequent uses only variables the antecedents bind. Every operator is one
@@ -71,8 +74,45 @@ and a lookup table's file, key and column names. Inside the quotes a backslash s
 **Any other backslash is kept, with the character after it**, so a regular expression is written with
 single backslashes: `"^(\d\d\d)"` stores `^(\d\d\d)`, which is what `literal_regex` receives. To
 store a backslash before `"`, `\`, `t`, `n` or `r`, double it: `"\\d"` stores `\d`, and `"a\\tb"`
-stores a backslash followed by `t`. A rule property (`[R1, description="..."]`) is the exception: the
-compiler keeps its source text, quotes and escapes included.
+stores a backslash followed by `t`. A rule property (`[R1, description="..."]`) is kept as written;
+see [Rule properties](#rule-properties).
+
+**A cast's value may hold parentheses.** In `text("...")`, `date("...")`, `int(...)` and the other
+casts, the type is the word before the first `(` and the value is everything up to the closing `)`,
+so `text("a(b")` is the text `a(b`. A cast the compiler cannot read is a compile error at its line.
+
+**A string may be written across lines**, and keeps the line breaks and the spaces and tabs around
+them: a literal opened with `"first ` on one line and closed with `   second"` on the next is the
+text `first `, a line feed, then `   second`. A line end is a line feed whether the file has LF or
+CRLF line ends. To write a tab or a line break without breaking the line, use `\t` or `\n`. A line
+that begins or ends with whitespace the parser does not skip itself, such as a form feed or a
+no-break space, is still trimmed of all of it, as every line used to be; inside a literal that
+removes the spaces at that line's ends too.
+
+**Changed 2026-11-14.** A cast's value was split on every `(`, so `text("a(b")` was read as nothing
+and the term holding it was dropped without a message: an antecedent or a triple disappeared, and a
+consequent or a filter lost its value. And every line was trimmed, so a literal written across lines
+lost the spaces and tabs at the end of each line and at the start of the next. Neither changes what
+a workspace that avoided both compiles to.
+
+## Rule properties
+
+A rule's properties are written in its header, `[R1, o=false, s=10, description="..."]`, each a
+string, `true`, `false` or an integer. The compiler keeps each **as written**, quotes and escapes
+included: in the rule's label and in `workspace.db`'s `rule_properties`, which is where the workspace
+guide reads a rule's `description` from.
+
+**It reads a property it acts on as the value it stands for** (`RuleProperty`,
+`jet_rule_listener_validation.go`): a quoted value is read as its string, with the escapes of a
+string literal, so `o="false"` is `o=false` and `s="10"` is `s=10`. The properties it acts on are
+`o` (optimization: off for `false`, `f` or `0`, in any case), `s` (salience: an integer, refused
+otherwise), `aggregate_check` (the aggregate salience check: off for `false`, `f` or `0`) and `i`,
+which it writes itself, as `i=true`, on a class's generated `ci_` rule. Any other property, such as
+`description` or `flag`, is kept for whoever reads it.
+
+**Changed 2026-11-14.** The compiler used to read a property with its quotes, so `o="false"` left
+optimization on, `aggregate_check="false"` left the check on, and `s="10"` was an invalid salience. A
+workspace that writes these unquoted compiles to the same `workspace.db`.
 
 **Changed 2026-11-13.** The compiler used to remove the quotes and nothing else, so `"\""` was stored
 as a backslash and a quote, `"a\\b"` kept both backslashes, and `"\t"` was a backslash and a `t`.

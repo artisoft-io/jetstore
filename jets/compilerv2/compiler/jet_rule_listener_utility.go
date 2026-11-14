@@ -245,27 +245,32 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 			Value: UnquoteString(txt),
 		}
 	case strings.HasSuffix(txt, ")"):
-		// Literal cast
-		v := strings.Split(txt, "(")
-		if len(v) == 2 {
-			typ := v[0]
-			val := strings.TrimSuffix(v[1], ")")
-			// validate typ is one of text, int, double, bool
-			switch typ {
-			case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
-			default:
-				// invalid type - report error, return nil
-				s.logErrorf("error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
-				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
-				return nil
-			}
-			if typ == "bool" && !s.checkBoolLiteral(s.currentLine, UnquoteString(val)) {
-				return nil
-			}
-			return &rete.ResourceNode{
-				Type:  typ,
-				Value: UnquoteString(val),
-			}
+		// Literal cast, type(value). The type is what precedes the first '(',
+		// and the value is everything between it and the closing ')': a quoted
+		// value may itself hold parentheses, as in text("a(b)"). Until
+		// 2026-11-14 the text was split on every '(', so a value holding one
+		// returned nil here without a word, and the term it was in was dropped.
+		typ, rest, found := strings.Cut(txt, "(")
+		if !found {
+			s.LogErrorAt(s.currentLine, fmt.Sprintf("cannot read %s as a literal: a cast is written type(value)", txt))
+			return nil
+		}
+		val := strings.TrimSuffix(rest, ")")
+		// validate typ is one of text, int, double, bool
+		switch typ {
+		case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
+		default:
+			// invalid type - report error, return nil
+			s.LogErrorAt(s.currentLine, fmt.Sprintf("invalid literal type '%s' for value '%s', source text: %s", typ, val, txt))
+			fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
+			return nil
+		}
+		if typ == "bool" && !s.checkBoolLiteral(s.currentLine, UnquoteString(val)) {
+			return nil
+		}
+		return &rete.ResourceNode{
+			Type:  typ,
+			Value: UnquoteString(val),
 		}
 	case len(keywordsContextValue) > 0:
 		// Keyword
@@ -292,7 +297,6 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 			Id:   EscR(txt),
 		}
 	}
-	return nil
 }
 
 // Determine if the string is numeric (int or double)

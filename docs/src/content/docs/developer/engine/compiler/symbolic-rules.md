@@ -99,7 +99,10 @@ the source `"a\"b"` stores `a"b`, and the renderer escapes a value as it writes
 it (`compiler.QuoteString`). A regular expression keeps its single backslashes:
 the value `^(\d+)` is written `"^(\d+)"`. A rule property is the exception: the
 model keeps its raw source text, escapes included, so a property string is
-written back verbatim and refused if it holds an unescaped quote.
+written back verbatim and refused if it holds an unescaped quote. `FromModel`
+reads `s`, `o` and `i` as the compiler does
+([Rule properties](/docs/developer/engine/compiler/compilation/#rule-properties)):
+a quoted value as its string, so `s="10"` comes back as the salience 10.
 
 Until then the compiler removed the quotes and did not unescape (`StripQuotes`),
 so the model stored `a\"b` for the source `"a\"b"`, and a literal's `value` was
