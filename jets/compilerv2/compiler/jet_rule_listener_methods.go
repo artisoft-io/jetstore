@@ -591,15 +591,20 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	// identifier, the only atom written prefix:"name". Until 2026-11-14 EscR was
 	// applied here to the whole text, so a string literal or a cast holding :"
 	// lost its quotes before it was read, and text("\"x:") was stored as \x:.
-	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
-	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
-	O := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
-	// A nil atom is one already refused and logged — a bool literal outside
-	// the accepted spellings, or a cast to an unknown type. It used to be
-	// dereferenced here, so the same literal that is a located error in a
-	// consequent was a panic as an antecedent's object (found 2026-10-12 by
-	// jetstore_agentic_ai I-250, whose renderer passes such a literal through).
+	terms := termReader{listener: s}
+	S := terms.read("subject", ctx.GetS().GetText(), "")
+	P := terms.read("predicate", ctx.GetP().GetText(), "")
+	O := terms.read("object", ctx.GetO().GetText(), kws)
+	// A nil atom is either one ParseObjectAtom refused and logged (a bool
+	// literal outside the accepted spellings, say) or a term the parser
+	// recovered from with a token missing, which is empty. It used to be
+	// dereferenced here, so a refused literal was a panic as an antecedent's
+	// object (found 2026-10-12). Until 2026-11-14 the empty term was dropped
+	// with no message of its own: the syntax error failed the compile, but
+	// nothing named the antecedent. It is now a located error, as in
+	// ExitConsequent, and a term already refused is not reported twice.
 	if S == nil || P == nil || O == nil {
+		terms.logUnreadable(ctx.GetStart().GetLine(), "antecedent", ctx.GetText())
 		s.inProgressExpr = nil
 		return
 	}
@@ -641,18 +646,15 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 		return
 	}
 	// As in ExitAntecedent, the text goes to ParseObjectAtom as written.
-	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
-	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
+	terms := termReader{listener: s}
+	S := terms.read("subject", ctx.GetS().GetText(), "")
+	P := terms.read("predicate", ctx.GetP().GetText(), "")
 	// A subject or predicate that cannot be read is a located error. Until
 	// 2026-11-14 a nil here was dereferenced, so a consequent the parser had
 	// recovered from with a token missing, such as (?x 1), panicked the compiler
 	// instead of reporting the syntax error.
 	if S == nil || P == nil {
-		part := "subject"
-		if S != nil {
-			part = "predicate"
-		}
-		s.LogErrorAt(ctx.GetStart().GetLine(), fmt.Sprintf("cannot read the %s of the consequent %s", part, ctx.GetText()))
+		terms.logUnreadable(ctx.GetStart().GetLine(), "consequent", ctx.GetText())
 		s.inProgressExpr = nil
 		return
 	}
@@ -691,11 +693,15 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 		kws = ctx.GetO().GetKws().GetText()
 	}
 	// As in ExitAntecedent, the text goes to ParseObjectAtom as written.
-	S := s.ParseObjectAtom(ctx.GetS().GetText(), "")
-	P := s.ParseObjectAtom(ctx.GetP().GetText(), "")
-	O := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
-	// As in ExitAntecedent: nil is a literal already refused and logged.
+	terms := termReader{listener: s}
+	S := terms.read("subject", ctx.GetS().GetText(), "")
+	P := terms.read("predicate", ctx.GetP().GetText(), "")
+	O := terms.read("object", ctx.GetO().GetText(), kws)
+	// As in ExitAntecedent: a nil is a literal already refused and logged, or
+	// an empty term left by the parser's recovery, which is a located error
+	// since 2026-11-14 and was dropped with no message of its own before.
 	if S == nil || P == nil || O == nil {
+		terms.logUnreadable(ctx.GetStart().GetLine(), "triple", ctx.GetText())
 		return
 	}
 	triple := &rete.TripleNode{
@@ -709,4 +715,38 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	}
 	// Append to the model
 	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
+}
+
+// termReader reads the atoms of one antecedent, consequent or triple with
+// ParseObjectAtom, and remembers the first that gave nil without logging
+// anything. ParseObjectAtom logs a located error for every atom it refuses (a
+// bool literal it cannot read, a cast it does not know), and gives nil without
+// a word only for an empty term, which is what the parser leaves when it
+// recovers from a missing token. Comparing the error log's length before and
+// after each atom tells the two apart, so the term reports what was not
+// reported already, and only that.
+type termReader struct {
+	listener *JetRuleListener
+	// silent is the part ("subject", "predicate", "object") of the first atom
+	// that gave nil and logged nothing, or "".
+	silent string
+}
+
+func (t *termReader) read(part, txt, kws string) *rete.ResourceNode {
+	before := t.listener.errorLog.Len()
+	r := t.listener.ParseObjectAtom(txt, kws)
+	if r == nil && t.silent == "" && t.listener.errorLog.Len() == before {
+		t.silent = part
+	}
+	return r
+}
+
+// logUnreadable logs a located error naming the first atom of the term that
+// gave nil without a message of its own. It logs nothing when every nil atom
+// was already reported by ParseObjectAtom.
+func (t *termReader) logUnreadable(line int, term, text string) {
+	if t.silent == "" {
+		return
+	}
+	t.listener.LogErrorAt(line, fmt.Sprintf("cannot read the %s of the %s %s", t.silent, term, text))
 }

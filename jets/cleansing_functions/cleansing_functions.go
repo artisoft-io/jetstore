@@ -206,7 +206,14 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 		obj = fmt.Sprintf(argument, areaCode, exchangeCode, subscriberNbr)
 
 	case "reformat0":
+		// The argument is a fmt.Sprintf format given the value's digits as one
+		// integer, checked by CheckFunction when the evaluator is built
 		if argument != "" {
+			if err = ctx.reformat0Argument(argument); err != nil {
+				// configuration error, refused by CheckFunction when the evaluator is built
+				errMsg = fmt.Sprintf("cleansing function %s: %v", functionName, err)
+				break
+			}
 			// Remove non digits characters
 			inVal := filterDigits(inputValue)
 			var v int

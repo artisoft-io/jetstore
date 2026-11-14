@@ -110,6 +110,12 @@ read, which happens when the parser recovers from a missing token as in `(?x  1)
 compiler with a nil pointer instead of reporting the syntax error; it is now an error at its line
 too. A workspace with no such literal compiles to the same `workspace.db`.
 
+**And an antecedent or a triple with a term the parser's recovery left empty**, as in
+`(?x  acme:A)` or `triple(acme:s, , 1)`, is now an error at its line too, naming the term and the
+part that could not be read; until then it was dropped with only the syntax error to say so. A term
+already refused with its own error, such as a bool literal the compiler cannot read, is not reported
+a second time.
+
 ## Rule properties
 
 A rule's properties are written in its header, `[R1, o=false, s=10, description="..."]`, each a

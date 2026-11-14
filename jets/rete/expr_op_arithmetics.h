@@ -122,6 +122,31 @@ check_aggregate_config_properties(char const* op, rdf::r_index config,
   }
 }
 
+// The two operands of an aggregate as the graph's resources.
+// --------------------------------------------------------------------------------------
+// The left operand is the subject and the right one the property or the configuration,
+// and each must name a resource the session or the rule base holds. Every resource a
+// rule names is created when the rule base is loaded (volatile ones as _0:name), and a
+// variable is bound to a node of a triple, so a name that maps to nothing is one built
+// by an expression and never asserted, create_resource("x") passed straight in, say: a
+// configuration error, since no triple can hold it. sorted_head, sum_values and
+// join_values always threw it; min_of and max_of gave null, silently, until 2026-11-14.
+inline std::pair<rdf::r_index, rdf::r_index>
+get_aggregate_operands(char const* op, rdf::RManager * rmgr,
+  rdf::NamedResource const& lhs, rdf::NamedResource const& rhs)
+{
+  auto * l = rmgr->get_resource(lhs.name);
+  auto * r = rmgr->get_resource(rhs.name);
+  if(not l or not r) {
+    RETE_EXCEPTION(
+      "Invalid argument for "<<op<<", lhs and rhs must "
+      "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
+      l<<", and "<<r
+    );
+  }
+  return {l, r};
+}
+
 // NullWhenOutOfRange: + - * / on two integer types convert the right operand to the left
 // operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
 // a large int64, uint32 plus -1). The exception failed the session; the operation is null
@@ -604,8 +629,9 @@ struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGraph
   {
     if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
+    // An operand that is not an existing resource throws, as for sum_values (until
+    // 2026-11-14 it was null, silently): see get_aggregate_operands
+    auto pr = get_aggregate_operands("max_of", sess->rmgr(), lhs, rhs);
     return doMinMaxOf(this->rs, pr.first, pr.second, false);
   }
 
@@ -633,8 +659,9 @@ struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGraph
   {
     if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
+    // An operand that is not an existing resource throws, as for sum_values (until
+    // 2026-11-14 it was null, silently): see get_aggregate_operands
+    auto pr = get_aggregate_operands("min_of", sess->rmgr(), lhs, rhs);
     return doMinMaxOf(this->rs, pr.first, pr.second, true);
   }
 
@@ -661,14 +688,7 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for sorted_head, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("sorted_head", sess->rmgr(), lhs, rhs);
     auto const* jr = sess->rmgr()->jets();
     auto objp  = sess->get_object(pr.second, jr->jets__entity_property);
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
@@ -853,14 +873,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for sum_values, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("sum_values", sess->rmgr(), lhs, rhs);
     ApplySumValuesVisitor av(this->rs);
     auto const* jr = sess->rmgr()->jets();
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
@@ -1031,14 +1044,7 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for join_values, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("join_values", sess->rmgr(), lhs, rhs);
     auto const* jr = sess->rmgr()->jets();
     // The separator is optional, defaulting to ", ".
     std::string separator{", "};

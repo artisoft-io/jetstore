@@ -84,6 +84,7 @@ It refuses:
 | A regular expression that does not compile | `apply_regex` |
 | A divisor that is not a number, or is 0 (`0`, `0.0`, `-0`), or is not finite (`NaN`, `Inf`) | `scale_units`, `parse_amount` |
 | A format that does not take the three parts of the number as strings (below) | `format_phone` |
+| A format that does not take the number as one integer (below) | `reformat0` |
 | A number of decimal places that is not an integer of 0 or more | `overpunch_number` |
 | An argument that is not csv, or names a column that is not a column of the input | `concat`, `concat_with` |
 | An argument that is not two csv values, or whose text to find is empty | `find_and_replace` |
@@ -101,6 +102,13 @@ verbs than parts (`%s-%s`, which gives `555-234%!(EXTRA string=5678)`), more ver
 (`%!s(MISSING)`), an argument index past the third (`%[4]s`), a `*` width, or a trailing `%`. A
 literal percent sign is `%%`. Explicit argument indexes are accepted, so `%[3]s-%[1]s` reorders the
 parts and leaves one out.
+
+**`reformat0`'s argument is an `fmt.Sprintf` format** given the value's digits, every other character
+removed, as one integer: `%09d` turns `12-345-678` into `012345678`. The format is refused when `fmt`
+would mark its output: a verb that does not take an integer (`%s`, which gives `%!s(int=123)`, or
+`%f`), no verb at all (`000`, which gives `000%!(EXTRA int=123)`), more than one verb (`%d-%d`), an
+argument index past the first (`%[2]d`), a `*` width, or a trailing `%`. A literal percent sign is
+`%%`. Until 2026-11-14 the format was not checked (see the upgrade note below).
 
 **Before this date** an unknown function, a missing argument to the functions that had always required
 one, a regular expression that does not compile, a divisor that is not a number and a `slice_input`
@@ -124,7 +132,9 @@ per record before, or not at all, and each now fails the step before its first r
 - a `scale_units` or `parse_amount` divisor of 0, or one that is not finite, which gave `+Inf`, `-Inf`
   or `NaN` for every value with no error;
 - a `format_phone` format `fmt` cannot apply to the three parts, which wrote `fmt`'s error marker,
-  such as `%!s(MISSING)`, into the value with no error.
+  such as `%!s(MISSING)`, into the value with no error;
+- a `reformat0` format `fmt` cannot apply to one integer, such as `%s`, which wrote `fmt`'s error
+  marker, `%!s(int=123)`, into the value with no error.
 
 A mapping refused this way is corrected in its configuration: the [*File Mapping Configuration*](/docs/user/screens/flows/file-mapping-configuration/) worksheet for a
 mapping made there, the pipeline's `map_expr` otherwise.
