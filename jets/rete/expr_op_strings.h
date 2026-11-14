@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include <utility>
+#include <vector>
 #include <regex>
 #include <unordered_map>
 
@@ -294,8 +295,57 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
   BetaRow const* br;
 };
 
+// Splits text into its UTF-8 characters (code points), each as its byte sequence, in
+// order. Returns false, with chars left partial, when the text is not valid UTF-8: a
+// stray continuation byte, a truncated sequence, an overlong form, a surrogate
+// (U+D800 to U+DFFF), or a code point above U+10FFFF.
+inline bool split_utf8_chars(std::string const& text, std::vector<std::string> & chars)
+{
+  auto const n = text.size();
+  std::size_t i = 0;
+  while(i < n) {
+    auto const b0 = static_cast<unsigned char>(text[i]);
+    std::size_t len = 0;
+    unsigned char lo = 0x80, hi = 0xBF;  // the range of the second byte
+    if(b0 < 0x80)                     len = 1;
+    else if(b0 >= 0xC2 && b0 <= 0xDF) len = 2;
+    else if(b0 == 0xE0)               { len = 3; lo = 0xA0; }
+    else if(b0 >= 0xE1 && b0 <= 0xEC) len = 3;
+    else if(b0 == 0xED)               { len = 3; hi = 0x9F; }
+    else if(b0 >= 0xEE && b0 <= 0xEF) len = 3;
+    else if(b0 == 0xF0)               { len = 4; lo = 0x90; }
+    else if(b0 >= 0xF1 && b0 <= 0xF3) len = 4;
+    else if(b0 == 0xF4)               { len = 4; hi = 0x8F; }
+    else return false;
+    if(i + len > n) return false;
+    for(std::size_t k = 1; k < len; k++) {
+      auto const b = static_cast<unsigned char>(text[i + k]);
+      if(k == 1 ? (b < lo || b > hi) : (b < 0x80 || b > 0xBF)) return false;
+    }
+    chars.emplace_back(text, i, len);
+    i += len;
+  }
+  return true;
+}
+
 // ReplaceCharOfVisitor
 // --------------------------------------------------------------------------------------
+// (config replace_char_of text): every occurrence in text of each character of
+// jets:replace_chars is replaced by jets:replace_with.
+//  - a character is a UTF-8 character (code point), replaced as its whole byte sequence,
+//    so a character outside ASCII, such as "é", leaves the characters that share its
+//    lead byte, such as "à", untouched. Until 2026-11-13 jets:replace_chars was read
+//    byte by byte, which broke such characters and left invalid UTF-8 behind; ASCII
+//    is unchanged, a character there being one byte. The retired Go engine
+//    (ReplaceCharOp, at go-engine-final) worked on characters too;
+//  - the characters are replaced in turn, in the order of jets:replace_chars, each over
+//    the text the previous turns produced, so a later character is also replaced where
+//    an earlier turn inserted it with jets:replace_with;
+//  - an empty jets:replace_with removes the characters; an empty jets:replace_chars
+//    returns the text unchanged;
+//  - a jets:replace_chars or jets:replace_with that is missing or not text, or a
+//    jets:replace_chars that is not valid UTF-8, inserts (jets:iState jets:exception
+//    "...") and the expression is null.
 struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ReplaceCharOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -324,11 +374,16 @@ struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
       sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:replace_with property for operator replace_char_of "+rhs.data));
       return rdf::Null();
     }
-    auto replace_chars = boost::get<rdf::LString>(replace_chars_obj)->data;
-    auto replace_with = boost::get<rdf::LString>(replace_with_obj)->data;
+    auto const& replace_chars = boost::get<rdf::LString>(replace_chars_obj)->data;
+    auto const& replace_with = boost::get<rdf::LString>(replace_with_obj)->data;
+    std::vector<std::string> chars;
+    if (not split_utf8_chars(replace_chars, chars)) {
+      sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: jets:replace_chars is not valid UTF-8 for operator replace_char_of "+rhs.data));
+      return rdf::Null();
+    }
     auto str = std::move(rhs.data);
-    for(auto i=0; i<replace_chars.size(); i++) {
-      boost::replace_all(str, std::string(1, replace_chars[i]), replace_with);
+    for(auto const& c: chars) {
+      boost::replace_all(str, c, replace_with);
     }
     return rdf::LString{ str };
   }
