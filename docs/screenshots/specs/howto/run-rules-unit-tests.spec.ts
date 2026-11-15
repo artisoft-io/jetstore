@@ -26,9 +26,8 @@ test("Run rules unit tests", async ({ page }) => {
   // Select the tests.
   await page.getByRole("button", { name: "+ Add" }).click();
   await expect(page.getByRole("heading", { name: "Select Rules Unit Tests" })).toBeVisible();
-  const cases = await waitForTable(page);
+  await waitForTable(page);
   for (const file of TESTS) await selectRow(page, file);
-  await hideColumn(cases, "Comment");
   await shot(page, "select-tests");
 
   // Start them, and wait for both to finish.
