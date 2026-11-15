@@ -98,9 +98,9 @@ _GO_BASE = {
     "map[string]string": "dict[str, str]",
 }
 
-HEADER = '''"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
+HEADER = '''"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims.
 
-Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
+Since the source-of-truth flip, this Pydantic v2 model is where the contract is edited:
 which fields exist per operator token, which are required, their value ranges,
 and their descriptions. The matrix CSVs remain the review artifact and the
 audit/Go-binding record, regenerated FROM this file:
@@ -109,7 +109,7 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
 The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+file from the reviewed matrix - running it again OVERWRITES edits made
 here. Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
