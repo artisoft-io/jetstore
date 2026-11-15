@@ -88,7 +88,9 @@ step as skipped and goes on.
 
 **A manual step** waits for values you record. Its panel, *Your action*, shows the runbook's
 instruction and one field per value; **Record** records them and the run goes on. **Skip**, in the
-bar, goes on without them.
+bar, goes on without them. A yes-or-no value is two choices, **Yes** and **No**, and neither is chosen
+until you choose one: **Record** asks for it rather than recording *no* for a question left
+unanswered.
 
 ![The Your action panel of a manual step, asking how many rows the scratch table should hold, with one integer field and the Record button.](../../../../assets/screenshots/user/screens/runbooks/step-manual.png)
 

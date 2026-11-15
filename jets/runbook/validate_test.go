@@ -475,6 +475,9 @@ func TestSqlFiles(t *testing.T) {
 		"{{...}}":         {q, map[string]string{"rb/q.sql": "SELECT {{ col }} AS n"}, wsvalidate.Error, CodeSQLSubst, 1},
 		"positional $1":   {q, map[string]string{"rb/q.sql": "SELECT $1 AS n"}, wsvalidate.Error, CodeSQLSubst, 1},
 		"inside a string": {q, map[string]string{"rb/q.sql": "SELECT count(*) AS n FROM t WHERE a = '$SESSIONID'"}, wsvalidate.Warning, CodeSQLSubst, 1},
+		"a COMMIT":        {d, map[string]string{"rb/d.sql": "INSERT INTO s.t VALUES (1);\n-- done\nCOMMIT;\nINSERT INTO s.t VALUES (2)"}, wsvalidate.Error, CodeSQLForbidden, 3},
+		"a COPY query":    {q, map[string]string{"rb/q.sql": "COPY (SELECT 1 AS n) TO PROGRAM 'true'"}, wsvalidate.Error, CodeSQLForbidden, 1},
+		"a SET ROLE":      {d, map[string]string{"rb/d.sql": "SET LOCAL ROLE postgres;\nCREATE TABLE s.t (a int)"}, wsvalidate.Error, CodeSQLForbidden, 1},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -497,6 +500,7 @@ func TestSqlFiles(t *testing.T) {
 		"casts and comments": {q, map[string]string{"rb/q.sql": "-- :not_a_name $SESSIONID {{x}}\n/* :nor_this */\nSELECT :since_utc::date AS n, 'it''s :quoted' AS s, \"col:x\", $$ :body $SESSIONID $$"}},
 		"a list":             {q, map[string]string{"rb/q.sql": "SELECT count(*) AS n FROM t WHERE session_id = ANY(:ids)"}},
 		"a ddl script":       {d, map[string]string{"rb/d.sql": "CREATE TABLE s.t (a int);\nINSERT INTO s.t SELECT 1 WHERE now() > :since_utc;\n"}},
+		"a setting":          {d, map[string]string{"rb/d.sql": "SET LOCAL work_mem = '64MB';\nCREATE TABLE s.t (a int)"}},
 		"another path": {map[string]any{"id": "q", "type": "query", "returns": map[string]any{"n": "integer"}, "sql": "shared/count.sql"},
 			map[string]string{"shared/count.sql": "SELECT 1 AS n"}},
 		"a bound output": {map[string]any{"id": "q", "type": "query", "returns": map[string]any{"n": "integer"}, "bind": map[string]any{"x": "params.since_utc"}},

@@ -525,9 +525,12 @@ export function parseTyped(type: ValueType, raw: string | boolean): { value: unk
   }
 }
 
-/** The text a declared default starts a field with. */
+/**
+ * The text a declared default starts a field with. A boolean with no default
+ * starts unanswered (""), not false: the form asks for Yes or No.
+ */
 export function initialText(type: ValueType, value: unknown): string | boolean {
-  if (type === "boolean") return value === true;
+  if (type === "boolean") return typeof value === "boolean" ? value : "";
   if (value === undefined || value === null) return "";
   if (Array.isArray(value)) return value.map((v) => showValue(v)).join("\n");
   return showValue(value);

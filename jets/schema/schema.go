@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -506,8 +507,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	for i := range tableDefinition.Indexes {
 		idx := &tableDefinition.Indexes[i]
 		if !idx.Deleted {
-			buf.WriteString("CREATE INDEX IF NOT EXISTS ")
-			buf.WriteString(strings.TrimPrefix(strings.TrimPrefix(idx.IndexDef, "INDEX"), "index"))
+			buf.WriteString(createIndexIfNotExists(idx.IndexDef))
 			buf.WriteString(" ;\n")
 		} else {
 			buf.WriteString("DROP INDEX IF EXISTS ")
@@ -527,6 +527,28 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 		return fmt.Errorf("error while updating table schema: %v", err)
 	}
 	return nil
+}
+
+// uniqueIndexDef matches an index definition that declares a unique index,
+// `UNIQUE INDEX name ON ...`, in either case.
+var uniqueIndexDef = regexp.MustCompile(`^(?i)\s*UNIQUE\s+INDEX\b`)
+
+// createIndexIfNotExists is the statement UpdateTable sends for an index
+// definition as the schema writes it, `INDEX name ON table (...)` or `UNIQUE
+// INDEX name ON table (...)`: CreateTable prefixes CREATE to it, and a table
+// that already exists needs IF NOT EXISTS after the INDEX keyword.
+//
+// Until 2026-11-14 every definition was written `CREATE INDEX IF NOT EXISTS`
+// followed by the definition without a leading INDEX, so a UNIQUE INDEX became
+// `CREATE INDEX IF NOT EXISTS UNIQUE INDEX ...`, a syntax error: the table was
+// created with its unique index and the next migration failed on it. A
+// definition that does not begin with UNIQUE INDEX gets the statement it got
+// before, byte for byte.
+func createIndexIfNotExists(indexDef string) string {
+	if loc := uniqueIndexDef.FindStringIndex(indexDef); loc != nil {
+		return "CREATE UNIQUE INDEX IF NOT EXISTS" + indexDef[loc[1]:]
+	}
+	return "CREATE INDEX IF NOT EXISTS " + strings.TrimPrefix(strings.TrimPrefix(indexDef, "INDEX"), "index")
 }
 
 // Utility function to check if session exist

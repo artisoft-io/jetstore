@@ -438,6 +438,14 @@ func (v *validator) sqlStep(s *Step, ptr string) {
 	case n == 0:
 		at(CodeSQLStatements, wsvalidate.Error, 0, "the file holds no statement")
 	}
+	for _, st := range stmts {
+		if st.Body == "" {
+			continue
+		}
+		if why := ForbiddenStatement(st.Body); why != "" {
+			at(CodeSQLForbidden, wsvalidate.Error, st.BodyLine, "a step may not run this statement: "+why)
+		}
+	}
 
 	scan, err := scanSQL(text)
 	if err != nil {

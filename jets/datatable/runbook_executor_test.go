@@ -453,31 +453,20 @@ func TestRunbookQueryIsReadOnly(t *testing.T) {
 	}
 }
 
-// Statements no runbook may send are refused before anything runs.
+// Statements no runbook may send are refused before anything runs: the run
+// does not start (runbook.ForbiddenStatement, checked by runbook.Validate).
 func TestRunbookRefusesTransactionControlAndCopy(t *testing.T) {
-	cases := map[string]string{
-		"COMMIT":                                   "transaction control",
-		"/* x */ commit":                           "transaction control",
-		"SET LOCAL ROLE postgres":                  "identity",
-		"set session authorization x":              "identity",
-		"COPY public.rbk_target TO PROGRAM 'true'": "COPY",
-		"(SELECT 1)":                               "",
-		"SET LOCAL work_mem = '4MB'":               "",
-	}
-	for sql, want := range cases {
-		got := forbiddenStatement(sql)
-		if (want == "") != (got == "") || !strings.Contains(got, want) {
-			t.Errorf("forbiddenStatement(%q) = %q, want %q", sql, got, want)
-		}
-	}
 	f := newRbkFixture(t)
 	f.write("committer", `{"format": 1, "runbook": "committer", "steps": [{"id": "d", "type": "ddl", "preview": true}]}`,
 		map[string]string{"d": "INSERT INTO public.rbk_target (n) VALUES (1);\nCOMMIT;\nINSERT INTO public.rbk_target (n) VALUES (2)"})
-	key := f.start(rbkKE, "committer", nil)
-	f.drive(key)
-	r, steps := f.run(key)
-	if r.Status != runbook.RunFailed || !strings.Contains(*steps[0].Error, "transaction control") {
-		t.Fatalf("run %s, step %+v", r.Status, steps[0].Error)
+	_, err := f.exec.StartRun(f.ctx, rbkKE, rbkWorkspace, "committer", nil)
+	wantStatus(t, err, http.StatusConflict, "transaction control")
+	var re *RunbookError
+	if !errors.As(err, &re) || len(re.Findings) != 1 || re.Findings[0].Code != runbook.CodeSQLForbidden || re.Findings[0].Line != 2 {
+		t.Fatalf("findings: %+v", err)
+	}
+	if n := f.count(`SELECT count(*) FROM jetsapi.runbook_run`); n != 0 {
+		t.Fatalf("%d runs started", n)
 	}
 	if f.count(`SELECT count(*) FROM public.rbk_target`) != 0 {
 		t.Fatal("a refused ddl wrote")
